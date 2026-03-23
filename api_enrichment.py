@@ -707,7 +707,7 @@ def _get_cached(key: str) -> Optional[Any]:
         try:
             with open(cache_file, "r", encoding="utf-8") as fh:
                 entry = json.load(fh)
-            if time.time() - entry.get("ts") or 0 < CACHE_TTL:
+            if time.time() - (entry.get("ts") or 0) < CACHE_TTL:
                 with _cache_lock:
                     _memory_cache[key] = entry  # promote to memory
                 return entry["data"]
@@ -1461,6 +1461,122 @@ def fetch_salary_data(roles: List[str]) -> Dict[str, Any]:
             _log_warn(f"BLS salary fetch failed for {role}: {exc}")
 
     return salary_data
+
+
+# ---------------------------------------------------------------------------
+# API 1b: BLS OEWS Metro-Level Wage Data
+# ---------------------------------------------------------------------------
+
+# Top metro area FIPS codes for OEWS area-level salary queries
+_METRO_FIPS: Dict[str, str] = {
+    "new york": "35620",
+    "los angeles": "31080",
+    "chicago": "16980",
+    "dallas": "19100",
+    "houston": "26420",
+    "washington dc": "47900",
+    "san francisco": "41860",
+    "seattle": "42660",
+    "boston": "14460",
+    "atlanta": "12060",
+    "denver": "19740",
+    "austin": "12420",
+    "san diego": "41740",
+    "phoenix": "38060",
+    "minneapolis": "33460",
+    "detroit": "19820",
+    "miami": "33100",
+    "philadelphia": "37980",
+    "portland": "38900",
+    "charlotte": "16740",
+}
+
+
+def fetch_metro_salary_data(location: str, soc_code: str = "") -> Dict[str, Any]:
+    """Fetch metro-level salary data from BLS OEWS.
+
+    Uses the OEWS area series format: OEUM{area_code}{industry}{occupation}{data_type}
+    where area_code is a 5-digit MSA FIPS code.
+
+    Args:
+        location: City/metro name (e.g., 'San Francisco').
+        soc_code: SOC occupation code (e.g., '15-1252'). Optional.
+
+    Returns:
+        Dict with metro salary benchmarks or empty dict on failure.
+    """
+    import datetime
+
+    api_key = os.environ.get("BLS_API_KEY") or ""
+    if not api_key:
+        return {}
+
+    # Resolve location to FIPS
+    location_lower = location.lower().strip()
+    fips: Optional[str] = None
+    for metro, code in _METRO_FIPS.items():
+        if metro in location_lower or location_lower in metro:
+            fips = code
+            break
+    if not fips:
+        return {}
+
+    # Build series ID: OEUM + area(5) + industry(000000) + occupation(6) + datatype(2)
+    # occupation 000000 = all occupations; datatype 13 = annual mean wage
+    occ_code = soc_code.replace("-", "") if soc_code else "000000"
+    series_id = f"OEUM{fips}000000{occ_code}13"
+
+    cache_key = f"bls_metro_{fips}_{occ_code}"
+    cached = _get_cached(cache_key)
+    if cached:
+        return cached
+
+    try:
+        url = "https://api.bls.gov/publicAPI/v2/timeseries/data/"
+        payload = json.dumps(
+            {
+                "seriesid": [series_id],
+                "registrationkey": api_key,
+                "startyear": str(datetime.datetime.now().year - 1),
+                "endyear": str(datetime.datetime.now().year),
+            }
+        ).encode("utf-8")
+
+        req = urllib.request.Request(
+            url, data=payload, headers={"Content-Type": "application/json"}
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+
+        series = (data.get("Results") or {}).get("series") or []
+        if not series or not series[0].get("data"):
+            return {}
+
+        latest = series[0]["data"][0]
+        annual_mean = float(latest.get("value") or 0)
+
+        result: Dict[str, Any] = {
+            "metro": location,
+            "fips": fips,
+            "annual_mean_wage": annual_mean,
+            "period": latest.get("periodName") or "",
+            "year": latest.get("year") or "",
+            "source": "BLS OEWS",
+        }
+        _set_cached(cache_key, result)
+        return result
+
+    except (
+        urllib.error.HTTPError,
+        urllib.error.URLError,
+        json.JSONDecodeError,
+        ValueError,
+        OSError,
+    ) as e:
+        logger.error(
+            "BLS metro salary fetch failed for %s: %s", location, e, exc_info=True
+        )
+        return {}
 
 
 # ---------------------------------------------------------------------------

@@ -16,6 +16,7 @@ try:
     import fcntl
 except ImportError:
     fcntl = None  # Windows compatibility: file locking handled below
+import gzip as gzip_module
 import logging
 import threading
 import urllib.request
@@ -39,6 +40,88 @@ from shared_utils import (
 )
 
 logger = logging.getLogger(__name__)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# FIRECRAWL WEB DATA ENRICHMENT (lazy import)
+# ═══════════════════════════════════════════════════════════════════════════════
+try:
+    from firecrawl_enrichment import (
+        scrape_job_board_pricing,
+        analyze_competitor_careers,
+        fetch_recruitment_news,
+        get_firecrawl_status,
+    )
+
+    _firecrawl_available = True
+except ImportError:
+    _firecrawl_available = False
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# LLM ROUTER (lazy import for narrative intelligence)
+# ═══════════════════════════════════════════════════════════════════════════════
+_llm_router_module = None
+_llm_router_checked = False
+_llm_router_lock = threading.Lock()
+
+
+def _lazy_llm_router():
+    """Lazy-load LLM router for narrative generation.
+
+    Returns the module or None if unavailable. Thread-safe, loaded once.
+    """
+    global _llm_router_module, _llm_router_checked
+    if _llm_router_checked:
+        return _llm_router_module
+    with _llm_router_lock:
+        if _llm_router_checked:
+            return _llm_router_module
+        try:
+            import llm_router as _mod
+
+            _llm_router_module = _mod
+        except ImportError:
+            logger.warning("llm_router not available; narrative intelligence disabled")
+            _llm_router_module = None
+        _llm_router_checked = True
+    return _llm_router_module
+
+
+def _generate_narrative(
+    data: dict, product_context: str, task_type: str = "", max_tokens: int = 300
+) -> str:
+    """Generate AI narrative for product output via LLM router.
+
+    Args:
+        data: Product data dict to summarize.
+        product_context: Brief description of what this product does.
+        task_type: LLM router task type (defaults to TASK_NARRATIVE).
+        max_tokens: Maximum tokens for the response.
+
+    Returns:
+        Generated narrative string, or empty string on failure.
+    """
+    router = _lazy_llm_router()
+    if not router:
+        return ""
+    task = task_type or getattr(router, "TASK_NARRATIVE", "narrative")
+    try:
+        prompt = (
+            f"Based on this data, write a 2-3 sentence strategic recommendation:\n"
+            f"{json.dumps(data, indent=2, default=str)[:2000]}\n"
+            f"Context: {product_context}"
+        )
+        result = router.call_llm(
+            messages=[{"role": "user", "content": prompt}],
+            system_prompt="You are a senior recruitment marketing strategist. Write concise, actionable recommendations. No fluff.",
+            task_type=task,
+            max_tokens=max_tokens,
+        )
+        return result.get("text") or ""
+    except Exception as e:
+        logger.error("Narrative generation failed: %s", e, exc_info=True)
+        return ""
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # SENTRY ERROR TRACKING
@@ -105,6 +188,13 @@ def _sentry_start_txn(op: str, name: str):
 # ═══════════════════════════════════════════════════════════════════════════════
 
 _knowledge_base = None
+
+# Prefer kb_loader's thread-safe implementation (uses _kb_lock).
+# Falls back to the inline definition below if kb_loader is unavailable.
+try:
+    from kb_loader import load_knowledge_base  # thread-safe, has _kb_lock
+except ImportError:
+    pass  # inline load_knowledge_base() defined below serves as fallback
 
 # Mapping from legacy industry keys (used in INDUSTRY_NAICS_MAP) to KB keys
 # in data/recruitment_industry_knowledge.json -> industry_specific_benchmarks
@@ -15097,6 +15187,274 @@ _ROI_INDUSTRY_BENCHMARKS = {
 }
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# COMPLIANCEGUARD: LLM-Powered Job Posting Compliance Analysis
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def _analyze_compliance(data: dict) -> dict:
+    """Analyze a job posting for compliance issues using LLM.
+
+    Args:
+        data: Dict with keys text (job description), job_title, location.
+
+    Returns:
+        Dict with score, issues list, and recommendations.
+    """
+    text = data.get("text") or ""
+    job_title = data.get("job_title") or ""
+    location = data.get("location") or ""
+
+    if not text:
+        return {
+            "error": "Job description text is required",
+            "score": 0,
+            "issues": [],
+            "recommendations": [],
+        }
+
+    router = _lazy_llm_router()
+    if not router:
+        return {
+            "score": 0,
+            "issues": [],
+            "recommendations": ["LLM service unavailable. Please try again later."],
+            "llm_available": False,
+        }
+
+    task_type = getattr(router, "TASK_VERIFICATION", "verification")
+    prompt = (
+        f"Analyze this job posting for compliance issues.\n\n"
+        f"Job Title: {job_title}\nLocation: {location}\n\n"
+        f"Job Description:\n{text[:3000]}\n\n"
+        f"Check for: gender bias, age discrimination, disability bias, "
+        f"pay transparency requirements, EEO/OFCCP compliance.\n\n"
+        f"For each issue found, provide: the problematic phrase, why it's an issue, "
+        f"suggested replacement, and applicable law/regulation.\n\n"
+        f"Return valid JSON with this exact structure:\n"
+        f'{{"score": <0-100 compliance score>, '
+        f'"issues": [{{"phrase": "...", "reason": "...", "suggestion": "...", "law": "..."}}], '
+        f'"recommendations": ["general recommendation 1", ...]}}'
+    )
+
+    try:
+        result = router.call_llm(
+            messages=[{"role": "user", "content": prompt}],
+            system_prompt=(
+                "You are an employment law and recruiting compliance expert. "
+                "Analyze job postings for legal compliance issues. "
+                "Always return valid JSON. Be thorough but practical."
+            ),
+            task_type=task_type,
+            max_tokens=1024,
+        )
+        response_text = result.get("text") or ""
+
+        # Try to parse JSON from the response
+        try:
+            # Strip markdown code fences if present
+            cleaned = response_text.strip()
+            if cleaned.startswith("```"):
+                cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
+                cleaned = re.sub(r"\s*```$", "", cleaned)
+            parsed = json.loads(cleaned)
+            return {
+                "score": parsed.get("score") or 0,
+                "issues": parsed.get("issues") or [],
+                "recommendations": parsed.get("recommendations") or [],
+                "llm_provider": result.get("provider") or "",
+            }
+        except (json.JSONDecodeError, ValueError):
+            # LLM returned non-JSON; wrap as narrative
+            return {
+                "score": 50,
+                "issues": [],
+                "recommendations": [response_text[:1000]],
+                "llm_provider": result.get("provider") or "",
+            }
+    except Exception as e:
+        logger.error("Compliance LLM analysis failed: %s", e, exc_info=True)
+        return {
+            "score": 0,
+            "issues": [],
+            "recommendations": ["Analysis temporarily unavailable. Please try again."],
+            "llm_available": False,
+        }
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# CREATIVEAI: LLM-Powered Ad Copy Generation
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def _generate_creative_ads(data: dict) -> dict:
+    """Generate recruitment ad copy variants using LLM.
+
+    Args:
+        data: Dict with keys job_title, company, selling_points, tone,
+              platform, char_limit.
+
+    Returns:
+        Dict with variants list.
+    """
+    job_title = data.get("job_title") or ""
+    company = data.get("company") or ""
+    selling_points = data.get("selling_points") or ""
+    tone = data.get("tone") or "professional"
+    platform = data.get("platform") or "LinkedIn"
+    char_limit = int(data.get("char_limit") or 150)
+
+    if not job_title:
+        return {"error": "job_title is required", "variants": []}
+
+    router = _lazy_llm_router()
+    if not router:
+        return {"variants": [], "llm_available": False}
+
+    task_type = getattr(router, "TASK_NARRATIVE", "narrative")
+    prompt = (
+        f"Generate 5 recruitment ad copy variants for:\n"
+        f"Role: {job_title} at {company}\n"
+        f"Key selling points: {selling_points}\n"
+        f"Tone: {tone}\n"
+        f"Platform: {platform}\n"
+        f"Max {char_limit} characters per field.\n\n"
+        f"Create:\n"
+        f"1) Benefits-focused\n"
+        f"2) Culture-forward\n"
+        f"3) Growth-focused\n"
+        f"4) Impact-driven\n"
+        f"5) Data-backed\n\n"
+        f"Return valid JSON array of objects with keys: variant_name, headline, body, cta"
+    )
+
+    try:
+        result = router.call_llm(
+            messages=[{"role": "user", "content": prompt}],
+            system_prompt=(
+                "You are a top-tier recruitment copywriter. "
+                "Write compelling, concise ad copy. Always return valid JSON array. "
+                "Each variant must be distinct in approach."
+            ),
+            task_type=task_type,
+            max_tokens=800,
+        )
+        response_text = result.get("text") or ""
+
+        try:
+            cleaned = response_text.strip()
+            if cleaned.startswith("```"):
+                cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
+                cleaned = re.sub(r"\s*```$", "", cleaned)
+            parsed = json.loads(cleaned)
+            variants = (
+                parsed if isinstance(parsed, list) else parsed.get("variants") or []
+            )
+            return {
+                "variants": variants,
+                "llm_provider": result.get("provider") or "",
+            }
+        except (json.JSONDecodeError, ValueError):
+            return {
+                "variants": [],
+                "raw_response": response_text[:1500],
+                "llm_provider": result.get("provider") or "",
+            }
+    except Exception as e:
+        logger.error("Creative ad generation failed: %s", e, exc_info=True)
+        return {"variants": [], "llm_available": False}
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# POST-CAMPAIGN ANALYSIS: LLM-Powered Executive Summary
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def _generate_post_campaign_summary(data: dict) -> dict:
+    """Generate an AI-powered executive summary of campaign results.
+
+    Args:
+        data: Campaign metrics dict with channels, spend, hires, CPA, etc.
+
+    Returns:
+        Dict with executive_summary, channel_analysis, recommendations.
+    """
+    if not data:
+        return {
+            "error": "Campaign data is required",
+            "executive_summary": "",
+            "channel_analysis": "",
+            "recommendations": "",
+        }
+
+    router = _lazy_llm_router()
+    if not router:
+        return {
+            "executive_summary": "",
+            "channel_analysis": "",
+            "recommendations": "",
+            "llm_available": False,
+        }
+
+    task_type = getattr(router, "TASK_NARRATIVE", "narrative")
+    prompt = (
+        f"Generate an executive summary of this recruitment campaign.\n\n"
+        f"Campaign Data:\n{json.dumps(data, indent=2, default=str)[:2500]}\n\n"
+        f"Analyze:\n"
+        f"1) What worked well (which channels outperformed)\n"
+        f"2) What underperformed (high CPA channels)\n"
+        f"3) Specific recommendations for next campaign\n\n"
+        f"Be data-driven -- cite specific numbers from the data.\n\n"
+        f"Return valid JSON with keys: executive_summary, channel_analysis, recommendations"
+    )
+
+    try:
+        result = router.call_llm(
+            messages=[{"role": "user", "content": prompt}],
+            system_prompt=(
+                "You are a senior recruitment marketing analyst. "
+                "Write data-driven executive summaries. Cite specific metrics. "
+                "Always return valid JSON."
+            ),
+            task_type=task_type,
+            max_tokens=500,
+        )
+        response_text = result.get("text") or ""
+
+        try:
+            cleaned = response_text.strip()
+            if cleaned.startswith("```"):
+                cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
+                cleaned = re.sub(r"\s*```$", "", cleaned)
+            parsed = json.loads(cleaned)
+            return {
+                "executive_summary": parsed.get("executive_summary") or "",
+                "channel_analysis": parsed.get("channel_analysis") or "",
+                "recommendations": parsed.get("recommendations") or "",
+                "llm_provider": result.get("provider") or "",
+            }
+        except (json.JSONDecodeError, ValueError):
+            return {
+                "executive_summary": response_text[:1000],
+                "channel_analysis": "",
+                "recommendations": "",
+                "llm_provider": result.get("provider") or "",
+            }
+    except Exception as e:
+        logger.error("Post-campaign summary generation failed: %s", e, exc_info=True)
+        return {
+            "executive_summary": "",
+            "channel_analysis": "",
+            "recommendations": "",
+            "llm_available": False,
+        }
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ROI CALCULATOR
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
 def _calculate_roi(data: dict) -> dict:
     """Calculate ROI metrics from provided recruitment advertising parameters.
 
@@ -15185,6 +15543,25 @@ def _calculate_roi(data: dict) -> dict:
     except Exception as e:
         logger.error("ROI KB enrichment error: %s", e, exc_info=True)
 
+    # Generate AI strategic recommendation
+    strategic_recommendation = _generate_narrative(
+        data={
+            "roi_percentage": round(roi_percentage, 1),
+            "payback_period_months": payback_period_months,
+            "annual_savings": round(annual_savings, 2),
+            "cost_per_hire": round(cost_per_hire, 2),
+            "industry": industry,
+            "num_positions": num_positions,
+        },
+        product_context=(
+            f"ROI projections for {industry} recruitment. "
+            f"ROI: {roi_percentage:.1f}%, payback: {payback_period_months} months, "
+            f"annual savings: ${annual_savings:,.0f}. "
+            f"Write a 2-sentence strategic recommendation for the hiring team."
+        ),
+        max_tokens=200,
+    )
+
     return {
         "monthly_applications": round(monthly_applications, 1),
         "projected_hires": round(projected_hires, 1),
@@ -15206,6 +15583,7 @@ def _calculate_roi(data: dict) -> dict:
             "your_projected_ttf": round(new_ttf, 1),
         },
         "kb_insights": kb_insights,
+        "strategic_recommendation": strategic_recommendation,
         "inputs": {
             "monthly_budget": monthly_budget,
             "avg_cpa": cpa,
@@ -15504,9 +15882,11 @@ def _generate_ab_test_with_claude(
     budget: float,
     api_key: str,
 ) -> "dict | None":
-    """Generate A/B test variants using Claude API.
+    """Generate A/B test variants via LLM Router, with Anthropic API fallback.
 
-    Returns the result dict or None if the API call fails.
+    Tries the LLM Router first (free providers like Groq, Gemini, etc.),
+    then falls back to the direct Anthropic API if the router is unavailable.
+    Returns the result dict or None if all calls fail.
     """
     prompt = (
         f"Generate two recruitment ad variants for A/B testing:\n\n"
@@ -15527,15 +15907,50 @@ def _generate_ab_test_with_claude(
         f' "variant_b": {{"headline": "...", "description": "...", "cta": "..."}}}}'
     )
 
-    req_body = json.dumps(
-        {
-            "model": "claude-sonnet-4-20250514",
-            "max_tokens": 500,
-            "messages": [{"role": "user", "content": prompt}],
-        }
-    ).encode("utf-8")
+    system_prompt = (
+        "You are a recruitment advertising copywriter specializing in "
+        "high-performance job ad copy. Generate compelling, specific ad "
+        "variants that drive clicks and applications."
+    )
 
+    # ── Try LLM Router first (free providers) ──
     try:
+        from llm_router import call_llm, TASK_NARRATIVE
+
+        content_text = call_llm(
+            prompt=prompt,
+            system_prompt=system_prompt,
+            task_type=TASK_NARRATIVE,
+            max_tokens=500,
+        )
+        if content_text:
+            json_match = re.search(r"\{[\s\S]*\}", content_text)
+            if json_match:
+                variants = json.loads(json_match.group())
+                return _build_ab_response(
+                    variants.get("variant_a", {}),
+                    variants.get("variant_b", {}),
+                    channel,
+                    budget,
+                    "llm_router",
+                )
+    except ImportError:
+        logger.warning("llm_router module not available, falling back to direct API")
+    except (json.JSONDecodeError, ValueError, TypeError) as e:
+        logger.error("LLM Router A/B test parse failed: %s", e, exc_info=True)
+    except Exception as e:
+        logger.error("LLM Router A/B test failed: %s", e, exc_info=True)
+
+    # ── Fallback: direct Anthropic API ──
+    try:
+        req_body = json.dumps(
+            {
+                "model": "claude-sonnet-4-20250514",
+                "max_tokens": 500,
+                "messages": [{"role": "user", "content": prompt}],
+            }
+        ).encode("utf-8")
+
         req = urllib.request.Request(
             "https://api.anthropic.com/v1/messages",
             data=req_body,
@@ -15554,7 +15969,6 @@ def _generate_ab_test_with_claude(
             if block.get("type") == "text":
                 content_text += block.get("text") or ""
 
-        # Extract JSON from response
         json_match = re.search(r"\{[\s\S]*\}", content_text)
         if json_match:
             variants = json.loads(json_match.group())
@@ -17985,6 +18399,40 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             except Exception as e:
                 logger.error("Market Pulse GET error: %s", e, exc_info=True)
                 self._send_json({"ok": False, "error": "Internal server error"})
+        # ── Firecrawl Status ──
+        elif path == "/api/firecrawl/status":
+            if _firecrawl_available:
+                self._send_json(get_firecrawl_status())
+            else:
+                self._send_json(
+                    {
+                        "configured": False,
+                        "error": "firecrawl_enrichment module not available",
+                    }
+                )
+        # ── Market Pulse News via Firecrawl ──
+        elif path == "/api/market-pulse/news":
+            try:
+                if not _firecrawl_available:
+                    self._send_json(
+                        {
+                            "ok": False,
+                            "error": "Firecrawl not available",
+                            "articles": [],
+                        }
+                    )
+                else:
+                    qs = urllib.parse.parse_qs(parsed.query)
+                    topic = qs.get("topic", ["recruitment advertising"])[0]
+                    articles = fetch_recruitment_news(topic=topic)
+                    self._send_json(
+                        {"ok": True, "articles": articles, "count": len(articles)}
+                    )
+            except Exception as e:
+                logger.error("Firecrawl news error: %s", e, exc_info=True)
+                self._send_json(
+                    {"ok": False, "error": "Internal server error", "articles": []}
+                )
         else:
             self.send_error(404)
 
@@ -20161,6 +20609,27 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             except Exception as e:
                 logger.error("Plan delivery error: %s", e, exc_info=True)
                 self._send_json({"success": False, "message": "Delivery failed"})
+        # ── Competitive Intelligence: Career Page Scrape (Firecrawl) ──
+        elif path == "/api/competitive/scrape":
+            try:
+                content_len = int(self.headers.get("Content-Length") or 0)
+                body = self.rfile.read(content_len) if content_len > 0 else b"{}"
+                data = json.loads(body)
+                domain = data.get("domain") or ""
+                if not domain:
+                    self._send_json(
+                        {"error": "Missing 'domain' field", "status": "error"}
+                    )
+                elif not _firecrawl_available:
+                    self._send_json(
+                        {"error": "Firecrawl not available", "status": "error"}
+                    )
+                else:
+                    result = analyze_competitor_careers(company_domain=domain)
+                    self._send_json(result)
+            except Exception as e:
+                logger.error("Competitive scrape error: %s", e, exc_info=True)
+                self._send_json({"error": "Internal server error", "status": "error"})
         # ── Competitive Intelligence: Full Analysis ──
         elif path == "/api/competitive/analyze":
             try:
@@ -20989,6 +21458,69 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 self.wfile.write(
                     json.dumps({"error": "Excel generation failed: " + str(e)}).encode()
                 )
+        # ── ComplianceGuard: Analyze ──
+        elif path == "/api/compliance/analyze":
+            try:
+                content_len = int(self.headers.get("Content-Length") or 0)
+                body_raw = self.rfile.read(content_len) if content_len > 0 else b"{}"
+                data = json.loads(body_raw)
+                result = _analyze_compliance(data)
+                self._send_json(result)
+            except json.JSONDecodeError:
+                self.send_response(400)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Invalid JSON"}).encode())
+            except Exception as e:
+                logger.error("Compliance analyze error: %s", e, exc_info=True)
+                self.send_response(500)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(
+                    json.dumps({"error": f"Compliance analysis failed: {e}"}).encode()
+                )
+        # ── CreativeAI: Generate ──
+        elif path == "/api/creative/generate":
+            try:
+                content_len = int(self.headers.get("Content-Length") or 0)
+                body_raw = self.rfile.read(content_len) if content_len > 0 else b"{}"
+                data = json.loads(body_raw)
+                result = _generate_creative_ads(data)
+                self._send_json(result)
+            except json.JSONDecodeError:
+                self.send_response(400)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Invalid JSON"}).encode())
+            except Exception as e:
+                logger.error("Creative generate error: %s", e, exc_info=True)
+                self.send_response(500)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(
+                    json.dumps({"error": f"Creative generation failed: {e}"}).encode()
+                )
+        # ── Post-Campaign Analysis: AI Summary ──
+        elif path == "/api/post-campaign/summary":
+            try:
+                content_len = int(self.headers.get("Content-Length") or 0)
+                body_raw = self.rfile.read(content_len) if content_len > 0 else b"{}"
+                data = json.loads(body_raw)
+                result = _generate_post_campaign_summary(data)
+                self._send_json(result)
+            except json.JSONDecodeError:
+                self.send_response(400)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Invalid JSON"}).encode())
+            except Exception as e:
+                logger.error("Post-campaign summary error: %s", e, exc_info=True)
+                self.send_response(500)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(
+                    json.dumps({"error": f"Post-campaign summary failed: {e}"}).encode()
+                )
         # ── ROI Calculator: Calculate ──
         elif path == "/api/roi/calculate":
             try:
@@ -21132,16 +21664,53 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Max-Age", "86400")
         self.end_headers()
 
+    def _send_compressed_response(
+        self, data: bytes, content_type: str, status: int = 200
+    ) -> None:
+        """Send a gzip-compressed HTTP response if the client accepts it.
+
+        Falls back to uncompressed response for small payloads (<1KB)
+        or clients that don't advertise gzip support.
+        """
+        accept_encoding = self.headers.get("Accept-Encoding") or ""
+        if "gzip" in accept_encoding and len(data) > 1024:
+            compressed = gzip_module.compress(data, compresslevel=6)
+            self.send_response(status)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Encoding", "gzip")
+            self.send_header("Content-Length", str(len(compressed)))
+            self.send_header("Vary", "Accept-Encoding")
+            self.end_headers()
+            self.wfile.write(compressed)
+        else:
+            self.send_response(status)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+
     def _serve_file(self, filepath, content_type):
         try:
             with open(filepath, "rb") as f:
                 content = f.read()
-            self.send_response(200)
-            self.send_header("Content-Type", f"{content_type}; charset=utf-8")
-            self.send_header("Content-Length", str(len(content)))
-            self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
-            self.end_headers()
-            self.wfile.write(content)
+            accept_encoding = self.headers.get("Accept-Encoding") or ""
+            if "gzip" in accept_encoding and len(content) > 1024:
+                compressed = gzip_module.compress(content, compresslevel=6)
+                self.send_response(200)
+                self.send_header("Content-Type", f"{content_type}; charset=utf-8")
+                self.send_header("Content-Encoding", "gzip")
+                self.send_header("Content-Length", str(len(compressed)))
+                self.send_header("Vary", "Accept-Encoding")
+                self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+                self.end_headers()
+                self.wfile.write(compressed)
+            else:
+                self.send_response(200)
+                self.send_header("Content-Type", f"{content_type}; charset=utf-8")
+                self.send_header("Content-Length", str(len(content)))
+                self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+                self.end_headers()
+                self.wfile.write(content)
         except FileNotFoundError:
             self.send_error(404)
 
@@ -21151,12 +21720,9 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
         super().send_response(code, message)
 
     def _send_json(self, data):
+        """Send a JSON response with gzip compression when beneficial."""
         body = json.dumps(data).encode("utf-8")
-        self.send_response(200)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Content-Length", str(len(body)))
-        self.end_headers()
-        self.wfile.write(body)
+        self._send_compressed_response(body, "application/json")
 
 
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):

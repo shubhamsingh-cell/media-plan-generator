@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 # ── Optional imports (lazy, with try/except like nova.py) ──────────────────
 try:
     import trend_engine as _trend_engine
+
     _HAS_TREND_ENGINE = True
 except ImportError:
     _trend_engine = None
@@ -33,6 +34,7 @@ except ImportError:
 
 try:
     import budget_engine as _budget_engine
+
     _HAS_BUDGET_ENGINE = True
 except ImportError:
     _budget_engine = None
@@ -40,6 +42,7 @@ except ImportError:
 
 try:
     import collar_intelligence as _collar_intel
+
     _HAS_COLLAR_INTEL = True
 except ImportError:
     _collar_intel = None
@@ -49,11 +52,20 @@ try:
     from shared_utils import INDUSTRY_LABEL_MAP, parse_budget
 except ImportError:
     INDUSTRY_LABEL_MAP = {}
+
     def parse_budget(v, *, default=100_000.0):
         try:
             return float(v)
         except Exception:
             return default
+
+
+try:
+    from benchmark_registry import get_channel_benchmark, get_benchmark_value
+
+    _HAS_BENCHMARK_REGISTRY = True
+except ImportError:
+    _HAS_BENCHMARK_REGISTRY = False
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # COLUMN MATCHING -- flexible, case-insensitive, partial match
@@ -61,17 +73,57 @@ except ImportError:
 
 # Map of canonical field name -> list of patterns to match against column headers
 _COLUMN_PATTERNS: Dict[str, List[str]] = {
-    "channel": ["channel", "platform", "source", "medium", "publisher", "vendor", "ad platform", "network"],
-    "spend": ["spend", "cost", "budget", "investment", "total spend", "total cost", "ad spend", "media spend"],
+    "channel": [
+        "channel",
+        "platform",
+        "source",
+        "medium",
+        "publisher",
+        "vendor",
+        "ad platform",
+        "network",
+    ],
+    "spend": [
+        "spend",
+        "cost",
+        "budget",
+        "investment",
+        "total spend",
+        "total cost",
+        "ad spend",
+        "media spend",
+    ],
     "clicks": ["click", "total click"],
     "impressions": ["impression", "impr", "views", "total impression"],
-    "applications": ["application", "appli", "applies", "apply", "conversion", "lead", "submissions"],
+    "applications": [
+        "application",
+        "appli",
+        "applies",
+        "apply",
+        "conversion",
+        "lead",
+        "submissions",
+    ],
     "hires": ["hire", "placement", "onboard", "offer accepted", "starts"],
     "cpc": ["cpc", "cost per click", "cost/click", "avg cpc", "average cpc"],
-    "cpa": ["cpa", "cost per application", "cost per apply", "cost/apply", "cost per conversion",
-            "cost per lead", "cost/application", "cost per acquisition"],
+    "cpa": [
+        "cpa",
+        "cost per application",
+        "cost per apply",
+        "cost/apply",
+        "cost per conversion",
+        "cost per lead",
+        "cost/application",
+        "cost per acquisition",
+    ],
     "cph": ["cph", "cost per hire", "cost/hire", "cost per placement"],
-    "ctr": ["ctr", "click through rate", "click-through rate", "clickthrough", "click rate"],
+    "ctr": [
+        "ctr",
+        "click through rate",
+        "click-through rate",
+        "clickthrough",
+        "click rate",
+    ],
 }
 
 
@@ -100,6 +152,7 @@ def _map_columns(headers: List[str]) -> Dict[str, Optional[int]]:
 # ═══════════════════════════════════════════════════════════════════════════════
 # 1. PARSE PERFORMANCE DATA
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def parse_performance_data(file_bytes: bytes, filename: str) -> List[Dict[str, Any]]:
     """Parse Excel/CSV with campaign results.
@@ -130,6 +183,7 @@ def parse_performance_data(file_bytes: bytes, filename: str) -> List[Dict[str, A
 def _parse_excel(file_bytes: bytes) -> List[Dict[str, Any]]:
     """Parse Excel file into performance records."""
     from openpyxl import load_workbook
+
     wb = load_workbook(io.BytesIO(file_bytes), read_only=True, data_only=True)
     try:
         ws = wb.active
@@ -145,6 +199,7 @@ def _parse_excel(file_bytes: bytes) -> List[Dict[str, Any]]:
 def _parse_csv(file_bytes: bytes) -> List[Dict[str, Any]]:
     """Parse CSV file into performance records."""
     import csv as csv_mod
+
     text = None
     for enc in ("utf-8", "utf-8-sig", "latin-1", "cp1252"):
         try:
@@ -172,7 +227,7 @@ def _safe_float(val: Any) -> Optional[float]:
     if not s or s.lower() in ("n/a", "na", "-", "--", "null", "none"):
         return None
     # Strip currency symbols, commas, percent signs
-    s = re.sub(r'[$,\s%]', '', s)
+    s = re.sub(r"[$,\s%]", "", s)
     try:
         return float(s)
     except (ValueError, TypeError):
@@ -257,18 +312,33 @@ def _rows_to_records(headers: List[str], data_rows: List) -> List[Dict[str, Any]
 
 # Map of common channel names to trend_engine platform keys
 _CHANNEL_TO_PLATFORM: Dict[str, str] = {
-    "google": "google_search", "google ads": "google_search", "google search": "google_search",
-    "search": "google_search", "sem": "google_search", "ppc": "google_search",
-    "facebook": "meta_facebook", "meta": "meta_facebook", "meta ads": "meta_facebook",
-    "instagram": "meta_instagram", "ig": "meta_instagram",
-    "linkedin": "linkedin", "linkedin ads": "linkedin",
-    "indeed": "indeed", "indeed sponsored": "indeed",
-    "programmatic": "programmatic", "programmatic display": "programmatic",
-    "ziprecruiter": "indeed", "glassdoor": "indeed",
-    "job board": "indeed", "job boards": "indeed",
-    "social": "meta_facebook", "social media": "meta_facebook",
-    "display": "programmatic", "display ads": "programmatic",
-    "career site": "google_search", "organic": "google_search",
+    "google": "google_search",
+    "google ads": "google_search",
+    "google search": "google_search",
+    "search": "google_search",
+    "sem": "google_search",
+    "ppc": "google_search",
+    "facebook": "meta_facebook",
+    "meta": "meta_facebook",
+    "meta ads": "meta_facebook",
+    "instagram": "meta_instagram",
+    "ig": "meta_instagram",
+    "linkedin": "linkedin",
+    "linkedin ads": "linkedin",
+    "indeed": "indeed",
+    "indeed sponsored": "indeed",
+    "programmatic": "programmatic",
+    "programmatic display": "programmatic",
+    "ziprecruiter": "indeed",
+    "glassdoor": "indeed",
+    "job board": "indeed",
+    "job boards": "indeed",
+    "social": "meta_facebook",
+    "social media": "meta_facebook",
+    "display": "programmatic",
+    "display ads": "programmatic",
+    "career site": "google_search",
+    "organic": "google_search",
 }
 
 
@@ -291,7 +361,14 @@ def get_benchmarks_for_context(
     Returns dict keyed by platform with benchmark metrics.
     """
     benchmarks: Dict[str, Dict[str, Any]] = {}
-    platforms = ["google_search", "meta_facebook", "linkedin", "indeed", "programmatic", "meta_instagram"]
+    platforms = [
+        "google_search",
+        "meta_facebook",
+        "linkedin",
+        "indeed",
+        "programmatic",
+        "meta_instagram",
+    ]
 
     # Determine collar type from roles if possible
     collar_type = "mixed"
@@ -336,14 +413,22 @@ def get_benchmarks_for_context(
 
 
 def _fallback_benchmark(platform: str, metric: str) -> float:
-    """Provide fallback benchmarks when trend_engine is unavailable."""
+    """Provide fallback benchmarks when trend_engine is unavailable.
+
+    Prefers benchmark_registry (single source of truth) when available,
+    otherwise uses hardcoded values for resilience.
+    """
+    if _HAS_BENCHMARK_REGISTRY:
+        return get_benchmark_value(platform, metric)
+
+    # Hardcoded fallback (kept for resilience)
     _fallbacks = {
-        "google_search":    {"cpc": 2.50, "cpa": 28.00, "ctr": 0.030, "cpm": 10.00},
-        "meta_facebook":    {"cpc": 1.20, "cpa": 22.00, "ctr": 0.012, "cpm": 7.50},
-        "meta_instagram":   {"cpc": 1.40, "cpa": 25.00, "ctr": 0.010, "cpm": 8.00},
-        "linkedin":         {"cpc": 5.50, "cpa": 45.00, "ctr": 0.008, "cpm": 35.00},
-        "indeed":           {"cpc": 0.85, "cpa": 15.00, "ctr": 0.040, "cpm": 5.00},
-        "programmatic":     {"cpc": 0.65, "cpa": 12.00, "ctr": 0.025, "cpm": 4.50},
+        "google_search": {"cpc": 2.69, "cpa": 45.00, "ctr": 0.042, "cpm": 10.00},
+        "meta_facebook": {"cpc": 1.72, "cpa": 30.00, "ctr": 0.012, "cpm": 7.50},
+        "meta_instagram": {"cpc": 1.50, "cpa": 35.00, "ctr": 0.010, "cpm": 8.00},
+        "linkedin": {"cpc": 5.26, "cpa": 75.00, "ctr": 0.008, "cpm": 35.00},
+        "indeed": {"cpc": 0.50, "cpa": 25.00, "ctr": 0.040, "cpm": 5.00},
+        "programmatic": {"cpc": 0.63, "cpa": 22.00, "ctr": 0.025, "cpm": 4.50},
     }
     return _fallbacks.get(platform, _fallbacks["programmatic"]).get(metric, 1.00)
 
@@ -351,6 +436,7 @@ def _fallback_benchmark(platform: str, metric: str) -> float:
 # ═══════════════════════════════════════════════════════════════════════════════
 # 3. COMPARE ACTUAL vs BENCHMARK
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def compare_actual_vs_benchmark(
     actual_data: List[Dict[str, Any]],
@@ -398,10 +484,16 @@ def compare_actual_vs_benchmark(
                 metric_score = 50.0
 
             comp["variances"][metric] = {
-                "actual": round(actual_val, 4) if metric == "ctr" else round(actual_val, 2),
-                "benchmark": round(bench_val, 4) if metric == "ctr" else round(bench_val, 2),
+                "actual": (
+                    round(actual_val, 4) if metric == "ctr" else round(actual_val, 2)
+                ),
+                "benchmark": (
+                    round(bench_val, 4) if metric == "ctr" else round(bench_val, 2)
+                ),
                 "variance_pct": round(variance_pct, 1),
-                "is_favorable": (variance_pct < 0) if metric != "ctr" else (variance_pct > 0),
+                "is_favorable": (
+                    (variance_pct < 0) if metric != "ctr" else (variance_pct > 0)
+                ),
             }
             scores.append(metric_score)
 
@@ -439,7 +531,10 @@ def _score_to_grade(score: float) -> str:
 # 4. CHANNEL EFFICIENCY
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def calculate_channel_efficiency(actual_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+
+def calculate_channel_efficiency(
+    actual_data: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
     """ROI scoring: spend per hire, cost per apply, CTR efficiency.
 
     Returns list of dicts with efficiency metrics per channel.
@@ -459,7 +554,9 @@ def calculate_channel_efficiency(actual_data: List[Dict[str, Any]]) -> List[Dict
         eff: Dict[str, Any] = {
             "channel": rec["channel"],
             "spend": spend,
-            "spend_pct": round((spend / total_spend * 100) if total_spend > 0 else 0, 1),
+            "spend_pct": round(
+                (spend / total_spend * 100) if total_spend > 0 else 0, 1
+            ),
             "clicks": clicks,
             "applications": apps,
             "hires": hires,
@@ -474,7 +571,9 @@ def calculate_channel_efficiency(actual_data: List[Dict[str, Any]]) -> List[Dict
         # Hire rate (applications -> hires)
         eff["hire_rate"] = round(hires / apps, 4) if apps > 0 else 0.0
         # Full funnel efficiency: impressions -> hires
-        eff["funnel_efficiency"] = round(hires / impressions * 10000, 2) if impressions > 0 else 0.0
+        eff["funnel_efficiency"] = (
+            round(hires / impressions * 10000, 2) if impressions > 0 else 0.0
+        )
 
         # ROI score (composite 0-100)
         sub_scores = []
@@ -494,7 +593,9 @@ def calculate_channel_efficiency(actual_data: List[Dict[str, Any]]) -> List[Dict
         if eff["ctr"] > 0:
             sub_scores.append(min(100, eff["ctr"] / 0.03 * 50))
 
-        eff["roi_score"] = round(sum(sub_scores) / len(sub_scores), 1) if sub_scores else 50.0
+        eff["roi_score"] = (
+            round(sum(sub_scores) / len(sub_scores), 1) if sub_scores else 50.0
+        )
         eff["roi_grade"] = _score_to_grade(eff["roi_score"])
 
         results.append(eff)
@@ -506,6 +607,7 @@ def calculate_channel_efficiency(actual_data: List[Dict[str, Any]]) -> List[Dict
 # 5. GENERATE RECOMMENDATIONS
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def generate_recommendations(
     comparison_results: List[Dict[str, Any]],
     total_budget: float = 0.0,
@@ -516,10 +618,16 @@ def generate_recommendations(
     Returns dict with categorized recommendations.
     """
     if not comparison_results:
-        return {"recommendations": [], "budget_reallocation": {}, "summary": "No data to analyze."}
+        return {
+            "recommendations": [],
+            "budget_reallocation": {},
+            "summary": "No data to analyze.",
+        }
 
     # Sort channels by efficiency score
-    sorted_channels = sorted(comparison_results, key=lambda x: x.get("efficiency_score", 0), reverse=True)
+    sorted_channels = sorted(
+        comparison_results, key=lambda x: x.get("efficiency_score", 0), reverse=True
+    )
 
     recommendations = []
     increase_channels = []
@@ -544,7 +652,7 @@ def generate_recommendations(
                 "action": "INCREASE",
                 "priority": "high",
                 "reason": f"{channel_name} is outperforming benchmarks (Score: {score}/100, Grade: {grade}). "
-                          f"CPC is {abs(cpc_var.get('variance_pct', 0)):.0f}% {'below' if cpc_var.get('is_favorable') else 'above'} benchmark.",
+                f"CPC is {abs(cpc_var.get('variance_pct', 0)):.0f}% {'below' if cpc_var.get('is_favorable') else 'above'} benchmark.",
                 "suggestion": f"Increase budget allocation to {channel_name} by 15-25% to capitalize on strong performance.",
                 "icon": "trending_up",
             }
@@ -581,7 +689,7 @@ def generate_recommendations(
                 "action": "DECREASE",
                 "priority": "high",
                 "reason": f"{channel_name} is underperforming benchmarks (Score: {score}/100, Grade: {grade}). "
-                          f"CPA is {abs(cpa_var.get('variance_pct', 0)):.0f}% above benchmark.",
+                f"CPA is {abs(cpa_var.get('variance_pct', 0)):.0f}% above benchmark.",
                 "suggestion": f"Reduce {channel_name} budget by 20-30% and reallocate to better-performing channels.",
                 "icon": "trending_down",
             }
@@ -594,7 +702,7 @@ def generate_recommendations(
                 "action": "DROP / PAUSE",
                 "priority": "critical",
                 "reason": f"{channel_name} is significantly underperforming (Score: {score}/100, Grade: {grade}). "
-                          f"ROI is well below industry benchmarks.",
+                f"ROI is well below industry benchmarks.",
                 "suggestion": f"Pause {channel_name} campaigns. Reallocate full budget to top-performing channels.",
                 "icon": "cancel",
             }
@@ -609,7 +717,12 @@ def generate_recommendations(
     seasonal_advice = _get_seasonal_advice(month)
 
     # Summary
-    avg_score = sum(ch.get("efficiency_score", 50) for ch in sorted_channels) / len(sorted_channels) if sorted_channels else 50
+    avg_score = (
+        sum(ch.get("efficiency_score", 50) for ch in sorted_channels)
+        / len(sorted_channels)
+        if sorted_channels
+        else 50
+    )
     overall_grade = _score_to_grade(avg_score)
 
     summary = (
@@ -658,11 +771,21 @@ def _compute_reallocation(
     for ch in sorted_channels:
         channel_name = ch["channel"]
         score = max(ch.get("efficiency_score", 1), 1)
-        current_pct = (current[channel_name] / total_actual_spend * 100) if total_actual_spend > 0 else 0
+        current_pct = (
+            (current[channel_name] / total_actual_spend * 100)
+            if total_actual_spend > 0
+            else 0
+        )
         # Weight recommended by score^1.5 to amplify differences
-        weighted_score = score ** 1.5
-        total_weighted = sum(max(c.get("efficiency_score", 1), 1) ** 1.5 for c in sorted_channels)
-        recommended_pct = (weighted_score / total_weighted * 100) if total_weighted > 0 else current_pct
+        weighted_score = score**1.5
+        total_weighted = sum(
+            max(c.get("efficiency_score", 1), 1) ** 1.5 for c in sorted_channels
+        )
+        recommended_pct = (
+            (weighted_score / total_weighted * 100)
+            if total_weighted > 0
+            else current_pct
+        )
         change_pct = recommended_pct - current_pct
 
         recommended[channel_name] = {
@@ -692,12 +815,15 @@ def _get_seasonal_advice(month: int) -> str:
         11: "November sees high urgency hiring. Focus on fast-converting channels.",
         12: "December typically has lower competition, offering lower CPCs. Invest in brand awareness.",
     }
-    return seasonal_tips.get(month, "Monitor market conditions and adjust budgets accordingly.")
+    return seasonal_tips.get(
+        month, "Monitor market conditions and adjust budgets accordingly."
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 6. GENERATE PERFORMANCE SCORECARD
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def generate_performance_scorecard(
     actual_data: List[Dict[str, Any]],
@@ -715,14 +841,22 @@ def generate_performance_scorecard(
     total_hires = sum(r.get("hires", 0) for r in actual_data)
 
     overall_cpc = round(total_spend / total_clicks, 2) if total_clicks > 0 else 0
-    overall_cpa = round(total_spend / total_applications, 2) if total_applications > 0 else 0
+    overall_cpa = (
+        round(total_spend / total_applications, 2) if total_applications > 0 else 0
+    )
     overall_cph = round(total_spend / total_hires, 2) if total_hires > 0 else 0
-    overall_ctr = round(total_clicks / total_impressions, 4) if total_impressions > 0 else 0
-    overall_apply_rate = round(total_applications / total_clicks, 4) if total_clicks > 0 else 0
+    overall_ctr = (
+        round(total_clicks / total_impressions, 4) if total_impressions > 0 else 0
+    )
+    overall_apply_rate = (
+        round(total_applications / total_clicks, 4) if total_clicks > 0 else 0
+    )
 
     # Overall efficiency score from comparisons
     if comparison:
-        avg_score = sum(c.get("efficiency_score", 50) for c in comparison) / len(comparison)
+        avg_score = sum(c.get("efficiency_score", 50) for c in comparison) / len(
+            comparison
+        )
     else:
         avg_score = 50.0
 
@@ -730,11 +864,13 @@ def generate_performance_scorecard(
 
     channel_grades = []
     for c in comparison:
-        channel_grades.append({
-            "channel": c["channel"],
-            "grade": c["grade"],
-            "score": c["efficiency_score"],
-        })
+        channel_grades.append(
+            {
+                "channel": c["channel"],
+                "grade": c["grade"],
+                "score": c["efficiency_score"],
+            }
+        )
     channel_grades.sort(key=lambda x: x["score"], reverse=True)
 
     return {
@@ -763,7 +899,10 @@ def generate_performance_scorecard(
 # 7. GENERATE PERFORMANCE EXCEL
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def generate_performance_excel(report_data: Dict[str, Any], client_name: str = "Client") -> bytes:
+
+def generate_performance_excel(
+    report_data: Dict[str, Any], client_name: str = "Client"
+) -> bytes:
     """Generate 4-sheet Excel report.
 
     Sheets:
@@ -815,12 +954,22 @@ def generate_performance_excel(report_data: Dict[str, Any], client_name: str = "
 
     # Fills
     fill_navy = PatternFill(start_color=NAVY, end_color=NAVY, fill_type="solid")
-    fill_sapphire = PatternFill(start_color=SAPPHIRE, end_color=SAPPHIRE, fill_type="solid")
-    fill_light = PatternFill(start_color=BLUE_LIGHT, end_color=BLUE_LIGHT, fill_type="solid")
-    fill_pale = PatternFill(start_color=BLUE_PALE, end_color=BLUE_PALE, fill_type="solid")
+    fill_sapphire = PatternFill(
+        start_color=SAPPHIRE, end_color=SAPPHIRE, fill_type="solid"
+    )
+    fill_light = PatternFill(
+        start_color=BLUE_LIGHT, end_color=BLUE_LIGHT, fill_type="solid"
+    )
+    fill_pale = PatternFill(
+        start_color=BLUE_PALE, end_color=BLUE_PALE, fill_type="solid"
+    )
     fill_white = PatternFill(start_color=WHITE, end_color=WHITE, fill_type="solid")
-    fill_green_bg = PatternFill(start_color=GREEN_BG, end_color=GREEN_BG, fill_type="solid")
-    fill_amber_bg = PatternFill(start_color=AMBER_BG, end_color=AMBER_BG, fill_type="solid")
+    fill_green_bg = PatternFill(
+        start_color=GREEN_BG, end_color=GREEN_BG, fill_type="solid"
+    )
+    fill_amber_bg = PatternFill(
+        start_color=AMBER_BG, end_color=AMBER_BG, fill_type="solid"
+    )
     fill_red_bg = PatternFill(start_color=RED_BG, end_color=RED_BG, fill_type="solid")
     fill_green = PatternFill(start_color=GREEN, end_color=GREEN, fill_type="solid")
 
@@ -829,11 +978,15 @@ def generate_performance_excel(report_data: Dict[str, Any], client_name: str = "
         if grade == "A":
             return fill_green_bg
         elif grade == "B":
-            return PatternFill(start_color="DCFCE7", end_color="DCFCE7", fill_type="solid")
+            return PatternFill(
+                start_color="DCFCE7", end_color="DCFCE7", fill_type="solid"
+            )
         elif grade == "C":
             return fill_amber_bg
         elif grade == "D":
-            return PatternFill(start_color="FED7AA", end_color="FED7AA", fill_type="solid")
+            return PatternFill(
+                start_color="FED7AA", end_color="FED7AA", fill_type="solid"
+            )
         else:
             return fill_red_bg
 
@@ -905,15 +1058,21 @@ def generate_performance_excel(report_data: Dict[str, Any], client_name: str = "
     ws1.sheet_properties.tabColor = NAVY
 
     # Set column widths
-    ws1.column_dimensions['A'].width = 3
-    for col_letter in ['B', 'C', 'D', 'E', 'F', 'G', 'H']:
+    ws1.column_dimensions["A"].width = 3
+    for col_letter in ["B", "C", "D", "E", "F", "G", "H"]:
         ws1.column_dimensions[col_letter].width = 18
 
     row = 2
     # Title
-    ws1.cell(row=row, column=COL_START, value=f"Campaign Performance Report").font = Font(name="Calibri", bold=True, size=18, color=NAVY)
+    ws1.cell(row=row, column=COL_START, value=f"Campaign Performance Report").font = (
+        Font(name="Calibri", bold=True, size=18, color=NAVY)
+    )
     row += 1
-    ws1.cell(row=row, column=COL_START, value=f"{client_name} | Generated {datetime.datetime.now().strftime('%B %d, %Y')}").font = f_footnote
+    ws1.cell(
+        row=row,
+        column=COL_START,
+        value=f"{client_name} | Generated {datetime.datetime.now().strftime('%B %d, %Y')}",
+    ).font = f_footnote
     row += 2
 
     # Overall Grade Card
@@ -921,23 +1080,38 @@ def generate_performance_excel(report_data: Dict[str, Any], client_name: str = "
     row += 1
     # Grade
     ws1.cell(row=row, column=COL_START, value="Overall Grade").font = f_subsection
-    grade_cell = ws1.cell(row=row, column=COL_START + 1, value=scorecard.get("grade", "N/A"))
+    grade_cell = ws1.cell(
+        row=row, column=COL_START + 1, value=scorecard.get("grade", "N/A")
+    )
     grade_cell.font = Font(name="Calibri", bold=True, size=28, color=WHITE)
     _g = scorecard.get("grade", "C")
     if _g in ("A", "B"):
-        grade_cell.fill = PatternFill(start_color=GREEN, end_color=GREEN, fill_type="solid")
+        grade_cell.fill = PatternFill(
+            start_color=GREEN, end_color=GREEN, fill_type="solid"
+        )
     elif _g == "C":
-        grade_cell.fill = PatternFill(start_color=AMBER, end_color=AMBER, fill_type="solid")
+        grade_cell.fill = PatternFill(
+            start_color=AMBER, end_color=AMBER, fill_type="solid"
+        )
     else:
         grade_cell.fill = PatternFill(start_color=RED, end_color=RED, fill_type="solid")
     grade_cell.alignment = al_center
 
     ws1.cell(row=row, column=COL_START + 2, value="Score").font = f_hero_label
-    ws1.cell(row=row, column=COL_START + 3, value=f"{scorecard.get('score', 0)}/100").font = f_metric_value
+    ws1.cell(
+        row=row, column=COL_START + 3, value=f"{scorecard.get('score', 0)}/100"
+    ).font = f_metric_value
     row += 2
 
     # Key Metrics Row
-    metric_labels = ["Total Spend", "Total Clicks", "Total Applications", "Total Hires", "Overall CPC", "Overall CPA"]
+    metric_labels = [
+        "Total Spend",
+        "Total Clicks",
+        "Total Applications",
+        "Total Hires",
+        "Overall CPC",
+        "Overall CPA",
+    ]
     metric_values = [
         f"${metrics.get('total_spend', 0):,.2f}",
         f"{metrics.get('total_clicks', 0):,}",
@@ -958,7 +1132,11 @@ def generate_performance_excel(report_data: Dict[str, Any], client_name: str = "
 
     # Channel Grades
     row = _write_section_header(ws1, row, "CHANNEL GRADES")
-    row = _write_table_header(ws1, row, ["Channel", "Grade", "Score", "CPC Variance", "CPA Variance", "CTR Variance"])
+    row = _write_table_header(
+        ws1,
+        row,
+        ["Channel", "Grade", "Score", "CPC Variance", "CPA Variance", "CTR Variance"],
+    )
     for comp in comparisons:
         ch = comp.get("channel", "")
         grade = comp.get("grade", "C")
@@ -972,15 +1150,36 @@ def generate_performance_excel(report_data: Dict[str, Any], client_name: str = "
             arrow = "+" if v > 0 else ""
             return f"{arrow}{v:.1f}%"
 
-        fonts = [f_body_bold, _grade_font(grade), f_body,
-                 f_green if cpc_v < 0 else f_red,
-                 f_green if cpa_v < 0 else f_red,
-                 f_green if ctr_v > 0 else f_red]
+        fonts = [
+            f_body_bold,
+            _grade_font(grade),
+            f_body,
+            f_green if cpc_v < 0 else f_red,
+            f_green if cpa_v < 0 else f_red,
+            f_green if ctr_v > 0 else f_red,
+        ]
         fills = [None, _grade_fill(grade), None, None, None, None]
-        row = _write_table_row(ws1, row, [ch, grade, f"{score_val:.0f}", _var_str(cpc_v), _var_str(cpa_v), _var_str(ctr_v)], fonts=fonts, fills=fills)
+        row = _write_table_row(
+            ws1,
+            row,
+            [
+                ch,
+                grade,
+                f"{score_val:.0f}",
+                _var_str(cpc_v),
+                _var_str(cpa_v),
+                _var_str(ctr_v),
+            ],
+            fonts=fonts,
+            fills=fills,
+        )
 
     row += 1
-    ws1.cell(row=row, column=COL_START, value="Note: Negative CPC/CPA variance = better (lower cost). Positive CTR variance = better (higher click rate).").font = f_footnote
+    ws1.cell(
+        row=row,
+        column=COL_START,
+        value="Note: Negative CPC/CPA variance = better (lower cost). Positive CTR variance = better (higher click rate).",
+    ).font = f_footnote
 
     # ══════════════════════════════════════════════════════════════════
     # SHEET 2: Channel Analysis
@@ -988,44 +1187,80 @@ def generate_performance_excel(report_data: Dict[str, Any], client_name: str = "
     ws2 = wb.create_sheet("Channel Analysis")
     ws2.sheet_properties.tabColor = SAPPHIRE
 
-    ws2.column_dimensions['A'].width = 3
-    for col_letter in ['B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']:
+    ws2.column_dimensions["A"].width = 3
+    for col_letter in ["B", "C", "D", "E", "F", "G", "H", "I", "J"]:
         ws2.column_dimensions[col_letter].width = 16
 
     row = 2
     row = _write_section_header(ws2, row, "CHANNEL PERFORMANCE DETAIL", col_end=10)
-    row = _write_table_header(ws2, row, ["Channel", "Spend", "Clicks", "Impressions", "Applications", "Hires", "CPC", "CPA", "CTR"])
+    row = _write_table_header(
+        ws2,
+        row,
+        [
+            "Channel",
+            "Spend",
+            "Clicks",
+            "Impressions",
+            "Applications",
+            "Hires",
+            "CPC",
+            "CPA",
+            "CTR",
+        ],
+    )
     for rec in report_data.get("actual_data", []):
-        row = _write_table_row(ws2, row, [
-            rec.get("channel", ""),
-            f"${rec.get('spend', 0):,.2f}",
-            f"{rec.get('clicks', 0):,.0f}",
-            f"{rec.get('impressions', 0):,.0f}",
-            f"{rec.get('applications', 0):,.0f}",
-            f"{rec.get('hires', 0):,.0f}",
-            f"${rec.get('cpc', 0):.2f}",
-            f"${rec.get('cpa', 0):.2f}",
-            f"{rec.get('ctr', 0) * 100:.2f}%",
-        ])
+        row = _write_table_row(
+            ws2,
+            row,
+            [
+                rec.get("channel", ""),
+                f"${rec.get('spend', 0):,.2f}",
+                f"{rec.get('clicks', 0):,.0f}",
+                f"{rec.get('impressions', 0):,.0f}",
+                f"{rec.get('applications', 0):,.0f}",
+                f"{rec.get('hires', 0):,.0f}",
+                f"${rec.get('cpc', 0):.2f}",
+                f"${rec.get('cpa', 0):.2f}",
+                f"{rec.get('ctr', 0) * 100:.2f}%",
+            ],
+        )
 
     row += 2
     row = _write_section_header(ws2, row, "ACTUAL vs BENCHMARK COMPARISON", col_end=10)
-    row = _write_table_header(ws2, row, ["Channel", "Actual CPC", "Bench CPC", "Actual CPA", "Bench CPA", "Actual CTR", "Bench CTR", "Grade"])
+    row = _write_table_header(
+        ws2,
+        row,
+        [
+            "Channel",
+            "Actual CPC",
+            "Bench CPC",
+            "Actual CPA",
+            "Bench CPA",
+            "Actual CTR",
+            "Bench CTR",
+            "Grade",
+        ],
+    )
     for comp in comparisons:
         ch = comp.get("channel", "")
         vars_ = comp.get("variances", {})
         grade = comp.get("grade", "C")
-        row = _write_table_row(ws2, row, [
-            ch,
-            f"${vars_.get('cpc', {}).get('actual', 0):.2f}",
-            f"${vars_.get('cpc', {}).get('benchmark', 0):.2f}",
-            f"${vars_.get('cpa', {}).get('actual', 0):.2f}",
-            f"${vars_.get('cpa', {}).get('benchmark', 0):.2f}",
-            f"{vars_.get('ctr', {}).get('actual', 0) * 100:.2f}%",
-            f"{vars_.get('ctr', {}).get('benchmark', 0) * 100:.2f}%",
-            grade,
-        ], fonts=[f_body_bold] + [f_body] * 6 + [_grade_font(grade)],
-           fills=[None] * 7 + [_grade_fill(grade)])
+        row = _write_table_row(
+            ws2,
+            row,
+            [
+                ch,
+                f"${vars_.get('cpc', {}).get('actual', 0):.2f}",
+                f"${vars_.get('cpc', {}).get('benchmark', 0):.2f}",
+                f"${vars_.get('cpa', {}).get('actual', 0):.2f}",
+                f"${vars_.get('cpa', {}).get('benchmark', 0):.2f}",
+                f"{vars_.get('ctr', {}).get('actual', 0) * 100:.2f}%",
+                f"{vars_.get('ctr', {}).get('benchmark', 0) * 100:.2f}%",
+                grade,
+            ],
+            fonts=[f_body_bold] + [f_body] * 6 + [_grade_font(grade)],
+            fills=[None] * 7 + [_grade_fill(grade)],
+        )
 
     # ══════════════════════════════════════════════════════════════════
     # SHEET 3: Recommendations
@@ -1033,51 +1268,77 @@ def generate_performance_excel(report_data: Dict[str, Any], client_name: str = "
     ws3 = wb.create_sheet("Recommendations")
     ws3.sheet_properties.tabColor = "16A34A"
 
-    ws3.column_dimensions['A'].width = 3
-    ws3.column_dimensions['B'].width = 18
-    ws3.column_dimensions['C'].width = 14
-    ws3.column_dimensions['D'].width = 12
-    ws3.column_dimensions['E'].width = 50
-    ws3.column_dimensions['F'].width = 50
+    ws3.column_dimensions["A"].width = 3
+    ws3.column_dimensions["B"].width = 18
+    ws3.column_dimensions["C"].width = 14
+    ws3.column_dimensions["D"].width = 12
+    ws3.column_dimensions["E"].width = 50
+    ws3.column_dimensions["F"].width = 50
 
     row = 2
     row = _write_section_header(ws3, row, "OPTIMIZATION RECOMMENDATIONS", col_end=6)
     row += 1
-    ws3.cell(row=row, column=COL_START, value=recommendations_data.get("summary", "")).font = f_subsection
+    ws3.cell(
+        row=row, column=COL_START, value=recommendations_data.get("summary", "")
+    ).font = f_subsection
     row += 2
 
-    row = _write_table_header(ws3, row, ["Channel", "Action", "Priority", "Reason", "Suggestion"])
+    row = _write_table_header(
+        ws3, row, ["Channel", "Action", "Priority", "Reason", "Suggestion"]
+    )
     for rec in recommendations_data.get("recommendations", []):
         action = rec.get("action", "")
         priority = rec.get("priority", "")
-        action_font = f_green if action == "INCREASE" else (f_red if action in ("DROP / PAUSE", "DECREASE") else f_amber)
-        row = _write_table_row(ws3, row, [
-            rec.get("channel", ""),
-            action,
-            priority.upper(),
-            rec.get("reason", ""),
-            rec.get("suggestion", ""),
-        ], fonts=[f_body_bold, action_font, f_body, f_body, f_body])
+        action_font = (
+            f_green
+            if action == "INCREASE"
+            else (f_red if action in ("DROP / PAUSE", "DECREASE") else f_amber)
+        )
+        row = _write_table_row(
+            ws3,
+            row,
+            [
+                rec.get("channel", ""),
+                action,
+                priority.upper(),
+                rec.get("reason", ""),
+                rec.get("suggestion", ""),
+            ],
+            fonts=[f_body_bold, action_font, f_body, f_body, f_body],
+        )
 
     row += 2
     # Budget Reallocation
     realloc = recommendations_data.get("budget_reallocation", {})
     if realloc:
         row = _write_section_header(ws3, row, "BUDGET REALLOCATION", col_end=6)
-        row = _write_table_header(ws3, row, ["Channel", "Current %", "Recommended %", "Change", "Recommended Spend"])
+        row = _write_table_header(
+            ws3,
+            row,
+            ["Channel", "Current %", "Recommended %", "Change", "Recommended Spend"],
+        )
         for ch_name, alloc in realloc.items():
             change = alloc.get("change_pct", 0)
             change_font = f_green if change > 0 else (f_red if change < -5 else f_body)
-            row = _write_table_row(ws3, row, [
-                ch_name,
-                f"{alloc.get('current_pct', 0):.1f}%",
-                f"{alloc.get('recommended_pct', 0):.1f}%",
-                f"{'+' if change > 0 else ''}{change:.1f}%",
-                f"${alloc.get('recommended_spend', 0):,.2f}",
-            ], fonts=[f_body_bold, f_body, f_body, change_font, f_body])
+            row = _write_table_row(
+                ws3,
+                row,
+                [
+                    ch_name,
+                    f"{alloc.get('current_pct', 0):.1f}%",
+                    f"{alloc.get('recommended_pct', 0):.1f}%",
+                    f"{'+' if change > 0 else ''}{change:.1f}%",
+                    f"${alloc.get('recommended_spend', 0):,.2f}",
+                ],
+                fonts=[f_body_bold, f_body, f_body, change_font, f_body],
+            )
 
     row += 2
-    ws3.cell(row=row, column=COL_START, value=f"Seasonal Insight: {recommendations_data.get('seasonal_advice', '')}").font = f_footnote
+    ws3.cell(
+        row=row,
+        column=COL_START,
+        value=f"Seasonal Insight: {recommendations_data.get('seasonal_advice', '')}",
+    ).font = f_footnote
 
     # ══════════════════════════════════════════════════════════════════
     # SHEET 4: Projections
@@ -1085,12 +1346,14 @@ def generate_performance_excel(report_data: Dict[str, Any], client_name: str = "
     ws4 = wb.create_sheet("Projections")
     ws4.sheet_properties.tabColor = "D97706"
 
-    ws4.column_dimensions['A'].width = 3
-    for col_letter in ['B', 'C', 'D', 'E', 'F', 'G']:
+    ws4.column_dimensions["A"].width = 3
+    for col_letter in ["B", "C", "D", "E", "F", "G"]:
         ws4.column_dimensions[col_letter].width = 20
 
     row = 2
-    row = _write_section_header(ws4, row, "PROJECTED OUTCOMES (IF RECOMMENDATIONS APPLIED)")
+    row = _write_section_header(
+        ws4, row, "PROJECTED OUTCOMES (IF RECOMMENDATIONS APPLIED)"
+    )
     row += 1
 
     total_spend = metrics.get("total_spend", 0)
@@ -1109,20 +1372,54 @@ def generate_performance_excel(report_data: Dict[str, Any], client_name: str = "
     proj_cpa = round(total_spend / proj_apps, 2) if proj_apps > 0 else 0
     proj_cph = round(total_spend / proj_hires, 2) if proj_hires > 0 else 0
 
-    row = _write_table_header(ws4, row, ["Metric", "Current", "Projected (Optimized)", "Improvement"])
+    row = _write_table_header(
+        ws4, row, ["Metric", "Current", "Projected (Optimized)", "Improvement"]
+    )
     projections = [
-        ("Applications", f"{total_apps:,}", f"{proj_apps:,}", f"+{proj_apps - total_apps:,} ({(improvement_factor - 1) * 100:.0f}%)"),
-        ("Hires", f"{total_hires:,}", f"{proj_hires:,}", f"+{proj_hires - total_hires:,} ({(improvement_factor - 1) * 100:.0f}%)"),
-        ("CPA", f"${metrics.get('overall_cpa', 0):.2f}", f"${proj_cpa:.2f}", f"-${metrics.get('overall_cpa', 0) - proj_cpa:.2f}"),
-        ("CPH", f"${metrics.get('overall_cph', 0):.2f}", f"${proj_cph:.2f}", f"-${metrics.get('overall_cph', 0) - proj_cph:.2f}"),
+        (
+            "Applications",
+            f"{total_apps:,}",
+            f"{proj_apps:,}",
+            f"+{proj_apps - total_apps:,} ({(improvement_factor - 1) * 100:.0f}%)",
+        ),
+        (
+            "Hires",
+            f"{total_hires:,}",
+            f"{proj_hires:,}",
+            f"+{proj_hires - total_hires:,} ({(improvement_factor - 1) * 100:.0f}%)",
+        ),
+        (
+            "CPA",
+            f"${metrics.get('overall_cpa', 0):.2f}",
+            f"${proj_cpa:.2f}",
+            f"-${metrics.get('overall_cpa', 0) - proj_cpa:.2f}",
+        ),
+        (
+            "CPH",
+            f"${metrics.get('overall_cph', 0):.2f}",
+            f"${proj_cph:.2f}",
+            f"-${metrics.get('overall_cph', 0) - proj_cph:.2f}",
+        ),
     ]
     for label, current_val, proj_val, improvement in projections:
-        row = _write_table_row(ws4, row, [label, current_val, proj_val, improvement],
-                               fonts=[f_body_bold, f_body, f_body, f_green])
+        row = _write_table_row(
+            ws4,
+            row,
+            [label, current_val, proj_val, improvement],
+            fonts=[f_body_bold, f_body, f_body, f_green],
+        )
 
     row += 2
-    ws4.cell(row=row, column=COL_START, value="Projections based on reallocating budget to higher-performing channels.").font = f_footnote
-    ws4.cell(row=row + 1, column=COL_START, value="Actual results may vary. Improvement estimates are conservative based on historical reallocation outcomes.").font = f_footnote
+    ws4.cell(
+        row=row,
+        column=COL_START,
+        value="Projections based on reallocating budget to higher-performing channels.",
+    ).font = f_footnote
+    ws4.cell(
+        row=row + 1,
+        column=COL_START,
+        value="Actual results may vary. Improvement estimates are conservative based on historical reallocation outcomes.",
+    ).font = f_footnote
 
     # Write to bytes
     buf = io.BytesIO()
@@ -1134,7 +1431,10 @@ def generate_performance_excel(report_data: Dict[str, Any], client_name: str = "
 # 8. GENERATE PERFORMANCE PPT
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def generate_performance_ppt(report_data: Dict[str, Any], client_name: str = "Client") -> bytes:
+
+def generate_performance_ppt(
+    report_data: Dict[str, Any], client_name: str = "Client"
+) -> bytes:
     """Generate 5-slide PPT report.
 
     Slides:
@@ -1192,7 +1492,9 @@ def generate_performance_ppt(report_data: Dict[str, Any], client_name: str = "Cl
         fill.fore_color.rgb = color
 
     def _add_shape(slide, left, top, width, height, fill_color, border_color=None):
-        shape = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, left, top, width, height)
+        shape = slide.shapes.add_shape(
+            MSO_SHAPE.ROUNDED_RECTANGLE, left, top, width, height
+        )
         shape.fill.solid()
         shape.fill.fore_color.rgb = fill_color
         shape.line.fill.background()
@@ -1203,7 +1505,19 @@ def generate_performance_ppt(report_data: Dict[str, Any], client_name: str = "Cl
             shape.line.fill.background()
         return shape
 
-    def _add_text_box(slide, left, top, width, height, text, font_name=FONT_BODY, size=12, color=DARK_TEXT, bold=False, align=PP_ALIGN.LEFT):
+    def _add_text_box(
+        slide,
+        left,
+        top,
+        width,
+        height,
+        text,
+        font_name=FONT_BODY,
+        size=12,
+        color=DARK_TEXT,
+        bold=False,
+        align=PP_ALIGN.LEFT,
+    ):
         txBox = slide.shapes.add_textbox(left, top, width, height)
         tf = txBox.text_frame
         tf.word_wrap = True
@@ -1224,40 +1538,129 @@ def generate_performance_ppt(report_data: Dict[str, Any], client_name: str = "Cl
     _add_shape(slide1, Inches(0), Inches(0), prs.slide_width, Inches(0.08), TEAL)
 
     # Title
-    _add_text_box(slide1, Inches(1.5), Inches(2.2), Inches(10), Inches(1.2),
-                  "Campaign Performance Tracker", FONT_TITLE, 36, WHITE, bold=True, align=PP_ALIGN.CENTER)
-    _add_text_box(slide1, Inches(1.5), Inches(3.4), Inches(10), Inches(0.6),
-                  f"{client_name} | Performance Analysis & Optimization Recommendations",
-                  FONT_BODY, 16, TEAL, align=PP_ALIGN.CENTER)
-    _add_text_box(slide1, Inches(1.5), Inches(4.2), Inches(10), Inches(0.5),
-                  f"Generated {datetime.datetime.now().strftime('%B %d, %Y')}",
-                  FONT_BODY, 12, MUTED_TEXT, align=PP_ALIGN.CENTER)
+    _add_text_box(
+        slide1,
+        Inches(1.5),
+        Inches(2.2),
+        Inches(10),
+        Inches(1.2),
+        "Campaign Performance Tracker",
+        FONT_TITLE,
+        36,
+        WHITE,
+        bold=True,
+        align=PP_ALIGN.CENTER,
+    )
+    _add_text_box(
+        slide1,
+        Inches(1.5),
+        Inches(3.4),
+        Inches(10),
+        Inches(0.6),
+        f"{client_name} | Performance Analysis & Optimization Recommendations",
+        FONT_BODY,
+        16,
+        TEAL,
+        align=PP_ALIGN.CENTER,
+    )
+    _add_text_box(
+        slide1,
+        Inches(1.5),
+        Inches(4.2),
+        Inches(10),
+        Inches(0.5),
+        f"Generated {datetime.datetime.now().strftime('%B %d, %Y')}",
+        FONT_BODY,
+        12,
+        MUTED_TEXT,
+        align=PP_ALIGN.CENTER,
+    )
 
     # Bottom bar
     _add_shape(slide1, Inches(0), Inches(7.0), prs.slide_width, Inches(0.5), BLUE)
-    _add_text_box(slide1, Inches(0.5), Inches(7.05), Inches(4), Inches(0.4),
-                  "Powered by Nova AI Suite", FONT_BODY, 10, WHITE, align=PP_ALIGN.LEFT)
+    _add_text_box(
+        slide1,
+        Inches(0.5),
+        Inches(7.05),
+        Inches(4),
+        Inches(0.4),
+        "Powered by Nova AI Suite",
+        FONT_BODY,
+        10,
+        WHITE,
+        align=PP_ALIGN.LEFT,
+    )
 
     # ── SLIDE 2: Performance Overview ─────────────────────────────────
     slide2 = prs.slides.add_slide(prs.slide_layouts[6])
     _add_bg(slide2, OFF_WHITE)
 
-    _add_text_box(slide2, Inches(0.8), Inches(0.4), Inches(8), Inches(0.7),
-                  "Performance Overview", FONT_TITLE, 28, NAVY, bold=True)
+    _add_text_box(
+        slide2,
+        Inches(0.8),
+        Inches(0.4),
+        Inches(8),
+        Inches(0.7),
+        "Performance Overview",
+        FONT_TITLE,
+        28,
+        NAVY,
+        bold=True,
+    )
     _add_shape(slide2, Inches(0.8), Inches(1.0), Inches(2), Inches(0.04), TEAL)
 
     # Overall grade card
     grade = scorecard.get("grade", "N/A")
-    grade_color = GREEN if grade in ("A", "B") else (AMBER if grade == "C" else RED_ACCENT)
-    grade_bg = LIGHT_GREEN if grade in ("A", "B") else (RGBColor(0xFE, 0xF3, 0xC7) if grade == "C" else LIGHT_RED)
+    grade_color = (
+        GREEN if grade in ("A", "B") else (AMBER if grade == "C" else RED_ACCENT)
+    )
+    grade_bg = (
+        LIGHT_GREEN
+        if grade in ("A", "B")
+        else (RGBColor(0xFE, 0xF3, 0xC7) if grade == "C" else LIGHT_RED)
+    )
 
-    grade_shape = _add_shape(slide2, Inches(0.8), Inches(1.5), Inches(2.5), Inches(2.5), grade_bg, WARM_GRAY)
-    _add_text_box(slide2, Inches(0.8), Inches(1.6), Inches(2.5), Inches(0.4),
-                  "OVERALL GRADE", FONT_BODY, 10, MUTED_TEXT, align=PP_ALIGN.CENTER)
-    _add_text_box(slide2, Inches(0.8), Inches(2.0), Inches(2.5), Inches(1.2),
-                  grade, FONT_TITLE, 64, grade_color, bold=True, align=PP_ALIGN.CENTER)
-    _add_text_box(slide2, Inches(0.8), Inches(3.2), Inches(2.5), Inches(0.4),
-                  f"Score: {scorecard.get('score', 0)}/100", FONT_BODY, 14, DARK_TEXT, bold=True, align=PP_ALIGN.CENTER)
+    grade_shape = _add_shape(
+        slide2, Inches(0.8), Inches(1.5), Inches(2.5), Inches(2.5), grade_bg, WARM_GRAY
+    )
+    _add_text_box(
+        slide2,
+        Inches(0.8),
+        Inches(1.6),
+        Inches(2.5),
+        Inches(0.4),
+        "OVERALL GRADE",
+        FONT_BODY,
+        10,
+        MUTED_TEXT,
+        align=PP_ALIGN.CENTER,
+    )
+    _add_text_box(
+        slide2,
+        Inches(0.8),
+        Inches(2.0),
+        Inches(2.5),
+        Inches(1.2),
+        grade,
+        FONT_TITLE,
+        64,
+        grade_color,
+        bold=True,
+        align=PP_ALIGN.CENTER,
+    )
+    _add_text_box(
+        slide2,
+        Inches(0.8),
+        Inches(3.2),
+        Inches(2.5),
+        Inches(0.4),
+        f"Score: {scorecard.get('score', 0)}/100",
+        FONT_BODY,
+        14,
+        DARK_TEXT,
+        bold=True,
+        align=PP_ALIGN.CENTER,
+    )
 
     # Metric cards
     metric_cards = [
@@ -1275,15 +1678,43 @@ def generate_performance_ppt(report_data: Dict[str, Any], client_name: str = "Cl
         left = Inches(3.8 + col * 3.2)
         top = Inches(1.5 + r * 1.8)
         card = _add_shape(slide2, left, top, Inches(2.8), Inches(1.5), WHITE, WARM_GRAY)
-        _add_text_box(slide2, left + Inches(0.2), top + Inches(0.2), Inches(2.4), Inches(0.3),
-                      label, FONT_BODY, 10, MUTED_TEXT)
-        _add_text_box(slide2, left + Inches(0.2), top + Inches(0.6), Inches(2.4), Inches(0.6),
-                      value, FONT_TITLE, 22, NAVY, bold=True)
+        _add_text_box(
+            slide2,
+            left + Inches(0.2),
+            top + Inches(0.2),
+            Inches(2.4),
+            Inches(0.3),
+            label,
+            FONT_BODY,
+            10,
+            MUTED_TEXT,
+        )
+        _add_text_box(
+            slide2,
+            left + Inches(0.2),
+            top + Inches(0.6),
+            Inches(2.4),
+            Inches(0.6),
+            value,
+            FONT_TITLE,
+            22,
+            NAVY,
+            bold=True,
+        )
 
     # Bottom insight
     summary = recommendations_data.get("summary", "")
-    _add_text_box(slide2, Inches(0.8), Inches(5.2), Inches(11.5), Inches(0.5),
-                  summary, FONT_BODY, 11, MUTED_TEXT)
+    _add_text_box(
+        slide2,
+        Inches(0.8),
+        Inches(5.2),
+        Inches(11.5),
+        Inches(0.5),
+        summary,
+        FONT_BODY,
+        11,
+        MUTED_TEXT,
+    )
 
     # Footer bar
     _add_shape(slide2, Inches(0), Inches(7.0), prs.slide_width, Inches(0.5), NAVY)
@@ -1292,16 +1723,42 @@ def generate_performance_ppt(report_data: Dict[str, Any], client_name: str = "Cl
     slide3 = prs.slides.add_slide(prs.slide_layouts[6])
     _add_bg(slide3, OFF_WHITE)
 
-    _add_text_box(slide3, Inches(0.8), Inches(0.4), Inches(8), Inches(0.7),
-                  "Actual vs Benchmark Comparison", FONT_TITLE, 28, NAVY, bold=True)
+    _add_text_box(
+        slide3,
+        Inches(0.8),
+        Inches(0.4),
+        Inches(8),
+        Inches(0.7),
+        "Actual vs Benchmark Comparison",
+        FONT_TITLE,
+        28,
+        NAVY,
+        bold=True,
+    )
     _add_shape(slide3, Inches(0.8), Inches(1.0), Inches(2), Inches(0.04), TEAL)
 
     # Table header
-    table_headers = ["Channel", "Actual CPC", "Bench CPC", "CPC Var", "Actual CPA", "Bench CPA", "CPA Var", "Grade"]
+    table_headers = [
+        "Channel",
+        "Actual CPC",
+        "Bench CPC",
+        "CPC Var",
+        "Actual CPA",
+        "Bench CPA",
+        "CPA Var",
+        "Grade",
+    ]
     num_rows = min(len(comparisons) + 1, 10)
     num_cols = len(table_headers)
 
-    table_shape = slide3.shapes.add_table(num_rows, num_cols, Inches(0.5), Inches(1.4), Inches(12.3), Inches(0.5 * num_rows))
+    table_shape = slide3.shapes.add_table(
+        num_rows,
+        num_cols,
+        Inches(0.5),
+        Inches(1.4),
+        Inches(12.3),
+        Inches(0.5 * num_rows),
+    )
     table = table_shape.table
 
     # Style header row
@@ -1318,7 +1775,7 @@ def generate_performance_ppt(report_data: Dict[str, Any], client_name: str = "Cl
         cell.fill.fore_color.rgb = NAVY
 
     # Data rows
-    for i, comp in enumerate(comparisons[:num_rows - 1]):
+    for i, comp in enumerate(comparisons[: num_rows - 1]):
         vars_ = comp.get("variances", {})
         cpc_v = vars_.get("cpc", {})
         cpa_v = vars_.get("cpa", {})
@@ -1346,7 +1803,11 @@ def generate_performance_ppt(report_data: Dict[str, Any], client_name: str = "Cl
 
             # Color code variance columns
             if j in (3, 6):
-                v_pct = cpc_v.get("variance_pct", 0) if j == 3 else cpa_v.get("variance_pct", 0)
+                v_pct = (
+                    cpc_v.get("variance_pct", 0)
+                    if j == 3
+                    else cpa_v.get("variance_pct", 0)
+                )
                 if v_pct < -5:
                     cell.fill.solid()
                     cell.fill.fore_color.rgb = LIGHT_GREEN
@@ -1357,7 +1818,11 @@ def generate_performance_ppt(report_data: Dict[str, Any], client_name: str = "Cl
             if j == len(row_data) - 1:
                 for paragraph in cell.text_frame.paragraphs:
                     paragraph.font.bold = True
-                    paragraph.font.color.rgb = GREEN if g in ("A", "B") else (AMBER if g == "C" else RED_ACCENT)
+                    paragraph.font.color.rgb = (
+                        GREEN
+                        if g in ("A", "B")
+                        else (AMBER if g == "C" else RED_ACCENT)
+                    )
 
         # Alternating row color
         if i % 2 == 0:
@@ -1372,8 +1837,18 @@ def generate_performance_ppt(report_data: Dict[str, Any], client_name: str = "Cl
     slide4 = prs.slides.add_slide(prs.slide_layouts[6])
     _add_bg(slide4, OFF_WHITE)
 
-    _add_text_box(slide4, Inches(0.8), Inches(0.4), Inches(8), Inches(0.7),
-                  "Channel Efficiency Matrix", FONT_TITLE, 28, NAVY, bold=True)
+    _add_text_box(
+        slide4,
+        Inches(0.8),
+        Inches(0.4),
+        Inches(8),
+        Inches(0.7),
+        "Channel Efficiency Matrix",
+        FONT_TITLE,
+        28,
+        NAVY,
+        bold=True,
+    )
     _add_shape(slide4, Inches(0.8), Inches(1.0), Inches(2), Inches(0.04), TEAL)
 
     # Show efficiency data as cards
@@ -1387,14 +1862,41 @@ def generate_performance_ppt(report_data: Dict[str, Any], client_name: str = "Cl
         top = Inches(1.5 + r * 2.8)
 
         roi_grade = eff_rec.get("roi_grade", "C")
-        card_border = GREEN if roi_grade in ("A", "B") else (AMBER if roi_grade == "C" else RED_ACCENT)
-        card = _add_shape(slide4, left, top, Inches(3.8), Inches(2.4), WHITE, card_border)
+        card_border = (
+            GREEN
+            if roi_grade in ("A", "B")
+            else (AMBER if roi_grade == "C" else RED_ACCENT)
+        )
+        card = _add_shape(
+            slide4, left, top, Inches(3.8), Inches(2.4), WHITE, card_border
+        )
 
         # Channel name & grade
-        _add_text_box(slide4, left + Inches(0.2), top + Inches(0.15), Inches(2.8), Inches(0.35),
-                      eff_rec.get("channel", ""), FONT_TITLE, 14, NAVY, bold=True)
-        _add_text_box(slide4, left + Inches(3.0), top + Inches(0.15), Inches(0.6), Inches(0.35),
-                      roi_grade, FONT_TITLE, 18, card_border, bold=True, align=PP_ALIGN.CENTER)
+        _add_text_box(
+            slide4,
+            left + Inches(0.2),
+            top + Inches(0.15),
+            Inches(2.8),
+            Inches(0.35),
+            eff_rec.get("channel", ""),
+            FONT_TITLE,
+            14,
+            NAVY,
+            bold=True,
+        )
+        _add_text_box(
+            slide4,
+            left + Inches(3.0),
+            top + Inches(0.15),
+            Inches(0.6),
+            Inches(0.35),
+            roi_grade,
+            FONT_TITLE,
+            18,
+            card_border,
+            bold=True,
+            align=PP_ALIGN.CENTER,
+        )
 
         # Metrics
         eff_metrics = [
@@ -1404,8 +1906,18 @@ def generate_performance_ppt(report_data: Dict[str, Any], client_name: str = "Cl
             f"ROI Score: {eff_rec.get('roi_score', 0):.0f}/100",
         ]
         for m_idx, m_text in enumerate(eff_metrics):
-            _add_text_box(slide4, left + Inches(0.2), top + Inches(0.6 + m_idx * 0.4), Inches(3.4), Inches(0.35),
-                          m_text, FONT_BODY, 9, MUTED_TEXT if m_idx < 3 else DARK_TEXT, bold=(m_idx == 3))
+            _add_text_box(
+                slide4,
+                left + Inches(0.2),
+                top + Inches(0.6 + m_idx * 0.4),
+                Inches(3.4),
+                Inches(0.35),
+                m_text,
+                FONT_BODY,
+                9,
+                MUTED_TEXT if m_idx < 3 else DARK_TEXT,
+                bold=(m_idx == 3),
+            )
 
     _add_shape(slide4, Inches(0), Inches(7.0), prs.slide_width, Inches(0.5), NAVY)
 
@@ -1413,8 +1925,18 @@ def generate_performance_ppt(report_data: Dict[str, Any], client_name: str = "Cl
     slide5 = prs.slides.add_slide(prs.slide_layouts[6])
     _add_bg(slide5, OFF_WHITE)
 
-    _add_text_box(slide5, Inches(0.8), Inches(0.4), Inches(8), Inches(0.7),
-                  "Optimization Recommendations", FONT_TITLE, 28, NAVY, bold=True)
+    _add_text_box(
+        slide5,
+        Inches(0.8),
+        Inches(0.4),
+        Inches(8),
+        Inches(0.7),
+        "Optimization Recommendations",
+        FONT_TITLE,
+        28,
+        NAVY,
+        bold=True,
+    )
     _add_shape(slide5, Inches(0.8), Inches(1.0), Inches(2), Inches(0.04), TEAL)
 
     recs = recommendations_data.get("recommendations", [])
@@ -1436,29 +1958,87 @@ def generate_performance_ppt(report_data: Dict[str, Any], client_name: str = "Cl
             bg_color = RGBColor(0xFE, 0xF3, 0xC7)
 
         # Card
-        _add_shape(slide5, Inches(0.5), top, Inches(12.3), Inches(0.75), bg_color, action_color)
+        _add_shape(
+            slide5, Inches(0.5), top, Inches(12.3), Inches(0.75), bg_color, action_color
+        )
 
         # Action badge
-        badge = _add_shape(slide5, Inches(0.7), top + Inches(0.12), Inches(1.5), Inches(0.45), action_color)
-        _add_text_box(slide5, Inches(0.7), top + Inches(0.15), Inches(1.5), Inches(0.4),
-                      action, FONT_BODY, 9, WHITE, bold=True, align=PP_ALIGN.CENTER)
+        badge = _add_shape(
+            slide5,
+            Inches(0.7),
+            top + Inches(0.12),
+            Inches(1.5),
+            Inches(0.45),
+            action_color,
+        )
+        _add_text_box(
+            slide5,
+            Inches(0.7),
+            top + Inches(0.15),
+            Inches(1.5),
+            Inches(0.4),
+            action,
+            FONT_BODY,
+            9,
+            WHITE,
+            bold=True,
+            align=PP_ALIGN.CENTER,
+        )
 
         # Channel name
-        _add_text_box(slide5, Inches(2.4), top + Inches(0.08), Inches(2), Inches(0.35),
-                      rec.get("channel", ""), FONT_TITLE, 12, NAVY, bold=True)
+        _add_text_box(
+            slide5,
+            Inches(2.4),
+            top + Inches(0.08),
+            Inches(2),
+            Inches(0.35),
+            rec.get("channel", ""),
+            FONT_TITLE,
+            12,
+            NAVY,
+            bold=True,
+        )
 
         # Suggestion text
-        _add_text_box(slide5, Inches(2.4), top + Inches(0.38), Inches(10), Inches(0.35),
-                      rec.get("suggestion", ""), FONT_BODY, 9, MUTED_TEXT)
+        _add_text_box(
+            slide5,
+            Inches(2.4),
+            top + Inches(0.38),
+            Inches(10),
+            Inches(0.35),
+            rec.get("suggestion", ""),
+            FONT_BODY,
+            9,
+            MUTED_TEXT,
+        )
 
     # Seasonal advice
-    _add_text_box(slide5, Inches(0.8), Inches(6.3), Inches(11.5), Inches(0.5),
-                  f"Seasonal Insight: {recommendations_data.get('seasonal_advice', '')}",
-                  FONT_BODY, 10, TEAL, bold=True)
+    _add_text_box(
+        slide5,
+        Inches(0.8),
+        Inches(6.3),
+        Inches(11.5),
+        Inches(0.5),
+        f"Seasonal Insight: {recommendations_data.get('seasonal_advice', '')}",
+        FONT_BODY,
+        10,
+        TEAL,
+        bold=True,
+    )
 
     _add_shape(slide5, Inches(0), Inches(7.0), prs.slide_width, Inches(0.5), NAVY)
-    _add_text_box(slide5, Inches(0.5), Inches(7.05), Inches(4), Inches(0.4),
-                  "Powered by Nova AI Suite", FONT_BODY, 10, WHITE, align=PP_ALIGN.LEFT)
+    _add_text_box(
+        slide5,
+        Inches(0.5),
+        Inches(7.05),
+        Inches(4),
+        Inches(0.4),
+        "Powered by Nova AI Suite",
+        FONT_BODY,
+        10,
+        WHITE,
+        align=PP_ALIGN.LEFT,
+    )
 
     # Write to bytes
     buf = io.BytesIO()
@@ -1469,6 +2049,7 @@ def generate_performance_ppt(report_data: Dict[str, Any], client_name: str = "Cl
 # ═══════════════════════════════════════════════════════════════════════════════
 # ORCHESTRATOR -- single entry point for the API
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def analyze_campaign(
     file_bytes: bytes,
@@ -1488,7 +2069,10 @@ def analyze_campaign(
         # 1. Parse performance data
         actual_data = parse_performance_data(file_bytes, filename)
         if not actual_data:
-            return {"error": "Could not parse performance data. Please check file format and column headers.", "success": False}
+            return {
+                "error": "Could not parse performance data. Please check file format and column headers.",
+                "success": False,
+            }
 
         # 2. Get benchmarks
         benchmarks = get_benchmarks_for_context(industry, roles, locations)
@@ -1512,7 +2096,9 @@ def analyze_campaign(
             "success": True,
             "campaign_name": campaign_name or "Campaign Analysis",
             "industry": industry,
-            "industry_label": INDUSTRY_LABEL_MAP.get(industry, industry.replace("_", " ").title()),
+            "industry_label": INDUSTRY_LABEL_MAP.get(
+                industry, industry.replace("_", " ").title()
+            ),
             "actual_data": actual_data,
             "benchmarks": benchmarks,
             "comparisons": comparisons,

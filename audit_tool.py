@@ -33,6 +33,7 @@ logger = logging.getLogger(__name__)
 # ── Optional imports (lazy, with try/except like performance_tracker.py) ───
 try:
     import trend_engine as _trend_engine
+
     _HAS_TREND_ENGINE = True
 except ImportError:
     _trend_engine = None
@@ -40,6 +41,7 @@ except ImportError:
 
 try:
     import budget_engine as _budget_engine
+
     _HAS_BUDGET_ENGINE = True
 except ImportError:
     _budget_engine = None
@@ -47,6 +49,7 @@ except ImportError:
 
 try:
     import collar_intelligence as _collar_intel
+
     _HAS_COLLAR_INTEL = True
 except ImportError:
     _collar_intel = None
@@ -56,11 +59,20 @@ try:
     from shared_utils import INDUSTRY_LABEL_MAP, parse_budget
 except ImportError:
     INDUSTRY_LABEL_MAP = {}
+
     def parse_budget(v, *, default=100_000.0):
         try:
             return float(v)
         except Exception:
             return default
+
+
+try:
+    from benchmark_registry import get_benchmark_value
+
+    _HAS_BENCHMARK_REGISTRY = True
+except ImportError:
+    _HAS_BENCHMARK_REGISTRY = False
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -69,41 +81,106 @@ except ImportError:
 
 _COLUMN_PATTERNS: Dict[str, List[str]] = {
     "channel": [
-        "channel", "platform", "source", "medium", "publisher", "vendor",
-        "ad platform", "network", "job board", "site", "media",
+        "channel",
+        "platform",
+        "source",
+        "medium",
+        "publisher",
+        "vendor",
+        "ad platform",
+        "network",
+        "job board",
+        "site",
+        "media",
     ],
     "budget": [
-        "budget", "spend", "cost", "investment", "total spend", "total cost",
-        "ad spend", "media spend", "allocation", "planned spend", "monthly budget",
-        "annual budget", "total budget",
+        "budget",
+        "spend",
+        "cost",
+        "investment",
+        "total spend",
+        "total cost",
+        "ad spend",
+        "media spend",
+        "allocation",
+        "planned spend",
+        "monthly budget",
+        "annual budget",
+        "total budget",
     ],
     "cpc": [
-        "cpc", "cost per click", "cost/click", "avg cpc", "average cpc",
-        "planned cpc", "target cpc", "est cpc", "estimated cpc",
+        "cpc",
+        "cost per click",
+        "cost/click",
+        "avg cpc",
+        "average cpc",
+        "planned cpc",
+        "target cpc",
+        "est cpc",
+        "estimated cpc",
     ],
     "cpa": [
-        "cpa", "cost per application", "cost per apply", "cost/apply",
-        "cost per conversion", "cost per lead", "cost/application",
-        "cost per acquisition", "planned cpa", "target cpa", "est cpa",
+        "cpa",
+        "cost per application",
+        "cost per apply",
+        "cost/apply",
+        "cost per conversion",
+        "cost per lead",
+        "cost/application",
+        "cost per acquisition",
+        "planned cpa",
+        "target cpa",
+        "est cpa",
     ],
     "target_roles": [
-        "role", "roles", "job title", "position", "target role",
-        "job type", "job category", "occupation",
+        "role",
+        "roles",
+        "job title",
+        "position",
+        "target role",
+        "job type",
+        "job category",
+        "occupation",
     ],
     "target_locations": [
-        "location", "locations", "city", "region", "geography", "geo",
-        "target location", "market", "area", "state", "country",
+        "location",
+        "locations",
+        "city",
+        "region",
+        "geography",
+        "geo",
+        "target location",
+        "market",
+        "area",
+        "state",
+        "country",
     ],
     "duration": [
-        "duration", "period", "timeline", "start", "end", "dates",
-        "flight", "campaign length", "weeks", "months",
+        "duration",
+        "period",
+        "timeline",
+        "start",
+        "end",
+        "dates",
+        "flight",
+        "campaign length",
+        "weeks",
+        "months",
     ],
     "impressions": [
-        "impression", "impr", "views", "estimated impressions", "reach",
-        "est impressions", "projected impressions",
+        "impression",
+        "impr",
+        "views",
+        "estimated impressions",
+        "reach",
+        "est impressions",
+        "projected impressions",
     ],
     "clicks": [
-        "click", "total click", "estimated clicks", "projected clicks",
+        "click",
+        "total click",
+        "estimated clicks",
+        "projected clicks",
     ],
 }
 
@@ -139,7 +216,7 @@ def _safe_float(val: Any) -> Optional[float]:
     s = str(val).strip()
     if not s or s.lower() in ("n/a", "na", "-", "--", "null", "none", ""):
         return None
-    s = re.sub(r'[$,\s%]', '', s)
+    s = re.sub(r"[$,\s%]", "", s)
     try:
         return float(s)
     except (ValueError, TypeError):
@@ -158,31 +235,59 @@ def _safe_str(val: Any) -> str:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 _CHANNEL_TO_PLATFORM: Dict[str, str] = {
-    "google": "google_search", "google ads": "google_search", "google search": "google_search",
-    "search": "google_search", "sem": "google_search", "ppc": "google_search",
-    "google display": "programmatic", "gdn": "programmatic",
-    "facebook": "meta_facebook", "meta": "meta_facebook", "meta ads": "meta_facebook",
-    "instagram": "meta_instagram", "ig": "meta_instagram",
-    "linkedin": "linkedin", "linkedin ads": "linkedin",
-    "indeed": "indeed", "indeed sponsored": "indeed",
-    "ziprecruiter": "indeed", "glassdoor": "indeed",
-    "programmatic": "programmatic", "programmatic display": "programmatic",
-    "job board": "indeed", "job boards": "indeed",
-    "social": "meta_facebook", "social media": "meta_facebook",
-    "display": "programmatic", "display ads": "programmatic",
-    "career site": "google_search", "organic": "google_search",
-    "appcast": "programmatic", "pandologic": "programmatic", "joveo": "programmatic",
-    "recruitics": "programmatic", "talroo": "programmatic",
-    "monster": "indeed", "careerbuilder": "indeed",
-    "craigslist": "indeed", "snagajob": "indeed",
-    "handshake": "indeed", "wellfound": "linkedin",
-    "stackoverflow": "linkedin", "github jobs": "linkedin",
-    "dice": "linkedin", "hired": "linkedin",
-    "tiktok": "meta_facebook", "snapchat": "meta_facebook",
-    "youtube": "programmatic", "spotify": "programmatic",
-    "twitter": "meta_facebook", "x ads": "meta_facebook",
+    "google": "google_search",
+    "google ads": "google_search",
+    "google search": "google_search",
+    "search": "google_search",
+    "sem": "google_search",
+    "ppc": "google_search",
+    "google display": "programmatic",
+    "gdn": "programmatic",
+    "facebook": "meta_facebook",
+    "meta": "meta_facebook",
+    "meta ads": "meta_facebook",
+    "instagram": "meta_instagram",
+    "ig": "meta_instagram",
+    "linkedin": "linkedin",
+    "linkedin ads": "linkedin",
+    "indeed": "indeed",
+    "indeed sponsored": "indeed",
+    "ziprecruiter": "indeed",
+    "glassdoor": "indeed",
+    "programmatic": "programmatic",
+    "programmatic display": "programmatic",
+    "job board": "indeed",
+    "job boards": "indeed",
+    "social": "meta_facebook",
+    "social media": "meta_facebook",
+    "display": "programmatic",
+    "display ads": "programmatic",
+    "career site": "google_search",
+    "organic": "google_search",
+    "appcast": "programmatic",
+    "pandologic": "programmatic",
+    "joveo": "programmatic",
+    "recruitics": "programmatic",
+    "talroo": "programmatic",
+    "monster": "indeed",
+    "careerbuilder": "indeed",
+    "craigslist": "indeed",
+    "snagajob": "indeed",
+    "handshake": "indeed",
+    "wellfound": "linkedin",
+    "stackoverflow": "linkedin",
+    "github jobs": "linkedin",
+    "dice": "linkedin",
+    "hired": "linkedin",
+    "tiktok": "meta_facebook",
+    "snapchat": "meta_facebook",
+    "youtube": "programmatic",
+    "spotify": "programmatic",
+    "twitter": "meta_facebook",
+    "x ads": "meta_facebook",
     "reddit": "meta_facebook",
-    "niche board": "indeed", "specialty board": "indeed",
+    "niche board": "indeed",
+    "specialty board": "indeed",
     "trade publication": "programmatic",
 }
 
@@ -200,19 +305,27 @@ def _resolve_platform(channel_name: str) -> str:
 # FALLBACK BENCHMARKS (used when trend_engine unavailable)
 # ═══════════════════════════════════════════════════════════════════════════════
 
+# Hardcoded fallback (kept for resilience if benchmark_registry unavailable)
 _FALLBACK_BENCHMARKS: Dict[str, Dict[str, float]] = {
-    "google_search":  {"cpc": 2.50, "cpa": 28.00, "ctr": 0.030, "cpm": 10.00},
-    "meta_facebook":  {"cpc": 1.20, "cpa": 22.00, "ctr": 0.012, "cpm": 7.50},
-    "meta_instagram": {"cpc": 1.40, "cpa": 25.00, "ctr": 0.010, "cpm": 8.00},
-    "linkedin":       {"cpc": 5.50, "cpa": 45.00, "ctr": 0.008, "cpm": 35.00},
-    "indeed":         {"cpc": 0.85, "cpa": 15.00, "ctr": 0.040, "cpm": 5.00},
-    "programmatic":   {"cpc": 0.65, "cpa": 12.00, "ctr": 0.025, "cpm": 4.50},
+    "google_search": {"cpc": 2.69, "cpa": 45.00, "ctr": 0.042, "cpm": 10.00},
+    "meta_facebook": {"cpc": 1.72, "cpa": 30.00, "ctr": 0.012, "cpm": 7.50},
+    "meta_instagram": {"cpc": 1.50, "cpa": 35.00, "ctr": 0.010, "cpm": 8.00},
+    "linkedin": {"cpc": 5.26, "cpa": 75.00, "ctr": 0.008, "cpm": 35.00},
+    "indeed": {"cpc": 0.50, "cpa": 25.00, "ctr": 0.040, "cpm": 5.00},
+    "programmatic": {"cpc": 0.63, "cpa": 22.00, "ctr": 0.025, "cpm": 4.50},
 }
 
 
 def _get_fallback(platform: str, metric: str) -> float:
-    """Get fallback benchmark value."""
-    return _FALLBACK_BENCHMARKS.get(platform, _FALLBACK_BENCHMARKS["programmatic"]).get(metric, 1.00)
+    """Get fallback benchmark value.
+
+    Prefers benchmark_registry when available, else uses hardcoded fallback.
+    """
+    if _HAS_BENCHMARK_REGISTRY:
+        return get_benchmark_value(platform, metric)
+    return _FALLBACK_BENCHMARKS.get(platform, _FALLBACK_BENCHMARKS["programmatic"]).get(
+        metric, 1.00
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -355,6 +468,7 @@ _RECOMMENDED_CHANNELS: Dict[str, Dict[str, Dict[str, Any]]] = {
 # 1. PARSE MEDIA PLAN
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def parse_media_plan(file_bytes: bytes, filename: str) -> List[Dict[str, Any]]:
     """Parse uploaded Excel/CSV media plan into structured line items.
 
@@ -368,7 +482,7 @@ def parse_media_plan(file_bytes: bytes, filename: str) -> List[Dict[str, Any]]:
     if len(file_bytes) > MAX_FILE_SIZE:
         return []
     try:
-        ext = os.path.splitext(os.path.basename(filename))[1].lstrip('.').lower()
+        ext = os.path.splitext(os.path.basename(filename))[1].lstrip(".").lower()
         if ext in ("xlsx", "xls"):
             return _parse_excel(file_bytes)
         elif ext == "csv":
@@ -384,6 +498,7 @@ def parse_media_plan(file_bytes: bytes, filename: str) -> List[Dict[str, Any]]:
 def _parse_excel(file_bytes: bytes) -> List[Dict[str, Any]]:
     """Parse Excel file into media plan line items."""
     from openpyxl import load_workbook
+
     wb = load_workbook(io.BytesIO(file_bytes), read_only=True, data_only=True)
 
     try:
@@ -397,11 +512,18 @@ def _parse_excel(file_bytes: bytes) -> List[Dict[str, Any]]:
 
             # Try to find header row (first row with recognizable column names)
             for header_idx in range(min(5, len(rows))):
-                candidate_headers = [str(c).strip() if c else "" for c in rows[header_idx]]
+                candidate_headers = [
+                    str(c).strip() if c else "" for c in rows[header_idx]
+                ]
                 col_map = _map_columns(candidate_headers)
                 # Must have at least channel + budget
-                if col_map.get("channel") is not None and col_map.get("budget") is not None:
-                    records = _rows_to_line_items(candidate_headers, rows[header_idx + 1:])
+                if (
+                    col_map.get("channel") is not None
+                    and col_map.get("budget") is not None
+                ):
+                    records = _rows_to_line_items(
+                        candidate_headers, rows[header_idx + 1 :]
+                    )
                     if len(records) > len(best_records):
                         best_records = records
                     break
@@ -414,6 +536,7 @@ def _parse_excel(file_bytes: bytes) -> List[Dict[str, Any]]:
 def _parse_csv(file_bytes: bytes) -> List[Dict[str, Any]]:
     """Parse CSV file into media plan line items."""
     import csv as csv_mod
+
     text = None
     for enc in ("utf-8", "utf-8-sig", "latin-1", "cp1252"):
         try:
@@ -433,7 +556,7 @@ def _parse_csv(file_bytes: bytes) -> List[Dict[str, Any]]:
         candidate_headers = [str(c).strip() if c else "" for c in rows[header_idx]]
         col_map = _map_columns(candidate_headers)
         if col_map.get("channel") is not None and col_map.get("budget") is not None:
-            return _rows_to_line_items(candidate_headers, rows[header_idx + 1:])
+            return _rows_to_line_items(candidate_headers, rows[header_idx + 1 :])
 
     # Fallback: use first row
     headers = [str(c).strip() if c else "" for c in rows[0]]
@@ -456,7 +579,12 @@ def _rows_to_line_items(headers: List[str], data_rows: List) -> List[Dict[str, A
             continue
 
         channel = _safe_str(cells[ch_idx])
-        if not channel or channel.lower() in ("total", "grand total", "sum", "subtotal"):
+        if not channel or channel.lower() in (
+            "total",
+            "grand total",
+            "sum",
+            "subtotal",
+        ):
             continue
 
         def _get_float(field: str) -> Optional[float]:
@@ -505,6 +633,7 @@ def _rows_to_line_items(headers: List[str], data_rows: List) -> List[Dict[str, A
 # 2. GET BENCHMARKS
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def _get_benchmarks_for_platform(
     platform: str,
     industry: str = "general_entry_level",
@@ -545,13 +674,24 @@ def _get_all_benchmarks(
     location: str = "",
 ) -> Dict[str, Dict[str, float]]:
     """Pull benchmarks for all platforms."""
-    platforms = ["google_search", "meta_facebook", "linkedin", "indeed", "programmatic", "meta_instagram"]
-    return {p: _get_benchmarks_for_platform(p, industry, collar_type, location) for p in platforms}
+    platforms = [
+        "google_search",
+        "meta_facebook",
+        "linkedin",
+        "indeed",
+        "programmatic",
+        "meta_instagram",
+    ]
+    return {
+        p: _get_benchmarks_for_platform(p, industry, collar_type, location)
+        for p in platforms
+    }
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 3. AUDIT A SINGLE LINE ITEM
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def _score_to_grade(score: float) -> str:
     """Convert efficiency score (0-100) to letter grade."""
@@ -593,7 +733,9 @@ def audit_line_item(
     else:
         location = ""
         if locations:
-            location = locations[0] if isinstance(locations[0], str) else str(locations[0])
+            location = (
+                locations[0] if isinstance(locations[0], str) else str(locations[0])
+            )
         bench = _get_benchmarks_for_platform(platform, industry, collar_type, location)
 
     benchmark_cpc = bench.get("cpc", 0.0)
@@ -629,9 +771,13 @@ def audit_line_item(
         scores.append(cpc_score)
 
         if cpc_var > 30:
-            result["detail"] += f"CPC is {cpc_var:.0f}% above benchmark (${planned_cpc:.2f} vs ${benchmark_cpc:.2f}). "
+            result[
+                "detail"
+            ] += f"CPC is {cpc_var:.0f}% above benchmark (${planned_cpc:.2f} vs ${benchmark_cpc:.2f}). "
         elif cpc_var < -20:
-            result["detail"] += f"CPC is {abs(cpc_var):.0f}% below benchmark -- strong value. "
+            result[
+                "detail"
+            ] += f"CPC is {abs(cpc_var):.0f}% below benchmark -- strong value. "
     else:
         scores.append(50.0)
 
@@ -643,15 +789,24 @@ def audit_line_item(
         scores.append(cpa_score)
 
         if cpa_var > 30:
-            result["detail"] += f"CPA is {cpa_var:.0f}% above benchmark (${planned_cpa:.2f} vs ${benchmark_cpa:.2f}). "
+            result[
+                "detail"
+            ] += f"CPA is {cpa_var:.0f}% above benchmark (${planned_cpa:.2f} vs ${benchmark_cpa:.2f}). "
         elif cpa_var < -20:
-            result["detail"] += f"CPA is {abs(cpa_var):.0f}% below benchmark -- efficient targeting. "
+            result[
+                "detail"
+            ] += f"CPA is {abs(cpa_var):.0f}% below benchmark -- efficient targeting. "
     else:
         scores.append(50.0)
 
     # Budget proportionality score (penalize extremely high concentrations)
     if budget > 0 and planned_cpc is not None and benchmark_cpc > 0:
-        budget_score = min(100, max(0, 60 - abs(((planned_cpc - benchmark_cpc) / benchmark_cpc) * 100) * 1.5))
+        budget_score = min(
+            100,
+            max(
+                0, 60 - abs(((planned_cpc - benchmark_cpc) / benchmark_cpc) * 100) * 1.5
+            ),
+        )
         scores.append(budget_score)
     else:
         scores.append(50.0)
@@ -670,27 +825,45 @@ def audit_line_item(
     # Determine finding
     if planned_cpc is None and planned_cpa is None:
         result["finding"] = "no_data"
-        result["detail"] = "No CPC or CPA data provided. Cannot fully assess cost efficiency."
+        result["detail"] = (
+            "No CPC or CPA data provided. Cannot fully assess cost efficiency."
+        )
     elif result["efficiency_score"] >= 70:
         result["finding"] = "optimal"
         if not result["detail"]:
-            result["detail"] = "Planned costs are at or below benchmark levels. Good allocation."
+            result["detail"] = (
+                "Planned costs are at or below benchmark levels. Good allocation."
+            )
     elif result["efficiency_score"] >= 40:
         result["finding"] = "review"
         if not result["detail"]:
-            result["detail"] = "Costs are slightly above benchmarks. Consider negotiating rates."
+            result["detail"] = (
+                "Costs are slightly above benchmarks. Consider negotiating rates."
+            )
     else:
         result["finding"] = "overspend"
         if not result["detail"]:
-            result["detail"] = "Significant overspend detected. Costs are well above industry benchmarks."
+            result["detail"] = (
+                "Significant overspend detected. Costs are well above industry benchmarks."
+            )
 
     # Calculate savings potential
-    if planned_cpc is not None and benchmark_cpc > 0 and planned_cpc > benchmark_cpc and budget > 0:
+    if (
+        planned_cpc is not None
+        and benchmark_cpc > 0
+        and planned_cpc > benchmark_cpc
+        and budget > 0
+    ):
         # How much could be saved if CPC were at benchmark
         estimated_clicks = budget / planned_cpc if planned_cpc > 0 else 0
         cost_at_benchmark = estimated_clicks * benchmark_cpc
         result["savings_potential"] = round(max(0, budget - cost_at_benchmark), 2)
-    elif planned_cpa is not None and benchmark_cpa > 0 and planned_cpa > benchmark_cpa and budget > 0:
+    elif (
+        planned_cpa is not None
+        and benchmark_cpa > 0
+        and planned_cpa > benchmark_cpa
+        and budget > 0
+    ):
         estimated_apps = budget / planned_cpa if planned_cpa > 0 else 0
         cost_at_benchmark = estimated_apps * benchmark_cpa
         result["savings_potential"] = round(max(0, budget - cost_at_benchmark), 2)
@@ -701,6 +874,7 @@ def audit_line_item(
 # ═══════════════════════════════════════════════════════════════════════════════
 # 4. IDENTIFY MISSING CHANNELS
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def identify_missing_channels(
     current_channels: List[str],
@@ -752,12 +926,16 @@ def identify_missing_channels(
                 break
 
         if not is_present:
-            missing.append({
-                "channel": channel_name,
-                "platform": platform,
-                "importance": info.get("importance", "medium"),
-                "reason": info.get("reason", "Recommended for your recruitment strategy."),
-            })
+            missing.append(
+                {
+                    "channel": channel_name,
+                    "platform": platform,
+                    "importance": info.get("importance", "medium"),
+                    "reason": info.get(
+                        "reason", "Recommended for your recruitment strategy."
+                    ),
+                }
+            )
 
     # Sort by importance
     importance_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
@@ -769,6 +947,7 @@ def identify_missing_channels(
 # ═══════════════════════════════════════════════════════════════════════════════
 # 5. CALCULATE TOTAL SAVINGS POTENTIAL
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def calculate_savings_potential(audit_results: List[Dict[str, Any]]) -> Dict[str, Any]:
     """Total potential savings across all overspend channels.
@@ -789,16 +968,22 @@ def calculate_savings_potential(audit_results: List[Dict[str, Any]]) -> Dict[str
 
         if savings > 0:
             overspend_count += 1
-            channel_savings.append({
-                "channel": ar.get("channel", "Unknown"),
-                "planned_budget": budget,
-                "savings": savings,
-                "savings_pct": round((savings / budget * 100) if budget > 0 else 0, 1),
-            })
+            channel_savings.append(
+                {
+                    "channel": ar.get("channel", "Unknown"),
+                    "planned_budget": budget,
+                    "savings": savings,
+                    "savings_pct": round(
+                        (savings / budget * 100) if budget > 0 else 0, 1
+                    ),
+                }
+            )
 
     channel_savings.sort(key=lambda x: x["savings"], reverse=True)
 
-    savings_pct_of_total = round((total_savings / total_budget * 100) if total_budget > 0 else 0, 1)
+    savings_pct_of_total = round(
+        (total_savings / total_budget * 100) if total_budget > 0 else 0, 1
+    )
 
     if total_savings >= 10000:
         narrative = (
@@ -831,6 +1016,7 @@ def calculate_savings_potential(audit_results: List[Dict[str, Any]]) -> Dict[str
 # 6. GENERATE RECOMMENDATIONS
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def generate_recommendations(
     audit_results: List[Dict[str, Any]],
     missing_channels: List[Dict[str, Any]],
@@ -850,98 +1036,110 @@ def generate_recommendations(
 
     for ar in overspend_items:
         savings = ar.get("savings_potential", 0)
-        recommendations.append({
-            "priority": "high",
-            "priority_num": priority_counter,
-            "action": f"Reduce {ar['channel']} CPC/CPA to benchmark levels",
-            "channel": ar.get("channel", ""),
-            "detail": (
-                f"Planned CPC ${ar.get('planned_cpc', 0):.2f} is {ar.get('cpc_variance_pct', 0):.0f}% above "
-                f"benchmark ${ar.get('benchmark_cpc', 0):.2f}. "
-                f"Potential savings: ${savings:,.0f}. "
-                f"Negotiate rates, optimize targeting, or consider alternative vendors."
-            ),
-            "category": "overspend",
-            "savings": savings,
-        })
+        recommendations.append(
+            {
+                "priority": "high",
+                "priority_num": priority_counter,
+                "action": f"Reduce {ar['channel']} CPC/CPA to benchmark levels",
+                "channel": ar.get("channel", ""),
+                "detail": (
+                    f"Planned CPC ${ar.get('planned_cpc', 0):.2f} is {ar.get('cpc_variance_pct', 0):.0f}% above "
+                    f"benchmark ${ar.get('benchmark_cpc', 0):.2f}. "
+                    f"Potential savings: ${savings:,.0f}. "
+                    f"Negotiate rates, optimize targeting, or consider alternative vendors."
+                ),
+                "category": "overspend",
+                "savings": savings,
+            }
+        )
         priority_counter += 1
 
     # 2. Add missing critical/high channels
     for mc in missing_channels:
         if mc["importance"] in ("critical", "high"):
-            recommendations.append({
-                "priority": "high" if mc["importance"] == "critical" else "medium",
-                "priority_num": priority_counter,
-                "action": f"Add {mc['channel']} to your media plan",
-                "channel": mc["channel"],
-                "detail": mc["reason"],
-                "category": "missing_channel",
-                "savings": 0,
-            })
+            recommendations.append(
+                {
+                    "priority": "high" if mc["importance"] == "critical" else "medium",
+                    "priority_num": priority_counter,
+                    "action": f"Add {mc['channel']} to your media plan",
+                    "channel": mc["channel"],
+                    "detail": mc["reason"],
+                    "category": "missing_channel",
+                    "savings": 0,
+                }
+            )
             priority_counter += 1
 
     # 3. Channels needing review
     review_items = [ar for ar in audit_results if ar.get("finding") == "review"]
     for ar in review_items:
-        recommendations.append({
-            "priority": "medium",
-            "priority_num": priority_counter,
-            "action": f"Review {ar['channel']} pricing",
-            "channel": ar.get("channel", ""),
-            "detail": (
-                f"{ar.get('channel', '')} costs are slightly above benchmarks (Grade: {ar.get('grade', 'C')}). "
-                f"{ar.get('detail', '')}"
-            ),
-            "category": "review",
-            "savings": ar.get("savings_potential", 0),
-        })
+        recommendations.append(
+            {
+                "priority": "medium",
+                "priority_num": priority_counter,
+                "action": f"Review {ar['channel']} pricing",
+                "channel": ar.get("channel", ""),
+                "detail": (
+                    f"{ar.get('channel', '')} costs are slightly above benchmarks (Grade: {ar.get('grade', 'C')}). "
+                    f"{ar.get('detail', '')}"
+                ),
+                "category": "review",
+                "savings": ar.get("savings_potential", 0),
+            }
+        )
         priority_counter += 1
 
     # 4. Missing medium-importance channels
     for mc in missing_channels:
         if mc["importance"] == "medium":
-            recommendations.append({
-                "priority": "low",
-                "priority_num": priority_counter,
-                "action": f"Consider adding {mc['channel']}",
-                "channel": mc["channel"],
-                "detail": mc["reason"],
-                "category": "missing_channel",
-                "savings": 0,
-            })
+            recommendations.append(
+                {
+                    "priority": "low",
+                    "priority_num": priority_counter,
+                    "action": f"Consider adding {mc['channel']}",
+                    "channel": mc["channel"],
+                    "detail": mc["reason"],
+                    "category": "missing_channel",
+                    "savings": 0,
+                }
+            )
             priority_counter += 1
 
     # 5. Budget rebalancing suggestion (if we have multiple channels)
     optimal_items = [ar for ar in audit_results if ar.get("finding") == "optimal"]
     if optimal_items and overspend_items:
         best_channel = max(optimal_items, key=lambda x: x.get("efficiency_score", 0))
-        recommendations.append({
-            "priority": "medium",
-            "priority_num": priority_counter,
-            "action": f"Reallocate overspend budget to {best_channel['channel']}",
-            "channel": best_channel.get("channel", ""),
-            "detail": (
-                f"{best_channel['channel']} has the best efficiency score ({best_channel.get('efficiency_score', 0):.0f}/100, "
-                f"Grade {best_channel.get('grade', 'C')}). "
-                f"Move savings from overpriced channels here for maximum ROI."
-            ),
-            "category": "rebalance",
-            "savings": 0,
-        })
+        recommendations.append(
+            {
+                "priority": "medium",
+                "priority_num": priority_counter,
+                "action": f"Reallocate overspend budget to {best_channel['channel']}",
+                "channel": best_channel.get("channel", ""),
+                "detail": (
+                    f"{best_channel['channel']} has the best efficiency score ({best_channel.get('efficiency_score', 0):.0f}/100, "
+                    f"Grade {best_channel.get('grade', 'C')}). "
+                    f"Move savings from overpriced channels here for maximum ROI."
+                ),
+                "category": "rebalance",
+                "savings": 0,
+            }
+        )
         priority_counter += 1
 
     # 6. Industry-specific advice
     industry_tips = _get_industry_tips(industry)
     if industry_tips:
-        recommendations.append({
-            "priority": "low",
-            "priority_num": priority_counter,
-            "action": "Industry best practice",
-            "channel": "",
-            "detail": industry_tips,
-            "category": "industry_insight",
-            "savings": 0,
-        })
+        recommendations.append(
+            {
+                "priority": "low",
+                "priority_num": priority_counter,
+                "action": "Industry best practice",
+                "channel": "",
+                "detail": industry_tips,
+                "category": "industry_insight",
+                "savings": 0,
+            }
+        )
 
     return recommendations[:15]  # Cap at 15
 
@@ -966,6 +1164,7 @@ def _get_industry_tips(industry: str) -> str:
 # 7. GENERATE AUDIT SCORECARD
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def generate_audit_scorecard(
     audit_results: List[Dict[str, Any]],
     missing_channels: List[Dict[str, Any]],
@@ -987,12 +1186,17 @@ def generate_audit_scorecard(
     # Budget efficiency score: weighted average of line item scores
     total_budget = sum(ar.get("planned_budget", 0) for ar in audit_results)
     if total_budget > 0:
-        weighted_score = sum(
-            ar.get("efficiency_score", 50) * ar.get("planned_budget", 0)
-            for ar in audit_results
-        ) / total_budget
+        weighted_score = (
+            sum(
+                ar.get("efficiency_score", 50) * ar.get("planned_budget", 0)
+                for ar in audit_results
+            )
+            / total_budget
+        )
     else:
-        weighted_score = sum(ar.get("efficiency_score", 50) for ar in audit_results) / len(audit_results)
+        weighted_score = sum(
+            ar.get("efficiency_score", 50) for ar in audit_results
+        ) / len(audit_results)
 
     budget_efficiency_score = round(min(100, max(0, weighted_score)), 1)
 
@@ -1005,7 +1209,9 @@ def generate_audit_scorecard(
         channel_coverage_score = 50.0
 
     # Boost coverage score if critical channels are not missing
-    critical_missing = sum(1 for mc in missing_channels if mc.get("importance") == "critical")
+    critical_missing = sum(
+        1 for mc in missing_channels if mc.get("importance") == "critical"
+    )
     if critical_missing > 0:
         channel_coverage_score = max(0, channel_coverage_score - critical_missing * 15)
 
@@ -1014,7 +1220,12 @@ def generate_audit_scorecard(
     overall_grade = _score_to_grade(overall_score)
 
     # Findings summary
-    findings_count: Dict[str, int] = {"optimal": 0, "review": 0, "overspend": 0, "no_data": 0}
+    findings_count: Dict[str, int] = {
+        "optimal": 0,
+        "review": 0,
+        "overspend": 0,
+        "no_data": 0,
+    }
     for ar in audit_results:
         finding = ar.get("finding", "no_data")
         findings_count[finding] = findings_count.get(finding, 0) + 1
@@ -1057,7 +1268,10 @@ def _finding_text(finding: str) -> str:
 # 8. GENERATE AUDIT EXCEL
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def generate_audit_excel(report_data: Dict[str, Any], client_name: str = "Client") -> bytes:
+
+def generate_audit_excel(
+    report_data: Dict[str, Any], client_name: str = "Client"
+) -> bytes:
     """Generate 4-sheet Excel audit report.
 
     Sheets:
@@ -1110,12 +1324,22 @@ def generate_audit_excel(report_data: Dict[str, Any], client_name: str = "Client
 
     # Fills
     fill_navy = PatternFill(start_color=NAVY, end_color=NAVY, fill_type="solid")
-    fill_sapphire = PatternFill(start_color=SAPPHIRE, end_color=SAPPHIRE, fill_type="solid")
-    fill_light = PatternFill(start_color=BLUE_LIGHT, end_color=BLUE_LIGHT, fill_type="solid")
-    fill_pale = PatternFill(start_color=BLUE_PALE, end_color=BLUE_PALE, fill_type="solid")
+    fill_sapphire = PatternFill(
+        start_color=SAPPHIRE, end_color=SAPPHIRE, fill_type="solid"
+    )
+    fill_light = PatternFill(
+        start_color=BLUE_LIGHT, end_color=BLUE_LIGHT, fill_type="solid"
+    )
+    fill_pale = PatternFill(
+        start_color=BLUE_PALE, end_color=BLUE_PALE, fill_type="solid"
+    )
     fill_white = PatternFill(start_color=WHITE, end_color=WHITE, fill_type="solid")
-    fill_green_bg = PatternFill(start_color=GREEN_BG, end_color=GREEN_BG, fill_type="solid")
-    fill_amber_bg = PatternFill(start_color=AMBER_BG, end_color=AMBER_BG, fill_type="solid")
+    fill_green_bg = PatternFill(
+        start_color=GREEN_BG, end_color=GREEN_BG, fill_type="solid"
+    )
+    fill_amber_bg = PatternFill(
+        start_color=AMBER_BG, end_color=AMBER_BG, fill_type="solid"
+    )
     fill_red_bg = PatternFill(start_color=RED_BG, end_color=RED_BG, fill_type="solid")
     fill_green = PatternFill(start_color=GREEN, end_color=GREEN, fill_type="solid")
     fill_amber = PatternFill(start_color=AMBER, end_color=AMBER, fill_type="solid")
@@ -1125,11 +1349,15 @@ def generate_audit_excel(report_data: Dict[str, Any], client_name: str = "Client
         if grade == "A":
             return fill_green_bg
         elif grade == "B":
-            return PatternFill(start_color="DCFCE7", end_color="DCFCE7", fill_type="solid")
+            return PatternFill(
+                start_color="DCFCE7", end_color="DCFCE7", fill_type="solid"
+            )
         elif grade == "C":
             return fill_amber_bg
         elif grade == "D":
-            return PatternFill(start_color="FED7AA", end_color="FED7AA", fill_type="solid")
+            return PatternFill(
+                start_color="FED7AA", end_color="FED7AA", fill_type="solid"
+            )
         else:
             return fill_red_bg
 
@@ -1201,15 +1429,18 @@ def generate_audit_excel(report_data: Dict[str, Any], client_name: str = "Client
     ws1.title = "Audit Summary"
     ws1.sheet_properties.tabColor = NAVY
 
-    ws1.column_dimensions['A'].width = 3
-    for col_letter in ['B', 'C', 'D', 'E', 'F', 'G', 'H']:
+    ws1.column_dimensions["A"].width = 3
+    for col_letter in ["B", "C", "D", "E", "F", "G", "H"]:
         ws1.column_dimensions[col_letter].width = 18
 
     row = 2
     ws1.cell(row=row, column=COL_START, value="Media Plan Audit Report").font = f_title
     row += 1
-    ws1.cell(row=row, column=COL_START,
-             value=f"{client_name} | Generated {datetime.datetime.now().strftime('%B %d, %Y')}").font = f_footnote
+    ws1.cell(
+        row=row,
+        column=COL_START,
+        value=f"{client_name} | Generated {datetime.datetime.now().strftime('%B %d, %Y')}",
+    ).font = f_footnote
     row += 2
 
     # Overall Grade Card
@@ -1218,7 +1449,9 @@ def generate_audit_excel(report_data: Dict[str, Any], client_name: str = "Client
 
     # Grade
     ws1.cell(row=row, column=COL_START, value="Overall Grade").font = f_subsection
-    grade_cell = ws1.cell(row=row, column=COL_START + 1, value=scorecard.get("overall_grade", "N/A"))
+    grade_cell = ws1.cell(
+        row=row, column=COL_START + 1, value=scorecard.get("overall_grade", "N/A")
+    )
     grade_cell.font = Font(name="Calibri", bold=True, size=28, color=WHITE)
     _g = scorecard.get("overall_grade", "C")
     if _g in ("A", "B"):
@@ -1229,12 +1462,22 @@ def generate_audit_excel(report_data: Dict[str, Any], client_name: str = "Client
         grade_cell.fill = fill_red
     grade_cell.alignment = al_center
 
-    ws1.cell(row=row, column=COL_START + 2, value="Budget Efficiency").font = f_hero_label
-    ws1.cell(row=row, column=COL_START + 3,
-             value=f"{scorecard.get('budget_efficiency_score', 0)}/100").font = f_metric_value
-    ws1.cell(row=row, column=COL_START + 4, value="Channel Coverage").font = f_hero_label
-    ws1.cell(row=row, column=COL_START + 5,
-             value=f"{scorecard.get('channel_coverage_score', 0)}/100").font = f_metric_value
+    ws1.cell(row=row, column=COL_START + 2, value="Budget Efficiency").font = (
+        f_hero_label
+    )
+    ws1.cell(
+        row=row,
+        column=COL_START + 3,
+        value=f"{scorecard.get('budget_efficiency_score', 0)}/100",
+    ).font = f_metric_value
+    ws1.cell(row=row, column=COL_START + 4, value="Channel Coverage").font = (
+        f_hero_label
+    )
+    ws1.cell(
+        row=row,
+        column=COL_START + 5,
+        value=f"{scorecard.get('channel_coverage_score', 0)}/100",
+    ).font = f_metric_value
     row += 2
 
     # Savings Banner
@@ -1243,17 +1486,23 @@ def generate_audit_excel(report_data: Dict[str, Any], client_name: str = "Client
     row = _write_section_header(ws1, row, "SAVINGS OPPORTUNITY")
     row += 1
     if total_savings > 0:
-        ws1.cell(row=row, column=COL_START,
-                 value=f"Potential Savings: ${total_savings:,.0f}").font = Font(
-            name="Calibri", bold=True, size=16, color=GREEN)
-        ws1.cell(row=row + 1, column=COL_START,
-                 value=f"{savings.get('savings_pct', 0)}% of total planned budget (${total_budget:,.0f})").font = f_footnote
+        ws1.cell(
+            row=row, column=COL_START, value=f"Potential Savings: ${total_savings:,.0f}"
+        ).font = Font(name="Calibri", bold=True, size=16, color=GREEN)
+        ws1.cell(
+            row=row + 1,
+            column=COL_START,
+            value=f"{savings.get('savings_pct', 0)}% of total planned budget (${total_budget:,.0f})",
+        ).font = f_footnote
     else:
-        ws1.cell(row=row, column=COL_START,
-                 value="No significant overspend detected").font = Font(
-            name="Calibri", bold=True, size=14, color=GREEN)
-        ws1.cell(row=row + 1, column=COL_START,
-                 value="Your planned costs are in line with industry benchmarks.").font = f_footnote
+        ws1.cell(
+            row=row, column=COL_START, value="No significant overspend detected"
+        ).font = Font(name="Calibri", bold=True, size=14, color=GREEN)
+        ws1.cell(
+            row=row + 1,
+            column=COL_START,
+            value="Your planned costs are in line with industry benchmarks.",
+        ).font = f_footnote
     row += 3
 
     # Findings Summary
@@ -1285,7 +1534,9 @@ def generate_audit_excel(report_data: Dict[str, Any], client_name: str = "Client
 
     # Channel Grades
     row = _write_section_header(ws1, row, "CHANNEL GRADES")
-    row = _write_table_header(ws1, row, ["Channel", "Grade", "Score", "Finding", "CPC Variance", "Savings"])
+    row = _write_table_header(
+        ws1, row, ["Channel", "Grade", "Score", "Finding", "CPC Variance", "Savings"]
+    )
     for ar in audit_results:
         grade = ar.get("grade", "C")
         cpc_var = ar.get("cpc_variance_pct", 0)
@@ -1296,23 +1547,35 @@ def generate_audit_excel(report_data: Dict[str, Any], client_name: str = "Client
             return f"{arrow}{v:.1f}%"
 
         fonts_row = [
-            f_body_bold, _grade_font(grade), f_body, f_body,
+            f_body_bold,
+            _grade_font(grade),
+            f_body,
+            f_body,
             f_green if cpc_var < 0 else f_red if cpc_var > 20 else f_amber,
             f_green if sav == 0 else f_red,
         ]
         fills_row = [None, _grade_fill(grade), None, None, None, None]
-        row = _write_table_row(ws1, row, [
-            ar.get("channel", ""),
-            grade,
-            f"{ar.get('efficiency_score', 0):.0f}",
-            _finding_text(ar.get("finding", "")),
-            _var_str(cpc_var),
-            f"${sav:,.0f}" if sav > 0 else "-",
-        ], fonts=fonts_row, fills=fills_row)
+        row = _write_table_row(
+            ws1,
+            row,
+            [
+                ar.get("channel", ""),
+                grade,
+                f"{ar.get('efficiency_score', 0):.0f}",
+                _finding_text(ar.get("finding", "")),
+                _var_str(cpc_var),
+                f"${sav:,.0f}" if sav > 0 else "-",
+            ],
+            fonts=fonts_row,
+            fills=fills_row,
+        )
 
     row += 1
-    ws1.cell(row=row, column=COL_START,
-             value="Negative CPC variance = below benchmark (good). Positive = above benchmark (overspend).").font = f_footnote
+    ws1.cell(
+        row=row,
+        column=COL_START,
+        value="Negative CPC variance = below benchmark (good). Positive = above benchmark (overspend).",
+    ).font = f_footnote
 
     # ══════════════════════════════════════════════════════════════════
     # SHEET 2: Line-by-Line Analysis
@@ -1320,16 +1583,27 @@ def generate_audit_excel(report_data: Dict[str, Any], client_name: str = "Client
     ws2 = wb.create_sheet("Line-by-Line Analysis")
     ws2.sheet_properties.tabColor = SAPPHIRE
 
-    ws2.column_dimensions['A'].width = 3
-    for col_letter in ['B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']:
+    ws2.column_dimensions["A"].width = 3
+    for col_letter in ["B", "C", "D", "E", "F", "G", "H", "I", "J"]:
         ws2.column_dimensions[col_letter].width = 16
 
     row = 2
     row = _write_section_header(ws2, row, "DETAILED LINE ITEM ANALYSIS", col_end=10)
-    row = _write_table_header(ws2, row, [
-        "Channel", "Planned Budget", "Planned CPC", "Benchmark CPC",
-        "CPC Variance", "Planned CPA", "Benchmark CPA", "Grade", "Finding",
-    ])
+    row = _write_table_header(
+        ws2,
+        row,
+        [
+            "Channel",
+            "Planned Budget",
+            "Planned CPC",
+            "Benchmark CPC",
+            "CPC Variance",
+            "Planned CPA",
+            "Benchmark CPA",
+            "Grade",
+            "Finding",
+        ],
+    )
 
     for ar in audit_results:
         grade = ar.get("grade", "C")
@@ -1338,23 +1612,35 @@ def generate_audit_excel(report_data: Dict[str, Any], client_name: str = "Client
         planned_cpa = ar.get("planned_cpa")
 
         fonts_row = [
-            f_body_bold, f_body, f_body, f_body,
+            f_body_bold,
+            f_body,
+            f_body,
+            f_body,
             f_green if cpc_var < 0 else f_red if cpc_var > 20 else f_amber,
-            f_body, f_body, _grade_font(grade), f_body,
+            f_body,
+            f_body,
+            _grade_font(grade),
+            f_body,
         ]
         fills_row = [None] * 7 + [_grade_fill(grade), None]
 
-        row = _write_table_row(ws2, row, [
-            ar.get("channel", ""),
-            f"${ar.get('planned_budget', 0):,.2f}",
-            f"${planned_cpc:.2f}" if planned_cpc is not None else "N/A",
-            f"${ar.get('benchmark_cpc', 0):.2f}",
-            f"{'+' if cpc_var > 0 else ''}{cpc_var:.1f}%",
-            f"${planned_cpa:.2f}" if planned_cpa is not None else "N/A",
-            f"${ar.get('benchmark_cpa', 0):.2f}",
-            grade,
-            _finding_text(ar.get("finding", "")),
-        ], fonts=fonts_row, fills=fills_row)
+        row = _write_table_row(
+            ws2,
+            row,
+            [
+                ar.get("channel", ""),
+                f"${ar.get('planned_budget', 0):,.2f}",
+                f"${planned_cpc:.2f}" if planned_cpc is not None else "N/A",
+                f"${ar.get('benchmark_cpc', 0):.2f}",
+                f"{'+' if cpc_var > 0 else ''}{cpc_var:.1f}%",
+                f"${planned_cpa:.2f}" if planned_cpa is not None else "N/A",
+                f"${ar.get('benchmark_cpa', 0):.2f}",
+                grade,
+                _finding_text(ar.get("finding", "")),
+            ],
+            fonts=fonts_row,
+            fills=fills_row,
+        )
 
     row += 2
     # Detail notes
@@ -1362,10 +1648,17 @@ def generate_audit_excel(report_data: Dict[str, Any], client_name: str = "Client
     for ar in audit_results:
         detail = ar.get("detail", "")
         if detail:
-            ws2.cell(row=row, column=COL_START, value=ar.get("channel", "")).font = f_body_bold
+            ws2.cell(row=row, column=COL_START, value=ar.get("channel", "")).font = (
+                f_body_bold
+            )
             ws2.cell(row=row, column=COL_START + 1, value=detail).font = f_body
             ws2.cell(row=row, column=COL_START + 1).alignment = al_left
-            ws2.merge_cells(start_row=row, start_column=COL_START + 1, end_row=row, end_column=COL_START + 8)
+            ws2.merge_cells(
+                start_row=row,
+                start_column=COL_START + 1,
+                end_row=row,
+                end_column=COL_START + 8,
+            )
             row += 1
 
     # ══════════════════════════════════════════════════════════════════
@@ -1374,21 +1667,28 @@ def generate_audit_excel(report_data: Dict[str, Any], client_name: str = "Client
     ws3 = wb.create_sheet("Missing Channels")
     ws3.sheet_properties.tabColor = "D97706"
 
-    ws3.column_dimensions['A'].width = 3
-    ws3.column_dimensions['B'].width = 24
-    ws3.column_dimensions['C'].width = 14
-    ws3.column_dimensions['D'].width = 60
+    ws3.column_dimensions["A"].width = 3
+    ws3.column_dimensions["B"].width = 24
+    ws3.column_dimensions["C"].width = 14
+    ws3.column_dimensions["D"].width = 60
 
     row = 2
-    row = _write_section_header(ws3, row, "RECOMMENDED CHANNELS NOT IN YOUR PLAN", col_end=4)
+    row = _write_section_header(
+        ws3, row, "RECOMMENDED CHANNELS NOT IN YOUR PLAN", col_end=4
+    )
     row += 1
 
     if missing_channels:
-        ws3.cell(row=row, column=COL_START,
-                 value=f"{len(missing_channels)} recommended channel(s) are missing from your current plan.").font = f_subsection
+        ws3.cell(
+            row=row,
+            column=COL_START,
+            value=f"{len(missing_channels)} recommended channel(s) are missing from your current plan.",
+        ).font = f_subsection
         row += 2
 
-        row = _write_table_header(ws3, row, ["Channel", "Importance", "Why You Should Add This"])
+        row = _write_table_header(
+            ws3, row, ["Channel", "Importance", "Why You Should Add This"]
+        )
 
         for mc in missing_channels:
             importance = mc.get("importance", "medium")
@@ -1402,15 +1702,23 @@ def generate_audit_excel(report_data: Dict[str, Any], client_name: str = "Client
                 imp_font = f_body
                 imp_fill = fill_light
 
-            row = _write_table_row(ws3, row, [
-                mc.get("channel", ""),
-                importance.upper(),
-                mc.get("reason", ""),
-            ], fonts=[f_body_bold, imp_font, f_body], fills=[None, imp_fill, None])
+            row = _write_table_row(
+                ws3,
+                row,
+                [
+                    mc.get("channel", ""),
+                    importance.upper(),
+                    mc.get("reason", ""),
+                ],
+                fonts=[f_body_bold, imp_font, f_body],
+                fills=[None, imp_fill, None],
+            )
     else:
-        ws3.cell(row=row, column=COL_START,
-                 value="Your media plan covers all recommended channels. Excellent coverage!").font = Font(
-            name="Calibri", bold=True, size=12, color=GREEN)
+        ws3.cell(
+            row=row,
+            column=COL_START,
+            value="Your media plan covers all recommended channels. Excellent coverage!",
+        ).font = Font(name="Calibri", bold=True, size=12, color=GREEN)
 
     # ══════════════════════════════════════════════════════════════════
     # SHEET 4: Recommendations
@@ -1418,21 +1726,26 @@ def generate_audit_excel(report_data: Dict[str, Any], client_name: str = "Client
     ws4 = wb.create_sheet("Recommendations")
     ws4.sheet_properties.tabColor = GREEN
 
-    ws4.column_dimensions['A'].width = 3
-    ws4.column_dimensions['B'].width = 6
-    ws4.column_dimensions['C'].width = 12
-    ws4.column_dimensions['D'].width = 35
-    ws4.column_dimensions['E'].width = 55
-    ws4.column_dimensions['F'].width = 14
+    ws4.column_dimensions["A"].width = 3
+    ws4.column_dimensions["B"].width = 6
+    ws4.column_dimensions["C"].width = 12
+    ws4.column_dimensions["D"].width = 35
+    ws4.column_dimensions["E"].width = 55
+    ws4.column_dimensions["F"].width = 14
 
     row = 2
     row = _write_section_header(ws4, row, "PRIORITIZED RECOMMENDATIONS", col_end=6)
     row += 1
-    ws4.cell(row=row, column=COL_START,
-             value="Actions ranked by impact. Start with high-priority items for maximum savings.").font = f_footnote
+    ws4.cell(
+        row=row,
+        column=COL_START,
+        value="Actions ranked by impact. Start with high-priority items for maximum savings.",
+    ).font = f_footnote
     row += 2
 
-    row = _write_table_header(ws4, row, ["#", "Priority", "Action", "Detail", "Est. Savings"])
+    row = _write_table_header(
+        ws4, row, ["#", "Priority", "Action", "Detail", "Est. Savings"]
+    )
 
     for rec in recommendations:
         priority = rec.get("priority", "medium")
@@ -1447,22 +1760,37 @@ def generate_audit_excel(report_data: Dict[str, Any], client_name: str = "Client
             pri_fill = fill_light
 
         rec_savings = rec.get("savings", 0)
-        row = _write_table_row(ws4, row, [
-            str(rec.get("priority_num", "")),
-            priority.upper(),
-            rec.get("action", ""),
-            rec.get("detail", ""),
-            f"${rec_savings:,.0f}" if rec_savings > 0 else "-",
-        ], fonts=[f_body, pri_font, f_body_bold, f_body, f_green if rec_savings > 0 else f_body],
-           fills=[None, pri_fill, None, None, None])
+        row = _write_table_row(
+            ws4,
+            row,
+            [
+                str(rec.get("priority_num", "")),
+                priority.upper(),
+                rec.get("action", ""),
+                rec.get("detail", ""),
+                f"${rec_savings:,.0f}" if rec_savings > 0 else "-",
+            ],
+            fonts=[
+                f_body,
+                pri_font,
+                f_body_bold,
+                f_body,
+                f_green if rec_savings > 0 else f_body,
+            ],
+            fills=[None, pri_fill, None, None, None],
+        )
 
     row += 2
-    ws4.cell(row=row, column=COL_START,
-             value=savings.get("narrative", "")).font = f_footnote
+    ws4.cell(row=row, column=COL_START, value=savings.get("narrative", "")).font = (
+        f_footnote
+    )
 
     row += 2
-    ws4.cell(row=row, column=COL_START,
-             value=f"Report generated by Nova AI Suite | {datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}").font = f_footnote
+    ws4.cell(
+        row=row,
+        column=COL_START,
+        value=f"Report generated by Nova AI Suite | {datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}",
+    ).font = f_footnote
 
     # Write to bytes
     buf = io.BytesIO()
@@ -1474,7 +1802,10 @@ def generate_audit_excel(report_data: Dict[str, Any], client_name: str = "Client
 # 9. GENERATE AUDIT PPT
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def generate_audit_ppt(report_data: Dict[str, Any], client_name: str = "Client") -> bytes:
+
+def generate_audit_ppt(
+    report_data: Dict[str, Any], client_name: str = "Client"
+) -> bytes:
     """Generate 5-slide PPT audit report.
 
     Slides:
@@ -1534,7 +1865,9 @@ def generate_audit_ppt(report_data: Dict[str, Any], client_name: str = "Client")
         fill.fore_color.rgb = color
 
     def _add_shape(slide, left, top, width, height, fill_color, line_color=None):
-        shape = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, left, top, width, height)
+        shape = slide.shapes.add_shape(
+            MSO_SHAPE.ROUNDED_RECTANGLE, left, top, width, height
+        )
         shape.fill.solid()
         shape.fill.fore_color.rgb = fill_color
         if line_color:
@@ -1546,8 +1879,19 @@ def generate_audit_ppt(report_data: Dict[str, Any], client_name: str = "Client")
         shape.shadow.inherit = False
         return shape
 
-    def _add_text_box(slide, left, top, width, height, text, font_name, size,
-                      color, bold=False, align=PP_ALIGN.LEFT):
+    def _add_text_box(
+        slide,
+        left,
+        top,
+        width,
+        height,
+        text,
+        font_name,
+        size,
+        color,
+        bold=False,
+        align=PP_ALIGN.LEFT,
+    ):
         txBox = slide.shapes.add_textbox(left, top, width, height)
         tf = txBox.text_frame
         tf.word_wrap = True
@@ -1564,12 +1908,30 @@ def generate_audit_ppt(report_data: Dict[str, Any], client_name: str = "Client")
     slide1 = prs.slides.add_slide(prs.slide_layouts[6])  # blank
     _add_bg(slide1, NAVY)
 
-    _add_text_box(slide1, Inches(0.8), Inches(0.5), Inches(11), Inches(1),
-                  "Media Plan Audit Report", FONT_TITLE, 36, WHITE, bold=True)
+    _add_text_box(
+        slide1,
+        Inches(0.8),
+        Inches(0.5),
+        Inches(11),
+        Inches(1),
+        "Media Plan Audit Report",
+        FONT_TITLE,
+        36,
+        WHITE,
+        bold=True,
+    )
     _add_shape(slide1, Inches(0.8), Inches(1.3), Inches(2.5), Inches(0.05), TEAL)
-    _add_text_box(slide1, Inches(0.8), Inches(1.6), Inches(8), Inches(0.5),
-                  f"{client_name} | {datetime.datetime.now().strftime('%B %d, %Y')}",
-                  FONT_BODY, 14, TEAL)
+    _add_text_box(
+        slide1,
+        Inches(0.8),
+        Inches(1.6),
+        Inches(8),
+        Inches(0.5),
+        f"{client_name} | {datetime.datetime.now().strftime('%B %d, %Y')}",
+        FONT_BODY,
+        14,
+        TEAL,
+    )
 
     # Key metric cards
     overall_grade = scorecard.get("overall_grade", "N/A")
@@ -1585,65 +1947,173 @@ def generate_audit_ppt(report_data: Dict[str, Any], client_name: str = "Client")
     ]
     for i, (label, value, suffix) in enumerate(cards):
         left = Inches(0.8 + i * 3.1)
-        card = _add_shape(slide1, left, Inches(2.5), Inches(2.8), Inches(2.0), OFF_WHITE, TEAL)
+        card = _add_shape(
+            slide1, left, Inches(2.5), Inches(2.8), Inches(2.0), OFF_WHITE, TEAL
+        )
 
-        _add_text_box(slide1, left + Inches(0.2), Inches(2.7), Inches(2.4), Inches(0.4),
-                      label, FONT_BODY, 11, MUTED_TEXT)
-        val_color = GREEN if (i == 0 and overall_grade in ("A", "B")) or (i == 3 and total_savings_val == 0) else \
-                    AMBER if (i == 0 and overall_grade == "C") else \
-                    RED_ACCENT if (i == 0 and overall_grade in ("D", "F")) else DARK_TEXT
-        _add_text_box(slide1, left + Inches(0.2), Inches(3.1), Inches(2.4), Inches(0.8),
-                      f"{value}{suffix}", FONT_TITLE, 28, val_color, bold=True, align=PP_ALIGN.CENTER)
+        _add_text_box(
+            slide1,
+            left + Inches(0.2),
+            Inches(2.7),
+            Inches(2.4),
+            Inches(0.4),
+            label,
+            FONT_BODY,
+            11,
+            MUTED_TEXT,
+        )
+        val_color = (
+            GREEN
+            if (i == 0 and overall_grade in ("A", "B"))
+            or (i == 3 and total_savings_val == 0)
+            else (
+                AMBER
+                if (i == 0 and overall_grade == "C")
+                else (
+                    RED_ACCENT
+                    if (i == 0 and overall_grade in ("D", "F"))
+                    else DARK_TEXT
+                )
+            )
+        )
+        _add_text_box(
+            slide1,
+            left + Inches(0.2),
+            Inches(3.1),
+            Inches(2.4),
+            Inches(0.8),
+            f"{value}{suffix}",
+            FONT_TITLE,
+            28,
+            val_color,
+            bold=True,
+            align=PP_ALIGN.CENTER,
+        )
 
     # Industry & channel count
     industry_label = INDUSTRY_LABEL_MAP.get(
-        report_data.get("industry", ""), report_data.get("industry", "").replace("_", " ").title()
+        report_data.get("industry", ""),
+        report_data.get("industry", "").replace("_", " ").title(),
     )
-    _add_text_box(slide1, Inches(0.8), Inches(5.0), Inches(6), Inches(0.4),
-                  f"Industry: {industry_label}  |  Channels Analyzed: {scorecard.get('channel_count', 0)}  |  "
-                  f"Missing Channels: {scorecard.get('missing_channel_count', 0)}",
-                  FONT_BODY, 11, WARM_GRAY)
+    _add_text_box(
+        slide1,
+        Inches(0.8),
+        Inches(5.0),
+        Inches(6),
+        Inches(0.4),
+        f"Industry: {industry_label}  |  Channels Analyzed: {scorecard.get('channel_count', 0)}  |  "
+        f"Missing Channels: {scorecard.get('missing_channel_count', 0)}",
+        FONT_BODY,
+        11,
+        WARM_GRAY,
+    )
 
-    _add_shape(slide1, Inches(0), Inches(7.0), prs.slide_width, Inches(0.5), RGBColor(0x15, 0x15, 0x40))
-    _add_text_box(slide1, Inches(0.5), Inches(7.05), Inches(4), Inches(0.4),
-                  "Powered by Nova AI Suite", FONT_BODY, 10, WHITE, align=PP_ALIGN.LEFT)
+    _add_shape(
+        slide1,
+        Inches(0),
+        Inches(7.0),
+        prs.slide_width,
+        Inches(0.5),
+        RGBColor(0x15, 0x15, 0x40),
+    )
+    _add_text_box(
+        slide1,
+        Inches(0.5),
+        Inches(7.05),
+        Inches(4),
+        Inches(0.4),
+        "Powered by Nova AI Suite",
+        FONT_BODY,
+        10,
+        WHITE,
+        align=PP_ALIGN.LEFT,
+    )
 
     # ── SLIDE 2: Findings ──────────────────────────────────────────
     slide2 = prs.slides.add_slide(prs.slide_layouts[6])
     _add_bg(slide2, OFF_WHITE)
 
-    _add_text_box(slide2, Inches(0.8), Inches(0.4), Inches(8), Inches(0.7),
-                  "Audit Findings", FONT_TITLE, 28, NAVY, bold=True)
+    _add_text_box(
+        slide2,
+        Inches(0.8),
+        Inches(0.4),
+        Inches(8),
+        Inches(0.7),
+        "Audit Findings",
+        FONT_TITLE,
+        28,
+        NAVY,
+        bold=True,
+    )
     _add_shape(slide2, Inches(0.8), Inches(1.0), Inches(2), Inches(0.04), TEAL)
 
     # Channel grade cards (up to 8)
     max_channels = min(len(audit_results), 8)
-    for i, ar in enumerate(sorted(audit_results, key=lambda x: x.get("efficiency_score", 0), reverse=True)[:max_channels]):
+    for i, ar in enumerate(
+        sorted(audit_results, key=lambda x: x.get("efficiency_score", 0), reverse=True)[
+            :max_channels
+        ]
+    ):
         col = i % 4
         r = i // 4
         left = Inches(0.5 + col * 3.2)
         top = Inches(1.5 + r * 2.8)
 
         grade = ar.get("grade", "C")
-        card_border = GREEN if grade in ("A", "B") else (AMBER if grade == "C" else RED_ACCENT)
+        card_border = (
+            GREEN if grade in ("A", "B") else (AMBER if grade == "C" else RED_ACCENT)
+        )
         _add_shape(slide2, left, top, Inches(2.9), Inches(2.4), WHITE, card_border)
 
-        _add_text_box(slide2, left + Inches(0.15), top + Inches(0.1), Inches(2.0), Inches(0.3),
-                      ar.get("channel", ""), FONT_TITLE, 12, NAVY, bold=True)
-        _add_text_box(slide2, left + Inches(2.2), top + Inches(0.1), Inches(0.5), Inches(0.3),
-                      grade, FONT_TITLE, 18, card_border, bold=True, align=PP_ALIGN.CENTER)
+        _add_text_box(
+            slide2,
+            left + Inches(0.15),
+            top + Inches(0.1),
+            Inches(2.0),
+            Inches(0.3),
+            ar.get("channel", ""),
+            FONT_TITLE,
+            12,
+            NAVY,
+            bold=True,
+        )
+        _add_text_box(
+            slide2,
+            left + Inches(2.2),
+            top + Inches(0.1),
+            Inches(0.5),
+            Inches(0.3),
+            grade,
+            FONT_TITLE,
+            18,
+            card_border,
+            bold=True,
+            align=PP_ALIGN.CENTER,
+        )
 
         metrics_lines = [
             f"Budget: ${ar.get('planned_budget', 0):,.0f}",
-            f"CPC: ${ar.get('planned_cpc', 0):.2f} (Bench: ${ar.get('benchmark_cpc', 0):.2f})" if ar.get("planned_cpc") else "CPC: N/A",
+            (
+                f"CPC: ${ar.get('planned_cpc', 0):.2f} (Bench: ${ar.get('benchmark_cpc', 0):.2f})"
+                if ar.get("planned_cpc")
+                else "CPC: N/A"
+            ),
             f"Variance: {ar.get('cpc_variance_pct', 0):+.0f}%",
             f"Finding: {_finding_text(ar.get('finding', ''))}",
         ]
         for m_idx, m_text in enumerate(metrics_lines):
-            _add_text_box(slide2, left + Inches(0.15), top + Inches(0.55 + m_idx * 0.4),
-                          Inches(2.6), Inches(0.35),
-                          m_text, FONT_BODY, 9, MUTED_TEXT if m_idx < 3 else DARK_TEXT,
-                          bold=(m_idx == 3))
+            _add_text_box(
+                slide2,
+                left + Inches(0.15),
+                top + Inches(0.55 + m_idx * 0.4),
+                Inches(2.6),
+                Inches(0.35),
+                m_text,
+                FONT_BODY,
+                9,
+                MUTED_TEXT if m_idx < 3 else DARK_TEXT,
+                bold=(m_idx == 3),
+            )
 
     _add_shape(slide2, Inches(0), Inches(7.0), prs.slide_width, Inches(0.5), NAVY)
 
@@ -1653,40 +2123,133 @@ def generate_audit_ppt(report_data: Dict[str, Any], client_name: str = "Client")
     slide3 = prs.slides.add_slide(prs.slide_layouts[6])
     _add_bg(slide3, OFF_WHITE)
 
-    _add_text_box(slide3, Inches(0.8), Inches(0.4), Inches(8), Inches(0.7),
-                  "Savings Opportunity", FONT_TITLE, 28, NAVY, bold=True)
+    _add_text_box(
+        slide3,
+        Inches(0.8),
+        Inches(0.4),
+        Inches(8),
+        Inches(0.7),
+        "Savings Opportunity",
+        FONT_TITLE,
+        28,
+        NAVY,
+        bold=True,
+    )
     _add_shape(slide3, Inches(0.8), Inches(1.0), Inches(2), Inches(0.04), TEAL)
 
     # Big savings number
     if total_savings_val > 0:
-        _add_shape(slide3, Inches(0.8), Inches(1.5), Inches(11.5), Inches(1.2), LIGHT_GREEN, GREEN)
-        _add_text_box(slide3, Inches(1.2), Inches(1.6), Inches(10), Inches(0.6),
-                      f"You could save ${total_savings_val:,.0f} by optimizing your media plan",
-                      FONT_TITLE, 22, GREEN, bold=True, align=PP_ALIGN.CENTER)
-        _add_text_box(slide3, Inches(1.2), Inches(2.15), Inches(10), Inches(0.4),
-                      f"{savings.get('savings_pct', 0)}% of your ${savings.get('total_budget', 0):,.0f} total planned budget",
-                      FONT_BODY, 12, MUTED_TEXT, align=PP_ALIGN.CENTER)
+        _add_shape(
+            slide3,
+            Inches(0.8),
+            Inches(1.5),
+            Inches(11.5),
+            Inches(1.2),
+            LIGHT_GREEN,
+            GREEN,
+        )
+        _add_text_box(
+            slide3,
+            Inches(1.2),
+            Inches(1.6),
+            Inches(10),
+            Inches(0.6),
+            f"You could save ${total_savings_val:,.0f} by optimizing your media plan",
+            FONT_TITLE,
+            22,
+            GREEN,
+            bold=True,
+            align=PP_ALIGN.CENTER,
+        )
+        _add_text_box(
+            slide3,
+            Inches(1.2),
+            Inches(2.15),
+            Inches(10),
+            Inches(0.4),
+            f"{savings.get('savings_pct', 0)}% of your ${savings.get('total_budget', 0):,.0f} total planned budget",
+            FONT_BODY,
+            12,
+            MUTED_TEXT,
+            align=PP_ALIGN.CENTER,
+        )
     else:
-        _add_shape(slide3, Inches(0.8), Inches(1.5), Inches(11.5), Inches(1.0), LIGHT_GREEN, GREEN)
-        _add_text_box(slide3, Inches(1.2), Inches(1.65), Inches(10), Inches(0.6),
-                      "Your planned costs are in line with industry benchmarks",
-                      FONT_TITLE, 20, GREEN, bold=True, align=PP_ALIGN.CENTER)
+        _add_shape(
+            slide3,
+            Inches(0.8),
+            Inches(1.5),
+            Inches(11.5),
+            Inches(1.0),
+            LIGHT_GREEN,
+            GREEN,
+        )
+        _add_text_box(
+            slide3,
+            Inches(1.2),
+            Inches(1.65),
+            Inches(10),
+            Inches(0.6),
+            "Your planned costs are in line with industry benchmarks",
+            FONT_TITLE,
+            20,
+            GREEN,
+            bold=True,
+            align=PP_ALIGN.CENTER,
+        )
 
     # Per-channel savings breakdown
     channel_savings = savings.get("channel_savings", [])
     if channel_savings:
-        _add_text_box(slide3, Inches(0.8), Inches(3.0), Inches(4), Inches(0.4),
-                      "Savings by Channel", FONT_TITLE, 16, NAVY, bold=True)
+        _add_text_box(
+            slide3,
+            Inches(0.8),
+            Inches(3.0),
+            Inches(4),
+            Inches(0.4),
+            "Savings by Channel",
+            FONT_TITLE,
+            16,
+            NAVY,
+            bold=True,
+        )
 
         for i, cs in enumerate(channel_savings[:6]):
             top = Inches(3.5 + i * 0.55)
-            _add_text_box(slide3, Inches(1.0), top, Inches(3.5), Inches(0.4),
-                          cs.get("channel", ""), FONT_BODY, 11, DARK_TEXT, bold=True)
-            _add_text_box(slide3, Inches(5.0), top, Inches(2.5), Inches(0.4),
-                          f"${cs.get('savings', 0):,.0f}", FONT_BODY, 11, GREEN, bold=True)
-            _add_text_box(slide3, Inches(7.5), top, Inches(2), Inches(0.4),
-                          f"({cs.get('savings_pct', 0):.0f}% of channel budget)",
-                          FONT_BODY, 9, MUTED_TEXT)
+            _add_text_box(
+                slide3,
+                Inches(1.0),
+                top,
+                Inches(3.5),
+                Inches(0.4),
+                cs.get("channel", ""),
+                FONT_BODY,
+                11,
+                DARK_TEXT,
+                bold=True,
+            )
+            _add_text_box(
+                slide3,
+                Inches(5.0),
+                top,
+                Inches(2.5),
+                Inches(0.4),
+                f"${cs.get('savings', 0):,.0f}",
+                FONT_BODY,
+                11,
+                GREEN,
+                bold=True,
+            )
+            _add_text_box(
+                slide3,
+                Inches(7.5),
+                top,
+                Inches(2),
+                Inches(0.4),
+                f"({cs.get('savings_pct', 0):.0f}% of channel budget)",
+                FONT_BODY,
+                9,
+                MUTED_TEXT,
+            )
 
     _add_shape(slide3, Inches(0), Inches(7.0), prs.slide_width, Inches(0.5), NAVY)
 
@@ -1694,14 +2257,32 @@ def generate_audit_ppt(report_data: Dict[str, Any], client_name: str = "Client")
     slide4 = prs.slides.add_slide(prs.slide_layouts[6])
     _add_bg(slide4, OFF_WHITE)
 
-    _add_text_box(slide4, Inches(0.8), Inches(0.4), Inches(8), Inches(0.7),
-                  "Missing Channels", FONT_TITLE, 28, NAVY, bold=True)
+    _add_text_box(
+        slide4,
+        Inches(0.8),
+        Inches(0.4),
+        Inches(8),
+        Inches(0.7),
+        "Missing Channels",
+        FONT_TITLE,
+        28,
+        NAVY,
+        bold=True,
+    )
     _add_shape(slide4, Inches(0.8), Inches(1.0), Inches(2), Inches(0.04), TEAL)
 
     if missing_channels:
-        _add_text_box(slide4, Inches(0.8), Inches(1.3), Inches(10), Inches(0.4),
-                      f"{len(missing_channels)} recommended channel(s) not in your current plan",
-                      FONT_BODY, 12, MUTED_TEXT)
+        _add_text_box(
+            slide4,
+            Inches(0.8),
+            Inches(1.3),
+            Inches(10),
+            Inches(0.4),
+            f"{len(missing_channels)} recommended channel(s) not in your current plan",
+            FONT_BODY,
+            12,
+            MUTED_TEXT,
+        )
 
         max_cards = min(len(missing_channels), 6)
         for i, mc in enumerate(missing_channels[:max_cards]):
@@ -1724,22 +2305,71 @@ def generate_audit_ppt(report_data: Dict[str, Any], client_name: str = "Client")
             _add_shape(slide4, left, top, Inches(3.8), Inches(2.1), WHITE, border_color)
 
             # Badge
-            badge = _add_shape(slide4, left + Inches(0.15), top + Inches(0.15), Inches(1.2), Inches(0.3), border_color)
-            _add_text_box(slide4, left + Inches(0.15), top + Inches(0.16), Inches(1.2), Inches(0.3),
-                          badge_text, FONT_BODY, 8, WHITE, bold=True, align=PP_ALIGN.CENTER)
+            badge = _add_shape(
+                slide4,
+                left + Inches(0.15),
+                top + Inches(0.15),
+                Inches(1.2),
+                Inches(0.3),
+                border_color,
+            )
+            _add_text_box(
+                slide4,
+                left + Inches(0.15),
+                top + Inches(0.16),
+                Inches(1.2),
+                Inches(0.3),
+                badge_text,
+                FONT_BODY,
+                8,
+                WHITE,
+                bold=True,
+                align=PP_ALIGN.CENTER,
+            )
 
             # Channel name
-            _add_text_box(slide4, left + Inches(0.15), top + Inches(0.55), Inches(3.4), Inches(0.3),
-                          mc.get("channel", ""), FONT_TITLE, 13, NAVY, bold=True)
+            _add_text_box(
+                slide4,
+                left + Inches(0.15),
+                top + Inches(0.55),
+                Inches(3.4),
+                Inches(0.3),
+                mc.get("channel", ""),
+                FONT_TITLE,
+                13,
+                NAVY,
+                bold=True,
+            )
 
             # Reason
-            _add_text_box(slide4, left + Inches(0.15), top + Inches(0.9), Inches(3.4), Inches(1.0),
-                          mc.get("reason", ""), FONT_BODY, 9, MUTED_TEXT)
+            _add_text_box(
+                slide4,
+                left + Inches(0.15),
+                top + Inches(0.9),
+                Inches(3.4),
+                Inches(1.0),
+                mc.get("reason", ""),
+                FONT_BODY,
+                9,
+                MUTED_TEXT,
+            )
     else:
-        _add_shape(slide4, Inches(2), Inches(2.5), Inches(9), Inches(1.5), LIGHT_GREEN, GREEN)
-        _add_text_box(slide4, Inches(2.5), Inches(2.9), Inches(8), Inches(0.8),
-                      "Your media plan covers all recommended channels.\nExcellent channel coverage!",
-                      FONT_TITLE, 18, GREEN, bold=True, align=PP_ALIGN.CENTER)
+        _add_shape(
+            slide4, Inches(2), Inches(2.5), Inches(9), Inches(1.5), LIGHT_GREEN, GREEN
+        )
+        _add_text_box(
+            slide4,
+            Inches(2.5),
+            Inches(2.9),
+            Inches(8),
+            Inches(0.8),
+            "Your media plan covers all recommended channels.\nExcellent channel coverage!",
+            FONT_TITLE,
+            18,
+            GREEN,
+            bold=True,
+            align=PP_ALIGN.CENTER,
+        )
 
     _add_shape(slide4, Inches(0), Inches(7.0), prs.slide_width, Inches(0.5), NAVY)
 
@@ -1747,8 +2377,18 @@ def generate_audit_ppt(report_data: Dict[str, Any], client_name: str = "Client")
     slide5 = prs.slides.add_slide(prs.slide_layouts[6])
     _add_bg(slide5, OFF_WHITE)
 
-    _add_text_box(slide5, Inches(0.8), Inches(0.4), Inches(8), Inches(0.7),
-                  "Top Recommendations", FONT_TITLE, 28, NAVY, bold=True)
+    _add_text_box(
+        slide5,
+        Inches(0.8),
+        Inches(0.4),
+        Inches(8),
+        Inches(0.7),
+        "Top Recommendations",
+        FONT_TITLE,
+        28,
+        NAVY,
+        bold=True,
+    )
     _add_shape(slide5, Inches(0.8), Inches(1.0), Inches(2), Inches(0.04), TEAL)
 
     max_recs = min(len(recommendations), 6)
@@ -1766,35 +2406,105 @@ def generate_audit_ppt(report_data: Dict[str, Any], client_name: str = "Client")
             action_color = TEAL
             bg_color = RGBColor(0xE0, 0xF2, 0xFE)
 
-        _add_shape(slide5, Inches(0.5), top, Inches(12.3), Inches(0.75), bg_color, action_color)
+        _add_shape(
+            slide5, Inches(0.5), top, Inches(12.3), Inches(0.75), bg_color, action_color
+        )
 
         # Priority badge
-        badge = _add_shape(slide5, Inches(0.7), top + Inches(0.12), Inches(1.2), Inches(0.45), action_color)
-        _add_text_box(slide5, Inches(0.7), top + Inches(0.15), Inches(1.2), Inches(0.4),
-                      priority.upper(), FONT_BODY, 9, WHITE, bold=True, align=PP_ALIGN.CENTER)
+        badge = _add_shape(
+            slide5,
+            Inches(0.7),
+            top + Inches(0.12),
+            Inches(1.2),
+            Inches(0.45),
+            action_color,
+        )
+        _add_text_box(
+            slide5,
+            Inches(0.7),
+            top + Inches(0.15),
+            Inches(1.2),
+            Inches(0.4),
+            priority.upper(),
+            FONT_BODY,
+            9,
+            WHITE,
+            bold=True,
+            align=PP_ALIGN.CENTER,
+        )
 
         # Number
-        _add_text_box(slide5, Inches(2.1), top + Inches(0.08), Inches(0.5), Inches(0.35),
-                      f"#{rec.get('priority_num', i + 1)}", FONT_TITLE, 12, NAVY, bold=True)
+        _add_text_box(
+            slide5,
+            Inches(2.1),
+            top + Inches(0.08),
+            Inches(0.5),
+            Inches(0.35),
+            f"#{rec.get('priority_num', i + 1)}",
+            FONT_TITLE,
+            12,
+            NAVY,
+            bold=True,
+        )
 
         # Action
-        _add_text_box(slide5, Inches(2.7), top + Inches(0.08), Inches(5), Inches(0.35),
-                      rec.get("action", ""), FONT_TITLE, 11, NAVY, bold=True)
+        _add_text_box(
+            slide5,
+            Inches(2.7),
+            top + Inches(0.08),
+            Inches(5),
+            Inches(0.35),
+            rec.get("action", ""),
+            FONT_TITLE,
+            11,
+            NAVY,
+            bold=True,
+        )
 
         # Savings if any
         rec_savings = rec.get("savings", 0)
         if rec_savings > 0:
-            _add_text_box(slide5, Inches(10.5), top + Inches(0.15), Inches(2), Inches(0.35),
-                          f"Save ${rec_savings:,.0f}", FONT_BODY, 10, GREEN, bold=True, align=PP_ALIGN.RIGHT)
+            _add_text_box(
+                slide5,
+                Inches(10.5),
+                top + Inches(0.15),
+                Inches(2),
+                Inches(0.35),
+                f"Save ${rec_savings:,.0f}",
+                FONT_BODY,
+                10,
+                GREEN,
+                bold=True,
+                align=PP_ALIGN.RIGHT,
+            )
 
     # Narrative
-    _add_text_box(slide5, Inches(0.8), Inches(6.3), Inches(11.5), Inches(0.5),
-                  savings.get("narrative", ""),
-                  FONT_BODY, 10, TEAL, bold=True)
+    _add_text_box(
+        slide5,
+        Inches(0.8),
+        Inches(6.3),
+        Inches(11.5),
+        Inches(0.5),
+        savings.get("narrative", ""),
+        FONT_BODY,
+        10,
+        TEAL,
+        bold=True,
+    )
 
     _add_shape(slide5, Inches(0), Inches(7.0), prs.slide_width, Inches(0.5), NAVY)
-    _add_text_box(slide5, Inches(0.5), Inches(7.05), Inches(4), Inches(0.4),
-                  "Powered by Nova AI Suite", FONT_BODY, 10, WHITE, align=PP_ALIGN.LEFT)
+    _add_text_box(
+        slide5,
+        Inches(0.5),
+        Inches(7.05),
+        Inches(4),
+        Inches(0.4),
+        "Powered by Nova AI Suite",
+        FONT_BODY,
+        10,
+        WHITE,
+        align=PP_ALIGN.LEFT,
+    )
 
     # Write to bytes
     buf = io.BytesIO()
@@ -1805,6 +2515,7 @@ def generate_audit_ppt(report_data: Dict[str, Any], client_name: str = "Client")
 # ═══════════════════════════════════════════════════════════════════════════════
 # 10. ORCHESTRATOR -- single entry point
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def run_full_audit(
     file_bytes: bytes,
@@ -1846,7 +2557,9 @@ def run_full_audit(
         # 3. Get all benchmarks (cache for reuse across line items)
         location = ""
         if locations:
-            location = locations[0] if isinstance(locations[0], str) else str(locations[0])
+            location = (
+                locations[0] if isinstance(locations[0], str) else str(locations[0])
+            )
         benchmarks_cache = _get_all_benchmarks(industry, collar_type, location)
 
         # 4. Audit each line item
@@ -1881,7 +2594,9 @@ def run_full_audit(
             "success": True,
             "client_name": client_name or "Client",
             "industry": industry,
-            "industry_label": INDUSTRY_LABEL_MAP.get(industry, industry.replace("_", " ").title()),
+            "industry_label": INDUSTRY_LABEL_MAP.get(
+                industry, industry.replace("_", " ").title()
+            ),
             "collar_type": collar_type,
             "line_items": line_items,
             "audit_results": audit_results,

@@ -24,6 +24,7 @@ Depends on (lazy-imported):
 from __future__ import annotations
 
 import io
+import json
 import logging
 import math
 import re
@@ -35,6 +36,73 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# LLM ROUTER (lazy import for competitive narrative intelligence)
+# ═══════════════════════════════════════════════════════════════════════════════
+_llm_router_ci = None
+_llm_router_ci_checked = False
+_llm_router_ci_lock = threading.Lock()
+
+
+def _lazy_llm_router_ci():
+    """Lazy-load LLM router for competitive narrative generation.
+
+    Returns the module or None if unavailable. Thread-safe.
+    """
+    global _llm_router_ci, _llm_router_ci_checked
+    if _llm_router_ci_checked:
+        return _llm_router_ci
+    with _llm_router_ci_lock:
+        if _llm_router_ci_checked:
+            return _llm_router_ci
+        try:
+            import llm_router as _mod
+
+            _llm_router_ci = _mod
+        except ImportError:
+            logger.warning("llm_router not available; competitive narrative disabled")
+            _llm_router_ci = None
+        _llm_router_ci_checked = True
+    return _llm_router_ci
+
+
+def _generate_competitive_narrative(competitor_data: Dict[str, Any]) -> str:
+    """Generate AI narrative synthesizing the competitive landscape.
+
+    Args:
+        competitor_data: Aggregated competitor analysis results.
+
+    Returns:
+        Strategic assessment string, or empty string on failure.
+    """
+    router = _lazy_llm_router_ci()
+    if not router:
+        return ""
+    task_type = getattr(router, "TASK_RESEARCH", "research")
+    try:
+        data_snapshot = json.dumps(competitor_data, indent=2, default=str)[:2000]
+        prompt = (
+            f"Synthesize this competitive hiring landscape:\n{data_snapshot}\n\n"
+            f"Write a 3-sentence strategic assessment: who's hiring most aggressively, "
+            f"where the gaps are, and what this client should do differently."
+        )
+        result = router.call_llm(
+            messages=[{"role": "user", "content": prompt}],
+            system_prompt=(
+                "You are a senior recruitment marketing strategist specializing in "
+                "competitive intelligence. Write concise, actionable assessments. "
+                "Cite specific data points. No fluff."
+            ),
+            task_type=task_type,
+            max_tokens=300,
+        )
+        return result.get("text") or ""
+    except Exception as e:
+        logger.error("Competitive narrative generation failed: %s", e, exc_info=True)
+        return ""
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Lazy Imports -- graceful fallback when modules are unavailable
@@ -49,6 +117,14 @@ _HAS_API = False
 _HAS_ORCHESTRATOR = False
 _HAS_RESEARCH = False
 _HAS_TRENDS = False
+_HAS_BENCHMARK_REGISTRY = False
+
+try:
+    from benchmark_registry import get_channel_benchmark, get_all_benchmarks
+
+    _HAS_BENCHMARK_REGISTRY = True
+except ImportError:
+    _HAS_BENCHMARK_REGISTRY = False
 
 _import_lock = threading.Lock()
 
@@ -62,10 +138,13 @@ def _lazy_api():
             return _api_enrichment
         try:
             import api_enrichment as _mod
+
             _api_enrichment = _mod
             _HAS_API = True
         except ImportError:
-            logger.warning("api_enrichment not available; company lookups will use fallbacks")
+            logger.warning(
+                "api_enrichment not available; company lookups will use fallbacks"
+            )
             _HAS_API = False
     return _api_enrichment
 
@@ -79,10 +158,13 @@ def _lazy_orchestrator():
             return _data_orchestrator
         try:
             import data_orchestrator as _mod
+
             _data_orchestrator = _mod
             _HAS_ORCHESTRATOR = True
         except ImportError:
-            logger.warning("data_orchestrator not available; competitive enrichment limited")
+            logger.warning(
+                "data_orchestrator not available; competitive enrichment limited"
+            )
             _HAS_ORCHESTRATOR = False
     return _data_orchestrator
 
@@ -96,6 +178,7 @@ def _lazy_research():
             return _research
         try:
             import research as _mod
+
             _research = _mod
             _HAS_RESEARCH = True
         except ImportError:
@@ -113,6 +196,7 @@ def _lazy_trends():
             return _trend_engine
         try:
             import trend_engine as _mod
+
             _trend_engine = _mod
             _HAS_TRENDS = True
         except ImportError:
@@ -173,6 +257,7 @@ _MAX_WORKERS = 10
 # ═══════════════════════════════════════════════════════════════════════════════
 # 1. COMPANY ANALYSIS
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def analyze_company(company_name: str) -> Dict[str, Any]:
     """Fetch company profile data using api_enrichment functions.
@@ -261,16 +346,23 @@ def analyze_company(company_name: str) -> Dict[str, Any]:
                             profile["stock_ticker"] = result["ticker"]
                             profile["is_public"] = True
                         if result.get("sic_description"):
-                            profile["industry"] = profile["industry"] or result["sic_description"]
+                            profile["industry"] = (
+                                profile["industry"] or result["sic_description"]
+                            )
                         if result.get("state_of_incorporation"):
-                            profile["headquarters"] = profile["headquarters"] or result["state_of_incorporation"]
+                            profile["headquarters"] = (
+                                profile["headquarters"]
+                                or result["state_of_incorporation"]
+                            )
                         profile["sources"].append("SEC EDGAR")
 
                 elif key == "employer_brand":
                     if result.get("glassdoor_rating"):
                         profile["glassdoor_rating"] = result["glassdoor_rating"]
                     if result.get("employer_brand_strength"):
-                        profile["employer_brand_strength"] = result["employer_brand_strength"]
+                        profile["employer_brand_strength"] = result[
+                            "employer_brand_strength"
+                        ]
                     if result.get("company_size"):
                         profile["employee_count"] = result["company_size"]
                     profile["sources"].append("Employer Brand DB")
@@ -278,13 +370,19 @@ def analyze_company(company_name: str) -> Dict[str, Any]:
                 elif key == "intelligence":
                     if result.get("matched"):
                         if result.get("industry"):
-                            profile["industry"] = profile["industry"] or result["industry"]
+                            profile["industry"] = (
+                                profile["industry"] or result["industry"]
+                            )
                         if result.get("employee_count"):
-                            profile["employee_count"] = profile["employee_count"] or result["employee_count"]
+                            profile["employee_count"] = (
+                                profile["employee_count"] or result["employee_count"]
+                            )
                         if result.get("founded"):
                             profile["founded"] = result["founded"]
                         if result.get("headquarters"):
-                            profile["headquarters"] = profile["headquarters"] or result["headquarters"]
+                            profile["headquarters"] = (
+                                profile["headquarters"] or result["headquarters"]
+                            )
                         profile["sources"].append("Company Intelligence DB")
 
             except Exception as exc:
@@ -296,6 +394,7 @@ def analyze_company(company_name: str) -> Dict[str, Any]:
 # ═══════════════════════════════════════════════════════════════════════════════
 # 2. COMPETITOR COMPARISON
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def analyze_competitors(
     company_name: str,
@@ -314,8 +413,7 @@ def analyze_competitors(
     profiles: Dict[str, Dict[str, Any]] = {}
     with ThreadPoolExecutor(max_workers=_MAX_WORKERS) as executor:
         future_map = {
-            executor.submit(analyze_company, name): name
-            for name in all_names
+            executor.submit(analyze_company, name): name for name in all_names
         }
         for future in as_completed(future_map):
             name = future_map[future]
@@ -323,12 +421,14 @@ def analyze_competitors(
                 profiles[name] = future.result(timeout=30)
             except Exception as exc:
                 logger.warning("Failed to analyze %s: %s", name, exc)
-                profiles[name] = {"name": name, "error": "Analysis failed for this company"}
+                profiles[name] = {
+                    "name": name,
+                    "error": "Analysis failed for this company",
+                }
 
     company_profile = profiles.get(company_name, {"name": company_name})
     competitor_profiles = [
-        profiles.get(c, {"name": c})
-        for c in competitor_names if c.strip()
+        profiles.get(c, {"name": c}) for c in competitor_names if c.strip()
     ]
 
     # Build comparison matrix
@@ -376,6 +476,7 @@ def _build_comparison_matrix(
 # ═══════════════════════════════════════════════════════════════════════════════
 # 3. HIRING ACTIVITY COMPARISON
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def compare_hiring_activity(
     company_name: str,
@@ -457,8 +558,11 @@ def _assess_hiring_difficulty(
 ) -> str:
     """Heuristic hiring difficulty rating based on competitor landscape."""
     high_threat_industries = {
-        "tech_engineering", "healthcare_medical", "aerospace_defense",
-        "pharma_biotech", "finance_banking",
+        "tech_engineering",
+        "healthcare_medical",
+        "aerospace_defense",
+        "pharma_biotech",
+        "finance_banking",
     }
     if industry in high_threat_industries:
         return "high"
@@ -479,6 +583,7 @@ def _assess_hiring_difficulty(
 # ═══════════════════════════════════════════════════════════════════════════════
 # 4. AD BENCHMARK COMPARISON
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def compare_ad_benchmarks(
     industry: str = "general_entry_level",
@@ -511,7 +616,11 @@ def compare_ad_benchmarks(
                         "name": PLATFORM_DISPLAY.get(plat_key, plat_key),
                         "cpc": round(data.get("value", 0), 2),
                         "cpa": round(data.get("cpa_value", 0), 2),
-                        "ctr": round(data.get("ctr_value", 0) * 100, 2) if data.get("ctr_value") else None,
+                        "ctr": (
+                            round(data.get("ctr_value", 0) * 100, 2)
+                            if data.get("ctr_value")
+                            else None
+                        ),
                         "trend_direction": data.get("trend_direction", "stable"),
                         "trend_pct_yoy": data.get("trend_pct_yoy"),
                         "confidence": data.get("data_confidence", 0.5),
@@ -530,8 +639,39 @@ def compare_ad_benchmarks(
 
 
 def _fallback_benchmarks(industry: str) -> Dict[str, Dict[str, Any]]:
-    """Provide reasonable fallback benchmarks when trend_engine is unavailable."""
-    # Industry-specific base CPC multipliers (relative to general)
+    """Provide reasonable fallback benchmarks when trend_engine is unavailable.
+
+    Prefers benchmark_registry (single source of truth) when available,
+    otherwise falls back to hardcoded values for resilience.
+    """
+    # -- Prefer unified benchmark_registry --
+    if _HAS_BENCHMARK_REGISTRY:
+        _platforms = [
+            "google_search",
+            "meta_facebook",
+            "meta_instagram",
+            "linkedin",
+            "indeed",
+            "programmatic",
+        ]
+        result: Dict[str, Dict[str, Any]] = {}
+        for plat_key in _platforms:
+            bench = get_channel_benchmark(plat_key, industry)
+            result[plat_key] = {
+                "name": PLATFORM_DISPLAY.get(plat_key, plat_key),
+                "cpc": bench.get("cpc_adjusted") or bench.get("cpc", 1.0),
+                "cpa": bench.get("cpa_adjusted") or bench.get("cpa", 30.0),
+                "ctr": bench.get("ctr", 0.025),
+                "trend_direction": "stable",
+                "trend_pct_yoy": None,
+                "confidence": (
+                    0.6 if bench.get("data_source") == "live_firecrawl" else 0.4
+                ),
+                "seasonal_factor": 1.0,
+            }
+        return result
+
+    # -- Hardcoded fallback (kept for resilience if registry unavailable) --
     industry_multipliers = {
         "healthcare_medical": 1.2,
         "tech_engineering": 1.4,
@@ -551,12 +691,12 @@ def _fallback_benchmarks(industry: str) -> Dict[str, Dict[str, Any]]:
     mult = industry_multipliers.get(industry, 1.0)
 
     base = {
-        "google_search": {"cpc": 2.50, "cpa": 35.00, "ctr": 3.2},
-        "meta_facebook": {"cpc": 1.80, "cpa": 28.00, "ctr": 1.1},
-        "meta_instagram": {"cpc": 2.10, "cpa": 32.00, "ctr": 0.9},
-        "linkedin": {"cpc": 5.50, "cpa": 55.00, "ctr": 0.5},
-        "indeed": {"cpc": 0.45, "cpa": 22.00, "ctr": 4.5},
-        "programmatic": {"cpc": 0.65, "cpa": 18.00, "ctr": 2.8},
+        "google_search": {"cpc": 2.69, "cpa": 45.00, "ctr": 3.2},
+        "meta_facebook": {"cpc": 1.72, "cpa": 30.00, "ctr": 1.1},
+        "meta_instagram": {"cpc": 1.50, "cpa": 35.00, "ctr": 0.9},
+        "linkedin": {"cpc": 5.26, "cpa": 75.00, "ctr": 0.5},
+        "indeed": {"cpc": 0.50, "cpa": 25.00, "ctr": 4.5},
+        "programmatic": {"cpc": 0.63, "cpa": 22.00, "ctr": 2.8},
     }
 
     result = {}
@@ -577,6 +717,7 @@ def _fallback_benchmarks(industry: str) -> Dict[str, Dict[str, Any]]:
 # ═══════════════════════════════════════════════════════════════════════════════
 # 5. MARKET TRENDS (Google Trends)
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def get_market_trends(
     company_name: str,
@@ -632,12 +773,18 @@ def get_market_trends(
             result["companies"][kw] = {
                 "avg_interest": interest,
                 "latest_interest": max(10, interest + (variation // 3)),
-                "trend": "rising" if variation > 5 else ("declining" if variation < -5 else "stable"),
+                "trend": (
+                    "rising"
+                    if variation > 5
+                    else ("declining" if variation < -5 else "stable")
+                ),
                 "is_primary": kw == company_name,
             }
-        result["max_interest"] = max(
-            v["avg_interest"] for v in result["companies"].values()
-        ) if result["companies"] else 100
+        result["max_interest"] = (
+            max(v["avg_interest"] for v in result["companies"].values())
+            if result["companies"]
+            else 100
+        )
 
     return result
 
@@ -645,6 +792,7 @@ def get_market_trends(
 # ═══════════════════════════════════════════════════════════════════════════════
 # 6. GENERATE COMPETITIVE BRIEF
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def generate_competitive_brief(analysis_results: Dict[str, Any]) -> Dict[str, Any]:
     """Compile all analysis data into a structured report dict.
@@ -654,8 +802,12 @@ def generate_competitive_brief(analysis_results: Dict[str, Any]) -> Dict[str, An
     brief: Dict[str, Any] = {
         "generated_at": datetime.utcnow().isoformat() + "Z",
         "company": analysis_results.get("competitor_analysis", {}).get("company", {}),
-        "competitors": analysis_results.get("competitor_analysis", {}).get("competitors", []),
-        "comparison_matrix": analysis_results.get("competitor_analysis", {}).get("comparison_matrix", []),
+        "competitors": analysis_results.get("competitor_analysis", {}).get(
+            "competitors", []
+        ),
+        "comparison_matrix": analysis_results.get("competitor_analysis", {}).get(
+            "comparison_matrix", []
+        ),
         "hiring_activity": analysis_results.get("hiring_activity", {}),
         "ad_benchmarks": analysis_results.get("ad_benchmarks", {}),
         "market_trends": analysis_results.get("market_trends", {}),
@@ -664,6 +816,16 @@ def generate_competitive_brief(analysis_results: Dict[str, Any]) -> Dict[str, An
 
     # Generate strategic recommendations
     brief["recommendations"] = _generate_recommendations(brief)
+
+    # Generate AI competitive narrative
+    brief["competitive_narrative"] = _generate_competitive_narrative(
+        {
+            "company": brief.get("company", {}),
+            "competitors": brief.get("competitors", [])[:5],  # Cap for token budget
+            "hiring_activity": brief.get("hiring_activity", {}),
+            "ad_benchmarks": brief.get("ad_benchmarks", {}),
+        }
+    )
 
     return brief
 
@@ -692,54 +854,62 @@ def _generate_recommendations(brief: Dict[str, Any]) -> List[Dict[str, str]]:
                 highest_ctr_plat = data.get("name", plat_key)
 
         if lowest_cpa_plat:
-            recs.append({
-                "title": "Optimize for Cost Efficiency",
-                "description": (
-                    f"{lowest_cpa_plat} offers the lowest cost-per-application "
-                    f"(${lowest_cpa:.2f}) in your industry. Allocate 40-50% of "
-                    f"budget here for maximum applicant volume."
-                ),
-                "priority": "high",
-                "icon": "dollar",
-            })
+            recs.append(
+                {
+                    "title": "Optimize for Cost Efficiency",
+                    "description": (
+                        f"{lowest_cpa_plat} offers the lowest cost-per-application "
+                        f"(${lowest_cpa:.2f}) in your industry. Allocate 40-50% of "
+                        f"budget here for maximum applicant volume."
+                    ),
+                    "priority": "high",
+                    "icon": "dollar",
+                }
+            )
 
         if highest_ctr_plat and highest_ctr_plat != lowest_cpa_plat:
-            recs.append({
-                "title": "Maximize Engagement",
-                "description": (
-                    f"{highest_ctr_plat} shows the highest click-through rate "
-                    f"({highest_ctr:.1f}%). Use compelling creative and "
-                    f"employer branding content on this platform."
-                ),
-                "priority": "medium",
-                "icon": "chart",
-            })
+            recs.append(
+                {
+                    "title": "Maximize Engagement",
+                    "description": (
+                        f"{highest_ctr_plat} shows the highest click-through rate "
+                        f"({highest_ctr:.1f}%). Use compelling creative and "
+                        f"employer branding content on this platform."
+                    ),
+                    "priority": "medium",
+                    "icon": "chart",
+                }
+            )
 
     # 2. Competitive positioning
     hiring = brief.get("hiring_activity", {})
     difficulty = hiring.get("hiring_difficulty", "moderate")
     if difficulty == "high":
-        recs.append({
-            "title": "Strengthen Employer Brand",
-            "description": (
-                "Your industry has high hiring competition. Invest in employer "
-                "branding, Glassdoor profile optimization, and employee advocacy "
-                "programs to differentiate from competitors."
-            ),
-            "priority": "high",
-            "icon": "shield",
-        })
+        recs.append(
+            {
+                "title": "Strengthen Employer Brand",
+                "description": (
+                    "Your industry has high hiring competition. Invest in employer "
+                    "branding, Glassdoor profile optimization, and employee advocacy "
+                    "programs to differentiate from competitors."
+                ),
+                "priority": "high",
+                "icon": "shield",
+            }
+        )
     elif difficulty == "low":
-        recs.append({
-            "title": "Capitalize on Low Competition",
-            "description": (
-                "Hiring competition is relatively low in your space. Focus on "
-                "volume-driven channels and programmatic distribution to fill "
-                "positions quickly at favorable CPAs."
-            ),
-            "priority": "medium",
-            "icon": "rocket",
-        })
+        recs.append(
+            {
+                "title": "Capitalize on Low Competition",
+                "description": (
+                    "Hiring competition is relatively low in your space. Focus on "
+                    "volume-driven channels and programmatic distribution to fill "
+                    "positions quickly at favorable CPAs."
+                ),
+                "priority": "medium",
+                "icon": "rocket",
+            }
+        )
 
     # 3. Search interest trend
     trends = brief.get("market_trends", {})
@@ -749,54 +919,62 @@ def _generate_recommendations(brief: Dict[str, Any]) -> List[Dict[str, str]]:
     if company_name in companies:
         trend = companies[company_name].get("trend", "stable")
         if trend == "declining":
-            recs.append({
-                "title": "Boost Brand Awareness",
-                "description": (
-                    "Search interest for your company is declining relative to "
-                    "competitors. Consider increasing investment in awareness "
-                    "campaigns, social media presence, and content marketing."
-                ),
-                "priority": "high",
-                "icon": "megaphone",
-            })
+            recs.append(
+                {
+                    "title": "Boost Brand Awareness",
+                    "description": (
+                        "Search interest for your company is declining relative to "
+                        "competitors. Consider increasing investment in awareness "
+                        "campaigns, social media presence, and content marketing."
+                    ),
+                    "priority": "high",
+                    "icon": "megaphone",
+                }
+            )
         elif trend == "rising":
-            recs.append({
-                "title": "Leverage Rising Interest",
-                "description": (
-                    "Search interest for your company is trending upward. "
-                    "Capitalize on this momentum with targeted recruitment "
-                    "campaigns and career page optimization."
-                ),
-                "priority": "medium",
-                "icon": "trending",
-            })
+            recs.append(
+                {
+                    "title": "Leverage Rising Interest",
+                    "description": (
+                        "Search interest for your company is trending upward. "
+                        "Capitalize on this momentum with targeted recruitment "
+                        "campaigns and career page optimization."
+                    ),
+                    "priority": "medium",
+                    "icon": "trending",
+                }
+            )
 
     # 4. Diversification recommendation
     if len(benchmarks) >= 4:
-        recs.append({
-            "title": "Diversify Channel Mix",
-            "description": (
-                "Avoid over-reliance on a single platform. A balanced mix of "
-                "job boards (Indeed), social (LinkedIn, Meta), search (Google), "
-                "and programmatic channels reduces risk and reaches passive candidates."
-            ),
-            "priority": "medium",
-            "icon": "grid",
-        })
+        recs.append(
+            {
+                "title": "Diversify Channel Mix",
+                "description": (
+                    "Avoid over-reliance on a single platform. A balanced mix of "
+                    "job boards (Indeed), social (LinkedIn, Meta), search (Google), "
+                    "and programmatic channels reduces risk and reaches passive candidates."
+                ),
+                "priority": "medium",
+                "icon": "grid",
+            }
+        )
 
     # 5. Competitor count check
     comp_count = len(brief.get("competitors", []))
     if comp_count >= 3:
-        recs.append({
-            "title": "Monitor Competitor Moves",
-            "description": (
-                f"With {comp_count} key competitors tracked, set up regular "
-                f"monitoring of their career pages, Glassdoor reviews, and "
-                f"job posting volumes to stay ahead of hiring surges."
-            ),
-            "priority": "low",
-            "icon": "eye",
-        })
+        recs.append(
+            {
+                "title": "Monitor Competitor Moves",
+                "description": (
+                    f"With {comp_count} key competitors tracked, set up regular "
+                    f"monitoring of their career pages, Glassdoor reviews, and "
+                    f"job posting volumes to stay ahead of hiring surges."
+                ),
+                "priority": "low",
+                "icon": "eye",
+            }
+        )
 
     return recs[:5]  # Cap at 5 recommendations
 
@@ -804,6 +982,7 @@ def _generate_recommendations(brief: Dict[str, Any]) -> List[Dict[str, str]]:
 # ═══════════════════════════════════════════════════════════════════════════════
 # 7. EXCEL REPORT GENERATION
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def generate_competitive_excel(
     brief: Dict[str, Any],
@@ -835,7 +1014,9 @@ def generate_competitive_excel(
 
     hdr_fill = PatternFill(start_color=NAVY, end_color=NAVY, fill_type="solid")
     hdr_font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
-    accent_fill = PatternFill(start_color=BLUE_PALE, end_color=BLUE_PALE, fill_type="solid")
+    accent_fill = PatternFill(
+        start_color=BLUE_PALE, end_color=BLUE_PALE, fill_type="solid"
+    )
     data_font = Font(name="Calibri", size=10, color="1E293B")
     bold_font = Font(name="Calibri", size=10, bold=True, color="1E293B")
     title_font = Font(name="Calibri", size=14, bold=True, color=NAVY)
@@ -859,7 +1040,9 @@ def generate_competitive_excel(
     ws1["B2"].font = title_font
 
     ws1.merge_cells("B3:F3")
-    ws1["B3"] = f"Generated {brief.get('generated_at', '')[:10]} | Powered by Nova AI Suite"
+    ws1["B3"] = (
+        f"Generated {brief.get('generated_at', '')[:10]} | Powered by Nova AI Suite"
+    )
     ws1["B3"].font = subtitle_font
 
     # Company profile table
@@ -912,8 +1095,16 @@ def generate_competitive_excel(
 
     matrix = brief.get("comparison_matrix", [])
     if matrix:
-        headers = ["Company", "Industry", "Employees", "Public/Private",
-                    "Ticker", "HQ", "Glassdoor", "Brand Strength"]
+        headers = [
+            "Company",
+            "Industry",
+            "Employees",
+            "Public/Private",
+            "Ticker",
+            "HQ",
+            "Glassdoor",
+            "Brand Strength",
+        ]
         for ci, h in enumerate(headers, start=2):
             cell = ws2.cell(row=4, column=ci, value=h)
             cell.font = hdr_font
@@ -924,13 +1115,29 @@ def generate_competitive_excel(
             ws2.cell(row=ri, column=2, value=entry.get("name", "")).font = (
                 bold_font if entry.get("is_primary") else data_font
             )
-            ws2.cell(row=ri, column=3, value=entry.get("industry", "N/A")).font = data_font
-            ws2.cell(row=ri, column=4, value=entry.get("employee_count", "N/A")).font = data_font
-            ws2.cell(row=ri, column=5, value="Public" if entry.get("is_public") else "Private").font = data_font
-            ws2.cell(row=ri, column=6, value=entry.get("stock_ticker", "") or "-").font = data_font
-            ws2.cell(row=ri, column=7, value=entry.get("headquarters", "N/A")).font = data_font
-            ws2.cell(row=ri, column=8, value=str(entry.get("glassdoor_rating", "-") or "-")).font = data_font
-            ws2.cell(row=ri, column=9, value=entry.get("employer_brand_strength", "-") or "-").font = data_font
+            ws2.cell(row=ri, column=3, value=entry.get("industry", "N/A")).font = (
+                data_font
+            )
+            ws2.cell(
+                row=ri, column=4, value=entry.get("employee_count", "N/A")
+            ).font = data_font
+            ws2.cell(
+                row=ri,
+                column=5,
+                value="Public" if entry.get("is_public") else "Private",
+            ).font = data_font
+            ws2.cell(
+                row=ri, column=6, value=entry.get("stock_ticker", "") or "-"
+            ).font = data_font
+            ws2.cell(row=ri, column=7, value=entry.get("headquarters", "N/A")).font = (
+                data_font
+            )
+            ws2.cell(
+                row=ri, column=8, value=str(entry.get("glassdoor_rating", "-") or "-")
+            ).font = data_font
+            ws2.cell(
+                row=ri, column=9, value=entry.get("employer_brand_strength", "-") or "-"
+            ).font = data_font
 
             # Highlight primary company row
             if entry.get("is_primary"):
@@ -964,14 +1171,26 @@ def generate_competitive_excel(
 
         row = 6
         for plat_key, data in benchmarks.items():
-            ws3.cell(row=row, column=2, value=data.get("name", plat_key)).font = bold_font
-            ws3.cell(row=row, column=3, value=f"${data.get('cpc', 0):.2f}").font = data_font
-            ws3.cell(row=row, column=4, value=f"${data.get('cpa', 0):.2f}").font = data_font
+            ws3.cell(row=row, column=2, value=data.get("name", plat_key)).font = (
+                bold_font
+            )
+            ws3.cell(row=row, column=3, value=f"${data.get('cpc', 0):.2f}").font = (
+                data_font
+            )
+            ws3.cell(row=row, column=4, value=f"${data.get('cpa', 0):.2f}").font = (
+                data_font
+            )
             ctr_val = data.get("ctr")
-            ws3.cell(row=row, column=5, value=f"{ctr_val:.1f}%" if ctr_val else "N/A").font = data_font
-            ws3.cell(row=row, column=6, value=data.get("trend_direction", "stable").title()).font = data_font
+            ws3.cell(
+                row=row, column=5, value=f"{ctr_val:.1f}%" if ctr_val else "N/A"
+            ).font = data_font
+            ws3.cell(
+                row=row, column=6, value=data.get("trend_direction", "stable").title()
+            ).font = data_font
             yoy = data.get("trend_pct_yoy")
-            ws3.cell(row=row, column=7, value=f"{yoy:+.1f}%" if yoy else "N/A").font = data_font
+            ws3.cell(row=row, column=7, value=f"{yoy:+.1f}%" if yoy else "N/A").font = (
+                data_font
+            )
             row += 1
 
     # Market trends
@@ -994,9 +1213,15 @@ def generate_competitive_excel(
             ws3.cell(row=row, column=2, value=name).font = (
                 bold_font if data.get("is_primary") else data_font
             )
-            ws3.cell(row=row, column=3, value=data.get("avg_interest", "N/A")).font = data_font
-            ws3.cell(row=row, column=4, value=data.get("latest_interest", "N/A")).font = data_font
-            ws3.cell(row=row, column=5, value=data.get("trend", "stable").title()).font = data_font
+            ws3.cell(row=row, column=3, value=data.get("avg_interest", "N/A")).font = (
+                data_font
+            )
+            ws3.cell(
+                row=row, column=4, value=data.get("latest_interest", "N/A")
+            ).font = data_font
+            ws3.cell(
+                row=row, column=5, value=data.get("trend", "stable").title()
+            ).font = data_font
             if data.get("is_primary"):
                 for cc in range(2, 6):
                     ws3.cell(row=row, column=cc).fill = accent_fill
@@ -1034,7 +1259,9 @@ def generate_competitive_excel(
         ws4[f"C{row}"].font = bold_font
 
         ws4[f"D{row}"] = priority.upper()
-        ws4[f"D{row}"].font = Font(name="Calibri", size=9, bold=True, color=pri_colors.get(priority, "F59E0B"))
+        ws4[f"D{row}"].font = Font(
+            name="Calibri", size=9, bold=True, color=pri_colors.get(priority, "F59E0B")
+        )
 
         row += 1
         ws4.merge_cells(f"C{row}:F{row}")
@@ -1059,6 +1286,7 @@ def generate_competitive_excel(
 # ═══════════════════════════════════════════════════════════════════════════════
 # 8. POWERPOINT REPORT GENERATION
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def generate_competitive_ppt(
     brief: Dict[str, Any],
@@ -1103,9 +1331,21 @@ def generate_competitive_ppt(
         fill.solid()
         fill.fore_color.rgb = color
 
-    def _add_text_box(slide, left, top, width, height, text,
-                      font_size=12, bold=False, color=WHITE, alignment=PP_ALIGN.LEFT):
-        txBox = slide.shapes.add_textbox(Inches(left), Inches(top), Inches(width), Inches(height))
+    def _add_text_box(
+        slide,
+        left,
+        top,
+        width,
+        height,
+        text,
+        font_size=12,
+        bold=False,
+        color=WHITE,
+        alignment=PP_ALIGN.LEFT,
+    ):
+        txBox = slide.shapes.add_textbox(
+            Inches(left), Inches(top), Inches(width), Inches(height)
+        )
         tf = txBox.text_frame
         tf.word_wrap = True
         p = tf.paragraphs[0]
@@ -1119,7 +1359,10 @@ def generate_competitive_ppt(
     def _add_shape(slide, left, top, width, height, color):
         shape = slide.shapes.add_shape(
             MSO_SHAPE.ROUNDED_RECTANGLE,
-            Inches(left), Inches(top), Inches(width), Inches(height),
+            Inches(left),
+            Inches(top),
+            Inches(width),
+            Inches(height),
         )
         shape.fill.solid()
         shape.fill.fore_color.rgb = color
@@ -1134,28 +1377,63 @@ def generate_competitive_ppt(
     # Accent bar
     bar = slide1.shapes.add_shape(
         MSO_SHAPE.RECTANGLE,
-        Inches(0), Inches(3.0), Inches(13.333), Inches(0.06),
+        Inches(0),
+        Inches(3.0),
+        Inches(13.333),
+        Inches(0.06),
     )
     bar.fill.solid()
     bar.fill.fore_color.rgb = BLUE_VIOLET
     bar.line.fill.background()
 
-    _add_text_box(slide1, 1, 1.5, 11, 1.5,
-                  f"Competitive Intelligence Report",
-                  font_size=36, bold=True, color=WHITE)
-    _add_text_box(slide1, 1, 3.3, 11, 0.8,
-                  company_name,
-                  font_size=24, bold=False, color=DOWNY_TEAL)
-    _add_text_box(slide1, 1, 4.5, 11, 0.5,
-                  f"Generated {brief.get('generated_at', '')[:10]} | Powered by Nova AI Suite",
-                  font_size=12, color=MUTED_TEXT)
+    _add_text_box(
+        slide1,
+        1,
+        1.5,
+        11,
+        1.5,
+        f"Competitive Intelligence Report",
+        font_size=36,
+        bold=True,
+        color=WHITE,
+    )
+    _add_text_box(
+        slide1,
+        1,
+        3.3,
+        11,
+        0.8,
+        company_name,
+        font_size=24,
+        bold=False,
+        color=DOWNY_TEAL,
+    )
+    _add_text_box(
+        slide1,
+        1,
+        4.5,
+        11,
+        0.5,
+        f"Generated {brief.get('generated_at', '')[:10]} | Powered by Nova AI Suite",
+        font_size=12,
+        color=MUTED_TEXT,
+    )
 
     # ── Slide 2: Company Overview ──
     slide2 = prs.slides.add_slide(prs.slide_layouts[6])
     _add_bg(slide2, RGBColor(0x0F, 0x0F, 0x1E))
 
-    _add_text_box(slide2, 0.8, 0.4, 6, 0.6,
-                  "Company Overview", font_size=24, bold=True, color=WHITE)
+    _add_text_box(
+        slide2,
+        0.8,
+        0.4,
+        6,
+        0.6,
+        "Company Overview",
+        font_size=24,
+        bold=True,
+        color=WHITE,
+    )
 
     company = brief.get("company", {})
     profile_items = [
@@ -1171,33 +1449,58 @@ def generate_competitive_ppt(
     # Profile card background
     _add_shape(slide2, 0.8, 1.2, 5.5, 4.5, RGBColor(0x1A, 0x1A, 0x30))
 
-    _add_text_box(slide2, 1.1, 1.4, 5, 0.5,
-                  company.get("name", company_name),
-                  font_size=20, bold=True, color=DOWNY_TEAL)
+    _add_text_box(
+        slide2,
+        1.1,
+        1.4,
+        5,
+        0.5,
+        company.get("name", company_name),
+        font_size=20,
+        bold=True,
+        color=DOWNY_TEAL,
+    )
 
     y = 2.1
     for label, value in profile_items:
-        _add_text_box(slide2, 1.1, y, 2.2, 0.35,
-                      label, font_size=10, bold=True, color=MUTED_TEXT)
-        _add_text_box(slide2, 3.3, y, 2.8, 0.35,
-                      str(value), font_size=10, color=WHITE)
+        _add_text_box(
+            slide2, 1.1, y, 2.2, 0.35, label, font_size=10, bold=True, color=MUTED_TEXT
+        )
+        _add_text_box(slide2, 3.3, y, 2.8, 0.35, str(value), font_size=10, color=WHITE)
         y += 0.35
 
     # Description card
     desc = company.get("description", "No description available.")
     _add_shape(slide2, 6.8, 1.2, 5.7, 4.5, RGBColor(0x1A, 0x1A, 0x30))
-    _add_text_box(slide2, 7.0, 1.4, 5.3, 0.4,
-                  "About", font_size=14, bold=True, color=DOWNY_TEAL)
-    _add_text_box(slide2, 7.0, 1.9, 5.3, 3.5,
-                  desc[:400] if desc else "No description available.",
-                  font_size=10, color=WHITE)
+    _add_text_box(
+        slide2, 7.0, 1.4, 5.3, 0.4, "About", font_size=14, bold=True, color=DOWNY_TEAL
+    )
+    _add_text_box(
+        slide2,
+        7.0,
+        1.9,
+        5.3,
+        3.5,
+        desc[:400] if desc else "No description available.",
+        font_size=10,
+        color=WHITE,
+    )
 
     # ── Slide 3: Competitive Landscape ──
     slide3 = prs.slides.add_slide(prs.slide_layouts[6])
     _add_bg(slide3, RGBColor(0x0F, 0x0F, 0x1E))
 
-    _add_text_box(slide3, 0.8, 0.4, 6, 0.6,
-                  "Competitive Landscape", font_size=24, bold=True, color=WHITE)
+    _add_text_box(
+        slide3,
+        0.8,
+        0.4,
+        6,
+        0.6,
+        "Competitive Landscape",
+        font_size=24,
+        bold=True,
+        color=WHITE,
+    )
 
     matrix = brief.get("comparison_matrix", [])
     if matrix:
@@ -1211,15 +1514,28 @@ def generate_competitive_ppt(
         x = x_start
         for ci, (hdr, w) in enumerate(zip(col_headers, col_widths)):
             shape = _add_shape(slide3, x, y_start, w, 0.45, BLUE_VIOLET)
-            _add_text_box(slide3, x + 0.1, y_start + 0.05, w - 0.2, 0.35,
-                          hdr, font_size=10, bold=True, color=WHITE,
-                          alignment=PP_ALIGN.LEFT)
+            _add_text_box(
+                slide3,
+                x + 0.1,
+                y_start + 0.05,
+                w - 0.2,
+                0.35,
+                hdr,
+                font_size=10,
+                bold=True,
+                color=WHITE,
+                alignment=PP_ALIGN.LEFT,
+            )
             x += w
 
         # Data rows
         for ri, entry in enumerate(matrix):
             y = y_start + 0.5 + (ri * 0.45)
-            row_color = RGBColor(0x1A, 0x1A, 0x30) if ri % 2 == 0 else RGBColor(0x15, 0x15, 0x28)
+            row_color = (
+                RGBColor(0x1A, 0x1A, 0x30)
+                if ri % 2 == 0
+                else RGBColor(0x15, 0x15, 0x28)
+            )
             x = x_start
             values = [
                 entry.get("name", ""),
@@ -1230,19 +1546,39 @@ def generate_competitive_ppt(
             ]
             for vi, (val, w) in enumerate(zip(values, col_widths)):
                 _add_shape(slide3, x, y, w, 0.45, row_color)
-                text_color = DOWNY_TEAL if vi == 0 and entry.get("is_primary") else WHITE
+                text_color = (
+                    DOWNY_TEAL if vi == 0 and entry.get("is_primary") else WHITE
+                )
                 font_bold = vi == 0 and entry.get("is_primary")
-                _add_text_box(slide3, x + 0.1, y + 0.05, w - 0.2, 0.35,
-                              str(val), font_size=9, bold=font_bold,
-                              color=text_color, alignment=PP_ALIGN.LEFT)
+                _add_text_box(
+                    slide3,
+                    x + 0.1,
+                    y + 0.05,
+                    w - 0.2,
+                    0.35,
+                    str(val),
+                    font_size=9,
+                    bold=font_bold,
+                    color=text_color,
+                    alignment=PP_ALIGN.LEFT,
+                )
                 x += w
 
     # ── Slide 4: Market Trends ──
     slide4 = prs.slides.add_slide(prs.slide_layouts[6])
     _add_bg(slide4, RGBColor(0x0F, 0x0F, 0x1E))
 
-    _add_text_box(slide4, 0.8, 0.4, 6, 0.6,
-                  "Market Trends & Search Interest", font_size=24, bold=True, color=WHITE)
+    _add_text_box(
+        slide4,
+        0.8,
+        0.4,
+        6,
+        0.6,
+        "Market Trends & Search Interest",
+        font_size=24,
+        bold=True,
+        color=WHITE,
+    )
 
     trends = brief.get("market_trends", {}).get("companies", {})
     max_interest = brief.get("market_trends", {}).get("max_interest", 100) or 100
@@ -1257,25 +1593,56 @@ def generate_competitive_ppt(
             bar_color = DOWNY_TEAL if is_primary else BLUE_VIOLET
             trend_label = data.get("trend", "stable")
 
-            _add_text_box(slide4, 0.8, y, 3, 0.35,
-                          name, font_size=11,
-                          bold=is_primary, color=WHITE)
+            _add_text_box(
+                slide4,
+                0.8,
+                y,
+                3,
+                0.35,
+                name,
+                font_size=11,
+                bold=is_primary,
+                color=WHITE,
+            )
             _add_shape(slide4, 4.0, y + 0.05, bar_width, 0.3, bar_color)
-            _add_text_box(slide4, 4.0 + bar_width + 0.2, y, 1.5, 0.35,
-                          f"{interest} ({trend_label})",
-                          font_size=9, color=MUTED_TEXT)
+            _add_text_box(
+                slide4,
+                4.0 + bar_width + 0.2,
+                y,
+                1.5,
+                0.35,
+                f"{interest} ({trend_label})",
+                font_size=9,
+                color=MUTED_TEXT,
+            )
             y += 0.6
 
-    _add_text_box(slide4, 0.8, 6.5, 6, 0.3,
-                  f"Source: {brief.get('market_trends', {}).get('source', 'Google Trends')}",
-                  font_size=8, color=MUTED_TEXT)
+    _add_text_box(
+        slide4,
+        0.8,
+        6.5,
+        6,
+        0.3,
+        f"Source: {brief.get('market_trends', {}).get('source', 'Google Trends')}",
+        font_size=8,
+        color=MUTED_TEXT,
+    )
 
     # ── Slide 5: Ad Platform Benchmarks ──
     slide5 = prs.slides.add_slide(prs.slide_layouts[6])
     _add_bg(slide5, RGBColor(0x0F, 0x0F, 0x1E))
 
-    _add_text_box(slide5, 0.8, 0.4, 6, 0.6,
-                  "Ad Platform Benchmarks", font_size=24, bold=True, color=WHITE)
+    _add_text_box(
+        slide5,
+        0.8,
+        0.4,
+        6,
+        0.6,
+        "Ad Platform Benchmarks",
+        font_size=24,
+        bold=True,
+        color=WHITE,
+    )
 
     benchmarks = brief.get("ad_benchmarks", {}).get("platforms", {})
     if benchmarks:
@@ -1287,13 +1654,26 @@ def generate_competitive_ppt(
         x = x_start
         for hdr, w in zip(bench_cols, bench_widths):
             _add_shape(slide5, x, y_start, w, 0.45, BLUE_VIOLET)
-            _add_text_box(slide5, x + 0.1, y_start + 0.05, w - 0.2, 0.35,
-                          hdr, font_size=10, bold=True, color=WHITE)
+            _add_text_box(
+                slide5,
+                x + 0.1,
+                y_start + 0.05,
+                w - 0.2,
+                0.35,
+                hdr,
+                font_size=10,
+                bold=True,
+                color=WHITE,
+            )
             x += w
 
         for ri, (plat_key, data) in enumerate(benchmarks.items()):
             y = y_start + 0.5 + (ri * 0.45)
-            row_color = RGBColor(0x1A, 0x1A, 0x30) if ri % 2 == 0 else RGBColor(0x15, 0x15, 0x28)
+            row_color = (
+                RGBColor(0x1A, 0x1A, 0x30)
+                if ri % 2 == 0
+                else RGBColor(0x15, 0x15, 0x28)
+            )
             x = x_start
 
             ctr_val = data.get("ctr")
@@ -1306,22 +1686,46 @@ def generate_competitive_ppt(
             ]
             for val, w in zip(values, bench_widths):
                 _add_shape(slide5, x, y, w, 0.45, row_color)
-                _add_text_box(slide5, x + 0.1, y + 0.05, w - 0.2, 0.35,
-                              val, font_size=9, color=WHITE)
+                _add_text_box(
+                    slide5,
+                    x + 0.1,
+                    y + 0.05,
+                    w - 0.2,
+                    0.35,
+                    val,
+                    font_size=9,
+                    color=WHITE,
+                )
                 x += w
 
     industry_label = brief.get("ad_benchmarks", {}).get("industry_label", "")
     if industry_label:
-        _add_text_box(slide5, 0.8, 6.5, 8, 0.3,
-                      f"Industry: {industry_label} | Source: Appcast, WordStream, SHRM Benchmarks",
-                      font_size=8, color=MUTED_TEXT)
+        _add_text_box(
+            slide5,
+            0.8,
+            6.5,
+            8,
+            0.3,
+            f"Industry: {industry_label} | Source: Appcast, WordStream, SHRM Benchmarks",
+            font_size=8,
+            color=MUTED_TEXT,
+        )
 
     # ── Slide 6: Recommendations ──
     slide6 = prs.slides.add_slide(prs.slide_layouts[6])
     _add_bg(slide6, RGBColor(0x0F, 0x0F, 0x1E))
 
-    _add_text_box(slide6, 0.8, 0.4, 6, 0.6,
-                  "Strategic Recommendations", font_size=24, bold=True, color=WHITE)
+    _add_text_box(
+        slide6,
+        0.8,
+        0.4,
+        6,
+        0.6,
+        "Strategic Recommendations",
+        font_size=24,
+        bold=True,
+        color=WHITE,
+    )
 
     recs = brief.get("recommendations", [])
     priority_colors = {
@@ -1340,27 +1744,66 @@ def generate_competitive_ppt(
         x = 0.8 if col == 0 else 7.0
 
         priority = rec.get("priority", "medium")
-        _add_shape(slide6, x, y, card_width, 1.5,
-                   RGBColor(0x1A, 0x1A, 0x30))
+        _add_shape(slide6, x, y, card_width, 1.5, RGBColor(0x1A, 0x1A, 0x30))
 
         # Priority badge
-        badge = _add_shape(slide6, x + 0.15, y + 0.15, 0.7, 0.3,
-                           priority_colors.get(priority, RAW_SIENNA))
+        badge = _add_shape(
+            slide6,
+            x + 0.15,
+            y + 0.15,
+            0.7,
+            0.3,
+            priority_colors.get(priority, RAW_SIENNA),
+        )
 
-        _add_text_box(slide6, x + 0.15, y + 0.15, 0.7, 0.3,
-                      priority.upper(), font_size=7, bold=True, color=WHITE,
-                      alignment=PP_ALIGN.CENTER)
+        _add_text_box(
+            slide6,
+            x + 0.15,
+            y + 0.15,
+            0.7,
+            0.3,
+            priority.upper(),
+            font_size=7,
+            bold=True,
+            color=WHITE,
+            alignment=PP_ALIGN.CENTER,
+        )
 
-        _add_text_box(slide6, x + 1.0, y + 0.1, card_width - 1.2, 0.4,
-                      rec.get("title", ""), font_size=12, bold=True, color=DOWNY_TEAL)
+        _add_text_box(
+            slide6,
+            x + 1.0,
+            y + 0.1,
+            card_width - 1.2,
+            0.4,
+            rec.get("title", ""),
+            font_size=12,
+            bold=True,
+            color=DOWNY_TEAL,
+        )
 
-        _add_text_box(slide6, x + 0.15, y + 0.55, card_width - 0.3, 0.85,
-                      rec.get("description", ""), font_size=9, color=WHITE)
+        _add_text_box(
+            slide6,
+            x + 0.15,
+            y + 0.55,
+            card_width - 0.3,
+            0.85,
+            rec.get("description", ""),
+            font_size=9,
+            color=WHITE,
+        )
 
     # Footer
-    _add_text_box(slide6, 0.8, 6.8, 11, 0.4,
-                  "Powered by Nova AI Suite | https://media-plan-generator.onrender.com",
-                  font_size=8, color=MUTED_TEXT, alignment=PP_ALIGN.CENTER)
+    _add_text_box(
+        slide6,
+        0.8,
+        6.8,
+        11,
+        0.4,
+        "Powered by Nova AI Suite | https://media-plan-generator.onrender.com",
+        font_size=8,
+        color=MUTED_TEXT,
+        alignment=PP_ALIGN.CENTER,
+    )
 
     buf = io.BytesIO()
     prs.save(buf)
@@ -1370,6 +1813,7 @@ def generate_competitive_ppt(
 # ═══════════════════════════════════════════════════════════════════════════════
 # 9. ORCHESTRATOR -- run_full_analysis
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def run_full_analysis(
     company_name: str,
@@ -1433,8 +1877,12 @@ def run_full_analysis(
             _safe_call, analyze_competitors, company_name, competitors
         )
         f_hiring = executor.submit(
-            _safe_call, compare_hiring_activity,
-            company_name, competitors, industry, roles
+            _safe_call,
+            compare_hiring_activity,
+            company_name,
+            competitors,
+            industry,
+            roles,
         )
         f_benchmarks = executor.submit(
             _safe_call, compare_ad_benchmarks, industry, roles
@@ -1488,6 +1936,7 @@ def run_full_analysis(
 # UTILITY HELPERS
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def _safe_call(fn, *args, **kwargs):
     """Call a function, returning None on any exception."""
     try:
@@ -1516,7 +1965,4 @@ def _format_employee_count(count) -> str:
 
 def get_industry_options() -> List[Dict[str, str]]:
     """Return industry options for the frontend dropdown."""
-    return [
-        {"value": key, "label": label}
-        for key, label in INDUSTRY_LABEL_MAP.items()
-    ]
+    return [{"value": key, "label": label} for key, label in INDUSTRY_LABEL_MAP.items()]

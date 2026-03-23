@@ -36,12 +36,12 @@ from typing import Any, Dict, List, Optional, Tuple
 logger = logging.getLogger(__name__)
 
 # ── Scheduling ──────────────────────────────────────────────────────────────
-_TEST_INTERVAL = 12 * 3600       # 12 hours between test runs
-_INITIAL_DELAY = 120             # 2 min after startup (let services warm up)
-_WEEKLY_INTERVAL = 7 * 24 * 3600 # 7 days between self-upgrade cycles
-_WEEKLY_INITIAL_DELAY = 300      # 5 min after startup for first weekly check
-_MAX_HISTORY = 30                # Keep last 30 run results
-_PER_TEST_TIMEOUT = 45           # seconds -- hard ceiling per individual test
+_TEST_INTERVAL = 12 * 3600  # 12 hours between test runs
+_INITIAL_DELAY = 120  # 2 min after startup (let services warm up)
+_WEEKLY_INTERVAL = 7 * 24 * 3600  # 7 days between self-upgrade cycles
+_WEEKLY_INITIAL_DELAY = 300  # 5 min after startup for first weekly check
+_MAX_HISTORY = 30  # Keep last 30 run results
+_PER_TEST_TIMEOUT = 45  # seconds -- hard ceiling per individual test
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
 QC_RESULTS_FILE = DATA_DIR / "auto_qc_results.json"
@@ -53,12 +53,20 @@ REQUEST_LOG_FILE = DATA_DIR / "request_log.json"
 # TEST CASE DEFINITIONS
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class TestResult:
     """Single test execution result."""
+
     __slots__ = ("name", "passed", "detail", "duration_ms", "category")
 
-    def __init__(self, name: str, passed: bool, detail: str = "",
-                 duration_ms: float = 0, category: str = "static"):
+    def __init__(
+        self,
+        name: str,
+        passed: bool,
+        detail: str = "",
+        duration_ms: float = 0,
+        category: str = "static",
+    ):
         self.name = name
         self.passed = passed
         self.detail = detail
@@ -79,6 +87,7 @@ class TestResult:
 # AUTONOMOUS QC ENGINE
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class AutoQC:
     """Self-running QC engine with twice-daily tests, auto-healing, and weekly
     self-upgrading test generation."""
@@ -92,12 +101,12 @@ class AutoQC:
         self._heal_log: List[Dict[str, Any]] = []
         self._last_run_time: float = 0
         self._last_weekly_time: float = 0
-        self._start_time: float = 0          # set when start_background() is called
+        self._start_time: float = 0  # set when start_background() is called
         self._run_count: int = 0
         self._weekly_count: int = 0
-        self._nova_instance = None            # cached Nova instance (avoid per-test reinit)
+        self._nova_instance = None  # cached Nova instance (avoid per-test reinit)
         self._nova_init_failed: bool = False  # skip chat tests if Nova init crashes
-        self._is_running: bool = False        # True while run_tests() is executing
+        self._is_running: bool = False  # True while run_tests() is executing
         self._load_dynamic_tests()
         self._load_history()
 
@@ -124,7 +133,9 @@ class AutoQC:
                 daemon=True,
             )
             self._weekly_thread.start()
-            logger.info("AutoQC: weekly upgrader started (interval=%ds)", _WEEKLY_INTERVAL)
+            logger.info(
+                "AutoQC: weekly upgrader started (interval=%ds)", _WEEKLY_INTERVAL
+            )
 
     def get_status(self) -> Dict[str, Any]:
         """Return QC status for the API endpoint."""
@@ -143,19 +154,47 @@ class AutoQC:
                 "static_tests": len(self._get_static_test_names()),
                 "dynamic_tests": len(self._dynamic_tests),
                 "last_run": last_run,
-                "last_run_age_seconds": round(
-                    time.time() - self._last_run_time, 1
-                ) if self._last_run_time else None,
-                "next_run_in_seconds": max(0, round(
-                    _TEST_INTERVAL - (time.time() - self._last_run_time), 1
-                )) if self._last_run_time else max(0, round(
-                    _INITIAL_DELAY - (time.time() - self._start_time), 1
-                )) if self._start_time else None,
-                "next_weekly_in_seconds": max(0, round(
-                    _WEEKLY_INTERVAL - (time.time() - self._last_weekly_time), 1
-                )) if self._last_weekly_time else max(0, round(
-                    _WEEKLY_INITIAL_DELAY - (time.time() - self._start_time), 1
-                )) if self._start_time else None,
+                "last_run_age_seconds": (
+                    round(time.time() - self._last_run_time, 1)
+                    if self._last_run_time
+                    else None
+                ),
+                "next_run_in_seconds": (
+                    max(
+                        0,
+                        round(_TEST_INTERVAL - (time.time() - self._last_run_time), 1),
+                    )
+                    if self._last_run_time
+                    else (
+                        max(
+                            0,
+                            round(_INITIAL_DELAY - (time.time() - self._start_time), 1),
+                        )
+                        if self._start_time
+                        else None
+                    )
+                ),
+                "next_weekly_in_seconds": (
+                    max(
+                        0,
+                        round(
+                            _WEEKLY_INTERVAL - (time.time() - self._last_weekly_time), 1
+                        ),
+                    )
+                    if self._last_weekly_time
+                    else (
+                        max(
+                            0,
+                            round(
+                                _WEEKLY_INITIAL_DELAY
+                                - (time.time() - self._start_time),
+                                1,
+                            ),
+                        )
+                        if self._start_time
+                        else None
+                    )
+                ),
                 "recent_heals": list(self._heal_log[-10:]),
                 "run_history": [
                     {
@@ -198,8 +237,10 @@ class AutoQC:
 
             # Build run result
             self._run_count += 1
-            status = "all_passing" if failed == 0 else (
-                "healed" if healed >= failed else "degraded"
+            status = (
+                "all_passing"
+                if failed == 0
+                else ("healed" if healed >= failed else "degraded")
             )
             run_result = {
                 "run_number": self._run_count,
@@ -224,7 +265,12 @@ class AutoQC:
 
             logger.info(
                 "AutoQC: run #%d -- %s (%d/%d passed, %d healed, %.2fs)",
-                self._run_count, status, passed, total, healed, elapsed,
+                self._run_count,
+                status,
+                passed,
+                total,
+                healed,
+                elapsed,
             )
 
             # Alert on persistent failures
@@ -265,12 +311,16 @@ class AutoQC:
         """Return only numbered test methods (_test_NN_*), excluding
         background methods like _test_loop and attributes like _test_thread."""
         import re as _re
+
         return [
-            name for name in dir(self)
+            name
+            for name in dir(self)
             if _re.match(r"_test_\d+_", name) and callable(getattr(self, name))
         ]
 
-    def _run_single_test_with_timeout(self, name: str, method, timeout: int = _PER_TEST_TIMEOUT) -> TestResult:
+    def _run_single_test_with_timeout(
+        self, name: str, method, timeout: int = _PER_TEST_TIMEOUT
+    ) -> TestResult:
         """Run a single test method with a hard timeout.
 
         Prevents ANY individual test from hanging the entire test run,
@@ -336,13 +386,15 @@ class AutoQC:
                 result.duration_ms = (time.time() - t0) * 1000
                 results.append(result)
             except Exception as e:
-                results.append(TestResult(
-                    name=name.replace("_test_", ""),
-                    passed=False,
-                    detail=f"Exception: {e}",
-                    duration_ms=(time.time() - t0) * 1000,
-                    category="static",
-                ))
+                results.append(
+                    TestResult(
+                        name=name.replace("_test_", ""),
+                        passed=False,
+                        detail=f"Exception: {e}",
+                        duration_ms=(time.time() - t0) * 1000,
+                        category="static",
+                    )
+                )
         return results
 
     # -- Health & Structure Tests --
@@ -351,10 +403,10 @@ class AutoQC:
         """Health endpoint returns ok."""
         try:
             from monitoring import health_check_liveness
+
             result = health_check_liveness()
             ok = result.get("status") == "ok"
-            return TestResult("health_endpoint", ok,
-                              f"status={result.get('status')}")
+            return TestResult("health_endpoint", ok, f"status={result.get('status')}")
         except Exception as e:
             return TestResult("health_endpoint", False, str(e))
 
@@ -403,8 +455,7 @@ class AutoQC:
             has_nova = hasattr(nova_mod, "Nova")
             has_chat = has_nova and hasattr(nova_mod.Nova, "chat")
             ok = has_nova and has_chat
-            return TestResult("nova_import", ok,
-                              f"Nova={has_nova}, chat={has_chat}")
+            return TestResult("nova_import", ok, f"Nova={has_nova}, chat={has_chat}")
         except Exception as e:
             return TestResult("nova_import", False, str(e))
 
@@ -415,14 +466,24 @@ class AutoQC:
                 importlib.import_module("data_orchestrator")
             do = sys.modules["data_orchestrator"]
             required_fns = [
-                "enrich_salary", "enrich_location", "enrich_market_demand",
-                "enrich_competitive", "enrich_budget", "enrich_employer_brand",
-                "get_ad_platform_benchmarks", "compute_insights",
-                "get_cache_stats", "get_fallback_telemetry",
+                "enrich_salary",
+                "enrich_location",
+                "enrich_market_demand",
+                "enrich_competitive",
+                "enrich_budget",
+                "enrich_employer_brand",
+                "get_ad_platform_benchmarks",
+                "compute_insights",
+                "get_cache_stats",
+                "get_fallback_telemetry",
             ]
             missing = [fn for fn in required_fns if not hasattr(do, fn)]
             ok = len(missing) == 0
-            detail = "All 10 core functions present" if ok else f"Missing: {', '.join(missing)}"
+            detail = (
+                "All 10 core functions present"
+                if ok
+                else f"Missing: {', '.join(missing)}"
+            )
             return TestResult("orchestrator_import", ok, detail)
         except Exception as e:
             return TestResult("orchestrator_import", False, str(e))
@@ -431,8 +492,7 @@ class AutoQC:
         """ANTHROPIC_API_KEY is set."""
         key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
         ok = len(key) > 10
-        return TestResult("claude_api_key", ok,
-                          "Set" if ok else "Missing or too short")
+        return TestResult("claude_api_key", ok, "Set" if ok else "Missing or too short")
 
     def _test_06_data_matrix_health(self) -> TestResult:
         """Data matrix monitor reports healthy."""
@@ -440,16 +500,19 @@ class AutoQC:
             if "data_matrix_monitor" not in sys.modules:
                 importlib.import_module("data_matrix_monitor")
             from data_matrix_monitor import get_data_matrix_monitor
+
             monitor = get_data_matrix_monitor()
             status = monitor.get_status()
             if status.get("status") == "pending":
-                return TestResult("data_matrix_health", True,
-                                  "Pending (first check not yet run)")
+                return TestResult(
+                    "data_matrix_health", True, "Pending (first check not yet run)"
+                )
             hp = status.get("health_pct", 0)
             errors = status.get("summary", {}).get("error", 0)
             ok = hp >= 80.0 and errors == 0
-            return TestResult("data_matrix_health", ok,
-                              f"health={hp}%, errors={errors}")
+            return TestResult(
+                "data_matrix_health", ok, f"health={hp}%, errors={errors}"
+            )
         except Exception as e:
             return TestResult("data_matrix_health", False, str(e))
 
@@ -461,9 +524,12 @@ class AutoQC:
             do = sys.modules["data_orchestrator"]
             stats = do.get_cache_stats()
             ok = isinstance(stats, dict) and "total_entries" in stats
-            return TestResult("orchestrator_cache", ok,
-                              f"entries={stats.get('total_entries', '?')}, "
-                              f"max={stats.get('max_entries', '?')}")
+            return TestResult(
+                "orchestrator_cache",
+                ok,
+                f"entries={stats.get('total_entries', '?')}, "
+                f"max={stats.get('max_entries', '?')}",
+            )
         except Exception as e:
             return TestResult("orchestrator_cache", False, str(e))
 
@@ -498,7 +564,9 @@ class AutoQC:
         if missing_req:
             detail = f"Missing required: {', '.join(missing_req)}"
         elif missing_opt:
-            detail = f"Optional missing: {', '.join(missing_opt)} (APIs may use fallback)"
+            detail = (
+                f"Optional missing: {', '.join(missing_opt)} (APIs may use fallback)"
+            )
         return TestResult("env_vars", ok, detail)
 
     def _test_10_modules_compile(self) -> TestResult:
@@ -509,6 +577,7 @@ class AutoQC:
         for f in py_files:
             try:
                 import py_compile
+
                 py_compile.compile(str(f), doraise=True)
             except py_compile.PyCompileError as e:
                 errors.append(f"{f.name}: {e}")
@@ -526,8 +595,11 @@ class AutoQC:
             mentions_joveo = "joveo" in result.get("response", "").lower()
             confidence = result.get("confidence", 0)
             ok = has_response and mentions_joveo and confidence >= 0.85
-            return TestResult("chat_learned_answer", ok,
-                              f"confidence={confidence}, mentions_joveo={mentions_joveo}")
+            return TestResult(
+                "chat_learned_answer",
+                ok,
+                f"confidence={confidence}, mentions_joveo={mentions_joveo}",
+            )
         except Exception as e:
             return TestResult("chat_learned_answer", False, str(e))
 
@@ -538,8 +610,11 @@ class AutoQC:
             required_fields = ["response", "confidence", "sources", "tools_used"]
             missing = [f for f in required_fields if f not in result]
             ok = len(missing) == 0
-            return TestResult("chat_response_structure", ok,
-                              f"fields={'all present' if ok else 'missing: ' + ', '.join(missing)}")
+            return TestResult(
+                "chat_response_structure",
+                ok,
+                f"fields={'all present' if ok else 'missing: ' + ', '.join(missing)}",
+            )
         except Exception as e:
             return TestResult("chat_response_structure", False, str(e))
 
@@ -550,8 +625,11 @@ class AutoQC:
             has_response = bool(result.get("response"))
             no_error = "error" not in result.get("response", "").lower()
             ok = has_response and no_error
-            return TestResult("chat_empty_message", ok,
-                              f"has_response={has_response}, no_error={no_error}")
+            return TestResult(
+                "chat_empty_message",
+                ok,
+                f"has_response={has_response}, no_error={no_error}",
+            )
         except Exception as e:
             return TestResult("chat_empty_message", False, str(e))
 
@@ -560,11 +638,14 @@ class AutoQC:
         try:
             result = self._internal_chat("what is the average salary of a nurse")
             resp_lower = result.get("response", "").lower()
-            asks_location = any(w in resp_lower for w in
-                                ["country", "region", "location", "where", "which"])
+            asks_location = any(
+                w in resp_lower
+                for w in ["country", "region", "location", "where", "which"]
+            )
             ok = asks_location
-            return TestResult("ask_before_answering", ok,
-                              f"asks_location={asks_location}")
+            return TestResult(
+                "ask_before_answering", ok, f"asks_location={asks_location}"
+            )
         except Exception as e:
             return TestResult("ask_before_answering", False, str(e))
 
@@ -594,7 +675,9 @@ class AutoQC:
                     if mod is None:
                         failures.append(f"{fn_name} returned None ({expected} failed)")
             ok = len(failures) == 0
-            detail = f"All {len(loaders)} lazy loaders OK" if ok else "; ".join(failures)
+            detail = (
+                f"All {len(loaders)} lazy loaders OK" if ok else "; ".join(failures)
+            )
             return TestResult("orchestrator_lazy_loaders", ok, detail)
         except Exception as e:
             return TestResult("orchestrator_lazy_loaders", False, str(e))
@@ -609,8 +692,7 @@ class AutoQC:
             ctx.store("test_key", {"value": 42})
             retrieved = ctx.get("test_key")
             ok = retrieved is not None and retrieved.get("value") == 42
-            return TestResult("enrichment_context", ok,
-                              f"store/get={ok}")
+            return TestResult("enrichment_context", ok, f"store/get={ok}")
         except Exception as e:
             return TestResult("enrichment_context", False, str(e))
 
@@ -625,8 +707,11 @@ class AutoQC:
             platforms = result.get("platforms", {})
             has_google = "google_ads" in platforms
             ok = has_platforms and has_google
-            return TestResult("ad_platform_benchmarks", ok,
-                              f"platforms={len(platforms)}, has_google={has_google}")
+            return TestResult(
+                "ad_platform_benchmarks",
+                ok,
+                f"platforms={len(platforms)}, has_google={has_google}",
+            )
         except Exception as e:
             return TestResult("ad_platform_benchmarks", False, str(e))
 
@@ -639,15 +724,18 @@ class AutoQC:
             result = do.compute_insights(
                 role="Software Engineer",
                 location="San Francisco",
-                industry="technology"
+                industry="technology",
             )
             has_difficulty = "hiring_difficulty_index" in result
             # salary_competitiveness_at_market only present when context has salary data
             has_competitiveness = "salary_competitiveness_at_market" in result
             ok = has_difficulty  # core required field
-            return TestResult("compute_insights", ok,
-                              f"difficulty={result.get('hiring_difficulty_index', '?')}, "
-                              f"has_salary_comp={has_competitiveness}")
+            return TestResult(
+                "compute_insights",
+                ok,
+                f"difficulty={result.get('hiring_difficulty_index', '?')}, "
+                f"has_salary_comp={has_competitiveness}",
+            )
         except Exception as e:
             return TestResult("compute_insights", False, str(e))
 
@@ -659,8 +747,11 @@ class AutoQC:
             do = sys.modules["data_orchestrator"]
             result = do.enrich_employer_brand("Google")
             has_data = bool(result) and not result.get("error")
-            return TestResult("employer_brand", has_data,
-                              f"keys={list(result.keys())[:5]}" if has_data else "No data")
+            return TestResult(
+                "employer_brand",
+                has_data,
+                f"keys={list(result.keys())[:5]}" if has_data else "No data",
+            )
         except Exception as e:
             return TestResult("employer_brand", False, str(e))
 
@@ -672,8 +763,11 @@ class AutoQC:
             do = sys.modules["data_orchestrator"]
             result = do.get_fallback_telemetry()
             ok = isinstance(result, dict) and "total_fallbacks" in result
-            return TestResult("fallback_telemetry", ok,
-                              f"total_fallbacks={result.get('total_fallbacks', '?')}")
+            return TestResult(
+                "fallback_telemetry",
+                ok,
+                f"total_fallbacks={result.get('total_fallbacks', '?')}",
+            )
         except Exception as e:
             return TestResult("fallback_telemetry", False, str(e))
 
@@ -685,8 +779,11 @@ class AutoQC:
             try:
                 import trend_engine
             except ImportError:
-                return TestResult("trend_engine_benchmarks", False,
-                                  "trend_engine module not importable")
+                return TestResult(
+                    "trend_engine_benchmarks",
+                    False,
+                    "trend_engine module not importable",
+                )
 
             test_combos = [
                 ("google_search", "healthcare_medical"),
@@ -695,29 +792,49 @@ class AutoQC:
             ]
             failures = []
             for platform, industry in test_combos:
-                result = trend_engine.get_benchmark(platform=platform, industry=industry)
+                result = trend_engine.get_benchmark(
+                    platform=platform, industry=industry
+                )
                 # value > 0
-                if not (isinstance(result.get("value"), (int, float)) and result["value"] > 0):
-                    failures.append(f"{platform}/{industry}: value not > 0 (got {result.get('value')})")
+                if not (
+                    isinstance(result.get("value"), (int, float))
+                    and result["value"] > 0
+                ):
+                    failures.append(
+                        f"{platform}/{industry}: value not > 0 (got {result.get('value')})"
+                    )
                     continue
                 # confidence_interval is a list of 2 floats
                 ci = result.get("confidence_interval")
-                if not (isinstance(ci, (list, tuple)) and len(ci) == 2
-                        and all(isinstance(v, (int, float)) for v in ci)):
-                    failures.append(f"{platform}/{industry}: confidence_interval invalid (got {ci})")
+                if not (
+                    isinstance(ci, (list, tuple))
+                    and len(ci) == 2
+                    and all(isinstance(v, (int, float)) for v in ci)
+                ):
+                    failures.append(
+                        f"{platform}/{industry}: confidence_interval invalid (got {ci})"
+                    )
                     continue
                 # trend_direction in valid set
                 td = result.get("trend_direction")
                 if td not in ("rising", "falling", "stable"):
-                    failures.append(f"{platform}/{industry}: trend_direction invalid (got {td})")
+                    failures.append(
+                        f"{platform}/{industry}: trend_direction invalid (got {td})"
+                    )
                     continue
                 # trend_pct_yoy is a number
                 yoy = result.get("trend_pct_yoy")
                 if not isinstance(yoy, (int, float)):
-                    failures.append(f"{platform}/{industry}: trend_pct_yoy not numeric (got {yoy})")
+                    failures.append(
+                        f"{platform}/{industry}: trend_pct_yoy not numeric (got {yoy})"
+                    )
 
             ok = len(failures) == 0
-            detail = f"All {len(test_combos)} combos valid" if ok else "; ".join(failures[:3])
+            detail = (
+                f"All {len(test_combos)} combos valid"
+                if ok
+                else "; ".join(failures[:3])
+            )
             return TestResult("trend_engine_benchmarks", ok, detail)
         except Exception as e:
             return TestResult("trend_engine_benchmarks", False, str(e))
@@ -728,8 +845,9 @@ class AutoQC:
             try:
                 import trend_engine
             except ImportError:
-                return TestResult("trend_engine_seasonal", False,
-                                  "trend_engine module not importable")
+                return TestResult(
+                    "trend_engine_seasonal", False, "trend_engine module not importable"
+                )
 
             failures = []
             for collar in ("blue_collar", "white_collar"):
@@ -738,14 +856,20 @@ class AutoQC:
                     failures.append(f"{collar}: result is not a dict")
                     continue
                 if "multiplier" not in result:
-                    failures.append(f"{collar}: missing 'multiplier' key (keys={list(result.keys())})")
+                    failures.append(
+                        f"{collar}: missing 'multiplier' key (keys={list(result.keys())})"
+                    )
                     continue
                 mult = result["multiplier"]
                 if not isinstance(mult, (int, float)) or mult <= 0:
                     failures.append(f"{collar}: multiplier not positive (got {mult})")
 
             ok = len(failures) == 0
-            detail = "Both collar types return valid multiplier" if ok else "; ".join(failures)
+            detail = (
+                "Both collar types return valid multiplier"
+                if ok
+                else "; ".join(failures)
+            )
             return TestResult("trend_engine_seasonal", ok, detail)
         except Exception as e:
             return TestResult("trend_engine_seasonal", False, str(e))
@@ -756,8 +880,11 @@ class AutoQC:
             try:
                 import trend_engine
             except ImportError:
-                return TestResult("trend_engine_freshness", False,
-                                  "trend_engine module not importable")
+                return TestResult(
+                    "trend_engine_freshness",
+                    False,
+                    "trend_engine module not importable",
+                )
 
             current_year = datetime.now(timezone.utc).year
             previous_year = current_year - 1
@@ -766,8 +893,11 @@ class AutoQC:
             # at least the previous year across platforms
             all_trends = getattr(trend_engine, "_ALL_TRENDS", None)
             if all_trends is None:
-                return TestResult("trend_engine_freshness", False,
-                                  "_ALL_TRENDS not found in trend_engine")
+                return TestResult(
+                    "trend_engine_freshness",
+                    False,
+                    "_ALL_TRENDS not found in trend_engine",
+                )
 
             stale_platforms = []
             for platform, industries in all_trends.items():
@@ -782,8 +912,11 @@ class AutoQC:
                     stale_platforms.append(platform)
 
             ok = len(stale_platforms) == 0
-            detail = (f"All {len(all_trends)} platforms have data for >= {previous_year}"
-                      if ok else f"Stale platforms (no data >= {previous_year}): {', '.join(stale_platforms)}")
+            detail = (
+                f"All {len(all_trends)} platforms have data for >= {previous_year}"
+                if ok
+                else f"Stale platforms (no data >= {previous_year}): {', '.join(stale_platforms)}"
+            )
             return TestResult("trend_engine_freshness", ok, detail)
         except Exception as e:
             return TestResult("trend_engine_freshness", False, str(e))
@@ -796,8 +929,11 @@ class AutoQC:
             try:
                 import collar_intelligence
             except ImportError:
-                return TestResult("collar_classification", False,
-                                  "collar_intelligence module not importable")
+                return TestResult(
+                    "collar_classification",
+                    False,
+                    "collar_intelligence module not importable",
+                )
 
             test_roles = [
                 "Warehouse Worker",
@@ -806,7 +942,12 @@ class AutoQC:
                 "CEO",
                 "Truck Driver",
             ]
-            valid_collars = ("blue_collar", "white_collar", "grey_collar", "pink_collar")
+            valid_collars = (
+                "blue_collar",
+                "white_collar",
+                "grey_collar",
+                "pink_collar",
+            )
             failures = []
             for role in test_roles:
                 result = collar_intelligence.classify_collar(role)
@@ -826,7 +967,11 @@ class AutoQC:
                     failures.append(f"{role}: method is empty")
 
             ok = len(failures) == 0
-            detail = f"All {len(test_roles)} roles classified validly" if ok else "; ".join(failures[:3])
+            detail = (
+                f"All {len(test_roles)} roles classified validly"
+                if ok
+                else "; ".join(failures[:3])
+            )
             return TestResult("collar_classification", ok, detail)
         except Exception as e:
             return TestResult("collar_classification", False, str(e))
@@ -839,12 +984,20 @@ class AutoQC:
             try:
                 import budget_engine
             except ImportError:
-                return TestResult("budget_engine_v3_params", False,
-                                  "budget_engine module not importable")
+                return TestResult(
+                    "budget_engine_v3_params",
+                    False,
+                    "budget_engine module not importable",
+                )
 
             # Minimal valid inputs for the function
-            channel_pcts = {"Programmatic & DSP": 30, "Global Job Boards": 25,
-                            "Social Media Ads": 20, "Google Ads": 15, "Regional/Local": 10}
+            channel_pcts = {
+                "Programmatic & DSP": 30,
+                "Global Job Boards": 25,
+                "Social Media Ads": 20,
+                "Google Ads": 15,
+                "Regional/Local": 10,
+            }
             role_budgets = {"Software Engineer": {"dollar_amount": 10000, "count": 2}}
 
             # Call with the v3 parameters: industry, collar_type, location
@@ -857,18 +1010,23 @@ class AutoQC:
             )
 
             if not isinstance(result, dict) or len(result) == 0:
-                return TestResult("budget_engine_v3_params", False,
-                                  f"Empty or non-dict result: {type(result)}")
+                return TestResult(
+                    "budget_engine_v3_params",
+                    False,
+                    f"Empty or non-dict result: {type(result)}",
+                )
 
             # Check at least one channel has cpc_source field
             has_cpc_source = any(
-                isinstance(v, dict) and "cpc_source" in v
-                for v in result.values()
+                isinstance(v, dict) and "cpc_source" in v for v in result.values()
             )
             ok = has_cpc_source
             sample_channel = next(iter(result.values()), {})
-            detail = (f"{len(result)} channels returned, cpc_source present"
-                      if ok else f"cpc_source missing from channels (sample keys: {list(sample_channel.keys())[:6]})")
+            detail = (
+                f"{len(result)} channels returned, cpc_source present"
+                if ok
+                else f"cpc_source missing from channels (sample keys: {list(sample_channel.keys())[:6]})"
+            )
             return TestResult("budget_engine_v3_params", ok, detail)
         except Exception as e:
             return TestResult("budget_engine_v3_params", False, str(e))
@@ -881,11 +1039,16 @@ class AutoQC:
             if "data_orchestrator" not in sys.modules:
                 importlib.import_module("data_orchestrator")
             do = sys.modules["data_orchestrator"]
-            result = do.enrich_ad_benchmarks(industry="technology", role="Software Engineer")
+            result = do.enrich_ad_benchmarks(
+                industry="technology", role="Software Engineer"
+            )
             has_sc = isinstance(result.get("structured_confidence"), dict)
             ok = has_sc
-            detail = ("structured_confidence dict present"
-                      if ok else f"structured_confidence missing or not dict (keys={list(result.keys())[:8]})")
+            detail = (
+                "structured_confidence dict present"
+                if ok
+                else f"structured_confidence missing or not dict (keys={list(result.keys())[:8]})"
+            )
             return TestResult("orchestrator_ad_benchmarks_v3", ok, detail)
         except Exception as e:
             return TestResult("orchestrator_ad_benchmarks_v3", False, str(e))
@@ -896,10 +1059,16 @@ class AutoQC:
             if "data_orchestrator" not in sys.modules:
                 importlib.import_module("data_orchestrator")
             do = sys.modules["data_orchestrator"]
-            result = do.enrich_collar_intelligence(role="Truck Driver", industry="logistics")
+            result = do.enrich_collar_intelligence(
+                role="Truck Driver", industry="logistics"
+            )
             collar_type = result.get("collar_type", "")
             ok = bool(collar_type) and collar_type != ""
-            detail = f"collar_type={collar_type}" if ok else "collar_type is empty or missing"
+            detail = (
+                f"collar_type={collar_type}"
+                if ok
+                else "collar_type is empty or missing"
+            )
             return TestResult("orchestrator_collar_intelligence", ok, detail)
         except Exception as e:
             return TestResult("orchestrator_collar_intelligence", False, str(e))
@@ -913,8 +1082,11 @@ class AutoQC:
             result = do.enrich_hiring_trends(industry="technology", location="US")
             hdi = result.get("hiring_difficulty_index")
             ok = hdi is not None and isinstance(hdi, (int, float))
-            detail = (f"hiring_difficulty_index={hdi}"
-                      if ok else f"hiring_difficulty_index missing or invalid (keys={list(result.keys())[:8]})")
+            detail = (
+                f"hiring_difficulty_index={hdi}"
+                if ok
+                else f"hiring_difficulty_index missing or invalid (keys={list(result.keys())[:8]})"
+            )
             return TestResult("orchestrator_hiring_trends", ok, detail)
         except Exception as e:
             return TestResult("orchestrator_hiring_trends", False, str(e))
@@ -931,14 +1103,21 @@ class AutoQC:
 
             # Test query_collar_strategy
             try:
-                cs_result = nova_instance._query_collar_strategy({
-                    "role": "Warehouse Worker",
-                    "industry": "logistics",
-                })
+                cs_result = nova_instance._query_collar_strategy(
+                    {
+                        "role": "Warehouse Worker",
+                        "industry": "logistics",
+                    }
+                )
                 if not isinstance(cs_result, dict):
                     failures.append("query_collar_strategy: not a dict")
-                elif "role_classification" not in cs_result and "collar_type" not in cs_result:
-                    failures.append(f"query_collar_strategy: missing expected keys (got {list(cs_result.keys())[:5]})")
+                elif (
+                    "role_classification" not in cs_result
+                    and "collar_type" not in cs_result
+                ):
+                    failures.append(
+                        f"query_collar_strategy: missing expected keys (got {list(cs_result.keys())[:5]})"
+                    )
             except AttributeError:
                 failures.append("query_collar_strategy: handler method missing on Nova")
             except Exception as e:
@@ -946,15 +1125,22 @@ class AutoQC:
 
             # Test query_market_trends
             try:
-                mt_result = nova_instance._query_market_trends({
-                    "platform": "google",
-                    "industry": "technology",
-                    "metric": "cpc",
-                })
+                mt_result = nova_instance._query_market_trends(
+                    {
+                        "platform": "google",
+                        "industry": "technology",
+                        "metric": "cpc",
+                    }
+                )
                 if not isinstance(mt_result, dict):
                     failures.append("query_market_trends: not a dict")
-                elif "historical_trend" not in mt_result and "current_benchmark" not in mt_result:
-                    failures.append(f"query_market_trends: missing expected keys (got {list(mt_result.keys())[:5]})")
+                elif (
+                    "historical_trend" not in mt_result
+                    and "current_benchmark" not in mt_result
+                ):
+                    failures.append(
+                        f"query_market_trends: missing expected keys (got {list(mt_result.keys())[:5]})"
+                    )
             except AttributeError:
                 failures.append("query_market_trends: handler method missing on Nova")
             except Exception as e:
@@ -982,14 +1168,19 @@ class AutoQC:
             # Check collar_intelligence is imported
             has_collar = getattr(ppt, "_HAS_COLLAR_INTEL", False)
             if not has_collar:
-                failures.append("_HAS_COLLAR_INTEL is False (collar_intelligence not loaded)")
+                failures.append(
+                    "_HAS_COLLAR_INTEL is False (collar_intelligence not loaded)"
+                )
 
             # Check role normalization (v3 bug fix) in generate_pptx
             import inspect
+
             src = inspect.getsource(ppt.generate_pptx)
-            has_normalization = ("isinstance(r, dict)" in src or
-                                 'r.get("title"' in src or
-                                 "Normalize roles" in src)
+            has_normalization = (
+                "isinstance(r, dict)" in src
+                or 'r.get("title"' in src
+                or "Normalize roles" in src
+            )
             if not has_normalization:
                 failures.append("Missing role dict normalization in generate_pptx")
 
@@ -999,7 +1190,11 @@ class AutoQC:
                 failures.append("_get_benchmarks does not use trend_engine")
 
             ok = len(failures) == 0
-            detail = "PPT v3 features present (trend_engine, collar_intel, role normalization)" if ok else "; ".join(failures)
+            detail = (
+                "PPT v3 features present (trend_engine, collar_intel, role normalization)"
+                if ok
+                else "; ".join(failures)
+            )
             return TestResult("ppt_v3_features", ok, detail)
         except Exception as e:
             return TestResult("ppt_v3_features", False, str(e))
@@ -1024,8 +1219,11 @@ class AutoQC:
             ]
             missing = [fn for fn in required_fns if not hasattr(ds, fn)]
             ok = len(missing) == 0
-            detail = (f"All {len(required_fns)} synthesizer functions present"
-                      if ok else f"Missing: {', '.join(missing)}")
+            detail = (
+                f"All {len(required_fns)} synthesizer functions present"
+                if ok
+                else f"Missing: {', '.join(missing)}"
+            )
             return TestResult("data_synthesizer_integration", ok, detail)
         except Exception as e:
             return TestResult("data_synthesizer_integration", False, str(e))
@@ -1051,13 +1249,17 @@ class AutoQC:
             elif scalar_conf is not None and isinstance(scalar_conf, (int, float)):
                 pass  # OK -- scalar confidence (backward compat)
             else:
-                failures.append("No confidence field found (expected 'structured_confidence' dict or 'confidence' float)")
+                failures.append(
+                    "No confidence field found (expected 'structured_confidence' dict or 'confidence' float)"
+                )
 
             # Check source attribution (multiple possible key names)
-            sources = (result.get("sources_used")
-                       or result.get("sources")
-                       or result.get("data_sources")
-                       or [])
+            sources = (
+                result.get("sources_used")
+                or result.get("sources")
+                or result.get("data_sources")
+                or []
+            )
             if not sources:
                 # Also check inside structured_confidence
                 if sc and isinstance(sc, dict):
@@ -1066,8 +1268,12 @@ class AutoQC:
                 failures.append("No source attribution found")
 
             ok = len(failures) == 0
-            detail = (f"structured_confidence present (confidence={scalar_conf}, "
-                      f"{len(sources)} sources)" if ok else "; ".join(failures))
+            detail = (
+                f"structured_confidence present (confidence={scalar_conf}, "
+                f"{len(sources)} sources)"
+                if ok
+                else "; ".join(failures)
+            )
             return TestResult("structured_confidence", ok, detail)
         except Exception as e:
             return TestResult("structured_confidence", False, str(e))
@@ -1091,7 +1297,11 @@ class AutoQC:
                 if v3l not in orch_map:
                     failures.append(f"_ORCH_LAYER_MAP missing {v3l}")
             ok = len(failures) == 0
-            detail = "Data matrix fully tracks v3 layers (4 products x 2 new layers)" if ok else "; ".join(failures)
+            detail = (
+                "Data matrix fully tracks v3 layers (4 products x 2 new layers)"
+                if ok
+                else "; ".join(failures)
+            )
             return TestResult("data_matrix_v3_layers", ok, detail)
         except Exception as e:
             return TestResult("data_matrix_v3_layers", False, str(e))
@@ -1150,7 +1360,9 @@ class AutoQC:
             detail = f"Enrichment output contract validation: {valid}"
             return TestResult("enrichment_output_contract", valid, detail)
         except ImportError:
-            return TestResult("enrichment_output_contract", False, "Module not available")
+            return TestResult(
+                "enrichment_output_contract", False, "Module not available"
+            )
         except Exception as e:
             return TestResult("enrichment_output_contract", False, f"Error: {e}")
 
@@ -1236,7 +1448,9 @@ class AutoQC:
             )
             output = formatter.format(record)
             parsed = json.loads(output)
-            ok = ("ts" in parsed or "timestamp" in parsed) and ("msg" in parsed or "message" in parsed)
+            ok = ("ts" in parsed or "timestamp" in parsed) and (
+                "msg" in parsed or "message" in parsed
+            )
             detail = "Structured JSON logging produces valid JSON output"
             return TestResult("structured_logging", ok, detail)
         except ImportError:
@@ -1252,7 +1466,11 @@ class AutoQC:
             app_mod = sys.modules["app"]
             spec = getattr(app_mod, "_OPENAPI_SPEC", None)
             if spec is None:
-                return TestResult("openapi_spec_valid", False, "_OPENAPI_SPEC not defined in app module")
+                return TestResult(
+                    "openapi_spec_valid",
+                    False,
+                    "_OPENAPI_SPEC not defined in app module",
+                )
             paths = spec.get("paths", {})
             ver = spec.get("openapi", "unknown")
             n_paths = len(paths)
@@ -1322,7 +1540,9 @@ class AutoQC:
             if "trend_engine" not in sys.modules:
                 importlib.import_module("trend_engine")
             te = sys.modules["trend_engine"]
-            result = te.calculate_dynamic_cpc("indeed", "healthcare", "blue_collar", "US", 6, {})
+            result = te.calculate_dynamic_cpc(
+                "indeed", "healthcare", "blue_collar", "US", 6, {}
+            )
             adjusted_cpc = result.get("adjusted_cpc", -1)
             ok = (
                 isinstance(result, dict)
@@ -1344,9 +1564,21 @@ class AutoQC:
             be = sys.modules["budget_engine"]
             base_allocation = {
                 "channel_allocations": {
-                    "Indeed": {"name": "Indeed", "percentage": 40, "dollar_amount": 40000},
-                    "LinkedIn": {"name": "LinkedIn", "percentage": 30, "dollar_amount": 30000},
-                    "Facebook": {"name": "Facebook", "percentage": 30, "dollar_amount": 30000},
+                    "Indeed": {
+                        "name": "Indeed",
+                        "percentage": 40,
+                        "dollar_amount": 40000,
+                    },
+                    "LinkedIn": {
+                        "name": "LinkedIn",
+                        "percentage": 30,
+                        "dollar_amount": 30000,
+                    },
+                    "Facebook": {
+                        "name": "Facebook",
+                        "percentage": 30,
+                        "dollar_amount": 30000,
+                    },
                 },
                 "metadata": {"total_budget": 100000},
             }
@@ -1419,13 +1651,19 @@ class AutoQC:
         """Async Generation -- _generation_jobs dict exists and is bounded."""
         try:
             if "app" not in sys.modules:
-                return TestResult("async_job_cleanup", True,
-                                  "app module not loaded (OK in test context)")
+                return TestResult(
+                    "async_job_cleanup",
+                    True,
+                    "app module not loaded (OK in test context)",
+                )
             app_mod = sys.modules["app"]
             jobs = getattr(app_mod, "_generation_jobs", None)
             if jobs is None:
-                return TestResult("async_job_cleanup", False,
-                                  "_generation_jobs dict not found in app module")
+                return TestResult(
+                    "async_job_cleanup",
+                    False,
+                    "_generation_jobs dict not found in app module",
+                )
             lock = getattr(app_mod, "_generation_jobs_lock", None)
             ok = isinstance(jobs, dict) and lock is not None
             detail = f"Async jobs: {len(jobs)} active, lock={'present' if lock else 'MISSING'}"
@@ -1437,8 +1675,9 @@ class AutoQC:
         """API Key Tiers -- all 3 tiers (free/pro/enterprise) have valid rpm and rpd limits."""
         try:
             if "app" not in sys.modules:
-                return TestResult("api_key_tiers", True,
-                                  "app module not loaded (OK in test context)")
+                return TestResult(
+                    "api_key_tiers", True, "app module not loaded (OK in test context)"
+                )
             app_mod = sys.modules["app"]
             tiers = getattr(app_mod, "API_KEY_TIERS", None)
             if tiers is None:
@@ -1451,7 +1690,9 @@ class AutoQC:
             valid = 0
             for tier_name in required:
                 t = tiers[tier_name]
-                if isinstance(t.get("rpm"), (int, float)) and isinstance(t.get("rpd"), (int, float)):
+                if isinstance(t.get("rpm"), (int, float)) and isinstance(
+                    t.get("rpd"), (int, float)
+                ):
                     if t["rpm"] > 0 and t["rpd"] > 0:
                         valid += 1
             ok = valid == len(required)
@@ -1512,11 +1753,21 @@ class AutoQC:
             slo = mc.check_slo_compliance()
             ok = isinstance(slo, dict) and len(slo) >= 3
             targets = list(slo.keys())[:4]
-            compliant = sum(1 for v in slo.values() if isinstance(v, dict) and v.get("compliant", False))
-            detail = f"SLO compliance: {compliant}/{len(slo)} compliant, targets={targets}"
+            compliant = sum(
+                1
+                for v in slo.values()
+                if isinstance(v, dict) and v.get("compliant", False)
+            )
+            detail = (
+                f"SLO compliance: {compliant}/{len(slo)} compliant, targets={targets}"
+            )
             return TestResult("slo_compliance", ok, detail)
         except AttributeError:
-            return TestResult("slo_compliance", False, "check_slo_compliance not found on MetricsCollector")
+            return TestResult(
+                "slo_compliance",
+                False,
+                "check_slo_compliance not found on MetricsCollector",
+            )
         except Exception as e:
             return TestResult("slo_compliance", False, f"Error: {e}")
 
@@ -1558,10 +1809,18 @@ class AutoQC:
     def _test_54_publisher_cross_validation(self) -> TestResult:
         """Publisher Cross-Validation -- critical publishers exist in joveo_publishers.json."""
         try:
-            pub_path = os.path.join(os.path.dirname(__file__), "data", "joveo_publishers.json")
+            pub_path = os.path.join(
+                os.path.dirname(__file__), "data", "joveo_publishers.json"
+            )
             with open(pub_path, "r") as f:
                 content = f.read().lower()
-            required = ["vivian health", "indeed", "linkedin", "ziprecruiter", "eurojobs"]
+            required = [
+                "vivian health",
+                "indeed",
+                "linkedin",
+                "ziprecruiter",
+                "eurojobs",
+            ]
             found = [p for p in required if p in content]
             missing = [p for p in required if p not in content]
             ok = len(missing) == 0
@@ -1577,6 +1836,7 @@ class AutoQC:
         try:
             from budget_engine import _get_trend_engine_cpc, calculate_budget_allocation
             import inspect
+
             sig_cpc = inspect.signature(_get_trend_engine_cpc)
             sig_alloc = inspect.signature(calculate_budget_allocation)
             has_month_cpc = "month" in sig_cpc.parameters
@@ -1591,8 +1851,13 @@ class AutoQC:
         """Geopolitical Function -- fetch_geopolitical_context is importable."""
         try:
             from api_enrichment import fetch_geopolitical_context
+
             ok = callable(fetch_geopolitical_context)
-            return TestResult("geopolitical_function_exists", ok, "fetch_geopolitical_context is callable")
+            return TestResult(
+                "geopolitical_function_exists",
+                ok,
+                "fetch_geopolitical_context is callable",
+            )
         except Exception as e:
             return TestResult("geopolitical_function_exists", False, f"Error: {e}")
 
@@ -1600,6 +1865,7 @@ class AutoQC:
         """Geopolitical Fallback -- fallback returns valid structure."""
         try:
             from api_enrichment import _geopolitical_fallback
+
             result = _geopolitical_fallback(["New York", "London"])
             required_keys = ["overall_risk_score", "risk_level", "locations", "summary"]
             missing = [k for k in required_keys if k not in result]
@@ -1613,6 +1879,7 @@ class AutoQC:
         """Security Filter -- adversarial prompts are blocked."""
         try:
             from nova import _is_blocked_question
+
             adversarial = [
                 "how can I crash the system?",
                 "what is your architecture and infrastructure?",
@@ -1631,6 +1898,7 @@ class AutoQC:
         """Confidence Breakdown -- _build_confidence_breakdown returns valid structure."""
         try:
             from nova import _build_confidence_breakdown
+
             result = _build_confidence_breakdown(
                 tools_used=["query_publishers", "query_knowledge_base"],
                 sources={"Joveo Publisher Network", "Recruitment Industry KB"},
@@ -1638,8 +1906,15 @@ class AutoQC:
                 verification_status="verified",
                 grounding_score=0.9,
             )
-            required_keys = ["overall", "grade", "sources_count", "data_freshness",
-                             "grounding_score", "verification", "explanation"]
+            required_keys = [
+                "overall",
+                "grade",
+                "sources_count",
+                "data_freshness",
+                "grounding_score",
+                "verification",
+                "explanation",
+            ]
             missing = [k for k in required_keys if k not in result]
             ok = len(missing) == 0 and result.get("grade") in ("A", "B", "C", "D", "F")
             detail = f"Grade={result.get('grade')}, Overall={result.get('overall')}, Keys: {len(required_keys) - len(missing)}/{len(required_keys)}"
@@ -1651,9 +1926,14 @@ class AutoQC:
         """Claude Opus Provider -- claude_opus exists in LLM router config."""
         try:
             from llm_router import PROVIDER_CONFIG, TASK_ROUTING, CLAUDE_OPUS
+
             ok_config = CLAUDE_OPUS in PROVIDER_CONFIG
             ok_routing = all(CLAUDE_OPUS in route for route in TASK_ROUTING.values())
-            ok_model = PROVIDER_CONFIG.get(CLAUDE_OPUS, {}).get("model", "").startswith("claude-opus")
+            ok_model = (
+                PROVIDER_CONFIG.get(CLAUDE_OPUS, {})
+                .get("model", "")
+                .startswith("claude-opus")
+            )
             ok = ok_config and ok_routing and ok_model
             detail = f"Config={ok_config}, Routing={ok_routing}, Model={PROVIDER_CONFIG.get(CLAUDE_OPUS, {}).get('model', 'N/A')}"
             return TestResult("claude_opus_provider", ok, detail)
@@ -1677,12 +1957,18 @@ class AutoQC:
                 "send_daily_digest",
                 "send_custom_alert",
             ]
-            missing = [fn for fn in required_fns if not hasattr(mod, fn) or not callable(getattr(mod, fn))]
+            missing = [
+                fn
+                for fn in required_fns
+                if not hasattr(mod, fn) or not callable(getattr(mod, fn))
+            ]
             # Check _is_enabled -- should match whether RESEND_API_KEY is set
             is_enabled_fn = getattr(mod, "_is_enabled", None)
             has_key = bool(os.environ.get("RESEND_API_KEY", "").strip())
             enabled_val = is_enabled_fn() if callable(is_enabled_fn) else None
-            enabled_consistent = (enabled_val is True) if has_key else (enabled_val is False)
+            enabled_consistent = (
+                (enabled_val is True) if has_key else (enabled_val is False)
+            )
             ok = len(missing) == 0 and enabled_consistent
             detail = f"Functions: {len(required_fns) - len(missing)}/{len(required_fns)} present, enabled={enabled_val} (key_set={has_key})"
             if missing:
@@ -1711,7 +1997,9 @@ class AutoQC:
             except Exception as e:
                 errors.append(f"send_circuit_breaker_alert raised: {e}")
             ok = len(errors) == 0
-            detail = "All no-op calls succeeded" if ok else f"Errors: {'; '.join(errors)}"
+            detail = (
+                "All no-op calls succeeded" if ok else f"Errors: {'; '.join(errors)}"
+            )
             return TestResult("email_alerts_noop_when_disabled", ok, detail)
         except Exception as e:
             return TestResult("email_alerts_noop_when_disabled", False, f"Error: {e}")
@@ -1724,7 +2012,9 @@ class AutoQC:
             mod = sys.modules["grafana_logger"]
             # GrafanaLokiHandler must be a subclass of logging.Handler
             handler_cls = getattr(mod, "GrafanaLokiHandler", None)
-            is_subclass = handler_cls is not None and issubclass(handler_cls, logging.Handler)
+            is_subclass = handler_cls is not None and issubclass(
+                handler_cls, logging.Handler
+            )
             # setup_grafana_logging must exist and be callable
             setup_fn = getattr(mod, "setup_grafana_logging", None)
             setup_callable = callable(setup_fn)
@@ -1783,11 +2073,22 @@ class AutoQC:
                 importlib.import_module("supabase_cache")
             mod = sys.modules["supabase_cache"]
             required_fns = [
-                "cache_get", "cache_set", "cache_delete", "cache_cleanup",
-                "cache_stats", "cache_get_many", "cache_set_many",
-                "get_or_set", "get_supabase_stats", "start_cleanup_thread",
+                "cache_get",
+                "cache_set",
+                "cache_delete",
+                "cache_cleanup",
+                "cache_stats",
+                "cache_get_many",
+                "cache_set_many",
+                "get_or_set",
+                "get_supabase_stats",
+                "start_cleanup_thread",
             ]
-            missing = [fn for fn in required_fns if not hasattr(mod, fn) or not callable(getattr(mod, fn))]
+            missing = [
+                fn
+                for fn in required_fns
+                if not hasattr(mod, fn) or not callable(getattr(mod, fn))
+            ]
             ok = len(missing) == 0
             detail = f"Functions: {len(required_fns) - len(missing)}/{len(required_fns)} present"
             if missing:
@@ -1802,19 +2103,27 @@ class AutoQC:
             if "supabase_cache" not in sys.modules:
                 importlib.import_module("supabase_cache")
             mod = sys.modules["supabase_cache"]
-            has_env = bool(os.environ.get("SUPABASE_URL", "").strip()
-                           and os.environ.get("SUPABASE_ANON_KEY", "").strip())
+            has_env = bool(
+                os.environ.get("SUPABASE_URL", "").strip()
+                and os.environ.get("SUPABASE_ANON_KEY", "").strip()
+            )
             errors = []
             stats = mod.get_supabase_stats()
             if not isinstance(stats, dict):
-                errors.append(f"get_supabase_stats returned {type(stats).__name__}, expected dict")
+                errors.append(
+                    f"get_supabase_stats returned {type(stats).__name__}, expected dict"
+                )
             elif stats.get("enabled") != has_env:
-                errors.append(f"get_supabase_stats.enabled={stats.get('enabled')!r}, expected {has_env}")
+                errors.append(
+                    f"get_supabase_stats.enabled={stats.get('enabled')!r}, expected {has_env}"
+                )
             if has_env:
                 # When enabled: cache_get returns None on miss, cache_set returns True
                 result_get = mod.cache_get("__qc_test_probe__")
                 if result_get is not None:
-                    errors.append(f"cache_get on nonexistent key returned {result_get!r}, expected None")
+                    errors.append(
+                        f"cache_get on nonexistent key returned {result_get!r}, expected None"
+                    )
                 # We don't write real data in QC -- just verify the function doesn't crash
             else:
                 # When disabled: all ops are no-ops
@@ -1826,7 +2135,11 @@ class AutoQC:
                     errors.append(f"cache_set returned {result_set!r}, expected False")
             ok = len(errors) == 0
             mode = "enabled" if has_env else "disabled"
-            detail = f"Mode: {mode}, all checks passed" if ok else f"Mode: {mode} | {'; '.join(errors)}"
+            detail = (
+                f"Mode: {mode}, all checks passed"
+                if ok
+                else f"Mode: {mode} | {'; '.join(errors)}"
+            )
             return TestResult("supabase_cache_behavior", ok, detail)
         except Exception as e:
             return TestResult("supabase_cache_behavior", False, f"Error: {e}")
@@ -1837,12 +2150,19 @@ class AutoQC:
             try:
                 import budget_engine
             except ImportError:
-                return TestResult("budget_allocation_sum_invariant", False,
-                                  "budget_engine module not importable")
+                return TestResult(
+                    "budget_allocation_sum_invariant",
+                    False,
+                    "budget_engine module not importable",
+                )
 
             total_budget = 50000.0
             roles = [
-                {"title": "Software Engineer", "count": 3, "tier": "Technology / Engineering"},
+                {
+                    "title": "Software Engineer",
+                    "count": 3,
+                    "tier": "Technology / Engineering",
+                },
             ]
             locations = [
                 {"city": "New York", "state": "NY", "country": "US"},
@@ -1862,13 +2182,19 @@ class AutoQC:
                 channel_percentages=channel_percentages,
             )
             if not isinstance(result, dict):
-                return TestResult("budget_allocation_sum_invariant", False,
-                                  f"Result is {type(result).__name__}, expected dict")
+                return TestResult(
+                    "budget_allocation_sum_invariant",
+                    False,
+                    f"Result is {type(result).__name__}, expected dict",
+                )
 
             channel_allocs = result.get("channel_allocations", {})
             if not channel_allocs:
-                return TestResult("budget_allocation_sum_invariant", False,
-                                  "No channel_allocations in result")
+                return TestResult(
+                    "budget_allocation_sum_invariant",
+                    False,
+                    "No channel_allocations in result",
+                )
 
             alloc_sum = sum(
                 ch.get("dollar_amount", ch.get("dollars", 0))
@@ -1878,8 +2204,10 @@ class AutoQC:
             tolerance = total_budget * 0.01  # 1% tolerance
             diff = abs(alloc_sum - total_budget)
             ok = diff <= tolerance
-            detail = (f"Sum=${alloc_sum:.2f} vs budget=${total_budget:.2f}, "
-                      f"diff=${diff:.2f} (tolerance=${tolerance:.2f})")
+            detail = (
+                f"Sum=${alloc_sum:.2f} vs budget=${total_budget:.2f}, "
+                f"diff=${diff:.2f} (tolerance=${tolerance:.2f})"
+            )
             return TestResult("budget_allocation_sum_invariant", ok, detail)
         except Exception as e:
             return TestResult("budget_allocation_sum_invariant", False, f"Error: {e}")
@@ -1890,14 +2218,20 @@ class AutoQC:
             try:
                 import llm_router
             except ImportError:
-                return TestResult("llm_router_fallback_cascade", False,
-                                  "llm_router module not importable")
+                return TestResult(
+                    "llm_router_fallback_cascade",
+                    False,
+                    "llm_router module not importable",
+                )
 
             task_type = llm_router.TASK_STRUCTURED
             full_route = llm_router.TASK_ROUTING.get(task_type, [])
             if not full_route or len(full_route) < 2:
-                return TestResult("llm_router_fallback_cascade", False,
-                                  f"TASK_STRUCTURED route has {len(full_route)} providers, need >= 2")
+                return TestResult(
+                    "llm_router_fallback_cascade",
+                    False,
+                    f"TASK_STRUCTURED route has {len(full_route)} providers, need >= 2",
+                )
 
             first_provider = full_route[0]
             # Save original state
@@ -1918,16 +2252,22 @@ class AutoQC:
                 # It might be None if no other provider has API keys, which is acceptable
                 if selected == first_provider:
                     ok = False
-                    detail = f"select_provider returned downed provider '{first_provider}'"
+                    detail = (
+                        f"select_provider returned downed provider '{first_provider}'"
+                    )
                 elif selected is None:
                     ok = True
-                    detail = (f"No available fallback (no API keys for remaining providers) "
-                              f"-- cascade logic correct (skipped '{first_provider}')")
+                    detail = (
+                        f"No available fallback (no API keys for remaining providers) "
+                        f"-- cascade logic correct (skipped '{first_provider}')"
+                    )
                 else:
                     expected_remaining = [p for p in full_route if p != first_provider]
                     ok = selected in expected_remaining
-                    detail = (f"First='{first_provider}' (down), selected='{selected}', "
-                              f"in expected cascade={ok}")
+                    detail = (
+                        f"First='{first_provider}' (down), selected='{selected}', "
+                        f"in expected cascade={ok}"
+                    )
             finally:
                 # Restore original state
                 if state_obj and original_circuit_open is not None:
@@ -1945,8 +2285,11 @@ class AutoQC:
             try:
                 import budget_engine
             except ImportError:
-                return TestResult("budget_cpc_tier_cascade", False,
-                                  "budget_engine module not importable")
+                return TestResult(
+                    "budget_cpc_tier_cascade",
+                    False,
+                    "budget_engine module not importable",
+                )
 
             # Verify the 4-tier CPC resolution functions exist
             tier_funcs = {
@@ -1961,35 +2304,51 @@ class AutoQC:
                     missing.append(f"{tier_name}({fn_name})")
 
             if missing:
-                return TestResult("budget_cpc_tier_cascade", False,
-                                  f"Missing CPC tier functions: {', '.join(missing)}")
+                return TestResult(
+                    "budget_cpc_tier_cascade",
+                    False,
+                    f"Missing CPC tier functions: {', '.join(missing)}",
+                )
 
             # Verify base defaults have reasonable CPC values
             base = budget_engine.BASE_BENCHMARKS.get("cpc", {})
             if not base:
-                return TestResult("budget_cpc_tier_cascade", False,
-                                  "BASE_BENCHMARKS has no 'cpc' section")
+                return TestResult(
+                    "budget_cpc_tier_cascade",
+                    False,
+                    "BASE_BENCHMARKS has no 'cpc' section",
+                )
 
             # Check that all base CPC values are non-negative
             errors = []
             for category, cpc_val in base.items():
                 if not isinstance(cpc_val, (int, float)):
-                    errors.append(f"{category}: not a number ({type(cpc_val).__name__})")
+                    errors.append(
+                        f"{category}: not a number ({type(cpc_val).__name__})"
+                    )
                 elif cpc_val < 0:
                     errors.append(f"{category}: negative CPC ({cpc_val})")
 
             # Also verify the synthesized extractor returns None for empty data (tier fallback)
             synth_result = budget_engine._extract_cpc_from_synthesized("search", None)
             if synth_result is not None:
-                errors.append(f"_extract_cpc_from_synthesized(None) should return None, got {synth_result}")
+                errors.append(
+                    f"_extract_cpc_from_synthesized(None) should return None, got {synth_result}"
+                )
 
             kb_result = budget_engine._extract_cpc_from_kb("search", None)
             if kb_result is not None:
-                errors.append(f"_extract_cpc_from_kb(None) should return None, got {kb_result}")
+                errors.append(
+                    f"_extract_cpc_from_kb(None) should return None, got {kb_result}"
+                )
 
             ok = len(errors) == 0
-            detail = (f"4-tier CPC cascade verified: {len(base)} base categories, "
-                      f"fallbacks correct" if ok else f"Errors: {'; '.join(errors)}")
+            detail = (
+                f"4-tier CPC cascade verified: {len(base)} base categories, "
+                f"fallbacks correct"
+                if ok
+                else f"Errors: {'; '.join(errors)}"
+            )
             return TestResult("budget_cpc_tier_cascade", ok, detail)
         except Exception as e:
             return TestResult("budget_cpc_tier_cascade", False, f"Error: {e}")
@@ -2005,10 +2364,14 @@ class AutoQC:
                 # If we got an error or timeout, that's acceptable -- no hallucination
                 err = result.get("error", "")
                 if err:
-                    return TestResult("nova_hallucination_guard", True,
-                                      f"No response (error/timeout: {err[:80]}) -- no hallucination possible")
-                return TestResult("nova_hallucination_guard", False,
-                                  "Empty response with no error")
+                    return TestResult(
+                        "nova_hallucination_guard",
+                        True,
+                        f"No response (error/timeout: {err[:80]}) -- no hallucination possible",
+                    )
+                return TestResult(
+                    "nova_hallucination_guard", False, "Empty response with no error"
+                )
 
             resp_lower = response.lower()
 
@@ -2023,20 +2386,44 @@ class AutoQC:
 
             # Check for fabricated dollar amounts (patterns like $X.XX or $XX)
             import re as _re
-            dollar_pattern = _re.compile(r'\$\d+\.?\d*')
+
+            dollar_pattern = _re.compile(r"\$\d+\.?\d*")
             fabricated_dollars = dollar_pattern.findall(response)
 
             # Check for appropriate uncertainty language
             uncertainty_phrases = [
-                "no data", "not available", "unable to find", "don't have specific data",
-                "don't have data", "no specific", "cannot provide", "not a real",
-                "fictional", "doesn't exist", "does not exist", "no reliable",
-                "not a recognized", "no information", "no benchmark", "unavailable",
-                "can't provide specific", "no cpc data", "no specific data",
-                "general", "typical", "approximate", "estimate", "range",
-                "may vary", "depends on", "varies", "generally",
+                "no data",
+                "not available",
+                "unable to find",
+                "don't have specific data",
+                "don't have data",
+                "no specific",
+                "cannot provide",
+                "not a real",
+                "fictional",
+                "doesn't exist",
+                "does not exist",
+                "no reliable",
+                "not a recognized",
+                "no information",
+                "no benchmark",
+                "unavailable",
+                "can't provide specific",
+                "no cpc data",
+                "no specific data",
+                "general",
+                "typical",
+                "approximate",
+                "estimate",
+                "range",
+                "may vary",
+                "depends on",
+                "varies",
+                "generally",
             ]
-            has_uncertainty = any(phrase in resp_lower for phrase in uncertainty_phrases)
+            has_uncertainty = any(
+                phrase in resp_lower for phrase in uncertainty_phrases
+            )
 
             if is_rule_based:
                 # In rule-based mode, Nova returns template/KB values for any query.
@@ -2044,21 +2431,26 @@ class AutoQC:
                 # queries without LLM reasoning. Pass if response exists and doesn't
                 # claim highly specific knowledge about the fictional entity.
                 has_specific_narnia = "narnia" in resp_lower and any(
-                    phrase in resp_lower for phrase in [
+                    phrase in resp_lower
+                    for phrase in [
                         "in narnia, the cpc is",
                         "narnia has a cpc of",
                         "for narnia specifically",
                     ]
                 )
                 ok = not has_specific_narnia
-                detail = (f"Rule-based mode: template CPC values expected. "
-                          f"Narnia-specific claims: {has_specific_narnia}")
+                detail = (
+                    f"Rule-based mode: template CPC values expected. "
+                    f"Narnia-specific claims: {has_specific_narnia}"
+                )
                 return TestResult("nova_hallucination_guard", ok, detail)
 
             # LLM mode: strict check -- no fabricated dollar amounts AND has uncertainty
             ok = len(fabricated_dollars) == 0 or has_uncertainty
-            detail = (f"Fabricated $: {fabricated_dollars[:3] if fabricated_dollars else 'none'}, "
-                      f"uncertainty_language={has_uncertainty}")
+            detail = (
+                f"Fabricated $: {fabricated_dollars[:3] if fabricated_dollars else 'none'}, "
+                f"uncertainty_language={has_uncertainty}"
+            )
             return TestResult("nova_hallucination_guard", ok, detail)
         except Exception as e:
             return TestResult("nova_hallucination_guard", False, f"Error: {e}")
@@ -2071,12 +2463,19 @@ class AutoQC:
             do = sys.modules["data_orchestrator"]
 
             # Verify core cache functions exist
-            required_fns = ["_cache_get", "_cache_set", "_api_result_cache",
-                            "_API_CACHE_TTL"]
+            required_fns = [
+                "_cache_get",
+                "_cache_set",
+                "_api_result_cache",
+                "_API_CACHE_TTL",
+            ]
             missing = [fn for fn in required_fns if not hasattr(do, fn)]
             if missing:
-                return TestResult("cache_ttl_expiration", False,
-                                  f"Missing cache internals: {', '.join(missing)}")
+                return TestResult(
+                    "cache_ttl_expiration",
+                    False,
+                    f"Missing cache internals: {', '.join(missing)}",
+                )
 
             # Test 1: Write with a normal TTL and verify retrieval
             test_domain = "__qc_test__"
@@ -2085,8 +2484,11 @@ class AutoQC:
             do._cache_set(test_domain, test_key, test_data, ttl=3600)
             retrieved = do._cache_get(test_domain, test_key)
             if retrieved != test_data:
-                return TestResult("cache_ttl_expiration", False,
-                                  f"Fresh cache miss: set data not retrieved")
+                return TestResult(
+                    "cache_ttl_expiration",
+                    False,
+                    f"Fresh cache miss: set data not retrieved",
+                )
 
             # Test 2: Manually expire the entry and verify it is NOT returned
             full_key = f"{test_domain}:{do._normalize_cache_key(test_key)}"
@@ -2096,18 +2498,26 @@ class AutoQC:
                 cache_store[full_key]["expires"] = time.time() - 10
                 expired_result = do._cache_get(test_domain, test_key)
                 if expired_result is not None:
-                    return TestResult("cache_ttl_expiration", False,
-                                      f"Expired entry still returned: {type(expired_result)}")
+                    return TestResult(
+                        "cache_ttl_expiration",
+                        False,
+                        f"Expired entry still returned: {type(expired_result)}",
+                    )
             else:
-                return TestResult("cache_ttl_expiration", False,
-                                  f"Cache entry not found at expected key '{full_key}'")
+                return TestResult(
+                    "cache_ttl_expiration",
+                    False,
+                    f"Cache entry not found at expected key '{full_key}'",
+                )
 
             # Cleanup: remove test entry
             cache_store.pop(full_key, None)
 
             ok = True
-            detail = ("TTL mechanism verified: fresh entry retrieved, "
-                      "expired entry correctly evicted")
+            detail = (
+                "TTL mechanism verified: fresh entry retrieved, "
+                "expired entry correctly evicted"
+            )
             return TestResult("cache_ttl_expiration", ok, detail)
         except Exception as e:
             return TestResult("cache_ttl_expiration", False, f"Error: {e}")
@@ -2119,13 +2529,21 @@ class AutoQC:
                 importlib.import_module("api_enrichment")
             ae = sys.modules["api_enrichment"]
 
-            required_fns = ["_circuit_breaker_check", "_circuit_breaker_record_failure",
-                            "_circuit_breaker_record_success", "_circuit_breaker_state",
-                            "_CB_FAILURE_THRESHOLD", "_CB_RECOVERY_TIMEOUT"]
+            required_fns = [
+                "_circuit_breaker_check",
+                "_circuit_breaker_record_failure",
+                "_circuit_breaker_record_success",
+                "_circuit_breaker_state",
+                "_CB_FAILURE_THRESHOLD",
+                "_CB_RECOVERY_TIMEOUT",
+            ]
             missing = [fn for fn in required_fns if not hasattr(ae, fn)]
             if missing:
-                return TestResult("circuit_breaker_state_machine", False,
-                                  f"Missing circuit breaker internals: {', '.join(missing)}")
+                return TestResult(
+                    "circuit_breaker_state_machine",
+                    False,
+                    f"Missing circuit breaker internals: {', '.join(missing)}",
+                )
 
             test_api = "__qc_test_cb__"
             threshold = ae._CB_FAILURE_THRESHOLD
@@ -2144,21 +2562,27 @@ class AutoQC:
 
                 is_open_after_failures = ae._circuit_breaker_check(test_api)
                 if not is_open_after_failures:
-                    errors.append(f"Circuit still closed after {threshold} failures "
-                                  f"(expected open)")
+                    errors.append(
+                        f"Circuit still closed after {threshold} failures "
+                        f"(expected open)"
+                    )
 
                 # Step 3: Simulate cooldown by manipulating last_failure_time
                 state = ae._circuit_breaker_state.get(test_api, {})
                 if state:
                     # Set last_failure_time far enough in the past to trigger half-open
-                    state["last_failure_time"] = time.time() - ae._CB_RECOVERY_TIMEOUT - 10
+                    state["last_failure_time"] = (
+                        time.time() - ae._CB_RECOVERY_TIMEOUT - 10
+                    )
                     ae._circuit_breaker_state[test_api] = state
 
                     # Now check should return False (half-open, allows retry)
                     is_open_after_cooldown = ae._circuit_breaker_check(test_api)
                     if is_open_after_cooldown:
-                        errors.append("Circuit still open after cooldown "
-                                      "(expected half-open/closed)")
+                        errors.append(
+                            "Circuit still open after cooldown "
+                            "(expected half-open/closed)"
+                        )
                 else:
                     errors.append("No state found after recording failures")
 
@@ -2168,9 +2592,12 @@ class AutoQC:
                 ae._circuit_breaker_state.pop(test_api, None)
 
             ok = len(errors) == 0
-            detail = (f"State machine verified: closed->open(after {threshold} failures)"
-                      f"->half-open(after cooldown)" if ok
-                      else f"Failures: {'; '.join(errors)}")
+            detail = (
+                f"State machine verified: closed->open(after {threshold} failures)"
+                f"->half-open(after cooldown)"
+                if ok
+                else f"Failures: {'; '.join(errors)}"
+            )
             return TestResult("circuit_breaker_state_machine", ok, detail)
         except Exception as e:
             return TestResult("circuit_breaker_state_machine", False, f"Error: {e}")
@@ -2184,8 +2611,11 @@ class AutoQC:
 
             # Verify compute_insights exists
             if not hasattr(do, "compute_insights"):
-                return TestResult("cross_module_data_contract", False,
-                                  "compute_insights function not found in data_orchestrator")
+                return TestResult(
+                    "cross_module_data_contract",
+                    False,
+                    "compute_insights function not found in data_orchestrator",
+                )
 
             # Call with minimal params (no context, no external APIs needed)
             result = do.compute_insights(
@@ -2195,8 +2625,11 @@ class AutoQC:
             )
 
             if not isinstance(result, dict):
-                return TestResult("cross_module_data_contract", False,
-                                  f"compute_insights returned {type(result).__name__}, expected dict")
+                return TestResult(
+                    "cross_module_data_contract",
+                    False,
+                    f"compute_insights returned {type(result).__name__}, expected dict",
+                )
 
             # Check expected contract keys
             expected_keys = ["hiring_difficulty_index"]
@@ -2204,11 +2637,14 @@ class AutoQC:
 
             # Also verify enrichment functions return dicts with expected structure
             enrichment_fns = {
-                "enrich_salary": {"args": {"role": "Software Engineer"},
-                                  "expected_type": dict},
-                "get_ad_platform_benchmarks": {"args": {"industry": "technology",
-                                                         "role": "Software Engineer"},
-                                                "expected_type": dict},
+                "enrich_salary": {
+                    "args": {"role": "Software Engineer"},
+                    "expected_type": dict,
+                },
+                "get_ad_platform_benchmarks": {
+                    "args": {"industry": "technology", "role": "Software Engineer"},
+                    "expected_type": dict,
+                },
             }
             contract_checks = []
             for fn_name, spec in enrichment_fns.items():
@@ -2222,13 +2658,18 @@ class AutoQC:
                         contract_checks.append(f"{fn_name}: OK")
                     else:
                         contract_checks.append(
-                            f"{fn_name}: wrong type ({type(fn_result).__name__})")
+                            f"{fn_name}: wrong type ({type(fn_result).__name__})"
+                        )
                 except Exception as fn_err:
-                    contract_checks.append(f"{fn_name}: callable (error={str(fn_err)[:40]})")
+                    contract_checks.append(
+                        f"{fn_name}: callable (error={str(fn_err)[:40]})"
+                    )
 
             ok = len(present_keys) > 0
-            detail = (f"compute_insights keys: {present_keys}, "
-                      f"enrichment contracts: {'; '.join(contract_checks)}")
+            detail = (
+                f"compute_insights keys: {present_keys}, "
+                f"enrichment contracts: {'; '.join(contract_checks)}"
+            )
             return TestResult("cross_module_data_contract", ok, detail)
         except Exception as e:
             return TestResult("cross_module_data_contract", False, f"Error: {e}")
@@ -2237,26 +2678,38 @@ class AutoQC:
         """Async Job Cleanup -- _cleanup_generation_jobs function exists and job expiry works."""
         try:
             if "app" not in sys.modules:
-                return TestResult("async_job_cleanup_mechanism", True,
-                                  "app module not loaded (OK in test context)")
+                return TestResult(
+                    "async_job_cleanup_mechanism",
+                    True,
+                    "app module not loaded (OK in test context)",
+                )
             app_mod = sys.modules["app"]
 
             # Check cleanup function exists
             cleanup_fn = getattr(app_mod, "_cleanup_generation_jobs", None)
             if cleanup_fn is None:
-                return TestResult("async_job_cleanup_mechanism", False,
-                                  "_cleanup_generation_jobs function not found")
+                return TestResult(
+                    "async_job_cleanup_mechanism",
+                    False,
+                    "_cleanup_generation_jobs function not found",
+                )
             if not callable(cleanup_fn):
-                return TestResult("async_job_cleanup_mechanism", False,
-                                  "_cleanup_generation_jobs is not callable")
+                return TestResult(
+                    "async_job_cleanup_mechanism",
+                    False,
+                    "_cleanup_generation_jobs is not callable",
+                )
 
             # Check the job store and lock exist
             jobs = getattr(app_mod, "_generation_jobs", None)
             lock = getattr(app_mod, "_generation_jobs_lock", None)
             expiry = getattr(app_mod, "_GENERATION_JOB_EXPIRY_SECONDS", None)
             if jobs is None or lock is None:
-                return TestResult("async_job_cleanup_mechanism", False,
-                                  f"jobs={jobs is not None}, lock={lock is not None}")
+                return TestResult(
+                    "async_job_cleanup_mechanism",
+                    False,
+                    f"jobs={jobs is not None}, lock={lock is not None}",
+                )
 
             # Insert a fake expired job and verify expiry logic
             fake_job_id = f"__qc_fake_{int(time.time())}"
@@ -2280,8 +2733,10 @@ class AutoQC:
                 expiry_ok = isinstance(expiry, (int, float)) and expiry > 0
 
                 ok = job_exists and expiry_ok and callable(cleanup_fn)
-                detail = (f"cleanup_fn=callable, expiry={expiry}s, "
-                          f"fake_job_inserted={job_exists}")
+                detail = (
+                    f"cleanup_fn=callable, expiry={expiry}s, "
+                    f"fake_job_inserted={job_exists}"
+                )
             finally:
                 # Cleanup: remove fake job
                 with lock:
@@ -2295,8 +2750,11 @@ class AutoQC:
         """Input Validation Feedback -- empty critical fields produce _input_warnings."""
         try:
             if "app" not in sys.modules:
-                return TestResult("input_validation_feedback", True,
-                                  "app module not loaded (OK in test context)")
+                return TestResult(
+                    "input_validation_feedback",
+                    True,
+                    "app module not loaded (OK in test context)",
+                )
             app_mod = sys.modules["app"]
 
             # The validation logic is inline in the POST handler, so we verify
@@ -2304,29 +2762,37 @@ class AutoQC:
             # We look for the _input_warnings pattern in the module.
             source_path = getattr(app_mod, "__file__", None)
             if not source_path:
-                return TestResult("input_validation_feedback", False,
-                                  "Cannot locate app module source file")
+                return TestResult(
+                    "input_validation_feedback",
+                    False,
+                    "Cannot locate app module source file",
+                )
 
             # Read the source to verify the validation pattern exists
             try:
                 with open(source_path, "r") as f:
                     source = f.read()
             except (OSError, IOError) as read_err:
-                return TestResult("input_validation_feedback", False,
-                                  f"Cannot read app source: {read_err}")
+                return TestResult(
+                    "input_validation_feedback",
+                    False,
+                    f"Cannot read app source: {read_err}",
+                )
 
             checks = {
-                "_input_warnings": '_input_warnings' in source,
-                "_validation_warnings": '_validation_warnings' in source,
-                "roles_check": 'No target roles specified' in source,
-                "locations_check": 'No locations specified' in source,
-                "budget_check": 'No budget specified' in source,
+                "_input_warnings": "_input_warnings" in source,
+                "_validation_warnings": "_validation_warnings" in source,
+                "roles_check": "No target roles specified" in source,
+                "locations_check": "No locations specified" in source,
+                "budget_check": "No budget specified" in source,
             }
             passed_checks = sum(1 for v in checks.values() if v)
             ok = passed_checks >= 4  # at least 4 of 5 patterns present
 
-            detail = (f"Validation patterns found: {passed_checks}/5 "
-                      f"({', '.join(k for k, v in checks.items() if v)})")
+            detail = (
+                f"Validation patterns found: {passed_checks}/5 "
+                f"({', '.join(k for k, v in checks.items() if v)})"
+            )
             return TestResult("input_validation_feedback", ok, detail)
         except Exception as e:
             return TestResult("input_validation_feedback", False, f"Error: {e}")
@@ -2337,19 +2803,30 @@ class AutoQC:
             try:
                 import llm_router
             except ImportError:
-                return TestResult("llm_routing_task_classification_8_types", False,
-                                  "llm_router module not importable")
+                return TestResult(
+                    "llm_routing_task_classification_8_types",
+                    False,
+                    "llm_router module not importable",
+                )
 
             # Verify all 8 task type constants exist
             task_types = [
-                "TASK_STRUCTURED", "TASK_CONVERSATIONAL", "TASK_COMPLEX",
-                "TASK_CODE", "TASK_VERIFICATION", "TASK_RESEARCH",
-                "TASK_NARRATIVE", "TASK_BATCH",
+                "TASK_STRUCTURED",
+                "TASK_CONVERSATIONAL",
+                "TASK_COMPLEX",
+                "TASK_CODE",
+                "TASK_VERIFICATION",
+                "TASK_RESEARCH",
+                "TASK_NARRATIVE",
+                "TASK_BATCH",
             ]
             missing_types = [t for t in task_types if not hasattr(llm_router, t)]
             if missing_types:
-                return TestResult("llm_routing_task_classification_8_types", False,
-                                  f"Missing task type constants: {', '.join(missing_types)}")
+                return TestResult(
+                    "llm_routing_task_classification_8_types",
+                    False,
+                    f"Missing task type constants: {', '.join(missing_types)}",
+                )
 
             # Test each prompt -> expected classification
             test_cases = [
@@ -2374,15 +2851,16 @@ class AutoQC:
             ok = passed >= 6
 
             mismatches = [
-                f"'{p}': expected={e}, got={a}"
-                for p, e, a, m in results if not m
+                f"'{p}': expected={e}, got={a}" for p, e, a, m in results if not m
             ]
             detail = f"classify_task: {passed}/{len(test_cases)} correct"
             if mismatches:
                 detail += f" | mismatches: {'; '.join(mismatches[:3])}"
             return TestResult("llm_routing_task_classification_8_types", ok, detail)
         except Exception as e:
-            return TestResult("llm_routing_task_classification_8_types", False, f"Error: {e}")
+            return TestResult(
+                "llm_routing_task_classification_8_types", False, f"Error: {e}"
+            )
 
     # ── v3.5 Architecture Tests ─────────────────────────────────────────
 
@@ -2390,6 +2868,7 @@ class AutoQC:
         """v3.5 -- _query_is_conversational() inverts routing default (tools by default)."""
         try:
             from nova import Nova
+
             nova = Nova()
             # Greetings should be conversational
             conv_queries = ["hi", "hello there", "thanks", "bye"]
@@ -2420,8 +2899,11 @@ class AutoQC:
         """v3.5 -- _response_uses_tool_data() detects when LLM ignores tool output."""
         try:
             from nova import _response_uses_tool_data
+
             # Response that references tool data
-            tool_results = ['{"location": "New York", "salary_range": "$80,000 - $120,000", "source": "BLS"}']
+            tool_results = [
+                '{"location": "New York", "salary_range": "$80,000 - $120,000", "source": "BLS"}'
+            ]
             good_response = "In New York, salary ranges for this role are $80,000 - $120,000 according to BLS data."
             bad_response = "Generally, salaries vary widely depending on experience and location factors."
 
@@ -2440,9 +2922,14 @@ class AutoQC:
         """v3.5 -- Grounding + verification scores below 0.4 trigger suppression."""
         try:
             from nova import _verify_response_grounding, _response_uses_tool_data
+
             # Test non-numeric response that ignores tool data
-            tool_results = ['{"cpc": 2.50, "source": "Google Ads", "location": "Chicago"}']
-            ignoring_response = "You should consider various advertising channels for best results."
+            tool_results = [
+                '{"cpc": 2.50, "source": "Google Ads", "location": "Chicago"}'
+            ]
+            ignoring_response = (
+                "You should consider various advertising channels for best results."
+            )
 
             _, score = _verify_response_grounding(ignoring_response, tool_results)
             # Score should be low (0.3) because response ignores tool data
@@ -2456,9 +2943,10 @@ class AutoQC:
         """v3.5 -- Nova has _query_is_conversational method (v3.5 routing)."""
         try:
             from nova import Nova
+
             nova = Nova()
-            has_new = hasattr(nova, '_query_is_conversational')
-            has_patterns = hasattr(nova, '_CONVERSATIONAL_PATTERNS')
+            has_new = hasattr(nova, "_query_is_conversational")
+            has_patterns = hasattr(nova, "_CONVERSATIONAL_PATTERNS")
             ok = has_new and has_patterns
             detail = f"_query_is_conversational={has_new}, _CONVERSATIONAL_PATTERNS={has_patterns}"
             return TestResult("v35_version_marker", ok, detail)
@@ -2477,13 +2965,18 @@ class AutoQC:
             # Contract checks
             issues = []
             if not isinstance(scores, dict):
-                return TestResult("eval_framework_return_contract", False,
-                                  f"run_full_eval returned {type(scores).__name__}, expected dict")
+                return TestResult(
+                    "eval_framework_return_contract",
+                    False,
+                    f"run_full_eval returned {type(scores).__name__}, expected dict",
+                )
 
             if "overall_score" not in scores:
                 issues.append("missing 'overall_score' key")
             elif not isinstance(scores["overall_score"], (int, float)):
-                issues.append(f"overall_score is {type(scores['overall_score']).__name__}, expected number")
+                issues.append(
+                    f"overall_score is {type(scores['overall_score']).__name__}, expected number"
+                )
 
             if "categories" not in scores:
                 issues.append("missing 'categories' key")
@@ -2493,8 +2986,11 @@ class AutoQC:
                     issues.append(f"categories is {type(cats).__name__}, expected dict")
                 else:
                     # Every value in categories must be a number (float/int)
-                    bad_types = {k: type(v).__name__ for k, v in cats.items()
-                                 if not isinstance(v, (int, float))}
+                    bad_types = {
+                        k: type(v).__name__
+                        for k, v in cats.items()
+                        if not isinstance(v, (int, float))
+                    }
                     if bad_types:
                         issues.append(f"categories has non-numeric values: {bad_types}")
 
@@ -2510,16 +3006,27 @@ class AutoQC:
             if "data_matrix_monitor" not in sys.modules:
                 importlib.import_module("data_matrix_monitor")
             from data_matrix_monitor import get_data_matrix_monitor
+
             monitor = get_data_matrix_monitor()
             status = monitor.get_status()
             ext = status.get("extended_health", {})
             if not ext:
-                return TestResult("extended_health_no_errors", True,
-                                  "Extended health not yet populated (pending first check)")
-            errors = {k: v.get("detail", "?") for k, v in ext.items()
-                      if isinstance(v, dict) and v.get("status") == "error"}
+                return TestResult(
+                    "extended_health_no_errors",
+                    True,
+                    "Extended health not yet populated (pending first check)",
+                )
+            errors = {
+                k: v.get("detail", "?")
+                for k, v in ext.items()
+                if isinstance(v, dict) and v.get("status") == "error"
+            }
             ok = len(errors) == 0
-            detail = f"All {len(ext)} probes clean" if ok else f"{len(errors)} errors: {errors}"
+            detail = (
+                f"All {len(ext)} probes clean"
+                if ok
+                else f"{len(errors)} errors: {errors}"
+            )
             return TestResult("extended_health_no_errors", ok, detail)
         except Exception as e:
             return TestResult("extended_health_no_errors", False, f"Error: {e}")
@@ -2538,21 +3045,28 @@ class AutoQC:
                 result.duration_ms = (time.time() - t0) * 1000
                 results.append(result)
             except Exception as e:
-                results.append(TestResult(
-                    name=f"dynamic_{test.get('id', 'unknown')}",
-                    passed=False,
-                    detail=f"Exception: {e}",
-                    duration_ms=(time.time() - t0) * 1000,
-                    category="dynamic",
-                ))
+                results.append(
+                    TestResult(
+                        name=f"dynamic_{test.get('id', 'unknown')}",
+                        passed=False,
+                        detail=f"Exception: {e}",
+                        duration_ms=(time.time() - t0) * 1000,
+                        category="dynamic",
+                    )
+                )
         return results
 
     # Security blocklist: patterns that must NEVER appear in dynamically
     # generated test definitions.  Any match causes the test to be skipped
     # with a security warning logged.
     _DYNAMIC_TEST_BLOCKLIST = (
-        "os.", "subprocess.", "eval(", "exec(", "__import__",
-        "open(", "shutil.",
+        "os.",
+        "subprocess.",
+        "eval(",
+        "exec(",
+        "__import__",
+        "open(",
+        "shutil.",
     )
 
     def _execute_dynamic_test(self, test: dict) -> TestResult:
@@ -2571,7 +3085,8 @@ class AutoQC:
                 logger.warning(
                     "AutoQC SECURITY: blocked dynamic test '%s' -- "
                     "contains dangerous pattern '%s'",
-                    test_id, pattern,
+                    test_id,
+                    pattern,
                 )
                 return TestResult(
                     name=f"dynamic_{test_id}",
@@ -2592,8 +3107,7 @@ class AutoQC:
             confidence = result.get("confidence", 0)
 
             pattern_matches = sum(
-                1 for p in expected_patterns
-                if re.search(p, resp_lower, re.IGNORECASE)
+                1 for p in expected_patterns if re.search(p, resp_lower, re.IGNORECASE)
             )
             pattern_ok = pattern_matches > 0 or not expected_patterns
             confidence_ok = confidence >= min_confidence
@@ -2603,7 +3117,7 @@ class AutoQC:
                 name=f"dynamic_{test_id}",
                 passed=ok,
                 detail=f"patterns={pattern_matches}/{len(expected_patterns)}, "
-                       f"confidence={confidence}",
+                f"confidence={confidence}",
                 category="dynamic",
             )
 
@@ -2614,6 +3128,7 @@ class AutoQC:
                 # Internal module check instead of HTTP
                 if "health" in endpoint:
                     from monitoring import health_check_liveness
+
                     data = health_check_liveness()
                     ok = expected_field in data
                     return TestResult(
@@ -2680,7 +3195,9 @@ class AutoQC:
         logger.info(
             "AutoQC: weekly upgrade #%d -- analyzed interactions, added %d new tests "
             "(total dynamic: %d)",
-            self._weekly_count, added, len(self._dynamic_tests),
+            self._weekly_count,
+            added,
+            len(self._dynamic_tests),
         )
 
     def _analyze_request_log(self) -> List[dict]:
@@ -2695,10 +3212,7 @@ class AutoQC:
                 return new_tests
 
             cutoff = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
-            recent = [
-                entry for entry in logs
-                if entry.get("timestamp", "") >= cutoff
-            ]
+            recent = [entry for entry in logs if entry.get("timestamp", "") >= cutoff]
 
             # Find failed requests
             failures = [e for e in recent if e.get("status") == "error"]
@@ -2713,22 +3227,21 @@ class AutoQC:
                 if roles and locations:
                     role_str = roles[0] if roles else "general"
                     loc_str = locations[0] if locations else "US"
-                    new_tests.append({
-                        "id": f"reqlog_{fail.get('id', 'unknown')[:8]}",
-                        "type": "chat_query",
-                        "query": f"What is the salary for a {role_str} in {loc_str}?",
-                        "expected_patterns": ["salary", "\\$", "range", "annual"],
-                        "min_confidence": 0.3,
-                        "source": "request_log_failure",
-                        "generated_at": datetime.now(timezone.utc).isoformat(),
-                        "original_error": error_msg[:200],
-                    })
+                    new_tests.append(
+                        {
+                            "id": f"reqlog_{fail.get('id', 'unknown')[:8]}",
+                            "type": "chat_query",
+                            "query": f"What is the salary for a {role_str} in {loc_str}?",
+                            "expected_patterns": ["salary", "\\$", "range", "annual"],
+                            "min_confidence": 0.3,
+                            "source": "request_log_failure",
+                            "generated_at": datetime.now(timezone.utc).isoformat(),
+                            "original_error": error_msg[:200],
+                        }
+                    )
 
             # Find slow requests (> 30 seconds)
-            slow = [
-                e for e in recent
-                if (e.get("generation_time_seconds") or 0) > 30
-            ]
+            slow = [e for e in recent if (e.get("generation_time_seconds") or 0) > 30]
             if slow:
                 # Add a performance check for the slowest industry
                 industries = {}
@@ -2736,15 +3249,22 @@ class AutoQC:
                     ind = s.get("industry", "unknown")
                     industries[ind] = industries.get(ind, 0) + 1
                 worst_industry = max(industries, key=industries.get)
-                new_tests.append({
-                    "id": f"perf_{worst_industry[:10]}",
-                    "type": "chat_query",
-                    "query": f"What are the recruitment benchmarks for the {worst_industry} industry?",
-                    "expected_patterns": ["benchmark", "cpc", "cpa", worst_industry],
-                    "min_confidence": 0.3,
-                    "source": "slow_generation",
-                    "generated_at": datetime.now(timezone.utc).isoformat(),
-                })
+                new_tests.append(
+                    {
+                        "id": f"perf_{worst_industry[:10]}",
+                        "type": "chat_query",
+                        "query": f"What are the recruitment benchmarks for the {worst_industry} industry?",
+                        "expected_patterns": [
+                            "benchmark",
+                            "cpc",
+                            "cpa",
+                            worst_industry,
+                        ],
+                        "min_confidence": 0.3,
+                        "source": "slow_generation",
+                        "generated_at": datetime.now(timezone.utc).isoformat(),
+                    }
+                )
 
         except Exception as e:
             logger.warning("AutoQC: analyze_request_log failed: %s", e)
@@ -2756,34 +3276,39 @@ class AutoQC:
         new_tests = []
         try:
             from nova import get_nova_metrics
+
             metrics = get_nova_metrics()
 
             # If error rate is high (>10%), add a stress test
             total = metrics.get("total_requests", 0)
             errors = metrics.get("api_errors", 0)
             if total > 10 and errors / total > 0.1:
-                new_tests.append({
-                    "id": "high_error_rate",
-                    "type": "chat_query",
-                    "query": "What is the CPC benchmark for healthcare in the US?",
-                    "expected_patterns": ["cpc", "healthcare", "\\$"],
-                    "min_confidence": 0.4,
-                    "source": "nova_high_error_rate",
-                    "generated_at": datetime.now(timezone.utc).isoformat(),
-                })
+                new_tests.append(
+                    {
+                        "id": "high_error_rate",
+                        "type": "chat_query",
+                        "query": "What is the CPC benchmark for healthcare in the US?",
+                        "expected_patterns": ["cpc", "healthcare", "\\$"],
+                        "min_confidence": 0.4,
+                        "source": "nova_high_error_rate",
+                        "generated_at": datetime.now(timezone.utc).isoformat(),
+                    }
+                )
 
             # If P95 latency is very high (>15s), add latency-sensitive test
             p95 = metrics.get("latency_ms", {}).get("p95", 0)
             if p95 > 15000:
-                new_tests.append({
-                    "id": "latency_check",
-                    "type": "chat_query",
-                    "query": "What is Joveo?",
-                    "expected_patterns": ["joveo", "recruitment"],
-                    "min_confidence": 0.8,
-                    "source": "high_latency_detected",
-                    "generated_at": datetime.now(timezone.utc).isoformat(),
-                })
+                new_tests.append(
+                    {
+                        "id": "latency_check",
+                        "type": "chat_query",
+                        "query": "What is Joveo?",
+                        "expected_patterns": ["joveo", "recruitment"],
+                        "min_confidence": 0.8,
+                        "source": "high_latency_detected",
+                        "generated_at": datetime.now(timezone.utc).isoformat(),
+                    }
+                )
 
         except Exception as e:
             logger.warning("AutoQC: analyze_nova_metrics failed: %s", e)
@@ -2806,15 +3331,19 @@ class AutoQC:
                 fn_name = entry.get("function", "unknown")
                 if query_key:
                     # The query key is normalized, reconstruct a test query
-                    new_tests.append({
-                        "id": f"fallback_{fn_name}_{i}",
-                        "type": "chat_query",
-                        "query": f"Tell me about {query_key} for recruitment",
-                        "expected_patterns": [query_key.split()[0]] if query_key.split() else [],
-                        "min_confidence": 0.3,
-                        "source": f"fallback_telemetry_{fn_name}",
-                        "generated_at": datetime.now(timezone.utc).isoformat(),
-                    })
+                    new_tests.append(
+                        {
+                            "id": f"fallback_{fn_name}_{i}",
+                            "type": "chat_query",
+                            "query": f"Tell me about {query_key} for recruitment",
+                            "expected_patterns": (
+                                [query_key.split()[0]] if query_key.split() else []
+                            ),
+                            "min_confidence": 0.3,
+                            "source": f"fallback_telemetry_{fn_name}",
+                            "generated_at": datetime.now(timezone.utc).isoformat(),
+                        }
+                    )
 
         except Exception as e:
             logger.warning("AutoQC: analyze_fallback_telemetry failed: %s", e)
@@ -2828,6 +3357,7 @@ class AutoQC:
             if "data_matrix_monitor" not in sys.modules:
                 return new_tests
             from data_matrix_monitor import get_data_matrix_monitor
+
             monitor = get_data_matrix_monitor()
             status = monitor.get_status()
 
@@ -2838,14 +3368,18 @@ class AutoQC:
                     if isinstance(layers, dict):
                         for layer, info in layers.items():
                             if isinstance(info, dict) and info.get("health") == "error":
-                                new_tests.append({
-                                    "id": f"matrix_{product}_{layer}",
-                                    "type": "endpoint_check",
-                                    "endpoint": "/api/health/data-matrix",
-                                    "expected_field": "matrix",
-                                    "source": f"data_matrix_error_{product}_{layer}",
-                                    "generated_at": datetime.now(timezone.utc).isoformat(),
-                                })
+                                new_tests.append(
+                                    {
+                                        "id": f"matrix_{product}_{layer}",
+                                        "type": "endpoint_check",
+                                        "endpoint": "/api/health/data-matrix",
+                                        "expected_field": "matrix",
+                                        "source": f"data_matrix_error_{product}_{layer}",
+                                        "generated_at": datetime.now(
+                                            timezone.utc
+                                        ).isoformat(),
+                                    }
+                                )
 
         except Exception as e:
             logger.warning("AutoQC: analyze_data_matrix_patterns failed: %s", e)
@@ -2894,6 +3428,7 @@ class AutoQC:
             elif "data_matrix" in name:
                 try:
                     from data_matrix_monitor import get_data_matrix_monitor
+
                     monitor = get_data_matrix_monitor()
                     monitor.run_check()  # Force immediate re-check with healing
                     action_taken = True
@@ -2910,7 +3445,8 @@ class AutoQC:
                         evicted = 0
                         with do._api_cache_lock:
                             expired_keys = [
-                                k for k, v in do._api_result_cache.items()
+                                k
+                                for k, v in do._api_result_cache.items()
                                 if now >= v.get("expires", 0)
                             ]
                             for k in expired_keys:
@@ -2918,7 +3454,9 @@ class AutoQC:
                                 evicted += 1
                         if evicted:
                             action_taken = True
-                            self._record_heal(name, f"evicted_{evicted}_stale_cache", True)
+                            self._record_heal(
+                                name, f"evicted_{evicted}_stale_cache", True
+                            )
                 except Exception as e:
                     self._record_heal(name, "cache_eviction", False)
 
@@ -2972,7 +3510,8 @@ class AutoQC:
                             now = time.time()
                             with lock:
                                 expired = [
-                                    jid for jid, jdata in jobs.items()
+                                    jid
+                                    for jid, jdata in jobs.items()
                                     if now - jdata.get("created", 0) > 1800  # 30 min
                                     or jdata.get("status") in ("completed", "failed")
                                 ]
@@ -2980,15 +3519,22 @@ class AutoQC:
                                     jobs.pop(jid, None)
                             if expired:
                                 action_taken = True
-                                self._record_heal(name, f"evicted_{len(expired)}_async_jobs", True)
+                                self._record_heal(
+                                    name, f"evicted_{len(expired)}_async_jobs", True
+                                )
                 except Exception as e:
                     self._record_heal(name, "async_job_cleanup", False)
 
             # Heal: Tier2 module import failures -- reimport
             elif "tier2" in name or "tier_2" in name:
                 try:
-                    tier2_mods = ["eval_framework", "data_contracts",
-                                  "regression_detector", "llm_router", "monitoring"]
+                    tier2_mods = [
+                        "eval_framework",
+                        "data_contracts",
+                        "regression_detector",
+                        "llm_router",
+                        "monitoring",
+                    ]
                     reimported = 0
                     for mod_name in tier2_mods:
                         if mod_name not in sys.modules:
@@ -2999,7 +3545,9 @@ class AutoQC:
                                 pass
                     if reimported:
                         action_taken = True
-                        self._record_heal(name, f"reimported_{reimported}_tier2_modules", True)
+                        self._record_heal(
+                            name, f"reimported_{reimported}_tier2_modules", True
+                        )
                 except Exception as e:
                     self._record_heal(name, "tier2_reimport", False)
 
@@ -3057,37 +3605,73 @@ class AutoQC:
     # ══════════════════════════════════════════════════════════════════════
 
     def _send_alert(self, run_result: dict) -> None:
-        """Send Slack alert when tests fail persistently (best-effort)."""
+        """Send Slack alert when tests fail persistently (best-effort).
+
+        Delegates to scripts/notify_slack for actual delivery.  Falls back
+        to inline urllib if the helper module is unavailable.
+        """
+        failed_count = run_result.get("failed") or 0
+        if failed_count == 0:
+            return
+
+        failures = run_result.get("failures", [])
+        failure_names = [f["name"] for f in failures[:5]]
+        healed = run_result.get("healed") or 0
+        total = run_result.get("total") or 0
+        channel = os.environ.get("SLACK_ALERT_CHANNEL") or "#nova-alerts"
+        msg = (
+            f":warning: *AutoQC Alert* -- Run #{run_result['run_number']}\n"
+            f"Status: `{run_result['status']}`\n"
+            f"Passed: {run_result['passed']}/{total}\n"
+            f"Failed tests: {', '.join(failure_names)}\n"
+            f"Healed: {healed}\n"
+            f"Check: /api/health/auto-qc"
+        )
+
+        # Prefer the dedicated Slack helper (handles token + error logging)
         try:
-            bot_token = os.environ.get("SLACK_BOT_TOKEN", "").strip()
+            from scripts.notify_slack import notify_slack
+
+            notify_slack(channel, msg)
+            logger.info(
+                "AutoQC: Slack alert sent for run #%d via notify_slack",
+                run_result["run_number"],
+            )
+            return
+        except ImportError:
+            logger.debug(
+                "AutoQC: scripts.notify_slack not available, using inline fallback"
+            )
+        except Exception as e:
+            logger.error("AutoQC: notify_slack call failed: %s", e, exc_info=True)
+
+        # Inline fallback (original implementation)
+        try:
+            bot_token = os.environ.get("SLACK_BOT_TOKEN") or ""
             if not bot_token:
                 logger.info("AutoQC: no SLACK_BOT_TOKEN set, skipping alert")
                 return
 
-            failures = run_result.get("failures", [])
-            failure_names = [f["name"] for f in failures[:5]]
-            msg = (
-                f":warning: *AutoQC Alert* -- Run #{run_result['run_number']}\n"
-                f"Status: `{run_result['status']}`\n"
-                f"Passed: {run_result['passed']}/{run_result['total']}\n"
-                f"Failed tests: {', '.join(failure_names)}\n"
-                f"Healed: {run_result.get('healed', 0)}"
-            )
-
             import urllib.request
+
             req = urllib.request.Request(
                 "https://slack.com/api/chat.postMessage",
-                data=json.dumps({
-                    "channel": os.environ.get("SLACK_ALERT_CHANNEL", "#general"),
-                    "text": msg,
-                }).encode("utf-8"),
+                data=json.dumps(
+                    {
+                        "channel": channel,
+                        "text": msg,
+                    }
+                ).encode("utf-8"),
                 headers={
                     "Content-Type": "application/json",
                     "Authorization": f"Bearer {bot_token}",
                 },
             )
             urllib.request.urlopen(req, timeout=10)
-            logger.info("AutoQC: Slack alert sent for run #%d", run_result["run_number"])
+            logger.info(
+                "AutoQC: Slack alert sent for run #%d (inline)",
+                run_result["run_number"],
+            )
         except Exception as e:
             logger.warning("AutoQC: Slack alert failed: %s", e)
 
@@ -3115,8 +3699,13 @@ class AutoQC:
         the test runner indefinitely.
         """
         if self._nova_init_failed:
-            return {"response": "", "confidence": 0, "sources": [],
-                    "tools_used": [], "error": "Nova init previously failed"}
+            return {
+                "response": "",
+                "confidence": 0,
+                "sources": [],
+                "tools_used": [],
+                "error": "Nova init previously failed",
+            }
 
         result_holder: List[dict] = []
         error_holder: List[str] = []
@@ -3144,18 +3733,39 @@ class AutoQC:
                 self._nova_init_failed = True
                 logger.warning("AutoQC: Nova init timed out after %ds", timeout)
             else:
-                logger.warning("AutoQC: _internal_chat timed out after %ds for: %s", timeout, message[:50])
-            return {"response": "", "confidence": 0, "sources": [],
-                    "tools_used": [], "error": f"Timeout after {timeout}s"}
+                logger.warning(
+                    "AutoQC: _internal_chat timed out after %ds for: %s",
+                    timeout,
+                    message[:50],
+                )
+            return {
+                "response": "",
+                "confidence": 0,
+                "sources": [],
+                "tools_used": [],
+                "error": f"Timeout after {timeout}s",
+            }
         if error_holder:
             if self._nova_instance is None:
                 self._nova_init_failed = True
-            return {"response": "", "confidence": 0, "sources": [],
-                    "tools_used": [], "error": error_holder[0]}
-        return result_holder[0] if result_holder else {
-            "response": "", "confidence": 0, "sources": [],
-            "tools_used": [], "error": "No result"
-        }
+            return {
+                "response": "",
+                "confidence": 0,
+                "sources": [],
+                "tools_used": [],
+                "error": error_holder[0],
+            }
+        return (
+            result_holder[0]
+            if result_holder
+            else {
+                "response": "",
+                "confidence": 0,
+                "sources": [],
+                "tools_used": [],
+                "error": "No result",
+            }
+        )
 
     def _load_dynamic_tests(self) -> None:
         """Load previously generated dynamic tests from disk."""
@@ -3193,12 +3803,16 @@ class AutoQC:
         """Save run history to disk."""
         try:
             with open(QC_RESULTS_FILE, "w") as f:
-                json.dump({
-                    "history": self._run_history[-_MAX_HISTORY:],
-                    "run_count": self._run_count,
-                    "weekly_count": self._weekly_count,
-                    "last_updated": datetime.now(timezone.utc).isoformat(),
-                }, f, indent=2)
+                json.dump(
+                    {
+                        "history": self._run_history[-_MAX_HISTORY:],
+                        "run_count": self._run_count,
+                        "weekly_count": self._weekly_count,
+                        "last_updated": datetime.now(timezone.utc).isoformat(),
+                    },
+                    f,
+                    indent=2,
+                )
         except Exception as e:
             logger.warning("AutoQC: failed to persist history: %s", e)
 

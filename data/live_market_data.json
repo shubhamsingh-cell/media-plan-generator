@@ -1,0 +1,464 @@
+{
+  "scraped_at": "2026-03-23T12:00:00Z",
+  "data_freshness": "2025-2026 pricing data scraped from 14 sources",
+  "sources": [
+    "https://jobtoday.com/us/blog/indeed-pricing/",
+    "https://pitchmeai.com/blog/indeed-vs-linkedin-vs-ziprecruiter-pricing-comparison",
+    "https://www.vbwebsol.com/linkedin-job-posting-cost/",
+    "https://postiv.ai/blog/linkedin-job-advertising-costs",
+    "https://tekpon.com/software/ziprecruiter/pricing/",
+    "https://www.glassdoor.com/blog/how-much-it-costs-to-post-a-job-online/",
+    "https://pricingnow.com/question/glassdoor-pricing/",
+    "https://hiring.monster.com/pricing-3/",
+    "https://www.appcast.io/the-rising-cost-of-recruiting/",
+    "https://juicebox.ai/blog/cost-per-hire",
+    "https://engagedly.com/blog/average-cost-per-hire-employee/",
+    "https://www.hrdive.com/news/cost-per-hire-application-increase-2025-recruitment-appcast/812612/",
+    "https://www.metaintro.com/blog/cost-per-hire-cost-per-application-rose-sharply-2025-employers-2026",
+    "https://www.jobboardly.com/blog/5-job-board-pricing-models-compared"
+  ],
+  "job_boards": {
+    "indeed": {
+      "avg_cpc_min": 0.10,
+      "avg_cpc_max": 5.00,
+      "avg_cpc_typical": 0.50,
+      "avg_cpa_min": 1.50,
+      "avg_cpa_max": 5.00,
+      "min_daily_budget": 5.00,
+      "min_monthly_budget": 150.00,
+      "monthly_cost_min": 150,
+      "monthly_cost_max": 5000,
+      "free_posting_available": true,
+      "free_posts_per_month": 3,
+      "pricing_model": "Pay-per-click (CPC) or pay-per-started-application",
+      "pricing_tiers": [
+        {
+          "name": "Free",
+          "monthly_cost": 0,
+          "features": "Up to 3 free job postings per month, basic visibility"
+        },
+        {
+          "name": "Sponsored (Standard)",
+          "monthly_cost": 150,
+          "features": "Minimum $5/day or $150/month, boosted visibility in search results"
+        },
+        {
+          "name": "Sponsored (Premium)",
+          "monthly_cost": 300,
+          "features": "Higher budget for increased visibility, featured in more searches"
+        }
+      ],
+      "volume_discounts": "Available for bulk job postings, contact sales for custom pricing",
+      "notes": "Indeed uses auction-based pricing. Actual CPC varies significantly by location, industry, and role competitiveness. Pay-per-click or pay-per-started-application depending on budget type and market. Costs can range widely: $0.10 for low-competition roles to $5+ for high-demand positions.",
+      "data_date": "2026-03"
+    },
+    "linkedin": {
+      "avg_cpc_min": 0.50,
+      "avg_cpc_max": 6.00,
+      "avg_cpc_typical": 2.50,
+      "avg_cpa_min": 1.00,
+      "avg_cpa_max": 8.00,
+      "avg_cpa_us": 2.83,
+      "applicants_per_hire": 57,
+      "estimated_cost_per_hire": 161.00,
+      "min_daily_budget": 7.00,
+      "monthly_cost_min": 29.99,
+      "monthly_cost_max": 3000,
+      "free_posting_available": true,
+      "pricing_model": "Pay-per-click (promoted jobs) + subscription tiers",
+      "pricing_tiers": [
+        {
+          "name": "Free Job Post",
+          "monthly_cost": 0,
+          "features": "Basic job listing, limited visibility, available to all LinkedIn users"
+        },
+        {
+          "name": "Self-Serve Promoted Jobs",
+          "monthly_cost_min": 210,
+          "monthly_cost_max": 1500,
+          "features": "CPC-based ($0.50-$6.00/click), daily budget starting at $7-$10/day, boosted visibility"
+        },
+        {
+          "name": "Recruiter Lite",
+          "monthly_cost": 170,
+          "annual_cost": 1680,
+          "features": "Direct search and outreach, InMail credits, candidate tracking"
+        },
+        {
+          "name": "Enterprise / Contracted Job Slots",
+          "cost_per_job_post_min": 1500,
+          "cost_per_job_post_max": 3000,
+          "features": "Negotiated pricing for hiring at scale, dedicated support"
+        },
+        {
+          "name": "LinkedIn Recruiter (Full)",
+          "monthly_cost": 900,
+          "features": "150 InMail credits, advanced search, bulk messaging, team collaboration"
+        }
+      ],
+      "notes": "LinkedIn advertising CPC typically $2.00-$3.00. Sponsored InMail $0.26-$0.50 per send. CPM $5.01-$8.00. Pricing heavily influenced by job location, industry, role competitiveness, and bidding strategy. US average cost per applicant is $2.83, with ~57 applicants needed per hire.",
+      "data_date": "2026-03"
+    },
+    "ziprecruiter": {
+      "avg_cpc_min": 1.00,
+      "avg_cpc_max": 5.00,
+      "avg_cpc_typical": 2.50,
+      "avg_cpa_min": 5.00,
+      "avg_cpa_max": 50.00,
+      "monthly_cost_min": 249,
+      "monthly_cost_max": 1500,
+      "free_posting_available": false,
+      "free_trial_available": true,
+      "free_trial_days": 15,
+      "pricing_model": "Subscription-based with tiered plans",
+      "pricing_tiers": [
+        {
+          "name": "Standard",
+          "monthly_cost": 399,
+          "features": "Job posting to 100+ job boards, AI-driven candidate matching, limited resume database access, standard support"
+        },
+        {
+          "name": "Premium",
+          "monthly_cost": 519,
+          "features": "All Standard features, enhanced job visibility, extended resume database, premium support"
+        },
+        {
+          "name": "Pro",
+          "monthly_cost": 899,
+          "features": "All Premium features, maximum visibility, unlimited resume database, dedicated account manager"
+        }
+      ],
+      "volume_discounts": "Custom enterprise pricing available for high-volume hiring",
+      "notes": "Prices are approximate and vary by geography, company size, and specific needs. 15-day free trial available. ZipRecruiter distributes postings across 100+ partner sites. Subscription model means costs are predictable but higher floor than CPC-based boards.",
+      "data_date": "2026-03"
+    },
+    "glassdoor": {
+      "avg_cpc_min": 0.00,
+      "avg_cpc_max": 3.00,
+      "avg_cpc_typical": 1.50,
+      "avg_cpa_min": 1.00,
+      "avg_cpa_max": 15.00,
+      "monthly_cost_min": 0,
+      "monthly_cost_max": 600,
+      "free_posting_available": true,
+      "pricing_model": "Freemium with employer branding packages (partners with Indeed for sponsored posts)",
+      "pricing_tiers": [
+        {
+          "name": "Free Employer Profile",
+          "monthly_cost": 0,
+          "features": "Basic company profile, respond to reviews, limited analytics"
+        },
+        {
+          "name": "Lite",
+          "monthly_cost": 219,
+          "features": "1 job posting, basic employer branding"
+        },
+        {
+          "name": "Standard",
+          "monthly_cost": 299,
+          "features": "3 job postings, enhanced employer branding, detailed analytics"
+        },
+        {
+          "name": "Professional",
+          "monthly_cost": 400,
+          "annual_cost": 3840,
+          "features": "Premium employer branding, expanded job postings, competitor benchmarking"
+        },
+        {
+          "name": "Pro",
+          "monthly_cost": 599,
+          "features": "5+ job postings, full employer branding suite, advanced analytics, priority support"
+        }
+      ],
+      "hidden_costs": [
+        "One-time setup fees for employer branding services",
+        "Data migration costs for HR system integrations",
+        "Training fees for advanced features",
+        "Annual renewal price increase caps"
+      ],
+      "notes": "Glassdoor partners with Indeed for sponsored job distribution. Employer branding is the primary paid product. Job posting costs through the Indeed/Glassdoor ecosystem. Custom enterprise pricing not publicly listed.",
+      "data_date": "2026-03"
+    },
+    "monster": {
+      "avg_cpc_min": 1.00,
+      "avg_cpc_max": 2.00,
+      "avg_cpc_typical": 1.00,
+      "monthly_cost_min": 0,
+      "monthly_cost_max": 999,
+      "free_posting_available": true,
+      "pricing_model": "Tiered subscription + credit-based system",
+      "pricing_tiers": [
+        {
+          "name": "Monster+ Free",
+          "monthly_cost": 0,
+          "features": "1 free job posting every 30 days, up to 3 applicants per posting, basic visibility"
+        },
+        {
+          "name": "Monster+ Standard",
+          "monthly_cost": 240,
+          "features": "Pay-as-you-go promoted postings, published to Monster + CareerBuilder + partner network, view all applicants, auto-matching"
+        },
+        {
+          "name": "Monster+ Pro",
+          "monthly_cost": 299,
+          "credits_included": 299,
+          "cost_per_credit_usd": 1.00,
+          "features": "Promoted postings, Monster + CareerBuilder network, resume search access, proactive candidate messaging, unlimited user access"
+        },
+        {
+          "name": "Enterprise",
+          "monthly_cost": null,
+          "features": "Custom hiring packages, dedicated sales rep, ATS/HR integration, volume-based pricing"
+        }
+      ],
+      "notes": "Monster+ Pro credits expire monthly. 1 credit = $1 USD. Credits used for candidate clicks and resume views. Monster distributes to CareerBuilder and partner network. Legacy pricing had Starter ($249/1 job), Standard ($449/2 jobs), Premium ($999/5 jobs).",
+      "data_date": "2026-03"
+    },
+    "careerbuilder": {
+      "avg_cpc_min": 0.50,
+      "avg_cpc_max": 3.00,
+      "avg_cpc_typical": 1.50,
+      "monthly_cost_min": 249,
+      "monthly_cost_max": 999,
+      "free_posting_available": false,
+      "pricing_model": "Bundled with Monster (shared network)",
+      "notes": "CareerBuilder is part of the Monster network. Job postings on Monster+ plans are distributed to CareerBuilder. Standalone pricing requires direct contact with sales.",
+      "data_date": "2026-03"
+    }
+  },
+  "pricing_models_overview": {
+    "cpc_range": {
+      "min": 0.50,
+      "max": 5.00,
+      "typical": 1.50,
+      "unit": "USD per click",
+      "description": "Employers pay per job seeker click. Most common model for major job boards."
+    },
+    "ppa_range": {
+      "min": 25,
+      "max": 100,
+      "typical": 50,
+      "unit": "USD per application",
+      "description": "Pay per qualified application received. Growing model for specialized roles."
+    },
+    "duration_based_range": {
+      "min": 200,
+      "max": 600,
+      "typical": 350,
+      "unit": "USD per 30-day posting",
+      "description": "Flat fee for time-based postings, common on niche boards."
+    },
+    "subscription_range": {
+      "min": 40,
+      "max": 900,
+      "typical": 300,
+      "unit": "USD per month",
+      "description": "Fixed monthly fee for unlimited or tiered postings."
+    }
+  },
+  "industry_benchmarks": {
+    "overall": {
+      "avg_cost_per_hire": 4750,
+      "avg_cost_per_hire_source": "SHRM 2026 / Engagedly 2026 (average of $4,800 and $4,700)",
+      "avg_apply_rate_pct": 5.19,
+      "avg_apply_rate_source": "Appcast 2026 Recruitment Marketing Benchmark Report"
+    },
+    "technology": {
+      "avg_cpc": 0.80,
+      "avg_cpa": 12.00,
+      "avg_cost_per_hire": 6200,
+      "apply_rate_pct": 7.14,
+      "notes": "Tech apply rates surged to 7.14% in 2025 due to white-collar recession. CPC lower due to higher applicant volume, but cost per hire remains elevated due to longer screening cycles."
+    },
+    "healthcare": {
+      "avg_cpc": 1.80,
+      "avg_cpa": 25.00,
+      "avg_cost_per_hire": 9000,
+      "apply_rate_pct": 3.20,
+      "notes": "Healthcare consistently has the highest recruitment costs. Nursing and specialized roles can exceed $10,000 per hire. Persistent labor shortages drive up CPC."
+    },
+    "retail": {
+      "avg_cpc": 0.35,
+      "avg_cpa": 8.00,
+      "avg_cost_per_hire": 2700,
+      "apply_rate_pct": 6.50,
+      "notes": "Retail has lowest cost per hire due to high volume and lower skill requirements. Seasonal hiring patterns cause CPC fluctuations."
+    },
+    "finance": {
+      "avg_cpc": 1.20,
+      "avg_cpa": 18.00,
+      "avg_cost_per_hire": 5500,
+      "apply_rate_pct": 4.80,
+      "notes": "Finance and banking roles have moderate CPC but higher CPA due to compliance and credential screening requirements."
+    },
+    "manufacturing": {
+      "avg_cpc": 0.60,
+      "avg_cpa": 15.00,
+      "avg_cost_per_hire": 4200,
+      "apply_rate_pct": 4.50,
+      "notes": "Manufacturing CPC is moderate but rising. Skilled trades positions command higher CPC than general labor roles."
+    },
+    "hospitality": {
+      "avg_cpc": 0.30,
+      "avg_cpa": 6.00,
+      "avg_cost_per_hire": 2700,
+      "apply_rate_pct": 7.00,
+      "notes": "Similar to retail -- high volume, lower cost per hire, but high turnover drives total recruitment spend up."
+    },
+    "engineering": {
+      "avg_cpc": 1.50,
+      "avg_cpa": 20.00,
+      "avg_cost_per_hire": 6200,
+      "apply_rate_pct": 4.00,
+      "notes": "Engineering roles (civil, mechanical, electrical) have similar costs to tech but lower apply rates."
+    },
+    "cybersecurity": {
+      "avg_cpc": 2.50,
+      "avg_cpa": 35.00,
+      "avg_cost_per_hire": 10000,
+      "apply_rate_pct": 2.80,
+      "notes": "Cybersecurity is among the most expensive verticals to hire for. Talent scarcity drives high CPC and CPA."
+    },
+    "data_science": {
+      "avg_cpc": 2.00,
+      "avg_cpa": 30.00,
+      "avg_cost_per_hire": 10000,
+      "apply_rate_pct": 3.00,
+      "notes": "Data science and AI/ML roles command premium pricing. High demand with limited qualified talent pool."
+    }
+  },
+  "seniority_benchmarks": {
+    "entry_level": {
+      "avg_cost_per_hire": 3500,
+      "avg_cpc_multiplier": 0.7,
+      "notes": "Lower CPC due to larger applicant pools"
+    },
+    "mid_level": {
+      "avg_cost_per_hire": 4800,
+      "avg_cpc_multiplier": 1.0,
+      "notes": "Baseline benchmark level"
+    },
+    "senior": {
+      "avg_cost_per_hire": 14400,
+      "avg_cpc_multiplier": 1.8,
+      "notes": "Significantly higher CPC as talent pool narrows"
+    },
+    "executive": {
+      "avg_cost_per_hire": 28329,
+      "avg_cpc_multiplier": 3.0,
+      "notes": "Executive search often involves retained firms, not just job board advertising"
+    }
+  },
+  "company_size_benchmarks": {
+    "small": {
+      "employee_range": "1-50",
+      "avg_cost_per_hire": 6000,
+      "notes": "Higher per-hire cost due to less efficient processes, fewer economies of scale"
+    },
+    "medium": {
+      "employee_range": "51-500",
+      "avg_cost_per_hire": 4800,
+      "notes": "Moderate costs with some process optimization"
+    },
+    "large": {
+      "employee_range": "500+",
+      "avg_cost_per_hire": 4000,
+      "notes": "Lower per-hire cost through volume discounts, established employer brand, ATS efficiency"
+    }
+  },
+  "trends": [
+    {
+      "title": "Cost-per-hire and CPA rose sharply in 2025",
+      "summary": "Despite a softer labor market in 2025, both cost-per-application and cost-per-hire increased significantly, driven by shifts in job board pricing models and programmatic media.",
+      "source": "Appcast 2026 Recruitment Marketing Benchmark Report / HR Dive",
+      "date": "2026-02-20"
+    },
+    {
+      "title": "Apply rates improved but did not reduce CPA",
+      "summary": "Apply rates climbed to 5.19% in 2025, but rising CPC negated the improvement. More applications per candidate, but each click costs more.",
+      "source": "Appcast 2026 Benchmark Report",
+      "date": "2026-02"
+    },
+    {
+      "title": "White-collar recession distorted recruitment funnel",
+      "summary": "Tech apply rates surged to 7.14% while healthcare struggled at lower rates. The bifurcation created vastly different CPC/CPA dynamics across industries.",
+      "source": "Appcast 2026 Benchmark Report",
+      "date": "2026-02"
+    },
+    {
+      "title": "Shift to pay-per-application models increasing costs",
+      "summary": "Major job boards are shifting from CPC to pay-per-application and performance-based models, causing increased costs in recruitment advertising especially for healthcare and frontline roles.",
+      "source": "Metaintro / HR Dive",
+      "date": "2026-02"
+    },
+    {
+      "title": "Cost per hire climbed to $1,340 in recruitment marketing",
+      "summary": "The 2026 Recruitment Marketing Benchmark Report shows cost per hire in recruitment marketing specifically (not total cost) reached $1,340.",
+      "source": "LinkedIn / Michael Wishnow",
+      "date": "2026-03"
+    },
+    {
+      "title": "Average US cost per hire now $4,700-$4,800",
+      "summary": "Multiple sources (SHRM, Engagedly) confirm the average cost per hire in the US is between $4,700 and $4,800 as of early 2026, up from $4,000-$4,400 in prior years.",
+      "source": "SHRM / Engagedly / Juicebox",
+      "date": "2026-03"
+    },
+    {
+      "title": "Healthcare recruitment costs reaching $30,000 per hire",
+      "summary": "Healthcare and frontline roles now seeing cost-per-hire figures reaching $30,000 for specialized positions like nursing, driven by persistent labor shortages.",
+      "source": "Metaintro",
+      "date": "2026-02"
+    },
+    {
+      "title": "Job board CPC range stabilizing at $0.50-$5.00",
+      "summary": "Across major platforms, CPC has stabilized in the $0.50-$5.00 range, with Indeed at the lower end and LinkedIn/ZipRecruiter at the higher end. Niche boards can exceed $5.",
+      "source": "Job Boardly / PitchMeAI comparison",
+      "date": "2026-03"
+    }
+  ],
+  "hidden_costs_of_hiring": [
+    "Recruitment agency fees (15-25% of first year salary)",
+    "Background checks ($30-$100 per candidate)",
+    "Drug screening ($25-$50 per candidate)",
+    "Interview time (estimated $500-$1,000 per hire in staff time)",
+    "Onboarding and training ($1,000-$5,000 per hire)",
+    "Technology and ATS software ($100-$500/month)",
+    "Employer branding ($200-$2,000/month)",
+    "Job board subscriptions (aggregated above)",
+    "Lost productivity during vacancy (estimated 1-3x daily salary per day vacant)"
+  ],
+  "recommended_budget_by_role_type": {
+    "high_volume_hourly": {
+      "recommended_cpc": 0.30,
+      "recommended_daily_budget": 10,
+      "recommended_monthly_budget": 300,
+      "primary_channels": ["Indeed", "Monster", "ZipRecruiter"],
+      "expected_cpa": 5.00,
+      "expected_cost_per_hire": 2500
+    },
+    "professional_salaried": {
+      "recommended_cpc": 1.00,
+      "recommended_daily_budget": 25,
+      "recommended_monthly_budget": 750,
+      "primary_channels": ["Indeed", "LinkedIn", "Glassdoor"],
+      "expected_cpa": 15.00,
+      "expected_cost_per_hire": 4800
+    },
+    "technical_specialist": {
+      "recommended_cpc": 2.00,
+      "recommended_daily_budget": 40,
+      "recommended_monthly_budget": 1200,
+      "primary_channels": ["LinkedIn", "Indeed", "Niche Boards"],
+      "expected_cpa": 25.00,
+      "expected_cost_per_hire": 7500
+    },
+    "executive_leadership": {
+      "recommended_cpc": 4.00,
+      "recommended_daily_budget": 75,
+      "recommended_monthly_budget": 2250,
+      "primary_channels": ["LinkedIn", "Executive Search Firms"],
+      "expected_cpa": 50.00,
+      "expected_cost_per_hire": 28000
+    }
+  }
+}
