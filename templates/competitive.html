@@ -183,10 +183,7 @@
       .page-header h1 {
         font-size: clamp(1.75rem, 4vw, 2.5rem);
         font-weight: 800;
-        background: var(--gradient-accent);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
+        color: #ffffff;
         letter-spacing: -0.02em;
         margin-bottom: 0.5rem;
       }
@@ -196,6 +193,29 @@
         font-size: 1rem;
         max-width: 600px;
         margin: 0 auto;
+      }
+
+      .receive-row {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 1rem;
+      }
+      .receive-label {
+        font-size: 0.8rem;
+        color: var(--text-muted, #666);
+        font-weight: 500;
+      }
+      .receive-chip {
+        display: inline-block;
+        font-size: 0.75rem;
+        color: var(--text-secondary, #a1a1a1);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 999px;
+        padding: 4px 12px;
+        white-space: nowrap;
       }
 
       .back-link {
@@ -1303,6 +1323,12 @@
           Analyze your company against competitors. Get hiring activity, ad
           benchmarks, market trends, and strategic recommendations.
         </p>
+        <div class="receive-row">
+          <span class="receive-label">You'll receive:</span>
+          <span class="receive-chip">Competitor hiring velocity</span>
+          <span class="receive-chip">Ad spend benchmarks</span>
+          <span class="receive-chip">Strategic gap analysis</span>
+        </div>
       </header>
 
       <!-- Input Form -->

@@ -1,0 +1,537 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Nova AI Suite Privacy Policy -- how we collect, use, and protect your data."
+    />
+    <meta name="theme-color" content="#000000" />
+    <title>Privacy Policy | Nova AI Suite</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%236366F1'/><text x='16' y='22' text-anchor='middle' fill='white' font-family='Inter,sans-serif' font-weight='800' font-size='18'>N</text></svg>"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --obsidian: #000000;
+        --obsidian-light: #111111;
+        --navy: #1a1a1a;
+        --indigo: #6366f1;
+        --indigo-light: #818cf8;
+        --indigo-pale: rgba(99, 102, 241, 0.08);
+        --indigo-glow: rgba(99, 102, 241, 0.15);
+        --cyan-accent: #22d3ee;
+        --green-success: #34d399;
+        --accent: #6366f1;
+        --accent-light: #818cf8;
+        --bg: #000000;
+        --surface-1: rgba(17, 17, 17, 0.6);
+        --surface-2: rgba(26, 26, 26, 0.5);
+        --card: rgba(17, 17, 17, 0.8);
+        --card-solid: #111111;
+        --glass-blur-md: blur(24px) saturate(1.3);
+        --glass-border: rgba(255, 255, 255, 0.08);
+        --glass-border-hover: rgba(255, 255, 255, 0.16);
+        --glass-inset: 0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+        --text: #d4d4d8;
+        --text-secondary: #a1a1a1;
+        --text-muted: #666666;
+        --border: rgba(255, 255, 255, 0.08);
+        --border-accent: rgba(99, 102, 241, 0.3);
+        --shadow-md:
+          0 4px 12px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3);
+        --radius: 12px;
+        --radius-sm: 8px;
+        --radius-lg: 16px;
+        --gradient-primary: linear-gradient(135deg, #6366f1 0%, #818cf8 100%);
+        --gradient-mesh:
+          radial-gradient(
+            ellipse at 20% 50%,
+            rgba(99, 102, 241, 0.08) 0%,
+            transparent 50%
+          ),
+          radial-gradient(
+            ellipse at 80% 20%,
+            rgba(34, 211, 238, 0.06) 0%,
+            transparent 50%
+          ),
+          radial-gradient(
+            ellipse at 40% 80%,
+            rgba(99, 102, 241, 0.04) 0%,
+            transparent 50%
+          );
+        --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+        --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+        --duration-normal: 200ms;
+        --focus-ring: 0 0 0 2px var(--obsidian), 0 0 0 4px var(--accent);
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .reveal-on-scroll {
+          opacity: 1;
+          transform: none;
+          transition: none;
+          filter: none;
+        }
+        *,
+        *::before,
+        *::after {
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.01ms !important;
+        }
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      ::selection {
+        background: var(--accent);
+        color: white;
+      }
+
+      body {
+        font-family:
+          "Inter",
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          Roboto,
+          "Helvetica Neue",
+          Arial,
+          sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        min-height: 100vh;
+        font-size: 16px;
+        line-height: 1.5;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        position: relative;
+      }
+
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background: var(--gradient-mesh);
+        pointer-events: none;
+        z-index: 0;
+        animation: ambientDrift 20s ease-in-out infinite alternate;
+      }
+
+      @keyframes ambientDrift {
+        0% {
+          background:
+            radial-gradient(
+              ellipse at 20% 50%,
+              rgba(99, 102, 241, 0.08) 0%,
+              transparent 50%
+            ),
+            radial-gradient(
+              ellipse at 80% 20%,
+              rgba(34, 211, 238, 0.06) 0%,
+              transparent 50%
+            ),
+            radial-gradient(
+              ellipse at 40% 80%,
+              rgba(99, 102, 241, 0.04) 0%,
+              transparent 50%
+            );
+        }
+        50% {
+          background:
+            radial-gradient(
+              ellipse at 60% 30%,
+              rgba(99, 102, 241, 0.1) 0%,
+              transparent 50%
+            ),
+            radial-gradient(
+              ellipse at 20% 70%,
+              rgba(34, 211, 238, 0.05) 0%,
+              transparent 50%
+            ),
+            radial-gradient(
+              ellipse at 80% 60%,
+              rgba(129, 140, 248, 0.06) 0%,
+              transparent 50%
+            );
+        }
+        100% {
+          background:
+            radial-gradient(
+              ellipse at 40% 60%,
+              rgba(99, 102, 241, 0.07) 0%,
+              transparent 50%
+            ),
+            radial-gradient(
+              ellipse at 70% 40%,
+              rgba(34, 211, 238, 0.07) 0%,
+              transparent 50%
+            ),
+            radial-gradient(
+              ellipse at 30% 30%,
+              rgba(129, 140, 248, 0.05) 0%,
+              transparent 50%
+            );
+        }
+      }
+
+      /* ── REVEAL ON SCROLL ──────────────────────── */
+      .reveal-on-scroll {
+        opacity: 0;
+        transform: translateY(24px);
+        filter: blur(4px);
+        transition:
+          opacity 0.6s var(--ease-out),
+          transform 0.6s var(--ease-out),
+          filter 0.6s var(--ease-out);
+      }
+
+      .reveal-on-scroll.visible {
+        opacity: 1;
+        transform: translateY(0);
+        filter: blur(0);
+      }
+
+      /* ── HEADER ────────────────────────────────── */
+      .app-header {
+        background: rgba(0, 0, 0, 0.8);
+        backdrop-filter: blur(20px) saturate(1.3);
+        -webkit-backdrop-filter: blur(20px) saturate(1.3);
+        color: var(--text);
+        padding: 0 32px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 64px;
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        border-bottom: 1px solid var(--glass-border);
+      }
+
+      .app-header::after {
+        content: "";
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 1px;
+        background: linear-gradient(
+          90deg,
+          transparent,
+          rgba(99, 102, 241, 0.3),
+          transparent
+        );
+      }
+
+      .header-content {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .header-logo {
+        width: 32px;
+        height: 32px;
+        border-radius: var(--radius-sm);
+        background: var(--gradient-primary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .header-logo svg {
+        width: 18px;
+        height: 18px;
+      }
+
+      .app-header h1 {
+        font-size: 16px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+      }
+
+      .header-badge {
+        font-size: 10px;
+        font-weight: 600;
+        padding: 2px 8px;
+        border-radius: 99px;
+        background: var(--indigo-pale);
+        color: var(--indigo-light);
+        border: 1px solid var(--border-accent);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+
+      .nav-link {
+        color: var(--text-secondary);
+        text-decoration: none;
+        font-size: 13px;
+        font-weight: 500;
+        padding: 8px 16px;
+        border-radius: var(--radius-sm);
+        transition: all var(--duration-normal) var(--ease-standard);
+        min-width: 44px;
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+      }
+
+      .nav-link:hover {
+        color: var(--text);
+        background: var(--surface-2);
+      }
+
+      .nav-link:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
+      }
+
+      /* ── MAIN CONTAINER ────────────────────────── */
+      .main-container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 48px 24px 64px;
+        position: relative;
+        z-index: 1;
+      }
+
+      /* ── PAGE TITLE ────────────────────────────── */
+      .page-title {
+        margin-bottom: 12px;
+      }
+
+      .page-title h2 {
+        font-size: 2rem;
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        background: linear-gradient(135deg, #e4e4e7 0%, #a1a1a1 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 8px;
+      }
+
+      .page-subtitle {
+        color: var(--text-muted);
+        font-size: 0.85rem;
+        margin-bottom: 40px;
+      }
+
+      /* ── LEGAL CONTENT ─────────────────────────── */
+      .legal-section {
+        background: var(--card);
+        border: 1px solid var(--glass-border);
+        border-radius: var(--radius);
+        padding: 28px 24px;
+        backdrop-filter: var(--glass-blur-md);
+        -webkit-backdrop-filter: var(--glass-blur-md);
+        box-shadow: var(--glass-inset), var(--shadow-md);
+        margin-bottom: 20px;
+        transition: border-color var(--duration-normal) var(--ease-standard);
+      }
+
+      .legal-section:hover {
+        border-color: var(--glass-border-hover);
+      }
+
+      .legal-section h3 {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: var(--text);
+        margin-bottom: 12px;
+        letter-spacing: -0.01em;
+      }
+
+      .legal-section p {
+        color: var(--text-secondary);
+        font-size: 0.9rem;
+        line-height: 1.7;
+      }
+
+      .legal-section a {
+        color: var(--indigo-light);
+        text-decoration: none;
+        transition: color var(--duration-normal);
+      }
+
+      .legal-section a:hover {
+        color: var(--accent);
+      }
+
+      /* ── RESPONSIVE ────────────────────────────── */
+      @media (max-width: 640px) {
+        .app-header {
+          padding: 0 16px;
+        }
+        .app-header h1 {
+          font-size: 14px;
+        }
+        .header-badge {
+          display: none;
+        }
+        .main-container {
+          padding: 32px 16px 48px;
+        }
+        .page-title h2 {
+          font-size: 1.5rem;
+        }
+        .legal-section {
+          padding: 20px 16px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="app-header" role="banner">
+      <div class="header-content">
+        <div class="header-logo" aria-hidden="true">
+          <svg viewBox="0 0 32 32" fill="none" width="32" height="32">
+            <rect width="32" height="32" rx="6" fill="#6366F1" />
+            <text
+              x="16"
+              y="22"
+              text-anchor="middle"
+              fill="white"
+              font-family="Inter,sans-serif"
+              font-weight="800"
+              font-size="18"
+            >
+              N
+            </text>
+          </svg>
+        </div>
+        <h1>Nova AI Suite</h1>
+        <span class="header-badge">Privacy</span>
+      </div>
+      <nav aria-label="Main navigation">
+        <a href="/" class="nav-link" aria-label="Back to Nova AI Suite"
+          >Back to Nova AI Suite</a
+        >
+      </nav>
+    </header>
+
+    <main class="main-container" role="main">
+      <div class="page-title reveal-on-scroll">
+        <h2>Privacy Policy</h2>
+      </div>
+      <p class="page-subtitle reveal-on-scroll">Last updated: March 2026</p>
+
+      <section class="legal-section reveal-on-scroll">
+        <h3>1. Information We Collect</h3>
+        <p>
+          We may collect the following information when you use Nova AI Suite:
+          your name and email address (optional, only if you choose to provide
+          them), and campaign or job data that you enter into our tools for the
+          purpose of generating media plans and recruitment intelligence
+          reports.
+        </p>
+      </section>
+
+      <section class="legal-section reveal-on-scroll">
+        <h3>2. How We Use Your Data</h3>
+        <p>
+          Your data is used solely for generating media plans, recruitment
+          intelligence reports, and AI-powered recommendations within the
+          platform. We also use aggregated, anonymized usage patterns to improve
+          AI recommendation quality across the suite.
+        </p>
+      </section>
+
+      <section class="legal-section reveal-on-scroll">
+        <h3>3. Data Retention</h3>
+        <p>
+          Campaign data is processed in real-time and is not stored permanently
+          on our servers. API cache data is cleared automatically every 24
+          hours. We do not maintain long-term databases of your campaign inputs
+          or generated outputs.
+        </p>
+      </section>
+
+      <section class="legal-section reveal-on-scroll">
+        <h3>4. Third-Party Services</h3>
+        <p>
+          We use external APIs for market data enrichment, including the Bureau
+          of Labor Statistics (BLS), Federal Reserve Economic Data (FRED), and
+          other publicly available data sources. For product analytics and error
+          monitoring, we use PostHog and Sentry. No personal data is shared with
+          these services.
+        </p>
+      </section>
+
+      <section class="legal-section reveal-on-scroll">
+        <h3>5. Your Rights</h3>
+        <p>
+          You have the right to request deletion of any data associated with
+          your usage. Since we do not store campaign data permanently, most data
+          is already transient. For any data-related requests, please contact us
+          using the information below.
+        </p>
+      </section>
+
+      <section class="legal-section reveal-on-scroll">
+        <h3>6. Contact</h3>
+        <p>
+          For privacy-related questions or data deletion requests, please email
+          <a href="mailto:shubhamsingh@Joveo.com">shubhamsingh@Joveo.com</a>.
+        </p>
+      </section>
+    </main>
+
+    <script>
+      (function () {
+        var scrollObserver = new IntersectionObserver(
+          function (entries) {
+            entries.forEach(function (entry) {
+              if (entry.isIntersecting) {
+                entry.target.classList.add("visible");
+                scrollObserver.unobserve(entry.target);
+              }
+            });
+          },
+          { threshold: 0.1, rootMargin: "0px 0px -40px 0px" },
+        );
+
+        document.querySelectorAll(".reveal-on-scroll").forEach(function (el) {
+          scrollObserver.observe(el);
+        });
+      })();
+    </script>
+    <footer
+      class="reveal-on-scroll"
+      style="
+        text-align: center;
+        padding: 2rem 1rem;
+        color: #64748b;
+        font-size: 0.8rem;
+        border-top: 1px solid rgba(99, 102, 241, 0.1);
+        margin-top: 3rem;
+      "
+    >
+      Powered by
+      <a
+        href="https://www.linkedin.com/in/chandel13/"
+        target="_blank"
+        rel="noopener"
+        style="color: #818cf8; text-decoration: none"
+        >Shubham Singh Chandel</a
+      >
+      &middot; Nova AI Suite
+    </footer>
+  </body>
+</html>

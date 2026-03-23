@@ -17905,6 +17905,42 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 self.wfile.write(html.encode())
             else:
                 self.send_error(404, "ComplianceGuard page not found")
+        # ── Pricing Page ──
+        elif path in ("/pricing", "/pricing/"):
+            _html_path = os.path.join(BASE_DIR, "templates", "pricing.html")
+            if os.path.exists(_html_path):
+                with open(_html_path, "r") as f:
+                    html = f.read()
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(html.encode())
+            else:
+                self.send_error(404, "Pricing page not found")
+        # ── Privacy Policy Page ──
+        elif path in ("/privacy", "/privacy/"):
+            _html_path = os.path.join(BASE_DIR, "templates", "privacy.html")
+            if os.path.exists(_html_path):
+                with open(_html_path, "r") as f:
+                    html = f.read()
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(html.encode())
+            else:
+                self.send_error(404, "Privacy Policy page not found")
+        # ── Terms of Service Page ──
+        elif path in ("/terms", "/terms/"):
+            _html_path = os.path.join(BASE_DIR, "templates", "terms.html")
+            if os.path.exists(_html_path):
+                with open(_html_path, "r") as f:
+                    html = f.read()
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(html.encode())
+            else:
+                self.send_error(404, "Terms of Service page not found")
         # ── API Portal GET routes ──
         elif path.startswith("/api/portal/"):
             if not self._check_admin_auth():

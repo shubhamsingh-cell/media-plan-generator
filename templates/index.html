@@ -686,6 +686,42 @@
         font-weight: 400;
       }
 
+      .logo-mark {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-decoration: none;
+        border-radius: 10px;
+        box-shadow: 0 0 12px rgba(99, 102, 241, 0.1);
+        animation: logo-breathe 4s ease-in-out infinite;
+        flex-shrink: 0;
+      }
+      .header-brand {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.8rem;
+        margin-bottom: 4px;
+      }
+      .brand-primary {
+        color: #818cf8;
+        font-weight: 600;
+      }
+      .brand-separator {
+        color: rgba(255, 255, 255, 0.2);
+        font-weight: 300;
+      }
+      .brand-secondary {
+        color: var(--text-secondary, #a1a1a1);
+        font-weight: 500;
+      }
+      .hero-subtitle {
+        font-size: 1.15rem;
+        color: #22d3ee;
+        font-weight: 500;
+        margin-bottom: 4px;
+        letter-spacing: -0.01em;
+      }
       .logo {
         font-size: 24px;
         width: 36px;
@@ -3489,6 +3525,78 @@
         background: #6b7280;
       }
 
+      /* ── Why This Plan Works (collapsible reasoning) ── */
+      .plan-reasoning {
+        margin-bottom: 24px;
+      }
+      .plan-reasoning details {
+        background: rgba(17, 17, 17, 0.8);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 12px;
+        overflow: hidden;
+      }
+      .plan-reasoning summary {
+        padding: 14px 20px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #a1a1a1;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        list-style: none;
+        user-select: none;
+        transition: color 0.2s;
+      }
+      .plan-reasoning summary::-webkit-details-marker {
+        display: none;
+      }
+      .plan-reasoning summary::before {
+        content: "";
+        display: inline-block;
+        width: 6px;
+        height: 6px;
+        border-right: 1.5px solid currentColor;
+        border-bottom: 1.5px solid currentColor;
+        transform: rotate(-45deg);
+        transition: transform 0.2s;
+        flex-shrink: 0;
+      }
+      .plan-reasoning details[open] summary::before {
+        transform: rotate(45deg);
+      }
+      .plan-reasoning summary:hover {
+        color: white;
+      }
+      .plan-reasoning-list {
+        padding: 0 20px 16px;
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .plan-reasoning-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        font-size: 0.85rem;
+        color: #a1a1a1;
+        line-height: 1.5;
+      }
+      .plan-reasoning-icon {
+        flex-shrink: 0;
+        width: 18px;
+        height: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(99, 102, 241, 0.1);
+        border-radius: 4px;
+        color: #818cf8;
+        font-size: 0.7rem;
+        margin-top: 1px;
+      }
+
       @media (prefers-reduced-motion: reduce) {
         .plan-decision-card {
           animation: none;
@@ -3609,11 +3717,38 @@
       <div class="ambient-glow ambient-glow--violet" aria-hidden="true"></div>
       <div class="ambient-glow ambient-glow--teal" aria-hidden="true"></div>
       <div class="header-content">
-        <div class="logo" aria-hidden="true">&#9965;</div>
+        <a href="/" class="logo-mark" aria-label="Back to Nova AI Suite">
+          <svg viewBox="0 0 36 36" fill="none" width="36" height="36">
+            <defs>
+              <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#6366F1" />
+                <stop offset="100%" stop-color="#818CF8" />
+              </linearGradient>
+            </defs>
+            <rect width="36" height="36" rx="10" fill="url(#logoGrad)" />
+            <text
+              x="18"
+              y="25"
+              text-anchor="middle"
+              fill="white"
+              font-family="Inter, sans-serif"
+              font-weight="800"
+              font-size="20"
+            >
+              N
+            </text>
+          </svg>
+        </a>
         <div>
+          <div class="header-brand">
+            <span class="brand-primary">Nova AI Suite</span>
+            <span class="brand-separator">/</span>
+            <span class="brand-secondary">Media Plan Generator</span>
+          </div>
           <h1 class="streaming-text hero-halo" data-streaming>
             Nova AI Media Plan Generator
           </h1>
+          <p class="hero-subtitle">Generate your media plan in 3 minutes</p>
           <p>Enterprise AI-powered recruitment media planning platform</p>
           <div class="ai-badge" aria-label="This tool is AI-powered">
             AI-Powered
@@ -3719,65 +3854,6 @@
           <p class="subtitle">
             Enter the basic details about your client and campaign
           </p>
-
-          <div
-            class="form-section"
-            style="
-              margin-bottom: 24px;
-              padding: 20px;
-              background: rgba(99, 102, 241, 0.04);
-              border-radius: 12px;
-              border: 1px solid rgba(99, 102, 241, 0.12);
-            "
-          >
-            <div
-              class="section-label"
-              style="margin-bottom: 16px; font-weight: 700; color: var(--text)"
-            >
-              <span
-                style="
-                  display: inline-flex;
-                  align-items: center;
-                  justify-content: center;
-                  width: 24px;
-                  height: 24px;
-                  background: var(--accent);
-                  color: white;
-                  border-radius: 50%;
-                  font-size: 12px;
-                  margin-right: 8px;
-                "
-                >&#128100;</span
-              >
-              Your Information
-            </div>
-            <div
-              style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px"
-            >
-              <div class="form-group">
-                <label for="requesterName">Your Name *</label>
-                <input
-                  type="text"
-                  id="requesterName"
-                  placeholder="e.g., John Smith"
-                  required
-                  autocomplete="name"
-                />
-                <div class="field-error-msg" id="requesterName-error"></div>
-              </div>
-              <div class="form-group">
-                <label for="requesterEmail">Your Email *</label>
-                <input
-                  type="email"
-                  id="requesterEmail"
-                  placeholder="e.g., john@company.com"
-                  required
-                  autocomplete="email"
-                />
-                <div class="field-error-msg" id="requesterEmail-error"></div>
-              </div>
-            </div>
-          </div>
 
           <div class="form-group">
             <label for="clientName">Client Name *</label>
@@ -4924,23 +5000,46 @@
           </p>
 
           <div
-            class="review-section"
+            class="form-section"
             style="
+              margin-bottom: 24px;
+              padding: 20px;
               background: rgba(99, 102, 241, 0.04);
+              border-radius: 12px;
               border: 1px solid rgba(99, 102, 241, 0.12);
             "
           >
-            <div class="review-section-header">
-              <h3>Requested By</h3>
-              <a class="review-edit-btn" onclick="goToStep(1)">Edit</a>
+            <div
+              class="section-label"
+              style="margin-bottom: 16px; font-weight: 700; color: var(--text)"
+            >
+              Your Information
             </div>
-            <div class="review-item">
-              <span class="label">Name</span
-              ><span class="value" id="reviewRequesterName"></span>
-            </div>
-            <div class="review-item">
-              <span class="label">Email</span
-              ><span class="value" id="reviewRequesterEmail"></span>
+            <div
+              style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px"
+            >
+              <div class="form-group">
+                <label for="requesterName">Your Name *</label>
+                <input
+                  type="text"
+                  id="requesterName"
+                  placeholder="e.g., John Smith"
+                  required
+                  autocomplete="name"
+                />
+                <div class="field-error-msg" id="requesterName-error"></div>
+              </div>
+              <div class="form-group">
+                <label for="requesterEmail">Your Email *</label>
+                <input
+                  type="email"
+                  id="requesterEmail"
+                  placeholder="e.g., john@company.com"
+                  required
+                  autocomplete="email"
+                />
+                <div class="field-error-msg" id="requesterEmail-error"></div>
+              </div>
             </div>
           </div>
 
@@ -5819,6 +5918,36 @@
           escapeHtml(decisionText) +
           "</div>";
         html += "</div>";
+
+        // ── "Why This Plan Works" collapsible reasoning section ──
+        const industryLabel = (payload.industry || "your").replace(/_/g, " ");
+        html += '<div class="plan-reasoning">';
+        html += "<details>";
+        html += "<summary>Why This Plan Works</summary>";
+        html += '<ul class="plan-reasoning-list">';
+        html += '<li class="plan-reasoning-item">';
+        html += '<span class="plan-reasoning-icon">1</span>';
+        html +=
+          "<span>Channel selection optimized for " +
+          escapeHtml(industryLabel) +
+          " hiring patterns</span>";
+        html += "</li>";
+        html += '<li class="plan-reasoning-item">';
+        html += '<span class="plan-reasoning-icon">2</span>';
+        html +=
+          "<span>Budget split weighted by cost-per-application benchmarks</span>";
+        html += "</li>";
+        html += '<li class="plan-reasoning-item">';
+        html += '<span class="plan-reasoning-icon">3</span>';
+        html +=
+          "<span>Timeline aligned with typical " +
+          escapeHtml(industryLabel) +
+          " hiring velocity</span>";
+        html += "</li>";
+        html += "</ul>";
+        html += "</details>";
+        html += "</div>";
+
         html +=
           '<div class="plan-dashboard-title">Plan Summary Dashboard</div>';
 
@@ -6792,20 +6921,6 @@
       // 23. Step transition animations - enhanced nextStep
       function nextStep() {
         if (currentStep === 1) {
-          const reqName = document.getElementById("requesterName").value.trim();
-          const reqEmail = document
-            .getElementById("requesterEmail")
-            .value.trim();
-          if (!reqName) {
-            showToast("Please enter your name", "error");
-            validateField("requesterName");
-            return;
-          }
-          if (!reqEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(reqEmail)) {
-            showToast("Please enter a valid email address", "error");
-            validateField("requesterEmail");
-            return;
-          }
           if (!document.getElementById("clientName").value.trim()) {
             showToast("Please enter a client name", "error");
             validateField("clientName");
@@ -6975,12 +7090,6 @@
 
       // 29. Updated populateReview with new fields
       function populateReview() {
-        document.getElementById("reviewRequesterName").textContent =
-          document.getElementById("requesterName").value.trim() ||
-          "Not specified";
-        document.getElementById("reviewRequesterEmail").textContent =
-          document.getElementById("requesterEmail").value.trim() ||
-          "Not specified";
         document.getElementById("reviewClient").textContent =
           document.getElementById("clientName").value;
         document.getElementById("reviewUseCase").textContent =
@@ -7241,6 +7350,20 @@
 
       // 26 & 28. Enhanced generatePlan with overlay, new fields, confetti, and toasts
       async function generatePlan() {
+        // Validate name and email before generating
+        const reqName = document.getElementById("requesterName").value.trim();
+        const reqEmail = document.getElementById("requesterEmail").value.trim();
+        if (!reqName) {
+          showToast("Please enter your name", "error");
+          validateField("requesterName");
+          return;
+        }
+        if (!reqEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(reqEmail)) {
+          showToast("Please enter a valid email address", "error");
+          validateField("requesterEmail");
+          return;
+        }
+
         const btn = document.getElementById("generateBtn");
         btn.disabled = true;
         btn.classList.remove("ready-pulse");

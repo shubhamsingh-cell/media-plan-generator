@@ -285,6 +285,24 @@
         background: var(--accent-glow);
       }
 
+      .nav-status-indicator {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.4);
+        padding: 4px 10px;
+        margin-left: 4px;
+      }
+
+      .nav-status-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #22c55e;
+        display: inline-block;
+      }
+
       .nav-cta {
         background: var(--accent) !important;
         color: white !important;
@@ -671,7 +689,7 @@
         border-radius: 12px;
         overflow: hidden;
         backdrop-filter: blur(20px);
-        box-shadow: 0 40px 80px rgba(0, 0, 0, 0.5);
+        box-shadow: 0 32px 64px rgba(0, 0, 0, 0.5);
         transform: perspective(1200px) rotateX(2deg);
       }
 
@@ -895,8 +913,12 @@
         height: 28px;
         width: auto;
         object-fit: contain;
-        filter: grayscale(1) brightness(1.8);
+        filter: grayscale(1) brightness(2);
         opacity: 0.6;
+        transition: opacity 0.2s ease;
+      }
+      .marquee-item:hover img {
+        opacity: 1;
       }
 
       .marquee-item .mi-icon {
@@ -923,7 +945,7 @@
 
       /* ── SECTION 4: PLATFORM (tabbed interface) ── */
       .platform-section {
-        padding: var(--section-pad) 0 40px;
+        padding: var(--section-pad) 0 32px;
         position: relative;
       }
 
@@ -1256,7 +1278,8 @@
         padding: 2px 8px;
         border-radius: 4px;
         position: absolute;
-        top: 16px;
+        top: 12px;
+        z-index: 2;
         right: 16px;
       }
 
@@ -1306,7 +1329,7 @@
       .cta-section {
         position: relative;
         z-index: 1;
-        padding: 40px 2rem var(--section-pad);
+        padding: 48px 2rem var(--section-pad);
         text-align: center;
       }
 
@@ -1331,10 +1354,10 @@
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
-        width: 500px;
-        height: 500px;
+        width: 600px;
+        height: 400px;
         background: radial-gradient(
-          circle,
+          ellipse at center,
           rgba(99, 102, 241, 0.15) 0%,
           transparent 70%
         );
@@ -1888,13 +1911,16 @@
         border-radius: 12px;
         padding: 32px 24px;
         text-align: center;
-        transition:
-          transform 0.2s,
-          border-color 0.2s;
+        text-decoration: none;
+        color: inherit;
+        display: block;
+        cursor: pointer;
+        transition: all 200ms ease;
       }
       .outcome-card:hover {
-        transform: translateY(-3px);
-        border-color: rgba(255, 255, 255, 0.15);
+        transform: translateY(-4px);
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
+        border-color: rgba(99, 102, 241, 0.3);
       }
       .outcome-icon {
         width: 48px;
@@ -1950,13 +1976,19 @@
           transform 0.2s;
       }
       .usecase-card:hover {
-        border-color: rgba(255, 255, 255, 0.15);
-        transform: translateY(-2px);
+        border-color: rgba(99, 102, 241, 0.3);
+        transform: translateY(-3px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
       }
       .usecase-icon {
-        font-size: 1.5rem;
         flex-shrink: 0;
         margin-top: 2px;
+        width: 24px;
+        height: 24px;
+      }
+      .usecase-icon svg {
+        width: 24px;
+        height: 24px;
       }
       .usecase-text strong {
         display: block;
@@ -1972,11 +2004,62 @@
       }
 
       /* ── Differentiator ── */
+      .diff-layout {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 48px;
+        align-items: start;
+        margin-top: 32px;
+      }
       .diff-list {
         display: flex;
         flex-direction: column;
         gap: 16px;
-        margin-top: 32px;
+      }
+      .diff-code-card {
+        background: rgba(15, 15, 25, 0.8);
+        border: 1px solid rgba(99, 102, 241, 0.2);
+        border-radius: 12px;
+        overflow: hidden;
+      }
+      .diff-code-titlebar {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 10px 14px;
+        background: rgba(0, 0, 0, 0.3);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        font-size: 0.7rem;
+        color: var(--text-muted);
+        font-weight: 500;
+      }
+      .diff-code-titlebar .dc-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+      }
+      .diff-code-titlebar span {
+        margin-left: 8px;
+      }
+      .diff-code-body {
+        padding: 20px;
+        font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+        font-size: 0.82rem;
+        line-height: 1.7;
+        color: #e4e4e7;
+        white-space: pre;
+      }
+      .diff-code-body .ck {
+        color: #818cf8;
+      }
+      .diff-code-body .cv {
+        color: #22c55e;
+      }
+      @media (max-width: 768px) {
+        .diff-layout {
+          grid-template-columns: 1fr;
+          gap: 32px;
+        }
       }
       .diff-item {
         display: flex;
@@ -2054,10 +2137,10 @@
       </a>
       <div class="nav-links">
         <a href="#platform" data-nav-filter="all">Products</a>
-        <a href="#platform" data-nav-filter="analytics">Analytics</a>
-        <a href="#platform" data-nav-filter="intelligence">Intelligence</a>
-        <a href="#" id="dashboardLink" title="Admin Dashboard">Dashboard</a>
         <a href="/media-plan" class="nav-cta">Generate Plan</a>
+        <span class="nav-status-indicator" title="All systems operational"
+          ><span class="nav-status-dot"></span>Operational</span
+        >
       </div>
     </nav>
 
@@ -2070,11 +2153,6 @@
       <div class="ambient-glow ambient-glow--deep" aria-hidden="true"></div>
 
       <div class="hero-text">
-        <div class="hero-badge">
-          <span class="dot"></span>
-          All systems operational
-        </div>
-
         <h1 class="streaming-text" data-streaming>
           The AI Platform for Recruitment Advertising
         </h1>
@@ -2082,6 +2160,18 @@
         <p class="hero-subline">
           Plan smarter. Optimize budgets. Hire faster. 21 AI-powered tools, one
           platform.
+        </p>
+
+        <p
+          style="
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.5);
+            margin-top: -4px;
+            margin-bottom: 16px;
+          "
+        >
+          &#10022; The only media planning platform built exclusively for
+          recruitment advertising.
         </p>
 
         <div class="hero-stats-row">
@@ -2100,20 +2190,7 @@
             <span>Job Boards</span>
           </div>
           <div class="hero-stat-pill">
-            <span style="font-size: 1.2rem; margin-right: 2px">
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-              >
-                <path
-                  d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"
-                />
-              </svg>
-            </span>
+            <span style="font-size: 1rem; margin-right: 2px">&#10022;</span>
             <span>AI-Powered</span>
           </div>
         </div>
@@ -2274,7 +2351,8 @@
           <div class="section-title">AI-powered answers in seconds</div>
         </div>
         <div class="outcomes-grid">
-          <div
+          <a
+            href="/media-plan"
             class="outcome-card reveal-on-scroll stagger-1"
             style="border-left: 3px solid #6366f1"
           >
@@ -2300,8 +2378,9 @@
               Where to spend across 91+ job boards for maximum reach and
               quality.
             </p>
-          </div>
-          <div
+          </a>
+          <a
+            href="/simulator"
             class="outcome-card reveal-on-scroll stagger-2"
             style="border-left: 3px solid #22c55e"
           >
@@ -2318,15 +2397,17 @@
                 stroke-width="2"
               >
                 <circle cx="12" cy="12" r="10" />
-                <path d="M12 6v6l4 2" />
+                <path d="M12 2a10 10 0 0 1 0 20" />
+                <path d="M12 2v10l7 4" />
               </svg>
             </div>
             <h3>Budget Allocation</h3>
             <p>
               How much per platform, optimized for cost-per-hire, not clicks.
             </p>
-          </div>
-          <div
+          </a>
+          <a
+            href="/media-plan"
             class="outcome-card reveal-on-scroll stagger-3"
             style="border-left: 3px solid #06b6d4"
           >
@@ -2350,8 +2431,9 @@
               Projected impressions, applications, and hires based on real
               benchmarks.
             </p>
-          </div>
-          <div
+          </a>
+          <a
+            href="/creative-ai"
             class="outcome-card reveal-on-scroll stagger-4"
             style="border-left: 3px solid #f59e0b"
           >
@@ -2377,7 +2459,7 @@
             <p>
               What messaging works for your role, industry, and target audience.
             </p>
-          </div>
+          </a>
         </div>
       </div>
     </section>
@@ -2393,7 +2475,21 @@
         </div>
         <div class="usecases-grid">
           <div class="usecase-card reveal-on-scroll">
-            <div class="usecase-icon">&#128230;</div>
+            <div class="usecase-icon">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#6366f1"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+              </svg>
+            </div>
             <div class="usecase-text">
               <strong>High-Volume Hiring</strong>
               <span
@@ -2403,7 +2499,20 @@
             </div>
           </div>
           <div class="usecase-card reveal-on-scroll">
-            <div class="usecase-icon">&#128187;</div>
+            <div class="usecase-icon">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#06b6d4"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <polyline points="16 18 22 12 16 6" />
+                <polyline points="8 6 2 12 8 18" />
+                <line x1="14" y1="4" x2="10" y2="20" />
+              </svg>
+            </div>
             <div class="usecase-text">
               <strong>Tech Hiring</strong>
               <span
@@ -2413,7 +2522,20 @@
             </div>
           </div>
           <div class="usecase-card reveal-on-scroll">
-            <div class="usecase-icon">&#128295;</div>
+            <div class="usecase-icon">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#f59e0b"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path
+                  d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"
+                />
+              </svg>
+            </div>
             <div class="usecase-text">
               <strong>Blue-Collar Roles</strong>
               <span
@@ -2423,7 +2545,22 @@
             </div>
           </div>
           <div class="usecase-card reveal-on-scroll">
-            <div class="usecase-icon">&#127758;</div>
+            <div class="usecase-icon">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#22c55e"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <line x1="2" y1="12" x2="22" y2="12" />
+                <path
+                  d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"
+                />
+              </svg>
+            </div>
             <div class="usecase-text">
               <strong>Multi-Location Hiring</strong>
               <span
@@ -2440,73 +2577,94 @@
     <!-- SECTION 1d: WHY THIS IS DIFFERENT          -->
     <!-- ========================================== -->
     <section class="differentiator-section" style="padding: 64px 24px">
-      <div class="container" style="max-width: 720px">
+      <div class="container" style="max-width: 960px">
         <div class="section-header reveal-on-scroll" style="text-align: center">
           <div class="section-label">Why Nova AI</div>
           <div class="section-title">
             Built for recruitment, not generic marketing
           </div>
         </div>
-        <div class="diff-list reveal-on-scroll">
-          <div class="diff-item">
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#22c55e"
-              stroke-width="2.5"
-            >
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
-            <span
-              >Optimized for cost-per-hire and quality-of-hire, not vanity
-              clicks</span
-            >
+        <div class="diff-layout reveal-on-scroll">
+          <div class="diff-list">
+            <div class="diff-item">
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#22c55e"
+                stroke-width="2.5"
+              >
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+              <span
+                >Optimized for cost-per-hire and quality-of-hire, not vanity
+                clicks</span
+              >
+            </div>
+            <div class="diff-item">
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#22c55e"
+                stroke-width="2.5"
+              >
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+              <span
+                >Uses real hiring performance patterns across 91+ job
+                boards</span
+              >
+            </div>
+            <div class="diff-item">
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#22c55e"
+                stroke-width="2.5"
+              >
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+              <span>25 real-time API integrations for live market data</span>
+            </div>
+            <div class="diff-item">
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#22c55e"
+                stroke-width="2.5"
+              >
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+              <span
+                >Built by recruitment marketing practitioners, not generic
+                AI</span
+              >
+            </div>
           </div>
-          <div class="diff-item">
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#22c55e"
-              stroke-width="2.5"
-            >
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
-            <span
-              >Uses real hiring performance patterns across 91+ job boards</span
-            >
-          </div>
-          <div class="diff-item">
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#22c55e"
-              stroke-width="2.5"
-            >
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
-            <span>25 real-time API integrations for live market data</span>
-          </div>
-          <div class="diff-item">
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#22c55e"
-              stroke-width="2.5"
-            >
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
-            <span
-              >Built by recruitment marketing practitioners, not generic
-              AI</span
-            >
+          <div class="diff-code-card">
+            <div class="diff-code-titlebar">
+              <span class="dc-dot" style="background: #ff5f56"></span>
+              <span class="dc-dot" style="background: #ffbd2e"></span>
+              <span class="dc-dot" style="background: #27c93f"></span>
+              <span>nova_ai_output.json</span>
+            </div>
+            <div class="diff-code-body">
+              { <span class="ck">"recommended_channel"</span>:
+              <span class="cv">"Indeed"</span>,
+              <span class="ck">"budget_allocation"</span>:
+              <span class="cv">"38%"</span>,
+              <span class="ck">"predicted_cpa"</span>:
+              <span class="cv">"$22.50"</span>,
+              <span class="ck">"confidence"</span>:
+              <span class="cv">"high"</span> }
+            </div>
           </div>
         </div>
       </div>
@@ -4597,8 +4755,20 @@
     <!-- ========================================== -->
     <section class="cta-section page-section">
       <div class="cta-card reveal-on-scroll">
-        <div class="nova-orb" aria-hidden="true"></div>
-        <h3>Ready to transform your recruitment advertising?</h3>
+        <div
+          style="
+            font-size: 1.6rem;
+            margin-bottom: 20px;
+            color: var(--accent-light);
+            opacity: 0.8;
+          "
+          aria-hidden="true"
+        >
+          &#10022;
+        </div>
+        <h3 style="color: #ffffff; -webkit-text-fill-color: #ffffff">
+          Ready to transform your recruitment advertising?
+        </h3>
         <p>
           Start with the Media Plan Generator, or explore the full suite of 21
           AI-powered tools.
@@ -4632,8 +4802,8 @@
         <div
           style="
             margin-top: 24px;
-            font-size: 0.78rem;
-            color: rgba(255, 255, 255, 0.4);
+            font-size: 0.875rem;
+            color: rgba(255, 255, 255, 0.5);
           "
         >
           21 AI Tools &middot; 91+ Job Boards &middot; No signup required
@@ -4693,6 +4863,9 @@
         <div>
           <div class="footer-col-title">Company</div>
           <ul class="footer-links">
+            <li><a href="/pricing">Pricing</a></li>
+            <li><a href="/privacy">Privacy Policy</a></li>
+            <li><a href="/terms">Terms of Service</a></li>
             <li>
               <a
                 href="https://www.linkedin.com/in/chandel13/"
@@ -4702,7 +4875,6 @@
               >
             </li>
             <li><a href="/#platform">Product Suite</a></li>
-            <li><a href="#" id="footerDashboardLink">Dashboard</a></li>
           </ul>
         </div>
       </div>
@@ -4758,7 +4930,7 @@
               }
             });
           },
-          { threshold: 0.1, rootMargin: "0px 0px -40px 0px" },
+          { threshold: 0.05, rootMargin: "0px 0px -40px 0px" },
         );
 
         document.querySelectorAll(".reveal-on-scroll").forEach(function (el) {
@@ -4837,16 +5009,6 @@
           }
         });
 
-        // ── Dashboard link: prompt for password ──
-        document
-          .getElementById("dashboardLink")
-          .addEventListener("click", function (e) {
-            e.preventDefault();
-            var pw = prompt("Enter dashboard password:");
-            if (pw)
-              window.location.href = "/dashboard?key=" + encodeURIComponent(pw);
-          });
-
         // ── Nav links: scroll to platform + activate tab ──
         document.querySelectorAll("[data-nav-filter]").forEach(function (link) {
           link.addEventListener("click", function (e) {
@@ -4880,7 +5042,7 @@
                 var decimals = parseInt(el.dataset.decimals, 10) || 0;
                 var startTime = null;
                 var duration = 1200;
-                var startVal = target >= 10 ? Math.floor(target * 0.8) : 0;
+                var startVal = 0;
 
                 function animateCount(timestamp) {
                   if (!startTime) startTime = timestamp;
@@ -4934,7 +5096,7 @@
                 }
                 var startTime = null;
                 var duration = 1600;
-                var heroStart = target >= 10 ? Math.floor(target * 0.8) : 0;
+                var heroStart = 0;
                 function animateHeroCount(timestamp) {
                   if (!startTime) startTime = timestamp;
                   var progress = Math.min(
@@ -5074,17 +5236,6 @@
           });
         }
 
-        // ── Footer dashboard link ──
-        var footerDashLink = document.getElementById("footerDashboardLink");
-        if (footerDashLink) {
-          footerDashLink.addEventListener("click", function (e) {
-            e.preventDefault();
-            var pw = prompt("Enter dashboard password:");
-            if (pw)
-              window.location.href = "/dashboard?key=" + encodeURIComponent(pw);
-          });
-        }
-
         // ── Page enter transition ──
         document.body.classList.add("page-enter");
 
@@ -5117,7 +5268,7 @@
                 }
               });
             },
-            { threshold: 0.1, rootMargin: "0px 0px -40px 0px" },
+            { threshold: 0.05, rootMargin: "0px 0px -40px 0px" },
           );
           document.querySelectorAll(".product-card").forEach(function (card) {
             svgCardObserver.observe(card);

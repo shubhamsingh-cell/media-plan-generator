@@ -1080,8 +1080,8 @@
         </div>
       </div>
 
-      <!-- Configuration Section -->
-      <div style="margin-top: 8px">
+      <!-- Configuration Section (hidden unless ?admin param present) -->
+      <div id="adminConfigSection" style="margin-top: 8px; display: none">
         <div class="config-toggle" id="configToggle" onclick="toggleConfig()">
           <span style="font-weight: 600; font-size: 14px">
             <span style="margin-right: 8px">&#9881;</span>
@@ -1151,8 +1151,8 @@
         </h2>
         <div id="historyContainer">
           <div class="empty-state">
-            No reports generated yet. Click "Generate Preview" to create your
-            first report.
+            Configure your first report to get started. Click "Generate Preview"
+            to create your first report.
           </div>
         </div>
       </div>
@@ -1200,6 +1200,11 @@
 
       // ── Initialization ──
       document.addEventListener("DOMContentLoaded", () => {
+        // Show admin config section only if ?admin query param is present
+        if (new URLSearchParams(window.location.search).has("admin")) {
+          const adminSection = document.getElementById("adminConfigSection");
+          if (adminSection) adminSection.style.display = "";
+        }
         loadLatestReport();
         loadSchedulerStatus();
         loadHistory();
@@ -1255,7 +1260,7 @@
             renderReport(data.report);
           } else {
             document.getElementById("loadingState").innerHTML =
-              '<div class="empty-state">No reports available yet. Click "Generate Preview" below to create your first report.</div>';
+              '<div class="empty-state">Configure your first report to get started.</div>';
           }
         } catch (err) {
           document.getElementById("loadingState").innerHTML =
@@ -1658,7 +1663,7 @@
         const container = document.getElementById("historyContainer");
         if (!history || history.length === 0) {
           container.innerHTML =
-            '<div class="empty-state">No reports generated yet.</div>';
+            '<div class="empty-state">Configure your first report to get started.</div>';
           return;
         }
 
