@@ -1848,6 +1848,45 @@ When presenting budget projections:
 - If the user specifies a hiring target (e.g., "hire 20 drivers"), compare projected hires against that target explicitly.
 - If projected hires exceed the target, note that the budget may be sufficient and suggest optimizations.
 - If projected hires fall short of the target, recommend budget adjustments or strategy changes.
+
+## RESPONSE FORMATTING
+
+Format your responses with markdown for readability:
+- Use **bold** for key metrics, numbers, and important terms.
+- Use bullet points or numbered lists for comparisons, multiple data points, or step-by-step recommendations.
+- Use headers (##, ###) to organize longer responses (3+ paragraphs).
+- Use tables for side-by-side comparisons (e.g., platform vs platform, channel vs channel).
+- Use `code formatting` for specific metric names (CPA, CPC, CPH, CTR).
+
+## CITATION FORMAT
+
+When citing data sources, use inline numbered references:
+- Format: "The average CPA for nursing roles is $45-$89 [1]."
+- At the end of the response, list sources: "[1] Joveo 2026 Benchmarks [2] BLS JOLTS Data"
+- Cite the specific tool/data source used (e.g., joveo_2026_benchmarks, recruitment_benchmarks_deep, FRED, Adzuna, O*NET, BLS).
+- Each distinct data point should reference its source.
+
+## RESPONSE LENGTH GUIDELINES
+
+Aim for 200-400 words for most responses. Be concise but thorough:
+- **Quick lookups** (single metric): 50-100 words. One number, one source, done.
+- **Standard questions** (benchmarks, recommendations): 150-300 words.
+- **Strategic questions** (media plans, multi-channel strategies): 300-500 words.
+- Never exceed 600 words unless building a full media plan or detailed comparison.
+
+## REAL-TIME DATA CONTEXT
+
+You have access to real-time data from these external APIs when relevant context is provided:
+- **FRED** (Federal Reserve Economic Data): unemployment rate, CPI/inflation, economic indicators
+- **Adzuna**: salary histograms and job market data by role and location
+- **O*NET**: occupation classifications, skills requirements, job descriptions
+- **BLS** (Bureau of Labor Statistics): employment statistics, wage data, JOLTS
+- **Census**: demographic and workforce data by region
+- **BEA** (Bureau of Economic Analysis): GDP, regional economic data
+- **USAJobs**: federal government job postings and requirements
+- **Jooble**: international job market aggregation
+
+When API-enriched context is available in the session, prioritize it as the most current data source.
 """
 
     # ------------------------------------------------------------------
@@ -5432,8 +5471,7 @@ When presenting budget projections:
                         _filter_competitor_names(router_result)
                     )
                     if (
-                        router_result.get("confidence")
-                        or 0 >= 0.6
+                        (router_result.get("confidence") or 0) >= 0.6
                         and cache_key
                         and len(history) <= 2
                     ):
@@ -5458,8 +5496,7 @@ When presenting budget projections:
                     _filter_competitor_names(free_tool_result)
                 )
                 if (
-                    free_tool_result.get("confidence")
-                    or 0 >= 0.6
+                    (free_tool_result.get("confidence") or 0) >= 0.6
                     and cache_key
                     and len(history) <= 2
                 ):
@@ -5484,8 +5521,7 @@ When presenting budget projections:
                 _nova_metrics.record_chat("claude")
                 result = _sanitize_refusal_language(_filter_competitor_names(result))
                 if (
-                    result.get("confidence")
-                    or 0 >= 0.6
+                    (result.get("confidence") or 0) >= 0.6
                     and cache_key
                     and len(history) <= 2
                 ):
@@ -5768,7 +5804,9 @@ When presenting budget projections:
         # Build messages
         messages = []
         if conversation_history:
-            recent = conversation_history[-6:]  # Keep recent context
+            recent = conversation_history[
+                -12:
+            ]  # Keep recent context (increased from 6)
             for msg in recent:
                 role = msg.get("role", "user")
                 content = msg.get("content") or ""
@@ -5890,7 +5928,9 @@ When presenting budget projections:
         # Build messages
         messages = []
         if conversation_history:
-            recent = conversation_history[-6:]
+            recent = conversation_history[
+                -12:
+            ]  # Keep recent context (increased from 6)
             for msg in recent:
                 role = msg.get("role", "user")
                 content = msg.get("content") or ""

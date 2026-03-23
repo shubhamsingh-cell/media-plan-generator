@@ -23,8 +23,10 @@ import urllib.request
 import urllib.error
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from socketserver import ThreadingMixIn
+import urllib.parse
 from urllib.parse import urlparse
 from pathlib import Path
+from typing import Any, Optional
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
@@ -14685,6 +14687,122 @@ _OPENAPI_SPEC = {
                 },
             }
         },
+        "/api/chat/stream": {
+            "post": {
+                "summary": "Nova AI chat (SSE streaming)",
+                "description": "Send a message and receive a streaming SSE response, token by token.",
+                "operationId": "novaChatStream",
+                "tags": ["Chat"],
+                "requestBody": {
+                    "required": True,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": ["message"],
+                                "properties": {
+                                    "message": {"type": "string"},
+                                    "conversation_id": {"type": "string"},
+                                    "history": {
+                                        "type": "array",
+                                        "items": {"type": "object"},
+                                    },
+                                },
+                            }
+                        }
+                    },
+                },
+                "responses": {
+                    "200": {
+                        "description": "SSE event stream (Content-Type: text/event-stream)"
+                    },
+                    "429": {"description": "Rate limit exceeded"},
+                },
+            }
+        },
+        "/api/chat/stop": {
+            "post": {
+                "summary": "Cancel active streaming chat",
+                "description": "Stop an active SSE streaming response by conversation_id.",
+                "operationId": "novaChatStop",
+                "tags": ["Chat"],
+                "requestBody": {
+                    "required": True,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": ["conversation_id"],
+                                "properties": {"conversation_id": {"type": "string"}},
+                            }
+                        }
+                    },
+                },
+                "responses": {"200": {"description": "Cancellation result"}},
+            }
+        },
+        "/api/chat/feedback": {
+            "post": {
+                "summary": "Submit message feedback",
+                "description": "Rate a Nova chat message with thumbs up or down.",
+                "operationId": "novaChatFeedback",
+                "tags": ["Chat"],
+                "requestBody": {
+                    "required": True,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": ["message_id", "rating"],
+                                "properties": {
+                                    "message_id": {"type": "string"},
+                                    "rating": {
+                                        "type": "string",
+                                        "enum": ["up", "down"],
+                                    },
+                                    "conversation_id": {"type": "string"},
+                                },
+                            }
+                        }
+                    },
+                },
+                "responses": {"200": {"description": "Feedback recorded"}},
+            }
+        },
+        "/api/chat/history": {
+            "get": {
+                "summary": "Load conversation history",
+                "description": "Load all messages for a conversation by ID from Supabase.",
+                "operationId": "novaChatHistory",
+                "tags": ["Chat"],
+                "parameters": [
+                    {
+                        "name": "conversation_id",
+                        "in": "query",
+                        "required": True,
+                        "schema": {"type": "string"},
+                    }
+                ],
+                "responses": {"200": {"description": "Conversation messages"}},
+            }
+        },
+        "/api/chat/conversations": {
+            "get": {
+                "summary": "List recent conversations",
+                "description": "List the most recent Nova chat conversations (last 50 by default).",
+                "operationId": "novaChatConversations",
+                "tags": ["Chat"],
+                "parameters": [
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "required": False,
+                        "schema": {"type": "integer", "default": 50},
+                    }
+                ],
+                "responses": {"200": {"description": "List of conversations"}},
+            }
+        },
         "/api/health": {
             "get": {
                 "summary": "Liveness probe",
@@ -15390,6 +15508,239 @@ _ALLOWED_ORIGINS = {
     "http://127.0.0.1:5001",
     "https://media-plan-generator.onrender.com",
 }
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# NOVA CHAT STREAMING INFRASTRUCTURE (SSE)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Active streaming sessions: conversation_id -> threading.Event (set = cancel)
+_active_streams: dict[str, threading.Event] = {}
+_active_streams_lock = threading.Lock()
+
+
+def _register_stream(conversation_id: str) -> threading.Event:
+    """Register a streaming session and return its cancel event.
+
+    Args:
+        conversation_id: Unique conversation identifier.
+
+    Returns:
+        A threading.Event that, when set, signals the stream should stop.
+    """
+    cancel_event = threading.Event()
+    with _active_streams_lock:
+        # Cancel any existing stream for this conversation
+        existing = _active_streams.get(conversation_id)
+        if existing:
+            existing.set()
+        _active_streams[conversation_id] = cancel_event
+    return cancel_event
+
+
+def _unregister_stream(conversation_id: str) -> None:
+    """Remove a streaming session from the active registry.
+
+    Args:
+        conversation_id: Unique conversation identifier.
+    """
+    with _active_streams_lock:
+        _active_streams.pop(conversation_id, None)
+
+
+def _cancel_stream(conversation_id: str) -> bool:
+    """Signal cancellation for an active stream.
+
+    Args:
+        conversation_id: Unique conversation identifier.
+
+    Returns:
+        True if a stream was found and cancelled, False otherwise.
+    """
+    with _active_streams_lock:
+        event = _active_streams.get(conversation_id)
+        if event:
+            event.set()
+            return True
+    return False
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# NOVA CHAT FEEDBACK STORE (in-memory + optional Supabase)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+_chat_feedback: list[dict] = []
+_chat_feedback_lock = threading.Lock()
+_MAX_FEEDBACK_ENTRIES = 10000
+
+
+def _store_feedback(message_id: str, rating: str, conversation_id: str = "") -> None:
+    """Store chat message feedback.
+
+    Args:
+        message_id: Unique message identifier.
+        rating: 'up' or 'down'.
+        conversation_id: Optional conversation identifier.
+    """
+    entry = {
+        "message_id": message_id,
+        "rating": rating,
+        "conversation_id": conversation_id,
+        "timestamp": datetime.datetime.utcnow().isoformat() + "Z",
+    }
+    with _chat_feedback_lock:
+        _chat_feedback.append(entry)
+        # Evict oldest entries if over limit
+        if len(_chat_feedback) > _MAX_FEEDBACK_ENTRIES:
+            _chat_feedback[:] = _chat_feedback[-_MAX_FEEDBACK_ENTRIES:]
+
+    # Async persist to Supabase if available
+    try:
+        _persist_feedback_to_supabase(entry)
+    except Exception as exc:
+        logger.error("Failed to persist feedback to Supabase: %s", exc, exc_info=True)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# SUPABASE CONVERSATION PERSISTENCE (write logic -- table must exist)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+_SUPABASE_URL = os.environ.get("SUPABASE_URL") or ""
+_SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or ""
+
+
+def _supabase_rest(
+    table: str,
+    method: str = "GET",
+    payload: Optional[Any] = None,
+    params: str = "",
+) -> Optional[Any]:
+    """Make a REST call to the Supabase PostgREST API.
+
+    Args:
+        table: Table name.
+        method: HTTP method (GET, POST, PATCH).
+        payload: JSON body for POST/PATCH.
+        params: Query string (e.g., '?conversation_id=eq.abc&order=timestamp.asc').
+
+    Returns:
+        Parsed JSON response or None on failure.
+    """
+    if not _SUPABASE_URL or not _SUPABASE_KEY:
+        return None
+    url = f"{_SUPABASE_URL.rstrip('/')}/rest/v1/{table}{params}"
+    headers = {
+        "apikey": _SUPABASE_KEY,
+        "Authorization": f"Bearer {_SUPABASE_KEY}",
+        "Content-Type": "application/json",
+        "Prefer": "return=representation",
+    }
+    body = json.dumps(payload).encode() if payload else None
+    req = urllib.request.Request(url, data=body, headers=headers, method=method)
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            return json.loads(resp.read().decode())
+    except (urllib.error.URLError, OSError, json.JSONDecodeError, ValueError) as exc:
+        logger.error(
+            "Supabase REST %s %s failed: %s", method, table, exc, exc_info=True
+        )
+        return None
+
+
+def _save_conversation_turn(
+    conversation_id: str,
+    user_message: str,
+    assistant_response: str,
+    model_used: str = "",
+    sources: Optional[list] = None,
+    confidence: float = 0.0,
+) -> None:
+    """Persist a single conversation turn to Supabase.
+
+    Args:
+        conversation_id: Session/conversation ID.
+        user_message: The user's message.
+        assistant_response: Nova's response text.
+        model_used: LLM provider/model string.
+        sources: List of data sources used.
+        confidence: Response confidence score.
+    """
+    if not _SUPABASE_URL or not _SUPABASE_KEY:
+        return
+    payload = {
+        "conversation_id": conversation_id,
+        "user_message": user_message,
+        "assistant_response": assistant_response[
+            :10000
+        ],  # Truncate very long responses
+        "model_used": model_used,
+        "sources": json.dumps(sources or []),
+        "confidence": confidence,
+        "timestamp": datetime.datetime.utcnow().isoformat() + "Z",
+    }
+    _supabase_rest("nova_conversations", method="POST", payload=payload)
+
+
+def _load_conversation_history(conversation_id: str) -> list[dict]:
+    """Load conversation history from Supabase.
+
+    Args:
+        conversation_id: Session/conversation ID.
+
+    Returns:
+        List of conversation turn dicts, ordered by timestamp ascending.
+    """
+    params = (
+        f"?conversation_id=eq.{urllib.parse.quote(conversation_id)}"
+        f"&order=timestamp.asc"
+        f"&limit=100"
+    )
+    result = _supabase_rest("nova_conversations", method="GET", params=params)
+    if isinstance(result, list):
+        return result
+    return []
+
+
+def _list_conversations(limit: int = 50) -> list[dict]:
+    """List recent conversations from Supabase.
+
+    Args:
+        limit: Maximum number of conversations to return.
+
+    Returns:
+        List of conversation summary dicts.
+    """
+    params = (
+        f"?select=conversation_id,timestamp,user_message"
+        f"&order=timestamp.desc"
+        f"&limit={min(limit, 200)}"
+    )
+    result = _supabase_rest("nova_conversations", method="GET", params=params)
+    if not isinstance(result, list):
+        return []
+
+    # Deduplicate by conversation_id, keeping the most recent
+    seen: dict[str, dict] = {}
+    for row in result:
+        cid = row.get("conversation_id") or ""
+        if cid and cid not in seen:
+            seen[cid] = {
+                "conversation_id": cid,
+                "last_message": (row.get("user_message") or "")[:100],
+                "timestamp": row.get("timestamp") or "",
+            }
+    return list(seen.values())[:limit]
+
+
+def _persist_feedback_to_supabase(entry: dict) -> None:
+    """Persist a feedback entry to the nova_feedback Supabase table.
+
+    Args:
+        entry: Feedback dict with message_id, rating, conversation_id, timestamp.
+    """
+    if not _SUPABASE_URL or not _SUPABASE_KEY:
+        return
+    _supabase_rest("nova_feedback", method="POST", payload=entry)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -17796,6 +18147,27 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             except Exception as e:
                 logger.error("Nova metrics error: %s", e, exc_info=True)
                 self._send_json({"error": "Failed to retrieve Nova metrics"})
+        elif path == "/api/chat/history":
+            # ── Load conversation history from Supabase ──
+            qs = urllib.parse.parse_qs(parsed.query)
+            conv_id = (qs.get("conversation_id") or [None])[0]
+            if not conv_id:
+                self._send_json({"error": "conversation_id parameter required"}, 400)
+                return
+            history = _load_conversation_history(conv_id)
+            self._send_json({"conversation_id": conv_id, "messages": history})
+        elif path == "/api/chat/conversations":
+            # ── List recent conversations from Supabase ──
+            qs = urllib.parse.parse_qs(parsed.query)
+            limit_str = (qs.get("limit") or ["50"])[0]
+            try:
+                limit_val = min(int(limit_str), 200)
+            except (ValueError, TypeError):
+                limit_val = 50
+            conversations = _list_conversations(limit_val)
+            self._send_json(
+                {"conversations": conversations, "count": len(conversations)}
+            )
         elif path == "/api/slack/status":
             # ── Slack Bot Diagnostic Endpoint (admin-protected) ──
             if not self._check_admin_auth():
@@ -20736,6 +21108,352 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(len(resp_body)))
             self.end_headers()
             self.wfile.write(resp_body)
+
+            # ── Persist conversation turn to Supabase (async, non-blocking) ──
+            try:
+                _conv_id = data.get("conversation_id") or ""
+                _user_msg = data.get("message") or ""
+                _assistant_resp = response.get("response") or ""
+                _model = response.get("llm_provider") or ""
+                _sources = response.get("sources") or []
+                _conf = response.get("confidence") or 0.0
+                if _conv_id and _user_msg:
+                    threading.Thread(
+                        target=_save_conversation_turn,
+                        args=(
+                            _conv_id,
+                            _user_msg,
+                            _assistant_resp,
+                            _model,
+                            _sources,
+                            _conf,
+                        ),
+                        daemon=True,
+                        name="supabase-persist",
+                    ).start()
+            except Exception as _persist_err:
+                logger.error(
+                    "Conversation persist error: %s", _persist_err, exc_info=True
+                )
+
+        elif path == "/api/chat/stream":
+            # ── Nova Chat SSE Streaming Endpoint ──
+            if not self._check_rate_limit() or not self._check_global_chat_rate_limit():
+                self.send_response(429)
+                self.send_header("Content-Type", "application/json")
+                cors_origin = self._get_cors_origin()
+                if cors_origin:
+                    self.send_header("Access-Control-Allow-Origin", cors_origin)
+                self.end_headers()
+                self.wfile.write(
+                    json.dumps(
+                        {"error": "Rate limit exceeded. Please wait a moment."}
+                    ).encode()
+                )
+                return
+            try:
+                content_len = int(self.headers.get("Content-Length") or 0)
+            except (ValueError, TypeError):
+                content_len = 0
+            if content_len <= 0 or content_len > 100 * 1024:
+                self.send_response(400 if content_len <= 0 else 413)
+                self.send_header("Content-Type", "application/json")
+                cors_origin = self._get_cors_origin()
+                if cors_origin:
+                    self.send_header("Access-Control-Allow-Origin", cors_origin)
+                self.end_headers()
+                err_msg = (
+                    "Empty request body" if content_len <= 0 else "Request too large"
+                )
+                self.wfile.write(json.dumps({"error": err_msg}).encode())
+                return
+            body = self.rfile.read(content_len)
+            try:
+                data = json.loads(body) if body else {}
+            except json.JSONDecodeError:
+                self.send_response(400)
+                self.send_header("Content-Type", "application/json")
+                cors_origin = self._get_cors_origin()
+                if cors_origin:
+                    self.send_header("Access-Control-Allow-Origin", cors_origin)
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Invalid JSON"}).encode())
+                return
+
+            conversation_id = data.get("conversation_id") or str(uuid.uuid4())
+            cancel_event = _register_stream(conversation_id)
+
+            # Send SSE headers
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream")
+            self.send_header("Cache-Control", "no-cache")
+            self.send_header("Connection", "keep-alive")
+            self.send_header("X-Accel-Buffering", "no")
+            cors_origin = self._get_cors_origin()
+            if cors_origin:
+                self.send_header("Access-Control-Allow-Origin", cors_origin)
+                self.send_header("Access-Control-Allow-Credentials", "true")
+            self.end_headers()
+
+            try:
+                # ── API enrichment (same as /api/chat) ──
+                if _api_integrations_available:
+                    _chat_msg = (data.get("message") or "").lower()
+                    _chat_api_ctx: dict = {}
+                    _chat_role = (
+                        data.get("role") or data.get("context", {}).get("role") or ""
+                    )
+                    if _api_onet and any(
+                        kw in _chat_msg
+                        for kw in ("job", "role", "occupation", "career", "position")
+                    ):
+                        try:
+                            _search_term = _chat_role or _chat_msg[:50]
+                            _onet_results = _api_onet.search_occupations(_search_term)
+                            if _onet_results:
+                                _chat_api_ctx["onet_occupations"] = _onet_results[:5]
+                        except (
+                            urllib.error.URLError,
+                            OSError,
+                            ValueError,
+                            TypeError,
+                        ) as _oe:
+                            logger.error(
+                                "O*NET enrichment for stream failed: %s",
+                                _oe,
+                                exc_info=True,
+                            )
+                    if _api_adzuna and any(
+                        kw in _chat_msg
+                        for kw in ("salary", "pay", "compensation", "wage", "earning")
+                    ):
+                        try:
+                            _sal_role = _chat_role or "software engineer"
+                            _sal_hist = _api_adzuna.get_salary_histogram(
+                                _sal_role, "us"
+                            )
+                            if _sal_hist:
+                                _chat_api_ctx["adzuna_salary_histogram"] = _sal_hist
+                        except (
+                            urllib.error.URLError,
+                            OSError,
+                            ValueError,
+                            TypeError,
+                        ) as _ae:
+                            logger.error(
+                                "Adzuna enrichment for stream failed: %s",
+                                _ae,
+                                exc_info=True,
+                            )
+                    if _api_fred and any(
+                        kw in _chat_msg
+                        for kw in (
+                            "market",
+                            "economy",
+                            "unemployment",
+                            "inflation",
+                            "economic",
+                            "recession",
+                        )
+                    ):
+                        try:
+                            _fred_unemp = _api_fred.get_unemployment_rate()
+                            if _fred_unemp:
+                                _chat_api_ctx["fred_unemployment"] = _fred_unemp
+                            _fred_cpi = _api_fred.get_cpi_data(months=6)
+                            if _fred_cpi:
+                                _chat_api_ctx["fred_cpi"] = _fred_cpi
+                        except (
+                            urllib.error.URLError,
+                            OSError,
+                            ValueError,
+                            TypeError,
+                        ) as _fe:
+                            logger.error(
+                                "FRED enrichment for stream failed: %s",
+                                _fe,
+                                exc_info=True,
+                            )
+                    if _chat_api_ctx:
+                        data["_api_context"] = _chat_api_ctx
+
+                # Check for cancellation before LLM call
+                if cancel_event.is_set():
+                    _cancel_evt = json.dumps(
+                        {"token": "", "done": True, "cancelled": True}
+                    )
+                    self.wfile.write(f"data: {_cancel_evt}\n\n".encode())
+                    self.wfile.flush()
+                    return
+
+                # ── Get full response from Nova ──
+                from nova import handle_chat_request
+
+                _chat_span_fn = getattr(self, "_sentry_span", lambda o, n: _nullctx())
+                with _chat_span_fn("nova.chat.stream", "Nova SSE streaming chat"):
+                    response = handle_chat_request(data)
+
+                full_response = response.get("response") or ""
+                sources = response.get("sources") or []
+                confidence = response.get("confidence") or 0.0
+                tools_used = response.get("tools_used") or []
+                model_used = response.get("llm_provider") or ""
+                message_id = str(uuid.uuid4())
+
+                # ── Stream word by word with cancellation checks ──
+                words = full_response.split(" ")
+                streamed_so_far = []
+                for i, word in enumerate(words):
+                    if cancel_event.is_set():
+                        partial = " ".join(streamed_so_far)
+                        cancel_evt = json.dumps(
+                            {
+                                "token": "",
+                                "done": True,
+                                "cancelled": True,
+                                "full_response": partial,
+                                "sources": sources,
+                            }
+                        )
+                        self.wfile.write(f"data: {cancel_evt}\n\n".encode())
+                        self.wfile.flush()
+                        return
+
+                    token = word + (" " if i < len(words) - 1 else "")
+                    streamed_so_far.append(word)
+                    event = json.dumps({"token": token, "done": False})
+                    self.wfile.write(f"data: {event}\n\n".encode())
+                    self.wfile.flush()
+                    time.sleep(0.035)  # 35ms per word for natural feel
+
+                # ── Final event with metadata ──
+                final = json.dumps(
+                    {
+                        "token": "",
+                        "done": True,
+                        "full_response": full_response,
+                        "sources": sources,
+                        "confidence": confidence,
+                        "tools_used": tools_used,
+                        "message_id": message_id,
+                        "conversation_id": conversation_id,
+                    }
+                )
+                self.wfile.write(f"data: {final}\n\n".encode())
+                self.wfile.flush()
+
+                # Persist to Supabase asynchronously
+                _user_msg = data.get("message") or ""
+                if conversation_id and _user_msg:
+                    threading.Thread(
+                        target=_save_conversation_turn,
+                        args=(
+                            conversation_id,
+                            _user_msg,
+                            full_response,
+                            model_used,
+                            sources,
+                            confidence,
+                        ),
+                        daemon=True,
+                        name="supabase-stream-persist",
+                    ).start()
+
+            except (BrokenPipeError, ConnectionResetError):
+                logger.info(
+                    "SSE client disconnected for conversation %s", conversation_id
+                )
+            except Exception as stream_err:
+                logger.error("SSE streaming error: %s", stream_err, exc_info=True)
+                try:
+                    err_evt = json.dumps(
+                        {
+                            "token": "",
+                            "done": True,
+                            "error": "An error occurred processing your request.",
+                        }
+                    )
+                    self.wfile.write(f"data: {err_evt}\n\n".encode())
+                    self.wfile.flush()
+                except (BrokenPipeError, ConnectionResetError, OSError):
+                    pass
+            finally:
+                _unregister_stream(conversation_id)
+
+        elif path == "/api/chat/stop":
+            # ── Stop/Cancel an active streaming request ──
+            try:
+                content_len = int(self.headers.get("Content-Length") or 0)
+            except (ValueError, TypeError):
+                content_len = 0
+            body = self.rfile.read(content_len) if content_len > 0 else b""
+            try:
+                data = json.loads(body) if body else {}
+            except json.JSONDecodeError:
+                data = {}
+            conv_id = data.get("conversation_id") or ""
+            cancelled = _cancel_stream(conv_id) if conv_id else False
+            resp_body = json.dumps(
+                {
+                    "cancelled": cancelled,
+                    "conversation_id": conv_id,
+                }
+            ).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            cors_origin = self._get_cors_origin()
+            if cors_origin:
+                self.send_header("Access-Control-Allow-Origin", cors_origin)
+            self.send_header("Content-Length", str(len(resp_body)))
+            self.end_headers()
+            self.wfile.write(resp_body)
+
+        elif path == "/api/chat/feedback":
+            # ── Chat message feedback (thumbs up/down) ──
+            try:
+                content_len = int(self.headers.get("Content-Length") or 0)
+            except (ValueError, TypeError):
+                content_len = 0
+            body = self.rfile.read(content_len) if content_len > 0 else b""
+            try:
+                data = json.loads(body) if body else {}
+            except json.JSONDecodeError:
+                data = {}
+            msg_id = data.get("message_id") or ""
+            rating = data.get("rating") or ""
+            conv_id = data.get("conversation_id") or ""
+            if not msg_id or rating not in ("up", "down"):
+                resp_body = json.dumps(
+                    {
+                        "error": "Required: message_id (string), rating ('up' or 'down')",
+                    }
+                ).encode("utf-8")
+                self.send_response(400)
+                self.send_header("Content-Type", "application/json")
+                cors_origin = self._get_cors_origin()
+                if cors_origin:
+                    self.send_header("Access-Control-Allow-Origin", cors_origin)
+                self.send_header("Content-Length", str(len(resp_body)))
+                self.end_headers()
+                self.wfile.write(resp_body)
+                return
+            _store_feedback(msg_id, rating, conv_id)
+            resp_body = json.dumps(
+                {
+                    "status": "ok",
+                    "message_id": msg_id,
+                    "rating": rating,
+                }
+            ).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            cors_origin = self._get_cors_origin()
+            if cors_origin:
+                self.send_header("Access-Control-Allow-Origin", cors_origin)
+            self.send_header("Content-Length", str(len(resp_body)))
+            self.end_headers()
+            self.wfile.write(resp_body)
+
         elif path == "/api/slack/events":
             # ── Nova Slack Event Webhook ──
             # FIX: Handle Slack retries — return 200 immediately to prevent duplicates

@@ -839,7 +839,7 @@ class NovaSlackBot:
                     enhanced_question,
                     conversation_history=conversation_history,
                 )
-                if iq_response and iq_response.get("confidence") or 0 >= 0.5:
+                if iq_response and (iq_response.get("confidence") or 0) >= 0.5:
                     sources = iq_response.get("sources", ["Joveo Data"])
                     if slack_context:
                         sources = list(sources) + ["Slack Channel History"]
