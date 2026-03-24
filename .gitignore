@@ -15,3 +15,10 @@ data/nova_unanswered.json
 media_plan_sample.pptx
 node_modules/
 .claude/
+
+# Resilience router local data
+data/analytics/
+data/cache/
+data/errors/
+data/local_db/
+data/logs/
