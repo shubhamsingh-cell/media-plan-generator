@@ -622,7 +622,7 @@ def _build_gemini_request(
     tools: Optional[List[Dict]] = None,
 ) -> Tuple[str, Dict[str, str], bytes]:
     """Build a Gemini API request."""
-    api_key = os.environ.get("GEMINI_API_KEY") or "".strip()
+    api_key = (os.environ.get("GEMINI_API_KEY") or "").strip()
     config = PROVIDER_CONFIG[GEMINI]
     url = f"{config['endpoint']}?key={api_key}"
 

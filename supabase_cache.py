@@ -79,10 +79,10 @@ logger = logging.getLogger(__name__)
 # Configuration
 # ---------------------------------------------------------------------------
 
-_SUPABASE_URL: Optional[str] = os.environ.get("SUPABASE_URL") or "".strip() or None
+_SUPABASE_URL: Optional[str] = (os.environ.get("SUPABASE_URL") or "").strip() or None
 _SUPABASE_ANON_KEY: Optional[str] = (
-    os.environ.get("SUPABASE_ANON_KEY") or "".strip() or None
-)
+    os.environ.get("SUPABASE_ANON_KEY") or ""
+).strip() or None
 
 # Module is enabled only when both env vars are set.
 _ENABLED: bool = bool(_SUPABASE_URL and _SUPABASE_ANON_KEY)

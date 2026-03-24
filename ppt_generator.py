@@ -1115,7 +1115,7 @@ def _get_benchmarks(industry: str, data: Optional[Dict] = None) -> Dict[str, str
                 "media_entertainment": "marketing_advertising",
                 "professional_services": "consulting",
             }
-            _app_key = _PPT_APPCAST_MAP.get(industry, "")
+            _app_key = _PPT_APPCAST_MAP.get(industry) or ""
             if _app_key and data:
                 _kb = data.get("_knowledge_base", {})
                 if not _kb:
@@ -1817,7 +1817,7 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
             "rising": "Rising",
             "falling": "Declining",
             "stable": "Stable",
-        }.get(cpc_trend_dir, "")
+        }.get(cpc_trend_dir) or ""
         sit_items.append(("CPC Trend", f"{trend_label} {cpc_trend_str}"))
 
     apply_rate_str = benchmarks.get("apply_rate") or ""

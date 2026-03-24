@@ -21,6 +21,10 @@
   // ---------------------------------------------------------------------------
   var CONFIG = {
     apiUrl: "/api/chat",
+    streamUrl: "/api/chat/stream",
+    feedbackUrl: "/api/chat/feedback",
+    stopUrl: "/api/chat/stop",
+    useStreaming: true,
     primaryColor: "#6BB3CD",
     primaryDark: "#0f0f1a",
     primaryLight: "#8bc7db",
@@ -40,6 +44,7 @@
     widgetWidth: "400px",
     widgetHeight: "580px",
     mobileBreakpoint: 640,
+    theme: "dark",
   };
 
   var SUGGESTED_QUESTIONS = [
@@ -1217,51 +1222,145 @@
       abortCtrl.abort();
     }, 60000);
 
-    fetch(CONFIG.apiUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-      signal: abortCtrl.signal,
-    })
-      .then(function (res) {
-        clearTimeout(fetchTimeout);
-        if (!res.ok) throw new Error("HTTP " + res.status);
-        return res.json();
+    // Get CSRF token if available
+    var csrfToken = "";
+    try {
+      csrfToken = window.__csrfToken || "";
+    } catch (e) {}
+    var headers = { "Content-Type": "application/json" };
+    if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
+
+    if (CONFIG.useStreaming) {
+      // ── SSE Streaming mode ──
+      fetch(CONFIG.streamUrl, {
+        method: "POST",
+        headers: headers,
+        body: JSON.stringify(payload),
+        signal: abortCtrl.signal,
       })
-      .then(function (data) {
-        hideTyping();
-        // Note: v2 orchestrator metadata (data_confidence, data_freshness,
-        // sources_used) is available in the response payload but not yet
-        // displayed in the UI. Future enhancement: show freshness badges
-        // and per-source confidence breakdowns.
-        appendMessage({
-          role: "assistant",
-          content: data.response || "No response received.",
-          sources: data.sources || [],
-          confidence: data.confidence || 0,
-          confidence_breakdown: data.confidence_breakdown || null,
+        .then(function (res) {
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          hideTyping();
+          // Create streaming message element
+          var streamEl = document.createElement("div");
+          streamEl.className = "nova-msg nova-msg-assistant";
+          streamEl.id = "nova-stream-msg";
+          streamEl.innerHTML = "";
+          var messagesEl = state.chatPanel
+            ? state.chatPanel.querySelector(".nova-messages")
+            : null;
+          if (messagesEl) {
+            messagesEl.appendChild(streamEl);
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+          }
+          var reader = res.body.getReader();
+          var decoder = new TextDecoder();
+          var buffer = "";
+          var fullText = "";
+          var metadata = {};
+          function processChunk() {
+            return reader.read().then(function (result) {
+              if (result.done) return;
+              buffer += decoder.decode(result.value, { stream: true });
+              var lines = buffer.split("\n");
+              buffer = lines.pop() || "";
+              lines.forEach(function (line) {
+                if (line.indexOf("data: ") !== 0) return;
+                try {
+                  var evt = JSON.parse(line.substring(6));
+                  if (evt.done) {
+                    metadata = evt;
+                    return;
+                  }
+                  if (evt.token) {
+                    fullText += evt.token;
+                    streamEl.innerHTML = renderMarkdown(fullText);
+                    if (messagesEl)
+                      messagesEl.scrollTop = messagesEl.scrollHeight;
+                  }
+                } catch (e) {}
+              });
+              return processChunk();
+            });
+          }
+          return processChunk().then(function () {
+            clearTimeout(fetchTimeout);
+            // Replace streaming element with proper message
+            if (streamEl && streamEl.parentNode) streamEl.remove();
+            appendMessage({
+              role: "assistant",
+              content: metadata.full_response || fullText,
+              sources: metadata.sources || [],
+              confidence: metadata.confidence || 0,
+              confidence_breakdown: null,
+              message_id: metadata.message_id || "",
+            });
+          });
+        })
+        .catch(function (err) {
+          clearTimeout(fetchTimeout);
+          hideTyping();
+          var streamEl = document.getElementById("nova-stream-msg");
+          if (streamEl) streamEl.remove();
+          var errorMsg =
+            err.name === "AbortError"
+              ? "Response was stopped."
+              : "Sorry, I encountered an error connecting to the server. Please try again.";
+          appendMessage({
+            role: "assistant",
+            content: errorMsg,
+            sources: [],
+            confidence: 0,
+          });
+        })
+        .finally(function () {
+          state.isLoading = false;
+          if (sendBtn) sendBtn.disabled = false;
+          if (input) input.focus();
         });
+    } else {
+      // ── Non-streaming fallback ──
+      fetch(CONFIG.apiUrl, {
+        method: "POST",
+        headers: headers,
+        body: JSON.stringify(payload),
+        signal: abortCtrl.signal,
       })
-      .catch(function (err) {
-        clearTimeout(fetchTimeout);
-        hideTyping();
-        var errorMsg =
-          err.name === "AbortError"
-            ? "The request timed out. Please try a shorter question or try again later."
-            : "Sorry, I encountered an error connecting to the server. Please try again.";
-        appendMessage({
-          role: "assistant",
-          content: errorMsg,
-          sources: [],
-          confidence: 0,
+        .then(function (res) {
+          clearTimeout(fetchTimeout);
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          return res.json();
+        })
+        .then(function (data) {
+          hideTyping();
+          appendMessage({
+            role: "assistant",
+            content: data.response || "No response received.",
+            sources: data.sources || [],
+            confidence: data.confidence || 0,
+            confidence_breakdown: data.confidence_breakdown || null,
+          });
+        })
+        .catch(function (err) {
+          clearTimeout(fetchTimeout);
+          hideTyping();
+          var errorMsg =
+            err.name === "AbortError"
+              ? "The request timed out. Please try a shorter question or try again later."
+              : "Sorry, I encountered an error connecting to the server. Please try again.";
+          appendMessage({
+            role: "assistant",
+            content: errorMsg,
+            sources: [],
+            confidence: 0,
+          });
+        })
+        .finally(function () {
+          state.isLoading = false;
+          if (sendBtn) sendBtn.disabled = false;
+          if (input) input.focus();
         });
-        console.error("Nova chat error:", err);
-      })
-      .finally(function () {
-        state.isLoading = false;
-        if (sendBtn) sendBtn.disabled = false;
-        if (input) input.focus();
-      });
+    }
   }
 
   // ---------------------------------------------------------------------------

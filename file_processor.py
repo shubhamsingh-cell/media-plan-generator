@@ -251,7 +251,7 @@ def parse_historical_data(files: List[Dict[str, str]]) -> Optional[Dict[str, Any
         except Exception:
             continue
 
-        ext = f.get("name") or "".rsplit(".", 1)[-1].lower()
+        ext = (f.get("name") or "").rsplit(".", 1)[-1].lower()
 
         if ext == "csv":
             rows = _parse_csv_historical(raw_bytes, f.get("name") or "")

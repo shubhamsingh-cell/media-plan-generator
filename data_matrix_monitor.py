@@ -473,7 +473,7 @@ class DataMatrixMonitor:
         """Check Claude API availability."""
         if product in ("excel_ppt", "ppt_generator"):
             return {"status": "ok_expected_no", "detail": "Not used by this product"}
-        key = os.environ.get("ANTHROPIC_API_KEY") or "".strip()
+        key = (os.environ.get("ANTHROPIC_API_KEY") or "").strip()
         if key:
             return {"status": "ok", "detail": "ANTHROPIC_API_KEY is set"}
         return {"status": "error", "detail": "ANTHROPIC_API_KEY not set"}

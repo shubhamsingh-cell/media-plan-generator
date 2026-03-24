@@ -1993,7 +1993,7 @@ def generate_audit_ppt(
     # Industry & channel count
     industry_label = INDUSTRY_LABEL_MAP.get(
         report_data.get("industry") or "",
-        report_data.get("industry") or "".replace("_", " ").title(),
+        (report_data.get("industry") or "").replace("_", " ").title(),
     )
     _add_text_box(
         slide1,

@@ -1636,7 +1636,7 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
 
             values = [
                 ch.get("name") or "",
-                ch.get("category") or "".replace("_", " ").title(),
+                (ch.get("category") or "").replace("_", " ").title(),
                 fit,
                 (
                     _fmt_currency(ch.get("cpc") or 0, show_cents=True)

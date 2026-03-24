@@ -4297,7 +4297,7 @@ def _find_metro(location_str):
             return key, data
     # Fuzzy match on metro_name
     for key, data in METRO_DATA.items():
-        if city_part.lower() in data.get("metro_name") or "".lower():
+        if city_part.lower() in (data.get("metro_name") or "").lower():
             return key, data
     return None, None
 
@@ -5752,7 +5752,7 @@ def get_global_supply_data(locations, industry):
         "aerospace_defense": "aerospace",
         "pharma_biotech": "pharma",
     }
-    niche_key = industry_map.get(industry, "")
+    niche_key = industry_map.get(industry) or ""
     niche_data = global_supply.get("niche_industry_boards", {})
     for key, boards in niche_data.items():
         if niche_key and niche_key in key.lower():
@@ -6519,7 +6519,7 @@ def _generate_competitive_recommendation(comp_name, profile, industry):
         )
 
     # Channel-specific recommendation
-    channels = profile.get("hiring_channels") or "".lower()
+    channels = (profile.get("hiring_channels") or "").lower()
     if "linkedin" in channels and "primary" in channels:
         recs.append(
             "They invest heavily in LinkedIn — consider alternative high-ROI channels (programmatic, niche boards, social) to reach candidates before LinkedIn saturation."
@@ -6534,7 +6534,7 @@ def _generate_competitive_recommendation(comp_name, profile, industry):
         )
 
     # Strategies recommendation
-    strategies = profile.get("known_strategies") or "".lower()
+    strategies = (profile.get("known_strategies") or "").lower()
     if "sign-on bonus" in strategies or "signing bonus" in strategies:
         recs.append(
             "They offer sign-on bonuses — match or exceed with creative compensation (retention bonuses, spot bonuses, accelerated reviews) to attract candidates weighing multiple offers."
@@ -6970,7 +6970,7 @@ def get_seasonal_hiring_advice(industry: str) -> dict:
     industry_lower = industry.lower().strip() if industry else ""
 
     # Try mapped key first
-    mapped = _INDUSTRY_TO_SEASONAL.get(industry_lower, "")
+    mapped = _INDUSTRY_TO_SEASONAL.get(industry_lower) or ""
     if mapped and mapped in SEASONAL_HIRING_CALENDAR:
         return SEASONAL_HIRING_CALENDAR[mapped]
 

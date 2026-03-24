@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 # Configuration
 # ---------------------------------------------------------------------------
 
-POSTHOG_API_KEY = os.environ.get("POSTHOG_API_KEY") or "".strip()
+POSTHOG_API_KEY = (os.environ.get("POSTHOG_API_KEY") or "").strip()
 POSTHOG_HOST = "https://us.i.posthog.com"  # US cloud instance
 _ENABLED = bool(POSTHOG_API_KEY)
 

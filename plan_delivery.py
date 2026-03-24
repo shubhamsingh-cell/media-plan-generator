@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 _RESEND_ENDPOINT = "https://api.resend.com/emails"
-_API_KEY: str = os.environ.get("RESEND_API_KEY") or "".strip()
+_API_KEY: str = (os.environ.get("RESEND_API_KEY") or "").strip()
 _FROM_EMAIL: str = os.environ.get(
     "RESEND_FROM_EMAIL",
     "onboarding@resend.dev",

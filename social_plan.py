@@ -2012,7 +2012,7 @@ def generate_social_plan_excel(plan: Dict[str, Any]) -> bytes:
     metrics = [
         ("Total Budget", f"${summary.get('total_budget') or 0:,.0f}"),
         ("Platforms", str(summary.get("platform_count") or 0)),
-        ("Collar Type", summary.get("collar_type") or "".replace("_", " ").title()),
+        ("Collar Type", (summary.get("collar_type") or "").replace("_", " ").title()),
         ("Duration", f"{inputs.get('duration_weeks', 4)} weeks"),
         (
             "Campaign Goals",

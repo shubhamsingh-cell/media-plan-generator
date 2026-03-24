@@ -493,7 +493,7 @@ def _generate_screening_questions(config: Dict[str, Any]) -> List[str]:
 def _infer_key_skills(config: Dict[str, Any]) -> List[str]:
     """Infer key skills from role title and requirements."""
     skills: List[str] = []
-    role_lower = config.get("role") or "".lower()
+    role_lower = (config.get("role") or "").lower()
 
     # Extract skills from requirements
     for req in config.get("requirements") or []:

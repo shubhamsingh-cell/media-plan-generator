@@ -3933,7 +3933,7 @@ def fetch_geonames_data(locations: List[str]) -> Dict[str, Any]:
             if country_iso3:
                 # GeoNames uses ISO-2 codes
                 iso2_reverse = {v: k for k, v in ISO_2_TO_3.items()}
-                iso2 = iso2_reverse.get(country_iso3, "")
+                iso2 = iso2_reverse.get(country_iso3) or ""
                 if iso2 and iso2 not in ("UK",):  # GeoNames uses GB not UK
                     params += f"&country={iso2}"
 
@@ -4323,7 +4323,7 @@ def fetch_teleport_city_data(locations: List[str]) -> Dict[str, Any]:
         city_name = loc.split(",")[0].strip().lower()
 
         # Resolve city to slug via the existing mapping
-        slug = TELEPORT_SLUGS.get(city_name, "")
+        slug = TELEPORT_SLUGS.get(city_name) or ""
         if not slug:
             continue
 
@@ -9525,9 +9525,7 @@ def _cos_api_get(
     try:
         return _http_get_json(url, headers, timeout)
     except Exception as exc:
-        _log_warn(
-            "CareerOneStop API request failed for {}: {}".format(endpoint_path, exc)
-        )
+        _log_warn(f"CareerOneStop API request failed for {endpoint_path}: {exc}")
         return None
 
 
@@ -9537,10 +9535,8 @@ def _fetch_cos_occupation_detail(
     """Fetch occupation detail from CareerOneStop API."""
     encoded_keyword = urllib.parse.quote(keyword, safe="")
     encoded_location = urllib.parse.quote(location, safe="")
-    path = "/v1/occupation/{}/{}/{}?source=NationalAverage&lang=en".format(
-        urllib.parse.quote(user_id, safe=""), encoded_keyword, encoded_location
-    )
-    cache_key = _cache_key("cos_occ_detail", "{}:{}".format(keyword, location))
+    path = f"/v1/occupation/{urllib.parse.quote(user_id, safe='')}/{encoded_keyword}/{encoded_location}?source=NationalAverage&lang=en"
+    cache_key = _cache_key("cos_occ_detail", f"{keyword}:{location}")
     cached = _get_cached(cache_key)
     if cached is not None:
         return cached
@@ -9556,10 +9552,8 @@ def _fetch_cos_salary_data(
     """Fetch salary data from CareerOneStop API."""
     encoded_keyword = urllib.parse.quote(keyword, safe="")
     encoded_location = urllib.parse.quote(location, safe="")
-    path = "/v1/salarydata/{}/{}/{}?sortColumns=Median&sortOrder=desc".format(
-        urllib.parse.quote(user_id, safe=""), encoded_keyword, encoded_location
-    )
-    cache_key = _cache_key("cos_salary", "{}:{}".format(keyword, location))
+    path = f"/v1/salarydata/{urllib.parse.quote(user_id, safe='')}/{encoded_keyword}/{encoded_location}?sortColumns=Median&sortOrder=desc"
+    cache_key = _cache_key("cos_salary", f"{keyword}:{location}")
     cached = _get_cached(cache_key)
     if cached is not None:
         return cached
@@ -9574,9 +9568,7 @@ def _fetch_cos_outlook(
 ) -> Optional[Dict[str, Any]]:
     """Fetch occupation outlook (national) from CareerOneStop API."""
     encoded_keyword = urllib.parse.quote(keyword, safe="")
-    path = "/v1/occupation/{}/{}/0?source=NationalAverage".format(
-        urllib.parse.quote(user_id, safe=""), encoded_keyword
-    )
+    path = f"/v1/occupation/{urllib.parse.quote(user_id, safe='')}/{encoded_keyword}/0?source=NationalAverage"
     cache_key = _cache_key("cos_outlook", keyword)
     cached = _get_cached(cache_key)
     if cached is not None:
@@ -9593,11 +9585,8 @@ def _fetch_cos_certifications(
     """Fetch certifications from CareerOneStop API."""
     encoded_keyword = urllib.parse.quote(keyword, safe="")
     encoded_location = urllib.parse.quote(location, safe="")
-    path = (
-        "/v1/certificationfinder/{}/{}/{}?"
-        "sortColumns=Name&sortOrder=asc&startRecord=0&limitRecord=10"
-    ).format(urllib.parse.quote(user_id, safe=""), encoded_keyword, encoded_location)
-    cache_key = _cache_key("cos_certs", "{}:{}".format(keyword, location))
+    path = f"/v1/certificationfinder/{urllib.parse.quote(user_id, safe='')}/{encoded_keyword}/{encoded_location}?sortColumns=Name&sortOrder=asc&startRecord=0&limitRecord=10"
+    cache_key = _cache_key("cos_certs", f"{keyword}:{location}")
     cached = _get_cached(cache_key)
     if cached is not None:
         return cached
@@ -9871,9 +9860,7 @@ def fetch_careeronestop_data(roles: List[str], locations: List[str]) -> Dict[str
     for role in roles:
         occupation_key = _resolve_occupation_key(role)
         if occupation_key is None:
-            _log_warn(
-                "No CareerOneStop mapping found for role '{}'. Skipping.".format(role)
-            )
+            _log_warn(f"No CareerOneStop mapping found for role '{role}'. Skipping.")
             continue
 
         if not use_api:
@@ -9883,17 +9870,13 @@ def fetch_careeronestop_data(roles: List[str], locations: List[str]) -> Dict[str
                 result["occupations"][role] = occ_entry
             else:
                 _log_warn(
-                    "No benchmark data for occupation key '{}'. Skipping.".format(
-                        occupation_key
-                    )
+                    f"No benchmark data for occupation key '{occupation_key}'. Skipping."
                 )
             continue
 
         # --- Live API path ---
         _log_info(
-            "Fetching CareerOneStop data for '{}' (mapped to '{}') in '{}'".format(
-                role, occupation_key, primary_state
-            )
+            f"Fetching CareerOneStop data for '{role}' (mapped to '{occupation_key}') in '{primary_state}'"
         )
 
         # Fetch occupation detail (national)
@@ -10008,7 +9991,7 @@ def fetch_careeronestop_data(roles: List[str], locations: List[str]) -> Dict[str
         time.sleep(0.25)
 
     if not result["occupations"]:
-        _log_warn("No occupation data could be retrieved for roles: {}".format(roles))
+        _log_warn(f"No occupation data could be retrieved for roles: {roles}")
 
     _set_cached(cache_k, result)
     return result

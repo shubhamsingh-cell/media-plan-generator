@@ -1594,7 +1594,7 @@ def send_pulse_report(
     Returns:
         Dict with: sent (bool), recipients_sent (list), errors (list)
     """
-    api_key = os.environ.get("RESEND_API_KEY") or "".strip()
+    api_key = (os.environ.get("RESEND_API_KEY") or "").strip()
     from_email = os.environ.get("RESEND_FROM_EMAIL", "onboarding@resend.dev").strip()
 
     result = {

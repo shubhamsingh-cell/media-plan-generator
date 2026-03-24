@@ -61,6 +61,20 @@ except ImportError:
     _firecrawl_available = False
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# SENTRY WEBHOOK INTEGRATION (self-healing bridge)
+# ═══════════════════════════════════════════════════════════════════════════════
+try:
+    from sentry_integration import (
+        handle_sentry_webhook as _handle_sentry_webhook,
+        get_sentry_status as _get_sentry_status,
+        SentryAPIClient as _SentryAPIClient,
+    )
+
+    _sentry_integration_available = True
+except ImportError:
+    _sentry_integration_available = False
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # API INTEGRATIONS MODULE (8 external data APIs for market intelligence)
 # ═══════════════════════════════════════════════════════════════════════════════
 try:
@@ -19714,6 +19728,31 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         "error": "firecrawl_enrichment module not available",
                     }
                 )
+        # ── Sentry Integration Status + Recent Issues ──
+        elif path == "/api/sentry/issues":
+            if not self._check_admin_auth():
+                self.send_error(401, "Unauthorized")
+                return
+            try:
+                if _sentry_integration_available:
+                    status = _get_sentry_status()
+                    # Optionally fetch live issues from Sentry API
+                    qs = urllib.parse.parse_qs(parsed.query)
+                    if qs.get("live", ["false"])[0].lower() == "true":
+                        status["live_issues"] = _SentryAPIClient.fetch_recent_issues(
+                            hours=int(qs.get("hours", ["24"])[0])
+                        )
+                    self._send_json(status)
+                else:
+                    self._send_json(
+                        {
+                            "configured": False,
+                            "error": "sentry_integration module not available",
+                        }
+                    )
+            except Exception as e:
+                logger.error("Sentry issues endpoint error: %s", e, exc_info=True)
+                self._send_json({"error": "Internal server error"}, status_code=500)
         # ── Market Pulse News via Firecrawl ──
         elif path == "/api/market-pulse/news":
             try:
@@ -25106,6 +25145,39 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             except Exception as e:
                 logger.error("Export status error: %s", e, exc_info=True)
                 self._send_json({"configured": False, "error": str(e)}, status_code=500)
+
+        # ── Sentry Webhook (POST) ──
+        elif path == "/api/sentry/webhook":
+            try:
+                if not _sentry_integration_available:
+                    self._send_json(
+                        {"error": "sentry_integration module not available"},
+                        status_code=503,
+                    )
+                    return
+
+                try:
+                    content_len = int(self.headers.get("Content-Length") or 0)
+                except (ValueError, TypeError):
+                    content_len = 0
+                if content_len > 1 * 1024 * 1024:  # 1MB limit
+                    self._send_json({"error": "Request too large"}, status_code=413)
+                    return
+
+                body = self.rfile.read(content_len) if content_len > 0 else b""
+                signature = self.headers.get("Sentry-Hook-Signature") or ""
+                resource = self.headers.get("Sentry-Hook-Resource") or ""
+
+                status_code, result = _handle_sentry_webhook(
+                    body=body,
+                    signature=signature,
+                    resource_header=resource,
+                )
+                self._send_json(result, status_code=status_code)
+
+            except Exception as e:
+                logger.error("Sentry webhook error: %s", e, exc_info=True)
+                self._send_json({"error": "Internal server error"}, status_code=500)
 
         else:
             self.send_error(404)

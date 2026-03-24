@@ -4228,7 +4228,7 @@ When API-enriched context is available in the session, prioritize it as the most
             "legal_services": "legal",
             "government_utilities": "administration",
         }
-        appcast_occ = _APPCAST_OCC_MAP.get(industry, "")
+        appcast_occ = _APPCAST_OCC_MAP.get(industry) or ""
         wp = self._data_cache.get("white_papers", {})
         appcast_report = wp.get("reports", {}).get("appcast_benchmark_2026", {})
         appcast_bm = appcast_report.get("benchmarks", {})
@@ -4281,7 +4281,7 @@ When API-enriched context is available in the session, prioritize it as the most
             "education": "education_public_service",
             "government_utilities": "education_public_service",
         }
-        gads_cat = _GADS_CAT_MAP.get(industry, "")
+        gads_cat = _GADS_CAT_MAP.get(industry) or ""
         gads_data = self._data_cache.get("google_ads_benchmarks", {})
         gads_categories = gads_data.get("categories", {})
         gads_enrichment = {}
@@ -8890,7 +8890,7 @@ def _response_uses_tool_data(response_text: str, tool_results_raw: list) -> bool
                 "industry",
                 "company",
             ):
-                val = str(parsed.get(key, "")).lower().strip()
+                val = str(parsed.get(key) or "").lower().strip()
                 if val and len(val) > 2 and val in resp_lower:
                     return True
         except (json.JSONDecodeError, AttributeError, TypeError):
@@ -9146,7 +9146,7 @@ def _format_benchmark_response(data: dict, metric: str, industry: str) -> str:
             "conversion_rates": "Funnel conversion rates (impression to hire)",
         }
         for cat in categories:
-            desc = cat_descriptions.get(cat, "")
+            desc = cat_descriptions.get(cat) or ""
             nice_name = cat.replace("_", " ").title()
             parts.append(f"- *{nice_name}*: {desc}" if desc else f"- *{nice_name}*")
         parts.append(

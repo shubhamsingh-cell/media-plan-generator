@@ -1939,7 +1939,7 @@ def _fetch_employer_brand_data(res, company: str) -> Optional[Dict]:
                 "company_size": profile.get("size") or "",
                 "primary_hiring_channels": profile.get("hiring_channels") or "",
                 "employer_brand_strength": profile.get("employer_brand") or "",
-                "known_recruitment_strategies": profile.get("known_strategies", ""),
+                "known_recruitment_strategies": profile.get("known_strategies") or "",
                 "glassdoor_rating": profile.get("glassdoor_rating") or "",
                 "talent_focus": profile.get("talent_focus") or "",
                 "source": "Curated Employer Brand Intelligence",
@@ -2303,7 +2303,7 @@ def enrich_ad_benchmarks(
                 "education": "education_public_service",
                 "government_utilities": "education_public_service",
             }
-            _gads_cat_key = _ORCH_GADS_MAP.get(norm_industry, "")
+            _gads_cat_key = _ORCH_GADS_MAP.get(norm_industry) or ""
             _gads_cat = _gads_categories.get(_gads_cat_key, {})
             if _gads_cat:
                 result["google_ads_kb_benchmarks"] = {
@@ -2338,7 +2338,7 @@ def enrich_ad_benchmarks(
                 "manufacturing": "manufacturing",
                 "construction": "construction_skilled_trades",
             }
-            _app_occ = _APP_OCC_MAP.get(norm_industry, "")
+            _app_occ = _APP_OCC_MAP.get(norm_industry) or ""
             if _app_occ and _appcast:
                 _search_cpc = _appcast.get("search_cpc_by_occupation_2025", {}).get(
                     _app_occ
@@ -2614,7 +2614,7 @@ def enrich_hiring_trends(
         # BLS JOLTS
         try:
             jolts_codes = getattr(api, "JOLTS_INDUSTRY_CODES", {})
-            jolts_code = jolts_codes.get(norm_industry, "")
+            jolts_code = jolts_codes.get(norm_industry) or ""
             if not jolts_code:
                 # Try fuzzy match
                 for k, v in jolts_codes.items():
@@ -2913,7 +2913,7 @@ def compute_insights(
         seasonal = ad_bench.get("seasonal_advice", {})
         if seasonal:
             insights["seasonal_factor"] = seasonal.get("seasonal_factor", 1.0)
-            insights["seasonal_recommendation"] = seasonal.get("recommendation", "")
+            insights["seasonal_recommendation"] = seasonal.get("recommendation") or ""
 
     # -- v3: Hiring trends insight --
     trends_data = (context.hiring_trends_data if context else None) or {}

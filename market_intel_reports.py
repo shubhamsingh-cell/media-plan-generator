@@ -1611,7 +1611,7 @@ def generate_intel_excel(report_data: Dict[str, Any]) -> bytes:
         ws5.cell(row=r, column=2, value=idx + 1)
         ws5.cell(row=r, column=3, value=rec.get("title") or "")
         ws5.cell(row=r, column=4, value=rec.get("description") or "")
-        ws5.cell(row=r, column=5, value=rec.get("impact") or "".upper())
+        ws5.cell(row=r, column=5, value=(rec.get("impact") or "").upper())
         ws5.cell(row=r, column=6, value=rec.get("category") or "")
         _data_row(ws5, r, 2, 6, alt=(idx % 2 == 1))
 

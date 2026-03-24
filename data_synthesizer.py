@@ -646,7 +646,7 @@ def _kb_industry_benchmarks(kb: dict, industry: str) -> dict:
             )
     # 2. Fallback to hardcoded dict
     if not kb_key:
-        kb_key = _INDUSTRY_TO_KB_KEY.get(industry, "")
+        kb_key = _INDUSTRY_TO_KB_KEY.get(industry) or ""
     if not kb_key:
         return {}
     return _get_nested(kb, "industry_specific_benchmarks", kb_key, default={})
@@ -1321,7 +1321,7 @@ def fuse_salary_intelligence(
             _meta = _CANON_IND.get(_canon, {})
             kb_industry_key = _meta.get("kb_key") or ""
         if not kb_industry_key:
-            kb_industry_key = _INDUSTRY_TO_KB_KEY.get(industry, "")
+            kb_industry_key = _INDUSTRY_TO_KB_KEY.get(industry) or ""
         if kb_industry_key and kb_by_industry:
             industry_salary_data = kb_by_industry.get(kb_industry_key, {})
             if isinstance(industry_salary_data, dict):
@@ -2111,7 +2111,7 @@ def fuse_ad_platform_analysis(
     # --- Enrich Google Ads entry with Joveo first-party benchmark data ---
     # Data priority: Priority 3 (KB benchmark data) -- used to cross-validate
     # live API results or fill gaps when API data is unavailable.
-    gads_category = _INDUSTRY_TO_GOOGLE_ADS_CATEGORY.get(industry, "")
+    gads_category = _INDUSTRY_TO_GOOGLE_ADS_CATEGORY.get(industry) or ""
     gads_kb = _kb_google_ads_benchmarks(kb, gads_category) if gads_category else {}
     if gads_kb and isinstance(result.get("google"), dict):
         google_entry = result["google"]
@@ -2157,7 +2157,7 @@ def fuse_ad_platform_analysis(
     # --- Enrich with Appcast 2026 search/social CPC data ---
     # Data priority: Priority 3 (KB benchmark data from Appcast 2026 report)
     appcast_bm = _kb_appcast_2026_benchmarks(kb)
-    appcast_occupation = _INDUSTRY_TO_APPCAST_OCCUPATION.get(industry, "")
+    appcast_occupation = _INDUSTRY_TO_APPCAST_OCCUPATION.get(industry) or ""
     if appcast_bm and appcast_occupation:
         search_cpc_data = appcast_bm.get("search_cpc_by_occupation_2025", {})
         social_cpc_data = appcast_bm.get("social_cpc_by_occupation_2025", {})
@@ -3092,7 +3092,7 @@ def fuse_workforce_insights(enriched: dict, kb: dict, industry: str) -> dict:
     # These are the richest industry benchmarks available (302M clicks, 27.4M applies)
     appcast_bm = _kb_appcast_2026_benchmarks(kb)
     if appcast_bm:
-        appcast_occupation = _INDUSTRY_TO_APPCAST_OCCUPATION.get(industry, "")
+        appcast_occupation = _INDUSTRY_TO_APPCAST_OCCUPATION.get(industry) or ""
         occupation_benchmarks = {}
 
         # Extract industry-specific Appcast metrics
@@ -3164,7 +3164,7 @@ def fuse_workforce_insights(enriched: dict, kb: dict, industry: str) -> dict:
 
     # ── Google Ads 2025 Benchmark Data (Joveo first-party) ──
     # Data priority: Priority 3 (KB benchmark data)
-    gads_category = _INDUSTRY_TO_GOOGLE_ADS_CATEGORY.get(industry, "")
+    gads_category = _INDUSTRY_TO_GOOGLE_ADS_CATEGORY.get(industry) or ""
     gads_kb = _kb_google_ads_benchmarks(kb, gads_category) if gads_category else {}
     if gads_kb:
         result["google_ads_2025_benchmarks"] = {
