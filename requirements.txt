@@ -18,4 +18,4 @@ pytrends>=4.9.0,<5.0.0
 
 # Multi-platform job scraping (LinkedIn, Indeed, Glassdoor, ZipRecruiter, Google)
 # Optional: import is guarded with try/except in job_scraper.py
-jobspy>=1.1.0
+python-jobspy>=0.28.0
