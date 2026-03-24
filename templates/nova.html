@@ -3329,20 +3329,35 @@
         // ========================================================================
         // Centralized UI reset -- single source of truth for unlocking the chat
         function resetLoadingState() {
-          state.isLoading = false;
-          state.isStreaming = false;
-          state._loadStart = 0;
-          if (state.abortController) {
-            try {
-              state.abortController.abort();
-            } catch (_) {}
+          try {
+            var wasLoading = state.isLoading;
+            state.isLoading = false;
+            state.isStreaming = false;
+            state._loadStart = 0;
+            if (state.abortController) {
+              try {
+                state.abortController.abort();
+              } catch (_) {}
+            }
+            state.abortController = null;
+            sendBtn.style.display = "";
+            sendBtn.disabled = !chatInput.value.trim();
+            stopBtn.classList.remove("visible");
+            hideThinking();
+            chatInput.focus();
+            if (wasLoading) {
+              console.log(
+                "[Nova] resetLoadingState: cleared stuck loading flag",
+              );
+            }
+          } catch (e) {
+            // Nuclear option: if DOM ops fail, at least clear the state flags
+            state.isLoading = false;
+            state.isStreaming = false;
+            state._loadStart = 0;
+            state.abortController = null;
+            console.error("[Nova] resetLoadingState error:", e);
           }
-          state.abortController = null;
-          sendBtn.style.display = "";
-          sendBtn.disabled = !chatInput.value.trim();
-          stopBtn.classList.remove("visible");
-          hideThinking();
-          chatInput.focus();
         }
 
         function sendMessage() {
@@ -3686,47 +3701,47 @@
           updateCharCount();
         });
 
+        // Centralized "user wants to send" handler -- forces loading reset
+        // when the chat appears stuck, with a VERY short tolerance (3s).
+        // Root-cause: the previous 20s threshold meant the chat felt dead for
+        // up to 20s when isLoading got stuck.  Now any user-initiated send
+        // attempt force-resets after just 3s, and ANY send attempt when
+        // _loadStart is 0 (orphaned flag) resets immediately.
+        function forceResetIfStuck() {
+          if (!state.isLoading) return;
+          // Orphaned loading flag (no timestamp) -- reset immediately
+          if (!state._loadStart || state._loadStart === 0) {
+            resetLoadingState();
+            var s1 = document.getElementById("streaming-msg");
+            if (s1) s1.remove();
+            return;
+          }
+          // Loading for more than 3s -- user clearly wants to send, so reset
+          if (Date.now() - state._loadStart > 3000) {
+            resetLoadingState();
+            var s2 = document.getElementById("streaming-msg");
+            if (s2) s2.remove();
+            return;
+          }
+          // Loading for <3s -- genuinely in-flight, show feedback
+          showToast("Nova is still responding... please wait a moment", "info");
+        }
+
         chatInput.addEventListener("keydown", function (e) {
           if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
-            // Safety: if isLoading stuck for >20s, force reset so user can retry
-            if (
-              state.isLoading &&
-              state._loadStart > 0 &&
-              Date.now() - state._loadStart > 20000
-            ) {
-              resetLoadingState();
-              var streamEl = document.getElementById("streaming-msg");
-              if (streamEl) streamEl.remove();
-            }
-            // Extra guard: if isLoading is stuck but _loadStart is 0 (should not
-            // happen but defensive), force reset unconditionally
-            if (state.isLoading && state._loadStart === 0) {
-              resetLoadingState();
-            }
+            forceResetIfStuck();
             sendMessage();
           }
         });
 
         sendBtn.addEventListener("click", function () {
-          // Same stuck guard for click path
-          if (
-            state.isLoading &&
-            state._loadStart > 0 &&
-            Date.now() - state._loadStart > 20000
-          ) {
-            resetLoadingState();
-            var streamEl = document.getElementById("streaming-msg");
-            if (streamEl) streamEl.remove();
-          }
-          if (state.isLoading && state._loadStart === 0) {
-            resetLoadingState();
-          }
+          forceResetIfStuck();
           sendMessage();
         });
 
         // ========================================================================
-        // GLOBAL SAFETY: auto-reset stuck isLoading state every 3s
+        // GLOBAL SAFETY: auto-reset stuck isLoading state every 2s
         // ========================================================================
         setInterval(function () {
           if (!state.isLoading) return;
@@ -3735,13 +3750,23 @@
             resetLoadingState();
             return;
           }
-          // If loading for more than 30s, force reset
-          if (Date.now() - state._loadStart > 30000) {
+          // If loading for more than 10s with no active streaming content,
+          // or more than 45s unconditionally -- force reset
+          var elapsed = Date.now() - state._loadStart;
+          var streamEl = document.getElementById("streaming-msg");
+          var streamContent = document.getElementById("streaming-content");
+          var hasVisibleStream =
+            streamEl && streamContent && streamContent.textContent.length > 0;
+          if (elapsed > 45000) {
+            // Absolute hard limit -- always reset
             resetLoadingState();
-            var streamEl = document.getElementById("streaming-msg");
+            if (streamEl) streamEl.remove();
+          } else if (elapsed > 10000 && !hasVisibleStream) {
+            // 10s with no visible streaming content -- likely stuck
+            resetLoadingState();
             if (streamEl) streamEl.remove();
           }
-        }, 3000);
+        }, 2000);
 
         // ========================================================================
         // CLEAR / NEW CHAT

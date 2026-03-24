@@ -66,6 +66,8 @@
     chatPanel: null,
     floatingBtn: null,
     initialized: false,
+    orbAnimId: null,
+    orbDrawFn: null,
   };
 
   // ---------------------------------------------------------------------------
@@ -80,16 +82,16 @@
       "  position: fixed; bottom: 24px; right: 24px; z-index: 99999;" +
       "  width: 68px; height: 68px; border-radius: 50%;" +
       "  background: #0f0f1a;" +
-      "  color: #fff; border: 1px solid rgba(107,179,205,0.15); cursor: pointer;" +
-      "  box-shadow: 0 4px 20px rgba(0,0,0,0.4);" +
+      "  color: #fff; border: 1.5px solid rgba(107,179,205,0.3); cursor: pointer;" +
+      "  box-shadow: 0 4px 24px rgba(90,84,189,0.25), 0 0 12px rgba(107,179,205,0.15);" +
       "  display: flex; align-items: center; justify-content: center;" +
       "  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;" +
       "  font-size: 0; padding: 0; overflow: hidden;" +
       "}" +
       "#nova-float-btn:hover {" +
       "  transform: translateY(-3px) scale(1.1);" +
-      "  box-shadow: 0 8px 30px rgba(0,0,0,0.5), 0 0 0 1px rgba(107,179,205,0.25);" +
-      "  border-color: rgba(107,179,205,0.25);" +
+      "  box-shadow: 0 8px 36px rgba(90,84,189,0.35), 0 0 20px rgba(107,179,205,0.25), 0 0 0 1px rgba(107,179,205,0.3);" +
+      "  border-color: rgba(107,179,205,0.4);" +
       "}" +
       "#nova-float-btn:active {" +
       "  transform: scale(0.95);" +
@@ -440,6 +442,28 @@
     // Inline code
     html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
 
+    // Links with URL protocol validation (W-08: block javascript:/data:/vbscript:)
+    html = html.replace(
+      /\[([^\]]+)\]\(([^)]+)\)/g,
+      function (match, label, url) {
+        var trimmedUrl = url.trim().toLowerCase();
+        if (
+          trimmedUrl.indexOf("javascript:") === 0 ||
+          trimmedUrl.indexOf("data:") === 0 ||
+          trimmedUrl.indexOf("vbscript:") === 0
+        ) {
+          return label; // Strip dangerous link, keep text only
+        }
+        return (
+          '<a href="' +
+          url.trim() +
+          '" target="_blank" rel="noopener noreferrer">' +
+          label +
+          "</a>"
+        );
+      },
+    );
+
     // Unordered lists
     html = html.replace(/^- (.+)$/gm, "<li>$1</li>");
     html = html.replace(/((?:<li>.+<\/li>\n?)+)/g, "<ul>$1</ul>");
@@ -510,6 +534,9 @@
   // DOM construction
   // ---------------------------------------------------------------------------
   function buildWidget(containerId) {
+    // Guard: never build twice (safety net setTimeout may fire after normal init)
+    if (document.getElementById("nova-float-btn")) return;
+
     injectStyles();
 
     // Floating button with mini 3D orb
@@ -601,7 +628,6 @@
         );
       }
 
-      var animId;
       function draw() {
         ctx.clearRect(0, 0, S, S);
         var rotY = t * 0.2,
@@ -750,12 +776,19 @@
         }
 
         t += 0.016;
-        animId = requestAnimationFrame(draw);
+        state.orbAnimId = requestAnimationFrame(draw);
       }
+      // W-09: Pause animation when tab hidden
       document.addEventListener("visibilitychange", function () {
-        if (document.hidden) cancelAnimationFrame(animId);
-        else animId = requestAnimationFrame(draw);
+        if (document.hidden) {
+          cancelAnimationFrame(state.orbAnimId);
+          state.orbAnimId = null;
+        } else if (!state.isOpen) {
+          // Only resume orb animation if panel is closed (orb visible)
+          state.orbAnimId = requestAnimationFrame(draw);
+        }
       });
+      state.orbDrawFn = draw;
       draw();
     })();
 
@@ -885,6 +918,11 @@
     if (state.isOpen) {
       panel.classList.remove("nova-hidden");
       panel.classList.add("nova-visible");
+      // W-09: Pause orb animation when panel is open (canvas not visible)
+      if (state.orbAnimId) {
+        cancelAnimationFrame(state.orbAnimId);
+        state.orbAnimId = null;
+      }
       // Hide orb, show close icon
       if (orbCanvas) orbCanvas.style.display = "none";
       btn.classList.add("nova-btn-close");
@@ -911,6 +949,10 @@
       if (closeIcon) closeIcon.remove();
       btn.classList.remove("nova-btn-close");
       if (orbCanvas) orbCanvas.style.display = "block";
+      // W-09: Resume orb animation when panel closes (canvas visible again)
+      if (state.orbDrawFn && !state.orbAnimId && !document.hidden) {
+        state.orbAnimId = requestAnimationFrame(state.orbDrawFn);
+      }
       btn.title = "Open Nova Chat";
       btn.setAttribute("aria-label", "Open Nova Chat");
     }
@@ -1185,15 +1227,30 @@
     var text = input.value.trim();
     if (!text) return;
 
+    // W-04: Client-side message length cap (4000 chars)
+    if (text.length > 4000) {
+      appendMessage(
+        {
+          role: "assistant",
+          content:
+            "Your message exceeds the 4,000-character limit. Please shorten it and try again.",
+          sources: [],
+          confidence: 0,
+        },
+        true,
+      );
+      return;
+    }
+
+    // W-02: Set loading state BEFORE appending message to prevent race condition
+    state.isLoading = true;
+    var sendBtn = document.getElementById("nova-send-btn");
+    if (sendBtn) sendBtn.disabled = true;
+
     // Add user message
     appendMessage({ role: "user", content: text });
     input.value = "";
     input.style.height = "auto";
-
-    // Disable send button
-    var sendBtn = document.getElementById("nova-send-btn");
-    if (sendBtn) sendBtn.disabled = true;
-    state.isLoading = true;
 
     showTyping();
 
@@ -1392,14 +1449,26 @@
           });
       }
 
-      // Wait for DOM ready
-      if (document.readyState === "loading") {
-        document.addEventListener("DOMContentLoaded", function () {
-          buildWidget(options.containerId);
-        });
-      } else {
+      // Build widget when DOM is ready.  Covers three cases:
+      // 1. Script in <head> (readyState === "loading"): wait for DOMContentLoaded
+      // 2. Script at end of <body> (readyState "interactive"/"complete"): build now
+      // 3. Fallback: if neither path fires within 500ms, force build via setTimeout
+      var _built = false;
+      function _safeBuild() {
+        if (_built) return;
+        _built = true;
         buildWidget(options.containerId);
       }
+
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", _safeBuild);
+      } else {
+        _safeBuild();
+      }
+
+      // Safety net -- guarantee the widget appears even if DOMContentLoaded
+      // never fires (edge case with some browser extensions / service workers)
+      setTimeout(_safeBuild, 500);
 
       state.initialized = true;
     },

@@ -261,6 +261,40 @@ from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeou
 _insights_cache: dict[str, tuple[str, float]] = {}
 _insights_cache_lock = threading.Lock()
 _INSIGHTS_CACHE_TTL = 3600.0  # 1 hour
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PLATFORM FRAGMENT CACHE (HTML fragments for SPA shell)
+# ═══════════════════════════════════════════════════════════════════════════════
+_fragment_cache: dict[str, str] = {}
+_fragment_cache_lock = threading.Lock()
+
+# Map fragment names to template files and extraction selectors
+_FRAGMENT_MAP: dict[str, str] = {
+    "media-plan": "index.html",
+    "social-plan": "social-plan.html",
+    "ab-testing": "ab-testing.html",
+    "competitive": "competitive.html",
+    "market-pulse": "market-pulse.html",
+    "vendor-iq": "vendor-iq.html",
+    "simulator": "simulator.html",
+    "talent-heatmap": "talent-heatmap.html",
+    "compliance-guard": "compliance-guard.html",
+    "api-portal": "api-portal.html",
+    "dashboard": "hub.html",
+    # Additional fragments for backward compat / future merges
+    "quick-plan": "quick-plan.html",
+    "quick-brief": "quick-brief.html",
+    "creative-ai": "creative-ai.html",
+    "hire-signal": "hire-signal.html",
+    "roi-calculator": "roi-calculator.html",
+    "tracker": "tracker.html",
+    "post-campaign": "post-campaign.html",
+    "audit": "audit.html",
+    "payscale-sync": "payscale-sync.html",
+    "skill-target": "skill-target.html",
+    "applyflow-demo": "applyflow-demo.html",
+    "market-intel": "market-intel.html",
+}
 _INSIGHTS_LLM_TIMEOUT = 10  # seconds
 _insights_executor = ThreadPoolExecutor(
     max_workers=2, thread_name_prefix="llm-insights"
@@ -15867,6 +15901,232 @@ def _parse_file_attachment(file_attachment: dict) -> str:
         return f"[Error parsing file: {name}]"
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# SHARED CHAT CONTEXT ENRICHMENT (C-03 dedup + C-02 parallel)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def _enrich_chat_context(data: dict, message: str) -> dict:
+    """Enrich chat request *data* dict with file-attachment text and live API data.
+
+    Parses any attached file, then runs up to 6 API enrichment calls
+    **concurrently** (ThreadPoolExecutor, 8-second combined timeout) so that
+    one slow or failing service does not block the others.
+
+    Args:
+        data: Mutable request dict -- ``message`` may be extended with
+              attachment text and ``_api_context`` is set with enrichment
+              results.
+        message: The raw user message (before lowercase / truncation).
+
+    Returns:
+        The (possibly mutated) *data* dict for convenience.
+    """
+    from concurrent.futures import (
+        ThreadPoolExecutor,
+        TimeoutError as FuturesTimeoutError,
+    )
+
+    # ── 1. File attachment parsing ──
+    _file_att = data.get("file_attachment")
+    if _file_att and isinstance(_file_att, dict):
+        try:
+            _file_text = _parse_file_attachment(_file_att)
+            if _file_text:
+                _fname = _file_att.get("name") or "file"
+                data["message"] = (
+                    data.get("message") or ""
+                ) + f"\n\n[Attached file: {_fname}]\n{_file_text}"
+                logger.info(
+                    "Parsed file attachment %s (%d chars)",
+                    _fname,
+                    len(_file_text),
+                )
+        except (ValueError, TypeError, OSError, KeyError) as _fpe:
+            logger.error("File attachment parse failed: %s", _fpe, exc_info=True)
+
+    # ── 2. Parallel API enrichment ──
+    if (
+        not _api_integrations_available
+        and not _jobspy_available
+        and not _tavily_available
+        and not (_vector_search_available and _vector_search)
+    ):
+        return data
+
+    _chat_msg = (data.get("message") or "").lower()
+    _chat_role = data.get("role") or data.get("context", {}).get("role") or ""
+    _chat_api_ctx: dict = {}
+    _ctx_lock = threading.Lock()
+
+    # -- Helper: thread-safe merge into _chat_api_ctx --
+    def _merge(key: str, value: object) -> None:
+        if value:
+            with _ctx_lock:
+                _chat_api_ctx[key] = value
+
+    # -- Individual enrichment callables (each with its own try/except) --
+
+    def _enrich_onet() -> None:
+        if not (_api_integrations_available and _api_onet):
+            return
+        if not any(
+            kw in _chat_msg
+            for kw in ("job", "role", "occupation", "career", "position")
+        ):
+            return
+        try:
+            _search_term = _chat_role or _chat_msg[:50]
+            results = _api_onet.search_occupations(_search_term)
+            _merge("onet_occupations", results[:5] if results else None)
+            if results:
+                logger.info("Enriched chat with onet occupation data")
+        except (urllib.error.URLError, OSError, ValueError, TypeError) as exc:
+            logger.error("O*NET enrichment failed: %s", exc, exc_info=True)
+
+    def _enrich_adzuna() -> None:
+        if not (_api_integrations_available and _api_adzuna):
+            return
+        if not any(
+            kw in _chat_msg
+            for kw in ("salary", "pay", "compensation", "wage", "earning")
+        ):
+            return
+        try:
+            _sal_role = _chat_role or "software engineer"
+            hist = _api_adzuna.get_salary_histogram(_sal_role, "us")
+            _merge("adzuna_salary_histogram", hist)
+            if hist:
+                logger.info("Enriched chat with adzuna salary data")
+        except (urllib.error.URLError, OSError, ValueError, TypeError) as exc:
+            logger.error("Adzuna enrichment failed: %s", exc, exc_info=True)
+
+    def _enrich_fred() -> None:
+        if not (_api_integrations_available and _api_fred):
+            return
+        if not any(
+            kw in _chat_msg
+            for kw in (
+                "market",
+                "economy",
+                "unemployment",
+                "inflation",
+                "economic",
+                "recession",
+            )
+        ):
+            return
+        try:
+            unemp = _api_fred.get_unemployment_rate()
+            _merge("fred_unemployment", unemp)
+            cpi = _api_fred.get_cpi_data(months=6)
+            _merge("fred_cpi", cpi)
+            if unemp or cpi:
+                logger.info("Enriched chat with fred economic data")
+        except (urllib.error.URLError, OSError, ValueError, TypeError) as exc:
+            logger.error("FRED enrichment failed: %s", exc, exc_info=True)
+
+    def _enrich_jobspy() -> None:
+        if not (_jobspy_available and _jobspy_market_stats):
+            return
+        if not any(
+            kw in _chat_msg
+            for kw in (
+                "job",
+                "hire",
+                "hiring",
+                "recruit",
+                "posting",
+                "vacancy",
+                "position",
+                "openings",
+                "talent",
+            )
+        ):
+            return
+        try:
+            _js_role = _chat_role or _chat_msg[:40]
+            stats = _jobspy_market_stats(str(_js_role))
+            _merge("jobspy_market_stats", stats)
+            if stats:
+                logger.info("Enriched chat with jobspy market stats")
+        except (ValueError, TypeError, KeyError, OSError) as exc:
+            logger.error("JobSpy enrichment failed: %s", exc, exc_info=True)
+
+    def _enrich_tavily() -> None:
+        if not (_tavily_available and _tavily_search):
+            return
+        if not any(
+            kw in _chat_msg
+            for kw in (
+                "news",
+                "trend",
+                "latest",
+                "recent",
+                "update",
+                "what's happening",
+                "industry",
+            )
+        ):
+            return
+        try:
+            results = _tavily_search(
+                f"recruitment hiring {_chat_msg[:60]}", max_results=3
+            )
+            _merge("tavily_web_results", results)
+            if results:
+                logger.info(
+                    "Enriched chat with tavily search (%d results)", len(results)
+                )
+        except (urllib.error.URLError, OSError, ValueError, TypeError) as exc:
+            logger.error("Tavily enrichment failed: %s", exc, exc_info=True)
+
+    def _enrich_vector() -> None:
+        if not (_vector_search_available and _vector_search):
+            return
+        try:
+            results = _vector_search(_chat_msg, top_k=3)
+            _merge("vector_kb_results", results)
+            if results:
+                logger.info(
+                    "Enriched chat with vector search (%d KB matches)", len(results)
+                )
+        except (ValueError, TypeError, OSError) as exc:
+            logger.error("Vector search enrichment failed: %s", exc, exc_info=True)
+
+    # -- Dispatch all enrichment tasks concurrently (8s combined timeout) --
+    enrichment_fns = [
+        _enrich_onet,
+        _enrich_adzuna,
+        _enrich_fred,
+        _enrich_jobspy,
+        _enrich_tavily,
+        _enrich_vector,
+    ]
+
+    try:
+        with ThreadPoolExecutor(
+            max_workers=6, thread_name_prefix="chat-enrich"
+        ) as pool:
+            futures = [pool.submit(fn) for fn in enrichment_fns]
+            for fut in futures:
+                try:
+                    fut.result(timeout=8)
+                except FuturesTimeoutError:
+                    logger.warning("Chat enrichment task timed out (8s)")
+                except (ValueError, TypeError, OSError) as exc:
+                    logger.error("Chat enrichment task error: %s", exc, exc_info=True)
+    except (RuntimeError, OSError) as exc:
+        logger.error(
+            "ThreadPoolExecutor failed for chat enrichment: %s", exc, exc_info=True
+        )
+
+    if _chat_api_ctx:
+        data["_api_context"] = _chat_api_ctx
+
+    return data
+
+
 def _generate_followup_questions(response_text: str, user_message: str) -> list[str]:
     """Generate 2-3 suggested follow-up questions based on the response.
 
@@ -17790,7 +18050,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             "Content-Security-Policy",
             "default-src 'self'; "
             "script-src 'self' 'unsafe-inline' https://unpkg.com; "
-            "style-src 'self' 'unsafe-inline' https://unpkg.com; "
+            "style-src 'self' 'unsafe-inline' https://unpkg.com https://fonts.googleapis.com; "
             "img-src 'self' https: data:; "
             "font-src 'self' https: data:; "
             "connect-src 'self' https:; "
@@ -17975,6 +18235,13 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             self._serve_file(os.path.join(TEMPLATES_DIR, "hub.html"), "text/html")
         elif path in ("/media-plan", "/media-plan/", "/generator", "/generator/"):
             self._serve_file(os.path.join(TEMPLATES_DIR, "index.html"), "text/html")
+        # ── Nova Platform SPA Shell ──
+        elif path in ("/platform", "/platform/"):
+            self._serve_file(os.path.join(TEMPLATES_DIR, "platform.html"), "text/html")
+        # ── Fragment Endpoint (serves HTML fragments for platform SPA) ──
+        elif path.startswith("/fragment/"):
+            fragment_name = path[len("/fragment/") :].strip("/")
+            self._serve_fragment(fragment_name)
         elif path == "/api/csrf-token":
             # Cookie-based double-submit CSRF: generate token, set as cookie
             # AND return in JSON body.  JS stores the body copy and sends it
@@ -22007,220 +22274,8 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 self.wfile.write(json.dumps({"error": "Invalid JSON"}).encode())
                 return
             try:
-                # ── File attachment parsing ──
-                _file_att = data.get("file_attachment")
-                if _file_att and isinstance(_file_att, dict):
-                    try:
-                        _file_text = _parse_file_attachment(_file_att)
-                        if _file_text:
-                            _fname = _file_att.get("name") or "file"
-                            data["message"] = (
-                                data.get("message") or ""
-                            ) + f"\n\n[Attached file: {_fname}]\n{_file_text}"
-                            logger.info(
-                                "Parsed file attachment %s (%d chars)",
-                                _fname,
-                                len(_file_text),
-                            )
-                    except Exception as _fpe:
-                        logger.error(
-                            "File attachment parse failed: %s", _fpe, exc_info=True
-                        )
-
-                # ── API Integrations: Enrich chat context with live data ──
-                if _api_integrations_available:
-                    _chat_msg = (data.get("message") or "").lower()
-                    _chat_api_ctx: dict = {}
-                    _chat_role = (
-                        data.get("role") or data.get("context", {}).get("role") or ""
-                    )
-                    # Job/role questions -> O*NET occupation data
-                    if _api_onet and any(
-                        kw in _chat_msg
-                        for kw in ("job", "role", "occupation", "career", "position")
-                    ):
-                        try:
-                            _search_term = _chat_role or _chat_msg[:50]
-                            _onet_results = _api_onet.search_occupations(_search_term)
-                            if _onet_results:
-                                _chat_api_ctx["onet_occupations"] = _onet_results[:5]
-                                logger.info(
-                                    "Enriched /api/chat with onet occupation data"
-                                )
-                        except (
-                            urllib.error.URLError,
-                            OSError,
-                            ValueError,
-                            TypeError,
-                        ) as _oe:
-                            logger.error(
-                                "O*NET enrichment for chat failed: %s",
-                                _oe,
-                                exc_info=True,
-                            )
-                    # Salary questions -> Adzuna salary histogram
-                    if _api_adzuna and any(
-                        kw in _chat_msg
-                        for kw in ("salary", "pay", "compensation", "wage", "earning")
-                    ):
-                        try:
-                            _sal_role = _chat_role or "software engineer"
-                            _sal_hist = _api_adzuna.get_salary_histogram(
-                                _sal_role, "us"
-                            )
-                            if _sal_hist:
-                                _chat_api_ctx["adzuna_salary_histogram"] = _sal_hist
-                                logger.info(
-                                    "Enriched /api/chat with adzuna salary data"
-                                )
-                        except (
-                            urllib.error.URLError,
-                            OSError,
-                            ValueError,
-                            TypeError,
-                        ) as _ae:
-                            logger.error(
-                                "Adzuna salary enrichment for chat failed: %s",
-                                _ae,
-                                exc_info=True,
-                            )
-                    # Market/economy questions -> FRED data
-                    if _api_fred and any(
-                        kw in _chat_msg
-                        for kw in (
-                            "market",
-                            "economy",
-                            "unemployment",
-                            "inflation",
-                            "economic",
-                            "recession",
-                        )
-                    ):
-                        try:
-                            _fred_unemp = _api_fred.get_unemployment_rate()
-                            if _fred_unemp:
-                                _chat_api_ctx["fred_unemployment"] = _fred_unemp
-                            _fred_cpi = _api_fred.get_cpi_data(months=6)
-                            if _fred_cpi:
-                                _chat_api_ctx["fred_cpi"] = _fred_cpi
-                            if _chat_api_ctx.get(
-                                "fred_unemployment"
-                            ) or _chat_api_ctx.get("fred_cpi"):
-                                logger.info(
-                                    "Enriched /api/chat with fred economic data"
-                                )
-                        except (
-                            urllib.error.URLError,
-                            OSError,
-                            ValueError,
-                            TypeError,
-                        ) as _fe:
-                            logger.error(
-                                "FRED enrichment for chat failed: %s",
-                                _fe,
-                                exc_info=True,
-                            )
-                    if _chat_api_ctx:
-                        data["_api_context"] = _chat_api_ctx
-
-                # ── JobSpy enrichment for chat: live job data ──
-                if (
-                    _jobspy_available
-                    and _jobspy_market_stats
-                    and any(
-                        kw in _chat_msg
-                        for kw in (
-                            "job",
-                            "hire",
-                            "hiring",
-                            "recruit",
-                            "posting",
-                            "vacancy",
-                            "position",
-                            "openings",
-                            "talent",
-                        )
-                    )
-                ):
-                    try:
-                        _js_chat_role = (
-                            data.get("role")
-                            or data.get("context", {}).get("role")
-                            or _chat_msg[:40]
-                        )
-                        _js_chat_stats = _jobspy_market_stats(str(_js_chat_role))
-                        if _js_chat_stats:
-                            _chat_api_ctx = data.get("_api_context") or {}
-                            _chat_api_ctx["jobspy_market_stats"] = _js_chat_stats
-                            data["_api_context"] = _chat_api_ctx
-                            logger.info("Enriched /api/chat with jobspy market stats")
-                    except (ValueError, TypeError, KeyError, OSError) as _jse:
-                        logger.error(
-                            "JobSpy enrichment for chat failed: %s",
-                            _jse,
-                            exc_info=True,
-                        )
-
-                # ── Tavily enrichment for chat: news and trends ──
-                if (
-                    _tavily_available
-                    and _tavily_search
-                    and any(
-                        kw in _chat_msg
-                        for kw in (
-                            "news",
-                            "trend",
-                            "latest",
-                            "recent",
-                            "update",
-                            "what's happening",
-                            "industry",
-                        )
-                    )
-                ):
-                    try:
-                        _tav_results = _tavily_search(
-                            f"recruitment hiring {_chat_msg[:60]}",
-                            max_results=3,
-                        )
-                        if _tav_results:
-                            _chat_api_ctx = data.get("_api_context") or {}
-                            _chat_api_ctx["tavily_web_results"] = _tav_results
-                            data["_api_context"] = _chat_api_ctx
-                            logger.info(
-                                "Enriched /api/chat with tavily search (%d results)",
-                                len(_tav_results),
-                            )
-                    except (
-                        urllib.error.URLError,
-                        OSError,
-                        ValueError,
-                        TypeError,
-                    ) as _te:
-                        logger.error(
-                            "Tavily enrichment for chat failed: %s",
-                            _te,
-                            exc_info=True,
-                        )
-
-                # ── Vector search RAG: semantic KB retrieval ──
-                if _vector_search_available and _vector_search:
-                    try:
-                        _vs_results = _vector_search(_chat_msg, top_k=3)
-                        if _vs_results:
-                            _chat_api_ctx = data.get("_api_context") or {}
-                            _chat_api_ctx["vector_kb_results"] = _vs_results
-                            data["_api_context"] = _chat_api_ctx
-                            logger.info(
-                                "Enriched /api/chat with vector search (%d KB matches)",
-                                len(_vs_results),
-                            )
-                    except (ValueError, TypeError, OSError) as _vse:
-                        logger.error(
-                            "Vector search enrichment for chat failed: %s",
-                            _vse,
-                            exc_info=True,
-                        )
+                # ── Shared enrichment: file parsing + parallel API calls ──
+                _enrich_chat_context(data, data.get("message") or "")
 
                 from nova import handle_chat_request
 
@@ -22351,181 +22406,8 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             self.end_headers()
 
             try:
-                # ── File attachment parsing (same as /api/chat) ──
-                _sfile_att = data.get("file_attachment")
-                if _sfile_att and isinstance(_sfile_att, dict):
-                    try:
-                        _sfile_text = _parse_file_attachment(_sfile_att)
-                        if _sfile_text:
-                            _sfname = _sfile_att.get("name") or "file"
-                            data["message"] = (
-                                data.get("message") or ""
-                            ) + f"\n\n[Attached file: {_sfname}]\n{_sfile_text}"
-                    except Exception as _sfpe:
-                        logger.error(
-                            "Stream file parse failed: %s", _sfpe, exc_info=True
-                        )
-
-                # ── API enrichment (same as /api/chat) ──
-                if _api_integrations_available:
-                    _chat_msg = (data.get("message") or "").lower()
-                    _chat_api_ctx: dict = {}
-                    _chat_role = (
-                        data.get("role") or data.get("context", {}).get("role") or ""
-                    )
-                    if _api_onet and any(
-                        kw in _chat_msg
-                        for kw in ("job", "role", "occupation", "career", "position")
-                    ):
-                        try:
-                            _search_term = _chat_role or _chat_msg[:50]
-                            _onet_results = _api_onet.search_occupations(_search_term)
-                            if _onet_results:
-                                _chat_api_ctx["onet_occupations"] = _onet_results[:5]
-                        except (
-                            urllib.error.URLError,
-                            OSError,
-                            ValueError,
-                            TypeError,
-                        ) as _oe:
-                            logger.error(
-                                "O*NET enrichment for stream failed: %s",
-                                _oe,
-                                exc_info=True,
-                            )
-                    if _api_adzuna and any(
-                        kw in _chat_msg
-                        for kw in ("salary", "pay", "compensation", "wage", "earning")
-                    ):
-                        try:
-                            _sal_role = _chat_role or "software engineer"
-                            _sal_hist = _api_adzuna.get_salary_histogram(
-                                _sal_role, "us"
-                            )
-                            if _sal_hist:
-                                _chat_api_ctx["adzuna_salary_histogram"] = _sal_hist
-                        except (
-                            urllib.error.URLError,
-                            OSError,
-                            ValueError,
-                            TypeError,
-                        ) as _ae:
-                            logger.error(
-                                "Adzuna enrichment for stream failed: %s",
-                                _ae,
-                                exc_info=True,
-                            )
-                    if _api_fred and any(
-                        kw in _chat_msg
-                        for kw in (
-                            "market",
-                            "economy",
-                            "unemployment",
-                            "inflation",
-                            "economic",
-                            "recession",
-                        )
-                    ):
-                        try:
-                            _fred_unemp = _api_fred.get_unemployment_rate()
-                            if _fred_unemp:
-                                _chat_api_ctx["fred_unemployment"] = _fred_unemp
-                            _fred_cpi = _api_fred.get_cpi_data(months=6)
-                            if _fred_cpi:
-                                _chat_api_ctx["fred_cpi"] = _fred_cpi
-                        except (
-                            urllib.error.URLError,
-                            OSError,
-                            ValueError,
-                            TypeError,
-                        ) as _fe:
-                            logger.error(
-                                "FRED enrichment for stream failed: %s",
-                                _fe,
-                                exc_info=True,
-                            )
-                    if _chat_api_ctx:
-                        data["_api_context"] = _chat_api_ctx
-
-                # ── JobSpy / Tavily / Vector search for stream (same as /api/chat) ──
-                _stream_msg = (data.get("message") or "").lower()
-                if (
-                    _jobspy_available
-                    and _jobspy_market_stats
-                    and any(
-                        kw in _stream_msg
-                        for kw in (
-                            "job",
-                            "hire",
-                            "hiring",
-                            "recruit",
-                            "posting",
-                            "vacancy",
-                        )
-                    )
-                ):
-                    try:
-                        _sjs_role = (
-                            data.get("role")
-                            or data.get("context", {}).get("role")
-                            or _stream_msg[:40]
-                        )
-                        _sjs_stats = _jobspy_market_stats(str(_sjs_role))
-                        if _sjs_stats:
-                            _sctx = data.get("_api_context") or {}
-                            _sctx["jobspy_market_stats"] = _sjs_stats
-                            data["_api_context"] = _sctx
-                    except (ValueError, TypeError, KeyError, OSError) as _jse:
-                        logger.error(
-                            "JobSpy stream enrichment failed: %s", _jse, exc_info=True
-                        )
-
-                if (
-                    _tavily_available
-                    and _tavily_search
-                    and any(
-                        kw in _stream_msg
-                        for kw in (
-                            "news",
-                            "trend",
-                            "latest",
-                            "recent",
-                            "update",
-                            "industry",
-                        )
-                    )
-                ):
-                    try:
-                        _stav = _tavily_search(
-                            f"recruitment hiring {_stream_msg[:60]}", max_results=3
-                        )
-                        if _stav:
-                            _sctx = data.get("_api_context") or {}
-                            _sctx["tavily_web_results"] = _stav
-                            data["_api_context"] = _sctx
-                    except (
-                        urllib.error.URLError,
-                        OSError,
-                        ValueError,
-                        TypeError,
-                    ) as _te:
-                        logger.error(
-                            "Tavily stream enrichment failed: %s", _te, exc_info=True
-                        )
-
-                if _vector_search_available and _vector_search:
-                    try:
-                        _svs = _vector_search(_stream_msg, top_k=3)
-                        if _svs:
-                            _sctx = data.get("_api_context") or {}
-                            _sctx["vector_kb_results"] = _svs
-                            data["_api_context"] = _sctx
-                    except (ValueError, TypeError, OSError) as _vse:
-                        logger.error(
-                            "Vector search stream enrichment failed: %s",
-                            _vse,
-                            exc_info=True,
-                        )
+                # ── Shared enrichment: file parsing + parallel API calls ──
+                _enrich_chat_context(data, data.get("message") or "")
 
                 # Check for cancellation before LLM call
                 if cancel_event.is_set():
@@ -25949,10 +25831,147 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             self.end_headers()
             self.wfile.write(data)
 
+    # Nova chat widget snippet injected into all HTML template pages.
+    # Excluded from nova.html (dedicated full-page chat), legal/terms pages,
+    # and the API portal.
+    _NOVA_WIDGET_SNIPPET = (
+        b"\n<!-- Nova AI Chat Widget (auto-injected) -->"
+        b'\n<script src="/static/nova-chat.js?v=3.5.3"></script>'
+        b'\n<script>(function(){if(typeof NovaChat!=="undefined")NovaChat.init({containerId:null})})();</script>\n'
+    )
+    _NOVA_WIDGET_SKIP_PAGES = {
+        "nova.html",
+        "terms.html",
+        "privacy.html",
+        "api-portal.html",
+        "platform.html",
+    }
+
+    def _serve_fragment(self, fragment_name: str) -> None:
+        """Serve an HTML fragment for the Nova Platform SPA shell.
+
+        Reads the corresponding template file, strips the outer HTML/head/body
+        wrapper, and returns only the inner content. Results are cached in memory
+        for performance. Thread-safe via _fragment_cache_lock.
+        """
+        if not fragment_name or fragment_name not in _FRAGMENT_MAP:
+            self.send_error(404, f"Fragment not found: {fragment_name}")
+            return
+
+        # Check cache first (thread-safe)
+        with _fragment_cache_lock:
+            cached = _fragment_cache.get(fragment_name)
+        if cached is not None:
+            body = cached.encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Cache-Control", "private, max-age=300")
+            cors_origin = self._get_cors_origin()
+            if cors_origin:
+                self.send_header("Access-Control-Allow-Origin", cors_origin)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+
+        # Read template file
+        template_file = _FRAGMENT_MAP[fragment_name]
+        template_path = os.path.join(TEMPLATES_DIR, template_file)
+        if not os.path.exists(template_path):
+            self.send_error(404, f"Template not found: {template_file}")
+            return
+
+        try:
+            with open(template_path, "r", encoding="utf-8") as f:
+                raw_html = f.read()
+        except OSError as e:
+            logger.error(
+                "Fragment read error for %s: %s", fragment_name, e, exc_info=True
+            )
+            self.send_error(500, "Failed to read template")
+            return
+
+        # Strip outer HTML/head/body wrapper, keep inner content
+        fragment_html = self._extract_fragment_content(raw_html)
+
+        # Cache the result (thread-safe)
+        with _fragment_cache_lock:
+            _fragment_cache[fragment_name] = fragment_html
+
+        body = fragment_html.encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Cache-Control", "private, max-age=300")
+        cors_origin = self._get_cors_origin()
+        if cors_origin:
+            self.send_header("Access-Control-Allow-Origin", cors_origin)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    @staticmethod
+    def _extract_fragment_content(html: str) -> str:
+        """Extract the inner content from a full HTML page for fragment loading.
+
+        Strips <!DOCTYPE>, <html>, <head>, and <body> tags, returning only the
+        content that was inside <body>. Preserves inline <style> and <script>
+        blocks that appear within the body. The <head> content (meta tags, title,
+        external links) is discarded since the platform shell provides those.
+        """
+        # Remove DOCTYPE
+        content = re.sub(r"<!DOCTYPE[^>]*>", "", html, flags=re.IGNORECASE)
+
+        # Extract body content if <body> tags exist
+        body_match = re.search(
+            r"<body[^>]*>(.*)</body>",
+            content,
+            flags=re.DOTALL | re.IGNORECASE,
+        )
+        if body_match:
+            content = body_match.group(1)
+        else:
+            # No <body> tag -- strip <html> and <head> if present
+            content = re.sub(r"</?html[^>]*>", "", content, flags=re.IGNORECASE)
+            head_match = re.search(
+                r"<head[^>]*>.*?</head>",
+                content,
+                flags=re.DOTALL | re.IGNORECASE,
+            )
+            if head_match:
+                content = content[: head_match.start()] + content[head_match.end() :]
+
+        # Remove any stray nova-chat.js widget injection (platform has its own)
+        content = re.sub(
+            r"<!--\s*Nova AI Chat Widget.*?</script>\s*",
+            "",
+            content,
+            flags=re.DOTALL | re.IGNORECASE,
+        )
+
+        return content.strip()
+
     def _serve_file(self, filepath, content_type):
         try:
             with open(filepath, "rb") as f:
                 content = f.read()
+
+            # Auto-inject Nova chat widget into HTML template pages
+            # (skip pages that already include it or shouldn't have it)
+            if (
+                content_type == "text/html"
+                and filepath.startswith(TEMPLATES_DIR)
+                and os.path.basename(filepath) not in self._NOVA_WIDGET_SKIP_PAGES
+                and b"nova-chat.js" not in content
+            ):
+                # Insert just before </body>
+                close_body = content.rfind(b"</body>")
+                if close_body != -1:
+                    content = (
+                        content[:close_body]
+                        + self._NOVA_WIDGET_SNIPPET
+                        + content[close_body:]
+                    )
+
             accept_encoding = self.headers.get("Accept-Encoding") or ""
             if "gzip" in accept_encoding and len(content) > 1024:
                 compressed = gzip_module.compress(content, compresslevel=6)

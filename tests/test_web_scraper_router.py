@@ -26,6 +26,7 @@ from web_scraper_router import (
     search_web,
     get_scraper_status,
     reset_circuit_breakers,
+    clear_cache,
     _scrape_result,
     _search_result,
     _HTMLTextExtractor,
@@ -110,6 +111,7 @@ class TestCircuitBreaker:
             "total_requests",
             "successful_requests",
             "failed_requests",
+            "consecutive_failures",
             "success_rate_pct",
             "last_error",
             "last_error_time",
@@ -260,7 +262,7 @@ class TestFirecrawlTier:
         assert result is None
 
     @patch.object(router, "FIRECRAWL_API_KEY", "test-key")
-    @patch("web_scraper_router.urlopen")
+    @patch("urllib.request.urlopen")
     def test_successful_scrape(self, mock_urlopen: MagicMock) -> None:
         """Should return normalized result on successful scrape."""
         response_data = {
@@ -282,7 +284,7 @@ class TestFirecrawlTier:
         assert "Hello world" in result["content"]
 
     @patch.object(router, "FIRECRAWL_API_KEY", "test-key")
-    @patch("web_scraper_router.urlopen")
+    @patch("urllib.request.urlopen")
     def test_402_trips_circuit_breaker(self, mock_urlopen: MagicMock) -> None:
         """402 error should trip the circuit breaker."""
         from urllib.error import HTTPError
@@ -302,7 +304,7 @@ class TestJinaTier:
         """Reset circuit breaker before each test."""
         router._cb_jina.reset()
 
-    @patch("web_scraper_router.urlopen")
+    @patch("urllib.request.urlopen")
     def test_successful_scrape(self, mock_urlopen: MagicMock) -> None:
         """Should return normalized result on Jina scrape."""
         mock_resp = MagicMock()
@@ -319,7 +321,7 @@ class TestJinaTier:
         assert "extracted content" in result["content"]
         assert result["title"] == "Page Title"
 
-    @patch("web_scraper_router.urlopen")
+    @patch("urllib.request.urlopen")
     def test_empty_response_returns_none(self, mock_urlopen: MagicMock) -> None:
         """Short responses should be rejected."""
         mock_resp = MagicMock()
@@ -346,7 +348,7 @@ class TestTavilyTier:
         assert result is None
 
     @patch.object(router, "TAVILY_API_KEY", "test-key")
-    @patch("web_scraper_router.urlopen")
+    @patch("urllib.request.urlopen")
     def test_successful_search(self, mock_urlopen: MagicMock) -> None:
         """Should return normalized search results."""
         response_data = {
@@ -376,85 +378,32 @@ class TestTavilyTier:
         assert results[0]["title"] == "Result 1"
 
 
-class TestSerperTier:
-    """Tests for Serper tier."""
+class TestLLMAssistedTier:
+    """Tests for LLM-assisted scrape tier (Tier 4)."""
 
     def setup_method(self) -> None:
         """Reset circuit breaker."""
-        router._cb_serper.reset()
+        router._cb_llm_assist.reset()
 
-    @patch.object(router, "SERPER_API_KEY", "")
-    def test_no_api_key_returns_none(self) -> None:
-        """Should return None without API key."""
-        result = router._serper_search("test query")
-        assert result is None
-
-    @patch.object(router, "SERPER_API_KEY", "test-key")
-    @patch("web_scraper_router.urlopen")
-    def test_successful_search(self, mock_urlopen: MagicMock) -> None:
-        """Should parse Serper organic results."""
-        response_data = {
-            "organic": [
-                {
-                    "title": "Google Result",
-                    "link": "https://example.com/google",
-                    "snippet": "A Google search result",
-                },
-            ]
-        }
-        mock_resp = MagicMock()
-        mock_resp.read.return_value = json.dumps(response_data).encode("utf-8")
-        mock_resp.__enter__ = MagicMock(return_value=mock_resp)
-        mock_resp.__exit__ = MagicMock(return_value=False)
-        mock_urlopen.return_value = mock_resp
-
-        results = router._serper_search("test query", 5)
-        assert results is not None
-        assert len(results) == 1
-        assert results[0]["provider"] == "serper"
-        assert results[0]["url"] == "https://example.com/google"
+    def test_circuit_breaker_exists(self) -> None:
+        """LLM-assisted tier should have its own circuit breaker."""
+        stats = router._cb_llm_assist.get_stats()
+        assert stats["name"] == "llm_assisted"
+        assert stats["available"] is True
 
 
-class TestBraveTier:
-    """Tests for Brave Search tier."""
+class TestCacheFallbackTier:
+    """Tests for cache fallback tier (Tier 5)."""
 
     def setup_method(self) -> None:
         """Reset circuit breaker."""
-        router._cb_brave.reset()
+        router._cb_cache_fallback.reset()
 
-    @patch.object(router, "BRAVE_API_KEY", "")
-    def test_no_api_key_returns_none(self) -> None:
-        """Should return None without API key."""
-        result = router._brave_search("test query")
-        assert result is None
-
-    @patch.object(router, "BRAVE_API_KEY", "test-key")
-    @patch("web_scraper_router.urlopen")
-    def test_successful_search(self, mock_urlopen: MagicMock) -> None:
-        """Should parse Brave web results."""
-        response_data = {
-            "web": {
-                "results": [
-                    {
-                        "title": "Brave Result",
-                        "url": "https://brave.com/result",
-                        "description": "A Brave search result",
-                    },
-                ]
-            }
-        }
-        mock_resp = MagicMock()
-        mock_resp.read.return_value = json.dumps(response_data).encode("utf-8")
-        mock_resp.headers = MagicMock()
-        mock_resp.headers.get.return_value = None  # No gzip
-        mock_resp.__enter__ = MagicMock(return_value=mock_resp)
-        mock_resp.__exit__ = MagicMock(return_value=False)
-        mock_urlopen.return_value = mock_resp
-
-        results = router._brave_search("test query", 5)
-        assert results is not None
-        assert len(results) == 1
-        assert results[0]["provider"] == "brave"
+    def test_circuit_breaker_exists(self) -> None:
+        """Cache fallback tier should have its own circuit breaker."""
+        stats = router._cb_cache_fallback.get_stats()
+        assert stats["name"] == "cache_fallback"
+        assert stats["available"] is True
 
 
 class TestUrllibTier:
@@ -464,7 +413,7 @@ class TestUrllibTier:
         """Reset circuit breaker."""
         router._cb_urllib.reset()
 
-    @patch("web_scraper_router.urlopen")
+    @patch("urllib.request.urlopen")
     def test_successful_html_scrape(self, mock_urlopen: MagicMock) -> None:
         """Should extract text from HTML."""
         html_content = """
@@ -505,8 +454,9 @@ class TestScrapeUrlFallback:
     """Tests for the scrape_url() public API with tier fallback."""
 
     def setup_method(self) -> None:
-        """Reset all circuit breakers."""
+        """Reset all circuit breakers and LRU cache."""
         reset_circuit_breakers()
+        clear_cache()
 
     def test_empty_url_returns_none_provider(self) -> None:
         """Empty URL should return provider='none'."""
@@ -542,10 +492,14 @@ class TestScrapeUrlFallback:
     @patch("web_scraper_router._firecrawl_scrape", return_value=None)
     @patch("web_scraper_router._jina_scrape", return_value=None)
     @patch("web_scraper_router._tavily_scrape", return_value=None)
+    @patch("web_scraper_router._llm_assisted_scrape", return_value=None)
+    @patch("web_scraper_router._cache_fallback_scrape", return_value=None)
     @patch("web_scraper_router._urllib_scrape", return_value=None)
     def test_all_tiers_fail(
         self,
         mock_urllib: MagicMock,
+        mock_cache: MagicMock,
+        mock_llm: MagicMock,
         mock_tavily: MagicMock,
         mock_jina: MagicMock,
         mock_fc: MagicMock,
@@ -565,8 +519,9 @@ class TestSearchWebFallback:
     """Tests for the search_web() public API with tier fallback."""
 
     def setup_method(self) -> None:
-        """Reset all circuit breakers."""
+        """Reset all circuit breakers and LRU cache."""
         reset_circuit_breakers()
+        clear_cache()
 
     def test_empty_query_returns_empty(self) -> None:
         """Empty query should return empty list."""
@@ -602,12 +557,8 @@ class TestSearchWebFallback:
     @patch("web_scraper_router._firecrawl_search", return_value=None)
     @patch("web_scraper_router._jina_search", return_value=None)
     @patch("web_scraper_router._tavily_search", return_value=None)
-    @patch("web_scraper_router._serper_search", return_value=None)
-    @patch("web_scraper_router._brave_search", return_value=None)
     def test_all_tiers_fail(
         self,
-        mock_brave: MagicMock,
-        mock_serper: MagicMock,
         mock_tavily: MagicMock,
         mock_jina: MagicMock,
         mock_fc: MagicMock,
@@ -626,8 +577,9 @@ class TestGetScraperStatus:
     """Tests for get_scraper_status()."""
 
     def setup_method(self) -> None:
-        """Reset all circuit breakers."""
+        """Reset all circuit breakers and LRU cache."""
         reset_circuit_breakers()
+        clear_cache()
 
     def test_status_structure(self) -> None:
         """Status should have expected top-level keys."""
@@ -658,8 +610,8 @@ class TestGetScraperStatus:
             "firecrawl",
             "jina",
             "tavily",
-            "serper",
-            "brave",
+            "llm_assisted",
+            "cache_fallback",
             "urllib_direct",
         ]
 

@@ -8021,14 +8021,17 @@
       document.body.classList.add("page-enter");
     </script>
 
-    <!-- Nova AI Suite — AI Chat Widget -->
-    <script src="/static/nova-chat.js?v=3.5.2"></script>
+    <!-- Nova AI Suite — AI Chat Widget (floating bottom-right) -->
+    <script src="/static/nova-chat.js?v=3.5.3"></script>
     <script>
-      document.addEventListener("DOMContentLoaded", function () {
+      (function () {
+        // Init immediately -- script is at end of body so DOM is ready.
+        // DOMContentLoaded may have already fired; calling init() directly
+        // is the reliable path for bottom-of-body scripts.
         if (typeof NovaChat !== "undefined") {
           NovaChat.init({ containerId: null });
         }
-      });
+      })();
     </script>
   </body>
 </html>

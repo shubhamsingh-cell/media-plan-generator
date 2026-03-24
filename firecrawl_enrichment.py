@@ -364,54 +364,86 @@ def scrape_job_board_pricing(board_name: str) -> dict[str, Any]:
         fallback["last_updated"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
         return fallback
 
-    # Use Firecrawl scrape with JSON extraction
-    payload: dict[str, Any] = {
-        "url": url,
-        "formats": ["json"],
-        "jsonOptions": {
-            "prompt": (
-                "Extract job posting pricing information including: "
-                "cost-per-click (CPC) range with min and max values, "
-                "cost-per-application (CPA) estimate range, "
-                "base job posting cost or subscription price, "
-                "pricing model type (CPC, CPA, subscription, flat-rate), "
-                "any free tier or trial options."
-            ),
-            "schema": {
-                "type": "object",
-                "properties": {
-                    "cpc_min": {"type": "number", "description": "Minimum CPC in USD"},
-                    "cpc_max": {"type": "number", "description": "Maximum CPC in USD"},
-                    "cpa_min": {"type": "number", "description": "Minimum CPA in USD"},
-                    "cpa_max": {"type": "number", "description": "Maximum CPA in USD"},
-                    "posting_cost": {
-                        "type": "number",
-                        "description": "Base posting cost in USD",
-                    },
-                    "free_option": {
-                        "type": "boolean",
-                        "description": "Whether a free posting option exists",
-                    },
-                    "pricing_model": {
-                        "type": "string",
-                        "description": "Pricing model type",
+    # Try multi-tier router first (Firecrawl -> Jina -> Tavily -> urllib)
+    extracted: dict[str, Any] = {}
+    router_succeeded = False
+
+    if _router_available:
+        try:
+            router_result = _router_scrape_url(url)
+            if router_result and router_result.get("content"):
+                # Router returned raw text/markdown -- use it for basic extraction
+                content = router_result.get("content") or ""
+                provider = router_result.get("provider") or "unknown"
+                logger.info(f"Router scraped {board_key} pricing via {provider}")
+                router_succeeded = True
+                # Cannot do JSON extraction without Firecrawl, but
+                # we can still use the content + fallback values below
+        except Exception as exc:
+            logger.error(f"Router scrape failed for {board_key}: {exc}", exc_info=True)
+
+    # Also try Firecrawl directly for JSON extraction (richer data)
+    if not router_succeeded:
+        payload: dict[str, Any] = {
+            "url": url,
+            "formats": ["json"],
+            "jsonOptions": {
+                "prompt": (
+                    "Extract job posting pricing information including: "
+                    "cost-per-click (CPC) range with min and max values, "
+                    "cost-per-application (CPA) estimate range, "
+                    "base job posting cost or subscription price, "
+                    "pricing model type (CPC, CPA, subscription, flat-rate), "
+                    "any free tier or trial options."
+                ),
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "cpc_min": {
+                            "type": "number",
+                            "description": "Minimum CPC in USD",
+                        },
+                        "cpc_max": {
+                            "type": "number",
+                            "description": "Maximum CPC in USD",
+                        },
+                        "cpa_min": {
+                            "type": "number",
+                            "description": "Minimum CPA in USD",
+                        },
+                        "cpa_max": {
+                            "type": "number",
+                            "description": "Maximum CPA in USD",
+                        },
+                        "posting_cost": {
+                            "type": "number",
+                            "description": "Base posting cost in USD",
+                        },
+                        "free_option": {
+                            "type": "boolean",
+                            "description": "Whether a free posting option exists",
+                        },
+                        "pricing_model": {
+                            "type": "string",
+                            "description": "Pricing model type",
+                        },
                     },
                 },
             },
-        },
-        "onlyMainContent": True,
-    }
+            "onlyMainContent": True,
+        }
 
-    response = _firecrawl_request("/scrape", payload)
-    if not response or not response.get("success"):
-        logger.warning(
-            f"Firecrawl scrape failed for {board_key}, using fallback benchmarks"
-        )
-        fallback["last_updated"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-        return fallback
-
-    # Parse the extracted JSON data
-    extracted = response.get("data", {}).get("json") or {}
+        response = _firecrawl_request("/scrape", payload)
+        if response and response.get("success"):
+            extracted = response.get("data", {}).get("json") or {}
+        elif not router_succeeded:
+            logger.warning(
+                f"All scrape tiers failed for {board_key}, using fallback benchmarks"
+            )
+            fallback["last_updated"] = time.strftime(
+                "%Y-%m-%dT%H:%M:%SZ", time.gmtime()
+            )
+            return fallback
 
     result: dict[str, Any] = {
         "board_name": _FALLBACK_BENCHMARKS.get(board_key, {}).get("board_name")
@@ -439,12 +471,14 @@ def scrape_job_board_pricing(board_name: str) -> dict[str, Any]:
             "base_cost": extracted.get("posting_cost"),
         },
         "model": extracted.get("pricing_model") or fallback.get("model", "Unknown"),
-        "source": "firecrawl_live",
+        "source": "router_live" if router_succeeded else "firecrawl_live",
         "last_updated": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
     }
 
     _cache_set(ckey, result, TTL_JOB_BOARD)
-    logger.info(f"Firecrawl scraped pricing for {board_key} successfully")
+    logger.info(
+        f"Scraped pricing for {board_key} successfully (router={router_succeeded})"
+    )
     return result
 
 
@@ -568,15 +602,37 @@ def analyze_competitor_careers(company_domain: str) -> dict[str, Any]:
             scrape_payload["url"] = candidate_urls[1]
             scrape_response = _firecrawl_request("/scrape", scrape_payload)
 
+    # If Firecrawl failed entirely, try multi-tier router for raw content
+    router_content = ""
     if not scrape_response or not scrape_response.get("success"):
-        logger.warning(f"Firecrawl scrape failed for {domain} careers")
+        if _router_available:
+            for candidate in candidate_urls[:3]:
+                try:
+                    router_result = _router_scrape_url(candidate)
+                    if router_result and router_result.get("content"):
+                        router_content = router_result.get("content") or ""
+                        logger.info(
+                            f"Router scraped careers for {domain} via "
+                            f"{router_result.get('provider', 'unknown')}"
+                        )
+                        break
+                except Exception as exc:
+                    logger.error(
+                        f"Router scrape failed for {candidate}: {exc}",
+                        exc_info=True,
+                    )
+
+    if (
+        not scrape_response or not scrape_response.get("success")
+    ) and not router_content:
+        logger.warning(f"All scrape tiers failed for {domain} careers")
         empty_result["career_urls"] = career_urls[:5]
         return empty_result
 
     # Parse extracted data
-    resp_data = scrape_response.get("data") or {}
+    resp_data = (scrape_response.get("data") or {}) if scrape_response else {}
     extracted = resp_data.get("json") or {}
-    markdown_content = resp_data.get("markdown") or ""
+    markdown_content = resp_data.get("markdown") or router_content or ""
 
     # Detect job boards from markdown content
     boards_detected: list[str] = []
@@ -608,7 +664,7 @@ def analyze_competitor_careers(company_domain: str) -> dict[str, Any]:
         "locations": extracted.get("locations") or [],
         "boards_detected": boards_detected,
         "career_urls": career_urls[:5],
-        "source": "firecrawl_live",
+        "source": "router_live" if router_content else "firecrawl_live",
         "last_updated": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
     }
 
@@ -1390,8 +1446,30 @@ def scrape_platform_ad_specs(platform: str) -> dict[str, Any]:
     try:
         response = _firecrawl_request("/scrape", scrape_payload)
         if not response or not response.get("success"):
+            # Firecrawl failed -- try multi-tier router for raw content
+            if _router_available:
+                try:
+                    router_result = _router_scrape_url(url)
+                    if router_result and router_result.get("content"):
+                        logger.info(
+                            f"Router scraped ad specs for {platform_key} via "
+                            f"{router_result.get('provider', 'unknown')}"
+                        )
+                        # Router can't do JSON extraction, use fallback specs
+                        # but mark as partially live
+                        fallback["source"] = "router_partial"
+                        fallback["last_updated"] = time.strftime(
+                            "%Y-%m-%dT%H:%M:%SZ", time.gmtime()
+                        )
+                        _cache_set(ckey, fallback, TTL_AD_SPECS)
+                        return fallback
+                except Exception as exc:
+                    logger.error(
+                        f"Router ad specs fallback failed: {exc}", exc_info=True
+                    )
+
             logger.warning(
-                f"Firecrawl ad specs scrape failed for {platform_key}, using fallback"
+                f"All scrape tiers failed for {platform_key} ad specs, using fallback"
             )
             fallback["last_updated"] = time.strftime(
                 "%Y-%m-%dT%H:%M:%SZ", time.gmtime()

@@ -105,7 +105,7 @@ DATA_DIR = Path(__file__).resolve().parent / "data"
 # Constants
 # ---------------------------------------------------------------------------
 JOVEO_PRIMARY_COLOR = "#0066CC"
-MAX_HISTORY_TURNS = 6
+MAX_HISTORY_TURNS = 20
 MAX_MESSAGE_LENGTH = 4000
 CLAUDE_MODEL_PRIMARY = (
     "claude-haiku-4-5-20251001"  # Fast + cheap for simple/medium queries
@@ -9612,11 +9612,36 @@ def handle_chat_request(request_data: dict) -> dict:
             conversation_history=history,
             enrichment_context=context if isinstance(context, dict) else None,
         )
+
+        # C-01: Graceful fallback when all LLM providers fail (empty response)
+        _resp_text = (
+            (result.get("response") or "").strip() if isinstance(result, dict) else ""
+        )
+        if not _resp_text:
+            logger.warning(
+                "All LLM providers returned empty response for: %s", message[:80]
+            )
+            return {
+                "response": (
+                    "I'm temporarily unable to process your request. "
+                    "All AI providers are currently experiencing issues. "
+                    "Please try again in a moment."
+                ),
+                "sources": [],
+                "confidence": 0.0,
+                "tools_used": [],
+                "error": "all_providers_failed",
+            }
+
         return result
     except Exception as e:
         logger.error("Chat request failed: %s", e, exc_info=True)
         return {
-            "response": "I encountered an error processing your question. Please try again.",
+            "response": (
+                "I'm temporarily unable to process your request. "
+                "All AI providers are currently experiencing issues. "
+                "Please try again in a moment."
+            ),
             "sources": [],
             "confidence": 0.0,
             "tools_used": [],

@@ -1,24 +1,25 @@
 """
-web_scraper_router.py -- Multi-tier web scraping fallback system.
+web_scraper_router.py -- Multi-tier web scraping fallback system (v2).
 
 Provides a unified interface for web scraping and search with automatic
-fallback across 6 providers. When one tier fails (402 credit exhausted,
+fallback across 6 tiers.  When one tier fails (402 credit exhausted,
 429 rate limited, or network error), the router transparently falls
 through to the next available tier.
 
-Tier 1: Firecrawl     -- Full-featured scrape/search/map (API key required)
-Tier 2: Jina AI Reader -- Free markdown reader (no API key for basic)
-Tier 3: Tavily Search  -- 1,000 free searches/month (API key required)
-Tier 4: Serper         -- 2,500 free searches/month (API key required)
-Tier 5: Brave Search   -- 2,000 free searches/month (API key required)
-Tier 6: Direct urllib   -- Always available, no API key needed
+Tier 1: Firecrawl      -- Full-featured scrape/search/map (API key required, paid)
+Tier 2: Jina AI Reader -- Free markdown reader (GET https://r.jina.ai/{url}, no key)
+Tier 3: Tavily Extract -- URL content extraction (TAVILY_API_KEY, 1K credits/month)
+Tier 4: LLM-assisted   -- stdlib fetch raw HTML -> LLM router extracts structured content
+Tier 5: Cache fallback  -- Google Cache + Internet Archive Wayback Machine
+Tier 6: stdlib urllib   -- Raw HTML fetch + HTMLParser text extraction (always works)
 
 All external API calls:
-    - Use only urllib.request (stdlib, no third-party dependencies)
-    - Have per-tier circuit breakers (1hr cooldown on 402/429)
+    - Use only stdlib (urllib.request, json, os) -- no third-party dependencies
+    - Have per-tier circuit breakers (5 failures -> 60s cooldown)
+    - In-memory LRU cache (50 entries) + optional Upstash Redis L2 cache
     - Track request counts and success rates
-    - Are thread-safe
-    - Log which tier was used
+    - Are thread-safe (locks on shared state)
+    - Log which tier was used with timing
     - Return normalized output
 
 Usage:
@@ -29,6 +30,7 @@ Usage:
 
 from __future__ import annotations
 
+import hashlib
 import html.parser
 import json
 import logging
@@ -37,9 +39,11 @@ import re
 import ssl
 import threading
 import time
+import urllib.error
+import urllib.parse
+import urllib.request
+from collections import OrderedDict
 from typing import Any, Optional
-from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
 
 logger = logging.getLogger(__name__)
 
@@ -51,35 +55,138 @@ FIRECRAWL_API_KEY: str = os.environ.get("FIRECRAWL_API_KEY") or ""
 FIRECRAWL_BASE_URL: str = "https://api.firecrawl.dev/v1"
 JINA_API_KEY: str = os.environ.get("JINA_API_KEY") or ""
 TAVILY_API_KEY: str = os.environ.get("TAVILY_API_KEY") or ""
-SERPER_API_KEY: str = os.environ.get("SERPER_API_KEY") or ""
-BRAVE_API_KEY: str = os.environ.get("BRAVE_API_KEY") or ""
 
-REQUEST_TIMEOUT: int = 15  # seconds per request
-CIRCUIT_BREAKER_COOLDOWN: int = 3600  # 1 hour cooldown after 402/429
+REQUEST_TIMEOUT: int = 15  # seconds per external request
+LLM_SCRAPE_TIMEOUT: int = 30  # LLM calls can take longer
+CACHE_SCRAPE_TIMEOUT: int = 10  # cache/archive lookups should be fast
+
+# Circuit breaker tuning (matches llm_router.py pattern)
+CB_FAILURE_THRESHOLD: int = 5  # failures before tripping
+CB_COOLDOWN_SECONDS: int = 60  # seconds to disable after trip
 
 
 # =============================================================================
-# CIRCUIT BREAKER (thread-safe, per-tier)
+# LRU IN-MEMORY CACHE (L1) + OPTIONAL UPSTASH REDIS (L2)
+# =============================================================================
+
+_LRU_MAX_SIZE: int = 50
+_LRU_TTL: float = 1800.0  # 30 minutes
+
+_lru_cache: OrderedDict[str, tuple[Any, float]] = OrderedDict()
+_lru_lock = threading.Lock()
+
+# Optional L2 Redis cache
+try:
+    from upstash_cache import cache_get as _redis_get, cache_set as _redis_set
+
+    _redis_available = True
+except ImportError:
+    _redis_get = _redis_set = None  # type: ignore[assignment]
+    _redis_available = False
+    logger.info(
+        "upstash_cache not available; L2 Redis cache disabled for web_scraper_router"
+    )
+
+
+def _cache_key(url_or_query: str, operation: str = "scrape") -> str:
+    """Generate a deterministic cache key.
+
+    Args:
+        url_or_query: The URL or search query.
+        operation: 'scrape' or 'search'.
+
+    Returns:
+        MD5 hex digest prefixed with operation type.
+    """
+    raw = f"wsr:{operation}:{url_or_query}"
+    return hashlib.md5(raw.encode(), usedforsecurity=False).hexdigest()
+
+
+def _cache_get(key: str) -> Any | None:
+    """Read from L1 (memory LRU) then L2 (Redis) cache.
+
+    Args:
+        key: Cache key string.
+
+    Returns:
+        Cached value or None if miss/expired.
+    """
+    # L1: in-memory LRU
+    with _lru_lock:
+        entry = _lru_cache.get(key)
+        if entry is not None:
+            value, ts = entry
+            if time.time() - ts <= _LRU_TTL:
+                _lru_cache.move_to_end(key)
+                return value
+            else:
+                del _lru_cache[key]
+
+    # L2: Upstash Redis
+    if _redis_available and _redis_get is not None:
+        try:
+            val = _redis_get(f"wsr:{key}")
+            if val is not None:
+                # Promote to L1
+                _cache_put(key, val, skip_redis=True)
+                return val
+        except Exception as exc:
+            logger.error(f"Redis cache_get error for {key}: {exc}", exc_info=True)
+
+    return None
+
+
+def _cache_put(key: str, value: Any, skip_redis: bool = False) -> None:
+    """Write to L1 (memory LRU) and optionally L2 (Redis).
+
+    Args:
+        key: Cache key string.
+        value: Value to cache.
+        skip_redis: If True, only write to L1 (used for L2->L1 promotion).
+    """
+    with _lru_lock:
+        _lru_cache[key] = (value, time.time())
+        _lru_cache.move_to_end(key)
+        # Evict oldest if over capacity
+        while len(_lru_cache) > _LRU_MAX_SIZE:
+            _lru_cache.popitem(last=False)
+
+    if not skip_redis and _redis_available and _redis_set is not None:
+        try:
+            _redis_set(f"wsr:{key}", value, ttl_seconds=3600, category="web_scraper")
+        except Exception as exc:
+            logger.error(f"Redis cache_set error for {key}: {exc}", exc_info=True)
+
+
+# =============================================================================
+# CIRCUIT BREAKER (thread-safe, per-tier, 5 failures -> 60s cooldown)
 # =============================================================================
 
 
 class CircuitBreaker:
     """Thread-safe circuit breaker for a single scraping tier.
 
-    Disables a tier for a configurable cooldown period after receiving
-    a 402 (credits exhausted) or 429 (rate limited) response. Tracks
-    request counts and success rates for monitoring.
+    Trips after CB_FAILURE_THRESHOLD consecutive failures, disabling the tier
+    for CB_COOLDOWN_SECONDS.  Matches the llm_router.py pattern.
     """
 
-    def __init__(self, name: str, cooldown: int = CIRCUIT_BREAKER_COOLDOWN) -> None:
+    def __init__(
+        self,
+        name: str,
+        cooldown: int = CB_COOLDOWN_SECONDS,
+        threshold: int = CB_FAILURE_THRESHOLD,
+    ) -> None:
         """Initialize circuit breaker for a named tier.
 
         Args:
-            name: Human-readable tier name (e.g., "firecrawl").
-            cooldown: Seconds to disable after a trip.
+            name: Human-readable tier name (e.g., 'firecrawl').
+            cooldown: Seconds to disable after tripping.
+            threshold: Consecutive failures before tripping.
         """
         self.name = name
         self.cooldown = cooldown
+        self.threshold = threshold
+        self._consecutive_failures: int = 0
         self._disabled_until: float = 0.0
         self._total_requests: int = 0
         self._successful_requests: int = 0
@@ -95,8 +202,8 @@ class CircuitBreaker:
             if self._disabled_until <= 0:
                 return True
             if time.time() >= self._disabled_until:
-                # Cooldown expired, re-enable
                 self._disabled_until = 0.0
+                self._consecutive_failures = 0
                 return True
             return False
 
@@ -110,10 +217,10 @@ class CircuitBreaker:
             return max(0, int(remaining))
 
     def trip(self, reason: str = "") -> None:
-        """Trip the circuit breaker, disabling the tier for the cooldown period.
+        """Force-trip the circuit breaker (e.g., on 402/429).
 
         Args:
-            reason: Human-readable reason for the trip (e.g., "402 credits exhausted").
+            reason: Human-readable reason for the trip.
         """
         with self._lock:
             self._disabled_until = time.time() + self.cooldown
@@ -121,19 +228,21 @@ class CircuitBreaker:
             self._last_error_time = time.time()
             self._total_requests += 1
             self._failed_requests += 1
+            self._consecutive_failures = self.threshold  # mark as fully tripped
         logger.warning(
-            f"Circuit breaker tripped for {self.name}: {reason}. "
+            f"Circuit breaker TRIPPED for {self.name}: {reason}. "
             f"Disabled for {self.cooldown}s."
         )
 
     def record_success(self) -> None:
-        """Record a successful request."""
+        """Record a successful request and reset consecutive failure count."""
         with self._lock:
             self._total_requests += 1
             self._successful_requests += 1
+            self._consecutive_failures = 0
 
     def record_failure(self, reason: str = "") -> None:
-        """Record a failed request (does NOT trip the breaker).
+        """Record a failed request. Trips breaker after threshold consecutive failures.
 
         Args:
             reason: Description of the failure.
@@ -143,6 +252,14 @@ class CircuitBreaker:
             self._failed_requests += 1
             self._last_error = reason
             self._last_error_time = time.time()
+            self._consecutive_failures += 1
+            if self._consecutive_failures >= self.threshold:
+                self._disabled_until = time.time() + self.cooldown
+                logger.warning(
+                    f"Circuit breaker auto-tripped for {self.name} after "
+                    f"{self.threshold} consecutive failures: {reason}. "
+                    f"Disabled for {self.cooldown}s."
+                )
 
     def get_stats(self) -> dict[str, Any]:
         """Return monitoring stats for this circuit breaker."""
@@ -152,7 +269,6 @@ class CircuitBreaker:
                 success_rate = round(
                     self._successful_requests / self._total_requests * 100, 1
                 )
-            # Inline availability check to avoid lock re-entry
             now = time.time()
             if self._disabled_until <= 0 or now >= self._disabled_until:
                 available = True
@@ -168,6 +284,7 @@ class CircuitBreaker:
                 "successful_requests": self._successful_requests,
                 "failed_requests": self._failed_requests,
                 "success_rate_pct": success_rate,
+                "consecutive_failures": self._consecutive_failures,
                 "last_error": self._last_error,
                 "last_error_time": (
                     time.strftime(
@@ -183,6 +300,7 @@ class CircuitBreaker:
         """Reset the circuit breaker (for testing/admin)."""
         with self._lock:
             self._disabled_until = 0.0
+            self._consecutive_failures = 0
             self._total_requests = 0
             self._successful_requests = 0
             self._failed_requests = 0
@@ -194,9 +312,9 @@ class CircuitBreaker:
 _cb_firecrawl = CircuitBreaker("firecrawl")
 _cb_jina = CircuitBreaker("jina")
 _cb_tavily = CircuitBreaker("tavily")
-_cb_serper = CircuitBreaker("serper")
-_cb_brave = CircuitBreaker("brave")
-_cb_urllib = CircuitBreaker("urllib_direct", cooldown=300)  # 5-min cooldown
+_cb_llm_assist = CircuitBreaker("llm_assisted")
+_cb_cache_fallback = CircuitBreaker("cache_fallback")
+_cb_urllib = CircuitBreaker("urllib_direct")
 
 
 # =============================================================================
@@ -220,6 +338,7 @@ def _scrape_result(
     provider: str,
     title: str = "",
     metadata: Optional[dict[str, Any]] = None,
+    latency_ms: float = 0.0,
 ) -> dict[str, Any]:
     """Build a normalized scrape result dict.
 
@@ -229,9 +348,10 @@ def _scrape_result(
         provider: Name of the provider tier that succeeded.
         title: Page title if available.
         metadata: Any additional metadata from the provider.
+        latency_ms: Time taken in milliseconds.
 
     Returns:
-        Normalized result dict with content, url, provider, title, metadata.
+        Normalized result dict.
     """
     return {
         "content": content or "",
@@ -239,6 +359,7 @@ def _scrape_result(
         "provider": provider,
         "title": title or "",
         "metadata": metadata or {},
+        "latency_ms": round(latency_ms, 1),
         "scraped_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
     }
 
@@ -269,7 +390,7 @@ def _search_result(
 
 
 # =============================================================================
-# TIER 1: FIRECRAWL
+# TIER 1: FIRECRAWL (paid, full-featured scrape/search/map)
 # =============================================================================
 
 
@@ -287,6 +408,7 @@ def _firecrawl_scrape(url: str) -> Optional[dict[str, Any]]:
     if not _cb_firecrawl.is_available:
         return None
 
+    t0 = time.monotonic()
     payload = {
         "url": url,
         "formats": ["markdown"],
@@ -297,7 +419,7 @@ def _firecrawl_scrape(url: str) -> Optional[dict[str, Any]]:
         "Content-Type": "application/json",
         "Authorization": f"Bearer {FIRECRAWL_API_KEY}",
     }
-    req = Request(
+    req = urllib.request.Request(
         f"{FIRECRAWL_BASE_URL}/scrape",
         data=body,
         headers=headers,
@@ -306,7 +428,7 @@ def _firecrawl_scrape(url: str) -> Optional[dict[str, Any]]:
 
     try:
         ctx = _build_ssl_context()
-        with urlopen(req, timeout=REQUEST_TIMEOUT, context=ctx) as resp:
+        with urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT, context=ctx) as resp:
             data = json.loads(resp.read().decode("utf-8"))
 
         if not data.get("success"):
@@ -317,9 +439,10 @@ def _firecrawl_scrape(url: str) -> Optional[dict[str, Any]]:
         content = resp_data.get("markdown") or ""
         title = resp_data.get("metadata", {}).get("title") or ""
         _cb_firecrawl.record_success()
-        return _scrape_result(content, url, "firecrawl", title)
+        elapsed = (time.monotonic() - t0) * 1000
+        return _scrape_result(content, url, "firecrawl", title, latency_ms=elapsed)
 
-    except HTTPError as exc:
+    except urllib.error.HTTPError as exc:
         if exc.code in (402, 429):
             _cb_firecrawl.trip(f"HTTP {exc.code}: {exc.reason}")
         else:
@@ -328,7 +451,7 @@ def _firecrawl_scrape(url: str) -> Optional[dict[str, Any]]:
             f"Firecrawl scrape HTTP {exc.code} for {url}: {exc.reason}",
             exc_info=True,
         )
-    except (URLError, json.JSONDecodeError, OSError) as exc:
+    except (urllib.error.URLError, json.JSONDecodeError, OSError) as exc:
         _cb_firecrawl.record_failure(str(exc))
         logger.error(f"Firecrawl scrape error for {url}: {exc}", exc_info=True)
     return None
@@ -360,7 +483,7 @@ def _firecrawl_search(
         "Content-Type": "application/json",
         "Authorization": f"Bearer {FIRECRAWL_API_KEY}",
     }
-    req = Request(
+    req = urllib.request.Request(
         f"{FIRECRAWL_BASE_URL}/search",
         data=body,
         headers=headers,
@@ -369,7 +492,7 @@ def _firecrawl_search(
 
     try:
         ctx = _build_ssl_context()
-        with urlopen(req, timeout=REQUEST_TIMEOUT, context=ctx) as resp:
+        with urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT, context=ctx) as resp:
             data = json.loads(resp.read().decode("utf-8"))
 
         if not data.get("success"):
@@ -391,20 +514,20 @@ def _firecrawl_search(
         _cb_firecrawl.record_success()
         return results
 
-    except HTTPError as exc:
+    except urllib.error.HTTPError as exc:
         if exc.code in (402, 429):
             _cb_firecrawl.trip(f"HTTP {exc.code}: {exc.reason}")
         else:
             _cb_firecrawl.record_failure(f"HTTP {exc.code}: {exc.reason}")
         logger.error(f"Firecrawl search HTTP {exc.code}: {exc.reason}", exc_info=True)
-    except (URLError, json.JSONDecodeError, OSError) as exc:
+    except (urllib.error.URLError, json.JSONDecodeError, OSError) as exc:
         _cb_firecrawl.record_failure(str(exc))
         logger.error(f"Firecrawl search error: {exc}", exc_info=True)
     return None
 
 
 # =============================================================================
-# TIER 2: JINA AI READER (free, no API key needed for basic)
+# TIER 2: JINA AI READER (free, no API key for basic)
 # =============================================================================
 
 
@@ -423,6 +546,7 @@ def _jina_scrape(url: str) -> Optional[dict[str, Any]]:
     if not _cb_jina.is_available:
         return None
 
+    t0 = time.monotonic()
     jina_url = f"https://r.jina.ai/{url}"
     headers: dict[str, str] = {
         "Accept": "text/markdown",
@@ -431,27 +555,27 @@ def _jina_scrape(url: str) -> Optional[dict[str, Any]]:
     if JINA_API_KEY:
         headers["Authorization"] = f"Bearer {JINA_API_KEY}"
 
-    req = Request(jina_url, headers=headers, method="GET")
+    req = urllib.request.Request(jina_url, headers=headers, method="GET")
 
     try:
         ctx = _build_ssl_context()
-        with urlopen(req, timeout=REQUEST_TIMEOUT, context=ctx) as resp:
+        with urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT, context=ctx) as resp:
             content = resp.read().decode("utf-8", errors="replace")
 
         if not content or len(content.strip()) < 50:
             _cb_jina.record_failure("Empty or too-short response")
             return None
 
-        # Extract title from first markdown heading if present
         title = ""
         title_match = re.search(r"^#\s+(.+)$", content, re.MULTILINE)
         if title_match:
             title = title_match.group(1).strip()
 
         _cb_jina.record_success()
-        return _scrape_result(content, url, "jina", title)
+        elapsed = (time.monotonic() - t0) * 1000
+        return _scrape_result(content, url, "jina", title, latency_ms=elapsed)
 
-    except HTTPError as exc:
+    except urllib.error.HTTPError as exc:
         if exc.code in (402, 429):
             _cb_jina.trip(f"HTTP {exc.code}: {exc.reason}")
         else:
@@ -459,7 +583,7 @@ def _jina_scrape(url: str) -> Optional[dict[str, Any]]:
         logger.error(
             f"Jina scrape HTTP {exc.code} for {url}: {exc.reason}", exc_info=True
         )
-    except (URLError, OSError) as exc:
+    except (urllib.error.URLError, OSError) as exc:
         _cb_jina.record_failure(str(exc))
         logger.error(f"Jina scrape error for {url}: {exc}", exc_info=True)
     return None
@@ -467,8 +591,6 @@ def _jina_scrape(url: str) -> Optional[dict[str, Any]]:
 
 def _jina_search(query: str, num_results: int = 5) -> Optional[list[dict[str, Any]]]:
     """Search using Jina AI's search API.
-
-    Jina Search returns markdown results by querying https://s.jina.ai/{query}.
 
     Args:
         query: Search query string.
@@ -480,8 +602,6 @@ def _jina_search(query: str, num_results: int = 5) -> Optional[list[dict[str, An
     if not _cb_jina.is_available:
         return None
 
-    import urllib.parse
-
     encoded_query = urllib.parse.quote(query, safe="")
     jina_url = f"https://s.jina.ai/{encoded_query}"
     headers: dict[str, str] = {
@@ -491,18 +611,16 @@ def _jina_search(query: str, num_results: int = 5) -> Optional[list[dict[str, An
     if JINA_API_KEY:
         headers["Authorization"] = f"Bearer {JINA_API_KEY}"
 
-    req = Request(jina_url, headers=headers, method="GET")
+    req = urllib.request.Request(jina_url, headers=headers, method="GET")
 
     try:
         ctx = _build_ssl_context()
-        with urlopen(req, timeout=REQUEST_TIMEOUT, context=ctx) as resp:
+        with urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT, context=ctx) as resp:
             raw = resp.read().decode("utf-8", errors="replace")
 
-        # Jina search can return JSON or markdown depending on Accept header
         results: list[dict[str, Any]] = []
         try:
             data = json.loads(raw)
-            # JSON response format
             items = data.get("data") or data.get("results") or []
             if isinstance(items, list):
                 for item in items[:num_results]:
@@ -516,13 +634,11 @@ def _jina_search(query: str, num_results: int = 5) -> Optional[list[dict[str, An
                         )
                     )
         except json.JSONDecodeError:
-            # Markdown response -- parse sections as results
             sections = re.split(r"\n##?\s+", raw)
             for section in sections[:num_results]:
                 lines = section.strip().split("\n")
                 title = lines[0] if lines else ""
                 snippet = " ".join(lines[1:3]) if len(lines) > 1 else ""
-                # Try to extract URL from markdown links
                 url_match = re.search(r"\[.*?\]\((https?://[^\)]+)\)", section)
                 result_url = url_match.group(1) if url_match else ""
                 if title.strip():
@@ -542,28 +658,87 @@ def _jina_search(query: str, num_results: int = 5) -> Optional[list[dict[str, An
         _cb_jina.record_failure("No results parsed from Jina search")
         return None
 
-    except HTTPError as exc:
+    except urllib.error.HTTPError as exc:
         if exc.code in (402, 429):
             _cb_jina.trip(f"HTTP {exc.code}: {exc.reason}")
         else:
             _cb_jina.record_failure(f"HTTP {exc.code}: {exc.reason}")
         logger.error(f"Jina search HTTP {exc.code}: {exc.reason}", exc_info=True)
-    except (URLError, OSError) as exc:
+    except (urllib.error.URLError, OSError) as exc:
         _cb_jina.record_failure(str(exc))
         logger.error(f"Jina search error: {exc}", exc_info=True)
     return None
 
 
 # =============================================================================
-# TIER 3: TAVILY SEARCH (1,000 free searches/month)
+# TIER 3: TAVILY EXTRACT (URL content extraction, 1K credits/month)
 # =============================================================================
+
+
+def _tavily_scrape(url: str) -> Optional[dict[str, Any]]:
+    """Use Tavily extract endpoint to scrape a URL.
+
+    Tavily's /extract endpoint pulls content from a specific URL.
+    Distinct from their /search endpoint -- this is for known URLs.
+
+    Args:
+        url: The URL to scrape.
+
+    Returns:
+        Normalized scrape result or None on failure.
+    """
+    if not TAVILY_API_KEY:
+        return None
+    if not _cb_tavily.is_available:
+        return None
+
+    t0 = time.monotonic()
+    payload = {
+        "urls": [url],
+        "api_key": TAVILY_API_KEY,
+    }
+    body = json.dumps(payload).encode("utf-8")
+    headers = {"Content-Type": "application/json"}
+    req = urllib.request.Request(
+        "https://api.tavily.com/extract",
+        data=body,
+        headers=headers,
+        method="POST",
+    )
+
+    try:
+        ctx = _build_ssl_context()
+        with urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT, context=ctx) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+
+        results = data.get("results") or []
+        if results:
+            item = results[0]
+            content = item.get("raw_content") or item.get("content") or ""
+            if content and len(content.strip()) > 50:
+                _cb_tavily.record_success()
+                elapsed = (time.monotonic() - t0) * 1000
+                return _scrape_result(content, url, "tavily", latency_ms=elapsed)
+
+        _cb_tavily.record_failure("No content from Tavily extract")
+        return None
+
+    except urllib.error.HTTPError as exc:
+        if exc.code in (402, 429):
+            _cb_tavily.trip(f"HTTP {exc.code}: {exc.reason}")
+        else:
+            _cb_tavily.record_failure(f"HTTP {exc.code}: {exc.reason}")
+        logger.error(
+            f"Tavily scrape HTTP {exc.code} for {url}: {exc.reason}", exc_info=True
+        )
+    except (urllib.error.URLError, json.JSONDecodeError, OSError) as exc:
+        _cb_tavily.record_failure(str(exc))
+        logger.error(f"Tavily scrape error for {url}: {exc}", exc_info=True)
+    return None
 
 
 def _tavily_search(query: str, num_results: int = 5) -> Optional[list[dict[str, Any]]]:
     """Search using Tavily's search API.
-
-    Tavily provides high-quality search results with content snippets.
-    Requires TAVILY_API_KEY env var.
 
     Args:
         query: Search query string.
@@ -586,7 +761,7 @@ def _tavily_search(query: str, num_results: int = 5) -> Optional[list[dict[str, 
     }
     body = json.dumps(payload).encode("utf-8")
     headers = {"Content-Type": "application/json"}
-    req = Request(
+    req = urllib.request.Request(
         "https://api.tavily.com/search",
         data=body,
         headers=headers,
@@ -595,7 +770,7 @@ def _tavily_search(query: str, num_results: int = 5) -> Optional[list[dict[str, 
 
     try:
         ctx = _build_ssl_context()
-        with urlopen(req, timeout=REQUEST_TIMEOUT, context=ctx) as resp:
+        with urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT, context=ctx) as resp:
             data = json.loads(resp.read().decode("utf-8"))
 
         raw_results = data.get("results") or []
@@ -617,238 +792,302 @@ def _tavily_search(query: str, num_results: int = 5) -> Optional[list[dict[str, 
         _cb_tavily.record_failure("No results from Tavily")
         return None
 
-    except HTTPError as exc:
+    except urllib.error.HTTPError as exc:
         if exc.code in (402, 429):
             _cb_tavily.trip(f"HTTP {exc.code}: {exc.reason}")
         else:
             _cb_tavily.record_failure(f"HTTP {exc.code}: {exc.reason}")
         logger.error(f"Tavily search HTTP {exc.code}: {exc.reason}", exc_info=True)
-    except (URLError, json.JSONDecodeError, OSError) as exc:
+    except (urllib.error.URLError, json.JSONDecodeError, OSError) as exc:
         _cb_tavily.record_failure(str(exc))
         logger.error(f"Tavily search error: {exc}", exc_info=True)
     return None
 
 
-def _tavily_scrape(url: str) -> Optional[dict[str, Any]]:
-    """Use Tavily extract to scrape a URL.
-
-    Tavily's extract endpoint can pull content from a URL.
-
-    Args:
-        url: The URL to scrape.
-
-    Returns:
-        Normalized scrape result or None on failure.
-    """
-    if not TAVILY_API_KEY:
-        return None
-    if not _cb_tavily.is_available:
-        return None
-
-    payload = {
-        "urls": [url],
-        "api_key": TAVILY_API_KEY,
-    }
-    body = json.dumps(payload).encode("utf-8")
-    headers = {"Content-Type": "application/json"}
-    req = Request(
-        "https://api.tavily.com/extract",
-        data=body,
-        headers=headers,
-        method="POST",
-    )
-
-    try:
-        ctx = _build_ssl_context()
-        with urlopen(req, timeout=REQUEST_TIMEOUT, context=ctx) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-
-        results = data.get("results") or []
-        if results:
-            item = results[0]
-            content = item.get("raw_content") or item.get("content") or ""
-            if content and len(content.strip()) > 50:
-                _cb_tavily.record_success()
-                return _scrape_result(content, url, "tavily")
-
-        _cb_tavily.record_failure("No content from Tavily extract")
-        return None
-
-    except HTTPError as exc:
-        if exc.code in (402, 429):
-            _cb_tavily.trip(f"HTTP {exc.code}: {exc.reason}")
-        else:
-            _cb_tavily.record_failure(f"HTTP {exc.code}: {exc.reason}")
-        logger.error(
-            f"Tavily scrape HTTP {exc.code} for {url}: {exc.reason}", exc_info=True
-        )
-    except (URLError, json.JSONDecodeError, OSError) as exc:
-        _cb_tavily.record_failure(str(exc))
-        logger.error(f"Tavily scrape error for {url}: {exc}", exc_info=True)
-    return None
-
-
 # =============================================================================
-# TIER 4: SERPER (2,500 free searches/month)
+# TIER 4: LLM-ASSISTED SCRAPING (stdlib fetch + LLM content extraction)
+# =============================================================================
+#
+# Fetch raw HTML with stdlib urllib, truncate to ~12K chars to stay within
+# free-tier token limits, then send it to a cheap/free LLM via the llm_router
+# to intelligently extract and summarize the page content.
+#
+# This is surprisingly powerful: the LLM can understand context, ignore
+# boilerplate, and extract structured data even from messy HTML.
 # =============================================================================
 
+# Preferred cheap/free LLMs for HTML extraction (tried in order)
+_LLM_SCRAPE_PROVIDERS: list[str] = ["gemini", "groq", "cerebras"]
 
-def _serper_search(query: str, num_results: int = 5) -> Optional[list[dict[str, Any]]]:
-    """Search using Serper's Google Search API.
+# Max HTML chars to send to the LLM (keeps token count ~3-4K)
+_LLM_HTML_TRUNCATE: int = 12000
 
-    Serper provides Google search results via a simple API.
-    Requires SERPER_API_KEY env var.
+
+def _fetch_raw_html(url: str, timeout: int = REQUEST_TIMEOUT) -> Optional[str]:
+    """Fetch raw HTML from a URL using stdlib urllib.
 
     Args:
-        query: Search query string.
-        num_results: Max number of results.
+        url: The URL to fetch.
+        timeout: Request timeout in seconds.
 
     Returns:
-        List of normalized search results or None on failure.
+        Raw HTML string or None on failure.
     """
-    if not SERPER_API_KEY:
-        return None
-    if not _cb_serper.is_available:
-        return None
-
-    payload = {
-        "q": query,
-        "num": num_results,
-    }
-    body = json.dumps(payload).encode("utf-8")
     headers = {
-        "Content-Type": "application/json",
-        "X-API-KEY": SERPER_API_KEY,
+        "User-Agent": (
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/120.0.0.0 Safari/537.36"
+        ),
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.5",
     }
-    req = Request(
-        "https://google.serper.dev/search",
-        data=body,
-        headers=headers,
-        method="POST",
-    )
+    req = urllib.request.Request(url, headers=headers, method="GET")
 
     try:
         ctx = _build_ssl_context()
-        with urlopen(req, timeout=REQUEST_TIMEOUT, context=ctx) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-
-        organic = data.get("organic") or []
-        results: list[dict[str, Any]] = []
-        for item in organic[:num_results]:
-            results.append(
-                _search_result(
-                    title=item.get("title") or "",
-                    url=item.get("link") or "",
-                    snippet=item.get("snippet") or "",
-                    provider="serper",
-                )
-            )
-
-        if results:
-            _cb_serper.record_success()
-            return results
-
-        _cb_serper.record_failure("No organic results from Serper")
-        return None
-
-    except HTTPError as exc:
-        if exc.code in (402, 429):
-            _cb_serper.trip(f"HTTP {exc.code}: {exc.reason}")
-        else:
-            _cb_serper.record_failure(f"HTTP {exc.code}: {exc.reason}")
-        logger.error(f"Serper search HTTP {exc.code}: {exc.reason}", exc_info=True)
-    except (URLError, json.JSONDecodeError, OSError) as exc:
-        _cb_serper.record_failure(str(exc))
-        logger.error(f"Serper search error: {exc}", exc_info=True)
-    return None
-
-
-# =============================================================================
-# TIER 5: BRAVE SEARCH (2,000 free searches/month)
-# =============================================================================
-
-
-def _brave_search(query: str, num_results: int = 5) -> Optional[list[dict[str, Any]]]:
-    """Search using Brave Search API.
-
-    Brave provides independent web search results.
-    Requires BRAVE_API_KEY env var.
-
-    Args:
-        query: Search query string.
-        num_results: Max number of results.
-
-    Returns:
-        List of normalized search results or None on failure.
-    """
-    if not BRAVE_API_KEY:
-        return None
-    if not _cb_brave.is_available:
-        return None
-
-    import urllib.parse
-
-    encoded_query = urllib.parse.quote(query, safe="")
-    brave_url = (
-        f"https://api.search.brave.com/res/v1/web/search"
-        f"?q={encoded_query}&count={num_results}"
-    )
-    headers = {
-        "Accept": "application/json",
-        "Accept-Encoding": "gzip",
-        "X-Subscription-Token": BRAVE_API_KEY,
-    }
-    req = Request(brave_url, headers=headers, method="GET")
-
-    try:
-        ctx = _build_ssl_context()
-        with urlopen(req, timeout=REQUEST_TIMEOUT, context=ctx) as resp:
+        with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
+            content_type = resp.headers.get("Content-Type") or ""
             raw = resp.read()
-            # Handle gzip encoding
+
+            # Handle gzip
             if resp.headers.get("Content-Encoding") == "gzip":
                 import gzip as gzip_module
 
                 raw = gzip_module.decompress(raw)
-            data = json.loads(raw.decode("utf-8"))
 
-        web_results = data.get("web", {}).get("results") or []
-        results: list[dict[str, Any]] = []
-        for item in web_results[:num_results]:
-            results.append(
-                _search_result(
-                    title=item.get("title") or "",
-                    url=item.get("url") or "",
-                    snippet=item.get("description") or "",
-                    provider="brave",
-                )
-            )
+            # Determine encoding
+            charset = "utf-8"
+            if "charset=" in content_type:
+                charset = content_type.split("charset=")[-1].split(";")[0].strip()
 
-        if results:
-            _cb_brave.record_success()
-            return results
+            return raw.decode(charset, errors="replace")
 
-        _cb_brave.record_failure("No web results from Brave")
+    except (urllib.error.HTTPError, urllib.error.URLError, OSError) as exc:
+        logger.error(f"Raw HTML fetch failed for {url}: {exc}", exc_info=True)
         return None
 
-    except HTTPError as exc:
-        if exc.code in (402, 429):
-            _cb_brave.trip(f"HTTP {exc.code}: {exc.reason}")
-        else:
-            _cb_brave.record_failure(f"HTTP {exc.code}: {exc.reason}")
-        logger.error(f"Brave search HTTP {exc.code}: {exc.reason}", exc_info=True)
-    except (URLError, json.JSONDecodeError, OSError) as exc:
-        _cb_brave.record_failure(str(exc))
-        logger.error(f"Brave search error: {exc}", exc_info=True)
+
+def _strip_html_boilerplate(html_text: str) -> str:
+    """Strip script, style, and nav elements to reduce token count before LLM.
+
+    Args:
+        html_text: Raw HTML string.
+
+    Returns:
+        Cleaned HTML with boilerplate removed.
+    """
+    # Remove script, style, noscript, svg, nav, footer, header (boilerplate)
+    for tag in ("script", "style", "noscript", "svg", "nav", "footer", "header"):
+        html_text = re.sub(
+            rf"<{tag}[^>]*>.*?</{tag}>",
+            "",
+            html_text,
+            flags=re.DOTALL | re.IGNORECASE,
+        )
+    # Remove HTML comments
+    html_text = re.sub(r"<!--.*?-->", "", html_text, flags=re.DOTALL)
+    # Collapse whitespace
+    html_text = re.sub(r"\s+", " ", html_text)
+    return html_text.strip()
+
+
+def _llm_assisted_scrape(url: str, topic_hint: str = "") -> Optional[dict[str, Any]]:
+    """Scrape a URL by fetching raw HTML and using an LLM to extract content.
+
+    Fetches raw HTML with stdlib, strips boilerplate, truncates to ~12K chars,
+    then sends it to a cheap/free LLM (Gemini, Groq, or Cerebras) to
+    intelligently extract the main content and key facts.
+
+    Args:
+        url: The URL to scrape.
+        topic_hint: Optional hint about what the page is about, for better extraction.
+
+    Returns:
+        Normalized scrape result or None on failure.
+    """
+    if not _cb_llm_assist.is_available:
+        return None
+
+    t0 = time.monotonic()
+
+    # Step 1: Fetch raw HTML
+    raw_html = _fetch_raw_html(url)
+    if not raw_html or len(raw_html.strip()) < 100:
+        _cb_llm_assist.record_failure("Failed to fetch raw HTML or too short")
+        return None
+
+    # Step 2: Strip boilerplate and truncate
+    cleaned = _strip_html_boilerplate(raw_html)
+    if len(cleaned) > _LLM_HTML_TRUNCATE:
+        cleaned = cleaned[:_LLM_HTML_TRUNCATE] + "\n\n[...truncated...]"
+
+    # Step 3: Build extraction prompt
+    topic_context = f" about {topic_hint}" if topic_hint else ""
+    system_prompt = (
+        "You are a web content extraction specialist. Extract the main content "
+        "from HTML pages accurately and concisely. Return clean, readable text "
+        "with key facts preserved. Ignore navigation, ads, and boilerplate."
+    )
+    user_prompt = (
+        f"Extract the main content, key facts, and any structured data from "
+        f"this HTML page{topic_context}. Return clean, readable text.\n\n"
+        f"URL: {url}\n\n"
+        f"HTML:\n{cleaned}"
+    )
+
+    # Step 4: Call LLM router with cheap providers
+    try:
+        from llm_router import call_llm
+
+        llm_result = call_llm(
+            messages=[{"role": "user", "content": user_prompt}],
+            system_prompt=system_prompt,
+            max_tokens=2048,
+            task_type="structured",
+            preferred_providers=_LLM_SCRAPE_PROVIDERS,
+        )
+
+        extracted = llm_result.get("text") or ""
+        if extracted and len(extracted.strip()) > 50:
+            _cb_llm_assist.record_success()
+            elapsed = (time.monotonic() - t0) * 1000
+            llm_provider = llm_result.get("provider") or "unknown"
+            return _scrape_result(
+                content=extracted,
+                url=url,
+                provider=f"llm_assisted:{llm_provider}",
+                metadata={
+                    "llm_provider": llm_provider,
+                    "llm_model": llm_result.get("model") or "",
+                    "llm_latency_ms": llm_result.get("latency_ms") or 0,
+                    "html_chars_sent": len(cleaned),
+                },
+                latency_ms=elapsed,
+            )
+
+        _cb_llm_assist.record_failure("LLM returned empty or too-short extraction")
+        return None
+
+    except ImportError:
+        _cb_llm_assist.record_failure("llm_router not available")
+        logger.error(
+            "LLM-assisted scraping failed: llm_router import error", exc_info=True
+        )
+        return None
+    except Exception as exc:
+        _cb_llm_assist.record_failure(str(exc))
+        logger.error(f"LLM-assisted scraping failed for {url}: {exc}", exc_info=True)
+        return None
+
+
+# =============================================================================
+# TIER 5: GOOGLE CACHE / WEB ARCHIVE FALLBACK
+# =============================================================================
+#
+# When the original URL is down, blocked, or returns errors, try fetching
+# cached/archived versions. Two sources:
+#   1. Google Webcache: https://webcache.googleusercontent.com/search?q=cache:{url}
+#   2. Internet Archive Wayback Machine: https://web.archive.org/web/2024/{url}
+#
+# These are fetched with stdlib urllib and parsed with the same HTML extractor
+# used by Tier 6.
+# =============================================================================
+
+
+def _cache_fallback_scrape(url: str) -> Optional[dict[str, Any]]:
+    """Try scraping a URL from Google Cache or Internet Archive.
+
+    Attempts Google Cache first, then Wayback Machine.  Uses the stdlib
+    HTML parser to extract text from the cached HTML.
+
+    Args:
+        url: The original URL to look up in caches.
+
+    Returns:
+        Normalized scrape result or None if no cached version found.
+    """
+    if not _cb_cache_fallback.is_available:
+        return None
+
+    t0 = time.monotonic()
+
+    # Source 1: Google Webcache
+    google_cache_url = (
+        f"https://webcache.googleusercontent.com/search"
+        f"?q=cache:{urllib.parse.quote(url, safe='')}"
+    )
+    result = _fetch_and_parse_html(google_cache_url, CACHE_SCRAPE_TIMEOUT)
+    if result:
+        content, title = result
+        _cb_cache_fallback.record_success()
+        elapsed = (time.monotonic() - t0) * 1000
+        return _scrape_result(
+            content=content,
+            url=url,
+            provider="google_cache",
+            title=title,
+            metadata={"cache_url": google_cache_url},
+            latency_ms=elapsed,
+        )
+
+    # Source 2: Internet Archive Wayback Machine
+    archive_url = f"https://web.archive.org/web/2024/{url}"
+    result = _fetch_and_parse_html(archive_url, CACHE_SCRAPE_TIMEOUT)
+    if result:
+        content, title = result
+        _cb_cache_fallback.record_success()
+        elapsed = (time.monotonic() - t0) * 1000
+        return _scrape_result(
+            content=content,
+            url=url,
+            provider="web_archive",
+            title=title,
+            metadata={"archive_url": archive_url},
+            latency_ms=elapsed,
+        )
+
+    _cb_cache_fallback.record_failure(f"No cached version found for {url}")
+    return None
+
+
+def _fetch_and_parse_html(
+    fetch_url: str, timeout: int = REQUEST_TIMEOUT
+) -> Optional[tuple[str, str]]:
+    """Fetch a URL and parse HTML to extract text content.
+
+    Args:
+        fetch_url: The URL to fetch.
+        timeout: Request timeout in seconds.
+
+    Returns:
+        Tuple of (content, title) or None on failure.
+    """
+    raw_html = _fetch_raw_html(fetch_url, timeout=timeout)
+    if not raw_html or len(raw_html.strip()) < 100:
+        return None
+
+    parser = _HTMLTextExtractor()
+    try:
+        parser.feed(raw_html)
+    except Exception:
+        pass
+
+    if parser.texts:
+        content = "\n\n".join(parser.texts)
+        if len(content.strip()) > 50:
+            return content, parser.title
+
     return None
 
 
 # =============================================================================
-# TIER 6: DIRECT URLLIB (always available, no API key)
+# TIER 6: STDLIB URLLIB RAW FETCH + HTML PARSER (always works)
 # =============================================================================
 
 
 class _HTMLTextExtractor(html.parser.HTMLParser):
-    """Simple HTML parser that extracts visible text from p, h1-h6, li, td tags.
+    """Simple HTML parser that extracts visible text from semantic tags.
 
     Skips script and style content. Collects text into a list of strings.
     """
@@ -859,6 +1098,7 @@ class _HTMLTextExtractor(html.parser.HTMLParser):
     _SKIP_TAGS = frozenset({"script", "style", "noscript", "svg", "path"})
 
     def __init__(self) -> None:
+        """Initialize the parser with empty state."""
         super().__init__()
         self.texts: list[str] = []
         self.title: str = ""
@@ -907,10 +1147,10 @@ class _HTMLTextExtractor(html.parser.HTMLParser):
 
 
 def _urllib_scrape(url: str) -> Optional[dict[str, Any]]:
-    """Scrape a URL directly using urllib and parse HTML for text.
+    """Scrape a URL directly using stdlib urllib and parse HTML for text.
 
-    This is the fallback-of-last-resort. No API key needed, but
-    quality is lower than dedicated scraping APIs.
+    This is the fallback-of-last-resort. No API key needed, but quality
+    is lower than dedicated scraping APIs or LLM-assisted extraction.
 
     Args:
         url: The URL to scrape.
@@ -921,88 +1161,49 @@ def _urllib_scrape(url: str) -> Optional[dict[str, Any]]:
     if not _cb_urllib.is_available:
         return None
 
-    headers = {
-        "User-Agent": (
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/120.0.0.0 Safari/537.36"
-        ),
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.5",
-    }
-    req = Request(url, headers=headers, method="GET")
-
-    try:
-        ctx = _build_ssl_context()
-        with urlopen(req, timeout=REQUEST_TIMEOUT, context=ctx) as resp:
-            content_type = resp.headers.get("Content-Type") or ""
-            raw = resp.read()
-
-            # Handle gzip
-            if resp.headers.get("Content-Encoding") == "gzip":
-                import gzip as gzip_module
-
-                raw = gzip_module.decompress(raw)
-
-            # Determine encoding
-            charset = "utf-8"
-            if "charset=" in content_type:
-                charset = content_type.split("charset=")[-1].split(";")[0].strip()
-
-            html_text = raw.decode(charset, errors="replace")
-
-        # Parse HTML to extract text
-        parser = _HTMLTextExtractor()
-        try:
-            parser.feed(html_text)
-        except Exception:
-            # HTMLParser can raise on malformed HTML; fall back to regex
-            pass
-
-        if parser.texts:
-            content = "\n\n".join(parser.texts)
-            _cb_urllib.record_success()
-            return _scrape_result(content, url, "urllib_direct", parser.title)
-
-        # Fallback: regex extraction if parser failed
-        # Remove script/style blocks
-        cleaned = re.sub(
-            r"<(script|style)[^>]*>.*?</\1>",
-            "",
-            html_text,
-            flags=re.DOTALL | re.IGNORECASE,
-        )
-        # Extract text from remaining tags
-        text_parts = re.findall(
-            r"<(?:p|h[1-6]|li|td)[^>]*>(.*?)</(?:p|h[1-6]|li|td)>",
-            cleaned,
-            re.DOTALL | re.IGNORECASE,
-        )
-        if text_parts:
-            # Strip any remaining HTML tags
-            content = "\n\n".join(
-                re.sub(r"<[^>]+>", "", part).strip()
-                for part in text_parts
-                if part.strip()
-            )
-            if content.strip():
-                _cb_urllib.record_success()
-                return _scrape_result(content, url, "urllib_direct")
-
-        _cb_urllib.record_failure("No text extracted from HTML")
+    t0 = time.monotonic()
+    raw_html = _fetch_raw_html(url)
+    if not raw_html:
+        _cb_urllib.record_failure("Failed to fetch HTML")
         return None
 
-    except HTTPError as exc:
-        if exc.code == 429:
-            _cb_urllib.trip(f"HTTP 429: {exc.reason}")
-        else:
-            _cb_urllib.record_failure(f"HTTP {exc.code}: {exc.reason}")
-        logger.error(
-            f"urllib scrape HTTP {exc.code} for {url}: {exc.reason}", exc_info=True
+    # Parse HTML to extract text
+    parser = _HTMLTextExtractor()
+    try:
+        parser.feed(raw_html)
+    except Exception:
+        pass
+
+    if parser.texts:
+        content = "\n\n".join(parser.texts)
+        _cb_urllib.record_success()
+        elapsed = (time.monotonic() - t0) * 1000
+        return _scrape_result(
+            content, url, "urllib_direct", parser.title, latency_ms=elapsed
         )
-    except (URLError, OSError) as exc:
-        _cb_urllib.record_failure(str(exc))
-        logger.error(f"urllib scrape error for {url}: {exc}", exc_info=True)
+
+    # Fallback: regex extraction if parser produced nothing
+    cleaned = re.sub(
+        r"<(script|style)[^>]*>.*?</\1>",
+        "",
+        raw_html,
+        flags=re.DOTALL | re.IGNORECASE,
+    )
+    text_parts = re.findall(
+        r"<(?:p|h[1-6]|li|td)[^>]*>(.*?)</(?:p|h[1-6]|li|td)>",
+        cleaned,
+        re.DOTALL | re.IGNORECASE,
+    )
+    if text_parts:
+        content = "\n\n".join(
+            re.sub(r"<[^>]+>", "", part).strip() for part in text_parts if part.strip()
+        )
+        if content.strip():
+            _cb_urllib.record_success()
+            elapsed = (time.monotonic() - t0) * 1000
+            return _scrape_result(content, url, "urllib_direct", latency_ms=elapsed)
+
+    _cb_urllib.record_failure("No text extracted from HTML")
     return None
 
 
@@ -1011,51 +1212,121 @@ def _urllib_scrape(url: str) -> Optional[dict[str, Any]]:
 # =============================================================================
 
 
-def scrape_url(url: str) -> dict[str, Any]:
+def scrape_url(
+    url: str,
+    topic_hint: str = "",
+    use_cache: bool = True,
+) -> dict[str, Any]:
     """Scrape a URL using the best available provider with automatic fallback.
 
-    Tries each tier in order: Firecrawl -> Jina -> Tavily -> urllib.
+    Tries each tier in order:
+        1. Firecrawl (paid, highest quality)
+        2. Jina AI Reader (free, good markdown)
+        3. Tavily Extract (API key, good content extraction)
+        4. LLM-assisted (free LLM + stdlib fetch, context-aware extraction)
+        5. Google Cache / Web Archive (cached versions of the page)
+        6. stdlib urllib + HTMLParser (always works, basic text)
+
     Falls through on any failure. Returns empty result only if ALL tiers fail.
 
     Args:
         url: The URL to scrape.
+        topic_hint: Optional hint about page content (improves LLM extraction).
+        use_cache: Whether to check/populate the LRU + Redis cache.
 
     Returns:
         Normalized result dict with keys: content, url, provider, title,
-        metadata, scraped_at. On total failure, content will be empty and
-        provider will be "none".
+        metadata, latency_ms, scraped_at. On total failure, content will
+        be empty and provider will be 'none'.
     """
     if not url or not url.strip():
         return _scrape_result("", "", "none")
 
     url = url.strip()
 
-    # Tier 1: Firecrawl
+    # Check cache first
+    if use_cache:
+        ck = _cache_key(url, "scrape")
+        cached = _cache_get(ck)
+        if cached is not None:
+            logger.info(f"scrape_url: cache HIT for {url}")
+            cached["provider"] = f"cache:{cached.get('provider', 'unknown')}"
+            return cached
+
+    t0_total = time.monotonic()
+
+    # -- Tier 1: Firecrawl --
     result = _firecrawl_scrape(url)
-    if result:
-        logger.info(f"scrape_url: Tier 1 (Firecrawl) succeeded for {url}")
+    if result and result.get("content"):
+        logger.info(
+            f"scrape_url: Tier 1 (Firecrawl) succeeded for {url} "
+            f"in {result.get('latency_ms', 0):.0f}ms"
+        )
+        if use_cache:
+            _cache_put(_cache_key(url, "scrape"), result)
         return result
 
-    # Tier 2: Jina AI Reader
+    # -- Tier 2: Jina AI Reader --
     result = _jina_scrape(url)
-    if result:
-        logger.info(f"scrape_url: Tier 2 (Jina) succeeded for {url}")
+    if result and result.get("content"):
+        logger.info(
+            f"scrape_url: Tier 2 (Jina) succeeded for {url} "
+            f"in {result.get('latency_ms', 0):.0f}ms"
+        )
+        if use_cache:
+            _cache_put(_cache_key(url, "scrape"), result)
         return result
 
-    # Tier 3: Tavily Extract
+    # -- Tier 3: Tavily Extract --
     result = _tavily_scrape(url)
-    if result:
-        logger.info(f"scrape_url: Tier 3 (Tavily) succeeded for {url}")
+    if result and result.get("content"):
+        logger.info(
+            f"scrape_url: Tier 3 (Tavily) succeeded for {url} "
+            f"in {result.get('latency_ms', 0):.0f}ms"
+        )
+        if use_cache:
+            _cache_put(_cache_key(url, "scrape"), result)
         return result
 
-    # Tier 6: Direct urllib (tiers 4-5 are search-only, skip for scrape)
+    # -- Tier 4: LLM-assisted scraping --
+    result = _llm_assisted_scrape(url, topic_hint=topic_hint)
+    if result and result.get("content"):
+        logger.info(
+            f"scrape_url: Tier 4 (LLM-assisted) succeeded for {url} "
+            f"in {result.get('latency_ms', 0):.0f}ms "
+            f"via {result.get('provider', '')}"
+        )
+        if use_cache:
+            _cache_put(_cache_key(url, "scrape"), result)
+        return result
+
+    # -- Tier 5: Google Cache / Web Archive --
+    result = _cache_fallback_scrape(url)
+    if result and result.get("content"):
+        logger.info(
+            f"scrape_url: Tier 5 ({result.get('provider', 'cache')}) succeeded for {url} "
+            f"in {result.get('latency_ms', 0):.0f}ms"
+        )
+        if use_cache:
+            _cache_put(_cache_key(url, "scrape"), result)
+        return result
+
+    # -- Tier 6: stdlib urllib + HTMLParser --
     result = _urllib_scrape(url)
-    if result:
-        logger.info(f"scrape_url: Tier 6 (urllib) succeeded for {url}")
+    if result and result.get("content"):
+        logger.info(
+            f"scrape_url: Tier 6 (urllib) succeeded for {url} "
+            f"in {result.get('latency_ms', 0):.0f}ms"
+        )
+        if use_cache:
+            _cache_put(_cache_key(url, "scrape"), result)
         return result
 
-    logger.warning(f"scrape_url: ALL tiers failed for {url}")
-    return _scrape_result("", url, "none")
+    total_elapsed = (time.monotonic() - t0_total) * 1000
+    logger.warning(
+        f"scrape_url: ALL 6 tiers failed for {url} after {total_elapsed:.0f}ms"
+    )
+    return _scrape_result("", url, "none", latency_ms=total_elapsed)
 
 
 # =============================================================================
@@ -1063,15 +1334,20 @@ def scrape_url(url: str) -> dict[str, Any]:
 # =============================================================================
 
 
-def search_web(query: str, num_results: int = 5) -> list[dict[str, Any]]:
+def search_web(
+    query: str,
+    num_results: int = 5,
+    use_cache: bool = True,
+) -> list[dict[str, Any]]:
     """Search the web using the best available provider with automatic fallback.
 
-    Tries each tier in order: Firecrawl -> Jina -> Tavily -> Serper -> Brave.
+    Tries each tier in order: Firecrawl -> Jina -> Tavily.
     Falls through on any failure. Returns empty list only if ALL tiers fail.
 
     Args:
         query: Search query string.
         num_results: Maximum number of results to return (default 5).
+        use_cache: Whether to check/populate the LRU + Redis cache.
 
     Returns:
         List of normalized search result dicts, each with keys: title, url,
@@ -1082,37 +1358,39 @@ def search_web(query: str, num_results: int = 5) -> list[dict[str, Any]]:
 
     query = query.strip()
 
+    # Check cache first
+    if use_cache:
+        ck = _cache_key(f"{query}:{num_results}", "search")
+        cached = _cache_get(ck)
+        if cached is not None:
+            logger.info(f"search_web: cache HIT for query={query[:50]}")
+            return cached
+
     # Tier 1: Firecrawl
     results = _firecrawl_search(query, num_results)
     if results:
         logger.info(f"search_web: Tier 1 (Firecrawl) returned {len(results)} results")
+        if use_cache:
+            _cache_put(_cache_key(f"{query}:{num_results}", "search"), results)
         return results
 
     # Tier 2: Jina Search
     results = _jina_search(query, num_results)
     if results:
         logger.info(f"search_web: Tier 2 (Jina) returned {len(results)} results")
+        if use_cache:
+            _cache_put(_cache_key(f"{query}:{num_results}", "search"), results)
         return results
 
-    # Tier 3: Tavily
+    # Tier 3: Tavily Search
     results = _tavily_search(query, num_results)
     if results:
         logger.info(f"search_web: Tier 3 (Tavily) returned {len(results)} results")
+        if use_cache:
+            _cache_put(_cache_key(f"{query}:{num_results}", "search"), results)
         return results
 
-    # Tier 4: Serper
-    results = _serper_search(query, num_results)
-    if results:
-        logger.info(f"search_web: Tier 4 (Serper) returned {len(results)} results")
-        return results
-
-    # Tier 5: Brave
-    results = _brave_search(query, num_results)
-    if results:
-        logger.info(f"search_web: Tier 5 (Brave) returned {len(results)} results")
-        return results
-
-    logger.warning(f"search_web: ALL tiers failed for query: {query}")
+    logger.warning(f"search_web: ALL tiers failed for query: {query[:80]}")
     return []
 
 
@@ -1126,8 +1404,17 @@ def get_scraper_status() -> dict[str, Any]:
 
     Returns:
         Dict with per-tier status including availability, circuit breaker
-        state, request counts, and success rates.
+        state, request counts, success rates, and cache stats.
     """
+    # Check LLM router availability
+    llm_available = False
+    try:
+        from llm_router import call_llm  # noqa: F401
+
+        llm_available = True
+    except ImportError:
+        pass
+
     tiers = [
         {
             "tier": 1,
@@ -1140,7 +1427,7 @@ def get_scraper_status() -> dict[str, Any]:
         {
             "tier": 2,
             "provider": "jina",
-            "has_api_key": bool(JINA_API_KEY),
+            "has_api_key": True,  # No key needed for basic
             "capabilities": ["scrape", "search"],
             "free_tier": "Unlimited basic (rate-limited)",
             **_cb_jina.get_stats(),
@@ -1150,24 +1437,26 @@ def get_scraper_status() -> dict[str, Any]:
             "provider": "tavily",
             "has_api_key": bool(TAVILY_API_KEY),
             "capabilities": ["scrape", "search"],
-            "free_tier": "1,000 searches/month",
+            "free_tier": "1,000 credits/month",
             **_cb_tavily.get_stats(),
         },
         {
             "tier": 4,
-            "provider": "serper",
-            "has_api_key": bool(SERPER_API_KEY),
-            "capabilities": ["search"],
-            "free_tier": "2,500 searches/month",
-            **_cb_serper.get_stats(),
+            "provider": "llm_assisted",
+            "has_api_key": llm_available,
+            "capabilities": ["scrape"],
+            "free_tier": "Free (uses Gemini/Groq/Cerebras via llm_router)",
+            "note": "Fetches HTML with stdlib, sends to LLM for extraction",
+            **_cb_llm_assist.get_stats(),
         },
         {
             "tier": 5,
-            "provider": "brave",
-            "has_api_key": bool(BRAVE_API_KEY),
-            "capabilities": ["search"],
-            "free_tier": "2,000 searches/month",
-            **_cb_brave.get_stats(),
+            "provider": "cache_fallback",
+            "has_api_key": True,  # Always available
+            "capabilities": ["scrape"],
+            "free_tier": "Unlimited (Google Cache + Web Archive)",
+            "note": "Falls back to cached/archived versions of pages",
+            **_cb_cache_fallback.get_stats(),
         },
         {
             "tier": 6,
@@ -1179,14 +1468,23 @@ def get_scraper_status() -> dict[str, Any]:
         },
     ]
 
-    # Count available tiers
     available_count = sum(1 for t in tiers if t.get("available", False))
     configured_count = sum(1 for t in tiers if t.get("has_api_key", False))
+
+    # Cache stats
+    with _lru_lock:
+        cache_size = len(_lru_cache)
 
     return {
         "total_tiers": len(tiers),
         "available_tiers": available_count,
         "configured_tiers": configured_count,
+        "cache": {
+            "l1_entries": cache_size,
+            "l1_max_size": _LRU_MAX_SIZE,
+            "l1_ttl_seconds": int(_LRU_TTL),
+            "l2_redis_available": _redis_available,
+        },
         "tiers": tiers,
     }
 
@@ -1202,6 +1500,30 @@ def reset_circuit_breakers() -> dict[str, str]:
     Returns:
         Confirmation dict.
     """
-    for cb in (_cb_firecrawl, _cb_jina, _cb_tavily, _cb_serper, _cb_brave, _cb_urllib):
+    for cb in (
+        _cb_firecrawl,
+        _cb_jina,
+        _cb_tavily,
+        _cb_llm_assist,
+        _cb_cache_fallback,
+        _cb_urllib,
+    ):
         cb.reset()
     return {"status": "all_circuit_breakers_reset"}
+
+
+# =============================================================================
+# PUBLIC API: clear_cache (admin/testing)
+# =============================================================================
+
+
+def clear_cache() -> dict[str, Any]:
+    """Clear the in-memory LRU cache.
+
+    Returns:
+        Dict with number of entries cleared.
+    """
+    with _lru_lock:
+        count = len(_lru_cache)
+        _lru_cache.clear()
+    return {"status": "cache_cleared", "entries_removed": count}
