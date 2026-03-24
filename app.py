@@ -17658,6 +17658,51 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 self.send_header("Content-Length", str(len(deck_err)))
                 self.end_headers()
                 self.wfile.write(deck_err)
+        elif path == "/api/resilience/status":
+            # Resilience router status -- JSON API
+            try:
+                from resilience_router import get_router as _get_resilience_router
+
+                _rr = _get_resilience_router()
+                _rr_data = _rr.get_health_dashboard()
+                _rr_body = json.dumps(_rr_data, indent=2).encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                cors_origin = self._get_cors_origin()
+                if cors_origin:
+                    self.send_header("Access-Control-Allow-Origin", cors_origin)
+                self.send_header("Content-Length", str(len(_rr_body)))
+                self.end_headers()
+                self.wfile.write(_rr_body)
+            except Exception as _rr_exc:
+                _rr_err = json.dumps({"error": str(_rr_exc)}).encode("utf-8")
+                self.send_response(500)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(_rr_err)))
+                self.end_headers()
+                self.wfile.write(_rr_err)
+        elif path == "/api/resilience/dashboard":
+            # Resilience dashboard -- HTML page
+            try:
+                from resilience_router import get_router as _get_resilience_router
+
+                _rr = _get_resilience_router()
+                _rr_html = _rr.get_dashboard_html().encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                cors_origin = self._get_cors_origin()
+                if cors_origin:
+                    self.send_header("Access-Control-Allow-Origin", cors_origin)
+                self.send_header("Content-Length", str(len(_rr_html)))
+                self.end_headers()
+                self.wfile.write(_rr_html)
+            except Exception as _rr_exc:
+                _rr_err = f"<h1>Error</h1><pre>{_rr_exc}</pre>".encode("utf-8")
+                self.send_response(500)
+                self.send_header("Content-Type", "text/html")
+                self.send_header("Content-Length", str(len(_rr_err)))
+                self.end_headers()
+                self.wfile.write(_rr_err)
         elif path == "/api/health/data-matrix":
             # Data matrix health monitor (admin-protected)
             if not self._check_admin_auth():

@@ -119,6 +119,7 @@ class CircuitBreaker:
             self._disabled_until = time.time() + self.cooldown
             self._last_error = reason
             self._last_error_time = time.time()
+            self._total_requests += 1
             self._failed_requests += 1
         logger.warning(
             f"Circuit breaker tripped for {self.name}: {reason}. "
@@ -151,10 +152,18 @@ class CircuitBreaker:
                 success_rate = round(
                     self._successful_requests / self._total_requests * 100, 1
                 )
+            # Inline availability check to avoid lock re-entry
+            now = time.time()
+            if self._disabled_until <= 0 or now >= self._disabled_until:
+                available = True
+                cooldown_remaining = 0
+            else:
+                available = False
+                cooldown_remaining = max(0, int(self._disabled_until - now))
             return {
                 "name": self.name,
-                "available": self.is_available,
-                "remaining_cooldown_seconds": self.remaining_cooldown,
+                "available": available,
+                "remaining_cooldown_seconds": cooldown_remaining,
                 "total_requests": self._total_requests,
                 "successful_requests": self._successful_requests,
                 "failed_requests": self._failed_requests,
