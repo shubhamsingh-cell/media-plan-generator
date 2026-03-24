@@ -20,12 +20,12 @@ jobs:
       - name: Install Python dependencies
         run: |
           pip install pytest black
-          pip install -r requirements.txt 2>/dev/null || true
+          pip install -r requirements.txt
       - name: Install Node dependencies
         run: npm ci || npm install
       - name: Run black check
-        run: python -m black --check *.py tests/ 2>/dev/null || true
+        run: python -m black --check *.py tests/
       - name: Run prettier check
-        run: npx prettier --check "templates/*.html" 2>/dev/null || true
+        run: npx prettier --check "templates/*.html"
       - name: Run tests
         run: python -m pytest tests/ -v --tb=short
