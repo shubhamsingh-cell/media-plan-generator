@@ -74,6 +74,13 @@ _HTTP_TIMEOUT = 15
 _SSL_CTX = ssl.create_default_context()
 _BATCH_SIZE = 100
 
+# -- Supabase auth circuit breaker ---------------------------------------------
+# After a 401 Unauthorized, stop all Supabase upserts for 1 hour so we don't
+# hammer a misconfigured endpoint with retries every enrichment cycle.
+_SUPABASE_AUTH_COOLDOWN = 3600  # 1 hour in seconds
+_supabase_auth_fail_time: float = 0.0
+_supabase_auth_lock = threading.Lock()
+
 # -- On-conflict columns for each Supabase table --------------------------------
 _ON_CONFLICT_MAP: dict[str, str] = {
     "knowledge_base": "category,key",
@@ -264,6 +271,22 @@ def _upsert_to_supabase(
         logger.debug("Supabase not configured, skipping upsert to %s", table)
         return 0
 
+    # Circuit breaker: skip upserts for 1 hour after a 401 Unauthorized
+    global _supabase_auth_fail_time
+    with _supabase_auth_lock:
+        if _supabase_auth_fail_time:
+            elapsed = time.monotonic() - _supabase_auth_fail_time
+            if elapsed < _SUPABASE_AUTH_COOLDOWN:
+                remaining = int(_SUPABASE_AUTH_COOLDOWN - elapsed)
+                logger.debug(
+                    f"Supabase auth circuit breaker open -- skipping upsert to {table} "
+                    f"({remaining}s remaining)"
+                )
+                return 0
+            # Cooldown expired, reset and allow retry
+            logger.info("Supabase auth circuit breaker reset -- retrying upserts")
+            _supabase_auth_fail_time = 0.0
+
     base = SUPABASE_URL.rstrip("/")
     on_conflict = _ON_CONFLICT_MAP.get(table) or ""
     url = f"{base}/rest/v1/{table}"
@@ -308,13 +331,23 @@ def _upsert_to_supabase(
             except OSError:
                 pass
             if exc.code == 401:
+                # Trip the circuit breaker -- no Supabase upserts for 1 hour
+                with _supabase_auth_lock:
+                    _supabase_auth_fail_time = time.monotonic()
                 logger.error(
-                    "Supabase 401 Unauthorized upserting to %s -- check SUPABASE_SERVICE_ROLE_KEY. "
-                    "Disabling enrichment writes for this cycle. Body: %s",
-                    table,
-                    error_body,
+                    f"Supabase 401 Unauthorized upserting to {table} -- check "
+                    f"SUPABASE_SERVICE_ROLE_KEY. Circuit breaker tripped: disabling "
+                    f"all Supabase upserts for {_SUPABASE_AUTH_COOLDOWN}s. Body: {error_body}",
                 )
-                # Don't retry on auth errors -- stop batching immediately
+                try:
+                    send_alert(
+                        "Supabase Auth Failure",
+                        f"401 Unauthorized on table '{table}'. "
+                        f"Upserts disabled for 1 hour. Check SUPABASE_SERVICE_ROLE_KEY.",
+                        severity="critical",
+                    )
+                except Exception:
+                    pass
                 break
             logger.error(
                 f"Supabase HTTP {exc.code} upserting to {table}: {error_body}",

@@ -132,9 +132,23 @@ def _query_supabase(table: str, params: str = "") -> list[dict[str, Any]]:
         error_body = ""
         try:
             error_body = exc.read().decode("utf-8", errors="replace")[:200]
-        except Exception:
+        except OSError:
             pass
-        logger.error(f"HTTP {exc.code} querying {table}: {error_body}", exc_info=True)
+        if exc.code == 404:
+            logger.warning(
+                f"Supabase 404 querying '{table}' -- table may not exist or "
+                f"URL path is wrong. Falling back to local JSON. Body: {error_body}"
+            )
+        elif exc.code == 401:
+            logger.error(
+                f"Supabase 401 Unauthorized querying '{table}' -- check "
+                f"SUPABASE_ANON_KEY configuration. Body: {error_body}"
+            )
+        else:
+            logger.error(
+                f"Supabase HTTP {exc.code} querying '{table}': {error_body}",
+                exc_info=True,
+            )
         return []
     except urllib.error.URLError as exc:
         logger.error(f"URLError querying {table}: {exc.reason}", exc_info=True)
