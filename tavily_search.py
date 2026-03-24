@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
-"""Tavily AI Search integration for Nova AI Suite.
+"""Tavily AI Search integration for Nova AI Suite with multi-tier fallback.
 
-Uses stdlib urllib (no SDK needed) to call the Tavily Search API.
-Provides AI-optimized web search with clean, structured results designed
-for LLM consumption.
+Fallback tiers:
+    Tier 1: Tavily AI Search (primary, AI-optimized results)
+    Tier 2: Jina AI Search (free, no API key needed)
+    Tier 3: DuckDuckGo HTML search (no API key, parse results from HTML)
+    Tier 4: Return empty results with a note (let LLM answer from training data)
+
+Uses stdlib urllib (no SDK needed).
 
 API: POST https://api.tavily.com/search
 Env var: TAVILY_API_KEY (sign up free at https://app.tavily.com -- 1,000 credits/month)
@@ -18,12 +22,15 @@ All functions:
 from __future__ import annotations
 
 import hashlib
+import html
 import json
 import logging
 import os
+import re
 import threading
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from typing import Any
 
@@ -33,6 +40,53 @@ logger = logging.getLogger(__name__)
 _TAVILY_API_URL = "https://api.tavily.com/search"
 _TAVILY_TIMEOUT = 15  # seconds
 _TAVILY_API_KEY: str | None = None
+
+# Rate limiting for Tavily (1000 credits/month ~ 33/day ~ 2/hour conservative)
+_TAVILY_RPM_LIMIT = 15  # max requests per minute
+_tavily_request_times: list[float] = []
+_tavily_rate_lock = threading.Lock()
+
+# Rate limiting for Jina (fallback)
+_JINA_RPM_LIMIT = 10
+_jina_request_times: list[float] = []
+_jina_rate_lock = threading.Lock()
+
+# Rate limiting for DuckDuckGo (be respectful)
+_DDG_RPM_LIMIT = 5
+_ddg_request_times: list[float] = []
+_ddg_rate_lock = threading.Lock()
+
+
+def _is_rate_limited(
+    request_times: list[float],
+    lock: threading.Lock,
+    rpm_limit: int,
+) -> bool:
+    """Check if a service is rate limited using sliding window.
+
+    Args:
+        request_times: Mutable list of request timestamps.
+        lock: Threading lock for the list.
+        rpm_limit: Max requests per minute.
+
+    Returns:
+        True if rate limited, False if OK to proceed.
+    """
+    now = time.monotonic()
+    with lock:
+        request_times[:] = [t for t in request_times if now - t < 60]
+        return len(request_times) >= rpm_limit
+
+
+def _record_request(request_times: list[float], lock: threading.Lock) -> None:
+    """Record a request timestamp for rate limiting.
+
+    Args:
+        request_times: Mutable list of request timestamps.
+        lock: Threading lock for the list.
+    """
+    with lock:
+        request_times.append(time.monotonic())
 
 
 def _get_api_key() -> str | None:
@@ -74,7 +128,7 @@ def _cache_set(key: str, value: Any) -> None:
         _cache[key] = (value, time.time())
 
 
-# ── Core API call ────────────────────────────────────────────────────────────
+# ── Tier 1: Tavily API ──────────────────────────────────────────────────────
 
 
 def _tavily_request(
@@ -104,6 +158,10 @@ def _tavily_request(
         )
         return None
 
+    if _is_rate_limited(_tavily_request_times, _tavily_rate_lock, _TAVILY_RPM_LIMIT):
+        logger.warning("Tavily rate limited (%d req/min), skipping", _TAVILY_RPM_LIMIT)
+        return None
+
     payload = {
         "api_key": api_key,
         "query": query,
@@ -114,6 +172,7 @@ def _tavily_request(
     }
 
     try:
+        _record_request(_tavily_request_times, _tavily_rate_lock)
         data = json.dumps(payload).encode("utf-8")
         req = urllib.request.Request(
             _TAVILY_API_URL,
@@ -146,6 +205,236 @@ def _tavily_request(
         return None
 
 
+# ── Tier 2: Jina AI Search (free, no API key) ───────────────────────────────
+
+_JINA_SEARCH_URL = "https://s.jina.ai/"
+
+
+def _jina_search(query: str, max_results: int = 5) -> list[dict] | None:
+    """Search using Jina AI Search API (free tier, no key required).
+
+    Args:
+        query: Search query string.
+        max_results: Max results to return.
+
+    Returns:
+        List of result dicts or None on failure.
+    """
+    if _is_rate_limited(_jina_request_times, _jina_rate_lock, _JINA_RPM_LIMIT):
+        logger.warning("Jina AI rate limited, skipping")
+        return None
+
+    try:
+        _record_request(_jina_request_times, _jina_rate_lock)
+        encoded_query = urllib.parse.quote(query)
+        url = f"{_JINA_SEARCH_URL}{encoded_query}"
+        req = urllib.request.Request(
+            url,
+            headers={
+                "Accept": "application/json",
+                "X-Return-Format": "text",
+            },
+            method="GET",
+        )
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            body = resp.read().decode("utf-8")
+            data = json.loads(body)
+
+        results: list[dict] = []
+        items = data.get("data") or []
+        for item in items[:max_results]:
+            results.append(
+                {
+                    "title": item.get("title") or "",
+                    "url": item.get("url") or "",
+                    "content": (item.get("description") or item.get("content") or "")[
+                        :500
+                    ],
+                    "score": 0.5,  # No relevance score from Jina
+                }
+            )
+
+        if results:
+            logger.info(
+                "Jina AI search returned %d results for query=%s",
+                len(results),
+                query[:50],
+            )
+        return results if results else None
+
+    except urllib.error.HTTPError as e:
+        logger.error(
+            "Jina AI HTTP error %d for query=%s", e.code, query[:50], exc_info=True
+        )
+        return None
+    except urllib.error.URLError as e:
+        logger.error(
+            "Jina AI URL error for query=%s: %s", query[:50], e.reason, exc_info=True
+        )
+        return None
+    except (json.JSONDecodeError, OSError, ValueError, TypeError) as e:
+        logger.error("Jina AI error for query=%s: %s", query[:50], e, exc_info=True)
+        return None
+
+
+# ── Tier 3: DuckDuckGo HTML Search (no API key) ─────────────────────────────
+
+_DDG_HTML_URL = "https://html.duckduckgo.com/html/"
+
+
+def _ddg_search(query: str, max_results: int = 5) -> list[dict] | None:
+    """Search using DuckDuckGo HTML endpoint (no API key needed).
+
+    Parses search results from the HTML response. This is a last-resort
+    fallback when both Tavily and Jina are unavailable.
+
+    Args:
+        query: Search query string.
+        max_results: Max results to return.
+
+    Returns:
+        List of result dicts or None on failure.
+    """
+    if _is_rate_limited(_ddg_request_times, _ddg_rate_lock, _DDG_RPM_LIMIT):
+        logger.warning("DuckDuckGo rate limited, skipping")
+        return None
+
+    try:
+        _record_request(_ddg_request_times, _ddg_rate_lock)
+        form_data = urllib.parse.urlencode({"q": query}).encode("utf-8")
+        req = urllib.request.Request(
+            _DDG_HTML_URL,
+            data=form_data,
+            headers={
+                "User-Agent": "Mozilla/5.0 (compatible; NovaAISuite/1.0)",
+                "Content-Type": "application/x-www-form-urlencoded",
+            },
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            body = resp.read().decode("utf-8", errors="replace")
+
+        # Parse results from HTML using regex (no lxml/bs4 needed)
+        results: list[dict] = []
+
+        # DuckDuckGo HTML results are in <a class="result__a" href="...">title</a>
+        # followed by <a class="result__snippet">snippet</a>
+        # Pattern: find result blocks
+        result_blocks = re.findall(
+            r'<a[^>]*class="result__a"[^>]*href="([^"]*)"[^>]*>(.*?)</a>'
+            r'.*?<a[^>]*class="result__snippet"[^>]*>(.*?)</a>',
+            body,
+            re.DOTALL,
+        )
+
+        for url_raw, title_raw, snippet_raw in result_blocks[:max_results]:
+            # Clean HTML entities and tags
+            title = re.sub(r"<[^>]+>", "", html.unescape(title_raw)).strip()
+            snippet = re.sub(r"<[^>]+>", "", html.unescape(snippet_raw)).strip()
+            url = html.unescape(url_raw).strip()
+
+            # DuckDuckGo wraps URLs in a redirect; extract actual URL
+            if "uddg=" in url:
+                parsed = urllib.parse.parse_qs(urllib.parse.urlparse(url).query)
+                actual_urls = parsed.get("uddg", [])
+                url = actual_urls[0] if actual_urls else url
+
+            if title and url:
+                results.append(
+                    {
+                        "title": title,
+                        "url": url,
+                        "content": snippet[:500],
+                        "score": 0.3,  # Low confidence for HTML-parsed results
+                    }
+                )
+
+        if results:
+            logger.info(
+                "DuckDuckGo search returned %d results for query=%s",
+                len(results),
+                query[:50],
+            )
+        return results if results else None
+
+    except urllib.error.HTTPError as e:
+        logger.error(
+            "DuckDuckGo HTTP error %d for query=%s", e.code, query[:50], exc_info=True
+        )
+        return None
+    except urllib.error.URLError as e:
+        logger.error(
+            "DuckDuckGo URL error for query=%s: %s", query[:50], e.reason, exc_info=True
+        )
+        return None
+    except (OSError, ValueError, TypeError) as e:
+        logger.error("DuckDuckGo error for query=%s: %s", query[:50], e, exc_info=True)
+        return None
+
+
+# ── Multi-tier search with fallback ──────────────────────────────────────────
+
+
+def _search_with_fallback(
+    query: str,
+    max_results: int = 5,
+    search_depth: str = "basic",
+    topic: str = "general",
+) -> list[dict] | None:
+    """Execute search with automatic fallback across tiers.
+
+    Tier 1: Tavily -> Tier 2: Jina AI -> Tier 3: DuckDuckGo -> Tier 4: None
+
+    Args:
+        query: Search query.
+        max_results: Number of results.
+        search_depth: Tavily search depth.
+        topic: Tavily topic filter.
+
+    Returns:
+        List of result dicts, or None if all tiers fail.
+    """
+    # Tier 1: Tavily
+    raw = _tavily_request(
+        query=query,
+        max_results=max_results,
+        search_depth=search_depth,
+        topic=topic,
+    )
+    if raw is not None:
+        results: list[dict] = []
+        for item in raw.get("results") or []:
+            results.append(
+                {
+                    "title": item.get("title") or "",
+                    "url": item.get("url") or "",
+                    "content": item.get("content") or "",
+                    "score": item.get("score") or 0.0,
+                }
+            )
+        if results:
+            return results
+
+    # Tier 2: Jina AI
+    logger.info("Tavily unavailable for query=%s, trying Jina AI", query[:50])
+    jina_results = _jina_search(query, max_results=max_results)
+    if jina_results:
+        return jina_results
+
+    # Tier 3: DuckDuckGo
+    logger.info("Jina AI unavailable for query=%s, trying DuckDuckGo", query[:50])
+    ddg_results = _ddg_search(query, max_results=max_results)
+    if ddg_results:
+        return ddg_results
+
+    # Tier 4: All search providers failed
+    logger.warning(
+        "All search tiers failed for query=%s (Tavily, Jina, DuckDuckGo)",
+        query[:50],
+    )
+    return None
+
+
 # ── Public API ───────────────────────────────────────────────────────────────
 
 
@@ -154,7 +443,7 @@ def search(
     max_results: int = 5,
     search_depth: str = "basic",
 ) -> list[dict] | None:
-    """Search the web using Tavily AI search.
+    """Search the web using multi-tier fallback (Tavily -> Jina -> DDG).
 
     Args:
         query: Search query string.
@@ -170,29 +459,18 @@ def search(
     if cached is not None:
         return cached
 
-    raw = _tavily_request(
+    results = _search_with_fallback(
         query=query,
         max_results=max_results,
         search_depth=search_depth,
     )
-    if raw is None:
-        return None
 
-    results: list[dict] = []
-    for item in raw.get("results") or []:
-        results.append(
-            {
-                "title": item.get("title") or "",
-                "url": item.get("url") or "",
-                "content": item.get("content") or "",
-                "score": item.get("score") or 0.0,
-            }
+    if results:
+        _cache_set(ck, results)
+        logger.info(
+            "Web search returned %d results for query=%s", len(results), query[:50]
         )
 
-    _cache_set(ck, results)
-    logger.info(
-        "Tavily search returned %d results for query=%s", len(results), query[:50]
-    )
     return results
 
 
@@ -216,33 +494,21 @@ def search_recruitment_news(topic: str) -> list[dict] | None:
     if cached is not None:
         return cached
 
-    raw = _tavily_request(
+    results = _search_with_fallback(
         query=enhanced_query,
         max_results=10,
         search_depth="advanced",
         topic="news",
     )
-    if raw is None:
-        return None
 
-    results: list[dict] = []
-    for item in raw.get("results") or []:
-        results.append(
-            {
-                "title": item.get("title") or "",
-                "url": item.get("url") or "",
-                "content": item.get("content") or "",
-                "score": item.get("score") or 0.0,
-                "published_date": item.get("published_date") or "",
-            }
+    if results:
+        _cache_set(ck, results)
+        logger.info(
+            "Recruitment news search returned %d results for topic=%s",
+            len(results),
+            topic[:50],
         )
 
-    _cache_set(ck, results)
-    logger.info(
-        "Tavily recruitment news returned %d results for topic=%s",
-        len(results),
-        topic[:50],
-    )
     return results
 
 
@@ -297,7 +563,7 @@ def research_company(company_name: str) -> dict | None:
 
     _cache_set(ck, result)
     logger.info(
-        "Tavily company research for %s: %d total sources",
+        "Company research for %s: %d total sources",
         company_name,
         result["total_sources"],
     )
@@ -314,4 +580,5 @@ def get_status() -> dict:
         "tavily_configured": has_key,
         "cache_entries": len(_cache),
         "api_url": _TAVILY_API_URL,
+        "fallback_tiers": ["tavily", "jina_ai", "duckduckgo"],
     }

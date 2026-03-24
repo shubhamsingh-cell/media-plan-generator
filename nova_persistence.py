@@ -15,6 +15,7 @@ import json
 import logging
 import os
 import threading
+import time
 import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -252,6 +253,525 @@ def delete_conversation(conversation_id: str) -> bool:
             "Error deleting conversation %s: %s", conversation_id, e, exc_info=True
         )
         return False
+
+
+# ---------------------------------------------------------------------------
+# Conversation-level locks for thread-safe message appending
+# ---------------------------------------------------------------------------
+_conversation_locks: Dict[str, threading.Lock] = {}
+_conversation_locks_guard = threading.Lock()
+
+# Retry queue for failed writes (drained on next successful write)
+_retry_queue: List[Dict[str, Any]] = []
+_retry_queue_lock = threading.Lock()
+
+MAX_RETRY_QUEUE = 200  # cap to avoid unbounded memory growth
+
+
+def _get_conversation_lock(conversation_id: str) -> threading.Lock:
+    """Get or create a per-conversation lock (thread-safe).
+
+    Args:
+        conversation_id: UUID of conversation.
+
+    Returns:
+        Lock object for the given conversation.
+    """
+    with _conversation_locks_guard:
+        if conversation_id not in _conversation_locks:
+            _conversation_locks[conversation_id] = threading.Lock()
+        return _conversation_locks[conversation_id]
+
+
+def _retry_with_backoff(
+    fn: Any,
+    max_retries: int = 1,
+    delay_seconds: float = 1.0,
+) -> Any:
+    """Execute fn(), retrying once on failure after a delay.
+
+    Args:
+        fn: Callable to execute.
+        max_retries: Number of retries after initial failure.
+        delay_seconds: Seconds to wait between retries.
+
+    Returns:
+        Result of fn() on success, or raises the last exception.
+    """
+    last_exc: Optional[Exception] = None
+    for attempt in range(1 + max_retries):
+        try:
+            return fn()
+        except Exception as exc:
+            last_exc = exc
+            if attempt < max_retries:
+                logger.warning(
+                    "Supabase write failed (attempt %d/%d), retrying in %.1fs: %s",
+                    attempt + 1,
+                    1 + max_retries,
+                    delay_seconds,
+                    exc,
+                )
+                time.sleep(delay_seconds)
+    raise last_exc  # type: ignore[misc]
+
+
+def get_or_create_conversation(
+    conversation_id: str,
+    user_id: str = "anonymous",
+    title: str = "New Chat",
+) -> Optional[Dict[str, Any]]:
+    """Get an existing conversation or create one with the given ID.
+
+    The widget sends a session-generated conversation_id.  If a row with
+    that ID already exists we return it; otherwise we INSERT a new row
+    using that ID so both app.py and nova_persistence.py share the same
+    document.
+
+    Args:
+        conversation_id: UUID string (caller-generated or from the widget).
+        user_id: Anonymous user identifier.
+        title: Conversation title for new conversations.
+
+    Returns:
+        Conversation dict, or None on error.
+    """
+    sb = _get_supabase()
+    if not sb:
+        return None
+
+    try:
+        # Try fetching first
+        result = (
+            sb.table("nova_conversations")
+            .select("*")
+            .eq("id", conversation_id)
+            .execute()
+        )
+        if result.data:
+            return result.data[0]
+
+        # Does not exist -- create with the explicit ID
+        def _insert() -> Any:
+            return (
+                sb.table("nova_conversations")
+                .insert(
+                    {
+                        "id": conversation_id,
+                        "user_id": user_id,
+                        "title": title,
+                        "messages": [],
+                    }
+                )
+                .execute()
+            )
+
+        insert_result = _retry_with_backoff(_insert)
+        if insert_result.data:
+            logger.info("Created conversation with explicit ID: %s", conversation_id)
+            return insert_result.data[0]
+        return None
+
+    except Exception as exc:
+        logger.error(
+            "get_or_create_conversation(%s) failed: %s",
+            conversation_id,
+            exc,
+            exc_info=True,
+        )
+        return None
+
+
+def append_message(
+    conversation_id: str,
+    role: str,
+    content: str,
+    *,
+    user_id: str = "anonymous",
+    model_used: str = "",
+    sources: Optional[List[Any]] = None,
+    confidence: float = 0.0,
+    message_id: str = "",
+) -> bool:
+    """Append a message to a conversation's messages JSONB array.
+
+    Thread-safe: acquires a per-conversation lock so concurrent
+    appends to the same conversation are serialised.
+
+    On failure the message is queued in ``_retry_queue`` so a
+    subsequent successful call can drain it.
+
+    Args:
+        conversation_id: UUID of the conversation.
+        role: 'user' or 'assistant'.
+        content: Message text (truncated to 10 000 chars).
+        user_id: Anonymous user ID (used only if conversation must be created).
+        model_used: LLM provider/model string.
+        sources: Data sources used for the response.
+        confidence: Confidence score (0.0 -- 1.0).
+        message_id: Optional unique message identifier.
+
+    Returns:
+        True on success, False on failure (message queued for retry).
+    """
+    sb = _get_supabase()
+    if not sb:
+        return False
+
+    msg_obj: Dict[str, Any] = {
+        "role": role,
+        "content": content[:10000],
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+    }
+    if model_used:
+        msg_obj["model_used"] = model_used
+    if sources:
+        msg_obj["sources"] = sources
+    if confidence:
+        msg_obj["confidence"] = confidence
+    if message_id:
+        msg_obj["message_id"] = message_id
+
+    lock = _get_conversation_lock(conversation_id)
+
+    try:
+        with lock:
+            # Ensure the conversation row exists
+            conv = get_or_create_conversation(conversation_id, user_id=user_id)
+            if conv is None:
+                raise RuntimeError(
+                    f"Could not get or create conversation {conversation_id}"
+                )
+
+            existing_messages: List[Dict[str, Any]] = conv.get("messages") or []
+            existing_messages.append(msg_obj)
+
+            def _update() -> Any:
+                return (
+                    sb.table("nova_conversations")
+                    .update({"messages": existing_messages})
+                    .eq("id", conversation_id)
+                    .execute()
+                )
+
+            _retry_with_backoff(_update)
+
+        # On success, try to drain any queued messages
+        _drain_retry_queue()
+        return True
+
+    except Exception as exc:
+        logger.error(
+            "append_message(%s, %s) failed, queueing for retry: %s",
+            conversation_id,
+            role,
+            exc,
+            exc_info=True,
+        )
+        _enqueue_retry(conversation_id, msg_obj, user_id)
+        return False
+
+
+def _enqueue_retry(
+    conversation_id: str,
+    msg_obj: Dict[str, Any],
+    user_id: str,
+) -> None:
+    """Add a failed message to the retry queue.
+
+    Args:
+        conversation_id: Target conversation UUID.
+        msg_obj: The message dict that failed to persist.
+        user_id: User identifier.
+    """
+    with _retry_queue_lock:
+        if len(_retry_queue) < MAX_RETRY_QUEUE:
+            _retry_queue.append(
+                {
+                    "conversation_id": conversation_id,
+                    "msg": msg_obj,
+                    "user_id": user_id,
+                }
+            )
+        else:
+            logger.warning(
+                "Retry queue full (%d items), dropping message for %s",
+                MAX_RETRY_QUEUE,
+                conversation_id,
+            )
+
+
+def _drain_retry_queue() -> None:
+    """Attempt to flush queued messages.  Called after a successful write."""
+    with _retry_queue_lock:
+        items = list(_retry_queue)
+        _retry_queue.clear()
+
+    if not items:
+        return
+
+    sb = _get_supabase()
+    if not sb:
+        # Put them back
+        with _retry_queue_lock:
+            _retry_queue.extend(items)
+        return
+
+    for item in items:
+        cid = item["conversation_id"]
+        msg = item["msg"]
+        uid = item["user_id"]
+        try:
+            lock = _get_conversation_lock(cid)
+            with lock:
+                conv = get_or_create_conversation(cid, user_id=uid)
+                if conv is None:
+                    raise RuntimeError(f"Cannot get conversation {cid}")
+                msgs = conv.get("messages") or []
+                msgs.append(msg)
+                (
+                    sb.table("nova_conversations")
+                    .update({"messages": msgs})
+                    .eq("id", cid)
+                    .execute()
+                )
+            logger.info("Drained retry-queue message for %s", cid)
+        except Exception as exc:
+            logger.error(
+                "Failed to drain retry message for %s: %s", cid, exc, exc_info=True
+            )
+            with _retry_queue_lock:
+                if len(_retry_queue) < MAX_RETRY_QUEUE:
+                    _retry_queue.append(item)
+
+
+def load_conversation_messages(conversation_id: str) -> List[Dict[str, Any]]:
+    """Load conversation messages from the JSONB array.
+
+    Args:
+        conversation_id: UUID of conversation.
+
+    Returns:
+        List of message dicts, or empty list on error.
+    """
+    sb = _get_supabase()
+    if not sb:
+        return []
+
+    try:
+        result = (
+            sb.table("nova_conversations")
+            .select("messages")
+            .eq("id", conversation_id)
+            .execute()
+        )
+        if result.data:
+            return result.data[0].get("messages") or []
+        return []
+    except Exception as exc:
+        logger.error(
+            "load_conversation_messages(%s) failed: %s",
+            conversation_id,
+            exc,
+            exc_info=True,
+        )
+        return []
+
+
+def list_conversations_summary(
+    user_id: Optional[str] = None,
+    limit: int = 50,
+) -> List[Dict[str, Any]]:
+    """List conversations with summary info for the sidebar.
+
+    Args:
+        user_id: Optional filter by user. If None, lists all.
+        limit: Max rows.
+
+    Returns:
+        List of dicts with id, title, updated_at, and last_message preview.
+    """
+    sb = _get_supabase()
+    if not sb:
+        return []
+
+    try:
+        query = (
+            sb.table("nova_conversations")
+            .select("id,user_id,title,messages,updated_at")
+            .order("updated_at", desc=True)
+            .limit(limit)
+        )
+        if user_id:
+            query = query.eq("user_id", user_id)
+
+        result = query.execute()
+        summaries: List[Dict[str, Any]] = []
+        for row in result.data or []:
+            messages = row.get("messages") or []
+            last_user_msg = ""
+            for msg in reversed(messages):
+                if msg.get("role") == "user":
+                    last_user_msg = (msg.get("content") or "")[:100]
+                    break
+            summaries.append(
+                {
+                    "conversation_id": row.get("id") or "",
+                    "title": row.get("title") or "New Chat",
+                    "last_message": last_user_msg,
+                    "updated_at": row.get("updated_at") or "",
+                    "message_count": len(messages),
+                }
+            )
+        return summaries
+
+    except Exception as exc:
+        logger.error("list_conversations_summary failed: %s", exc, exc_info=True)
+        return []
+
+
+def migrate_row_per_turn_data() -> Dict[str, Any]:
+    """One-time migration: merge row-per-turn data into the document model.
+
+    Detects rows that have the old schema (conversation_id, user_message,
+    assistant_response columns instead of messages JSONB array).  Groups
+    them by conversation_id, builds the messages array, upserts the
+    document-model row, then deletes the old rows.
+
+    Safe to run multiple times -- it is a no-op when no legacy rows exist.
+
+    Returns:
+        Dict with migration stats: conversations_migrated, turns_migrated,
+        errors.
+    """
+    sb = _get_supabase()
+    if not sb:
+        return {"error": "Supabase unavailable"}
+
+    stats: Dict[str, Any] = {
+        "conversations_migrated": 0,
+        "turns_migrated": 0,
+        "errors": [],
+    }
+
+    try:
+        # Detect legacy rows: they have a 'user_message' key (old schema)
+        # but the document model has 'messages' JSONB.
+        # PostgREST: select rows where user_message is not null
+        result = (
+            sb.table("nova_conversations")
+            .select("*")
+            .not_.is_("user_message", "null")
+            .order("timestamp", desc=False)
+            .limit(5000)
+            .execute()
+        )
+
+        legacy_rows = result.data or []
+        if not legacy_rows:
+            logger.info("No legacy row-per-turn data found; migration is a no-op")
+            return stats
+
+        # Group by conversation_id
+        grouped: Dict[str, List[Dict[str, Any]]] = {}
+        for row in legacy_rows:
+            cid = row.get("conversation_id") or ""
+            if cid:
+                grouped.setdefault(cid, []).append(row)
+
+        for cid, turns in grouped.items():
+            try:
+                # Build messages array from turns
+                messages: List[Dict[str, Any]] = []
+                for turn in turns:
+                    ts = turn.get("timestamp") or datetime.utcnow().isoformat() + "Z"
+                    user_msg = turn.get("user_message") or ""
+                    asst_msg = turn.get("assistant_response") or ""
+                    model = turn.get("model_used") or ""
+                    sources_raw = turn.get("sources") or "[]"
+                    try:
+                        sources_parsed = (
+                            json.loads(sources_raw)
+                            if isinstance(sources_raw, str)
+                            else sources_raw
+                        )
+                    except (json.JSONDecodeError, TypeError):
+                        sources_parsed = []
+                    conf = turn.get("confidence") or 0.0
+
+                    if user_msg:
+                        messages.append(
+                            {"role": "user", "content": user_msg, "timestamp": ts}
+                        )
+                    if asst_msg:
+                        asst_obj: Dict[str, Any] = {
+                            "role": "assistant",
+                            "content": asst_msg,
+                            "timestamp": ts,
+                        }
+                        if model:
+                            asst_obj["model_used"] = model
+                        if sources_parsed:
+                            asst_obj["sources"] = sources_parsed
+                        if conf:
+                            asst_obj["confidence"] = conf
+                        messages.append(asst_obj)
+
+                # Check if a document-model row already exists for this cid
+                existing = (
+                    sb.table("nova_conversations")
+                    .select("id,messages")
+                    .eq("id", cid)
+                    .not_.is_("messages", "null")
+                    .execute()
+                )
+                existing_row = (existing.data or [None])[0] if existing.data else None
+
+                if existing_row and isinstance(existing_row.get("messages"), list):
+                    # Merge: prepend legacy messages before existing ones
+                    merged = messages + (existing_row.get("messages") or [])
+                    sb.table("nova_conversations").update({"messages": merged}).eq(
+                        "id", cid
+                    ).execute()
+                else:
+                    # Determine a title from the first user message
+                    first_msg = (
+                        messages[0].get("content", "New Chat")[:100]
+                        if messages
+                        else "New Chat"
+                    )
+                    sb.table("nova_conversations").upsert(
+                        {
+                            "id": cid,
+                            "user_id": turns[0].get("user_id") or "anonymous",
+                            "title": first_msg,
+                            "messages": messages,
+                        }
+                    ).execute()
+
+                # Delete old row-per-turn rows
+                for turn in turns:
+                    row_id = turn.get("id")
+                    if row_id:
+                        sb.table("nova_conversations").delete().eq(
+                            "id", row_id
+                        ).execute()
+
+                stats["conversations_migrated"] += 1
+                stats["turns_migrated"] += len(turns)
+                logger.info("Migrated conversation %s (%d turns)", cid, len(turns))
+
+            except Exception as conv_exc:
+                error_msg = f"Error migrating {cid}: {conv_exc}"
+                logger.error(error_msg, exc_info=True)
+                stats["errors"].append(error_msg)
+
+    except Exception as exc:
+        error_msg = f"Migration query failed: {exc}"
+        logger.error(error_msg, exc_info=True)
+        stats["errors"].append(error_msg)
+
+    return stats
 
 
 # ---------------------------------------------------------------------------

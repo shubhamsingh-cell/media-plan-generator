@@ -26,7 +26,7 @@ import tempfile
 import threading
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Generator, List, Optional, Tuple
 
 # Supabase data layer (optional, falls back gracefully)
 try:
@@ -9647,6 +9647,175 @@ def handle_chat_request(request_data: dict) -> dict:
             "tools_used": [],
             "error": "Internal error processing request",
         }
+
+
+def handle_chat_request_stream(
+    request_data: dict,
+) -> Generator[Dict[str, Any], None, None]:
+    """Handle a chat request with true token-level streaming.
+
+    Performs all pre-processing (greetings, cache, tool use, enrichment) as
+    normal via handle_chat_request(). For responses that come from an LLM
+    provider, re-issues the final LLM call using call_llm_stream() to get
+    real token-by-token streaming.
+
+    For non-LLM responses (greetings, cached, rule-based), yields the
+    full response as a single chunk immediately.
+
+    Yields:
+        Dicts with either:
+          - {"token": "...", "done": False} for intermediate tokens
+          - {"token": "", "done": True, "full_response": "...", "sources": [...],
+             "confidence": 0.85, ...} for the final completion event
+    """
+    if not isinstance(request_data, dict):
+        yield {
+            "token": "",
+            "done": True,
+            "full_response": "Invalid request format.",
+            "sources": [],
+            "confidence": 0.0,
+            "tools_used": [],
+        }
+        return
+
+    message = (request_data.get("message") or "").strip()
+    if not message:
+        yield {
+            "token": "",
+            "done": True,
+            "full_response": "Please provide a message.",
+            "sources": [],
+            "confidence": 0.0,
+            "tools_used": [],
+        }
+        return
+
+    # --- Phase 1: Run the full pipeline to get tool data + enrichment ---
+    # handle_chat_request does greetings, cache, tool-use, LLM call, etc.
+    # We use it as a "pre-flight" to get the complete response.
+    response = handle_chat_request(request_data)
+    full_response = response.get("response") or ""
+    sources = response.get("sources") or []
+    confidence = response.get("confidence") or 0.0
+    tools_used = response.get("tools_used") or []
+    llm_provider = response.get("llm_provider") or ""
+    llm_model = response.get("llm_model") or ""
+
+    # --- Phase 2: Determine if we can re-stream via LLM ---
+    # If the response came from an LLM provider (not rule-based/cached),
+    # attempt to stream a fresh LLM call with the same context.
+    # This gives us true token streaming for LLM-generated responses.
+    #
+    # However, the tool-use pipeline builds complex multi-turn conversations
+    # that are hard to reconstruct. Instead, for responses that came from
+    # the LLM, we use a "re-synthesis" streaming approach: take the tool
+    # data from Phase 1 and stream a fresh synthesis response.
+    #
+    # For non-LLM responses (greetings, cached, quick answers), we yield
+    # the full response immediately -- these are already instant.
+
+    _is_llm_response = bool(llm_provider)
+    _is_long_response = len(full_response) > 200
+
+    if _is_llm_response and _is_long_response:
+        # Re-stream: use the enrichment data + original query to generate
+        # a streaming response. The tool data is already embedded in the
+        # history/context, so we build a focused re-synthesis prompt.
+        try:
+            from llm_router import call_llm_stream, classify_task
+
+            history = request_data.get("history") or []
+            enrichment_context = request_data.get("context")
+
+            # Build messages for the streaming call
+            stream_messages: List[Dict[str, Any]] = []
+            for h in history[-6:]:  # Last 6 messages for context
+                role = h.get("role", "user")
+                content = h.get("content") or ""
+                if role in ("user", "assistant") and content:
+                    stream_messages.append({"role": role, "content": content})
+            stream_messages.append({"role": "user", "content": message})
+
+            # Build system prompt matching the Nova chat persona
+            system_prompt = (
+                "You are Nova, an enterprise recruitment marketing intelligence assistant "
+                "at Joveo. You have access to data from 10,238+ supply partners across 70+ "
+                "countries. Provide data-driven, actionable insights about recruitment marketing.\n"
+                "(1) Always cite numbers, benchmarks, and publisher names when available. "
+                "(2) Format responses with markdown: **bold** for key numbers, ## headers, "
+                "tables for comparisons. Be concise but data-rich. "
+                "(3) NEVER say 'I can't help' or any refusal language. Always provide value.\n"
+            )
+
+            # Include tool/enrichment data summary if available
+            if tools_used and full_response:
+                # Provide the tool-gathered data as grounding context
+                system_prompt += (
+                    f"\nYou have already gathered the following data from tools ({', '.join(tools_used)}):\n"
+                    f"---\n{full_response[:3000]}\n---\n"
+                    "Use this data to respond to the user's question. "
+                    "Reproduce the key data points and insights faithfully."
+                )
+
+            task_type = classify_task(message)
+
+            # Stream tokens
+            streamed_tokens: List[str] = []
+            for token in call_llm_stream(
+                messages=stream_messages,
+                system_prompt=system_prompt,
+                max_tokens=2048,
+                task_type=task_type,
+                query_text=message,
+            ):
+                streamed_tokens.append(token)
+                yield {"token": token, "done": False}
+
+            streamed_text = "".join(streamed_tokens)
+
+            # If streaming produced content, use it; otherwise fall back
+            if streamed_text.strip():
+                yield {
+                    "token": "",
+                    "done": True,
+                    "full_response": streamed_text,
+                    "sources": sources,
+                    "confidence": confidence,
+                    "tools_used": tools_used,
+                    "llm_provider": llm_provider,
+                    "llm_model": llm_model,
+                    "streamed": True,
+                }
+                return
+            else:
+                logger.warning(
+                    "Nova stream: call_llm_stream yielded empty, "
+                    "falling back to pre-computed response"
+                )
+
+        except Exception as stream_exc:
+            logger.error(
+                "Nova stream: streaming failed, falling back to pre-computed response: %s",
+                stream_exc,
+                exc_info=True,
+            )
+            # Fall through to non-streaming path below
+
+    # --- Non-streaming fallback: yield full response as rapid token burst ---
+    # For short/cached/rule-based responses, or if streaming failed above
+    yield {"token": full_response, "done": False}
+    yield {
+        "token": "",
+        "done": True,
+        "full_response": full_response,
+        "sources": sources,
+        "confidence": confidence,
+        "tools_used": tools_used,
+        "llm_provider": llm_provider,
+        "llm_model": llm_model or "",
+        "streamed": False,
+    }
 
 
 def get_nova_metrics() -> Dict[str, Any]:

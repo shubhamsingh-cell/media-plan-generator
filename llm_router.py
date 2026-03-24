@@ -1,8 +1,9 @@
 """
-llm_router.py -- Smart LLM Provider Router for Nova Chat (v3.5)
+llm_router.py -- Smart LLM Provider Router for Nova Chat (v4.0)
 
 Routes LLM API calls to the optimal provider based on task type,
-with automatic fallback and circuit breaker per provider.
+with automatic fallback, circuit breaker, rate-aware routing,
+response caching, and provider health scoring.
 
 Provider priority (free-first, then paid by cost-efficiency):
     FREE TIER:
@@ -43,6 +44,12 @@ Task classification (8 types):
     - NARRATIVE:      long-form text, executive summaries, report writing
     - BATCH:          high-throughput bulk operations, comprehensive reports
 
+Features (v4.0):
+    - Circuit breaker: 5 consecutive failures -> 60s cooldown (hard cutoff)
+    - Health scoring: 0.0-1.0 per provider, decays on failure, influences routing order
+    - Rate-aware routing: sliding window rate limiter per provider, skip without penalty
+    - Response cache: LRU with 5-min TTL, semantic dedup by prompt hash
+
 Each provider has independent circuit breaker (5 failures -> 60s cooldown)
 and per-minute rate tracking.  24 total providers, 20 free + 4 paid.
 
@@ -51,6 +58,8 @@ Stdlib-only, thread-safe.
 
 from __future__ import annotations
 
+import collections
+import hashlib
 import json
 import logging
 import os
@@ -60,7 +69,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Generator, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -109,6 +118,209 @@ CLAUDE_OPUS = "claude_opus"
 # remaining budget so the caller never waits longer than this.
 GLOBAL_TIMEOUT_BUDGET = 60.0  # seconds
 _MIN_REMAINING_BUDGET = 5.0  # don't start a new attempt with < 5s left
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# RATE-AWARE ROUTING CONFIGURATION
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Per-provider rate limits for the sliding window tracker.
+# These are the *known* free-tier RPM limits.  Providers not listed here
+# fall back to the rpm_limit in PROVIDER_CONFIG.
+_RATE_LIMITS: dict[str, dict[str, int]] = {
+    "groq": {"rpm": 30, "window": 60},
+    "cerebras": {"rpm": 30, "window": 60},
+    "gemini": {"rpm": 15, "window": 60},
+    "together": {"rpm": 60, "window": 60},
+    "huggingface": {"rpm": 10, "window": 60},
+    "mistral": {"rpm": 30, "window": 60},
+    "sambanova": {"rpm": 20, "window": 60},
+    "siliconflow": {"rpm": 30, "window": 60},
+    "nvidia_nim": {"rpm": 30, "window": 60},
+    "zhipu": {"rpm": 30, "window": 60},
+    # OpenRouter variants share a single rate limit bucket
+    "openrouter": {"rpm": 20, "window": 60},
+    "openrouter_qwen": {"rpm": 20, "window": 60},
+    "openrouter_arcee": {"rpm": 20, "window": 60},
+    "openrouter_liquid": {"rpm": 20, "window": 60},
+    "openrouter_yi": {"rpm": 20, "window": 60},
+    "openrouter_deepseek_r1": {"rpm": 20, "window": 60},
+    "openrouter_gemma": {"rpm": 20, "window": 60},
+    "moonshot": {"rpm": 15, "window": 60},
+    "cloudflare": {"rpm": 300, "window": 60},
+    # Paid tiers -- higher limits
+    "claude_haiku": {"rpm": 50, "window": 60},
+    "claude": {"rpm": 50, "window": 60},
+    "claude_opus": {"rpm": 40, "window": 60},
+    "gpt4o": {"rpm": 60, "window": 60},
+    "xai": {"rpm": 60, "window": 60},
+}
+
+
+class _RateTracker:
+    """Thread-safe sliding window rate tracker for all providers.
+
+    Tracks request timestamps per provider in a sliding window and
+    provides O(1)-amortized rate-limit checks.  Rate-limited providers
+    are skipped WITHOUT burning a circuit breaker failure.
+    """
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        # provider_id -> list of timestamps (ascending order)
+        self._windows: dict[str, list[float]] = {}
+
+    def record_request(self, provider_id: str) -> None:
+        """Record that a request was sent to a provider."""
+        now = time.time()
+        with self._lock:
+            if provider_id not in self._windows:
+                self._windows[provider_id] = []
+            self._windows[provider_id].append(now)
+
+    def is_rate_limited(self, provider_id: str) -> bool:
+        """Check if a provider has exceeded its RPM in the current window.
+
+        Returns True if the provider should be skipped (rate limited).
+        """
+        limits = _RATE_LIMITS.get(provider_id)
+        if not limits:
+            return False  # No known limit -- allow through
+
+        rpm = limits["rpm"]
+        window = limits["window"]
+        now = time.time()
+        cutoff = now - window
+
+        with self._lock:
+            timestamps = self._windows.get(provider_id)
+            if not timestamps:
+                return False
+
+            # Prune expired entries (older than window)
+            while timestamps and timestamps[0] < cutoff:
+                timestamps.pop(0)
+
+            return len(timestamps) >= rpm
+
+    def get_counts(self) -> dict[str, int]:
+        """Return current request counts per provider (for diagnostics)."""
+        now = time.time()
+        result: dict[str, int] = {}
+        with self._lock:
+            for pid, timestamps in self._windows.items():
+                limits = _RATE_LIMITS.get(pid, {"window": 60})
+                cutoff = now - limits["window"]
+                # Count without modifying (read-only for stats)
+                count = sum(1 for t in timestamps if t >= cutoff)
+                result[pid] = count
+        return result
+
+
+# Module-level rate tracker instance
+_rate_tracker = _RateTracker()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# RESPONSE CACHE (Semantic Dedup)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+_CACHE_MAX_SIZE = 100
+_CACHE_TTL_SECONDS = 300.0  # 5 minutes
+
+
+class _ResponseCache:
+    """Thread-safe LRU response cache with TTL for semantic dedup.
+
+    Cache key is derived from a normalized hash of (task_type, system_prompt
+    prefix, user_message prefix).  Only successful responses are cached.
+    """
+
+    def __init__(
+        self, max_size: int = _CACHE_MAX_SIZE, ttl: float = _CACHE_TTL_SECONDS
+    ) -> None:
+        self._lock = threading.Lock()
+        self._max_size = max_size
+        self._ttl = ttl
+        # key -> (timestamp, response_dict)
+        self._store: collections.OrderedDict[str, tuple[float, dict[str, Any]]] = (
+            collections.OrderedDict()
+        )
+        # Stats
+        self._hits = 0
+        self._misses = 0
+
+    @staticmethod
+    def _make_key(task_type: str, system_prompt: str, user_message: str) -> str:
+        """Build a normalized cache key from prompt components."""
+        normalized = (
+            f"{task_type.strip().lower()}|"
+            f"{system_prompt[:200].strip().lower()}|"
+            f"{user_message[:500].strip().lower()}"
+        )
+        return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+
+    def get(
+        self, task_type: str, system_prompt: str, user_message: str
+    ) -> Optional[dict[str, Any]]:
+        """Look up a cached response.  Returns None on miss or expired entry."""
+        key = self._make_key(task_type, system_prompt, user_message)
+        now = time.time()
+        with self._lock:
+            entry = self._store.get(key)
+            if entry is None:
+                self._misses += 1
+                return None
+            ts, response = entry
+            if now - ts > self._ttl:
+                # Expired -- evict
+                del self._store[key]
+                self._misses += 1
+                return None
+            # Move to end (most recently used)
+            self._store.move_to_end(key)
+            self._hits += 1
+            return response
+
+    def put(
+        self,
+        task_type: str,
+        system_prompt: str,
+        user_message: str,
+        response: dict[str, Any],
+    ) -> None:
+        """Store a successful response in the cache."""
+        key = self._make_key(task_type, system_prompt, user_message)
+        now = time.time()
+        with self._lock:
+            # If key exists, update it
+            if key in self._store:
+                self._store.move_to_end(key)
+                self._store[key] = (now, response)
+                return
+            # Evict oldest if at capacity
+            while len(self._store) >= self._max_size:
+                self._store.popitem(last=False)
+            self._store[key] = (now, response)
+
+    def get_stats(self) -> dict[str, Any]:
+        """Return cache statistics."""
+        with self._lock:
+            total = self._hits + self._misses
+            hit_rate = (self._hits / total * 100.0) if total > 0 else 0.0
+            return {
+                "cache_size": len(self._store),
+                "cache_max_size": self._max_size,
+                "cache_ttl_seconds": self._ttl,
+                "cache_hits": self._hits,
+                "cache_misses": self._misses,
+                "cache_hit_rate_pct": round(hit_rate, 1),
+            }
+
+
+# Module-level response cache instance
+_response_cache = _ResponseCache()
+
 
 # Provider configs: endpoint, model, auth header, rate limits
 PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
@@ -335,7 +547,7 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         "name": "OpenRouter (DeepSeek R1 Reasoning)",
         "api_style": "openai",  # OpenAI-compatible
         "endpoint": "https://openrouter.ai/api/v1/chat/completions",
-        "model": "deepseek/deepseek-r1:free",
+        "model": "deepseek/deepseek-r1-0528:free",
         "env_key": "OPENROUTER_API_KEY",
         "rpm_limit": 20,
         "rpd_limit": 1000,
@@ -676,36 +888,46 @@ _BATCH_KEYWORDS = re.compile(
 
 
 class _ProviderState:
-    """Thread-safe state tracker for a single LLM provider."""
+    """Thread-safe state tracker for a single LLM provider.
+
+    Combines a hard circuit breaker (5 consecutive failures -> 60s cooldown)
+    with a soft health score (0.0 to 1.0) that influences provider ordering.
+    """
 
     def __init__(self, provider_id: str):
         self.provider_id = provider_id
         self.lock = threading.RLock()
-        # Circuit breaker
+        # Circuit breaker (hard cutoff)
         self.consecutive_failures = 0
         self.circuit_open_until = 0.0  # timestamp
         self.circuit_threshold = 5
         self.circuit_cooldown = 60.0  # seconds
+        # Health score (soft signal, 0.0 to 1.0)
+        self.health_score = 1.0
         # Rate tracking
         self.minute_calls: List[float] = []  # timestamps
         self.day_calls: List[float] = []  # timestamps
         # Stats
         self.total_calls = 0
         self.total_failures = 0
+        self.total_rate_limits = 0
         self.total_latency_ms = 0.0
 
     def is_available(self) -> bool:
-        """Check if provider is available (circuit not open, rate not exceeded)."""
+        """Check if provider is available (circuit not open, rate not exceeded, health not dead)."""
         now = time.time()
         with self.lock:
-            # Circuit breaker
+            # Circuit breaker (hard cutoff)
             if now < self.circuit_open_until:
                 return False
             # Half-open recovery: reset counter so a single failure doesn't
             # immediately re-open the circuit after cooldown expires.
             if self.consecutive_failures >= self.circuit_threshold:
                 self.consecutive_failures = self.circuit_threshold - 1
-            # Rate limiting
+            # Health score cutoff: if score is too low, skip provider
+            if self.health_score < 0.1:
+                return False
+            # Rate limiting (legacy per-provider tracking)
             config = PROVIDER_CONFIG.get(self.provider_id, {})
             rpm_limit = config.get("rpm_limit", 30)
             rpd_limit = config.get("rpd_limit", 10000)
@@ -717,6 +939,11 @@ class _ProviderState:
             if len(self.day_calls) >= rpd_limit:
                 return False
             return True
+
+    def get_health_score(self) -> float:
+        """Return the current health score (thread-safe read)."""
+        with self.lock:
+            return self.health_score
 
     def record_call(self) -> None:
         """Record an API call attempt."""
@@ -732,22 +959,27 @@ class _ProviderState:
                 self.day_calls = [t for t in self.day_calls if t > cutoff]
 
     def record_success(self, latency_ms: float) -> None:
-        """Record a successful API call."""
+        """Record a successful API call.  Health score moves toward 1.0."""
         with self.lock:
             self.consecutive_failures = 0
             self.total_latency_ms += latency_ms
+            # EWMA toward 1.0: score = score * 0.8 + 0.2
+            self.health_score = self.health_score * 0.8 + 0.2
 
     def record_failure(self) -> None:
-        """Record a failed API call and potentially open circuit."""
+        """Record a failed API call.  Health score drops.  May open circuit."""
         with self.lock:
             self.consecutive_failures += 1
             self.total_failures += 1
+            # Health score drops: score = score * 0.8
+            self.health_score = self.health_score * 0.8
             if self.consecutive_failures >= self.circuit_threshold:
                 self.circuit_open_until = time.time() + self.circuit_cooldown
                 logger.warning(
-                    "LLM Router: Circuit breaker OPEN for %s (cooldown %.0fs)",
+                    "LLM Router: Circuit breaker OPEN for %s (cooldown %.0fs, health=%.2f)",
                     self.provider_id,
                     self.circuit_cooldown,
+                    self.health_score,
                 )
                 # Alert via email when circuit breaker opens
                 try:
@@ -759,8 +991,18 @@ class _ProviderState:
                 except Exception:
                     pass  # email alerts are best-effort
 
+    def record_rate_limit(self) -> None:
+        """Record a rate-limit response (429/403).
+
+        Less penalty than a real error -- the provider isn't broken, just busy.
+        """
+        with self.lock:
+            self.total_rate_limits += 1
+            # Mild penalty: score = score * 0.9
+            self.health_score = self.health_score * 0.9
+
     def get_stats(self) -> Dict[str, Any]:
-        """Get provider stats."""
+        """Get provider stats including health score."""
         now = time.time()
         with self.lock:
             self.minute_calls = [t for t in self.minute_calls if now - t < 60]
@@ -773,6 +1015,8 @@ class _ProviderState:
                 "name": PROVIDER_CONFIG.get(self.provider_id, {}).get("name") or "",
                 "total_calls": self.total_calls,
                 "total_failures": self.total_failures,
+                "total_rate_limits": self.total_rate_limits,
+                "health_score": round(self.health_score, 3),
                 "calls_this_minute": len(self.minute_calls),
                 "calls_today": len(self.day_calls),
                 "circuit_open": now < self.circuit_open_until,
@@ -827,23 +1071,51 @@ def select_provider(
 ) -> Optional[str]:
     """Select the best available provider for a task type.
 
-    Follows the priority order for the task type, skipping providers
-    that are unavailable (circuit open or rate-limited) or excluded.
+    Uses a two-pass approach:
+    1. Determine tier membership (free=0, paid=1) from task routing order.
+       Free providers are indices 0..N-4, paid are the last 4 in each list.
+    2. Within each tier, sort by health score (descending) so healthier
+       providers are preferred.
+    3. Check rate-aware limiter BEFORE circuit breaker -- rate-limited
+       providers are skipped without penalty.
 
     Returns provider ID or None if all providers are unavailable.
     """
-    exclude = exclude or []
+    exclude_set = set(exclude or [])
     priority = TASK_ROUTING.get(task_type, TASK_ROUTING[TASK_CONVERSATIONAL])
 
-    for pid in priority:
-        if pid in exclude:
+    # Determine paid provider set (last 4 in the routing list are paid)
+    paid_providers = {CLAUDE_HAIKU, GPT4O, CLAUDE, CLAUDE_OPUS}
+
+    # Build candidate list with (tier, negative_health, index, pid)
+    # so sorting gives: free first, then paid; within tier, highest health first;
+    # ties broken by original routing order index.
+    candidates: list[tuple[int, float, int, str]] = []
+    for idx, pid in enumerate(priority):
+        if pid in exclude_set:
             continue
-        # Check API key exists
         config = PROVIDER_CONFIG.get(pid, {})
         env_key = config.get("env_key") or ""
         if not os.environ.get(env_key, "").strip():
             continue
-        # Check availability
+        state = _provider_states.get(pid)
+        if not state:
+            continue
+        tier = 1 if pid in paid_providers else 0
+        health = state.get_health_score()
+        candidates.append((tier, -health, idx, pid))
+
+    candidates.sort()
+
+    for _tier, _neg_health, _idx, pid in candidates:
+        # Rate-aware check: skip if we've hit the sliding window limit
+        if _rate_tracker.is_rate_limited(pid):
+            logger.debug(
+                "LLM Router: %s rate-limited (sliding window), skipping without penalty",
+                pid,
+            )
+            continue
+        # Circuit breaker + health score check
         state = _provider_states.get(pid)
         if state and state.is_available():
             return pid
@@ -1203,8 +1475,11 @@ def call_llm(
     force_provider: str = "",
     query_text: str = "",
     preferred_providers: Optional[List[str]] = None,
+    use_cache: bool = True,
 ) -> Dict[str, Any]:
     """Route an LLM call to the best available provider.
+
+    Flow:  rate check -> health-score ordering -> cache check -> API call
 
     Args:
         messages: Conversation messages [{role, content}, ...]
@@ -1218,6 +1493,9 @@ def call_llm(
             falling back to the standard routing order. Useful for requesting
             a specific provider (e.g., ["gemini"] for verification) while still
             allowing fallback if that provider is unavailable.
+        use_cache: If True (default), check the response cache before calling
+            a provider, and store successful responses.  Set to False for
+            tasks that need fresh data (e.g., real-time queries).
 
     Returns:
         {
@@ -1230,6 +1508,7 @@ def call_llm(
             "output_tokens": 200,
             "latency_ms": 450,
             "fallback_used": False,
+            "cache_hit": False,
             "attempts": [{"provider": "gemini", "status": "success", "latency_ms": 450}],
         }
     """
@@ -1237,6 +1516,30 @@ def call_llm(
     if not task_type and query_text:
         task_type = classify_task(query_text)
     task_type = task_type or TASK_CONVERSATIONAL
+
+    # --- Response cache check (before any API calls) ---
+    # Extract user message for cache key (last user message in the list)
+    _user_msg_for_cache = ""
+    if use_cache and not tools:
+        for msg in reversed(messages):
+            if msg.get("role") == "user" and isinstance(msg.get("content"), str):
+                _user_msg_for_cache = msg["content"]
+                break
+        if _user_msg_for_cache:
+            cached = _response_cache.get(task_type, system_prompt, _user_msg_for_cache)
+            if cached is not None:
+                logger.info(
+                    "LLM Router: cache HIT for task_type=%s (provider=%s)",
+                    task_type,
+                    cached.get("provider") or "unknown",
+                )
+                # Return a copy with cache_hit flag
+                result = dict(cached)
+                result["cache_hit"] = True
+                result["task_type"] = task_type
+                result["fallback_used"] = False
+                result["attempts"] = []
+                return result
 
     # Tools are now supported by all OpenAI-compatible providers (auto-converted
     # from Anthropic format in _build_openai_request).  No longer force Claude.
@@ -1246,11 +1549,13 @@ def call_llm(
 
     # Force-provider mode
     if force_provider:
+        _rate_tracker.record_request(force_provider)
         result = _call_single_provider(
             force_provider, messages, system_prompt, max_tokens, tools
         )
         result["task_type"] = task_type
         result["fallback_used"] = False
+        result["cache_hit"] = False
         result["attempts"] = [
             {
                 "provider": force_provider,
@@ -1258,6 +1563,9 @@ def call_llm(
                 "latency_ms": result.get("latency_ms") or 0,
             }
         ]
+        # Cache successful forced-provider results too
+        if use_cache and not tools and result.get("text") and _user_msg_for_cache:
+            _response_cache.put(task_type, system_prompt, _user_msg_for_cache, result)
         return result
 
     # Build custom routing order if preferred_providers given
@@ -1293,7 +1601,7 @@ def call_llm(
             break
 
         if custom_route:
-            # Use custom routing order
+            # Use custom routing order with rate-aware + health-score checks
             provider = None
             for pid in custom_route:
                 if pid in excluded:
@@ -1301,6 +1609,13 @@ def call_llm(
                 config = PROVIDER_CONFIG.get(pid, {})
                 env_key = config.get("env_key") or ""
                 if not os.environ.get(env_key, "").strip():
+                    continue
+                # Rate-aware check first (skip without penalty)
+                if _rate_tracker.is_rate_limited(pid):
+                    logger.debug(
+                        "LLM Router: %s rate-limited (sliding window), skipping",
+                        pid,
+                    )
                     continue
                 state = _provider_states.get(pid)
                 if state and state.is_available():
@@ -1310,6 +1625,9 @@ def call_llm(
             provider = select_provider(task_type, exclude=excluded)
         if provider is None:
             break
+
+        # Record in rate tracker before calling
+        _rate_tracker.record_request(provider)
 
         result = _call_single_provider(
             provider,
@@ -1334,7 +1652,13 @@ def call_llm(
         if _has_response:
             result["task_type"] = task_type
             result["fallback_used"] = attempt_num > 0
+            result["cache_hit"] = False
             result["attempts"] = attempts
+            # Cache successful responses (only text-based, not tool_calls)
+            if use_cache and not tools and result.get("text") and _user_msg_for_cache:
+                _response_cache.put(
+                    task_type, system_prompt, _user_msg_for_cache, result
+                )
             return result
 
         # Failed -- exclude and try next
@@ -1357,9 +1681,432 @@ def call_llm(
         "output_tokens": 0,
         "latency_ms": 0,
         "fallback_used": True,
+        "cache_hit": False,
         "attempts": attempts,
         "error": "All LLM providers unavailable or failed",
     }
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# STREAMING LLM CALL (real token-level SSE streaming)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Providers that do NOT support streaming -- fall back to non-streaming
+_NO_STREAM_PROVIDERS = frozenset({HUGGINGFACE, CLOUDFLARE})
+
+# Streaming timeout for the HTTP connection (longer than normal to keep alive)
+_STREAM_TIMEOUT = 90
+
+
+def _stream_openai_compatible(
+    url: str,
+    headers: Dict[str, str],
+    payload: Dict[str, Any],
+) -> Generator[str, None, None]:
+    """Stream tokens from an OpenAI-compatible SSE endpoint.
+
+    Sets stream=True, reads the response line-by-line, parses SSE
+    data events, and yields delta content tokens as they arrive.
+    """
+    payload["stream"] = True
+    data = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(url, data=data, headers=headers, method="POST")
+    resp = urllib.request.urlopen(req, timeout=_STREAM_TIMEOUT)
+    try:
+        for raw_line in resp:
+            line = raw_line.decode("utf-8", errors="replace").strip()
+            if not line:
+                continue
+            if line == "data: [DONE]":
+                break
+            if not line.startswith("data: "):
+                continue
+            try:
+                chunk = json.loads(line[6:])
+                choices = chunk.get("choices") or []
+                if choices:
+                    delta = choices[0].get("delta") or {}
+                    content = delta.get("content") or ""
+                    if content:
+                        yield content
+            except (json.JSONDecodeError, KeyError, IndexError):
+                continue
+    finally:
+        try:
+            resp.close()
+        except Exception:
+            pass
+
+
+def _stream_gemini(
+    messages: List[Dict],
+    system_prompt: str,
+    max_tokens: int,
+) -> Generator[str, None, None]:
+    """Stream tokens from the Gemini streaming endpoint.
+
+    Uses the streamGenerateContent endpoint which returns newline-delimited
+    JSON objects, each containing partial candidates.
+    """
+    api_key = (os.environ.get("GEMINI_API_KEY") or "").strip()
+    config = PROVIDER_CONFIG[GEMINI]
+    # Swap generateContent -> streamGenerateContent
+    base_endpoint = config["endpoint"]
+    stream_endpoint = base_endpoint.replace(
+        ":generateContent", ":streamGenerateContent"
+    )
+    url = f"{stream_endpoint}?alt=sse&key={api_key}"
+
+    # Build Gemini payload
+    contents = []
+    for msg in messages:
+        role = "model" if msg["role"] == "assistant" else "user"
+        text = msg.get("content") or ""
+        if isinstance(text, str):
+            contents.append({"role": role, "parts": [{"text": text}]})
+
+    payload: Dict[str, Any] = {
+        "contents": contents,
+        "generationConfig": {
+            "maxOutputTokens": max_tokens,
+            "temperature": 0.7,
+        },
+    }
+    if system_prompt:
+        payload["systemInstruction"] = {"parts": [{"text": system_prompt}]}
+
+    headers = {"Content-Type": "application/json"}
+    data = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(url, data=data, headers=headers, method="POST")
+    resp = urllib.request.urlopen(req, timeout=_STREAM_TIMEOUT)
+    try:
+        for raw_line in resp:
+            line = raw_line.decode("utf-8", errors="replace").strip()
+            if not line:
+                continue
+            if not line.startswith("data: "):
+                continue
+            try:
+                chunk = json.loads(line[6:])
+                candidates = chunk.get("candidates") or []
+                if candidates:
+                    content = candidates[0].get("content") or {}
+                    parts = content.get("parts") or []
+                    for part in parts:
+                        text = part.get("text") or ""
+                        if text:
+                            yield text
+            except (json.JSONDecodeError, KeyError, IndexError):
+                continue
+    finally:
+        try:
+            resp.close()
+        except Exception:
+            pass
+
+
+def _stream_anthropic(
+    messages: List[Dict],
+    system_prompt: str,
+    max_tokens: int,
+    provider_id: str = CLAUDE,
+) -> Generator[str, None, None]:
+    """Stream tokens from the Anthropic Messages API.
+
+    Anthropic uses a different SSE format with event types:
+      event: content_block_delta
+      data: {"type": "content_block_delta", "delta": {"type": "text_delta", "text": "..."}}
+    """
+    config = PROVIDER_CONFIG[provider_id]
+    api_key = os.environ.get(config["env_key"], "").strip()
+
+    api_messages = []
+    for msg in messages:
+        role = msg.get("role", "user")
+        content = msg.get("content") or ""
+        if role in ("user", "assistant") and isinstance(content, str) and content:
+            api_messages.append({"role": role, "content": content})
+
+    payload: Dict[str, Any] = {
+        "model": config["model"],
+        "max_tokens": max_tokens,
+        "messages": api_messages,
+        "stream": True,
+    }
+    if system_prompt:
+        payload["system"] = system_prompt
+
+    headers = {
+        "Content-Type": "application/json",
+        "x-api-key": api_key,
+        "anthropic-version": "2023-06-01",
+    }
+    data = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(
+        config["endpoint"], data=data, headers=headers, method="POST"
+    )
+    resp = urllib.request.urlopen(req, timeout=_STREAM_TIMEOUT)
+    try:
+        for raw_line in resp:
+            line = raw_line.decode("utf-8", errors="replace").strip()
+            if not line:
+                continue
+            if not line.startswith("data: "):
+                continue
+            try:
+                chunk = json.loads(line[6:])
+                chunk_type = chunk.get("type") or ""
+                if chunk_type == "content_block_delta":
+                    delta = chunk.get("delta") or {}
+                    text = delta.get("text") or ""
+                    if text:
+                        yield text
+            except (json.JSONDecodeError, KeyError):
+                continue
+    finally:
+        try:
+            resp.close()
+        except Exception:
+            pass
+
+
+def _stream_single_provider(
+    provider_id: str,
+    messages: List[Dict],
+    system_prompt: str,
+    max_tokens: int,
+) -> Generator[str, None, None]:
+    """Stream tokens from a single provider.
+
+    Dispatches to the appropriate streaming implementation based on
+    the provider's api_style. For providers that don't support streaming,
+    falls back to a non-streaming call and yields the full response.
+    """
+    config = PROVIDER_CONFIG.get(provider_id)
+    if not config:
+        return
+
+    api_style = config.get("api_style") or ""
+
+    # Providers without streaming support: full response as single yield
+    if provider_id in _NO_STREAM_PROVIDERS:
+        result = _call_single_provider(provider_id, messages, system_prompt, max_tokens)
+        text = result.get("text") or ""
+        if text:
+            yield text
+        return
+
+    if api_style == "gemini":
+        yield from _stream_gemini(messages, system_prompt, max_tokens)
+    elif api_style == "anthropic":
+        yield from _stream_anthropic(
+            messages, system_prompt, max_tokens, provider_id=provider_id
+        )
+    elif api_style == "openai":
+        # Build the OpenAI-compatible request, then stream
+        url, headers, body_bytes = _build_openai_request(
+            provider_id, messages, system_prompt, max_tokens
+        )
+        payload = json.loads(body_bytes.decode("utf-8"))
+        yield from _stream_openai_compatible(url, headers, payload)
+    else:
+        # Unknown style -- non-streaming fallback
+        result = _call_single_provider(provider_id, messages, system_prompt, max_tokens)
+        text = result.get("text") or ""
+        if text:
+            yield text
+
+
+def call_llm_stream(
+    messages: List[Dict],
+    system_prompt: str = "",
+    max_tokens: int = 2048,
+    task_type: str = "",
+    query_text: str = "",
+    preferred_providers: Optional[List[str]] = None,
+) -> Generator[str, None, None]:
+    """Stream LLM tokens from the best available provider.
+
+    Uses the same provider selection logic as call_llm (circuit breaker,
+    health scoring, rate limits) but returns a generator that yields
+    text chunks as they arrive from the provider's SSE stream.
+
+    If streaming fails mid-stream for a provider, catches the exception
+    and falls back to the next available provider using non-streaming
+    call_llm(), yielding the full response as a single chunk.
+
+    Args:
+        messages: Conversation messages [{role, content}, ...]
+        system_prompt: System prompt string
+        max_tokens: Max output tokens
+        task_type: Override task classification
+        query_text: User query for task classification
+        preferred_providers: Optional list of provider IDs to try first
+
+    Yields:
+        Text chunks (tokens) as they arrive from the LLM provider.
+    """
+    # Classify task if not provided
+    if not task_type and query_text:
+        task_type = classify_task(query_text)
+    task_type = task_type or TASK_CONVERSATIONAL
+
+    # Build routing order
+    if preferred_providers:
+        base_route = TASK_ROUTING.get(task_type, TASK_ROUTING[TASK_CONVERSATIONAL])
+        custom_route = list(preferred_providers)
+        for pid in base_route:
+            if pid not in custom_route:
+                custom_route.append(pid)
+    else:
+        custom_route = None
+
+    excluded: List[str] = []
+    max_attempts = len(PROVIDER_CONFIG)
+    _wall_start = time.time()
+
+    for attempt_num in range(max_attempts):
+        # Global timeout budget check
+        elapsed = time.time() - _wall_start
+        if elapsed > GLOBAL_TIMEOUT_BUDGET:
+            logger.warning(
+                "LLM Stream: global timeout budget (%.1fs) exceeded after %d attempts",
+                GLOBAL_TIMEOUT_BUDGET,
+                attempt_num,
+            )
+            break
+        remaining = GLOBAL_TIMEOUT_BUDGET - elapsed
+        if remaining < _MIN_REMAINING_BUDGET:
+            logger.warning(
+                "LLM Stream: only %.1fs remaining in budget, stopping early",
+                remaining,
+            )
+            break
+
+        # Select provider
+        if custom_route:
+            provider = None
+            for pid in custom_route:
+                if pid in excluded:
+                    continue
+                config = PROVIDER_CONFIG.get(pid, {})
+                env_key = config.get("env_key") or ""
+                if not os.environ.get(env_key, "").strip():
+                    continue
+                state = _provider_states.get(pid)
+                if state and state.is_available():
+                    provider = pid
+                    break
+        else:
+            provider = select_provider(task_type, exclude=excluded)
+
+        if provider is None:
+            break
+
+        state = _provider_states.get(provider)
+        if state:
+            state.record_call()
+        # Also record in the rate tracker
+        _rate_tracker.record_request(provider)
+
+        start_time = time.time()
+        any_tokens = False
+
+        try:
+            logger.info(
+                "LLM Stream: attempting %s (attempt %d)", provider, attempt_num + 1
+            )
+            for token in _stream_single_provider(
+                provider, messages, system_prompt, max_tokens
+            ):
+                any_tokens = True
+                yield token
+
+            if any_tokens:
+                latency_ms = round((time.time() - start_time) * 1000, 1)
+                if state:
+                    state.record_success(latency_ms)
+                logger.info(
+                    "LLM Stream: %s completed streaming in %.0fms",
+                    provider,
+                    latency_ms,
+                )
+                return  # Success -- done
+
+            # No tokens yielded -- treat as failure
+            if state:
+                state.record_failure()
+            excluded.append(provider)
+            logger.warning(
+                "LLM Stream: %s yielded no tokens (attempt %d), trying next",
+                provider,
+                attempt_num + 1,
+            )
+
+        except (urllib.error.HTTPError, urllib.error.URLError) as http_err:
+            if state:
+                state.record_failure()
+            excluded.append(provider)
+            logger.error(
+                "LLM Stream: %s HTTP error: %s (attempt %d)",
+                provider,
+                http_err,
+                attempt_num + 1,
+                exc_info=True,
+            )
+
+            # If we already yielded some tokens, fall back to non-streaming
+            # for a COMPLETE response from the next provider
+            if any_tokens:
+                logger.warning(
+                    "LLM Stream: mid-stream failure on %s after partial tokens, "
+                    "falling back to non-streaming call_llm()",
+                    provider,
+                )
+                fallback_result = call_llm(
+                    messages=messages,
+                    system_prompt=system_prompt,
+                    max_tokens=max_tokens,
+                    task_type=task_type,
+                    query_text=query_text,
+                )
+                fallback_text = fallback_result.get("text") or ""
+                if fallback_text:
+                    yield fallback_text
+                return
+
+        except Exception as exc:
+            if state:
+                state.record_failure()
+            excluded.append(provider)
+            logger.error(
+                "LLM Stream: %s error: %s (attempt %d)",
+                provider,
+                exc,
+                attempt_num + 1,
+                exc_info=True,
+            )
+
+            if any_tokens:
+                logger.warning(
+                    "LLM Stream: mid-stream failure on %s, "
+                    "falling back to non-streaming call_llm()",
+                    provider,
+                )
+                fallback_result = call_llm(
+                    messages=messages,
+                    system_prompt=system_prompt,
+                    max_tokens=max_tokens,
+                    task_type=task_type,
+                    query_text=query_text,
+                )
+                fallback_text = fallback_result.get("text") or ""
+                if fallback_text:
+                    yield fallback_text
+                return
+
+    # All providers failed -- yield nothing (caller should handle empty stream)
+    logger.error("LLM Stream: all providers failed, no tokens yielded")
 
 
 def _call_single_provider(
@@ -1455,16 +2202,43 @@ def _call_single_provider(
         return parsed
 
     except urllib.error.HTTPError as http_err:
-        if state:
-            state.record_failure()
         error_body = ""
         try:
             error_body = http_err.read().decode("utf-8")[:500]
         except Exception:
             pass
+
+        # Rate-limit responses (429 Too Many Requests, 403 Forbidden)
+        # get a softer health penalty -- the provider isn't broken, just busy.
+        if state:
+            if http_err.code in (429, 403):
+                state.record_rate_limit()
+                logger.warning(
+                    "LLM Router: %s rate-limited (HTTP %d), soft penalty applied",
+                    provider_id,
+                    http_err.code,
+                )
+            else:
+                state.record_failure()
+
         logger.error(
             "LLM Router: %s HTTP %d: %s", provider_id, http_err.code, error_body[:200]
         )
+        # ── PostHog: Track provider failure ──
+        try:
+            from posthog_integration import track_event as _ph_track_evt
+
+            _ph_track_evt(
+                "server",
+                "llm_provider_failure",
+                {
+                    "provider": provider_id,
+                    "error_type": "HTTPError",
+                    "status_code": http_err.code,
+                },
+            )
+        except Exception:
+            pass
         return {
             "text": "",
             "provider": provider_id,
@@ -1475,7 +2249,22 @@ def _call_single_provider(
     except Exception as exc:
         if state:
             state.record_failure()
-        logger.error("LLM Router: %s error: %s", provider_id, exc)
+        logger.error("LLM Router: %s error: %s", provider_id, exc, exc_info=True)
+        # ── PostHog: Track provider failure ──
+        try:
+            from posthog_integration import track_event as _ph_track_evt
+
+            _ph_track_evt(
+                "server",
+                "llm_provider_failure",
+                {
+                    "provider": provider_id,
+                    "error_type": type(exc).__name__,
+                    "status_code": 0,
+                },
+            )
+        except Exception:
+            pass
         return {
             "text": "",
             "provider": provider_id,
@@ -1493,17 +2282,22 @@ def _call_single_provider(
 def get_router_status() -> Dict[str, Any]:
     """Return status of all providers and routing configuration."""
     providers = {}
+    rate_counts = _rate_tracker.get_counts()
     for pid in PROVIDER_CONFIG:
         config = PROVIDER_CONFIG[pid]
         state = _provider_states.get(pid)
         has_key = bool(os.environ.get(config.get("env_key") or "", "").strip())
-        providers[pid] = {
+        provider_info = {
             "name": config.get("name") or "",
             "configured": has_key,
             "api_style": config.get("api_style") or "",
             "model": config.get("model") or "",
-            **(state.get_stats() if state else {}),
+            "rate_window_count": rate_counts.get(pid, 0),
+            "rate_limited": _rate_tracker.is_rate_limited(pid),
         }
+        if state:
+            provider_info.update(state.get_stats())
+        providers[pid] = provider_info
 
     return {
         "providers": providers,
@@ -1518,19 +2312,80 @@ def get_router_status() -> Dict[str, Any]:
             TASK_NARRATIVE,
             TASK_BATCH,
         ],
+        **_response_cache.get_stats(),
     }
 
 
-def get_provider_health() -> Dict[str, bool]:
-    """Quick health check -- which providers are available right now?"""
-    result = {}
+def get_provider_health() -> Dict[str, Any]:
+    """Provider health dashboard -- health scores, availability, and rate status.
+
+    Returns a dict per provider with health_score (0.0-1.0), available (bool),
+    rate_limited (bool), and circuit_open (bool).
+    """
+    result: Dict[str, Any] = {}
     for pid in PROVIDER_CONFIG:
         config = PROVIDER_CONFIG[pid]
         has_key = bool(os.environ.get(config.get("env_key") or "", "").strip())
         state = _provider_states.get(pid)
-        available = has_key and (state.is_available() if state else False)
-        result[pid] = available
+        now = time.time()
+        result[pid] = {
+            "name": config.get("name") or "",
+            "configured": has_key,
+            "health_score": round(state.get_health_score(), 3) if state else 0.0,
+            "available": has_key and (state.is_available() if state else False),
+            "rate_limited": _rate_tracker.is_rate_limited(pid),
+            "circuit_open": (now < state.circuit_open_until) if state else False,
+        }
     return result
+
+
+def get_router_stats() -> Dict[str, Any]:
+    """Comprehensive router diagnostics for the admin dashboard.
+
+    Returns current health scores, rate counters, cache hit rate,
+    and circuit breaker states for all providers.
+    """
+    health_scores: Dict[str, float] = {}
+    circuit_breakers: Dict[str, bool] = {}
+    rate_counts = _rate_tracker.get_counts()
+    now = time.time()
+
+    for pid in PROVIDER_CONFIG:
+        state = _provider_states.get(pid)
+        if state:
+            health_scores[pid] = round(state.get_health_score(), 3)
+            with state.lock:
+                circuit_breakers[pid] = now < state.circuit_open_until
+        else:
+            health_scores[pid] = 0.0
+            circuit_breakers[pid] = False
+
+    cache_stats = _response_cache.get_stats()
+
+    return {
+        "health_scores": health_scores,
+        "rate_counts": rate_counts,
+        "rate_limited": {
+            pid: _rate_tracker.is_rate_limited(pid) for pid in PROVIDER_CONFIG
+        },
+        "circuit_breakers": circuit_breakers,
+        "cache": cache_stats,
+        "total_providers": len(PROVIDER_CONFIG),
+        "available_providers": sum(
+            1
+            for pid in PROVIDER_CONFIG
+            if (
+                bool(
+                    os.environ.get(
+                        PROVIDER_CONFIG[pid].get("env_key") or "", ""
+                    ).strip()
+                )
+                and _provider_states.get(pid)
+                and _provider_states[pid].is_available()
+                and not _rate_tracker.is_rate_limited(pid)
+            )
+        ),
+    }
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

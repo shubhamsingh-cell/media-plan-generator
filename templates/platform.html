@@ -1198,6 +1198,96 @@
       }
 
       /* ═══════════════════════════════════════════════════════════════
+   MODULE TAB BAR
+   ═══════════════════════════════════════════════════════════════ */
+      .module-tab-bar {
+        display: flex;
+        align-items: center;
+        gap: 0;
+        padding: 0 24px;
+        background: rgba(12, 12, 20, 0.6);
+        border-bottom: 1px solid var(--border-subtle);
+        flex-shrink: 0;
+        overflow-x: auto;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+      }
+      .module-tab-bar::-webkit-scrollbar {
+        display: none;
+      }
+      .module-tab {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 10px 16px;
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--text-tertiary);
+        cursor: pointer;
+        white-space: nowrap;
+        transition: all var(--transition-fast);
+        border-bottom: 2px solid transparent;
+        user-select: none;
+        background: none;
+        border-top: none;
+        border-left: none;
+        border-right: none;
+        font-family: inherit;
+      }
+      .module-tab:hover {
+        color: var(--text-secondary);
+        background: rgba(255, 255, 255, 0.02);
+      }
+      .module-tab.active {
+        color: var(--text-primary);
+        border-bottom-color: var(--accent);
+        font-weight: 600;
+      }
+      .module-tab-icon {
+        width: 14px;
+        height: 14px;
+        opacity: 0.6;
+      }
+      .module-tab.active .module-tab-icon {
+        opacity: 1;
+      }
+
+      /* Content frame when tabs are present */
+      .content-with-tabs {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+      }
+      .content-with-tabs #module-frame {
+        flex: 1;
+        min-height: 0;
+      }
+
+      /* Sidebar chevron for tabbed modules */
+      .sidebar-item-chevron {
+        margin-left: auto;
+        width: 14px;
+        height: 14px;
+        opacity: 0.4;
+        flex-shrink: 0;
+      }
+      .sidebar-collapsed .sidebar-item-chevron {
+        display: none;
+      }
+
+      @media (max-width: 768px) {
+        .module-tab-bar {
+          padding: 0 16px;
+        }
+        .module-tab {
+          padding: 8px 12px;
+          font-size: 12px;
+        }
+      }
+
+      /* ═══════════════════════════════════════════════════════════════
    AURORA BACKGROUND EFFECT
    ═══════════════════════════════════════════════════════════════ */
       .aurora-bg {
@@ -1772,6 +1862,15 @@
           label: "Campaign Planner",
           icon: "campaign",
           desc: "Full media plans, quick plans, and campaign briefs",
+          tabs: [
+            { id: "full-plan", label: "Full Plan", fragment: "media-plan" },
+            { id: "quick-plan", label: "Quick Plan", fragment: "quick-plan" },
+            {
+              id: "quick-brief",
+              label: "Quick Brief",
+              fragment: "quick-brief",
+            },
+          ],
         },
         {
           id: "social",
@@ -1781,6 +1880,18 @@
           label: "Social & Creative",
           icon: "social",
           desc: "Social strategy and AI-powered creative assets",
+          tabs: [
+            {
+              id: "social-strategy",
+              label: "Social Strategy",
+              fragment: "social-plan",
+            },
+            {
+              id: "creative-assets",
+              label: "Creative Assets",
+              fragment: "creative-ai",
+            },
+          ],
         },
         {
           id: "testing",
@@ -1799,6 +1910,14 @@
           label: "Competitive Intel",
           icon: "competitive",
           desc: "Real-time competitive monitoring and analysis",
+          tabs: [
+            {
+              id: "live-monitor",
+              label: "Live Monitor",
+              fragment: "competitive",
+            },
+            { id: "reports", label: "Reports", fragment: "market-intel" },
+          ],
         },
         {
           id: "market",
@@ -1826,6 +1945,24 @@
           label: "Budget & Performance",
           icon: "budget",
           desc: "Budget simulator, ROI calculator, campaign tracker",
+          tabs: [
+            { id: "simulator", label: "Simulator", fragment: "simulator" },
+            {
+              id: "roi-calculator",
+              label: "ROI Calculator",
+              fragment: "roi-calculator",
+            },
+            {
+              id: "campaign-tracker",
+              label: "Campaign Tracker",
+              fragment: "tracker",
+            },
+            {
+              id: "post-campaign",
+              label: "Post-Campaign",
+              fragment: "post-campaign",
+            },
+          ],
         },
         {
           id: "talent",
@@ -1835,6 +1972,17 @@
           label: "Talent Intelligence",
           icon: "talent",
           desc: "Talent heatmaps, salary benchmarks, skill targeting",
+          tabs: [
+            { id: "heat-map", label: "Heat Map", fragment: "talent-heatmap" },
+            { id: "hire-signal", label: "HireSignal", fragment: "hire-signal" },
+            { id: "payscale", label: "PayScale", fragment: "payscale-sync" },
+            {
+              id: "skill-target",
+              label: "SkillTarget",
+              fragment: "skill-target",
+            },
+            { id: "applyflow", label: "ApplyFlow", fragment: "applyflow" },
+          ],
         },
         {
           id: "comply",
@@ -1844,6 +1992,14 @@
           label: "Compliance Center",
           icon: "comply",
           desc: "Regulatory compliance checks and ad audits",
+          tabs: [
+            {
+              id: "compliance-guard",
+              label: "ComplianceGuard",
+              fragment: "compliance-guard",
+            },
+            { id: "ad-audit", label: "Ad Audit", fragment: "audit" },
+          ],
         },
         {
           id: "api-portal",
@@ -2060,9 +2216,13 @@
             html += `</div>`;
             html += `<div class="sidebar-group-items">`;
             groupModules.forEach((mod) => {
+              const hasTabs = mod.tabs && mod.tabs.length > 1;
               html += `<a class="sidebar-item" data-route="${mod.route}" data-tooltip="${mod.label}" onclick="NovaRouter.navigate('${mod.route}')">`;
               html += `<span class="sidebar-item-icon">${ICONS[mod.icon] || ""}</span>`;
               html += `<span class="sidebar-item-label">${mod.label}</span>`;
+              if (hasTabs) {
+                html += `<svg class="sidebar-item-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`;
+              }
               html += `</a>`;
             });
             html += `</div></div>`;
@@ -2117,25 +2277,65 @@
       const NovaRouter = (() => {
         const _fragmentCache = {};
         let _currentRoute = null;
+        let _currentTabId = null;
 
+        /**
+         * Parse a hash like "#/plan/campaign/quick-brief" into:
+         *   { module, tabId, fragment, route, fullPath }
+         */
         function _getRouteConfig(hash) {
           const path = hash.replace(/^#?\/?/, "");
           if (!path || path === "home")
-            return { fragment: null, route: "", module: null };
-          const mod = MODULES.find((m) => m.route === path);
-          if (mod)
-            return { fragment: mod.fragment, route: mod.route, module: mod };
-          // Partial match (group only)
+            return { fragment: null, route: "", module: null, tabId: null };
+
+          // Try exact module match first
+          let mod = MODULES.find((m) => m.route === path);
+          let tabId = null;
+
+          if (mod) {
+            // Exact match -- use default (first) tab if module has tabs
+            const defaultTab =
+              mod.tabs && mod.tabs.length > 0 ? mod.tabs[0] : null;
+            return {
+              fragment: defaultTab ? defaultTab.fragment : mod.fragment,
+              route: mod.route,
+              module: mod,
+              tabId: defaultTab ? defaultTab.id : null,
+            };
+          }
+
+          // Check if path is module/tabId (e.g., "plan/campaign/quick-brief")
+          for (const m of MODULES) {
+            if (path.startsWith(m.route + "/") && m.tabs) {
+              const suffix = path.slice(m.route.length + 1);
+              const tab = m.tabs.find((t) => t.id === suffix);
+              if (tab) {
+                return {
+                  fragment: tab.fragment,
+                  route: m.route,
+                  module: m,
+                  tabId: tab.id,
+                };
+              }
+            }
+          }
+
+          // Partial match (group prefix)
           const byGroup = MODULES.find(
             (m) => m.route.startsWith(path + "/") || m.route === path,
           );
-          if (byGroup)
+          if (byGroup) {
+            const defaultTab =
+              byGroup.tabs && byGroup.tabs.length > 0 ? byGroup.tabs[0] : null;
             return {
-              fragment: byGroup.fragment,
+              fragment: defaultTab ? defaultTab.fragment : byGroup.fragment,
               route: byGroup.route,
               module: byGroup,
+              tabId: defaultTab ? defaultTab.id : null,
             };
-          return { fragment: null, route: "", module: null };
+          }
+
+          return { fragment: null, route: "", module: null, tabId: null };
         }
 
         async function _loadFragment(fragmentName) {
@@ -2184,12 +2384,79 @@
           }, 200);
         }
 
+        /**
+         * Build the tab bar HTML for a module with tabs.
+         */
+        function _buildTabBar(mod, activeTabId) {
+          if (!mod.tabs || mod.tabs.length < 2) return "";
+          let html = '<div class="module-tab-bar" role="tablist">';
+          mod.tabs.forEach((tab) => {
+            const isActive = tab.id === activeTabId;
+            html += `<button class="module-tab${isActive ? " active" : ""}" role="tab" aria-selected="${isActive}" data-tab-id="${tab.id}" onclick="NovaRouter.switchTab('${tab.id}')">`;
+            html += `<span>${tab.label}</span>`;
+            html += `</button>`;
+          });
+          html += "</div>";
+          return html;
+        }
+
+        /**
+         * Inject the content area structure for tabbed or plain modules.
+         */
+        function _setupContentArea(mod, tabId) {
+          const contentArea = document.querySelector(".content-area");
+          const hasTabs = mod && mod.tabs && mod.tabs.length > 1;
+
+          // Remove existing tab bar if present
+          const existingTabBar = contentArea.querySelector(".module-tab-bar");
+          if (existingTabBar) existingTabBar.remove();
+
+          // Remove wrapper class
+          contentArea.classList.remove("content-with-tabs");
+
+          if (hasTabs) {
+            contentArea.classList.add("content-with-tabs");
+            const tabBarHtml = _buildTabBar(mod, tabId);
+            const frame = document.getElementById("module-frame");
+            frame.insertAdjacentHTML("beforebegin", tabBarHtml);
+          }
+        }
+
+        /**
+         * Update just the active state of tabs without rebuilding.
+         */
+        function _updateTabActive(tabId) {
+          document.querySelectorAll(".module-tab").forEach((el) => {
+            const isActive = el.dataset.tabId === tabId;
+            el.classList.toggle("active", isActive);
+            el.setAttribute("aria-selected", String(isActive));
+          });
+        }
+
+        async function _loadFragmentIntoFrame(fragmentName, frame) {
+          const html = await _loadFragment(fragmentName);
+          frame.innerHTML = html;
+          _executeScripts(frame);
+          frame.scrollTop = 0;
+        }
+
         async function handleRoute() {
           const hash = location.hash || "#/";
           const config = _getRouteConfig(hash);
+          const routeKey =
+            config.route + (config.tabId ? "/" + config.tabId : "");
 
-          if (config.route === _currentRoute) return;
+          // Same route + same tab = no-op
+          if (
+            routeKey ===
+            _currentRoute + (_currentTabId ? "/" + _currentTabId : "")
+          ) {
+            return;
+          }
+
+          const sameModule = config.route === _currentRoute;
           _currentRoute = config.route;
+          _currentTabId = config.tabId;
 
           const frame = document.getElementById("module-frame");
 
@@ -2198,10 +2465,9 @@
             NovaContext.setNav({
               activeGroup: config.module.group || "",
               activeModule: config.module.id,
-              activeTab: "",
+              activeTab: config.tabId || "",
             });
             NovaSidebar.setActive(config.module.route);
-            // Update Nova drawer context
             const ctxEl = document.getElementById("nova-drawer-context");
             if (ctxEl) ctxEl.textContent = config.module.label;
           } else {
@@ -2217,6 +2483,12 @@
 
           // Dashboard home
           if (!config.fragment) {
+            // Remove any lingering tab bar
+            const contentArea = document.querySelector(".content-area");
+            const existingTabBar = contentArea.querySelector(".module-tab-bar");
+            if (existingTabBar) existingTabBar.remove();
+            contentArea.classList.remove("content-with-tabs");
+
             frame.innerHTML = _buildDashboardHome();
             NovaContext.emit("module:loaded", {
               group: "",
@@ -2226,32 +2498,56 @@
             return;
           }
 
-          // Load fragment
+          // If same module, just switching tabs -- only reload the fragment, update tab active state
+          if (sameModule && config.module && config.module.tabs) {
+            _updateTabActive(config.tabId);
+            _showLoadingBar();
+            frame.classList.add("loading");
+            try {
+              await _loadFragmentIntoFrame(config.fragment, frame);
+              NovaContext.emit("module:loaded", {
+                group: config.module.group,
+                module: config.module.id,
+                tab: config.tabId || "",
+              });
+            } catch (err) {
+              console.error("[NovaRouter] Tab fragment load error:", err);
+              frame.innerHTML = _buildErrorView(config.fragment);
+            } finally {
+              frame.classList.remove("loading");
+              _finishLoadingBar();
+            }
+            return;
+          }
+
+          // Full module switch -- setup tab bar + load fragment
+          _setupContentArea(config.module, config.tabId);
           _showLoadingBar();
           frame.classList.add("loading");
 
           try {
-            const html = await _loadFragment(config.fragment);
-            frame.innerHTML = html;
-            _executeScripts(frame);
-            frame.scrollTop = 0;
+            await _loadFragmentIntoFrame(config.fragment, frame);
             NovaContext.emit("module:loaded", {
               group: config.module.group,
               module: config.module.id,
-              tab: "",
+              tab: config.tabId || "",
             });
           } catch (err) {
             console.error("[NovaRouter] Fragment load error:", err);
-            frame.innerHTML = `
-        <div style="display:flex;align-items:center;justify-content:center;height:100%;flex-direction:column;gap:16px;color:var(--text-tertiary);">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-          <div style="font-size:15px;font-weight:600;color:var(--text-secondary);">Module failed to load</div>
-          <div style="font-size:13px;">Could not load "${config.fragment}". <a href="javascript:void(0)" onclick="NovaRouter.reload()" style="color:var(--text-teal);">Retry</a></div>
-        </div>`;
+            frame.innerHTML = _buildErrorView(config.fragment);
           } finally {
             frame.classList.remove("loading");
             _finishLoadingBar();
           }
+        }
+
+        function _buildErrorView(fragmentName) {
+          return `
+        <div style="display:flex;align-items:center;justify-content:center;height:100%;flex-direction:column;gap:16px;color:var(--text-tertiary);">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <div style="font-size:15px;font-weight:600;color:var(--text-secondary);">Module failed to load</div>
+          <div style="font-size:13px;">Could not load "${fragmentName}". <a href="javascript:void(0)" onclick="NovaRouter.reload()" style="color:var(--text-teal);">Retry</a></div>
+        </div>`;
         }
 
         return {
@@ -2259,15 +2555,30 @@
             location.hash = "#/" + route;
           },
 
+          /**
+           * Switch to a specific tab within the current module.
+           * Updates the hash to include the tab ID for deep linking.
+           */
+          switchTab(tabId) {
+            if (!_currentRoute) return;
+            const mod = MODULES.find((m) => m.route === _currentRoute);
+            if (!mod || !mod.tabs) return;
+            const tab = mod.tabs.find((t) => t.id === tabId);
+            if (!tab) return;
+            location.hash = "#/" + mod.route + "/" + tabId;
+          },
+
           reload() {
             const hash = location.hash || "#/";
             const config = _getRouteConfig(hash);
             if (config.fragment) delete _fragmentCache[config.fragment];
             _currentRoute = null;
+            _currentTabId = null;
             handleRoute();
           },
 
           init() {
+            window.__NOVA_PLATFORM = true;
             window.addEventListener("hashchange", handleRoute);
             handleRoute();
           },
@@ -2276,6 +2587,15 @@
             Object.keys(_fragmentCache).forEach(
               (k) => delete _fragmentCache[k],
             );
+          },
+
+          /** Get current tab ID (for external use) */
+          get currentTab() {
+            return _currentTabId;
+          },
+          /** Get current route (for external use) */
+          get currentRoute() {
+            return _currentRoute;
           },
         };
       })();
@@ -2451,6 +2771,30 @@
         let _selectedIdx = 0;
         let _items = [];
 
+        // Build a flat searchable list: modules + their tabs
+        function _buildSearchItems() {
+          const items = [];
+          MODULES.forEach((mod) => {
+            items.push(mod);
+            if (mod.tabs && mod.tabs.length > 1) {
+              mod.tabs.forEach((tab) => {
+                items.push({
+                  id: mod.id + "/" + tab.id,
+                  route: mod.route + "/" + tab.id,
+                  label: tab.label,
+                  desc: mod.label + " > " + tab.label,
+                  group: mod.group,
+                  icon: mod.icon,
+                  _isTab: true,
+                });
+              });
+            }
+          });
+          return items;
+        }
+
+        const _allItems = _buildSearchItems();
+
         function _render(filtered) {
           _items = filtered;
           _selectedIdx = 0;
@@ -2493,7 +2837,7 @@
               _render(MODULES);
               return;
             }
-            const filtered = MODULES.filter(
+            const filtered = _allItems.filter(
               (m) =>
                 m.label.toLowerCase().includes(q) ||
                 m.desc.toLowerCase().includes(q) ||

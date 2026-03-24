@@ -445,12 +445,15 @@ def _firecrawl_scrape(url: str) -> Optional[dict[str, Any]]:
     except urllib.error.HTTPError as exc:
         if exc.code in (402, 429):
             _cb_firecrawl.trip(f"HTTP {exc.code}: {exc.reason}")
+            logger.warning(
+                f"Firecrawl scrape HTTP {exc.code} for {url}: {exc.reason} (falling through to backup tiers)",
+            )
         else:
             _cb_firecrawl.record_failure(f"HTTP {exc.code}: {exc.reason}")
-        logger.error(
-            f"Firecrawl scrape HTTP {exc.code} for {url}: {exc.reason}",
-            exc_info=True,
-        )
+            logger.error(
+                f"Firecrawl scrape HTTP {exc.code} for {url}: {exc.reason}",
+                exc_info=True,
+            )
     except (urllib.error.URLError, json.JSONDecodeError, OSError) as exc:
         _cb_firecrawl.record_failure(str(exc))
         logger.error(f"Firecrawl scrape error for {url}: {exc}", exc_info=True)
@@ -517,9 +520,14 @@ def _firecrawl_search(
     except urllib.error.HTTPError as exc:
         if exc.code in (402, 429):
             _cb_firecrawl.trip(f"HTTP {exc.code}: {exc.reason}")
+            logger.warning(
+                f"Firecrawl search HTTP {exc.code}: {exc.reason} (falling through to backup tiers)",
+            )
         else:
             _cb_firecrawl.record_failure(f"HTTP {exc.code}: {exc.reason}")
-        logger.error(f"Firecrawl search HTTP {exc.code}: {exc.reason}", exc_info=True)
+            logger.error(
+                f"Firecrawl search HTTP {exc.code}: {exc.reason}", exc_info=True
+            )
     except (urllib.error.URLError, json.JSONDecodeError, OSError) as exc:
         _cb_firecrawl.record_failure(str(exc))
         logger.error(f"Firecrawl search error: {exc}", exc_info=True)

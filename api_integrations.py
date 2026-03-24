@@ -1821,3 +1821,368 @@ def get_api_status() -> dict[str, dict[str, Any]]:
             "env_vars": ["BLS_API_KEY"],
         },
     }
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# RESILIENCE: CROSS-REFERENCING FALLBACKS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+import threading as _fb_threading
+
+_fallback_lock = _fb_threading.Lock()
+
+
+def _call_with_fallback(
+    primary_fn: Any,
+    fallback_fn: Any,
+    *args: Any,
+    **kwargs: Any,
+) -> Any:
+    """Try primary function, fall back on failure.
+
+    Thread-safe utility that attempts the primary callable first.
+    If it returns None or raises, tries the fallback callable with
+    the same arguments.
+
+    Args:
+        primary_fn: Primary callable to try first.
+        fallback_fn: Fallback callable if primary fails.
+        *args: Positional args passed to both callables.
+        **kwargs: Keyword args passed to both callables.
+
+    Returns:
+        Result from whichever callable succeeds, or None if both fail.
+    """
+    try:
+        result = primary_fn(*args, **kwargs)
+        if result is not None:
+            return result
+    except Exception as e:
+        logger.warning(
+            "Primary API call failed (%s), trying fallback: %s",
+            primary_fn.__name__ if hasattr(primary_fn, "__name__") else "unknown",
+            e,
+        )
+
+    try:
+        result = fallback_fn(*args, **kwargs)
+        if result is not None:
+            logger.info(
+                "Fallback API call succeeded (%s)",
+                fallback_fn.__name__ if hasattr(fallback_fn, "__name__") else "unknown",
+            )
+            return result
+    except Exception as e:
+        logger.error(
+            "Fallback API call also failed (%s): %s",
+            fallback_fn.__name__ if hasattr(fallback_fn, "__name__") else "unknown",
+            e,
+            exc_info=True,
+        )
+
+    return None
+
+
+# ── Job Search Fallbacks: Adzuna <-> Jooble ────────────────────────────────
+
+
+def search_jobs_resilient(
+    role: str,
+    location: str = "us",
+    page: int = 1,
+) -> dict | None:
+    """Search jobs with automatic failover between Adzuna and Jooble.
+
+    If Adzuna fails, falls back to Jooble. If Jooble fails, falls back
+    to Adzuna. Normalizes results to a common format.
+
+    Args:
+        role: Job title or keyword.
+        location: Country code or location string.
+        page: Page number.
+
+    Returns:
+        Normalized job search results dict, or None if both fail.
+    """
+
+    def _try_adzuna() -> dict | None:
+        result = adzuna.search_jobs(role, location, page=page)
+        if result is None:
+            return None
+        return {
+            "source": "adzuna",
+            "count": result.get("count") or 0,
+            "results": result.get("results") or [],
+        }
+
+    def _try_jooble() -> dict | None:
+        result = jooble.search_jobs(role, location)
+        if result is None:
+            return None
+        # Normalize Jooble format to match Adzuna's
+        normalized_results = [
+            {
+                "title": j.get("title") or "",
+                "company": j.get("company") or "",
+                "location": j.get("location") or "",
+                "salary_min": 0,
+                "salary_max": 0,
+                "created": j.get("updated") or "",
+                "redirect_url": j.get("link") or "",
+            }
+            for j in (result.get("jobs") or [])
+        ]
+        return {
+            "source": "jooble",
+            "count": result.get("totalCount") or 0,
+            "results": normalized_results,
+        }
+
+    return _call_with_fallback(_try_adzuna, _try_jooble)
+
+
+# ── Federal Job Fallback: USAJobs -> Adzuna (government filter) ────────────
+
+
+def search_federal_jobs_resilient(
+    keyword: str,
+    location: str = "",
+) -> dict | None:
+    """Search federal jobs with fallback to Adzuna government jobs.
+
+    Args:
+        keyword: Job keyword or title.
+        location: Location filter.
+
+    Returns:
+        Job search results dict, or None if both fail.
+    """
+
+    def _try_usajobs() -> dict | None:
+        return usajobs.search_jobs(keyword, location)
+
+    def _try_adzuna_gov() -> dict | None:
+        # Adzuna with government keyword filter as fallback
+        result = adzuna.search_jobs(
+            f"{keyword} government federal",
+            "us",
+            page=1,
+            results_per_page=10,
+        )
+        if result is None:
+            return None
+        return {
+            "source": "adzuna_gov_fallback",
+            "count": result.get("count") or 0,
+            "jobs": result.get("results") or [],
+        }
+
+    return _call_with_fallback(_try_usajobs, _try_adzuna_gov)
+
+
+# ── Economic Data Cross-Reference: FRED <-> BLS <-> BEA ───────────────────
+
+
+def get_unemployment_resilient(state_code: str | None = None) -> dict | None:
+    """Get unemployment data with cross-API fallback.
+
+    Tier 1: FRED (primary source for unemployment)
+    Tier 2: BLS (alternative time series)
+
+    Args:
+        state_code: Two-letter state abbreviation or None for national.
+
+    Returns:
+        Unemployment data dict, or None if both fail.
+    """
+
+    def _try_fred() -> dict | None:
+        return fred.get_unemployment_rate(state_code)
+
+    def _try_bls() -> dict | None:
+        # BLS CPS series for unemployment: LNS14000000 (national)
+        result = bls._fetch_series(["LNS14000000"])
+        if result is None:
+            return None
+        return {
+            "source": "bls_fallback",
+            "series_id": "LNS14000000",
+            "data": result,
+        }
+
+    return _call_with_fallback(_try_fred, _try_bls)
+
+
+def get_cpi_resilient() -> dict | None:
+    """Get CPI data with cross-API fallback.
+
+    Tier 1: FRED CPI series
+    Tier 2: BLS CPI series
+
+    Returns:
+        CPI data dict, or None if both fail.
+    """
+
+    def _try_fred() -> dict | None:
+        return fred.get_cpi_data()
+
+    def _try_bls() -> dict | None:
+        return bls.get_cpi_series()
+
+    return _call_with_fallback(_try_fred, _try_bls)
+
+
+def get_gdp_resilient(state_level: bool = False) -> dict | None:
+    """Get GDP data with cross-API fallback.
+
+    Tier 1: FRED (national) or BEA (state-level)
+    Tier 2: BEA (national fallback) or FRED (state approximation)
+
+    Args:
+        state_level: If True, return state-level data.
+
+    Returns:
+        GDP data dict, or None if both fail.
+    """
+    if state_level:
+
+        def _try_bea() -> dict | None:
+            return bea.get_gdp_by_state()
+
+        def _try_fred_fallback() -> dict | None:
+            return fred.get_gdp_growth()
+
+        return _call_with_fallback(_try_bea, _try_fred_fallback)
+    else:
+
+        def _try_fred_gdp() -> dict | None:
+            return fred.get_gdp_growth()
+
+        def _try_bea_fallback() -> dict | None:
+            return bea.get_gdp_by_state(year="2024")
+
+        return _call_with_fallback(_try_fred_gdp, _try_bea_fallback)
+
+
+# ── O*NET Local Cache (occupational data changes infrequently) ─────────────
+
+_onet_cache_file = Path(__file__).resolve().parent / "data" / "onet_cache.json"
+_onet_local_cache: dict[str, Any] = {}
+_onet_cache_loaded = False
+
+
+def _load_onet_local_cache() -> None:
+    """Load O*NET local cache from disk (one-time at first access)."""
+    global _onet_cache_loaded, _onet_local_cache
+    if _onet_cache_loaded:
+        return
+
+    with _fallback_lock:
+        if _onet_cache_loaded:
+            return
+        if _onet_cache_file.exists():
+            try:
+                with open(_onet_cache_file, "r", encoding="utf-8") as f:
+                    _onet_local_cache = json.load(f)
+                logger.info(
+                    "Loaded O*NET local cache: %d entries", len(_onet_local_cache)
+                )
+            except (json.JSONDecodeError, OSError) as e:
+                logger.warning("Failed to load O*NET local cache: %s", e)
+        _onet_cache_loaded = True
+
+
+def _save_onet_local_cache() -> None:
+    """Persist O*NET local cache to disk."""
+    with _fallback_lock:
+        try:
+            _onet_cache_file.parent.mkdir(parents=True, exist_ok=True)
+            with open(_onet_cache_file, "w", encoding="utf-8") as f:
+                json.dump(_onet_local_cache, f, ensure_ascii=False)
+        except OSError as e:
+            logger.warning("Failed to save O*NET local cache: %s", e)
+
+
+def get_onet_skills_resilient(soc_code: str) -> list[dict] | None:
+    """Get O*NET skills with local cache fallback.
+
+    Tier 1: O*NET API (live data)
+    Tier 2: Local cache (data/onet_cache.json)
+
+    Args:
+        soc_code: O*NET-SOC code (e.g., '15-1252.00').
+
+    Returns:
+        List of skill dicts, or None if both fail.
+    """
+    _load_onet_local_cache()
+
+    # Try live API first
+    result = onet.get_skills(soc_code)
+    if result is not None:
+        # Update local cache on success
+        cache_key = f"skills:{soc_code}"
+        _onet_local_cache[cache_key] = result
+        _save_onet_local_cache()
+        return result
+
+    # Fallback to local cache
+    cache_key = f"skills:{soc_code}"
+    cached = _onet_local_cache.get(cache_key)
+    if cached is not None:
+        logger.info("O*NET skills served from local cache for %s", soc_code)
+        return cached
+
+    return None
+
+
+def get_onet_tech_skills_resilient(soc_code: str) -> list[dict] | None:
+    """Get O*NET technology skills with local cache fallback.
+
+    Args:
+        soc_code: O*NET-SOC code.
+
+    Returns:
+        List of tech skill dicts, or None if both fail.
+    """
+    _load_onet_local_cache()
+
+    result = onet.get_technology_skills(soc_code)
+    if result is not None:
+        cache_key = f"tech_skills:{soc_code}"
+        _onet_local_cache[cache_key] = result
+        _save_onet_local_cache()
+        return result
+
+    cache_key = f"tech_skills:{soc_code}"
+    cached = _onet_local_cache.get(cache_key)
+    if cached is not None:
+        logger.info("O*NET tech skills served from local cache for %s", soc_code)
+        return cached
+
+    return None
+
+
+# ── Demographics Cross-Reference: Census <-> BEA ──────────────────────────
+
+
+def get_income_data_resilient(state_fips: str | None = None) -> dict | None:
+    """Get income data with Census -> BEA fallback.
+
+    Tier 1: Census median household income
+    Tier 2: BEA personal income by state
+
+    Args:
+        state_fips: Two-digit state FIPS code or None for all states.
+
+    Returns:
+        Income data dict, or None if both fail.
+    """
+
+    def _try_census() -> dict | None:
+        return census.get_median_income_by_state()
+
+    def _try_bea() -> dict | None:
+        return bea.get_personal_income_by_state()
+
+    return _call_with_fallback(_try_census, _try_bea)

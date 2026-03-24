@@ -4,6 +4,10 @@
 Uses Voyage AI HTTP API for embeddings (no chromadb/voyageai pip packages).
 Implements a pure-Python in-memory vector store with cosine similarity.
 
+Fallback tiers when Voyage AI is unavailable:
+    Tier 1: Voyage AI embeddings (primary, high-quality)
+    Tier 2: TF-IDF keyword matching (pure Python, no external calls)
+
 This keeps our stdlib-only approach while enabling semantic search across
 the Nova knowledge base.
 
@@ -18,10 +22,12 @@ All functions:
 
 from __future__ import annotations
 
+import collections
 import json
 import logging
 import math
 import os
+import re
 import threading
 import time
 import urllib.error
@@ -37,6 +43,24 @@ _VOYAGE_MODEL = "voyage-3-lite"  # Good balance of quality/speed/cost
 _VOYAGE_TIMEOUT = 20  # seconds
 _VOYAGE_API_KEY: str | None = None
 _VOYAGE_MAX_BATCH = 128  # Voyage API max batch size
+_VOYAGE_RPM_LIMIT = 10  # Voyage free tier: ~10 req/min
+_voyage_request_times: list[float] = []
+_voyage_rate_lock = threading.Lock()
+
+
+def _is_voyage_rate_limited() -> bool:
+    """Check if we've exceeded Voyage AI rate limit."""
+    now = time.monotonic()
+    with _voyage_rate_lock:
+        # Prune requests older than 60s
+        _voyage_request_times[:] = [t for t in _voyage_request_times if now - t < 60]
+        return len(_voyage_request_times) >= _VOYAGE_RPM_LIMIT
+
+
+def _record_voyage_request() -> None:
+    """Record a Voyage API request timestamp."""
+    with _voyage_rate_lock:
+        _voyage_request_times.append(time.monotonic())
 
 
 def _get_api_key() -> str | None:
@@ -92,6 +116,14 @@ def embed_batch(texts: list[str]) -> list[list[float]] | None:
     if not texts:
         return []
 
+    # Rate limit check
+    if _is_voyage_rate_limited():
+        logger.warning(
+            "Voyage AI rate limited (>%d req/min), skipping embed_batch",
+            _VOYAGE_RPM_LIMIT,
+        )
+        return None
+
     # Chunk into batches of _VOYAGE_MAX_BATCH
     all_embeddings: list[list[float]] = []
     for i in range(0, len(texts), _VOYAGE_MAX_BATCH):
@@ -105,6 +137,7 @@ def embed_batch(texts: list[str]) -> list[list[float]] | None:
         }
 
         try:
+            _record_voyage_request()
             data = json.dumps(payload).encode("utf-8")
             req = urllib.request.Request(
                 _VOYAGE_API_URL,
@@ -190,6 +223,8 @@ def build_index(documents: list[dict]) -> None:
     Each document should have at minimum: {"id": str, "text": str}.
     Optional "metadata" dict is preserved for retrieval.
 
+    Falls back to TF-IDF index if Voyage AI embedding fails.
+
     Args:
         documents: List of dicts with at least "id" and "text" keys.
     """
@@ -208,8 +243,22 @@ def build_index(documents: list[dict]) -> None:
 
     valid_texts = [t for _, t in valid_docs]
     embeddings = embed_batch(valid_texts)
+
     if embeddings is None:
-        logger.error("build_index: embedding generation failed")
+        logger.warning(
+            "build_index: Voyage AI embedding failed, building TF-IDF fallback index"
+        )
+        # Build TF-IDF fallback index from the valid documents
+        _build_tfidf_index(
+            [
+                {
+                    "id": doc.get("id") or "",
+                    "text": text,
+                    "metadata": doc.get("metadata") or {},
+                }
+                for doc, text in valid_docs
+            ]
+        )
         return
 
     with _index_lock:
@@ -228,6 +277,18 @@ def build_index(documents: list[dict]) -> None:
         _index.extend(new_entries)
         _index_built = True
 
+    # Also build TF-IDF index as a warm standby for runtime fallback
+    _build_tfidf_index(
+        [
+            {
+                "id": doc.get("id") or "",
+                "text": text,
+                "metadata": doc.get("metadata") or {},
+            }
+            for doc, text in valid_docs
+        ]
+    )
+
     logger.info(
         "Vector index built: %d documents indexed (total: %d)",
         len(new_entries),
@@ -238,6 +299,8 @@ def build_index(documents: list[dict]) -> None:
 def search(query: str, top_k: int = 5) -> list[dict]:
     """Semantic search across indexed documents.
 
+    Tries Voyage AI embeddings first; falls back to TF-IDF keyword search.
+
     Args:
         query: Natural language search query.
         top_k: Number of top results to return.
@@ -246,35 +309,44 @@ def search(query: str, top_k: int = 5) -> list[dict]:
         List of dicts with keys: id, text, metadata, score.
         Returns empty list on failure.
     """
-    if not _index:
-        return []
+    # Tier 1: Voyage AI vector search
+    if _index:
+        query_embedding = embed_text(query)
+        if query_embedding is not None:
+            scored: list[tuple[float, dict]] = []
+            with _index_lock:
+                for entry in _index:
+                    sim = _cosine_similarity(query_embedding, entry["embedding"])
+                    scored.append((sim, entry))
 
-    query_embedding = embed_text(query)
-    if query_embedding is None:
-        return []
+            scored.sort(key=lambda x: x[0], reverse=True)
 
-    # Compute similarities
-    scored: list[tuple[float, dict]] = []
-    with _index_lock:
-        for entry in _index:
-            sim = _cosine_similarity(query_embedding, entry["embedding"])
-            scored.append((sim, entry))
+            results: list[dict] = []
+            for score, entry in scored[:top_k]:
+                results.append(
+                    {
+                        "id": entry["id"],
+                        "text": entry["text"][:500],
+                        "metadata": entry["metadata"],
+                        "score": round(score, 4),
+                    }
+                )
+            return results
 
-    # Sort by similarity descending
-    scored.sort(key=lambda x: x[0], reverse=True)
+        # Voyage AI failed at query time -- fall through to TF-IDF
+        logger.warning("Voyage AI embedding failed for query, falling back to TF-IDF")
 
-    results: list[dict] = []
-    for score, entry in scored[:top_k]:
-        results.append(
-            {
-                "id": entry["id"],
-                "text": entry["text"][:500],
-                "metadata": entry["metadata"],
-                "score": round(score, 4),
-            }
+    # Tier 2: TF-IDF keyword search fallback
+    tfidf_results = _tfidf_search(query, top_k=top_k)
+    if tfidf_results:
+        logger.info(
+            "TF-IDF fallback returned %d results for query=%s",
+            len(tfidf_results),
+            query[:50],
         )
+        return tfidf_results
 
-    return results
+    return []
 
 
 def index_knowledge_base() -> int:
@@ -398,6 +470,291 @@ def _extract_text_chunks(data: Any, source: str = "", prefix: str = "") -> list[
     return chunks
 
 
+# ── TF-IDF Fallback Engine (Tier 2: pure Python, no external calls) ─────────
+
+# Stop words for TF-IDF tokenizer
+_STOP_WORDS: frozenset[str] = frozenset(
+    {
+        "a",
+        "an",
+        "the",
+        "and",
+        "or",
+        "but",
+        "in",
+        "on",
+        "at",
+        "to",
+        "for",
+        "of",
+        "with",
+        "by",
+        "from",
+        "is",
+        "it",
+        "as",
+        "was",
+        "are",
+        "be",
+        "has",
+        "had",
+        "have",
+        "this",
+        "that",
+        "these",
+        "those",
+        "not",
+        "no",
+        "will",
+        "can",
+        "do",
+        "if",
+        "so",
+        "than",
+        "too",
+        "very",
+        "just",
+        "about",
+        "above",
+        "after",
+        "again",
+        "all",
+        "also",
+        "am",
+        "any",
+        "because",
+        "been",
+        "before",
+        "being",
+        "between",
+        "both",
+        "could",
+        "did",
+        "does",
+        "doing",
+        "down",
+        "during",
+        "each",
+        "few",
+        "get",
+        "got",
+        "he",
+        "her",
+        "here",
+        "him",
+        "his",
+        "how",
+        "i",
+        "into",
+        "its",
+        "let",
+        "me",
+        "more",
+        "most",
+        "my",
+        "nor",
+        "now",
+        "only",
+        "other",
+        "our",
+        "out",
+        "over",
+        "own",
+        "same",
+        "she",
+        "should",
+        "some",
+        "such",
+        "tell",
+        "their",
+        "them",
+        "then",
+        "there",
+        "they",
+        "through",
+        "under",
+        "until",
+        "up",
+        "us",
+        "we",
+        "what",
+        "when",
+        "where",
+        "which",
+        "while",
+        "who",
+        "whom",
+        "why",
+        "would",
+        "you",
+        "your",
+    }
+)
+
+# TF-IDF index state
+_tfidf_index: list[dict[str, float]] = []
+_tfidf_idf: dict[str, float] = {}
+_tfidf_doc_texts: list[str] = []
+_tfidf_doc_ids: list[str] = []
+_tfidf_doc_meta: list[dict] = []
+_tfidf_lock = threading.Lock()
+_tfidf_built = False
+
+
+def _tokenize(text: str) -> list[str]:
+    """Tokenize text into lowercase words, removing stop words.
+
+    Args:
+        text: Input text string.
+
+    Returns:
+        List of cleaned token strings.
+    """
+    tokens = re.findall(r"[a-z0-9]+", text.lower())
+    return [t for t in tokens if t not in _STOP_WORDS and len(t) > 1]
+
+
+def _compute_tf(tokens: list[str]) -> dict[str, float]:
+    """Compute log-normalized term frequency for a token list.
+
+    Args:
+        tokens: List of tokens from a document.
+
+    Returns:
+        Dict mapping each token to its TF score.
+    """
+    counts = collections.Counter(tokens)
+    tf: dict[str, float] = {}
+    for term, count in counts.items():
+        tf[term] = 1.0 + math.log(count) if count > 0 else 0.0
+    return tf
+
+
+def _build_tfidf_index(documents: list[dict]) -> None:
+    """Build a TF-IDF index from documents as a fallback for vector search.
+
+    Args:
+        documents: List of dicts with "id", "text", and optional "metadata".
+    """
+    global _tfidf_built
+
+    if not documents:
+        return
+
+    with _tfidf_lock:
+        all_tokens: list[list[str]] = []
+        doc_count = len(documents)
+
+        _tfidf_doc_texts.clear()
+        _tfidf_doc_ids.clear()
+        _tfidf_doc_meta.clear()
+        _tfidf_index.clear()
+        _tfidf_idf.clear()
+
+        df: dict[str, int] = collections.defaultdict(int)
+
+        for doc in documents:
+            text = doc.get("text") or ""
+            tokens = _tokenize(text)
+            all_tokens.append(tokens)
+            _tfidf_doc_texts.append(text[:500])
+            _tfidf_doc_ids.append(doc.get("id") or "")
+            _tfidf_doc_meta.append(doc.get("metadata") or {})
+
+            for term in set(tokens):
+                df[term] += 1
+
+        for term, freq in df.items():
+            _tfidf_idf[term] = math.log((doc_count + 1) / (freq + 1)) + 1.0
+
+        for tokens in all_tokens:
+            tf = _compute_tf(tokens)
+            tfidf_vec: dict[str, float] = {
+                term: tf_val * _tfidf_idf.get(term, 1.0) for term, tf_val in tf.items()
+            }
+            _tfidf_index.append(tfidf_vec)
+
+        _tfidf_built = True
+
+    logger.info(
+        "TF-IDF fallback index built: %d documents, %d unique terms",
+        doc_count,
+        len(_tfidf_idf),
+    )
+
+
+def _tfidf_cosine_similarity(
+    vec_a: dict[str, float],
+    vec_b: dict[str, float],
+) -> float:
+    """Compute cosine similarity between two sparse TF-IDF vectors.
+
+    Args:
+        vec_a: First sparse vector (term -> weight).
+        vec_b: Second sparse vector (term -> weight).
+
+    Returns:
+        Cosine similarity in range [0, 1].
+    """
+    common_terms = set(vec_a.keys()) & set(vec_b.keys())
+    if not common_terms:
+        return 0.0
+
+    dot = sum(vec_a[t] * vec_b[t] for t in common_terms)
+    norm_a = math.sqrt(sum(v * v for v in vec_a.values()))
+    norm_b = math.sqrt(sum(v * v for v in vec_b.values()))
+
+    if norm_a == 0.0 or norm_b == 0.0:
+        return 0.0
+
+    return dot / (norm_a * norm_b)
+
+
+def _tfidf_search(query: str, top_k: int = 5) -> list[dict]:
+    """Search the TF-IDF index with a text query (Tier 2 fallback).
+
+    Args:
+        query: Natural language search query.
+        top_k: Number of top results to return.
+
+    Returns:
+        List of result dicts with id, text, metadata, score.
+    """
+    if not _tfidf_built:
+        return []
+
+    query_tokens = _tokenize(query)
+    if not query_tokens:
+        return []
+
+    query_tf = _compute_tf(query_tokens)
+    query_vec: dict[str, float] = {
+        term: tf_val * _tfidf_idf.get(term, 1.0) for term, tf_val in query_tf.items()
+    }
+
+    scored: list[tuple[float, int]] = []
+    with _tfidf_lock:
+        for idx, doc_vec in enumerate(_tfidf_index):
+            sim = _tfidf_cosine_similarity(query_vec, doc_vec)
+            if sim > 0.0:
+                scored.append((sim, idx))
+
+    scored.sort(key=lambda x: x[0], reverse=True)
+
+    results: list[dict] = []
+    for score, idx in scored[:top_k]:
+        results.append(
+            {
+                "id": _tfidf_doc_ids[idx],
+                "text": _tfidf_doc_texts[idx],
+                "metadata": _tfidf_doc_meta[idx],
+                "score": round(score, 4),
+            }
+        )
+
+    return results
+
+
 # ── Status ───────────────────────────────────────────────────────────────────
 
 
@@ -408,5 +765,7 @@ def get_status() -> dict:
         "voyage_configured": has_key,
         "index_size": len(_index),
         "index_built": _index_built,
+        "tfidf_index_size": len(_tfidf_index),
+        "tfidf_built": _tfidf_built,
         "model": _VOYAGE_MODEL,
     }

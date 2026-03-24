@@ -185,6 +185,23 @@ except ImportError:
     _vector_search_available = False
     logger.warning("vector_search module not available; semantic search disabled")
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# POSTHOG ANALYTICS (stdlib-only, fire-and-forget event tracking)
+# ═══════════════════════════════════════════════════════════════════════════════
+try:
+    from posthog_integration import (
+        track_event as _ph_track,
+        track_page_view as _ph_page_view,
+        get_stats as _ph_get_stats,
+        hash_ip as _ph_hash_ip,
+        shutdown as _ph_shutdown,
+    )
+
+    _posthog_available = True
+except ImportError:
+    _posthog_available = False
+    logger.warning("posthog_integration module not available; analytics disabled")
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # LLM ROUTER (lazy import for narrative intelligence)
@@ -270,30 +287,34 @@ _fragment_cache_lock = threading.Lock()
 
 # Map fragment names to template files and extraction selectors
 _FRAGMENT_MAP: dict[str, str] = {
+    # ── Core module fragments (10 modules) ──
     "media-plan": "index.html",
+    "quick-plan": "quick-plan.html",
+    "quick-brief": "quick-brief.html",
     "social-plan": "social-plan.html",
+    "creative-ai": "creative-ai.html",
     "ab-testing": "ab-testing.html",
     "competitive": "competitive.html",
+    "market-intel": "market-intel.html",
     "market-pulse": "market-pulse.html",
     "vendor-iq": "vendor-iq.html",
     "simulator": "simulator.html",
-    "talent-heatmap": "talent-heatmap.html",
-    "compliance-guard": "compliance-guard.html",
-    "api-portal": "api-portal.html",
-    "dashboard": "hub.html",
-    # Additional fragments for backward compat / future merges
-    "quick-plan": "quick-plan.html",
-    "quick-brief": "quick-brief.html",
-    "creative-ai": "creative-ai.html",
-    "hire-signal": "hire-signal.html",
     "roi-calculator": "roi-calculator.html",
     "tracker": "tracker.html",
     "post-campaign": "post-campaign.html",
-    "audit": "audit.html",
+    "talent-heatmap": "talent-heatmap.html",
+    "hire-signal": "hire-signal.html",
     "payscale-sync": "payscale-sync.html",
     "skill-target": "skill-target.html",
+    "applyflow": "applyflow-demo.html",
+    "compliance-guard": "compliance-guard.html",
+    "audit": "audit.html",
+    "nova": "nova.html",
+    # ── Utility fragments ──
+    "api-portal": "api-portal.html",
+    "dashboard": "hub.html",
+    # ── Backward-compat alias ──
     "applyflow-demo": "applyflow-demo.html",
-    "market-intel": "market-intel.html",
 }
 _INSIGHTS_LLM_TIMEOUT = 10  # seconds
 _insights_executor = ThreadPoolExecutor(
@@ -16279,10 +16300,15 @@ def _save_conversation_turn(
     sources: Optional[list] = None,
     confidence: float = 0.0,
 ) -> None:
-    """Persist a single conversation turn to Supabase.
+    """Persist a conversation turn using the document model (W-05 fix).
+
+    Delegates to nova_persistence.append_message() which appends both
+    user and assistant messages to the conversation's JSONB messages
+    array.  Includes retry-with-backoff (C-08) and a background queue
+    for failed writes.
 
     Args:
-        conversation_id: Session/conversation ID.
+        conversation_id: Session/conversation UUID.
         user_message: The user's message.
         assistant_response: Nova's response text.
         model_used: LLM provider/model string.
@@ -16291,42 +16317,133 @@ def _save_conversation_turn(
     """
     if not _SUPABASE_URL or not _SUPABASE_KEY:
         return
-    payload = {
-        "conversation_id": conversation_id,
-        "user_message": user_message,
-        "assistant_response": assistant_response[
-            :10000
-        ],  # Truncate very long responses
-        "model_used": model_used,
-        "sources": json.dumps(sources or []),
-        "confidence": confidence,
-        "timestamp": datetime.datetime.utcnow().isoformat() + "Z",
-    }
-    _supabase_rest("nova_conversations", method="POST", payload=payload)
+
+    try:
+        from nova_persistence import append_message
+    except ImportError:
+        logger.error(
+            "nova_persistence module not available; falling back to no-op",
+            exc_info=True,
+        )
+        return
+
+    # Append the user message
+    if user_message:
+        try:
+            append_message(
+                conversation_id,
+                "user",
+                user_message,
+                user_id="anonymous",
+            )
+        except Exception as exc:
+            logger.error(
+                "Failed to persist user message for %s: %s",
+                conversation_id,
+                exc,
+                exc_info=True,
+            )
+
+    # Append the assistant response
+    if assistant_response:
+        try:
+            append_message(
+                conversation_id,
+                "assistant",
+                assistant_response,
+                user_id="anonymous",
+                model_used=model_used,
+                sources=sources,
+                confidence=confidence,
+            )
+        except Exception as exc:
+            logger.error(
+                "Failed to persist assistant message for %s: %s",
+                conversation_id,
+                exc,
+                exc_info=True,
+            )
 
 
 def _load_conversation_history(conversation_id: str) -> list[dict]:
-    """Load conversation history from Supabase.
+    """Load conversation history from the JSONB messages array (W-05 fix).
+
+    Returns messages in the format the widget expects, with backward
+    compatibility for the legacy row-per-turn format.
 
     Args:
-        conversation_id: Session/conversation ID.
+        conversation_id: Session/conversation UUID.
 
     Returns:
-        List of conversation turn dicts, ordered by timestamp ascending.
+        List of message dicts with role, content, timestamp, etc.
     """
-    params = (
-        f"?conversation_id=eq.{urllib.parse.quote(conversation_id)}"
-        f"&order=timestamp.asc"
-        f"&limit=100"
-    )
-    result = _supabase_rest("nova_conversations", method="GET", params=params)
-    if isinstance(result, list):
-        return result
+    try:
+        from nova_persistence import load_conversation_messages
+    except ImportError:
+        logger.error(
+            "nova_persistence module not available for loading history",
+            exc_info=True,
+        )
+        return []
+
+    try:
+        messages = load_conversation_messages(conversation_id)
+        if messages:
+            return messages
+    except Exception as exc:
+        logger.error(
+            "Failed to load conversation %s from document model: %s",
+            conversation_id,
+            exc,
+            exc_info=True,
+        )
+
+    # Fallback: try the old REST row-per-turn query in case migration
+    # has not run yet.
+    try:
+        params = (
+            f"?conversation_id=eq.{urllib.parse.quote(conversation_id)}"
+            f"&order=timestamp.asc"
+            f"&limit=100"
+        )
+        result = _supabase_rest("nova_conversations", method="GET", params=params)
+        if isinstance(result, list) and result:
+            converted: list[dict] = []
+            for row in result:
+                user_msg = row.get("user_message") or ""
+                asst_msg = row.get("assistant_response") or ""
+                ts = row.get("timestamp") or ""
+                if user_msg:
+                    converted.append(
+                        {"role": "user", "content": user_msg, "timestamp": ts}
+                    )
+                if asst_msg:
+                    msg_obj: dict = {
+                        "role": "assistant",
+                        "content": asst_msg,
+                        "timestamp": ts,
+                    }
+                    model = row.get("model_used") or ""
+                    if model:
+                        msg_obj["model_used"] = model
+                    converted.append(msg_obj)
+            return converted
+    except Exception as fallback_exc:
+        logger.error(
+            "Legacy history fallback also failed for %s: %s",
+            conversation_id,
+            fallback_exc,
+            exc_info=True,
+        )
+
     return []
 
 
 def _list_conversations(limit: int = 50) -> list[dict]:
-    """List recent conversations from Supabase.
+    """List recent conversations from Supabase (W-05 fix).
+
+    Uses the document model via nova_persistence to retrieve
+    conversation summaries.
 
     Args:
         limit: Maximum number of conversations to return.
@@ -16334,26 +16451,51 @@ def _list_conversations(limit: int = 50) -> list[dict]:
     Returns:
         List of conversation summary dicts.
     """
+    try:
+        from nova_persistence import list_conversations_summary
+
+        return list_conversations_summary(limit=min(limit, 200))
+    except ImportError:
+        logger.error(
+            "nova_persistence module not available for listing conversations",
+            exc_info=True,
+        )
+    except Exception as exc:
+        logger.error(
+            "Failed to list conversations via document model: %s",
+            exc,
+            exc_info=True,
+        )
+
+    # Fallback to old REST query using document model columns
     params = (
-        f"?select=conversation_id,timestamp,user_message"
-        f"&order=timestamp.desc"
+        f"?select=id,title,updated_at,messages"
+        f"&order=updated_at.desc"
         f"&limit={min(limit, 200)}"
     )
     result = _supabase_rest("nova_conversations", method="GET", params=params)
     if not isinstance(result, list):
         return []
 
-    # Deduplicate by conversation_id, keeping the most recent
-    seen: dict[str, dict] = {}
+    summaries: list[dict] = []
     for row in result:
-        cid = row.get("conversation_id") or ""
-        if cid and cid not in seen:
-            seen[cid] = {
+        cid = row.get("id") or ""
+        messages = row.get("messages") or []
+        last_msg = ""
+        if isinstance(messages, list):
+            for msg in reversed(messages):
+                if isinstance(msg, dict) and msg.get("role") == "user":
+                    last_msg = (msg.get("content") or "")[:100]
+                    break
+        summaries.append(
+            {
                 "conversation_id": cid,
-                "last_message": (row.get("user_message") or "")[:100],
-                "timestamp": row.get("timestamp") or "",
+                "title": row.get("title") or "New Chat",
+                "last_message": last_msg,
+                "updated_at": row.get("updated_at") or "",
             }
-    return list(seen.values())[:limit]
+        )
+    return summaries[:limit]
 
 
 def _persist_feedback_to_supabase(entry: dict) -> None:
@@ -18060,6 +18202,40 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
         )
         super().end_headers()
 
+    # ── PostHog Analytics Helpers ──────────────────────────────────────────
+
+    def _ph_distinct_id(self) -> str:
+        """Return a hashed distinct_id for the current request's client IP."""
+        if not _posthog_available:
+            return ""
+        return _ph_hash_ip(self._get_client_ip())
+
+    def _ph_track_page(self, path: str, template: str) -> None:
+        """Track a page view event in PostHog (fire-and-forget)."""
+        if not _posthog_available:
+            return
+        try:
+            _ph_page_view(
+                self._ph_distinct_id(),
+                path,
+                {
+                    "template": template,
+                    "user_agent": self.headers.get("User-Agent") or "",
+                    "referer": self.headers.get("Referer") or "",
+                },
+            )
+        except Exception as exc:
+            logger.error("PostHog page_view tracking failed: %s", exc, exc_info=True)
+
+    def _ph_track(self, event: str, properties: Optional[dict] = None) -> None:
+        """Track a named event in PostHog (fire-and-forget)."""
+        if not _posthog_available:
+            return
+        try:
+            _ph_track(self._ph_distinct_id(), event, properties)
+        except Exception as exc:
+            logger.error("PostHog event tracking failed: %s", exc, exc_info=True)
+
     def _get_client_ip(self) -> str:
         """Return the real client IP, respecting reverse-proxy headers.
 
@@ -18224,6 +18400,26 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 _metrics.record_request(
                     parsed.path, "GET", self._response_status, _latency
                 )
+            # ── PostHog: Track page views for HTML template routes ──
+            if _posthog_available and self._response_status == 200:
+                _ph_path = urlparse(self.path).path.rstrip("/") or "/"
+                # Only track page views, not API/static/health endpoints
+                _PH_SKIP_PREFIXES = (
+                    "/api/",
+                    "/static/",
+                    "/health",
+                    "/ready",
+                    "/fragment/",
+                )
+                _PH_SKIP_EXACT = ("/robots.txt", "/sitemap.xml", "/favicon.ico")
+                if (
+                    not any(_ph_path.startswith(p) for p in _PH_SKIP_PREFIXES)
+                    and _ph_path not in _PH_SKIP_EXACT
+                ):
+                    try:
+                        self._ph_track_page(_ph_path, _ph_path.strip("/") or "hub")
+                    except Exception:
+                        pass  # Never let analytics break the request
 
     def _handle_GET(self):
         parsed = urlparse(self.path)
@@ -19191,6 +19387,21 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             self._send_json(
                 {"conversations": conversations, "count": len(conversations)}
             )
+        elif path == "/api/chat/migrate":
+            # ── One-time migration: row-per-turn to document model (W-05) ──
+            if not self._check_admin_auth():
+                self.send_error(401, "Unauthorized")
+                return
+            try:
+                from nova_persistence import migrate_row_per_turn_data
+
+                stats = migrate_row_per_turn_data()
+                self._send_json({"status": "ok", "migration": stats})
+            except ImportError:
+                self._send_json({"error": "nova_persistence module not available"}, 500)
+            except Exception as mig_err:
+                logger.error("Migration endpoint error: %s", mig_err, exc_info=True)
+                self._send_json({"error": f"Migration failed: {mig_err}"}, 500)
         elif path == "/api/slack/status":
             # ── Slack Bot Diagnostic Endpoint (admin-protected) ──
             if not self._check_admin_auth():
@@ -19906,6 +20117,32 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     "recent_plans": recent_plans,
                 }
             )
+        # ── PostHog Analytics Admin Endpoint ──
+        elif path == "/api/admin/posthog/stats":
+            if not self._check_admin_auth():
+                self.send_error(401, "Unauthorized")
+                return
+            _ph_stats: dict = {}
+            # Merge stats from both PostHog modules
+            if _posthog_available:
+                try:
+                    _ph_stats["posthog_integration"] = _ph_get_stats()
+                except Exception as _phe:
+                    _ph_stats["posthog_integration"] = {"error": str(_phe)}
+            else:
+                _ph_stats["posthog_integration"] = {"enabled": False}
+            try:
+                from posthog_tracker import get_posthog_stats as _ph_tracker_stats
+
+                _ph_stats["posthog_tracker"] = _ph_tracker_stats()
+            except ImportError:
+                _ph_stats["posthog_tracker"] = {"enabled": False}
+            except Exception as _phe2:
+                _ph_stats["posthog_tracker"] = {"error": str(_phe2)}
+            _ph_stats["timestamp"] = datetime.datetime.now(
+                datetime.timezone.utc
+            ).isoformat()
+            self._send_json(_ph_stats)
         # ── Campaign Performance Tracker Page ──
         elif path in (
             "/tracker",
@@ -20643,6 +20880,37 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 _metrics.record_request(
                     parsed.path, "POST", self._response_status, _latency
                 )
+            # ── PostHog: Track download events for any /download/ or /export endpoint ──
+            if _posthog_available and self._response_status == 200:
+                _ph_post_path = urlparse(self.path).path
+                if "/download/" in _ph_post_path or "/export/" in _ph_post_path:
+                    try:
+                        # Determine format from path
+                        _dl_format = "unknown"
+                        if "excel" in _ph_post_path or "xlsx" in _ph_post_path:
+                            _dl_format = "excel"
+                        elif "ppt" in _ph_post_path:
+                            _dl_format = "ppt"
+                        elif "csv" in _ph_post_path:
+                            _dl_format = "csv"
+                        elif "html" in _ph_post_path:
+                            _dl_format = "html"
+                        # Determine product from path
+                        _dl_product = (
+                            _ph_post_path.split("/api/")[1].split("/")[0]
+                            if "/api/" in _ph_post_path
+                            else "unknown"
+                        )
+                        self._ph_track(
+                            "report_downloaded",
+                            {
+                                "format": _dl_format,
+                                "product": _dl_product,
+                                "path": _ph_post_path,
+                            },
+                        )
+                    except Exception:
+                        pass  # Never let analytics break the request
 
     def _handle_POST(self):
         parsed = urlparse(self.path)
@@ -21277,6 +21545,10 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         "poll_url": f"/api/jobs/{job_id}",
                     }
                 )
+                # ── PostHog: Track async media plan generation ──
+                self._ph_track(
+                    "media_plan_generated", {"async": True, "job_id": job_id}
+                )
                 return
 
             # ── Process uploaded files (briefs, transcripts, historical data) ──
@@ -21682,6 +21954,23 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         _mkt_err,
                         exc_info=True,
                     )
+
+            # ── PostHog: Track enrichment pipeline completion ──
+            _enrich_apis_used = []
+            if data.get("_enriched"):
+                _enrich_apis_used.append("api_enrichment")
+            if data.get("market_context"):
+                _enrich_apis_used.extend(
+                    list((data.get("market_context") or {}).keys())
+                )
+            if _enrich_apis_used:
+                self._ph_track(
+                    "api_enrichment_complete",
+                    {
+                        "apis_called": _enrich_apis_used,
+                        "total_latency_ms": round((time.time() - start_time) * 1000),
+                    },
+                )
 
             # ── JobSpy: Real job posting volume + salary data for /api/generate ──
             if _jobspy_available and _jobspy_market_stats:
@@ -22319,6 +22608,17 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             self.end_headers()
             self.wfile.write(resp_body)
 
+            # ── PostHog: Track chat message ──
+            self._ph_track(
+                "chat_message_sent",
+                {
+                    "message_length": len(data.get("message") or ""),
+                    "has_attachments": bool(data.get("attachments")),
+                    "provider_used": response.get("llm_provider") or "",
+                    "endpoint": "/api/chat",
+                },
+            )
+
             # ── Persist conversation turn to Supabase (async, non-blocking) ──
             try:
                 _conv_id = data.get("conversation_id") or ""
@@ -22390,6 +22690,17 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 self.wfile.write(json.dumps({"error": "Invalid JSON"}).encode())
                 return
 
+            # ── PostHog: Track chat stream message ──
+            self._ph_track(
+                "chat_message_sent",
+                {
+                    "message_length": len(data.get("message") or ""),
+                    "has_attachments": bool(data.get("attachments")),
+                    "provider_used": "",  # Not known yet at stream start
+                    "endpoint": "/api/chat/stream",
+                },
+            )
+
             conversation_id = data.get("conversation_id") or str(uuid.uuid4())
             cancel_event = _register_stream(conversation_id)
 
@@ -22418,45 +22729,50 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     self.wfile.flush()
                     return
 
-                # ── Get full response from Nova ──
-                from nova import handle_chat_request
+                # ── True token-level streaming via Nova ──
+                from nova import handle_chat_request_stream
 
                 _chat_span_fn = getattr(self, "_sentry_span", lambda o, n: _nullctx())
-                with _chat_span_fn("nova.chat.stream", "Nova SSE streaming chat"):
-                    response = handle_chat_request(data)
 
-                full_response = response.get("response") or ""
-                sources = response.get("sources") or []
-                confidence = response.get("confidence") or 0.0
-                tools_used = response.get("tools_used") or []
-                model_used = response.get("llm_provider") or ""
+                full_response = ""
+                sources: list = []
+                confidence = 0.0
+                tools_used: list = []
+                model_used = ""
                 message_id = str(uuid.uuid4())
 
-                # ── Stream word by word with cancellation checks ──
-                words = full_response.split(" ")
-                streamed_so_far = []
-                for i, word in enumerate(words):
-                    if cancel_event.is_set():
-                        partial = " ".join(streamed_so_far)
-                        cancel_evt = json.dumps(
-                            {
-                                "token": "",
-                                "done": True,
-                                "cancelled": True,
-                                "full_response": partial,
-                                "sources": sources,
-                            }
-                        )
-                        self.wfile.write(f"data: {cancel_evt}\n\n".encode())
-                        self.wfile.flush()
-                        return
+                with _chat_span_fn("nova.chat.stream", "Nova SSE streaming chat"):
+                    for chunk in handle_chat_request_stream(data):
+                        # Check cancellation on each chunk
+                        if cancel_event.is_set():
+                            cancel_evt = json.dumps(
+                                {
+                                    "token": "",
+                                    "done": True,
+                                    "cancelled": True,
+                                    "full_response": full_response,
+                                    "sources": sources,
+                                }
+                            )
+                            self.wfile.write(f"data: {cancel_evt}\n\n".encode())
+                            self.wfile.flush()
+                            return
 
-                    token = word + (" " if i < len(words) - 1 else "")
-                    streamed_so_far.append(word)
-                    event = json.dumps({"token": token, "done": False})
-                    self.wfile.write(f"data: {event}\n\n".encode())
-                    self.wfile.flush()
-                    time.sleep(0.035)  # 35ms per word for natural feel
+                        if chunk.get("done"):
+                            # Final metadata chunk -- extract info
+                            full_response = chunk.get("full_response") or full_response
+                            sources = chunk.get("sources") or sources
+                            confidence = chunk.get("confidence") or confidence
+                            tools_used = chunk.get("tools_used") or tools_used
+                            model_used = chunk.get("llm_provider") or model_used
+                        else:
+                            # Token chunk -- stream to client immediately
+                            token = chunk.get("token") or ""
+                            if token:
+                                full_response += token
+                                event = json.dumps({"token": token, "done": False})
+                                self.wfile.write(f"data: {event}\n\n".encode())
+                                self.wfile.flush()
 
                 # ── Generate follow-up suggestions ──
                 _stream_followups: list[str] = []
@@ -23565,6 +23881,14 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                             )
 
                     self._send_json(result)
+                    # ── PostHog: Track competitive analysis ──
+                    self._ph_track(
+                        "competitive_analysis_run",
+                        {
+                            "domain": domain,
+                            "endpoint": "/api/competitive/scrape",
+                        },
+                    )
             except Exception as e:
                 logger.error("Competitive scrape error: %s", e, exc_info=True)
                 self._send_json({"error": "Internal server error", "status": "error"})
@@ -23583,6 +23907,14 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     roles=data.get("roles"),
                 )
                 self._send_json(result)
+                # ── PostHog: Track competitive analysis ──
+                self._ph_track(
+                    "competitive_analysis_run",
+                    {
+                        "company_name": data.get("company_name") or "",
+                        "endpoint": "/api/competitive/analyze",
+                    },
+                )
             except Exception as e:
                 logger.error("Competitive analysis error: %s", e, exc_info=True)
                 self._send_json({"error": "Internal server error", "status": "error"})
@@ -24979,6 +25311,13 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         )
 
                 self._send_json(result)
+                # ── PostHog: Track compliance audit ──
+                self._ph_track(
+                    "compliance_audit_run",
+                    {
+                        "endpoint": "/api/compliance/analyze",
+                    },
+                )
             except json.JSONDecodeError:
                 self.send_response(400)
                 self.send_header("Content-Type", "application/json")
@@ -25009,6 +25348,13 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     return
 
                 self._send_json(result)
+                # ── PostHog: Track compliance audit ──
+                self._ph_track(
+                    "compliance_audit_run",
+                    {
+                        "endpoint": "/api/complianceguard/audit",
+                    },
+                )
             except json.JSONDecodeError:
                 self.send_response(400)
                 self.send_header("Content-Type", "application/json")
@@ -26027,6 +26373,12 @@ if __name__ == "__main__":
         if _shutdown:
             _shutdown.request_shutdown()
             _shutdown.wait_for_completion()
+        # Flush PostHog events before shutdown
+        if _posthog_available:
+            try:
+                _ph_shutdown()
+            except Exception:
+                pass
         server.shutdown()
         logger.info("Server shut down cleanly")
 

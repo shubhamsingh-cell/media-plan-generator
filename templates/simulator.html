@@ -1959,5 +1959,31 @@
       >
       &middot; Nova AI Suite
     </footer>
+    <script>
+      // Nova Platform shell compatibility
+      (function () {
+        if (window.__NOVA_PLATFORM) {
+          document
+            .querySelectorAll(
+              "nav, .nav, footer, .footer, .standalone-nav, .standalone-header, .standalone-footer, .nova-chat-widget",
+            )
+            .forEach(function (el) {
+              el.style.display = "none";
+            });
+          document
+            .querySelectorAll('a[href="/"], a[href="/hub"]')
+            .forEach(function (a) {
+              if (
+                a.textContent.includes("Back") ||
+                a.textContent.includes("Hub") ||
+                a.textContent.includes("Suite")
+              ) {
+                a.style.display = "none";
+              }
+            });
+          document.dispatchEvent(new CustomEvent("nova:fragment-loaded"));
+        }
+      })();
+    </script>
   </body>
 </html>
