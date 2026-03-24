@@ -49,45 +49,106 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# UNIFIED CACHE
+# UPSTASH REDIS L2 CACHE (persistent across deploys)
+# ═══════════════════════════════════════════════════════════════════════════════
+try:
+    from upstash_cache import cache_get as _redis_get, cache_set as _redis_set
+
+    _redis_available = True
+except ImportError:
+    _redis_get = _redis_set = None  # type: ignore[assignment]
+    _redis_available = False
+    logger.info(
+        "upstash_cache not available; L2 Redis cache disabled for api_integrations"
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# UNIFIED CACHE (L1 in-memory + L2 Upstash Redis)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 _cache: dict[str, tuple[float, Any]] = {}
 _CACHE_TTL = 3600  # 1 hour default
+_REDIS_TTL_DEFAULT = 86400  # 24 hours for most APIs in Redis
+
+# Real-time API prefixes get shorter Redis TTL (1 hour)
+_REALTIME_PREFIXES = ("fred:", "adzuna:jobs:", "jooble:")
 
 
-def _get_cached(key: str, ttl: int = _CACHE_TTL) -> Any | None:
-    """Return cached value if it exists and has not expired.
+def _get_redis_ttl(key: str) -> int:
+    """Determine Redis TTL based on data freshness requirements.
 
     Args:
         key: Cache key string.
-        ttl: Time-to-live in seconds. Defaults to _CACHE_TTL.
 
     Returns:
-        Cached value or None if missing/expired.
+        TTL in seconds (3600 for real-time data, 86400 for reference data).
     """
+    for prefix in _REALTIME_PREFIXES:
+        if key.startswith(prefix):
+            return 3600  # 1 hour for real-time data
+    return _REDIS_TTL_DEFAULT
+
+
+def _get_cached(key: str, ttl: int = _CACHE_TTL) -> Any | None:
+    """Return cached value from L1 (memory) or L2 (Redis).
+
+    Checks in-memory cache first. On miss, checks Upstash Redis.
+    If found in Redis, promotes to in-memory cache for fast subsequent access.
+
+    Args:
+        key: Cache key string.
+        ttl: Time-to-live in seconds for L1 cache. Defaults to _CACHE_TTL.
+
+    Returns:
+        Cached value or None if missing/expired in both layers.
+    """
+    # L1: in-memory cache
     entry = _cache.get(key)
-    if entry is None:
-        return None
-    timestamp, value = entry
-    if time.time() - timestamp > ttl:
-        _cache.pop(key, None)
-        return None
-    return value
+    if entry is not None:
+        timestamp, value = entry
+        if time.time() - timestamp > ttl:
+            _cache.pop(key, None)
+        else:
+            return value
+
+    # L2: Upstash Redis
+    if _redis_available and _redis_get:
+        try:
+            redis_val = _redis_get(f"api:{key}")
+            if redis_val is not None:
+                # Promote to L1
+                _cache[key] = (time.time(), redis_val)
+                return redis_val
+        except Exception as redis_err:
+            logger.debug(f"Redis L2 get failed for {key}: {redis_err}")
+
+    return None
 
 
 def _set_cached(key: str, value: Any) -> None:
-    """Store a value in the cache with the current timestamp.
+    """Store a value in both L1 (memory) and L2 (Redis) caches.
 
     Args:
         key: Cache key string.
         value: Any serializable value to cache.
     """
+    # L1: in-memory
     _cache[key] = (time.time(), value)
+
+    # L2: Upstash Redis (fire-and-forget, non-blocking)
+    if _redis_available and _redis_set:
+        try:
+            redis_ttl = _get_redis_ttl(key)
+            _redis_set(
+                f"api:{key}", value, ttl_seconds=redis_ttl, category="api_integrations"
+            )
+        except Exception as redis_err:
+            logger.debug(f"Redis L2 set failed for {key}: {redis_err}")
 
 
 def clear_cache() -> None:
-    """Clear the entire in-memory cache."""
+    """Clear the entire in-memory L1 cache. Redis L2 cache expires via TTL."""
     _cache.clear()
 
 

@@ -290,10 +290,46 @@ def _generate_product_insights(
     def _call_llm_sync() -> str:
         """Run LLM call in thread for timeout control."""
         task_type = getattr(router, "TASK_STRUCTURED", "structured")
-        prompt = (
-            f"You are analyzing {product_name} output for a recruitment media planner.\n\n"
-            f"Data summary:\n{json.dumps(result_summary, indent=2, default=str)[:1500]}\n\n"
-        )
+
+        # ── RAG: Retrieve relevant knowledge base context ──
+        rag_context = ""
+        if _vector_search_available and _vector_search:
+            try:
+                # Build search query from product data
+                rag_query_parts: list[str] = []
+                for key in ("job_title", "industry", "location", "roles", "channel"):
+                    val = result_summary.get(key)
+                    if val:
+                        rag_query_parts.append(
+                            str(val)
+                            if not isinstance(val, list)
+                            else " ".join(str(v) for v in val)
+                        )
+                if not rag_query_parts and context:
+                    rag_query_parts.append(context[:200])
+                if not rag_query_parts:
+                    rag_query_parts.append(product_name)
+                rag_query = " ".join(rag_query_parts)[:300]
+                kb_results = _vector_search(rag_query, top_k=3)
+                if kb_results:
+                    snippets = [
+                        r.get("text") or ""
+                        for r in kb_results
+                        if (r.get("score") or 0) > 0.3
+                    ]
+                    if snippets:
+                        rag_context = (
+                            "Relevant knowledge base context:\n"
+                            + "\n---\n".join(snippets[:3])
+                            + "\n\n"
+                        )
+            except Exception as rag_err:
+                logger.debug(f"RAG retrieval for {product_name} skipped: {rag_err}")
+
+        prompt = f"You are analyzing {product_name} output for a recruitment media planner.\n\n"
+        if rag_context:
+            prompt += rag_context
+        prompt += f"Data summary:\n{json.dumps(result_summary, indent=2, default=str)[:1500]}\n\n"
         if context:
             prompt += f"Context: {context}\n\n"
         prompt += (
@@ -16261,6 +16297,44 @@ def _generate_creative_ads(data: dict) -> dict:
     if not job_title:
         return {"error": "job_title is required", "variants": []}
 
+    # ── API enrichment: O*NET skills + Tavily trending topics ──
+    skills_context = ""
+    trending_context = ""
+    if _api_integrations_available and _api_onet:
+        try:
+            occ_results = _api_onet.search_occupations(job_title)
+            if occ_results:
+                soc_code = occ_results[0].get("code") or ""
+                if soc_code:
+                    skills = _api_onet.get_skills(soc_code)
+                    if skills:
+                        top_skills = [
+                            s.get("name") or "" for s in skills[:5] if s.get("name")
+                        ]
+                        if top_skills:
+                            skills_context = (
+                                f"Key skills for this role: {', '.join(top_skills)}\n"
+                            )
+        except Exception as api_err:
+            logger.error(f"CreativeAI O*NET enrichment error: {api_err}", exc_info=True)
+    if _tavily_available and _tavily_recruitment_news:
+        try:
+            trending = _tavily_recruitment_news(
+                f"recruitment trends {job_title} hiring", max_results=3
+            )
+            if trending and isinstance(trending, list):
+                headlines = [
+                    t.get("title") or "" for t in trending[:3] if t.get("title")
+                ]
+                if headlines:
+                    trending_context = (
+                        f"Current recruitment trends: {'; '.join(headlines)}\n"
+                    )
+        except Exception as api_err:
+            logger.error(
+                f"CreativeAI Tavily enrichment error: {api_err}", exc_info=True
+            )
+
     router = _lazy_llm_router()
     if not router:
         return {"variants": [], "llm_available": False}
@@ -16270,6 +16344,12 @@ def _generate_creative_ads(data: dict) -> dict:
         f"Generate 5 recruitment ad copy variants for:\n"
         f"Role: {job_title} at {company}\n"
         f"Key selling points: {selling_points}\n"
+    )
+    if skills_context:
+        prompt += skills_context
+    if trending_context:
+        prompt += trending_context
+    prompt += (
         f"Tone: {tone}\n"
         f"Platform: {platform}\n"
         f"Max {char_limit} characters per field.\n\n"
@@ -16341,6 +16421,45 @@ def _generate_post_campaign_summary(data: dict) -> dict:
             "recommendations": "",
         }
 
+    # ── API enrichment: FRED macro context + BLS projections ──
+    macro_context_str = ""
+    if _api_integrations_available:
+        macro_parts: list[str] = []
+        try:
+            if _api_fred:
+                unemp = _api_fred.get_unemployment_rate()
+                if unemp:
+                    rate = unemp.get("value") or unemp.get("rate") or ""
+                    if rate:
+                        macro_parts.append(f"Current US unemployment rate: {rate}%")
+        except Exception as api_err:
+            logger.error(
+                f"Post-campaign FRED enrichment error: {api_err}", exc_info=True
+            )
+        try:
+            job_title_raw = (
+                data.get("job_title") or data.get("role") or data.get("roles") or ""
+            )
+            if isinstance(job_title_raw, list):
+                job_title_raw = job_title_raw[0] if job_title_raw else ""
+            if job_title_raw and _api_onet and _api_bls:
+                occ_results = _api_onet.search_occupations(str(job_title_raw))
+                if occ_results:
+                    soc_code = occ_results[0].get("code") or ""
+                    if soc_code:
+                        soc_clean = soc_code.replace("-", "").replace(".", "")[:6]
+                        projections = _api_bls.get_employment_projections(soc_clean)
+                        if projections:
+                            macro_parts.append(
+                                f"BLS employment projections: {json.dumps(projections, default=str)[:200]}"
+                            )
+        except Exception as api_err:
+            logger.error(
+                f"Post-campaign BLS enrichment error: {api_err}", exc_info=True
+            )
+        if macro_parts:
+            macro_context_str = "Market context: " + "; ".join(macro_parts) + "\n\n"
+
     router = _lazy_llm_router()
     if not router:
         return {
@@ -16351,8 +16470,10 @@ def _generate_post_campaign_summary(data: dict) -> dict:
         }
 
     task_type = getattr(router, "TASK_NARRATIVE", "narrative")
-    prompt = (
-        f"Generate an executive summary of this recruitment campaign.\n\n"
+    prompt = f"Generate an executive summary of this recruitment campaign.\n\n"
+    if macro_context_str:
+        prompt += macro_context_str
+    prompt += (
         f"Campaign Data:\n{json.dumps(data, indent=2, default=str)[:2500]}\n\n"
         f"Analyze:\n"
         f"1) What worked well (which channels outperformed)\n"
@@ -16495,6 +16616,31 @@ def _calculate_roi(data: dict) -> dict:
     except Exception as e:
         logger.error("ROI KB enrichment error: %s", e, exc_info=True)
 
+    # ── API enrichment: BLS wage data + FRED CPI ──
+    api_wage_data: dict | None = None
+    api_cpi_data: dict | None = None
+    if _api_integrations_available:
+        try:
+            if _api_bls:
+                # Search O*NET for SOC code, then fetch BLS wages
+                job_title_raw = data.get("job_title") or data.get("role") or ""
+                if job_title_raw and _api_onet:
+                    occ_results = _api_onet.search_occupations(job_title_raw)
+                    if occ_results:
+                        soc_code = occ_results[0].get("code") or ""
+                        if soc_code:
+                            soc_clean = soc_code.replace("-", "").replace(".", "")[:6]
+                            api_wage_data = _api_bls.get_occupational_employment(
+                                soc_clean
+                            )
+        except Exception as e:
+            logger.error(f"ROI BLS wage enrichment error: {e}", exc_info=True)
+        try:
+            if _api_fred:
+                api_cpi_data = _api_fred.get_cpi_data(months=6)
+        except Exception as e:
+            logger.error(f"ROI FRED CPI enrichment error: {e}", exc_info=True)
+
     # Generate AI strategic recommendation
     strategic_recommendation = _generate_narrative(
         data={
@@ -16536,6 +16682,10 @@ def _calculate_roi(data: dict) -> dict:
         },
         "kb_insights": kb_insights,
         "strategic_recommendation": strategic_recommendation,
+        "api_enrichment": {
+            "bls_wage_data": api_wage_data,
+            "cpi_inflation": api_cpi_data,
+        },
         "inputs": {
             "monthly_budget": monthly_budget,
             "avg_cpa": cpa,
@@ -16813,6 +16963,34 @@ def _generate_ab_test(data: dict) -> dict:
             industry_key = k
             break
 
+    # ── API enrichment: Adzuna job benchmarks + BLS employment context ──
+    ab_market_context: dict = {}
+    if _api_integrations_available:
+        try:
+            if _api_adzuna:
+                job_results = _api_adzuna.search_jobs(
+                    job_title, "us", results_per_page=3
+                )
+                if job_results:
+                    ab_market_context["adzuna_job_sample"] = job_results[:3]
+                salary_hist = _api_adzuna.get_salary_histogram(job_title)
+                if salary_hist:
+                    ab_market_context["salary_benchmark"] = salary_hist
+        except Exception as api_err:
+            logger.error(f"A/B Test Adzuna enrichment error: {api_err}", exc_info=True)
+        try:
+            if _api_onet:
+                occ_results = _api_onet.search_occupations(job_title)
+                if occ_results:
+                    soc_code = occ_results[0].get("code") or ""
+                    if soc_code and _api_bls:
+                        soc_clean = soc_code.replace("-", "").replace(".", "")[:6]
+                        emp_data = _api_bls.get_occupational_employment(soc_clean)
+                        if emp_data:
+                            ab_market_context["bls_employment"] = emp_data
+        except Exception as api_err:
+            logger.error(f"A/B Test BLS enrichment error: {api_err}", exc_info=True)
+
     # Check for Claude API
     anthropic_key = (os.environ.get("ANTHROPIC_API_KEY") or "").strip()
     if anthropic_key:
@@ -16827,6 +17005,8 @@ def _generate_ab_test(data: dict) -> dict:
                 anthropic_key,
             )
             if result:
+                if ab_market_context:
+                    result["market_context"] = ab_market_context
                 return result
         except Exception as e:
             logger.error(
@@ -16836,9 +17016,12 @@ def _generate_ab_test(data: dict) -> dict:
             )
 
     # Template-based fallback
-    return _generate_ab_test_template(
+    result = _generate_ab_test_template(
         job_title, company, industry_key, audience, channel, budget
     )
+    if ab_market_context:
+        result["market_context"] = ab_market_context
+    return result
 
 
 def _generate_ab_test_with_claude(
@@ -22750,6 +22933,31 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         else locations
                     ),
                 )
+                # ── API enrichment: Adzuna salary benchmarks for CPC/CPA context ──
+                if isinstance(result, dict) and _api_integrations_available:
+                    tracker_benchmarks: dict = {}
+                    try:
+                        roles_list = (
+                            [r.strip() for r in roles.split(",") if r.strip()]
+                            if isinstance(roles, str)
+                            else roles or []
+                        )
+                        primary_role = roles_list[0] if roles_list else ""
+                        if primary_role and _api_adzuna:
+                            salary_hist = _api_adzuna.get_salary_histogram(primary_role)
+                            if salary_hist:
+                                tracker_benchmarks["salary_benchmark"] = salary_hist
+                            top_companies = _api_adzuna.get_top_companies(primary_role)
+                            if top_companies:
+                                tracker_benchmarks["top_hiring_companies"] = (
+                                    top_companies
+                                )
+                    except Exception as api_err:
+                        logger.error(
+                            f"Tracker Adzuna enrichment error: {api_err}", exc_info=True
+                        )
+                    if tracker_benchmarks:
+                        result["industry_benchmarks"] = tracker_benchmarks
                 # LLM insights for Performance Tracker
                 if isinstance(result, dict):
                     result["ai_insights"] = _generate_product_insights(
@@ -22895,6 +23103,38 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         else str(_sim_locs)
                     ),
                 )
+                # ── API enrichment: FRED + BEA for economic context ──
+                if isinstance(result, dict) and _api_integrations_available:
+                    sim_api_context: dict = {}
+                    try:
+                        if _api_fred:
+                            unemp = _api_fred.get_unemployment_rate()
+                            if unemp:
+                                sim_api_context["unemployment_rate"] = unemp
+                            cpi = _api_fred.get_cpi_data(months=3)
+                            if cpi:
+                                sim_api_context["cpi_recent"] = cpi
+                    except Exception as api_err:
+                        logger.error(
+                            f"Simulator FRED enrichment error: {api_err}", exc_info=True
+                        )
+                    try:
+                        if _api_bea:
+                            # Extract state from locations for GDP context
+                            _loc_str = (
+                                _sim_locs[0]
+                                if isinstance(_sim_locs, list) and _sim_locs
+                                else str(_sim_locs)
+                            )
+                            gdp = _api_bea.get_gdp_by_state()
+                            if gdp:
+                                sim_api_context["gdp_by_state"] = gdp
+                    except Exception as api_err:
+                        logger.error(
+                            f"Simulator BEA enrichment error: {api_err}", exc_info=True
+                        )
+                    if sim_api_context:
+                        result["economic_context"] = sim_api_context
                 # LLM insights for Budget Simulator
                 if isinstance(result, dict):
                     result["ai_insights"] = _generate_product_insights(
