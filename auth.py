@@ -40,6 +40,14 @@ PUBLIC_ENDPOINTS = frozenset(
         "/health",
         "/ready",
         "/api/csrf-token",
+        "/api/dashboard/widgets",
+        "/api/channels",
+        "/api/health/data-matrix",
+        "/api/health/enrichment",
+        "/api/health/integrations",
+        "/api/resilience/status",
+        "/api/insights",
+        "/api/insights/stats",
         "/robots.txt",
         "/sitemap.xml",
         "/static/nova-chat.js",
@@ -116,6 +124,12 @@ def authenticate(
     # Template pages (non-API)
     if not path.startswith("/api/"):
         return {"authenticated": True, "role": "public", "reason": "page_route"}
+
+    # All product API endpoints are public (UI calls them without auth)
+    # Only /api/admin/* requires authentication
+    _ADMIN_ONLY = ("/api/admin/",)
+    if not any(path.startswith(p) for p in _ADMIN_ONLY):
+        return {"authenticated": True, "role": "public", "reason": "product_api"}
 
     # If no auth configured, allow everything
     if not is_auth_enabled():
