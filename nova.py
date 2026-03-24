@@ -1413,7 +1413,7 @@ def _get_response_cache(key: str) -> Optional[Dict[str, Any]]:
     with _response_cache_lock:
         if key in _response_cache:
             entry = _response_cache[key]
-            if entry.get("expires") or 0 > now:
+            if (entry.get("expires") or 0) > now:
                 logger.info("Nova cache HIT (memory)")
                 return entry.get("data")
             else:
@@ -1426,7 +1426,7 @@ def _get_response_cache(key: str) -> Optional[Dict[str, Any]]:
                 disk_cache = json.load(f)
             if key in disk_cache:
                 entry = disk_cache[key]
-                if entry.get("expires") or 0 > now:
+                if (entry.get("expires") or 0) > now:
                     logger.info("Nova cache HIT (disk)")
                     data = entry.get("data")
                     # Promote to memory
@@ -1472,7 +1472,7 @@ def _set_response_cache(
 
             # Evict expired entries
             disk_cache = {
-                k: v for k, v in disk_cache.items() if v.get("expires") or 0 > now
+                k: v for k, v in disk_cache.items() if (v.get("expires") or 0) > now
             }
             disk_cache[key] = entry
 
