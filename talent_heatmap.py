@@ -413,7 +413,7 @@ def _resolve_location(location: str) -> Dict[str, Any]:
         }
     # Try without underscores and partial match
     for key, d in metro_data.items():
-        metro_name_lower = d.get("metro_name") or "".lower()
+        metro_name_lower = (d.get("metro_name") or "").lower()
         key_clean = key.replace("_", " ")
         if loc_clean == key_clean or loc_clean in metro_name_lower:
             return {
@@ -450,7 +450,7 @@ def _resolve_location(location: str) -> Dict[str, Any]:
         }
     # Check state name
     for abbr, d in state_data.items():
-        if d.get("name") or "".lower() == loc_lower:
+        if (d.get("name") or "").lower() == loc_lower:
             return {"type": "state", "key": abbr, "name": d["name"], "data": d}
 
     # 4. Check metro data with city, state format ("Dallas, TX")

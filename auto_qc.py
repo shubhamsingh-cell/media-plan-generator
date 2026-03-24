@@ -201,6 +201,11 @@ class AutoQC:
                     )
                 ),
                 "recent_heals": list(self._heal_log[-10:]),
+                "sentry_heals": [
+                    h
+                    for h in self._heal_log[-20:]
+                    if (h.get("test") or "").startswith("sentry:")
+                ],
                 "run_history": [
                     {
                         "run_number": r["run_number"],
@@ -3603,6 +3608,105 @@ class AutoQC:
                 self._heal_log = self._heal_log[-50:]
         level = logging.INFO if success else logging.WARNING
         logger.log(level, "AutoQC heal: %s/%s (success=%s)", test_name, action, success)
+
+    # ══════════════════════════════════════════════════════════════════════
+    # SENTRY-TRIGGERED HEALING
+    # ══════════════════════════════════════════════════════════════════════
+
+    def handle_sentry_issue(
+        self,
+        error_type: str,
+        error_message: str,
+        file_path: str,
+        function_name: str,
+        fix_type: str,
+    ) -> bool:
+        """Handle a Sentry-reported issue through the self-healing system.
+
+        Called by sentry_integration.py when a known error pattern is detected.
+
+        Args:
+            error_type: Python exception class name (e.g. 'AttributeError').
+            error_message: The exception message.
+            file_path: Source file where the error occurred.
+            function_name: Function name where the error occurred.
+            fix_type: The classified fix type from the healing bridge.
+
+        Returns:
+            True if a healing action was successfully applied.
+        """
+        test_name = f"sentry:{file_path}:{function_name}"
+        logger.info(
+            "AutoQC: Sentry-triggered heal for %s (%s) in %s",
+            error_type,
+            fix_type,
+            file_path,
+        )
+
+        # Delegate to the per-fix-type healing actions
+        try:
+            import importlib
+            import sys as _sys
+
+            module_name = (
+                file_path.rsplit("/", 1)[-1].replace(".py", "") if file_path else ""
+            )
+
+            if fix_type in (
+                "isinstance_guard",
+                "none_check",
+                "or_empty_string",
+                "dict_get_default",
+                "bounds_check",
+                "type_guard",
+            ):
+                # Reload the affected module to pick up hotfixes
+                if module_name and module_name in _sys.modules:
+                    importlib.reload(_sys.modules[module_name])
+                    self._record_heal(test_name, f"sentry_reload_{fix_type}", True)
+                    return True
+                self._record_heal(test_name, f"sentry_reload_{fix_type}", False)
+                return False
+
+            elif fix_type == "json_parse_guard":
+                # Clear API caches that might hold corrupt data
+                if "data_orchestrator" in _sys.modules:
+                    do = _sys.modules["data_orchestrator"]
+                    with do._api_cache_lock:
+                        do._api_result_cache.clear()
+                    self._record_heal(test_name, "sentry_clear_cache_json", True)
+                    return True
+                return False
+
+            elif fix_type == "network_retry":
+                # Reset LLM circuit breakers
+                if "llm_router" in _sys.modules:
+                    lr = _sys.modules["llm_router"]
+                    states = getattr(lr, "_provider_states", {})
+                    for pid, state in states.items():
+                        with state.lock:
+                            if state.consecutive_failures > 0:
+                                state.consecutive_failures = 0
+                                state.circuit_open_until = 0.0
+                    self._record_heal(test_name, "sentry_reset_circuits", True)
+                    return True
+                return False
+
+            elif fix_type == "resource_cleanup":
+                import gc as _gc
+
+                _gc.collect()
+                self._record_heal(test_name, "sentry_gc_collect", True)
+                return True
+
+            else:
+                self._record_heal(test_name, f"sentry_unknown_{fix_type}", False)
+                return False
+
+        except Exception as exc:
+            logger.error("AutoQC: Sentry-triggered heal failed: %s", exc, exc_info=True)
+            self._record_heal(test_name, f"sentry_{fix_type}_error", False)
+            return False
 
     # ══════════════════════════════════════════════════════════════════════
     # ALERTING

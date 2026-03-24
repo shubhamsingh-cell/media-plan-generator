@@ -528,6 +528,17 @@
     </script>
   </head>
   <body>
+    <script>
+      window.__csrfToken = "";
+      window.__csrfReady = fetch("/api/csrf-token")
+        .then(function (r) {
+          return r.json();
+        })
+        .then(function (d) {
+          window.__csrfToken = d.token || "";
+        })
+        .catch(function () {});
+    </script>
     <!-- Nav -->
     <nav class="nav">
       <a href="/" class="nav-brand">Nova <span>AI</span></a>
@@ -788,7 +799,10 @@
 
           fetch("/api/roi/calculate", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              "X-CSRF-Token": window.__csrfToken,
+            },
             body: JSON.stringify(payload),
           })
             .then(function (resp) {
