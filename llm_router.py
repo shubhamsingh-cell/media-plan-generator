@@ -1,36 +1,32 @@
 """
-llm_router.py -- Smart LLM Provider Router for Nova Chat (v3.3)
+llm_router.py -- Smart LLM Provider Router for Nova Chat (v3.4)
 
 Routes LLM API calls to the optimal provider based on task type,
 with automatic fallback and circuit breaker per provider.
 
 Provider priority (free-first, then paid by cost-efficiency):
     FREE TIER:
-    1. Gemini 2.0 Flash  -- free, structured data, JSON output, code
-    2. Groq Llama 3.3 70B -- free, conversational, complex reasoning
-    3. Cerebras Llama 3.3 70B -- free, hot spare (same model, independent infra)
-    4. Mistral Small -- free tier, strong JSON + multilingual
-    5. OpenRouter (Llama 4 Maverick) -- free models via single gateway
-    6. xAI Grok -- free signup credits ($25), strong reasoning
-    7. SambaNova (Llama 3.1 405B) -- free, largest open model, fastest inference (RDU)
-    8. NVIDIA NIM (Llama 3.1 70B) -- free dev program, NVIDIA-optimized inference
-    9. Cloudflare Workers AI (Llama 3.3 70B) -- free 10K neurons/day, edge-distributed
+    1.  Gemini 2.0 Flash  -- free, structured data, JSON output, code
+    2.  Groq Llama 3.3 70B -- free, conversational, complex reasoning
+    3.  Zhipu AI (GLM-4-Flash) -- free unlimited, strong multilingual (Chinese + English)
+    4.  Cerebras Llama 3.3 70B -- free 1M tokens/day, hot spare (independent infra)
+    5.  Mistral Small -- free tier, strong JSON + multilingual
+    6.  NVIDIA NIM (Nemotron 30B) -- free dev program, NVIDIA-optimized inference
+    7.  SambaNova (Llama 3.1 405B) -- free, largest open model, fastest inference (RDU)
+    8.  SiliconFlow (Qwen2.5 7B) -- free $0.05/M tokens, OpenAI-compatible
+    9.  Cloudflare Workers AI (Llama 3.3 70B) -- free 10K neurons/day, edge-distributed
+    10. OpenRouter (Llama 4 Maverick) -- free models via single gateway
+    11. OpenRouter (Qwen3 Coder) -- free, code generation specialist
+    12. OpenRouter (Arcee Trinity) -- free, complex reasoning
+    13. OpenRouter (Liquid LFM 2.5) -- free, novel architecture
+    14. xAI Grok -- free signup credits ($25), strong reasoning
+    15. HuggingFace Inference (Mistral 7B) -- free rate-limited, fallback
 
     PAID TIER:
-    10. GPT-4o (OpenAI) -- paid, strong at structured + conversational + reasoning
-    11. Claude Sonnet (Anthropic) -- paid, high quality, strong tool_use
-    12. Claude Opus (Anthropic) -- paid, last resort, highest quality, most expensive
-
-Routing strategy for paid models:
-    - STRUCTURED (JSON/benchmarks): GPT-4o before Claude (excellent JSON adherence)
-    - CONVERSATIONAL (Q&A): GPT-4o before Claude (strong general reasoning)
-    - COMPLEX (multi-step): Claude Sonnet before GPT-4o (better tool_use chains)
-    - CODE (formulas): GPT-4o before Claude (strong at calculations)
-    - VERIFICATION (fact-check): GPT-4o before Claude (precision + grounding)
-    - RESEARCH (geopolitical): GPT-4o before Claude (broad knowledge)
-    - NARRATIVE (long-form): GPT-4o before Claude (fluent generation)
-    - BATCH (high-throughput): GPT-4o before Claude (cost-efficient at scale)
-    - Claude Opus is ALWAYS last -- only used when all others fail
+    16. Claude Haiku 4.5 (Anthropic) -- paid, fast + cheap
+    17. GPT-4o (OpenAI) -- paid, strong at structured + conversational + reasoning
+    18. Claude Sonnet 4 (Anthropic) -- paid, high quality, strong tool_use
+    19. Claude Opus 4.6 (Anthropic) -- paid, last resort, highest quality
 
 Task classification (8 types):
     - STRUCTURED:     benchmark lookups, CPC/CPA queries, JSON output
@@ -43,7 +39,7 @@ Task classification (8 types):
     - BATCH:          high-throughput bulk operations, comprehensive reports
 
 Each provider has independent circuit breaker (5 failures -> 60s cooldown)
-and per-minute rate tracking.  13 total providers, 9 free + 4 paid.
+and per-minute rate tracking.  19 total providers, 15 free + 4 paid.
 
 Stdlib-only, thread-safe.
 """
@@ -88,6 +84,12 @@ SAMBANOVA = "sambanova"
 NVIDIA_NIM = "nvidia_nim"
 CLOUDFLARE = "cloudflare"
 GPT4O = "gpt4o"
+ZHIPU = "zhipu"
+SILICONFLOW = "siliconflow"
+HUGGINGFACE = "huggingface"
+OPENROUTER_QWEN = "openrouter_qwen"
+OPENROUTER_ARCEE = "openrouter_arcee"
+OPENROUTER_LIQUID = "openrouter_liquid"
 CLAUDE_HAIKU = "claude_haiku"
 CLAUDE = "claude"
 CLAUDE_OPUS = "claude_opus"
@@ -129,7 +131,7 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         "model": "llama-3.3-70b",
         "env_key": "CEREBRAS_API_KEY",
         "rpm_limit": 30,
-        "rpd_limit": 14400,
+        "rpd_limit": 14400,  # 1M tokens/day free
         "timeout": 30,
         "max_tokens": 8192,
     },
@@ -204,6 +206,84 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         "timeout": 30,
         "max_tokens": 4096,
     },
+    ZHIPU: {
+        "name": "Zhipu AI (GLM-4-Flash)",
+        "api_style": "openai",  # OpenAI-compatible
+        "endpoint": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
+        "model": "glm-4-flash",
+        "env_key": "ZHIPU_API_KEY",
+        "rpm_limit": 60,
+        "rpd_limit": 50000,  # Unlimited free tier
+        "timeout": 30,
+        "max_tokens": 4096,
+    },
+    SILICONFLOW: {
+        "name": "SiliconFlow (Qwen2.5 7B)",
+        "api_style": "openai",  # OpenAI-compatible
+        "endpoint": "https://api.siliconflow.cn/v1/chat/completions",
+        "model": "Qwen/Qwen2.5-7B-Instruct",
+        "env_key": "SILICONFLOW_API_KEY",
+        "rpm_limit": 30,
+        "rpd_limit": 10000,  # Free tier: $0.05/M tokens
+        "timeout": 30,
+        "max_tokens": 4096,
+    },
+    HUGGINGFACE: {
+        "name": "HuggingFace Inference (Mistral 7B)",
+        "api_style": "huggingface",  # HuggingFace-specific format
+        "endpoint": "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.3",
+        "model": "mistralai/Mistral-7B-Instruct-v0.3",
+        "env_key": "HUGGINGFACE_API_KEY",
+        "rpm_limit": 10,  # Rate-limited free tier
+        "rpd_limit": 1000,
+        "timeout": 45,  # Can be slow on cold start
+        "max_tokens": 1024,
+    },
+    OPENROUTER_QWEN: {
+        "name": "OpenRouter (Qwen3 Coder)",
+        "api_style": "openai",  # OpenAI-compatible
+        "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+        "model": "alibaba/qwen3-coder:free",
+        "env_key": "OPENROUTER_API_KEY",
+        "rpm_limit": 20,
+        "rpd_limit": 1000,
+        "timeout": 30,
+        "max_tokens": 4096,
+        "extra_headers": {
+            "HTTP-Referer": "https://media-plan-generator.onrender.com",
+            "X-Title": "Nova AI Suite",
+        },
+    },
+    OPENROUTER_ARCEE: {
+        "name": "OpenRouter (Arcee Trinity)",
+        "api_style": "openai",  # OpenAI-compatible
+        "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+        "model": "arcee-ai/arcee-trinity-v1:free",
+        "env_key": "OPENROUTER_API_KEY",
+        "rpm_limit": 20,
+        "rpd_limit": 1000,
+        "timeout": 30,
+        "max_tokens": 4096,
+        "extra_headers": {
+            "HTTP-Referer": "https://media-plan-generator.onrender.com",
+            "X-Title": "Nova AI Suite",
+        },
+    },
+    OPENROUTER_LIQUID: {
+        "name": "OpenRouter (Liquid LFM 2.5)",
+        "api_style": "openai",  # OpenAI-compatible
+        "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+        "model": "liquid/lfm-2.5:free",
+        "env_key": "OPENROUTER_API_KEY",
+        "rpm_limit": 20,
+        "rpd_limit": 1000,
+        "timeout": 30,
+        "max_tokens": 4096,
+        "extra_headers": {
+            "HTTP-Referer": "https://media-plan-generator.onrender.com",
+            "X-Title": "Nova AI Suite",
+        },
+    },
     GPT4O: {
         "name": "GPT-4o (OpenAI)",
         "api_style": "openai",  # OpenAI native format
@@ -251,17 +331,23 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
 }
 
 # Task -> provider priority order
-# Strategy: 9 free providers first, then paid by cost-efficiency, Opus absolute last
+# Strategy: 15 free providers first, then paid by cost-efficiency, Opus absolute last
 #
 # Free tier strengths:
 #   Gemini: structured JSON, code, verification
 #   Groq/Cerebras (Llama 3.3 70B): conversational, complex reasoning
+#   Zhipu AI (GLM-4-Flash): unlimited free, strong multilingual
 #   Mistral Small: structured JSON, multilingual, code
-#   OpenRouter (Llama 4 Maverick): strong general purpose (free models)
-#   xAI Grok: strong reasoning (free $25 signup credits)
+#   NVIDIA NIM: NVIDIA-optimized inference, diverse model catalog
 #   SambaNova (Llama 3.1 405B): largest open model, fastest inference (RDU hardware)
-#   NVIDIA NIM (Llama 3.1 70B): NVIDIA-optimized inference, diverse model catalog
+#   SiliconFlow (Qwen2.5 7B): OpenAI-compatible, cheap tokens
 #   Cloudflare Workers AI (Llama 3.3 70B): edge-distributed, low latency, 10K neurons/day
+#   OpenRouter (Llama 4 Maverick): strong general purpose
+#   OpenRouter (Qwen3 Coder): code generation specialist
+#   OpenRouter (Arcee Trinity): complex reasoning
+#   OpenRouter (Liquid LFM 2.5): novel architecture
+#   xAI Grok: strong reasoning (free $25 signup credits)
+#   HuggingFace (Mistral 7B): rate-limited fallback
 #
 # Paid tier strengths (cost order: Haiku << GPT-4o < Sonnet < Opus):
 #   Claude Haiku: fast + cheap paid fallback, good for simple tasks
@@ -272,13 +358,19 @@ TASK_ROUTING: Dict[str, List[str]] = {
     TASK_STRUCTURED: [
         GEMINI,
         MISTRAL,
-        NVIDIA_NIM,
         GROQ,
+        ZHIPU,
         CEREBRAS,
-        OPENROUTER,
-        XAI,
+        NVIDIA_NIM,
         SAMBANOVA,
+        SILICONFLOW,
         CLOUDFLARE,
+        OPENROUTER,
+        OPENROUTER_QWEN,
+        OPENROUTER_ARCEE,
+        OPENROUTER_LIQUID,
+        XAI,
+        HUGGINGFACE,
         CLAUDE_HAIKU,
         GPT4O,
         CLAUDE,
@@ -286,14 +378,19 @@ TASK_ROUTING: Dict[str, List[str]] = {
     ],
     TASK_CONVERSATIONAL: [
         GROQ,
+        ZHIPU,
         CEREBRAS,
         GEMINI,
         MISTRAL,
-        OPENROUTER,
-        XAI,
-        SAMBANOVA,
         NVIDIA_NIM,
+        SAMBANOVA,
+        SILICONFLOW,
         CLOUDFLARE,
+        OPENROUTER,
+        OPENROUTER_ARCEE,
+        OPENROUTER_LIQUID,
+        XAI,
+        HUGGINGFACE,
         CLAUDE_HAIKU,
         GPT4O,
         CLAUDE,
@@ -302,13 +399,18 @@ TASK_ROUTING: Dict[str, List[str]] = {
     TASK_COMPLEX: [
         SAMBANOVA,
         OPENROUTER,
+        OPENROUTER_ARCEE,
         GROQ,
+        ZHIPU,
         CEREBRAS,
         GEMINI,
         MISTRAL,
-        XAI,
         NVIDIA_NIM,
+        SILICONFLOW,
         CLOUDFLARE,
+        OPENROUTER_LIQUID,
+        XAI,
+        HUGGINGFACE,
         CLAUDE_HAIKU,
         CLAUDE,
         GPT4O,
@@ -316,14 +418,18 @@ TASK_ROUTING: Dict[str, List[str]] = {
     ],
     TASK_CODE: [
         GEMINI,
+        OPENROUTER_QWEN,
         MISTRAL,
-        NVIDIA_NIM,
         GROQ,
+        ZHIPU,
         CEREBRAS,
+        NVIDIA_NIM,
+        SAMBANOVA,
+        SILICONFLOW,
+        CLOUDFLARE,
         OPENROUTER,
         XAI,
-        SAMBANOVA,
-        CLOUDFLARE,
+        HUGGINGFACE,
         CLAUDE_HAIKU,
         GPT4O,
         CLAUDE,
@@ -333,12 +439,16 @@ TASK_ROUTING: Dict[str, List[str]] = {
         GEMINI,
         MISTRAL,
         GROQ,
+        ZHIPU,
         CEREBRAS,
         NVIDIA_NIM,
-        OPENROUTER,
-        XAI,
         SAMBANOVA,
+        SILICONFLOW,
         CLOUDFLARE,
+        OPENROUTER,
+        OPENROUTER_ARCEE,
+        XAI,
+        HUGGINGFACE,
         CLAUDE_HAIKU,
         GPT4O,
         CLAUDE,
@@ -347,13 +457,18 @@ TASK_ROUTING: Dict[str, List[str]] = {
     TASK_RESEARCH: [
         XAI,
         OPENROUTER,
+        OPENROUTER_ARCEE,
         SAMBANOVA,
         GEMINI,
         GROQ,
+        ZHIPU,
         CEREBRAS,
         MISTRAL,
         NVIDIA_NIM,
+        SILICONFLOW,
         CLOUDFLARE,
+        OPENROUTER_LIQUID,
+        HUGGINGFACE,
         CLAUDE_HAIKU,
         GPT4O,
         CLAUDE,
@@ -363,12 +478,16 @@ TASK_ROUTING: Dict[str, List[str]] = {
         GROQ,
         OPENROUTER,
         GEMINI,
+        ZHIPU,
         CEREBRAS,
         MISTRAL,
-        XAI,
         SAMBANOVA,
         NVIDIA_NIM,
+        SILICONFLOW,
         CLOUDFLARE,
+        OPENROUTER_LIQUID,
+        XAI,
+        HUGGINGFACE,
         CLAUDE_HAIKU,
         GPT4O,
         CLAUDE,
@@ -378,12 +497,18 @@ TASK_ROUTING: Dict[str, List[str]] = {
         CLOUDFLARE,
         CEREBRAS,
         GROQ,
+        ZHIPU,
         GEMINI,
         MISTRAL,
         NVIDIA_NIM,
-        OPENROUTER,
-        XAI,
         SAMBANOVA,
+        SILICONFLOW,
+        OPENROUTER,
+        OPENROUTER_QWEN,
+        OPENROUTER_ARCEE,
+        OPENROUTER_LIQUID,
+        XAI,
+        HUGGINGFACE,
         CLAUDE_HAIKU,
         GPT4O,
         CLAUDE,
@@ -690,7 +815,7 @@ def _build_openai_request(
     max_tokens: int,
     tools: Optional[List[Dict]] = None,
 ) -> Tuple[str, Dict[str, str], bytes]:
-    """Build an OpenAI-compatible API request (Groq, Cerebras, Mistral, xAI, OpenRouter, SambaNova, NVIDIA NIM, Cloudflare)."""
+    """Build an OpenAI-compatible API request (Groq, Cerebras, Mistral, xAI, OpenRouter, SambaNova, NVIDIA NIM, Cloudflare, Zhipu, SiliconFlow)."""
     config = PROVIDER_CONFIG[provider_id]
     api_key = os.environ.get(config["env_key"], "").strip()
 
@@ -795,6 +920,76 @@ def _build_anthropic_request(
         "anthropic-version": "2023-06-01",
     }
     return config["endpoint"], headers, json.dumps(payload).encode("utf-8")
+
+
+def _build_huggingface_request(
+    messages: List[Dict],
+    system_prompt: str,
+    max_tokens: int,
+) -> Tuple[str, Dict[str, str], bytes]:
+    """Build a HuggingFace Inference API request.
+
+    HuggingFace Inference uses a text-generation format:
+        Input:  {"inputs": "prompt", "parameters": {"max_new_tokens": N}}
+        Output: [{"generated_text": "..."}]
+    """
+    config = PROVIDER_CONFIG[HUGGINGFACE]
+    api_key = (os.environ.get(config["env_key"]) or "").strip()
+
+    # Build prompt from messages (HF expects a single string)
+    prompt_parts: List[str] = []
+    if system_prompt:
+        prompt_parts.append(f"[INST] <<SYS>>\n{system_prompt}\n<</SYS>>\n")
+    for msg in messages:
+        role = msg.get("role", "user")
+        content = msg.get("content") or ""
+        if not isinstance(content, str) or not content:
+            continue
+        if role == "user":
+            prompt_parts.append(f"[INST] {content} [/INST]")
+        elif role == "assistant":
+            prompt_parts.append(content)
+
+    prompt = "\n".join(prompt_parts)
+
+    payload: Dict[str, Any] = {
+        "inputs": prompt,
+        "parameters": {
+            "max_new_tokens": min(max_tokens, 1024),
+            "temperature": 0.7,
+            "return_full_text": False,
+        },
+    }
+
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {api_key}",
+    }
+    return config["endpoint"], headers, json.dumps(payload).encode("utf-8")
+
+
+def _parse_huggingface_response(resp_data: Any) -> Dict[str, Any]:
+    """Parse HuggingFace Inference API response to normalized format.
+
+    HuggingFace returns: [{"generated_text": "..."}]
+    """
+    try:
+        if isinstance(resp_data, list) and resp_data:
+            text = resp_data[0].get("generated_text") or ""
+        elif isinstance(resp_data, dict):
+            # Some models return a dict with "generated_text"
+            text = resp_data.get("generated_text") or ""
+        else:
+            text = ""
+        return {
+            "text": text.strip(),
+            "input_tokens": 0,  # HF doesn't report token usage
+            "output_tokens": 0,
+            "model": "mistralai/Mistral-7B-Instruct-v0.3",
+            "stop_reason": "stop",
+        }
+    except Exception as e:
+        return {"text": "", "error": str(e)}
 
 
 def _parse_gemini_response(resp_data: Dict) -> Dict[str, Any]:
@@ -1089,6 +1284,10 @@ def _call_single_provider(
             url, headers, body = _build_anthropic_request(
                 messages, system_prompt, max_tokens, tools, provider_id=provider_id
             )
+        elif api_style == "huggingface":
+            url, headers, body = _build_huggingface_request(
+                messages, system_prompt, max_tokens
+            )
         else:
             return {
                 "text": "",
@@ -1114,6 +1313,8 @@ def _call_single_provider(
             parsed = _parse_openai_response(resp_data)
         elif api_style == "anthropic":
             parsed = _parse_anthropic_response(resp_data)
+        elif api_style == "huggingface":
+            parsed = _parse_huggingface_response(resp_data)
         else:
             parsed = {"text": "", "error": "Unknown parse style"}
 
