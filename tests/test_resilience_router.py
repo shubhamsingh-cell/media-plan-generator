@@ -381,12 +381,13 @@ class TestResilienceRouter(unittest.TestCase):
         self.assertEqual(result, "file_value")
 
     def test_analytics_memory_counter_fallback(self) -> None:
-        """When PostHog and local file fail, memory counter works."""
+        """When all cloud/file tiers fail, memory counter works."""
         router = ResilienceRouter()
-        # Disable tier 1 and 2
-        for tier in router.get_tiers("analytics")[:2]:
-            for _ in range(tier.circuit_breaker.max_failures):
-                tier.circuit_breaker.record_failure("down")
+        # Disable all tiers except memory_counter
+        for tier in router.get_tiers("analytics"):
+            if tier.provider != "memory_counter":
+                for _ in range(tier.circuit_breaker.max_failures):
+                    tier.circuit_breaker.record_failure("down")
 
         result = router.track_event("test_event", {"prop": "val"})
         self.assertTrue(result)
@@ -419,11 +420,13 @@ class TestResilienceRouter(unittest.TestCase):
         self.assertTrue(result)
 
     def test_email_stderr_fallback(self) -> None:
-        """When Resend/SMTP/Slack fail, stderr fallback works."""
+        """When Resend/SMTP/Slack fail, local log fallback works."""
         router = ResilienceRouter()
-        for tier in router.get_tiers("email")[:-1]:
-            for _ in range(tier.circuit_breaker.max_failures):
-                tier.circuit_breaker.record_failure("down")
+        # Disable only cloud tiers (Resend, SMTP, Slack), keep local log + sentry
+        for tier in router.get_tiers("email"):
+            if tier.provider in ("resend", "smtp", "slack"):
+                for _ in range(tier.circuit_breaker.max_failures):
+                    tier.circuit_breaker.record_failure("down")
 
         result = router.send_email(
             to="test@test.com", subject="Test", body="body", severity="info"
@@ -457,7 +460,7 @@ class TestResilienceRouter(unittest.TestCase):
         self.assertIn("services", dashboard)
         self.assertIn("summary", dashboard)
         self.assertIn("health_score", dashboard["summary"])
-        self.assertEqual(len(dashboard["services"]), 6)
+        self.assertEqual(len(dashboard["services"]), 8)
 
     def test_priority_matrix(self) -> None:
         """Priority matrix returns a non-empty string."""
