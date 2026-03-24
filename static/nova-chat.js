@@ -1222,11 +1222,8 @@
       abortCtrl.abort();
     }, 60000);
 
-    // Get CSRF token if available
-    var csrfToken = "";
-    try {
-      csrfToken = window.__csrfToken || "";
-    } catch (e) {}
+    // Get CSRF token (fetched on widget init)
+    var csrfToken = window.__csrfToken || "";
     var headers = { "Content-Type": "application/json" };
     if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
 
@@ -1380,6 +1377,20 @@
 
       if (options.apiUrl) CONFIG.apiUrl = options.apiUrl;
       if (options.primaryColor) CONFIG.primaryColor = options.primaryColor;
+
+      // Fetch CSRF token on init (needed for double-submit cookie pattern)
+      if (!window.__csrfToken) {
+        fetch("/api/csrf-token", { credentials: "same-origin" })
+          .then(function (r) {
+            return r.json();
+          })
+          .then(function (d) {
+            window.__csrfToken = d.token || "";
+          })
+          .catch(function () {
+            /* CSRF fetch failed -- requests may fail */
+          });
+      }
 
       // Wait for DOM ready
       if (document.readyState === "loading") {
