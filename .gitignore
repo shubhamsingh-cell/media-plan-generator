@@ -16,6 +16,15 @@ media_plan_sample.pptx
 node_modules/
 .claude/
 
+# Runtime data files (generated at startup/runtime)
+data/backups/
+data/firecrawl_cache/
+data/auto_qc_results.json
+data/enrichment_state.json
+data/persistent/
+data/competitor_careers.json
+data/job_density_metros.json
+
 # Resilience router local data
 data/analytics/
 data/cache/
