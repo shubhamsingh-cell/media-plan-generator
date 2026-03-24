@@ -949,7 +949,7 @@ class NovaSlackBot:
         with self._lock:
             for entry in self.learned_answers.get("answers") or []:
                 if entry.get("question") == original_question:
-                    entry["times_used"] = entry.get("times_used") or 0 + 1
+                    entry["times_used"] = (entry.get("times_used") or 0) + 1
                     try:
                         self._save_learned_answers()
                     except OSError:

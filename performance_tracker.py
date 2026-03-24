@@ -1392,13 +1392,13 @@ def generate_performance_excel(
             "CPA",
             f"${metrics.get('overall_cpa') or 0:.2f}",
             f"${proj_cpa:.2f}",
-            f"-${metrics.get('overall_cpa') or 0 - proj_cpa:.2f}",
+            f"-${(metrics.get('overall_cpa') or 0) - proj_cpa:.2f}",
         ),
         (
             "CPH",
             f"${metrics.get('overall_cph') or 0:.2f}",
             f"${proj_cph:.2f}",
-            f"-${metrics.get('overall_cph') or 0 - proj_cph:.2f}",
+            f"-${(metrics.get('overall_cph') or 0) - proj_cph:.2f}",
         ),
     ]
     for label, current_val, proj_val, improvement in projections:

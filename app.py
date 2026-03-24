@@ -19731,6 +19731,22 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         "error": "firecrawl_enrichment module not available",
                     }
                 )
+        # ── Web Scraper Router Status (multi-tier) ──
+        elif path == "/api/scraper/status":
+            try:
+                from web_scraper_router import get_scraper_status
+
+                self._send_json(get_scraper_status())
+            except ImportError:
+                self._send_json(
+                    {
+                        "error": "web_scraper_router module not available",
+                        "total_tiers": 0,
+                    }
+                )
+            except Exception as exc:
+                logger.error("Scraper status error: %s", exc, exc_info=True)
+                self._send_json({"error": str(exc)})
         # ── Sentry Integration Status + Recent Issues ──
         elif path == "/api/sentry/issues":
             if not self._check_admin_auth():
