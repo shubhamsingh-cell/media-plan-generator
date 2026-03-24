@@ -131,7 +131,7 @@ def transcribe_audio(audio_bytes: bytes, language: str = "en") -> Optional[str]:
 
         if response.status_code == 200:
             result = response.json()
-            text = result.get("text", "").strip()
+            text = result.get("text") or "".strip()
             logger.info("Transcribed audio: %s", text[:100])
             return text if text else None
 

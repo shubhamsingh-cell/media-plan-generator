@@ -307,6 +307,15 @@ def _upsert_to_supabase(
                 error_body = exc.read().decode("utf-8", errors="replace")[:300]
             except OSError:
                 pass
+            if exc.code == 401:
+                logger.error(
+                    "Supabase 401 Unauthorized upserting to %s -- check SUPABASE_SERVICE_ROLE_KEY. "
+                    "Disabling enrichment writes for this cycle. Body: %s",
+                    table,
+                    error_body,
+                )
+                # Don't retry on auth errors -- stop batching immediately
+                break
             logger.error(
                 f"Supabase HTTP {exc.code} upserting to {table}: {error_body}",
                 exc_info=True,

@@ -3914,7 +3914,7 @@ def generate_excel(data):
         "general": "administration",
         "media_entertainment": "marketing_advertising",
     }
-    _app_occ_key = _EXCEL_APPCAST_MAP.get(client_industry, "")
+    _app_occ_key = _EXCEL_APPCAST_MAP.get(client_industry) or ""
     if _appcast_bm and _app_occ_key:
         _cpa_by_occ = _appcast_bm.get("cpa_by_occupation_2025", {})
         _cph_by_occ = _appcast_bm.get("cph_by_occupation_2025", {})
@@ -4074,7 +4074,7 @@ def generate_excel(data):
         "education": "education_public_service",
         "government_utilities": "education_public_service",
     }
-    _gads_cat_key = _EXCEL_GADS_MAP.get(client_industry, "")
+    _gads_cat_key = _EXCEL_GADS_MAP.get(client_industry) or ""
     _gads_cat = _gads_bm.get("categories", {}).get(_gads_cat_key, {})
     if _gads_cat:
         exec_row += 2
@@ -6095,7 +6095,7 @@ def generate_excel(data):
             name="Calibri", bold=True, size=10
         )
         for i, loc in enumerate(locations):
-            desc = trend.get("descriptions", {}).get(loc, "")
+            desc = trend.get("descriptions", {}).get(loc) or ""
             style_body_cell(ws_trends, row, 3 + i, desc)
         # Alternate row shading
         if (row % 2) == 0:
@@ -14218,7 +14218,7 @@ def generate_excel(data):
                                 "time_to_fill_benchmark_days",
                                 "mobile_apply_pct",
                             ]:
-                                sv = strat.get(sk, "")
+                                sv = strat.get(sk) or ""
                                 if sv:
                                     label = sk.replace("_", " ").title()
                                     if isinstance(sv, list):
@@ -16462,7 +16462,7 @@ def _calculate_roi(data: dict) -> dict:
     kb_insights: list[str] = []
     try:
         kb = load_knowledge_base()
-        kb_key = _INDUSTRY_KEY_TO_KB_KEY.get(industry, "")
+        kb_key = _INDUSTRY_KEY_TO_KB_KEY.get(industry) or ""
         ind_benchmarks = kb.get("industry_specific_benchmarks", {}).get(kb_key, {})
         if ind_benchmarks:
             outlook = (
@@ -16868,11 +16868,17 @@ def _generate_ab_test_with_claude(
     try:
         from llm_router import call_llm, TASK_NARRATIVE
 
-        content_text = call_llm(
-            prompt=prompt,
+        messages = [{"role": "user", "content": prompt}]
+        llm_result = call_llm(
+            messages=messages,
             system_prompt=system_prompt,
             task_type=TASK_NARRATIVE,
             max_tokens=500,
+        )
+        content_text = (
+            llm_result.get("text") or ""
+            if isinstance(llm_result, dict)
+            else str(llm_result or "")
         )
         if content_text:
             json_match = re.search(r"\{[\s\S]*\}", content_text)
@@ -18532,7 +18538,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 checks.append(
                     "MISSING: Set ANTHROPIC_API_KEY for Nova chatbot intelligence"
                 )
-            if diag.get("bot_user_id") or "".startswith("NOT"):
+            if (diag.get("bot_user_id") or "").startswith("NOT"):
                 checks.append(
                     "AUTH FAILED: Bot token invalid or bot not installed to workspace"
                 )
@@ -19955,7 +19961,14 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
         _has_api_key = bool(
             (self.headers.get("Authorization") or "").startswith("Bearer ")
         )
-        if not _has_api_key and not _is_admin and path.startswith("/api/"):
+        # Paths exempt from CSRF: external webhooks that use their own signature
+        _CSRF_EXEMPT_PATHS = ("/api/sentry/webhook", "/api/slack/events")
+        if (
+            not _has_api_key
+            and not _is_admin
+            and path.startswith("/api/")
+            and path not in _CSRF_EXEMPT_PATHS
+        ):
             header_token = self.headers.get("X-CSRF-Token") or ""
             cookie_header = self.headers.get("Cookie") or ""
             cookie_token = _parse_cookie_value(cookie_header, "csrf_token")

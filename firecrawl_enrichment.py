@@ -47,6 +47,10 @@ FIRECRAWL_BASE_URL: str = "https://api.firecrawl.dev/v1"
 CACHE_DIR: Path = Path(__file__).resolve().parent / "data" / "firecrawl_cache"
 REQUEST_TIMEOUT: int = 15  # seconds
 
+# Circuit breaker: disable Firecrawl when credits exhausted (402)
+_firecrawl_disabled_until: float = 0.0  # Unix timestamp; 0 = not disabled
+_FIRECRAWL_COOLDOWN: int = 3600  # 1 hour cooldown after 402
+
 # TTL constants (seconds)
 TTL_JOB_BOARD: int = 86400  # 24 hours
 TTL_CAREERS: int = 21600  # 6 hours
@@ -169,8 +173,16 @@ def _firecrawl_request(
     Returns:
         Parsed JSON response dict, or None on failure.
     """
+    global _firecrawl_disabled_until
+
     if not FIRECRAWL_API_KEY:
         logger.warning("FIRECRAWL_API_KEY not set -- skipping Firecrawl request")
+        return None
+
+    # Circuit breaker: skip if credits exhausted recently
+    if _firecrawl_disabled_until > time.time():
+        remaining = int(_firecrawl_disabled_until - time.time())
+        logger.debug("Firecrawl disabled (credits exhausted), %ds remaining", remaining)
         return None
 
     url = f"{FIRECRAWL_BASE_URL}{endpoint}"
@@ -187,6 +199,15 @@ def _firecrawl_request(
             raw = resp.read().decode("utf-8")
             return json.loads(raw)
     except HTTPError as exc:
+        if exc.code == 402:
+            _firecrawl_disabled_until = time.time() + _FIRECRAWL_COOLDOWN
+            logger.warning(
+                "Firecrawl 402 Payment Required -- credits exhausted. "
+                "Disabling for %d seconds. Endpoint: %s",
+                _FIRECRAWL_COOLDOWN,
+                endpoint,
+            )
+            return None
         logger.error(
             f"Firecrawl API HTTP error {exc.code} for {endpoint}: {exc.reason}",
             exc_info=True,
