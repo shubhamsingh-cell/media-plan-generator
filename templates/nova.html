@@ -3097,6 +3097,7 @@
 
           state.isLoading = true;
           state.isStreaming = true;
+          state._loadStart = Date.now();
           sendBtn.disabled = true;
           sendBtn.style.display = "none";
           stopBtn.classList.add("visible");
@@ -3203,40 +3204,49 @@
                 });
               }
 
-              return processChunk().then(function () {
-                clearTimeout(timeout);
-                state.queryCount++;
-                var msgId = metadata.message_id || "msg-" + Date.now();
+              return processChunk()
+                .catch(function (readErr) {
+                  // Reader errors (network drops, AbortError) -- treat as stream end
+                  if (fullText) {
+                    // Partial response received -- save what we have
+                    return;
+                  }
+                  throw readErr;
+                })
+                .then(function () {
+                  clearTimeout(timeout);
+                  state.queryCount++;
+                  var msgId = metadata.message_id || "msg-" + Date.now();
 
-                var assistantMsg = {
-                  role: "assistant",
-                  content: metadata.full_response || fullText,
-                  sources: metadata.sources || [],
-                  confidence: metadata.confidence || 0,
-                  tools_used: metadata.tools_used || [],
-                  message_id: msgId,
-                  suggested_followups: metadata.suggested_followups || [],
-                  timestamp: Date.now(),
-                };
-                conv.messages.push(assistantMsg);
-                conv.updatedAt = Date.now();
-                saveConversations();
+                  var assistantMsg = {
+                    role: "assistant",
+                    content: metadata.full_response || fullText,
+                    sources: metadata.sources || [],
+                    confidence: metadata.confidence || 0,
+                    tools_used: metadata.tools_used || [],
+                    message_id: msgId,
+                    suggested_followups: metadata.suggested_followups || [],
+                    timestamp: Date.now(),
+                  };
+                  conv.messages.push(assistantMsg);
+                  conv.updatedAt = Date.now();
+                  saveConversations();
 
-                // Replace streaming DOM with proper message DOM
-                var streamEl = document.getElementById("streaming-msg");
-                if (streamEl) streamEl.remove();
-                appendMessageDOM(assistantMsg, true);
+                  // Replace streaming DOM with proper message DOM
+                  var streamEl = document.getElementById("streaming-msg");
+                  if (streamEl) streamEl.remove();
+                  appendMessageDOM(assistantMsg, true);
 
-                // Render follow-up suggestions
-                if (
-                  assistantMsg.suggested_followups &&
-                  assistantMsg.suggested_followups.length > 0
-                ) {
-                  renderFollowups(assistantMsg.suggested_followups);
-                }
+                  // Render follow-up suggestions
+                  if (
+                    assistantMsg.suggested_followups &&
+                    assistantMsg.suggested_followups.length > 0
+                  ) {
+                    renderFollowups(assistantMsg.suggested_followups);
+                  }
 
-                scrollToBottom();
-              });
+                  scrollToBottom();
+                });
             })
             .catch(function (err) {
               clearTimeout(timeout);
@@ -3352,6 +3362,19 @@
         chatInput.addEventListener("keydown", function (e) {
           if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
+            // Safety: if isLoading stuck for >60s, force reset
+            if (
+              state.isLoading &&
+              state._loadStart &&
+              Date.now() - state._loadStart > 60000
+            ) {
+              state.isLoading = false;
+              state.isStreaming = false;
+              state.abortController = null;
+              sendBtn.style.display = "";
+              stopBtn.classList.remove("visible");
+              hideThinking();
+            }
             sendMessage();
           }
         });
