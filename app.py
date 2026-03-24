@@ -12459,13 +12459,13 @@ def generate_excel(data):
                 # Generate recommendation based on metrics
                 rec = "Maintain"
                 spend_pct = (
-                    (pdata.get("spend") or 0 / _hist_perf["total_spend"] * 100)
+                    ((pdata.get("spend") or 0) / _hist_perf["total_spend"] * 100)
                     if _hist_perf["total_spend"] > 0
                     else 0
                 )
-                if cpa > _hist_perf.get("total_cpa") or 0 * 1.5 and spend_pct > 15:
+                if cpa > (_hist_perf.get("total_cpa") or 0) * 1.5 and spend_pct > 15:
                     rec = "Reduce allocation -- CPA significantly above average"
-                elif cpa > _hist_perf.get("total_cpa") or 0 * 1.2:
+                elif cpa > (_hist_perf.get("total_cpa") or 0) * 1.2:
                     rec = "Optimize -- CPA above average"
                 elif cpa < (_hist_perf.get("total_cpa") or 0) * 0.8 and cpa > 0:
                     rec = "Increase allocation -- strong CPA performer"

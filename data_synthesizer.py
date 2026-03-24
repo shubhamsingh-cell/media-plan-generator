@@ -2430,10 +2430,10 @@ def fuse_ad_platform_analysis(
     for platform_key, platform_data in result.items():
         if isinstance(platform_data, dict) and not platform_key.startswith("_"):
             composite = (
-                platform_data.get("fit_score")
-                or 0 * 0.4
+                (platform_data.get("fit_score") or 0) * 0.4
                 + (1.0 - min(platform_data.get("avg_cpc", 5.0) / 10.0, 1.0)) * 0.3
-                + min(platform_data.get("estimated_reach") or 0 / 1_000_000, 1.0) * 0.3
+                + min((platform_data.get("estimated_reach") or 0) / 1_000_000, 1.0)
+                * 0.3
             )
             rankings.append((platform_key, round(composite, 3)))
 

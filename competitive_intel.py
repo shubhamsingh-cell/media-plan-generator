@@ -617,7 +617,7 @@ def compare_ad_benchmarks(
                         "cpc": round(data.get("value") or 0, 2),
                         "cpa": round(data.get("cpa_value") or 0, 2),
                         "ctr": (
-                            round(data.get("ctr_value") or 0 * 100, 2)
+                            round((data.get("ctr_value") or 0) * 100, 2)
                             if data.get("ctr_value")
                             else None
                         ),

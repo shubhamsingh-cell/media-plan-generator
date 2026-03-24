@@ -39,6 +39,19 @@ from urllib.request import Request, urlopen
 logger = logging.getLogger(__name__)
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# WEB SCRAPER ROUTER (multi-tier fallback)
+# ═══════════════════════════════════════════════════════════════════════════════
+try:
+    from web_scraper_router import scrape_url as _router_scrape_url
+    from web_scraper_router import search_web as _router_search_web
+    from web_scraper_router import get_scraper_status as _router_get_scraper_status
+
+    _router_available = True
+except ImportError:
+    _router_available = False
+    logger.warning("web_scraper_router not available; Firecrawl-only mode")
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # CONFIGURATION
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -676,6 +689,36 @@ def fetch_recruitment_news(
 
     search_response = _firecrawl_request("/search", search_payload)
     if not search_response or not search_response.get("success"):
+        # Fallback to multi-tier router for search
+        if _router_available:
+            logger.info(
+                f"Firecrawl search failed, falling back to router for: {safe_topic}"
+            )
+            try:
+                router_results = _router_search_web(
+                    f"{safe_topic} latest news trends 2026", num_results=5
+                )
+                if router_results:
+                    articles = []
+                    for item in router_results[:5]:
+                        articles.append(
+                            {
+                                "title": item.get("title") or "Untitled",
+                                "summary": item.get("snippet") or "",
+                                "source": _domain_from_url(item.get("url") or ""),
+                                "url": item.get("url") or "",
+                                "date": "",
+                            }
+                        )
+                    _cache_set(ckey, articles, TTL_NEWS)
+                    logger.info(
+                        f"Router fetched {len(articles)} news articles for: {safe_topic} "
+                        f"via {router_results[0].get('provider', 'unknown')}"
+                    )
+                    return articles
+            except Exception as exc:
+                logger.error(f"Router search fallback failed: {exc}", exc_info=True)
+
         logger.warning(f"Firecrawl search failed for topic: {safe_topic}")
         return []
 
@@ -775,9 +818,41 @@ def scrape_job_posting_volume(role: str, location: str = "") -> dict[str, Any]:
 
     try:
         response = _firecrawl_request("/search", search_payload)
+
+        # If Firecrawl fails, try multi-tier router
+        router_results_used = False
         if not response or not response.get("success"):
-            logger.warning(f"Firecrawl job volume search failed for: {safe_role}")
-            return fallback
+            if _router_available:
+                logger.info(
+                    f"Firecrawl failed, using router for job volume: {safe_role}"
+                )
+                try:
+                    router_hits = _router_search_web(query, num_results=5)
+                    if router_hits:
+                        # Convert router results to Firecrawl-like format
+                        response = {
+                            "success": True,
+                            "data": [
+                                {
+                                    "url": r.get("url") or "",
+                                    "metadata": {
+                                        "title": r.get("title") or "",
+                                        "description": r.get("snippet") or "",
+                                        "sourceURL": r.get("url") or "",
+                                    },
+                                }
+                                for r in router_hits
+                            ],
+                        }
+                        router_results_used = True
+                except Exception as exc:
+                    logger.error(
+                        f"Router fallback failed for job volume: {exc}", exc_info=True
+                    )
+
+            if not response or not response.get("success"):
+                logger.warning(f"All search tiers failed for job volume: {safe_role}")
+                return fallback
 
         results = response.get("data") or []
         sources: list[str] = []
@@ -822,12 +897,14 @@ def scrape_job_posting_volume(role: str, location: str = "") -> dict[str, Any]:
             "estimated_openings": total_estimate,
             "sources": sources[:5],
             "trend": trend,
-            "source": "firecrawl_live",
+            "source": "router_fallback" if router_results_used else "firecrawl_live",
             "last_updated": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         }
 
         _cache_set(ckey, result, TTL_JOB_VOLUME)
-        logger.info(f"Firecrawl job volume for {safe_role}: {total_estimate} openings")
+        logger.info(
+            f"Job volume for {safe_role}: {total_estimate} openings (router={router_results_used})"
+        )
         return result
 
     except (ValueError, TypeError, KeyError) as exc:
@@ -1390,7 +1467,7 @@ def get_firecrawl_status() -> dict[str, Any]:
 
     Returns:
         Dict with: configured (bool), has_api_key (bool), base_url, cache_dir,
-        cache_files_count.
+        cache_files_count, and router_status if the multi-tier router is available.
     """
     cache_count = 0
     try:
@@ -1398,13 +1475,23 @@ def get_firecrawl_status() -> dict[str, Any]:
     except OSError:
         pass
 
-    return {
+    status: dict[str, Any] = {
         "configured": bool(FIRECRAWL_API_KEY),
         "has_api_key": bool(FIRECRAWL_API_KEY),
         "base_url": FIRECRAWL_BASE_URL,
         "cache_dir": str(CACHE_DIR),
         "cache_files_count": cache_count,
+        "router_available": _router_available,
     }
+
+    if _router_available:
+        try:
+            status["router_status"] = _router_get_scraper_status()
+        except Exception as exc:
+            logger.error(f"Failed to get router status: {exc}", exc_info=True)
+            status["router_status"] = {"error": str(exc)}
+
+    return status
 
 
 def clear_firecrawl_cache() -> dict[str, Any]:

@@ -1120,7 +1120,7 @@ def generate_pulse_html(report_data: Dict[str, Any]) -> str:
         ]
         for i, (plat_key, plat_data) in enumerate(platforms.items()):
             pct_width = min(
-                100, (plat_data.get("avg_cpc_current") or 0 / max_cpc) * 100
+                100, ((plat_data.get("avg_cpc_current") or 0) / max_cpc) * 100
             )
             color = bar_colors[i % len(bar_colors)]
             change = plat_data.get("avg_cpc_change_pct") or 0
