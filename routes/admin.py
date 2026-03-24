@@ -7,6 +7,7 @@ parsed URL path string).  Returns ``True`` if the route was handled.
 
 import datetime
 import json
+import sys
 import logging
 import os
 import time
@@ -40,7 +41,10 @@ def _handle_admin_usage(handler, path: str, parsed: Any) -> None:
         handler.send_error(401, "Unauthorized")
         return
 
-    from app import _api_keys_lock, _api_keys_store, API_KEY_TIERS
+    _app = sys.modules.get("__main__") or sys.modules.get("app")
+    _api_keys_lock = getattr(_app, "_api_keys_lock", None)
+    _api_keys_store = getattr(_app, "_api_keys_store", None)
+    API_KEY_TIERS = getattr(_app, "API_KEY_TIERS", None)
 
     now = time.time()
     usage_data = {}
@@ -79,7 +83,8 @@ def _handle_admin_stats(handler, path: str, parsed: Any) -> None:
         handler.send_error(401, "Unauthorized")
         return
 
-    from app import load_request_log
+    _app = sys.modules.get("__main__") or sys.modules.get("app")
+    load_request_log = getattr(_app, "load_request_log", None)
 
     log_entries = load_request_log()
     total_plans = len(log_entries)
@@ -146,12 +151,14 @@ def _handle_admin_posthog_stats(handler, path: str, parsed: Any) -> None:
         handler.send_error(401, "Unauthorized")
         return
 
-    from app import _posthog_available
+    _app = sys.modules.get("__main__") or sys.modules.get("app")
+    _posthog_available = getattr(_app, "_posthog_available", None)
 
     _ph_stats: dict[str, Any] = {}
     if _posthog_available:
         try:
-            from app import _ph_get_stats
+            _app = sys.modules.get("__main__") or sys.modules.get("app")
+            _ph_get_stats = getattr(_app, "_ph_get_stats", None)
 
             _ph_stats["posthog_integration"] = _ph_get_stats()
         except Exception as _phe:

@@ -6,6 +6,7 @@ parsed URL path string).  Returns ``True`` if the route was handled.
 """
 
 import json
+import sys
 import logging
 import urllib.parse
 from typing import Any
@@ -41,7 +42,8 @@ def _handle_chat_history(handler, path: str, parsed: Any) -> None:
             {"error": "conversation_id parameter required"}, status_code=400
         )
         return
-    from app import _load_conversation_history
+    _app = sys.modules.get("__main__") or sys.modules.get("app")
+    _load_conversation_history = getattr(_app, "_load_conversation_history", None)
 
     history = _load_conversation_history(conv_id)
     handler._send_json({"conversation_id": conv_id, "messages": history})
@@ -55,7 +57,8 @@ def _handle_chat_conversations(handler, path: str, parsed: Any) -> None:
         limit_val = min(int(limit_str), 200)
     except (ValueError, TypeError):
         limit_val = 50
-    from app import _list_conversations
+    _app = sys.modules.get("__main__") or sys.modules.get("app")
+    _list_conversations = getattr(_app, "_list_conversations", None)
 
     conversations = _list_conversations(limit_val)
     handler._send_json({"conversations": conversations, "count": len(conversations)})

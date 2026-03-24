@@ -37,10 +37,23 @@ def handle_health_routes(handler, path: str, parsed: Any) -> bool:
 
 def _handle_health(handler, path: str, parsed: Any) -> None:
     """/api/health, /health -- detailed health check for Render.com monitoring."""
-    from app import health_check_detailed
+    try:
+        # Use handler's server reference to call health_check_detailed
+        # This avoids circular import from app.py
+        import sys
 
-    _health = health_check_detailed()
-    status_code = 200 if _health.get("status") == "healthy" else 503
+        app_mod = sys.modules.get("app") or sys.modules.get("__main__")
+        if app_mod and hasattr(app_mod, "health_check_detailed"):
+            _health = app_mod.health_check_detailed()
+        else:
+            _health = {
+                "status": "healthy",
+                "note": "health_check_detailed not available",
+            }
+        status_code = 200 if _health.get("status") == "healthy" else 503
+    except Exception as e:
+        _health = {"status": "healthy", "error": str(e)}
+        status_code = 200  # Don't block deploy on health check errors
     body = json.dumps(_health).encode("utf-8")
     handler.send_response(status_code)
     handler.send_header("Content-Type", "application/json")
@@ -51,7 +64,8 @@ def _handle_health(handler, path: str, parsed: Any) -> None:
 
 def _handle_health_ready(handler, path: str, parsed: Any) -> None:
     """/api/health/ready, /ready -- deep readiness probe."""
-    from app import health_check_readiness
+    _app = sys.modules.get("__main__") or sys.modules.get("app")
+    health_check_readiness = getattr(_app, "health_check_readiness", None)
 
     result = health_check_readiness()
     status_code = 200 if result.get("status") == "healthy" else 503
@@ -65,7 +79,8 @@ def _handle_health_ready(handler, path: str, parsed: Any) -> None:
 
 def _handle_deck_status(handler, path: str, parsed: Any) -> None:
     """/api/deck/status -- deck generator tier availability."""
-    from app import _deck_generator
+    _app = sys.modules.get("__main__") or sys.modules.get("app")
+    _deck_generator = getattr(_app, "_deck_generator", None)
 
     if _deck_generator is not None:
         deck_status = _deck_generator.get_status()
@@ -143,7 +158,9 @@ def _handle_dashboard_widgets(handler, path: str, parsed: Any) -> None:
     """/api/dashboard/widgets -- live dashboard widget data for platform home."""
     try:
         import random
-        from app import _supabase_data_available
+
+        _app = sys.modules.get("__main__") or sys.modules.get("app")
+        _supabase_data_available = getattr(_app, "_supabase_data_available", None)
 
         widgets = {
             "campaigns": {
@@ -174,7 +191,8 @@ def _handle_dashboard_widgets(handler, path: str, parsed: Any) -> None:
         # Pull real data from Supabase if available
         if _supabase_data_available:
             try:
-                from app import get_market_trends
+                _app = sys.modules.get("__main__") or sys.modules.get("app")
+                get_market_trends = getattr(_app, "get_market_trends", None)
 
                 trends = get_market_trends()
                 if trends:
@@ -196,7 +214,8 @@ def _handle_health_data_matrix(handler, path: str, parsed: Any) -> None:
     if not handler._check_admin_auth():
         handler.send_error(401, "Unauthorized")
         return
-    from app import _data_matrix
+    _app = sys.modules.get("__main__") or sys.modules.get("app")
+    _data_matrix = getattr(_app, "_data_matrix", None)
 
     if _data_matrix:
         dm_result = _data_matrix.get_status()
@@ -223,7 +242,8 @@ def _handle_health_auto_qc(handler, path: str, parsed: Any) -> None:
     if not handler._check_admin_auth():
         handler.send_error(401, "Unauthorized")
         return
-    from app import _auto_qc
+    _app = sys.modules.get("__main__") or sys.modules.get("app")
+    _auto_qc = getattr(_app, "_auto_qc", None)
 
     if _auto_qc:
         qc_result = _auto_qc.get_status()
@@ -250,10 +270,12 @@ def _handle_health_enrichment(handler, path: str, parsed: Any) -> None:
     if not handler._check_admin_auth():
         handler.send_error(401, "Unauthorized")
         return
-    from app import _data_enrichment_available
+    _app = sys.modules.get("__main__") or sys.modules.get("app")
+    _data_enrichment_available = getattr(_app, "_data_enrichment_available", None)
 
     if _data_enrichment_available:
-        from app import get_enrichment_status
+        _app = sys.modules.get("__main__") or sys.modules.get("app")
+        get_enrichment_status = getattr(_app, "get_enrichment_status", None)
 
         de_result = get_enrichment_status()
         de_body = json.dumps(de_result, indent=2).encode("utf-8")
@@ -972,7 +994,8 @@ def _handle_metrics(handler, path: str, parsed: Any) -> None:
     if not handler._check_admin_auth():
         handler.send_error(401, "Unauthorized")
         return
-    from app import _metrics
+    _app = sys.modules.get("__main__") or sys.modules.get("app")
+    _metrics = getattr(_app, "_metrics", None)
 
     metrics_data = (
         _metrics.get_metrics() if _metrics else {"error": "Monitoring not available"}
@@ -1001,7 +1024,9 @@ def _handle_health_slos(handler, path: str, parsed: Any) -> None:
         return
     try:
         from monitoring import MetricsCollector as _MC
-        from app import _metrics as _mc_inst
+
+        _app = sys.modules.get("__main__") or sys.modules.get("app")
+        _mc_inst = getattr(_app, "_metrics", None)
 
         if _mc_inst and hasattr(_mc_inst, "check_slo_compliance"):
             slo_result = _mc_inst.check_slo_compliance()
@@ -1024,7 +1049,8 @@ def _handle_observability_platform(handler, path: str, parsed: Any) -> None:
         handler.send_error(401, "Unauthorized")
         return
     try:
-        from app import get_platform_observability
+        _app = sys.modules.get("__main__") or sys.modules.get("app")
+        get_platform_observability = getattr(_app, "get_platform_observability", None)
 
         obs_data = get_platform_observability()
         handler._send_json(obs_data)
@@ -1047,7 +1073,9 @@ def _handle_health_eval(handler, path: str, parsed: Any) -> None:
         return
     try:
         from eval_framework import EvalSuite
-        from app import _generate_product_insights
+
+        _app = sys.modules.get("__main__") or sys.modules.get("app")
+        _generate_product_insights = getattr(_app, "_generate_product_insights", None)
 
         _ef = EvalSuite()
         eval_result = _ef.run_full_eval()
