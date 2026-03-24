@@ -21,14 +21,18 @@ _IMPORTABLE_MODULES = [
     "api_enrichment",
     "research",
     "ppt_generator",
+    "deck_generator",
     "monitoring",
     "auto_qc",
     "data_matrix_monitor",
 ]
 
-# app.py uses PEP 604 unions (X | Y) which require Python 3.10+
+# Modules using PEP 604 unions (X | Y) which require Python 3.10+
 _SYNTAX_CHECK_MODULES = [
     "app",
+    "job_scraper",
+    "tavily_search",
+    "vector_search",
 ]
 
 

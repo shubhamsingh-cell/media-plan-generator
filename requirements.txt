@@ -15,3 +15,7 @@ sentry-sdk>=2.0.0,<3.0.0
 
 # Google Trends live data (benchmark fallback used when unavailable)
 pytrends>=4.9.0,<5.0.0
+
+# Multi-platform job scraping (LinkedIn, Indeed, Glassdoor, ZipRecruiter, Google)
+# Optional: import is guarded with try/except in job_scraper.py
+jobspy>=1.1.0

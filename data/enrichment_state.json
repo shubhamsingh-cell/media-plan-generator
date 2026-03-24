@@ -1,10 +1,10 @@
 {
   "last_runs": {
     "live_market_data": "2026-03-23T21:24:47.232378+00:00",
-    "firecrawl_news": "2026-03-23T21:24:47.232778+00:00"
+    "firecrawl_news": "2026-03-24T05:44:09.543548+00:00"
   },
   "stats": {
     "total_enrichments": 1,
-    "total_failures": 1
+    "total_failures": 2
   }
 }

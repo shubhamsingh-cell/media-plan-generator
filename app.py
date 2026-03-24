@@ -105,6 +105,54 @@ except ImportError:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# JOB SCRAPER (python-jobspy -- multi-platform job data)
+# ═══════════════════════════════════════════════════════════════════════════════
+try:
+    from job_scraper import (
+        scrape_jobs as _jobspy_scrape_jobs,
+        get_job_market_stats as _jobspy_market_stats,
+        get_salary_benchmarks as _jobspy_salary_benchmarks,
+    )
+
+    _jobspy_available = True
+except ImportError:
+    _jobspy_scrape_jobs = _jobspy_market_stats = _jobspy_salary_benchmarks = None
+    _jobspy_available = False
+    logger.warning("job_scraper module not available; JobSpy enrichment disabled")
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# TAVILY AI SEARCH (AI-optimized web search)
+# ═══════════════════════════════════════════════════════════════════════════════
+try:
+    from tavily_search import (
+        search as _tavily_search,
+        search_recruitment_news as _tavily_recruitment_news,
+        research_company as _tavily_research_company,
+    )
+
+    _tavily_available = True
+except ImportError:
+    _tavily_search = _tavily_recruitment_news = _tavily_research_company = None
+    _tavily_available = False
+    logger.warning("tavily_search module not available; Tavily enrichment disabled")
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# VECTOR SEARCH (Voyage AI embeddings + in-memory semantic search)
+# ═══════════════════════════════════════════════════════════════════════════════
+try:
+    from vector_search import (
+        search as _vector_search,
+        index_knowledge_base as _vector_index_kb,
+    )
+
+    _vector_search_available = True
+except ImportError:
+    _vector_search = _vector_index_kb = None
+    _vector_search_available = False
+    logger.warning("vector_search module not available; semantic search disabled")
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # LLM ROUTER (lazy import for narrative intelligence)
 # ═══════════════════════════════════════════════════════════════════════════════
 _llm_router_module = None
@@ -1170,6 +1218,16 @@ except ImportError as e:
     logger.warning("ppt_generator import failed: %s", e)
     generate_pptx = None
     INDUSTRY_ALLOC_PROFILES = None
+
+try:
+    from deck_generator import DeckGenerator, DeckGenerationError
+
+    _deck_generator = DeckGenerator()
+    logger.info("deck_generator (7-tier fallback) loaded successfully")
+except ImportError as e:
+    logger.warning("deck_generator import failed: %s", e)
+    _deck_generator = None
+    DeckGenerationError = None
 
 try:
     from api_enrichment import enrich_data
@@ -15215,6 +15273,23 @@ def _build_health_response() -> dict:
     except NameError:
         pass
 
+    # New integrations availability
+    _jobspy_ok = False
+    _tavily_ok = False
+    _vector_ok = False
+    try:
+        _jobspy_ok = bool(_jobspy_available)
+    except NameError:
+        pass
+    try:
+        _tavily_ok = bool(_tavily_available)
+    except NameError:
+        pass
+    try:
+        _vector_ok = bool(_vector_search_available)
+    except NameError:
+        pass
+
     # PostHog key for frontend initialization (safe to expose -- it's a public project key)
     _ph_key_val = (os.environ.get("POSTHOG_API_KEY") or "").strip()
 
@@ -15232,6 +15307,9 @@ def _build_health_response() -> dict:
         "enrichment_daemon_running": _enrich_running,
         "llm_router_available": _llm_available,
         "api_integrations_available": _api_integ,
+        "jobspy_available": _jobspy_ok,
+        "tavily_available": _tavily_ok,
+        "vector_search_available": _vector_ok,
     }
     if _ph_key_val:
         result["posthog_key"] = _ph_key_val
@@ -17328,6 +17406,31 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
+        elif path == "/api/deck/status":
+            # Deck generator tier availability & usage stats
+            if _deck_generator is not None:
+                deck_status = _deck_generator.get_status()
+                deck_body = json.dumps(deck_status, indent=2).encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                cors_origin = self._get_cors_origin()
+                if cors_origin:
+                    self.send_header("Access-Control-Allow-Origin", cors_origin)
+                self.send_header("Content-Length", str(len(deck_body)))
+                self.end_headers()
+                self.wfile.write(deck_body)
+            else:
+                deck_err = json.dumps({"error": "Deck generator not available"}).encode(
+                    "utf-8"
+                )
+                self.send_response(503)
+                self.send_header("Content-Type", "application/json")
+                cors_origin = self._get_cors_origin()
+                if cors_origin:
+                    self.send_header("Access-Control-Allow-Origin", cors_origin)
+                self.send_header("Content-Length", str(len(deck_err)))
+                self.end_headers()
+                self.wfile.write(deck_err)
         elif path == "/api/health/data-matrix":
             # Data matrix health monitor (admin-protected)
             if not self._check_admin_auth():
@@ -19377,6 +19480,28 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                             )
                         if _mp_econ:
                             _mp_news_resp["economic_context"] = _mp_econ
+                    # ── Tavily: Real-time recruitment industry news ──
+                    if _tavily_available and _tavily_recruitment_news:
+                        try:
+                            _tav_news = _tavily_recruitment_news(topic)
+                            if _tav_news:
+                                _mp_news_resp["tavily_news"] = _tav_news
+                                logger.info(
+                                    "Enriched /api/market-pulse/news with tavily news (%d articles)",
+                                    len(_tav_news),
+                                )
+                        except (
+                            urllib.error.URLError,
+                            OSError,
+                            ValueError,
+                            TypeError,
+                        ) as _te:
+                            logger.error(
+                                "Tavily enrichment for market-pulse/news failed: %s",
+                                _te,
+                                exc_info=True,
+                            )
+
                     # Enrich with Supabase market trends
                     if _supabase_data_available:
                         try:
@@ -20477,6 +20602,50 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                         exc_info=True,
                     )
 
+            # ── JobSpy: Real job posting volume + salary data for /api/generate ──
+            if _jobspy_available and _jobspy_market_stats:
+                try:
+                    _js_role = ""
+                    _js_roles = data.get("target_roles") or data.get("roles") or []
+                    if isinstance(_js_roles, list) and _js_roles:
+                        _js_first = _js_roles[0]
+                        _js_role = (
+                            _js_first.get("title")
+                            if isinstance(_js_first, dict)
+                            else str(_js_first)
+                        )
+                    _js_role = str(_js_role) if _js_role else ""
+                    if _js_role:
+                        _js_loc_raw = data.get("locations") or []
+                        _js_loc = "USA"
+                        if isinstance(_js_loc_raw, list) and _js_loc_raw:
+                            _js_first_loc = _js_loc_raw[0]
+                            if isinstance(_js_first_loc, str):
+                                _js_loc = _js_first_loc
+                            elif isinstance(_js_first_loc, dict):
+                                _js_loc = (
+                                    _js_first_loc.get("city")
+                                    or _js_first_loc.get("state")
+                                    or "USA"
+                                )
+                        _js_stats = _jobspy_market_stats(_js_role, _js_loc)
+                        if _js_stats:
+                            _mctx = data.get("market_context") or {}
+                            _mctx["jobspy_market_stats"] = _js_stats
+                            data["market_context"] = _mctx
+                            logger.info(
+                                "Enriched /api/generate with jobspy market stats "
+                                "(%d postings, avg_salary=%s)",
+                                _js_stats.get("total_postings") or 0,
+                                _js_stats.get("avg_salary"),
+                            )
+                except (ValueError, TypeError, KeyError, OSError) as _js_err:
+                    logger.error(
+                        "JobSpy enrichment for /api/generate failed: %s",
+                        _js_err,
+                        exc_info=True,
+                    )
+
             # ── Phase 2: Load Knowledge Base ──
             with _span_fn("kb.load", "Load knowledge base"):
                 kb = load_knowledge_base()
@@ -20794,20 +20963,57 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 r"[^a-zA-Z0-9_\-]", "_", data.get("client_name") or "Client"
             )
 
-            # Generate Strategy PPT deck
+            # Generate Strategy PPT deck (7-tier fallback via DeckGenerator)
             pptx_bytes = None
             pptx_warning = None
-            if generate_pptx is not None:
+            pptx_provider = None
+            # Check for ?deck_tier=premium query param to force Gamma (tier 2)
+            _deck_tier_param = (
+                _qs.get("deck_tier", [None])[0] if "_qs" in dir() else None
+            )
+            if _deck_tier_param is None:
+                _parsed_qs = urllib.parse.parse_qs(
+                    urllib.parse.urlparse(self.path).query
+                )
+                _deck_tier_param = _parsed_qs.get("deck_tier", [None])[0]
+            _force_tier = None
+            if _deck_tier_param == "premium":
+                _force_tier = "gamma"
+            elif _deck_tier_param and _deck_tier_param != "auto":
+                _force_tier = _deck_tier_param
+
+            if _deck_generator is not None:
+                try:
+                    with _span_fn(
+                        "generate.pptx", "Generate strategy PPT deck (multi-tier)"
+                    ):
+                        pptx_bytes, pptx_provider = _deck_generator.generate(
+                            data, force_tier=_force_tier
+                        )
+                    logger.info(
+                        "PPT generated via %s: %d bytes",
+                        pptx_provider,
+                        len(pptx_bytes),
+                    )
+                except Exception as e:
+                    logger.error("DeckGenerator error: %s", e, exc_info=True)
+                    pptx_bytes = None
+                    pptx_warning = "Strategy deck (PPT) could not be generated. Excel plan is included."
+            elif generate_pptx is not None:
+                # Direct fallback if deck_generator module not loaded
                 try:
                     with _span_fn("generate.pptx", "Generate strategy PPT deck"):
                         pptx_bytes = generate_pptx(data)
-                    logger.info("PPT generated: %d bytes", len(pptx_bytes))
+                    pptx_provider = "pptx"
+                    logger.info("PPT generated (direct): %d bytes", len(pptx_bytes))
                 except Exception as e:
                     logger.error("PPT generation error: %s", e, exc_info=True)
                     pptx_bytes = None
                     pptx_warning = "Strategy deck (PPT) could not be generated. Excel plan is included."
             else:
-                logger.info("PPT generation skipped: ppt_generator not available")
+                logger.info(
+                    "PPT generation skipped: neither deck_generator nor ppt_generator available"
+                )
 
             if pptx_bytes:
                 # Bundle both files in a ZIP
@@ -21083,6 +21289,105 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                     if _chat_api_ctx:
                         data["_api_context"] = _chat_api_ctx
 
+                # ── JobSpy enrichment for chat: live job data ──
+                if (
+                    _jobspy_available
+                    and _jobspy_market_stats
+                    and any(
+                        kw in _chat_msg
+                        for kw in (
+                            "job",
+                            "hire",
+                            "hiring",
+                            "recruit",
+                            "posting",
+                            "vacancy",
+                            "position",
+                            "openings",
+                            "talent",
+                        )
+                    )
+                ):
+                    try:
+                        _js_chat_role = (
+                            data.get("role")
+                            or data.get("context", {}).get("role")
+                            or _chat_msg[:40]
+                        )
+                        _js_chat_stats = _jobspy_market_stats(str(_js_chat_role))
+                        if _js_chat_stats:
+                            _chat_api_ctx = data.get("_api_context") or {}
+                            _chat_api_ctx["jobspy_market_stats"] = _js_chat_stats
+                            data["_api_context"] = _chat_api_ctx
+                            logger.info("Enriched /api/chat with jobspy market stats")
+                    except (ValueError, TypeError, KeyError, OSError) as _jse:
+                        logger.error(
+                            "JobSpy enrichment for chat failed: %s",
+                            _jse,
+                            exc_info=True,
+                        )
+
+                # ── Tavily enrichment for chat: news and trends ──
+                if (
+                    _tavily_available
+                    and _tavily_search
+                    and any(
+                        kw in _chat_msg
+                        for kw in (
+                            "news",
+                            "trend",
+                            "latest",
+                            "recent",
+                            "update",
+                            "what's happening",
+                            "industry",
+                        )
+                    )
+                ):
+                    try:
+                        _tav_results = _tavily_search(
+                            f"recruitment hiring {_chat_msg[:60]}",
+                            max_results=3,
+                        )
+                        if _tav_results:
+                            _chat_api_ctx = data.get("_api_context") or {}
+                            _chat_api_ctx["tavily_web_results"] = _tav_results
+                            data["_api_context"] = _chat_api_ctx
+                            logger.info(
+                                "Enriched /api/chat with tavily search (%d results)",
+                                len(_tav_results),
+                            )
+                    except (
+                        urllib.error.URLError,
+                        OSError,
+                        ValueError,
+                        TypeError,
+                    ) as _te:
+                        logger.error(
+                            "Tavily enrichment for chat failed: %s",
+                            _te,
+                            exc_info=True,
+                        )
+
+                # ── Vector search RAG: semantic KB retrieval ──
+                if _vector_search_available and _vector_search:
+                    try:
+                        _vs_results = _vector_search(_chat_msg, top_k=3)
+                        if _vs_results:
+                            _chat_api_ctx = data.get("_api_context") or {}
+                            _chat_api_ctx["vector_kb_results"] = _vs_results
+                            data["_api_context"] = _chat_api_ctx
+                            logger.info(
+                                "Enriched /api/chat with vector search (%d KB matches)",
+                                len(_vs_results),
+                            )
+                    except (ValueError, TypeError, OSError) as _vse:
+                        logger.error(
+                            "Vector search enrichment for chat failed: %s",
+                            _vse,
+                            exc_info=True,
+                        )
+
                 from nova import handle_chat_request
 
                 _chat_span_fn = getattr(self, "_sentry_span", lambda o, n: _nullctx())
@@ -21276,6 +21581,86 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                             )
                     if _chat_api_ctx:
                         data["_api_context"] = _chat_api_ctx
+
+                # ── JobSpy / Tavily / Vector search for stream (same as /api/chat) ──
+                _stream_msg = (data.get("message") or "").lower()
+                if (
+                    _jobspy_available
+                    and _jobspy_market_stats
+                    and any(
+                        kw in _stream_msg
+                        for kw in (
+                            "job",
+                            "hire",
+                            "hiring",
+                            "recruit",
+                            "posting",
+                            "vacancy",
+                        )
+                    )
+                ):
+                    try:
+                        _sjs_role = (
+                            data.get("role")
+                            or data.get("context", {}).get("role")
+                            or _stream_msg[:40]
+                        )
+                        _sjs_stats = _jobspy_market_stats(str(_sjs_role))
+                        if _sjs_stats:
+                            _sctx = data.get("_api_context") or {}
+                            _sctx["jobspy_market_stats"] = _sjs_stats
+                            data["_api_context"] = _sctx
+                    except (ValueError, TypeError, KeyError, OSError) as _jse:
+                        logger.error(
+                            "JobSpy stream enrichment failed: %s", _jse, exc_info=True
+                        )
+
+                if (
+                    _tavily_available
+                    and _tavily_search
+                    and any(
+                        kw in _stream_msg
+                        for kw in (
+                            "news",
+                            "trend",
+                            "latest",
+                            "recent",
+                            "update",
+                            "industry",
+                        )
+                    )
+                ):
+                    try:
+                        _stav = _tavily_search(
+                            f"recruitment hiring {_stream_msg[:60]}", max_results=3
+                        )
+                        if _stav:
+                            _sctx = data.get("_api_context") or {}
+                            _sctx["tavily_web_results"] = _stav
+                            data["_api_context"] = _sctx
+                    except (
+                        urllib.error.URLError,
+                        OSError,
+                        ValueError,
+                        TypeError,
+                    ) as _te:
+                        logger.error(
+                            "Tavily stream enrichment failed: %s", _te, exc_info=True
+                        )
+
+                if _vector_search_available and _vector_search:
+                    try:
+                        _svs = _vector_search(_stream_msg, top_k=3)
+                        if _svs:
+                            _sctx = data.get("_api_context") or {}
+                            _sctx["vector_kb_results"] = _svs
+                            data["_api_context"] = _sctx
+                    except (ValueError, TypeError, OSError) as _vse:
+                        logger.error(
+                            "Vector search stream enrichment failed: %s",
+                            _vse,
+                            exc_info=True,
+                        )
 
                 # Check for cancellation before LLM call
                 if cancel_event.is_set():
@@ -22264,6 +22649,63 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                                 _je,
                                 exc_info=True,
                             )
+                    # ── JobSpy: Company hiring data from real postings ──
+                    if (
+                        _jobspy_available
+                        and _jobspy_scrape_jobs
+                        and isinstance(result, dict)
+                    ):
+                        try:
+                            _ci_company = data.get("company") or domain.split(".")[0]
+                            _ci_js_jobs = _jobspy_scrape_jobs(
+                                _ci_company, "USA", results_wanted=15
+                            )
+                            if _ci_js_jobs:
+                                result["jobspy_hiring_data"] = {
+                                    "postings_found": len(_ci_js_jobs),
+                                    "sample_postings": _ci_js_jobs[:5],
+                                    "sources": list(
+                                        {j.get("site") or "" for j in _ci_js_jobs}
+                                    ),
+                                }
+                                logger.info(
+                                    "Enriched /api/competitive/scrape with jobspy hiring data"
+                                )
+                        except (ValueError, TypeError, KeyError, OSError) as _jse:
+                            logger.error(
+                                "JobSpy enrichment for competitive/scrape failed: %s",
+                                _jse,
+                                exc_info=True,
+                            )
+
+                    # ── Tavily: Company research ──
+                    if (
+                        _tavily_available
+                        and _tavily_research_company
+                        and isinstance(result, dict)
+                    ):
+                        try:
+                            _ci_company_name = (
+                                data.get("company") or domain.split(".")[0]
+                            )
+                            _tav_research = _tavily_research_company(_ci_company_name)
+                            if _tav_research:
+                                result["tavily_company_research"] = _tav_research
+                                logger.info(
+                                    "Enriched /api/competitive/scrape with tavily company research"
+                                )
+                        except (
+                            urllib.error.URLError,
+                            OSError,
+                            ValueError,
+                            TypeError,
+                        ) as _te:
+                            logger.error(
+                                "Tavily enrichment for competitive/scrape failed: %s",
+                                _te,
+                                exc_info=True,
+                            )
+
                     self._send_json(result)
             except Exception as e:
                 logger.error("Competitive scrape error: %s", e, exc_info=True)
@@ -22602,6 +23044,42 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                             )
                     if _thm_live_data:
                         result["live_market_data"] = _thm_live_data
+
+                # ── JobSpy: Real job density from 5 sources ──
+                if (
+                    _jobspy_available
+                    and _jobspy_scrape_jobs
+                    and isinstance(result, dict)
+                ):
+                    try:
+                        _thm_js_role = data.get("role") or ""
+                        _thm_js_locs = data.get("locations") or []
+                        if isinstance(_thm_js_locs, str):
+                            _thm_js_locs = [_thm_js_locs]
+                        if _thm_js_role:
+                            _thm_js_density: dict = {}
+                            for _jsloc in _thm_js_locs[:5]:
+                                _jsloc_str = (
+                                    _jsloc if isinstance(_jsloc, str) else str(_jsloc)
+                                )
+                                _js_jobs = _jobspy_scrape_jobs(
+                                    _thm_js_role, _jsloc_str, results_wanted=10
+                                )
+                                if _js_jobs is not None:
+                                    _thm_js_density[_jsloc_str] = len(_js_jobs)
+                            if _thm_js_density:
+                                _live = result.get("live_market_data") or {}
+                                _live["jobspy_posting_density"] = _thm_js_density
+                                result["live_market_data"] = _live
+                                logger.info(
+                                    "Enriched /api/talent-heatmap with jobspy density data"
+                                )
+                    except (ValueError, TypeError, KeyError, OSError) as _jse:
+                        logger.error(
+                            "JobSpy enrichment for talent-heatmap failed: %s",
+                            _jse,
+                            exc_info=True,
+                        )
 
                 # LLM insights for Talent Heatmap
                 if isinstance(result, dict):
@@ -23247,6 +23725,28 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                                 )
                         if _hs_api_data:
                             result["live_market_data"] = _hs_api_data
+
+                    # ── JobSpy: Multi-source job data for HireSignal ──
+                    if _jobspy_available and _jobspy_market_stats:
+                        try:
+                            _hs_js_role = (
+                                result.get("role") or result.get("job_title") or ""
+                            )
+                            if _hs_js_role:
+                                _hs_js_stats = _jobspy_market_stats(str(_hs_js_role))
+                                if _hs_js_stats:
+                                    _hs_live = result.get("live_market_data") or {}
+                                    _hs_live["jobspy_market_stats"] = _hs_js_stats
+                                    result["live_market_data"] = _hs_live
+                                    logger.info(
+                                        "Enriched /api/hire-signal with jobspy market stats"
+                                    )
+                        except (ValueError, TypeError, KeyError, OSError) as _jse:
+                            logger.error(
+                                "JobSpy enrichment for hire-signal failed: %s",
+                                _jse,
+                                exc_info=True,
+                            )
 
                 self._send_json(result)
             except Exception as e:
@@ -23972,6 +24472,38 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                     if _ps_api_data:
                         result["live_market_data"] = _ps_api_data
 
+                # ── JobSpy: Multi-source salary benchmarks ──
+                if (
+                    _jobspy_available
+                    and _jobspy_salary_benchmarks
+                    and isinstance(result, dict)
+                ):
+                    try:
+                        _ps_js_role = data.get("role") or ""
+                        _ps_js_locs = data.get("locations") or []
+                        if isinstance(_ps_js_locs, str):
+                            _ps_js_locs = [_ps_js_locs]
+                        if not _ps_js_locs:
+                            _ps_js_loc = data.get("location") or ""
+                            if _ps_js_loc:
+                                _ps_js_locs = [_ps_js_loc]
+                        if _ps_js_role:
+                            _js_bench = _jobspy_salary_benchmarks(
+                                _ps_js_role,
+                                locations=_ps_js_locs[:5] if _ps_js_locs else None,
+                            )
+                            if _js_bench:
+                                result["jobspy_salary_benchmarks"] = _js_bench
+                                logger.info(
+                                    "Enriched /api/payscale-sync with jobspy salary benchmarks"
+                                )
+                    except (ValueError, TypeError, KeyError, OSError) as _jse:
+                        logger.error(
+                            "JobSpy enrichment for payscale-sync failed: %s",
+                            _jse,
+                            exc_info=True,
+                        )
+
                 self._send_json(result)
             except json.JSONDecodeError:
                 self.send_response(400)
@@ -24126,6 +24658,22 @@ if __name__ == "__main__":
     except Exception as kb_err:
         logger.error("Knowledge base pre-warm failed: %s", kb_err)
 
+    # ── Build vector search index (async, non-blocking) ──
+    if _vector_search_available and _vector_index_kb:
+
+        def _bg_vector_index():
+            try:
+                count = _vector_index_kb()
+                logger.info("Vector search index built: %d documents", count)
+            except Exception as ve:
+                logger.error(
+                    "Vector index build failed (non-fatal): %s", ve, exc_info=True
+                )
+
+        threading.Thread(
+            target=_bg_vector_index, daemon=True, name="vector-index"
+        ).start()
+
     # ── Startup banner ──
     logger.info("=" * 60)
     logger.info("AI Media Planner v3.5.0")
@@ -24143,6 +24691,12 @@ if __name__ == "__main__":
     logger.info(
         "Data Enrichment: %s",
         "running" if _data_enrichment_available else "unavailable",
+    )
+    logger.info(
+        "JobSpy: %s | Tavily: %s | VectorSearch: %s",
+        "available" if _jobspy_available else "unavailable",
+        "available" if _tavily_available else "unavailable",
+        "available" if _vector_search_available else "unavailable",
     )
     logger.info("API Docs: http://localhost:%d/docs", port)
     logger.info("OpenAPI: http://localhost:%d/api/docs/openapi.json", port)
