@@ -604,12 +604,15 @@ class SupabasePersistence:
     def load(self) -> bool:
         """Load previous metrics snapshot from Supabase and apply to collector.
 
+        The table uses a row-per-metric schema:
+        ``metric_key TEXT PK, metric_value INT, updated_at TIMESTAMPTZ``.
+
         Returns True if counters were restored, False otherwise.
         """
         if not self._enabled:
             return False
         try:
-            url = f"{self._rest_url()}?id=eq.singleton&select=data"
+            url = f"{self._rest_url()}?select=metric_key,metric_value"
             req = urllib.request.Request(
                 url, headers=self._build_headers(), method="GET"
             )
@@ -619,8 +622,13 @@ class SupabasePersistence:
             if not rows:
                 logger.info("No existing metrics snapshot in Supabase")
                 return False
-            data = rows[0].get("data") or {}
-            if not isinstance(data, dict):
+            data: Dict[str, int] = {}
+            for row in rows:
+                mk = row.get("metric_key") or ""
+                mv = row.get("metric_value") or 0
+                if mk and isinstance(mv, (int, float)):
+                    data[mk] = int(mv)
+            if not data:
                 return False
             self._apply_snapshot(data)
             logger.info(
@@ -650,22 +658,16 @@ class SupabasePersistence:
     def save(self) -> bool:
         """Save current metrics snapshot to Supabase (upsert).
 
+        Stores each counter as a separate row keyed by ``metric_key``
+        with the current value in ``metric_value``.
+
         Returns True on success, False on failure.
         """
         if not self._enabled:
             return False
         try:
-            snapshot = self._build_snapshot()
-            payload = json.dumps(
-                [
-                    {
-                        "id": "singleton",
-                        "data": snapshot,
-                        "updated_at": datetime.now(timezone.utc).isoformat(),
-                    }
-                ],
-                default=str,
-            )
+            rows = self._build_rows()
+            payload = json.dumps(rows, default=str)
             req = urllib.request.Request(
                 self._rest_url(),
                 data=payload.encode("utf-8"),
@@ -677,7 +679,7 @@ class SupabasePersistence:
             with self._lock:
                 self._last_save_ok = True
                 self._last_save_ts = time.time()
-            logger.debug("Metrics snapshot saved to Supabase")
+            logger.debug("Metrics snapshot saved to Supabase (%d rows)", len(rows))
             return True
         except urllib.error.URLError as e:
             with self._lock:
@@ -690,14 +692,23 @@ class SupabasePersistence:
             logger.warning("Metrics serialization failed: %s", e)
             return False
 
-    def _build_snapshot(self) -> Dict[str, Any]:
-        """Extract persistable counter values from the collector."""
-        snapshot: Dict[str, Any] = {}
+    def _build_rows(self) -> list:
+        """Build row-per-metric payload for Supabase upsert."""
+        now = datetime.now(timezone.utc).isoformat()
+        rows: list = []
         with self._collector._req_lock:
             for field in _PERSIST_COUNTERS:
-                snapshot[field] = getattr(self._collector, field, 0)
-        snapshot["saved_at"] = datetime.now(timezone.utc).isoformat()
-        return snapshot
+                val = getattr(self._collector, field, 0)
+                rows.append(
+                    {
+                        "metric_key": field,
+                        "metric_value": (
+                            int(val) if isinstance(val, (int, float)) else 0
+                        ),
+                        "updated_at": now,
+                    }
+                )
+        return rows
 
     # -- Background save loop ------------------------------------------------
 
@@ -717,7 +728,19 @@ class SupabasePersistence:
         )
 
     def _save_loop(self) -> None:
-        """Periodically save metrics until the process exits."""
+        """Periodically save metrics until the process exits.
+
+        Performs an immediate first save (after a short 10s warm-up) so that
+        ``metrics_persisted`` becomes True quickly, then continues at the
+        normal 5-minute interval.
+        """
+        time.sleep(10)  # short warm-up to let startup finish
+        try:
+            self.save()
+        except Exception as e:
+            logger.error(
+                "Unexpected error in initial metrics save: %s", e, exc_info=True
+            )
         while True:
             time.sleep(_PERSIST_SAVE_INTERVAL_SEC)
             try:

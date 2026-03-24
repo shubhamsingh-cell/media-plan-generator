@@ -99,6 +99,26 @@ except ImportError:
     logger.warning("api_integrations module not available; API enrichment disabled")
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# ELEVENLABS INTEGRATION (TTS, STT, Sound Effects, Voice Design)
+# ═══════════════════════════════════════════════════════════════════════════════
+try:
+    from elevenlabs_integration import (
+        text_to_speech as _elevenlabs_tts,
+        speech_to_text as _elevenlabs_stt,
+        generate_sound_effect as _elevenlabs_sfx,
+        generate_ad_voiceover as _elevenlabs_voiceover,
+        generate_audio_summary as _elevenlabs_audio_summary,
+        check_elevenlabs_health as _elevenlabs_health,
+    )
+
+    _elevenlabs_available = True
+except ImportError:
+    _elevenlabs_available = False
+    logger.warning(
+        "elevenlabs_integration module not available; ElevenLabs features disabled"
+    )
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # SUPABASE DATA LAYER (Supabase-first with local JSON fallback)
 # ═══════════════════════════════════════════════════════════════════════════════
 try:
@@ -20108,6 +20128,27 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 self._send_json(
                     {"ok": False, "error": "Internal server error", "articles": []}
                 )
+        # ── ElevenLabs Health Check ──
+        elif path == "/api/elevenlabs/health":
+            if not _elevenlabs_available:
+                self._send_json(
+                    {
+                        "healthy": False,
+                        "error": "elevenlabs_integration module not available",
+                    }
+                )
+            else:
+                try:
+                    health = _elevenlabs_health()
+                    self._send_json(health)
+                except Exception as e:
+                    logger.error("ElevenLabs health check error: %s", e, exc_info=True)
+                    self._send_json(
+                        {
+                            "healthy": False,
+                            "error": f"Health check failed: {e}",
+                        }
+                    )
         # ── Alias redirects for API-only features (no dedicated page) ──
         elif path in ("/auto-qc", "/auto-qc/"):
             self.send_response(301)
@@ -20178,6 +20219,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             "/api/audit/analyze",
             "/api/tracker/analyze",
             "/api/hire-signal/analyze",
+            "/api/elevenlabs/stt",
         )
 
         if content_length > MAX_BODY_SIZE:
@@ -25482,6 +25524,175 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             except Exception as e:
                 logger.error("Sentry webhook error: %s", e, exc_info=True)
                 self._send_json({"error": "Internal server error"}, status_code=500)
+
+        # ── ElevenLabs: Text-to-Speech ──
+        elif path == "/api/elevenlabs/tts":
+            if not _elevenlabs_available:
+                self._send_json(
+                    {"error": "ElevenLabs integration not available"}, status_code=503
+                )
+                return
+            try:
+                content_len = int(self.headers.get("Content-Length") or 0)
+                body_raw = self.rfile.read(content_len) if content_len > 0 else b"{}"
+                data = json.loads(body_raw)
+                text = data.get("text") or ""
+                if not text.strip():
+                    self._send_json(
+                        {"error": "Missing required field: text"}, status_code=400
+                    )
+                    return
+                voice_id = data.get("voice_id") or None
+                model_id = data.get("model_id") or "eleven_flash_v2_5"
+                audio = _elevenlabs_tts(text, voice_id=voice_id, model_id=model_id)
+                if audio:
+                    self.send_response(200)
+                    self.send_header("Content-Type", "audio/mpeg")
+                    self.send_header("Content-Length", str(len(audio)))
+                    cors_origin = self._get_cors_origin()
+                    if cors_origin:
+                        self.send_header("Access-Control-Allow-Origin", cors_origin)
+                        self.send_header("Access-Control-Allow-Credentials", "true")
+                    self.end_headers()
+                    self.wfile.write(audio)
+                else:
+                    self._send_json({"error": "TTS generation failed"}, status_code=502)
+            except json.JSONDecodeError:
+                self._send_json({"error": "Invalid JSON"}, status_code=400)
+            except Exception as e:
+                logger.error("ElevenLabs TTS error: %s", e, exc_info=True)
+                self._send_json({"error": f"TTS failed: {e}"}, status_code=500)
+
+        # ── ElevenLabs: Speech-to-Text ──
+        elif path == "/api/elevenlabs/stt":
+            if not _elevenlabs_available:
+                self._send_json(
+                    {"error": "ElevenLabs integration not available"}, status_code=503
+                )
+                return
+            try:
+                content_len = int(self.headers.get("Content-Length") or 0)
+                if content_len == 0:
+                    self._send_json(
+                        {"error": "No audio data provided"}, status_code=400
+                    )
+                    return
+                audio_data = self.rfile.read(content_len)
+                content_type = self.headers.get("Content-Type") or ""
+                # If JSON body with base64, decode it
+                if "application/json" in content_type:
+                    import base64
+
+                    data = json.loads(audio_data)
+                    audio_b64 = data.get("audio") or ""
+                    language = data.get("language") or "en"
+                    if not audio_b64:
+                        self._send_json(
+                            {"error": "Missing required field: audio (base64)"},
+                            status_code=400,
+                        )
+                        return
+                    audio_data = base64.b64decode(audio_b64)
+                else:
+                    language = "en"
+                transcript = _elevenlabs_stt(audio_data, language=language)
+                if transcript is not None:
+                    self._send_json({"text": transcript, "language": language})
+                else:
+                    self._send_json(
+                        {"error": "Speech-to-text transcription failed"},
+                        status_code=502,
+                    )
+            except json.JSONDecodeError:
+                self._send_json({"error": "Invalid JSON"}, status_code=400)
+            except Exception as e:
+                logger.error("ElevenLabs STT error: %s", e, exc_info=True)
+                self._send_json({"error": f"STT failed: {e}"}, status_code=500)
+
+        # ── ElevenLabs: Sound Effects ──
+        elif path == "/api/elevenlabs/sfx":
+            if not _elevenlabs_available:
+                self._send_json(
+                    {"error": "ElevenLabs integration not available"}, status_code=503
+                )
+                return
+            try:
+                content_len = int(self.headers.get("Content-Length") or 0)
+                body_raw = self.rfile.read(content_len) if content_len > 0 else b"{}"
+                data = json.loads(body_raw)
+                description = data.get("description") or ""
+                if not description.strip():
+                    self._send_json(
+                        {"error": "Missing required field: description"},
+                        status_code=400,
+                    )
+                    return
+                duration = float(data.get("duration_seconds") or 5.0)
+                audio = _elevenlabs_sfx(description, duration_seconds=duration)
+                if audio:
+                    self.send_response(200)
+                    self.send_header("Content-Type", "audio/mpeg")
+                    self.send_header("Content-Length", str(len(audio)))
+                    cors_origin = self._get_cors_origin()
+                    if cors_origin:
+                        self.send_header("Access-Control-Allow-Origin", cors_origin)
+                        self.send_header("Access-Control-Allow-Credentials", "true")
+                    self.end_headers()
+                    self.wfile.write(audio)
+                else:
+                    self._send_json(
+                        {"error": "Sound effect generation failed"}, status_code=502
+                    )
+            except json.JSONDecodeError:
+                self._send_json({"error": "Invalid JSON"}, status_code=400)
+            except (ValueError, TypeError) as e:
+                self._send_json({"error": f"Invalid parameter: {e}"}, status_code=400)
+            except Exception as e:
+                logger.error("ElevenLabs SFX error: %s", e, exc_info=True)
+                self._send_json(
+                    {"error": f"Sound effect generation failed: {e}"}, status_code=500
+                )
+
+        # ── ElevenLabs: Ad Voiceover (CreativeAI) ──
+        elif path == "/api/creative/voiceover":
+            if not _elevenlabs_available:
+                self._send_json(
+                    {"error": "ElevenLabs integration not available"}, status_code=503
+                )
+                return
+            try:
+                content_len = int(self.headers.get("Content-Length") or 0)
+                body_raw = self.rfile.read(content_len) if content_len > 0 else b"{}"
+                data = json.loads(body_raw)
+                ad_copy = data.get("ad_copy") or data.get("text") or ""
+                if not ad_copy.strip():
+                    self._send_json(
+                        {"error": "Missing required field: ad_copy"}, status_code=400
+                    )
+                    return
+                tone = data.get("tone") or "professional"
+                audio = _elevenlabs_voiceover(ad_copy, tone=tone)
+                if audio:
+                    self.send_response(200)
+                    self.send_header("Content-Type", "audio/mpeg")
+                    self.send_header("Content-Length", str(len(audio)))
+                    cors_origin = self._get_cors_origin()
+                    if cors_origin:
+                        self.send_header("Access-Control-Allow-Origin", cors_origin)
+                        self.send_header("Access-Control-Allow-Credentials", "true")
+                    self.end_headers()
+                    self.wfile.write(audio)
+                else:
+                    self._send_json(
+                        {"error": "Ad voiceover generation failed"}, status_code=502
+                    )
+            except json.JSONDecodeError:
+                self._send_json({"error": "Invalid JSON"}, status_code=400)
+            except Exception as e:
+                logger.error("ElevenLabs voiceover error: %s", e, exc_info=True)
+                self._send_json(
+                    {"error": f"Voiceover generation failed: {e}"}, status_code=500
+                )
 
         else:
             self.send_error(404)

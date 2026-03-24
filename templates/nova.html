@@ -2082,6 +2082,7 @@
           isLoading: false,
           isStreaming: false,
           abortController: null,
+          _loadStart: 0,
           queryCount: 0,
           sidebarOpen: true,
           pendingFile: null, // {name, size, type, data(base64)}
@@ -3048,6 +3049,24 @@
         // ========================================================================
         // SEND MESSAGE (uses streaming via SSE)
         // ========================================================================
+        // Centralized UI reset -- single source of truth for unlocking the chat
+        function resetLoadingState() {
+          state.isLoading = false;
+          state.isStreaming = false;
+          state._loadStart = 0;
+          if (state.abortController) {
+            try {
+              state.abortController.abort();
+            } catch (_) {}
+          }
+          state.abortController = null;
+          sendBtn.style.display = "";
+          sendBtn.disabled = !chatInput.value.trim();
+          stopBtn.classList.remove("visible");
+          hideThinking();
+          chatInput.focus();
+        }
+
         function sendMessage() {
           var text = chatInput.value.trim();
           // Handle /clear command
@@ -3128,11 +3147,30 @@
             renderFileChip();
           }
 
-          // Use SSE streaming
-          state.abortController = new AbortController();
-          var timeout = setTimeout(function () {
-            if (state.abortController) state.abortController.abort();
-          }, 60000); // 60s timeout for streaming
+          // Use SSE streaming with AbortController + hard timeout
+          var ac = new AbortController();
+          state.abortController = ac;
+
+          // Hard timeout: forcibly reset after 60s no matter what
+          var hardTimeout = setTimeout(function () {
+            resetLoadingState();
+            // Also clean up any lingering streaming DOM
+            var streamEl = document.getElementById("streaming-msg");
+            if (streamEl) streamEl.remove();
+          }, 60000);
+
+          // Reader-level timeout: if no data for 15s, abort
+          var readerTimeout = null;
+          function resetReaderTimeout() {
+            if (readerTimeout) clearTimeout(readerTimeout);
+            readerTimeout = setTimeout(function () {
+              if (ac && !ac.signal.aborted) {
+                try {
+                  ac.abort();
+                } catch (_) {}
+              }
+            }, 15000);
+          }
 
           fetch(STREAM_URL, {
             method: "POST",
@@ -3141,7 +3179,7 @@
               "X-CSRF-Token": window.__csrfToken,
             },
             body: JSON.stringify(payload),
-            signal: state.abortController.signal,
+            signal: ac.signal,
           })
             .then(function (r) {
               if (!r.ok) throw new Error("HTTP " + r.status);
@@ -3178,9 +3216,14 @@
               var fullText = "";
               var metadata = {};
 
+              // Start reader idle timer
+              resetReaderTimeout();
+
               function processChunk() {
                 return reader.read().then(function (result) {
                   if (result.done) return;
+                  // Reset reader idle timeout on each chunk received
+                  resetReaderTimeout();
                   buffer += decoder.decode(result.value, { stream: true });
                   var lines = buffer.split("\n");
                   buffer = lines.pop() || "";
@@ -3195,7 +3238,11 @@
                       }
                       if (evt.token) {
                         fullText += evt.token;
-                        content.innerHTML = renderMarkdown(fullText);
+                        try {
+                          content.innerHTML = renderMarkdown(fullText);
+                        } catch (_) {
+                          content.textContent = fullText;
+                        }
                         scrollToBottom();
                       }
                     } catch (e) {}
@@ -3214,7 +3261,7 @@
                   throw readErr;
                 })
                 .then(function () {
-                  clearTimeout(timeout);
+                  if (readerTimeout) clearTimeout(readerTimeout);
                   state.queryCount++;
                   var msgId = metadata.message_id || "msg-" + Date.now();
 
@@ -3249,7 +3296,7 @@
                 });
             })
             .catch(function (err) {
-              clearTimeout(timeout);
+              if (readerTimeout) clearTimeout(readerTimeout);
               hideThinking();
               // Remove streaming message if it exists
               var streamEl = document.getElementById("streaming-msg");
@@ -3260,6 +3307,8 @@
                 errorMsg = "Response was stopped.";
               } else if (err.message && err.message.indexOf("429") > -1) {
                 errorMsg = "Nova is busy. Please wait a moment and try again.";
+              } else if (err.message && err.message.indexOf("403") > -1) {
+                errorMsg = "Session expired. Please refresh the page.";
               } else {
                 errorMsg = "Connection error. Please try again.";
               }
@@ -3282,13 +3331,9 @@
                 });
             })
             .finally(function () {
-              state.isLoading = false;
-              state.isStreaming = false;
-              state.abortController = null;
-              sendBtn.style.display = "";
-              sendBtn.disabled = !chatInput.value.trim();
-              stopBtn.classList.remove("visible");
-              chatInput.focus();
+              clearTimeout(hardTimeout);
+              if (readerTimeout) clearTimeout(readerTimeout);
+              resetLoadingState();
             });
         }
 
@@ -3296,16 +3341,10 @@
         // STOP GENERATION
         // ========================================================================
         stopBtn.addEventListener("click", function () {
-          if (state.abortController) {
-            state.abortController.abort();
-          }
-          state.isLoading = false;
-          state.isStreaming = false;
-          state.abortController = null;
-          sendBtn.style.display = "";
-          sendBtn.disabled = !chatInput.value.trim();
-          stopBtn.classList.remove("visible");
-          hideThinking();
+          resetLoadingState();
+          // Remove streaming message if present
+          var streamEl = document.getElementById("streaming-msg");
+          if (streamEl) streamEl.remove();
           var conv = getActiveConv();
           if (conv) {
             fetch(STOP_URL, {
@@ -3369,52 +3408,59 @@
         chatInput.addEventListener("keydown", function (e) {
           if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
-            // Safety: if isLoading stuck for >30s, force reset
+            // Safety: if isLoading stuck for >20s, force reset so user can retry
             if (
               state.isLoading &&
-              state._loadStart &&
-              Date.now() - state._loadStart > 30000
+              state._loadStart > 0 &&
+              Date.now() - state._loadStart > 20000
             ) {
-              state.isLoading = false;
-              state.isStreaming = false;
-              if (state.abortController) {
-                state.abortController.abort();
-              }
-              state.abortController = null;
-              sendBtn.style.display = "";
-              sendBtn.disabled = false;
-              stopBtn.classList.remove("visible");
-              hideThinking();
+              resetLoadingState();
               var streamEl = document.getElementById("streaming-msg");
               if (streamEl) streamEl.remove();
+            }
+            // Extra guard: if isLoading is stuck but _loadStart is 0 (should not
+            // happen but defensive), force reset unconditionally
+            if (state.isLoading && state._loadStart === 0) {
+              resetLoadingState();
             }
             sendMessage();
           }
         });
 
-        sendBtn.addEventListener("click", sendMessage);
-
-        // ========================================================================
-        // GLOBAL SAFETY: auto-reset stuck isLoading state every 5s
-        // ========================================================================
-        setInterval(function () {
+        sendBtn.addEventListener("click", function () {
+          // Same stuck guard for click path
           if (
             state.isLoading &&
-            state._loadStart &&
-            Date.now() - state._loadStart > 45000
+            state._loadStart > 0 &&
+            Date.now() - state._loadStart > 20000
           ) {
-            state.isLoading = false;
-            state.isStreaming = false;
-            if (state.abortController) {
-              state.abortController.abort();
-            }
-            state.abortController = null;
-            sendBtn.style.display = "";
-            sendBtn.disabled = !chatInput.value.trim();
-            stopBtn.classList.remove("visible");
-            hideThinking();
+            resetLoadingState();
+            var streamEl = document.getElementById("streaming-msg");
+            if (streamEl) streamEl.remove();
           }
-        }, 5000);
+          if (state.isLoading && state._loadStart === 0) {
+            resetLoadingState();
+          }
+          sendMessage();
+        });
+
+        // ========================================================================
+        // GLOBAL SAFETY: auto-reset stuck isLoading state every 3s
+        // ========================================================================
+        setInterval(function () {
+          if (!state.isLoading) return;
+          // If _loadStart is 0 or missing, isLoading is orphaned -- reset immediately
+          if (!state._loadStart || state._loadStart === 0) {
+            resetLoadingState();
+            return;
+          }
+          // If loading for more than 30s, force reset
+          if (Date.now() - state._loadStart > 30000) {
+            resetLoadingState();
+            var streamEl = document.getElementById("streaming-msg");
+            if (streamEl) streamEl.remove();
+          }
+        }, 3000);
 
         // ========================================================================
         // CLEAR / NEW CHAT
