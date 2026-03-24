@@ -1440,6 +1440,140 @@
         border: none;
       }
 
+      /* ── Live Dashboard Widgets ── */
+      .live-dashboard {
+        padding: var(--section-pad) 0;
+      }
+      .widget-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 20px;
+        margin-top: 40px;
+      }
+      @media (max-width: 900px) {
+        .widget-grid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+      }
+      @media (max-width: 560px) {
+        .widget-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+      .widget-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 24px;
+        transition:
+          border-color var(--duration-ui) var(--ease-standard),
+          transform var(--duration-ui) var(--ease-standard);
+      }
+      .widget-card:hover {
+        border-color: var(--border-hover);
+        transform: translateY(-2px);
+      }
+      .widget-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 16px;
+      }
+      .widget-label {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      .widget-badge {
+        font-size: 10px;
+        font-weight: 700;
+        padding: 3px 8px;
+        border-radius: 100px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      .widget-badge--blue {
+        background: rgba(99, 102, 241, 0.15);
+        color: #818cf8;
+      }
+      .widget-badge--green {
+        background: rgba(34, 197, 94, 0.15);
+        color: #22c55e;
+      }
+      .widget-badge--teal {
+        background: rgba(6, 182, 212, 0.15);
+        color: #06b6d4;
+      }
+      .widget-badge--amber {
+        background: rgba(245, 158, 11, 0.15);
+        color: #f59e0b;
+      }
+      .widget-badge--red {
+        background: rgba(239, 68, 68, 0.15);
+        color: #ef4444;
+      }
+      .widget-value {
+        font-size: 2rem;
+        font-weight: 800;
+        letter-spacing: -1px;
+        margin-bottom: 4px;
+      }
+      .widget-sub {
+        font-size: 13px;
+        color: var(--text-muted);
+      }
+      .widget-meter {
+        height: 4px;
+        background: rgba(255, 255, 255, 0.06);
+        border-radius: 2px;
+        margin-top: 12px;
+        overflow: hidden;
+      }
+      .widget-meter-fill {
+        height: 100%;
+        border-radius: 2px;
+        background: var(--success);
+        transition: width 1s var(--ease-reveal);
+        width: 0;
+      }
+      .widget-ring {
+        position: relative;
+        width: 48px;
+        height: 48px;
+      }
+      .widget-ring svg {
+        width: 100%;
+        height: 100%;
+        transform: rotate(-90deg);
+      }
+      .widget-ring-label {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        font-weight: 800;
+        color: var(--text-primary);
+      }
+      .section-eyebrow {
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        color: var(--accent-light);
+        margin-bottom: 12px;
+        display: block;
+      }
+      .section-sub {
+        font-size: 16px;
+        color: var(--text-secondary);
+        max-width: 560px;
+        margin: 12px auto 0;
+      }
+
       /* ── SECTION 9: FOOTER ── */
       .footer {
         position: relative;
@@ -2743,6 +2877,96 @@
         </div>
       </div>
     </section>
+    <hr class="section-divider" />
+
+    <!-- ══════════════════════════════════════════════════════════════
+     SECTION: LIVE DASHBOARD WIDGETS
+     ══════════════════════════════════════════════════════════════ -->
+    <section class="live-dashboard" id="live-dashboard">
+      <div class="container">
+        <div class="platform-header">
+          <span class="section-eyebrow reveal">Live Platform Health</span>
+          <h2 class="reveal">Real-Time Intelligence Dashboard</h2>
+          <p class="section-sub reveal">
+            Live metrics from your campaigns, market signals, and compliance
+            checks.
+          </p>
+        </div>
+        <div class="widget-grid" id="widget-grid">
+          <div class="widget-card reveal" id="w-campaigns">
+            <div class="widget-header">
+              <span class="widget-label">Active Campaigns</span>
+              <span class="widget-badge widget-badge--blue">Live</span>
+            </div>
+            <div class="widget-value" id="w-campaigns-value">--</div>
+            <div class="widget-sub" id="w-campaigns-sub">Loading...</div>
+          </div>
+          <div class="widget-card reveal" id="w-budget">
+            <div class="widget-header">
+              <span class="widget-label">Budget Health</span>
+              <span class="widget-badge widget-badge--green" id="w-budget-badge"
+                >Healthy</span
+              >
+            </div>
+            <div class="widget-value" id="w-budget-value">--</div>
+            <div class="widget-sub" id="w-budget-sub">Loading...</div>
+            <div class="widget-meter">
+              <div class="widget-meter-fill" id="w-budget-meter"></div>
+            </div>
+          </div>
+          <div class="widget-card reveal" id="w-market">
+            <div class="widget-header">
+              <span class="widget-label">Market Signals</span>
+              <span class="widget-badge widget-badge--teal" id="w-market-badge"
+                >Stable</span
+              >
+            </div>
+            <div
+              class="widget-value"
+              id="w-market-value"
+              style="font-size: 1.5rem"
+            >
+              Stable
+            </div>
+            <div class="widget-sub" id="w-market-sub">Loading...</div>
+          </div>
+          <div class="widget-card reveal" id="w-compliance">
+            <div class="widget-header">
+              <span class="widget-label">Compliance Score</span>
+              <div class="widget-ring" id="w-compliance-ring">
+                <svg viewBox="0 0 48 48">
+                  <circle
+                    cx="24"
+                    cy="24"
+                    r="18"
+                    fill="none"
+                    stroke="rgba(255,255,255,0.06)"
+                    stroke-width="4"
+                  />
+                  <circle
+                    id="w-compliance-arc"
+                    cx="24"
+                    cy="24"
+                    r="18"
+                    fill="none"
+                    stroke="var(--success)"
+                    stroke-width="4"
+                    stroke-linecap="round"
+                    stroke-dasharray="113.1"
+                    stroke-dashoffset="113.1"
+                  />
+                </svg>
+                <span class="widget-ring-label" id="w-compliance-score"
+                  >--</span
+                >
+              </div>
+            </div>
+            <div class="widget-sub" id="w-compliance-sub">Loading...</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <hr class="section-divider" />
 
     <!-- ========================================== -->
@@ -7517,6 +7741,118 @@
             svgCardObserver.observe(card);
           });
         }
+
+        /* ── Live Dashboard Widgets ── */
+        (function loadDashboardWidgets() {
+          fetch("/api/dashboard/widgets")
+            .then(function (r) {
+              return r.json();
+            })
+            .then(function (d) {
+              /* Campaigns */
+              var cv = document.getElementById("w-campaigns-value");
+              var cs = document.getElementById("w-campaigns-sub");
+              if (cv)
+                cv.textContent =
+                  d.campaigns && d.campaigns.count != null
+                    ? d.campaigns.count
+                    : 0;
+              if (cs)
+                cs.textContent =
+                  (d.campaigns && d.campaigns.active_name) ||
+                  "No active campaigns";
+
+              /* Budget */
+              var bv = document.getElementById("w-budget-value");
+              var bs = document.getElementById("w-budget-sub");
+              var bm = document.getElementById("w-budget-meter");
+              var bb = document.getElementById("w-budget-badge");
+              var pct =
+                d.budget && d.budget.spent_pct != null ? d.budget.spent_pct : 0;
+              if (bv)
+                bv.textContent =
+                  d.budget && d.budget.total > 0
+                    ? "$" + d.budget.total.toLocaleString()
+                    : "--";
+              if (bs)
+                bs.textContent = pct > 0 ? pct + "% spent" : "No budget set";
+              if (bm)
+                setTimeout(function () {
+                  bm.style.width = pct + "%";
+                }, 300);
+              if (bb) {
+                if (pct > 80) {
+                  bb.textContent = "At Risk";
+                  bb.className = "widget-badge widget-badge--red";
+                } else if (pct > 60) {
+                  bb.textContent = "Watch";
+                  bb.className = "widget-badge widget-badge--amber";
+                }
+              }
+
+              /* Market */
+              var mv = document.getElementById("w-market-value");
+              var ms = document.getElementById("w-market-sub");
+              var mb = document.getElementById("w-market-badge");
+              if (mv)
+                mv.textContent =
+                  d.market && d.market.trend === "growing"
+                    ? "Growing"
+                    : "Stable";
+              if (ms)
+                ms.textContent =
+                  (d.market && d.market.label) || "Labor market trends steady";
+              if (d.market && d.market.cpc_change != null) {
+                var dir = d.market.cpc_change > 0 ? "+" : "";
+                if (ms)
+                  ms.textContent += " | CPC " + dir + d.market.cpc_change + "%";
+              }
+              if (mb && d.market && d.market.trend === "growing") {
+                mb.textContent = "Growing";
+                mb.className = "widget-badge widget-badge--green";
+              }
+
+              /* Compliance */
+              var cscore =
+                d.compliance && d.compliance.score != null
+                  ? d.compliance.score
+                  : 0;
+              var cscoreEl = document.getElementById("w-compliance-score");
+              var csub = document.getElementById("w-compliance-sub");
+              var carc = document.getElementById("w-compliance-arc");
+              if (cscoreEl) cscoreEl.textContent = cscore || "--";
+              if (csub)
+                csub.textContent =
+                  cscore >= 80
+                    ? "Good standing"
+                    : cscore > 0
+                      ? "Needs review"
+                      : "No audits run";
+              if (carc && cscore > 0) {
+                var circ = 2 * Math.PI * 18;
+                var off = circ - (cscore / 100) * circ;
+                setTimeout(function () {
+                  carc.style.strokeDashoffset = off;
+                  carc.style.transition = "stroke-dashoffset 1.2s ease";
+                }, 300);
+                if (cscore < 50) carc.setAttribute("stroke", "var(--rose)");
+                else if (cscore < 80)
+                  carc.setAttribute("stroke", "var(--warning)");
+              }
+            })
+            .catch(function () {
+              var els = [
+                "w-campaigns-sub",
+                "w-budget-sub",
+                "w-market-sub",
+                "w-compliance-sub",
+              ];
+              els.forEach(function (id) {
+                var e = document.getElementById(id);
+                if (e) e.textContent = "Unavailable";
+              });
+            });
+        })();
       })();
     </script>
 

@@ -821,6 +821,22 @@
       }
 
       /* ── Responsive ────────────────────────────── */
+      @media (max-width: 1024px) {
+        .form-grid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+        .rec-cards {
+          grid-template-columns: repeat(2, 1fr);
+        }
+        .container {
+          padding: 0 24px;
+        }
+        .comparison-table-wrapper {
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+        }
+      }
+
       @media (max-width: 768px) {
         .container {
           padding: 0 16px;
@@ -853,10 +869,48 @@
         }
         .btn-download {
           justify-content: center;
+          width: 100%;
         }
         .nav {
           flex-direction: column;
           gap: 12px;
+        }
+        .hero h1 {
+          font-size: 2rem;
+        }
+        .section-title {
+          font-size: 1.1rem;
+        }
+        .comparison-table {
+          font-size: 0.8rem;
+        }
+      }
+
+      @media (max-width: 480px) {
+        .hero h1 {
+          font-size: 1.5rem;
+        }
+        .hero-badge {
+          font-size: 0.7rem;
+        }
+        .download-section {
+          gap: 8px;
+        }
+        .btn-download {
+          width: 100%;
+          font-size: 0.8rem;
+          padding: 10px 16px;
+        }
+        .btn-analyze {
+          width: 100%;
+        }
+        .glass-card {
+          padding: 16px;
+        }
+        .scorecard-grade {
+          width: 80px;
+          height: 80px;
+          font-size: 36px;
         }
       }
 
@@ -1146,7 +1200,51 @@
       </div>
 
       <!-- Results -->
-      <div class="results-section reveal-on-scroll" id="resultsSection">
+      <div
+        class="results-section reveal-on-scroll"
+        id="resultsSection"
+        role="region"
+        aria-label="Analysis Results"
+        aria-live="polite"
+      >
+        <!-- Empty State -->
+        <div
+          class="empty-state"
+          id="emptyState"
+          style="
+            text-align: center;
+            padding: 48px 24px;
+            color: var(--text-muted);
+          "
+        >
+          <svg
+            width="48"
+            height="48"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+            style="margin: 0 auto 16px; display: block; opacity: 0.4"
+            aria-hidden="true"
+          >
+            <circle cx="12" cy="12" r="10" />
+            <path d="M12 16v-4M12 8h.01" />
+          </svg>
+          <h3
+            style="
+              font-size: 16px;
+              font-weight: 600;
+              margin-bottom: 8px;
+              color: var(--text-muted);
+            "
+          >
+            No analysis yet
+          </h3>
+          <p style="font-size: 14px">
+            Upload your campaign data and click Analyze Performance to see
+            results here.
+          </p>
+        </div>
         <!-- Scorecard -->
         <div class="glass-card reveal-on-scroll">
           <h2 class="section-title">Performance Scorecard</h2>
@@ -1405,6 +1503,8 @@
 
         // ── Render Results ──
         function renderResults(data) {
+          var emptyState = document.getElementById("emptyState");
+          if (emptyState) emptyState.style.display = "none";
           renderScorecard(data.scorecard);
           renderComparisonTable(data.comparisons);
           renderRecommendations(data.recommendations);

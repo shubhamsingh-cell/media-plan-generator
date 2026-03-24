@@ -1812,35 +1812,33 @@
         }
 
         function callAPI(data) {
-          return new Promise(function (resolve, reject) {
-            var x = new XMLHttpRequest();
-            x.open("POST", "/api/creative/generate", true);
-            x.setRequestHeader("Content-Type", "application/json");
-            var csrf =
-              (typeof window !== "undefined" && window.__csrfToken) || "";
-            if (csrf) x.setRequestHeader("X-CSRF-Token", csrf);
-            x.onload = function () {
-              if (x.status >= 200 && x.status < 300) {
-                try {
-                  resolve(JSON.parse(x.responseText));
-                } catch (e) {
-                  reject(new Error("Invalid JSON"));
-                }
-              } else reject(new Error("API error: " + x.status));
-            };
-            x.onerror = function () {
-              reject(new Error("Network error"));
-            };
-            x.timeout = 60000;
-            x.ontimeout = function () {
-              reject(new Error("Timeout"));
-            };
-            try {
-              x.send(JSON.stringify(data));
-            } catch (e) {
-              reject(e);
-            }
-          });
+          var csrf =
+            (typeof window !== "undefined" && window.__csrfToken) || "";
+          var headers = { "Content-Type": "application/json" };
+          if (csrf) headers["X-CSRF-Token"] = csrf;
+
+          var controller = new AbortController();
+          var timeoutId = setTimeout(function () {
+            controller.abort();
+          }, 60000);
+
+          return fetch("/api/creative/generate", {
+            method: "POST",
+            headers: headers,
+            body: JSON.stringify(data),
+            signal: controller.signal,
+          })
+            .then(function (response) {
+              clearTimeout(timeoutId);
+              if (!response.ok)
+                throw new Error("API error: " + response.status);
+              return response.json();
+            })
+            .catch(function (err) {
+              clearTimeout(timeoutId);
+              if (err.name === "AbortError") throw new Error("Timeout");
+              throw err;
+            });
         }
 
         function trunc(s, n) {

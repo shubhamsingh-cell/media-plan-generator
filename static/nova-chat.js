@@ -48,10 +48,10 @@
   };
 
   var SUGGESTED_QUESTIONS = [
-    "What publishers work best for nursing roles?",
-    "Compare CPC benchmarks across Google, LinkedIn, and Indeed for healthcare",
-    "How difficult is it to hire software engineers right now?",
-    "Recommend a $50K budget allocation for 10 engineering hires",
+    "Create a media plan for 50 software engineers in Austin",
+    "What salary should I offer for a Data Scientist in NYC?",
+    "Compare Indeed vs LinkedIn for engineering recruitment",
+    "Recommend a $100K budget allocation for 20 nursing hires in Texas",
   ];
 
   // ---------------------------------------------------------------------------
@@ -205,6 +205,7 @@
       ".nova-msg-assistant strong { font-weight: 600; color: #ededed; }" +
       ".nova-msg-assistant em { font-style: italic; color: #6b7c8d; }" +
       ".nova-msg-assistant ul, .nova-msg-assistant ol { margin: 4px 0; padding-left: 18px; }" +
+      ".nova-msg-assistant ol { list-style-type: decimal; }" +
       ".nova-msg-assistant li { margin-bottom: 3px; }" +
       ".nova-msg-assistant li::marker { color: rgba(107,179,205,0.6); }" +
       ".nova-msg-assistant table {" +
@@ -219,6 +220,13 @@
       ".nova-msg-assistant code {" +
       "  background: rgba(107,179,205,0.1); padding: 1px 5px; border-radius: 4px;" +
       '  font-family: "SF Mono", Monaco, Menlo, monospace; font-size: 11.5px; color: #6BB3CD;' +
+      "}" +
+      ".nova-msg-assistant pre {" +
+      "  background: #0d0d18; border: 1px solid rgba(107,179,205,0.1); border-radius: 8px;" +
+      "  padding: 12px; margin: 8px 0; overflow-x: auto;" +
+      "}" +
+      ".nova-msg-assistant pre code {" +
+      "  background: none; padding: 0; border-radius: 0; color: #d4d4d8; line-height: 1.6;" +
       "}" +
       ".nova-msg-assistant p { margin: 4px 0; }" +
       ".nova-msg-assistant a { color: #6BB3CD; text-decoration: underline; }" +
@@ -402,6 +410,25 @@
     if (!text) return "";
     var html = escapeHtml(text);
 
+    // Code blocks (fenced with ```)
+    html = html.replace(
+      /```(\w+)?\n([\s\S]*?)```/g,
+      function (match, lang, code) {
+        var langLabel = lang ? lang : "code";
+        return (
+          '<div style="margin:8px 0;border-radius:8px;overflow:hidden;border:1px solid rgba(107,179,205,0.1);">' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 12px;background:rgba(107,179,205,0.06);font-size:10px;color:#888;">' +
+          "<span>" +
+          langLabel +
+          "</span>" +
+          "</div>" +
+          '<pre style="margin:0;padding:12px;background:#0d0d18;overflow-x:auto;"><code style="background:none;padding:0;color:#d4d4d8;font-size:11.5px;font-family:\'SF Mono\',Monaco,Menlo,monospace;line-height:1.6;">' +
+          code.trim() +
+          "</code></pre></div>"
+        );
+      },
+    );
+
     // Tables (process before other inline formatting)
     html = html.replace(
       /^(\|.+\|)\n(\|[-:\| ]+\|)\n((?:\|.+\|\n?)*)/gm,
@@ -464,9 +491,25 @@
       },
     );
 
+    // Ordered lists (must come before unordered to avoid conflicts)
+    html = html.replace(
+      /^(\d+)\.\s+(.+)$/gm,
+      '<li class="ol-item" value="$1">$2</li>',
+    );
+    html = html.replace(
+      /((?:<li class="ol-item"[^>]*>.+<\/li>\n?)+)/g,
+      "<ol>$1</ol>",
+    );
+
     // Unordered lists
-    html = html.replace(/^- (.+)$/gm, "<li>$1</li>");
-    html = html.replace(/((?:<li>.+<\/li>\n?)+)/g, "<ul>$1</ul>");
+    html = html.replace(/^[-*]\s+(.+)$/gm, "<li>$1</li>");
+    html = html.replace(/((?:<li>(?:(?!class=).)+<\/li>\n?)+)/g, "<ul>$1</ul>");
+
+    // Inline citations [1], [2], etc.
+    html = html.replace(
+      /\[(\d+)\]/g,
+      '<span style="display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 4px;border-radius:10px;background:rgba(107,179,205,0.1);color:#6BB3CD;font-size:9px;font-weight:600;vertical-align:super;margin:0 1px;">$1</span>',
+    );
 
     // Line breaks (double newline = paragraph, single = br)
     html = html.replace(/\n\n/g, "</p><p>");
@@ -476,7 +519,9 @@
     if (
       html.indexOf("<h3>") !== 0 &&
       html.indexOf("<ul>") !== 0 &&
-      html.indexOf("<table>") !== 0
+      html.indexOf("<ol>") !== 0 &&
+      html.indexOf("<table>") !== 0 &&
+      html.indexOf("<div") !== 0
     ) {
       html = "<p>" + html + "</p>";
     }
@@ -1021,6 +1066,37 @@
     if (msg.role === "assistant") {
       msgEl.innerHTML = renderMarkdown(msg.content);
 
+      // Copy button for assistant messages
+      var copyBtn = document.createElement("button");
+      copyBtn.className = "nova-copy-btn";
+      copyBtn.innerHTML =
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy';
+      copyBtn.style.cssText =
+        "display:inline-flex;align-items:center;gap:4px;margin-top:6px;padding:3px 8px;border-radius:6px;font-size:10px;color:#666;background:rgba(107,179,205,0.06);border:1px solid rgba(107,179,205,0.1);cursor:pointer;transition:all 0.15s;font-family:inherit;";
+      copyBtn.addEventListener("mouseenter", function () {
+        this.style.color = "#6BB3CD";
+        this.style.borderColor = "rgba(107,179,205,0.25)";
+      });
+      copyBtn.addEventListener("mouseleave", function () {
+        this.style.color = "#666";
+        this.style.borderColor = "rgba(107,179,205,0.1)";
+      });
+      (function (btn, content) {
+        btn.addEventListener("click", function () {
+          navigator.clipboard.writeText(content).then(function () {
+            btn.innerHTML =
+              '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Copied';
+            btn.style.color = "#34D399";
+            setTimeout(function () {
+              btn.innerHTML =
+                '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy';
+              btn.style.color = "#666";
+            }, 1500);
+          });
+        });
+      })(copyBtn, msg.content);
+      msgEl.appendChild(copyBtn);
+
       // Meta: sources + confidence
       var sources = msg.sources || [];
       var confidence = msg.confidence;
@@ -1123,9 +1199,14 @@
     });
   }
 
+  var _typingStartTime = 0;
+  var _typingElapsedInterval = null;
+
   function showTyping() {
     var messagesDiv = document.getElementById("nova-messages");
     if (!messagesDiv) return;
+
+    _typingStartTime = Date.now();
 
     var typing = document.createElement("div");
     typing.className = "nova-typing";
@@ -1134,12 +1215,26 @@
       "" +
       '<div class="nova-typing-dot"></div>' +
       '<div class="nova-typing-dot"></div>' +
-      '<div class="nova-typing-dot"></div>';
+      '<div class="nova-typing-dot"></div>' +
+      '<span id="nova-typing-elapsed" style="font-size:10px;color:#555;margin-left:6px;font-variant-numeric:tabular-nums;min-width:20px;"></span>';
     messagesDiv.appendChild(typing);
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+    // Show elapsed time after 2s
+    _typingElapsedInterval = setInterval(function () {
+      var elapsed = Math.round((Date.now() - _typingStartTime) / 1000);
+      var el = document.getElementById("nova-typing-elapsed");
+      if (el && elapsed >= 2) {
+        el.textContent = elapsed + "s";
+      }
+    }, 1000);
   }
 
   function hideTyping() {
+    if (_typingElapsedInterval) {
+      clearInterval(_typingElapsedInterval);
+      _typingElapsedInterval = null;
+    }
     var el = document.getElementById("nova-typing");
     if (el) el.remove();
   }
@@ -1359,13 +1454,42 @@
           var errorMsg =
             err.name === "AbortError"
               ? "Response was stopped."
-              : "Sorry, I encountered an error connecting to the server. Please try again.";
-          appendMessage({
-            role: "assistant",
-            content: errorMsg,
-            sources: [],
-            confidence: 0,
-          });
+              : err.message && err.message.indexOf("429") > -1
+                ? "Nova is busy right now. Please wait a moment and try again."
+                : "Connection error. Please try again.";
+
+          // Show error with retry button
+          var messagesDiv = document.getElementById("nova-messages");
+          if (messagesDiv) {
+            var errEl = document.createElement("div");
+            errEl.className = "nova-msg nova-msg-assistant";
+            errEl.style.borderColor = "rgba(248,113,113,0.2)";
+            errEl.innerHTML =
+              '<span style="color:#F87171;">' + errorMsg + "</span>";
+            if (err.name !== "AbortError") {
+              var retryBtn = document.createElement("button");
+              retryBtn.textContent = "Retry";
+              retryBtn.style.cssText =
+                "display:inline-block;margin-top:8px;padding:4px 12px;border-radius:6px;font-size:11px;color:#6BB3CD;background:rgba(107,179,205,0.1);border:1px solid rgba(107,179,205,0.2);cursor:pointer;font-family:inherit;transition:all 0.15s;";
+              retryBtn.addEventListener("mouseenter", function () {
+                this.style.background = "rgba(107,179,205,0.2)";
+              });
+              retryBtn.addEventListener("mouseleave", function () {
+                this.style.background = "rgba(107,179,205,0.1)";
+              });
+              (function (btn, retryText) {
+                btn.addEventListener("click", function () {
+                  errEl.remove();
+                  var inp = document.getElementById("nova-input");
+                  if (inp) inp.value = retryText;
+                  sendMessage();
+                });
+              })(retryBtn, text);
+              errEl.appendChild(retryBtn);
+            }
+            messagesDiv.appendChild(errEl);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+          }
         })
         .finally(function () {
           state.isLoading = false;

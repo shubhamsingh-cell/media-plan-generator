@@ -19,7 +19,7 @@ import threading
 import time
 import urllib.error
 import urllib.request
-from collections import defaultdict
+from collections import defaultdict, deque
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -37,6 +37,9 @@ _BATCH_SIZE: int = 10  # Flush when batch hits 10 events
 _RATE_LIMIT_MAX: int = 100  # Max events per minute
 _RATE_LIMIT_WINDOW_S: float = 60.0
 _API_TIMEOUT_S: int = 5  # HTTP timeout for PostHog API
+
+# Dead-letter queue for events that failed to flush (Phase 6)
+_dead_letter_queue: deque = deque(maxlen=500)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -146,6 +149,7 @@ class PostHogClient:
                 "total_events_tracked": self._total_events,
                 "events_by_type": dict(self._events_by_type),
                 "flush_queue_size": self._queue_size(),
+                "dead_letter_queue_size": len(_dead_letter_queue),
                 "last_flush_time": self._last_flush_time,
                 "total_flushes": self._flush_count,
                 "posthog_host": POSTHOG_HOST,
@@ -203,10 +207,18 @@ class PostHogClient:
 
     def _flush(self) -> None:
         """Send all queued events to PostHog in a single batch."""
+        # Retry dead-letter events first (Phase 6)
+        retried: List[Dict[str, Any]] = []
+        while _dead_letter_queue:
+            try:
+                retried.append(_dead_letter_queue.popleft())
+            except IndexError:
+                break
+
         with self._lock:
-            if not self._queue:
+            if not self._queue and not retried:
                 return
-            batch = self._queue[:]
+            batch = retried + self._queue[:]
             self._queue.clear()
 
         try:
@@ -246,10 +258,27 @@ class PostHogClient:
                 body_snippet,
                 exc_info=True,
             )
+            # Dead-letter queue: preserve failed events for retry (Phase 6)
+            for evt in batch:
+                _dead_letter_queue.append(evt)
+            logger.info(
+                "[PostHog] %d events moved to dead-letter queue (HTTP error)",
+                len(batch),
+            )
         except urllib.error.URLError as url_err:
             logger.error("PostHog flush URL error: %s", url_err.reason, exc_info=True)
+            for evt in batch:
+                _dead_letter_queue.append(evt)
+            logger.info(
+                "[PostHog] %d events moved to dead-letter queue (URL error)", len(batch)
+            )
         except OSError as os_err:
             logger.error("PostHog flush OS error: %s", os_err, exc_info=True)
+            for evt in batch:
+                _dead_letter_queue.append(evt)
+            logger.info(
+                "[PostHog] %d events moved to dead-letter queue (OS error)", len(batch)
+            )
         finally:
             with self._stats_lock:
                 self._last_flush_time = datetime.now(timezone.utc).isoformat()
@@ -261,7 +290,7 @@ class PostHogClient:
         def _flush_loop() -> None:
             while not self._shutdown:
                 time.sleep(_FLUSH_INTERVAL_S)
-                if self._queue_size() > 0:
+                if self._queue_size() > 0 or len(_dead_letter_queue) > 0:
                     try:
                         self._flush()
                     except Exception as exc:
@@ -302,6 +331,24 @@ def track_event(
     properties: Optional[Dict[str, Any]] = None,
 ) -> None:
     """Track a named event for a user (fire-and-forget)."""
+    # Event taxonomy enforcement (Phase 6)
+    VALID_PREFIXES = (
+        "plan.",
+        "intelligence.",
+        "compliance.",
+        "nova.",
+        "platform.",
+        "page.",
+        "auth.",
+        "api.",
+        "system.",
+    )
+    if not any(event.startswith(p) for p in VALID_PREFIXES):
+        logger.warning(
+            "[PostHog] Non-standard event name: %s (should start with %s)",
+            event,
+            "/".join(VALID_PREFIXES),
+        )
     _get_client().track_event(distinct_id, event, properties)
 
 
@@ -336,6 +383,50 @@ def hash_ip(ip: str) -> str:
     """
     salted = f"nova-posthog-{ip}"
     return hashlib.sha256(salted.encode("utf-8")).hexdigest()[:16]
+
+
+def is_feature_enabled(
+    flag_name: str, distinct_id: str = "default", default: bool = False
+) -> bool:
+    """Check if a PostHog feature flag is enabled.
+
+    Falls back to default if PostHog is unavailable or flag doesn't exist.
+    Caches results for 5 minutes to avoid excessive API calls.
+    """
+    if not POSTHOG_API_KEY or not POSTHOG_HOST:
+        return default
+
+    cache_key = f"ff:{flag_name}:{distinct_id}"
+    now = time.monotonic()
+
+    # Check cache
+    cached = getattr(is_feature_enabled, "_cache", {}).get(cache_key)
+    if cached and now - cached["ts"] < 300:  # 5 min TTL
+        return cached["value"]
+
+    try:
+        url = f"{POSTHOG_HOST}/decide/?v=3"
+        payload = json.dumps(
+            {
+                "api_key": POSTHOG_API_KEY,
+                "distinct_id": distinct_id,
+                "groups": {},
+            }
+        ).encode()
+        req = urllib.request.Request(url, data=payload, method="POST")
+        req.add_header("Content-Type", "application/json")
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = json.loads(resp.read().decode())
+            flags = data.get("featureFlags", {})
+            result = bool(flags.get(flag_name, default))
+            # Cache result
+            if not hasattr(is_feature_enabled, "_cache"):
+                is_feature_enabled._cache = {}
+            is_feature_enabled._cache[cache_key] = {"value": result, "ts": now}
+            return result
+    except Exception as e:
+        logger.debug("[PostHog] Feature flag check failed for %s: %s", flag_name, e)
+        return default
 
 
 def shutdown() -> None:

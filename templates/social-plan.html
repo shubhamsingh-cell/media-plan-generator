@@ -1009,12 +1009,21 @@
 
     <div class="container">
       <!-- Error display -->
-      <div id="errorMsg" class="error-msg"></div>
+      <div
+        id="errorMsg"
+        class="error-msg"
+        role="alert"
+        aria-live="assertive"
+      ></div>
 
       <!-- Input Section -->
-      <section class="input-section reveal-on-scroll">
-        <h2 class="section-title">
-          <span class="dot"></span>Campaign Parameters
+      <section
+        class="input-section reveal-on-scroll"
+        role="form"
+        aria-label="Campaign Parameters Form"
+      >
+        <h2 class="section-title" id="formHeading">
+          <span class="dot" aria-hidden="true"></span>Campaign Parameters
         </h2>
         <p class="section-sub">
           Define your recruitment campaign to generate a data-driven social and
@@ -1030,6 +1039,8 @@
                 id="role"
                 placeholder="e.g., Registered Nurse, Software Engineer"
                 autocomplete="off"
+                aria-label="Job Title or Role"
+                aria-required="true"
               />
             </div>
             <div class="form-group">
@@ -1039,11 +1050,12 @@
                 id="location"
                 placeholder="e.g., New York, NY or United States"
                 autocomplete="off"
+                aria-label="Target Location"
               />
             </div>
             <div class="form-group">
               <label for="industry">Industry</label>
-              <select id="industry">
+              <select id="industry" aria-label="Industry">
                 <option value="general_entry_level">
                   General / Entry-Level
                 </option>
@@ -1082,7 +1094,7 @@
             </div>
             <div class="form-group">
               <label for="duration">Campaign Duration</label>
-              <select id="duration">
+              <select id="duration" aria-label="Campaign Duration">
                 <option value="1">1 Week</option>
                 <option value="2">2 Weeks</option>
                 <option value="4" selected>4 Weeks</option>
@@ -1104,6 +1116,10 @@
                 max="500000"
                 step="1000"
                 value="50000"
+                aria-label="Campaign Budget Slider"
+                aria-valuemin="1000"
+                aria-valuemax="500000"
+                aria-valuenow="50000"
               />
               <span class="budget-value" id="budgetLabel">$50,000</span>
               <input
@@ -1112,6 +1128,7 @@
                 class="budget-input"
                 value="50000"
                 title="Type exact budget"
+                aria-label="Exact Budget Amount"
               />
             </div>
           </div>
@@ -1119,7 +1136,7 @@
           <!-- Goals -->
           <div class="form-group" style="margin-top: 1.2rem">
             <label>Campaign Goals</label>
-            <div class="goals-grid">
+            <div class="goals-grid" role="group" aria-label="Campaign Goals">
               <label class="goal-check active" data-goal="job_applications">
                 <input type="checkbox" checked />
                 <span class="check-dot"></span>
@@ -1147,20 +1164,75 @@
             id="generateBtn"
             class="btn-generate"
             onclick="generatePlan()"
+            aria-label="Generate Social Media Plan"
           >
             <span class="btn-text">Generate Plan</span>
-            <span class="spinner"></span>
+            <span class="spinner" aria-hidden="true"></span>
           </button>
         </div>
       </section>
 
       <!-- Results Section -->
-      <section id="results" class="results">
+      <section
+        id="results"
+        class="results"
+        role="region"
+        aria-label="Generated Plan Results"
+        aria-live="polite"
+      >
+        <!-- Empty State -->
+        <div
+          class="empty-state"
+          id="emptyState"
+          style="
+            text-align: center;
+            padding: 48px 24px;
+            color: var(--text-muted);
+          "
+        >
+          <svg
+            width="48"
+            height="48"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+            style="margin: 0 auto 16px; display: block; opacity: 0.4"
+            aria-hidden="true"
+          >
+            <circle cx="12" cy="12" r="10" />
+            <path d="M12 16v-4M12 8h.01" />
+          </svg>
+          <h3
+            style="
+              font-size: 16px;
+              font-weight: 600;
+              margin-bottom: 8px;
+              color: var(--text-muted);
+            "
+          >
+            No plan generated yet
+          </h3>
+          <p style="font-size: 14px">
+            Fill in your campaign parameters and click Generate Plan to see
+            results here.
+          </p>
+        </div>
         <!-- Summary Stats -->
-        <div id="summaryStats" class="stats-grid"></div>
+        <div
+          id="summaryStats"
+          class="stats-grid"
+          role="region"
+          aria-label="Plan Summary Statistics"
+        ></div>
 
         <!-- Tabs -->
-        <div class="tabs" id="mainTabs">
+        <div
+          class="tabs"
+          id="mainTabs"
+          role="tablist"
+          aria-label="Plan Details"
+        >
           <div
             class="tab active"
             data-tab="platforms"
@@ -1325,7 +1397,11 @@
 
         <!-- Downloads -->
         <div class="download-bar reveal-on-scroll">
-          <button class="btn-download" onclick="downloadExcel()">
+          <button
+            class="btn-download"
+            onclick="downloadExcel()"
+            aria-label="Download plan as Excel spreadsheet"
+          >
             <svg
               viewBox="0 0 24 24"
               fill="none"
@@ -1341,7 +1417,11 @@
             </svg>
             Download Excel
           </button>
-          <button class="btn-download" onclick="downloadPPT()">
+          <button
+            class="btn-download"
+            onclick="downloadPPT()"
+            aria-label="Download plan as PowerPoint presentation"
+          >
             <svg
               viewBox="0 0 24 24"
               fill="none"
@@ -1480,6 +1560,8 @@
       function renderResults(plan) {
         const results = document.getElementById("results");
         results.classList.add("visible");
+        var emptyState = document.getElementById("emptyState");
+        if (emptyState) emptyState.style.display = "none";
 
         renderSummary(plan.summary);
         renderPlatforms(plan);

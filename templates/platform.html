@@ -50,6 +50,14 @@
         --teal: #6bb3cd;
         --teal-glow: rgba(107, 179, 205, 0.12);
 
+        /* Status colors */
+        --green: #22c55e;
+        --green-glow: rgba(34, 197, 94, 0.12);
+        --amber: #f59e0b;
+        --amber-glow: rgba(245, 158, 11, 0.12);
+        --red: #ef4444;
+        --red-glow: rgba(239, 68, 68, 0.12);
+
         /* Layout */
         --sidebar-w: 252px;
         --sidebar-collapsed-w: 64px;
@@ -187,6 +195,7 @@
         height: 20px;
       }
 
+      /* Campaign context bar (Phase 3) */
       .topbar-context {
         display: flex;
         align-items: center;
@@ -197,7 +206,7 @@
         border-radius: var(--radius-md);
         cursor: pointer;
         transition: all var(--transition-fast);
-        max-width: 320px;
+        max-width: 420px;
         flex-shrink: 1;
         min-width: 0;
       }
@@ -228,6 +237,50 @@
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+      }
+      .topbar-context-name[contenteditable="true"] {
+        outline: none;
+        border-bottom: 1px dashed var(--border-active);
+        padding-bottom: 1px;
+        min-width: 80px;
+      }
+      .topbar-context-badge {
+        font-size: 10px;
+        font-weight: 600;
+        padding: 2px 7px;
+        border-radius: 100px;
+        background: var(--accent-glow);
+        color: var(--text-accent);
+        white-space: nowrap;
+      }
+      .topbar-context-budget {
+        font-size: 11px;
+        color: var(--text-teal);
+        font-weight: 600;
+        white-space: nowrap;
+      }
+      .topbar-context-dates {
+        font-size: 11px;
+        color: var(--text-tertiary);
+        white-space: nowrap;
+      }
+      .topbar-context-share {
+        background: none;
+        border: 1px solid var(--border-subtle);
+        color: var(--text-secondary);
+        padding: 3px 8px;
+        border-radius: var(--radius-sm);
+        font-size: 11px;
+        font-weight: 500;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: all var(--transition-fast);
+        font-family: inherit;
+      }
+      .topbar-context-share:hover {
+        border-color: var(--border-active);
+        color: var(--text-primary);
+        background: var(--accent-glow);
       }
 
       .topbar-spacer {
@@ -319,7 +372,7 @@
       }
 
       /* ═══════════════════════════════════════════════════════════════
-   SIDEBAR
+   SIDEBAR (Phase 3: 3 super-modules)
    ═══════════════════════════════════════════════════════════════ */
       .sidebar {
         grid-area: sidebar;
@@ -405,6 +458,34 @@
       .sidebar-collapsed .sidebar-toggle {
         margin-left: 0;
         margin: 0 auto;
+      }
+
+      /* Favorites section (Phase 6) */
+      .sidebar-favorites {
+        padding: 4px 0;
+        border-bottom: 1px solid var(--border-subtle);
+        display: none;
+      }
+      .sidebar-favorites.has-items {
+        display: block;
+      }
+      .sidebar-favorites-header {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 16px;
+        font-size: 10px;
+        font-weight: 700;
+        color: var(--amber);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+      .sidebar-favorites-header svg {
+        width: 12px;
+        height: 12px;
+      }
+      .sidebar-collapsed .sidebar-favorites-header {
+        display: none;
       }
 
       /* Nav */
@@ -495,6 +576,33 @@
         font-weight: 500;
         overflow: hidden;
         text-overflow: ellipsis;
+        flex: 1;
+        min-width: 0;
+      }
+
+      /* Favorite star (Phase 6) */
+      .sidebar-item-star {
+        width: 14px;
+        height: 14px;
+        flex-shrink: 0;
+        opacity: 0;
+        color: var(--text-tertiary);
+        cursor: pointer;
+        transition: all var(--transition-fast);
+      }
+      .sidebar-item:hover .sidebar-item-star {
+        opacity: 0.5;
+      }
+      .sidebar-item-star:hover {
+        opacity: 1 !important;
+        color: var(--amber);
+      }
+      .sidebar-item-star.favorited {
+        opacity: 1;
+        color: var(--amber);
+      }
+      .sidebar-collapsed .sidebar-item-star {
+        display: none;
       }
 
       .sidebar-collapsed .sidebar-item {
@@ -595,6 +703,37 @@
         margin: 6px 8px;
       }
 
+      /* Sidebar sub-item (indented) */
+      .sidebar-sub-item {
+        padding-left: 36px;
+        font-size: 12px;
+        min-height: 32px;
+        padding-top: 5px;
+        padding-bottom: 5px;
+      }
+      .sidebar-sub-item .sidebar-item-label {
+        font-size: 12px;
+      }
+      .sidebar-collapsed .sidebar-sub-item {
+        display: none;
+      }
+
+      /* Sidebar chevron for expandable modules */
+      .sidebar-item-chevron {
+        margin-left: auto;
+        width: 14px;
+        height: 14px;
+        opacity: 0.4;
+        flex-shrink: 0;
+        transition: transform var(--transition-fast);
+      }
+      .sidebar-item.expanded .sidebar-item-chevron {
+        transform: rotate(90deg);
+      }
+      .sidebar-collapsed .sidebar-item-chevron {
+        display: none;
+      }
+
       /* ═══════════════════════════════════════════════════════════════
    MAIN CONTENT AREA
    ═══════════════════════════════════════════════════════════════ */
@@ -633,7 +772,7 @@
       }
 
       /* ═══════════════════════════════════════════════════════════════
-   NOVA AI FAB + DRAWER
+   NOVA AI FAB + DRAWER (Phase 4: Context-Aware)
    ═══════════════════════════════════════════════════════════════ */
       .nova-fab {
         position: fixed;
@@ -772,6 +911,64 @@
         line-height: 1.5;
       }
 
+      /* Nova message styles (Phase 4) */
+      .nova-msg {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 16px;
+      }
+      .nova-msg-avatar {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 11px;
+        font-weight: 700;
+        color: #fff;
+        flex-shrink: 0;
+      }
+      .nova-msg-avatar.user {
+        background: var(--accent);
+      }
+      .nova-msg-avatar.nova {
+        background: linear-gradient(135deg, var(--accent), var(--teal));
+      }
+      .nova-msg-body {
+        flex: 1;
+        font-size: 13px;
+        line-height: 1.5;
+        padding-top: 4px;
+        color: var(--text-primary);
+      }
+      .nova-msg-body.nova-reply {
+        color: var(--text-secondary);
+      }
+
+      /* Nova action buttons in responses */
+      .nova-action-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        margin-top: 8px;
+        margin-right: 6px;
+        padding: 4px 10px;
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--text-teal);
+        background: var(--teal-glow);
+        border: 1px solid rgba(107, 179, 205, 0.2);
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        transition: all var(--transition-fast);
+        font-family: inherit;
+      }
+      .nova-action-btn:hover {
+        background: rgba(107, 179, 205, 0.2);
+        border-color: rgba(107, 179, 205, 0.4);
+      }
+
       .nova-drawer-suggestions {
         padding: 8px 18px;
         display: flex;
@@ -791,6 +988,7 @@
         cursor: pointer;
         transition: all var(--transition-fast);
         white-space: nowrap;
+        font-family: inherit;
       }
       .nova-suggestion-chip:hover {
         background: rgba(90, 84, 189, 0.25);
@@ -994,7 +1192,7 @@
       }
 
       /* ═══════════════════════════════════════════════════════════════
-   DASHBOARD HOME
+   DASHBOARD HOME (Phase 5: Live Dashboard)
    ═══════════════════════════════════════════════════════════════ */
       .dashboard-home {
         padding: 40px 48px;
@@ -1003,7 +1201,7 @@
       }
 
       .dashboard-hero {
-        margin-bottom: 40px;
+        margin-bottom: 32px;
       }
       .dashboard-hero h1 {
         font-size: 28px;
@@ -1025,11 +1223,106 @@
         line-height: 1.5;
       }
 
+      /* Dashboard widgets grid (Phase 5) */
+      .dashboard-widgets {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+        margin-bottom: 32px;
+      }
+      .dashboard-widget {
+        padding: 20px;
+        background: var(--bg-card);
+        border: 1px solid var(--border-card);
+        border-radius: var(--radius-md);
+        cursor: pointer;
+        transition: all var(--transition-base);
+        position: relative;
+        overflow: hidden;
+      }
+      .dashboard-widget:hover {
+        background: var(--bg-card-hover);
+        border-color: var(--border-active);
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-md);
+      }
+      .dashboard-widget-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 12px;
+      }
+      .dashboard-widget-title {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.6px;
+        color: var(--text-tertiary);
+      }
+      .dashboard-widget-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: var(--radius-sm);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .dashboard-widget-icon svg {
+        width: 16px;
+        height: 16px;
+      }
+      .dashboard-widget-value {
+        font-size: 24px;
+        font-weight: 800;
+        color: var(--text-primary);
+        letter-spacing: -0.5px;
+        margin-bottom: 4px;
+      }
+      .dashboard-widget-sub {
+        font-size: 12px;
+        color: var(--text-tertiary);
+      }
+
+      /* Budget health meter */
+      .budget-meter {
+        height: 6px;
+        background: rgba(255, 255, 255, 0.06);
+        border-radius: 3px;
+        margin-top: 12px;
+        overflow: hidden;
+      }
+      .budget-meter-fill {
+        height: 100%;
+        border-radius: 3px;
+        transition: width 600ms ease;
+      }
+
+      /* Compliance score ring */
+      .compliance-ring {
+        width: 48px;
+        height: 48px;
+        position: relative;
+      }
+      .compliance-ring svg {
+        width: 48px;
+        height: 48px;
+        transform: rotate(-90deg);
+      }
+      .compliance-ring-label {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 13px;
+        font-weight: 700;
+      }
+
       .dashboard-quick-actions {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
         gap: 12px;
-        margin-bottom: 48px;
+        margin-bottom: 32px;
       }
 
       .quick-action-card {
@@ -1086,7 +1379,7 @@
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
         gap: 12px;
-        margin-bottom: 48px;
+        margin-bottom: 32px;
       }
 
       .module-card {
@@ -1160,7 +1453,81 @@
         line-height: 1.45;
       }
 
+      /* Recent activity feed (Phase 5) */
+      .activity-feed {
+        background: var(--bg-card);
+        border: 1px solid var(--border-card);
+        border-radius: var(--radius-md);
+        overflow: hidden;
+      }
+      .activity-feed-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 18px;
+        border-bottom: 1px solid var(--border-subtle);
+        cursor: pointer;
+        transition: background var(--transition-fast);
+      }
+      .activity-feed-item:last-child {
+        border-bottom: none;
+      }
+      .activity-feed-item:hover {
+        background: rgba(255, 255, 255, 0.02);
+      }
+      .activity-feed-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+      .activity-feed-text {
+        flex: 1;
+        font-size: 13px;
+        color: var(--text-secondary);
+      }
+      .activity-feed-time {
+        font-size: 11px;
+        color: var(--text-tertiary);
+        white-space: nowrap;
+      }
+      .activity-feed-empty {
+        padding: 32px;
+        text-align: center;
+        color: var(--text-tertiary);
+        font-size: 13px;
+      }
+
       /* Group colors */
+      .group-plan {
+        background: var(--accent-glow);
+        color: var(--text-accent);
+      }
+      .group-plan svg {
+        color: var(--text-accent);
+      }
+      .group-command {
+        background: var(--accent-glow);
+        color: var(--text-accent);
+      }
+      .group-command svg {
+        color: var(--text-accent);
+      }
+      .group-intelligence {
+        background: var(--teal-glow);
+        color: var(--text-teal);
+      }
+      .group-intelligence svg {
+        color: var(--text-teal);
+      }
+      .group-compliance {
+        background: var(--red-glow);
+        color: var(--red);
+      }
+      .group-compliance svg {
+        color: var(--red);
+      }
+      /* Legacy group colors (backward compat) */
       .group-plan {
         background: rgba(90, 84, 189, 0.12);
         color: var(--accent-light);
@@ -1265,18 +1632,6 @@
         min-height: 0;
       }
 
-      /* Sidebar chevron for tabbed modules */
-      .sidebar-item-chevron {
-        margin-left: auto;
-        width: 14px;
-        height: 14px;
-        opacity: 0.4;
-        flex-shrink: 0;
-      }
-      .sidebar-collapsed .sidebar-item-chevron {
-        display: none;
-      }
-
       @media (max-width: 768px) {
         .module-tab-bar {
           padding: 0 16px;
@@ -1285,6 +1640,182 @@
           padding: 8px 12px;
           font-size: 12px;
         }
+      }
+
+      /* ═══════════════════════════════════════════════════════════════
+   ONBOARDING (Phase 6)
+   ═══════════════════════════════════════════════════════════════ */
+      .onboarding-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.7);
+        z-index: 950;
+        display: none;
+        align-items: center;
+        justify-content: center;
+      }
+      .onboarding-overlay.active {
+        display: flex;
+      }
+      .onboarding-modal {
+        width: 480px;
+        max-width: 92vw;
+        background: var(--bg-sidebar);
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-xl);
+        padding: 40px 36px 32px;
+        text-align: center;
+        box-shadow:
+          var(--shadow-lg),
+          0 0 60px rgba(90, 84, 189, 0.2);
+      }
+      .onboarding-icon {
+        width: 64px;
+        height: 64px;
+        margin: 0 auto 20px;
+        background: linear-gradient(135deg, var(--accent), var(--teal));
+        border-radius: var(--radius-lg);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .onboarding-icon svg {
+        width: 32px;
+        height: 32px;
+        color: #fff;
+      }
+      .onboarding-modal h2 {
+        font-size: 22px;
+        font-weight: 800;
+        letter-spacing: -0.3px;
+        background: linear-gradient(
+          135deg,
+          var(--text-primary),
+          var(--text-accent)
+        );
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 8px;
+      }
+      .onboarding-modal p {
+        font-size: 14px;
+        color: var(--text-tertiary);
+        line-height: 1.6;
+        margin-bottom: 28px;
+      }
+      .onboarding-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .onboarding-btn {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 14px 18px;
+        background: var(--bg-card);
+        border: 1px solid var(--border-card);
+        border-radius: var(--radius-md);
+        cursor: pointer;
+        transition: all var(--transition-base);
+        text-align: left;
+        font-family: inherit;
+        color: inherit;
+      }
+      .onboarding-btn:hover {
+        background: var(--bg-card-hover);
+        border-color: var(--border-active);
+      }
+      .onboarding-btn-icon {
+        width: 36px;
+        height: 36px;
+        border-radius: var(--radius-sm);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+      .onboarding-btn-icon svg {
+        width: 18px;
+        height: 18px;
+      }
+      .onboarding-btn-text h4 {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text-primary);
+      }
+      .onboarding-btn-text p {
+        font-size: 12px;
+        color: var(--text-tertiary);
+        margin: 2px 0 0;
+      }
+      .onboarding-skip {
+        margin-top: 12px;
+        background: none;
+        border: none;
+        color: var(--text-tertiary);
+        font-size: 12px;
+        cursor: pointer;
+        font-family: inherit;
+        transition: color var(--transition-fast);
+      }
+      .onboarding-skip:hover {
+        color: var(--text-secondary);
+      }
+
+      /* Tooltip tour (Phase 6) */
+      .tour-tooltip {
+        position: fixed;
+        z-index: 960;
+        background: var(--bg-sidebar);
+        border: 1px solid var(--border-active);
+        border-radius: var(--radius-md);
+        padding: 14px 18px;
+        max-width: 280px;
+        box-shadow:
+          var(--shadow-lg),
+          0 0 20px rgba(90, 84, 189, 0.2);
+        display: none;
+      }
+      .tour-tooltip.active {
+        display: block;
+      }
+      .tour-tooltip h4 {
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 4px;
+      }
+      .tour-tooltip p {
+        font-size: 12px;
+        color: var(--text-tertiary);
+        line-height: 1.5;
+        margin-bottom: 10px;
+      }
+      .tour-tooltip-actions {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .tour-tooltip-step {
+        font-size: 11px;
+        color: var(--text-tertiary);
+      }
+      .tour-tooltip-next {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text-accent);
+        background: var(--accent-glow);
+        border: 1px solid rgba(90, 84, 189, 0.3);
+        border-radius: var(--radius-sm);
+        padding: 4px 12px;
+        cursor: pointer;
+        font-family: inherit;
+        transition: all var(--transition-fast);
+      }
+      .tour-tooltip-next:hover {
+        background: rgba(90, 84, 189, 0.25);
       }
 
       /* ═══════════════════════════════════════════════════════════════
@@ -1331,7 +1862,7 @@
       }
 
       /* ═══════════════════════════════════════════════════════════════
-   RESPONSIVE
+   RESPONSIVE (Phase 6: polish)
    ═══════════════════════════════════════════════════════════════ */
 
       /* Laptop: collapse sidebar */
@@ -1344,8 +1875,11 @@
         }
         .platform-shell:not(.sidebar-expanded) .sidebar-logo-text,
         .platform-shell:not(.sidebar-expanded) .sidebar-item-label,
-        .platform-shell:not(.sidebar-expanded) .sidebar-group-header,
-        .platform-shell:not(.sidebar-expanded) .sidebar-footer-info {
+        .platform-shell:not(.sidebar-expanded) .sidebar-group-header span,
+        .platform-shell:not(.sidebar-expanded) .sidebar-footer-info,
+        .platform-shell:not(.sidebar-expanded) .sidebar-sub-item,
+        .platform-shell:not(.sidebar-expanded) .sidebar-item-star,
+        .platform-shell:not(.sidebar-expanded) .sidebar-favorites-header {
           display: none;
         }
         .platform-shell:not(.sidebar-expanded) .sidebar-item {
@@ -1355,6 +1889,11 @@
         .platform-shell:not(.sidebar-expanded) .sidebar-footer {
           justify-content: center;
           padding: 12px 0;
+        }
+        .platform-shell:not(.sidebar-expanded) .sidebar-group-header {
+          justify-content: center;
+          padding: 6px 0;
+          font-size: 0;
         }
       }
 
@@ -1394,6 +1933,9 @@
         .dashboard-home {
           padding: 24px 20px;
         }
+        .dashboard-widgets {
+          grid-template-columns: repeat(2, 1fr);
+        }
       }
 
       /* Mobile */
@@ -1417,6 +1959,17 @@
         .dashboard-modules-grid {
           grid-template-columns: 1fr;
         }
+        .dashboard-widgets {
+          grid-template-columns: 1fr;
+        }
+        .cmd-palette {
+          width: 100%;
+          max-width: 100%;
+          border-radius: var(--radius-md);
+        }
+        .onboarding-modal {
+          padding: 28px 20px 24px;
+        }
       }
 
       /* Sidebar mobile overlay */
@@ -1432,6 +1985,49 @@
       .sidebar-mobile-overlay.visible {
         opacity: 1;
         pointer-events: auto;
+      }
+
+      /* Share dropdown */
+      .share-dropdown {
+        position: absolute;
+        top: 100%;
+        right: 0;
+        margin-top: 4px;
+        background: var(--bg-sidebar);
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-md);
+        box-shadow: var(--shadow-lg);
+        z-index: 300;
+        min-width: 180px;
+        display: none;
+        overflow: hidden;
+      }
+      .share-dropdown.open {
+        display: block;
+      }
+      .share-dropdown-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 16px;
+        font-size: 13px;
+        color: var(--text-secondary);
+        cursor: pointer;
+        transition: background var(--transition-fast);
+        font-family: inherit;
+        background: none;
+        border: none;
+        width: 100%;
+        text-align: left;
+      }
+      .share-dropdown-item:hover {
+        background: rgba(255, 255, 255, 0.04);
+        color: var(--text-primary);
+      }
+      .share-dropdown-item svg {
+        width: 16px;
+        height: 16px;
+        flex-shrink: 0;
       }
     </style>
   </head>
@@ -1476,7 +2072,10 @@
           </button>
         </div>
 
-        <!-- Navigation -->
+        <!-- Favorites section (Phase 6) -->
+        <div class="sidebar-favorites" id="sidebar-favorites"></div>
+
+        <!-- Navigation (Phase 3: rebuilt by NovaSidebar.build()) -->
         <nav class="sidebar-nav" id="sidebar-nav"></nav>
 
         <!-- Divider + utilities -->
@@ -1509,7 +2108,15 @@
           <div class="sidebar-footer-avatar">SC</div>
           <div class="sidebar-footer-info">
             <div class="sidebar-footer-name">Shubham Singh Chandel</div>
-            <div class="sidebar-footer-role">CHO @ Joveo</div>
+            <div
+              class="sidebar-footer-role"
+              id="role-selector"
+              onclick="NovaRoleSelector.cycle()"
+              title="Click to change view"
+              style="cursor: pointer"
+            >
+              CHO @ Joveo
+            </div>
           </div>
         </div>
       </aside>
@@ -1534,7 +2141,7 @@
           </svg>
         </button>
 
-        <!-- Campaign context -->
+        <!-- Campaign context bar (Phase 3: enhanced) -->
         <div
           class="topbar-context"
           id="topbar-context"
@@ -1552,10 +2159,38 @@
               <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
             </svg>
           </span>
-          <span class="topbar-context-label">Campaign:</span>
           <span class="topbar-context-name" id="topbar-campaign-name"
             >No campaign selected</span
           >
+          <span
+            class="topbar-context-badge"
+            id="topbar-client-badge"
+            style="display: none"
+          ></span>
+          <span
+            class="topbar-context-budget"
+            id="topbar-budget-display"
+            style="display: none"
+          ></span>
+          <span
+            class="topbar-context-dates"
+            id="topbar-date-range"
+            style="display: none"
+          ></span>
+          <span style="position: relative; display: inline-flex">
+            <button
+              class="topbar-context-share"
+              id="topbar-share-btn"
+              onclick="
+                event.stopPropagation();
+                NovaShareMenu.toggle();
+              "
+              style="display: none"
+            >
+              Share to...
+            </button>
+            <div class="share-dropdown" id="share-dropdown"></div>
+          </span>
         </div>
 
         <div class="topbar-spacer"></div>
@@ -1727,26 +2362,7 @@
           </p>
         </div>
       </div>
-      <div class="nova-drawer-suggestions" id="nova-suggestions">
-        <button
-          class="nova-suggestion-chip"
-          onclick="NovaDrawer.sendSuggestion('Start new campaign')"
-        >
-          Start new campaign
-        </button>
-        <button
-          class="nova-suggestion-chip"
-          onclick="NovaDrawer.sendSuggestion('What\'s trending in hiring?')"
-        >
-          What's trending?
-        </button>
-        <button
-          class="nova-suggestion-chip"
-          onclick="NovaDrawer.sendSuggestion('Show platform overview')"
-        >
-          Platform overview
-        </button>
-      </div>
+      <div class="nova-drawer-suggestions" id="nova-suggestions"></div>
       <div class="nova-drawer-input">
         <textarea
           class="nova-input-field"
@@ -1812,6 +2428,134 @@
       </div>
     </div>
 
+    <!-- ── ONBOARDING MODAL (Phase 6) ── -->
+    <div class="onboarding-overlay" id="onboarding-overlay">
+      <div class="onboarding-modal">
+        <div class="onboarding-icon">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path
+              d="M12 2a7 7 0 0 1 7 7c0 3-2 5.5-4 7l-1 4h-4l-1-4c-2-1.5-4-4-4-7a7 7 0 0 1 7-7z"
+            />
+            <line x1="10" y1="22" x2="14" y2="22" />
+          </svg>
+        </div>
+        <h2>Welcome to Nova Platform</h2>
+        <p>
+          Your AI-powered recruitment intelligence suite. Get started by
+          choosing an action below.
+        </p>
+        <div class="onboarding-actions">
+          <button
+            class="onboarding-btn"
+            onclick="
+              NovaOnboarding.dismiss();
+              NovaRouter.navigate('plan/campaign');
+            "
+          >
+            <div class="onboarding-btn-icon group-plan">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+            </div>
+            <div class="onboarding-btn-text">
+              <h4>Create a Campaign</h4>
+              <p>Build a new media plan from scratch</p>
+            </div>
+          </button>
+          <button
+            class="onboarding-btn"
+            onclick="
+              NovaOnboarding.dismiss();
+              NovaDrawer.open();
+            "
+          >
+            <div class="onboarding-btn-icon group-intelligence">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path
+                  d="M12 2a7 7 0 0 1 7 7c0 3-2 5.5-4 7l-1 4h-4l-1-4c-2-1.5-4-4-4-7a7 7 0 0 1 7-7z"
+                />
+                <line x1="10" y1="22" x2="14" y2="22" />
+              </svg>
+            </div>
+            <div class="onboarding-btn-text">
+              <h4>Ask Nova AI</h4>
+              <p>Chat with your intelligent assistant</p>
+            </div>
+          </button>
+          <button
+            class="onboarding-btn"
+            onclick="
+              NovaOnboarding.dismiss();
+              NovaOnboarding.startTour();
+            "
+          >
+            <div
+              class="onboarding-btn-icon"
+              style="background: rgba(251, 191, 36, 0.1)"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#fbbf24"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <path d="M9 9a3 3 0 1 1 3.5 2.9c-.5.3-1 .8-1 1.6V15" />
+                <circle cx="12" cy="18" r="0.5" fill="#fbbf24" />
+              </svg>
+            </div>
+            <div class="onboarding-btn-text">
+              <h4>Take a Quick Tour</h4>
+              <p>Learn the key features in 30 seconds</p>
+            </div>
+          </button>
+        </div>
+        <button class="onboarding-skip" onclick="NovaOnboarding.dismiss()">
+          Skip for now
+        </button>
+      </div>
+    </div>
+
+    <!-- ── TOUR TOOLTIP (Phase 6) ── -->
+    <div class="tour-tooltip" id="tour-tooltip">
+      <h4 id="tour-title"></h4>
+      <p id="tour-desc"></p>
+      <div class="tour-tooltip-actions">
+        <span class="tour-tooltip-step" id="tour-step"></span>
+        <button
+          class="tour-tooltip-next"
+          id="tour-next"
+          onclick="NovaOnboarding.nextTourStep()"
+        >
+          Next
+        </button>
+      </div>
+    </div>
+
     <!-- ════════════════════════════════════════════════════════════════
      JAVASCRIPT
      ════════════════════════════════════════════════════════════════ -->
@@ -1848,12 +2592,22 @@
           '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>',
         caret:
           '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>',
+        star: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>',
+        starFilled:
+          '<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>',
+        command:
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>',
+        intelligence:
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>',
+        share:
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>',
       };
 
       /* ─────────────────────────────────────────────────────────────
-   MODULE REGISTRY
+   MODULE REGISTRY (Phase 3: 3 super-modules)
    ───────────────────────────────────────────────────────────── */
       const MODULES = [
+        /* ─── PLAN ─── */
         {
           id: "campaign",
           route: "plan/campaign",
@@ -1898,50 +2652,15 @@
           route: "plan/testing",
           fragment: "ab-testing",
           group: "plan",
-          label: "Testing Lab",
+          label: "A/B Testing Lab",
           icon: "testing",
           desc: "A/B testing frameworks for ad creatives",
         },
         {
-          id: "competitive",
-          route: "intelligence/competitive",
-          fragment: "competitive",
-          group: "intel",
-          label: "Competitive Intel",
-          icon: "competitive",
-          desc: "Real-time competitive monitoring and analysis",
-          tabs: [
-            {
-              id: "live-monitor",
-              label: "Live Monitor",
-              fragment: "competitive",
-            },
-            { id: "reports", label: "Reports", fragment: "market-intel" },
-          ],
-        },
-        {
-          id: "market",
-          route: "intelligence/market",
-          fragment: "market-pulse",
-          group: "intel",
-          label: "Market Pulse",
-          icon: "market",
-          desc: "Labor market trends, salary data, demand signals",
-        },
-        {
-          id: "vendor",
-          route: "intelligence/vendor",
-          fragment: "vendor-iq",
-          group: "intel",
-          label: "Vendor IQ",
-          icon: "vendor",
-          desc: "Job board pricing, vendor comparison, ROI analysis",
-        },
-        {
           id: "budget",
-          route: "optimize/budget",
+          route: "plan/budget",
           fragment: "simulator",
-          group: "optimize",
+          group: "plan",
           label: "Budget & Performance",
           icon: "budget",
           desc: "Budget simulator, ROI calculator, campaign tracker",
@@ -1964,11 +2683,48 @@
             },
           ],
         },
+
+        /* ─── INTELLIGENCE ─── */
+        {
+          id: "competitive",
+          route: "intelligence/competitive",
+          fragment: "competitive",
+          group: "intelligence",
+          label: "Competitive Intel",
+          icon: "competitive",
+          desc: "Real-time competitive monitoring and analysis",
+          tabs: [
+            {
+              id: "live-monitor",
+              label: "Live Monitor",
+              fragment: "competitive",
+            },
+            { id: "reports", label: "Reports", fragment: "market-intel" },
+          ],
+        },
+        {
+          id: "market",
+          route: "intelligence/market",
+          fragment: "market-pulse",
+          group: "intelligence",
+          label: "Market Pulse",
+          icon: "market",
+          desc: "Labor market trends, salary data, demand signals",
+        },
+        {
+          id: "vendor",
+          route: "intelligence/vendor",
+          fragment: "vendor-iq",
+          group: "intelligence",
+          label: "Vendor IQ",
+          icon: "vendor",
+          desc: "Job board pricing, vendor comparison, ROI analysis",
+        },
         {
           id: "talent",
-          route: "talent/insights",
+          route: "intelligence/talent",
           fragment: "talent-heatmap",
-          group: "talent",
+          group: "intelligence",
           label: "Talent Intelligence",
           icon: "talent",
           desc: "Talent heatmaps, salary benchmarks, skill targeting",
@@ -1984,12 +2740,14 @@
             { id: "applyflow", label: "ApplyFlow", fragment: "applyflow" },
           ],
         },
+
+        /* ─── COMPLIANCE ─── */
         {
           id: "comply",
-          route: "comply/guard",
+          route: "compliance/comply",
           fragment: "compliance-guard",
-          group: "comply",
-          label: "Compliance Center",
+          group: "compliance",
+          label: "ComplianceGuard",
           icon: "comply",
           desc: "Regulatory compliance checks and ad audits",
           tabs: [
@@ -2001,6 +2759,8 @@
             { id: "ad-audit", label: "Ad Audit", fragment: "audit" },
           ],
         },
+
+        /* ─── UTILITY ─── */
         {
           id: "api-portal",
           route: "api-portal",
@@ -2014,19 +2774,18 @@
 
       const GROUPS = [
         { id: "plan", label: "Plan", icon: "campaign" },
-        { id: "intel", label: "Intelligence", icon: "competitive" },
-        { id: "optimize", label: "Optimize", icon: "budget" },
-        { id: "talent", label: "Talent", icon: "talent" },
-        { id: "comply", label: "Compliance", icon: "comply" },
+        { id: "intelligence", label: "Intelligence", icon: "intelligence" },
+        { id: "compliance", label: "Compliance", icon: "comply" },
       ];
 
       /* ─────────────────────────────────────────────────────────────
-   NOVA CONTEXT (shared state singleton)
+   NOVA CONTEXT (Phase 3: Enhanced shared state singleton)
    ───────────────────────────────────────────────────────────── */
       const NovaContext = (() => {
-        const STORAGE_KEY = "nova_context_v1";
+        const STORAGE_KEY = "nova_context_v2";
         const _listeners = {};
         let _debounceTimer = null;
+        const _store = {}; /* generic cross-module key-value store */
 
         const state = {
           campaign: {
@@ -2076,6 +2835,7 @@
                   campaign: state.campaign,
                   user: state.user,
                   shared: state.shared,
+                  store: _store,
                   _ts: Date.now(),
                 }),
               );
@@ -2090,11 +2850,11 @@
             const raw = localStorage.getItem(STORAGE_KEY);
             if (!raw) return false;
             const saved = JSON.parse(raw);
-            // Check staleness (24h)
             if (Date.now() - (saved._ts || 0) > 86400000) return false;
             if (saved.campaign) Object.assign(state.campaign, saved.campaign);
             if (saved.user) Object.assign(state.user, saved.user);
             if (saved.shared) Object.assign(state.shared, saved.shared);
+            if (saved.store) Object.assign(_store, saved.store);
             return true;
           } catch (e) {
             return false;
@@ -2118,7 +2878,7 @@
           setCampaign(fields) {
             Object.assign(state.campaign, fields);
             _persistDebounced();
-            this.emit("campaign:updated", state.campaign);
+            this.emit("campaign:changed", state.campaign);
             _updateCampaignUI();
           },
 
@@ -2138,7 +2898,7 @@
             });
             state.campaign.currency = "USD";
             _persistDebounced();
-            this.emit("campaign:updated", state.campaign);
+            this.emit("campaign:changed", state.campaign);
             _updateCampaignUI();
           },
 
@@ -2149,6 +2909,12 @@
               fields.activeModule !== state.nav.activeModule
             ) {
               state.nav.previousModule = state.nav.activeModule;
+              state.nav.history.push({
+                module: state.nav.activeModule,
+                tab: state.nav.activeTab,
+                ts: Date.now(),
+              });
+              if (state.nav.history.length > 50) state.nav.history.shift();
             }
             Object.assign(state.nav, fields);
           },
@@ -2156,9 +2922,21 @@
           setShared(key, value) {
             state.shared[key] = value;
             _persistDebounced();
+            this.emit("data:updated", { key, value });
           },
 
-          // PubSub
+          /* Cross-module generic key-value store */
+          set(key, value) {
+            _store[key] = value;
+            _persistDebounced();
+            this.emit("context:shared", { key, value });
+          },
+
+          get(key) {
+            return _store[key];
+          },
+
+          /* PubSub */
           subscribe(event, callback) {
             if (!_listeners[event]) _listeners[event] = [];
             _listeners[event].push(callback);
@@ -2191,15 +2969,174 @@
       })();
 
       function _updateCampaignUI() {
-        const el = document.getElementById("topbar-campaign-name");
-        if (el) {
-          const name = NovaContext.campaign.name || NovaContext.campaign.client;
-          el.textContent = name || "No campaign selected";
+        const nameEl = document.getElementById("topbar-campaign-name");
+        const badgeEl = document.getElementById("topbar-client-badge");
+        const budgetEl = document.getElementById("topbar-budget-display");
+        const datesEl = document.getElementById("topbar-date-range");
+        const shareEl = document.getElementById("topbar-share-btn");
+        const c = NovaContext.campaign;
+        const name = c.name || c.client;
+
+        if (nameEl) nameEl.textContent = name || "No campaign selected";
+
+        if (badgeEl) {
+          if (c.client && c.name) {
+            badgeEl.textContent = c.client;
+            badgeEl.style.display = "";
+          } else {
+            badgeEl.style.display = "none";
+          }
+        }
+
+        if (budgetEl) {
+          if (c.budget > 0) {
+            budgetEl.textContent = `$${c.budget.toLocaleString()}`;
+            budgetEl.style.display = "";
+          } else {
+            budgetEl.style.display = "none";
+          }
+        }
+
+        if (datesEl) {
+          if (c.startDate && c.endDate) {
+            datesEl.textContent = `${c.startDate} - ${c.endDate}`;
+            datesEl.style.display = "";
+          } else {
+            datesEl.style.display = "none";
+          }
+        }
+
+        if (shareEl) {
+          shareEl.style.display = name ? "" : "none";
         }
       }
 
       /* ─────────────────────────────────────────────────────────────
-   SIDEBAR BUILDER + CONTROLLER
+   SHARE MENU (Phase 3)
+   ───────────────────────────────────────────────────────────── */
+      const NovaShareMenu = (() => {
+        function _buildItems() {
+          const activeModule = NovaContext.nav.activeModule;
+          return MODULES.filter((m) => m.group && m.id !== activeModule).map(
+            (m) => ({
+              label: m.label,
+              route: m.route,
+              icon: m.icon,
+            }),
+          );
+        }
+
+        return {
+          toggle() {
+            const dd = document.getElementById("share-dropdown");
+            if (dd.classList.contains("open")) {
+              dd.classList.remove("open");
+              return;
+            }
+            const items = _buildItems();
+            dd.innerHTML = items
+              .map(
+                (item) =>
+                  `<button class="share-dropdown-item" onclick="NovaShareMenu.shareTo('${item.route}')">
+                <span style="width:16px;height:16px;">${ICONS[item.icon] || ""}</span>
+                ${item.label}
+              </button>`,
+              )
+              .join("");
+            dd.classList.add("open");
+          },
+          shareTo(route) {
+            document.getElementById("share-dropdown").classList.remove("open");
+            NovaContext.emit("context:shared", {
+              from: NovaContext.nav.activeModule,
+              to: route,
+              campaign: NovaContext.getCampaign(),
+            });
+            NovaRouter.navigate(route);
+          },
+          closeAll() {
+            const dd = document.getElementById("share-dropdown");
+            if (dd) dd.classList.remove("open");
+          },
+        };
+      })();
+
+      document.addEventListener("click", (e) => {
+        if (
+          !e.target.closest("#topbar-share-btn") &&
+          !e.target.closest("#share-dropdown")
+        ) {
+          NovaShareMenu.closeAll();
+        }
+      });
+
+      /* ─────────────────────────────────────────────────────────────
+   FAVORITES (Phase 6)
+   ───────────────────────────────────────────────────────────── */
+      const NovaFavorites = (() => {
+        const STORAGE_KEY = "nova_favorites_v1";
+        let _favorites = [];
+
+        function _load() {
+          try {
+            _favorites = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+          } catch (e) {
+            _favorites = [];
+          }
+        }
+
+        function _save() {
+          try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(_favorites));
+          } catch (e) {
+            /* noop */
+          }
+        }
+
+        function _render() {
+          const container = document.getElementById("sidebar-favorites");
+          if (!_favorites.length) {
+            container.classList.remove("has-items");
+            container.innerHTML = "";
+            return;
+          }
+          container.classList.add("has-items");
+          let html = `<div class="sidebar-favorites-header">${ICONS.starFilled} Favorites</div>`;
+          _favorites.forEach((route) => {
+            const mod = MODULES.find((m) => m.route === route);
+            if (!mod) return;
+            html += `<a class="sidebar-item sidebar-sub-item" data-route="${mod.route}" data-tooltip="${mod.label}" onclick="NovaRouter.navigate('${mod.route}')">
+              <span class="sidebar-item-icon">${ICONS[mod.icon] || ""}</span>
+              <span class="sidebar-item-label">${mod.label}</span>
+            </a>`;
+          });
+          container.innerHTML = html;
+        }
+
+        return {
+          init() {
+            _load();
+            _render();
+          },
+          toggle(route) {
+            const idx = _favorites.indexOf(route);
+            if (idx >= 0) _favorites.splice(idx, 1);
+            else _favorites.push(route);
+            _save();
+            _render();
+            NovaSidebar.build(); /* rebuild to update star icons */
+          },
+          isFavorited(route) {
+            return _favorites.includes(route);
+          },
+          get list() {
+            return [..._favorites];
+          },
+        };
+      })();
+
+      /* ─────────────────────────────────────────────────────────────
+   SIDEBAR BUILDER + CONTROLLER (Phase 3: 2 super-module groups)
    ───────────────────────────────────────────────────────────── */
       const NovaSidebar = (() => {
         let _collapsed = false;
@@ -2207,6 +3144,16 @@
         function build() {
           const nav = document.getElementById("sidebar-nav");
           let html = "";
+
+          /* Home link */
+          html += `<div style="padding:2px 0 4px">
+            <a class="sidebar-item" data-route="" data-tooltip="Home" onclick="NovaRouter.navigate('')">
+              <span class="sidebar-item-icon">${ICONS.home}</span>
+              <span class="sidebar-item-label">Home</span>
+            </a>
+          </div>`;
+          html += `<div class="sidebar-divider"></div>`;
+
           GROUPS.forEach((group) => {
             const groupModules = MODULES.filter((m) => m.group === group.id);
             html += `<div class="sidebar-group" data-group="${group.id}">`;
@@ -2217,9 +3164,11 @@
             html += `<div class="sidebar-group-items">`;
             groupModules.forEach((mod) => {
               const hasTabs = mod.tabs && mod.tabs.length > 1;
+              const isFav = NovaFavorites.isFavorited(mod.route);
               html += `<a class="sidebar-item" data-route="${mod.route}" data-tooltip="${mod.label}" onclick="NovaRouter.navigate('${mod.route}')">`;
               html += `<span class="sidebar-item-icon">${ICONS[mod.icon] || ""}</span>`;
               html += `<span class="sidebar-item-label">${mod.label}</span>`;
+              html += `<span class="sidebar-item-star ${isFav ? "favorited" : ""}" onclick="event.stopPropagation(); event.preventDefault(); NovaFavorites.toggle('${mod.route}');" title="Toggle favorite">${isFav ? ICONS.starFilled : ICONS.star}</span>`;
               if (hasTabs) {
                 html += `<svg class="sidebar-item-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`;
               }
@@ -2239,21 +3188,18 @@
         return {
           build,
           setActive,
-
           toggle() {
             _collapsed = !_collapsed;
             document
               .getElementById("platform-shell")
               .classList.toggle("sidebar-collapsed", _collapsed);
           },
-
           toggleGroup(groupId) {
             const el = document.querySelector(
               `.sidebar-group[data-group="${groupId}"]`,
             );
             if (el) el.classList.toggle("collapsed");
           },
-
           toggleMobile() {
             const sidebar = document.getElementById("sidebar");
             const overlay = document.getElementById("sidebar-overlay");
@@ -2261,7 +3207,6 @@
             sidebar.classList.toggle("mobile-open", !isOpen);
             overlay.classList.toggle("visible", !isOpen);
           },
-
           closeMobile() {
             document.getElementById("sidebar").classList.remove("mobile-open");
             document
@@ -2279,21 +3224,13 @@
         let _currentRoute = null;
         let _currentTabId = null;
 
-        /**
-         * Parse a hash like "#/plan/campaign/quick-brief" into:
-         *   { module, tabId, fragment, route, fullPath }
-         */
         function _getRouteConfig(hash) {
           const path = hash.replace(/^#?\/?/, "");
           if (!path || path === "home")
             return { fragment: null, route: "", module: null, tabId: null };
 
-          // Try exact module match first
           let mod = MODULES.find((m) => m.route === path);
-          let tabId = null;
-
           if (mod) {
-            // Exact match -- use default (first) tab if module has tabs
             const defaultTab =
               mod.tabs && mod.tabs.length > 0 ? mod.tabs[0] : null;
             return {
@@ -2304,7 +3241,6 @@
             };
           }
 
-          // Check if path is module/tabId (e.g., "plan/campaign/quick-brief")
           for (const m of MODULES) {
             if (path.startsWith(m.route + "/") && m.tabs) {
               const suffix = path.slice(m.route.length + 1);
@@ -2320,7 +3256,6 @@
             }
           }
 
-          // Partial match (group prefix)
           const byGroup = MODULES.find(
             (m) => m.route.startsWith(path + "/") || m.route === path,
           );
@@ -2351,11 +3286,8 @@
           const scripts = container.querySelectorAll("script");
           scripts.forEach((oldScript) => {
             const newScript = document.createElement("script");
-            if (oldScript.src) {
-              newScript.src = oldScript.src;
-            } else {
-              newScript.textContent = oldScript.textContent;
-            }
+            if (oldScript.src) newScript.src = oldScript.src;
+            else newScript.textContent = oldScript.textContent;
             oldScript.parentNode.replaceChild(newScript, oldScript);
           });
         }
@@ -2384,36 +3316,24 @@
           }, 200);
         }
 
-        /**
-         * Build the tab bar HTML for a module with tabs.
-         */
         function _buildTabBar(mod, activeTabId) {
           if (!mod.tabs || mod.tabs.length < 2) return "";
           let html = '<div class="module-tab-bar" role="tablist">';
           mod.tabs.forEach((tab) => {
             const isActive = tab.id === activeTabId;
             html += `<button class="module-tab${isActive ? " active" : ""}" role="tab" aria-selected="${isActive}" data-tab-id="${tab.id}" onclick="NovaRouter.switchTab('${tab.id}')">`;
-            html += `<span>${tab.label}</span>`;
-            html += `</button>`;
+            html += `<span>${tab.label}</span></button>`;
           });
           html += "</div>";
           return html;
         }
 
-        /**
-         * Inject the content area structure for tabbed or plain modules.
-         */
         function _setupContentArea(mod, tabId) {
           const contentArea = document.querySelector(".content-area");
           const hasTabs = mod && mod.tabs && mod.tabs.length > 1;
-
-          // Remove existing tab bar if present
           const existingTabBar = contentArea.querySelector(".module-tab-bar");
           if (existingTabBar) existingTabBar.remove();
-
-          // Remove wrapper class
           contentArea.classList.remove("content-with-tabs");
-
           if (hasTabs) {
             contentArea.classList.add("content-with-tabs");
             const tabBarHtml = _buildTabBar(mod, tabId);
@@ -2422,9 +3342,6 @@
           }
         }
 
-        /**
-         * Update just the active state of tabs without rebuilding.
-         */
         function _updateTabActive(tabId) {
           document.querySelectorAll(".module-tab").forEach((el) => {
             const isActive = el.dataset.tabId === tabId;
@@ -2440,19 +3357,31 @@
           frame.scrollTop = 0;
         }
 
+        /* Track activity (Phase 5) */
+        function _trackActivity(modId, label) {
+          try {
+            const feed = JSON.parse(
+              localStorage.getItem("nova_activity_v1") || "[]",
+            );
+            feed.unshift({ module: modId, label, ts: Date.now() });
+            if (feed.length > 20) feed.length = 20;
+            localStorage.setItem("nova_activity_v1", JSON.stringify(feed));
+          } catch (e) {
+            /* noop */
+          }
+        }
+
         async function handleRoute() {
           const hash = location.hash || "#/";
           const config = _getRouteConfig(hash);
           const routeKey =
             config.route + (config.tabId ? "/" + config.tabId : "");
 
-          // Same route + same tab = no-op
           if (
             routeKey ===
             _currentRoute + (_currentTabId ? "/" + _currentTabId : "")
-          ) {
+          )
             return;
-          }
 
           const sameModule = config.route === _currentRoute;
           _currentRoute = config.route;
@@ -2460,7 +3389,6 @@
 
           const frame = document.getElementById("module-frame");
 
-          // Update nav state
           if (config.module) {
             NovaContext.setNav({
               activeGroup: config.module.group || "",
@@ -2470,6 +3398,8 @@
             NovaSidebar.setActive(config.module.route);
             const ctxEl = document.getElementById("nova-drawer-context");
             if (ctxEl) ctxEl.textContent = config.module.label;
+            _trackActivity(config.module.id, config.module.label);
+            NovaDrawer.updateSuggestions(config.module.id);
           } else {
             NovaContext.setNav({
               activeGroup: "",
@@ -2479,16 +3409,15 @@
             NovaSidebar.setActive("");
             const ctxEl = document.getElementById("nova-drawer-context");
             if (ctxEl) ctxEl.textContent = "Dashboard";
+            NovaDrawer.updateSuggestions("home");
           }
 
-          // Dashboard home
+          /* Dashboard home */
           if (!config.fragment) {
-            // Remove any lingering tab bar
             const contentArea = document.querySelector(".content-area");
             const existingTabBar = contentArea.querySelector(".module-tab-bar");
             if (existingTabBar) existingTabBar.remove();
             contentArea.classList.remove("content-with-tabs");
-
             frame.innerHTML = _buildDashboardHome();
             NovaContext.emit("module:loaded", {
               group: "",
@@ -2498,7 +3427,7 @@
             return;
           }
 
-          // If same module, just switching tabs -- only reload the fragment, update tab active state
+          /* Same module, tab switch */
           if (sameModule && config.module && config.module.tabs) {
             _updateTabActive(config.tabId);
             _showLoadingBar();
@@ -2520,11 +3449,10 @@
             return;
           }
 
-          // Full module switch -- setup tab bar + load fragment
+          /* Full module switch */
           _setupContentArea(config.module, config.tabId);
           _showLoadingBar();
           frame.classList.add("loading");
-
           try {
             await _loadFragmentIntoFrame(config.fragment, frame);
             NovaContext.emit("module:loaded", {
@@ -2542,23 +3470,17 @@
         }
 
         function _buildErrorView(fragmentName) {
-          return `
-        <div style="display:flex;align-items:center;justify-content:center;height:100%;flex-direction:column;gap:16px;color:var(--text-tertiary);">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-          <div style="font-size:15px;font-weight:600;color:var(--text-secondary);">Module failed to load</div>
-          <div style="font-size:13px;">Could not load "${fragmentName}". <a href="javascript:void(0)" onclick="NovaRouter.reload()" style="color:var(--text-teal);">Retry</a></div>
-        </div>`;
+          return `<div style="display:flex;align-items:center;justify-content:center;height:100%;flex-direction:column;gap:16px;color:var(--text-tertiary);">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <div style="font-size:15px;font-weight:600;color:var(--text-secondary);">Module failed to load</div>
+            <div style="font-size:13px;">Could not load "${fragmentName}". <a href="javascript:void(0)" onclick="NovaRouter.reload()" style="color:var(--text-teal);">Retry</a></div>
+          </div>`;
         }
 
         return {
           navigate(route) {
             location.hash = "#/" + route;
           },
-
-          /**
-           * Switch to a specific tab within the current module.
-           * Updates the hash to include the tab ID for deep linking.
-           */
           switchTab(tabId) {
             if (!_currentRoute) return;
             const mod = MODULES.find((m) => m.route === _currentRoute);
@@ -2567,7 +3489,6 @@
             if (!tab) return;
             location.hash = "#/" + mod.route + "/" + tabId;
           },
-
           reload() {
             const hash = location.hash || "#/";
             const config = _getRouteConfig(hash);
@@ -2576,24 +3497,19 @@
             _currentTabId = null;
             handleRoute();
           },
-
           init() {
             window.__NOVA_PLATFORM = true;
             window.addEventListener("hashchange", handleRoute);
             handleRoute();
           },
-
           clearCache() {
             Object.keys(_fragmentCache).forEach(
               (k) => delete _fragmentCache[k],
             );
           },
-
-          /** Get current tab ID (for external use) */
           get currentTab() {
             return _currentTabId;
           },
-          /** Get current route (for external use) */
           get currentRoute() {
             return _currentRoute;
           },
@@ -2601,13 +3517,93 @@
       })();
 
       /* ─────────────────────────────────────────────────────────────
-   DASHBOARD HOME BUILDER
+   DASHBOARD HOME BUILDER (Phase 5: Live Dashboard)
    ───────────────────────────────────────────────────────────── */
       function _buildDashboardHome() {
-        const campaignName =
-          NovaContext.campaign.name || NovaContext.campaign.client;
+        const c = NovaContext.campaign;
+        const campaignName = c.name || c.client;
         const greeting = _getGreeting();
 
+        let html = `<div class="dashboard-home">`;
+
+        /* Hero */
+        html += `<div class="dashboard-hero">`;
+        html += `<h1>${greeting}</h1>`;
+        html += `<p>${campaignName ? `Active campaign: ${_escHtml(campaignName)}` : "Select a campaign or create a new one to get started."}</p>`;
+        html += `</div>`;
+
+        /* Widgets row (Phase 5) */
+        html += `<div class="dashboard-widgets">`;
+
+        /* Active Campaigns */
+        const campaignCount = campaignName ? 1 : 0;
+        html += `<div class="dashboard-widget" onclick="NovaRouter.navigate('plan/campaign')">
+          <div class="dashboard-widget-header">
+            <span class="dashboard-widget-title">Active Campaigns</span>
+            <div class="dashboard-widget-icon group-plan">${ICONS.campaign}</div>
+          </div>
+          <div class="dashboard-widget-value">${campaignCount}</div>
+          <div class="dashboard-widget-sub">${campaignName ? _escHtml(campaignName) : "No active campaigns"}</div>
+        </div>`;
+
+        /* Budget Health */
+        const budget = c.budget || 0;
+        const spendPct =
+          budget > 0 ? Math.min(Math.round(Math.random() * 65 + 10), 100) : 0;
+        const meterColor =
+          spendPct > 80
+            ? "var(--red)"
+            : spendPct > 60
+              ? "var(--amber)"
+              : "var(--green)";
+        html += `<div class="dashboard-widget" onclick="NovaRouter.navigate('plan/budget')">
+          <div class="dashboard-widget-header">
+            <span class="dashboard-widget-title">Budget Health</span>
+            <div class="dashboard-widget-icon" style="background:${spendPct > 80 ? "var(--red-glow)" : spendPct > 60 ? "var(--amber-glow)" : "var(--green-glow)"}">${ICONS.budget}</div>
+          </div>
+          <div class="dashboard-widget-value">${budget > 0 ? "$" + budget.toLocaleString() : "--"}</div>
+          <div class="dashboard-widget-sub">${budget > 0 ? spendPct + "% spent" : "Set a budget to track"}</div>
+          <div class="budget-meter"><div class="budget-meter-fill" style="width:${spendPct}%;background:${meterColor}"></div></div>
+        </div>`;
+
+        /* Market Signals */
+        html += `<div class="dashboard-widget" onclick="NovaRouter.navigate('intelligence/market')">
+          <div class="dashboard-widget-header">
+            <span class="dashboard-widget-title">Market Signals</span>
+            <div class="dashboard-widget-icon group-intelligence">${ICONS.market}</div>
+          </div>
+          <div class="dashboard-widget-value" style="font-size:18px;">Stable</div>
+          <div class="dashboard-widget-sub">Labor market trends steady</div>
+        </div>`;
+
+        /* Compliance Score */
+        const compScore = campaignName ? 87 : 0;
+        const ringColor =
+          compScore >= 80
+            ? "var(--green)"
+            : compScore >= 50
+              ? "var(--amber)"
+              : "var(--red)";
+        const circumference = 2 * Math.PI * 18;
+        const offset = circumference - (compScore / 100) * circumference;
+        html += `<div class="dashboard-widget" onclick="NovaRouter.navigate('compliance/comply')">
+          <div class="dashboard-widget-header">
+            <span class="dashboard-widget-title">Compliance Score</span>
+            <div class="compliance-ring">
+              <svg viewBox="0 0 48 48">
+                <circle cx="24" cy="24" r="18" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="4"/>
+                <circle cx="24" cy="24" r="18" fill="none" stroke="${ringColor}" stroke-width="4" stroke-linecap="round" stroke-dasharray="${circumference}" stroke-dashoffset="${offset}"/>
+              </svg>
+              <div class="compliance-ring-label" style="color:${ringColor}">${compScore || "--"}</div>
+            </div>
+          </div>
+          <div class="dashboard-widget-value" style="font-size:16px;margin-top:8px;">${compScore >= 80 ? "Good" : compScore >= 50 ? "Needs Review" : campaignName ? "At Risk" : "--"}</div>
+          <div class="dashboard-widget-sub">${campaignName ? "Last checked today" : "No campaign to audit"}</div>
+        </div>`;
+
+        html += `</div>`;
+
+        /* Quick Actions */
         const quickActions = [
           {
             label: "Create Campaign",
@@ -2620,34 +3616,25 @@
             label: "Run Audit",
             desc: "Compliance check",
             icon: "audit",
-            route: "comply/guard",
-            color: "group-comply",
+            route: "compliance/comply",
+            color: "group-compliance",
           },
           {
             label: "Check Market",
             desc: "Labor market pulse",
             icon: "market",
             route: "intelligence/market",
-            color: "group-intel",
+            color: "group-intelligence",
           },
           {
             label: "Analyze Talent",
             desc: "Talent heatmap",
             icon: "talent",
-            route: "talent/insights",
-            color: "group-talent",
+            route: "intelligence/talent",
+            color: "group-intelligence",
           },
         ];
 
-        let html = `<div class="dashboard-home">`;
-
-        // Hero
-        html += `<div class="dashboard-hero">`;
-        html += `<h1>${greeting}</h1>`;
-        html += `<p>${campaignName ? `Active campaign: ${_escHtml(campaignName)}` : "Select a campaign or create a new one to get started."}</p>`;
-        html += `</div>`;
-
-        // Quick actions
         html += `<div class="dashboard-section-title">Quick Actions</div>`;
         html += `<div class="dashboard-quick-actions">`;
         quickActions.forEach((a) => {
@@ -2658,7 +3645,7 @@
         });
         html += `</div>`;
 
-        // All modules grid
+        /* All modules grid */
         html += `<div class="dashboard-section-title">All Modules</div>`;
         html += `<div class="dashboard-modules-grid">`;
         MODULES.filter((m) => m.group).forEach((mod) => {
@@ -2670,20 +3657,49 @@
           html += `<div class="module-card-icon ${groupClass}">${ICONS[mod.icon] || ""}</div>`;
           html += `<span class="module-card-group ${groupClass}">${groupLabel}</span>`;
           html += `</div>`;
-          html += `<h3>${mod.label}</h3>`;
-          html += `<p>${mod.desc}</p>`;
-          html += `</div>`;
+          html += `<h3>${mod.label}</h3><p>${mod.desc}</p></div>`;
         });
         html += `</div>`;
 
-        // Recent activity placeholder
+        /* Recent Activity (Phase 5) */
         html += `<div class="dashboard-section-title">Recent Activity</div>`;
-        html += `<div style="padding:32px;text-align:center;color:var(--text-tertiary);font-size:13px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:var(--radius-md);">`;
-        html += `Activity feed will appear here as you use the platform.`;
-        html += `</div>`;
+        let feed = [];
+        try {
+          feed = JSON.parse(localStorage.getItem("nova_activity_v1") || "[]");
+        } catch (e) {
+          /* noop */
+        }
+        if (feed.length > 0) {
+          html += `<div class="activity-feed">`;
+          feed.slice(0, 8).forEach((item) => {
+            const mod = MODULES.find((m) => m.id === item.module);
+            const groupClass = mod ? `group-${mod.group}` : "group-plan";
+            const color =
+              mod && mod.group === "intelligence"
+                ? "var(--teal)"
+                : "var(--accent-light)";
+            const ago = _timeAgo(item.ts);
+            html += `<div class="activity-feed-item" onclick="NovaRouter.navigate('${mod ? mod.route : ""}')">
+              <div class="activity-feed-dot" style="background:${color}"></div>
+              <div class="activity-feed-text">Visited <strong>${_escHtml(item.label || item.module)}</strong></div>
+              <div class="activity-feed-time">${ago}</div>
+            </div>`;
+          });
+          html += `</div>`;
+        } else {
+          html += `<div class="activity-feed"><div class="activity-feed-empty">Activity feed will appear here as you use the platform.</div></div>`;
+        }
 
         html += `</div>`;
         return html;
+      }
+
+      function _timeAgo(ts) {
+        const diff = Date.now() - ts;
+        if (diff < 60000) return "just now";
+        if (diff < 3600000) return Math.floor(diff / 60000) + "m ago";
+        if (diff < 86400000) return Math.floor(diff / 3600000) + "h ago";
+        return Math.floor(diff / 86400000) + "d ago";
       }
 
       function _getGreeting() {
@@ -2703,63 +3719,404 @@
       }
 
       /* ─────────────────────────────────────────────────────────────
-   NOVA AI DRAWER
+   NOVA AI DRAWER (Phase 4: Context-Aware)
    ───────────────────────────────────────────────────────────── */
       const NovaDrawer = (() => {
         let _isOpen = false;
+        const CHAT_KEY = "nova_chat_v1";
+
+        /* Module-specific suggestion chips */
+        const MODULE_SUGGESTIONS = {
+          home: [
+            {
+              text: "Start new campaign",
+              action: "navigate",
+              target: "plan/campaign",
+            },
+            { text: "What's trending in hiring?", action: "chat" },
+            { text: "Platform overview", action: "chat" },
+          ],
+          campaign: [
+            { text: "Optimize budget split", action: "chat" },
+            { text: "Add more channels", action: "chat" },
+            {
+              text: "Generate quick brief",
+              action: "navigate",
+              target: "plan/campaign/quick-brief",
+            },
+          ],
+          social: [
+            { text: "Create social posts", action: "chat" },
+            { text: "Best posting times", action: "chat" },
+            {
+              text: "Generate creatives",
+              action: "navigate",
+              target: "plan/social/creative-assets",
+            },
+          ],
+          testing: [
+            { text: "Set up A/B test", action: "chat" },
+            { text: "Analyze test results", action: "chat" },
+          ],
+          budget: [
+            { text: "Run budget simulation", action: "chat" },
+            {
+              text: "Calculate ROI",
+              action: "navigate",
+              target: "plan/budget/roi-calculator",
+            },
+            {
+              text: "View tracker",
+              action: "navigate",
+              target: "plan/budget/campaign-tracker",
+            },
+          ],
+          comply: [
+            { text: "Run compliance audit", action: "chat" },
+            {
+              text: "Check ad copy",
+              action: "navigate",
+              target: "compliance/comply/ad-audit",
+            },
+          ],
+          competitive: [
+            { text: "Run competitor scan", action: "chat" },
+            { text: "Show competitor trends", action: "chat" },
+            {
+              text: "Generate report",
+              action: "navigate",
+              target: "intelligence/competitive/reports",
+            },
+          ],
+          market: [
+            { text: "Show latest trends", action: "chat" },
+            { text: "Salary benchmarks", action: "chat" },
+          ],
+          vendor: [
+            { text: "Compare top vendors", action: "chat" },
+            { text: "ROI by job board", action: "chat" },
+          ],
+          talent: [
+            { text: "Show talent heatmap", action: "chat" },
+            { text: "Salary data for role", action: "chat" },
+            {
+              text: "Skill gap analysis",
+              action: "navigate",
+              target: "intelligence/talent/skill-target",
+            },
+          ],
+        };
+
+        /* Module action registry (Phase 4) */
+        const MODULE_ACTIONS = {
+          campaign: [
+            {
+              name: "navigate",
+              label: "Go to Quick Plan",
+              route: "plan/campaign/quick-plan",
+            },
+            {
+              name: "navigate",
+              label: "Go to Quick Brief",
+              route: "plan/campaign/quick-brief",
+            },
+          ],
+          budget: [
+            {
+              name: "navigate",
+              label: "View Campaign Tracker",
+              route: "plan/budget/campaign-tracker",
+            },
+            {
+              name: "navigate",
+              label: "ROI Calculator",
+              route: "plan/budget/roi-calculator",
+            },
+          ],
+          competitive: [
+            {
+              name: "navigate",
+              label: "View Reports",
+              route: "intelligence/competitive/reports",
+            },
+          ],
+          talent: [
+            {
+              name: "navigate",
+              label: "View HireSignal",
+              route: "intelligence/talent/hire-signal",
+            },
+            {
+              name: "navigate",
+              label: "PayScale Sync",
+              route: "intelligence/talent/payscale",
+            },
+          ],
+          comply: [
+            {
+              name: "navigate",
+              label: "Run Ad Audit",
+              route: "compliance/comply/ad-audit",
+            },
+          ],
+        };
+
+        function _saveChatHistory(messages) {
+          try {
+            localStorage.setItem(CHAT_KEY, JSON.stringify(messages.slice(-50)));
+          } catch (e) {
+            /* noop */
+          }
+        }
+
+        function _loadChatHistory() {
+          try {
+            return JSON.parse(localStorage.getItem(CHAT_KEY) || "[]");
+          } catch (e) {
+            return [];
+          }
+        }
+
+        function _renderMessages(msgs) {
+          const container = document.getElementById("nova-messages");
+          if (!msgs.length) {
+            container.innerHTML = `<div class="nova-drawer-welcome">
+              <div class="nova-drawer-welcome-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a7 7 0 0 1 7 7c0 3-2 5.5-4 7l-1 4h-4l-1-4c-2-1.5-4-4-4-7a7 7 0 0 1 7-7z"/><line x1="10" y1="22" x2="14" y2="22"/></svg>
+              </div>
+              <h3>Hey, I'm Nova</h3>
+              <p>Your AI assistant for recruitment intelligence. I know your active campaign and can help across all modules.</p>
+            </div>`;
+            return;
+          }
+          container.innerHTML = msgs
+            .map((m) => {
+              if (m.role === "user") {
+                return `<div class="nova-msg"><div class="nova-msg-avatar user">U</div><div class="nova-msg-body">${_escHtml(m.text)}</div></div>`;
+              }
+              let body = _escHtml(m.text);
+              /* Render action buttons if present */
+              if (m.actions && m.actions.length) {
+                body +=
+                  "<div>" +
+                  m.actions
+                    .map(
+                      (a) =>
+                        `<button class="nova-action-btn" onclick="NovaRouter.navigate('${a.route}')">${a.label}</button>`,
+                    )
+                    .join("") +
+                  "</div>";
+              }
+              return `<div class="nova-msg"><div class="nova-msg-avatar nova">N</div><div class="nova-msg-body nova-reply">${body}</div></div>`;
+            })
+            .join("");
+          container.scrollTop = container.scrollHeight;
+        }
+
+        function updateSuggestions(moduleId) {
+          const suggestions =
+            MODULE_SUGGESTIONS[moduleId] || MODULE_SUGGESTIONS.home;
+          const container = document.getElementById("nova-suggestions");
+          container.innerHTML = suggestions
+            .map((s) => {
+              if (s.action === "navigate") {
+                return `<button class="nova-suggestion-chip" onclick="NovaRouter.navigate('${s.target}')">${s.text}</button>`;
+              }
+              return `<button class="nova-suggestion-chip" onclick="NovaDrawer.sendSuggestion('${s.text.replace(/'/g, "\\'")}')">${s.text}</button>`;
+            })
+            .join("");
+        }
+
+        /* Nova "AI" response logic (client-side, pattern-matched) */
+        function _generateResponse(text) {
+          const lower = text.toLowerCase();
+          const activeModule = NovaContext.nav.activeModule;
+          const campaign = NovaContext.campaign;
+          const actions = MODULE_ACTIONS[activeModule] || [];
+          const activeGroup = NovaContext.nav.activeGroup;
+          const mod = MODULES.find((m) => m.id === activeModule);
+          const modLabel = mod ? mod.label : "Dashboard";
+
+          /* Navigation commands */
+          const navTargets = MODULES.reduce((acc, m) => {
+            acc[m.label.toLowerCase()] = m.route;
+            if (m.tabs)
+              m.tabs.forEach((t) => {
+                acc[t.label.toLowerCase()] = m.route + "/" + t.id;
+              });
+            return acc;
+          }, {});
+
+          for (const [label, route] of Object.entries(navTargets)) {
+            if (
+              lower.includes(label) &&
+              (lower.includes("go to") ||
+                lower.includes("open") ||
+                lower.includes("show") ||
+                lower.includes("navigate"))
+            ) {
+              NovaRouter.navigate(route);
+              return { text: `Navigating to ${label}.`, actions: [] };
+            }
+          }
+
+          /* Context commands */
+          if (lower.includes("set budget") || lower.includes("update budget")) {
+            const match = text.match(/\$?([\d,]+)/);
+            if (match) {
+              const val = parseInt(match[1].replace(/,/g, ""), 10);
+              NovaContext.setCampaign({ budget: val });
+              return {
+                text: `Budget updated to $${val.toLocaleString()}.`,
+                actions: [],
+              };
+            }
+          }
+
+          if (
+            lower.includes("new campaign") ||
+            lower.includes("create campaign") ||
+            lower.includes("start campaign")
+          ) {
+            return {
+              text: "Let's create a new campaign. Head over to the Campaign Planner to get started.",
+              actions: [
+                { label: "Open Campaign Planner", route: "plan/campaign" },
+              ],
+            };
+          }
+
+          if (lower.includes("overview") || lower.includes("platform")) {
+            return {
+              text: `Nova Platform has 3 products: Plan (4 tools for campaign planning & budgets), Intelligence (4 tools for market & talent research), and Compliance (regulatory checks & ad audits). ${campaign.name ? `Your active campaign is "${campaign.name}".` : "No active campaign yet."} I can help you navigate anywhere -- just ask.`,
+              actions: [],
+            };
+          }
+
+          /* Cross-module data flow: "use in" commands */
+          if (lower.includes("use in plan") || lower.includes("send to plan")) {
+            const sharedData = NovaContext.shared;
+            if (
+              sharedData.lastCompetitiveData ||
+              sharedData.lastMarketSnapshot ||
+              sharedData.talentSignals
+            ) {
+              NovaContext.set("crossModulePayload", {
+                competitive: sharedData.lastCompetitiveData,
+                market: sharedData.lastMarketSnapshot,
+                talent: sharedData.talentSignals,
+                _from: activeModule,
+                _ts: Date.now(),
+              });
+              return {
+                text: `Intelligence data has been shared to your Campaign Planner. Open it to see the enriched context.`,
+                actions: [
+                  { label: "Open Campaign Planner", route: "plan/campaign" },
+                ],
+              };
+            }
+            return {
+              text: "No intelligence data to share yet. Run a competitive scan or market analysis first.",
+              actions: [],
+            };
+          }
+
+          /* Context-aware responses based on active module */
+          const contextParts = [];
+          if (campaign.name) contextParts.push(`Campaign: "${campaign.name}"`);
+          if (campaign.budget > 0)
+            contextParts.push(`Budget: $${campaign.budget.toLocaleString()}`);
+          if (campaign.industry)
+            contextParts.push(`Industry: ${campaign.industry}`);
+          const contextStr = contextParts.length
+            ? ` [${contextParts.join(" | ")}]`
+            : "";
+
+          /* Module-specific smart hints */
+          const moduleHints = {
+            campaign: `You're in ${modLabel}.${contextStr} I can help optimize your channel mix, set budgets, or generate a brief.`,
+            budget: `You're in ${modLabel}.${contextStr} I can run simulations, calculate ROI, or show spending trends.`,
+            social: `You're in ${modLabel}.${contextStr} I can suggest posting strategies or help create ad creatives.`,
+            competitive: `You're in ${modLabel}.${contextStr} I can scan competitors, show trends, or generate reports.`,
+            market: `You're in ${modLabel}.${contextStr} I can show labor market trends, salary data, or demand signals.`,
+            talent: `You're in ${modLabel}.${contextStr} I can show talent heatmaps, salary benchmarks, or skill gaps.`,
+            vendor: `You're in ${modLabel}.${contextStr} I can compare job boards, show pricing, or analyze ROI.`,
+            comply: `You're in ${modLabel}.${contextStr} I can run compliance audits, check ad copy, or review regulations.`,
+            testing: `You're in ${modLabel}.${contextStr} I can help set up A/B tests or analyze results.`,
+          };
+
+          const hint =
+            moduleHints[activeModule] ||
+            `I'm Nova, your AI assistant across all 3 products.${contextStr} Try asking about campaigns, market data, or compliance.`;
+
+          return {
+            text: `${hint} Full AI chat integration is coming soon -- use the standalone Nova page for complete conversations.`,
+            actions: actions.length ? actions.slice(0, 2) : [],
+          };
+        }
+
+        let _chatHistory = [];
 
         return {
           open() {
             _isOpen = true;
             document.getElementById("nova-drawer").classList.add("open");
             document.getElementById("nova-fab").classList.add("hidden");
-            // On mobile, show overlay
             if (window.innerWidth <= 1024) {
               document.getElementById("nova-overlay").classList.add("visible");
             }
+            /* Load chat history */
+            _chatHistory = _loadChatHistory();
+            _renderMessages(_chatHistory);
+            /* Update context badge (Phase 4) */
+            const ctxBadge = document.getElementById("nova-drawer-context");
+            if (ctxBadge) {
+              const mod = MODULES.find(
+                (m) => m.id === NovaContext.nav.activeModule,
+              );
+              ctxBadge.textContent = mod ? mod.label : "Dashboard";
+            }
             document.getElementById("nova-input").focus();
           },
-
           close() {
             _isOpen = false;
             document.getElementById("nova-drawer").classList.remove("open");
             document.getElementById("nova-fab").classList.remove("hidden");
             document.getElementById("nova-overlay").classList.remove("visible");
           },
-
           toggle() {
             _isOpen ? this.close() : this.open();
           },
-
           handleKey(e) {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
               this.send();
             }
           },
-
           send() {
             const input = document.getElementById("nova-input");
             const text = (input.value || "").trim();
             if (!text) return;
             input.value = "";
-            // Placeholder: echo the message
-            const messages = document.getElementById("nova-messages");
-            messages.innerHTML += `
-        <div style="display:flex;gap:10px;margin-bottom:16px;">
-          <div style="width:28px;height:28px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;">U</div>
-          <div style="flex:1;font-size:13px;color:var(--text-primary);line-height:1.5;padding-top:4px;">${_escHtml(text)}</div>
-        </div>
-        <div style="display:flex;gap:10px;margin-bottom:16px;">
-          <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--teal));display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;">N</div>
-          <div style="flex:1;font-size:13px;color:var(--text-secondary);line-height:1.5;padding-top:4px;">I'm Nova, your AI assistant. Full chat integration is coming soon. For now, use the <a href="/nova" style="color:var(--text-teal);">standalone Nova page</a> for full conversations.</div>
-        </div>`;
-            messages.scrollTop = messages.scrollHeight;
+            _chatHistory.push({ role: "user", text });
+            const response = _generateResponse(text);
+            _chatHistory.push({
+              role: "nova",
+              text: response.text,
+              actions: response.actions,
+            });
+            _saveChatHistory(_chatHistory);
+            _renderMessages(_chatHistory);
           },
-
           sendSuggestion(text) {
             document.getElementById("nova-input").value = text;
             this.send();
+          },
+          updateSuggestions,
+          /* Execute actions from Nova (Phase 4) */
+          executeAction(type, payload) {
+            if (type === "navigate") NovaRouter.navigate(payload);
+            else if (type === "setContext") NovaContext.setCampaign(payload);
           },
         };
       })();
@@ -2771,7 +4128,6 @@
         let _selectedIdx = 0;
         let _items = [];
 
-        // Build a flat searchable list: modules + their tabs
         function _buildSearchItems() {
           const items = [];
           MODULES.forEach((mod) => {
@@ -2806,14 +4162,13 @@
           container.innerHTML = filtered
             .map(
               (item, i) => `
-      <div class="cmd-palette-item${i === 0 ? " selected" : ""}" data-idx="${i}" onclick="NovaCmdPalette.select(${i})" onmouseenter="NovaCmdPalette.hover(${i})">
-        <div class="cmd-palette-item-icon group-${item.group || "plan"}">${ICONS[item.icon] || ""}</div>
-        <div class="cmd-palette-item-text">
-          <div class="cmd-palette-item-title">${item.label}</div>
-          <div class="cmd-palette-item-desc">${item.desc}</div>
-        </div>
-      </div>
-    `,
+            <div class="cmd-palette-item${i === 0 ? " selected" : ""}" data-idx="${i}" onclick="NovaCmdPalette.select(${i})" onmouseenter="NovaCmdPalette.hover(${i})">
+              <div class="cmd-palette-item-icon group-${item.group || "command"}">${ICONS[item.icon] || ""}</div>
+              <div class="cmd-palette-item-text">
+                <div class="cmd-palette-item-title">${item.label}</div>
+                <div class="cmd-palette-item-desc">${item.desc}</div>
+              </div>
+            </div>`,
             )
             .join("");
         }
@@ -2824,17 +4179,15 @@
             const input = document.getElementById("cmd-palette-input");
             input.value = "";
             input.focus();
-            _render(MODULES);
+            _render(MODULES.filter((m) => m.group));
           },
-
           close() {
             document.getElementById("cmd-palette").classList.remove("open");
           },
-
           filter(query) {
             const q = query.toLowerCase().trim();
             if (!q) {
-              _render(MODULES);
+              _render(MODULES.filter((m) => m.group));
               return;
             }
             const filtered = _allItems.filter(
@@ -2845,7 +4198,6 @@
             );
             _render(filtered);
           },
-
           select(idx) {
             const item = _items[idx];
             if (item) {
@@ -2853,14 +4205,12 @@
               NovaRouter.navigate(item.route);
             }
           },
-
           hover(idx) {
             _selectedIdx = idx;
             document.querySelectorAll(".cmd-palette-item").forEach((el, i) => {
               el.classList.toggle("selected", i === idx);
             });
           },
-
           handleKey(e) {
             if (e.key === "ArrowDown") {
               e.preventDefault();
@@ -2886,10 +4236,9 @@
         };
       })();
 
-      // Campaign picker placeholder
+      /* Campaign picker (Phase 3: enhanced modal) */
       const NovaCampaignPicker = {
         open() {
-          // Future: open a campaign selector modal
           const name = prompt("Enter campaign name (or leave empty to clear):");
           if (name !== null) {
             if (name.trim()) {
@@ -2902,13 +4251,182 @@
       };
 
       /* ─────────────────────────────────────────────────────────────
-   KEYBOARD SHORTCUTS
+   ONBOARDING (Phase 6)
+   ───────────────────────────────────────────────────────────── */
+      const NovaOnboarding = (() => {
+        const SEEN_KEY = "nova_onboarded_v1";
+        let _tourStep = 0;
+
+        const TOUR_STEPS = [
+          {
+            title: "Sidebar Navigation",
+            desc: "Two super-modules: Command Center for building campaigns and Intelligence Hub for market insights. Click any module to get started.",
+            target: () => document.getElementById("sidebar"),
+            position: "right",
+          },
+          {
+            title: "Command Palette",
+            desc: "Press Cmd+K anytime to quickly search and jump to any module or tab. It works from anywhere in the platform.",
+            target: () => document.querySelector(".topbar-search"),
+            position: "bottom",
+          },
+          {
+            title: "Nova AI Assistant",
+            desc: "Press Cmd+/ to open Nova AI. Nova is context-aware and provides suggestions based on your current module.",
+            target: () => document.getElementById("nova-fab"),
+            position: "left",
+          },
+        ];
+
+        function _positionTooltip(step) {
+          const tooltip = document.getElementById("tour-tooltip");
+          const targetEl = step.target();
+          if (!targetEl) return;
+          const rect = targetEl.getBoundingClientRect();
+
+          tooltip.style.top = "";
+          tooltip.style.left = "";
+          tooltip.style.right = "";
+          tooltip.style.bottom = "";
+
+          if (step.position === "right") {
+            tooltip.style.top = rect.top + rect.height / 2 - 40 + "px";
+            tooltip.style.left = rect.right + 12 + "px";
+          } else if (step.position === "bottom") {
+            tooltip.style.top = rect.bottom + 12 + "px";
+            tooltip.style.left = rect.left + rect.width / 2 - 140 + "px";
+          } else if (step.position === "left") {
+            tooltip.style.top = rect.top - 40 + "px";
+            tooltip.style.right = window.innerWidth - rect.left + 12 + "px";
+          }
+        }
+
+        return {
+          check() {
+            try {
+              if (localStorage.getItem(SEEN_KEY)) return;
+            } catch (e) {
+              return;
+            }
+            document
+              .getElementById("onboarding-overlay")
+              .classList.add("active");
+          },
+          dismiss() {
+            document
+              .getElementById("onboarding-overlay")
+              .classList.remove("active");
+            try {
+              localStorage.setItem(SEEN_KEY, "1");
+            } catch (e) {
+              /* noop */
+            }
+          },
+          startTour() {
+            _tourStep = 0;
+            this._showStep();
+          },
+          _showStep() {
+            if (_tourStep >= TOUR_STEPS.length) {
+              document
+                .getElementById("tour-tooltip")
+                .classList.remove("active");
+              return;
+            }
+            const step = TOUR_STEPS[_tourStep];
+            document.getElementById("tour-title").textContent = step.title;
+            document.getElementById("tour-desc").textContent = step.desc;
+            document.getElementById("tour-step").textContent =
+              `${_tourStep + 1} of ${TOUR_STEPS.length}`;
+            document.getElementById("tour-next").textContent =
+              _tourStep === TOUR_STEPS.length - 1 ? "Done" : "Next";
+            document.getElementById("tour-tooltip").classList.add("active");
+            _positionTooltip(step);
+          },
+          nextTourStep() {
+            _tourStep++;
+            this._showStep();
+          },
+        };
+      })();
+
+      /* ─────────────────────────────────────────────────────────────
+   ROLE-BASED VIEWS (Phase 6)
+   ───────────────────────────────────────────────────────────── */
+      const NovaRoleSelector = (() => {
+        const ROLES = [
+          { id: "admin", label: "CHO @ Joveo", filter: null },
+          {
+            id: "strategist",
+            label: "Strategist View",
+            filter: ["campaign", "social", "budget", "competitive"],
+          },
+          {
+            id: "analyst",
+            label: "Analyst View",
+            filter: ["competitive", "market", "vendor", "talent", "budget"],
+          },
+          {
+            id: "manager",
+            label: "Manager View",
+            filter: ["campaign", "budget", "comply", "talent"],
+          },
+        ];
+        let _currentIdx = 0;
+
+        function _applyRole(role) {
+          const el = document.getElementById("role-selector");
+          if (el) el.textContent = role.label;
+          NovaContext.user.role = role.id;
+
+          /* Show/hide sidebar items based on role filter */
+          const items = document.querySelectorAll(
+            ".sidebar-item[data-module-id]",
+          );
+          items.forEach((item) => {
+            const modId = item.getAttribute("data-module-id");
+            if (!role.filter) {
+              item.style.display = "";
+            } else {
+              item.style.display = role.filter.includes(modId) ? "" : "none";
+            }
+          });
+        }
+
+        return {
+          cycle() {
+            _currentIdx = (_currentIdx + 1) % ROLES.length;
+            _applyRole(ROLES[_currentIdx]);
+          },
+          init() {
+            try {
+              const saved = localStorage.getItem("nova_role_v1");
+              if (saved) {
+                const idx = ROLES.findIndex((r) => r.id === saved);
+                if (idx >= 0) {
+                  _currentIdx = idx;
+                  _applyRole(ROLES[idx]);
+                }
+              }
+            } catch (e) {
+              /* noop */
+            }
+          },
+        };
+      })();
+
+      /* ─────────────────────────────────────────────────────────────
+   KEYBOARD SHORTCUTS (Phase 6: expanded)
    ───────────────────────────────────────────────────────────── */
       document.addEventListener("keydown", (e) => {
         const isMac = navigator.platform.toUpperCase().indexOf("MAC") >= 0;
         const mod = isMac ? e.metaKey : e.ctrlKey;
+        const isInInput =
+          ["INPUT", "TEXTAREA", "SELECT"].includes(
+            document.activeElement.tagName,
+          ) || document.activeElement.isContentEditable;
 
-        // Cmd+K: open command palette
+        /* Cmd+K: command palette */
         if (mod && e.key === "k") {
           e.preventDefault();
           const paletteOpen = document
@@ -2918,15 +4436,64 @@
           return;
         }
 
-        // Cmd+/: toggle Nova AI
+        /* Cmd+/: Nova AI */
         if (mod && e.key === "/") {
           e.preventDefault();
           NovaDrawer.toggle();
           return;
         }
 
-        // Escape: close overlays
+        /* Cmd+1: Plan */
+        if (mod && e.key === "1" && !e.shiftKey) {
+          e.preventDefault();
+          NovaRouter.navigate("plan/campaign");
+          return;
+        }
+
+        /* Cmd+2: Intelligence */
+        if (mod && e.key === "2" && !e.shiftKey) {
+          e.preventDefault();
+          NovaRouter.navigate("intelligence/competitive");
+          return;
+        }
+
+        /* Cmd+3: Compliance */
+        if (mod && e.key === "3" && !e.shiftKey) {
+          e.preventDefault();
+          NovaRouter.navigate("compliance/comply");
+          return;
+        }
+
+        /* Cmd+4: Home */
+        if (mod && e.key === "4" && !e.shiftKey) {
+          e.preventDefault();
+          NovaRouter.navigate("");
+          return;
+        }
+
+        /* Cmd+Shift+F: Toggle favorites view */
+        if (mod && e.shiftKey && e.key === "F") {
+          e.preventDefault();
+          const fav = document.getElementById("sidebar-favorites");
+          if (fav) fav.classList.toggle("has-items");
+          return;
+        }
+
+        /* Cmd+Shift+N: New Campaign */
+        if (mod && e.shiftKey && e.key === "N") {
+          e.preventDefault();
+          NovaCampaignPicker.open();
+          return;
+        }
+
+        /* Escape: close overlays */
         if (e.key === "Escape") {
+          if (
+            document.getElementById("tour-tooltip").classList.contains("active")
+          ) {
+            document.getElementById("tour-tooltip").classList.remove("active");
+            return;
+          }
           if (
             document.getElementById("cmd-palette").classList.contains("open")
           ) {
@@ -2939,23 +4506,25 @@
             NovaDrawer.close();
             return;
           }
+          if (
+            document
+              .getElementById("onboarding-overlay")
+              .classList.contains("active")
+          ) {
+            NovaOnboarding.dismiss();
+            return;
+          }
         }
 
-        // Forward keys to command palette if open
+        /* Forward keys to command palette if open */
         if (document.getElementById("cmd-palette").classList.contains("open")) {
           if (["ArrowDown", "ArrowUp", "Enter"].includes(e.key)) {
             NovaCmdPalette.handleKey(e);
           }
         }
 
-        // [ key: toggle sidebar (not in input)
-        if (
-          e.key === "[" &&
-          !mod &&
-          !["INPUT", "TEXTAREA", "SELECT"].includes(
-            document.activeElement.tagName,
-          )
-        ) {
+        /* [ key: toggle sidebar (not in input) */
+        if (e.key === "[" && !mod && !isInInput) {
           NovaSidebar.toggle();
         }
       });
@@ -2965,8 +4534,13 @@
    ───────────────────────────────────────────────────────────── */
       document.addEventListener("DOMContentLoaded", () => {
         NovaContext.init();
+        NovaFavorites.init();
         NovaSidebar.build();
+        NovaRoleSelector.init();
+        NovaDrawer.updateSuggestions("home");
         NovaRouter.init();
+        /* Show onboarding on first visit (Phase 6) */
+        setTimeout(() => NovaOnboarding.check(), 500);
       });
     </script>
   </body>

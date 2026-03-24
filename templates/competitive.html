@@ -1551,6 +1551,44 @@
           </div>
         </div>
 
+        <!-- Empty State -->
+        <div
+          class="empty-state"
+          id="emptyState"
+          style="
+            text-align: center;
+            padding: 48px 24px;
+            color: var(--text-muted, #a1a1a1);
+          "
+        >
+          <svg
+            width="48"
+            height="48"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+            style="margin: 0 auto 16px; display: block; opacity: 0.4"
+            aria-hidden="true"
+          >
+            <circle cx="12" cy="12" r="10" />
+            <path d="M12 16v-4M12 8h.01" />
+          </svg>
+          <h3
+            style="
+              font-size: 16px;
+              font-weight: 600;
+              margin-bottom: 8px;
+              color: var(--text-secondary, #ccc);
+            "
+          >
+            No analysis yet
+          </h3>
+          <p style="font-size: 14px">
+            Add competitors and run the analysis to see results here.
+          </p>
+        </div>
+
         <!-- Actual Results Content -->
         <div class="results-content reveal-on-scroll" id="resultsContent">
           <!-- Analysis Meta -->
@@ -1880,6 +1918,8 @@
 
         // ── Render Results ──
         function renderResults(data) {
+          var emptyState = document.getElementById("emptyState");
+          if (emptyState) emptyState.style.display = "none";
           var brief = data.brief || {};
           var status = data.status || "success";
 

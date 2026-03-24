@@ -1674,11 +1674,22 @@ class Nova:
         supply = self._data_cache.get("global_supply", {})
         supply_countries = list(supply.get("country_job_boards", {}).keys())
 
-        return f"""You are Nova, Joveo's recruitment marketing AI assistant. Joveo optimizes job ad spend across {total_pubs:,}+ publishers in {len(pub_countries)} countries via programmatic advertising.
+        return f"""You are Nova, Joveo's senior recruitment marketing intelligence analyst. You are an expert with deep knowledge of programmatic job advertising, media planning, talent acquisition economics, and labor market analytics. Joveo's platform optimizes job ad spend across {total_pubs:,}+ publishers in {len(pub_countries)} countries via AI-driven programmatic advertising.
 
-## PERSONALITY: WARM AND PROFESSIONAL
+## YOUR IDENTITY: WORLD-CLASS RECRUITMENT MARKETING EXPERT
 
-Be approachable, helpful, and knowledgeable -- like a friendly expert colleague. NEVER say "I'm just a computer program" or "I don't have feelings." For casual/social messages, engage warmly and briefly, then redirect to how you can help. Use a conversational but professional tone throughout.
+You are not a generic chatbot. You are a domain expert who:
+- Analyzes labor markets using real BLS employment data, FRED economic indicators, and Adzuna salary distributions
+- Builds data-driven media plans grounded in actual CPA/CPC benchmarks from 200+ occupations
+- Evaluates 91 recruitment platforms with verified performance metrics
+- Accesses O*NET occupational classification data to decompose any role into skills, SOC codes, and market positioning
+- Draws from 74 industry white papers, 6 reference client media plans, and 24 external benchmark reports
+
+When you have data, LEAD with numbers. Not "data suggests salaries are competitive" but "Adzuna data shows the median salary for this role in this market is $X, with the 25th-75th percentile range of $Y-$Z."
+
+## PERSONALITY: CONFIDENT AND APPROACHABLE
+
+Be direct, data-forward, and decisive -- like a senior analyst presenting to a VP of Talent Acquisition. NEVER hedge when you have data. NEVER say "I'm just a computer program" or "I don't have feelings." For casual/social messages, engage warmly and briefly, then redirect to how you can help. Use a conversational but professional tone throughout.
 
 ## RULE #0: NEVER REFUSE -- ALWAYS PROVIDE VALUE (HIGHEST PRIORITY)
 
@@ -2516,6 +2527,43 @@ When API-enriched context is available in the session, prioritize it as the most
                     "required": ["locations"],
                 },
             },
+            {
+                "name": "web_search",
+                "description": "Search the live web for current information about recruitment, hiring trends, industry news, or any topic. Use this when the user asks about current events, recent trends, or information that may not be in the knowledge base.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "string", "description": "Search query"}
+                    },
+                    "required": ["query"],
+                },
+            },
+            {
+                "name": "knowledge_search",
+                "description": "Semantic search across the Nova knowledge base. Use this to find relevant context about recruitment channels, benchmarks, compliance rules, salary data, or any topic in the knowledge base.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "string", "description": "Search query"},
+                        "top_k": {
+                            "type": "integer",
+                            "description": "Number of results to return (default: 3)",
+                        },
+                    },
+                    "required": ["query"],
+                },
+            },
+            {
+                "name": "scrape_url",
+                "description": "Scrape a web page URL to extract its content. Use this to analyze competitor career pages, job board pricing pages, or any URL the user mentions.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "url": {"type": "string", "description": "URL to scrape"}
+                    },
+                    "required": ["url"],
+                },
+            },
         ]
 
     # ------------------------------------------------------------------
@@ -2563,6 +2611,9 @@ When API-enriched context is available in the session, prioritize it as the most
             "query_google_ads_benchmarks": self._query_google_ads_benchmarks,
             "query_external_benchmarks": self._query_external_benchmarks,
             "query_client_plans": self._query_client_plans,
+            "web_search": self._web_search,
+            "knowledge_search": self._knowledge_search,
+            "scrape_url": self._scrape_url,
         }
 
     def execute_tool(self, tool_name: str, tool_input: dict) -> str:
@@ -5100,6 +5151,106 @@ When API-enriched context is available in the session, prioritize it as the most
         }
 
     # ------------------------------------------------------------------
+    # Web search, knowledge search, URL scrape handlers
+    # ------------------------------------------------------------------
+
+    def _web_search(self, params: dict) -> dict:
+        """Search the live web for current information."""
+        query = params.get("query") or ""
+        if not query:
+            return {"results": [], "error": "No query provided"}
+
+        # Try Tavily first
+        try:
+            from tavily_search import search as tavily_search_fn
+
+            results = tavily_search_fn(query, max_results=5)
+            if results:
+                return {"results": results, "source": "tavily", "query": query}
+        except Exception as e:
+            logger.debug("Tavily search failed in web_search tool: %s", e)
+
+        # Fallback to web scraper router
+        try:
+            from web_scraper_router import search_web
+
+            results = search_web(query)
+            if results:
+                return {"results": results, "source": "web_scraper", "query": query}
+        except Exception as e:
+            logger.debug("Web scraper search failed in web_search tool: %s", e)
+
+        return {
+            "results": [],
+            "source": "none",
+            "query": query,
+            "note": "Web search unavailable",
+        }
+
+    def _knowledge_search(self, params: dict) -> dict:
+        """Semantic search across the Nova knowledge base."""
+        query = params.get("query") or ""
+        top_k = params.get("top_k") or 3
+        if not query:
+            return {"results": [], "error": "No query provided"}
+
+        # Try vector search
+        try:
+            from vector_search import search as vector_search_fn
+
+            results = vector_search_fn(query, top_k=top_k)
+            if results:
+                return {"results": results, "source": "vector_search", "query": query}
+        except Exception as e:
+            logger.debug("Vector search failed in knowledge_search tool: %s", e)
+
+        # Fallback: keyword search in data cache
+        matches = []
+        query_lower = query.lower()
+        for key, data in self._data_cache.items():
+            if isinstance(data, dict):
+                data_str = json.dumps(data, default=str)[:2000].lower()
+                if query_lower in data_str:
+                    matches.append({"key": key, "relevance": "keyword_match"})
+        return {
+            "results": matches[:top_k],
+            "source": "keyword_fallback",
+            "query": query,
+        }
+
+    def _scrape_url(self, params: dict) -> dict:
+        """Scrape a web page URL to extract its content."""
+        url = params.get("url") or ""
+        if not url:
+            return {"content": "", "error": "No URL provided"}
+
+        try:
+            from web_scraper_router import scrape_url as wsr_scrape
+
+            result = wsr_scrape(url)
+            if result:
+                # Truncate to avoid token overflow
+                content = (
+                    result.get("content", "")
+                    if isinstance(result, dict)
+                    else str(result)
+                )
+                content = content[:3000]
+                return {
+                    "content": content,
+                    "url": url,
+                    "source": (
+                        result.get("provider", "unknown")
+                        if isinstance(result, dict)
+                        else "unknown"
+                    ),
+                }
+        except Exception as e:
+            logger.debug("URL scrape failed in scrape_url tool: %s", e)
+
+        return {"content": "", "url": url, "error": "Scraping unavailable"}
+
+    # ------------------------------------------------------------------
     # Chat orchestration
     # ------------------------------------------------------------------
 
@@ -5979,26 +6130,46 @@ When API-enriched context is available in the session, prioritize it as the most
 
         # Build system prompt (condensed version for free LLMs -- no tool instructions)
         system_prompt = (
-            "You are Nova, a recruitment marketing AI assistant built by Joveo. "
-            "PERSONALITY: Be warm, professional, and approachable -- like a friendly expert colleague. "
-            "For casual/social messages, be personable and brief. Never say 'I'm just a "
-            "computer program'. Engage warmly and redirect to recruitment marketing help. "
+            "You are Nova, Joveo's senior recruitment marketing intelligence analyst. "
+            "You are a domain expert, not a generic assistant. "
+            "TONE: Confident, data-forward, decisive -- like a senior analyst presenting to a VP of TA. "
+            "For casual messages, be personable and brief, then redirect to recruitment insights. "
             "RULES: (1) Answer ONLY what was asked -- 1-3 sentences for simple questions. "
+            "LEAD with specific numbers when available, not vague statements. "
             "(2) If missing location or industry, ASK. Auto-classify obvious roles "
-            "(nurse/doctor = clinical, driver/warehouse = blue collar, engineer = white collar). "
+            "(nurse = clinical, driver = blue collar, engineer = white collar). "
             "Do NOT assume a country or location. "
             "(3) NEVER invent CPC, CPA, CPH, salary, or benchmark statistics. "
-            "(4) Use markdown formatting: **bold** for key numbers, ## headers for sections, "
-            "tables for comparisons. Be concise but data-rich. "
+            "If you have data, state it with the source: '$85K median (Adzuna)'. "
+            "(4) Use markdown: **bold** for key metrics, ## headers, | tables | for comparisons. "
             "(5) Joveo is a programmatic recruitment marketing PLATFORM with 10,238+ supply partners. "
-            "NEVER suggest publishers as 'alternatives' to Joveo. Position Joveo favorably. "
-            "(6) NEVER say 'I can't help' or any refusal language. Always provide value."
+            "NEVER suggest publishers as 'alternatives' to Joveo. "
+            "(6) NEVER say 'I can't help'. Always provide actionable value."
         )
         # Add enrichment context if available
         if enrichment_context:
             context_summary = _summarize_enrichment(enrichment_context)
             if context_summary:
                 system_prompt += f"\n\nCurrent session context:\n{context_summary}"
+
+        # Auto-ground with vector search
+        try:
+            from vector_search import search as _vs_search
+
+            vs_results = _vs_search(user_message, top_k=3)
+            if vs_results:
+                context_snippets = []
+                for r in vs_results[:3]:
+                    snippet = r.get("text", r.get("content", ""))[:500]
+                    if snippet:
+                        context_snippets.append(snippet)
+                if context_snippets:
+                    system_prompt += (
+                        "\n\nRelevant context from knowledge base:\n"
+                        + "\n---\n".join(context_snippets)
+                    )
+        except Exception:
+            pass  # Vector search is optional enhancement
 
         try:
             task_type = classify_task(user_message)
@@ -6153,6 +6324,25 @@ When API-enriched context is available in the session, prioritize it as the most
             context_summary = _summarize_enrichment(enrichment_context)
             if context_summary:
                 system_prompt += f"\n\nCurrent session context:\n{context_summary}"
+
+        # Auto-ground with vector search
+        try:
+            from vector_search import search as _vs_search
+
+            vs_results = _vs_search(user_message, top_k=3)
+            if vs_results:
+                context_snippets = []
+                for r in vs_results[:3]:
+                    snippet = r.get("text", r.get("content", ""))[:500]
+                    if snippet:
+                        context_snippets.append(snippet)
+                if context_snippets:
+                    system_prompt += (
+                        "\n\nRelevant context from knowledge base:\n"
+                        + "\n---\n".join(context_snippets)
+                    )
+        except Exception:
+            pass  # Vector search is optional enhancement
 
         # Get tool definitions (Anthropic format -- llm_router auto-converts to OpenAI)
         tool_defs = self.get_tool_definitions()
@@ -6584,7 +6774,7 @@ When API-enriched context is available in the session, prioritize it as the most
         if enrichment_context:
             context_summary = _summarize_enrichment(enrichment_context)
             dynamic_parts.append(
-                f"## ACTIVE SESSION CONTEXT\nThe user is working on a media plan with the following parameters:\n{context_summary}\nUse this context to provide more relevant answers."
+                f"## ACTIVE SESSION CONTEXT\nThe user is working on a media plan with the following parameters:\n{context_summary}\n\nWhen any of the above data points (salary, demand, economic indicators, benchmarks) are relevant to the user's question, CITE THEM with specific numbers and source names. For example: 'The median salary is $X (Source: Adzuna)' or 'Current unemployment in this sector is X% (Source: FRED)'."
             )
         if conversation_history and len(conversation_history) > 2:
             memory_summary = _build_conversation_memory(conversation_history)
@@ -6592,6 +6782,26 @@ When API-enriched context is available in the session, prioritize it as the most
                 dynamic_parts.append(
                     f"## CONVERSATION MEMORY\nKey context from this conversation so far:\n{memory_summary}"
                 )
+
+        # Auto-ground with vector search
+        try:
+            from vector_search import search as _vs_search
+
+            vs_results = _vs_search(user_message, top_k=3)
+            if vs_results:
+                context_snippets = []
+                for r in vs_results[:3]:
+                    snippet = r.get("text", r.get("content", ""))[:500]
+                    if snippet:
+                        context_snippets.append(snippet)
+                if context_snippets:
+                    dynamic_parts.append(
+                        "## KNOWLEDGE BASE CONTEXT\nRelevant context from knowledge base:\n"
+                        + "\n---\n".join(context_snippets)
+                    )
+        except Exception:
+            pass  # Vector search is optional enhancement
+
         if dynamic_parts:
             system_content.append(
                 {
@@ -8820,8 +9030,12 @@ def _build_conversation_memory(history: list) -> str:
 
 
 def _summarize_enrichment(context: dict) -> str:
-    """Create a brief text summary of enrichment context."""
-    parts = []
+    """Create a detailed text summary of enrichment context including actual data values.
+
+    This function translates raw enrichment data into a structured context block
+    that the LLM can use to cite specific numbers in its response.
+    """
+    parts: list[str] = []
     if context.get("roles"):
         roles = context["roles"]
         if isinstance(roles, list):
@@ -8858,6 +9072,84 @@ def _summarize_enrichment(context: dict) -> str:
                 for r in target[:5]
             ]
             parts.append(f"Target Roles: {', '.join(names)}")
+
+    # --- Include actual enrichment data values so LLM can cite specific numbers ---
+    enriched = context.get("enriched") or {}
+    synthesized = context.get("synthesized") or {}
+
+    # Salary data
+    salary = enriched.get("salary") or synthesized.get("salary") or {}
+    if isinstance(salary, dict) and salary:
+        sal_parts = []
+        if salary.get("median"):
+            sal_parts.append(f"Median: ${salary['median']:,.0f}")
+        if salary.get("min") and salary.get("max"):
+            sal_parts.append(f"Range: ${salary['min']:,.0f}-${salary['max']:,.0f}")
+        elif salary.get("range"):
+            sal_parts.append(f"Range: {salary['range']}")
+        if salary.get("percentile_25") and salary.get("percentile_75"):
+            sal_parts.append(
+                f"P25-P75: ${salary['percentile_25']:,.0f}-${salary['percentile_75']:,.0f}"
+            )
+        if salary.get("source"):
+            sal_parts.append(f"Source: {salary['source']}")
+        if sal_parts:
+            parts.append(f"SALARY DATA: {'; '.join(sal_parts)}")
+
+    # Job market / demand data
+    demand = (
+        enriched.get("demand")
+        or enriched.get("market_demand")
+        or synthesized.get("demand")
+        or {}
+    )
+    if isinstance(demand, dict) and demand:
+        dem_parts = []
+        if demand.get("job_count") or demand.get("total_jobs"):
+            dem_parts.append(
+                f"Active postings: {demand.get('job_count') or demand.get('total_jobs'):,}"
+            )
+        if demand.get("unemployment_rate"):
+            dem_parts.append(f"Unemployment: {demand['unemployment_rate']}%")
+        if demand.get("hiring_difficulty"):
+            dem_parts.append(f"Hiring difficulty: {demand['hiring_difficulty']}")
+        if demand.get("applicant_ratio"):
+            dem_parts.append(f"Applicant ratio: {demand['applicant_ratio']}")
+        if demand.get("source"):
+            dem_parts.append(f"Source: {demand['source']}")
+        if dem_parts:
+            parts.append(f"MARKET DEMAND: {'; '.join(dem_parts)}")
+
+    # Economic indicators
+    econ = (
+        enriched.get("economic")
+        or enriched.get("fred")
+        or synthesized.get("economic")
+        or {}
+    )
+    if isinstance(econ, dict) and econ:
+        econ_parts = []
+        for key in ("unemployment_rate", "cpi", "gdp_growth", "inflation_rate"):
+            val = econ.get(key)
+            if val is not None:
+                label = key.replace("_", " ").title()
+                econ_parts.append(f"{label}: {val}")
+        if econ_parts:
+            parts.append(f"ECONOMIC INDICATORS (FRED): {'; '.join(econ_parts)}")
+
+    # Channel benchmarks
+    benchmarks = enriched.get("benchmarks") or synthesized.get("benchmarks") or {}
+    if isinstance(benchmarks, dict) and benchmarks:
+        bench_parts = []
+        if benchmarks.get("cpa"):
+            bench_parts.append(f"CPA: ${benchmarks['cpa']}")
+        if benchmarks.get("cpc"):
+            bench_parts.append(f"CPC: ${benchmarks['cpc']}")
+        if benchmarks.get("ctr"):
+            bench_parts.append(f"CTR: {benchmarks['ctr']}%")
+        if bench_parts:
+            parts.append(f"BENCHMARKS: {'; '.join(bench_parts)}")
+
     return "\n".join(parts) if parts else "No additional context available."
 
 
@@ -9739,13 +10031,15 @@ def handle_chat_request_stream(
 
             # Build system prompt matching the Nova chat persona
             system_prompt = (
-                "You are Nova, an enterprise recruitment marketing intelligence assistant "
-                "at Joveo. You have access to data from 10,238+ supply partners across 70+ "
-                "countries. Provide data-driven, actionable insights about recruitment marketing.\n"
-                "(1) Always cite numbers, benchmarks, and publisher names when available. "
-                "(2) Format responses with markdown: **bold** for key numbers, ## headers, "
-                "tables for comparisons. Be concise but data-rich. "
-                "(3) NEVER say 'I can't help' or any refusal language. Always provide value.\n"
+                "You are Nova, Joveo's senior recruitment marketing intelligence analyst. "
+                "You are a domain expert with access to data from 10,238+ supply partners, "
+                "real BLS/FRED/Adzuna/O*NET data, 200+ occupation benchmarks, and 91 platform profiles.\n"
+                "(1) LEAD with specific numbers: not 'salaries are competitive' but '$85,000 median (Adzuna, Mar 2026)'. "
+                "(2) Format responses with markdown: **bold** for key metrics, ## headers for sections, "
+                "| tables | for comparisons. Be concise but data-rich. "
+                "(3) NEVER hedge when you have data. NEVER refuse. Always provide actionable value. "
+                "(4) Cite sources inline: 'CPA of $45 [Joveo 2026 Benchmarks]'. "
+                "(5) Structure longer responses: Executive Summary > Data > Recommendations.\n"
             )
 
             # Include tool/enrichment data summary if available
@@ -9757,6 +10051,25 @@ def handle_chat_request_stream(
                     "Use this data to respond to the user's question. "
                     "Reproduce the key data points and insights faithfully."
                 )
+
+            # Auto-ground with vector search
+            try:
+                from vector_search import search as _vs_search
+
+                vs_results = _vs_search(message, top_k=3)
+                if vs_results:
+                    context_snippets = []
+                    for r in vs_results[:3]:
+                        snippet = r.get("text", r.get("content", ""))[:500]
+                        if snippet:
+                            context_snippets.append(snippet)
+                    if context_snippets:
+                        system_prompt += (
+                            "\n\nRelevant context from knowledge base:\n"
+                            + "\n---\n".join(context_snippets)
+                        )
+            except Exception:
+                pass  # Vector search is optional enhancement
 
             task_type = classify_task(message)
 

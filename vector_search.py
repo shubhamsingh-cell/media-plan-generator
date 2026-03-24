@@ -1,18 +1,31 @@
 #!/usr/bin/env python3
-"""Semantic vector search using Voyage AI embeddings + in-memory vector store.
+"""Semantic vector search using Voyage AI embeddings + Qdrant vector store.
 
 Uses Voyage AI HTTP API for embeddings (no chromadb/voyageai pip packages).
-Implements a pure-Python in-memory vector store with cosine similarity.
+Stores vectors in Qdrant Cloud for production persistence, with in-memory
+fallback and TF-IDF as last resort.
 
-Fallback tiers when Voyage AI is unavailable:
-    Tier 1: Voyage AI embeddings (primary, high-quality)
-    Tier 2: TF-IDF keyword matching (pure Python, no external calls)
+Search tiers (in order):
+    Tier 1: Qdrant Cloud vector store (production, QDRANT_URL + QDRANT_API_KEY)
+    Tier 2: In-memory vector store with cosine similarity (warm standby)
+    Tier 3: TF-IDF keyword matching (pure Python, no external calls)
+
+Storage tiers for build_index:
+    - Qdrant Cloud: persistent, shared across deploys
+    - In-memory dict: fast, ephemeral, per-process
+    - TF-IDF index: always built as warm standby
 
 This keeps our stdlib-only approach while enabling semantic search across
 the Nova knowledge base.
 
-API: POST https://api.voyageai.com/v1/embeddings
-Env var: VOYAGE_API_KEY (sign up at https://www.voyageai.com -- 200M free tokens)
+APIs:
+    Voyage AI: POST https://api.voyageai.com/v1/embeddings
+    Qdrant:    REST API at QDRANT_URL (collection: nova_knowledge, 1024-dim cosine)
+
+Env vars:
+    VOYAGE_API_KEY  -- Voyage AI embeddings (200M free tokens)
+    QDRANT_URL      -- Qdrant Cloud cluster URL
+    QDRANT_API_KEY  -- Qdrant Cloud API key
 
 All functions:
     - Return empty/None on failure (never raise)
@@ -47,6 +60,15 @@ _VOYAGE_RPM_LIMIT = 10  # Voyage free tier: ~10 req/min
 _voyage_request_times: list[float] = []
 _voyage_rate_lock = threading.Lock()
 
+# ── Qdrant Configuration ────────────────────────────────────────────────────
+_QDRANT_URL: str = os.environ.get("QDRANT_URL") or ""
+_QDRANT_API_KEY: str = os.environ.get("QDRANT_API_KEY") or ""
+_QDRANT_COLLECTION = "nova_knowledge"
+_QDRANT_VECTOR_DIM = 1024  # Voyage AI voyage-3-lite default dimension
+_QDRANT_TIMEOUT = 15  # seconds
+_qdrant_available: bool = False  # set True after successful collection create/verify
+_qdrant_lock = threading.Lock()
+
 
 def _is_voyage_rate_limited() -> bool:
     """Check if we've exceeded Voyage AI rate limit."""
@@ -69,6 +91,199 @@ def _get_api_key() -> str | None:
     if _VOYAGE_API_KEY is None:
         _VOYAGE_API_KEY = os.environ.get("VOYAGE_API_KEY") or ""
     return _VOYAGE_API_KEY if _VOYAGE_API_KEY else None
+
+
+# ── Qdrant REST API helpers (stdlib-only, no pip packages) ───────────────────
+
+
+def _qdrant_is_configured() -> bool:
+    """Check if Qdrant credentials are present in environment."""
+    return bool(_QDRANT_URL and _QDRANT_API_KEY)
+
+
+def _qdrant_request(
+    method: str,
+    path: str,
+    body: dict | None = None,
+    timeout: int = _QDRANT_TIMEOUT,
+) -> dict | None:
+    """Send an HTTP request to the Qdrant REST API.
+
+    Args:
+        method: HTTP method (GET, PUT, POST, DELETE).
+        path: API path (e.g., /collections/nova_knowledge).
+        body: Optional JSON body.
+        timeout: Request timeout in seconds.
+
+    Returns:
+        Parsed JSON response dict, or None on failure.
+    """
+    if not _qdrant_is_configured():
+        return None
+
+    # Strip trailing slash from URL, ensure path starts with /
+    base = _QDRANT_URL.rstrip("/")
+    if not path.startswith("/"):
+        path = f"/{path}"
+
+    url = f"{base}{path}"
+    headers = {
+        "api-key": _QDRANT_API_KEY,
+        "Content-Type": "application/json",
+    }
+
+    data = json.dumps(body).encode("utf-8") if body else None
+
+    try:
+        req = urllib.request.Request(url, data=data, headers=headers, method=method)
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            resp_body = resp.read().decode("utf-8")
+            if resp_body:
+                return json.loads(resp_body)
+            return {"status": "ok"}
+    except urllib.error.HTTPError as exc:
+        resp_text = ""
+        try:
+            resp_text = exc.read().decode("utf-8")[:500]
+        except Exception:
+            pass
+        logger.error(
+            "Qdrant API error %d %s for %s %s: %s",
+            exc.code,
+            exc.reason,
+            method,
+            path,
+            resp_text,
+            exc_info=True,
+        )
+        return None
+    except (urllib.error.URLError, OSError, json.JSONDecodeError, ValueError) as exc:
+        logger.error(
+            "Qdrant request error for %s %s: %s", method, path, exc, exc_info=True
+        )
+        return None
+
+
+def _qdrant_ensure_collection() -> bool:
+    """Create the Qdrant collection if it does not already exist.
+
+    Uses PUT with on_existing=skip to be idempotent. Sets up cosine
+    distance with the correct vector dimension for Voyage AI embeddings.
+
+    Returns:
+        True if collection exists or was created, False on failure.
+    """
+    global _qdrant_available
+
+    if not _qdrant_is_configured():
+        return False
+
+    # Check if collection already exists
+    check = _qdrant_request("GET", f"/collections/{_QDRANT_COLLECTION}")
+    if check and check.get("result"):
+        _qdrant_available = True
+        logger.info("Qdrant collection '%s' already exists", _QDRANT_COLLECTION)
+        return True
+
+    # Create collection
+    result = _qdrant_request(
+        "PUT",
+        f"/collections/{_QDRANT_COLLECTION}",
+        body={
+            "vectors": {
+                "size": _QDRANT_VECTOR_DIM,
+                "distance": "Cosine",
+            }
+        },
+    )
+    if result is not None:
+        _qdrant_available = True
+        logger.info("Qdrant collection '%s' created successfully", _QDRANT_COLLECTION)
+        return True
+
+    logger.warning("Failed to create Qdrant collection '%s'", _QDRANT_COLLECTION)
+    return False
+
+
+def _qdrant_upsert_points(
+    points: list[dict],
+) -> bool:
+    """Upsert points (vectors + payload) into the Qdrant collection.
+
+    Points are batched into chunks of 100 for the REST API.
+
+    Args:
+        points: List of dicts with keys: id (int), vector (list[float]),
+                payload (dict with text, doc_id, metadata).
+
+    Returns:
+        True if all batches succeeded, False if any failed.
+    """
+    if not _qdrant_available or not points:
+        return False
+
+    batch_size = 100
+    success = True
+
+    for i in range(0, len(points), batch_size):
+        batch = points[i : i + batch_size]
+        result = _qdrant_request(
+            "PUT",
+            f"/collections/{_QDRANT_COLLECTION}/points",
+            body={"points": batch},
+            timeout=30,  # larger batches need more time
+        )
+        if result is None:
+            success = False
+            logger.warning("Qdrant upsert batch %d-%d failed", i, i + len(batch))
+
+    return success
+
+
+def _qdrant_search(
+    query_vector: list[float],
+    top_k: int = 5,
+) -> list[dict] | None:
+    """Search Qdrant collection for nearest neighbors.
+
+    Args:
+        query_vector: Query embedding vector (1024-dim for voyage-3-lite).
+        top_k: Number of results to return.
+
+    Returns:
+        List of result dicts with keys: id, text, metadata, score.
+        Returns None on failure (so caller can fall back to in-memory).
+    """
+    if not _qdrant_available:
+        return None
+
+    result = _qdrant_request(
+        "POST",
+        f"/collections/{_QDRANT_COLLECTION}/points/search",
+        body={
+            "vector": query_vector,
+            "limit": top_k,
+            "with_payload": True,
+        },
+    )
+
+    if result is None or "result" not in result:
+        return None
+
+    hits = result.get("result") or []
+    results: list[dict] = []
+    for hit in hits:
+        payload = hit.get("payload") or {}
+        results.append(
+            {
+                "id": payload.get("doc_id") or str(hit.get("id", "")),
+                "text": (payload.get("text") or "")[:500],
+                "metadata": payload.get("metadata") or {},
+                "score": round(hit.get("score", 0.0), 4),
+            }
+        )
+
+    return results
 
 
 # ── In-memory vector index ───────────────────────────────────────────────────
@@ -277,6 +492,36 @@ def build_index(documents: list[dict]) -> None:
         _index.extend(new_entries)
         _index_built = True
 
+    # Upsert into Qdrant production vector store (if configured)
+    _qdrant_index_count = 0
+    if _qdrant_is_configured():
+        try:
+            if _qdrant_ensure_collection():
+                qdrant_points: list[dict] = []
+                for idx, entry in enumerate(new_entries):
+                    qdrant_points.append(
+                        {
+                            "id": abs(hash(entry["id"])) % (2**63),  # int64 ID
+                            "vector": entry["embedding"],
+                            "payload": {
+                                "doc_id": entry["id"],
+                                "text": entry["text"][:2000],
+                                "metadata": entry["metadata"],
+                            },
+                        }
+                    )
+                if _qdrant_upsert_points(qdrant_points):
+                    _qdrant_index_count = len(qdrant_points)
+                    logger.info(
+                        "Qdrant: upserted %d vectors into '%s'",
+                        _qdrant_index_count,
+                        _QDRANT_COLLECTION,
+                    )
+                else:
+                    logger.warning("Qdrant: partial or full upsert failure")
+        except (OSError, ValueError, TypeError) as exc:
+            logger.error("Qdrant indexing error: %s", exc, exc_info=True)
+
     # Also build TF-IDF index as a warm standby for runtime fallback
     _build_tfidf_index(
         [
@@ -289,17 +534,22 @@ def build_index(documents: list[dict]) -> None:
         ]
     )
 
+    qdrant_msg = f", Qdrant: {_qdrant_index_count}" if _qdrant_index_count else ""
     logger.info(
-        "Vector index built: %d documents indexed (total: %d)",
+        "Vector index built: %d documents indexed (total: %d%s)",
         len(new_entries),
         len(_index),
+        qdrant_msg,
     )
 
 
 def search(query: str, top_k: int = 5) -> list[dict]:
     """Semantic search across indexed documents.
 
-    Tries Voyage AI embeddings first; falls back to TF-IDF keyword search.
+    Tries in order:
+        1. Qdrant vector store (production, if configured)
+        2. In-memory vector search (Voyage AI embeddings)
+        3. TF-IDF keyword search (pure Python fallback)
 
     Args:
         query: Natural language search query.
@@ -309,34 +559,53 @@ def search(query: str, top_k: int = 5) -> list[dict]:
         List of dicts with keys: id, text, metadata, score.
         Returns empty list on failure.
     """
-    # Tier 1: Voyage AI vector search
-    if _index:
+    query_embedding: list[float] | None = None
+
+    # Get embedding once (shared by Qdrant and in-memory tiers)
+    if _qdrant_available or _index:
         query_embedding = embed_text(query)
-        if query_embedding is not None:
-            scored: list[tuple[float, dict]] = []
-            with _index_lock:
-                for entry in _index:
-                    sim = _cosine_similarity(query_embedding, entry["embedding"])
-                    scored.append((sim, entry))
 
-            scored.sort(key=lambda x: x[0], reverse=True)
-
-            results: list[dict] = []
-            for score, entry in scored[:top_k]:
-                results.append(
-                    {
-                        "id": entry["id"],
-                        "text": entry["text"][:500],
-                        "metadata": entry["metadata"],
-                        "score": round(score, 4),
-                    }
+    # Tier 1: Qdrant production vector store
+    if _qdrant_available and query_embedding is not None:
+        try:
+            qdrant_results = _qdrant_search(query_embedding, top_k=top_k)
+            if qdrant_results:
+                logger.debug(
+                    "Qdrant search returned %d results for query=%s",
+                    len(qdrant_results),
+                    query[:50],
                 )
-            return results
+                return qdrant_results
+        except (OSError, ValueError, TypeError) as exc:
+            logger.error("Qdrant search error, falling back: %s", exc, exc_info=True)
 
+    # Tier 2: In-memory Voyage AI vector search
+    if _index and query_embedding is not None:
+        scored: list[tuple[float, dict]] = []
+        with _index_lock:
+            for entry in _index:
+                sim = _cosine_similarity(query_embedding, entry["embedding"])
+                scored.append((sim, entry))
+
+        scored.sort(key=lambda x: x[0], reverse=True)
+
+        results: list[dict] = []
+        for score, entry in scored[:top_k]:
+            results.append(
+                {
+                    "id": entry["id"],
+                    "text": entry["text"][:500],
+                    "metadata": entry["metadata"],
+                    "score": round(score, 4),
+                }
+            )
+        return results
+
+    if query_embedding is None and (_qdrant_available or _index):
         # Voyage AI failed at query time -- fall through to TF-IDF
         logger.warning("Voyage AI embedding failed for query, falling back to TF-IDF")
 
-    # Tier 2: TF-IDF keyword search fallback
+    # Tier 3: TF-IDF keyword search fallback
     tfidf_results = _tfidf_search(query, top_k=top_k)
     if tfidf_results:
         logger.info(

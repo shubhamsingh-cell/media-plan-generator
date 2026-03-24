@@ -2102,3 +2102,87 @@ def reset_router() -> None:
     global _router
     with _router_lock:
         _router = None
+
+
+# =============================================================================
+# CONVENIENCE FACADE (Phase 6: makes resilience routing easy for product code)
+# =============================================================================
+
+
+def resilient_fetch(service: str, operation: str, **kwargs: Any) -> Any:
+    """One-line resilient service call with automatic fallback.
+
+    Usage:
+        result = resilient_fetch("caching", "get", key="my_key")
+        result = resilient_fetch("database", "query", table="users")
+        result = resilient_fetch("email", "send", to="user@example.com", subject="Hi", body="Hello")
+        result = resilient_fetch("analytics", "track", event="page_view")
+        result = resilient_fetch("web_scraping", "scrape", url="https://example.com")
+
+    Falls through service tiers automatically on failure.
+    Returns None if all tiers exhausted or service/operation is unknown.
+
+    Args:
+        service: Service category (caching, database, email, analytics, errors, logging,
+                 web_scraping, deck_generation).
+        operation: Operation name (get, set, query, send, track, etc.).
+        **kwargs: Operation-specific keyword arguments.
+
+    Returns:
+        Operation result, or None on total failure.
+    """
+    router = get_router()
+    try:
+        return router.execute(service, operation, **kwargs)
+    except ValueError as e:
+        logger.warning(
+            "[ResilienceFacade] Invalid service/operation %s.%s: %s",
+            service,
+            operation,
+            e,
+        )
+        return None
+    except Exception as e:
+        logger.error(
+            "[ResilienceFacade] All tiers exhausted for %s.%s: %s",
+            service,
+            operation,
+            e,
+            exc_info=True,
+        )
+        return None
+
+
+def get_resilience_summary() -> Dict[str, Any]:
+    """Get a compact summary of all service health for dashboards.
+
+    Returns:
+        Dict mapping service name to {healthy_tiers, active_tier, status}.
+        Status is one of: 'healthy', 'degraded', 'critical'.
+    """
+    router = get_router()
+    dashboard = router.get_health_dashboard()
+    summary: Dict[str, Any] = {}
+    services = dashboard.get("services", {})
+    for service_name, service_data in services.items():
+        if isinstance(service_data, dict):
+            tiers = service_data.get("tiers", [])
+            healthy = sum(
+                1 for t in tiers if isinstance(t, dict) and t.get("status") == "OK"
+            )
+            total = len(tiers)
+            active_tier = service_data.get("active_tier") or "none"
+            status = service_data.get("status", "down")
+            # Normalize to healthy/degraded/critical
+            if status == "healthy":
+                normalized = "healthy"
+            elif status == "degraded":
+                normalized = "degraded"
+            else:
+                normalized = "critical"
+            summary[service_name] = {
+                "healthy_tiers": f"{healthy}/{total}",
+                "active_tier": active_tier,
+                "status": normalized,
+            }
+    return summary

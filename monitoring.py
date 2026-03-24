@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
 # Constants
 # ---------------------------------------------------------------------------
 
-VERSION = "3.5.0"
+VERSION = "4.0.0"
 _START_TIME = time.time()
 DATA_DIR = Path(__file__).resolve().parent / "data"
 PERSISTENT_DIR = Path(__file__).resolve().parent / "data" / "persistent"
@@ -216,6 +216,336 @@ SLO_TARGETS: Dict[str, Dict[str, Any]] = {
 
 
 # ---------------------------------------------------------------------------
+# Module-Level SLO Definitions (3-Module Architecture v4.0)
+# ---------------------------------------------------------------------------
+
+MODULE_NAMES = ("command_center", "intelligence_hub", "nova_ai")
+
+MODULE_SLO_TARGETS: Dict[str, Dict[str, Any]] = {
+    "command_center": {
+        "p95_latency_ms": 5000,
+        "error_rate_pct": 2.0,
+        "availability_pct": 99.5,
+        "description": "Campaign planning & execution module",
+    },
+    "intelligence_hub": {
+        "p95_latency_ms": 8000,
+        "error_rate_pct": 5.0,
+        "availability_pct": 99.0,
+        "description": "Market/competitive/talent research module (web scraping)",
+    },
+    "nova_ai": {
+        "p95_latency_ms": 3000,
+        "error_rate_pct": 1.0,
+        "availability_pct": 99.9,
+        "description": "Persistent chat assistant module",
+    },
+}
+
+# Route -> module mapping for automatic classification
+_ROUTE_MODULE_MAP: Dict[str, str] = {
+    # Command Center routes
+    "/api/generate": "command_center",
+    "/api/quick-plan": "command_center",
+    "/api/budget": "command_center",
+    "/api/deck": "command_center",
+    "/api/export": "command_center",
+    "/api/sheets": "command_center",
+    "/fragment/command-center": "command_center",
+    # Intelligence Hub routes
+    "/api/research": "intelligence_hub",
+    "/api/competitive": "intelligence_hub",
+    "/api/market": "intelligence_hub",
+    "/api/talent": "intelligence_hub",
+    "/api/scrape": "intelligence_hub",
+    "/api/enrich": "intelligence_hub",
+    "/fragment/intelligence-hub": "intelligence_hub",
+    # Nova AI routes
+    "/api/chat": "nova_ai",
+    "/api/nova": "nova_ai",
+    "/api/conversations": "nova_ai",
+    "/api/voice": "nova_ai",
+    "/api/tts": "nova_ai",
+    "/fragment/nova-ai": "nova_ai",
+}
+
+
+def classify_route_to_module(endpoint: str) -> str:
+    """Classify an endpoint to its owning module.
+
+    Args:
+        endpoint: The request path (e.g., '/api/chat').
+
+    Returns:
+        Module name string, or empty string if unclassified.
+    """
+    if not endpoint:
+        return ""
+    # Exact match first
+    module = _ROUTE_MODULE_MAP.get(endpoint)
+    if module:
+        return module
+    # Prefix match
+    for route_prefix, mod in _ROUTE_MODULE_MAP.items():
+        if endpoint.startswith(route_prefix):
+            return mod
+    return ""
+
+
+# ---------------------------------------------------------------------------
+# Module Health Tracker (v4.0)
+# ---------------------------------------------------------------------------
+
+
+class ModuleHealthTracker:
+    """Track per-module health metrics for the 3-module architecture.
+
+    Each module (command_center, intelligence_hub, nova_ai) has independent
+    request counts, error rates, latency percentiles, and active user counts.
+    Thread-safe via a per-instance lock.
+    """
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._modules: Dict[str, Dict[str, Any]] = {}
+        for mod_name in MODULE_NAMES:
+            self._modules[mod_name] = {
+                "request_count": 0,
+                "error_count": 0,
+                "latencies": deque(maxlen=500),
+                "recent_requests": deque(),
+                "recent_errors": deque(),
+                "active_users": set(),
+                "user_last_seen": {},
+                "health_score": 100.0,
+                "status": "healthy",
+                "degraded_since": None,
+            }
+
+    def record_request(
+        self,
+        module: str,
+        latency_ms: float,
+        is_error: bool = False,
+        user_id: str = "",
+    ) -> None:
+        """Record a request for a specific module.
+
+        Args:
+            module: Module name (command_center, intelligence_hub, nova_ai).
+            latency_ms: Request latency in milliseconds.
+            is_error: Whether the request resulted in an error.
+            user_id: PostHog distinct_id or session identifier.
+        """
+        if module not in self._modules:
+            return
+        now = time.time()
+        with self._lock:
+            m = self._modules[module]
+            m["request_count"] += 1
+            m["latencies"].append(latency_ms)
+            m["recent_requests"].append(now)
+            if is_error:
+                m["error_count"] += 1
+                m["recent_errors"].append(now)
+            if user_id:
+                m["active_users"].add(user_id)
+                m["user_last_seen"][user_id] = now
+            # Prune rolling windows (1 hour)
+            cutoff = now - METRICS_WINDOW
+            while m["recent_requests"] and m["recent_requests"][0] < cutoff:
+                m["recent_requests"].popleft()
+            while m["recent_errors"] and m["recent_errors"][0] < cutoff:
+                m["recent_errors"].popleft()
+            # Prune stale users (inactive > 30 minutes)
+            user_cutoff = now - 1800
+            stale_users = [
+                uid for uid, ts in m["user_last_seen"].items() if ts < user_cutoff
+            ]
+            for uid in stale_users:
+                m["active_users"].discard(uid)
+                del m["user_last_seen"][uid]
+
+    def compute_health_scores(self) -> Dict[str, Dict[str, Any]]:
+        """Compute health scores and SLO compliance for all modules.
+
+        Returns:
+            Dict mapping module name to health data including score,
+            status, SLO compliance, and metrics.
+        """
+        result: Dict[str, Dict[str, Any]] = {}
+        now = time.time()
+
+        # Check LLM router degradation for circuit breaker awareness
+        llm_degradation_pct = _get_llm_degradation_pct()
+
+        with self._lock:
+            for mod_name in MODULE_NAMES:
+                m = self._modules[mod_name]
+                slo = MODULE_SLO_TARGETS[mod_name]
+
+                # Calculate metrics
+                window_requests = len(m["recent_requests"])
+                window_errors = len(m["recent_errors"])
+                error_rate = (
+                    (window_errors / window_requests * 100)
+                    if window_requests > 0
+                    else 0.0
+                )
+                latencies = sorted(m["latencies"])
+                p50 = _percentile(latencies, 50)
+                p95 = _percentile(latencies, 95)
+                p99 = _percentile(latencies, 99)
+                avg_latency = (sum(latencies) / len(latencies)) if latencies else 0.0
+
+                # SLO compliance checks
+                latency_compliant = p95 <= slo["p95_latency_ms"]
+                error_compliant = error_rate <= slo["error_rate_pct"]
+                # Availability: percentage of non-error requests
+                total = max(1, m["request_count"])
+                availability = ((total - m["error_count"]) / total) * 100
+                availability_compliant = availability >= slo["availability_pct"]
+
+                # Compute health score (0-100)
+                score = 100.0
+                if not latency_compliant:
+                    overshoot = (p95 - slo["p95_latency_ms"]) / slo["p95_latency_ms"]
+                    score -= min(30, overshoot * 30)
+                if not error_compliant:
+                    overshoot = (error_rate - slo["error_rate_pct"]) / max(
+                        0.1, slo["error_rate_pct"]
+                    )
+                    score -= min(40, overshoot * 40)
+                if not availability_compliant:
+                    deficit = slo["availability_pct"] - availability
+                    score -= min(30, deficit * 10)
+
+                # Circuit breaker awareness: Nova AI degrades if LLM router is degraded
+                if mod_name == "nova_ai" and llm_degradation_pct > 50:
+                    score = min(score, 50.0)
+
+                score = max(0.0, round(score, 1))
+
+                # Determine status
+                if score >= 90:
+                    status = "healthy"
+                elif score >= 60:
+                    status = "degraded"
+                else:
+                    status = "critical"
+
+                # Track degraded_since
+                prev_status = m["status"]
+                if status != "healthy" and prev_status == "healthy":
+                    m["degraded_since"] = datetime.now(timezone.utc).isoformat()
+                elif status == "healthy":
+                    m["degraded_since"] = None
+
+                m["health_score"] = score
+                m["status"] = status
+
+                result[mod_name] = {
+                    "health_score": score,
+                    "status": status,
+                    "degraded_since": m["degraded_since"],
+                    "metrics": {
+                        "request_count": m["request_count"],
+                        "error_count": m["error_count"],
+                        "error_rate_pct": round(error_rate, 2),
+                        "active_users": len(m["active_users"]),
+                        "latency_ms": {
+                            "p50": round(p50, 1),
+                            "p95": round(p95, 1),
+                            "p99": round(p99, 1),
+                            "avg": round(avg_latency, 1),
+                        },
+                        "window_requests": window_requests,
+                    },
+                    "slo": {
+                        "p95_latency": {
+                            "target_ms": slo["p95_latency_ms"],
+                            "actual_ms": round(p95, 1),
+                            "compliant": latency_compliant,
+                        },
+                        "error_rate": {
+                            "target_pct": slo["error_rate_pct"],
+                            "actual_pct": round(error_rate, 2),
+                            "compliant": error_compliant,
+                        },
+                        "availability": {
+                            "target_pct": slo["availability_pct"],
+                            "actual_pct": round(availability, 2),
+                            "compliant": availability_compliant,
+                        },
+                    },
+                    "llm_degradation_flag": (
+                        mod_name == "nova_ai" and llm_degradation_pct > 50
+                    ),
+                }
+
+        return result
+
+    def get_module_summary(self) -> Dict[str, Any]:
+        """Return a lightweight summary of all module health for API responses."""
+        scores = self.compute_health_scores()
+        overall_healthy = all(v["status"] == "healthy" for v in scores.values())
+        return {
+            "modules": scores,
+            "overall_healthy": overall_healthy,
+            "checked_at": datetime.now(timezone.utc).isoformat(),
+        }
+
+
+def _get_llm_degradation_pct() -> float:
+    """Check LLM router for percentage of degraded providers.
+
+    Returns:
+        Percentage of providers that are degraded/circuit-open (0-100).
+    """
+    try:
+        import sys
+
+        if "llm_router" not in sys.modules:
+            return 0.0
+        lr = sys.modules["llm_router"]
+        states = getattr(lr, "_provider_states", {})
+        if not states:
+            return 0.0
+        now = time.time()
+        degraded = 0
+        total = 0
+        for pid, state in states.items():
+            total += 1
+            try:
+                with state.lock:
+                    if (
+                        state.consecutive_failures >= 3
+                        or state.circuit_open_until > now
+                    ):
+                        degraded += 1
+            except (AttributeError, RuntimeError):
+                continue
+        return (degraded / max(1, total)) * 100
+    except Exception:
+        return 0.0
+
+
+# Module-level tracker singleton
+_module_tracker: Optional["ModuleHealthTracker"] = None
+_module_tracker_lock = threading.Lock()
+
+
+def get_module_tracker() -> ModuleHealthTracker:
+    """Get or create the singleton ModuleHealthTracker (thread-safe)."""
+    global _module_tracker
+    if _module_tracker is None:
+        with _module_tracker_lock:
+            if _module_tracker is None:
+                _module_tracker = ModuleHealthTracker()
+    return _module_tracker
+
+
+# ---------------------------------------------------------------------------
 # Singleton Metrics Collector
 # ---------------------------------------------------------------------------
 
@@ -274,9 +604,18 @@ class MetricsCollector:
         self._api_latencies: deque = deque(maxlen=200)
 
     def record_request(
-        self, endpoint: str, method: str, status_code: int, latency_ms: float
+        self,
+        endpoint: str,
+        method: str,
+        status_code: int,
+        latency_ms: float,
+        user_id: str = "",
     ) -> None:
-        """Record a completed HTTP request."""
+        """Record a completed HTTP request.
+
+        Also feeds the module-level health tracker if the endpoint
+        maps to a known module.
+        """
         now = time.time()
         with self._req_lock:
             self.total_requests += 1
@@ -294,6 +633,20 @@ class MetricsCollector:
                 self._recent_requests.popleft()
             while self._recent_errors and self._recent_errors[0] < cutoff:
                 self._recent_errors.popleft()
+
+        # Feed module tracker (outside collector lock to avoid deadlock)
+        module = classify_route_to_module(endpoint)
+        if module:
+            try:
+                tracker = get_module_tracker()
+                tracker.record_request(
+                    module=module,
+                    latency_ms=latency_ms,
+                    is_error=status_code >= 400,
+                    user_id=user_id,
+                )
+            except Exception:
+                pass  # never break request recording
 
     def record_generation(self, duration_seconds: float) -> None:
         """Record a media plan generation event."""
@@ -1430,6 +1783,198 @@ class AuditLogger:
                 logger.warning("Audit persist failed: %s", e)
 
 
+# ---------------------------------------------------------------------------
+# Platform Observability Endpoint (v4.0)
+# ---------------------------------------------------------------------------
+
+
+def get_platform_observability() -> Dict[str, Any]:
+    """Return comprehensive platform observability data for /api/observability/platform.
+
+    Aggregates:
+    - Module health scores and SLO compliance (from ModuleHealthTracker)
+    - Self-healing stats per module (from sentry_integration)
+    - Dependency matrix status
+    - LLM Router v4 stats (provider health, rate limits, cache)
+    - Web scraper tier usage distribution
+    - Data API cross-fallback activation count
+    - PostHog event counts by type
+
+    Returns:
+        Dict with all observability data, suitable for JSON serialization.
+    """
+    result: Dict[str, Any] = {
+        "version": VERSION,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "uptime_seconds": round(time.time() - _START_TIME, 1),
+    }
+
+    # 1. Module health scores
+    try:
+        tracker = get_module_tracker()
+        result["module_health"] = tracker.get_module_summary()
+    except Exception as e:
+        result["module_health"] = {"error": str(e)}
+
+    # 2. Self-healing stats
+    try:
+        from sentry_integration import get_sentry_status, get_module_heal_stats
+
+        sentry_status = get_sentry_status()
+        result["self_healing"] = {
+            "module_stats": get_module_heal_stats(),
+            "fixes_this_hour": sentry_status.get("stats", {}).get("fixes_this_hour", 0),
+            "known_patterns": sentry_status.get("known_patterns", 0),
+            "recent_heals": sentry_status.get("recent_heals", [])[-5:],
+        }
+    except ImportError:
+        result["self_healing"] = {"error": "sentry_integration not available"}
+    except Exception as e:
+        result["self_healing"] = {"error": str(e)}
+
+    # 3. Dependency matrix status
+    try:
+        dep_status: Dict[str, Dict[str, str]] = {}
+        import sys as _sys
+
+        dep_checks = {
+            "command_center": {
+                "llm_router": "llm_router" in _sys.modules,
+                "data_orchestrator": "data_orchestrator" in _sys.modules,
+                "supabase": bool(os.environ.get("SUPABASE_URL")),
+                "knowledge_base": (
+                    DATA_DIR / "recruitment_industry_knowledge.json"
+                ).exists(),
+            },
+            "intelligence_hub": {
+                "web_scraper_router": "web_scraper_router" in _sys.modules,
+                "search_clients": bool(
+                    os.environ.get("TAVILY_API_KEY") or os.environ.get("SERPER_API_KEY")
+                ),
+                "data_apis": "api_integrations" in _sys.modules,
+                "supabase": bool(os.environ.get("SUPABASE_URL")),
+            },
+            "nova_ai": {
+                "llm_router_streaming": "llm_router" in _sys.modules,
+                "supabase": bool(os.environ.get("SUPABASE_URL")),
+                "elevenlabs": bool(os.environ.get("ELEVENLABS_API_KEY")),
+                "knowledge_base": (
+                    DATA_DIR / "recruitment_industry_knowledge.json"
+                ).exists(),
+            },
+        }
+        for mod_name, deps in dep_checks.items():
+            dep_status[mod_name] = {}
+            for dep_name, available in deps.items():
+                dep_status[mod_name][dep_name] = (
+                    "available" if available else "unavailable"
+                )
+        result["dependency_matrix"] = dep_status
+    except Exception as e:
+        result["dependency_matrix"] = {"error": str(e)}
+
+    # 4. LLM Router v4 stats
+    try:
+        import sys as _sys
+
+        if "llm_router" in _sys.modules:
+            lr = _sys.modules["llm_router"]
+            provider_health: Dict[str, Any] = {}
+            states = getattr(lr, "_provider_states", {})
+            now = time.time()
+            for pid, state in states.items():
+                try:
+                    with state.lock:
+                        provider_health[pid] = {
+                            "consecutive_failures": state.consecutive_failures,
+                            "circuit_open": state.circuit_open_until > now,
+                            "health_score": getattr(state, "health_score", 0),
+                        }
+                except (AttributeError, RuntimeError):
+                    provider_health[pid] = {"status": "unknown"}
+
+            # Response cache stats
+            cache = getattr(lr, "_response_cache", {})
+            cache_size = len(cache) if hasattr(cache, "__len__") else 0
+
+            result["llm_router"] = {
+                "provider_count": len(states),
+                "provider_health": provider_health,
+                "degradation_pct": round(_get_llm_degradation_pct(), 1),
+                "response_cache_size": cache_size,
+            }
+        else:
+            result["llm_router"] = {"status": "not_loaded"}
+    except Exception as e:
+        result["llm_router"] = {"error": str(e)}
+
+    # 5. Web scraper tier usage
+    try:
+        import sys as _sys
+
+        if "web_scraper_router" in _sys.modules:
+            wsr = _sys.modules["web_scraper_router"]
+            tier_stats = getattr(wsr, "_tier_usage_counts", {})
+            if callable(getattr(wsr, "get_tier_stats", None)):
+                tier_stats = wsr.get_tier_stats()
+            result["web_scraper"] = {
+                "tier_usage": dict(tier_stats) if tier_stats else {},
+                "preferred_tier": getattr(wsr, "_preferred_tier", 0),
+            }
+        else:
+            result["web_scraper"] = {"status": "not_loaded"}
+    except Exception as e:
+        result["web_scraper"] = {"error": str(e)}
+
+    # 6. Data API cross-fallback count
+    try:
+        import sys as _sys
+
+        if "data_orchestrator" in _sys.modules:
+            do = _sys.modules["data_orchestrator"]
+            fallback_telemetry = {}
+            if callable(getattr(do, "get_fallback_telemetry", None)):
+                fallback_telemetry = do.get_fallback_telemetry()
+            cache_stats = {}
+            if callable(getattr(do, "get_cache_stats", None)):
+                cache_stats = do.get_cache_stats()
+            result["data_api"] = {
+                "fallback_telemetry": fallback_telemetry,
+                "cache_stats": cache_stats,
+            }
+        else:
+            result["data_api"] = {"status": "not_loaded"}
+    except Exception as e:
+        result["data_api"] = {"error": str(e)}
+
+    # 7. PostHog event counts (if available)
+    try:
+        posthog_key = os.environ.get("POSTHOG_API_KEY") or ""
+        result["posthog"] = {
+            "configured": bool(posthog_key),
+            "note": "Event counts available via PostHog dashboard API",
+        }
+    except Exception as e:
+        result["posthog"] = {"error": str(e)}
+
+    # 8. Global metrics summary
+    try:
+        collector = MetricsCollector()
+        metrics = collector.get_metrics()
+        result["global_metrics"] = {
+            "total_requests": metrics.get("total_requests", 0),
+            "total_errors": metrics.get("total_errors", 0),
+            "error_rate_pct": metrics.get("error_rate_pct", 0),
+            "rpm": metrics.get("requests_per_minute", 0),
+            "latency_p95_ms": metrics.get("latency_ms", {}).get("p95", 0),
+            "chat_routing": metrics.get("chat_routing", {}),
+        }
+    except Exception as e:
+        result["global_metrics"] = {"error": str(e)}
+
+    return result
+
+
 def _safe_serialize(obj: Any, max_depth: int = 3) -> Any:
     """Safely serialize an object for JSON, truncating large values."""
     if max_depth <= 0:
@@ -1452,3 +1997,188 @@ def _safe_serialize(obj: Any, max_depth: int = 3) -> Any:
             return result
         return {k: _safe_serialize(v, max_depth - 1) for k, v in obj.items()}
     return str(obj)[:200]
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# MONITORING-TO-ALERTING BRIDGE (Phase 6: closes the observability loop)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class MonitoringAlertBridge:
+    """Bridges monitoring metrics to alert_manager for proactive alerting.
+
+    Checks SLO compliance every 60 seconds and fires alerts when:
+    - Error rate exceeds SLO target for any module
+    - Latency p99 exceeds SLO target
+    - Module health score drops below threshold
+    """
+
+    def __init__(self, check_interval: int = 60) -> None:
+        self._interval = check_interval
+        self._running = False
+        self._thread: Optional[threading.Thread] = None
+        self._alert_cooldowns: dict[str, float] = {}  # alert_key -> last_fired_ts
+        self._cooldown_period = 300  # 5 min between same alerts
+        self._lock = threading.Lock()
+
+    def start(self) -> None:
+        """Start the alerting bridge background thread."""
+        if self._running:
+            return
+        self._running = True
+        self._thread = threading.Thread(
+            target=self._run_loop, daemon=True, name="monitor-alert-bridge"
+        )
+        self._thread.start()
+        logger.info("[MonitorAlertBridge] Started (interval: %ds)", self._interval)
+
+    def stop(self) -> None:
+        """Stop the alerting bridge."""
+        self._running = False
+
+    def _should_alert(self, key: str) -> bool:
+        """Check if we should fire this alert (respects cooldown)."""
+        with self._lock:
+            last_fired = self._alert_cooldowns.get(key, 0)
+            if time.time() - last_fired < self._cooldown_period:
+                return False
+            self._alert_cooldowns[key] = time.time()
+            return True
+
+    def _fire_alert(self, severity: str, subject: str, body: str) -> None:
+        """Send alert via alert_manager if available."""
+        try:
+            if "alert_manager" in sys.modules:
+                am = sys.modules["alert_manager"]
+                if hasattr(am, "send_alert"):
+                    am.send_alert(subject=subject, body=body, severity=severity)
+                    return
+            # Fallback: log it
+            logger.warning(
+                "[MonitorAlertBridge] ALERT (%s): %s -- %s", severity, subject, body
+            )
+        except Exception as e:
+            logger.error(
+                "[MonitorAlertBridge] Alert delivery failed: %s", e, exc_info=True
+            )
+
+    def _check_cycle(self) -> None:
+        """Run one check cycle across all modules."""
+        try:
+            # Check each module's health via ModuleHealthTracker
+            tracker = get_module_tracker()
+            module_scores = tracker.compute_health_scores()
+
+            for module_id, module_data in module_scores.items():
+                score = module_data.get("health_score", 100)
+                status = module_data.get("status", "healthy")
+
+                # Critical: health score below 40
+                if score < 40:
+                    alert_key = f"health_critical_{module_id}"
+                    if self._should_alert(alert_key):
+                        self._fire_alert(
+                            "CRITICAL",
+                            f"[Nova] CRITICAL: {module_id} health score {score}/100",
+                            f"Module {module_id} health has dropped to {score}/100 "
+                            f"(status: {status}). Immediate investigation required.",
+                        )
+
+                # Warning: health score below 70
+                elif score < 70:
+                    alert_key = f"health_degraded_{module_id}"
+                    if self._should_alert(alert_key):
+                        self._fire_alert(
+                            "WARNING",
+                            f"[Nova] DEGRADED: {module_id} health score {score}/100",
+                            f"Module {module_id} health has degraded to {score}/100 "
+                            f"(status: {status}). Monitor closely.",
+                        )
+
+            # Check SLO compliance
+            collector = MetricsCollector()
+            slo_status = collector.check_slo_compliance()
+            slos = slo_status.get("slos", {})
+            for slo_name, slo_data in slos.items():
+                if isinstance(slo_data, dict) and not slo_data.get("compliant", True):
+                    alert_key = f"slo_violation_{slo_name}"
+                    if self._should_alert(alert_key):
+                        current = slo_data.get("actual", "unknown")
+                        target = slo_data.get("target", "unknown")
+                        self._fire_alert(
+                            "WARNING",
+                            f"[Nova] SLO Violation: {slo_name}",
+                            f"SLO '{slo_name}' is non-compliant. "
+                            f"Current: {current}, Target: {target}.",
+                        )
+
+            # Check error rate across all endpoints (error_rate is a percentage)
+            metrics = collector.get_metrics()
+            if isinstance(metrics, dict):
+                error_rate_pct = metrics.get("error_rate", 0)
+                if error_rate_pct > 10:  # >10% error rate
+                    alert_key = "global_error_rate"
+                    if self._should_alert(alert_key):
+                        self._fire_alert(
+                            "CRITICAL",
+                            f"[Nova] High error rate: {error_rate_pct:.1f}%",
+                            f"Global error rate is {error_rate_pct:.1f}% "
+                            f"(threshold: 10%). Check /api/health/integrations "
+                            f"for failing services.",
+                        )
+                elif error_rate_pct > 5:  # >5% error rate
+                    alert_key = "elevated_error_rate"
+                    if self._should_alert(alert_key):
+                        self._fire_alert(
+                            "WARNING",
+                            f"[Nova] Elevated error rate: {error_rate_pct:.1f}%",
+                            f"Global error rate is {error_rate_pct:.1f}% "
+                            f"(threshold: 5%).",
+                        )
+
+        except Exception as e:
+            logger.error("[MonitorAlertBridge] Check cycle error: %s", e, exc_info=True)
+
+    def _run_loop(self) -> None:
+        """Background check loop."""
+        # Wait 120s after startup before first check (let things stabilize)
+        time.sleep(120)
+        while self._running:
+            self._check_cycle()
+            time.sleep(self._interval)
+
+    def get_status(self) -> dict:
+        """Get bridge status for admin dashboard."""
+        with self._lock:
+            return {
+                "running": self._running,
+                "interval_s": self._interval,
+                "active_cooldowns": len(self._alert_cooldowns),
+                "cooldown_period_s": self._cooldown_period,
+            }
+
+
+# Global bridge instance
+_alert_bridge: Optional[MonitoringAlertBridge] = None
+
+
+def start_alert_bridge() -> None:
+    """Start the monitoring-to-alerting bridge."""
+    global _alert_bridge
+    if _alert_bridge is None:
+        _alert_bridge = MonitoringAlertBridge()
+    _alert_bridge.start()
+
+
+def stop_alert_bridge() -> None:
+    """Stop the monitoring-to-alerting bridge."""
+    global _alert_bridge
+    if _alert_bridge:
+        _alert_bridge.stop()
+
+
+def get_alert_bridge_status() -> dict:
+    """Get alert bridge status."""
+    if _alert_bridge:
+        return _alert_bridge.get_status()
+    return {"running": False, "status": "not_initialized"}

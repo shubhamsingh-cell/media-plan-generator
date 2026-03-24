@@ -25,7 +25,7 @@ Provider priority (free-first, then paid by cost-efficiency):
     16. OpenRouter (01.AI Yi Large) -- free, good general purpose
     17. OpenRouter (DeepSeek R1 Reasoning) -- free, strong reasoning/research
     18. OpenRouter (Google Gemma 3 27B) -- free, structured output + verification
-    19. xAI Grok -- free signup credits ($25), strong reasoning
+    19. xAI Grok (grok-3-mini-fast) -- free signup credits ($25), strong reasoning
     20. HuggingFace Inference (Mistral 7B) -- free rate-limited, fallback
 
     PAID TIER:
@@ -86,6 +86,17 @@ TASK_VERIFICATION = "verification"  # Fact-checking, grounding verification
 TASK_RESEARCH = "research"  # Market research, geopolitical analysis
 TASK_NARRATIVE = "narrative"  # Long-form text, executive summaries
 TASK_BATCH = "batch"  # High-throughput, latency-tolerant
+
+# v4.0 Platform module task types
+TASK_CAMPAIGN_PLAN = "campaign_plan"  # Command Center: full campaign generation
+TASK_BUDGET_OPTIMIZE = "budget_optimize"  # Command Center: budget allocation
+TASK_COMPLIANCE_CHECK = "compliance_check"  # Command Center: regulatory compliance
+TASK_MARKET_ANALYSIS = "market_analysis"  # Intelligence Hub: market deep-dive
+TASK_COMPETITOR_SCAN = "competitor_scan"  # Intelligence Hub: competitive intel
+TASK_TALENT_MAP = "talent_map"  # Intelligence Hub: talent landscape
+TASK_CHAT_RESPONSE = "chat_response"  # Nova AI: conversational response
+TASK_ACTION_EXECUTE = "action_execute"  # Nova AI: action execution
+TASK_CONTEXT_SUMMARIZE = "context_summarize"  # Nova AI: context compression
 
 # Provider IDs
 GEMINI = "gemini"
@@ -387,7 +398,7 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         "name": "xAI Grok",
         "api_style": "openai",  # OpenAI-compatible
         "endpoint": "https://api.x.ai/v1/chat/completions",
-        "model": "grok-2-latest",
+        "model": "grok-3-mini-fast",
         "env_key": "XAI_API_KEY",
         "rpm_limit": 30,
         "rpd_limit": 14400,
@@ -842,7 +853,400 @@ TASK_ROUTING: Dict[str, List[str]] = {
         CLAUDE,
         CLAUDE_OPUS,
     ],
+    # ── v4.0 Platform Module Task Types ──────────────────────────────────
+    # Command Center: fast for quick plans, Claude for full plans
+    TASK_CAMPAIGN_PLAN: [
+        GROQ,
+        CEREBRAS,
+        GEMINI,
+        ZHIPU,
+        MISTRAL,
+        SAMBANOVA,
+        NVIDIA_NIM,
+        TOGETHER,
+        OPENROUTER,
+        OPENROUTER_DEEPSEEK_R1,
+        XAI,
+        SILICONFLOW,
+        CLOUDFLARE,
+        CLAUDE_HAIKU,
+        GPT4O,
+        CLAUDE,
+        CLAUDE_OPUS,
+    ],
+    TASK_BUDGET_OPTIMIZE: [
+        GEMINI,
+        MISTRAL,
+        OPENROUTER_GEMMA,
+        GROQ,
+        CEREBRAS,
+        ZHIPU,
+        NVIDIA_NIM,
+        SAMBANOVA,
+        TOGETHER,
+        SILICONFLOW,
+        CLAUDE_HAIKU,
+        GPT4O,
+        CLAUDE,
+        CLAUDE_OPUS,
+    ],
+    TASK_COMPLIANCE_CHECK: [
+        GEMINI,
+        OPENROUTER_GEMMA,
+        MISTRAL,
+        GROQ,
+        ZHIPU,
+        CEREBRAS,
+        OPENROUTER_DEEPSEEK_R1,
+        SAMBANOVA,
+        CLAUDE_HAIKU,
+        GPT4O,
+        CLAUDE,
+        CLAUDE_OPUS,
+    ],
+    # Intelligence Hub: prefer structured data / analysis providers
+    TASK_MARKET_ANALYSIS: [
+        GEMINI,
+        OPENROUTER_DEEPSEEK_R1,
+        XAI,
+        SAMBANOVA,
+        GROQ,
+        ZHIPU,
+        MISTRAL,
+        TOGETHER,
+        CEREBRAS,
+        NVIDIA_NIM,
+        OPENROUTER,
+        OPENROUTER_ARCEE,
+        SILICONFLOW,
+        CLAUDE_HAIKU,
+        GPT4O,
+        CLAUDE,
+        CLAUDE_OPUS,
+    ],
+    TASK_COMPETITOR_SCAN: [
+        OPENROUTER_DEEPSEEK_R1,
+        XAI,
+        GEMINI,
+        OPENROUTER,
+        GROQ,
+        ZHIPU,
+        SAMBANOVA,
+        MISTRAL,
+        TOGETHER,
+        CLAUDE_HAIKU,
+        GPT4O,
+        CLAUDE,
+        CLAUDE_OPUS,
+    ],
+    TASK_TALENT_MAP: [
+        GEMINI,
+        GROQ,
+        CEREBRAS,
+        ZHIPU,
+        MISTRAL,
+        SAMBANOVA,
+        NVIDIA_NIM,
+        TOGETHER,
+        SILICONFLOW,
+        CLAUDE_HAIKU,
+        GPT4O,
+        CLAUDE,
+        CLAUDE_OPUS,
+    ],
+    # Nova AI chat: lowest latency first, streaming-capable
+    TASK_CHAT_RESPONSE: [
+        GROQ,
+        CEREBRAS,
+        GEMINI,
+        ZHIPU,
+        MISTRAL,
+        NVIDIA_NIM,
+        SAMBANOVA,
+        SILICONFLOW,
+        TOGETHER,
+        MOONSHOT,
+        CLOUDFLARE,
+        OPENROUTER,
+        OPENROUTER_YI,
+        XAI,
+        CLAUDE_HAIKU,
+        GPT4O,
+        CLAUDE,
+        CLAUDE_OPUS,
+    ],
+    TASK_ACTION_EXECUTE: [
+        GEMINI,
+        GROQ,
+        CEREBRAS,
+        MISTRAL,
+        ZHIPU,
+        NVIDIA_NIM,
+        SAMBANOVA,
+        TOGETHER,
+        OPENROUTER_QWEN,
+        CLAUDE_HAIKU,
+        GPT4O,
+        CLAUDE,
+        CLAUDE_OPUS,
+    ],
+    TASK_CONTEXT_SUMMARIZE: [
+        GROQ,
+        CEREBRAS,
+        GEMINI,
+        ZHIPU,
+        MISTRAL,
+        NVIDIA_NIM,
+        TOGETHER,
+        SAMBANOVA,
+        SILICONFLOW,
+        CLOUDFLARE,
+        OPENROUTER,
+        CLAUDE_HAIKU,
+        GPT4O,
+        CLAUDE,
+    ],
 }
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# MODULE-SPECIFIC LLM ROUTING PREFERENCES
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Maps platform module -> default task type + preferred provider overrides
+MODULE_LLM_PREFERENCES: Dict[str, Dict[str, Any]] = {
+    "command_center": {
+        "default_task": TASK_CAMPAIGN_PLAN,
+        "quick_task": TASK_CHAT_RESPONSE,
+        "preferred_providers": [GROQ, CEREBRAS, GEMINI],
+        "full_plan_providers": [CLAUDE, GPT4O, CLAUDE_OPUS],
+        "description": "Fast providers for quick plans, Claude for full plans",
+    },
+    "intelligence_hub": {
+        "default_task": TASK_MARKET_ANALYSIS,
+        "preferred_providers": [GEMINI, OPENROUTER_DEEPSEEK_R1, XAI],
+        "description": "Providers good at structured data and analysis",
+    },
+    "nova_ai": {
+        "default_task": TASK_CHAT_RESPONSE,
+        "preferred_providers": [GROQ, CEREBRAS, GEMINI],
+        "description": "Streaming-capable, lowest latency first",
+    },
+}
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# COST TRACKING (estimated token costs per 1M tokens)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Estimated cost per 1M tokens (USD) -- input/output
+_PROVIDER_COST_PER_M_TOKENS: Dict[str, Dict[str, float]] = {
+    GEMINI: {"input": 0.0, "output": 0.0},
+    GROQ: {"input": 0.0, "output": 0.0},
+    CEREBRAS: {"input": 0.0, "output": 0.0},
+    ZHIPU: {"input": 0.0, "output": 0.0},
+    MISTRAL: {"input": 0.0, "output": 0.0},
+    NVIDIA_NIM: {"input": 0.0, "output": 0.0},
+    SAMBANOVA: {"input": 0.0, "output": 0.0},
+    SILICONFLOW: {"input": 0.05, "output": 0.05},
+    CLOUDFLARE: {"input": 0.0, "output": 0.0},
+    TOGETHER: {"input": 0.0, "output": 0.0},
+    MOONSHOT: {"input": 0.0, "output": 0.0},
+    HUGGINGFACE: {"input": 0.0, "output": 0.0},
+    OPENROUTER: {"input": 0.0, "output": 0.0},
+    OPENROUTER_QWEN: {"input": 0.0, "output": 0.0},
+    OPENROUTER_ARCEE: {"input": 0.0, "output": 0.0},
+    OPENROUTER_LIQUID: {"input": 0.0, "output": 0.0},
+    OPENROUTER_YI: {"input": 0.0, "output": 0.0},
+    OPENROUTER_DEEPSEEK_R1: {"input": 0.0, "output": 0.0},
+    OPENROUTER_GEMMA: {"input": 0.0, "output": 0.0},
+    XAI: {"input": 2.0, "output": 10.0},
+    CLAUDE_HAIKU: {"input": 1.0, "output": 5.0},
+    GPT4O: {"input": 2.5, "output": 10.0},
+    CLAUDE: {"input": 3.0, "output": 15.0},
+    CLAUDE_OPUS: {"input": 15.0, "output": 75.0},
+}
+
+
+class _CostTracker:
+    """Thread-safe daily cost tracker for LLM API usage.
+
+    Estimates token costs per provider per request and tracks cumulative
+    daily spend to enable budget alerting and provider selection optimization.
+    """
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._daily_costs: Dict[str, float] = {}  # provider -> USD
+        self._daily_tokens: Dict[str, Dict[str, int]] = (
+            {}
+        )  # provider -> {input, output}
+        self._day_start: float = time.time()
+        self._total_cost: float = 0.0
+
+    def _maybe_reset_day(self) -> None:
+        """Reset daily counters if a new day has started (24h rolling window)."""
+        now = time.time()
+        if now - self._day_start > 86400:
+            self._daily_costs.clear()
+            self._daily_tokens.clear()
+            self._day_start = now
+
+    def record_usage(
+        self,
+        provider_id: str,
+        input_tokens: int,
+        output_tokens: int,
+    ) -> float:
+        """Record token usage for a provider and return estimated cost.
+
+        Args:
+            provider_id: LLM provider ID.
+            input_tokens: Number of input tokens.
+            output_tokens: Number of output tokens.
+
+        Returns:
+            Estimated cost in USD for this request.
+        """
+        costs = _PROVIDER_COST_PER_M_TOKENS.get(
+            provider_id, {"input": 0.0, "output": 0.0}
+        )
+        cost = (
+            input_tokens * costs["input"] + output_tokens * costs["output"]
+        ) / 1_000_000
+
+        with self._lock:
+            self._maybe_reset_day()
+            self._daily_costs[provider_id] = (
+                self._daily_costs.get(provider_id, 0.0) + cost
+            )
+            self._total_cost += cost
+
+            if provider_id not in self._daily_tokens:
+                self._daily_tokens[provider_id] = {"input": 0, "output": 0}
+            self._daily_tokens[provider_id]["input"] += input_tokens
+            self._daily_tokens[provider_id]["output"] += output_tokens
+
+        return cost
+
+    def get_daily_spend(self) -> Dict[str, Any]:
+        """Return daily spend summary."""
+        with self._lock:
+            self._maybe_reset_day()
+            return {
+                "total_daily_cost_usd": round(sum(self._daily_costs.values()), 4),
+                "total_all_time_cost_usd": round(self._total_cost, 4),
+                "per_provider": {
+                    pid: {
+                        "cost_usd": round(cost, 4),
+                        "tokens": self._daily_tokens.get(
+                            pid, {"input": 0, "output": 0}
+                        ),
+                    }
+                    for pid, cost in self._daily_costs.items()
+                },
+            }
+
+
+# Module-level cost tracker instance
+_cost_tracker = _CostTracker()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# QUALITY SCORING
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def compute_quality_score(response_text: str, task_type: str = "") -> Dict[str, Any]:
+    """Compute a simple quality heuristic for an LLM response.
+
+    Evaluates response based on length, structure, data presence, and
+    formatting. Returns a score from 0.0 to 1.0 with component breakdown.
+
+    Args:
+        response_text: The LLM response text.
+        task_type: The task type used for routing.
+
+    Returns:
+        Dict with overall score and component scores.
+    """
+    if not response_text:
+        return {"score": 0.0, "components": {}, "flags": ["empty_response"]}
+
+    text = response_text.strip()
+    flags: List[str] = []
+    components: Dict[str, float] = {}
+
+    # Length score (0-1): penalize very short or very long responses
+    length = len(text)
+    if length < 50:
+        components["length"] = 0.2
+        flags.append("very_short")
+    elif length < 200:
+        components["length"] = 0.5
+    elif length < 2000:
+        components["length"] = 1.0
+    elif length < 5000:
+        components["length"] = 0.9
+    else:
+        components["length"] = 0.7
+        flags.append("very_long")
+
+    # Structure score: presence of headers, bullets, numbered lists
+    has_headers = bool(re.search(r"^#{1,3}\s|\*\*[A-Z]", text, re.MULTILINE))
+    has_bullets = bool(re.search(r"^\s*[-*]\s", text, re.MULTILINE))
+    has_numbers = bool(re.search(r"^\s*\d+[.)]\s", text, re.MULTILINE))
+    structure_signals = sum([has_headers, has_bullets, has_numbers])
+    components["structure"] = min(1.0, structure_signals * 0.4 + 0.2)
+
+    # Data presence: numbers, percentages, dollar amounts
+    has_pct = bool(re.search(r"\d+\.?\d*%", text))
+    has_dollar = bool(re.search(r"\$[\d,]+", text))
+    has_numbers_inline = bool(re.search(r"\b\d{2,}\b", text))
+    data_signals = sum([has_pct, has_dollar, has_numbers_inline])
+    components["contains_data"] = min(1.0, data_signals * 0.35 + 0.1)
+
+    # Coherence: check for common LLM failure patterns
+    if "I cannot" in text or "I'm unable" in text or "I don't have" in text:
+        components["coherence"] = 0.3
+        flags.append("refusal_detected")
+    elif text.count("...") > 5:
+        components["coherence"] = 0.5
+        flags.append("ellipsis_heavy")
+    else:
+        components["coherence"] = 1.0
+
+    # Task-type bonus: structured tasks should have data
+    if task_type in (TASK_STRUCTURED, TASK_BUDGET_OPTIMIZE, TASK_MARKET_ANALYSIS):
+        if data_signals == 0:
+            components["task_fit"] = 0.3
+            flags.append("missing_data_for_structured_task")
+        else:
+            components["task_fit"] = 1.0
+    elif task_type in (TASK_NARRATIVE, TASK_CONTEXT_SUMMARIZE):
+        if length > 100:
+            components["task_fit"] = 1.0
+        else:
+            components["task_fit"] = 0.4
+    else:
+        components["task_fit"] = 0.8
+
+    # Overall: weighted average
+    weights = {
+        "length": 0.15,
+        "structure": 0.20,
+        "contains_data": 0.25,
+        "coherence": 0.25,
+        "task_fit": 0.15,
+    }
+    overall = sum(components.get(k, 0) * w for k, w in weights.items())
+
+    return {
+        "score": round(overall, 3),
+        "components": {k: round(v, 3) for k, v in components.items()},
+        "flags": flags,
+    }
+
 
 # Keywords for task classification
 _STRUCTURED_KEYWORDS = re.compile(
@@ -878,6 +1282,41 @@ _NARRATIVE_KEYWORDS = re.compile(
 _BATCH_KEYWORDS = re.compile(
     r"\b(batch|bulk|multiple|all.industries|all.locations|"
     r"comprehensive|full.report)\b",
+    re.IGNORECASE,
+)
+
+# v4.0 Platform module task keywords
+_CAMPAIGN_PLAN_KEYWORDS = re.compile(
+    r"\b(campaign|media.plan|channel.mix|recruitment.plan|"
+    r"launch.plan|hiring.plan|staffing.plan)\b",
+    re.IGNORECASE,
+)
+_BUDGET_OPTIMIZE_KEYWORDS = re.compile(
+    r"\b(budget|spend|allocat|roi|roas|cost.per|" r"efficiency|spend.optimization)\b",
+    re.IGNORECASE,
+)
+_COMPLIANCE_CHECK_KEYWORDS = re.compile(
+    r"\b(compliance|regulat|eeoc|ofccp|gdpr|ccpa|ada|"
+    r"fair.hiring|discrimination|diversity.requirement)\b",
+    re.IGNORECASE,
+)
+_MARKET_ANALYSIS_KEYWORDS = re.compile(
+    r"\b(market.analysis|market.report|industry.analysis|"
+    r"market.size|market.share|tam|sam|som)\b",
+    re.IGNORECASE,
+)
+_COMPETITOR_SCAN_KEYWORDS = re.compile(
+    r"\b(competitor|competitive|rival|competing|versus|vs\b|"
+    r"compared.to|swot|differentiat)\b",
+    re.IGNORECASE,
+)
+_TALENT_MAP_KEYWORDS = re.compile(
+    r"\b(talent.map|talent.landscape|talent.pool|"
+    r"candidate.pipeline|supply.demand|workforce.planning)\b",
+    re.IGNORECASE,
+)
+_CONTEXT_SUMMARIZE_KEYWORDS = re.compile(
+    r"\b(summarize.this|tldr|key.takeaway|recap|" r"brief.me|condense|distill)\b",
     re.IGNORECASE,
 )
 
@@ -1036,31 +1475,57 @@ _provider_states: Dict[str, _ProviderState] = {
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
-def classify_task(query: str) -> str:
+def classify_task(query: str, module: str = "") -> str:
     """Classify a user query into a task type for provider routing.
 
-    Returns one of: TASK_STRUCTURED, TASK_CONVERSATIONAL, TASK_COMPLEX,
-    TASK_CODE, TASK_VERIFICATION, TASK_RESEARCH, TASK_NARRATIVE, TASK_BATCH.
+    Supports both the original 8 task types and the v4.0 platform module
+    task types. Module-specific keywords take priority when matched.
+
+    Args:
+        query: User query string.
+        module: Optional platform module hint (command_center, intelligence_hub, nova_ai).
+
+    Returns:
+        Task type string for routing.
     """
     try:
         q = query.lower().strip()
-        # Score each task type by keyword matches.
-        # New specialised types are checked alongside the originals;
-        # specificity is handled via the boost multipliers.
+
+        # v4.0 platform module task types (highest priority -- most specific)
+        module_scores = {
+            TASK_CAMPAIGN_PLAN: len(_CAMPAIGN_PLAN_KEYWORDS.findall(q)) * 2.5,
+            TASK_BUDGET_OPTIMIZE: len(_BUDGET_OPTIMIZE_KEYWORDS.findall(q)) * 2.5,
+            TASK_COMPLIANCE_CHECK: len(_COMPLIANCE_CHECK_KEYWORDS.findall(q)) * 2.5,
+            TASK_MARKET_ANALYSIS: len(_MARKET_ANALYSIS_KEYWORDS.findall(q)) * 2.5,
+            TASK_COMPETITOR_SCAN: len(_COMPETITOR_SCAN_KEYWORDS.findall(q)) * 2.5,
+            TASK_TALENT_MAP: len(_TALENT_MAP_KEYWORDS.findall(q)) * 2.5,
+            TASK_CONTEXT_SUMMARIZE: len(_CONTEXT_SUMMARIZE_KEYWORDS.findall(q)) * 2.2,
+        }
+
+        # Original task types
         scores = {
-            TASK_VERIFICATION: len(_VERIFICATION_KEYWORDS.findall(q))
-            * 2.0,  # boost: most specific
+            TASK_VERIFICATION: len(_VERIFICATION_KEYWORDS.findall(q)) * 2.0,
             TASK_RESEARCH: len(_RESEARCH_KEYWORDS.findall(q)) * 2.0,
             TASK_NARRATIVE: len(_NARRATIVE_KEYWORDS.findall(q)) * 1.8,
             TASK_BATCH: len(_BATCH_KEYWORDS.findall(q)) * 1.8,
             TASK_STRUCTURED: len(_STRUCTURED_KEYWORDS.findall(q)),
-            TASK_COMPLEX: len(_COMPLEX_KEYWORDS.findall(q)) * 1.5,  # boost complex
+            TASK_COMPLEX: len(_COMPLEX_KEYWORDS.findall(q)) * 1.5,
             TASK_CODE: len(_CODE_KEYWORDS.findall(q)),
             TASK_CONVERSATIONAL: 0,
         }
-        best = max(scores, key=scores.get)
-        if scores[best] == 0:
-            return TASK_CONVERSATIONAL  # default
+
+        # Merge all scores
+        all_scores = {**scores, **module_scores}
+
+        best = max(all_scores, key=all_scores.get)  # type: ignore[arg-type]
+        if all_scores[best] == 0:
+            # No keyword match -- use module default if available
+            if module:
+                prefs = MODULE_LLM_PREFERENCES.get(module, {})
+                default_task = prefs.get("default_task")
+                if default_task:
+                    return default_task
+            return TASK_CONVERSATIONAL
         return best
     except Exception:
         return TASK_CONVERSATIONAL
@@ -1654,6 +2119,15 @@ def call_llm(
             result["fallback_used"] = attempt_num > 0
             result["cache_hit"] = False
             result["attempts"] = attempts
+            # Cost tracking
+            _input_tok = result.get("input_tokens") or 0
+            _output_tok = result.get("output_tokens") or 0
+            _est_cost = _cost_tracker.record_usage(provider, _input_tok, _output_tok)
+            result["estimated_cost_usd"] = round(_est_cost, 6)
+            # Quality scoring
+            _resp_text = result.get("text") or ""
+            if _resp_text:
+                result["quality_score"] = compute_quality_score(_resp_text, task_type)
             # Cache successful responses (only text-based, not tool_calls)
             if use_cache and not tools and result.get("text") and _user_msg_for_cache:
                 _response_cache.put(
@@ -2311,7 +2785,18 @@ def get_router_status() -> Dict[str, Any]:
             TASK_RESEARCH,
             TASK_NARRATIVE,
             TASK_BATCH,
+            TASK_CAMPAIGN_PLAN,
+            TASK_BUDGET_OPTIMIZE,
+            TASK_COMPLIANCE_CHECK,
+            TASK_MARKET_ANALYSIS,
+            TASK_COMPETITOR_SCAN,
+            TASK_TALENT_MAP,
+            TASK_CHAT_RESPONSE,
+            TASK_ACTION_EXECUTE,
+            TASK_CONTEXT_SUMMARIZE,
         ],
+        "module_preferences": MODULE_LLM_PREFERENCES,
+        "cost_tracking": _cost_tracker.get_daily_spend(),
         **_response_cache.get_stats(),
     }
 

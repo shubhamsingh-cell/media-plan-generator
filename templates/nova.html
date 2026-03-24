@@ -943,6 +943,15 @@
         font-size: 12px;
         color: var(--text-secondary);
         padding-left: 4px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .thinking-elapsed {
+        font-size: 11px;
+        color: var(--text-muted);
+        font-variant-numeric: tabular-nums;
+        min-width: 24px;
       }
 
       /* Skeleton loading */
@@ -2962,19 +2971,19 @@
             '<div class="welcome-title">Good ' +
             getGreeting() +
             ". How can I help?</div>" +
-            '<div class="welcome-subtitle">I have access to 10,238+ supply partners, real-time benchmarks across 70+ countries, salary data, demand signals, and comprehensive recruitment intelligence.</div>' +
+            '<div class="welcome-subtitle">Senior recruitment marketing analyst with access to real BLS, FRED, Adzuna, and O*NET data, 10,238+ publishers, 200+ occupation benchmarks, and 91 platform profiles.</div>' +
             '<div class="suggestions-grid">' +
-            '<button class="suggestion-card" data-query="What are the best job boards for software engineers?">' +
-            '<span class="suggestion-card-icon" aria-hidden="true">&#x1F4BB;</span>Best job boards for software engineers' +
+            '<button class="suggestion-card" data-query="Create a media plan for 50 software engineers in Austin, TX with a $200K budget">' +
+            '<span class="suggestion-card-icon" aria-hidden="true">&#x1F4CB;</span>Create a media plan for 50 software engineers in Austin' +
             "</button>" +
-            '<button class="suggestion-card" data-query="Compare Indeed vs LinkedIn for nursing recruitment">' +
-            '<span class="suggestion-card-icon" aria-hidden="true">&#x2696;</span>Compare Indeed vs LinkedIn for nursing' +
+            '<button class="suggestion-card" data-query="What\'s the competitive landscape for Indeed vs LinkedIn for engineering roles?">' +
+            '<span class="suggestion-card-icon" aria-hidden="true">&#x2696;</span>Indeed vs LinkedIn competitive landscape' +
             "</button>" +
-            '<button class="suggestion-card" data-query="Create a media plan for $50K budget in Texas">' +
-            '<span class="suggestion-card-icon" aria-hidden="true">&#x1F4B0;</span>Create a $50K media plan for Texas' +
+            '<button class="suggestion-card" data-query="Audit my job posting for compliance issues in California">' +
+            '<span class="suggestion-card-icon" aria-hidden="true">&#x1F6E1;</span>Audit a job posting for compliance' +
             "</button>" +
-            '<button class="suggestion-card" data-query="What\'s the current unemployment rate impact on hiring?">' +
-            '<span class="suggestion-card-icon" aria-hidden="true">&#x1F4CA;</span>Unemployment rate impact on hiring' +
+            '<button class="suggestion-card" data-query="What salary should I offer for a Data Scientist in New York City?">' +
+            '<span class="suggestion-card-icon" aria-hidden="true">&#x1F4B0;</span>Data Scientist salary in NYC' +
             "</button>" +
             "</div>";
           chatContainer.appendChild(welcome);
@@ -3187,11 +3196,11 @@
         // THINKING INDICATOR
         // ========================================================================
         var thinkingTexts = [
-          "Nova is thinking...",
-          "Searching knowledge base...",
-          "Analyzing data sources...",
+          "Analyzing your question...",
+          "Searching 10,238+ publishers...",
+          "Querying salary & labor data...",
           "Cross-referencing benchmarks...",
-          "Generating response...",
+          "Building data-driven response...",
         ];
 
         function showThinking() {
@@ -3209,9 +3218,9 @@
             '<div class="thinking-dot"></div>' +
             '<div class="thinking-dot"></div>' +
             "</div>" +
-            '<div class="thinking-text" id="thinking-text">' +
+            '<div class="thinking-text"><span id="thinking-text">' +
             thinkingTexts[0] +
-            "</div>" +
+            '</span><span class="thinking-elapsed" id="thinking-elapsed"></span></div>' +
             '<div class="skeleton-line"></div>' +
             '<div class="skeleton-line"></div>' +
             '<div class="skeleton-line"></div>' +
@@ -3225,13 +3234,24 @@
             idx = (idx + 1) % thinkingTexts.length;
             var el = document.getElementById("thinking-text");
             if (el) el.textContent = thinkingTexts[idx];
-          }, 2000);
+          }, 2500);
+
+          // Elapsed timer (show after 2s to avoid flicker on fast responses)
+          var startTime = Date.now();
+          wrapper._elapsedInterval = setInterval(function () {
+            var elapsed = Math.round((Date.now() - startTime) / 1000);
+            var el = document.getElementById("thinking-elapsed");
+            if (el && elapsed >= 2) {
+              el.textContent = elapsed + "s";
+            }
+          }, 1000);
         }
 
         function hideThinking() {
           var el = document.getElementById("thinking-wrapper");
           if (el) {
             if (el._thinkInterval) clearInterval(el._thinkInterval);
+            if (el._elapsedInterval) clearInterval(el._elapsedInterval);
             el.remove();
           }
         }

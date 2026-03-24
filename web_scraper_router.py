@@ -6,12 +6,13 @@ fallback across 6 tiers.  When one tier fails (402 credit exhausted,
 429 rate limited, or network error), the router transparently falls
 through to the next available tier.
 
-Tier 1: Firecrawl      -- Full-featured scrape/search/map (API key required, paid)
-Tier 2: Jina AI Reader -- Free markdown reader (GET https://r.jina.ai/{url}, no key)
-Tier 3: Tavily Extract -- URL content extraction (TAVILY_API_KEY, 1K credits/month)
-Tier 4: LLM-assisted   -- stdlib fetch raw HTML -> LLM router extracts structured content
-Tier 5: Cache fallback  -- Google Cache + Internet Archive Wayback Machine
-Tier 6: stdlib urllib   -- Raw HTML fetch + HTMLParser text extraction (always works)
+Tier 1:   Firecrawl      -- Full-featured scrape/search/map (API key required, paid)
+Tier 1.5: Apify          -- Website Content Crawler actor (APIFY_API_TOKEN, cheerio)
+Tier 2:   Jina AI Reader -- Free markdown reader (GET https://r.jina.ai/{url}, no key)
+Tier 3:   Tavily Extract -- URL content extraction (TAVILY_API_KEY, 1K credits/month)
+Tier 4:   LLM-assisted   -- stdlib fetch raw HTML -> LLM router extracts structured content
+Tier 5:   Cache fallback  -- Google Cache + Internet Archive Wayback Machine
+Tier 6:   stdlib urllib   -- Raw HTML fetch + HTMLParser text extraction (always works)
 
 All external API calls:
     - Use only stdlib (urllib.request, json, os) -- no third-party dependencies
@@ -53,6 +54,7 @@ logger = logging.getLogger(__name__)
 
 FIRECRAWL_API_KEY: str = os.environ.get("FIRECRAWL_API_KEY") or ""
 FIRECRAWL_BASE_URL: str = "https://api.firecrawl.dev/v1"
+APIFY_API_TOKEN: str = os.environ.get("APIFY_API_TOKEN") or ""
 JINA_API_KEY: str = os.environ.get("JINA_API_KEY") or ""
 TAVILY_API_KEY: str = os.environ.get("TAVILY_API_KEY") or ""
 
@@ -310,6 +312,7 @@ class CircuitBreaker:
 
 # Per-tier circuit breakers (module-level singletons)
 _cb_firecrawl = CircuitBreaker("firecrawl")
+_cb_apify = CircuitBreaker("apify")
 _cb_jina = CircuitBreaker("jina")
 _cb_tavily = CircuitBreaker("tavily")
 _cb_llm_assist = CircuitBreaker("llm_assisted")
@@ -532,6 +535,104 @@ def _firecrawl_search(
         _cb_firecrawl.record_failure(str(exc))
         logger.error(f"Firecrawl search error: {exc}", exc_info=True)
     return None
+
+
+# =============================================================================
+# TIER 1.5: APIFY WEBSITE CONTENT CRAWLER (API key required)
+# =============================================================================
+
+_APIFY_SCRAPE_URL: str = (
+    "https://api.apify.com/v2/acts/apify~website-content-crawler/"
+    "run-sync-get-dataset-items"
+)
+_APIFY_TIMEOUT: int = 30  # Apify sync runs can take a while
+
+
+def _apify_scrape(url: str) -> Optional[dict[str, Any]]:
+    """Scrape a URL using Apify's Website Content Crawler actor (sync).
+
+    Uses the run-sync-get-dataset-items endpoint which runs the actor and
+    returns the dataset items in a single call. Only activated if
+    APIFY_API_TOKEN env var is set.
+
+    Args:
+        url: The URL to scrape.
+
+    Returns:
+        Normalized scrape result dict, or None on failure.
+    """
+    if not APIFY_API_TOKEN:
+        return None
+
+    if not _cb_apify.is_available:
+        logger.debug("Apify circuit breaker is open, skipping")
+        return None
+
+    t0 = time.monotonic()
+    try:
+        payload = json.dumps(
+            {
+                "startUrls": [{"url": url}],
+                "maxCrawlPages": 1,
+                "crawlerType": "cheerio",
+            }
+        ).encode("utf-8")
+
+        req = urllib.request.Request(
+            _APIFY_SCRAPE_URL,
+            data=payload,
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {APIFY_API_TOKEN}",
+            },
+            method="POST",
+        )
+
+        ctx = _build_ssl_context()
+        with urllib.request.urlopen(req, timeout=_APIFY_TIMEOUT, context=ctx) as resp:
+            body = resp.read().decode("utf-8")
+            items = json.loads(body)
+
+        elapsed = (time.monotonic() - t0) * 1000
+
+        if not items or not isinstance(items, list):
+            _cb_apify.record_failure("Empty response from Apify")
+            return None
+
+        # Apify returns array of items; take the first
+        item = items[0]
+        # The actor returns content in 'markdown' or 'text' fields
+        content = item.get("markdown") or item.get("text") or item.get("body") or ""
+        title = item.get("title") or item.get("metadata", {}).get("title") or ""
+
+        if not content.strip():
+            _cb_apify.record_failure("Apify returned empty content")
+            return None
+
+        _cb_apify.record_success()
+        return _scrape_result(
+            content=content,
+            url=url,
+            provider="apify",
+            title=title,
+            metadata={"actor": "website-content-crawler", "crawler_type": "cheerio"},
+            latency_ms=elapsed,
+        )
+
+    except urllib.error.HTTPError as exc:
+        elapsed = (time.monotonic() - t0) * 1000
+        if exc.code in (402, 429):
+            _cb_apify.trip(f"HTTP {exc.code}: {exc.reason}")
+        else:
+            _cb_apify.record_failure(f"HTTP {exc.code}: {exc.reason}")
+        logger.warning(
+            f"Apify scrape failed for {url}: HTTP {exc.code} ({elapsed:.0f}ms)"
+        )
+        return None
+    except (urllib.error.URLError, OSError, json.JSONDecodeError, ValueError) as exc:
+        _cb_apify.record_failure(str(exc))
+        logger.error(f"Apify scrape error for {url}: {exc}", exc_info=True)
+        return None
 
 
 # =============================================================================
@@ -1228,12 +1329,13 @@ def scrape_url(
     """Scrape a URL using the best available provider with automatic fallback.
 
     Tries each tier in order:
-        1. Firecrawl (paid, highest quality)
-        2. Jina AI Reader (free, good markdown)
-        3. Tavily Extract (API key, good content extraction)
-        4. LLM-assisted (free LLM + stdlib fetch, context-aware extraction)
-        5. Google Cache / Web Archive (cached versions of the page)
-        6. stdlib urllib + HTMLParser (always works, basic text)
+        1.   Firecrawl (paid, highest quality)
+        1.5  Apify Website Content Crawler (API key, cheerio-based)
+        2.   Jina AI Reader (free, good markdown)
+        3.   Tavily Extract (API key, good content extraction)
+        4.   LLM-assisted (free LLM + stdlib fetch, context-aware extraction)
+        5.   Google Cache / Web Archive (cached versions of the page)
+        6.   stdlib urllib + HTMLParser (always works, basic text)
 
     Falls through on any failure. Returns empty result only if ALL tiers fail.
 
@@ -1268,6 +1370,17 @@ def scrape_url(
     if result and result.get("content"):
         logger.info(
             f"scrape_url: Tier 1 (Firecrawl) succeeded for {url} "
+            f"in {result.get('latency_ms', 0):.0f}ms"
+        )
+        if use_cache:
+            _cache_put(_cache_key(url, "scrape"), result)
+        return result
+
+    # -- Tier 1.5: Apify Website Content Crawler --
+    result = _apify_scrape(url)
+    if result and result.get("content"):
+        logger.info(
+            f"scrape_url: Tier 1.5 (Apify) succeeded for {url} "
             f"in {result.get('latency_ms', 0):.0f}ms"
         )
         if use_cache:
@@ -1332,7 +1445,7 @@ def scrape_url(
 
     total_elapsed = (time.monotonic() - t0_total) * 1000
     logger.warning(
-        f"scrape_url: ALL 6 tiers failed for {url} after {total_elapsed:.0f}ms"
+        f"scrape_url: ALL 7 tiers failed for {url} after {total_elapsed:.0f}ms"
     )
     return _scrape_result("", url, "none", latency_ms=total_elapsed)
 
@@ -1431,6 +1544,15 @@ def get_scraper_status() -> dict[str, Any]:
             "capabilities": ["scrape", "search", "map"],
             "free_tier": "500 credits/month",
             **_cb_firecrawl.get_stats(),
+        },
+        {
+            "tier": 1.5,
+            "provider": "apify",
+            "has_api_key": bool(APIFY_API_TOKEN),
+            "capabilities": ["scrape"],
+            "free_tier": "$5 free credit/month",
+            "note": "Website Content Crawler actor (cheerio-based, fast)",
+            **_cb_apify.get_stats(),
         },
         {
             "tier": 2,
