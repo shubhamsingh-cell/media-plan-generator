@@ -17,13 +17,13 @@ from docx.oxml import parse_xml
 # ---------------------------------------------------------------------------
 # Color palette
 # ---------------------------------------------------------------------------
-DARK_BLUE = RGBColor(0x00, 0x3D, 0x6B)      # Primary heading color
-JOVEO_BLUE = RGBColor(0x00, 0x66, 0xCC)      # Accent / links
-MEDIUM_BLUE = RGBColor(0x1A, 0x5C, 0x8E)     # Subheadings
-DARK_GRAY = RGBColor(0x33, 0x33, 0x33)       # Body text
-LIGHT_GRAY = RGBColor(0x66, 0x66, 0x66)      # Secondary text
-TABLE_HEADER_BG = "003D6B"                     # Hex for table header fill
-TABLE_ALT_ROW_BG = "EAF0F6"                   # Hex for alternating rows
+DARK_BLUE = RGBColor(0x00, 0x3D, 0x6B)  # Primary heading color
+JOVEO_BLUE = RGBColor(0x00, 0x66, 0xCC)  # Accent / links
+MEDIUM_BLUE = RGBColor(0x1A, 0x5C, 0x8E)  # Subheadings
+DARK_GRAY = RGBColor(0x33, 0x33, 0x33)  # Body text
+LIGHT_GRAY = RGBColor(0x66, 0x66, 0x66)  # Secondary text
+TABLE_HEADER_BG = "003D6B"  # Hex for table header fill
+TABLE_ALT_ROW_BG = "EAF0F6"  # Hex for alternating rows
 WHITE = RGBColor(0xFF, 0xFF, 0xFF)
 
 OUTPUT_PATH = os.path.join(
@@ -36,11 +36,10 @@ OUTPUT_PATH = os.path.join(
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def set_cell_shading(cell, color_hex):
     """Set background color of a table cell."""
-    shading = parse_xml(
-        f'<w:shd {nsdecls("w")} w:fill="{color_hex}" w:val="clear"/>'
-    )
+    shading = parse_xml(f'<w:shd {nsdecls("w")} w:fill="{color_hex}" w:val="clear"/>')
     cell._tc.get_or_add_tcPr().append(shading)
 
 
@@ -142,6 +141,7 @@ def add_page_break(doc):
 # Document generation
 # ---------------------------------------------------------------------------
 
+
 def build_document():
     doc = Document()
 
@@ -214,7 +214,9 @@ def build_document():
     # Company tagline
     tag_p = doc.add_paragraph()
     tag_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = tag_p.add_run("Nova AI Suite -- Precision Programmatic for Talent Acquisition")
+    run = tag_p.add_run(
+        "Nova AI Suite -- Precision Programmatic for Talent Acquisition"
+    )
     run.font.size = Pt(13)
     run.font.color.rgb = JOVEO_BLUE
     run.bold = True
@@ -234,35 +236,61 @@ def build_document():
         "recruitment advertising planning from a weeks-long manual process into minutes "
         "of automated, data-driven analysis. It ingests client requirements -- industry, "
         "roles, locations, budget, and competitors -- and produces comprehensive media "
-        "plans backed by real-time market intelligence from over 30 public and proprietary APIs."
+        "plans backed by real-time market intelligence from over 30 public and proprietary APIs.",
     )
 
     add_heading2(doc, "Four Delivery Channels")
 
-    add_bullet(doc, " A browser-based interface that generates downloadable Excel "
-               "spreadsheets and PowerPoint presentations as a bundled media plan.", bold_prefix="Web UI:")
-    add_bullet(doc, " An AI chatbot (Nova) accessible through the web UI, providing "
-               "conversational access to recruitment intelligence, benchmark data, "
-               "and strategic recommendations.", bold_prefix="Nova AI Chatbot:")
-    add_bullet(doc, " A workplace-native integration where team members can query "
-               "Nova directly in Slack via mentions or direct messages, with full "
-               "access to the same data intelligence layer.", bold_prefix="Slack Bot:")
-    add_bullet(doc, " Programmatic endpoints for headless media plan generation, "
-               "health monitoring, and administrative operations.", bold_prefix="API:")
+    add_bullet(
+        doc,
+        " A browser-based interface that generates downloadable Excel "
+        "spreadsheets and PowerPoint presentations as a bundled media plan.",
+        bold_prefix="Web UI:",
+    )
+    add_bullet(
+        doc,
+        " An AI chatbot (Nova) accessible through the web UI, providing "
+        "conversational access to recruitment intelligence, benchmark data, "
+        "and strategic recommendations.",
+        bold_prefix="Nova AI Chatbot:",
+    )
+    add_bullet(
+        doc,
+        " A workplace-native integration where team members can query "
+        "Nova directly in Slack via mentions or direct messages, with full "
+        "access to the same data intelligence layer.",
+        bold_prefix="Slack Bot:",
+    )
+    add_bullet(
+        doc,
+        " Programmatic endpoints for headless media plan generation, "
+        "health monitoring, and administrative operations.",
+        bold_prefix="API:",
+    )
 
     add_heading2(doc, "Key Platform Statistics")
 
     stats_data = [
-        ["30+", "Real-time API integrations (BLS, Census, World Bank, FRED, O*NET, and more)"],
+        [
+            "30+",
+            "Real-time API integrations (BLS, Census, World Bank, FRED, O*NET, and more)",
+        ],
         ["12", "LLM providers in the unified router (9 free-tier, 3 paid-tier)"],
         ["66+", "Automated QC tests running autonomously every 12 hours"],
         ["26", "Supported currencies with proper symbol formatting"],
         ["22", "Industry verticals with 4-year trend data across 6 ad platforms"],
-        ["4", "Collar types classified (blue, white, grey, pink) for strategy differentiation"],
+        [
+            "4",
+            "Collar types classified (blue, white, grey, pink) for strategy differentiation",
+        ],
         ["0", "External pip dependencies for the core server (Python stdlib only)"],
     ]
-    add_styled_table(doc, ["Metric", "Description"], stats_data,
-                     col_widths=[Inches(0.8), Inches(5.2)])
+    add_styled_table(
+        doc,
+        ["Metric", "Description"],
+        stats_data,
+        col_widths=[Inches(0.8), Inches(5.2)],
+    )
 
     add_page_break(doc)
 
@@ -280,7 +308,7 @@ def build_document():
         "budget allocations, projected clicks, applications, and hires, alongside a "
         "branded PowerPoint deck summarizing the strategic rationale. The generation "
         "pipeline runs API enrichment, data synthesis, budget optimization, and document "
-        "formatting in a single coordinated flow."
+        "formatting in a single coordinated flow.",
     )
 
     add_heading2(doc, "Nova AI Chatbot")
@@ -293,7 +321,7 @@ def build_document():
         "confidence scoring, and the budget allocation engine with dollar projections. "
         "Nova operates in two modes: rule-based keyword routing for fast deterministic "
         "answers, and LLM-powered reasoning via Claude Haiku 4.5 (simple queries) or "
-        "Claude Sonnet 4.6 (complex strategy queries)."
+        "Claude Sonnet 4.6 (complex strategy queries).",
     )
 
     add_heading2(doc, "Slack Bot Integration")
@@ -305,7 +333,7 @@ def build_document():
         "history for previously answered questions, maintains an unanswered question queue "
         "for human review, learns from human-provided answers over time, and sends weekly "
         "digest summaries of outstanding questions. Built entirely with Python stdlib "
-        "(urllib.request, no slack_sdk dependency)."
+        "(urllib.request, no slack_sdk dependency).",
     )
 
     add_heading2(doc, "Budget Optimization Engine")
@@ -316,7 +344,7 @@ def build_document():
         "applications, hires). It integrates dynamic CPC benchmarks from the trend engine, "
         "collar-weighted allocation via the collar intelligence module, and structured "
         "confidence on every channel allocation. Role-tier multipliers adjust CPA "
-        "expectations across six seniority levels from Gig (0.5x) to Executive (3.5x)."
+        "expectations across six seniority levels from Gig (0.5x) to Executive (3.5x).",
     )
 
     add_heading2(doc, "Multi-Currency & Global Support")
@@ -326,7 +354,7 @@ def build_document():
         "SGD, HKD, NZD, CHF, SEK, NOK, DKK, BRL, ZAR, MXN, KRW, THB, MYR, PHP, IDR, "
         "AED, SAR, and more) with proper symbol formatting. Location intelligence spans "
         "40+ countries and 100+ metro areas, with automatic currency detection based on "
-        "the primary hiring location."
+        "the primary hiring location.",
     )
 
     add_heading2(doc, "Collar Intelligence")
@@ -337,7 +365,7 @@ def build_document():
         "responses. The engine classifies roles into four collar types (blue, white, grey, "
         "pink) using SOC major groups, O*NET Job Zones, standardizer role tiers, and "
         "keyword pattern matching. Each collar type routes to different channel mixes, "
-        "budget weightings, and messaging strategies."
+        "budget weightings, and messaging strategies.",
     )
 
     add_page_break(doc)
@@ -354,30 +382,102 @@ def build_document():
         "independent AI providers through a cost-optimized, fault-tolerant cascade. The "
         "router follows a free-first philosophy: it exhausts all nine free-tier providers "
         "before falling back to three paid models, minimizing operational cost while maintaining "
-        "response quality. The entire routing layer is stdlib-only and thread-safe."
+        "response quality. The entire routing layer is stdlib-only and thread-safe.",
     )
 
     add_heading2(doc, "Provider Cascade (Priority Order)")
 
     provider_rows = [
-        ["1", "Gemini 2.0 Flash", "Google", "Free", "Structured JSON, code, verification"],
-        ["2", "Groq Llama 3.3 70B", "Groq", "Free", "Conversational, complex reasoning"],
-        ["3", "Cerebras Llama 3.3 70B", "Cerebras", "Free", "Hot spare (same model, independent infra)"],
-        ["4", "Mistral Small", "Mistral AI", "Free", "JSON output, multilingual support"],
-        ["5", "OpenRouter (Llama 4 Maverick)", "OpenRouter", "Free", "Strong general purpose via free models"],
+        [
+            "1",
+            "Gemini 2.0 Flash",
+            "Google",
+            "Free",
+            "Structured JSON, code, verification",
+        ],
+        [
+            "2",
+            "Groq Llama 3.3 70B",
+            "Groq",
+            "Free",
+            "Conversational, complex reasoning",
+        ],
+        [
+            "3",
+            "Cerebras Llama 3.3 70B",
+            "Cerebras",
+            "Free",
+            "Hot spare (same model, independent infra)",
+        ],
+        [
+            "4",
+            "Mistral Small",
+            "Mistral AI",
+            "Free",
+            "JSON output, multilingual support",
+        ],
+        [
+            "5",
+            "OpenRouter (Llama 4 Maverick)",
+            "OpenRouter",
+            "Free",
+            "Strong general purpose via free models",
+        ],
         ["6", "xAI Grok", "xAI", "Free*", "Strong reasoning ($25 signup credits)"],
-        ["7", "SambaNova (Llama 3.1 405B)", "SambaNova", "Free", "Largest open model free, fastest inference (RDU)"],
-        ["8", "NVIDIA NIM (Llama 3.1 70B)", "NVIDIA", "Free", "NVIDIA-optimized, exclusive Nemotron models"],
-        ["9", "Cloudflare Workers AI (Llama 3.3 70B)", "Cloudflare", "Free", "Edge-distributed, 10K neurons/day"],
-        ["10", "GPT-4o", "OpenAI", "Paid", "Structured JSON, general reasoning, calculations"],
-        ["11", "Claude Sonnet 4", "Anthropic", "Paid", "High quality, strong tool-use chains"],
-        ["12", "Claude Opus 4", "Anthropic", "Paid", "Last resort, highest quality, most expensive"],
+        [
+            "7",
+            "SambaNova (Llama 3.1 405B)",
+            "SambaNova",
+            "Free",
+            "Largest open model free, fastest inference (RDU)",
+        ],
+        [
+            "8",
+            "NVIDIA NIM (Llama 3.1 70B)",
+            "NVIDIA",
+            "Free",
+            "NVIDIA-optimized, exclusive Nemotron models",
+        ],
+        [
+            "9",
+            "Cloudflare Workers AI (Llama 3.3 70B)",
+            "Cloudflare",
+            "Free",
+            "Edge-distributed, 10K neurons/day",
+        ],
+        [
+            "10",
+            "GPT-4o",
+            "OpenAI",
+            "Paid",
+            "Structured JSON, general reasoning, calculations",
+        ],
+        [
+            "11",
+            "Claude Sonnet 4",
+            "Anthropic",
+            "Paid",
+            "High quality, strong tool-use chains",
+        ],
+        [
+            "12",
+            "Claude Opus 4",
+            "Anthropic",
+            "Paid",
+            "Last resort, highest quality, most expensive",
+        ],
     ]
     add_styled_table(
         doc,
         ["#", "Provider", "Vendor", "Tier", "Strength"],
         provider_rows,
-        col_widths=[Inches(0.35), Inches(2.0), Inches(0.85), Inches(0.45), Inches(2.35)],
+        col_widths=[
+            Inches(0.35),
+            Inches(2.0),
+            Inches(0.85),
+            Inches(0.45),
+            Inches(2.35),
+        ],
     )
 
     add_heading2(doc, "Task-Based Routing")
@@ -385,14 +485,30 @@ def build_document():
     add_body(
         doc,
         "Every incoming request is classified into one of four task types, and the "
-        "provider priority order is adjusted accordingly within each tier:"
+        "provider priority order is adjusted accordingly within each tier:",
     )
 
     routing_rows = [
-        ["STRUCTURED", "Benchmark lookups, CPC/CPA queries, JSON output", "Gemini > Mistral > Groq > ... > GPT-4o"],
-        ["CONVERSATIONAL", "Strategy explanations, general Q&A, advisory", "Groq > Cerebras > Gemini > ... > GPT-4o"],
-        ["COMPLEX", "What-if scenarios, role decomposition, multi-step analysis", "Groq > Cerebras > Gemini > ... > Claude Sonnet"],
-        ["CODE", "Formula generation, calculations, data transforms", "Gemini > Mistral > Groq > ... > GPT-4o"],
+        [
+            "STRUCTURED",
+            "Benchmark lookups, CPC/CPA queries, JSON output",
+            "Gemini > Mistral > Groq > ... > GPT-4o",
+        ],
+        [
+            "CONVERSATIONAL",
+            "Strategy explanations, general Q&A, advisory",
+            "Groq > Cerebras > Gemini > ... > GPT-4o",
+        ],
+        [
+            "COMPLEX",
+            "What-if scenarios, role decomposition, multi-step analysis",
+            "Groq > Cerebras > Gemini > ... > Claude Sonnet",
+        ],
+        [
+            "CODE",
+            "Formula generation, calculations, data transforms",
+            "Gemini > Mistral > Groq > ... > GPT-4o",
+        ],
     ]
     add_styled_table(
         doc,
@@ -403,16 +519,25 @@ def build_document():
 
     add_heading2(doc, "Fault Tolerance")
 
-    add_bullet(doc, " Each provider has an independent circuit breaker. After 5 consecutive "
-               "failures, the provider enters a 60-second cooldown before retrying.",
-               bold_prefix="Circuit Breakers:")
-    add_bullet(doc, " Per-minute and per-day request tracking per provider prevents "
-               "exceeding API quotas (e.g., Gemini: 15 RPM / 1,500 RPD; Groq: 30 RPM / 14,400 RPD).",
-               bold_prefix="Rate Limiting:")
-    add_bullet(doc, " The entire call_llm() fallback loop is capped at 60 seconds "
-               "wall-clock time. Individual provider timeouts are dynamically adjusted to fit "
-               "within the remaining budget. No attempt starts with less than 5 seconds remaining.",
-               bold_prefix="Global Timeout Budget:")
+    add_bullet(
+        doc,
+        " Each provider has an independent circuit breaker. After 5 consecutive "
+        "failures, the provider enters a 60-second cooldown before retrying.",
+        bold_prefix="Circuit Breakers:",
+    )
+    add_bullet(
+        doc,
+        " Per-minute and per-day request tracking per provider prevents "
+        "exceeding API quotas (e.g., Gemini: 15 RPM / 1,500 RPD; Groq: 30 RPM / 14,400 RPD).",
+        bold_prefix="Rate Limiting:",
+    )
+    add_bullet(
+        doc,
+        " The entire call_llm() fallback loop is capped at 60 seconds "
+        "wall-clock time. Individual provider timeouts are dynamically adjusted to fit "
+        "within the remaining budget. No attempt starts with less than 5 seconds remaining.",
+        bold_prefix="Global Timeout Budget:",
+    )
 
     add_page_break(doc)
 
@@ -427,43 +552,83 @@ def build_document():
         "The platform's data intelligence layer is built on a unified data orchestrator "
         "that cascades through all available data sources in order of cost and speed. "
         "It never crashes -- all errors are caught and the caller always receives a "
-        "usable result dictionary."
+        "usable result dictionary.",
     )
 
     add_heading2(doc, "Unified Data Orchestrator")
     add_body(
         doc,
         "The orchestrator (data_orchestrator.py) is the single entry point for enriched "
-        "data queries. It cascades through six tiers:"
+        "data queries. It cascades through six tiers:",
     )
 
-    add_bullet(doc, " research.py embedded data (free, instant, 40+ countries, 100+ metros)",
-               bold_prefix="Tier 1:")
-    add_bullet(doc, " trend_engine.py benchmarks (free, instant, 4-year CPC/CPA trends)",
-               bold_prefix="Tier 2:")
-    add_bullet(doc, " collar_intelligence.py (free, instant, collar classification)",
-               bold_prefix="Tier 3:")
-    add_bullet(doc, " Selective live API calls (individual APIs, cached 24 hours)",
-               bold_prefix="Tier 4:")
-    add_bullet(doc, " data_synthesizer.py fusion (cross-validates multi-source data)",
-               bold_prefix="Tier 5:")
-    add_bullet(doc, " Static KB fallback (JSON files, always available)",
-               bold_prefix="Tier 6:")
+    add_bullet(
+        doc,
+        " research.py embedded data (free, instant, 40+ countries, 100+ metros)",
+        bold_prefix="Tier 1:",
+    )
+    add_bullet(
+        doc,
+        " trend_engine.py benchmarks (free, instant, 4-year CPC/CPA trends)",
+        bold_prefix="Tier 2:",
+    )
+    add_bullet(
+        doc,
+        " collar_intelligence.py (free, instant, collar classification)",
+        bold_prefix="Tier 3:",
+    )
+    add_bullet(
+        doc,
+        " Selective live API calls (individual APIs, cached 24 hours)",
+        bold_prefix="Tier 4:",
+    )
+    add_bullet(
+        doc,
+        " data_synthesizer.py fusion (cross-validates multi-source data)",
+        bold_prefix="Tier 5:",
+    )
+    add_bullet(
+        doc, " Static KB fallback (JSON files, always available)", bold_prefix="Tier 6:"
+    )
 
     add_heading2(doc, "30+ Real-Time API Integrations")
 
     api_rows = [
         ["BLS OES", "Bureau of Labor Statistics", "Salary data by occupation"],
-        ["BLS QCEW", "Bureau of Labor Statistics", "Industry employment and wage statistics"],
-        ["BLS JOLTS", "Bureau of Labor Statistics", "Job openings, hires, quits by industry"],
-        ["US Census ACS", "U.S. Census Bureau", "Location demographics, population, income"],
+        [
+            "BLS QCEW",
+            "Bureau of Labor Statistics",
+            "Industry employment and wage statistics",
+        ],
+        [
+            "BLS JOLTS",
+            "Bureau of Labor Statistics",
+            "Job openings, hires, quits by industry",
+        ],
+        [
+            "US Census ACS",
+            "U.S. Census Bureau",
+            "Location demographics, population, income",
+        ],
         ["O*NET", "Dept. of Labor", "Occupation skills, knowledge, outlook"],
         ["CareerOneStop", "Dept. of Labor", "Salary, outlook, certifications"],
         ["FRED", "Federal Reserve", "Economic indicators, avg hourly earnings, ECI"],
-        ["World Bank", "World Bank Group", "Global economic indicators (190+ countries)"],
-        ["IMF DataMapper", "International Monetary Fund", "GDP, inflation, unemployment"],
+        [
+            "World Bank",
+            "World Bank Group",
+            "Global economic indicators (190+ countries)",
+        ],
+        [
+            "IMF DataMapper",
+            "International Monetary Fund",
+            "GDP, inflation, unemployment",
+        ],
         ["Eurostat LFS", "European Commission", "EU unemployment, wages, employment"],
-        ["ILO ILOSTAT", "International Labour Org.", "Global labour participation rates"],
+        [
+            "ILO ILOSTAT",
+            "International Labour Org.",
+            "Global labour participation rates",
+        ],
         ["SEC EDGAR", "Securities & Exchange Comm.", "Public company filings and data"],
         ["Google Ads API", "Google", "Keyword search volumes, CPC/CPM benchmarks"],
         ["Meta Marketing API", "Meta", "Facebook/Instagram audience sizing, CPC/CPM"],
@@ -491,14 +656,23 @@ def build_document():
 
     add_heading2(doc, "3-Tier Caching Architecture")
 
-    add_bullet(doc, " In-memory dictionary -- fastest, lost on restart.",
-               bold_prefix="L1 (Memory):")
-    add_bullet(doc, " Disk JSON files -- survives restart, limited by available disk.",
-               bold_prefix="L2 (Disk):")
-    add_bullet(doc, " Supabase Postgres -- survives redeployments, shared across instances. "
-               "Uses only urllib.request with 3-second timeout per call, retry on 5xx errors, "
-               "and automatic TTL-based cleanup.",
-               bold_prefix="L3 (Supabase):")
+    add_bullet(
+        doc,
+        " In-memory dictionary -- fastest, lost on restart.",
+        bold_prefix="L1 (Memory):",
+    )
+    add_bullet(
+        doc,
+        " Disk JSON files -- survives restart, limited by available disk.",
+        bold_prefix="L2 (Disk):",
+    )
+    add_bullet(
+        doc,
+        " Supabase Postgres -- survives redeployments, shared across instances. "
+        "Uses only urllib.request with 3-second timeout per call, retry on 5xx errors, "
+        "and automatic TTL-based cleanup.",
+        bold_prefix="L3 (Supabase):",
+    )
 
     add_heading2(doc, "Canonical Taxonomy Standardizer")
     add_body(
@@ -508,7 +682,7 @@ def build_document():
         "locations (country maps, US state maps, region maps), platforms/channels, and "
         "metrics. Every public function handles None/empty input gracefully and performs "
         "case-insensitive matching, ensuring consistent data flow between the frontend, "
-        "API enrichment, data synthesizer, knowledge base files, Nova, and channel databases."
+        "API enrichment, data synthesizer, knowledge base files, Nova, and channel databases.",
     )
 
     add_page_break(doc)
@@ -526,7 +700,7 @@ def build_document():
         "into concrete dollar amounts with projected outcomes. It operates on a hierarchy "
         "of data sources: dynamic CPC benchmarks from the trend engine take priority, "
         "followed by collar-weighted adjustments from collar intelligence, then static "
-        "base benchmarks as a final fallback."
+        "base benchmarks as a final fallback.",
     )
 
     add_heading2(doc, "Role-Tier CPA Multipliers")
@@ -534,14 +708,18 @@ def build_document():
         doc,
         "Cost-per-acquisition expectations are adjusted by role seniority using predefined "
         "multipliers. These multipliers scale the base CPA to reflect the realistic cost "
-        "of filling roles at different levels:"
+        "of filling roles at different levels:",
     )
 
     tier_rows = [
         ["Executive / Leadership", "3.5x", "C-suite, VP, Director roles"],
         ["Clinical / Licensed", "2.2x", "Nurses, physicians, licensed practitioners"],
         ["Professional / White-Collar", "1.8x", "Engineers, analysts, managers"],
-        ["Skilled Trades / Technical", "1.0x", "Electricians, mechanics, technicians (baseline)"],
+        [
+            "Skilled Trades / Technical",
+            "1.0x",
+            "Electricians, mechanics, technicians (baseline)",
+        ],
         ["Education / Academic", "1.0x", "Teachers, professors, academic staff"],
         ["Hourly / Entry-Level", "0.7x", "Retail, food service, warehouse workers"],
         ["Gig / Independent Contractor", "0.5x", "Freelancers, on-demand workers"],
@@ -560,14 +738,30 @@ def build_document():
         "into one of four collar types using multiple signals: SOC major group codes from "
         "BLS (e.g., groups 47-53 map to blue collar, 11-29 to white collar), O*NET Job "
         "Zones (1-2 = blue/entry, 3 = grey/skilled, 4-5 = white/professional), standardizer "
-        "role tiers, and keyword pattern matching for unclassified roles."
+        "role tiers, and keyword pattern matching for unclassified roles.",
     )
 
     collar_rows = [
-        ["Blue Collar", "Manual labor, trades, hourly, shift-based", "Mobile-first, job boards, programmatic"],
-        ["White Collar", "Professional, office-based, salaried", "LinkedIn, search, professional networks"],
-        ["Grey Collar", "Licensed/clinical, shift-based (nurses, techs)", "Niche healthcare boards, hybrid channels"],
-        ["Pink Collar", "Administrative, care, service roles", "General boards, social, community channels"],
+        [
+            "Blue Collar",
+            "Manual labor, trades, hourly, shift-based",
+            "Mobile-first, job boards, programmatic",
+        ],
+        [
+            "White Collar",
+            "Professional, office-based, salaried",
+            "LinkedIn, search, professional networks",
+        ],
+        [
+            "Grey Collar",
+            "Licensed/clinical, shift-based (nurses, techs)",
+            "Niche healthcare boards, hybrid channels",
+        ],
+        [
+            "Pink Collar",
+            "Administrative, care, service roles",
+            "General boards, social, community channels",
+        ],
     ]
     add_styled_table(
         doc,
@@ -587,7 +781,7 @@ def build_document():
         "100+ US metros and 40+ countries, collar-type CPC differentials per platform, and "
         "structured uncertainty on every returned value (confidence interval, trend direction). "
         "Data is curated from Appcast, WordStream/LOCALiQ, SHRM, LinkedIn Talent Solutions, "
-        "Recruitics/PandoLogic, and iCIMS benchmark reports spanning 2022-2026."
+        "Recruitics/PandoLogic, and iCIMS benchmark reports spanning 2022-2026.",
     )
 
     add_page_break(doc)
@@ -605,21 +799,37 @@ def build_document():
         "self-upgrading quality assurance system. It executes a comprehensive test suite "
         "against live endpoints on a twice-daily schedule (every 12 hours), with a 45-second "
         "hard ceiling per individual test. Results are stored in memory and persisted to disk, "
-        "with failures triggering self-healing actions and optional Slack alerts."
+        "with failures triggering self-healing actions and optional Slack alerts.",
     )
 
-    add_bullet(doc, " Static tests ported from the original test_nova_chat.sh script, "
-               "covering endpoint health, response format validation, data integrity, "
-               "and integration correctness.", bold_prefix="Static Tests:")
-    add_bullet(doc, " Generated weekly from request_log.json and Nova interaction metrics. "
-               "The engine analyzes real user interactions to create new test cases that "
-               "cover emerging usage patterns.", bold_prefix="Dynamic Tests:")
-    add_bullet(doc, " On failure, the engine attempts automatic resolution: cache clearing, "
-               "module reload via importlib, data orchestrator sentinel resets, and stale "
-               "cache eviction.", bold_prefix="Self-Healing:")
-    add_bullet(doc, " Every 7 days, the engine analyzes user interaction patterns to "
-               "generate new test cases, keeping the test suite aligned with actual "
-               "production usage.", bold_prefix="Weekly Self-Upgrade:")
+    add_bullet(
+        doc,
+        " Static tests ported from the original test_nova_chat.sh script, "
+        "covering endpoint health, response format validation, data integrity, "
+        "and integration correctness.",
+        bold_prefix="Static Tests:",
+    )
+    add_bullet(
+        doc,
+        " Generated weekly from request_log.json and Nova interaction metrics. "
+        "The engine analyzes real user interactions to create new test cases that "
+        "cover emerging usage patterns.",
+        bold_prefix="Dynamic Tests:",
+    )
+    add_bullet(
+        doc,
+        " On failure, the engine attempts automatic resolution: cache clearing, "
+        "module reload via importlib, data orchestrator sentinel resets, and stale "
+        "cache eviction.",
+        bold_prefix="Self-Healing:",
+    )
+    add_bullet(
+        doc,
+        " Every 7 days, the engine analyzes user interaction patterns to "
+        "generate new test cases, keeping the test suite aligned with actual "
+        "production usage.",
+        bold_prefix="Weekly Self-Upgrade:",
+    )
 
     add_heading2(doc, "Data Matrix Monitor")
     add_body(
@@ -629,7 +839,7 @@ def build_document():
         "layers. It runs probes every 12 hours in a background daemon thread and maps an "
         "expected-state matrix (YES / NO / PARTIAL / VIA_ORCHESTRATOR) against actual "
         "runtime conditions. Self-healing actions include re-importing failed modules, "
-        "resetting orchestrator lazy-load sentinels, and evicting stale cache entries."
+        "resetting orchestrator lazy-load sentinels, and evicting stale cache entries.",
     )
 
     add_heading2(doc, "Evaluation Framework")
@@ -639,7 +849,7 @@ def build_document():
         "recommendations, collar classification consistency, geographic coherence, and "
         "CPA reasonableness across the core modules (budget_engine, collar_intelligence, "
         "trend_engine). Every test case execution is wrapped in try/except so a single "
-        "failure cannot abort the suite."
+        "failure cannot abort the suite.",
     )
 
     add_heading2(doc, "Regression Detector")
@@ -650,7 +860,7 @@ def build_document():
         "baseline snapshot. Alert thresholds are configurable: CPA drift greater than 10%, "
         "channel allocation drift greater than 15%, and hire projection drift greater than "
         "20% all trigger alerts. The baseline file is persisted at "
-        "data/persistent/regression_baseline.json."
+        "data/persistent/regression_baseline.json.",
     )
 
     add_heading2(doc, "Data Contracts")
@@ -660,7 +870,7 @@ def build_document():
         "files and API enrichment output against defined schemas, ensuring that downstream "
         "consumers (PPT generator, chatbot, orchestrator) never silently receive malformed "
         "data. Schema validation covers structure, required keys, numeric ranges, and type "
-        "correctness."
+        "correctness.",
     )
 
     add_page_break(doc)
@@ -678,7 +888,7 @@ def build_document():
         "request-scoped tracing. Each incoming request receives a unique 12-character hex "
         "request ID, and all log entries within that request's scope carry the ID for "
         "end-to-end correlation. Elapsed time tracking is built into the request context, "
-        "enabling per-request latency measurement."
+        "enabling per-request latency measurement.",
     )
 
     add_heading2(doc, "Grafana Cloud Loki Integration")
@@ -690,7 +900,7 @@ def build_document():
         "records are shipped externally while debug and info logs stay local. Log entries "
         "include labels for application name, deployment environment, and severity level. "
         "The module is entirely stdlib-based and gracefully disables itself when environment "
-        "variables are not configured."
+        "variables are not configured.",
     )
 
     add_heading2(doc, "Email Alerts (Resend)")
@@ -702,19 +912,35 @@ def build_document():
         "errors, neutral for digests). Rate limiting caps output at 10 emails per hour, "
         "with deduplication suppressing identical error_type+message combinations within "
         "a 30-minute window. The module is entirely disabled (no-op) when the Resend API "
-        "key is not set."
+        "key is not set.",
     )
 
     add_heading2(doc, "Health Endpoints & Dependency Probes")
 
-    add_bullet(doc, " Deep health checks combining liveness, readiness, and dependency "
-               "probes in a single response.", bold_prefix="Health API:")
-    add_bullet(doc, " Structured request metrics including latency, error rates, and "
-               "throughput in a 1-hour rolling window.", bold_prefix="Metrics:")
-    add_bullet(doc, " Runtime tracking of memory consumption and disk usage for the "
-               "data and cache directories.", bold_prefix="Resource Tracking:")
-    add_bullet(doc, " Reachability probes against external API dependencies to detect "
-               "outages before they impact generation.", bold_prefix="Dependency Probes:")
+    add_bullet(
+        doc,
+        " Deep health checks combining liveness, readiness, and dependency "
+        "probes in a single response.",
+        bold_prefix="Health API:",
+    )
+    add_bullet(
+        doc,
+        " Structured request metrics including latency, error rates, and "
+        "throughput in a 1-hour rolling window.",
+        bold_prefix="Metrics:",
+    )
+    add_bullet(
+        doc,
+        " Runtime tracking of memory consumption and disk usage for the "
+        "data and cache directories.",
+        bold_prefix="Resource Tracking:",
+    )
+    add_bullet(
+        doc,
+        " Reachability probes against external API dependencies to detect "
+        "outages before they impact generation.",
+        bold_prefix="Dependency Probes:",
+    )
 
     add_heading2(doc, "SLO Monitoring & Error Budgets")
     add_body(
@@ -722,7 +948,7 @@ def build_document():
         "The monitoring system tracks Service Level Objectives and error budget consumption. "
         "This enables proactive alerting when error rates approach thresholds, rather than "
         "reacting to incidents after they impact users. Audit trails record data "
-        "transformation decisions for post-incident analysis."
+        "transformation decisions for post-incident analysis.",
     )
 
     add_page_break(doc)
@@ -739,19 +965,35 @@ def build_document():
         "All user-facing inputs are sanitized before processing. Nova enforces a maximum "
         "message length of 4,000 characters and limits conversation history to 6 turns "
         "to prevent history injection attacks. Input validation occurs at every entry point "
-        "(web UI, chat API, Slack webhook)."
+        "(web UI, chat API, Slack webhook).",
     )
 
     add_heading2(doc, "Rate Limiting & Authentication")
 
-    add_bullet(doc, " Configurable per-IP rate limiting prevents abuse of generation "
-               "and chat endpoints.", bold_prefix="Per-IP Rate Limits:")
-    add_bullet(doc, " Global rate limiting on chat endpoints ensures fair usage across "
-               "all concurrent users.", bold_prefix="Global Chat Limits:")
-    add_bullet(doc, " Administrative endpoints (QC results, metrics, health details) are "
-               "protected by API key authentication.", bold_prefix="Admin API Key:")
-    add_bullet(doc, " Origin-based whitelisting restricts cross-origin requests to "
-               "approved domains only.", bold_prefix="CORS Whitelisting:")
+    add_bullet(
+        doc,
+        " Configurable per-IP rate limiting prevents abuse of generation "
+        "and chat endpoints.",
+        bold_prefix="Per-IP Rate Limits:",
+    )
+    add_bullet(
+        doc,
+        " Global rate limiting on chat endpoints ensures fair usage across "
+        "all concurrent users.",
+        bold_prefix="Global Chat Limits:",
+    )
+    add_bullet(
+        doc,
+        " Administrative endpoints (QC results, metrics, health details) are "
+        "protected by API key authentication.",
+        bold_prefix="Admin API Key:",
+    )
+    add_bullet(
+        doc,
+        " Origin-based whitelisting restricts cross-origin requests to "
+        "approved domains only.",
+        bold_prefix="CORS Whitelisting:",
+    )
 
     add_heading2(doc, "Adversarial Prompt Defense")
     add_body(
@@ -759,7 +1001,7 @@ def build_document():
         "The Nova chatbot includes adversarial prompt blocking that defends against five "
         "categories of prompt injection attacks. All five attack vectors tested during "
         "security evaluation were successfully blocked (5/5), preventing attempts to "
-        "extract system prompts, bypass safety boundaries, or manipulate response behavior."
+        "extract system prompts, bypass safety boundaries, or manipulate response behavior.",
     )
 
     add_heading2(doc, "Thread-Safe Architecture")
@@ -769,7 +1011,7 @@ def build_document():
         "the LLM router's per-provider circuit breaker state, rate limit counters, the "
         "data orchestrator's lazy-loaded module references, Nova's conversation history, "
         "file I/O operations for caching and logging, and the Supabase cache layer. The "
-        "application serves concurrent requests safely without data races or corruption."
+        "application serves concurrent requests safely without data races or corruption.",
     )
 
     add_heading2(doc, "Circuit Breakers")
@@ -779,7 +1021,7 @@ def build_document():
         "LLM router (5 failures trigger 60-second cooldown per provider) and per-API circuit "
         "breakers in the enrichment layer (preventing cascading failures when external "
         "services are degraded). Circuit breaker state transitions trigger email alerts "
-        "via the Resend integration."
+        "via the Resend integration.",
     )
 
     add_heading2(doc, "Graceful Shutdown")
@@ -788,7 +1030,7 @@ def build_document():
         "The monitoring module coordinates graceful shutdown across all background threads. "
         "When a shutdown signal is received, in-progress requests are allowed to complete, "
         "background health checks and QC runs are stopped cleanly, and any pending log "
-        "shipments to Grafana Loki are flushed before the process exits."
+        "shipments to Grafana Loki are flushed before the process exits.",
     )
 
     add_page_break(doc)
@@ -847,7 +1089,10 @@ def build_document():
 
     stack_rows = [
         ["Language", "Python 3.11+"],
-        ["Core Dependencies", "Zero external pip packages (stdlib only for server core)"],
+        [
+            "Core Dependencies",
+            "Zero external pip packages (stdlib only for server core)",
+        ],
         ["HTTP Server", "http.server (Python stdlib)"],
         ["Concurrency", "threading + concurrent.futures.ThreadPoolExecutor"],
         ["LLM Integration", "urllib.request to 12 provider REST APIs"],
@@ -868,10 +1113,22 @@ def build_document():
     add_heading2(doc, "Integration Ecosystem")
 
     integration_rows = [
-        ["LLM Providers", "Gemini, Groq, Cerebras, Mistral, OpenRouter, xAI, SambaNova, NVIDIA NIM, Cloudflare, OpenAI, Anthropic"],
-        ["Government Data", "BLS (OES, QCEW, JOLTS), Census ACS, FRED, O*NET, CareerOneStop, H-1B"],
-        ["International Data", "World Bank, IMF, Eurostat, ILO, REST Countries, GeoNames, Teleport"],
-        ["Ad Platforms", "Google Ads, Meta Marketing, LinkedIn Marketing, Bing Ads, TikTok Marketing"],
+        [
+            "LLM Providers",
+            "Gemini, Groq, Cerebras, Mistral, OpenRouter, xAI, SambaNova, NVIDIA NIM, Cloudflare, OpenAI, Anthropic",
+        ],
+        [
+            "Government Data",
+            "BLS (OES, QCEW, JOLTS), Census ACS, FRED, O*NET, CareerOneStop, H-1B",
+        ],
+        [
+            "International Data",
+            "World Bank, IMF, Eurostat, ILO, REST Countries, GeoNames, Teleport",
+        ],
+        [
+            "Ad Platforms",
+            "Google Ads, Meta Marketing, LinkedIn Marketing, Bing Ads, TikTok Marketing",
+        ],
         ["Job Market", "Adzuna, Jooble, Indeed (via trends), DataUSA"],
         ["Company Intel", "Clearbit, Wikipedia, SEC EDGAR, Google Trends"],
         ["Observability", "Grafana Cloud Loki, UptimeRobot, Resend (email)"],
@@ -886,17 +1143,36 @@ def build_document():
 
     add_heading2(doc, "Future Roadmap")
 
-    add_bullet(doc, " Expand Nova to support multi-turn media plan creation directly "
-               "through conversational interaction.", bold_prefix="Conversational Plan Builder:")
-    add_bullet(doc, " Build a real-time dashboard showing plan performance, budget "
-               "pacing, and market condition changes.", bold_prefix="Performance Analytics Dashboard:")
-    add_bullet(doc, " Integrate real-time bidding data to feed actual campaign "
-               "performance back into future plan recommendations.", bold_prefix="Closed-Loop Optimization:")
-    add_bullet(doc, " Extend the evaluation framework with automated A/B testing of "
-               "budget allocation strategies across historical campaigns.",
-               bold_prefix="Automated A/B Testing Framework:")
-    add_bullet(doc, " Add Microsoft Teams integration alongside the existing "
-               "Slack bot for broader workplace coverage.", bold_prefix="Teams Bot Integration:")
+    add_bullet(
+        doc,
+        " Expand Nova to support multi-turn media plan creation directly "
+        "through conversational interaction.",
+        bold_prefix="Conversational Plan Builder:",
+    )
+    add_bullet(
+        doc,
+        " Build a real-time dashboard showing plan performance, budget "
+        "pacing, and market condition changes.",
+        bold_prefix="Performance Analytics Dashboard:",
+    )
+    add_bullet(
+        doc,
+        " Integrate real-time bidding data to feed actual campaign "
+        "performance back into future plan recommendations.",
+        bold_prefix="Closed-Loop Optimization:",
+    )
+    add_bullet(
+        doc,
+        " Extend the evaluation framework with automated A/B testing of "
+        "budget allocation strategies across historical campaigns.",
+        bold_prefix="Automated A/B Testing Framework:",
+    )
+    add_bullet(
+        doc,
+        " Add Microsoft Teams integration alongside the existing "
+        "Slack bot for broader workplace coverage.",
+        bold_prefix="Teams Bot Integration:",
+    )
 
     # --- Footer note ---
     doc.add_paragraph()

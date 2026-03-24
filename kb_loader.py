@@ -152,12 +152,62 @@ def load_knowledge_base() -> dict[str, Any]:
         _rebuild_backward_compat(kb)
         _validate_freshness(kb)
 
-        logger.info(
-            "Knowledge base loaded: %d/%d files, %d total keys",
-            loaded_count,
-            len(KB_FILES),
-            len(kb),
-        )
+        # ── KB Memory Usage Tracking (#14) ──
+        try:
+            kb_json_bytes = len(json.dumps(kb).encode("utf-8"))
+            logger.info(
+                "Knowledge base loaded: %d/%d files, %d total keys, ~%.1f MB in memory",
+                loaded_count,
+                len(KB_FILES),
+                len(kb),
+                kb_json_bytes / 1_048_576,
+            )
+            if kb_json_bytes > 50 * 1_048_576:  # warn above 50 MB
+                logger.warning(
+                    "KB memory usage HIGH: %.1f MB — consider lazy loading",
+                    kb_json_bytes / 1_048_576,
+                )
+        except Exception as mem_err:
+            logger.info(
+                "Knowledge base loaded: %d/%d files, %d total keys (memory tracking failed: %s)",
+                loaded_count,
+                len(KB_FILES),
+                len(kb),
+                mem_err,
+            )
+
+        # ── KB Data Quality Validation (#16) ──
+        try:
+            quality_issues: list[dict[str, Any]] = []
+            for qk, qv in kb.items():
+                if qk.startswith("_"):
+                    continue
+                issues: list[str] = []
+                if qv is None:
+                    issues.append("null_data")
+                elif isinstance(qv, dict) and len(qv) == 0:
+                    issues.append("empty_dict")
+                elif isinstance(qv, list) and len(qv) == 0:
+                    issues.append("empty_list")
+                if issues:
+                    quality_issues.append(
+                        {"key": qk, "issues": issues, "type": type(qv).__name__}
+                    )
+            if quality_issues:
+                logger.warning(
+                    "KB quality issues in %d sections: %s",
+                    len(quality_issues),
+                    ", ".join(
+                        f"{qi['key']}({','.join(qi['issues'])})"
+                        for qi in quality_issues
+                    ),
+                )
+                kb["_quality_issues"] = quality_issues
+            else:
+                logger.info("KB data quality check passed: all sections have data")
+        except Exception as qe:
+            logger.debug("KB quality check failed (non-fatal): %s", qe)
+
         _knowledge_base = kb
 
     # Start the hot-reload daemon thread (once, outside the lock)

@@ -1,0 +1,671 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Nova Health Dashboard</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      :root {
+        --port-gore: #202058;
+        --blue-violet: #5a54bd;
+        --downy-teal: #6bb3cd;
+        --bg: #0a0a1a;
+        --card: #141432;
+        --card-border: rgba(90, 84, 189, 0.18);
+        --text: #e4e4ef;
+        --text-dim: #8888aa;
+        --green: #34d399;
+        --yellow: #fbbf24;
+        --red: #ef4444;
+        --orange: #f97316;
+      }
+      body {
+        font-family: "Inter", system-ui, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        min-height: 100vh;
+      }
+      .top-bar {
+        background: rgba(20, 20, 50, 0.85);
+        backdrop-filter: blur(12px);
+        border-bottom: 1px solid var(--card-border);
+        padding: 16px 32px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+      }
+      .top-bar h1 {
+        font-size: 18px;
+        font-weight: 700;
+        background: linear-gradient(
+          135deg,
+          var(--blue-violet),
+          var(--downy-teal)
+        );
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+      .top-bar .meta {
+        font-size: 12px;
+        color: var(--text-dim);
+      }
+      .top-bar .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 6px;
+        background: var(--green);
+        animation: pulse 2s infinite;
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.5;
+        }
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 20px;
+        padding: 24px 32px;
+        max-width: 1600px;
+        margin: 0 auto;
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--card-border);
+        border-radius: 14px;
+        padding: 20px;
+        backdrop-filter: blur(8px);
+        transition: border-color 0.2s;
+      }
+      .card:hover {
+        border-color: rgba(90, 84, 189, 0.35);
+      }
+      .card-title {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 1.2px;
+        color: var(--text-dim);
+        margin-bottom: 12px;
+        font-weight: 600;
+      }
+      .big-number {
+        font-size: 36px;
+        font-weight: 700;
+        line-height: 1;
+      }
+      .big-number.green {
+        color: var(--green);
+      }
+      .big-number.yellow {
+        color: var(--yellow);
+      }
+      .big-number.red {
+        color: var(--red);
+      }
+      .big-number.teal {
+        color: var(--downy-teal);
+      }
+      .sub-text {
+        font-size: 12px;
+        color: var(--text-dim);
+        margin-top: 6px;
+      }
+      .wide {
+        grid-column: span 2;
+      }
+      .bar-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 8px;
+        font-size: 13px;
+      }
+      .bar-row .label {
+        width: 120px;
+        color: var(--text-dim);
+        flex-shrink: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .bar-track {
+        flex: 1;
+        height: 6px;
+        background: rgba(255, 255, 255, 0.06);
+        border-radius: 3px;
+        overflow: hidden;
+      }
+      .bar-fill {
+        height: 100%;
+        border-radius: 3px;
+        transition: width 0.6s ease;
+      }
+      .bar-fill.green {
+        background: var(--green);
+      }
+      .bar-fill.yellow {
+        background: var(--yellow);
+      }
+      .bar-fill.red {
+        background: var(--red);
+      }
+      .bar-fill.teal {
+        background: var(--downy-teal);
+      }
+      .bar-row .val {
+        width: 50px;
+        text-align: right;
+        font-weight: 600;
+        font-size: 12px;
+      }
+      .insight-list {
+        max-height: 300px;
+        overflow-y: auto;
+      }
+      .insight-item {
+        padding: 10px 12px;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.03);
+        margin-bottom: 6px;
+        border-left: 3px solid var(--blue-violet);
+        font-size: 13px;
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+      }
+      .insight-item.critical {
+        border-left-color: var(--red);
+      }
+      .insight-item.warning {
+        border-left-color: var(--yellow);
+      }
+      .insight-item.info {
+        border-left-color: var(--downy-teal);
+      }
+      .insight-badge {
+        font-size: 10px;
+        font-weight: 600;
+        text-transform: uppercase;
+        padding: 2px 6px;
+        border-radius: 4px;
+        flex-shrink: 0;
+      }
+      .insight-badge.critical {
+        background: rgba(239, 68, 68, 0.15);
+        color: var(--red);
+      }
+      .insight-badge.warning {
+        background: rgba(251, 191, 36, 0.15);
+        color: var(--yellow);
+      }
+      .insight-badge.info {
+        background: rgba(107, 179, 205, 0.15);
+        color: var(--downy-teal);
+      }
+      .insight-body {
+        flex: 1;
+        min-width: 0;
+      }
+      .insight-title {
+        font-weight: 600;
+        font-size: 13px;
+      }
+      .insight-msg {
+        font-size: 12px;
+        color: var(--text-dim);
+        margin-top: 2px;
+      }
+      .insight-time {
+        font-size: 10px;
+        color: var(--text-dim);
+        margin-top: 4px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+      }
+      th {
+        text-align: left;
+        color: var(--text-dim);
+        font-weight: 500;
+        padding: 6px 8px;
+        border-bottom: 1px solid var(--card-border);
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      td {
+        padding: 8px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      }
+      .pill {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-size: 11px;
+        font-weight: 600;
+      }
+      .pill.ok {
+        background: rgba(52, 211, 153, 0.12);
+        color: var(--green);
+      }
+      .pill.warn {
+        background: rgba(251, 191, 36, 0.12);
+        color: var(--yellow);
+      }
+      .pill.err {
+        background: rgba(239, 68, 68, 0.12);
+        color: var(--red);
+      }
+      .footer {
+        text-align: center;
+        padding: 24px;
+        font-size: 11px;
+        color: var(--text-dim);
+      }
+      .footer a {
+        color: var(--downy-teal);
+        text-decoration: none;
+      }
+      @media (max-width: 768px) {
+        .grid {
+          padding: 12px;
+          gap: 12px;
+        }
+        .wide {
+          grid-column: span 1;
+        }
+        .top-bar {
+          padding: 12px 16px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="top-bar">
+      <div>
+        <h1>Nova Health Dashboard</h1>
+        <div class="meta">
+          <span class="status-dot" id="liveDot"></span
+          ><span id="lastUpdate">Connecting...</span>
+        </div>
+      </div>
+      <div class="meta">
+        Auto-refresh active &middot;
+        <a
+          href="/platform"
+          style="color: var(--downy-teal); text-decoration: none"
+          >Back to Platform</a
+        >
+      </div>
+    </div>
+
+    <div class="grid">
+      <!-- System Status -->
+      <div class="card" id="cardStatus">
+        <div class="card-title">System Status</div>
+        <div class="big-number green" id="sysStatus">--</div>
+        <div class="sub-text" id="sysUptime">Uptime: --</div>
+      </div>
+
+      <!-- Error Rate -->
+      <div class="card">
+        <div class="card-title">Error Rate</div>
+        <div class="big-number green" id="errorRate">--%</div>
+        <div class="sub-text" id="errorCount">0 errors / 0 requests</div>
+      </div>
+
+      <!-- LLM Costs Today -->
+      <div class="card">
+        <div class="card-title">LLM Costs Today</div>
+        <div class="big-number teal" id="llmCost">$--</div>
+        <div class="sub-text" id="llmRequests">-- requests</div>
+      </div>
+
+      <!-- Unread Insights -->
+      <div class="card">
+        <div class="card-title">Proactive Insights</div>
+        <div class="big-number teal" id="insightCount">0</div>
+        <div class="sub-text" id="insightEngine">Engine: --</div>
+      </div>
+
+      <!-- Avg Latency -->
+      <div class="card">
+        <div class="card-title">Avg Latency (P50)</div>
+        <div class="big-number green" id="latency">--ms</div>
+        <div class="sub-text" id="latencyP99">P99: --ms</div>
+      </div>
+
+      <!-- Active Requests -->
+      <div class="card">
+        <div class="card-title">Active Requests</div>
+        <div class="big-number teal" id="activeReqs">0</div>
+        <div class="sub-text" id="totalReqs">Total served: --</div>
+      </div>
+
+      <!-- Module Health -->
+      <div class="card wide">
+        <div class="card-title">Module Health</div>
+        <div id="moduleHealth">
+          <div class="sub-text">Loading...</div>
+        </div>
+      </div>
+
+      <!-- LLM Provider Status -->
+      <div class="card wide">
+        <div class="card-title">LLM Provider Status</div>
+        <div style="overflow-x: auto">
+          <table id="llmTable">
+            <thead>
+              <tr>
+                <th>Provider</th>
+                <th>Status</th>
+                <th>Calls</th>
+                <th>Avg Latency</th>
+              </tr>
+            </thead>
+            <tbody id="llmBody">
+              <tr>
+                <td colspan="4" style="color: var(--text-dim)">Loading...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Recent Insights -->
+      <div class="card wide">
+        <div class="card-title">Recent Insights</div>
+        <div class="insight-list" id="insightList">
+          <div class="sub-text">Loading...</div>
+        </div>
+      </div>
+
+      <!-- Dashboard Widgets -->
+      <div class="card wide">
+        <div class="card-title">Dashboard Widget Data</div>
+        <div id="widgetData">
+          <div class="sub-text">Loading...</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      Nova AI Suite &middot; Health Dashboard &middot;
+      <a href="https://www.linkedin.com/in/chandel13/" target="_blank"
+        >Built by Shubham Singh Chandel</a
+      >
+    </div>
+
+    <script>
+      (function () {
+        const $ = (id) => document.getElementById(id);
+
+        function timeAgo(ts) {
+          const s = Math.floor(Date.now() / 1000 - ts);
+          if (s < 60) return s + "s ago";
+          if (s < 3600) return Math.floor(s / 60) + "m ago";
+          return Math.floor(s / 3600) + "h ago";
+        }
+
+        function colorClass(val, warnAt, critAt) {
+          if (val >= critAt) return "red";
+          if (val >= warnAt) return "yellow";
+          return "green";
+        }
+
+        async function fetchJSON(url) {
+          try {
+            const r = await fetch(url);
+            if (!r.ok) return null;
+            return await r.json();
+          } catch (e) {
+            return null;
+          }
+        }
+
+        async function pollHealth() {
+          const d = await fetchJSON("/api/health");
+          if (!d) {
+            $("sysStatus").textContent = "UNREACHABLE";
+            $("sysStatus").className = "big-number red";
+            return;
+          }
+          const status = d.status || "unknown";
+          $("sysStatus").textContent = status.toUpperCase();
+          $("sysStatus").className =
+            "big-number " +
+            (status === "healthy"
+              ? "green"
+              : status === "degraded"
+                ? "yellow"
+                : "red");
+
+          const up = d.uptime_seconds || d.uptime || 0;
+          const h = Math.floor(up / 3600);
+          const m = Math.floor((up % 3600) / 60);
+          $("sysUptime").textContent = "Uptime: " + h + "h " + m + "m";
+
+          // Error rate
+          const errRate = d.error_rate || d.metrics?.error_rate || 0;
+          const pct = (errRate * 100).toFixed(2);
+          $("errorRate").textContent = pct + "%";
+          $("errorRate").className =
+            "big-number " + colorClass(errRate, 0.02, 0.05);
+
+          const totalR = d.total_requests || d.metrics?.total_requests || 0;
+          const totalE = d.total_errors || d.metrics?.total_errors || 0;
+          $("errorCount").textContent =
+            totalE + " errors / " + totalR + " requests";
+
+          // Latency
+          const lat = d.avg_latency_ms || d.metrics?.avg_latency_ms || 0;
+          $("latency").textContent = Math.round(lat) + "ms";
+          $("latency").className = "big-number " + colorClass(lat, 500, 2000);
+          const p99 = d.p99_latency_ms || d.metrics?.p99_latency_ms || 0;
+          $("latencyP99").textContent = "P99: " + Math.round(p99) + "ms";
+
+          // Active reqs
+          const active = d.active_requests || d.metrics?.active_requests || 0;
+          $("activeReqs").textContent = active;
+          $("totalReqs").textContent =
+            "Total served: " + totalR.toLocaleString();
+
+          // Modules
+          const modules = d.modules || d.integrations || {};
+          let mhtml = "";
+          for (const [k, v] of Object.entries(modules)) {
+            const ok =
+              v === true ||
+              v === "ok" ||
+              v === "available" ||
+              (typeof v === "object" && v.status === "ok");
+            const cls = ok ? "green" : "red";
+            const pct = ok ? 100 : 0;
+            mhtml +=
+              '<div class="bar-row"><span class="label">' +
+              k +
+              '</span><div class="bar-track"><div class="bar-fill ' +
+              cls +
+              '" style="width:' +
+              pct +
+              '%"></div></div><span class="val"><span class="pill ' +
+              (ok ? "ok" : "err") +
+              '">' +
+              (ok ? "OK" : "DOWN") +
+              "</span></span></div>";
+          }
+          $("moduleHealth").innerHTML =
+            mhtml || '<div class="sub-text">No module data</div>';
+
+          // LLM providers
+          const llm = d.llm_providers || d.llm || {};
+          let thtml = "";
+          if (typeof llm === "object" && !Array.isArray(llm)) {
+            for (const [name, info] of Object.entries(llm)) {
+              const st =
+                typeof info === "object"
+                  ? info.status || (info.available ? "ok" : "down")
+                  : info
+                    ? "ok"
+                    : "down";
+              const calls =
+                typeof info === "object"
+                  ? info.calls || info.total_calls || "--"
+                  : "--";
+              const avgLat =
+                typeof info === "object" ? info.avg_latency || "--" : "--";
+              const cls =
+                st === "ok" || st === "healthy"
+                  ? "ok"
+                  : st === "degraded"
+                    ? "warn"
+                    : "err";
+              thtml +=
+                "<tr><td>" +
+                name +
+                '</td><td><span class="pill ' +
+                cls +
+                '">' +
+                st.toUpperCase() +
+                "</span></td><td>" +
+                calls +
+                "</td><td>" +
+                avgLat +
+                "</td></tr>";
+            }
+          }
+          $("llmBody").innerHTML =
+            thtml ||
+            '<tr><td colspan="4" style="color:var(--text-dim)">No LLM data in health endpoint</td></tr>';
+
+          $("lastUpdate").textContent =
+            "Last updated: " + new Date().toLocaleTimeString();
+          $("liveDot").style.background = "var(--green)";
+        }
+
+        async function pollCosts() {
+          const d = await fetchJSON("/api/llm/costs");
+          if (!d) return;
+          const cost =
+            d.total_cost_today || d.total_cost || d.estimated_cost || 0;
+          $("llmCost").textContent = "$" + cost.toFixed(4);
+          const reqs =
+            d.total_requests_today || d.total_requests || d.request_count || 0;
+          $("llmRequests").textContent = reqs.toLocaleString() + " requests";
+        }
+
+        async function pollInsights() {
+          const stats = await fetchJSON("/api/insights/stats");
+          if (stats) {
+            $("insightCount").textContent = stats.unread || 0;
+            $("insightEngine").textContent =
+              "Engine: " +
+              (stats.running ? "Running" : "Stopped") +
+              " | Total: " +
+              (stats.total_insights || 0);
+          }
+
+          const d = await fetchJSON("/api/insights?limit=10");
+          if (!d || !d.insights) return;
+          if (d.insights.length === 0) {
+            $("insightList").innerHTML =
+              '<div class="sub-text">No insights yet. The engine checks every 5 minutes.</div>';
+            return;
+          }
+          let html = "";
+          for (const ins of d.insights) {
+            const sev = ins.severity || "info";
+            html +=
+              '<div class="insight-item ' +
+              sev +
+              '">' +
+              '<span class="insight-badge ' +
+              sev +
+              '">' +
+              sev +
+              "</span>" +
+              '<div class="insight-body"><div class="insight-title">' +
+              (ins.title || "") +
+              "</div>" +
+              '<div class="insight-msg">' +
+              (ins.message || "") +
+              "</div>" +
+              '<div class="insight-time">' +
+              (ins.category || "") +
+              " &middot; " +
+              timeAgo(ins.created_at) +
+              "</div></div></div>";
+          }
+          $("insightList").innerHTML = html;
+        }
+
+        async function pollWidgets() {
+          const d = await fetchJSON("/api/dashboard/widgets");
+          if (!d) {
+            $("widgetData").innerHTML =
+              '<div class="sub-text">Widget endpoint unavailable</div>';
+            return;
+          }
+          let html = "";
+          const widgets = d.widgets || d;
+          if (Array.isArray(widgets)) {
+            for (const w of widgets) {
+              const label = w.label || w.title || w.name || "Widget";
+              const value = w.value != null ? w.value : "--";
+              html +=
+                '<div class="bar-row"><span class="label">' +
+                label +
+                '</span><span class="val" style="width:auto;font-size:14px;color:var(--downy-teal)">' +
+                value +
+                "</span></div>";
+            }
+          } else if (typeof widgets === "object") {
+            for (const [k, v] of Object.entries(widgets)) {
+              const val = typeof v === "object" ? JSON.stringify(v) : v;
+              html +=
+                '<div class="bar-row"><span class="label">' +
+                k +
+                '</span><span class="val" style="width:auto;font-size:13px">' +
+                val +
+                "</span></div>";
+            }
+          }
+          $("widgetData").innerHTML =
+            html || '<div class="sub-text">No widget data</div>';
+        }
+
+        // Initial load
+        pollHealth();
+        pollCosts();
+        pollInsights();
+        pollWidgets();
+
+        // Auto-refresh
+        setInterval(pollHealth, 10000);
+        setInterval(pollCosts, 30000);
+        setInterval(pollInsights, 30000);
+        setInterval(pollWidgets, 30000);
+      })();
+    </script>
+  </body>
+</html>

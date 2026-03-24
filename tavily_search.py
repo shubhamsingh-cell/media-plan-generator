@@ -177,7 +177,7 @@ def _tavily_request(
         req = urllib.request.Request(
             _TAVILY_API_URL,
             data=data,
-            headers={"Content-Type": "application/json"},
+            headers={"Content-Type": "application/json", "Connection": "keep-alive"},
             method="POST",
         )
         with urllib.request.urlopen(req, timeout=_TAVILY_TIMEOUT) as resp:
@@ -233,6 +233,7 @@ def _jina_search(query: str, max_results: int = 5) -> list[dict] | None:
             headers={
                 "Accept": "application/json",
                 "X-Return-Format": "text",
+                "Connection": "keep-alive",
             },
             method="GET",
         )
@@ -308,6 +309,7 @@ def _ddg_search(query: str, max_results: int = 5) -> list[dict] | None:
             headers={
                 "User-Agent": "Mozilla/5.0 (compatible; NovaAISuite/1.0)",
                 "Content-Type": "application/x-www-form-urlencoded",
+                "Connection": "keep-alive",
             },
             method="POST",
         )

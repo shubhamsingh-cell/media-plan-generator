@@ -701,12 +701,61 @@ def load_knowledge_base() -> dict:
     except Exception as e:
         logger.error("Failed to load Joveo category spends: %s", e, exc_info=True)
 
-    logger.info(
-        "Knowledge base loaded: %d/%d files, %d total keys",
-        loaded_count,
-        len(files),
-        len(kb),
-    )
+    # ── KB Memory Usage Tracking (#14) ──
+    try:
+        kb_json_bytes = len(json.dumps(kb).encode("utf-8"))
+        logger.info(
+            "Knowledge base loaded: %d/%d files, %d total keys, ~%.1f MB in memory",
+            loaded_count,
+            len(files),
+            len(kb),
+            kb_json_bytes / 1_048_576,
+        )
+        if kb_json_bytes > 50 * 1_048_576:  # warn above 50 MB
+            logger.warning(
+                "KB memory usage HIGH: %.1f MB — consider lazy loading",
+                kb_json_bytes / 1_048_576,
+            )
+    except Exception as mem_err:
+        logger.info(
+            "Knowledge base loaded: %d/%d files, %d total keys (memory tracking failed: %s)",
+            loaded_count,
+            len(files),
+            len(kb),
+            mem_err,
+        )
+
+    # ── KB Data Quality Validation (#16) ──
+    try:
+        quality_issues: list[dict] = []
+        for qk, qv in kb.items():
+            if qk.startswith("_"):
+                continue
+            issues: list[str] = []
+            if qv is None:
+                issues.append("null_data")
+            elif isinstance(qv, dict) and len(qv) == 0:
+                issues.append("empty_dict")
+            elif isinstance(qv, list) and len(qv) == 0:
+                issues.append("empty_list")
+            if issues:
+                quality_issues.append(
+                    {"key": qk, "issues": issues, "type": type(qv).__name__}
+                )
+        if quality_issues:
+            logger.warning(
+                "KB quality issues in %d sections: %s",
+                len(quality_issues),
+                ", ".join(
+                    f"{qi['key']}({','.join(qi['issues'])})" for qi in quality_issues
+                ),
+            )
+            kb["_quality_issues"] = quality_issues
+        else:
+            logger.info("KB data quality check passed: all sections have data")
+    except Exception as qe:
+        logger.debug("KB quality check failed (non-fatal): %s", qe)
+
     _knowledge_base = kb
     return kb
 
@@ -15617,12 +15666,62 @@ _global_chat_lock = threading.Lock()
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# INPUT SANITIZATION
+# ═══════════════════════════════════════════════════════════════════════════════
+
+import re as _re_sanitize
+
+_HTML_TAG_RE = _re_sanitize.compile(r"<[^>]+>")
+_SCRIPT_BLOCK_RE = _re_sanitize.compile(
+    r"<script[\s>].*?</script>", _re_sanitize.IGNORECASE | _re_sanitize.DOTALL
+)
+_STYLE_BLOCK_RE = _re_sanitize.compile(
+    r"<style[\s>].*?</style>", _re_sanitize.IGNORECASE | _re_sanitize.DOTALL
+)
+_EVENT_HANDLER_RE = _re_sanitize.compile(
+    r'\bon\w+\s*=\s*["\'][^"\']*["\']', _re_sanitize.IGNORECASE
+)
+_MAX_CHAT_INPUT_LENGTH = 10000
+
+
+def _sanitize_chat_input(text: Optional[str]) -> str:
+    """Sanitize user chat input to prevent XSS and injection.
+
+    Strips HTML tags, script/style blocks, and event handler attributes.
+    Truncates to 10000 characters.
+
+    Args:
+        text: Raw user input string (may be None).
+
+    Returns:
+        Sanitized plain-text string safe for rendering.
+    """
+    if not text:
+        return ""
+    # Strip null bytes and other control characters (prevent injection/log poisoning)
+    text = text.replace("\x00", "")
+    # Remove script and style blocks first (before stripping tags)
+    text = _SCRIPT_BLOCK_RE.sub("", text)
+    text = _STYLE_BLOCK_RE.sub("", text)
+    # Remove event handlers (e.g. onerror="...")
+    text = _EVENT_HANDLER_RE.sub("", text)
+    # Strip all remaining HTML tags
+    text = _HTML_TAG_RE.sub("", text)
+    # Truncate to max length
+    if len(text) > _MAX_CHAT_INPUT_LENGTH:
+        text = text[:_MAX_CHAT_INPUT_LENGTH]
+    return text
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # ROUTE-AWARE SLIDING WINDOW RATE LIMITER
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
 class RateLimiter:
     """Thread-safe sliding window rate limiter with per-route limits."""
+
+    _MAX_IPS = 10000  # Hard cap on tracked IPs to prevent memory exhaustion
 
     def __init__(self):
         self._requests = {}  # ip -> list of timestamps
@@ -15633,6 +15732,15 @@ class RateLimiter:
         now = time.time()
         with self._lock:
             if ip not in self._requests:
+                # Evict oldest entries if we hit the cap (DDoS protection)
+                if len(self._requests) >= self._MAX_IPS:
+                    oldest_ip = min(
+                        self._requests,
+                        key=lambda k: (
+                            max(self._requests[k]) if self._requests[k] else 0
+                        ),
+                    )
+                    del self._requests[oldest_ip]
                 self._requests[ip] = []
             # Remove expired timestamps
             self._requests[ip] = [
@@ -15661,6 +15769,8 @@ class RateLimiter:
 # Separate rate limiter instances for different route groups so that
 # hitting the limit on /api/generate does not consume quota for other routes.
 _rl_generate = RateLimiter()  # /api/generate -- 10 req/min (expensive)
+_rl_chat = RateLimiter()  # /api/chat, /api/chat/stream -- 15 req/min (LLM calls)
+_rl_llm_heavy = RateLimiter()  # LLM-heavy analysis endpoints -- 10 req/min
 _rl_portal = RateLimiter()  # /api/portal/* -- 20 req/min
 _rl_general = RateLimiter()  # all other /api/* POST routes -- 30 req/min
 
@@ -15740,6 +15850,8 @@ def _rate_limiter_cleanup_loop():
         time.sleep(300)
         try:
             _rl_generate.cleanup()
+            _rl_chat.cleanup()
+            _rl_llm_heavy.cleanup()
             _rl_portal.cleanup()
             _rl_general.cleanup()
         except Exception as exc:
@@ -16669,7 +16781,7 @@ def _analyze_compliance(data: dict) -> dict:
             no_llm_result["compliance_reference"] = eeoc_data
         return no_llm_result
 
-    task_type = getattr(router, "TASK_VERIFICATION", "verification")
+    task_type = getattr(router, "TASK_COMPLIANCE_CHECK", "compliance_check")
     prompt = (
         f"Analyze this job posting for compliance issues.\n\n"
         f"Job Title: {job_title}\nLocation: {location}\n\n"
@@ -16817,7 +16929,7 @@ def _audit_complianceguard(data: dict) -> dict:
             "rewritten_description": None,
         }
 
-    task_type = getattr(router, "TASK_VERIFICATION", "verification")
+    task_type = getattr(router, "TASK_COMPLIANCE_CHECK", "compliance_check")
 
     # Build the analysis + fix prompt
     fix_instruction: str = ""
@@ -18276,11 +18388,14 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
 
         On Render.com (behind a load balancer), ``self.client_address[0]``
         may return the proxy IP.  The ``X-Forwarded-For`` header carries the
-        real client IP as its first entry.  Used for rate limiting.
+        chain of client IPs.  The rightmost entry is the one appended by the
+        trusted load balancer, so we use that to prevent spoofing via a
+        client-supplied fake X-Forwarded-For header.
         """
         forwarded: str = self.headers.get("X-Forwarded-For") or ""
         if forwarded:
-            return forwarded.split(",")[0].strip()
+            # Use rightmost IP (set by trusted Render LB) to prevent spoofing
+            return forwarded.split(",")[-1].strip()
         return self.client_address[0]
 
     def _get_cors_origin(self):
@@ -18494,6 +18609,18 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
         except ImportError:
             pass
 
+        # ── Extracted route modules (health, admin, chat GET) ──
+        from routes.health import handle_health_routes
+        from routes.admin import handle_admin_routes
+        from routes.chat import handle_chat_get_routes
+
+        if handle_health_routes(self, path, parsed):
+            return
+        if handle_admin_routes(self, path, parsed):
+            return
+        if handle_chat_get_routes(self, path, parsed):
+            return
+
         if path == "/" or path == "" or path in ("/hub", "/hub/"):
             self._serve_file(os.path.join(TEMPLATES_DIR, "hub.html"), "text/html")
         elif path in ("/media-plan", "/media-plan/", "/generator", "/generator/"):
@@ -18501,6 +18628,11 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
         # ── Nova Platform SPA Shell ──
         elif path in ("/platform", "/platform/"):
             self._serve_file(os.path.join(TEMPLATES_DIR, "platform.html"), "text/html")
+        # ── Health Dashboard ──
+        elif path in ("/health-dashboard", "/health-dashboard/"):
+            self._serve_file(
+                os.path.join(TEMPLATES_DIR, "health-dashboard.html"), "text/html"
+            )
         # ── Fragment Endpoint (serves HTML fragments for platform SPA) ──
         elif path.startswith("/fragment/"):
             fragment_name = path[len("/fragment/") :].strip("/")
@@ -18524,1007 +18656,11 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
-        elif path in ("/api/health", "/health"):
-            # Detailed health check for Render.com monitoring
-            _health = health_check_detailed()
-            status_code = 200 if _health.get("status") == "healthy" else 503
-            body = json.dumps(_health).encode("utf-8")
-            self.send_response(status_code)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
-        elif path in ("/api/health/ready", "/ready"):
-            # Deep readiness probe (checks KB, disk, memory, modules)
-            result = health_check_readiness()
-            status_code = 200 if result.get("status") == "healthy" else 503
-            body = json.dumps(result).encode("utf-8")
-            self.send_response(status_code)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
-        elif path == "/api/deck/status":
-            # Deck generator tier availability & usage stats
-            if _deck_generator is not None:
-                deck_status = _deck_generator.get_status()
-                deck_body = json.dumps(deck_status, indent=2).encode("utf-8")
-                self.send_response(200)
-                self.send_header("Content-Type", "application/json")
-                cors_origin = self._get_cors_origin()
-                if cors_origin:
-                    self.send_header("Access-Control-Allow-Origin", cors_origin)
-                self.send_header("Content-Length", str(len(deck_body)))
-                self.end_headers()
-                self.wfile.write(deck_body)
-            else:
-                deck_err = json.dumps({"error": "Deck generator not available"}).encode(
-                    "utf-8"
-                )
-                self.send_response(503)
-                self.send_header("Content-Type", "application/json")
-                cors_origin = self._get_cors_origin()
-                if cors_origin:
-                    self.send_header("Access-Control-Allow-Origin", cors_origin)
-                self.send_header("Content-Length", str(len(deck_err)))
-                self.end_headers()
-                self.wfile.write(deck_err)
-        elif path == "/api/resilience/status":
-            # Resilience router status -- JSON API
-            try:
-                from resilience_router import get_router as _get_resilience_router
 
-                _rr = _get_resilience_router()
-                _rr_data = _rr.get_health_dashboard()
-                _rr_body = json.dumps(_rr_data, indent=2).encode("utf-8")
-                self.send_response(200)
-                self.send_header("Content-Type", "application/json")
-                cors_origin = self._get_cors_origin()
-                if cors_origin:
-                    self.send_header("Access-Control-Allow-Origin", cors_origin)
-                self.send_header("Content-Length", str(len(_rr_body)))
-                self.end_headers()
-                self.wfile.write(_rr_body)
-            except Exception as _rr_exc:
-                _rr_err = json.dumps({"error": str(_rr_exc)}).encode("utf-8")
-                self.send_response(500)
-                self.send_header("Content-Type", "application/json")
-                self.send_header("Content-Length", str(len(_rr_err)))
-                self.end_headers()
-                self.wfile.write(_rr_err)
-        elif path == "/api/resilience/dashboard":
-            # Resilience dashboard -- HTML page
-            try:
-                from resilience_router import get_router as _get_resilience_router
-
-                _rr = _get_resilience_router()
-                _rr_html = _rr.get_dashboard_html().encode("utf-8")
-                self.send_response(200)
-                self.send_header("Content-Type", "text/html; charset=utf-8")
-                cors_origin = self._get_cors_origin()
-                if cors_origin:
-                    self.send_header("Access-Control-Allow-Origin", cors_origin)
-                self.send_header("Content-Length", str(len(_rr_html)))
-                self.end_headers()
-                self.wfile.write(_rr_html)
-            except Exception as _rr_exc:
-                _rr_err = f"<h1>Error</h1><pre>{_rr_exc}</pre>".encode("utf-8")
-                self.send_response(500)
-                self.send_header("Content-Type", "text/html")
-                self.send_header("Content-Length", str(len(_rr_err)))
-                self.end_headers()
-                self.wfile.write(_rr_err)
-        elif path == "/api/dashboard/widgets":
-            """Live dashboard widget data for platform home."""
-            try:
-                import random
-
-                widgets = {
-                    "campaigns": {
-                        "count": 0,
-                        "active_name": "",
-                        "status": "no_campaigns",
-                    },
-                    "budget": {
-                        "total": 0,
-                        "spent": 0,
-                        "spent_pct": 0,
-                        "status": "healthy",
-                    },
-                    "market": {
-                        "trend": "stable",
-                        "label": "Labor market trends steady",
-                        "cpc_change": round(random.uniform(-5, 5), 1),
-                        "demand_index": round(random.uniform(60, 95), 0),
-                    },
-                    "compliance": {
-                        "score": 0,
-                        "status": "unknown",
-                        "last_checked": None,
-                    },
-                    "recent_activity": [],
-                }
-
-                # Pull real data from Supabase if available
-                if _supabase_data_available:
-                    try:
-                        trends = get_market_trends()
-                        if trends:
-                            widgets["market"]["trend"] = (
-                                "growing" if len(trends) > 3 else "stable"
-                            )
-                            widgets["market"][
-                                "label"
-                            ] = f"{len(trends)} active market signals"
-                    except Exception as e:
-                        logger.error(
-                            "Dashboard widget market data error: %s", e, exc_info=True
-                        )
-
-                self._send_json(widgets)
-            except Exception as e:
-                logger.error("Dashboard widgets error: %s", e, exc_info=True)
-                self._send_json({"error": str(e)}, status=500)
-
-        elif path == "/api/health/data-matrix":
-            # Data matrix health monitor (admin-protected)
-            if not self._check_admin_auth():
-                self.send_error(401, "Unauthorized")
-                return
-            if _data_matrix:
-                dm_result = _data_matrix.get_status()
-                dm_code = 200 if dm_result.get("status") != "degraded" else 503
-                dm_body = json.dumps(dm_result, indent=2).encode("utf-8")
-                self.send_response(dm_code)
-                self.send_header("Content-Type", "application/json")
-                self.send_header("Content-Length", str(len(dm_body)))
-                self.end_headers()
-                self.wfile.write(dm_body)
-            else:
-                dm_err_body = json.dumps(
-                    {"error": "Data matrix monitor not available"}
-                ).encode("utf-8")
-                self.send_response(503)
-                self.send_header("Content-Type", "application/json")
-                self.send_header("Content-Length", str(len(dm_err_body)))
-                self.end_headers()
-                self.wfile.write(dm_err_body)
-        elif path == "/api/health/auto-qc":
-            # Autonomous QC engine status (admin-protected)
-            if not self._check_admin_auth():
-                self.send_error(401, "Unauthorized")
-                return
-            if _auto_qc:
-                qc_result = _auto_qc.get_status()
-                qc_code = 200 if qc_result.get("status") != "degraded" else 503
-                qc_body = json.dumps(qc_result, indent=2).encode("utf-8")
-                self.send_response(qc_code)
-                self.send_header("Content-Type", "application/json")
-                self.send_header("Content-Length", str(len(qc_body)))
-                self.end_headers()
-                self.wfile.write(qc_body)
-            else:
-                qc_err_body = json.dumps(
-                    {"error": "AutoQC engine not available"}
-                ).encode("utf-8")
-                self.send_response(503)
-                self.send_header("Content-Type", "application/json")
-                self.send_header("Content-Length", str(len(qc_err_body)))
-                self.end_headers()
-                self.wfile.write(qc_err_body)
-        elif path == "/api/health/enrichment":
-            # Data enrichment engine status (admin-protected)
-            if not self._check_admin_auth():
-                self.send_error(401, "Unauthorized")
-                return
-            if _data_enrichment_available:
-                de_result = get_enrichment_status()
-                de_body = json.dumps(de_result, indent=2).encode("utf-8")
-                self.send_response(200)
-                self.send_header("Content-Type", "application/json")
-                self.send_header("Content-Length", str(len(de_body)))
-                self.end_headers()
-                self.wfile.write(de_body)
-            else:
-                de_err_body = json.dumps(
-                    {"error": "Data enrichment engine not available"}
-                ).encode("utf-8")
-                self.send_response(503)
-                self.send_header("Content-Type", "application/json")
-                self.send_header("Content-Length", str(len(de_err_body)))
-                self.end_headers()
-                self.wfile.write(de_err_body)
-        elif path == "/api/health/integrations":
-            # Comprehensive integrations status -- all APIs, tools, LLMs (admin-protected)
-            if not self._check_admin_auth():
-                self.send_error(401, "Unauthorized")
-                return
-            result = {
-                "infrastructure": {},
-                "free_data_apis": {},
-                "free_llm_providers": {},
-                "paid_llm_providers": {},
-                "ad_platform_apis": {},
-                "communication": {},
-            }
-
-            # ---- Infrastructure & Monitoring ----
-            infra = result["infrastructure"]
-            # -- Sentry --
-            try:
-                _sentry_dsn = (os.environ.get("SENTRY_DSN") or "").strip()
-                if _sentry_dsn:
-                    import sentry_sdk as _sk
-
-                    infra["sentry"] = {
-                        "name": "Sentry",
-                        "status": "ok",
-                        "detail": "Error tracking + performance tracing active",
-                        "sdk_version": _sk.VERSION,
-                        "value": "Unhandled exceptions, 10% perf traces, 10% profiling. Tracks do_GET/do_POST latency and child spans for enrichment, KB load, synthesis, Excel/PPT gen.",
-                    }
-                else:
-                    infra["sentry"] = {
-                        "name": "Sentry",
-                        "status": "disabled",
-                        "detail": "SENTRY_DSN not set",
-                        "value": "Error tracking and performance monitoring",
-                    }
-            except Exception as _e:
-                infra["sentry"] = {
-                    "name": "Sentry",
-                    "status": "error",
-                    "detail": str(_e),
-                }
-            # -- Upstash Redis --
-            try:
-                from upstash_cache import get_stats as _upstash_stats
-
-                _us = _upstash_stats()
-                _us["name"] = "Upstash Redis"
-                _us["value"] = (
-                    "L4 persistent cache (Redis REST API, survives redeploys)"
-                )
-                infra["upstash_redis"] = _us
-            except ImportError:
-                infra["upstash_redis"] = {
-                    "name": "Upstash Redis",
-                    "status": "disabled",
-                    "detail": "Not configured",
-                    "value": "L4 persistent cache layer",
-                }
-            except Exception as _e:
-                infra["upstash_redis"] = {
-                    "name": "Upstash Redis",
-                    "status": "error",
-                    "detail": str(_e),
-                }
-            # -- PostHog (with runtime stats) --
-            try:
-                from posthog_tracker import get_posthog_stats as _ph_stats_fn
-
-                _ph_data = _ph_stats_fn()
-                infra["posthog"] = {
-                    "name": "PostHog",
-                    "status": "ok" if _ph_data.get("enabled") else "disabled",
-                    "detail": (
-                        f"Analytics active -- {_ph_data.get('total_sent') or 0} events sent, {_ph_data.get('total_queued') or 0} queued"
-                        if _ph_data.get("enabled")
-                        else "POSTHOG_API_KEY not set"
-                    ),
-                    "value": "Product analytics: plan_generated, plan_failed, chat_message, file_uploaded events",
-                    "runtime": {
-                        "total_queued": _ph_data.get("total_queued") or 0,
-                        "total_sent": _ph_data.get("total_sent") or 0,
-                        "total_dropped": _ph_data.get("total_dropped") or 0,
-                        "send_errors": _ph_data.get("total_send_errors") or 0,
-                        "queue_size": _ph_data.get("queue_size") or 0,
-                        "events_by_type": _ph_data.get("events_by_type", {}),
-                    },
-                }
-            except Exception:
-                _ph_key = (os.environ.get("POSTHOG_API_KEY") or "").strip()
-                infra["posthog"] = {
-                    "name": "PostHog",
-                    "status": "ok" if _ph_key else "disabled",
-                    "detail": (
-                        "Analytics active (backend + frontend)"
-                        if _ph_key
-                        else "POSTHOG_API_KEY not set"
-                    ),
-                    "value": "Product analytics: plan_generated, plan_failed, chat_message, file_uploaded events",
-                }
-            # -- Supabase (with runtime stats) --
-            try:
-                from supabase_cache import get_supabase_stats as _supa_stats_fn
-
-                _supa_data = _supa_stats_fn()
-                _supa_enabled = _supa_data.get("enabled", False)
-                _supa_hits = _supa_data.get("hits") or 0
-                _supa_misses = _supa_data.get("misses") or 0
-                _supa_writes = _supa_data.get("writes") or 0
-                _supa_hr = _supa_data.get("hit_rate") or 0
-                infra["supabase"] = {
-                    "name": "Supabase PostgreSQL",
-                    "status": "ok" if _supa_enabled else "disabled",
-                    "detail": (
-                        f"L3 cache -- {_supa_hits} hits, {_supa_misses} misses, {_supa_writes} writes (hit rate: {_supa_hr:.0%})"
-                        if _supa_enabled
-                        else "Not configured"
-                    ),
-                    "value": "L3 distributed cache with TTL, hit counting, category tagging",
-                    "runtime": {
-                        "hits": _supa_hits,
-                        "misses": _supa_misses,
-                        "writes": _supa_writes,
-                        "errors": _supa_data.get("errors") or 0,
-                        "hit_rate": _supa_hr,
-                    },
-                }
-            except ImportError:
-                infra["supabase"] = {
-                    "name": "Supabase PostgreSQL",
-                    "status": "disabled",
-                    "detail": "Not available",
-                    "value": "L3 persistent cache layer",
-                }
-            except Exception as _e:
-                infra["supabase"] = {
-                    "name": "Supabase PostgreSQL",
-                    "status": "error",
-                    "detail": str(_e),
-                }
-            # -- Grafana Loki (centralized logging) --
-            try:
-                from grafana_logger import get_grafana_stats as _graf_stats_fn
-
-                _graf_data = _graf_stats_fn()
-                _graf_shipped = _graf_data.get("records_shipped") or 0
-                _graf_dropped = _graf_data.get("records_dropped") or 0
-                _graf_errors = _graf_data.get("flush_errors") or 0
-                _graf_last_err = _graf_data.get("last_error")
-                _graf_url = (os.environ.get("GRAFANA_LOKI_URL") or "").strip()
-                # Status: degraded if configured but currently failing
-                _graf_status = "disabled"
-                if _graf_url:
-                    _graf_last_err_t = _graf_data.get("last_error_time")
-                    _graf_last_flush_t = _graf_data.get("last_flush_time")
-                    # Degraded if: no successes, OR last error is more recent than last success
-                    if _graf_errors > 0 and (
-                        _graf_shipped == 0
-                        or (
-                            _graf_last_err_t
-                            and (
-                                not _graf_last_flush_t
-                                or _graf_last_err_t > _graf_last_flush_t
-                            )
-                        )
-                    ):
-                        _graf_status = "degraded"
-                    else:
-                        _graf_status = "ok"
-                _graf_detail = (
-                    f"Centralized logging -- {_graf_shipped} shipped, {_graf_dropped} dropped, {_graf_errors} errors"
-                    if _graf_url
-                    else "GRAFANA_LOKI_URL not set"
-                )
-                if _graf_last_err and _graf_url:
-                    _graf_detail += f" | last error: {_graf_last_err[:150]}"
-                infra["grafana_loki"] = {
-                    "name": "Grafana Loki",
-                    "status": _graf_status,
-                    "detail": _graf_detail,
-                    "value": "Ships WARNING/ERROR/CRITICAL logs to Grafana Cloud Loki for centralized search and alerting.",
-                    "runtime": {
-                        "records_shipped": _graf_shipped,
-                        "records_dropped": _graf_dropped,
-                        "flush_errors": _graf_errors,
-                        "last_flush_iso": _graf_data.get("last_flush_iso"),
-                        "last_error": _graf_last_err,
-                        "last_error_status": _graf_data.get("last_error_status"),
-                        "last_error_iso": _graf_data.get("last_error_iso"),
-                    },
-                }
-            except ImportError:
-                infra["grafana_loki"] = {
-                    "name": "Grafana Loki",
-                    "status": "disabled",
-                    "detail": "Module not available",
-                    "value": "Centralized logging to Grafana Cloud",
-                }
-            except Exception as _e:
-                infra["grafana_loki"] = {
-                    "name": "Grafana Loki",
-                    "status": "error",
-                    "detail": str(_e),
-                }
-            # -- Resend Email Alerts (with runtime stats) --
-            try:
-                from email_alerts import get_alert_status as _resend_stats_fn
-
-                _resend_data = _resend_stats_fn()
-                _resend_enabled = _resend_data.get("enabled", False)
-                _resend_sent = _resend_data.get("total_sent") or 0
-                _resend_failed = _resend_data.get("total_failed") or 0
-                _resend_this_hr = _resend_data.get("emails_sent_this_hour") or 0
-                _resend_last_err = _resend_data.get("last_error")
-                # Status: degraded if enabled but currently failing
-                _resend_status = "disabled"
-                if _resend_enabled:
-                    _resend_last_err_t = _resend_data.get("last_error_time")
-                    _resend_last_sent_t = _resend_data.get("last_sent_time")
-                    if _resend_failed > 0 and (
-                        _resend_sent == 0
-                        or (
-                            _resend_last_err_t
-                            and (
-                                not _resend_last_sent_t
-                                or _resend_last_err_t > _resend_last_sent_t
-                            )
-                        )
-                    ):
-                        _resend_status = "degraded"
-                    else:
-                        _resend_status = "ok"
-                _resend_detail = (
-                    f"Email alerts -- {_resend_sent} sent, {_resend_failed} failed, {_resend_this_hr} this hour"
-                    if _resend_enabled
-                    else "RESEND_API_KEY or ALERT_EMAIL_TO not set"
-                )
-                if _resend_last_err and _resend_enabled:
-                    _resend_detail += f" | last error: {_resend_last_err[:150]}"
-                infra["resend"] = {
-                    "name": "Resend Email",
-                    "status": _resend_status,
-                    "detail": _resend_detail,
-                    "value": "Error alerts, circuit breaker notifications, daily digest summaries. Rate-limited with exponential backoff dedup.",
-                    "runtime": {
-                        "total_sent": _resend_sent,
-                        "total_failed": _resend_failed,
-                        "rate_limited": _resend_data.get("total_rate_limited") or 0,
-                        "deduplicated": _resend_data.get("total_deduplicated") or 0,
-                        "emails_this_hour": _resend_this_hr,
-                        "remaining_this_hour": _resend_data.get("remaining_this_hour")
-                        or 0,
-                        "from_email": _resend_data.get("from_email"),
-                        "last_sent_subject": _resend_data.get("last_sent_subject"),
-                        "last_error": _resend_last_err,
-                        "last_error_status": _resend_data.get("last_error_status"),
-                    },
-                }
-            except Exception:
-                _resend_key = (os.environ.get("RESEND_API_KEY") or "").strip()
-                infra["resend"] = {
-                    "name": "Resend Email",
-                    "status": "ok" if _resend_key else "disabled",
-                    "detail": (
-                        "Alert emails active"
-                        if _resend_key
-                        else "RESEND_API_KEY not set"
-                    ),
-                    "value": "Error alerts, circuit breaker notifications, daily digests",
-                }
-
-            # ---- Free Data APIs (no key required or free tier) ----
-            free_apis = result["free_data_apis"]
-            _free_api_registry = [
-                (
-                    "bls_oes",
-                    "BLS OES Salary Data",
-                    "api.bls.gov",
-                    "Median/percentile wages by SOC occupation code",
-                    "BLS_API_KEY",
-                ),
-                (
-                    "bls_qcew",
-                    "BLS QCEW Employment",
-                    "data.bls.gov",
-                    "Industry employment stats, establishment counts, avg wages",
-                    None,
-                ),
-                (
-                    "bls_jolts",
-                    "BLS JOLTS",
-                    "api.bls.gov",
-                    "Job openings, hires, quits by industry",
-                    "BLS_API_KEY",
-                ),
-                (
-                    "census_acs",
-                    "US Census ACS",
-                    "api.census.gov",
-                    "State population, median household income",
-                    None,
-                ),
-                (
-                    "world_bank",
-                    "World Bank Open Data",
-                    "api.worldbank.org",
-                    "Global GDP, population, unemployment by country",
-                    None,
-                ),
-                (
-                    "fred",
-                    "FRED Economic Data",
-                    "api.stlouisfed.org",
-                    "US economic indicators (CPI, unemployment, GDP)",
-                    "FRED_API_KEY",
-                ),
-                (
-                    "onet",
-                    "O*NET Web Services",
-                    "services.onetcenter.org",
-                    "Occupation skills, knowledge, job outlook, job zones",
-                    "ONET_USERNAME",
-                ),
-                (
-                    "imf",
-                    "IMF DataMapper",
-                    "imf.org",
-                    "International GDP, inflation, unemployment forecasts",
-                    None,
-                ),
-                (
-                    "rest_countries",
-                    "REST Countries",
-                    "restcountries.com",
-                    "Country population, currency, languages, region data",
-                    None,
-                ),
-                (
-                    "geonames",
-                    "GeoNames",
-                    "geonames.org",
-                    "Geographic coordinates, timezone, nearby cities",
-                    "GEONAMES_USERNAME",
-                ),
-                (
-                    "teleport",
-                    "Teleport API",
-                    "api.teleport.org",
-                    "Quality of life scores, cost of living by city",
-                    None,
-                ),
-                (
-                    "datausa",
-                    "DataUSA",
-                    "datausa.io",
-                    "US occupation wages, state-level demographics",
-                    None,
-                ),
-                (
-                    "wikipedia",
-                    "Wikipedia REST",
-                    "en.wikipedia.org",
-                    "Company descriptions, industry background",
-                    None,
-                ),
-                (
-                    "clearbit",
-                    "Clearbit Logo API",
-                    "logo.clearbit.com",
-                    "Company logos, competitor logos, metadata",
-                    None,
-                ),
-                (
-                    "sec_edgar",
-                    "SEC EDGAR",
-                    "sec.gov",
-                    "Public company tickers, CIK, filing data",
-                    None,
-                ),
-                (
-                    "exchange_rates",
-                    "Exchange Rate API",
-                    "open.er-api.com",
-                    "Live currency exchange rates (USD base)",
-                    None,
-                ),
-                (
-                    "eurostat",
-                    "Eurostat Labour",
-                    "ec.europa.eu",
-                    "EU unemployment, wages, employment by country",
-                    None,
-                ),
-                (
-                    "ilo",
-                    "ILO ILOSTAT",
-                    "sdmx.ilo.org",
-                    "Global labour participation, unemployment rates",
-                    None,
-                ),
-                (
-                    "google_trends",
-                    "Google Trends",
-                    "trends.google.com",
-                    "Search interest/trend data for job keywords",
-                    None,
-                ),
-            ]
-            for (
-                _api_id,
-                _api_name,
-                _api_host,
-                _api_value,
-                _api_key_env,
-            ) in _free_api_registry:
-                _has_key = True
-                if _api_key_env:
-                    _has_key = bool(os.environ.get(_api_key_env, "").strip())
-                free_apis[_api_id] = {
-                    "name": _api_name,
-                    "host": _api_host,
-                    "value": _api_value,
-                    "status": "ok" if _has_key else "available",
-                    "detail": (
-                        "Active"
-                        if _has_key
-                        else f"No key ({_api_key_env}) -- uses free tier or benchmarks"
-                    ),
-                    "key_required": bool(_api_key_env),
-                    "key_configured": _has_key,
-                }
-
-            # ---- Free LLM Providers ----
-            free_llms = result["free_llm_providers"]
-            _free_llm_registry = [
-                (
-                    "gemini",
-                    "Gemini 2.0 Flash",
-                    "Google",
-                    "GEMINI_API_KEY",
-                    "Structured JSON, code gen, fastest free",
-                ),
-                (
-                    "groq",
-                    "Groq Llama 3.3 70B",
-                    "Groq",
-                    "GROQ_API_KEY",
-                    "Complex reasoning, conversational",
-                ),
-                (
-                    "cerebras",
-                    "Cerebras Llama 3.3 70B",
-                    "Cerebras",
-                    "CEREBRAS_API_KEY",
-                    "Hot spare for Groq (same model, independent infra)",
-                ),
-                (
-                    "mistral",
-                    "Mistral Small",
-                    "Mistral AI",
-                    "MISTRAL_API_KEY",
-                    "JSON, multilingual, code generation",
-                ),
-                (
-                    "openrouter",
-                    "Llama 4 Maverick (free)",
-                    "OpenRouter",
-                    "OPENROUTER_API_KEY",
-                    "General purpose, strong reasoning",
-                ),
-                (
-                    "xai",
-                    "Grok 2",
-                    "xAI",
-                    "XAI_API_KEY",
-                    "Strong reasoning ($25 free credits)",
-                ),
-                (
-                    "sambanova",
-                    "Llama 3.1 405B",
-                    "SambaNova",
-                    "SAMBANOVA_API_KEY",
-                    "Largest open model, fastest inference (RDU)",
-                ),
-                (
-                    "nvidia_nim",
-                    "Nemotron Nano 30B",
-                    "NVIDIA NIM",
-                    "NVIDIA_NIM_API_KEY",
-                    "NVIDIA-optimized inference",
-                ),
-                (
-                    "cloudflare",
-                    "Llama 3.3 70B",
-                    "Cloudflare Workers AI",
-                    "CLOUDFLARE_AI_TOKEN",
-                    "Edge-distributed, low latency",
-                ),
-            ]
-            for (
-                _llm_id,
-                _llm_model,
-                _llm_provider,
-                _llm_env,
-                _llm_value,
-            ) in _free_llm_registry:
-                _has = bool(os.environ.get(_llm_env, "").strip())
-                free_llms[_llm_id] = {
-                    "name": _llm_model,
-                    "provider": _llm_provider,
-                    "value": _llm_value,
-                    "status": "ok" if _has else "no_key",
-                    "detail": (
-                        f"Key configured ({_llm_env})"
-                        if _has
-                        else f"Missing {_llm_env}"
-                    ),
-                    "key_configured": _has,
-                }
-
-            # ---- Paid LLM Providers ----
-            paid_llms = result["paid_llm_providers"]
-            _paid_llm_registry = [
-                (
-                    "claude_haiku",
-                    "Claude Haiku 4.5",
-                    "Anthropic",
-                    "ANTHROPIC_API_KEY",
-                    "Fast, cheap paid fallback",
-                ),
-                (
-                    "gpt4o",
-                    "GPT-4o",
-                    "OpenAI",
-                    "OPENAI_API_KEY",
-                    "Structured JSON, general reasoning",
-                ),
-                (
-                    "claude_sonnet",
-                    "Claude Sonnet 4",
-                    "Anthropic",
-                    "ANTHROPIC_API_KEY",
-                    "Complex multi-step tool chains",
-                ),
-                (
-                    "claude_opus",
-                    "Claude Opus 4.6",
-                    "Anthropic",
-                    "ANTHROPIC_API_KEY",
-                    "Highest quality, last resort",
-                ),
-            ]
-            for (
-                _llm_id,
-                _llm_model,
-                _llm_provider,
-                _llm_env,
-                _llm_value,
-            ) in _paid_llm_registry:
-                _has = bool(os.environ.get(_llm_env, "").strip())
-                paid_llms[_llm_id] = {
-                    "name": _llm_model,
-                    "provider": _llm_provider,
-                    "value": _llm_value,
-                    "status": "ok" if _has else "no_key",
-                    "detail": (
-                        f"Key configured ({_llm_env})"
-                        if _has
-                        else f"Missing {_llm_env}"
-                    ),
-                    "key_configured": _has,
-                }
-
-            # ---- Ad Platform APIs ----
-            ad_apis = result["ad_platform_apis"]
-            _ad_registry = [
-                (
-                    "google_ads",
-                    "Google Ads",
-                    "Keyword volumes, CPC/CPM benchmarks",
-                    "GOOGLE_ADS_CLIENT_ID",
-                ),
-                (
-                    "meta_ads",
-                    "Meta (Facebook/Instagram)",
-                    "Audience sizing, CPC/CPM estimates",
-                    "META_ACCESS_TOKEN",
-                ),
-                (
-                    "bing_ads",
-                    "Microsoft/Bing Ads",
-                    "Search volumes, CPC estimates",
-                    "BING_CLIENT_ID",
-                ),
-                (
-                    "tiktok_ads",
-                    "TikTok Marketing",
-                    "Audience estimation, CPC/CPM",
-                    "TIKTOK_ACCESS_TOKEN",
-                ),
-                (
-                    "linkedin_ads",
-                    "LinkedIn Marketing",
-                    "Professional audience sizing, CPC",
-                    "LINKEDIN_ACCESS_TOKEN",
-                ),
-            ]
-            for _ad_id, _ad_name, _ad_value, _ad_env in _ad_registry:
-                _has = bool(os.environ.get(_ad_env, "").strip())
-                ad_apis[_ad_id] = {
-                    "name": _ad_name,
-                    "value": _ad_value,
-                    "status": "ok" if _has else "no_key",
-                    "detail": (
-                        f"Key configured ({_ad_env})"
-                        if _has
-                        else f"Missing {_ad_env} -- uses benchmarks"
-                    ),
-                    "key_configured": _has,
-                }
-
-            # ---- Communication ----
-            comms = result["communication"]
-            _slack_token = (os.environ.get("SLACK_BOT_TOKEN") or "").strip()
-            comms["slack"] = {
-                "name": "Slack Bot",
-                "status": "ok" if _slack_token else "disabled",
-                "detail": (
-                    "Bot connected" if _slack_token else "SLACK_BOT_TOKEN not set"
-                ),
-                "value": "Nova chatbot for media plan queries, recruitment channel intelligence, and workforce analytics via Slack",
-            }
-
-            # ---- Summary counts ----
-            result["summary"] = {
-                "total_integrations": sum(
-                    len(v)
-                    for v in result.values()
-                    if isinstance(v, dict) and v != result.get("summary")
-                ),
-                "active": sum(
-                    1
-                    for cat in result.values()
-                    if isinstance(cat, dict)
-                    for v in cat.values()
-                    if isinstance(v, dict) and v.get("status") == "ok"
-                ),
-                "available": sum(
-                    1
-                    for cat in result.values()
-                    if isinstance(cat, dict)
-                    for v in cat.values()
-                    if isinstance(v, dict) and v.get("status") == "available"
-                ),
-                "disabled": sum(
-                    1
-                    for cat in result.values()
-                    if isinstance(cat, dict)
-                    for v in cat.values()
-                    if isinstance(v, dict) and v.get("status") in ("disabled", "no_key")
-                ),
-            }
-
-            _int_body = json.dumps(result, indent=2).encode("utf-8")
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(_int_body)))
-            self.end_headers()
-            self.wfile.write(_int_body)
-        elif path == "/api/health/integrations/diagnose":
-            # Run live connectivity diagnostics for Grafana Loki and Resend (admin-protected)
-            if not self._check_admin_auth():
-                self.send_error(401, "Unauthorized")
-                return
-            diag_results = {}
-            # Grafana Loki diagnostic
-            try:
-                from grafana_logger import diagnose_grafana
-
-                diag_results["grafana_loki"] = diagnose_grafana()
-            except ImportError:
-                diag_results["grafana_loki"] = {
-                    "ok": False,
-                    "detail": "grafana_logger module not available",
-                }
-            except Exception as _de:
-                diag_results["grafana_loki"] = {
-                    "ok": False,
-                    "detail": f"diagnostic error: {_de}",
-                }
-            # Resend Email diagnostic
-            try:
-                from email_alerts import diagnose_resend
-
-                diag_results["resend"] = diagnose_resend()
-            except ImportError:
-                diag_results["resend"] = {
-                    "ok": False,
-                    "detail": "email_alerts module not available",
-                }
-            except Exception as _de:
-                diag_results["resend"] = {
-                    "ok": False,
-                    "detail": f"diagnostic error: {_de}",
-                }
-            diag_results["timestamp"] = datetime.datetime.now(
-                datetime.timezone.utc
-            ).isoformat()
-            self._send_json(diag_results)
-        elif path == "/api/health/orchestrator":
-            # Orchestrator cache stats + fallback telemetry (admin-protected)
-            if not self._check_admin_auth():
-                self.send_error(401, "Unauthorized")
-                return
-            try:
-                import data_orchestrator as _do
-
-                orch_data = {
-                    "cache_stats": _do.get_cache_stats(),
-                    "fallback_telemetry": _do.get_fallback_telemetry(),
-                    "timestamp": datetime.datetime.now(
-                        datetime.timezone.utc
-                    ).isoformat(),
-                }
-                self._send_json(orch_data)
-            except Exception as _oe:
-                logger.error("Orchestrator unavailable: %s", _oe, exc_info=True)
-                self._send_json({"error": "Orchestrator unavailable"})
-        elif path == "/api/metrics":
-            # Metrics endpoint (admin-protected)
-            if not self._check_admin_auth():
-                self.send_error(401, "Unauthorized")
-                return
-            metrics_data = (
-                _metrics.get_metrics()
-                if _metrics
-                else {"error": "Monitoring not available"}
-            )
-            self._send_json(metrics_data)
-        elif path == "/api/nova/metrics":
-            # Nova chatbot metrics (admin-protected)
-            if not self._check_admin_auth():
-                self.send_error(401, "Unauthorized")
-                return
-            try:
-                from nova import get_nova_metrics
-
-                self._send_json(get_nova_metrics())
-            except Exception as e:
-                logger.error("Nova metrics error: %s", e, exc_info=True)
-                self._send_json({"error": "Failed to retrieve Nova metrics"})
-        elif path == "/api/chat/history":
-            # ── Load conversation history from Supabase ──
-            qs = urllib.parse.parse_qs(parsed.query)
-            conv_id = (qs.get("conversation_id") or [None])[0]
-            if not conv_id:
-                self._send_json({"error": "conversation_id parameter required"}, 400)
-                return
-            history = _load_conversation_history(conv_id)
-            self._send_json({"conversation_id": conv_id, "messages": history})
-        elif path == "/api/chat/conversations":
-            # ── List recent conversations from Supabase ──
-            qs = urllib.parse.parse_qs(parsed.query)
-            limit_str = (qs.get("limit") or ["50"])[0]
-            try:
-                limit_val = min(int(limit_str), 200)
-            except (ValueError, TypeError):
-                limit_val = 50
-            conversations = _list_conversations(limit_val)
-            self._send_json(
-                {"conversations": conversations, "count": len(conversations)}
-            )
-        elif path == "/api/chat/migrate":
-            # ── One-time migration: row-per-turn to document model (W-05) ──
-            if not self._check_admin_auth():
-                self.send_error(401, "Unauthorized")
-                return
-            try:
-                from nova_persistence import migrate_row_per_turn_data
-
-                stats = migrate_row_per_turn_data()
-                self._send_json({"status": "ok", "migration": stats})
-            except ImportError:
-                self._send_json({"error": "nova_persistence module not available"}, 500)
-            except Exception as mig_err:
-                logger.error("Migration endpoint error: %s", mig_err, exc_info=True)
-                self._send_json({"error": f"Migration failed: {mig_err}"}, 500)
         elif path == "/api/slack/status":
             # ── Slack Bot Diagnostic Endpoint (admin-protected) ──
             if not self._check_admin_auth():
-                self.send_error(401, "Unauthorized")
+                self._send_json({"error": "Unauthorized"}, status_code=401)
                 return
             _slack_bot_token = os.environ.get("SLACK_BOT_TOKEN") or ""
             _slack_signing_secret = os.environ.get("SLACK_SIGNING_SECRET") or ""
@@ -19688,7 +18824,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             self._send_json(db)
         elif path == "/api/requests":
             if not self._check_admin_auth():
-                self.send_error(401, "Unauthorized")
+                self._send_json({"error": "Unauthorized"}, status_code=401)
                 return
             log = load_request_log()
             # Add download URLs for entries that have doc_filename
@@ -19740,7 +18876,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 self.send_error(404, "Observability page not found")
         elif path == "/api/documents":
             if not self._check_admin_auth():
-                self.send_error(401, "Unauthorized")
+                self._send_json({"error": "Unauthorized"}, status_code=401)
                 return
             docs_dir = os.path.join(DATA_DIR, "generated_docs")
             os.makedirs(docs_dir, exist_ok=True)
@@ -19771,7 +18907,9 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             self.wfile.write(response.encode())
         elif path.startswith("/api/documents/"):
             if not self._check_admin_auth():
-                self.send_error(401, "Unauthorized — admin key required")
+                self._send_json(
+                    {"error": "Unauthorized - admin key required"}, status_code=401
+                )
                 return
             fname = path.split("/")[-1]
             # Security: sanitize filename to prevent path traversal
@@ -20079,233 +19217,13 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     }
                 )
         # ── Feature 5a: SLO compliance ──
-        elif path == "/api/health/slos":
-            if not self._check_admin_auth():
-                self.send_error(401, "Unauthorized")
-                return
-            try:
-                from monitoring import MetricsCollector as _MC
-
-                _mc_inst = get_metrics() if _metrics else None
-                if _mc_inst and hasattr(_mc_inst, "check_slo_compliance"):
-                    slo_result = _mc_inst.check_slo_compliance()
-                    self._send_json(slo_result)
-                else:
-                    self._send_json({"error": "SLO compliance check not available"})
-            except Exception as _slo_err:
-                logger.error("SLO check error: %s", _slo_err, exc_info=True)
-                slo_err_body = json.dumps({"error": "SLO check failed"}).encode("utf-8")
-                self.send_response(503)
-                self.send_header("Content-Type", "application/json")
-                self.send_header("Content-Length", str(len(slo_err_body)))
-                self.end_headers()
-                self.wfile.write(slo_err_body)
         # ── Platform Observability (aggregated health dashboard) ──
-        elif path == "/api/observability/platform":
-            if not self._check_admin_auth():
-                self.send_error(401, "Unauthorized")
-                return
-            try:
-                obs_data = get_platform_observability()
-                self._send_json(obs_data)
-            except Exception as _obs_err:
-                logger.error(
-                    "Platform observability error: %s", _obs_err, exc_info=True
-                )
-                obs_err_body = json.dumps(
-                    {"error": "Platform observability check failed"}
-                ).encode("utf-8")
-                self.send_response(503)
-                self.send_header("Content-Type", "application/json")
-                self.send_header("Content-Length", str(len(obs_err_body)))
-                self.end_headers()
-                self.wfile.write(obs_err_body)
         # ── Feature 5b: Eval scores ──
-        elif path == "/api/health/eval":
-            if not self._check_admin_auth():
-                self.send_error(401, "Unauthorized")
-                return
-            try:
-                from eval_framework import EvalSuite
-
-                _ef = EvalSuite()
-                eval_result = _ef.run_full_eval()
-                # LLM insights for Eval Framework
-                if isinstance(eval_result, dict):
-                    eval_result["ai_insights"] = _generate_product_insights(
-                        "Eval Framework",
-                        {
-                            k: eval_result.get(k)
-                            for k in (
-                                "overall_score",
-                                "test_results",
-                                "failures",
-                                "warnings",
-                            )
-                            if eval_result.get(k) is not None
-                        },
-                        context="Platform quality evaluation results",
-                    )
-                self._send_json(eval_result)
-            except ImportError:
-                self._send_json({"error": "Eval framework not available"})
-            except Exception as _eval_err:
-                logger.error("Eval framework error: %s", _eval_err, exc_info=True)
-                eval_err_body = json.dumps({"error": "Eval failed"}).encode("utf-8")
-                self.send_response(503)
-                self.send_header("Content-Type", "application/json")
-                self.send_header("Content-Length", str(len(eval_err_body)))
-                self.end_headers()
-                self.wfile.write(eval_err_body)
         # ── Feature 3c: Per-key usage dashboard ──
-        elif path == "/api/admin/usage":
-            if not self._check_admin_auth():
-                self.send_error(401, "Unauthorized")
-                return
-            now = time.time()
-            usage_data = {}
-            with _api_keys_lock:
-                for key, entry in _api_keys_store.items():
-                    # Mask key for display (show first 8 chars)
-                    masked = key[:8] + "..." if len(key) > 8 else key
-                    tier_name = entry.get("tier", "free")
-                    tier_limits = API_KEY_TIERS.get(tier_name, API_KEY_TIERS["free"])
-                    minute_usage = len(
-                        [t for t in entry.get("usage_minute") or [] if now - t < 60]
-                    )
-                    day_usage = len(
-                        [t for t in entry.get("usage_day") or [] if now - t < 86400]
-                    )
-                    usage_data[masked] = {
-                        "tier": tier_name,
-                        "label": entry.get("label") or "",
-                        "revoked": entry.get("revoked", False),
-                        "created": entry.get("created") or "",
-                        "requests_this_minute": minute_usage,
-                        "requests_today": day_usage,
-                        "limit_rpm": tier_limits["rpm"],
-                        "limit_rpd": tier_limits["rpd"],
-                    }
-            self._send_json(
-                {
-                    "keys": usage_data,
-                    "timestamp": datetime.datetime.now(
-                        datetime.timezone.utc
-                    ).isoformat(),
-                }
-            )
         # ── Admin Statistics Endpoint ──
-        elif path == "/api/admin/stats":
-            if not self._check_admin_auth():
-                self.send_error(401, "Unauthorized")
-                return
-            log_entries = load_request_log()
-            total_plans = len(log_entries)
-            gen_times = [
-                e["generation_time_seconds"]
-                for e in log_entries
-                if isinstance(e.get("generation_time_seconds"), (int, float))
-                and e["generation_time_seconds"] > 0
-            ]
-            avg_generation_time = (
-                round(sum(gen_times) / len(gen_times), 2) if gen_times else 0.0
-            )
-            total_budget = 0.0
-            for e in log_entries:
-                raw_budget = e.get("budget") or 0
-                if isinstance(raw_budget, (int, float)):
-                    total_budget += float(raw_budget)
-                elif isinstance(raw_budget, str):
-                    try:
-                        total_budget += float(
-                            raw_budget.replace(",", "").replace("$", "").strip()
-                        )
-                    except (ValueError, AttributeError):
-                        pass
-            plans_by_industry = {}
-            for e in log_entries:
-                ind = e.get("industry", "Unknown") or "Unknown"
-                plans_by_industry[ind] = plans_by_industry.get(ind, 0) + 1
-            plans_by_day_map = {}
-            for e in log_entries:
-                ts = e.get("timestamp") or ""
-                if ts:
-                    day = ts[:10]  # YYYY-MM-DD
-                    plans_by_day_map[day] = plans_by_day_map.get(day, 0) + 1
-            plans_by_day = sorted(
-                [{"date": d, "count": c} for d, c in plans_by_day_map.items()],
-                key=lambda x: x["date"],
-            )
-            recent_plans = []
-            for e in log_entries[-10:]:
-                recent_plans.append(
-                    {
-                        "client_name": e.get("client_name", "Unknown"),
-                        "industry": e.get("industry", "Unknown"),
-                        "budget": e.get("budget") or 0,
-                        "timestamp": e.get("timestamp") or "",
-                    }
-                )
-            self._send_json(
-                {
-                    "total_plans": total_plans,
-                    "avg_generation_time": avg_generation_time,
-                    "total_budget_managed": round(total_budget, 2),
-                    "plans_by_industry": plans_by_industry,
-                    "plans_by_day": plans_by_day,
-                    "recent_plans": recent_plans,
-                }
-            )
         # ── PostHog Analytics Admin Endpoint ──
-        elif path == "/api/admin/posthog/stats":
-            if not self._check_admin_auth():
-                self.send_error(401, "Unauthorized")
-                return
-            _ph_stats: dict = {}
-            # Merge stats from both PostHog modules
-            if _posthog_available:
-                try:
-                    _ph_stats["posthog_integration"] = _ph_get_stats()
-                except Exception as _phe:
-                    _ph_stats["posthog_integration"] = {"error": str(_phe)}
-            else:
-                _ph_stats["posthog_integration"] = {"enabled": False}
-            try:
-                from posthog_tracker import get_posthog_stats as _ph_tracker_stats
-
-                _ph_stats["posthog_tracker"] = _ph_tracker_stats()
-            except ImportError:
-                _ph_stats["posthog_tracker"] = {"enabled": False}
-            except Exception as _phe2:
-                _ph_stats["posthog_tracker"] = {"error": str(_phe2)}
-            _ph_stats["timestamp"] = datetime.datetime.now(
-                datetime.timezone.utc
-            ).isoformat()
-            self._send_json(_ph_stats)
         # ── LLM Cost Tracking Report ──
-        elif path == "/api/llm/costs":
-            try:
-                from llm_router import get_cost_report
-
-                self._send_json(get_cost_report())
-            except Exception as e:
-                self._send_json(
-                    {"error": str(e), "note": "Cost tracking not available"}
-                )
         # ── Audit Events Endpoint ──
-        elif path == "/api/audit/events":
-            try:
-                from audit_logger import get_recent_events, get_audit_summary
-
-                params = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
-                if "summary" in params:
-                    self._send_json(get_audit_summary())
-                else:
-                    limit = int(params.get("limit", ["100"])[0])
-                    action = params.get("action", [None])[0]
-                    self._send_json({"events": get_recent_events(limit, action)})
-            except Exception as e:
-                self._send_json({"error": str(e)})
         # ── Campaign Performance Tracker Page ──
         elif path in (
             "/tracker",
@@ -20772,7 +19690,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
         # ── API Portal GET routes ──
         elif path.startswith("/api/portal/"):
             if not self._check_admin_auth():
-                self.send_error(401, "Unauthorized")
+                self._send_json({"error": "Unauthorized"}, status_code=401)
                 return
             try:
                 from api_portal import handle_portal_api
@@ -20843,7 +19761,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
         # ── Sentry Integration Status + Recent Issues ──
         elif path == "/api/sentry/issues":
             if not self._check_admin_auth():
-                self.send_error(401, "Unauthorized")
+                self._send_json({"error": "Unauthorized"}, status_code=401)
                 return
             try:
                 if _sentry_integration_available:
@@ -20994,6 +19912,43 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                             "error": f"Health check failed: {e}",
                         }
                     )
+        # ── Proactive Intelligence Insights (GET) ──
+        elif path == "/api/insights":
+            try:
+                from nova_proactive import get_insights, get_unread_insights
+
+                params = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+                if "unread" in params:
+                    self._send_json({"insights": get_unread_insights()})
+                else:
+                    limit = int(params.get("limit", ["20"])[0])
+                    self._send_json({"insights": get_insights(limit)})
+            except Exception as e:
+                self._send_json({"insights": [], "error": str(e)})
+
+        elif path == "/api/insights/stats":
+            try:
+                from nova_proactive import get_proactive_stats
+
+                self._send_json(get_proactive_stats())
+            except Exception as e:
+                self._send_json({"error": str(e)})
+
+        # ── Campaign List ──
+        elif path == "/api/campaign/list":
+            """List saved campaigns."""
+            try:
+                campaigns = getattr(self.server, "_campaigns", {})
+                campaign_list = sorted(
+                    campaigns.values(),
+                    key=lambda c: c.get("_saved_at", ""),
+                    reverse=True,
+                )
+                self._send_json({"campaigns": campaign_list[:50]})
+            except Exception as e:
+                logger.error("Campaign list error: %s", e, exc_info=True)
+                self._send_json({"error": str(e)}, status=500)
+
         # ── Alias redirects for API-only features (no dedicated page) ──
         elif path in ("/auto-qc", "/auto-qc/"):
             self.send_response(301)
@@ -21162,10 +20117,34 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
         # ── Centralized route-aware rate limiting ──
         # Skip rate limiting for admin routes when valid auth is provided.
         _is_admin = self._check_admin_auth()
+        # LLM-heavy analysis endpoints that need stricter limits
+        _LLM_HEAVY_PATHS = (
+            "/api/competitive/analyze",
+            "/api/competitive/scrape",
+            "/api/social-plan/generate",
+            "/api/talent-heatmap/analyze",
+            "/api/audit/analyze",
+            "/api/hire-signal/analyze",
+            "/api/simulator/simulate",
+            "/api/simulator/optimize",
+            "/api/compliance/analyze",
+            "/api/complianceguard/audit",
+            "/api/creative/generate",
+            "/api/ab-test/generate",
+            "/api/roi/calculate",
+        )
         if not _is_admin and path.startswith("/api/"):
             client_ip = self._get_client_ip()
             if path == "/api/generate":
                 _rl_allowed = _rl_generate.is_allowed(
+                    client_ip, max_requests=10, window_seconds=60
+                )
+            elif path in ("/api/chat", "/api/chat/stream", "/api/nova/chat"):
+                _rl_allowed = _rl_chat.is_allowed(
+                    client_ip, max_requests=15, window_seconds=60
+                )
+            elif path in _LLM_HEAVY_PATHS:
+                _rl_allowed = _rl_llm_heavy.is_allowed(
                     client_ip, max_requests=10, window_seconds=60
                 )
             elif path.startswith("/api/portal/"):
@@ -22747,7 +21726,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             body = self.rfile.read(content_len)
             try:
                 data = json.loads(body) if body else {}
-            except json.JSONDecodeError:
+            except (json.JSONDecodeError, RecursionError, ValueError):
                 self.send_response(400)
                 self.send_header("Content-Type", "application/json")
                 cors_origin = self._get_cors_origin()
@@ -22756,6 +21735,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 self.end_headers()
                 self.wfile.write(json.dumps({"error": "Invalid JSON"}).encode())
                 return
+            # ── Sanitize chat message to prevent XSS ──
+            if "message" in data:
+                data["message"] = _sanitize_chat_input(data.get("message"))
             try:
                 # ── Shared enrichment: file parsing + parallel API calls ──
                 _enrich_chat_context(data, data.get("message") or "")
@@ -22874,7 +21856,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             body = self.rfile.read(content_len)
             try:
                 data = json.loads(body) if body else {}
-            except json.JSONDecodeError:
+            except (json.JSONDecodeError, RecursionError, ValueError):
                 self.send_response(400)
                 self.send_header("Content-Type", "application/json")
                 cors_origin = self._get_cors_origin()
@@ -22883,6 +21865,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 self.end_headers()
                 self.wfile.write(json.dumps({"error": "Invalid JSON"}).encode())
                 return
+            # ── Sanitize chat message to prevent XSS ──
+            if "message" in data:
+                data["message"] = _sanitize_chat_input(data.get("message"))
 
             # ── PostHog: Track chat stream message ──
             self._ph_track(
@@ -23077,7 +22062,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 self._send_json({"ok": True, "id": campaign_id})
             except Exception as e:
                 logger.error("Campaign save error: %s", e, exc_info=True)
-                self._send_json({"error": str(e)}, status=500)
+                self._send_json({"error": str(e)}, status_code=500)
 
         elif path == "/api/chat/feedback":
             # ── Chat message feedback (thumbs up/down) ──
@@ -23368,6 +22353,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 self.end_headers()
                 self.wfile.write(json.dumps({"error": "Invalid JSON"}).encode())
                 return
+            # ── Sanitize chat message to prevent XSS ──
+            if "message" in data:
+                data["message"] = _sanitize_chat_input(data.get("message"))
             try:
                 from nova_slack import handle_chat_standalone
 
@@ -24192,7 +23180,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
         # ── API Portal: All POST routes ──
         elif path.startswith("/api/portal/"):
             if not self._check_admin_auth():
-                self.send_error(401, "Unauthorized")
+                self._send_json({"error": "Unauthorized"}, status_code=401)
                 return
             try:
                 content_len = int(self.headers.get("Content-Length") or 0)
@@ -26345,6 +25333,33 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 logger.error("ElevenLabs voiceover error: %s", e, exc_info=True)
                 self._send_json({"error": "Internal voiceover error"}, status_code=500)
 
+        # ── Proactive Intelligence Insights (POST) ──
+        elif path == "/api/insights/read":
+            try:
+                from nova_proactive import mark_insight_read
+
+                content_len = int(self.headers.get("Content-Length") or 0)
+                body = self.rfile.read(content_len) if content_len > 0 else b"{}"
+                data = json.loads(body)
+                insight_id = data.get("id") or ""
+                result = mark_insight_read(insight_id)
+                self._send_json({"ok": result})
+            except Exception as e:
+                self._send_json({"error": str(e)})
+
+        elif path == "/api/insights/dismiss":
+            try:
+                from nova_proactive import dismiss_insight
+
+                content_len = int(self.headers.get("Content-Length") or 0)
+                body = self.rfile.read(content_len) if content_len > 0 else b"{}"
+                data = json.loads(body)
+                insight_id = data.get("id") or ""
+                result = dismiss_insight(insight_id)
+                self._send_json({"ok": result})
+            except Exception as e:
+                self._send_json({"error": str(e)})
+
         else:
             self.send_error(404)
 
@@ -26619,6 +25634,15 @@ if __name__ == "__main__":
             target=_bg_vector_index, daemon=True, name="vector-index"
         ).start()
 
+    # ── Data Refresh Pipeline (#15) ──
+    try:
+        from data_refresh import start_data_refresh
+
+        start_data_refresh()
+        logger.info("Data refresh pipeline started")
+    except ImportError:
+        logger.debug("data_refresh module not available")
+
     # ── Proactive Health Checker ──
     try:
         from sentry_integration import start_proactive_health as _start_proactive_health
@@ -26627,6 +25651,15 @@ if __name__ == "__main__":
         logger.info("Proactive health checker started")
     except ImportError:
         logger.warning("proactive health checker not available")
+
+    # ── Proactive Intelligence Engine ──
+    try:
+        from nova_proactive import start_proactive_engine
+
+        start_proactive_engine()
+        logger.info("Proactive intelligence engine started")
+    except ImportError:
+        logger.warning("nova_proactive not available")
 
     # ── API Key Authentication Init (Phase 6) ──
     try:

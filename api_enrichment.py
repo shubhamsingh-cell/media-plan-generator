@@ -969,6 +969,7 @@ def _http_get_json(
         "User-Agent", "MediaPlanGenerator/1.0 (media-plan-generator.onrender.com)"
     )
     req.add_header("Accept", "application/json")
+    req.add_header("Connection", "keep-alive")
     if headers:
         for k, v in headers.items():
             req.add_header(k, v)
@@ -1036,6 +1037,7 @@ def _http_post_json(
         )
         req.add_header("Content-Type", "application/json")
         req.add_header("Accept", "application/json")
+        req.add_header("Connection", "keep-alive")
         if headers:
             for k, v in headers.items():
                 req.add_header(k, v)

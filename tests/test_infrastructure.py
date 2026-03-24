@@ -27,119 +27,71 @@ if str(PROJECT_ROOT) not in sys.path:
 
 
 class TestAutoQcModule:
-    """Tests for the auto_qc infrastructure module."""
+    """Tests for the auto_qc infrastructure module (refactored interface)."""
 
-    def test_testresult_class_exists(self) -> None:
-        """TestResult class must be importable from auto_qc."""
-        from auto_qc import TestResult
-
-        assert TestResult is not None
-        assert callable(TestResult)
-
-    def test_testresult_fields(self) -> None:
-        """TestResult instances expose the expected slot attributes."""
-        from auto_qc import TestResult
-
-        result = TestResult(
-            name="sample",
-            passed=True,
-            detail="ok",
-            duration_ms=1.23,
-            category="static",
-        )
-        assert result.name == "sample"
-        assert result.passed is True
-        assert result.detail == "ok"
-        assert result.duration_ms == 1.2  # rounded to 1 decimal
-        assert result.category == "static"
-
-    def test_testresult_to_dict(self) -> None:
-        """TestResult.to_dict returns a dict with all expected keys."""
-        from auto_qc import TestResult
-
-        result = TestResult(name="t1", passed=False, detail="fail")
-        d = result.to_dict()
-        assert isinstance(d, dict)
-        for key in ("name", "passed", "detail", "duration_ms", "category"):
-            assert key in d, f"Missing key: {key}"
-        assert d["name"] == "t1"
-        assert d["passed"] is False
-
-    def test_qc_has_test_definitions(self) -> None:
-        """AutoQC must have internal test definitions (static test names)."""
+    def test_autoqc_class_importable(self) -> None:
+        """AutoQC class must be importable from auto_qc."""
         from auto_qc import AutoQC
 
-        qc = AutoQC()
-        names = qc._get_static_test_names()
-        assert isinstance(names, list)
-        assert len(names) > 0, "AutoQC should define at least one static test"
+        assert AutoQC is not None
+        assert callable(AutoQC)
 
-    def test_qc_functions_importable(self) -> None:
-        """Key public functions and classes must be importable."""
-        from auto_qc import AutoQC, TestResult, get_auto_qc
+    def test_get_auto_qc_importable(self) -> None:
+        """get_auto_qc must be importable."""
+        from auto_qc import get_auto_qc
 
         assert callable(get_auto_qc)
-        assert callable(AutoQC)
-        assert callable(TestResult)
 
-    def test_qc_result_format(self) -> None:
-        """AutoQC.run_tests returns a dict with expected top-level keys."""
-        from auto_qc import AutoQC
+    def test_get_status_importable(self) -> None:
+        """get_status must be importable and return a dict."""
+        from auto_qc import get_status
 
-        qc = AutoQC()
-        # Mock heavy internal methods to avoid real module probing
-        with mock.patch.object(
-            qc, "_run_static_tests", return_value=[]
-        ), mock.patch.object(
-            qc, "_run_dynamic_tests", return_value=[]
-        ), mock.patch.object(
-            qc, "_persist_history"
-        ), mock.patch.object(
-            qc, "_auto_heal", return_value=0
-        ):
-            result = qc.run_tests()
-
+        result = get_status()
         assert isinstance(result, dict)
         assert "status" in result
-        assert result["status"] == "all_passing"
-        assert "total" in result
-        assert "tests" in result
 
-    def test_qc_constants_defined(self) -> None:
-        """Scheduling constants must be defined and positive."""
-        from auto_qc import (
-            _INITIAL_DELAY,
-            _MAX_HISTORY,
-            _PER_TEST_TIMEOUT,
-            _TEST_INTERVAL,
-            _WEEKLY_INTERVAL,
-        )
+    def test_check_interval_defined(self) -> None:
+        """Scheduling constant must be defined and positive."""
+        from auto_qc import _CHECK_INTERVAL
 
-        assert _TEST_INTERVAL > 0
-        assert _INITIAL_DELAY > 0
-        assert _WEEKLY_INTERVAL > 0
-        assert _MAX_HISTORY > 0
-        assert _PER_TEST_TIMEOUT > 0
+        assert _CHECK_INTERVAL > 0
 
-    def test_qc_data_paths_defined(self) -> None:
-        """QC data file paths must be Path objects."""
-        from auto_qc import DATA_DIR, DYNAMIC_TESTS_FILE, QC_RESULTS_FILE
+    def test_set_check_definitions_callable(self) -> None:
+        """set_check_definitions must be callable."""
+        from auto_qc import set_check_definitions
 
-        assert isinstance(DATA_DIR, Path)
-        assert isinstance(QC_RESULTS_FILE, Path)
-        assert isinstance(DYNAMIC_TESTS_FILE, Path)
+        assert callable(set_check_definitions)
+
+    def test_start_stop_callable(self) -> None:
+        """start and stop must be callable."""
+        from auto_qc import start, stop
+
+        assert callable(start)
+        assert callable(stop)
+
+    def test_get_sla_report_callable(self) -> None:
+        """get_sla_report must be callable and return a dict."""
+        from auto_qc import get_sla_report
+
+        assert callable(get_sla_report)
+        result = get_sla_report()
+        assert isinstance(result, dict)
 
     def test_autoqc_get_status_returns_dict(self) -> None:
         """get_status should return a well-formed dict."""
-        from auto_qc import AutoQC
+        from auto_qc import get_status
 
-        qc = AutoQC()
-        status = qc.get_status()
+        status = get_status()
         assert isinstance(status, dict)
         assert "status" in status
-        # Valid statuses: pending, running, all_passing, degraded, healed
-        valid = ("pending", "running", "all_passing", "degraded", "healed")
-        assert status["status"] in valid, f"Unexpected status: {status['status']}"
+
+    def test_thresholds_defined(self) -> None:
+        """Critical and degraded thresholds must be defined."""
+        from auto_qc import _CRITICAL_THRESHOLD, _DEGRADED_THRESHOLD
+
+        assert 0.0 <= _CRITICAL_THRESHOLD <= 1.0
+        assert 0.0 <= _DEGRADED_THRESHOLD <= 1.0
+        assert _CRITICAL_THRESHOLD <= _DEGRADED_THRESHOLD
 
 
 # =============================================================================

@@ -57,13 +57,13 @@ def log_event(
     with _lock:
         _AUDIT_LOG.append(event)
 
-    # Async file write
-    try:
-        _LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
-        with open(_LOG_FILE, "a", encoding="utf-8") as f:
-            f.write(json.dumps(event) + "\n")
-    except Exception as e:
-        logger.debug("Audit log file write failed: %s", e)
+        # File write inside lock to prevent interleaved JSONL lines
+        try:
+            _LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+            with open(_LOG_FILE, "a", encoding="utf-8") as f:
+                f.write(json.dumps(event) + "\n")
+        except Exception as e:
+            logger.debug("Audit log file write failed: %s", e)
 
     # Log critical events
     if severity == "critical":

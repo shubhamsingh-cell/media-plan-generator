@@ -3,7 +3,14 @@
 
 Tests all backend APIs, frontend templates, integrations, data quality,
 performance, and security against the live deployment on Render.com.
+
+Run manually: python3 tests/stress_test_comprehensive.py
+Not collected by pytest (requires live server).
 """
+
+import pytest
+
+pytestmark = pytest.mark.skip(reason="Stress test hits live deployment -- run manually")
 
 import json
 import time

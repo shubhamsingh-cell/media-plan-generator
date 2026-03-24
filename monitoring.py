@@ -675,6 +675,12 @@ class MetricsCollector:
         Also feeds the module-level health tracker if the endpoint
         maps to a known module.
         """
+        # Guard against None/invalid args
+        endpoint = endpoint or ""
+        method = method or ""
+        status_code = status_code if isinstance(status_code, int) else 0
+        latency_ms = latency_ms if isinstance(latency_ms, (int, float)) else 0.0
+
         now = time.time()
         with self._req_lock:
             self.total_requests += 1

@@ -1,0 +1,295 @@
+{
+  "_manifest_version": "1.0",
+  "_description": "Nova AI Suite Knowledge Base Manifest -- catalogs every data file with metadata for the consolidated platform",
+  "_generated_at": "2026-03-24",
+  "_data_directory": "data/",
+  "_total_files": 12,
+  "files": [
+    {
+      "filename": "recruitment_industry_knowledge.json",
+      "section_key": "core",
+      "description": "Core recruitment industry knowledge including benchmarks, salary trends, channel performance, industry-specific data, and platform audiences. This is the primary knowledge base file merged into the top-level KB dict for backward compatibility.",
+      "data_type": "benchmarks",
+      "source": "Curated from industry reports, Joveo internal data, and public sources",
+      "refresh_interval": "quarterly",
+      "refresh_interval_days": 90,
+      "last_updated": "2026-03-01",
+      "used_by_modules": ["command_center", "intelligence_hub", "nova_ai"],
+      "priority": 1,
+      "auto_refresh": false
+    },
+    {
+      "filename": "platform_intelligence_deep.json",
+      "section_key": "platform_intelligence",
+      "description": "Deep intelligence on 91+ recruitment advertising platforms including pricing models, audience demographics, targeting capabilities, performance benchmarks, and API availability.",
+      "data_type": "platform_data",
+      "source": "Platform documentation, vendor contacts, and Joveo first-party data",
+      "refresh_interval": "quarterly",
+      "refresh_interval_days": 90,
+      "last_updated": "2026-03-01",
+      "used_by_modules": ["command_center", "intelligence_hub"],
+      "priority": 2,
+      "auto_refresh": false
+    },
+    {
+      "filename": "recruitment_benchmarks_deep.json",
+      "section_key": "recruitment_benchmarks",
+      "description": "Detailed recruitment benchmarks across 22 industries: CPA, CPC, CPH, time-to-fill, apply rates, conversion funnels, and cost-per-quality-hire metrics.",
+      "data_type": "benchmarks",
+      "source": "Appcast, Joveo, industry surveys, and aggregated job board data",
+      "refresh_interval": "quarterly",
+      "refresh_interval_days": 90,
+      "last_updated": "2026-03-01",
+      "used_by_modules": ["command_center", "intelligence_hub", "nova_ai"],
+      "priority": 1,
+      "auto_refresh": false
+    },
+    {
+      "filename": "recruitment_strategy_intelligence.json",
+      "section_key": "recruitment_strategy",
+      "description": "Strategic intelligence for recruitment advertising: channel selection frameworks, budget allocation models, audience targeting strategies, and campaign optimization playbooks.",
+      "data_type": "strategy",
+      "source": "Joveo strategy team, industry best practices, case studies",
+      "refresh_interval": "semi-annual",
+      "refresh_interval_days": 180,
+      "last_updated": "2026-02-15",
+      "used_by_modules": ["command_center", "nova_ai"],
+      "priority": 2,
+      "auto_refresh": false
+    },
+    {
+      "filename": "regional_hiring_intelligence.json",
+      "section_key": "regional_hiring",
+      "description": "Regional hiring intelligence: metro-level job density, cost-of-living adjustments, talent supply/demand ratios, commute patterns, and regional salary premiums for 100+ US metros.",
+      "data_type": "regional",
+      "source": "BLS, Census, FRED, Adzuna, and proprietary metro analysis",
+      "refresh_interval": "quarterly",
+      "refresh_interval_days": 90,
+      "last_updated": "2026-03-01",
+      "used_by_modules": ["command_center", "intelligence_hub", "nova_ai"],
+      "priority": 2,
+      "auto_refresh": true,
+      "auto_refresh_sources": ["BLS", "Census", "FRED"]
+    },
+    {
+      "filename": "supply_ecosystem_intelligence.json",
+      "section_key": "supply_ecosystem",
+      "description": "Recruitment supply ecosystem data: publisher networks, programmatic buying landscape, supply/demand dynamics, and publisher performance benchmarks.",
+      "data_type": "supply",
+      "source": "Joveo publisher network data, industry partnerships",
+      "refresh_interval": "quarterly",
+      "refresh_interval_days": 90,
+      "last_updated": "2026-03-01",
+      "used_by_modules": ["command_center", "intelligence_hub"],
+      "priority": 3,
+      "auto_refresh": false
+    },
+    {
+      "filename": "workforce_trends_intelligence.json",
+      "section_key": "workforce_trends",
+      "description": "Workforce trend analysis: remote work adoption, gig economy growth, skills gap data, generational workforce shifts, and DEI hiring trends.",
+      "data_type": "trends",
+      "source": "Research reports, BLS projections, LinkedIn Economic Graph, industry surveys",
+      "refresh_interval": "quarterly",
+      "refresh_interval_days": 90,
+      "last_updated": "2026-03-01",
+      "used_by_modules": ["intelligence_hub", "nova_ai"],
+      "priority": 3,
+      "auto_refresh": true,
+      "auto_refresh_sources": ["Tavily", "web_scraper"]
+    },
+    {
+      "filename": "industry_white_papers.json",
+      "section_key": "white_papers",
+      "description": "Curated insights from 74 industry white papers and research reports including Appcast 2026 Benchmark Report (302M clicks, 27.4M applies, 24 occupations), and reports from SHRM, Gartner, Deloitte, and others.",
+      "data_type": "research",
+      "source": "74 publishers including Appcast, SHRM, Gartner, Deloitte, LinkedIn",
+      "refresh_interval": "semi-annual",
+      "refresh_interval_days": 180,
+      "last_updated": "2026-02-01",
+      "used_by_modules": ["intelligence_hub", "nova_ai"],
+      "priority": 2,
+      "auto_refresh": false
+    },
+    {
+      "filename": "joveo_2026_benchmarks.json",
+      "section_key": "joveo_2026_benchmarks",
+      "description": "Proprietary Joveo 2026 benchmark data: first-party programmatic recruitment performance metrics, publisher-level benchmarks, and client aggregate performance data.",
+      "data_type": "benchmarks",
+      "source": "Joveo internal data (proprietary)",
+      "refresh_interval": "monthly",
+      "refresh_interval_days": 30,
+      "last_updated": "2026-03-15",
+      "used_by_modules": ["command_center", "nova_ai"],
+      "priority": 1,
+      "auto_refresh": false
+    },
+    {
+      "filename": "google_ads_2025_benchmarks.json",
+      "section_key": "google_ads_benchmarks",
+      "description": "Google Ads 2025 recruitment benchmarks from Joveo first-party data: 6,338 keywords, $454K total spend, CPC/CTR statistics across 8 categories, and top-performing keyword analysis.",
+      "data_type": "benchmarks",
+      "source": "Joveo Google Ads account (first-party)",
+      "refresh_interval": "quarterly",
+      "refresh_interval_days": 90,
+      "last_updated": "2026-01-15",
+      "used_by_modules": ["command_center", "intelligence_hub"],
+      "priority": 1,
+      "auto_refresh": false
+    },
+    {
+      "filename": "external_benchmarks_2025.json",
+      "section_key": "external_benchmarks",
+      "description": "Aggregated external benchmark data from multiple third-party sources for cross-validation against Joveo internal benchmarks.",
+      "data_type": "benchmarks",
+      "source": "Industry reports, competitor analysis, public filings",
+      "refresh_interval": "quarterly",
+      "refresh_interval_days": 90,
+      "last_updated": "2026-01-01",
+      "used_by_modules": ["command_center", "intelligence_hub", "nova_ai"],
+      "priority": 2,
+      "auto_refresh": false
+    },
+    {
+      "filename": "client_media_plans_kb.json",
+      "section_key": "client_media_plans",
+      "description": "Anonymized client media plan patterns and templates: successful campaign structures, budget allocation examples, channel mix recommendations by industry and role type.",
+      "data_type": "templates",
+      "source": "Anonymized Joveo client data",
+      "refresh_interval": "monthly",
+      "refresh_interval_days": 30,
+      "last_updated": "2026-03-10",
+      "used_by_modules": ["command_center", "nova_ai"],
+      "priority": 1,
+      "auto_refresh": false
+    }
+  ],
+  "supplementary_files": [
+    {
+      "filename": "global_supply.json",
+      "description": "Global publisher supply data for programmatic recruitment",
+      "data_type": "supply",
+      "used_by_modules": ["command_center"]
+    },
+    {
+      "filename": "joveo_publishers.json",
+      "description": "Joveo publisher network configuration and performance data",
+      "data_type": "publishers",
+      "used_by_modules": ["command_center"]
+    },
+    {
+      "filename": "channels_db.json",
+      "description": "Channel database with detailed platform specifications",
+      "data_type": "channels",
+      "used_by_modules": ["command_center", "nova_ai"]
+    },
+    {
+      "filename": "job_density_metros.json",
+      "description": "Metropolitan area job density and labor market concentration data",
+      "data_type": "regional",
+      "used_by_modules": ["command_center", "intelligence_hub"]
+    },
+    {
+      "filename": "live_market_data.json",
+      "description": "Cached live market data from API enrichment calls",
+      "data_type": "market",
+      "used_by_modules": ["intelligence_hub", "nova_ai"]
+    },
+    {
+      "filename": "nova_learned_answers.json",
+      "description": "Nova AI learned answers from user feedback and corrections",
+      "data_type": "learned",
+      "used_by_modules": ["nova_ai"]
+    }
+  ],
+  "scraped_data_files": [
+    {
+      "filename": "scraped_career_pages.json",
+      "description": "Scraped competitor career page content",
+      "source": "web_scraper_router.py (Firecrawl/Jina)",
+      "refresh_interval": "weekly",
+      "used_by_modules": ["intelligence_hub"]
+    },
+    {
+      "filename": "scraped_compliance_updates.json",
+      "description": "Scraped compliance and regulatory updates",
+      "source": "web_scraper_router.py",
+      "refresh_interval": "daily",
+      "used_by_modules": ["command_center"]
+    },
+    {
+      "filename": "scraped_job_board_pricing.json",
+      "description": "Scraped job board pricing information",
+      "source": "firecrawl_enrichment.py",
+      "refresh_interval": "weekly",
+      "used_by_modules": ["command_center", "intelligence_hub"]
+    },
+    {
+      "filename": "scraped_recruitment_news.json",
+      "description": "Scraped recruitment industry news articles",
+      "source": "firecrawl_enrichment.py",
+      "refresh_interval": "daily",
+      "used_by_modules": ["intelligence_hub", "nova_ai"]
+    },
+    {
+      "filename": "scraped_salary_benchmarks.json",
+      "description": "Scraped salary benchmark data from public sources",
+      "source": "web_scraper_router.py",
+      "refresh_interval": "weekly",
+      "used_by_modules": ["command_center", "intelligence_hub"]
+    }
+  ],
+  "refresh_strategy": {
+    "description": "Knowledge base refresh strategy for the consolidated platform",
+    "tiers": [
+      {
+        "tier": "real_time",
+        "interval": "on_demand",
+        "sources": ["Adzuna job search", "FRED economic indicators", "Tavily web search"],
+        "notes": "Fetched live via API calls, cached 1hr in L1/L2"
+      },
+      {
+        "tier": "daily",
+        "interval": "24 hours",
+        "sources": ["scraped_compliance_updates", "scraped_recruitment_news"],
+        "notes": "Background scraping job, results stored in data/ directory"
+      },
+      {
+        "tier": "weekly",
+        "interval": "7 days",
+        "sources": ["scraped_career_pages", "scraped_job_board_pricing", "scraped_salary_benchmarks"],
+        "notes": "Scheduled scraping tasks, updates data/ JSON files"
+      },
+      {
+        "tier": "monthly",
+        "interval": "30 days",
+        "sources": ["joveo_2026_benchmarks", "client_media_plans_kb"],
+        "notes": "Manual update from Joveo internal systems"
+      },
+      {
+        "tier": "quarterly",
+        "interval": "90 days",
+        "sources": ["recruitment_industry_knowledge", "platform_intelligence_deep", "recruitment_benchmarks_deep", "regional_hiring_intelligence", "supply_ecosystem_intelligence", "workforce_trends_intelligence", "google_ads_2025_benchmarks", "external_benchmarks_2025"],
+        "notes": "Major KB refresh combining internal data + industry reports"
+      },
+      {
+        "tier": "semi_annual",
+        "interval": "180 days",
+        "sources": ["recruitment_strategy_intelligence", "industry_white_papers"],
+        "notes": "Strategy and research documents updated when new reports available"
+      }
+    ],
+    "auto_refresh_candidates": [
+      {
+        "file": "regional_hiring_intelligence.json",
+        "sources": ["BLS OES data", "Census ACS", "FRED LAUS"],
+        "method": "API calls via api_integrations.py, merge with existing KB structure"
+      },
+      {
+        "file": "workforce_trends_intelligence.json",
+        "sources": ["Tavily search for workforce trends", "Web scraper for industry reports"],
+        "method": "Tavily + web scraper results, LLM-assisted extraction and structuring"
+      }
+    ]
+  }
+}

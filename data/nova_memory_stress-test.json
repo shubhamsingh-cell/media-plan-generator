@@ -1,0 +1,35 @@
+{
+  "short_term": [
+    {
+      "content": "User asked: msg 1",
+      "memory_type": "short_term",
+      "created_at": 1774380578.6408541,
+      "metadata": {
+        "conversation_id": "conv-1",
+        "message_count": 1
+      }
+    },
+    {
+      "content": "User asked: msg 3",
+      "memory_type": "short_term",
+      "created_at": 1774380578.6415591,
+      "metadata": {
+        "conversation_id": "conv-3",
+        "message_count": 1
+      }
+    }
+  ],
+  "long_term": [
+    {
+      "content": "Fact 1",
+      "memory_type": "long_term",
+      "created_at": 1774380578.640929,
+      "metadata": {
+        "category": "general"
+      }
+    }
+  ],
+  "preferences": {
+    "pref_3": "value_3"
+  }
+}

@@ -6171,6 +6171,17 @@ When API-enriched context is available in the session, prioritize it as the most
         except Exception:
             pass  # Vector search is optional enhancement
 
+        # Inject persistent memory (cross-session context)
+        try:
+            from nova_memory import get_memory
+
+            memory = get_memory()
+            memory_context = memory.get_context_injection()
+            if memory_context:
+                system_prompt += memory_context
+        except Exception:
+            pass  # Memory is optional enhancement
+
         try:
             task_type = classify_task(user_message)
             logger.info(
@@ -6213,6 +6224,7 @@ When API-enriched context is available in the session, prioritize it as the most
     _FREE_TOOL_PROVIDERS = [
         "groq",
         "cerebras",
+        "gemini",
         "mistral",
         "xai",
         "sambanova",
@@ -6343,6 +6355,17 @@ When API-enriched context is available in the session, prioritize it as the most
                     )
         except Exception:
             pass  # Vector search is optional enhancement
+
+        # Inject persistent memory (cross-session context)
+        try:
+            from nova_memory import get_memory
+
+            memory = get_memory()
+            memory_context = memory.get_context_injection()
+            if memory_context:
+                system_prompt += memory_context
+        except Exception:
+            pass  # Memory is optional enhancement
 
         # Get tool definitions (Anthropic format -- llm_router auto-converts to OpenAI)
         tool_defs = self.get_tool_definitions()
@@ -6801,6 +6824,17 @@ When API-enriched context is available in the session, prioritize it as the most
                     )
         except Exception:
             pass  # Vector search is optional enhancement
+
+        # Inject persistent memory (cross-session context)
+        try:
+            from nova_memory import get_memory
+
+            memory = get_memory()
+            memory_context = memory.get_context_injection()
+            if memory_context:
+                dynamic_parts.append(f"## CROSS-SESSION MEMORY\n{memory_context}")
+        except Exception:
+            pass  # Memory is optional enhancement
 
         if dynamic_parts:
             system_content.append(
@@ -9925,6 +9959,40 @@ def handle_chat_request(request_data: dict) -> dict:
                 "error": "all_providers_failed",
             }
 
+        # Save conversation to memory
+        try:
+            from nova_memory import get_memory
+
+            memory = get_memory()
+            conv_id = request_data.get("conversation_id") or ""
+            response_text = result.get("response") or ""
+            if conv_id and response_text:
+                memory.save_conversation_summary(
+                    conv_id,
+                    history
+                    + [
+                        {"role": "user", "text": message},
+                        {"role": "assistant", "text": response_text},
+                    ],
+                )
+                # Learn facts from conversation
+                if any(
+                    kw in message.lower()
+                    for kw in [
+                        "prefer",
+                        "always",
+                        "never",
+                        "my budget",
+                        "our company",
+                        "i work",
+                    ]
+                ):
+                    memory.learn_fact(
+                        f"User said: {message[:200]}", category="user_statement"
+                    )
+        except Exception as e:
+            logger.debug("Memory save failed: %s", e)
+
         return result
     except Exception as e:
         logger.error("Chat request failed: %s", e, exc_info=True)
@@ -10071,6 +10139,17 @@ def handle_chat_request_stream(
             except Exception:
                 pass  # Vector search is optional enhancement
 
+            # Inject persistent memory (cross-session context)
+            try:
+                from nova_memory import get_memory
+
+                memory = get_memory()
+                memory_context = memory.get_context_injection()
+                if memory_context:
+                    system_prompt += memory_context
+            except Exception:
+                pass  # Memory is optional enhancement
+
             task_type = classify_task(message)
 
             # Stream tokens
@@ -10081,6 +10160,7 @@ def handle_chat_request_stream(
                 max_tokens=2048,
                 task_type=task_type,
                 query_text=message,
+                preferred_providers=["groq", "cerebras", "gemini"],
             ):
                 streamed_tokens.append(token)
                 yield {"token": token, "done": False}

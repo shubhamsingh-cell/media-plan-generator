@@ -62,11 +62,10 @@ SEV_COLORS = {
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def set_cell_shading(cell, color_hex: str):
     """Apply background shading to a table cell."""
-    shading = parse_xml(
-        f'<w:shd {nsdecls("w")} w:fill="{color_hex}" w:val="clear"/>'
-    )
+    shading = parse_xml(f'<w:shd {nsdecls("w")} w:fill="{color_hex}" w:val="clear"/>')
     cell._tc.get_or_add_tcPr().append(shading)
 
 
@@ -223,7 +222,7 @@ def add_separator(doc):
     pBdr = parse_xml(
         f'<w:pBdr {nsdecls("w")}>'
         f'  <w:bottom w:val="single" w:sz="4" w:space="1" w:color="D1D5DB"/>'
-        f'</w:pBdr>'
+        f"</w:pBdr>"
     )
     pPr.append(pBdr)
 
@@ -231,6 +230,7 @@ def add_separator(doc):
 # ---------------------------------------------------------------------------
 # Document Sections
 # ---------------------------------------------------------------------------
+
 
 def build_cover_page(doc):
     """Build the title / cover page."""
@@ -330,7 +330,7 @@ def build_executive_summary(doc):
         "Media Plan Generator v3.3, conducted on March 10, 2026. The audit covered the "
         "full production codebase -- 45,588 lines across 13 Python modules -- and "
         "combined static analysis, dynamic stress testing, and manual code review to "
-        "identify reliability, performance, and correctness issues."
+        "identify reliability, performance, and correctness issues.",
     )
 
     # Key metrics table
@@ -361,7 +361,7 @@ def build_executive_summary(doc):
         "All 5 critical, 10 high, and 5 medium priority issues have been fixed and "
         "verified. The autonomous QC engine (auto_qc.py) has been expanded from 66 to "
         "76 tests, and the intelligent LLM routing matrix now supports 8 task types "
-        "across 12 providers."
+        "across 12 providers.",
     )
 
     add_separator(doc)
@@ -376,23 +376,67 @@ def build_architecture_overview(doc):
         "The Media Plan Generator is a standalone Python HTTP server that generates "
         "recruitment advertising media plans. It integrates 30+ data APIs, 12 LLM "
         "providers, and a 3-tier caching architecture to produce Excel and PowerPoint "
-        "deliverables. The system is deployed on Render.com (Standard tier)."
+        "deliverables. The system is deployed on Render.com (Standard tier).",
     )
 
     modules = [
-        ("app.py", "9,767", "Main HTTP server, request handling, generation pipeline, API endpoints"),
-        ("nova.py", "4,901", "AI chat assistant (Nova) with 30+ tools, conversation management"),
-        ("api_enrichment.py", "10,487", "30-API enrichment pipeline with L1/L2/L3 three-tier cache"),
-        ("data_orchestrator.py", "2,815", "Data orchestration layer for Nova chat and queries"),
-        ("data_synthesizer.py", "2,532", "Multi-source data fusion and conflict resolution"),
-        ("budget_engine.py", "2,679", "Budget allocation, channel optimization, CPC tier cascading"),
-        ("trend_engine.py", "1,360", "Benchmark data source of truth, industry trend analysis"),
-        ("llm_router.py", "1,015", "12-provider LLM router with circuit breakers and fallback"),
-        ("auto_qc.py", "3,036", "76-test autonomous QC engine with regression detection"),
+        (
+            "app.py",
+            "9,767",
+            "Main HTTP server, request handling, generation pipeline, API endpoints",
+        ),
+        (
+            "nova.py",
+            "4,901",
+            "AI chat assistant (Nova) with 30+ tools, conversation management",
+        ),
+        (
+            "api_enrichment.py",
+            "10,487",
+            "30-API enrichment pipeline with L1/L2/L3 three-tier cache",
+        ),
+        (
+            "data_orchestrator.py",
+            "2,815",
+            "Data orchestration layer for Nova chat and queries",
+        ),
+        (
+            "data_synthesizer.py",
+            "2,532",
+            "Multi-source data fusion and conflict resolution",
+        ),
+        (
+            "budget_engine.py",
+            "2,679",
+            "Budget allocation, channel optimization, CPC tier cascading",
+        ),
+        (
+            "trend_engine.py",
+            "1,360",
+            "Benchmark data source of truth, industry trend analysis",
+        ),
+        (
+            "llm_router.py",
+            "1,015",
+            "12-provider LLM router with circuit breakers and fallback",
+        ),
+        (
+            "auto_qc.py",
+            "3,036",
+            "76-test autonomous QC engine with regression detection",
+        ),
         ("grafana_logger.py", "535", "Grafana Loki log shipping with buffered writes"),
         ("supabase_cache.py", "915", "L3 persistent cache layer (Supabase / Postgres)"),
-        ("email_alerts.py", "701", "Alert system with exponential backoff and deduplication"),
-        ("ppt_generator.py", "4,845", "PowerPoint slide generation with dynamic layouts"),
+        (
+            "email_alerts.py",
+            "701",
+            "Alert system with exponential backoff and deduplication",
+        ),
+        (
+            "ppt_generator.py",
+            "4,845",
+            "PowerPoint slide generation with dynamic layouts",
+        ),
     ]
 
     make_table(
@@ -407,7 +451,7 @@ def build_architecture_overview(doc):
         doc,
         "Total codebase: 45,588 lines of Python across 13 modules. The system "
         "handles both synchronous and asynchronous media plan generation, with Nova "
-        "providing a conversational interface for iterative refinement."
+        "providing a conversational interface for iterative refinement.",
     )
 
     add_separator(doc)
@@ -420,7 +464,7 @@ def build_critical_fixes(doc):
     add_body(
         doc,
         "Five critical-severity bugs were identified and fixed. Each of these could "
-        "cause data loss, server crashes, or silent correctness failures in production."
+        "cause data loss, server crashes, or silent correctness failures in production.",
     )
 
     fixes = [
@@ -555,100 +599,120 @@ def build_high_fixes(doc):
         doc,
         "Ten high-priority issues were identified. These impact performance, "
         "data consistency, or operational reliability but do not cause immediate "
-        "crashes or silent data loss."
+        "crashes or silent data loss.",
     )
 
     high_fixes = [
         (
-            "H1", "HIGH", "Lock Contention on Shared Lock",
+            "H1",
+            "HIGH",
+            "Lock Contention on Shared Lock",
             "api_enrichment.py",
             "Cache operations and circuit breaker state shared a single threading.Lock, "
             "causing severe contention under concurrent requests. Cache reads blocked "
             "on circuit breaker state transitions and vice versa.",
             "Separated into two independent locks: _cache_lock for cache operations and "
-            "_cb_lock for circuit breaker state. Reduced lock hold times by 60%."
+            "_cb_lock for circuit breaker state. Reduced lock hold times by 60%.",
         ),
         (
-            "H2", "HIGH", "Disk Cache Unbounded on Startup",
+            "H2",
+            "HIGH",
+            "Disk Cache Unbounded on Startup",
             "api_enrichment.py",
             "The L2 disk cache directory was never pruned at startup. Accumulated stale "
             "entries from prior deployments consumed increasing disk space and slowed "
             "cache lookups.",
             "Added startup cache pruning: on initialization, entries older than the "
-            "configured TTL are deleted and the total cache size is capped at 500 MB."
+            "configured TTL are deleted and the total cache size is capped at 500 MB.",
         ),
         (
-            "H3", "HIGH", "Chat Body Size Limit (Already Implemented)",
+            "H3",
+            "HIGH",
+            "Chat Body Size Limit (Already Implemented)",
             "app.py",
             "A missing request body size limit on the /api/chat endpoint could allow "
             "oversized payloads to exhaust server memory.",
             "Verified: a 1 MB body size limit was already in place. No additional "
-            "changes required. Marked as confirmed-safe."
+            "changes required. Marked as confirmed-safe.",
         ),
         (
-            "H4", "HIGH", "Grafana Logger Drops Oldest Entries",
+            "H4",
+            "HIGH",
+            "Grafana Logger Drops Oldest Entries",
             "grafana_logger.py",
             "When the internal log buffer exceeded capacity, the logger dropped the "
             "oldest (earliest) entries. For incident investigation, the earliest "
             "entries around the trigger event are often the most valuable.",
             "Changed buffer eviction to drop newest entries when the buffer is full, "
             "preserving the chronological start of any incident. Added a dropped-count "
-            "metric to track overflow events."
+            "metric to track overflow events.",
         ),
         (
-            "H5", "HIGH", "LLM Routing Expansion (Already Implemented)",
+            "H5",
+            "HIGH",
+            "LLM Routing Expansion (Already Implemented)",
             "llm_router.py",
             "The original routing matrix supported only 4 task types, limiting the "
             "system's ability to optimally route heterogeneous workloads.",
             "Verified: routing was already expanded from 4 to 8 task types in a "
             "prior commit. No additional changes required. See Section 6 for the "
-            "full routing matrix."
+            "full routing matrix.",
         ),
         (
-            "H6", "HIGH", "Supabase N+1 Query Pattern",
+            "H6",
+            "HIGH",
+            "Supabase N+1 Query Pattern",
             "supabase_cache.py",
             "Batch cache lookups executed individual SELECT queries per key, creating "
             "an N+1 pattern that multiplied network round-trips to Supabase.",
             "Replaced per-key queries with a single batch SELECT using an IN clause. "
             "Reduced round-trips from N to 1 for batch lookups. Added batch upsert "
-            "for cache writes."
+            "for cache writes.",
         ),
         (
-            "H7", "HIGH", "Industry Key Mismatch",
+            "H7",
+            "HIGH",
+            "Industry Key Mismatch",
             "data_orchestrator.py",
             "The data orchestrator used inconsistent industry keys (e.g., 'tech' vs "
             "'technology') when querying different enrichment sources, causing cache "
             "misses and duplicate API calls for the same industry.",
             "Introduced a canonical industry key normalizer that maps all aliases to "
-            "a single canonical form before any cache lookup or API call."
+            "a single canonical form before any cache lookup or API call.",
         ),
         (
-            "H8", "HIGH", "Thread-Local request_id Not Inherited",
+            "H8",
+            "HIGH",
+            "Thread-Local request_id Not Inherited",
             "api_enrichment.py",
             "Child threads spawned during parallel enrichment did not inherit the "
             "parent thread's request_id. Log entries from child threads lacked "
             "correlation IDs, making distributed tracing impossible.",
             "Propagate request_id via a threading context wrapper that copies the "
-            "parent's request_id to each child thread at spawn time."
+            "parent's request_id to each child thread at spawn time.",
         ),
         (
-            "H9", "HIGH", "Geopolitical Context Runs Sequentially",
+            "H9",
+            "HIGH",
+            "Geopolitical Context Runs Sequentially",
             "api_enrichment.py",
             "The geopolitical context enrichment step ran sequentially across all "
             "target regions, adding up to 8 seconds for multi-region plans.",
             "Parallelized geopolitical context fetches using a ThreadPoolExecutor "
             "with max_workers=5. Added per-region timeout of 3 seconds. Total "
-            "enrichment time reduced from 8s to ~2s for multi-region plans."
+            "enrichment time reduced from 8s to ~2s for multi-region plans.",
         ),
         (
-            "H10", "HIGH", "Missing Input Validation Feedback",
+            "H10",
+            "HIGH",
+            "Missing Input Validation Feedback",
             "app.py",
             "The /api/generate endpoint silently clamped or ignored invalid input "
             "parameters (e.g., negative budgets, missing required fields) without "
             "returning actionable error messages to the client.",
             "Added structured validation with per-field error messages returned as "
             "JSON. Invalid requests now receive HTTP 422 with a list of specific "
-            "validation failures."
+            "validation failures.",
         ),
     ]
 
@@ -676,30 +740,36 @@ def build_medium_fixes(doc):
     add_body(
         doc,
         "Five medium-priority issues were identified and resolved. These relate to "
-        "documentation accuracy, resource management, and input handling edge cases."
+        "documentation accuracy, resource management, and input handling edge cases.",
     )
 
     medium_fixes = [
         (
-            "M1", "MEDIUM", "Duplicate Benchmark Data Documentation",
+            "M1",
+            "MEDIUM",
+            "Duplicate Benchmark Data Documentation",
             "trend_engine.py / ARCHITECTURE.md",
             "Benchmark data structures were documented in both trend_engine.py docstrings "
             "and ARCHITECTURE.md, with the two copies drifting out of sync. This caused "
             "confusion about which fields were authoritative.",
             "Consolidated all benchmark data documentation into trend_engine.py as the "
             "single source of truth. ARCHITECTURE.md now references trend_engine.py "
-            "rather than duplicating the schema."
+            "rather than duplicating the schema.",
         ),
         (
-            "M2", "MEDIUM", "Email Alert Exponential Backoff",
+            "M2",
+            "MEDIUM",
+            "Email Alert Exponential Backoff",
             "email_alerts.py",
             "The email alert system retried failed sends at fixed intervals, creating "
             "a thundering-herd effect when the SMTP server was temporarily unavailable.",
             "Implemented exponential backoff with jitter: base delay of 1 second, "
-            "multiplier of 2, max delay of 60 seconds, plus random jitter of 0-1s."
+            "multiplier of 2, max delay of 60 seconds, plus random jitter of 0-1s.",
         ),
         (
-            "M3", "MEDIUM", "Auto QC Generated Code Validation Blocklist",
+            "M3",
+            "MEDIUM",
+            "Auto QC Generated Code Validation Blocklist",
             "auto_qc.py",
             "The autonomous QC engine could generate test code that called dangerous "
             "functions (e.g., os.system, subprocess.call). No blocklist prevented "
@@ -707,27 +777,31 @@ def build_medium_fixes(doc):
             "Added a validation blocklist of 15 dangerous patterns (os.system, "
             "subprocess.*, eval, exec, __import__, etc.) that are rejected during "
             "QC test code generation. Tests containing blocklisted patterns are "
-            "flagged and require manual review."
+            "flagged and require manual review.",
         ),
         (
-            "M4", "MEDIUM", "parse_budget() Threshold Lowered to $100",
+            "M4",
+            "MEDIUM",
+            "parse_budget() Threshold Lowered to $100",
             "app.py (budget parsing)",
             "The budget parser rejected budgets below $500 as invalid. Legitimate "
             "small-budget campaigns (e.g., local hiring, test runs) were incorrectly "
             "blocked.",
             "Lowered the minimum budget threshold from $500 to $100. Added a warning "
             "(not an error) for budgets between $100 and $500 indicating that results "
-            "may be limited."
+            "may be limited.",
         ),
         (
-            "M5", "MEDIUM", "_fallback_counts Memory Cap with LRU Eviction",
+            "M5",
+            "MEDIUM",
+            "_fallback_counts Memory Cap with LRU Eviction",
             "api_enrichment.py",
             "The _fallback_counts dictionary tracked API fallback events per endpoint "
             "but grew without bound, accumulating entries for endpoints that were no "
             "longer active.",
             "Added LRU eviction with a cap of 1,000 entries. When the cap is reached, "
             "the least-recently-updated entries are evicted first. Added a periodic "
-            "cleanup that removes entries older than 24 hours."
+            "cleanup that removes entries older than 24 hours.",
         ),
     ]
 
@@ -755,21 +829,53 @@ def build_llm_routing_matrix(doc):
         "The LLM routing matrix has been expanded from 4 to 8 task types, enabling "
         "more precise provider selection based on the nature of each request. The "
         "router uses circuit breakers, latency tracking, and cost optimization to "
-        "select the optimal provider for each task."
+        "select the optimal provider for each task.",
     )
 
     # Task types
     doc.add_heading("6.1  Task Type Definitions", level=2)
 
     task_types = [
-        ("STRUCTURED", "Existing", "JSON generation, form filling, data extraction, schema-constrained outputs"),
-        ("CONVERSATIONAL", "Existing", "Free-form chat, Q&A, user-facing dialogue, follow-up questions"),
-        ("COMPLEX", "Existing", "Multi-step reasoning, analysis, strategy generation, long-form synthesis"),
-        ("CODE", "Existing", "Code generation, debugging, technical documentation, API integration"),
-        ("VERIFICATION", "New", "Fact-checking, data validation, cross-reference checks, sanity testing"),
-        ("RESEARCH", "New", "Web-augmented research, current events, market intelligence, deep dives"),
-        ("NARRATIVE", "New", "Long-form writing, executive summaries, report generation, storytelling"),
-        ("BATCH", "New", "High-volume, low-complexity tasks: tagging, classification, bulk formatting"),
+        (
+            "STRUCTURED",
+            "Existing",
+            "JSON generation, form filling, data extraction, schema-constrained outputs",
+        ),
+        (
+            "CONVERSATIONAL",
+            "Existing",
+            "Free-form chat, Q&A, user-facing dialogue, follow-up questions",
+        ),
+        (
+            "COMPLEX",
+            "Existing",
+            "Multi-step reasoning, analysis, strategy generation, long-form synthesis",
+        ),
+        (
+            "CODE",
+            "Existing",
+            "Code generation, debugging, technical documentation, API integration",
+        ),
+        (
+            "VERIFICATION",
+            "New",
+            "Fact-checking, data validation, cross-reference checks, sanity testing",
+        ),
+        (
+            "RESEARCH",
+            "New",
+            "Web-augmented research, current events, market intelligence, deep dives",
+        ),
+        (
+            "NARRATIVE",
+            "New",
+            "Long-form writing, executive summaries, report generation, storytelling",
+        ),
+        (
+            "BATCH",
+            "New",
+            "High-volume, low-complexity tasks: tagging, classification, bulk formatting",
+        ),
     ]
 
     make_table(
@@ -785,18 +891,78 @@ def build_llm_routing_matrix(doc):
     doc.add_heading("6.2  Provider Priority Table", level=2)
 
     providers = [
-        ("Gemini Flash", "Verification, Structured", "Fast", "Free", "High throughput, reliable JSON"),
-        ("Groq Llama 3.3 70B", "Conversational, Fast Q&A", "Very Fast", "Free", "Lowest latency option"),
-        ("Cerebras Llama 3.3 70B", "Batch processing", "Very Fast", "Free", "High RPM for batch tasks"),
-        ("Mistral Small", "Structured, Multilingual", "Fast", "Free", "Strong multilingual support"),
-        ("OpenRouter Maverick", "Complex, Research", "Medium", "Free", "Good reasoning quality"),
-        ("xAI Grok", "Research, Current events", "Medium", "Free", "Real-time knowledge access"),
-        ("SambaNova Llama 405B", "Complex reasoning", "Medium", "Free", "Largest free model (405B)"),
+        (
+            "Gemini Flash",
+            "Verification, Structured",
+            "Fast",
+            "Free",
+            "High throughput, reliable JSON",
+        ),
+        (
+            "Groq Llama 3.3 70B",
+            "Conversational, Fast Q&A",
+            "Very Fast",
+            "Free",
+            "Lowest latency option",
+        ),
+        (
+            "Cerebras Llama 3.3 70B",
+            "Batch processing",
+            "Very Fast",
+            "Free",
+            "High RPM for batch tasks",
+        ),
+        (
+            "Mistral Small",
+            "Structured, Multilingual",
+            "Fast",
+            "Free",
+            "Strong multilingual support",
+        ),
+        (
+            "OpenRouter Maverick",
+            "Complex, Research",
+            "Medium",
+            "Free",
+            "Good reasoning quality",
+        ),
+        (
+            "xAI Grok",
+            "Research, Current events",
+            "Medium",
+            "Free",
+            "Real-time knowledge access",
+        ),
+        (
+            "SambaNova Llama 405B",
+            "Complex reasoning",
+            "Medium",
+            "Free",
+            "Largest free model (405B)",
+        ),
         ("NVIDIA NIM", "Structured, Code", "Fast", "Free", "Optimized inference infra"),
-        ("Cloudflare Workers AI", "Batch (300 RPM)", "Fast", "Free", "Highest rate limit"),
+        (
+            "Cloudflare Workers AI",
+            "Batch (300 RPM)",
+            "Fast",
+            "Free",
+            "Highest rate limit",
+        ),
         ("GPT-4o", "Structured, JSON", "Medium", "Paid", "Best JSON mode reliability"),
-        ("Claude Sonnet 4", "Tool use, Multi-step", "Medium", "Paid", "Superior tool calling"),
-        ("Claude Opus 4", "Last resort, Highest quality", "Slow", "Paid", "Maximum reasoning quality"),
+        (
+            "Claude Sonnet 4",
+            "Tool use, Multi-step",
+            "Medium",
+            "Paid",
+            "Superior tool calling",
+        ),
+        (
+            "Claude Opus 4",
+            "Last resort, Highest quality",
+            "Slow",
+            "Paid",
+            "Maximum reasoning quality",
+        ),
     ]
 
     make_table(
@@ -815,7 +981,7 @@ def build_llm_routing_matrix(doc):
         "breaker is open. If all free providers fail, the system escalates to paid "
         "providers (GPT-4o, then Claude Sonnet, then Claude Opus as last resort). "
         "Each provider has independent circuit breaker state with configurable failure "
-        "thresholds and cooldown periods."
+        "thresholds and cooldown periods.",
     )
 
     add_separator(doc)
@@ -830,7 +996,7 @@ def build_stress_test_findings(doc):
         "A dedicated stress test was conducted to evaluate system behavior under "
         "extreme conditions: concurrent requests, API failures, memory pressure, and "
         "edge-case inputs. The stress test identified 25 additional findings beyond "
-        "the original 37-issue audit."
+        "the original 37-issue audit.",
     )
 
     # Summary by severity
@@ -858,40 +1024,48 @@ def build_stress_test_findings(doc):
 
     stress_critical = [
         (
-            "ST-C1", "CRITICAL", "Thread Explosion Under Concurrent Requests",
+            "ST-C1",
+            "CRITICAL",
+            "Thread Explosion Under Concurrent Requests",
             "app.py",
             "Under 50+ concurrent /api/generate requests, the server spawned an "
             "unbounded number of threads (one per request), exhausting system "
             "resources and causing OOM kills.",
             "Added a bounded ThreadPoolExecutor with max_workers=10 for generation "
-            "requests. Excess requests are queued with a configurable queue depth of 50."
+            "requests. Excess requests are queued with a configurable queue depth of 50.",
         ),
         (
-            "ST-C2", "CRITICAL", "No LLM Total Failure Fallback",
+            "ST-C2",
+            "CRITICAL",
+            "No LLM Total Failure Fallback",
             "llm_router.py",
             "When all 12 LLM providers simultaneously failed (circuit breakers open), "
             "the router raised an unhandled exception that crashed the request handler.",
             "Added a graceful degradation path: when all providers are unavailable, "
             "the system returns a structured error response with retry-after header "
-            "and logs a critical alert."
+            "and logs a critical alert.",
         ),
         (
-            "ST-C3", "CRITICAL", "day_calls Counter Memory Growth",
+            "ST-C3",
+            "CRITICAL",
+            "day_calls Counter Memory Growth",
             "api_enrichment.py",
             "The day_calls rate-limiting dictionary accumulated keys indefinitely "
             "(one per API endpoint per day), never resetting. After months of "
             "operation, this consumed significant memory.",
             "Added daily reset logic: day_calls is cleared at midnight UTC via a "
-            "background timer. Added a safety cap of 10,000 entries with LRU eviction."
+            "background timer. Added a safety cap of 10,000 entries with LRU eviction.",
         ),
         (
-            "ST-C4", "CRITICAL", "Deduplication Race Condition",
+            "ST-C4",
+            "CRITICAL",
+            "Deduplication Race Condition",
             "api_enrichment.py",
             "The request deduplication mechanism used a non-thread-safe check-then-set "
             "pattern, allowing duplicate API calls under concurrent access.",
             "Replaced with a thread-safe dedup implementation using a lock-per-key "
             "pattern (keyed locking). The first request executes; concurrent duplicates "
-            "wait and receive the cached result."
+            "wait and receive the cached result.",
         ),
     ]
 
@@ -910,20 +1084,55 @@ def build_stress_test_findings(doc):
     doc.add_heading("7.3  High Priority Stress Test Findings", level=2)
 
     stress_high = [
-        ("ST-H1", "HIGH", "Cache stampede on TTL expiry", "api_enrichment.py",
-         "Multiple threads simultaneously refresh expired cache entries"),
-        ("ST-H2", "HIGH", "PPT generation OOM on large plans", "ppt_generator.py",
-         "Plans with 50+ channels exhaust memory during slide generation"),
-        ("ST-H3", "HIGH", "Grafana batch flush timeout", "grafana_logger.py",
-         "Large log batches exceed the 5-second HTTP timeout to Loki"),
-        ("ST-H4", "HIGH", "Nova context window overflow", "nova.py",
-         "Long conversations exceed LLM context limits without truncation"),
-        ("ST-H5", "HIGH", "Supabase connection pool exhaustion", "supabase_cache.py",
-         "Concurrent cache writes exhaust the default 5-connection pool"),
-        ("ST-H6", "HIGH", "Budget engine floating-point drift", "budget_engine.py",
-         "Repeated allocation adjustments accumulate rounding errors >$1"),
-        ("ST-H7", "HIGH", "Email alert flood during outage", "email_alerts.py",
-         "Cascading failures generate 100+ alerts in under 1 minute"),
+        (
+            "ST-H1",
+            "HIGH",
+            "Cache stampede on TTL expiry",
+            "api_enrichment.py",
+            "Multiple threads simultaneously refresh expired cache entries",
+        ),
+        (
+            "ST-H2",
+            "HIGH",
+            "PPT generation OOM on large plans",
+            "ppt_generator.py",
+            "Plans with 50+ channels exhaust memory during slide generation",
+        ),
+        (
+            "ST-H3",
+            "HIGH",
+            "Grafana batch flush timeout",
+            "grafana_logger.py",
+            "Large log batches exceed the 5-second HTTP timeout to Loki",
+        ),
+        (
+            "ST-H4",
+            "HIGH",
+            "Nova context window overflow",
+            "nova.py",
+            "Long conversations exceed LLM context limits without truncation",
+        ),
+        (
+            "ST-H5",
+            "HIGH",
+            "Supabase connection pool exhaustion",
+            "supabase_cache.py",
+            "Concurrent cache writes exhaust the default 5-connection pool",
+        ),
+        (
+            "ST-H6",
+            "HIGH",
+            "Budget engine floating-point drift",
+            "budget_engine.py",
+            "Repeated allocation adjustments accumulate rounding errors >$1",
+        ),
+        (
+            "ST-H7",
+            "HIGH",
+            "Email alert flood during outage",
+            "email_alerts.py",
+            "Cascading failures generate 100+ alerts in under 1 minute",
+        ),
     ]
 
     make_table(
@@ -939,18 +1148,63 @@ def build_stress_test_findings(doc):
     doc.add_heading("7.4  Medium and Low Priority Findings", level=2)
 
     stress_med_low = [
-        ("ST-M1", "MEDIUM", "Inconsistent timezone handling in logs", "Multiple modules"),
+        (
+            "ST-M1",
+            "MEDIUM",
+            "Inconsistent timezone handling in logs",
+            "Multiple modules",
+        ),
         ("ST-M2", "MEDIUM", "Missing Content-Type header on some responses", "app.py"),
-        ("ST-M3", "MEDIUM", "Stale circuit breaker metrics after cooldown", "llm_router.py"),
-        ("ST-M4", "MEDIUM", "data_synthesizer ignores confidence < 0.3 silently", "data_synthesizer.py"),
-        ("ST-M5", "MEDIUM", "Budget rounding displays $X.XX0 (trailing zero)", "budget_engine.py"),
-        ("ST-M6", "MEDIUM", "PPT slide title truncation at 80 chars", "ppt_generator.py"),
+        (
+            "ST-M3",
+            "MEDIUM",
+            "Stale circuit breaker metrics after cooldown",
+            "llm_router.py",
+        ),
+        (
+            "ST-M4",
+            "MEDIUM",
+            "data_synthesizer ignores confidence < 0.3 silently",
+            "data_synthesizer.py",
+        ),
+        (
+            "ST-M5",
+            "MEDIUM",
+            "Budget rounding displays $X.XX0 (trailing zero)",
+            "budget_engine.py",
+        ),
+        (
+            "ST-M6",
+            "MEDIUM",
+            "PPT slide title truncation at 80 chars",
+            "ppt_generator.py",
+        ),
         ("ST-M7", "MEDIUM", "Auto QC test timeout too aggressive (5s)", "auto_qc.py"),
-        ("ST-M8", "MEDIUM", "Missing retry on DNS resolution failure", "api_enrichment.py"),
+        (
+            "ST-M8",
+            "MEDIUM",
+            "Missing retry on DNS resolution failure",
+            "api_enrichment.py",
+        ),
         ("ST-L1", "LOW", "Debug log level left enabled for 2 endpoints", "app.py"),
-        ("ST-L2", "LOW", "Unused import in data_orchestrator.py", "data_orchestrator.py"),
-        ("ST-L3", "LOW", "Inconsistent docstring format (Google vs NumPy)", "Multiple modules"),
-        ("ST-L4", "LOW", "TODO comments referencing completed tasks", "nova.py, app.py"),
+        (
+            "ST-L2",
+            "LOW",
+            "Unused import in data_orchestrator.py",
+            "data_orchestrator.py",
+        ),
+        (
+            "ST-L3",
+            "LOW",
+            "Inconsistent docstring format (Google vs NumPy)",
+            "Multiple modules",
+        ),
+        (
+            "ST-L4",
+            "LOW",
+            "TODO comments referencing completed tasks",
+            "nova.py, app.py",
+        ),
         ("ST-L5", "LOW", "Test fixture uses hardcoded date (2025-01-01)", "auto_qc.py"),
         ("ST-L6", "LOW", "Minor spelling errors in error messages", "Multiple modules"),
     ]
@@ -973,81 +1227,91 @@ def build_new_qc_tests(doc):
         doc,
         "Ten new QC tests were added to the autonomous QC engine (auto_qc.py), "
         "bringing the total suite from 66 to 76 tests. These tests specifically "
-        "target the issues discovered during this audit and the stress test."
+        "target the issues discovered during this audit and the stress test.",
     )
 
     tests = [
         (
-            "67", "Budget Allocation Sum Invariant",
+            "67",
+            "Budget Allocation Sum Invariant",
             "Verifies that the sum of all channel budget allocations equals the total "
             "input budget (within a $0.01 tolerance). Prevents allocation arithmetic "
             "errors and floating-point drift.",
-            "sum(channel_budgets) == total_budget +/- $0.01"
+            "sum(channel_budgets) == total_budget +/- $0.01",
         ),
         (
-            "68", "LLM Router Fallback Cascade",
+            "68",
+            "LLM Router Fallback Cascade",
             "Simulates sequential provider failures and verifies that the router "
             "correctly cascades through the provider priority list, respecting circuit "
             "breaker states.",
             "When provider N fails, provider N+1 is attempted. When all free providers "
-            "fail, paid providers are tried. When all fail, a structured error is returned."
+            "fail, paid providers are tried. When all fail, a structured error is returned.",
         ),
         (
-            "69", "Budget CPC Tier Cascade",
+            "69",
+            "Budget CPC Tier Cascade",
             "Tests the CPC (cost-per-click) tier cascade logic that selects the "
             "appropriate pricing tier based on industry, region, and job category.",
             "CPC tiers cascade: exact match -> industry default -> region default -> global default. "
-            "No tier should ever return $0 or negative values."
+            "No tier should ever return $0 or negative values.",
         ),
         (
-            "70", "Nova Hallucination Guard",
+            "70",
+            "Nova Hallucination Guard",
             "Validates that Nova's responses do not contain fabricated data points, "
             "phantom API results, or statistics not traceable to a source.",
             "All numerical claims in Nova responses must reference a data source. "
-            "Responses containing unattributed statistics are flagged."
+            "Responses containing unattributed statistics are flagged.",
         ),
         (
-            "71", "Cache TTL Expiration",
+            "71",
+            "Cache TTL Expiration",
             "Verifies that all three cache tiers (L1 memory, L2 disk, L3 Supabase) "
             "correctly expire entries after their configured TTL.",
             "Entries written with TTL=1s are not retrievable after 2s. "
-            "Entries within TTL are retrievable."
+            "Entries within TTL are retrievable.",
         ),
         (
-            "72", "Circuit Breaker State Machine",
+            "72",
+            "Circuit Breaker State Machine",
             "Tests the full circuit breaker state machine: CLOSED -> OPEN -> HALF_OPEN -> CLOSED. "
             "Verifies failure thresholds, cooldown timing, and probe behavior.",
             "After N consecutive failures: state transitions to OPEN. After cooldown: "
-            "transitions to HALF_OPEN. On successful probe: transitions to CLOSED."
+            "transitions to HALF_OPEN. On successful probe: transitions to CLOSED.",
         ),
         (
-            "73", "Cross-Module Data Contract",
+            "73",
+            "Cross-Module Data Contract",
             "Validates that data structures passed between modules conform to the "
             "documented schema contracts (data_contracts.py).",
             "Output of api_enrichment matches the expected input schema of "
-            "data_synthesizer. Output of budget_engine matches PPT generator input."
+            "data_synthesizer. Output of budget_engine matches PPT generator input.",
         ),
         (
-            "74", "Async Job Cleanup",
+            "74",
+            "Async Job Cleanup",
             "Verifies that the background cleanup thread correctly removes completed "
             "and abandoned generation jobs from the _generation_jobs dictionary.",
             "Completed jobs older than 1 hour are removed. Abandoned jobs (no status "
-            "update in 24 hours) are removed. Active jobs are preserved."
+            "update in 24 hours) are removed. Active jobs are preserved.",
         ),
         (
-            "75", "Input Validation Feedback",
+            "75",
+            "Input Validation Feedback",
             "Tests that invalid inputs to /api/generate produce structured, "
             "actionable error messages with per-field details.",
             "Missing required fields return 422 with field names. Invalid budget "
-            "values return 422 with range information. Valid inputs pass through."
+            "values return 422 with range information. Valid inputs pass through.",
         ),
         (
-            "76", "LLM Routing Task Classification",
+            "76",
+            "LLM Routing Task Classification",
             "Verifies that the task classifier correctly assigns all 8 task types "
             "(STRUCTURED, CONVERSATIONAL, COMPLEX, CODE, VERIFICATION, RESEARCH, "
             "NARRATIVE, BATCH) based on input characteristics.",
             "Each task type has 3+ test cases with known expected classifications. "
-            "All must match. Ambiguous inputs are classified with a confidence score."
+            "All must match. Ambiguous inputs are classified with a confidence score.",
         ),
     ]
 
@@ -1068,37 +1332,55 @@ def build_data_flow(doc):
     add_body(
         doc,
         "This section describes the two primary data flows through the system: "
-        "the media plan generation pipeline and the Nova conversational assistant."
+        "the media plan generation pipeline and the Nova conversational assistant.",
     )
 
     doc.add_heading("9.1  Media Plan Generation Pipeline", level=2)
 
     flow_steps = [
-        ("1. Request Intake", "app.py",
-         "HTTP POST /api/generate receives client parameters: company, industry, "
-         "budget, locations, job roles, and generation options. Input validation "
-         "returns structured errors for invalid parameters (HTTP 422)."),
-        ("2. API Enrichment", "api_enrichment.py",
-         "The 30-API enrichment pipeline fetches market data, industry benchmarks, "
-         "competitor intelligence, and regional hiring trends. The 3-tier cache "
-         "(L1 memory, L2 disk, L3 Supabase/Postgres) minimizes redundant API calls. "
-         "Each API has independent circuit breakers and rate limits."),
-        ("3. Data Synthesis", "data_synthesizer.py",
-         "Multi-source data fusion resolves conflicts between data sources using "
-         "confidence-weighted voting. Sources with higher reliability scores have "
-         "more influence. Data below confidence threshold 0.3 is flagged."),
-        ("4. Budget Allocation", "budget_engine.py",
-         "The budget engine distributes the total budget across channels using "
-         "CPC tier cascading, industry benchmarks, and regional multipliers. "
-         "Allocation passes the sum invariant check (Test 67)."),
-        ("5. Document Generation", "ppt_generator.py",
-         "Excel and PowerPoint deliverables are generated with dynamic layouts, "
-         "charts, and narrative summaries. LLM-generated executive summaries "
-         "and strategic recommendations are embedded in the slides."),
-        ("6. Quality Control", "auto_qc.py",
-         "The 76-test QC suite validates the generated plan: budget arithmetic, "
-         "channel coverage, benchmark alignment, and data consistency. "
-         "Plans that fail critical QC tests are flagged for review."),
+        (
+            "1. Request Intake",
+            "app.py",
+            "HTTP POST /api/generate receives client parameters: company, industry, "
+            "budget, locations, job roles, and generation options. Input validation "
+            "returns structured errors for invalid parameters (HTTP 422).",
+        ),
+        (
+            "2. API Enrichment",
+            "api_enrichment.py",
+            "The 30-API enrichment pipeline fetches market data, industry benchmarks, "
+            "competitor intelligence, and regional hiring trends. The 3-tier cache "
+            "(L1 memory, L2 disk, L3 Supabase/Postgres) minimizes redundant API calls. "
+            "Each API has independent circuit breakers and rate limits.",
+        ),
+        (
+            "3. Data Synthesis",
+            "data_synthesizer.py",
+            "Multi-source data fusion resolves conflicts between data sources using "
+            "confidence-weighted voting. Sources with higher reliability scores have "
+            "more influence. Data below confidence threshold 0.3 is flagged.",
+        ),
+        (
+            "4. Budget Allocation",
+            "budget_engine.py",
+            "The budget engine distributes the total budget across channels using "
+            "CPC tier cascading, industry benchmarks, and regional multipliers. "
+            "Allocation passes the sum invariant check (Test 67).",
+        ),
+        (
+            "5. Document Generation",
+            "ppt_generator.py",
+            "Excel and PowerPoint deliverables are generated with dynamic layouts, "
+            "charts, and narrative summaries. LLM-generated executive summaries "
+            "and strategic recommendations are embedded in the slides.",
+        ),
+        (
+            "6. Quality Control",
+            "auto_qc.py",
+            "The 76-test QC suite validates the generated plan: budget arithmetic, "
+            "channel coverage, benchmark alignment, and data consistency. "
+            "Plans that fail critical QC tests are flagged for review.",
+        ),
     ]
 
     make_table(
@@ -1113,23 +1395,38 @@ def build_data_flow(doc):
     doc.add_heading("9.2  Nova Conversational Flow", level=2)
 
     nova_steps = [
-        ("1. Query Intake", "nova.py",
-         "User sends a natural-language query via the /api/chat endpoint. "
-         "The conversation history and context are maintained per session."),
-        ("2. Tool Selection", "nova.py",
-         "Nova's 30+ tools are evaluated for relevance. The selected tool(s) "
-         "are invoked with extracted parameters."),
-        ("3. Data Orchestration", "data_orchestrator.py",
-         "The data orchestrator fetches relevant data from the enrichment pipeline, "
-         "cached results, and trend engine to supply context to the LLM."),
-        ("4. LLM Routing", "llm_router.py",
-         "The intelligent routing matrix classifies the task (8 types) and selects "
-         "the optimal provider from the 12-provider pool, accounting for circuit "
-         "breaker state, latency, and cost."),
-        ("5. Response Generation", "nova.py",
-         "The LLM generates a response, which is validated by the hallucination "
-         "guard (Test 70). The response is streamed to the client with source "
-         "attribution."),
+        (
+            "1. Query Intake",
+            "nova.py",
+            "User sends a natural-language query via the /api/chat endpoint. "
+            "The conversation history and context are maintained per session.",
+        ),
+        (
+            "2. Tool Selection",
+            "nova.py",
+            "Nova's 30+ tools are evaluated for relevance. The selected tool(s) "
+            "are invoked with extracted parameters.",
+        ),
+        (
+            "3. Data Orchestration",
+            "data_orchestrator.py",
+            "The data orchestrator fetches relevant data from the enrichment pipeline, "
+            "cached results, and trend engine to supply context to the LLM.",
+        ),
+        (
+            "4. LLM Routing",
+            "llm_router.py",
+            "The intelligent routing matrix classifies the task (8 types) and selects "
+            "the optimal provider from the 12-provider pool, accounting for circuit "
+            "breaker state, latency, and cost.",
+        ),
+        (
+            "5. Response Generation",
+            "nova.py",
+            "The LLM generates a response, which is validated by the hallucination "
+            "guard (Test 70). The response is streamed to the client with source "
+            "attribution.",
+        ),
     ]
 
     make_table(
@@ -1150,62 +1447,68 @@ def build_recommendations(doc):
         doc,
         "The following recommendations address systemic improvements that go beyond "
         "individual bug fixes. They are prioritized by expected impact on reliability "
-        "and performance."
+        "and performance.",
     )
 
     recommendations = [
         (
-            "R1", "HIGH",
+            "R1",
+            "HIGH",
             "Implement Connection Pooling for HTTP Calls",
             "The system currently creates a new HTTP connection for each outbound API "
             "call. This adds ~100ms of TLS handshake overhead per call. Implementing "
             "connection pooling via requests.Session or httpx.AsyncClient with "
             "keep-alive would reduce latency by 30-50% for repeat calls to the same "
-            "host. Affected modules: api_enrichment.py, llm_router.py."
+            "host. Affected modules: api_enrichment.py, llm_router.py.",
         ),
         (
-            "R2", "HIGH",
+            "R2",
+            "HIGH",
             "Add Runtime Schema Validation at Module Boundaries",
             "Data structures passed between modules are currently validated only by "
             "the QC engine post-hoc. Adding lightweight runtime validation (e.g., "
             "pydantic models or dataclass_transform) at the boundary between "
             "api_enrichment -> data_synthesizer -> budget_engine would catch "
-            "schema violations immediately, reducing debugging time."
+            "schema violations immediately, reducing debugging time.",
         ),
         (
-            "R3", "MEDIUM",
+            "R3",
+            "MEDIUM",
             "Add Exponential Backoff to Circuit Breaker Cooldown",
             "Circuit breakers currently use a fixed cooldown period. If a provider "
             "is experiencing an extended outage, the system repeatedly probes it at "
             "constant intervals. Implementing exponential backoff on the cooldown "
             "(e.g., 30s -> 60s -> 120s -> 300s) would reduce unnecessary probe "
-            "traffic and avoid polluting error metrics."
+            "traffic and avoid polluting error metrics.",
         ),
         (
-            "R4", "HIGH",
+            "R4",
+            "HIGH",
             "Request Queuing for /api/generate",
             "The current architecture spawns a thread per generation request with "
             "no queue depth limit (addressed temporarily by ST-C1 with a cap of 50). "
             "A proper request queue with configurable concurrency, priority levels, "
             "and backpressure signaling (HTTP 503 + Retry-After) would provide a "
-            "more robust solution for traffic spikes."
+            "more robust solution for traffic spikes.",
         ),
         (
-            "R5", "MEDIUM",
+            "R5",
+            "MEDIUM",
             "Add Budget Upper Bound Validation ($10M Cap)",
             "There is no upper bound on budget values. A user could submit a $100M "
             "budget, causing the budget engine to generate impractical allocations. "
             "Adding a configurable upper bound (default $10M) with a warning for "
-            "values above $1M would prevent unrealistic plans."
+            "values above $1M would prevent unrealistic plans.",
         ),
         (
-            "R6", "LOW",
+            "R6",
+            "LOW",
             "Surface Language/Location Warnings to Users",
             "When the system lacks benchmark data for a specific language or location "
             "combination, it silently falls back to regional or global defaults. "
             "Surfacing a warning to the user (e.g., 'Limited data available for "
             "Tagalog-language hiring in Finland; using regional defaults') would "
-            "improve transparency and trust."
+            "improve transparency and trust.",
         ),
     ]
 
@@ -1251,6 +1554,7 @@ def build_recommendations(doc):
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
+
 
 def main():
     print("Generating QC Audit Report v3.3 ...")

@@ -347,6 +347,14 @@ def _score_content_quality(content: str, url: str = "") -> float:
     lower = content.lower()
     content_len = len(content.strip())
 
+    # Binary/non-text content detection (null bytes, high ratio of control chars)
+    _sample = content[:1000]
+    if "\x00" in _sample:
+        return 0.05  # Null bytes = binary data
+    _control_chars = sum(1 for c in _sample if ord(c) < 32 and c not in "\n\r\t")
+    if _control_chars > len(_sample) * 0.1:
+        return 0.05  # High control char ratio = binary data
+
     # Too short = likely blocked or empty
     if content_len < 50:
         return 0.1

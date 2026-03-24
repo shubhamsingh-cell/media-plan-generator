@@ -643,7 +643,7 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
 #   SiliconFlow (Qwen2.5 7B): OpenAI-compatible, cheap tokens
 #   Cloudflare Workers AI (Llama 3.3 70B): edge-distributed, low latency, 10K neurons/day
 #   Together AI (Llama 3.3 70B Turbo): $25 free credit, fast inference, general purpose
-#   Moonshot Kimi: strong for Asian/Chinese market queries, conversational
+#   Moonshot Kimi: DISABLED (no API key) -- strong for Asian/Chinese market queries
 #   OpenRouter (Llama 4 Maverick): strong general purpose
 #   OpenRouter (Qwen3 Coder): code generation specialist
 #   OpenRouter (Arcee Trinity): complex reasoning
@@ -651,7 +651,7 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
 #   OpenRouter (01.AI Yi Large): good general purpose via OpenRouter free tier
 #   OpenRouter (DeepSeek R1): strong reasoning/research, HIGH priority for COMPLEX/RESEARCH
 #   OpenRouter (Google Gemma 3 27B): structured output, verification
-#   xAI Grok: strong reasoning (free $25 signup credits)
+#   xAI Grok: strong reasoning (credits-based: $25 signup, $2/$10 per M tokens in/out)
 #   HuggingFace (Mistral 7B): rate-limited fallback
 #
 # Paid tier strengths (cost order: Haiku << GPT-4o < Sonnet < Opus):
@@ -680,7 +680,6 @@ TASK_ROUTING: Dict[str, List[str]] = {
         OPENROUTER_LIQUID,
         XAI,
         HUGGINGFACE,
-        MOONSHOT,
         CLAUDE_HAIKU,
         GPT4O,
         CLAUDE,
@@ -696,7 +695,6 @@ TASK_ROUTING: Dict[str, List[str]] = {
         SAMBANOVA,
         SILICONFLOW,
         TOGETHER,
-        MOONSHOT,  # Good for Asian market conversational queries
         CLOUDFLARE,
         OPENROUTER,
         OPENROUTER_YI,
@@ -789,7 +787,6 @@ TASK_ROUTING: Dict[str, List[str]] = {
         GEMINI,
         GROQ,
         ZHIPU,
-        MOONSHOT,  # Good for Asian market research queries
         TOGETHER,
         CEREBRAS,
         MISTRAL,
@@ -965,7 +962,6 @@ TASK_ROUTING: Dict[str, List[str]] = {
         SAMBANOVA,
         SILICONFLOW,
         TOGETHER,
-        MOONSHOT,
         CLOUDFLARE,
         OPENROUTER,
         OPENROUTER_YI,
@@ -1019,7 +1015,8 @@ MODULE_LLM_PREFERENCES: Dict[str, Dict[str, Any]] = {
         "default_task": TASK_CAMPAIGN_PLAN,
         "quick_task": TASK_CHAT_RESPONSE,
         "preferred_providers": [GROQ, CEREBRAS, GEMINI],
-        "full_plan_providers": [CLAUDE, GPT4O, CLAUDE_OPUS],
+        # NOTE: full_plan_providers removed (unused by callers). Use
+        # preferred_providers override with task_type=TASK_CAMPAIGN_PLAN instead.
         "description": "Fast providers for quick plans, Claude for full plans",
     },
     "intelligence_hub": {
@@ -1060,6 +1057,7 @@ _PROVIDER_COST_PER_M_TOKENS: Dict[str, Dict[str, float]] = {
     OPENROUTER_YI: {"input": 0.0, "output": 0.0},
     OPENROUTER_DEEPSEEK_R1: {"input": 0.0, "output": 0.0},
     OPENROUTER_GEMMA: {"input": 0.0, "output": 0.0},
+    # xAI: credits-based ($25 free signup), NOT truly free -- track actual costs
     XAI: {"input": 2.0, "output": 10.0},
     CLAUDE_HAIKU: {"input": 1.0, "output": 5.0},
     GPT4O: {"input": 2.5, "output": 10.0},
@@ -1775,6 +1773,14 @@ def select_provider(
                 pid,
             )
             continue
+        # Shared rate limit for OpenRouter variants (all share one API key)
+        if pid.startswith("openrouter_"):
+            if _rate_tracker.is_rate_limited("openrouter"):
+                logger.debug(
+                    "LLM Router: %s skipped -- parent openrouter key rate-limited",
+                    pid,
+                )
+                continue
         # Circuit breaker + health score check
         state = _provider_states.get(pid)
         if state and state.is_available():
@@ -2280,6 +2286,14 @@ def call_llm(
                         pid,
                     )
                     continue
+                # Shared rate limit for OpenRouter variants (all share one API key)
+                if pid.startswith("openrouter_"):
+                    if _rate_tracker.is_rate_limited("openrouter"):
+                        logger.debug(
+                            "LLM Router: %s skipped -- parent openrouter key rate-limited",
+                            pid,
+                        )
+                        continue
                 # HIGH priority: also skip providers near rate limits (>80% utilization)
                 if priority == RequestPriority.HIGH:
                     limits = _RATE_LIMITS.get(pid)

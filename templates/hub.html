@@ -6,12 +6,12 @@
     <title>Nova AI Suite — Recruitment Intelligence Platform</title>
     <meta
       name="description"
-      content="AI-powered recruitment intelligence suite. Media planning, competitive intel, performance tracking, and 21+ tools for talent acquisition. By Shubham Singh Chandel."
+      content="AI-powered recruitment intelligence platform. Plan, Intelligence, and Compliance — three products powered by Nova AI for talent acquisition. By Shubham Singh Chandel."
     />
     <meta name="theme-color" content="#000000" />
     <link
       rel="icon"
-      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%236366F1'/><text x='16' y='22' text-anchor='middle' fill='white' font-family='Inter,sans-serif' font-weight='800' font-size='18'>N</text></svg>"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%235A54BD'/><text x='16' y='22' text-anchor='middle' fill='white' font-family='Inter,sans-serif' font-weight='800' font-size='18'>N</text></svg>"
     />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -35,10 +35,10 @@
         --bg-card-hover: rgba(26, 26, 26, 0.9);
         --surface-1: #111111;
         --surface-2: #1a1a1a;
-        --accent: #6366f1;
-        --accent-light: #818cf8;
-        --accent-glow: rgba(99, 102, 241, 0.12);
-        --accent-glow-strong: rgba(99, 102, 241, 0.25);
+        --accent: #5a54bd;
+        --accent-light: #7b75d4;
+        --accent-glow: rgba(90, 84, 189, 0.15);
+        --accent-glow-strong: rgba(90, 84, 189, 0.25);
         --text-primary: #e4e4e7;
         --text-secondary: #a1a1a1;
         --text-muted: #666666;
@@ -66,6 +66,28 @@
         --space-4: 32px;
         --space-5: 48px;
         --space-6: 96px;
+      }
+
+      /* ── Accessibility ── */
+      .skip-nav {
+        position: absolute;
+        top: -40px;
+        left: 0;
+        background: var(--accent);
+        color: #fff;
+        padding: 8px 16px;
+        z-index: 10000;
+        transition: top 0.3s;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 0.85rem;
+      }
+      .skip-nav:focus {
+        top: 0;
+      }
+      :focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
       }
 
       /* ── Gradient border shimmer ── */
@@ -119,7 +141,7 @@
       .bg-mesh .aurora-1 {
         background: radial-gradient(
           ellipse at 30% 50%,
-          rgba(99, 102, 241, 0.12) 0%,
+          rgba(90, 84, 189, 0.12) 0%,
           transparent 50%
         );
         animation: aurora-drift-1 18s ease-in-out infinite alternate;
@@ -137,7 +159,7 @@
       .bg-mesh .aurora-3 {
         background: radial-gradient(
           ellipse at 50% 70%,
-          rgba(129, 140, 248, 0.06) 0%,
+          rgba(123, 117, 212, 0.06) 0%,
           transparent 45%
         );
         animation: aurora-drift-3 26s ease-in-out infinite alternate;
@@ -238,11 +260,11 @@
       @keyframes logo-breathe {
         0%,
         100% {
-          filter: drop-shadow(0 0 6px rgba(99, 102, 241, 0.3));
+          filter: drop-shadow(0 0 6px rgba(90, 84, 189, 0.3));
           transform: scale(1);
         }
         50% {
-          filter: drop-shadow(0 0 14px rgba(99, 102, 241, 0.6));
+          filter: drop-shadow(0 0 14px rgba(90, 84, 189, 0.6));
           transform: scale(1.04);
         }
       }
@@ -344,7 +366,7 @@
           135deg,
           #ededed 0%,
           #c7d2fe 60%,
-          #818cf8 100%
+          #7b75d4 100%
         );
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
@@ -382,7 +404,7 @@
         transform: translate(-50%, -50%);
         background: radial-gradient(
           circle,
-          rgba(99, 102, 241, 0.12) 0%,
+          rgba(90, 84, 189, 0.12) 0%,
           rgba(6, 182, 212, 0.06) 40%,
           transparent 70%
         );
@@ -501,7 +523,7 @@
           135deg,
           #f1f5f9 0%,
           #c7d2fe 50%,
-          #818cf8 100%
+          #7b75d4 100%
         );
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
@@ -554,7 +576,7 @@
           135deg,
           #f1f5f9 0%,
           #c7d2fe 50%,
-          #818cf8 100%
+          #7b75d4 100%
         );
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
@@ -569,7 +591,7 @@
           135deg,
           #f1f5f9 0%,
           #c7d2fe 50%,
-          #818cf8 100%
+          #7b75d4 100%
         );
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
@@ -599,16 +621,16 @@
         position: relative;
         overflow: hidden;
         box-shadow:
-          0 0 30px rgba(99, 102, 241, 0.3),
-          0 8px 20px rgba(99, 102, 241, 0.2);
+          0 0 30px rgba(90, 84, 189, 0.3),
+          0 8px 20px rgba(90, 84, 189, 0.2);
       }
 
       .btn-primary:hover {
         background: var(--accent-light);
         transform: translateY(-2px);
         box-shadow:
-          0 8px 30px rgba(99, 102, 241, 0.35),
-          0 0 50px rgba(99, 102, 241, 0.15);
+          0 8px 30px rgba(90, 84, 189, 0.35),
+          0 0 50px rgba(90, 84, 189, 0.15);
       }
 
       .btn-secondary {
@@ -1018,17 +1040,17 @@
         border-color: var(--accent);
         box-shadow:
           0 0 0 3px var(--accent-glow),
-          0 0 20px rgba(99, 102, 241, 0.05);
+          0 0 20px rgba(90, 84, 189, 0.05);
       }
 
       input:focus,
       textarea:focus,
       select:focus {
         outline: none;
-        border-color: rgba(99, 102, 241, 0.5);
+        border-color: rgba(90, 84, 189, 0.5);
         box-shadow:
-          0 0 0 3px rgba(99, 102, 241, 0.1),
-          0 0 20px rgba(99, 102, 241, 0.05);
+          0 0 0 3px rgba(90, 84, 189, 0.1),
+          0 0 20px rgba(90, 84, 189, 0.05);
       }
 
       /* Tab bar */
@@ -1072,7 +1094,7 @@
         background: var(--accent);
         color: white;
         font-weight: 600;
-        box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+        box-shadow: 0 2px 8px rgba(90, 84, 189, 0.3);
       }
 
       /* Product grid */
@@ -1131,7 +1153,7 @@
           0 4px 8px rgba(90, 84, 189, 0.06),
           0 1px 3px rgba(90, 84, 189, 0.1),
           0 0 1px rgba(90, 84, 189, 0.12),
-          0 0 20px rgba(99, 102, 241, 0.06);
+          0 0 20px rgba(90, 84, 189, 0.06);
       }
 
       .product-card::after {
@@ -1152,6 +1174,207 @@
 
       .product-card:hover::after {
         opacity: 1;
+      }
+
+      /* ── 3-Product Showcase ── */
+      .products-trio {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 24px;
+        margin-top: 48px;
+      }
+      @media (max-width: 900px) {
+        .products-trio {
+          grid-template-columns: 1fr;
+          gap: 16px;
+        }
+      }
+
+      .product-hero-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 32px;
+        text-decoration: none;
+        color: var(--text-primary);
+        transition: all 0.3s var(--ease-standard);
+        position: relative;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+      .product-hero-card:hover {
+        border-color: var(--border-hover);
+        transform: translateY(-4px);
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+      }
+      .product-hero-card::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        border-radius: 16px 16px 0 0;
+      }
+      .product-plan::before {
+        background: linear-gradient(90deg, #5a54bd, #7b75d4);
+      }
+      .product-intelligence::before {
+        background: linear-gradient(90deg, #6bb3cd, #8ecfe0);
+      }
+      .product-compliance::before {
+        background: linear-gradient(90deg, #ef4444, #f87171);
+      }
+
+      .product-plan:hover {
+        border-color: rgba(90, 84, 189, 0.4);
+      }
+      .product-intelligence:hover {
+        border-color: rgba(107, 179, 205, 0.4);
+      }
+      .product-compliance:hover {
+        border-color: rgba(239, 68, 68, 0.4);
+      }
+
+      .product-hero-icon {
+        width: 48px;
+        height: 48px;
+        margin-bottom: 20px;
+        opacity: 0.7;
+      }
+      .product-hero-icon svg {
+        width: 100%;
+        height: 100%;
+      }
+      .product-plan .product-hero-icon {
+        color: #7b75d4;
+      }
+      .product-intelligence .product-hero-icon {
+        color: #6bb3cd;
+      }
+      .product-compliance .product-hero-icon {
+        color: #ef4444;
+      }
+
+      .product-hero-badge {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        font-size: 11px;
+        font-weight: 600;
+        padding: 4px 10px;
+        border-radius: 100px;
+        background: rgba(255, 255, 255, 0.06);
+        color: var(--text-secondary);
+      }
+
+      .product-hero-card h3 {
+        font-size: 24px;
+        font-weight: 700;
+        margin-bottom: 12px;
+      }
+      .product-hero-card > p {
+        font-size: 14px;
+        color: var(--text-secondary);
+        line-height: 1.7;
+        margin-bottom: 24px;
+        flex: 1;
+      }
+
+      .product-hero-tools {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 24px;
+      }
+      .product-hero-tools span {
+        font-size: 12px;
+        font-weight: 500;
+        padding: 4px 12px;
+        border-radius: 100px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        color: var(--text-secondary);
+      }
+
+      .product-hero-cta {
+        font-size: 14px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: auto;
+      }
+      .product-plan .product-hero-cta {
+        color: #7b75d4;
+      }
+      .product-intelligence .product-hero-cta {
+        color: #6bb3cd;
+      }
+      .product-compliance .product-hero-cta {
+        color: #ef4444;
+      }
+
+      /* Nova AI Banner */
+      .nova-banner {
+        margin-top: 32px;
+        background: linear-gradient(
+          135deg,
+          rgba(90, 84, 189, 0.1),
+          rgba(107, 179, 205, 0.1)
+        );
+        border: 1px solid rgba(90, 84, 189, 0.2);
+        border-radius: 16px;
+        padding: 24px 32px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 24px;
+      }
+      @media (max-width: 640px) {
+        .nova-banner {
+          flex-direction: column;
+          text-align: center;
+        }
+      }
+      .nova-banner-content {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+      }
+      .nova-banner-icon {
+        width: 40px;
+        height: 40px;
+        color: #7b75d4;
+        flex-shrink: 0;
+      }
+      .nova-banner-icon svg {
+        width: 100%;
+        height: 100%;
+      }
+      .nova-banner h3 {
+        font-size: 16px;
+        font-weight: 600;
+        margin-bottom: 4px;
+      }
+      .nova-banner p {
+        font-size: 13px;
+        color: var(--text-secondary);
+      }
+      .nova-banner-btn {
+        background: linear-gradient(135deg, #5a54bd, #6bb3cd);
+        color: #fff;
+        padding: 10px 24px;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 600;
+        text-decoration: none;
+        white-space: nowrap;
+        transition: opacity 0.2s;
+      }
+      .nova-banner-btn:hover {
+        opacity: 0.9;
       }
 
       .card-icon {
@@ -1340,10 +1563,10 @@
         padding: 72px 48px;
         background: linear-gradient(
           135deg,
-          rgba(99, 102, 241, 0.1),
+          rgba(90, 84, 189, 0.1),
           rgba(6, 182, 212, 0.05)
         );
-        border: 1px solid rgba(99, 102, 241, 0.25);
+        border: 1px solid rgba(90, 84, 189, 0.25);
         border-radius: 24px;
         backdrop-filter: blur(20px);
         overflow: hidden;
@@ -1358,7 +1581,7 @@
         height: 400px;
         background: radial-gradient(
           ellipse at center,
-          rgba(99, 102, 241, 0.15) 0%,
+          rgba(90, 84, 189, 0.15) 0%,
           transparent 70%
         );
         pointer-events: none;
@@ -1404,8 +1627,8 @@
         background: var(--accent-light);
         transform: translateY(-2px);
         box-shadow:
-          0 8px 24px rgba(99, 102, 241, 0.3),
-          0 0 40px rgba(99, 102, 241, 0.15);
+          0 8px 24px rgba(90, 84, 189, 0.3),
+          0 0 40px rgba(90, 84, 189, 0.15);
       }
 
       .cta-btn::after {
@@ -1415,7 +1638,7 @@
         border-radius: inherit;
         background: linear-gradient(
           135deg,
-          rgba(99, 102, 241, 0.4),
+          rgba(90, 84, 189, 0.4),
           rgba(6, 182, 212, 0.2)
         );
         z-index: -1;
@@ -1433,7 +1656,7 @@
         background: linear-gradient(
           to right,
           transparent,
-          rgba(99, 102, 241, 0.3),
+          rgba(90, 84, 189, 0.3),
           transparent
         );
         margin: 0;
@@ -1495,8 +1718,8 @@
         letter-spacing: 0.5px;
       }
       .widget-badge--blue {
-        background: rgba(99, 102, 241, 0.15);
-        color: #818cf8;
+        background: rgba(90, 84, 189, 0.15);
+        color: #7b75d4;
       }
       .widget-badge--green {
         background: rgba(34, 197, 94, 0.15);
@@ -1683,7 +1906,7 @@
         transition: opacity 0.3s;
         background: radial-gradient(
           circle at var(--shine-x, 50%) var(--shine-y, 50%),
-          rgba(99, 102, 241, 0.08) 0%,
+          rgba(90, 84, 189, 0.08) 0%,
           transparent 60%
         );
       }
@@ -1801,7 +2024,7 @@
         border-radius: 50%;
         background: radial-gradient(
           circle,
-          #818cf8 0%,
+          #7b75d4 0%,
           #06b6d4 70%,
           transparent 100%
         );
@@ -1813,12 +2036,12 @@
         100% {
           transform: scale(1);
           opacity: 0.7;
-          box-shadow: 0 0 20px rgba(99, 102, 241, 0.25);
+          box-shadow: 0 0 20px rgba(90, 84, 189, 0.25);
         }
         50% {
           transform: scale(1.2);
           opacity: 1;
-          box-shadow: 0 0 50px rgba(99, 102, 241, 0.5);
+          box-shadow: 0 0 50px rgba(90, 84, 189, 0.5);
         }
       }
 
@@ -1867,6 +2090,18 @@
       @media (max-width: 768px) {
         .hero {
           padding: 100px 1.5rem 60px;
+        }
+        .hero-content {
+          padding: 0 16px;
+        }
+        .hero h1 {
+          font-size: 2rem;
+        }
+        .hero-stats-row {
+          flex-wrap: wrap;
+        }
+        .hero-dashboard {
+          display: none;
         }
         .flagship-grid-card {
           grid-column: span 1;
@@ -1918,6 +2153,23 @@
         }
         .cta-card {
           padding: 48px 24px;
+        }
+      }
+
+      @media (max-width: 480px) {
+        .hero h1 {
+          font-size: 1.5rem;
+        }
+        .hero-subline {
+          font-size: 14px;
+        }
+        .hero-cta-row {
+          flex-direction: column;
+        }
+        .hero-cta-row a,
+        .hero-cta-row button {
+          width: 100%;
+          text-align: center;
         }
       }
 
@@ -2054,7 +2306,7 @@
       .outcome-card:hover {
         transform: translateY(-4px);
         box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
-        border-color: rgba(99, 102, 241, 0.3);
+        border-color: rgba(90, 84, 189, 0.3);
       }
       .outcome-icon {
         width: 48px;
@@ -2110,7 +2362,7 @@
           transform 0.2s;
       }
       .usecase-card:hover {
-        border-color: rgba(99, 102, 241, 0.3);
+        border-color: rgba(90, 84, 189, 0.3);
         transform: translateY(-3px);
         box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
       }
@@ -2152,7 +2404,7 @@
       }
       .diff-code-card {
         background: rgba(15, 15, 25, 0.8);
-        border: 1px solid rgba(99, 102, 241, 0.2);
+        border: 1px solid rgba(90, 84, 189, 0.2);
         border-radius: 12px;
         overflow: hidden;
       }
@@ -2184,7 +2436,7 @@
         white-space: pre;
       }
       .diff-code-body .ck {
-        color: #818cf8;
+        color: #7b75d4;
       }
       .diff-code-body .cv {
         color: #22c55e;
@@ -2316,18 +2568,20 @@
     </script>
   </head>
   <body>
-    <div class="bg-mesh">
-      <div class="aurora-layer aurora-1"></div>
-      <div class="aurora-layer aurora-2"></div>
-      <div class="aurora-layer aurora-3"></div>
+    <a href="#platform" class="skip-nav">Skip to main content</a>
+
+    <div class="bg-mesh" aria-hidden="true">
+      <div class="aurora-layer aurora-1" aria-hidden="true"></div>
+      <div class="aurora-layer aurora-2" aria-hidden="true"></div>
+      <div class="aurora-layer aurora-3" aria-hidden="true"></div>
     </div>
-    <div class="grain"></div>
+    <div class="grain" aria-hidden="true"></div>
 
     <!-- Navigation -->
-    <nav class="nav">
-      <a href="/" class="nav-logo">
-        <svg viewBox="0 0 32 32" fill="none">
-          <rect width="32" height="32" rx="8" fill="#6366F1" />
+    <nav class="nav" role="navigation" aria-label="Main navigation">
+      <a href="/" class="nav-logo" aria-label="Nova AI Suite Home">
+        <svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
+          <rect width="32" height="32" rx="8" fill="#5A54BD" />
           <text
             x="16"
             y="22"
@@ -2345,9 +2599,17 @@
       </a>
       <div class="nav-links">
         <a href="#platform" data-nav-filter="all">Products</a>
-        <a href="/media-plan" class="nav-cta">Generate Plan</a>
-        <span class="nav-status-indicator" title="All systems operational"
-          ><span class="nav-status-dot"></span>Operational</span
+        <a href="/media-plan" class="nav-cta" aria-label="Generate a media plan"
+          >Generate Plan</a
+        >
+        <span
+          class="nav-status-indicator"
+          title="All systems operational"
+          role="status"
+          aria-live="polite"
+          aria-label="System status: Operational"
+          ><span class="nav-status-dot" aria-hidden="true"></span
+          >Operational</span
         >
       </div>
     </nav>
@@ -2355,7 +2617,7 @@
     <!-- ========================================== -->
     <!-- SECTION 1: HERO (split layout)             -->
     <!-- ========================================== -->
-    <section class="hero">
+    <section class="hero" role="banner" aria-label="Hero">
       <div class="ambient-glow ambient-glow--violet" aria-hidden="true"></div>
       <div class="ambient-glow ambient-glow--teal" aria-hidden="true"></div>
       <div class="ambient-glow ambient-glow--deep" aria-hidden="true"></div>
@@ -2366,8 +2628,8 @@
         </h1>
 
         <p class="hero-subline">
-          Plan smarter. Optimize budgets. Hire faster. 21 AI-powered tools, one
-          platform.
+          Plan smarter. Optimize budgets. Hire faster. Three AI-powered
+          products, one platform.
         </p>
 
         <p
@@ -2384,10 +2646,10 @@
 
         <div class="hero-stats-row">
           <div class="hero-stat-pill">
-            <span class="hero-stat-num" data-hero-counter data-target="21"
+            <span class="hero-stat-num" data-hero-counter data-target="3"
               >0</span
             >
-            <span class="hero-stat-suffix">+</span>
+            <span class="hero-stat-suffix"></span>
             <span>Products</span>
           </div>
           <div class="hero-stat-pill">
@@ -2404,7 +2666,11 @@
         </div>
 
         <div class="hero-cta-row">
-          <a href="/media-plan" class="btn-primary cta-btn">
+          <a
+            href="/media-plan"
+            class="btn-primary cta-btn"
+            aria-label="Generate a media plan"
+          >
             Generate a Media Plan
             <svg
               width="16"
@@ -2414,12 +2680,18 @@
               stroke="currentColor"
               stroke-width="2"
               stroke-linecap="round"
+              aria-hidden="true"
             >
               <path d="M5 12h14" />
               <path d="M12 5l7 7-7 7" />
             </svg>
           </a>
-          <a href="#platform" class="btn-secondary">Explore Products</a>
+          <a
+            href="/platform"
+            class="btn-secondary"
+            aria-label="Open the platform"
+            >Open Platform</a
+          >
         </div>
         <div class="confidence-signals">
           <span>Takes &lt;30 seconds</span>
@@ -2488,7 +2760,7 @@
                 <div class="dash-bar-track">
                   <div
                     class="dash-bar-fill"
-                    style="--bar-width: 72%; --bar-color: #6366f1"
+                    style="--bar-width: 72%; --bar-color: #5a54bd"
                   ></div>
                 </div>
                 <span class="dash-bar-value">$18,000</span>
@@ -2562,11 +2834,11 @@
           <a
             href="/media-plan"
             class="outcome-card reveal-on-scroll stagger-1"
-            style="border-left: 3px solid #6366f1"
+            style="border-left: 3px solid #5a54bd"
           >
             <div
               class="outcome-icon"
-              style="background: rgba(99, 102, 241, 0.12); color: #6366f1"
+              style="background: rgba(90, 84, 189, 0.12); color: #5a54bd"
             >
               <svg
                 width="24"
@@ -2687,7 +2959,7 @@
               <svg
                 viewBox="0 0 24 24"
                 fill="none"
-                stroke="#6366f1"
+                stroke="#5a54bd"
                 stroke-width="2"
                 stroke-linecap="round"
                 stroke-linejoin="round"
@@ -3152,4065 +3424,184 @@
     </div>
 
     <!-- ========================================== -->
-    <!-- SECTION 4: PLATFORM (tabbed interface)     -->
+    <!-- SECTION 4: PLATFORM (3-product showcase)  -->
     <!-- ========================================== -->
-    <section class="platform-section page-section" id="platform">
+    <section
+      class="platform-section page-section"
+      id="platform"
+      role="main"
+      aria-label="Products"
+    >
       <div class="container">
-        <div class="platform-header reveal-on-scroll">
-          <div class="section-label">Nova AI Platform</div>
-          <div class="section-title">21 products, one platform</div>
+        <div class="platform-header">
+          <span class="section-eyebrow reveal">The Platform</span>
+          <h2 class="reveal">Three products. One intelligence layer.</h2>
+          <p class="section-sub reveal">
+            Everything a recruitment marketing team needs, organized into three
+            focused products powered by Nova AI.
+          </p>
         </div>
 
-        <div class="platform-search reveal-on-scroll">
-          <div class="search-wrap">
-            <span class="search-icon">&#128269;</span>
-            <input
-              type="text"
-              class="search-input"
-              id="searchInput"
-              placeholder="Search 21 products... (press / to focus)"
-            />
-          </div>
-        </div>
-
-        <div class="tab-bar reveal-on-scroll" id="tabBar">
-          <button class="tab-btn active" data-filter="all">All</button>
-          <button class="tab-btn" data-filter="planning">Planning</button>
-          <button class="tab-btn" data-filter="analytics">Analytics</button>
-          <button class="tab-btn" data-filter="intelligence">
-            Intelligence
-          </button>
-          <button class="tab-btn" data-filter="tools">Tools</button>
-          <button class="tab-btn" data-filter="compliance">Compliance</button>
-        </div>
-
-        <div class="products-grid" id="productsGrid">
-          <!-- FLAGSHIP 1: Media Plan Generator -->
+        <div class="products-trio reveal">
+          <!-- PLAN -->
           <a
-            href="/media-plan"
-            class="product-card flagship-grid-card reveal-on-scroll stagger-1"
-            data-category="planning"
-            data-keywords="media plan generator budget allocation job board recruitment"
-            style="--card-accent: #6366f1"
+            href="/platform#plan/campaign"
+            class="product-hero-card product-plan"
           >
-            <span class="card-status flagship">Flagship</span>
-            <div class="card-preview">
-              <svg viewBox="0 0 120 80" class="card-mini-viz">
-                <!-- Channel mix: job boards, social, search, programmatic -->
-                <rect
-                  x="6"
-                  y="8"
-                  width="52"
-                  height="64"
-                  rx="4"
-                  fill="none"
-                  stroke="var(--card-accent)"
-                  stroke-width="1"
-                  opacity="0.2"
-                />
-                <rect
-                  x="12"
-                  y="16"
-                  width="18"
-                  height="3"
-                  rx="1"
-                  fill="var(--card-accent)"
-                  opacity="0.5"
-                />
-                <rect
-                  x="12"
-                  y="24"
-                  width="40"
-                  height="6"
-                  rx="2"
-                  fill="var(--card-accent)"
-                  opacity="0.3"
-                  class="viz-bar"
-                />
-                <rect
-                  x="12"
-                  y="34"
-                  width="32"
-                  height="6"
-                  rx="2"
-                  fill="#06b6d4"
-                  opacity="0.3"
-                  class="viz-bar"
-                />
-                <rect
-                  x="12"
-                  y="44"
-                  width="24"
-                  height="6"
-                  rx="2"
-                  fill="#22c55e"
-                  opacity="0.3"
-                  class="viz-bar"
-                />
-                <rect
-                  x="12"
-                  y="54"
-                  width="16"
-                  height="6"
-                  rx="2"
-                  fill="#f59e0b"
-                  opacity="0.3"
-                  class="viz-bar"
-                />
-                <!-- Pie chart for budget split -->
-                <circle
-                  cx="88"
-                  cy="40"
-                  r="22"
-                  fill="none"
-                  stroke="var(--card-accent)"
-                  stroke-width="6"
-                  stroke-dasharray="55 83"
-                  opacity="0.8"
-                  transform="rotate(-90 88 40)"
-                />
-                <circle
-                  cx="88"
-                  cy="40"
-                  r="22"
-                  fill="none"
-                  stroke="#06b6d4"
-                  stroke-width="6"
-                  stroke-dasharray="35 103"
-                  stroke-dashoffset="-55"
-                  opacity="0.6"
-                  transform="rotate(-90 88 40)"
-                />
-                <circle
-                  cx="88"
-                  cy="40"
-                  r="22"
-                  fill="none"
-                  stroke="#22c55e"
-                  stroke-width="6"
-                  stroke-dasharray="20 118"
-                  stroke-dashoffset="-90"
-                  opacity="0.5"
-                  transform="rotate(-90 88 40)"
-                />
-              </svg>
-            </div>
-            <div
-              class="card-icon"
-              style="
-                --icon-bg: rgba(99, 102, 241, 0.1);
-                --icon-border: rgba(99, 102, 241, 0.15);
-              "
-            >
+            <div class="product-hero-icon">
               <svg
-                width="22"
-                height="22"
                 viewBox="0 0 24 24"
                 fill="none"
-                stroke="#6366f1"
-                stroke-width="2"
+                stroke="currentColor"
+                stroke-width="1.5"
                 stroke-linecap="round"
+                stroke-linejoin="round"
               >
-                <path
-                  d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"
-                />
-                <path d="M14 2v6h6" />
-                <path d="M16 13H8" />
-                <path d="M16 17H8" />
+                <rect x="3" y="3" width="18" height="18" rx="2" />
+                <path d="M3 9h18" />
+                <path d="M9 21V9" />
               </svg>
             </div>
-            <div class="card-title">Media Plan Generator</div>
-            <div class="card-desc">
-              Generate data-driven recruitment media plans across 91+ job boards
-              with AI-powered budget allocation and 5-tier data cascading.
+            <div class="product-hero-badge">4 tools</div>
+            <h3>Plan</h3>
+            <p>
+              Campaign planning, budget optimization, social strategy, and A/B
+              testing. From brief to launch in minutes.
+            </p>
+            <div class="product-hero-tools">
+              <span>Campaign Planner</span>
+              <span>Budget &amp; Performance</span>
+              <span>Social &amp; Creative</span>
+              <span>A/B Testing Lab</span>
             </div>
-            <div class="card-footer">
-              <span class="card-category">Planning</span
-              ><span class="card-arrow">&rarr;</span>
+            <div class="product-hero-cta">
+              Open Plan
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                width="16"
+                height="16"
+              >
+                <path d="M5 12h14M12 5l7 7-7 7" />
+              </svg>
             </div>
           </a>
 
-          <!-- FLAGSHIP 2: Nova -->
+          <!-- INTELLIGENCE -->
           <a
-            href="/nova"
-            class="product-card flagship-grid-card reveal-on-scroll stagger-2"
-            data-category="tools"
-            data-keywords="nova ai assistant chat recruitment conversational"
-            style="--card-accent: #818cf8"
+            href="/platform#intelligence/competitive"
+            class="product-hero-card product-intelligence"
           >
-            <span class="card-status flagship">Flagship</span>
-            <div class="card-preview">
-              <svg viewBox="0 0 120 80" class="card-mini-viz">
-                <!-- User message bubble -->
-                <rect
-                  x="40"
-                  y="8"
-                  width="72"
-                  height="18"
-                  rx="9"
-                  fill="var(--card-accent)"
-                  opacity="0.25"
-                />
-                <rect
-                  x="48"
-                  y="14"
-                  width="28"
-                  height="3"
-                  rx="1.5"
-                  fill="var(--card-accent)"
-                  opacity="0.5"
-                />
-                <rect
-                  x="80"
-                  y="14"
-                  width="16"
-                  height="3"
-                  rx="1.5"
-                  fill="var(--card-accent)"
-                  opacity="0.35"
-                />
-                <!-- AI response bubble -->
-                <rect
-                  x="8"
-                  y="32"
-                  width="80"
-                  height="22"
-                  rx="9"
-                  fill="#06b6d4"
-                  opacity="0.2"
-                />
-                <rect
-                  x="16"
-                  y="38"
-                  width="36"
-                  height="3"
-                  rx="1.5"
-                  fill="#06b6d4"
-                  opacity="0.5"
-                />
-                <rect
-                  x="56"
-                  y="38"
-                  width="20"
-                  height="3"
-                  rx="1.5"
-                  fill="#06b6d4"
-                  opacity="0.35"
-                />
-                <rect
-                  x="16"
-                  y="45"
-                  width="24"
-                  height="3"
-                  rx="1.5"
-                  fill="#06b6d4"
-                  opacity="0.3"
-                />
-                <!-- AI sparkle -->
-                <path
-                  d="M100 42 L102 48 L108 48 L103 52 L105 58 L100 54 L95 58 L97 52 L92 48 L98 48 Z"
-                  fill="var(--card-accent)"
-                  opacity="0.5"
-                />
-                <!-- Typing indicator -->
-                <circle
-                  cx="18"
-                  cy="66"
-                  r="2.5"
-                  fill="var(--card-accent)"
-                  opacity="0.3"
-                />
-                <circle
-                  cx="28"
-                  cy="66"
-                  r="2.5"
-                  fill="var(--card-accent)"
-                  opacity="0.5"
-                />
-                <circle
-                  cx="38"
-                  cy="66"
-                  r="2.5"
-                  fill="var(--card-accent)"
-                  opacity="0.7"
-                />
-              </svg>
-            </div>
-            <div
-              class="card-icon"
-              style="
-                --icon-bg: rgba(129, 140, 248, 0.1);
-                --icon-border: rgba(129, 140, 248, 0.15);
-              "
-            >
+            <div class="product-hero-icon">
               <svg
-                width="22"
-                height="22"
                 viewBox="0 0 24 24"
                 fill="none"
-                stroke="#818cf8"
-                stroke-width="2"
+                stroke="currentColor"
+                stroke-width="1.5"
                 stroke-linecap="round"
-              >
-                <path
-                  d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"
-                />
-                <path d="M8 10h8" />
-                <path d="M8 14h4" />
-              </svg>
-            </div>
-            <div class="card-title">Nova</div>
-            <div class="card-desc">
-              AI-powered conversational assistant for recruitment advertising.
-              Get instant answers, strategy recommendations, and campaign
-              insights through natural language.
-            </div>
-            <div class="card-footer">
-              <span class="card-category">Tools</span
-              ><span class="card-arrow">&rarr;</span>
-            </div>
-          </a>
-
-          <!-- 1. Budget Simulator (budget sliders + scenario) -->
-          <a
-            href="/simulator"
-            class="product-card reveal-on-scroll stagger-1"
-            data-category="planning"
-            data-keywords="budget simulator forecast scenario"
-            style="--card-accent: #22c55e"
-          >
-            <span class="card-status live">Live</span>
-            <div class="card-preview">
-              <svg viewBox="0 0 120 80" class="card-mini-viz">
-                <!-- Budget slider tracks -->
-                <text
-                  x="8"
-                  y="18"
-                  font-family="Inter,sans-serif"
-                  font-size="7"
-                  font-weight="600"
-                  fill="var(--card-accent)"
-                  opacity="0.6"
-                >
-                  Indeed
-                </text>
-                <rect
-                  x="38"
-                  y="13"
-                  width="54"
-                  height="4"
-                  rx="2"
-                  fill="var(--card-accent)"
-                  opacity="0.15"
-                />
-                <rect
-                  x="38"
-                  y="13"
-                  width="38"
-                  height="4"
-                  rx="2"
-                  fill="var(--card-accent)"
-                  opacity="0.6"
-                />
-                <circle
-                  cx="76"
-                  cy="15"
-                  r="4"
-                  fill="var(--card-accent)"
-                  opacity="0.8"
-                />
-                <text
-                  x="8"
-                  y="36"
-                  font-family="Inter,sans-serif"
-                  font-size="7"
-                  font-weight="600"
-                  fill="var(--card-accent)"
-                  opacity="0.6"
-                >
-                  LinkedIn
-                </text>
-                <rect
-                  x="38"
-                  y="31"
-                  width="54"
-                  height="4"
-                  rx="2"
-                  fill="var(--card-accent)"
-                  opacity="0.15"
-                />
-                <rect
-                  x="38"
-                  y="31"
-                  width="28"
-                  height="4"
-                  rx="2"
-                  fill="#06b6d4"
-                  opacity="0.6"
-                />
-                <circle cx="66" cy="33" r="4" fill="#06b6d4" opacity="0.8" />
-                <text
-                  x="8"
-                  y="54"
-                  font-family="Inter,sans-serif"
-                  font-size="7"
-                  font-weight="600"
-                  fill="var(--card-accent)"
-                  opacity="0.6"
-                >
-                  Google
-                </text>
-                <rect
-                  x="38"
-                  y="49"
-                  width="54"
-                  height="4"
-                  rx="2"
-                  fill="var(--card-accent)"
-                  opacity="0.15"
-                />
-                <rect
-                  x="38"
-                  y="49"
-                  width="18"
-                  height="4"
-                  rx="2"
-                  fill="#f59e0b"
-                  opacity="0.6"
-                />
-                <circle cx="56" cy="51" r="4" fill="#f59e0b" opacity="0.8" />
-                <!-- Total -->
-                <rect
-                  x="8"
-                  y="64"
-                  width="84"
-                  height="10"
-                  rx="3"
-                  fill="var(--card-accent)"
-                  opacity="0.1"
-                />
-                <text
-                  x="50"
-                  y="72"
-                  text-anchor="middle"
-                  font-family="Inter,sans-serif"
-                  font-size="7"
-                  font-weight="700"
-                  fill="var(--card-accent)"
-                  opacity="0.7"
-                >
-                  $24,500 / $30,000
-                </text>
-              </svg>
-            </div>
-            <div
-              class="card-icon"
-              style="
-                --icon-bg: rgba(34, 197, 94, 0.1);
-                --icon-border: rgba(34, 197, 94, 0.15);
-              "
-            >
-              <svg
-                width="22"
-                height="22"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="#22c55e"
-                stroke-width="2"
-                stroke-linecap="round"
-              >
-                <path
-                  d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"
-                />
-              </svg>
-            </div>
-            <div class="card-title">Budget Simulator</div>
-            <div class="card-desc">
-              Model recruitment budget scenarios with AI-driven forecasting.
-              Simulate spend allocation across channels.
-            </div>
-            <div class="card-footer">
-              <span class="card-category">Planning</span
-              ><span class="card-arrow">&rarr;</span>
-            </div>
-          </a>
-
-          <!-- 2. Performance Tracker (KPI dashboard) -->
-          <a
-            href="/tracker"
-            class="product-card reveal-on-scroll stagger-2"
-            data-category="analytics"
-            data-keywords="performance tracker campaign kpi metrics"
-            style="--card-accent: #06b6d4"
-          >
-            <span class="card-status live">Live</span>
-            <div class="card-preview">
-              <svg viewBox="0 0 120 80" class="card-mini-viz">
-                <!-- KPI cards row -->
-                <rect
-                  x="4"
-                  y="6"
-                  width="34"
-                  height="28"
-                  rx="3"
-                  fill="var(--card-accent)"
-                  fill-opacity="0.1"
-                  stroke="var(--card-accent)"
-                  stroke-width="0.5"
-                  stroke-opacity="0.2"
-                />
-                <text
-                  x="21"
-                  y="18"
-                  text-anchor="middle"
-                  font-family="Inter,sans-serif"
-                  font-size="6"
-                  fill="var(--card-accent)"
-                  opacity="0.5"
-                >
-                  CPA
-                </text>
-                <text
-                  x="21"
-                  y="28"
-                  text-anchor="middle"
-                  font-family="Inter,sans-serif"
-                  font-size="9"
-                  font-weight="700"
-                  fill="var(--card-accent)"
-                  opacity="0.8"
-                >
-                  $42
-                </text>
-                <rect
-                  x="42"
-                  y="6"
-                  width="34"
-                  height="28"
-                  rx="3"
-                  fill="#22c55e"
-                  fill-opacity="0.1"
-                  stroke="#22c55e"
-                  stroke-width="0.5"
-                  stroke-opacity="0.2"
-                />
-                <text
-                  x="59"
-                  y="18"
-                  text-anchor="middle"
-                  font-family="Inter,sans-serif"
-                  font-size="6"
-                  fill="#22c55e"
-                  opacity="0.5"
-                >
-                  Conv
-                </text>
-                <text
-                  x="59"
-                  y="28"
-                  text-anchor="middle"
-                  font-family="Inter,sans-serif"
-                  font-size="9"
-                  font-weight="700"
-                  fill="#22c55e"
-                  opacity="0.8"
-                >
-                  4.2%
-                </text>
-                <rect
-                  x="80"
-                  y="6"
-                  width="34"
-                  height="28"
-                  rx="3"
-                  fill="#f59e0b"
-                  fill-opacity="0.1"
-                  stroke="#f59e0b"
-                  stroke-width="0.5"
-                  stroke-opacity="0.2"
-                />
-                <text
-                  x="97"
-                  y="18"
-                  text-anchor="middle"
-                  font-family="Inter,sans-serif"
-                  font-size="6"
-                  fill="#f59e0b"
-                  opacity="0.5"
-                >
-                  CTR
-                </text>
-                <text
-                  x="97"
-                  y="28"
-                  text-anchor="middle"
-                  font-family="Inter,sans-serif"
-                  font-size="9"
-                  font-weight="700"
-                  fill="#f59e0b"
-                  opacity="0.8"
-                >
-                  2.8%
-                </text>
-                <!-- Trend line below -->
-                <polyline
-                  points="8,48 22,52 36,46 50,50 64,42 78,38 92,44 106,36"
-                  fill="none"
-                  stroke="var(--card-accent)"
-                  stroke-width="1.5"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  class="viz-line"
-                />
-                <polyline
-                  points="8,48 22,52 36,46 50,50 64,42 78,38 92,44 106,36"
-                  fill="none"
-                  stroke="var(--card-accent)"
-                  stroke-width="0"
-                  opacity="0"
-                />
-                <polygon
-                  points="8,48 22,52 36,46 50,50 64,42 78,38 92,44 106,36 106,72 8,72"
-                  fill="var(--card-accent)"
-                  opacity="0.08"
-                />
-              </svg>
-            </div>
-            <div
-              class="card-icon"
-              style="
-                --icon-bg: rgba(6, 182, 212, 0.1);
-                --icon-border: rgba(6, 182, 212, 0.15);
-              "
-            >
-              <svg
-                width="22"
-                height="22"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="#06b6d4"
-                stroke-width="2"
-                stroke-linecap="round"
-              >
-                <path d="M3 3v18h18" />
-                <path d="M18 9l-5 5-2-2-4 4" />
-              </svg>
-            </div>
-            <div class="card-title">Performance Tracker</div>
-            <div class="card-desc">
-              Upload campaign data and get AI-powered performance analysis.
-              Track CPA, CPC, and conversion rates.
-            </div>
-            <div class="card-footer">
-              <span class="card-category">Analytics</span
-              ><span class="card-arrow">&rarr;</span>
-            </div>
-          </a>
-
-          <!-- 3. Competitive Intel (versus comparison) -->
-          <a
-            href="/competitive"
-            class="product-card reveal-on-scroll stagger-3"
-            data-category="intelligence"
-            data-keywords="competitive intelligence analysis competitor"
-            style="--card-accent: #f43f5e"
-          >
-            <span class="card-status live">Live</span>
-            <div class="card-preview">
-              <svg viewBox="0 0 120 80" class="card-mini-viz">
-                <!-- Your company (left) -->
-                <rect
-                  x="6"
-                  y="10"
-                  width="48"
-                  height="60"
-                  rx="4"
-                  fill="var(--card-accent)"
-                  fill-opacity="0.08"
-                  stroke="var(--card-accent)"
-                  stroke-width="0.8"
-                  stroke-opacity="0.2"
-                />
-                <circle
-                  cx="30"
-                  cy="24"
-                  r="7"
-                  fill="var(--card-accent)"
-                  opacity="0.3"
-                />
-                <text
-                  x="30"
-                  y="27"
-                  text-anchor="middle"
-                  font-family="Inter,sans-serif"
-                  font-size="8"
-                  font-weight="700"
-                  fill="var(--card-accent)"
-                  opacity="0.7"
-                >
-                  You
-                </text>
-                <rect
-                  x="14"
-                  y="38"
-                  width="32"
-                  height="4"
-                  rx="2"
-                  fill="var(--card-accent)"
-                  opacity="0.6"
-                  class="viz-bar"
-                />
-                <rect
-                  x="14"
-                  y="46"
-                  width="24"
-                  height="4"
-                  rx="2"
-                  fill="var(--card-accent)"
-                  opacity="0.4"
-                  class="viz-bar"
-                />
-                <rect
-                  x="14"
-                  y="54"
-                  width="28"
-                  height="4"
-                  rx="2"
-                  fill="var(--card-accent)"
-                  opacity="0.5"
-                  class="viz-bar"
-                />
-                <!-- VS divider -->
-                <text
-                  x="60"
-                  y="44"
-                  text-anchor="middle"
-                  font-family="Inter,sans-serif"
-                  font-size="9"
-                  font-weight="800"
-                  fill="var(--card-accent)"
-                  opacity="0.4"
-                >
-                  VS
-                </text>
-                <!-- Competitor (right) -->
-                <rect
-                  x="66"
-                  y="10"
-                  width="48"
-                  height="60"
-                  rx="4"
-                  fill="#06b6d4"
-                  fill-opacity="0.08"
-                  stroke="#06b6d4"
-                  stroke-width="0.8"
-                  stroke-opacity="0.2"
-                />
-                <circle cx="90" cy="24" r="7" fill="#06b6d4" opacity="0.3" />
-                <text
-                  x="90"
-                  y="27"
-                  text-anchor="middle"
-                  font-family="Inter,sans-serif"
-                  font-size="7"
-                  font-weight="600"
-                  fill="#06b6d4"
-                  opacity="0.6"
-                >
-                  Rival
-                </text>
-                <rect
-                  x="74"
-                  y="38"
-                  width="22"
-                  height="4"
-                  rx="2"
-                  fill="#06b6d4"
-                  opacity="0.5"
-                  class="viz-bar"
-                />
-                <rect
-                  x="74"
-                  y="46"
-                  width="30"
-                  height="4"
-                  rx="2"
-                  fill="#06b6d4"
-                  opacity="0.6"
-                  class="viz-bar"
-                />
-                <rect
-                  x="74"
-                  y="54"
-                  width="18"
-                  height="4"
-                  rx="2"
-                  fill="#06b6d4"
-                  opacity="0.4"
-                  class="viz-bar"
-                />
-              </svg>
-            </div>
-            <div
-              class="card-icon"
-              style="
-                --icon-bg: rgba(244, 63, 94, 0.1);
-                --icon-border: rgba(244, 63, 94, 0.15);
-              "
-            >
-              <svg
-                width="22"
-                height="22"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="#f43f5e"
-                stroke-width="2"
-                stroke-linecap="round"
-              >
-                <circle cx="11" cy="11" r="8" />
-                <path d="M21 21l-4.35-4.35" />
-              </svg>
-            </div>
-            <div class="card-title">Competitive Intel</div>
-            <div class="card-desc">
-              Deep competitive analysis of hiring strategies, platform presence,
-              and market positioning.
-            </div>
-            <div class="card-footer">
-              <span class="card-category">Intelligence</span
-              ><span class="card-arrow">&rarr;</span>
-            </div>
-          </a>
-
-          <!-- 4. Quick Plan (60-second plan generation) -->
-          <a
-            href="/quick-plan"
-            class="product-card reveal-on-scroll stagger-4"
-            data-category="planning"
-            data-keywords="quick plan fast instant media"
-            style="--card-accent: #f59e0b"
-          >
-            <span class="card-status live">Live</span>
-            <div class="card-preview">
-              <svg viewBox="0 0 120 80" class="card-mini-viz">
-                <!-- Lightning bolt -->
-                <path
-                  d="M28 8 L20 36 L30 36 L24 58 L42 28 L32 28 L38 8 Z"
-                  fill="var(--card-accent)"
-                  opacity="0.4"
-                  stroke="var(--card-accent)"
-                  stroke-width="0.5"
-                  stroke-linejoin="round"
-                />
-                <!-- Generated plan output -->
-                <rect
-                  x="52"
-                  y="10"
-                  width="60"
-                  height="56"
-                  rx="4"
-                  fill="none"
-                  stroke="var(--card-accent)"
-                  stroke-width="1"
-                  opacity="0.25"
-                />
-                <rect
-                  x="58"
-                  y="18"
-                  width="24"
-                  height="3"
-                  rx="1"
-                  fill="var(--card-accent)"
-                  opacity="0.6"
-                />
-                <rect
-                  x="58"
-                  y="26"
-                  width="46"
-                  height="3"
-                  rx="1"
-                  fill="var(--card-accent)"
-                  opacity="0.3"
-                />
-                <rect
-                  x="58"
-                  y="33"
-                  width="38"
-                  height="3"
-                  rx="1"
-                  fill="var(--card-accent)"
-                  opacity="0.3"
-                />
-                <rect
-                  x="58"
-                  y="42"
-                  width="42"
-                  height="8"
-                  rx="2"
-                  fill="var(--card-accent)"
-                  opacity="0.15"
-                />
-                <rect
-                  x="58"
-                  y="54"
-                  width="30"
-                  height="6"
-                  rx="3"
-                  fill="var(--card-accent)"
-                  opacity="0.5"
-                />
-                <text
-                  x="73"
-                  y="59"
-                  text-anchor="middle"
-                  font-family="Inter,sans-serif"
-                  font-size="5"
-                  font-weight="600"
-                  fill="#000"
-                  opacity="0.8"
-                >
-                  60s
-                </text>
-              </svg>
-            </div>
-            <div
-              class="card-icon"
-              style="
-                --icon-bg: rgba(245, 158, 11, 0.1);
-                --icon-border: rgba(245, 158, 11, 0.15);
-              "
-            >
-              <svg
-                width="22"
-                height="22"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="#f59e0b"
-                stroke-width="2"
-                stroke-linecap="round"
-              >
-                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-              </svg>
-            </div>
-            <div class="card-title">Quick Plan</div>
-            <div class="card-desc">
-              Generate a recruitment media plan in under 60 seconds. Minimal
-              inputs, maximum intelligence.
-            </div>
-            <div class="card-footer">
-              <span class="card-category">Planning</span
-              ><span class="card-arrow">&rarr;</span>
-            </div>
-          </a>
-
-          <!-- 5. Media Plan Audit (document + score gauge) -->
-          <a
-            href="/audit"
-            class="product-card reveal-on-scroll stagger-5"
-            data-category="analytics"
-            data-keywords="audit review check existing media plan"
-            style="--card-accent: #a855f7"
-          >
-            <span class="card-status live">Live</span>
-            <div class="card-preview">
-              <svg viewBox="0 0 120 80" class="card-mini-viz">
-                <!-- Document being audited -->
-                <rect
-                  x="8"
-                  y="8"
-                  width="44"
-                  height="58"
-                  rx="3"
-                  fill="none"
-                  stroke="var(--card-accent)"
-                  stroke-width="1"
-                  opacity="0.25"
-                />
-                <rect
-                  x="14"
-                  y="16"
-                  width="20"
-                  height="3"
-                  rx="1"
-                  fill="var(--card-accent)"
-                  opacity="0.4"
-                />
-                <rect
-                  x="14"
-                  y="24"
-                  width="32"
-                  height="3"
-                  rx="1"
-                  fill="var(--card-accent)"
-                  opacity="0.25"
-                />
-                <rect
-                  x="14"
-                  y="31"
-                  width="28"
-                  height="3"
-                  rx="1"
-                  fill="var(--card-accent)"
-                  opacity="0.25"
-                />
-                <!-- Check marks -->
-                <path
-                  d="M14 42 L17 45 L22 38"
-                  fill="none"
-                  stroke="#22c55e"
-                  stroke-width="1.5"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  opacity="0.7"
-                />
-                <path
-                  d="M14 52 L17 55 L22 48"
-                  fill="none"
-                  stroke="#22c55e"
-                  stroke-width="1.5"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  opacity="0.7"
-                />
-                <rect
-                  x="26"
-                  y="41"
-                  width="20"
-                  height="2.5"
-                  rx="1"
-                  fill="var(--card-accent)"
-                  opacity="0.2"
-                />
-                <rect
-                  x="26"
-                  y="51"
-                  width="16"
-                  height="2.5"
-                  rx="1"
-                  fill="var(--card-accent)"
-                  opacity="0.2"
-                />
-                <!-- Score gauge (right) -->
-                <path
-                  d="M86 58 A24 24 0 0 1 62 34"
-                  fill="none"
-                  stroke="var(--card-accent)"
-                  stroke-width="4"
-                  stroke-linecap="round"
-                  opacity="0.15"
-                />
-                <path
-                  d="M86 58 A24 24 0 0 1 66 38"
-                  fill="none"
-                  stroke="var(--card-accent)"
-                  stroke-width="4"
-                  stroke-linecap="round"
-                  opacity="0.7"
-                />
-                <text
-                  x="80"
-                  y="52"
-                  text-anchor="middle"
-                  font-family="Inter,sans-serif"
-                  font-size="12"
-                  font-weight="800"
-                  fill="var(--card-accent)"
-                  opacity="0.7"
-                >
-                  87
-                </text>
-                <text
-                  x="80"
-                  y="62"
-                  text-anchor="middle"
-                  font-family="Inter,sans-serif"
-                  font-size="6"
-                  fill="var(--card-accent)"
-                  opacity="0.4"
-                >
-                  /100
-                </text>
-              </svg>
-            </div>
-            <div
-              class="card-icon"
-              style="
-                --icon-bg: rgba(168, 85, 247, 0.1);
-                --icon-border: rgba(168, 85, 247, 0.15);
-              "
-            >
-              <svg
-                width="22"
-                height="22"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="#a855f7"
-                stroke-width="2"
-                stroke-linecap="round"
-              >
-                <path d="M9 11l3 3 8-8" />
-                <path
-                  d="M20 12v6a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h9"
-                />
-              </svg>
-            </div>
-            <div class="card-title">Media Plan Audit</div>
-            <div class="card-desc">
-              Upload an existing media plan and get AI-powered audit with
-              scoring, gap analysis, and optimization recommendations.
-            </div>
-            <div class="card-footer">
-              <span class="card-category">Analytics</span
-              ><span class="card-arrow">&rarr;</span>
-            </div>
-          </a>
-
-          <!-- 6. Market Pulse (multi-trend with live indicator) -->
-          <a
-            href="/market-pulse"
-            class="product-card reveal-on-scroll stagger-6"
-            data-category="intelligence"
-            data-keywords="market pulse trends real-time hiring"
-            style="--card-accent: #6366f1"
-          >
-            <span class="card-status live">Live</span>
-            <div class="card-preview">
-              <svg viewBox="0 0 120 80" class="card-mini-viz">
-                <!-- Live indicator -->
-                <circle cx="10" cy="10" r="3" fill="#22c55e" opacity="0.8" />
-                <circle cx="10" cy="10" r="5" fill="#22c55e" opacity="0.2" />
-                <text
-                  x="18"
-                  y="13"
-                  font-family="Inter,sans-serif"
-                  font-size="6"
-                  font-weight="600"
-                  fill="#22c55e"
-                  opacity="0.6"
-                >
-                  LIVE
-                </text>
-                <!-- Hiring trend (up) -->
-                <polyline
-                  points="6,55 20,50 34,52 48,44 62,40 76,32 90,28 104,18"
-                  fill="none"
-                  stroke="var(--card-accent)"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  class="viz-line"
-                />
-                <polygon
-                  points="6,55 20,50 34,52 48,44 62,40 76,32 90,28 104,18 104,68 6,68"
-                  fill="var(--card-accent)"
-                  opacity="0.06"
-                />
-                <!-- Salary trend -->
-                <polyline
-                  points="6,48 20,46 34,42 48,44 62,38 76,36 90,32 104,30"
-                  fill="none"
-                  stroke="#f59e0b"
-                  stroke-width="1.5"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  opacity="0.4"
-                  class="viz-line"
-                />
-                <!-- Supply trend (down) -->
-                <polyline
-                  points="6,30 20,34 34,36 48,40 62,42 76,46 90,50 104,54"
-                  fill="none"
-                  stroke="#f43f5e"
-                  stroke-width="1.5"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  opacity="0.3"
-                  class="viz-line"
-                />
-                <!-- Trend arrows at end -->
-                <polygon
-                  points="106,16 112,18 108,22"
-                  fill="var(--card-accent)"
-                  opacity="0.7"
-                />
-                <polygon
-                  points="106,56 112,54 108,50"
-                  fill="#f43f5e"
-                  opacity="0.4"
-                />
-              </svg>
-            </div>
-            <div
-              class="card-icon"
-              style="
-                --icon-bg: rgba(255, 255, 255, 0.05);
-                --icon-border: rgba(255, 255, 255, 0.06);
-              "
-            >
-              <svg
-                width="22"
-                height="22"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="#6366f1"
-                stroke-width="2"
-                stroke-linecap="round"
-              >
-                <path d="M2 12h4l3-9 4 18 3-9h4" />
-              </svg>
-            </div>
-            <div class="card-title">Market Pulse</div>
-            <div class="card-desc">
-              Real-time recruitment market monitoring. Track hiring trends,
-              salary movements, and platform performance across industries.
-            </div>
-            <div class="card-footer">
-              <span class="card-category">Intelligence</span
-              ><span class="card-arrow">&rarr;</span>
-            </div>
-          </a>
-
-          <!-- 7. Social Plan (social platform icons) -->
-          <a
-            href="/social-plan"
-            class="product-card reveal-on-scroll stagger-1"
-            data-category="planning"
-            data-keywords="social media plan facebook linkedin instagram tiktok"
-            style="--card-accent: #3b82f6"
-          >
-            <span class="card-status new">New</span>
-            <div class="card-preview">
-              <svg viewBox="0 0 120 80" class="card-mini-viz">
-                <!-- LinkedIn icon -->
-                <rect
-                  x="8"
-                  y="14"
-                  width="28"
-                  height="28"
-                  rx="6"
-                  fill="#0A66C2"
-                  opacity="0.25"
-                />
-                <text
-                  x="22"
-                  y="33"
-                  text-anchor="middle"
-                  font-family="Inter,sans-serif"
-                  font-size="14"
-                  font-weight="800"
-                  fill="#0A66C2"
-                  opacity="0.7"
-                >
-                  in
-                </text>
-                <!-- Facebook/Meta icon -->
-                <rect
-                  x="42"
-                  y="14"
-                  width="28"
-                  height="28"
-                  rx="6"
-                  fill="#1877F2"
-                  opacity="0.25"
-                />
-                <text
-                  x="56"
-                  y="34"
-                  text-anchor="middle"
-                  font-family="Inter,sans-serif"
-                  font-size="16"
-                  font-weight="700"
-                  fill="#1877F2"
-                  opacity="0.7"
-                >
-                  f
-                </text>
-                <!-- Instagram icon -->
-                <rect
-                  x="76"
-                  y="14"
-                  width="28"
-                  height="28"
-                  rx="6"
-                  fill="#E4405F"
-                  opacity="0.25"
-                />
-                <circle
-                  cx="90"
-                  cy="28"
-                  r="6"
-                  fill="none"
-                  stroke="#E4405F"
-                  stroke-width="1.5"
-                  opacity="0.7"
-                />
-                <circle cx="96" cy="22" r="1.5" fill="#E4405F" opacity="0.5" />
-                <!-- X/Twitter icon -->
-                <rect
-                  x="8"
-                  y="48"
-                  width="28"
-                  height="22"
-                  rx="5"
-                  fill="var(--card-accent)"
-                  opacity="0.15"
-                />
-                <text
-                  x="22"
-                  y="63"
-                  text-anchor="middle"
-                  font-family="Inter,sans-serif"
-                  font-size="12"
-                  font-weight="800"
-                  fill="var(--card-accent)"
-                  opacity="0.5"
-                >
-                  X
-                </text>
-                <!-- Budget allocation bar -->
-                <rect
-                  x="42"
-                  y="52"
-                  width="62"
-                  height="6"
-                  rx="3"
-                  fill="var(--card-accent)"
-                  opacity="0.1"
-                />
-                <rect
-                  x="42"
-                  y="52"
-                  width="30"
-                  height="6"
-                  rx="3"
-                  fill="#0A66C2"
-                  opacity="0.5"
-                />
-                <rect
-                  x="72"
-                  y="52"
-                  width="18"
-                  height="6"
-                  fill="#1877F2"
-                  opacity="0.4"
-                />
-                <rect
-                  x="90"
-                  y="52"
-                  width="14"
-                  height="6"
-                  rx="3"
-                  fill="#E4405F"
-                  opacity="0.3"
-                />
-                <text
-                  x="73"
-                  y="66"
-                  text-anchor="middle"
-                  font-family="Inter,sans-serif"
-                  font-size="6"
-                  fill="var(--card-accent)"
-                  opacity="0.4"
-                >
-                  Budget Split
-                </text>
-              </svg>
-            </div>
-            <div
-              class="card-icon"
-              style="
-                --icon-bg: rgba(59, 130, 246, 0.1);
-                --icon-border: rgba(59, 130, 246, 0.15);
-              "
-            >
-              <svg
-                width="22"
-                height="22"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="#3b82f6"
-                stroke-width="2"
-                stroke-linecap="round"
-              >
-                <path
-                  d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"
-                />
-                <path d="M22 6l-10 7L2 6" />
-              </svg>
-            </div>
-            <div class="card-title">Social Plan Generator</div>
-            <div class="card-desc">
-              Create targeted social media recruitment campaigns across 9
-              platforms and 3 search engines. Collar-aware budget allocation.
-            </div>
-            <div class="card-footer">
-              <span class="card-category">Planning</span
-              ><span class="card-arrow">&rarr;</span>
-            </div>
-          </a>
-
-          <!-- 8. HireSignal (QoH scoring by source) -->
-          <a
-            href="/hire-signal"
-            class="product-card reveal-on-scroll stagger-2"
-            data-category="analytics"
-            data-keywords="hire signal quality source qoh retention"
-            style="--card-accent: #10b981"
-          >
-            <span class="card-status new">New</span>
-            <div class="card-preview">
-              <svg viewBox="0 0 120 80" class="card-mini-viz">
-                <!-- Source quality bars with labels -->
-                <text
-                  x="6"
-                  y="18"
-                  font-family="Inter,sans-serif"
-                  font-size="6"
-                  fill="var(--card-accent)"
-                  opacity="0.5"
-                >
-                  Indeed
-                </text>
-                <rect
-                  x="36"
-                  y="12"
-                  width="56"
-                  height="7"
-                  rx="2"
-                  fill="var(--card-accent)"
-                  opacity="0.15"
-                />
-                <rect
-                  x="36"
-                  y="12"
-                  width="48"
-                  height="7"
-                  rx="2"
-                  fill="var(--card-accent)"
-                  opacity="0.5"
-                  class="viz-bar"
-                />
-                <text
-                  x="88"
-                  y="18"
-                  font-family="Inter,sans-serif"
-                  font-size="6"
-                  font-weight="700"
-                  fill="var(--card-accent)"
-                  opacity="0.7"
-                >
-                  86
-                </text>
-                <text
-                  x="6"
-                  y="34"
-                  font-family="Inter,sans-serif"
-                  font-size="6"
-                  fill="var(--card-accent)"
-                  opacity="0.5"
-                >
-                  LinkedIn
-                </text>
-                <rect
-                  x="36"
-                  y="28"
-                  width="56"
-                  height="7"
-                  rx="2"
-                  fill="var(--card-accent)"
-                  opacity="0.15"
-                />
-                <rect
-                  x="36"
-                  y="28"
-                  width="42"
-                  height="7"
-                  rx="2"
-                  fill="#06b6d4"
-                  opacity="0.5"
-                  class="viz-bar"
-                />
-                <text
-                  x="82"
-                  y="34"
-                  font-family="Inter,sans-serif"
-                  font-size="6"
-                  font-weight="700"
-                  fill="#06b6d4"
-                  opacity="0.7"
-                >
-                  78
-                </text>
-                <text
-                  x="6"
-                  y="50"
-                  font-family="Inter,sans-serif"
-                  font-size="6"
-                  fill="var(--card-accent)"
-                  opacity="0.5"
-                >
-                  Referral
-                </text>
-                <rect
-                  x="36"
-                  y="44"
-                  width="56"
-                  height="7"
-                  rx="2"
-                  fill="var(--card-accent)"
-                  opacity="0.15"
-                />
-                <rect
-                  x="36"
-                  y="44"
-                  width="52"
-                  height="7"
-                  rx="2"
-                  fill="#22c55e"
-                  opacity="0.5"
-                  class="viz-bar"
-                />
-                <text
-                  x="92"
-                  y="50"
-                  font-family="Inter,sans-serif"
-                  font-size="6"
-                  font-weight="700"
-                  fill="#22c55e"
-                  opacity="0.7"
-                >
-                  92
-                </text>
-                <!-- QoH score badge -->
-                <rect
-                  x="36"
-                  y="58"
-                  width="56"
-                  height="14"
-                  rx="4"
-                  fill="var(--card-accent)"
-                  opacity="0.15"
-                />
-                <text
-                  x="64"
-                  y="68"
-                  text-anchor="middle"
-                  font-family="Inter,sans-serif"
-                  font-size="7"
-                  font-weight="700"
-                  fill="var(--card-accent)"
-                  opacity="0.7"
-                >
-                  QoH Score: 85
-                </text>
-              </svg>
-            </div>
-            <div
-              class="card-icon"
-              style="
-                --icon-bg: rgba(16, 185, 129, 0.1);
-                --icon-border: rgba(16, 185, 129, 0.15);
-              "
-            >
-              <svg
-                width="22"
-                height="22"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="#10b981"
-                stroke-width="2"
-                stroke-linecap="round"
-              >
-                <path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4-4v2" />
-                <circle cx="9" cy="7" r="4" />
-                <path d="M22 21v-2a4 4 0 00-3-3.87" />
-                <path d="M16 3.13a4 4 0 010 7.75" />
-              </svg>
-            </div>
-            <div class="card-title">HireSignal</div>
-            <div class="card-desc">
-              Quality of hire analytics by source. Composite QoH scoring, funnel
-              analysis, retention tracking, and cost-per-quality-hire.
-            </div>
-            <div class="card-footer">
-              <span class="card-category">Analytics</span
-              ><span class="card-arrow">&rarr;</span>
-            </div>
-          </a>
-
-          <!-- 9. ApplyFlow (conversational application steps) -->
-          <a
-            href="/applyflow"
-            class="product-card reveal-on-scroll stagger-3"
-            data-category="tools"
-            data-keywords="applyflow application tracking chatbot conversational"
-            style="--card-accent: #ec4899"
-          >
-            <span class="card-status new">New</span>
-            <div class="card-preview">
-              <svg viewBox="0 0 120 80" class="card-mini-viz">
-                <!-- Step flow: 3 connected steps -->
-                <circle
-                  cx="20"
-                  cy="20"
-                  r="10"
-                  fill="var(--card-accent)"
-                  fill-opacity="0.3"
-                  stroke="var(--card-accent)"
-                  stroke-width="1"
-                  stroke-opacity="0.4"
-                />
-                <text
-                  x="20"
-                  y="23"
-                  text-anchor="middle"
-                  font-family="Inter,sans-serif"
-                  font-size="8"
-                  font-weight="700"
-                  fill="var(--card-accent)"
-                  opacity="0.7"
-                >
-                  1
-                </text>
-                <line
-                  x1="30"
-                  y1="20"
-                  x2="48"
-                  y2="20"
-                  stroke="var(--card-accent)"
-                  stroke-width="1.5"
-                  stroke-dasharray="3 2"
-                  opacity="0.3"
-                />
-                <circle
-                  cx="58"
-                  cy="20"
-                  r="10"
-                  fill="var(--card-accent)"
-                  fill-opacity="0.3"
-                  stroke="var(--card-accent)"
-                  stroke-width="1"
-                  stroke-opacity="0.4"
-                />
-                <text
-                  x="58"
-                  y="23"
-                  text-anchor="middle"
-                  font-family="Inter,sans-serif"
-                  font-size="8"
-                  font-weight="700"
-                  fill="var(--card-accent)"
-                  opacity="0.7"
-                >
-                  2
-                </text>
-                <line
-                  x1="68"
-                  y1="20"
-                  x2="86"
-                  y2="20"
-                  stroke="var(--card-accent)"
-                  stroke-width="1.5"
-                  stroke-dasharray="3 2"
-                  opacity="0.3"
-                />
-                <circle
-                  cx="96"
-                  cy="20"
-                  r="10"
-                  fill="var(--card-accent)"
-                  fill-opacity="0.3"
-                  stroke="var(--card-accent)"
-                  stroke-width="1"
-                  stroke-opacity="0.4"
-                />
-                <text
-                  x="96"
-                  y="23"
-                  text-anchor="middle"
-                  font-family="Inter,sans-serif"
-                  font-size="8"
-                  font-weight="700"
-                  fill="var(--card-accent)"
-                  opacity="0.7"
-                >
-                  3
-                </text>
-                <!-- Chat conversation below -->
-                <rect
-                  x="8"
-                  y="38"
-                  width="50"
-                  height="12"
-                  rx="6"
-                  fill="var(--card-accent)"
-                  opacity="0.15"
-                />
-                <rect
-                  x="14"
-                  y="42"
-                  width="24"
-                  height="3"
-                  rx="1"
-                  fill="var(--card-accent)"
-                  opacity="0.4"
-                />
-                <rect
-                  x="50"
-                  y="54"
-                  width="62"
-                  height="12"
-                  rx="6"
-                  fill="#06b6d4"
-                  opacity="0.15"
-                />
-                <rect
-                  x="56"
-                  y="58"
-                  width="36"
-                  height="3"
-                  rx="1"
-                  fill="#06b6d4"
-                  opacity="0.4"
-                />
-              </svg>
-            </div>
-            <div
-              class="card-icon"
-              style="
-                --icon-bg: rgba(236, 72, 153, 0.1);
-                --icon-border: rgba(236, 72, 153, 0.15);
-              "
-            >
-              <svg
-                width="22"
-                height="22"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="#ec4899"
-                stroke-width="2"
-                stroke-linecap="round"
-              >
-                <path
-                  d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"
-                />
-              </svg>
-            </div>
-            <div class="card-title">ApplyFlow</div>
-            <div class="card-desc">
-              Conversational application experience. AI-powered chat interface
-              that guides candidates through the apply process seamlessly.
-            </div>
-            <div class="card-footer">
-              <span class="card-category">Tools</span
-              ><span class="card-arrow">&rarr;</span>
-            </div>
-          </a>
-
-          <!-- 10. API Portal (endpoint structure) -->
-          <a
-            href="/api-portal"
-            class="product-card reveal-on-scroll stagger-4"
-            data-category="tools"
-            data-keywords="api portal developer key management endpoint"
-            style="--card-accent: #0ea5e9"
-          >
-            <span class="card-status new">New</span>
-            <div class="card-preview">
-              <svg viewBox="0 0 120 80" class="card-mini-viz">
-                <!-- Terminal-like API call -->
-                <rect
-                  x="6"
-                  y="6"
-                  width="108"
-                  height="68"
-                  rx="5"
-                  fill="var(--card-accent)"
-                  fill-opacity="0.06"
-                  stroke="var(--card-accent)"
-                  stroke-width="0.8"
-                  stroke-opacity="0.15"
-                />
-                <rect
-                  x="6"
-                  y="6"
-                  width="108"
-                  height="12"
-                  rx="5"
-                  fill="var(--card-accent)"
-                  opacity="0.08"
-                />
-                <circle cx="14" cy="12" r="2" fill="#f43f5e" opacity="0.5" />
-                <circle cx="22" cy="12" r="2" fill="#f59e0b" opacity="0.5" />
-                <circle cx="30" cy="12" r="2" fill="#22c55e" opacity="0.5" />
-                <!-- GET badge + endpoint -->
-                <rect
-                  x="12"
-                  y="24"
-                  width="20"
-                  height="8"
-                  rx="2"
-                  fill="#22c55e"
-                  opacity="0.4"
-                />
-                <text
-                  x="22"
-                  y="30"
-                  text-anchor="middle"
-                  font-family="monospace"
-                  font-size="5"
-                  font-weight="700"
-                  fill="#22c55e"
-                  opacity="0.9"
-                >
-                  GET
-                </text>
-                <text
-                  x="36"
-                  y="30"
-                  font-family="monospace"
-                  font-size="5.5"
-                  fill="var(--card-accent)"
-                  opacity="0.5"
-                >
-                  /api/v1/plans
-                </text>
-                <!-- POST badge + endpoint -->
-                <rect
-                  x="12"
-                  y="38"
-                  width="22"
-                  height="8"
-                  rx="2"
-                  fill="#3b82f6"
-                  opacity="0.4"
-                />
-                <text
-                  x="23"
-                  y="44"
-                  text-anchor="middle"
-                  font-family="monospace"
-                  font-size="5"
-                  font-weight="700"
-                  fill="#3b82f6"
-                  opacity="0.9"
-                >
-                  POST
-                </text>
-                <text
-                  x="38"
-                  y="44"
-                  font-family="monospace"
-                  font-size="5.5"
-                  fill="var(--card-accent)"
-                  opacity="0.5"
-                >
-                  /api/v1/generate
-                </text>
-                <!-- Status indicator -->
-                <rect
-                  x="12"
-                  y="54"
-                  width="40"
-                  height="8"
-                  rx="2"
-                  fill="var(--card-accent)"
-                  opacity="0.08"
-                />
-                <circle cx="18" cy="58" r="2" fill="#22c55e" opacity="0.7" />
-                <text
-                  x="24"
-                  y="60"
-                  font-family="monospace"
-                  font-size="5"
-                  fill="var(--card-accent)"
-                  opacity="0.4"
-                >
-                  200 OK 12ms
-                </text>
-              </svg>
-            </div>
-            <div
-              class="card-icon"
-              style="
-                --icon-bg: rgba(14, 165, 233, 0.1);
-                --icon-border: rgba(14, 165, 233, 0.15);
-              "
-            >
-              <svg
-                width="22"
-                height="22"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="#0ea5e9"
-                stroke-width="2"
-                stroke-linecap="round"
-              >
-                <path d="M4 17l6-6-6-6" />
-                <path d="M12 19h8" />
-              </svg>
-            </div>
-            <div class="card-title">API Portal</div>
-            <div class="card-desc">
-              Developer portal with API key management, usage analytics, and
-              OpenAPI 3.0 documentation. Three-tier access control.
-            </div>
-            <div class="card-footer">
-              <span class="card-category">Tools</span
-              ><span class="card-arrow">&rarr;</span>
-            </div>
-          </a>
-
-          <!-- 11. Talent Heat Map (geographic heat zones) -->
-          <a
-            href="/talent-heatmap"
-            class="product-card reveal-on-scroll stagger-5"
-            data-category="intelligence"
-            data-keywords="talent heatmap geography salary supply heat map"
-            style="--card-accent: #ef4444"
-          >
-            <span class="card-status new">New</span>
-            <div class="card-preview">
-              <svg viewBox="0 0 120 80" class="card-mini-viz">
-                <!-- Simplified US map outline -->
-                <path
-                  d="M10 30 L30 26 L48 22 L60 24 L72 20 L90 22 L105 28 L110 34 L108 42 L100 48 L92 52 L80 54 L70 50 L58 52 L44 56 L30 54 L18 48 L12 40 Z"
-                  fill="none"
-                  stroke="var(--card-accent)"
-                  stroke-width="0.8"
-                  opacity="0.2"
-                />
-                <!-- Heat zones (radial gradients simulated) -->
-                <circle
-                  cx="35"
-                  cy="38"
-                  r="14"
-                  fill="var(--card-accent)"
-                  opacity="0.35"
-                />
-                <circle
-                  cx="35"
-                  cy="38"
-                  r="8"
-                  fill="var(--card-accent)"
-                  opacity="0.25"
-                />
-                <circle
-                  cx="78"
-                  cy="36"
-                  r="18"
-                  fill="var(--card-accent)"
-                  opacity="0.4"
-                />
-                <circle
-                  cx="78"
-                  cy="36"
-                  r="10"
-                  fill="var(--card-accent)"
-                  opacity="0.3"
-                />
-                <circle cx="56" cy="44" r="10" fill="#f59e0b" opacity="0.3" />
-                <circle cx="56" cy="44" r="5" fill="#f59e0b" opacity="0.2" />
-                <circle cx="96" cy="32" r="8" fill="#22c55e" opacity="0.3" />
-                <!-- Location pins -->
-                <circle
-                  cx="35"
-                  cy="38"
-                  r="2.5"
-                  fill="var(--card-accent)"
-                  opacity="0.8"
-                />
-                <circle
-                  cx="78"
-                  cy="36"
-                  r="2.5"
-                  fill="var(--card-accent)"
-                  opacity="0.8"
-                />
-                <circle cx="96" cy="32" r="2" fill="#22c55e" opacity="0.7" />
-                <!-- Legend -->
-                <circle
-                  cx="10"
-                  cy="70"
-                  r="3"
-                  fill="var(--card-accent)"
-                  opacity="0.5"
-                />
-                <text
-                  x="16"
-                  y="72"
-                  font-family="Inter,sans-serif"
-                  font-size="5"
-                  fill="var(--card-accent)"
-                  opacity="0.4"
-                >
-                  High demand
-                </text>
-                <circle cx="60" cy="70" r="3" fill="#22c55e" opacity="0.5" />
-                <text
-                  x="66"
-                  y="72"
-                  font-family="Inter,sans-serif"
-                  font-size="5"
-                  fill="var(--card-accent)"
-                  opacity="0.4"
-                >
-                  High supply
-                </text>
-              </svg>
-            </div>
-            <div
-              class="card-icon"
-              style="
-                --icon-bg: rgba(239, 68, 68, 0.1);
-                --icon-border: rgba(239, 68, 68, 0.15);
-              "
-            >
-              <svg
-                width="22"
-                height="22"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="#ef4444"
-                stroke-width="2"
-                stroke-linecap="round"
-              >
-                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
-                <circle cx="12" cy="10" r="3" />
-              </svg>
-            </div>
-            <div class="card-title">Talent Heat Map</div>
-            <div class="card-desc">
-              Visualize hiring difficulty, salary benchmarks, and talent supply
-              across 60+ metros. Competition index and cost-of-living factors.
-            </div>
-            <div class="card-footer">
-              <span class="card-category">Intelligence</span
-              ><span class="card-arrow">&rarr;</span>
-            </div>
-          </a>
-
-          <!-- 12. Market Intel (research report) -->
-          <a
-            href="/market-intel"
-            class="product-card reveal-on-scroll stagger-6"
-            data-category="intelligence"
-            data-keywords="market intelligence reports research industry"
-            style="--card-accent: #fbbf24"
-          >
-            <span class="card-status beta">Beta</span>
-            <div class="card-preview">
-              <svg viewBox="0 0 120 80" class="card-mini-viz">
-                <!-- Report document -->
-                <rect
-                  x="8"
-                  y="4"
-                  width="50"
-                  height="72"
-                  rx="3"
-                  fill="none"
-                  stroke="var(--card-accent)"
-                  stroke-width="1"
-                  opacity="0.2"
-                />
-                <rect
-                  x="14"
-                  y="10"
-                  width="26"
-                  height="3"
-                  rx="1"
-                  fill="var(--card-accent)"
-                  opacity="0.5"
-                />
-                <rect
-                  x="14"
-                  y="17"
-                  width="38"
-                  height="2"
-                  rx="1"
-                  fill="var(--card-accent)"
-                  opacity="0.2"
-                />
-                <rect
-                  x="14"
-                  y="22"
-                  width="34"
-                  height="2"
-                  rx="1"
-                  fill="var(--card-accent)"
-                  opacity="0.2"
-                />
-                <!-- Mini chart in report -->
-                <rect
-                  x="14"
-                  y="30"
-                  width="38"
-                  height="20"
-                  rx="2"
-                  fill="var(--card-accent)"
-                  opacity="0.06"
-                />
-                <polyline
-                  points="16,46 22,42 28,44 34,38 40,40 46,34 50,32"
-                  fill="none"
-                  stroke="var(--card-accent)"
-                  stroke-width="1"
-                  stroke-linecap="round"
-                  opacity="0.5"
-                />
-                <rect
-                  x="14"
-                  y="56"
-                  width="30"
-                  height="2"
-                  rx="1"
-                  fill="var(--card-accent)"
-                  opacity="0.2"
-                />
-                <rect
-                  x="14"
-                  y="62"
-                  width="24"
-                  height="2"
-                  rx="1"
-                  fill="var(--card-accent)"
-                  opacity="0.15"
-                />
-                <!-- Key insights (right side) -->
-                <rect
-                  x="64"
-                  y="10"
-                  width="48"
-                  height="16"
-                  rx="3"
-                  fill="var(--card-accent)"
-                  opacity="0.08"
-                />
-                <text
-                  x="70"
-                  y="16"
-                  font-family="Inter,sans-serif"
-                  font-size="5"
-                  fill="var(--card-accent)"
-                  opacity="0.4"
-                >
-                  Avg Salary
-                </text>
-                <text
-                  x="70"
-                  y="23"
-                  font-family="Inter,sans-serif"
-                  font-size="8"
-                  font-weight="700"
-                  fill="var(--card-accent)"
-                  opacity="0.7"
-                >
-                  $95K
-                </text>
-                <rect
-                  x="64"
-                  y="32"
-                  width="48"
-                  height="16"
-                  rx="3"
-                  fill="var(--card-accent)"
-                  opacity="0.08"
-                />
-                <text
-                  x="70"
-                  y="38"
-                  font-family="Inter,sans-serif"
-                  font-size="5"
-                  fill="var(--card-accent)"
-                  opacity="0.4"
-                >
-                  Job Growth
-                </text>
-                <text
-                  x="70"
-                  y="45"
-                  font-family="Inter,sans-serif"
-                  font-size="8"
-                  font-weight="700"
-                  fill="#22c55e"
-                  opacity="0.7"
-                >
-                  +12%
-                </text>
-                <rect
-                  x="64"
-                  y="54"
-                  width="48"
-                  height="16"
-                  rx="3"
-                  fill="var(--card-accent)"
-                  opacity="0.08"
-                />
-                <text
-                  x="70"
-                  y="60"
-                  font-family="Inter,sans-serif"
-                  font-size="5"
-                  fill="var(--card-accent)"
-                  opacity="0.4"
-                >
-                  Supply Index
-                </text>
-                <text
-                  x="70"
-                  y="67"
-                  font-family="Inter,sans-serif"
-                  font-size="8"
-                  font-weight="700"
-                  fill="#f59e0b"
-                  opacity="0.7"
-                >
-                  0.73
-                </text>
-              </svg>
-            </div>
-            <div
-              class="card-icon"
-              style="
-                --icon-bg: rgba(251, 191, 36, 0.1);
-                --icon-border: rgba(251, 191, 36, 0.15);
-              "
-            >
-              <svg
-                width="22"
-                height="22"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="#fbbf24"
-                stroke-width="2"
-                stroke-linecap="round"
-              >
-                <path
-                  d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"
-                />
-                <path d="M14 2v6h6" />
-                <path d="M16 13H8" />
-                <path d="M16 17H8" />
-                <path d="M10 9H8" />
-              </svg>
-            </div>
-            <div class="card-title">Market Intel Reports</div>
-            <div class="card-desc">
-              Comprehensive market intelligence reports with salary benchmarks,
-              talent supply analysis, and strategic recommendations by industry.
-            </div>
-            <div class="card-footer">
-              <span class="card-category">Intelligence</span
-              ><span class="card-arrow">&rarr;</span>
-            </div>
-          </a>
-
-          <!-- 13. SkillTarget (skill-to-channel mapping) -->
-          <a
-            href="/skill-target"
-            class="product-card reveal-on-scroll stagger-1"
-            data-category="planning"
-            data-keywords="skill target targeting channel recommendation"
-            style="--card-accent: #8b5cf6"
-          >
-            <span class="card-status beta">Beta</span>
-            <div class="card-preview">
-              <svg viewBox="0 0 120 80" class="card-mini-viz">
-                <!-- Skills (left) -->
-                <rect
-                  x="4"
-                  y="10"
-                  width="36"
-                  height="12"
-                  rx="6"
-                  fill="var(--card-accent)"
-                  opacity="0.2"
-                />
-                <text
-                  x="22"
-                  y="18"
-                  text-anchor="middle"
-                  font-family="Inter,sans-serif"
-                  font-size="6"
-                  font-weight="600"
-                  fill="var(--card-accent)"
-                  opacity="0.6"
-                >
-                  React
-                </text>
-                <rect
-                  x="4"
-                  y="28"
-                  width="36"
-                  height="12"
-                  rx="6"
-                  fill="var(--card-accent)"
-                  opacity="0.15"
-                />
-                <text
-                  x="22"
-                  y="36"
-                  text-anchor="middle"
-                  font-family="Inter,sans-serif"
-                  font-size="6"
-                  font-weight="600"
-                  fill="var(--card-accent)"
-                  opacity="0.5"
-                >
-                  Python
-                </text>
-                <rect
-                  x="4"
-                  y="46"
-                  width="36"
-                  height="12"
-                  rx="6"
-                  fill="var(--card-accent)"
-                  opacity="0.12"
-                />
-                <text
-                  x="22"
-                  y="54"
-                  text-anchor="middle"
-                  font-family="Inter,sans-serif"
-                  font-size="6"
-                  font-weight="600"
-                  fill="var(--card-accent)"
-                  opacity="0.45"
-                >
-                  AWS
-                </text>
-                <!-- Connection lines -->
-                <line
-                  x1="40"
-                  y1="16"
-                  x2="74"
-                  y2="16"
-                  stroke="var(--card-accent)"
-                  stroke-width="1"
-                  stroke-dasharray="3 2"
-                  opacity="0.3"
-                />
-                <line
-                  x1="40"
-                  y1="34"
-                  x2="74"
-                  y2="16"
-                  stroke="var(--card-accent)"
-                  stroke-width="1"
-                  stroke-dasharray="3 2"
-                  opacity="0.2"
-                />
-                <line
-                  x1="40"
-                  y1="34"
-                  x2="74"
-                  y2="40"
-                  stroke="var(--card-accent)"
-                  stroke-width="1"
-                  stroke-dasharray="3 2"
-                  opacity="0.3"
-                />
-                <line
-                  x1="40"
-                  y1="52"
-                  x2="74"
-                  y2="40"
-                  stroke="var(--card-accent)"
-                  stroke-width="1"
-                  stroke-dasharray="3 2"
-                  opacity="0.2"
-                />
-                <line
-                  x1="40"
-                  y1="52"
-                  x2="74"
-                  y2="58"
-                  stroke="var(--card-accent)"
-                  stroke-width="1"
-                  stroke-dasharray="3 2"
-                  opacity="0.3"
-                />
-                <!-- Channels (right) -->
-                <rect
-                  x="74"
-                  y="8"
-                  width="42"
-                  height="14"
-                  rx="4"
-                  fill="var(--card-accent)"
-                  opacity="0.2"
-                />
-                <text
-                  x="95"
-                  y="18"
-                  text-anchor="middle"
-                  font-family="Inter,sans-serif"
-                  font-size="6"
-                  font-weight="600"
-                  fill="var(--card-accent)"
-                  opacity="0.6"
-                >
-                  GitHub Jobs
-                </text>
-                <rect
-                  x="74"
-                  y="32"
-                  width="42"
-                  height="14"
-                  rx="4"
-                  fill="var(--card-accent)"
-                  opacity="0.15"
-                />
-                <text
-                  x="95"
-                  y="42"
-                  text-anchor="middle"
-                  font-family="Inter,sans-serif"
-                  font-size="6"
-                  font-weight="600"
-                  fill="var(--card-accent)"
-                  opacity="0.5"
-                >
-                  LinkedIn
-                </text>
-                <rect
-                  x="74"
-                  y="52"
-                  width="42"
-                  height="14"
-                  rx="4"
-                  fill="var(--card-accent)"
-                  opacity="0.12"
-                />
-                <text
-                  x="95"
-                  y="62"
-                  text-anchor="middle"
-                  font-family="Inter,sans-serif"
-                  font-size="6"
-                  font-weight="600"
-                  fill="var(--card-accent)"
-                  opacity="0.45"
-                >
-                  Stack OF
-                </text>
-              </svg>
-            </div>
-            <div
-              class="card-icon"
-              style="
-                --icon-bg: rgba(139, 92, 246, 0.1);
-                --icon-border: rgba(139, 92, 246, 0.15);
-              "
-            >
-              <svg
-                width="22"
-                height="22"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="#8b5cf6"
-                stroke-width="2"
-                stroke-linecap="round"
+                stroke-linejoin="round"
               >
                 <circle cx="12" cy="12" r="10" />
-                <circle cx="12" cy="12" r="6" />
-                <circle cx="12" cy="12" r="2" />
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
               </svg>
             </div>
-            <div class="card-title">SkillTarget</div>
-            <div class="card-desc">
-              Skill-based channel targeting engine. Map required skills to
-              optimal recruitment platforms with rarity scoring and budget
-              allocation.
+            <div class="product-hero-badge">4 tools</div>
+            <h3>Intelligence</h3>
+            <p>
+              Competitive monitoring, market pulse, vendor analysis, and talent
+              intelligence. Real-time data from 8 live APIs.
+            </p>
+            <div class="product-hero-tools">
+              <span>Competitive Intel</span>
+              <span>Market Pulse</span>
+              <span>Vendor IQ</span>
+              <span>Talent Intelligence</span>
             </div>
-            <div class="card-footer">
-              <span class="card-category">Planning</span
-              ><span class="card-arrow">&rarr;</span>
-            </div>
-          </a>
-
-          <!-- 14. ROI Calculator (investment return visualization) -->
-          <a
-            href="/roi-calculator"
-            class="product-card reveal-on-scroll stagger-2"
-            data-category="analytics"
-            data-keywords="roi calculator return investment cost per hire savings projection"
-            style="--card-accent: #22c55e"
-          >
-            <span class="card-status new">New</span>
-            <div class="card-preview">
-              <svg viewBox="0 0 120 80" class="card-mini-viz">
-                <!-- Investment arrow going in, bigger arrow coming out -->
-                <rect
-                  x="6"
-                  y="20"
-                  width="38"
-                  height="40"
-                  rx="4"
-                  fill="var(--card-accent)"
-                  fill-opacity="0.08"
-                  stroke="var(--card-accent)"
-                  stroke-width="0.8"
-                  stroke-opacity="0.2"
-                />
-                <text
-                  x="25"
-                  y="35"
-                  text-anchor="middle"
-                  font-family="Inter,sans-serif"
-                  font-size="6"
-                  fill="var(--card-accent)"
-                  opacity="0.4"
-                >
-                  Invest
-                </text>
-                <text
-                  x="25"
-                  y="48"
-                  text-anchor="middle"
-                  font-family="Inter,sans-serif"
-                  font-size="12"
-                  font-weight="800"
-                  fill="var(--card-accent)"
-                  opacity="0.5"
-                >
-                  $50K
-                </text>
-                <!-- Arrow -->
-                <path
-                  d="M48 40 L62 40"
-                  stroke="var(--card-accent)"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  opacity="0.4"
-                />
-                <polygon
-                  points="64,40 58,36 58,44"
-                  fill="var(--card-accent)"
-                  opacity="0.5"
-                />
-                <!-- Return (bigger, brighter) -->
-                <rect
-                  x="68"
-                  y="14"
-                  width="46"
-                  height="52"
-                  rx="4"
-                  fill="var(--card-accent)"
-                  fill-opacity="0.12"
-                  stroke="var(--card-accent)"
-                  stroke-width="1"
-                  stroke-opacity="0.3"
-                />
-                <text
-                  x="91"
-                  y="30"
-                  text-anchor="middle"
-                  font-family="Inter,sans-serif"
-                  font-size="6"
-                  fill="var(--card-accent)"
-                  opacity="0.5"
-                >
-                  Return
-                </text>
-                <text
-                  x="91"
-                  y="46"
-                  text-anchor="middle"
-                  font-family="Inter,sans-serif"
-                  font-size="16"
-                  font-weight="800"
-                  fill="var(--card-accent)"
-                  opacity="0.8"
-                >
-                  3.2x
-                </text>
-                <text
-                  x="91"
-                  y="58"
-                  text-anchor="middle"
-                  font-family="Inter,sans-serif"
-                  font-size="7"
-                  fill="var(--card-accent)"
-                  opacity="0.4"
-                >
-                  $160K
-                </text>
-              </svg>
-            </div>
-            <div
-              class="card-icon"
-              style="
-                --icon-bg: rgba(34, 197, 94, 0.1);
-                --icon-border: rgba(34, 197, 94, 0.15);
-              "
-            >
+            <div class="product-hero-cta">
+              Open Intelligence
               <svg
-                width="22"
-                height="22"
                 viewBox="0 0 24 24"
                 fill="none"
-                stroke="#22c55e"
+                stroke="currentColor"
                 stroke-width="2"
-                stroke-linecap="round"
+                width="16"
+                height="16"
               >
-                <path
-                  d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"
-                />
-                <path d="M3 3v18h18" />
+                <path d="M5 12h14M12 5l7 7-7 7" />
               </svg>
-            </div>
-            <div class="card-title">ROI Calculator</div>
-            <div class="card-desc">
-              Estimate recruitment advertising ROI with industry benchmarks.
-              Project cost-per-hire savings, time-to-fill improvements, and
-              annual returns.
-            </div>
-            <div class="card-footer">
-              <span class="card-category">Analytics</span
-              ><span class="card-arrow">&rarr;</span>
             </div>
           </a>
 
-          <!-- 15. A/B Test Lab (split test with metrics) -->
+          <!-- COMPLIANCE -->
           <a
-            href="/ab-testing"
-            class="product-card reveal-on-scroll stagger-3"
-            data-category="intelligence"
-            data-keywords="ab test lab variant ad copy recruitment campaign testing"
-            style="--card-accent: #6366f1"
+            href="/platform#compliance/comply"
+            class="product-hero-card product-compliance"
           >
-            <span class="card-status new">New</span>
-            <div class="card-preview">
-              <svg viewBox="0 0 120 80" class="card-mini-viz">
-                <!-- Variant A card -->
-                <rect
-                  x="4"
-                  y="8"
-                  width="52"
-                  height="64"
-                  rx="4"
-                  fill="var(--card-accent)"
-                  fill-opacity="0.08"
-                  stroke="var(--card-accent)"
-                  stroke-width="0.8"
-                  stroke-opacity="0.2"
-                />
-                <rect
-                  x="10"
-                  y="14"
-                  width="16"
-                  height="10"
-                  rx="3"
-                  fill="var(--card-accent)"
-                  opacity="0.3"
-                />
-                <text
-                  x="18"
-                  y="22"
-                  text-anchor="middle"
-                  font-family="Inter,sans-serif"
-                  font-size="7"
-                  font-weight="800"
-                  fill="var(--card-accent)"
-                  opacity="0.8"
-                >
-                  A
-                </text>
-                <rect
-                  x="10"
-                  y="30"
-                  width="40"
-                  height="2"
-                  rx="1"
-                  fill="var(--card-accent)"
-                  opacity="0.2"
-                />
-                <rect
-                  x="10"
-                  y="36"
-                  width="32"
-                  height="2"
-                  rx="1"
-                  fill="var(--card-accent)"
-                  opacity="0.15"
-                />
-                <text
-                  x="10"
-                  y="50"
-                  font-family="Inter,sans-serif"
-                  font-size="6"
-                  fill="var(--card-accent)"
-                  opacity="0.4"
-                >
-                  CTR
-                </text>
-                <text
-                  x="10"
-                  y="60"
-                  font-family="Inter,sans-serif"
-                  font-size="10"
-                  font-weight="700"
-                  fill="var(--card-accent)"
-                  opacity="0.6"
-                >
-                  2.4%
-                </text>
-                <!-- Variant B card (winner) -->
-                <rect
-                  x="62"
-                  y="8"
-                  width="52"
-                  height="64"
-                  rx="4"
-                  fill="#06b6d4"
-                  fill-opacity="0.08"
-                  stroke="#06b6d4"
-                  stroke-width="0.8"
-                  stroke-opacity="0.2"
-                />
-                <rect
-                  x="68"
-                  y="14"
-                  width="16"
-                  height="10"
-                  rx="3"
-                  fill="#06b6d4"
-                  opacity="0.3"
-                />
-                <text
-                  x="76"
-                  y="22"
-                  text-anchor="middle"
-                  font-family="Inter,sans-serif"
-                  font-size="7"
-                  font-weight="800"
-                  fill="#06b6d4"
-                  opacity="0.8"
-                >
-                  B
-                </text>
-                <rect
-                  x="68"
-                  y="30"
-                  width="40"
-                  height="2"
-                  rx="1"
-                  fill="#06b6d4"
-                  opacity="0.2"
-                />
-                <rect
-                  x="68"
-                  y="36"
-                  width="36"
-                  height="2"
-                  rx="1"
-                  fill="#06b6d4"
-                  opacity="0.15"
-                />
-                <text
-                  x="68"
-                  y="50"
-                  font-family="Inter,sans-serif"
-                  font-size="6"
-                  fill="#06b6d4"
-                  opacity="0.4"
-                >
-                  CTR
-                </text>
-                <text
-                  x="68"
-                  y="60"
-                  font-family="Inter,sans-serif"
-                  font-size="10"
-                  font-weight="700"
-                  fill="#22c55e"
-                  opacity="0.7"
-                >
-                  3.8%
-                </text>
-                <!-- Winner badge on B -->
-                <circle cx="106" cy="14" r="5" fill="#22c55e" opacity="0.5" />
-                <path
-                  d="M103 14 L105 16 L109 12"
-                  fill="none"
-                  stroke="#fff"
-                  stroke-width="1.2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  opacity="0.8"
-                />
-              </svg>
-            </div>
-            <div
-              class="card-icon"
-              style="
-                --icon-bg: rgba(99, 102, 241, 0.1);
-                --icon-border: rgba(99, 102, 241, 0.15);
-              "
-            >
+            <div class="product-hero-icon">
               <svg
-                width="22"
-                height="22"
                 viewBox="0 0 24 24"
                 fill="none"
-                stroke="#6366f1"
-                stroke-width="2"
-                stroke-linecap="round"
-              >
-                <path d="M16 3h5v5" />
-                <path d="M8 3H3v5" />
-                <path d="M12 22v-6" />
-                <path d="M21 3l-9 9" />
-                <path d="M3 3l9 9" />
-              </svg>
-            </div>
-            <div class="card-title">A/B Test Lab</div>
-            <div class="card-desc">
-              Generate A/B test configurations and variant ad copy for
-              recruitment campaigns. Compare benefits-focused vs.
-              culture-focused approaches.
-            </div>
-            <div class="card-footer">
-              <span class="card-category">Intelligence</span
-              ><span class="card-arrow">&rarr;</span>
-            </div>
-          </a>
-
-          <!-- 16. Quick Brief (NLP text to structured output) -->
-          <a
-            href="/quick-brief"
-            class="product-card reveal-on-scroll stagger-4"
-            data-category="intelligence"
-            data-keywords="quick brief natural language plain text hiring need parse structured"
-            style="--card-accent: #6366f1"
-          >
-            <span class="card-status new">New</span>
-            <div class="card-preview">
-              <svg viewBox="0 0 120 80" class="card-mini-viz">
-                <!-- Plain text input (left) -->
-                <rect
-                  x="4"
-                  y="8"
-                  width="48"
-                  height="50"
-                  rx="4"
-                  fill="var(--card-accent)"
-                  fill-opacity="0.06"
-                  stroke="var(--card-accent)"
-                  stroke-width="0.8"
-                  stroke-opacity="0.15"
-                />
-                <rect
-                  x="10"
-                  y="14"
-                  width="36"
-                  height="2.5"
-                  rx="1"
-                  fill="var(--card-accent)"
-                  opacity="0.3"
-                />
-                <rect
-                  x="10"
-                  y="20"
-                  width="28"
-                  height="2.5"
-                  rx="1"
-                  fill="var(--card-accent)"
-                  opacity="0.25"
-                />
-                <rect
-                  x="10"
-                  y="26"
-                  width="34"
-                  height="2.5"
-                  rx="1"
-                  fill="var(--card-accent)"
-                  opacity="0.2"
-                />
-                <rect
-                  x="10"
-                  y="32"
-                  width="30"
-                  height="2.5"
-                  rx="1"
-                  fill="var(--card-accent)"
-                  opacity="0.2"
-                />
-                <rect
-                  x="10"
-                  y="38"
-                  width="26"
-                  height="2.5"
-                  rx="1"
-                  fill="var(--card-accent)"
-                  opacity="0.15"
-                />
-                <rect
-                  x="10"
-                  y="44"
-                  width="32"
-                  height="2.5"
-                  rx="1"
-                  fill="var(--card-accent)"
-                  opacity="0.15"
-                />
-                <!-- Arrow -->
-                <path
-                  d="M56 34 L64 34"
-                  stroke="var(--card-accent)"
-                  stroke-width="1.5"
-                  stroke-linecap="round"
-                  opacity="0.4"
-                />
-                <polygon
-                  points="66,34 62,31 62,37"
-                  fill="var(--card-accent)"
-                  opacity="0.5"
-                />
-                <!-- Structured output (right) -->
-                <rect
-                  x="68"
-                  y="8"
-                  width="48"
-                  height="50"
-                  rx="4"
-                  fill="var(--card-accent)"
-                  fill-opacity="0.08"
-                  stroke="var(--card-accent)"
-                  stroke-width="0.8"
-                  stroke-opacity="0.25"
-                />
-                <text
-                  x="74"
-                  y="18"
-                  font-family="Inter,sans-serif"
-                  font-size="5"
-                  fill="var(--card-accent)"
-                  opacity="0.4"
-                >
-                  Role
-                </text>
-                <text
-                  x="74"
-                  y="25"
-                  font-family="Inter,sans-serif"
-                  font-size="6"
-                  font-weight="600"
-                  fill="var(--card-accent)"
-                  opacity="0.6"
-                >
-                  Sr. Engineer
-                </text>
-                <text
-                  x="74"
-                  y="34"
-                  font-family="Inter,sans-serif"
-                  font-size="5"
-                  fill="var(--card-accent)"
-                  opacity="0.4"
-                >
-                  Location
-                </text>
-                <text
-                  x="74"
-                  y="41"
-                  font-family="Inter,sans-serif"
-                  font-size="6"
-                  font-weight="600"
-                  fill="var(--card-accent)"
-                  opacity="0.6"
-                >
-                  NYC Metro
-                </text>
-                <text
-                  x="74"
-                  y="50"
-                  font-family="Inter,sans-serif"
-                  font-size="5"
-                  fill="var(--card-accent)"
-                  opacity="0.4"
-                >
-                  Budget
-                </text>
-                <text
-                  x="74"
-                  y="57"
-                  font-family="Inter,sans-serif"
-                  font-size="6"
-                  font-weight="600"
-                  fill="var(--card-accent)"
-                  opacity="0.6"
-                >
-                  $15,000
-                </text>
-                <!-- AI badge -->
-                <rect
-                  x="42"
-                  y="62"
-                  width="36"
-                  height="12"
-                  rx="6"
-                  fill="var(--card-accent)"
-                  opacity="0.15"
-                />
-                <text
-                  x="60"
-                  y="70"
-                  text-anchor="middle"
-                  font-family="Inter,sans-serif"
-                  font-size="6"
-                  font-weight="600"
-                  fill="var(--card-accent)"
-                  opacity="0.5"
-                >
-                  AI Parse
-                </text>
-              </svg>
-            </div>
-            <div
-              class="card-icon"
-              style="
-                --icon-bg: rgba(99, 102, 241, 0.1);
-                --icon-border: rgba(99, 102, 241, 0.15);
-              "
-            >
-              <svg
-                width="22"
-                height="22"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="#6366f1"
-                stroke-width="2"
+                stroke="currentColor"
+                stroke-width="1.5"
                 stroke-linecap="round"
                 stroke-linejoin="round"
               >
-                <path
-                  d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
-                />
-                <polyline points="14 2 14 8 20 8" />
-                <line x1="16" y1="13" x2="8" y2="13" />
-                <line x1="16" y1="17" x2="8" y2="17" />
-                <polyline points="10 9 9 9 8 9" />
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
               </svg>
             </div>
-            <div class="card-title">Quick Brief</div>
-            <div class="card-desc">
-              Describe your hiring need in plain text and get a structured media
-              plan brief with role, location, budget, and channel
-              recommendations.
+            <div class="product-hero-badge">2 tools</div>
+            <h3>Compliance</h3>
+            <p>
+              Regulatory compliance checks, ad copy audits, and bias detection.
+              Stay compliant across every jurisdiction.
+            </p>
+            <div class="product-hero-tools">
+              <span>ComplianceGuard</span>
+              <span>Ad Audit</span>
             </div>
-            <div class="card-footer">
-              <span class="card-category">Intelligence</span
-              ><span class="card-arrow">&rarr;</span>
-            </div>
-          </a>
-
-          <!-- 17. Post-Campaign (performance report with metrics) -->
-          <a
-            href="/post-campaign"
-            class="product-card reveal-on-scroll stagger-5"
-            data-category="analytics"
-            data-keywords="post campaign analysis report performance grade recommendation cpa cph"
-            style="--card-accent: #f472b6"
-          >
-            <span class="card-status new">New</span>
-            <div class="card-preview">
-              <svg viewBox="0 0 120 80" class="card-mini-viz">
-                <!-- Report with metrics -->
-                <rect
-                  x="4"
-                  y="6"
-                  width="68"
-                  height="68"
-                  rx="4"
-                  fill="none"
-                  stroke="var(--card-accent)"
-                  stroke-width="0.8"
-                  opacity="0.2"
-                />
-                <rect
-                  x="10"
-                  y="12"
-                  width="30"
-                  height="3"
-                  rx="1"
-                  fill="var(--card-accent)"
-                  opacity="0.4"
-                />
-                <!-- Mini bar chart in report -->
-                <rect
-                  x="10"
-                  y="22"
-                  width="10"
-                  height="18"
-                  rx="1"
-                  fill="var(--card-accent)"
-                  opacity="0.3"
-                  class="viz-bar"
-                />
-                <rect
-                  x="24"
-                  y="28"
-                  width="10"
-                  height="12"
-                  rx="1"
-                  fill="var(--card-accent)"
-                  opacity="0.4"
-                  class="viz-bar"
-                />
-                <rect
-                  x="38"
-                  y="18"
-                  width="10"
-                  height="22"
-                  rx="1"
-                  fill="var(--card-accent)"
-                  opacity="0.5"
-                  class="viz-bar"
-                />
-                <rect
-                  x="52"
-                  y="24"
-                  width="10"
-                  height="16"
-                  rx="1"
-                  fill="var(--card-accent)"
-                  opacity="0.35"
-                  class="viz-bar"
-                />
-                <!-- Recommendation lines -->
-                <rect
-                  x="10"
-                  y="48"
-                  width="52"
-                  height="2"
-                  rx="1"
-                  fill="var(--card-accent)"
-                  opacity="0.15"
-                />
-                <rect
-                  x="10"
-                  y="54"
-                  width="42"
-                  height="2"
-                  rx="1"
-                  fill="var(--card-accent)"
-                  opacity="0.12"
-                />
-                <rect
-                  x="10"
-                  y="60"
-                  width="48"
-                  height="2"
-                  rx="1"
-                  fill="var(--card-accent)"
-                  opacity="0.1"
-                />
-                <!-- Grade badge (right) -->
-                <rect
-                  x="80"
-                  y="16"
-                  width="34"
-                  height="44"
-                  rx="6"
-                  fill="var(--card-accent)"
-                  fill-opacity="0.12"
-                  stroke="var(--card-accent)"
-                  stroke-width="1"
-                  stroke-opacity="0.25"
-                />
-                <text
-                  x="97"
-                  y="44"
-                  text-anchor="middle"
-                  font-family="Inter,sans-serif"
-                  font-size="22"
-                  font-weight="800"
-                  fill="var(--card-accent)"
-                  opacity="0.7"
-                >
-                  A+
-                </text>
-                <text
-                  x="97"
-                  y="54"
-                  text-anchor="middle"
-                  font-family="Inter,sans-serif"
-                  font-size="6"
-                  fill="var(--card-accent)"
-                  opacity="0.4"
-                >
-                  Grade
-                </text>
-              </svg>
-            </div>
-            <div
-              class="card-icon"
-              style="
-                --icon-bg: rgba(244, 114, 182, 0.1);
-                --icon-border: rgba(244, 114, 182, 0.15);
-              "
-            >
+            <div class="product-hero-cta">
+              Open Compliance
               <svg
-                width="22"
-                height="22"
                 viewBox="0 0 24 24"
                 fill="none"
-                stroke="#f472b6"
+                stroke="currentColor"
                 stroke-width="2"
-                stroke-linecap="round"
+                width="16"
+                height="16"
               >
-                <path d="M9 17H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
-                <path d="M15 3h4a2 2 0 012 2v10a2 2 0 01-2 2h-4" />
-                <path d="M12 15l-3 3 3 3" />
-                <path d="M12 9l3-3-3-3" />
-                <line x1="3" y1="21" x2="21" y2="21" />
+                <path d="M5 12h14M12 5l7 7-7 7" />
               </svg>
-            </div>
-            <div class="card-title">Post-Campaign Analysis</div>
-            <div class="card-desc">
-              Generate structured post-campaign reports with performance grades
-              and recommendations for recruitment advertising campaigns.
-            </div>
-            <div class="card-footer">
-              <span class="card-category">Analytics</span
-              ><span class="card-arrow">&rarr;</span>
             </div>
           </a>
+        </div>
 
-          <!-- 18. PayScale Sync (salary benchmarking) -->
-          <a
-            href="/payscale-sync"
-            class="product-card reveal-on-scroll stagger-6"
-            data-category="intelligence"
-            data-keywords="payscale salary compensation pay transparency range benchmark"
-            style="--card-accent: #34d399"
-          >
-            <span class="card-status new">New</span>
-            <div class="card-preview">
-              <svg viewBox="0 0 120 80" class="card-mini-viz">
-                <!-- Role title -->
-                <text
-                  x="60"
-                  y="14"
-                  text-anchor="middle"
-                  font-family="Inter,sans-serif"
-                  font-size="7"
-                  font-weight="600"
-                  fill="var(--card-accent)"
-                  opacity="0.5"
-                >
-                  Sr. Software Engineer
-                </text>
-                <!-- Salary range bar -->
-                <rect
-                  x="10"
-                  y="24"
-                  width="100"
-                  height="6"
-                  rx="3"
-                  fill="var(--card-accent)"
-                  opacity="0.1"
-                />
-                <rect
-                  x="30"
-                  y="24"
-                  width="50"
-                  height="6"
-                  rx="3"
-                  fill="var(--card-accent)"
-                  opacity="0.35"
-                />
-                <!-- Range markers -->
-                <line
-                  x1="30"
-                  y1="22"
-                  x2="30"
-                  y2="32"
-                  stroke="var(--card-accent)"
-                  stroke-width="1.5"
-                  opacity="0.5"
-                />
-                <line
-                  x1="80"
-                  y1="22"
-                  x2="80"
-                  y2="32"
-                  stroke="var(--card-accent)"
-                  stroke-width="1.5"
-                  opacity="0.5"
-                />
-                <!-- Median marker -->
-                <line
-                  x1="55"
-                  y1="20"
-                  x2="55"
-                  y2="34"
-                  stroke="var(--card-accent)"
-                  stroke-width="2"
-                  opacity="0.8"
-                />
-                <polygon
-                  points="55,18 52,14 58,14"
-                  fill="var(--card-accent)"
-                  opacity="0.6"
-                />
-                <!-- Labels -->
-                <text
-                  x="10"
-                  y="42"
-                  font-family="Inter,sans-serif"
-                  font-size="6"
-                  fill="var(--card-accent)"
-                  opacity="0.3"
-                >
-                  $80K
-                </text>
-                <text
-                  x="30"
-                  y="42"
-                  text-anchor="middle"
-                  font-family="Inter,sans-serif"
-                  font-size="6"
-                  fill="var(--card-accent)"
-                  opacity="0.5"
-                >
-                  P25
-                </text>
-                <text
-                  x="55"
-                  y="42"
-                  text-anchor="middle"
-                  font-family="Inter,sans-serif"
-                  font-size="6"
-                  font-weight="700"
-                  fill="var(--card-accent)"
-                  opacity="0.7"
-                >
-                  $135K
-                </text>
-                <text
-                  x="80"
-                  y="42"
-                  text-anchor="middle"
-                  font-family="Inter,sans-serif"
-                  font-size="6"
-                  fill="var(--card-accent)"
-                  opacity="0.5"
-                >
-                  P75
-                </text>
-                <text
-                  x="110"
-                  y="42"
-                  text-anchor="end"
-                  font-family="Inter,sans-serif"
-                  font-size="6"
-                  fill="var(--card-accent)"
-                  opacity="0.3"
-                >
-                  $200K
-                </text>
-                <!-- Compliance badge -->
-                <rect
-                  x="20"
-                  y="52"
-                  width="80"
-                  height="18"
-                  rx="4"
-                  fill="var(--card-accent)"
-                  opacity="0.08"
-                />
-                <path
-                  d="M34 58 L37 61 L42 54"
-                  fill="none"
-                  stroke="#22c55e"
-                  stroke-width="1.5"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  opacity="0.6"
-                />
-                <text
-                  x="48"
-                  y="64"
-                  font-family="Inter,sans-serif"
-                  font-size="6"
-                  fill="var(--card-accent)"
-                  opacity="0.4"
-                >
-                  Pay Transparency Compliant
-                </text>
-              </svg>
-            </div>
-            <div
-              class="card-icon"
-              style="
-                --icon-bg: rgba(52, 211, 153, 0.1);
-                --icon-border: rgba(52, 211, 153, 0.15);
-              "
-            >
+        <!-- Nova AI Banner -->
+        <div class="nova-banner reveal">
+          <div class="nova-banner-content">
+            <div class="nova-banner-icon">
               <svg
-                width="22"
-                height="22"
                 viewBox="0 0 24 24"
                 fill="none"
-                stroke="#34d399"
-                stroke-width="2"
-                stroke-linecap="round"
+                stroke="currentColor"
+                stroke-width="1.5"
               >
                 <path
-                  d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"
+                  d="M12 2a7 7 0 0 1 7 7c0 3-2 5.5-4 7l-1 4h-4l-1-4c-2-1.5-4-4-4-7a7 7 0 0 1 7-7z"
                 />
+                <line x1="10" y1="22" x2="14" y2="22" />
               </svg>
             </div>
-            <div class="card-title">PayScale Sync</div>
-            <div class="card-desc">
-              Market-competitive salary ranges for job postings with pay
-              transparency compliance for EU and US state laws.
+            <div>
+              <h3>Nova AI runs across everything</h3>
+              <p>
+                33 tools, 24 LLM providers, 8 live data APIs. Ask anything about
+                recruitment advertising.
+              </p>
             </div>
-            <div class="card-footer">
-              <span class="card-category">Intelligence</span
-              ><span class="card-arrow">&rarr;</span>
-            </div>
-          </a>
-
-          <!-- 19. ComplianceGuard (compliance scan checklist) -->
-          <a
-            href="/compliance-guard"
-            class="product-card reveal-on-scroll stagger-1"
-            data-category="compliance"
-            data-keywords="compliance guard scan job posting bias language eeo ofccp age discrimination pay transparency salary gdpr eu audit disability accommodation gender neutral"
-            style="--card-accent: #22d3ee"
-          >
-            <span class="card-status new">New</span>
-            <div class="card-preview">
-              <svg viewBox="0 0 120 80" class="card-mini-viz">
-                <!-- Shield outline -->
-                <path
-                  d="M24 12 L12 20 L12 38 C12 50 17 58 24 62 C31 58 36 50 36 38 L36 20 Z"
-                  fill="var(--card-accent)"
-                  fill-opacity="0.1"
-                  stroke="var(--card-accent)"
-                  stroke-width="1"
-                  stroke-opacity="0.3"
-                />
-                <path
-                  d="M18 34 L22 38 L30 28"
-                  fill="none"
-                  stroke="var(--card-accent)"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  opacity="0.7"
-                />
-                <!-- Compliance scan results -->
-                <path
-                  d="M46 16 L49 19 L54 12"
-                  fill="none"
-                  stroke="#22c55e"
-                  stroke-width="1.5"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  opacity="0.7"
-                />
-                <text
-                  x="58"
-                  y="18"
-                  font-family="Inter,sans-serif"
-                  font-size="6"
-                  fill="var(--card-accent)"
-                  opacity="0.5"
-                >
-                  EEO Compliant
-                </text>
-                <path
-                  d="M46 28 L49 31 L54 24"
-                  fill="none"
-                  stroke="#22c55e"
-                  stroke-width="1.5"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  opacity="0.7"
-                />
-                <text
-                  x="58"
-                  y="30"
-                  font-family="Inter,sans-serif"
-                  font-size="6"
-                  fill="var(--card-accent)"
-                  opacity="0.5"
-                >
-                  Pay Transparency
-                </text>
-                <path
-                  d="M46 40 L49 43 L54 36"
-                  fill="none"
-                  stroke="#22c55e"
-                  stroke-width="1.5"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  opacity="0.7"
-                />
-                <text
-                  x="58"
-                  y="42"
-                  font-family="Inter,sans-serif"
-                  font-size="6"
-                  fill="var(--card-accent)"
-                  opacity="0.5"
-                >
-                  No Bias Detected
-                </text>
-                <!-- Warning item -->
-                <circle cx="50" cy="52" r="4" fill="#f59e0b" opacity="0.4" />
-                <text
-                  x="50"
-                  y="54"
-                  text-anchor="middle"
-                  font-family="Inter,sans-serif"
-                  font-size="6"
-                  font-weight="700"
-                  fill="#f59e0b"
-                  opacity="0.8"
-                >
-                  !
-                </text>
-                <text
-                  x="58"
-                  y="54"
-                  font-family="Inter,sans-serif"
-                  font-size="6"
-                  fill="#f59e0b"
-                  opacity="0.5"
-                >
-                  Age Language Risk
-                </text>
-                <!-- Score -->
-                <rect
-                  x="46"
-                  y="62"
-                  width="66"
-                  height="10"
-                  rx="3"
-                  fill="var(--card-accent)"
-                  opacity="0.1"
-                />
-                <text
-                  x="79"
-                  y="70"
-                  text-anchor="middle"
-                  font-family="Inter,sans-serif"
-                  font-size="6"
-                  font-weight="600"
-                  fill="var(--card-accent)"
-                  opacity="0.5"
-                >
-                  Score: 92/100
-                </text>
-              </svg>
-            </div>
-            <div
-              class="card-icon"
-              style="
-                --icon-bg: rgba(34, 211, 238, 0.1);
-                --icon-border: rgba(34, 211, 238, 0.15);
-              "
-            >
-              <svg
-                width="22"
-                height="22"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="#22d3ee"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <path
-                  d="M12 2L4 7v5c0 5.55 3.84 10.74 8 12 4.16-1.26 8-6.45 8-12V7L12 2z"
-                />
-                <path d="M9 12l2 2 4-4" />
-              </svg>
-            </div>
-            <div class="card-title">ComplianceGuard</div>
-            <div class="card-desc">
-              AI-powered compliance audit: EEOC, GDPR, pay transparency, age
-              discrimination, disability, gender-neutral language. EU 2026
-              ready.
-            </div>
-            <div class="card-footer">
-              <span class="card-category">Compliance</span
-              ><span class="card-arrow">&rarr;</span>
-            </div>
-          </a>
-
-          <!-- 20. CreativeAI (ad copy variants) -->
-          <a
-            href="/creative-ai"
-            class="product-card reveal-on-scroll stagger-2"
-            data-category="tools"
-            data-keywords="creative ai ad copy variant recruitment job posting generator"
-            style="--card-accent: #fbbf24"
-          >
-            <span class="card-status new">New</span>
-            <div class="card-preview">
-              <svg viewBox="0 0 120 80" class="card-mini-viz">
-                <!-- AI sparkle -->
-                <path
-                  d="M16 12 L18 18 L24 18 L19 22 L21 28 L16 24 L11 28 L13 22 L8 18 L14 18 Z"
-                  fill="var(--card-accent)"
-                  opacity="0.4"
-                />
-                <circle
-                  cx="28"
-                  cy="8"
-                  r="1.5"
-                  fill="var(--card-accent)"
-                  opacity="0.3"
-                />
-                <circle
-                  cx="8"
-                  cy="30"
-                  r="1"
-                  fill="var(--card-accent)"
-                  opacity="0.25"
-                />
-                <!-- Ad copy variant cards (stacked, offset) -->
-                <rect
-                  x="36"
-                  y="16"
-                  width="78"
-                  height="16"
-                  rx="3"
-                  fill="var(--card-accent)"
-                  fill-opacity="0.06"
-                  stroke="var(--card-accent)"
-                  stroke-width="0.6"
-                  stroke-opacity="0.15"
-                />
-                <rect
-                  x="40"
-                  y="20"
-                  width="30"
-                  height="2.5"
-                  rx="1"
-                  fill="var(--card-accent)"
-                  opacity="0.4"
-                />
-                <rect
-                  x="40"
-                  y="25"
-                  width="50"
-                  height="2"
-                  rx="1"
-                  fill="var(--card-accent)"
-                  opacity="0.2"
-                />
-                <rect
-                  x="36"
-                  y="36"
-                  width="78"
-                  height="16"
-                  rx="3"
-                  fill="var(--card-accent)"
-                  fill-opacity="0.08"
-                  stroke="var(--card-accent)"
-                  stroke-width="0.6"
-                  stroke-opacity="0.2"
-                />
-                <rect
-                  x="40"
-                  y="40"
-                  width="34"
-                  height="2.5"
-                  rx="1"
-                  fill="var(--card-accent)"
-                  opacity="0.5"
-                />
-                <rect
-                  x="40"
-                  y="45"
-                  width="46"
-                  height="2"
-                  rx="1"
-                  fill="var(--card-accent)"
-                  opacity="0.25"
-                />
-                <rect
-                  x="36"
-                  y="56"
-                  width="78"
-                  height="16"
-                  rx="3"
-                  fill="var(--card-accent)"
-                  fill-opacity="0.1"
-                  stroke="var(--card-accent)"
-                  stroke-width="0.6"
-                  stroke-opacity="0.25"
-                />
-                <rect
-                  x="40"
-                  y="60"
-                  width="28"
-                  height="2.5"
-                  rx="1"
-                  fill="var(--card-accent)"
-                  opacity="0.6"
-                />
-                <rect
-                  x="40"
-                  y="65"
-                  width="42"
-                  height="2"
-                  rx="1"
-                  fill="var(--card-accent)"
-                  opacity="0.3"
-                />
-                <!-- Variant labels -->
-                <text
-                  x="100"
-                  y="26"
-                  font-family="Inter,sans-serif"
-                  font-size="5"
-                  font-weight="600"
-                  fill="var(--card-accent)"
-                  opacity="0.3"
-                >
-                  v1
-                </text>
-                <text
-                  x="100"
-                  y="46"
-                  font-family="Inter,sans-serif"
-                  font-size="5"
-                  font-weight="600"
-                  fill="var(--card-accent)"
-                  opacity="0.4"
-                >
-                  v2
-                </text>
-                <text
-                  x="100"
-                  y="66"
-                  font-family="Inter,sans-serif"
-                  font-size="5"
-                  font-weight="600"
-                  fill="var(--card-accent)"
-                  opacity="0.5"
-                >
-                  v3
-                </text>
-              </svg>
-            </div>
-            <div
-              class="card-icon"
-              style="
-                --icon-bg: rgba(251, 191, 36, 0.1);
-                --icon-border: rgba(251, 191, 36, 0.15);
-              "
-            >
-              <svg
-                width="22"
-                height="22"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="#fbbf24"
-                stroke-width="2"
-                stroke-linecap="round"
-              >
-                <path
-                  d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 16.8l-6.2 4.5 2.4-7.4L2 9.4h7.6z"
-                />
-              </svg>
-            </div>
-            <div class="card-title">CreativeAI</div>
-            <div class="card-desc">
-              Generate 5 distinct recruitment ad copy variants for A/B testing.
-              Benefits-first, culture-forward, growth-focused, and more across
-              any platform.
-            </div>
-            <div class="card-footer">
-              <span class="card-category">Tools</span
-              ><span class="card-arrow">&rarr;</span>
-            </div>
-          </a>
-
-          <!-- 21. VendorIQ (vendor comparison scorecard) -->
-          <a
-            href="/vendor-iq"
-            class="product-card reveal-on-scroll stagger-3"
-            data-category="analytics"
-            data-keywords="vendor iq compare job board performance cpc cpa quality benchmark"
-            style="--card-accent: #6366f1"
-          >
-            <span class="card-status new">New</span>
-            <div class="card-preview">
-              <svg viewBox="0 0 120 80" class="card-mini-viz">
-                <!-- Table header -->
-                <rect
-                  x="4"
-                  y="6"
-                  width="112"
-                  height="12"
-                  rx="3"
-                  fill="var(--card-accent)"
-                  opacity="0.08"
-                />
-                <text
-                  x="28"
-                  y="14"
-                  text-anchor="middle"
-                  font-family="Inter,sans-serif"
-                  font-size="5"
-                  font-weight="600"
-                  fill="var(--card-accent)"
-                  opacity="0.4"
-                >
-                  Vendor
-                </text>
-                <text
-                  x="62"
-                  y="14"
-                  text-anchor="middle"
-                  font-family="Inter,sans-serif"
-                  font-size="5"
-                  font-weight="600"
-                  fill="var(--card-accent)"
-                  opacity="0.4"
-                >
-                  CPC
-                </text>
-                <text
-                  x="86"
-                  y="14"
-                  text-anchor="middle"
-                  font-family="Inter,sans-serif"
-                  font-size="5"
-                  font-weight="600"
-                  fill="var(--card-accent)"
-                  opacity="0.4"
-                >
-                  Score
-                </text>
-                <text
-                  x="108"
-                  y="14"
-                  text-anchor="middle"
-                  font-family="Inter,sans-serif"
-                  font-size="5"
-                  font-weight="600"
-                  fill="var(--card-accent)"
-                  opacity="0.4"
-                >
-                  Rec
-                </text>
-                <!-- Row 1: Indeed (top rated) -->
-                <rect
-                  x="4"
-                  y="20"
-                  width="112"
-                  height="14"
-                  rx="0"
-                  fill="var(--card-accent)"
-                  opacity="0.04"
-                />
-                <text
-                  x="8"
-                  y="29"
-                  font-family="Inter,sans-serif"
-                  font-size="6"
-                  font-weight="600"
-                  fill="var(--card-accent)"
-                  opacity="0.6"
-                >
-                  Indeed
-                </text>
-                <text
-                  x="62"
-                  y="29"
-                  text-anchor="middle"
-                  font-family="Inter,sans-serif"
-                  font-size="6"
-                  fill="var(--card-accent)"
-                  opacity="0.5"
-                >
-                  $1.20
-                </text>
-                <text
-                  x="86"
-                  y="29"
-                  text-anchor="middle"
-                  font-family="Inter,sans-serif"
-                  font-size="7"
-                  font-weight="700"
-                  fill="#22c55e"
-                  opacity="0.7"
-                >
-                  92
-                </text>
-                <rect
-                  x="102"
-                  y="24"
-                  width="10"
-                  height="6"
-                  rx="2"
-                  fill="#22c55e"
-                  opacity="0.3"
-                />
-                <!-- Row 2 -->
-                <text
-                  x="8"
-                  y="45"
-                  font-family="Inter,sans-serif"
-                  font-size="6"
-                  font-weight="600"
-                  fill="var(--card-accent)"
-                  opacity="0.5"
-                >
-                  LinkedIn
-                </text>
-                <text
-                  x="62"
-                  y="45"
-                  text-anchor="middle"
-                  font-family="Inter,sans-serif"
-                  font-size="6"
-                  fill="var(--card-accent)"
-                  opacity="0.5"
-                >
-                  $3.40
-                </text>
-                <text
-                  x="86"
-                  y="45"
-                  text-anchor="middle"
-                  font-family="Inter,sans-serif"
-                  font-size="7"
-                  font-weight="700"
-                  fill="#f59e0b"
-                  opacity="0.7"
-                >
-                  78
-                </text>
-                <rect
-                  x="102"
-                  y="40"
-                  width="10"
-                  height="6"
-                  rx="2"
-                  fill="#f59e0b"
-                  opacity="0.3"
-                />
-                <!-- Row 3 -->
-                <rect
-                  x="4"
-                  y="50"
-                  width="112"
-                  height="14"
-                  rx="0"
-                  fill="var(--card-accent)"
-                  opacity="0.04"
-                />
-                <text
-                  x="8"
-                  y="59"
-                  font-family="Inter,sans-serif"
-                  font-size="6"
-                  font-weight="600"
-                  fill="var(--card-accent)"
-                  opacity="0.4"
-                >
-                  ZipRecruiter
-                </text>
-                <text
-                  x="62"
-                  y="59"
-                  text-anchor="middle"
-                  font-family="Inter,sans-serif"
-                  font-size="6"
-                  fill="var(--card-accent)"
-                  opacity="0.4"
-                >
-                  $2.10
-                </text>
-                <text
-                  x="86"
-                  y="59"
-                  text-anchor="middle"
-                  font-family="Inter,sans-serif"
-                  font-size="7"
-                  font-weight="700"
-                  fill="var(--card-accent)"
-                  opacity="0.5"
-                >
-                  85
-                </text>
-                <rect
-                  x="102"
-                  y="54"
-                  width="10"
-                  height="6"
-                  rx="2"
-                  fill="#22c55e"
-                  opacity="0.2"
-                />
-                <!-- Best value badge -->
-                <rect
-                  x="28"
-                  y="66"
-                  width="64"
-                  height="10"
-                  rx="5"
-                  fill="var(--card-accent)"
-                  opacity="0.1"
-                />
-                <text
-                  x="60"
-                  y="73"
-                  text-anchor="middle"
-                  font-family="Inter,sans-serif"
-                  font-size="5.5"
-                  font-weight="600"
-                  fill="var(--card-accent)"
-                  opacity="0.5"
-                >
-                  Best Value: Indeed
-                </text>
-              </svg>
-            </div>
-            <div
-              class="card-icon"
-              style="
-                --icon-bg: rgba(99, 102, 241, 0.1);
-                --icon-border: rgba(99, 102, 241, 0.15);
-              "
-            >
-              <svg
-                width="22"
-                height="22"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="#6366f1"
-                stroke-width="2"
-                stroke-linecap="round"
-              >
-                <rect x="3" y="12" width="4" height="9" rx="1" />
-                <rect x="10" y="7" width="4" height="14" rx="1" />
-                <rect x="17" y="3" width="4" height="18" rx="1" />
-              </svg>
-            </div>
-            <div class="card-title">VendorIQ</div>
-            <div class="card-desc">
-              Compare recruitment advertising vendors on CPC, CPA, quality
-              scores, and reach. Get smart budget allocation recommendations.
-            </div>
-            <div class="card-footer">
-              <span class="card-category">Analytics</span
-              ><span class="card-arrow">&rarr;</span>
-            </div>
-          </a>
+          </div>
+          <a href="/platform" class="nova-banner-btn">Try Nova AI</a>
         </div>
       </div>
     </section>
@@ -7237,8 +3628,8 @@
           Ready to transform your recruitment advertising?
         </h3>
         <p>
-          Start with the Media Plan Generator, or explore the full suite of 21
-          AI-powered tools.
+          Start with the Media Plan Generator, or explore the full platform of
+          AI-powered products.
         </p>
         <a href="/media-plan" class="cta-btn">
           Generate Your First Plan
@@ -7264,7 +3655,7 @@
             display: inline-block;
             text-decoration: none;
           "
-          >Explore all 21 tools &rarr;</a
+          >Explore the platform &rarr;</a
         >
         <div
           style="
@@ -7273,7 +3664,7 @@
             color: rgba(255, 255, 255, 0.5);
           "
         >
-          21 AI Tools &middot; 91+ Job Boards &middot; No signup required
+          3 AI Products &middot; 91+ Job Boards &middot; No signup required
         </div>
       </div>
     </section>
@@ -7281,12 +3672,12 @@
     <!-- ========================================== -->
     <!-- SECTION 9: FOOTER                          -->
     <!-- ========================================== -->
-    <footer class="footer reveal-on-scroll">
+    <footer class="footer reveal-on-scroll" role="contentinfo">
       <div class="footer-grid">
         <div class="footer-brand">
           <div class="footer-brand-name">
-            <svg viewBox="0 0 32 32" fill="none">
-              <rect width="32" height="32" rx="8" fill="#6366F1" />
+            <svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
+              <rect width="32" height="32" rx="8" fill="#5A54BD" />
               <text
                 x="16"
                 y="22"
@@ -7302,19 +3693,19 @@
             Nova AI Suite
           </div>
           <p>
-            AI-powered recruitment intelligence platform. 21 tools for every
-            stage of talent acquisition.
+            AI-powered recruitment intelligence platform. Three products for
+            every stage of talent acquisition.
           </p>
         </div>
         <div>
           <div class="footer-col-title">Products</div>
           <ul class="footer-links">
-            <li><a href="/media-plan">Media Plan Generator</a></li>
-            <li><a href="/simulator">Budget Simulator</a></li>
-            <li><a href="/tracker">Performance Tracker</a></li>
-            <li><a href="/competitive">Competitive Intel</a></li>
-            <li><a href="/market-pulse">Market Pulse</a></li>
-            <li><a href="/compliance-guard">ComplianceGuard</a></li>
+            <li><a href="/platform#plan/campaign">Plan</a></li>
+            <li>
+              <a href="/platform#intelligence/competitive">Intelligence</a>
+            </li>
+            <li><a href="/platform#compliance/comply">Compliance</a></li>
+            <li><a href="/platform">Nova AI</a></li>
           </ul>
         </div>
         <div>
@@ -7404,89 +3795,10 @@
           revealObserver.observe(el);
         });
 
-        // ── Search + Tab Filter ──
-        var searchInput = document.getElementById("searchInput");
-        var grid = document.getElementById("productsGrid");
-        var cards = grid.querySelectorAll(".product-card");
-        var tabBtns = document.querySelectorAll(".tab-btn");
-        var currentFilter = "all";
-
-        function filterCards() {
-          var query = searchInput.value.toLowerCase().trim();
-          var visibleCount = 0;
-
-          cards.forEach(function (card) {
-            var title = card
-              .querySelector(".card-title")
-              .textContent.toLowerCase();
-            var desc = card
-              .querySelector(".card-desc")
-              .textContent.toLowerCase();
-            var keywords = (card.dataset.keywords || "").toLowerCase();
-            var category = card.dataset.category || "";
-
-            var matchesSearch =
-              !query ||
-              title.includes(query) ||
-              desc.includes(query) ||
-              keywords.includes(query);
-            var matchesFilter =
-              currentFilter === "all" || category === currentFilter;
-
-            if (matchesSearch && matchesFilter) {
-              card.style.display = "";
-              visibleCount++;
-            } else {
-              card.style.display = "none";
-            }
-          });
-
-          var existing = grid.querySelector(".no-results");
-          if (visibleCount === 0) {
-            if (!existing) {
-              var div = document.createElement("div");
-              div.className = "no-results";
-              div.innerHTML =
-                "<h4>No products found</h4><p>Try a different search term or filter.</p>";
-              grid.appendChild(div);
-            }
-          } else if (existing) {
-            existing.remove();
-          }
-        }
-
-        searchInput.addEventListener("input", filterCards);
-
-        tabBtns.forEach(function (btn) {
-          btn.addEventListener("click", function () {
-            tabBtns.forEach(function (b) {
-              b.classList.remove("active");
-            });
-            btn.classList.add("active");
-            currentFilter = btn.dataset.filter;
-            filterCards();
-          });
-        });
-
-        // ── Keyboard shortcut: / to focus search ──
-        document.addEventListener("keydown", function (e) {
-          if (e.key === "/" && document.activeElement !== searchInput) {
-            e.preventDefault();
-            searchInput.focus();
-          }
-        });
-
-        // ── Nav links: scroll to platform + activate tab ──
+        // ── Nav links: scroll to platform ──
         document.querySelectorAll("[data-nav-filter]").forEach(function (link) {
           link.addEventListener("click", function (e) {
             e.preventDefault();
-            var filter = link.dataset.navFilter;
-            tabBtns.forEach(function (btn) {
-              btn.classList.remove("active");
-              if (btn.dataset.filter === filter) btn.classList.add("active");
-            });
-            currentFilter = filter;
-            filterCards();
             document
               .getElementById("platform")
               .scrollIntoView({ behavior: "smooth", block: "start" });

@@ -83,6 +83,30 @@
       }
 
       /* ═══════════════════════════════════════════════════════════════
+   ACCESSIBILITY
+   ═══════════════════════════════════════════════════════════════ */
+      .skip-nav {
+        position: absolute;
+        top: -40px;
+        left: 0;
+        background: var(--accent);
+        color: #fff;
+        padding: 8px 16px;
+        z-index: 10000;
+        transition: top 0.3s;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 0.85rem;
+      }
+      .skip-nav:focus {
+        top: 0;
+      }
+      :focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+
+      /* ═══════════════════════════════════════════════════════════════
    RESET & BASE
    ═══════════════════════════════════════════════════════════════ */
       *,
@@ -2030,8 +2054,10 @@
         flex-shrink: 0;
       }
     </style>
+    <meta name="csrf-token" content="" />
   </head>
   <body>
+    <a href="#module-frame" class="skip-nav">Skip to main content</a>
     <div class="aurora-bg" aria-hidden="true"></div>
 
     <!-- ════════════════════════ PLATFORM SHELL ════════════════════════ -->
@@ -2049,7 +2075,7 @@
           onclick="NovaRouter.navigate('')"
           title="Nova Platform Home"
         >
-          <div class="sidebar-logo-mark">N</div>
+          <div class="sidebar-logo-mark" aria-hidden="true">N</div>
           <span class="sidebar-logo-text">Nova Platform</span>
           <button
             class="sidebar-toggle"
@@ -2076,7 +2102,11 @@
         <div class="sidebar-favorites" id="sidebar-favorites"></div>
 
         <!-- Navigation (Phase 3: rebuilt by NovaSidebar.build()) -->
-        <nav class="sidebar-nav" id="sidebar-nav"></nav>
+        <nav
+          class="sidebar-nav"
+          id="sidebar-nav"
+          aria-label="Product modules"
+        ></nav>
 
         <!-- Divider + utilities -->
         <div class="sidebar-divider"></div>
@@ -2201,6 +2231,7 @@
           onclick="NovaCmdPalette.open()"
           role="button"
           tabindex="0"
+          aria-label="Search modules (Cmd+K)"
         >
           <svg
             viewBox="0 0 24 24"
@@ -2223,6 +2254,7 @@
             class="topbar-btn"
             title="Nova AI (&#8984;/)"
             onclick="NovaDrawer.toggle()"
+            aria-label="Toggle Nova AI assistant"
           >
             <svg
               viewBox="0 0 24 24"
@@ -2244,6 +2276,7 @@
             onclick="
               window.open('https://www.linkedin.com/in/chandel13/', '_blank')
             "
+            aria-label="Help - opens LinkedIn profile"
           >
             <svg
               viewBox="0 0 24 24"
@@ -2260,17 +2293,25 @@
           </button>
         </div>
 
-        <div class="topbar-avatar" title="Shubham Singh Chandel">SC</div>
+        <div
+          class="topbar-avatar"
+          title="Shubham Singh Chandel"
+          role="img"
+          aria-label="User avatar: Shubham Singh Chandel"
+        >
+          SC
+        </div>
       </header>
 
       <!-- ── CONTENT AREA ── -->
-      <main class="content-area">
+      <main class="content-area" role="main" aria-label="Module content">
         <div
           class="module-loading-bar"
           id="loading-bar"
           style="width: 0%"
+          aria-hidden="true"
         ></div>
-        <div id="module-frame" role="main"></div>
+        <div id="module-frame"></div>
       </main>
     </div>
 
@@ -2286,6 +2327,7 @@
       class="nova-fab"
       id="nova-fab"
       onclick="NovaDrawer.open()"
+      aria-label="Open Nova AI Assistant"
       title="Nova AI (&#8984;/)"
     >
       <svg
@@ -2370,6 +2412,7 @@
           placeholder="Ask Nova anything..."
           rows="1"
           onkeydown="NovaDrawer.handleKey(event)"
+          aria-label="Message Nova AI"
         ></textarea>
         <button
           class="nova-send-btn"
@@ -2396,6 +2439,9 @@
       class="cmd-palette-overlay"
       id="cmd-palette"
       onclick="if (event.target === this) NovaCmdPalette.close();"
+      role="dialog"
+      aria-label="Command palette"
+      aria-modal="true"
     >
       <div class="cmd-palette">
         <div class="cmd-palette-input-wrap">
@@ -2406,6 +2452,7 @@
             stroke-width="2"
             stroke-linecap="round"
             stroke-linejoin="round"
+            aria-hidden="true"
           >
             <circle cx="11" cy="11" r="8" />
             <line x1="21" y1="21" x2="16.65" y2="16.65" />
@@ -2417,6 +2464,7 @@
             placeholder="Search modules, actions..."
             autocomplete="off"
             oninput="NovaCmdPalette.filter(this.value)"
+            aria-label="Search modules"
           />
         </div>
         <div class="cmd-palette-results" id="cmd-palette-results"></div>
@@ -4099,14 +4147,87 @@
             if (!text) return;
             input.value = "";
             _chatHistory.push({ role: "user", text });
-            const response = _generateResponse(text);
-            _chatHistory.push({
-              role: "nova",
-              text: response.text,
-              actions: response.actions,
-            });
-            _saveChatHistory(_chatHistory);
             _renderMessages(_chatHistory);
+
+            /* Show typing indicator */
+            const container = document.getElementById("nova-messages");
+            const typingEl = document.createElement("div");
+            typingEl.className = "nova-msg";
+            typingEl.innerHTML =
+              '<div class="nova-msg-avatar nova">N</div><div class="nova-msg-body nova-reply" style="opacity:0.5;">Thinking...</div>';
+            container.appendChild(typingEl);
+            container.scrollTop = container.scrollHeight;
+
+            /* Call real Nova API */
+            const activeModule = NovaContext.nav.activeModule;
+            const campaign = NovaContext.campaign;
+            const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+            const headers = { "Content-Type": "application/json" };
+            if (csrfMeta && csrfMeta.content)
+              headers["X-CSRF-Token"] = csrfMeta.content;
+
+            fetch("/api/chat", {
+              method: "POST",
+              headers: headers,
+              body: JSON.stringify({
+                message: text,
+                conversation_history: _chatHistory
+                  .filter((m) => m.role === "user" || m.role === "nova")
+                  .slice(-10)
+                  .map((m) => ({
+                    role: m.role === "nova" ? "assistant" : "user",
+                    content: m.text,
+                  })),
+                context: {
+                  active_module: activeModule,
+                  campaign_name: campaign.name || "",
+                  campaign_budget: campaign.budget || 0,
+                  campaign_industry: campaign.industry || "",
+                },
+              }),
+            })
+              .then((r) => r.json())
+              .then((data) => {
+                /* Remove typing indicator */
+                if (typingEl.parentNode) typingEl.remove();
+
+                const responseText =
+                  data.response ||
+                  data.text ||
+                  "I couldn't process that request. Try the standalone Nova page for full capabilities.";
+                const actions = [];
+
+                /* Extract action buttons from response if any */
+                const activeActions = MODULE_ACTIONS[activeModule] || [];
+                if (activeActions.length) {
+                  actions.push(...activeActions.slice(0, 2));
+                }
+
+                _chatHistory.push({
+                  role: "nova",
+                  text: responseText,
+                  actions: actions,
+                });
+                _saveChatHistory(_chatHistory);
+                _renderMessages(_chatHistory);
+
+                /* Update suggestions based on response */
+                updateSuggestions(activeModule || "home");
+              })
+              .catch((err) => {
+                /* Remove typing indicator */
+                if (typingEl.parentNode) typingEl.remove();
+
+                /* Fallback to client-side if API fails */
+                const response = _generateResponse(text);
+                _chatHistory.push({
+                  role: "nova",
+                  text: response.text + " (offline mode)",
+                  actions: response.actions,
+                });
+                _saveChatHistory(_chatHistory);
+                _renderMessages(_chatHistory);
+              });
           },
           sendSuggestion(text) {
             document.getElementById("nova-input").value = text;
@@ -4541,6 +4662,14 @@
         NovaRouter.init();
         /* Show onboarding on first visit (Phase 6) */
         setTimeout(() => NovaOnboarding.check(), 500);
+        /* Fetch CSRF token for API calls */
+        fetch("/api/csrf-token")
+          .then((r) => r.json())
+          .then((d) => {
+            const meta = document.querySelector('meta[name="csrf-token"]');
+            if (meta && d.csrf_token) meta.content = d.csrf_token;
+          })
+          .catch(() => {});
       });
     </script>
   </body>

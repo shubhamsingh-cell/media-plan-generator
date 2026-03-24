@@ -1204,7 +1204,9 @@ class SentryHealingBridge:
 
         # Verify fix worked after 30s delay (Phase 6)
         if heal_success:
-            threading.Timer(30.0, _verify_heal, args=[fix_type, fingerprint]).start()
+            _timer = threading.Timer(30.0, _verify_heal, args=[fix_type, fingerprint])
+            _timer.daemon = True
+            _timer.start()
 
         # Record in history
         _record_heal_event(

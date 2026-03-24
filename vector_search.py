@@ -543,6 +543,46 @@ def build_index(documents: list[dict]) -> None:
     )
 
 
+def _rerank_results(results: list[dict], query: str, top_k: int = 3) -> list[dict]:
+    """Rerank search results using keyword overlap scoring.
+
+    Simple but effective: combines vector similarity with keyword overlap
+    for hybrid-like search without a separate sparse index.
+
+    Args:
+        results: List of search result dicts (must have text/content and score/similarity).
+        query: Original search query string.
+        top_k: Number of top results to return after reranking.
+
+    Returns:
+        Reranked and truncated list of result dicts.
+    """
+    if not results:
+        return results
+
+    query_terms = set(query.lower().split())
+
+    for result in results:
+        text = (result.get("text", "") or result.get("content", "")).lower()
+        text_terms = set(text.split())
+
+        # Keyword overlap score (Jaccard-like)
+        overlap = len(query_terms & text_terms)
+        keyword_score = overlap / max(len(query_terms), 1)
+
+        # Combine with existing score (if any)
+        vector_score = result.get("score", result.get("similarity", 0.5))
+
+        # Weighted combination: 60% vector + 40% keyword
+        result["combined_score"] = round(vector_score * 0.6 + keyword_score * 0.4, 4)
+        result["keyword_overlap"] = overlap
+
+    # Sort by combined score
+    results.sort(key=lambda x: x.get("combined_score", 0), reverse=True)
+
+    return results[:top_k]
+
+
 def search(query: str, top_k: int = 5) -> list[dict]:
     """Semantic search across indexed documents.
 
@@ -550,6 +590,9 @@ def search(query: str, top_k: int = 5) -> list[dict]:
         1. Qdrant vector store (production, if configured)
         2. In-memory vector search (Voyage AI embeddings)
         3. TF-IDF keyword search (pure Python fallback)
+
+    Results are reranked using hybrid scoring (vector + keyword overlap)
+    before being returned.
 
     Args:
         query: Natural language search query.
@@ -575,7 +618,8 @@ def search(query: str, top_k: int = 5) -> list[dict]:
                     len(qdrant_results),
                     query[:50],
                 )
-                return qdrant_results
+                results = _rerank_results(qdrant_results, query, top_k)
+                return results
         except (OSError, ValueError, TypeError) as exc:
             logger.error("Qdrant search error, falling back: %s", exc, exc_info=True)
 
@@ -599,6 +643,7 @@ def search(query: str, top_k: int = 5) -> list[dict]:
                     "score": round(score, 4),
                 }
             )
+        results = _rerank_results(results, query, top_k)
         return results
 
     if query_embedding is None and (_qdrant_available or _index):
@@ -613,7 +658,8 @@ def search(query: str, top_k: int = 5) -> list[dict]:
             len(tfidf_results),
             query[:50],
         )
-        return tfidf_results
+        results = _rerank_results(tfidf_results, query, top_k)
+        return results
 
     return []
 

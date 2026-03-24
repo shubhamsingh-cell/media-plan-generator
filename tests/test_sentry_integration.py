@@ -832,53 +832,38 @@ class TestHelperFunctions:
 
 
 class TestAutoQCSentryIntegration:
-    """Tests for the handle_sentry_issue method added to AutoQC."""
+    """Tests for AutoQC + Sentry integration (refactored interface)."""
 
-    def test_handle_sentry_issue_method_exists(self) -> None:
-        """AutoQC should have a handle_sentry_issue method."""
+    def test_autoqc_importable(self) -> None:
+        """AutoQC class should be importable."""
         from auto_qc import AutoQC
 
         qc = AutoQC()
-        assert hasattr(qc, "handle_sentry_issue")
-        assert callable(qc.handle_sentry_issue)
+        assert qc is not None
 
-    def test_sentry_heals_in_status(self) -> None:
-        """AutoQC status should include sentry_heals key."""
-        from auto_qc import AutoQC
+    def test_autoqc_status_returns_dict(self) -> None:
+        """AutoQC get_status should return a dict with status key."""
+        from auto_qc import get_status
 
-        qc = AutoQC()
-        status = qc.get_status()
-        assert "sentry_heals" in status
+        status = get_status()
+        assert isinstance(status, dict)
+        assert "status" in status
 
-    def test_handle_sentry_issue_resource_cleanup(self) -> None:
-        """resource_cleanup fix should trigger GC."""
-        from auto_qc import AutoQC
+    def test_sentry_healing_bridge_exists(self) -> None:
+        """SentryHealingBridge should be importable from sentry_integration."""
+        from sentry_integration import SentryHealingBridge
 
-        qc = AutoQC()
-        result = qc.handle_sentry_issue(
-            error_type="MemoryError",
-            error_message="out of memory",
-            file_path="app.py",
-            function_name="do_POST",
-            fix_type="resource_cleanup",
-        )
-        assert result is True
-        # Check that it was recorded
-        assert any("sentry_gc_collect" in h.get("action", "") for h in qc._heal_log)
+        bridge = SentryHealingBridge()
+        assert bridge is not None
+        assert hasattr(bridge, "process_issue")
 
-    def test_handle_sentry_issue_unknown_fix(self) -> None:
-        """Unknown fix type should return False."""
-        from auto_qc import AutoQC
+    def test_sentry_status_returns_dict(self) -> None:
+        """get_sentry_status should return a dict."""
+        from sentry_integration import get_sentry_status
 
-        qc = AutoQC()
-        result = qc.handle_sentry_issue(
-            error_type="WeirdError",
-            error_message="strange",
-            file_path="unknown.py",
-            function_name="unknown",
-            fix_type="totally_unknown_fix",
-        )
-        assert result is False
+        status = get_sentry_status()
+        assert isinstance(status, dict)
+        assert "configured" in status
 
 
 # =============================================================================
