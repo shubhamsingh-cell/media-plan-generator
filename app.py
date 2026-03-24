@@ -16293,6 +16293,181 @@ def _analyze_compliance(data: dict) -> dict:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# COMPLIANCEGUARD AUDIT: Enhanced LLM-Powered Compliance Audit with Fix Mode
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def _audit_complianceguard(data: dict) -> dict:
+    """Run a comprehensive compliance audit on a job posting using LLM.
+
+    Supports both analysis-only and fix_mode (rewrite the job description).
+
+    Args:
+        data: Dict with job_title, location, job_description, company_size,
+              industry, and optional fix_mode boolean.
+
+    Returns:
+        Dict with score, risk_level, findings, recommendations,
+        and optionally rewritten_description.
+    """
+    job_description: str = data.get("job_description") or ""
+    job_title: str = data.get("job_title") or ""
+    location: str = data.get("location") or ""
+    company_size: str = data.get("company_size") or ""
+    industry: str = data.get("industry") or ""
+    fix_mode: bool = bool(data.get("fix_mode"))
+
+    if not job_description:
+        return {"error": "job_description is required", "score": 0, "findings": []}
+
+    # Enrich with O*NET occupation classification
+    onet_context: str = ""
+    if _api_integrations_available and _api_onet and job_title:
+        try:
+            occ_results = _api_onet.search_occupations(job_title)
+            if occ_results:
+                top_occ = occ_results[0]
+                soc_code = top_occ.get("code") or ""
+                onet_context = (
+                    f"O*NET Classification: {top_occ.get('title') or ''} "
+                    f"(SOC: {soc_code})"
+                )
+                try:
+                    skills = _api_onet.get_skills(soc_code)
+                    if skills:
+                        skill_names = [s.get("name") or "" for s in skills[:5]]
+                        onet_context += f"\nKey skills: {', '.join(skill_names)}"
+                except (TypeError, KeyError, ValueError) as sk_err:
+                    logger.error(f"O*NET skills fetch failed: {sk_err}", exc_info=True)
+        except (TypeError, KeyError, ValueError) as onet_err:
+            logger.error(f"O*NET lookup failed: {onet_err}", exc_info=True)
+
+    # Fetch Supabase compliance rules
+    supabase_rules: list = []
+    if _supabase_data_available and location:
+        try:
+            supabase_rules = get_compliance_rules(jurisdiction=location) or []
+        except (urllib.error.URLError, OSError, ValueError) as sb_err:
+            logger.error(
+                f"Supabase compliance rules fetch failed: {sb_err}", exc_info=True
+            )
+
+    rules_context: str = ""
+    if supabase_rules:
+        rules_context = "\n\nApplicable Compliance Rules:\n"
+        for rule in supabase_rules[:10]:
+            rule_name = rule.get("name") or rule.get("rule_name") or ""
+            rule_desc = rule.get("description") or rule.get("details") or ""
+            if rule_name:
+                rules_context += f"- {rule_name}: {rule_desc[:200]}\n"
+
+    router = _lazy_llm_router()
+    if not router:
+        return {
+            "score": 0,
+            "risk_level": "unknown",
+            "findings": [],
+            "recommendations": ["LLM service unavailable. Please try again later."],
+            "rewritten_description": None,
+        }
+
+    task_type = getattr(router, "TASK_VERIFICATION", "verification")
+
+    # Build the analysis + fix prompt
+    fix_instruction: str = ""
+    if fix_mode:
+        fix_instruction = (
+            '\n\nAlso provide a "rewritten_description" field with a fully '
+            "compliant rewrite of the job description that fixes ALL identified "
+            "issues. Keep the original meaning and requirements but make it "
+            "legally compliant across all relevant jurisdictions."
+        )
+
+    prompt: str = (
+        f"Perform a comprehensive compliance audit on this job posting.\n\n"
+        f"Job Title: {job_title}\n"
+        f"Location: {location}\n"
+        f"Company Size: {company_size}\n"
+        f"Industry: {industry}\n"
+        f"{onet_context}\n{rules_context}\n\n"
+        f"Job Description:\n{job_description[:4000]}\n\n"
+        f"Analyze against ALL of the following compliance areas:\n"
+        f"1. EEOC compliance (US Equal Employment Opportunity)\n"
+        f"2. GDPR / data privacy (EU regulations, June 2026 deadline)\n"
+        f"3. Pay transparency (NYC, CO, CA, WA, EU Pay Transparency Directive)\n"
+        f"4. Age discrimination (ADEA protections)\n"
+        f"5. Disability accommodation language (ADA)\n"
+        f"6. Gender-neutral language check\n\n"
+        f"For each finding, provide severity (Critical/High/Medium/Low), "
+        f"the specific text flagged, the applicable law, and a recommended fix.\n\n"
+        f"Return valid JSON with this exact structure:\n"
+        f'{{"score": <0-100>, "risk_level": "<Low|Medium|High|Critical>", '
+        f'"findings": [{{"category": "...", "severity": "...", "description": "...", '
+        f'"flagged_text": "...", "applicable_law": "...", "recommended_fix": "..."}}], '
+        f'"recommendations": ["general recommendation 1", ...]'
+        f"{fix_instruction}"
+        f"}}"
+    )
+
+    try:
+        result = router.call_llm(
+            messages=[{"role": "user", "content": prompt}],
+            system_prompt=(
+                "You are an expert employment law and recruiting compliance analyst "
+                "specializing in US (EEOC, ADA, ADEA, OFCCP) and EU (GDPR, EU Pay "
+                "Transparency Directive, EU Employment Equality Directive) regulations. "
+                "Analyze job postings thoroughly. Always return valid JSON."
+            ),
+            task_type=task_type,
+            max_tokens=2048 if fix_mode else 1536,
+        )
+        response_text: str = result.get("text") or ""
+
+        # Parse JSON from response
+        cleaned: str = response_text.strip()
+        if cleaned.startswith("```"):
+            cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
+            cleaned = re.sub(r"\s*```$", "", cleaned)
+
+        try:
+            parsed = json.loads(cleaned)
+        except (json.JSONDecodeError, ValueError):
+            # Fallback: wrap as narrative
+            return {
+                "score": 50,
+                "risk_level": "Medium",
+                "findings": [],
+                "recommendations": [response_text[:1000]],
+                "rewritten_description": None,
+                "llm_provider": result.get("provider") or "",
+            }
+
+        audit_result: dict = {
+            "score": parsed.get("score") or 0,
+            "risk_level": parsed.get("risk_level") or "Medium",
+            "findings": parsed.get("findings") or [],
+            "recommendations": parsed.get("recommendations") or [],
+            "rewritten_description": parsed.get("rewritten_description"),
+            "llm_provider": result.get("provider") or "",
+        }
+        if onet_context:
+            audit_result["onet_classification"] = onet_context
+        if supabase_rules:
+            audit_result["applicable_rules_count"] = len(supabase_rules)
+        return audit_result
+
+    except Exception as e:
+        logger.error(f"ComplianceGuard audit LLM call failed: {e}", exc_info=True)
+        return {
+            "score": 0,
+            "risk_level": "unknown",
+            "findings": [],
+            "recommendations": ["Analysis temporarily unavailable. Please try again."],
+            "rewritten_description": None,
+        }
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # CREATIVEAI: LLM-Powered Ad Copy Generation
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -24931,6 +25106,36 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 self.end_headers()
                 self.wfile.write(
                     json.dumps({"error": f"Compliance analysis failed: {e}"}).encode()
+                )
+        # ── ComplianceGuard: Audit (enhanced endpoint) ──
+        elif path == "/api/complianceguard/audit":
+            try:
+                content_len = int(self.headers.get("Content-Length") or 0)
+                body_raw = self.rfile.read(content_len) if content_len > 0 else b"{}"
+                data = json.loads(body_raw)
+                result = _audit_complianceguard(data)
+
+                if (
+                    isinstance(result, dict)
+                    and result.get("error")
+                    and not data.get("job_description")
+                ):
+                    self._send_json(result, status_code=400)
+                    return
+
+                self._send_json(result)
+            except json.JSONDecodeError:
+                self.send_response(400)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Invalid JSON"}).encode())
+            except Exception as e:
+                logger.error(f"ComplianceGuard audit error: {e}", exc_info=True)
+                self.send_response(500)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(
+                    json.dumps({"error": f"ComplianceGuard audit failed: {e}"}).encode()
                 )
         # ── CreativeAI: Generate ──
         elif path == "/api/creative/generate":

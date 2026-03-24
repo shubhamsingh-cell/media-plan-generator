@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="Scan job postings for compliance issues -- salary transparency, biased language, EEO violations, OFCCP issues, and age discrimination."
+      content="ComplianceGuard -- AI-powered recruitment advertising compliance audit. Scan job postings for EEOC, GDPR, pay transparency, age discrimination, disability accommodation, and gender-neutral language issues. EU June 2026 deadline ready."
     />
     <meta name="theme-color" content="#000000" />
     <title>ComplianceGuard | Nova AI Suite</title>
@@ -846,6 +846,203 @@
         font-size: 28px;
       }
 
+      /* ── RISK LEVEL BADGE ───────────────────────── */
+      .risk-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 20px;
+        border-radius: 99px;
+        font-size: 14px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-top: 12px;
+      }
+      .risk-low {
+        background: rgba(52, 211, 153, 0.15);
+        color: var(--green-success);
+        border: 1px solid rgba(52, 211, 153, 0.3);
+      }
+      .risk-medium {
+        background: rgba(251, 191, 36, 0.15);
+        color: var(--amber-warning);
+        border: 1px solid rgba(251, 191, 36, 0.3);
+      }
+      .risk-high {
+        background: rgba(248, 113, 113, 0.15);
+        color: var(--red-error);
+        border: 1px solid rgba(248, 113, 113, 0.3);
+      }
+      .risk-critical {
+        background: rgba(220, 38, 38, 0.2);
+        color: #ef4444;
+        border: 1px solid rgba(220, 38, 38, 0.4);
+        animation: pulseCritical 2s ease-in-out infinite;
+      }
+      @keyframes pulseCritical {
+        0%,
+        100% {
+          box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.3);
+        }
+        50% {
+          box-shadow: 0 0 0 8px rgba(239, 68, 68, 0);
+        }
+      }
+
+      .risk-badge .risk-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: currentColor;
+      }
+
+      /* ── ACTION BUTTONS ROW ────────────────────── */
+      .action-row {
+        display: flex;
+        gap: 12px;
+        margin-top: 24px;
+        flex-wrap: wrap;
+      }
+      .btn-secondary {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 12px 24px;
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text);
+        background: var(--surface-1);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        cursor: pointer;
+        transition: all var(--duration-normal) var(--ease-standard);
+        font-family: inherit;
+        min-height: 44px;
+      }
+      .btn-secondary:hover:not(:disabled) {
+        background: var(--surface-2);
+        border-color: var(--glass-border-hover);
+      }
+      .btn-secondary:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
+      }
+      .btn-secondary:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      .btn-secondary .spinner {
+        display: none;
+        width: 16px;
+        height: 16px;
+        border: 2px solid rgba(255, 255, 255, 0.2);
+        border-top-color: var(--indigo-light);
+        border-radius: 50%;
+        animation: spin 0.6s linear infinite;
+      }
+      .btn-secondary.loading .spinner {
+        display: block;
+      }
+      .btn-secondary.loading .btn-label {
+        display: none;
+      }
+
+      /* ── JURISDICTION FINDINGS ─────────────────── */
+      .jurisdiction-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 16px;
+        margin-top: 16px;
+      }
+      .jurisdiction-card {
+        background: var(--surface-1);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 20px;
+        transition: border-color var(--duration-normal) var(--ease-standard);
+      }
+      .jurisdiction-card:hover {
+        border-color: var(--glass-border-hover);
+      }
+      .jurisdiction-card .jur-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 12px;
+      }
+      .jurisdiction-card .jur-title {
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--text);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .jurisdiction-card .jur-status {
+        font-size: 11px;
+        font-weight: 700;
+        padding: 3px 10px;
+        border-radius: 99px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      .jur-pass {
+        background: rgba(52, 211, 153, 0.15);
+        color: var(--green-success);
+        border: 1px solid rgba(52, 211, 153, 0.3);
+      }
+      .jur-warn {
+        background: rgba(251, 191, 36, 0.15);
+        color: var(--amber-warning);
+        border: 1px solid rgba(251, 191, 36, 0.3);
+      }
+      .jur-fail {
+        background: rgba(248, 113, 113, 0.15);
+        color: var(--red-error);
+        border: 1px solid rgba(248, 113, 113, 0.3);
+      }
+      .jurisdiction-card .jur-detail {
+        font-size: 13px;
+        color: var(--text-secondary);
+        line-height: 1.6;
+      }
+      .jurisdiction-card .jur-fix {
+        font-size: 12px;
+        color: var(--cyan-accent);
+        margin-top: 8px;
+        display: flex;
+        align-items: flex-start;
+        gap: 6px;
+      }
+      .jurisdiction-card .jur-fix::before {
+        content: "\2192";
+        flex-shrink: 0;
+        font-weight: 700;
+      }
+
+      /* ── REWRITTEN JD PANEL ────────────────────── */
+      .rewritten-panel {
+        margin-top: 24px;
+        display: none;
+      }
+      .rewritten-panel.visible {
+        display: block;
+      }
+      .rewritten-content {
+        background: var(--surface-1);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 24px;
+        font-size: 14px;
+        color: var(--text);
+        line-height: 1.7;
+        white-space: pre-wrap;
+        max-height: 500px;
+        overflow-y: auto;
+      }
+
       /* ── REVEAL ON SCROLL ───────────────────────── */
       .reveal-on-scroll {
         opacity: 0;
@@ -1017,8 +1214,8 @@
         <span class="header-badge">Compliance</span>
       </div>
       <nav aria-label="Main navigation">
-        <a href="/" class="nav-link" aria-label="Back to Nova AI Suite"
-          >Back to Nova AI Suite</a
+        <a href="/hub" class="nav-link" aria-label="Back to Suite"
+          >Back to Suite</a
         >
       </nav>
     </header>
@@ -1026,11 +1223,43 @@
     <main class="main-container" role="main">
       <!-- Page Title -->
       <div class="page-title reveal-on-scroll">
-        <h2>Job Posting Compliance Scanner</h2>
+        <h2>ComplianceGuard</h2>
         <p>
-          Scan job postings for pay transparency gaps, biased language, EEO
-          violations, OFCCP issues, and age discrimination risks.
+          AI-powered recruitment advertising compliance audit. Scan for EEOC,
+          GDPR, pay transparency, age discrimination, disability accommodation,
+          and gender-neutral language issues across US and EU jurisdictions.
         </p>
+        <div
+          style="
+            margin-top: 16px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border-radius: 99px;
+            background: rgba(248, 113, 113, 0.1);
+            border: 1px solid rgba(248, 113, 113, 0.3);
+            font-size: 13px;
+            font-weight: 600;
+            color: #f87171;
+          "
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="8" x2="12" y2="12" />
+            <line x1="12" y1="16" x2="12.01" y2="16" />
+          </svg>
+          EU Hiring Regulations Deadline: June 2026
+        </div>
       </div>
 
       <!-- Input Section -->
@@ -1071,6 +1300,39 @@
           <div class="form-group">
             <label for="companyName">Company (optional)</label>
             <input type="text" id="companyName" placeholder="e.g. Acme Corp" />
+          </div>
+          <div class="form-group">
+            <label for="companySize">Company Size</label>
+            <select id="companySize">
+              <option value="">Select size...</option>
+              <option value="small">Small (1-50 employees)</option>
+              <option value="medium">Medium (51-250 employees)</option>
+              <option value="large">Large (251-1000 employees)</option>
+              <option value="enterprise">Enterprise (1000+ employees)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="industrySector">Industry Sector</label>
+            <select id="industrySector">
+              <option value="">Select industry...</option>
+              <option value="technology">Technology</option>
+              <option value="healthcare">Healthcare</option>
+              <option value="finance">Finance / Banking</option>
+              <option value="manufacturing">Manufacturing</option>
+              <option value="retail">Retail / E-commerce</option>
+              <option value="education">Education</option>
+              <option value="government">Government / Public Sector</option>
+              <option value="construction">Construction</option>
+              <option value="hospitality">Hospitality / Food Service</option>
+              <option value="transportation">Transportation / Logistics</option>
+              <option value="energy">Energy / Utilities</option>
+              <option value="media">Media / Entertainment</option>
+              <option value="professional_services">
+                Professional Services
+              </option>
+              <option value="nonprofit">Nonprofit</option>
+              <option value="other">Other</option>
+            </select>
           </div>
         </div>
 
@@ -1181,6 +1443,10 @@
             <div class="score-label">Score</div>
           </div>
           <div class="score-status" id="scoreStatus"></div>
+          <div id="riskBadge" class="risk-badge risk-low" style="display: none">
+            <span class="risk-dot"></span>
+            <span id="riskLabel">Low Risk</span>
+          </div>
           <div class="score-summary" id="scoreSummary"></div>
         </div>
 
@@ -1205,6 +1471,119 @@
         <div class="glass-card recommendations reveal-on-scroll stagger-3">
           <span class="section-label">Recommendations</span>
           <div class="rec-list" id="recList"></div>
+        </div>
+
+        <!-- Jurisdiction-Specific Findings -->
+        <div
+          class="glass-card reveal-on-scroll stagger-3"
+          id="jurisdictionCard"
+          style="display: none"
+        >
+          <span class="section-label">Jurisdiction-Specific Compliance</span>
+          <div class="jurisdiction-grid" id="jurisdictionGrid"></div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div
+          class="action-row reveal-on-scroll stagger-4"
+          id="actionRow"
+          style="display: none"
+        >
+          <button
+            class="btn-secondary"
+            id="downloadBtn"
+            type="button"
+            aria-label="Download audit report as JSON"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            <span class="btn-label">Download Audit Report</span>
+          </button>
+          <button
+            class="btn-primary"
+            id="fixBtn"
+            type="button"
+            style="
+              background: linear-gradient(135deg, #22c55e 0%, #6366f1 100%);
+            "
+            aria-label="Auto-fix job description using AI"
+          >
+            <span class="spinner" aria-hidden="true"></span>
+            <span class="btn-text">
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M12 20h9" />
+                <path
+                  d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"
+                />
+              </svg>
+              Fix Automatically
+            </span>
+          </button>
+        </div>
+
+        <!-- Rewritten Job Description -->
+        <div class="glass-card rewritten-panel" id="rewrittenPanel">
+          <span
+            class="section-label"
+            style="display: flex; align-items: center; gap: 8px"
+          >
+            Compliant Job Description
+            <span
+              style="
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
+                font-size: 0.65rem;
+                font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: 0.04em;
+                padding: 2px 6px;
+                border-radius: 4px;
+                background: rgba(34, 197, 94, 0.15);
+                color: #22c55e;
+                border: 1px solid rgba(34, 197, 94, 0.3);
+              "
+              >AI Rewritten</span
+            >
+          </span>
+          <div class="rewritten-content" id="rewrittenContent"></div>
+          <div style="margin-top: 12px; display: flex; gap: 12px">
+            <button class="btn-secondary" id="copyRewrittenBtn" type="button">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <rect x="9" y="9" width="13" height="13" rx="2" />
+                <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+              </svg>
+              <span class="btn-label">Copy to Clipboard</span>
+            </button>
+          </div>
         </div>
 
         <!-- AI Analysis Results -->
@@ -1560,6 +1939,69 @@
             suggestion:
               "Consider adding: 'We welcome and encourage individuals with disabilities to apply. Reasonable accommodations are available upon request.'",
           },
+          // ── GDPR / EU Data Privacy ─────────────────────────────────────
+          {
+            id: "gdpr_data_collection",
+            category: "GDPR",
+            severity: "Warning",
+            pattern:
+              /\b(?:background\s+check|criminal\s+(?:record|history)|credit\s+(?:check|history)|drug\s+(?:test|screen))\b/i,
+            negativeAccommodation:
+              /\bgdpr\b|\bdata\s+(?:protection|privacy)\b|\bconsent\b|\blawful\s+basis\b/i,
+            message: "Data collection mentioned without GDPR/privacy language",
+            suggestion:
+              "Add data protection notice: state the lawful basis for processing, data retention period, and candidate's rights under GDPR/local privacy laws.",
+          },
+          {
+            id: "gdpr_no_privacy",
+            category: "GDPR",
+            severity: "Info",
+            pattern: null,
+            negativeCheck: true,
+            negativePattern:
+              /\bprivacy\b|\bdata\s+protection\b|\bgdpr\b|\bpersonal\s+data\b/i,
+            message: "No data privacy or GDPR reference found",
+            suggestion:
+              "For EU-targeted roles, include a reference to data processing and candidate privacy rights. Required under EU Directive 2026.",
+          },
+
+          // ── EU Pay Transparency Directive (June 2026) ─────────────────
+          {
+            id: "eu_pay_directive",
+            category: "Pay Transparency",
+            severity: "Critical",
+            pattern: null,
+            negativeCheck: true,
+            negativePattern:
+              /(\u20ac\s*\d[\d,.]*\s*[-\u2013\u2014to]+\s*\u20ac?\s*\d[\d,.]*|salary\s*(?:range|:)\s*\u20ac?\d|compensation\s*(?:range|:)\s*\u20ac?\d|\d+[kK]\s*\u20ac?\s*[-\u2013\u2014to]+\s*\d+[kK]|\$\s*\d[\d,]*\s*[-\u2013\u2014to]+\s*\$?\s*\d[\d,]*|salary\s*(?:range|:)\s*\$?\d|pay\s*(?:range|:)\s*[\$\u20ac]\d)/i,
+            message:
+              "No salary range found -- EU Pay Transparency Directive (June 2026) requires salary ranges in all EU job postings",
+            suggestion:
+              "Include a specific salary or compensation range. The EU Pay Transparency Directive takes effect June 2026 and mandates salary ranges in all job advertisements.",
+          },
+
+          // ── EU Anti-Discrimination ────────────────────────────────────
+          {
+            id: "eu_nationality",
+            category: "EEO",
+            severity: "Critical",
+            pattern:
+              /\bmust\s+be\s+(?:a\s+)?(?:US|EU|UK|British|American|European)\s+(?:citizen|national|resident)\b/i,
+            message:
+              "Nationality/citizenship requirement may violate EU anti-discrimination directives",
+            suggestion:
+              "State 'must have legal right to work in [country]' instead of specifying nationality or citizenship requirements.",
+          },
+          {
+            id: "eu_marital_status",
+            category: "EEO",
+            severity: "Warning",
+            pattern:
+              /\bmarital\s+status\b|\bsingle\b.*\bpreferred\b|\bno\s+(?:family|children)\b/i,
+            message: "Marital or family status reference detected",
+            suggestion:
+              "Remove any reference to marital status, family situation, or number of dependents. This is protected under EU Employment Equality Directive.",
+          },
         ];
 
         // ── Inclusive language terms ────────────────────────────────────
@@ -1624,7 +2066,13 @@
           document.getElementById("jobTitle").value = "";
           document.getElementById("jobLocation").value = "";
           document.getElementById("companyName").value = "";
+          document.getElementById("companySize").value = "";
+          document.getElementById("industrySector").value = "";
           resultsSection.classList.remove("visible");
+          document.getElementById("jurisdictionCard").style.display = "none";
+          document.getElementById("actionRow").style.display = "none";
+          document.getElementById("rewrittenPanel").classList.remove("visible");
+          document.getElementById("riskBadge").style.display = "none";
           hideError();
         }
 
@@ -1752,6 +2200,27 @@
           scoreStatus.style.color = scoreColor;
           scoreStatus.textContent = statusText;
 
+          // ── Risk level badge ───────────────────────────────────────
+          var riskBadge = document.getElementById("riskBadge");
+          var riskLabel = document.getElementById("riskLabel");
+          var riskLevel, riskClass;
+          if (score >= 80) {
+            riskLevel = "Low Risk";
+            riskClass = "risk-low";
+          } else if (score >= 60) {
+            riskLevel = "Medium Risk";
+            riskClass = "risk-medium";
+          } else if (score >= 40) {
+            riskLevel = "High Risk";
+            riskClass = "risk-high";
+          } else {
+            riskLevel = "Critical Risk";
+            riskClass = "risk-critical";
+          }
+          riskBadge.className = "risk-badge " + riskClass;
+          riskLabel.textContent = riskLevel;
+          riskBadge.style.display = "inline-flex";
+
           // Animate score ring after a brief delay
           requestAnimationFrame(function () {
             requestAnimationFrame(function () {
@@ -1843,6 +2312,27 @@
 
           // ── Recommendations ──────────────────────────────────────────
           renderRecommendations(violations, score, inclusiveCount);
+
+          // ── Jurisdiction-specific findings ─────────────────────────
+          renderJurisdictionFindings(violations, text);
+
+          // Show action buttons
+          document.getElementById("actionRow").style.display = "flex";
+
+          // Store last audit data for export
+          window.__lastAuditData = {
+            job_title: document.getElementById("jobTitle").value || "",
+            location: document.getElementById("jobLocation").value || "",
+            company: document.getElementById("companyName").value || "",
+            company_size: document.getElementById("companySize").value || "",
+            industry: document.getElementById("industrySector").value || "",
+            score: score,
+            risk_level: riskLevel,
+            violations: violations,
+            inclusive_terms: inclusiveCount,
+            exclusive_terms: exclusiveCount,
+            timestamp: new Date().toISOString(),
+          };
 
           // Scroll to results
           resultsSection.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -2062,6 +2552,293 @@
           });
         }
 
+        // ── Jurisdiction Findings ─────────────────────────────────────
+        function renderJurisdictionFindings(violations, text) {
+          var card = document.getElementById("jurisdictionCard");
+          var grid = document.getElementById("jurisdictionGrid");
+          grid.innerHTML = "";
+
+          var checks = [
+            {
+              title: "EEOC Compliance",
+              icon: "\u2696\uFE0F",
+              categories: ["EEO"],
+              pass: !violations.some(function (v) {
+                return v.category === "EEO";
+              }),
+              detail: function (viol) {
+                var eeo = viol.filter(function (v) {
+                  return v.category === "EEO";
+                });
+                return eeo.length === 0
+                  ? "EEO statement detected. Compliant with EEOC requirements."
+                  : eeo
+                      .map(function (v) {
+                        return v.message;
+                      })
+                      .join(". ");
+              },
+              fix: "Add an Equal Employment Opportunity statement covering race, color, religion, sex, national origin, disability, and veteran status.",
+            },
+            {
+              title: "GDPR / Data Privacy",
+              icon: "\uD83D\uDD12",
+              categories: ["GDPR"],
+              pass: !violations.some(function (v) {
+                return v.category === "GDPR";
+              }),
+              detail: function (viol) {
+                var gdpr = viol.filter(function (v) {
+                  return v.category === "GDPR";
+                });
+                return gdpr.length === 0
+                  ? "Data privacy language detected. GDPR-aware."
+                  : gdpr
+                      .map(function (v) {
+                        return v.message;
+                      })
+                      .join(". ");
+              },
+              fix: "Include a data protection notice with lawful basis, retention period, and candidate rights under GDPR.",
+            },
+            {
+              title: "Pay Transparency",
+              icon: "\uD83D\uDCB0",
+              categories: ["Pay Transparency"],
+              pass: !violations.some(function (v) {
+                return v.category === "Pay Transparency";
+              }),
+              detail: function (viol) {
+                var pay = viol.filter(function (v) {
+                  return v.category === "Pay Transparency";
+                });
+                return pay.length === 0
+                  ? "Salary range included. Compliant with pay transparency laws."
+                  : pay
+                      .map(function (v) {
+                        return v.message;
+                      })
+                      .join(". ");
+              },
+              fix: "Add specific salary range. Required by NYC, CO, CA, WA, and EU Pay Transparency Directive (June 2026).",
+            },
+            {
+              title: "Age Discrimination",
+              icon: "\uD83D\uDC64",
+              categories: ["Age Discrimination"],
+              pass: !violations.some(function (v) {
+                return v.category === "Age Discrimination";
+              }),
+              detail: function (viol) {
+                var age = viol.filter(function (v) {
+                  return v.category === "Age Discrimination";
+                });
+                return age.length === 0
+                  ? "No age-discriminatory language detected. ADEA compliant."
+                  : age
+                      .map(function (v) {
+                        return v.message;
+                      })
+                      .join(". ");
+              },
+              fix: "Remove age-signaling terms and excessive years-of-experience requirements.",
+            },
+            {
+              title: "Disability Accommodation",
+              icon: "\u267F",
+              categories: ["Disability Bias", "OFCCP"],
+              pass: !violations.some(function (v) {
+                return v.category === "Disability Bias";
+              }),
+              detail: function (viol) {
+                var dis = viol.filter(function (v) {
+                  return (
+                    v.category === "Disability Bias" ||
+                    v.id === "ofccp_disability_statement"
+                  );
+                });
+                return dis.length === 0
+                  ? "Disability accommodation language present. ADA compliant."
+                  : dis
+                      .map(function (v) {
+                        return v.message;
+                      })
+                      .join(". ");
+              },
+              fix: "Add reasonable accommodation statement and use inclusive language for physical requirements.",
+            },
+            {
+              title: "Gender-Neutral Language",
+              icon: "\u270D\uFE0F",
+              categories: ["Bias Language"],
+              pass: !violations.some(function (v) {
+                return v.category === "Bias Language";
+              }),
+              detail: function (viol) {
+                var bias = viol.filter(function (v) {
+                  return v.category === "Bias Language";
+                });
+                return bias.length === 0
+                  ? "Gender-neutral language used throughout. Well done."
+                  : bias.length +
+                      " gendered/exclusionary term" +
+                      (bias.length !== 1 ? "s" : "") +
+                      " detected.";
+              },
+              fix: "Replace gendered pronouns with they/them, remove masculine-coded words like 'aggressive', 'dominant', 'rockstar'.",
+            },
+          ];
+
+          checks.forEach(function (check) {
+            var el = document.createElement("div");
+            el.className = "jurisdiction-card";
+
+            var status = check.pass
+              ? "Pass"
+              : violations.some(function (v) {
+                    return (
+                      check.categories.indexOf(v.category) !== -1 &&
+                      v.severity === "Critical"
+                    );
+                  })
+                ? "Fail"
+                : "Warn";
+            var statusClass =
+              status === "Pass"
+                ? "jur-pass"
+                : status === "Fail"
+                  ? "jur-fail"
+                  : "jur-warn";
+
+            el.innerHTML =
+              '<div class="jur-header">' +
+              '<div class="jur-title">' +
+              check.icon +
+              " " +
+              escapeHtml(check.title) +
+              "</div>" +
+              '<span class="jur-status ' +
+              statusClass +
+              '">' +
+              status +
+              "</span>" +
+              "</div>" +
+              '<div class="jur-detail">' +
+              escapeHtml(check.detail(violations)) +
+              "</div>" +
+              (status !== "Pass"
+                ? '<div class="jur-fix">' + escapeHtml(check.fix) + "</div>"
+                : "");
+
+            grid.appendChild(el);
+          });
+
+          card.style.display = "block";
+          scrollObserver.observe(card);
+        }
+
+        // ── Download Audit Report ────────────────────────────────────
+        document
+          .getElementById("downloadBtn")
+          .addEventListener("click", function () {
+            var data = window.__lastAuditData;
+            if (!data) return;
+            var blob = new Blob([JSON.stringify(data, null, 2)], {
+              type: "application/json",
+            });
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement("a");
+            a.href = url;
+            a.download =
+              "complianceguard-audit-" +
+              new Date().toISOString().slice(0, 10) +
+              ".json";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            if (typeof posthog !== "undefined")
+              posthog.capture("complianceguard_download_report");
+          });
+
+        // ── Fix Automatically ────────────────────────────────────────
+        document
+          .getElementById("fixBtn")
+          .addEventListener("click", async function () {
+            var text = (jobPosting.value || "").trim();
+            if (!text) {
+              showError("No job description to fix.");
+              return;
+            }
+
+            var fixBtn = document.getElementById("fixBtn");
+            fixBtn.classList.add("loading");
+            fixBtn.disabled = true;
+
+            try {
+              var resp = await fetch("/api/complianceguard/audit", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  "X-CSRF-Token": window.__csrfToken,
+                },
+                body: JSON.stringify({
+                  job_title: document.getElementById("jobTitle").value || "",
+                  location: document.getElementById("jobLocation").value || "",
+                  job_description: text,
+                  company_size:
+                    document.getElementById("companySize").value || "",
+                  industry:
+                    document.getElementById("industrySector").value || "",
+                  fix_mode: true,
+                }),
+              });
+
+              if (!resp.ok) throw new Error("HTTP " + resp.status);
+              var data = await resp.json();
+
+              if (data.rewritten_description) {
+                var panel = document.getElementById("rewrittenPanel");
+                var content = document.getElementById("rewrittenContent");
+                content.textContent = data.rewritten_description;
+                panel.classList.add("visible");
+                panel.scrollIntoView({ behavior: "smooth", block: "start" });
+                scrollObserver.observe(panel);
+                if (typeof posthog !== "undefined")
+                  posthog.capture("complianceguard_fix_auto");
+              } else {
+                showError(
+                  "AI could not generate a rewritten version. Try again.",
+                );
+              }
+            } catch (err) {
+              showError("Fix failed: " + err.message);
+            } finally {
+              fixBtn.classList.remove("loading");
+              fixBtn.disabled = false;
+            }
+          });
+
+        // ── Copy Rewritten JD ────────────────────────────────────────
+        document
+          .getElementById("copyRewrittenBtn")
+          .addEventListener("click", function () {
+            var text =
+              document.getElementById("rewrittenContent").textContent || "";
+            if (!text) return;
+            navigator.clipboard
+              .writeText(text)
+              .then(function () {
+                var btn = document.getElementById("copyRewrittenBtn");
+                var origLabel = btn.querySelector(".btn-label").textContent;
+                btn.querySelector(".btn-label").textContent = "Copied!";
+                setTimeout(function () {
+                  btn.querySelector(".btn-label").textContent = origLabel;
+                }, 2000);
+              })
+              .catch(function () {});
+          });
+
         // ── Utilities ──────────────────────────────────────────────────
         function showError(msg) {
           errorBanner.textContent = msg;
@@ -2135,7 +2912,9 @@
                 text: text,
                 job_title: document.getElementById("jobTitle").value || "",
                 location: document.getElementById("jobLocation").value || "",
-                industry: "",
+                industry: document.getElementById("industrySector").value || "",
+                company_size:
+                  document.getElementById("companySize").value || "",
               }),
             });
 

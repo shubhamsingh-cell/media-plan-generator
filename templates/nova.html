@@ -813,6 +813,85 @@
       }
 
       /* ================================================================
+         TTS (TEXT-TO-SPEECH) CONTROLS
+         ================================================================ */
+      .tts-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        border-radius: 6px;
+        color: var(--text-secondary);
+        background: transparent;
+        border: 1px solid transparent;
+        transition: all var(--transition-fast);
+        cursor: pointer;
+        flex-shrink: 0;
+        position: relative;
+      }
+      .tts-btn:hover {
+        background: rgba(107, 179, 205, 0.08);
+        border-color: var(--border-color);
+        color: var(--accent-teal);
+      }
+      .tts-btn.tts-loading {
+        color: var(--accent-teal);
+        pointer-events: none;
+      }
+      .tts-btn.tts-playing {
+        color: var(--accent-teal);
+        background: var(--accent-teal-dim);
+        border-color: rgba(107, 179, 205, 0.2);
+      }
+      .tts-btn.tts-playing:hover {
+        background: rgba(107, 179, 205, 0.15);
+      }
+      .tts-btn svg {
+        width: 16px;
+        height: 16px;
+      }
+      .tts-btn .tts-spinner {
+        width: 16px;
+        height: 16px;
+        border: 2px solid rgba(107, 179, 205, 0.2);
+        border-top-color: var(--accent-teal);
+        border-radius: 50%;
+        animation: tts-spin 0.7s linear infinite;
+      }
+      @keyframes tts-spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      .message-tts-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 4px;
+      }
+
+      /* Auto-TTS toggle in topbar */
+      .tts-toggle {
+        position: relative;
+      }
+      .tts-toggle.active {
+        color: var(--accent-teal);
+      }
+      .tts-toggle.active::after {
+        content: "";
+        position: absolute;
+        bottom: 4px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--accent-teal);
+        box-shadow: 0 0 6px rgba(107, 179, 205, 0.5);
+      }
+
+      /* ================================================================
          THINKING INDICATOR
          ================================================================ */
       .thinking-wrapper {
@@ -1873,6 +1952,26 @@
                 <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
               </svg>
             </button>
+            <!-- Auto-TTS toggle -->
+            <button
+              class="topbar-btn tts-toggle"
+              id="auto-tts-btn"
+              title="Auto-read responses (off)"
+              aria-label="Toggle auto text-to-speech"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+                <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+              </svg>
+            </button>
             <!-- Share conversation -->
             <button
               class="topbar-btn"
@@ -2171,6 +2270,170 @@
             }, 300);
           }, 2500);
         }
+
+        // ========================================================================
+        // TEXT-TO-SPEECH (ElevenLabs)
+        // ========================================================================
+        var ttsState = {
+          autoEnabled: false,
+          currentAudio: null,
+          currentBtn: null,
+        };
+
+        // SVG icon templates for TTS button states
+        var TTS_ICON_SPEAKER =
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>';
+        var TTS_ICON_STOP =
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>';
+        var TTS_ICON_SPINNER = '<div class="tts-spinner"></div>';
+
+        function stopCurrentTTS() {
+          if (ttsState.currentAudio) {
+            ttsState.currentAudio.pause();
+            ttsState.currentAudio.src = "";
+            ttsState.currentAudio = null;
+          }
+          if (ttsState.currentBtn) {
+            ttsState.currentBtn.innerHTML = TTS_ICON_SPEAKER;
+            ttsState.currentBtn.classList.remove("tts-loading", "tts-playing");
+            ttsState.currentBtn.title = "Read aloud";
+            ttsState.currentBtn = null;
+          }
+        }
+
+        function playTTS(text, btnEl) {
+          // If this button is already playing, stop it
+          if (ttsState.currentBtn === btnEl && ttsState.currentAudio) {
+            stopCurrentTTS();
+            return;
+          }
+          // Stop any other ongoing TTS
+          stopCurrentTTS();
+
+          // Strip markdown/HTML for cleaner TTS input
+          var cleanText = text
+            .replace(/```[\s\S]*?```/g, " code block omitted ")
+            .replace(/`[^`]+`/g, "")
+            .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+            .replace(/[*_~#>|]+/g, "")
+            .replace(/\n{2,}/g, ". ")
+            .replace(/\n/g, " ")
+            .trim();
+
+          if (!cleanText) {
+            showToast("No text to read", "error");
+            return;
+          }
+
+          // Truncate to 5000 chars for ElevenLabs limit
+          if (cleanText.length > 5000) {
+            cleanText = cleanText.substring(0, 5000);
+          }
+
+          // Set loading state
+          btnEl.innerHTML = TTS_ICON_SPINNER;
+          btnEl.classList.add("tts-loading");
+          btnEl.classList.remove("tts-playing");
+          btnEl.title = "Generating audio...";
+          ttsState.currentBtn = btnEl;
+
+          fetch("/api/elevenlabs/tts", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-CSRF-Token": window.__csrfToken,
+            },
+            body: JSON.stringify({ text: cleanText }),
+          })
+            .then(function (resp) {
+              if (!resp.ok) {
+                throw new Error("TTS request failed: HTTP " + resp.status);
+              }
+              return resp.blob();
+            })
+            .then(function (blob) {
+              // Check if user stopped during loading
+              if (ttsState.currentBtn !== btnEl) return;
+
+              var audioUrl = URL.createObjectURL(blob);
+              var audio = new Audio(audioUrl);
+              ttsState.currentAudio = audio;
+
+              // Switch to playing state
+              btnEl.innerHTML = TTS_ICON_STOP;
+              btnEl.classList.remove("tts-loading");
+              btnEl.classList.add("tts-playing");
+              btnEl.title = "Stop playback";
+
+              audio.addEventListener("ended", function () {
+                URL.revokeObjectURL(audioUrl);
+                if (ttsState.currentBtn === btnEl) {
+                  btnEl.innerHTML = TTS_ICON_SPEAKER;
+                  btnEl.classList.remove("tts-playing");
+                  btnEl.title = "Read aloud";
+                  ttsState.currentAudio = null;
+                  ttsState.currentBtn = null;
+                }
+              });
+
+              audio.addEventListener("error", function () {
+                URL.revokeObjectURL(audioUrl);
+                if (ttsState.currentBtn === btnEl) {
+                  btnEl.innerHTML = TTS_ICON_SPEAKER;
+                  btnEl.classList.remove("tts-loading", "tts-playing");
+                  btnEl.title = "Read aloud";
+                  ttsState.currentAudio = null;
+                  ttsState.currentBtn = null;
+                }
+                showToast("Audio playback error", "error");
+              });
+
+              audio.play().catch(function (playErr) {
+                URL.revokeObjectURL(audioUrl);
+                stopCurrentTTS();
+                showToast("Could not play audio", "error");
+              });
+            })
+            .catch(function (err) {
+              if (ttsState.currentBtn === btnEl) {
+                btnEl.innerHTML = TTS_ICON_SPEAKER;
+                btnEl.classList.remove("tts-loading", "tts-playing");
+                btnEl.title = "Read aloud";
+                ttsState.currentBtn = null;
+              }
+              showToast("Text-to-speech unavailable", "error");
+            });
+        }
+
+        // Auto-TTS: play latest Nova message automatically when enabled
+        function autoPlayTTS(messageText) {
+          if (!ttsState.autoEnabled) return;
+          // Find the last TTS button in the chat
+          var allTtsBtns = chatContainer.querySelectorAll(".tts-btn");
+          if (allTtsBtns.length === 0) return;
+          var lastBtn = allTtsBtns[allTtsBtns.length - 1];
+          playTTS(messageText, lastBtn);
+        }
+
+        // Wire up auto-TTS toggle button
+        (function () {
+          var autoTtsBtn = document.getElementById("auto-tts-btn");
+          if (!autoTtsBtn) return;
+          autoTtsBtn.addEventListener("click", function () {
+            ttsState.autoEnabled = !ttsState.autoEnabled;
+            autoTtsBtn.classList.toggle("active", ttsState.autoEnabled);
+            autoTtsBtn.title = ttsState.autoEnabled
+              ? "Auto-read responses (on)"
+              : "Auto-read responses (off)";
+            if (!ttsState.autoEnabled) {
+              stopCurrentTTS();
+            }
+            showToast(
+              ttsState.autoEnabled ? "Auto-read enabled" : "Auto-read disabled",
+              "success",
+            );
+          });
+        })();
 
         // ========================================================================
         // SYNTAX HIGHLIGHTER (CSS-only classes, no external libs)
@@ -2884,6 +3147,21 @@
               });
 
             body.appendChild(actions);
+
+            // TTS (text-to-speech) button row
+            var ttsRow = document.createElement("div");
+            ttsRow.className = "message-tts-row";
+            var ttsBtn = document.createElement("button");
+            ttsBtn.className = "tts-btn";
+            ttsBtn.setAttribute("aria-label", "Read aloud");
+            ttsBtn.title = "Read aloud";
+            ttsBtn.innerHTML =
+              '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>';
+            ttsBtn.addEventListener("click", function () {
+              playTTS(msg.content, ttsBtn);
+            });
+            ttsRow.appendChild(ttsBtn);
+            body.appendChild(ttsRow);
           }
 
           // Timestamp
@@ -3283,6 +3561,9 @@
                   var streamEl = document.getElementById("streaming-msg");
                   if (streamEl) streamEl.remove();
                   appendMessageDOM(assistantMsg, true);
+
+                  // Auto-TTS: read response aloud if enabled
+                  autoPlayTTS(assistantMsg.content);
 
                   // Render follow-up suggestions
                   if (
