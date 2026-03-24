@@ -409,6 +409,17 @@
         --brand-port-gore: #202058;
       }
 
+      /* Hide standalone header when loaded as platform fragment */
+      .fragment-mode .standalone-header {
+        display: none;
+      }
+      .breadcrumb {
+        display: none;
+      }
+      .fragment-mode .breadcrumb {
+        display: block;
+      }
+
       /* ── Phase 4 Effect 2: Ambient glow spots ── */
       .ambient-glow {
         position: absolute;
@@ -3804,7 +3815,7 @@
       <div class="page-progress-fill" style="width: 20%"></div>
     </div>
 
-    <header class="app-header hero-scan" role="banner">
+    <header class="app-header hero-scan standalone-header" role="banner">
       <!-- Animated gradient orbs -->
       <div class="header-orb header-orb-1" aria-hidden="true"></div>
       <div class="header-orb header-orb-2" aria-hidden="true"></div>
@@ -3853,6 +3864,28 @@
         </div>
       </div>
     </header>
+
+    <nav
+      class="breadcrumb"
+      aria-label="Breadcrumb"
+      style="
+        padding: 16px 24px 0;
+        font-size: 13px;
+        color: #71717a;
+        position: relative;
+        z-index: 1;
+      "
+    >
+      <a href="/platform" style="color: #71717a; text-decoration: none">Home</a>
+      <span style="margin: 0 8px">&gt;</span>
+      <a
+        href="/platform#plan/campaign"
+        style="color: #71717a; text-decoration: none"
+        >Plan</a
+      >
+      <span style="margin: 0 8px">&gt;</span>
+      <span style="color: #a1a1aa">Campaign Planner</span>
+    </nav>
 
     <main id="main-content" class="container" role="main">
       <!-- Progress Bar -->
@@ -7658,6 +7691,22 @@
             // Cache payload for export
             _lastPlanPayload = payload;
 
+            // Auto-save campaign context for platform shell
+            try {
+              fetch("/api/campaign/save", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  name: (payload.client_name || "Untitled") + " Campaign",
+                  client: payload.client_name || "",
+                  budget: payload.budget_range || "",
+                  industry: payload.industry || "",
+                  roles: payload.target_roles || [],
+                  locations: payload.locations || [],
+                }),
+              }).catch(function () {});
+            } catch (e) {}
+
             // Hide overlay with success
             hideGenerationOverlay(true);
 
@@ -8034,12 +8083,23 @@
       })();
     </script>
     <script>
-      // Nova Platform shell compatibility
+      // Nova Platform shell compatibility + fragment mode detection
       (function () {
+        // Detect fragment mode: loaded inside platform shell
+        var isFragment =
+          window.__NOVA_PLATFORM ||
+          typeof NovaContext !== "undefined" ||
+          window.parent !== window ||
+          (document.referrer && document.referrer.indexOf("/platform") !== -1);
+
+        if (isFragment) {
+          document.body.classList.add("fragment-mode");
+        }
+
         if (window.__NOVA_PLATFORM) {
           document
             .querySelectorAll(
-              'nav:not(.progress-bar), .nav, footer, .footer, .standalone-nav, .standalone-header, .standalone-footer, [class*="back-to"], .nova-chat-widget',
+              'nav:not(.progress-bar):not(.breadcrumb), .nav, footer, .footer, .standalone-nav, .standalone-header, .standalone-footer, [class*="back-to"], .nova-chat-widget',
             )
             .forEach(function (el) {
               el.style.display = "none";
@@ -8056,6 +8116,33 @@
               }
             });
           document.dispatchEvent(new CustomEvent("nova:fragment-loaded"));
+        }
+
+        // Pre-fill form from platform campaign context
+        if (typeof NovaContext !== "undefined" && NovaContext.campaign) {
+          var campaign = NovaContext.campaign;
+          var clientInput = document.getElementById("clientName");
+          var budgetSelect = document.getElementById("budgetRange");
+          if (clientInput && campaign.client) {
+            clientInput.value = campaign.client;
+            clientInput.dispatchEvent(new Event("input", { bubbles: true }));
+          } else if (clientInput && campaign.name && !campaign.client) {
+            clientInput.value = campaign.name;
+            clientInput.dispatchEvent(new Event("input", { bubbles: true }));
+          }
+          if (budgetSelect && campaign.budget) {
+            // Try to match a budget range option
+            var opts = budgetSelect.options;
+            for (var i = 0; i < opts.length; i++) {
+              if (opts[i].value === campaign.budget) {
+                budgetSelect.value = campaign.budget;
+                budgetSelect.dispatchEvent(
+                  new Event("change", { bubbles: true }),
+                );
+                break;
+              }
+            }
+          }
         }
       })();
     </script>
