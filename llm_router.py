@@ -1,5 +1,5 @@
 """
-llm_router.py -- Smart LLM Provider Router for Nova Chat (v3.4)
+llm_router.py -- Smart LLM Provider Router for Nova Chat (v3.5)
 
 Routes LLM API calls to the optimal provider based on task type,
 with automatic fallback and circuit breaker per provider.
@@ -15,18 +15,23 @@ Provider priority (free-first, then paid by cost-efficiency):
     7.  SambaNova (Llama 3.1 405B) -- free, largest open model, fastest inference (RDU)
     8.  SiliconFlow (Qwen2.5 7B) -- free $0.05/M tokens, OpenAI-compatible
     9.  Cloudflare Workers AI (Llama 3.3 70B) -- free 10K neurons/day, edge-distributed
-    10. OpenRouter (Llama 4 Maverick) -- free models via single gateway
-    11. OpenRouter (Qwen3 Coder) -- free, code generation specialist
-    12. OpenRouter (Arcee Trinity) -- free, complex reasoning
-    13. OpenRouter (Liquid LFM 2.5) -- free, novel architecture
-    14. xAI Grok -- free signup credits ($25), strong reasoning
-    15. HuggingFace Inference (Mistral 7B) -- free rate-limited, fallback
+    10. Together AI (Llama 3.3 70B Turbo) -- $25 free credit, fast inference
+    11. Moonshot Kimi (moonshot-v1-8k) -- limited free tier, strong Asian market coverage
+    12. OpenRouter (Llama 4 Maverick) -- free models via single gateway
+    13. OpenRouter (Qwen3 Coder) -- free, code generation specialist
+    14. OpenRouter (Arcee Trinity) -- free, complex reasoning
+    15. OpenRouter (Liquid LFM 2.5) -- free, novel architecture
+    16. OpenRouter (01.AI Yi Large) -- free, good general purpose
+    17. OpenRouter (DeepSeek R1 Reasoning) -- free, strong reasoning/research
+    18. OpenRouter (Google Gemma 3 27B) -- free, structured output + verification
+    19. xAI Grok -- free signup credits ($25), strong reasoning
+    20. HuggingFace Inference (Mistral 7B) -- free rate-limited, fallback
 
     PAID TIER:
-    16. Claude Haiku 4.5 (Anthropic) -- paid, fast + cheap
-    17. GPT-4o (OpenAI) -- paid, strong at structured + conversational + reasoning
-    18. Claude Sonnet 4 (Anthropic) -- paid, high quality, strong tool_use
-    19. Claude Opus 4.6 (Anthropic) -- paid, last resort, highest quality
+    21. Claude Haiku 4.5 (Anthropic) -- paid, fast + cheap
+    22. GPT-4o (OpenAI) -- paid, strong at structured + conversational + reasoning
+    23. Claude Sonnet 4 (Anthropic) -- paid, high quality, strong tool_use
+    24. Claude Opus 4.6 (Anthropic) -- paid, last resort, highest quality
 
 Task classification (8 types):
     - STRUCTURED:     benchmark lookups, CPC/CPA queries, JSON output
@@ -39,7 +44,7 @@ Task classification (8 types):
     - BATCH:          high-throughput bulk operations, comprehensive reports
 
 Each provider has independent circuit breaker (5 failures -> 60s cooldown)
-and per-minute rate tracking.  19 total providers, 15 free + 4 paid.
+and per-minute rate tracking.  24 total providers, 20 free + 4 paid.
 
 Stdlib-only, thread-safe.
 """
@@ -90,6 +95,11 @@ HUGGINGFACE = "huggingface"
 OPENROUTER_QWEN = "openrouter_qwen"
 OPENROUTER_ARCEE = "openrouter_arcee"
 OPENROUTER_LIQUID = "openrouter_liquid"
+TOGETHER = "together"
+MOONSHOT = "moonshot"
+OPENROUTER_YI = "openrouter_yi"
+OPENROUTER_DEEPSEEK_R1 = "openrouter_deepseek_r1"
+OPENROUTER_GEMMA = "openrouter_gemma"
 CLAUDE_HAIKU = "claude_haiku"
 CLAUDE = "claude"
 CLAUDE_OPUS = "claude_opus"
@@ -284,6 +294,73 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
             "X-Title": "Nova AI Suite",
         },
     },
+    TOGETHER: {
+        "name": "Together AI (Llama 3.3 70B Turbo)",
+        "api_style": "openai",  # OpenAI-compatible
+        "endpoint": "https://api.together.xyz/v1/chat/completions",
+        "model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+        "env_key": "TOGETHER_API_KEY",
+        "rpm_limit": 60,
+        "rpd_limit": 10000,  # $25 free credit on signup
+        "timeout": 30,
+        "max_tokens": 4096,
+    },
+    MOONSHOT: {
+        "name": "Moonshot Kimi (moonshot-v1-8k)",
+        "api_style": "openai",  # OpenAI-compatible
+        "endpoint": "https://api.moonshot.cn/v1/chat/completions",
+        "model": "moonshot-v1-8k",
+        "env_key": "MOONSHOT_API_KEY",
+        "rpm_limit": 15,
+        "rpd_limit": 1000,  # Limited free tier
+        "timeout": 30,
+        "max_tokens": 4096,
+    },
+    OPENROUTER_YI: {
+        "name": "OpenRouter (01.AI Yi Large)",
+        "api_style": "openai",  # OpenAI-compatible
+        "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+        "model": "01-ai/yi-large:free",
+        "env_key": "OPENROUTER_API_KEY",
+        "rpm_limit": 20,
+        "rpd_limit": 1000,
+        "timeout": 30,
+        "max_tokens": 4096,
+        "extra_headers": {
+            "HTTP-Referer": "https://media-plan-generator.onrender.com",
+            "X-Title": "Nova AI Suite",
+        },
+    },
+    OPENROUTER_DEEPSEEK_R1: {
+        "name": "OpenRouter (DeepSeek R1 Reasoning)",
+        "api_style": "openai",  # OpenAI-compatible
+        "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+        "model": "deepseek/deepseek-r1:free",
+        "env_key": "OPENROUTER_API_KEY",
+        "rpm_limit": 20,
+        "rpd_limit": 1000,
+        "timeout": 45,  # Reasoning model may be slower
+        "max_tokens": 4096,
+        "extra_headers": {
+            "HTTP-Referer": "https://media-plan-generator.onrender.com",
+            "X-Title": "Nova AI Suite",
+        },
+    },
+    OPENROUTER_GEMMA: {
+        "name": "OpenRouter (Google Gemma 3 27B)",
+        "api_style": "openai",  # OpenAI-compatible
+        "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+        "model": "google/gemma-3-27b-it:free",
+        "env_key": "OPENROUTER_API_KEY",
+        "rpm_limit": 20,
+        "rpd_limit": 1000,
+        "timeout": 30,
+        "max_tokens": 4096,
+        "extra_headers": {
+            "HTTP-Referer": "https://media-plan-generator.onrender.com",
+            "X-Title": "Nova AI Suite",
+        },
+    },
     GPT4O: {
         "name": "GPT-4o (OpenAI)",
         "api_style": "openai",  # OpenAI native format
@@ -331,7 +408,7 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
 }
 
 # Task -> provider priority order
-# Strategy: 15 free providers first, then paid by cost-efficiency, Opus absolute last
+# Strategy: 20 free providers first, then paid by cost-efficiency, Opus absolute last
 #
 # Free tier strengths:
 #   Gemini: structured JSON, code, verification
@@ -342,10 +419,15 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
 #   SambaNova (Llama 3.1 405B): largest open model, fastest inference (RDU hardware)
 #   SiliconFlow (Qwen2.5 7B): OpenAI-compatible, cheap tokens
 #   Cloudflare Workers AI (Llama 3.3 70B): edge-distributed, low latency, 10K neurons/day
+#   Together AI (Llama 3.3 70B Turbo): $25 free credit, fast inference, general purpose
+#   Moonshot Kimi: strong for Asian/Chinese market queries, conversational
 #   OpenRouter (Llama 4 Maverick): strong general purpose
 #   OpenRouter (Qwen3 Coder): code generation specialist
 #   OpenRouter (Arcee Trinity): complex reasoning
 #   OpenRouter (Liquid LFM 2.5): novel architecture
+#   OpenRouter (01.AI Yi Large): good general purpose via OpenRouter free tier
+#   OpenRouter (DeepSeek R1): strong reasoning/research, HIGH priority for COMPLEX/RESEARCH
+#   OpenRouter (Google Gemma 3 27B): structured output, verification
 #   xAI Grok: strong reasoning (free $25 signup credits)
 #   HuggingFace (Mistral 7B): rate-limited fallback
 #
@@ -358,19 +440,24 @@ TASK_ROUTING: Dict[str, List[str]] = {
     TASK_STRUCTURED: [
         GEMINI,
         MISTRAL,
+        OPENROUTER_GEMMA,  # Gemma 3 27B -- strong structured output
         GROQ,
         ZHIPU,
         CEREBRAS,
         NVIDIA_NIM,
         SAMBANOVA,
         SILICONFLOW,
+        TOGETHER,
         CLOUDFLARE,
         OPENROUTER,
         OPENROUTER_QWEN,
+        OPENROUTER_YI,
         OPENROUTER_ARCEE,
+        OPENROUTER_DEEPSEEK_R1,
         OPENROUTER_LIQUID,
         XAI,
         HUGGINGFACE,
+        MOONSHOT,
         CLAUDE_HAIKU,
         GPT4O,
         CLAUDE,
@@ -385,9 +472,13 @@ TASK_ROUTING: Dict[str, List[str]] = {
         NVIDIA_NIM,
         SAMBANOVA,
         SILICONFLOW,
+        TOGETHER,
+        MOONSHOT,  # Good for Asian market conversational queries
         CLOUDFLARE,
         OPENROUTER,
+        OPENROUTER_YI,
         OPENROUTER_ARCEE,
+        OPENROUTER_GEMMA,
         OPENROUTER_LIQUID,
         XAI,
         HUGGINGFACE,
@@ -397,6 +488,7 @@ TASK_ROUTING: Dict[str, List[str]] = {
         CLAUDE_OPUS,
     ],
     TASK_COMPLEX: [
+        OPENROUTER_DEEPSEEK_R1,  # DeepSeek R1 -- strong reasoning, HIGH priority
         SAMBANOVA,
         OPENROUTER,
         OPENROUTER_ARCEE,
@@ -405,9 +497,12 @@ TASK_ROUTING: Dict[str, List[str]] = {
         CEREBRAS,
         GEMINI,
         MISTRAL,
+        TOGETHER,
         NVIDIA_NIM,
+        OPENROUTER_YI,
         SILICONFLOW,
         CLOUDFLARE,
+        OPENROUTER_GEMMA,
         OPENROUTER_LIQUID,
         XAI,
         HUGGINGFACE,
@@ -423,11 +518,15 @@ TASK_ROUTING: Dict[str, List[str]] = {
         GROQ,
         ZHIPU,
         CEREBRAS,
+        TOGETHER,
         NVIDIA_NIM,
         SAMBANOVA,
         SILICONFLOW,
         CLOUDFLARE,
         OPENROUTER,
+        OPENROUTER_YI,
+        OPENROUTER_DEEPSEEK_R1,
+        OPENROUTER_GEMMA,
         XAI,
         HUGGINGFACE,
         CLAUDE_HAIKU,
@@ -438,14 +537,18 @@ TASK_ROUTING: Dict[str, List[str]] = {
     TASK_VERIFICATION: [
         GEMINI,
         MISTRAL,
+        OPENROUTER_GEMMA,  # Gemma 3 -- good for verification tasks
         GROQ,
         ZHIPU,
         CEREBRAS,
         NVIDIA_NIM,
+        TOGETHER,
         SAMBANOVA,
         SILICONFLOW,
         CLOUDFLARE,
         OPENROUTER,
+        OPENROUTER_DEEPSEEK_R1,
+        OPENROUTER_YI,
         OPENROUTER_ARCEE,
         XAI,
         HUGGINGFACE,
@@ -455,6 +558,7 @@ TASK_ROUTING: Dict[str, List[str]] = {
         CLAUDE_OPUS,
     ],
     TASK_RESEARCH: [
+        OPENROUTER_DEEPSEEK_R1,  # DeepSeek R1 -- strong reasoning, HIGH priority
         XAI,
         OPENROUTER,
         OPENROUTER_ARCEE,
@@ -462,9 +566,13 @@ TASK_ROUTING: Dict[str, List[str]] = {
         GEMINI,
         GROQ,
         ZHIPU,
+        MOONSHOT,  # Good for Asian market research queries
+        TOGETHER,
         CEREBRAS,
         MISTRAL,
         NVIDIA_NIM,
+        OPENROUTER_YI,
+        OPENROUTER_GEMMA,
         SILICONFLOW,
         CLOUDFLARE,
         OPENROUTER_LIQUID,
@@ -481,10 +589,14 @@ TASK_ROUTING: Dict[str, List[str]] = {
         ZHIPU,
         CEREBRAS,
         MISTRAL,
+        TOGETHER,
         SAMBANOVA,
         NVIDIA_NIM,
+        OPENROUTER_YI,
         SILICONFLOW,
         CLOUDFLARE,
+        OPENROUTER_GEMMA,
+        OPENROUTER_DEEPSEEK_R1,
         OPENROUTER_LIQUID,
         XAI,
         HUGGINGFACE,
@@ -500,12 +612,16 @@ TASK_ROUTING: Dict[str, List[str]] = {
         ZHIPU,
         GEMINI,
         MISTRAL,
+        TOGETHER,
         NVIDIA_NIM,
         SAMBANOVA,
         SILICONFLOW,
         OPENROUTER,
         OPENROUTER_QWEN,
+        OPENROUTER_YI,
         OPENROUTER_ARCEE,
+        OPENROUTER_DEEPSEEK_R1,
+        OPENROUTER_GEMMA,
         OPENROUTER_LIQUID,
         XAI,
         HUGGINGFACE,
