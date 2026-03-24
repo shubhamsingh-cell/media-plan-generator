@@ -553,12 +553,20 @@ class SupabasePersistence:
     All operations are thread-safe and will never crash the main application.
     """
 
+    # Grace period (seconds) after daemon start during which the health
+    # endpoint should not report a persistence warning.  The daemon does
+    # a 10-second warm-up sleep then one save, so 30s covers even a slow
+    # first Supabase round-trip.
+    _STARTUP_GRACE_SEC: float = 30.0
+
     def __init__(self, collector: MetricsCollector) -> None:
         self._collector = collector
         self._lock = threading.Lock()
         self._enabled: bool = False
         self._last_save_ok: bool = False
         self._last_save_ts: float = 0.0
+        self._first_save_attempted: bool = False
+        self._daemon_started_ts: float = 0.0
         self._base_url: str = ""
         self._api_key: str = ""
         self._save_thread: Optional[threading.Thread] = None
@@ -585,6 +593,21 @@ class SupabasePersistence:
     def is_persisted(self) -> bool:
         """Return True if the most recent save succeeded."""
         return self._enabled and self._last_save_ok
+
+    @property
+    def is_within_startup_grace(self) -> bool:
+        """Return True if the daemon is still within the cold-start grace window.
+
+        During this window the health endpoint should not report a warning
+        because the first save has not had time to complete yet.
+        """
+        if not self._enabled:
+            return False
+        if self._first_save_attempted:
+            return False  # grace period ends once first save is attempted
+        if self._daemon_started_ts <= 0:
+            return False  # daemon not started yet
+        return (time.time() - self._daemon_started_ts) < self._STARTUP_GRACE_SEC
 
     def _build_headers(self) -> Dict[str, str]:
         """Build HTTP headers for Supabase REST API calls."""
@@ -718,13 +741,15 @@ class SupabasePersistence:
             return
         if self._save_thread is not None and self._save_thread.is_alive():
             return  # already running
+        self._daemon_started_ts = time.time()
         self._save_thread = threading.Thread(
             target=self._save_loop, name="metrics-persist", daemon=True
         )
         self._save_thread.start()
         logger.info(
-            "Metrics persistence background thread started " "(interval=%ds)",
+            "Metrics persistence background thread started (interval=%ds, grace=%ds)",
             _PERSIST_SAVE_INTERVAL_SEC,
+            int(self._STARTUP_GRACE_SEC),
         )
 
     def _save_loop(self) -> None:
@@ -735,6 +760,7 @@ class SupabasePersistence:
         normal 5-minute interval.
         """
         time.sleep(10)  # short warm-up to let startup finish
+        self._first_save_attempted = True
         try:
             self.save()
         except Exception as e:
@@ -757,10 +783,13 @@ class SupabasePersistence:
     def get_status(self) -> Dict[str, Any]:
         """Return persistence status for health endpoints."""
         with self._lock:
+            within_grace = self.is_within_startup_grace
             return {
-                "metrics_persisted": self.is_persisted,
+                "metrics_persisted": self.is_persisted or within_grace,
                 "persistence_enabled": self._enabled,
                 "last_save_ok": self._last_save_ok,
+                "startup_grace_active": within_grace,
+                "first_save_attempted": self._first_save_attempted,
                 "last_save_ts": (
                     datetime.fromtimestamp(
                         self._last_save_ts, tz=timezone.utc
@@ -827,7 +856,7 @@ def health_check_liveness() -> Dict[str, Any]:
     }
     p = get_persistence()
     if p is not None:
-        result["metrics_persisted"] = p.is_persisted
+        result["metrics_persisted"] = p.is_persisted or p.is_within_startup_grace
     else:
         result["metrics_persisted"] = False
     return result
@@ -995,7 +1024,9 @@ def health_check_readiness() -> Dict[str, Any]:
         "uptime_seconds": round(time.time() - _START_TIME, 1),
         "uptime_human": _format_duration(time.time() - _START_TIME),
         "checks": checks,
-        "metrics_persisted": p.is_persisted if p is not None else False,
+        "metrics_persisted": (
+            (p.is_persisted or p.is_within_startup_grace) if p is not None else False
+        ),
     }
     return result
 

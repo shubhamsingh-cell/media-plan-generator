@@ -15366,6 +15366,15 @@ def _build_health_response() -> dict:
     # PostHog key for frontend initialization (safe to expose -- it's a public project key)
     _ph_key_val = (os.environ.get("POSTHOG_API_KEY") or "").strip()
 
+    # Resolve metrics_persisted from the persistence singleton (with grace period)
+    _metrics_ok = False
+    try:
+        _p = get_persistence()
+        if _p is not None:
+            _metrics_ok = _p.is_persisted or _p.is_within_startup_grace
+    except Exception:
+        pass
+
     result: dict = {
         "status": "healthy" if is_healthy else "unhealthy",
         "uptime_seconds": round(time.time() - _SERVER_START_TIME, 2),
@@ -15375,7 +15384,7 @@ def _build_health_response() -> dict:
             "knowledge_base": kb_loaded,
             "data_dir": data_dir_exists,
         },
-        "metrics_persisted": False,
+        "metrics_persisted": _metrics_ok,
         "supabase_connected": _sb_connected,
         "enrichment_daemon_running": _enrich_running,
         "llm_router_available": _llm_available,
@@ -17988,12 +17997,6 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
         elif path in ("/api/health", "/health"):
             # Detailed health check for Render.com monitoring
             _health = health_check_detailed()
-            # Ensure metrics_persisted is always present
-            if "metrics_persisted" not in _health:
-                p = get_persistence()
-                _health["metrics_persisted"] = (
-                    p.is_persisted if p is not None else False
-                )
             status_code = 200 if _health.get("status") == "healthy" else 503
             body = json.dumps(_health).encode("utf-8")
             self.send_response(status_code)
