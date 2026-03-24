@@ -1221,7 +1221,7 @@ def generate_performance_excel(
                 f"{rec.get('hires') or 0:,.0f}",
                 f"${rec.get('cpc') or 0:.2f}",
                 f"${rec.get('cpa') or 0:.2f}",
-                f"{rec.get('ctr') or 0 * 100:.2f}%",
+                f"{(rec.get('ctr') or 0) * 100:.2f}%",
             ],
         )
 
@@ -1254,8 +1254,8 @@ def generate_performance_excel(
                 f"${vars_.get('cpc', {}).get('benchmark') or 0:.2f}",
                 f"${vars_.get('cpa', {}).get('actual') or 0:.2f}",
                 f"${vars_.get('cpa', {}).get('benchmark') or 0:.2f}",
-                f"{vars_.get('ctr', {}).get('actual') or 0 * 100:.2f}%",
-                f"{vars_.get('ctr', {}).get('benchmark') or 0 * 100:.2f}%",
+                f"{(vars_.get('ctr', {}).get('actual') or 0) * 100:.2f}%",
+                f"{(vars_.get('ctr', {}).get('benchmark') or 0) * 100:.2f}%",
                 grade,
             ],
             fonts=[f_body_bold] + [f_body] * 6 + [_grade_font(grade)],
@@ -1669,7 +1669,7 @@ def generate_performance_ppt(
         ("Hires", f"{metrics.get('total_hires') or 0:,}"),
         ("Overall CPC", f"${metrics.get('overall_cpc') or 0:.2f}"),
         ("Overall CPA", f"${metrics.get('overall_cpa') or 0:.2f}"),
-        ("Overall CTR", f"{metrics.get('overall_ctr') or 0 * 100:.2f}%"),
+        ("Overall CTR", f"{(metrics.get('overall_ctr') or 0) * 100:.2f}%"),
     ]
 
     for i, (label, value) in enumerate(metric_cards):
@@ -1785,10 +1785,10 @@ def generate_performance_ppt(
             comp.get("channel") or "",
             f"${cpc_v.get('actual') or 0:.2f}",
             f"${cpc_v.get('benchmark') or 0:.2f}",
-            f"{'+' if cpc_v.get('variance_pct') or 0 > 0 else ''}{cpc_v.get('variance_pct') or 0:.1f}%",
+            f"{'+' if (cpc_v.get('variance_pct') or 0) > 0 else ''}{cpc_v.get('variance_pct') or 0:.1f}%",
             f"${cpa_v.get('actual') or 0:.2f}",
             f"${cpa_v.get('benchmark') or 0:.2f}",
-            f"{'+' if cpa_v.get('variance_pct') or 0 > 0 else ''}{cpa_v.get('variance_pct') or 0:.1f}%",
+            f"{'+' if (cpa_v.get('variance_pct') or 0) > 0 else ''}{cpa_v.get('variance_pct') or 0:.1f}%",
             g,
         ]
 
@@ -1902,7 +1902,7 @@ def generate_performance_ppt(
         eff_metrics = [
             f"Spend: ${eff_rec.get('spend') or 0:,.0f} ({eff_rec.get('spend_pct') or 0:.0f}%)",
             f"CPC: ${eff_rec.get('cpc') or 0:.2f}  |  CPA: ${eff_rec.get('cpa') or 0:.2f}",
-            f"Apply Rate: {eff_rec.get('apply_rate') or 0 * 100:.1f}%  |  Hire Rate: {eff_rec.get('hire_rate') or 0 * 100:.1f}%",
+            f"Apply Rate: {(eff_rec.get('apply_rate') or 0) * 100:.1f}%  |  Hire Rate: {(eff_rec.get('hire_rate') or 0) * 100:.1f}%",
             f"ROI Score: {eff_rec.get('roi_score') or 0:.0f}/100",
         ]
         for m_idx, m_text in enumerate(eff_metrics):

@@ -5704,7 +5704,7 @@ def generate_excel(data):
     _qm_total_proj = (
         _qm_budget.get("total_projected", {}) if isinstance(_qm_budget, dict) else {}
     )
-    if isinstance(_qm_total_proj, dict) and _qm_total_proj.get("hires") or 0 > 0:
+    if isinstance(_qm_total_proj, dict) and (_qm_total_proj.get("hires") or 0) > 0:
         # Budget engine projections (highest accuracy)
         est_total_reach = est_impressions  # Keep impressions from earlier calculation
         est_hires = int(_qm_total_proj.get("hires") or 0)
@@ -5727,7 +5727,7 @@ def generate_excel(data):
                 [
                     c
                     for c in _qm_ch_allocs.values()
-                    if isinstance(c, dict) and c.get("percentage") or 0 > 0
+                    if isinstance(c, dict) and (c.get("percentage") or 0) > 0
                 ]
             )
             if isinstance(_qm_ch_allocs, dict)
@@ -10925,7 +10925,10 @@ def generate_excel(data):
         }
         if isinstance(_platforms_list, dict):
             for pname, pdata in _platforms_list.items():
-                if isinstance(pdata, dict) and pdata.get("fit_score") or 0 > _top_score:
+                if (
+                    isinstance(pdata, dict)
+                    and (pdata.get("fit_score") or 0) > _top_score
+                ):
                     _top_score = pdata.get("fit_score") or 0
                     _top_platform = pname
         if _top_platform:
@@ -12464,9 +12467,9 @@ def generate_excel(data):
                     rec = "Reduce allocation -- CPA significantly above average"
                 elif cpa > _hist_perf.get("total_cpa") or 0 * 1.2:
                     rec = "Optimize -- CPA above average"
-                elif cpa < _hist_perf.get("total_cpa") or 0 * 0.8 and cpa > 0:
+                elif cpa < (_hist_perf.get("total_cpa") or 0) * 0.8 and cpa > 0:
                     rec = "Increase allocation -- strong CPA performer"
-                elif spend_pct < 5 and pdata.get("hires") or 0 > 0:
+                elif spend_pct < 5 and (pdata.get("hires") or 0) > 0:
                     rec = "Consider scaling -- low spend but generating hires"
 
                 cell_rec = ws_hist.cell(row=h_row, column=8, value=rec)

@@ -31,6 +31,7 @@ import hashlib
 import hmac
 import json
 import logging
+import os
 import re
 import threading
 import time
@@ -45,8 +46,6 @@ try:
     from alert_manager import send_alert as _email_alert
 except ImportError:
     _email_alert = lambda *a, **kw: False
-
-import os
 
 # ── Configuration ────────────────────────────────────────────────────────────
 
@@ -725,8 +724,8 @@ def _execute_healing_action(
                     f"sentry:{file_path}", "reset_orchestrator_sentinels", True
                 )
                 return True
-            except Exception:
-                pass
+            except (ImportError, AttributeError, RuntimeError) as exc:
+                logger.debug("sentry heal: orchestrator sentinel reset failed: %s", exc)
         return False
 
     elif fix_type == "or_empty_string":

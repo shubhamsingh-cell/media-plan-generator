@@ -9945,7 +9945,7 @@ def fetch_careeronestop_data(roles: List[str], locations: List[str]) -> Dict[str
                     occ_entry["education"] = str(education)
 
         if salary_parsed:
-            if salary_parsed.get("median") or 0 > 0:
+            if (salary_parsed.get("median") or 0) > 0:
                 occ_entry["salary"] = salary_parsed
 
         if outlook_parsed:
@@ -9975,7 +9975,7 @@ def fetch_careeronestop_data(roles: List[str], locations: List[str]) -> Dict[str
             )
             if loc_salary_raw:
                 loc_salary_parsed = _parse_salary_response(loc_salary_raw)
-                if loc_salary_parsed and loc_salary_parsed.get("median") or 0 > 0:
+                if loc_salary_parsed and (loc_salary_parsed.get("median") or 0) > 0:
                     location_salary[state] = {
                         "median": loc_salary_parsed["median"],
                         "entry": loc_salary_parsed["entry_level"],

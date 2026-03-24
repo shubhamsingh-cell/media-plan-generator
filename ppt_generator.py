@@ -1225,7 +1225,7 @@ def _get_industry_comparison(
                     [
                         c
                         for c in ch_allocs.values()
-                        if isinstance(c, dict) and c.get("percentage") or 0 > 0
+                        if isinstance(c, dict) and (c.get("percentage") or 0) > 0
                     ]
                 )
                 if n_ch > 0:

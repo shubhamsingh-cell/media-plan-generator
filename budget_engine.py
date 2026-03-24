@@ -1723,7 +1723,7 @@ def calculate_budget_allocation(
     # Consolidate warnings and recommendations
     all_warnings = list(sufficiency.get("warnings") or [])
     all_recommendations = list(sufficiency.get("recommendations") or [])
-    if optimized.get("improvement", {}).get("pct_change") or 0 > 5:
+    if (optimized.get("improvement", {}).get("pct_change") or 0) > 5:
         all_recommendations.append(
             f"Optimised allocation could improve projected hires by "
             f"{optimized['improvement']['pct_change']:.0f}%. "

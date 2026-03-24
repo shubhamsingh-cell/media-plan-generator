@@ -949,7 +949,7 @@ def main() -> int:
         print(format_comparison_report(report))
         if report.get("error"):
             return 1
-        if report.get("total_alerts") or 0 > 0:
+        if (report.get("total_alerts") or 0) > 0:
             return 1
         return 0
 

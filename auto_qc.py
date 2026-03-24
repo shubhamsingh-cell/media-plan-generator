@@ -1745,7 +1745,7 @@ class AutoQC:
                 rationale="AutoQC test verifying audit trail works",
             )
             stats = audit.get_stats()
-            ok = isinstance(stats, dict) and stats.get("total_entries") or 0 > 0
+            ok = isinstance(stats, dict) and (stats.get("total_entries") or 0) > 0
             detail = f"Audit trail: {stats.get('total_entries') or 0} entries, stages={list(stats.get('stages', {}).keys())[:5]}"
             return TestResult("audit_trail", ok, detail)
         except ImportError:
@@ -3567,7 +3567,7 @@ class AutoQC:
                         mon = sys.modules["monitoring"]
                         audit = mon.AuditLogger.instance()
                         stats = audit.get_stats()
-                        if stats.get("total_entries") or 0 >= audit._MAX_ENTRIES:
+                        if (stats.get("total_entries") or 0) >= audit._MAX_ENTRIES:
                             # Trigger a persist to flush oldest entries
                             audit._persist()
                             action_taken = True

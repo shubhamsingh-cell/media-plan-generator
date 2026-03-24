@@ -211,7 +211,7 @@ def _build_budget_cases() -> List[Dict[str, Any]]:
         for ch_name, ch_data in allocs.items():
             if ch_name in exempt:
                 continue
-            if ch_data.get("dollar_amount") or 0 <= 0:
+            if (ch_data.get("dollar_amount") or 0) <= 0:
                 return False, f"Channel '{ch_name}' allocated $0 on a ${budget} budget"
         return True, "All non-exempt channels have positive allocation"
 
@@ -246,7 +246,7 @@ def _build_budget_cases() -> List[Dict[str, Any]]:
         if result is None:
             return False, "budget_engine not available"
         allocs = result.get("channel_allocations", {})
-        active = [ch for ch, d in allocs.items() if d.get("dollar_amount") or 0 > 0]
+        active = [ch for ch, d in allocs.items() if (d.get("dollar_amount") or 0) > 0]
         count = len(active)
         # With a small budget, even if the engine spreads thin, it should not
         # exceed 6 channels at most (we allow some tolerance above 5).

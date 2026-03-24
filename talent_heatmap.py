@@ -1165,13 +1165,13 @@ def _score_location(
 def _generate_location_reasoning(loc: Dict[str, Any], role: str, industry: str) -> str:
     """Generate a brief reasoning for why this location is recommended."""
     reasons = []
-    if loc.get("talent_density_score") or 0 >= 60:
+    if (loc.get("talent_density_score") or 0) >= 60:
         reasons.append("strong talent pool")
-    if loc.get("cost_efficiency_score") or 0 >= 60:
+    if (loc.get("cost_efficiency_score") or 0) >= 60:
         reasons.append("cost-effective")
-    if loc.get("budget_fit_score") or 0 >= 60:
+    if (loc.get("budget_fit_score") or 0) >= 60:
         reasons.append("good budget fit")
-    if loc.get("competition_score") or 0 <= 40:
+    if (loc.get("competition_score") or 0) <= 40:
         reasons.append("lower hiring competition")
 
     if not reasons:
