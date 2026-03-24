@@ -601,7 +601,7 @@ def _parse_diversity_flag(val: str) -> Optional[bool]:
 # =============================================================================
 
 
-def calculate_qoh_score(hire_data: Dict[str, Any]) -> float:
+def calculate_qoh_score(hire_data: Dict[str, Any] | str | None) -> float:
     """Calculate Quality of Hire composite score (0-100) for a single hire.
 
     Weighted composite of:
@@ -612,6 +612,13 @@ def calculate_qoh_score(hire_data: Dict[str, Any]) -> float:
       - Hiring manager satisfaction (15%)
       - Cultural fit (10%)
     """
+    # Guard: hire_data may be a string or None instead of dict
+    if not isinstance(hire_data, dict):
+        logger.warning(
+            "calculate_qoh_score received non-dict: %s", type(hire_data).__name__
+        )
+        return 0.0
+
     scores = {}
     total_weight = 0.0
 
@@ -3015,8 +3022,13 @@ def run_full_signal_analysis(
                 "success": False,
             }
 
-        # 2. Calculate QoH score for each hire
-        for h in hires:
+        # 2. Calculate QoH score for each hire (guard against non-dict entries)
+        for i, h in enumerate(hires):
+            if not isinstance(h, dict):
+                logger.warning(
+                    "hires[%d] is %s, not dict -- skipping", i, type(h).__name__
+                )
+                continue
             h["qoh_score"] = calculate_qoh_score(h)
 
         # Use ThreadPoolExecutor for concurrent analysis
