@@ -590,13 +590,13 @@ def setup_grafana_logging(
         if setup_grafana_logging(logging.getLogger()):
             print("Grafana Loki logging active")
     """
-    loki_url = os.environ.get("GRAFANA_LOKI_URL") or "".strip()
-    api_key = os.environ.get("GRAFANA_API_KEY") or "".strip()
+    loki_url = (os.environ.get("GRAFANA_LOKI_URL") or "").strip()
+    api_key = (os.environ.get("GRAFANA_API_KEY") or "").strip()
 
     if not loki_url or not api_key:
         return False
 
-    user_id = os.environ.get("GRAFANA_USER_ID") or "".strip()
+    user_id = (os.environ.get("GRAFANA_USER_ID") or "").strip()
     env_label = os.environ.get("RENDER_ENV", "development")
 
     auth_header = _build_auth_header(user_id, api_key)
@@ -642,9 +642,9 @@ def diagnose_grafana() -> Dict[str, Any]:
 
     Returns a dict with: ok (bool), detail (str), http_status (int|None).
     """
-    loki_url = os.environ.get("GRAFANA_LOKI_URL") or "".strip()
-    api_key = os.environ.get("GRAFANA_API_KEY") or "".strip()
-    user_id = os.environ.get("GRAFANA_USER_ID") or "".strip()
+    loki_url = (os.environ.get("GRAFANA_LOKI_URL") or "").strip()
+    api_key = (os.environ.get("GRAFANA_API_KEY") or "").strip()
+    user_id = (os.environ.get("GRAFANA_USER_ID") or "").strip()
 
     # Check env vars first
     if not loki_url:

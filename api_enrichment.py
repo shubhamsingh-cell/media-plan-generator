@@ -975,7 +975,7 @@ def _http_get_json(
 
     # Determine whether to allow SSL fallback based on environment config.
     # SSL verification is strict by default. Set ALLOW_UNVERIFIED_SSL=1 to enable fallback (not recommended).
-    _allow_unverified = os.environ.get("ALLOW_UNVERIFIED_SSL") or "".strip() == "1"
+    _allow_unverified = (os.environ.get("ALLOW_UNVERIFIED_SSL") or "").strip() == "1"
     ssl_contexts = [_DEFAULT_SSL_CTX]
     if _allow_unverified:
         ssl_contexts.append(_get_unverified_ssl_ctx())
@@ -1040,7 +1040,9 @@ def _http_post_json(
             for k, v in headers.items():
                 req.add_header(k, v)
 
-        _allow_unverified = os.environ.get("ALLOW_UNVERIFIED_SSL") or "".strip() == "1"
+        _allow_unverified = (
+            os.environ.get("ALLOW_UNVERIFIED_SSL") or ""
+        ).strip() == "1"
         ssl_contexts = [_DEFAULT_SSL_CTX]
         if _allow_unverified:
             ssl_contexts.append(_get_unverified_ssl_ctx())
@@ -1139,7 +1141,9 @@ def _http_get_json_with_retry(
             for k, v in headers.items():
                 req.add_header(k, v)
 
-        _allow_unverified = os.environ.get("ALLOW_UNVERIFIED_SSL") or "".strip() == "1"
+        _allow_unverified = (
+            os.environ.get("ALLOW_UNVERIFIED_SSL") or ""
+        ).strip() == "1"
         _ssl_ctxs = [_DEFAULT_SSL_CTX]
         if _allow_unverified:
             _ssl_ctxs.append(_get_unverified_ssl_ctx())
@@ -1645,7 +1649,7 @@ def _http_get_text(url: str, timeout: int = API_TIMEOUT) -> Optional[str]:
     req.add_header(
         "User-Agent", "MediaPlanGenerator/1.0 (media-plan-generator.onrender.com)"
     )
-    _allow_unverified = os.environ.get("ALLOW_UNVERIFIED_SSL") or "".strip() == "1"
+    _allow_unverified = (os.environ.get("ALLOW_UNVERIFIED_SSL") or "").strip() == "1"
     _ssl_ctxs = [_DEFAULT_SSL_CTX]
     if _allow_unverified:
         _ssl_ctxs.append(_get_unverified_ssl_ctx())
@@ -1987,7 +1991,9 @@ def fetch_company_logo(domain: str) -> Optional[str]:
 
     # Strategy 1: Clearbit Logo API (higher quality)
     clearbit_url = f"https://logo.clearbit.com/{domain}"
-    _allow_unverified_logo = os.environ.get("ALLOW_UNVERIFIED_SSL") or "".strip() == "1"
+    _allow_unverified_logo = (
+        os.environ.get("ALLOW_UNVERIFIED_SSL") or ""
+    ).strip() == "1"
     _logo_ctxs = [_DEFAULT_SSL_CTX]
     if _allow_unverified_logo:
         _logo_ctxs.append(_get_unverified_ssl_ctx())
@@ -2425,7 +2431,7 @@ def fetch_company_metadata(
             # Find best match — prefer exact name match
             best = resp[0]
             for item in resp:
-                if item.get("name") or "".lower() == company_name.lower():
+                if (item.get("name") or "").lower() == company_name.lower():
                     best = item
                     break
 
@@ -2563,8 +2569,8 @@ def fetch_sec_company_data(company_name: str) -> Optional[Dict[str, Any]]:
     best_match = None
     best_score = 0
     for _key, entry in tickers.items():
-        title = entry.get("title") or "".lower()
-        ticker = entry.get("ticker") or "".lower()
+        title = (entry.get("title") or "").lower()
+        ticker = (entry.get("ticker") or "").lower()
 
         for term in search_terms:
             # Exact title match = highest priority
@@ -4434,7 +4440,7 @@ def fetch_datausa_occupation_stats(roles: List[str]) -> Dict[str, Any]:
     if not roles:
         return {}
 
-    _datausa_disabled = os.environ.get("DATAUSA_DISABLED") or "".strip() in (
+    _datausa_disabled = (os.environ.get("DATAUSA_DISABLED") or "").strip() in (
         "1",
         "true",
         "yes",
@@ -4630,7 +4636,7 @@ def fetch_datausa_location_data(locations: List[str]) -> Dict[str, Any]:
     if not locations:
         return {}
 
-    _datausa_disabled = os.environ.get("DATAUSA_DISABLED") or "".strip() in (
+    _datausa_disabled = (os.environ.get("DATAUSA_DISABLED") or "").strip() in (
         "1",
         "true",
         "yes",
@@ -5758,12 +5764,12 @@ def fetch_google_ads_data(roles: List[str], locations: List[str]) -> Dict[str, A
         _log_info("Returning cached Google Ads data")
         return cached
 
-    developer_token = os.environ.get("GOOGLE_ADS_DEVELOPER_TOKEN") or "".strip()
-    refresh_token = os.environ.get("GOOGLE_ADS_REFRESH_TOKEN") or "".strip()
-    client_id = os.environ.get("GOOGLE_ADS_CLIENT_ID") or "".strip()
-    client_secret = os.environ.get("GOOGLE_ADS_CLIENT_SECRET") or "".strip()
-    customer_id = os.environ.get("GOOGLE_ADS_CUSTOMER_ID") or "".strip().replace(
-        "-", ""
+    developer_token = (os.environ.get("GOOGLE_ADS_DEVELOPER_TOKEN") or "").strip()
+    refresh_token = (os.environ.get("GOOGLE_ADS_REFRESH_TOKEN") or "").strip()
+    client_id = (os.environ.get("GOOGLE_ADS_CLIENT_ID") or "").strip()
+    client_secret = (os.environ.get("GOOGLE_ADS_CLIENT_SECRET") or "").strip()
+    customer_id = (
+        (os.environ.get("GOOGLE_ADS_CUSTOMER_ID") or "").strip().replace("-", "")
     )
 
     has_credentials = all(
@@ -6707,8 +6713,8 @@ def fetch_meta_ads_data(
         _log_info("Returning cached Meta Ads data.")
         return cached  # type: ignore[return-value]
 
-    access_token: str = os.environ.get("META_ACCESS_TOKEN") or "".strip()
-    ad_account_id: str = os.environ.get("META_AD_ACCOUNT_ID") or "".strip()
+    access_token: str = (os.environ.get("META_ACCESS_TOKEN") or "").strip()
+    ad_account_id: str = (os.environ.get("META_AD_ACCOUNT_ID") or "").strip()
     use_api: bool = bool(access_token and ad_account_id)
 
     if use_api:
@@ -7453,11 +7459,11 @@ def fetch_bing_ads_data(
     # ------------------------------------------------------------------
     # Attempt live API call
     # ------------------------------------------------------------------
-    developer_token = os.environ.get("BING_ADS_DEVELOPER_TOKEN") or "".strip()
-    client_id = os.environ.get("BING_ADS_CLIENT_ID") or "".strip()
-    refresh_token = os.environ.get("BING_ADS_REFRESH_TOKEN") or "".strip()
-    customer_id = os.environ.get("BING_ADS_CUSTOMER_ID") or "".strip()
-    account_id = os.environ.get("BING_ADS_ACCOUNT_ID") or "".strip()
+    developer_token = (os.environ.get("BING_ADS_DEVELOPER_TOKEN") or "").strip()
+    client_id = (os.environ.get("BING_ADS_CLIENT_ID") or "").strip()
+    refresh_token = (os.environ.get("BING_ADS_REFRESH_TOKEN") or "").strip()
+    customer_id = (os.environ.get("BING_ADS_CUSTOMER_ID") or "").strip()
+    account_id = (os.environ.get("BING_ADS_ACCOUNT_ID") or "").strip()
 
     has_credentials = all(
         [developer_token, client_id, refresh_token, customer_id, account_id]
@@ -8061,8 +8067,8 @@ def fetch_tiktok_ads_data(roles: List[str], locations: List[str]) -> Dict[str, A
     if cached is not None:
         return cached
 
-    access_token = os.environ.get("TIKTOK_ACCESS_TOKEN") or "".strip()
-    advertiser_id = os.environ.get("TIKTOK_ADVERTISER_ID") or "".strip()
+    access_token = (os.environ.get("TIKTOK_ACCESS_TOKEN") or "").strip()
+    advertiser_id = (os.environ.get("TIKTOK_ADVERTISER_ID") or "").strip()
     has_credentials = bool(access_token and advertiser_id)
 
     if has_credentials:
@@ -8816,8 +8822,8 @@ def fetch_linkedin_ads_data(
     if cached is not None:
         return cached
 
-    token = os.environ.get("LINKEDIN_ACCESS_TOKEN") or "".strip()
-    ad_account = os.environ.get("LINKEDIN_AD_ACCOUNT_ID") or "".strip()
+    token = (os.environ.get("LINKEDIN_ACCESS_TOKEN") or "").strip()
+    ad_account = (os.environ.get("LINKEDIN_AD_ACCOUNT_ID") or "").strip()
     has_credentials = bool(token) and bool(ad_account)
 
     if has_credentials:
@@ -9834,8 +9840,8 @@ def fetch_careeronestop_data(roles: List[str], locations: List[str]) -> Dict[str
     if cached is not None:
         return cached
 
-    api_key = os.environ.get("CAREERONESTOP_API_KEY") or "".strip()
-    user_id = os.environ.get("CAREERONESTOP_USER_ID") or "".strip()
+    api_key = (os.environ.get("CAREERONESTOP_API_KEY") or "").strip()
+    user_id = (os.environ.get("CAREERONESTOP_USER_ID") or "").strip()
     use_api = bool(api_key and user_id)
 
     if not use_api:
@@ -11223,7 +11229,7 @@ def fetch_jooble_data(roles: List[str], locations: List[str]) -> Dict[str, Any]:
     dict
         A structured dict with keys: source, job_market, platform_summary.
     """
-    api_key = os.environ.get("JOOBLE_API_KEY") or "".strip()
+    api_key = (os.environ.get("JOOBLE_API_KEY") or "").strip()
     use_api = bool(api_key)
     source = "Jooble API" if use_api else "Jooble Market Benchmarks"
     job_market: Dict[str, Dict[str, Any]] = {}

@@ -1815,7 +1815,7 @@ def find_skill_hotspots(skills: List[str]) -> List[Dict[str, Any]]:
                     }
                 metro_scores[metro]["concentrations"].append(hs["concentration"])
                 metro_scores[metro]["skills_present"].append(key)
-                for emp in hs.get("employers") or "".split(", "):
+                for emp in (hs.get("employers") or "").split(", "):
                     if emp.strip():
                         metro_scores[metro]["top_employers"].add(emp.strip())
         if _HAS_RESEARCH and not metro_scores:
@@ -1833,7 +1833,7 @@ def find_skill_hotspots(skills: List[str]) -> List[Dict[str, Any]]:
                         "concentrations": [0.50],
                         "skills_present": list(skills[:3]),
                         "top_employers": set(
-                            info.get("major_employers") or "".split(", ")[:3]
+                            (info.get("major_employers") or "").split(", ")[:3]
                         ),
                     }
                 except Exception:
@@ -2432,7 +2432,7 @@ def generate_skill_ppt(analysis: Dict[str, Any]) -> bytes:
                 _tc(t.cell(i + 1, 0), sk, i % 2 == 0)
                 _tc(
                     t.cell(i + 1, 1),
-                    info.get("growth") or "".replace("_", " ").title(),
+                    (info.get("growth") or "").replace("_", " ").title(),
                     i % 2 == 0,
                 )
                 _tc(t.cell(i + 1, 2), f"+{info.get('yoy_pct') or 0}%", i % 2 == 0)

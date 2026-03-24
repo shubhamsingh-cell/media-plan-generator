@@ -2327,7 +2327,7 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
             ba_match = ba_channel_alloc.get(ch_key)
             if not ba_match:
                 # Try matching by label (case-insensitive)
-                ch_label_lower = ch_data.get("label") or "".lower()
+                ch_label_lower = (ch_data.get("label") or "").lower()
                 for ba_key, ba_val in ba_channel_alloc.items():
                     if isinstance(ba_val, dict):
                         ba_label = ba_val.get("label", ba_key).lower()
@@ -3418,7 +3418,7 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
         # Match with budget engine data
         ba_match = ba_channel_alloc.get(ch_key)
         if not ba_match:
-            ch_label_lower = ch_data.get("label") or "".lower()
+            ch_label_lower = (ch_data.get("label") or "").lower()
             for ba_key, ba_val in ba_channel_alloc.items():
                 if isinstance(ba_val, dict):
                     ba_label = ba_val.get("label", ba_key).lower()
@@ -6503,7 +6503,7 @@ def generate_pptx(data: Dict[str, Any]) -> bytes:
         core_props = prs.core_properties
         client = data.get("client_name", "Client")
         industry_label = data.get(
-            "industry_label", data.get("industry") or "".replace("_", " ").title()
+            "industry_label", (data.get("industry") or "").replace("_", " ").title()
         )
         core_props.title = f"Recruitment Media Plan - {client}"
         core_props.author = "Nova AI Suite"

@@ -3508,6 +3508,103 @@
         color: white;
       }
 
+      /* Export dropdown */
+      .export-dropdown-wrap {
+        position: relative;
+        display: inline-block;
+      }
+      .btn-export {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 20px;
+        background: rgba(107, 179, 205, 0.12);
+        border: 1px solid rgba(107, 179, 205, 0.3);
+        border-radius: 10px;
+        color: #6bb3cd;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .btn-export:hover {
+        background: rgba(107, 179, 205, 0.2);
+        border-color: rgba(107, 179, 205, 0.5);
+        color: white;
+      }
+      .btn-export svg {
+        flex-shrink: 0;
+      }
+      .export-dropdown-menu {
+        display: none;
+        position: absolute;
+        bottom: calc(100% + 6px);
+        left: 50%;
+        transform: translateX(-50%);
+        min-width: 220px;
+        background: rgba(20, 20, 40, 0.98);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(20px);
+        padding: 6px;
+        z-index: 100;
+      }
+      .export-dropdown-menu.open {
+        display: block;
+        animation: fadeSlideUp 0.15s ease-out;
+      }
+      @keyframes fadeSlideUp {
+        from {
+          opacity: 0;
+          transform: translateX(-50%) translateY(6px);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(-50%) translateY(0);
+        }
+      }
+      .export-dropdown-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 14px;
+        border-radius: 8px;
+        color: rgba(255, 255, 255, 0.8);
+        font-size: 13px;
+        cursor: pointer;
+        transition: background 0.15s;
+        border: none;
+        background: none;
+        width: 100%;
+        text-align: left;
+      }
+      .export-dropdown-item:hover {
+        background: rgba(255, 255, 255, 0.08);
+        color: white;
+      }
+      .export-dropdown-item .export-icon {
+        width: 20px;
+        text-align: center;
+        font-size: 15px;
+        flex-shrink: 0;
+      }
+      .export-dropdown-item .export-label {
+        flex: 1;
+      }
+      .export-dropdown-item .export-badge {
+        font-size: 10px;
+        padding: 2px 6px;
+        border-radius: 4px;
+        background: rgba(99, 102, 241, 0.2);
+        color: rgba(99, 102, 241, 0.9);
+      }
+      .export-dropdown-divider {
+        height: 1px;
+        background: rgba(255, 255, 255, 0.06);
+        margin: 4px 8px;
+      }
+
       /* ── Confidence Signals ── */
       .confidence-signals {
         display: flex;
@@ -5234,6 +5331,69 @@
             >
               &#128229; Download Bundle Again
             </button>
+            <div class="export-dropdown-wrap">
+              <button
+                class="btn-export"
+                onclick="toggleExportMenu(event)"
+                id="exportBtn"
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8" />
+                  <polyline points="16 6 12 2 8 6" />
+                  <line x1="12" y1="2" x2="12" y2="15" />
+                </svg>
+                Export
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                  style="margin-left: -2px"
+                >
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </button>
+              <div class="export-dropdown-menu" id="exportDropdown">
+                <button
+                  class="export-dropdown-item"
+                  onclick="exportPlan('sheets')"
+                  id="exportSheetsBtn"
+                  style="display: none"
+                >
+                  <span class="export-icon">&#128196;</span>
+                  <span class="export-label">Google Sheets</span>
+                  <span class="export-badge">Cloud</span>
+                </button>
+                <div
+                  class="export-dropdown-divider"
+                  id="exportSheetsDivider"
+                  style="display: none"
+                ></div>
+                <button
+                  class="export-dropdown-item"
+                  onclick="exportPlan('xlsx')"
+                >
+                  <span class="export-icon">&#128202;</span>
+                  <span class="export-label">Download Excel (.xlsx)</span>
+                </button>
+                <button
+                  class="export-dropdown-item"
+                  onclick="exportPlan('csv')"
+                >
+                  <span class="export-icon">&#128203;</span>
+                  <span class="export-label">Download CSV</span>
+                </button>
+              </div>
+            </div>
             <button class="btn-copy-plan" onclick="copyPlanToClipboard()">
               <svg
                 width="16"
@@ -7495,6 +7655,9 @@
             lastGeneratedBlob = blob;
             lastGeneratedFilename = filename;
 
+            // Cache payload for export
+            _lastPlanPayload = payload;
+
             // Hide overlay with success
             hideGenerationOverlay(true);
 
@@ -7615,6 +7778,111 @@
         } else {
           generatePlan();
         }
+      }
+
+      // ============================================
+      // Export dropdown & Google Sheets / CSV / XLSX
+      // ============================================
+      var _lastPlanPayload = null; // cached from generatePlan
+
+      function toggleExportMenu(e) {
+        e.stopPropagation();
+        var menu = document.getElementById("exportDropdown");
+        menu.classList.toggle("open");
+      }
+      // Close dropdown when clicking outside
+      document.addEventListener("click", function () {
+        var menu = document.getElementById("exportDropdown");
+        if (menu) menu.classList.remove("open");
+      });
+
+      // Check if Google Sheets is configured (on page load)
+      (function checkExportStatus() {
+        fetch("/api/export/status", { method: "POST" })
+          .then(function (r) {
+            return r.json();
+          })
+          .then(function (data) {
+            if (data.configured) {
+              var btn = document.getElementById("exportSheetsBtn");
+              var div = document.getElementById("exportSheetsDivider");
+              if (btn) btn.style.display = "";
+              if (div) div.style.display = "";
+            }
+          })
+          .catch(function () {
+            /* ignore -- sheets just won't show */
+          });
+      })();
+
+      function exportPlan(format) {
+        var menu = document.getElementById("exportDropdown");
+        if (menu) menu.classList.remove("open");
+
+        if (!_lastPlanPayload) {
+          showToast("Generate a media plan first before exporting.", "warning");
+          return;
+        }
+
+        var exportBtn = document.getElementById("exportBtn");
+        var origHTML = exportBtn.innerHTML;
+        exportBtn.disabled = true;
+        exportBtn.innerHTML =
+          '<span style="display:flex;align-items:center;gap:6px;"><span class="spinner-sm"></span> Exporting...</span>';
+
+        var body = JSON.stringify({
+          plan_data: _lastPlanPayload,
+          format: format,
+        });
+
+        fetch("/api/export/sheets", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: body,
+        })
+          .then(function (response) {
+            var ct = response.headers.get("Content-Type") || "";
+            if (ct.includes("application/json")) {
+              return response.json().then(function (data) {
+                if (data.url) {
+                  window.open(data.url, "_blank");
+                  showToast("Media plan exported to Google Sheets!", "success");
+                } else if (data.error) {
+                  showToast("Export error: " + data.error, "error");
+                }
+              });
+            } else {
+              // File download (XLSX or CSV)
+              return response.blob().then(function (blob) {
+                var disposition =
+                  response.headers.get("Content-Disposition") || "";
+                var filenameMatch = disposition.match(/filename="?([^"]+)"?/);
+                var filename = filenameMatch
+                  ? filenameMatch[1]
+                  : "Media_Plan_Export." + (format === "csv" ? "csv" : "xlsx");
+                var url = URL.createObjectURL(blob);
+                var a = document.createElement("a");
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(url);
+                var label = format === "csv" ? "CSV" : "Excel";
+                showToast("Media plan downloaded as " + label + "!", "success");
+              });
+            }
+          })
+          .catch(function (err) {
+            showToast(
+              "Export failed: " + (err.message || "Unknown error"),
+              "error",
+            );
+          })
+          .finally(function () {
+            exportBtn.disabled = false;
+            exportBtn.innerHTML = origHTML;
+          });
       }
 
       // ============================================

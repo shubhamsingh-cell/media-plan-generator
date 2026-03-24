@@ -46,7 +46,7 @@ logger = logging.getLogger(__name__)
 _RESEND_ENDPOINT = "https://api.resend.com/emails"
 
 # Core credentials -- module is entirely disabled when API key is absent
-_API_KEY: str = os.environ.get("RESEND_API_KEY") or "".strip()
+_API_KEY: str = (os.environ.get("RESEND_API_KEY") or "").strip()
 
 # "From" address: Resend requires a verified domain.  The onboarding@resend.dev
 # address is provided by Resend for initial testing before domain verification.
@@ -56,7 +56,7 @@ _FROM_EMAIL: str = os.environ.get(
 ).strip()
 
 # "To" address: required alongside RESEND_API_KEY for the module to activate.
-_TO_EMAIL: str = os.environ.get("ALERT_EMAIL_TO") or "".strip()
+_TO_EMAIL: str = (os.environ.get("ALERT_EMAIL_TO") or "").strip()
 
 # Rate limiting
 _HOURLY_LIMIT: int = int(os.environ.get("RESEND_HOURLY_LIMIT", "10"))

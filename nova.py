@@ -2587,9 +2587,9 @@ When API-enriched context is available in the session, prioritize it as the most
     def _query_global_supply(self, params: dict) -> dict:
         """Query global supply data: country boards, DEI boards, spend data."""
         supply = self._data_cache.get("global_supply", {})
-        country = params.get("country") or "".strip()
+        country = (params.get("country") or "").strip()
         board_type = params.get("board_type", "all")
-        category_filter = params.get("category") or "".lower().strip()
+        category_filter = (params.get("category") or "").lower().strip()
 
         result: Dict[str, Any] = {"source": "Joveo Global Supply Intelligence"}
 
@@ -2605,7 +2605,7 @@ When API-enriched context is available in the session, prioritize it as the most
                     boards = [
                         b
                         for b in boards
-                        if category_filter in b.get("category") or "".lower()
+                        if category_filter in (b.get("category") or "").lower()
                     ]
                 result["country_boards"] = {
                     "country": country_resolved,
@@ -2660,7 +2660,7 @@ When API-enriched context is available in the session, prioritize it as the most
     def _query_channels(self, params: dict) -> dict:
         """Query channel database: traditional and non-traditional channels."""
         channels = self._data_cache.get("channels_db", {})
-        industry = params.get("industry") or "".strip().lower()
+        industry = (params.get("industry") or "").strip().lower()
         channel_type = params.get("channel_type", "all")
 
         result: Dict[str, Any] = {"source": "Joveo Channel Database"}
@@ -2745,9 +2745,9 @@ When API-enriched context is available in the session, prioritize it as the most
         """Query Joveo publisher network by country, category, or search term."""
         publishers = self._data_cache.get("joveo_publishers", {})
         channels_db = self._data_cache.get("channels_db", {})
-        country = params.get("country") or "".strip()
-        category = params.get("category") or "".strip()
-        search_term = params.get("search_term") or "".strip().lower()
+        country = (params.get("country") or "").strip()
+        category = (params.get("category") or "").strip()
+        search_term = (params.get("search_term") or "").strip().lower()
 
         result: Dict[str, Any] = {
             "source": "Joveo Publisher Network",
@@ -2842,9 +2842,9 @@ When API-enriched context is available in the session, prioritize it as the most
                     exc_info=True,
                 )
         topic = params.get("topic", "all")
-        metric = params.get("metric") or "".strip().lower()
-        industry = params.get("industry") or "".strip().lower()
-        platform = params.get("platform") or "".strip().lower()
+        metric = (params.get("metric") or "").strip().lower()
+        industry = (params.get("industry") or "").strip().lower()
+        platform = (params.get("platform") or "").strip().lower()
 
         result: Dict[str, Any] = {"source": "Recruitment Industry Knowledge Base"}
 
@@ -2955,8 +2955,8 @@ When API-enriched context is available in the session, prioritize it as the most
         Uses DataOrchestrator to cascade:
             research.py (COLI-adjusted) -> BLS API (cached 24h) -> KB fallback.
         """
-        role = params.get("role") or "".strip()
-        location = params.get("location") or "".strip()
+        role = (params.get("role") or "").strip()
+        location = (params.get("location") or "").strip()
 
         # CRITICAL 1 FIX: Validate role is real before providing salary data
         if role:
@@ -3078,9 +3078,9 @@ When API-enriched context is available in the session, prioritize it as the most
         Uses DataOrchestrator to cascade:
             research.py (labor market intel) -> Adzuna/Jooble API -> KB fallback.
         """
-        role = params.get("role") or "".strip()
-        location = params.get("location") or "".strip()
-        industry = params.get("industry") or "".strip()
+        role = (params.get("role") or "").strip()
+        location = (params.get("location") or "").strip()
+        industry = (params.get("industry") or "").strip()
 
         kb = self._data_cache.get("knowledge_base", {})
         benchmarks = kb.get("benchmarks", {})
@@ -3319,9 +3319,9 @@ When API-enriched context is available in the session, prioritize it as the most
         Uses DataOrchestrator to cascade:
             research.py (40+ countries, 100+ metros) -> Census/World Bank API -> KB.
         """
-        city = params.get("city") or "".strip()
-        state = params.get("state") or "".strip()
-        country = params.get("country") or "".strip()
+        city = (params.get("city") or "").strip()
+        state = (params.get("state") or "").strip()
+        country = (params.get("country") or "").strip()
         location_str = city or state or country or "United States"
 
         country_resolved = (
@@ -3479,7 +3479,7 @@ When API-enriched context is available in the session, prioritize it as the most
         Uses DataOrchestrator to access KNOWN_EMPLOYER_PROFILES (30+ companies)
         with Glassdoor ratings, hiring channels, recruitment strategies.
         """
-        company = params.get("company") or "".strip()
+        company = (params.get("company") or "").strip()
         if not company:
             return {
                 "error": "Please provide a company name.",
@@ -3525,7 +3525,7 @@ When API-enriched context is available in the session, prioritize it as the most
         Uses DataOrchestrator to expose ad platform benchmark data previously
         only available in the bulk pipeline.
         """
-        industry = params.get("industry") or "".strip()
+        industry = (params.get("industry") or "").strip()
 
         orch = _get_orchestrator()
         if orch:
@@ -3560,9 +3560,9 @@ When API-enriched context is available in the session, prioritize it as the most
         Uses DataOrchestrator compute_insights() which synthesizes data from
         salary, market demand, and location enrichments.
         """
-        role = params.get("role") or "".strip()
-        location = params.get("location") or "".strip()
-        industry = params.get("industry") or "".strip()
+        role = (params.get("role") or "").strip()
+        location = (params.get("location") or "").strip()
+        industry = (params.get("industry") or "").strip()
 
         orch = _get_orchestrator()
         if orch:
@@ -3609,8 +3609,8 @@ When API-enriched context is available in the session, prioritize it as the most
 
     def _query_collar_strategy(self, params: dict) -> dict:
         """Compare blue collar vs white collar hiring strategies with structured confidence."""
-        role = params.get("role") or "".strip()
-        industry = params.get("industry") or "".strip()
+        role = (params.get("role") or "").strip()
+        industry = (params.get("industry") or "").strip()
         compare = params.get("compare", False)
         ci = _get_collar_intel()
 
@@ -3700,9 +3700,9 @@ When API-enriched context is available in the session, prioritize it as the most
     def _query_market_trends(self, params: dict) -> dict:
         """Get CPC/CPA trend data with seasonal patterns and structured confidence."""
         platform = params.get("platform", "google").strip()
-        industry = params.get("industry") or "".strip()
+        industry = (params.get("industry") or "").strip()
         metric = params.get("metric", "cpc").strip()
-        collar_type = params.get("collar_type") or "".strip()
+        collar_type = (params.get("collar_type") or "").strip()
         te = _get_trend_engine()
 
         result: Dict[str, Any] = {"source": "Joveo Trend Intelligence Engine"}
@@ -3788,9 +3788,9 @@ When API-enriched context is available in the session, prioritize it as the most
 
     def _query_role_decomposition(self, params: dict) -> dict:
         """Break down a role into seniority-level sub-allocations with hiring splits and CPA multipliers."""
-        role = params.get("role") or "".strip()
+        role = (params.get("role") or "").strip()
         count = params.get("count", 1)
-        industry = params.get("industry") or "".strip()
+        industry = (params.get("industry") or "").strip()
 
         if not role:
             return {"error": "Role is required.", "source": "Joveo Collar Intelligence"}
@@ -3843,11 +3843,11 @@ When API-enriched context is available in the session, prioritize it as the most
 
     def _simulate_what_if(self, params: dict) -> dict:
         """Simulate budget or channel changes and return projected impact."""
-        scenario_description = params.get("scenario_description") or "".strip()
+        scenario_description = (params.get("scenario_description") or "").strip()
         delta_budget = params.get("delta_budget", 0.0)
         delta_pct = params.get("delta_pct", 0.0)
-        add_channel = params.get("add_channel") or "".strip()
-        remove_channel = params.get("remove_channel") or "".strip()
+        add_channel = (params.get("add_channel") or "").strip()
+        remove_channel = (params.get("remove_channel") or "").strip()
 
         result: Dict[str, Any] = {"source": "Joveo Budget Simulation Engine"}
 
@@ -3950,9 +3950,9 @@ When API-enriched context is available in the session, prioritize it as the most
 
     def _query_skills_gap(self, params: dict) -> dict:
         """Analyze skills availability and hiring difficulty for a role."""
-        role = params.get("role") or "".strip()
-        location = params.get("location") or "".strip()
-        industry = params.get("industry") or "".strip()
+        role = (params.get("role") or "").strip()
+        location = (params.get("location") or "").strip()
+        industry = (params.get("industry") or "").strip()
 
         if not role:
             return {"error": "Role is required.", "source": "Joveo Collar Intelligence"}
@@ -4051,7 +4051,9 @@ When API-enriched context is available in the session, prioritize it as the most
             )
             result["data_confidence"] = result.get("confidence", 0.5)
             result["data_freshness"] = (
-                "live" if result.get("source") or "".startswith("llm_") else "fallback"
+                "live"
+                if (result.get("source") or "").startswith("llm_")
+                else "fallback"
             )
             return result
         except Exception as e:
@@ -5417,7 +5419,7 @@ When API-enriched context is available in the session, prioritize it as the most
         # 3. Claude API -> LAST RESORT paid fallback (only if free fails)
         # 4. Rule-based fallback
         _is_conversational = self._query_is_conversational(user_message)
-        api_key = os.environ.get("ANTHROPIC_API_KEY") or "".strip()
+        api_key = (os.environ.get("ANTHROPIC_API_KEY") or "").strip()
 
         # Path A: Conversational queries only -> free LLM providers (no tools)
         if _is_conversational:
@@ -6733,7 +6735,7 @@ When API-enriched context is available in the session, prioritize it as the most
         if conversation_history:
             for prev_msg in reversed(conversation_history):
                 if prev_msg.get("role") == "user":
-                    prev_text = prev_msg.get("content") or "".lower()
+                    prev_text = (prev_msg.get("content") or "").lower()
                     if any(
                         kw in prev_text
                         for kw in ["salary", "compensation", "pay range", "wage"]

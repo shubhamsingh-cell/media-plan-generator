@@ -495,7 +495,7 @@ class AutoQC:
 
     def _test_05_claude_api_key(self) -> TestResult:
         """ANTHROPIC_API_KEY is set."""
-        key = os.environ.get("ANTHROPIC_API_KEY") or "".strip()
+        key = (os.environ.get("ANTHROPIC_API_KEY") or "").strip()
         ok = len(key) > 10
         return TestResult("claude_api_key", ok, "Set" if ok else "Missing or too short")
 
@@ -597,7 +597,7 @@ class AutoQC:
         try:
             result = self._internal_chat("what is joveo")
             has_response = bool(result.get("response"))
-            mentions_joveo = "joveo" in result.get("response") or "".lower()
+            mentions_joveo = "joveo" in (result.get("response") or "").lower()
             confidence = result.get("confidence") or 0
             ok = has_response and mentions_joveo and confidence >= 0.85
             return TestResult(
@@ -628,7 +628,7 @@ class AutoQC:
         try:
             result = self._internal_chat("")
             has_response = bool(result.get("response"))
-            no_error = "error" not in result.get("response") or "".lower()
+            no_error = "error" not in (result.get("response") or "").lower()
             ok = has_response and no_error
             return TestResult(
                 "chat_empty_message",
@@ -642,7 +642,7 @@ class AutoQC:
         """Salary query without location triggers clarification."""
         try:
             result = self._internal_chat("what is the average salary of a nurse")
-            resp_lower = result.get("response") or "".lower()
+            resp_lower = (result.get("response") or "").lower()
             asks_location = any(
                 w in resp_lower
                 for w in ["country", "region", "location", "where", "which"]
@@ -1640,10 +1640,10 @@ class AutoQC:
         """LLM Provider -- at least 1 of 4 LLM providers has API key configured."""
         try:
             keys = {
-                "gemini": os.environ.get("GEMINI_API_KEY") or "".strip(),
-                "groq": os.environ.get("GROQ_API_KEY") or "".strip(),
-                "cerebras": os.environ.get("CEREBRAS_API_KEY") or "".strip(),
-                "claude": os.environ.get("ANTHROPIC_API_KEY") or "".strip(),
+                "gemini": (os.environ.get("GEMINI_API_KEY") or "").strip(),
+                "groq": (os.environ.get("GROQ_API_KEY") or "").strip(),
+                "cerebras": (os.environ.get("CEREBRAS_API_KEY") or "").strip(),
+                "claude": (os.environ.get("ANTHROPIC_API_KEY") or "").strip(),
             }
             available = [name for name, key in keys.items() if key]
             ok = len(available) >= 1
@@ -1934,9 +1934,9 @@ class AutoQC:
 
             ok_config = CLAUDE_OPUS in PROVIDER_CONFIG
             ok_routing = all(CLAUDE_OPUS in route for route in TASK_ROUTING.values())
-            ok_model = PROVIDER_CONFIG.get(CLAUDE_OPUS, {}).get(
-                "model"
-            ) or "".startswith("claude-opus")
+            ok_model = (
+                PROVIDER_CONFIG.get(CLAUDE_OPUS, {}).get("model") or ""
+            ).startswith("claude-opus")
             ok = ok_config and ok_routing and ok_model
             detail = f"Config={ok_config}, Routing={ok_routing}, Model={PROVIDER_CONFIG.get(CLAUDE_OPUS, {}).get('model', 'N/A')}"
             return TestResult("claude_opus_provider", ok, detail)
@@ -1967,7 +1967,7 @@ class AutoQC:
             ]
             # Check _is_enabled -- should match whether RESEND_API_KEY is set
             is_enabled_fn = getattr(mod, "_is_enabled", None)
-            has_key = bool(os.environ.get("RESEND_API_KEY") or "".strip())
+            has_key = bool((os.environ.get("RESEND_API_KEY") or "").strip())
             enabled_val = is_enabled_fn() if callable(is_enabled_fn) else None
             enabled_consistent = (
                 (enabled_val is True) if has_key else (enabled_val is False)
@@ -2027,7 +2027,7 @@ class AutoQC:
             stats_result = stats_fn() if stats_callable else None
             stats_is_dict = isinstance(stats_result, dict)
             # setup_grafana_logging behavior depends on env vars
-            has_env = bool(os.environ.get("GRAFANA_LOKI_URL") or "".strip())
+            has_env = bool((os.environ.get("GRAFANA_LOKI_URL") or "").strip())
             if setup_callable:
                 setup_result = setup_fn()
                 # When env vars are set, setup should return True (or a truthy handler)
@@ -2053,7 +2053,7 @@ class AutoQC:
             stats = mod.get_grafana_stats()
             required_keys = ["records_shipped", "records_dropped", "flush_errors"]
             missing = [k for k in required_keys if k not in stats]
-            has_env = bool(os.environ.get("GRAFANA_LOKI_URL") or "".strip())
+            has_env = bool((os.environ.get("GRAFANA_LOKI_URL") or "").strip())
             # When env vars are set, counters may be non-zero (operational data)
             # When env vars are NOT set, all counters should be 0
             if has_env:
@@ -2107,10 +2107,8 @@ class AutoQC:
                 importlib.import_module("supabase_cache")
             mod = sys.modules["supabase_cache"]
             has_env = bool(
-                os.environ.get("SUPABASE_URL")
-                or "".strip()
-                and os.environ.get("SUPABASE_ANON_KEY")
-                or "".strip()
+                (os.environ.get("SUPABASE_URL") or "").strip()
+                and (os.environ.get("SUPABASE_ANON_KEY") or "").strip()
             )
             errors = []
             stats = mod.get_supabase_stats()
@@ -2386,8 +2384,7 @@ class AutoQC:
             is_rule_based = (
                 "rule-based" in sources_str
                 or "knowledge_base" in sources_str
-                or not os.environ.get("ANTHROPIC_API_KEY")
-                or "".strip()
+                or not (os.environ.get("ANTHROPIC_API_KEY") or "").strip()
             )
 
             # Check for fabricated dollar amounts (patterns like $X.XX or $XX)
@@ -3109,7 +3106,7 @@ class AutoQC:
             min_confidence = test.get("min_confidence", 0.3)
 
             result = self._internal_chat(query)
-            resp_lower = result.get("response") or "".lower()
+            resp_lower = (result.get("response") or "").lower()
             confidence = result.get("confidence") or 0
 
             pattern_matches = sum(

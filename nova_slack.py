@@ -554,7 +554,7 @@ class NovaSlackBot:
                 }
             # P1 FIX: Merge pre-loaded answers (survives ephemeral filesystem)
             existing_qs = {
-                a.get("question") or "".lower()
+                (a.get("question") or "").lower()
                 for a in self.learned_answers.get("answers") or []
             }
             for preloaded in _PRELOADED_ANSWERS:
@@ -1069,7 +1069,7 @@ class NovaSlackBot:
 
         scored: list = []
         for msg in messages:
-            msg_text = msg.get("text") or "".strip()
+            msg_text = (msg.get("text") or "").strip()
             if not msg_text:
                 continue
             # Skip very short messages (reactions, single-word replies)
@@ -1598,8 +1598,8 @@ class NovaSlackBot:
         imported = 0
         with self._lock:
             for pair in qa_pairs:
-                q = pair.get("question") or "".strip()
-                a = pair.get("answer") or "".strip()
+                q = (pair.get("question") or "").strip()
+                a = (pair.get("answer") or "").strip()
                 if not q or not a:
                     continue
                 # Cap at 2000 learned answers to prevent memory/disk exhaustion

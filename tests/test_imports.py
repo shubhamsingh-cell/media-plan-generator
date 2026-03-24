@@ -25,6 +25,7 @@ _IMPORTABLE_MODULES = [
     "monitoring",
     "auto_qc",
     "data_matrix_monitor",
+    "sheets_export",
 ]
 
 # Modules using PEP 604 unions (X | Y) which require Python 3.10+

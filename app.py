@@ -15644,6 +15644,203 @@ def _cancel_stream(conversation_id: str) -> bool:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# FILE ATTACHMENT PARSING FOR CHAT
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def _parse_file_attachment(file_attachment: dict) -> str:
+    """Parse a base64-encoded file attachment and extract text content.
+
+    Args:
+        file_attachment: Dict with 'name', 'type', 'data' (base64).
+
+    Returns:
+        Extracted text content, or empty string on failure.
+    """
+    import base64
+    import csv
+    import io
+
+    name = file_attachment.get("name") or ""
+    data_b64 = file_attachment.get("data") or ""
+    if not data_b64:
+        return ""
+
+    try:
+        raw = base64.b64decode(data_b64)
+    except (ValueError, TypeError) as exc:
+        logger.error("File decode error for %s: %s", name, exc, exc_info=True)
+        return ""
+
+    ext = name.rsplit(".", 1)[-1].lower() if "." in name else ""
+
+    # Enforce 5MB limit
+    if len(raw) > 5 * 1024 * 1024:
+        return "[File too large -- max 5MB]"
+
+    try:
+        if ext == "txt":
+            return raw.decode("utf-8", errors="replace")[:20000]
+
+        if ext == "csv":
+            text = raw.decode("utf-8", errors="replace")
+            reader = csv.reader(io.StringIO(text))
+            rows = []
+            for i, row in enumerate(reader):
+                if i > 200:
+                    rows.append(f"... (truncated, {i}+ rows total)")
+                    break
+                rows.append(",".join(row))
+            return "\n".join(rows)
+
+        if ext == "json":
+            text = raw.decode("utf-8", errors="replace")
+            # Pretty-print if valid JSON, truncate to 20k chars
+            try:
+                parsed = json.loads(text)
+                return json.dumps(parsed, indent=2)[:20000]
+            except json.JSONDecodeError:
+                return text[:20000]
+
+        if ext == "pdf":
+            # Best-effort PDF text extraction (stdlib only)
+            text = raw.decode("latin-1", errors="replace")
+            # Extract text between stream/endstream markers
+            import re
+
+            chunks: list[str] = []
+            for match in re.finditer(
+                rb"stream\r?\n(.*?)\r?\nendstream", raw, re.DOTALL
+            ):
+                chunk = match.group(1)
+                # Try to decode as text (works for uncompressed PDFs)
+                try:
+                    decoded = chunk.decode("utf-8", errors="ignore")
+                    # Filter out binary noise
+                    printable = "".join(
+                        c for c in decoded if c.isprintable() or c in "\n\t "
+                    )
+                    if len(printable) > 20:
+                        chunks.append(printable)
+                except (UnicodeDecodeError, ValueError):
+                    pass
+            if chunks:
+                return "\n".join(chunks)[:20000]
+            return "[PDF content could not be extracted with stdlib -- upload as TXT for best results]"
+
+        if ext == "xlsx":
+            # Best-effort XLSX extraction (it's a zip of XML files)
+            import zipfile
+            import xml.etree.ElementTree as ET
+
+            try:
+                zf = zipfile.ZipFile(io.BytesIO(raw))
+                # Read shared strings
+                shared_strings: list[str] = []
+                if "xl/sharedStrings.xml" in zf.namelist():
+                    ss_xml = zf.read("xl/sharedStrings.xml")
+                    root = ET.fromstring(ss_xml)
+                    ns = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
+                    for si in root.findall(f".//{ns}si"):
+                        texts = [t.text or "" for t in si.findall(f".//{ns}t")]
+                        shared_strings.append("".join(texts))
+
+                # Read first sheet
+                sheet_names = [
+                    n for n in zf.namelist() if n.startswith("xl/worksheets/sheet")
+                ]
+                if not sheet_names:
+                    return "[XLSX: no worksheets found]"
+                sheet_xml = zf.read(sheet_names[0])
+                root = ET.fromstring(sheet_xml)
+                ns = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
+                rows_out: list[str] = []
+                for row_el in root.findall(f".//{ns}row"):
+                    cells: list[str] = []
+                    for cell in row_el.findall(f"{ns}c"):
+                        val_el = cell.find(f"{ns}v")
+                        val = val_el.text if val_el is not None else ""
+                        # Check if shared string reference
+                        if cell.get("t") == "s" and val:
+                            idx = int(val)
+                            val = (
+                                shared_strings[idx]
+                                if idx < len(shared_strings)
+                                else val
+                            )
+                        cells.append(val or "")
+                    rows_out.append(",".join(cells))
+                    if len(rows_out) > 200:
+                        rows_out.append("... (truncated)")
+                        break
+                return "\n".join(rows_out)
+            except (zipfile.BadZipFile, ET.ParseError, KeyError) as exc:
+                logger.error("XLSX parse error for %s: %s", name, exc, exc_info=True)
+                return "[XLSX parsing failed]"
+
+        return f"[Unsupported file type: {ext}]"
+
+    except Exception as exc:
+        logger.error("File attachment parse error for %s: %s", name, exc, exc_info=True)
+        return f"[Error parsing file: {name}]"
+
+
+def _generate_followup_questions(response_text: str, user_message: str) -> list[str]:
+    """Generate 2-3 suggested follow-up questions based on the response.
+
+    Args:
+        response_text: The Nova response text.
+        user_message: The original user question.
+
+    Returns:
+        List of 2-3 short follow-up question strings.
+    """
+    # Use simple keyword-based heuristics for fast, no-API-cost follow-ups
+    followups: list[str] = []
+    resp_lower = response_text.lower()
+    msg_lower = user_message.lower()
+
+    # Salary/compensation topics
+    if any(kw in resp_lower for kw in ("salary", "compensation", "pay range", "wage")):
+        if "national" not in msg_lower:
+            followups.append("How does this compare to national averages?")
+        if "trend" not in msg_lower:
+            followups.append("What are the salary trends for the past year?")
+
+    # Job board / publisher topics
+    if any(kw in resp_lower for kw in ("indeed", "linkedin", "job board", "publisher")):
+        if "cost" not in msg_lower and "cpc" not in msg_lower:
+            followups.append("What are the typical CPC benchmarks for these platforms?")
+        if "best" not in msg_lower:
+            followups.append("Which platform gives the best ROI for this role?")
+
+    # Budget / media plan topics
+    if any(kw in resp_lower for kw in ("budget", "allocation", "spend", "media plan")):
+        if "optimize" not in msg_lower:
+            followups.append("How can I optimize this budget allocation?")
+        followups.append("What KPIs should I track for this campaign?")
+
+    # Hiring difficulty / market topics
+    if any(
+        kw in resp_lower for kw in ("hiring difficulty", "demand", "supply", "shortage")
+    ):
+        followups.append("What sourcing strategies work best in this market?")
+        if "remote" not in msg_lower:
+            followups.append("How does remote hiring affect these numbers?")
+
+    # Recruitment general
+    if not followups:
+        if any(kw in resp_lower for kw in ("recruit", "hire", "talent", "candidate")):
+            followups.append("What are the best practices for this hiring scenario?")
+            followups.append("Can you break this down by region?")
+        else:
+            followups.append("Can you provide more details on this topic?")
+            followups.append("What data sources did you use for this analysis?")
+
+    return followups[:3]
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # NOVA CHAT FEEDBACK STORE (in-memory + optional Supabase)
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -15652,18 +15849,25 @@ _chat_feedback_lock = threading.Lock()
 _MAX_FEEDBACK_ENTRIES = 10000
 
 
-def _store_feedback(message_id: str, rating: str, conversation_id: str = "") -> None:
+def _store_feedback(
+    message_id: str,
+    rating: str,
+    conversation_id: str = "",
+    feedback_text: str = "",
+) -> None:
     """Store chat message feedback.
 
     Args:
         message_id: Unique message identifier.
         rating: 'up' or 'down'.
         conversation_id: Optional conversation identifier.
+        feedback_text: Optional text feedback from user.
     """
     entry = {
         "message_id": message_id,
         "rating": rating,
         "conversation_id": conversation_id,
+        "feedback_text": feedback_text[:500] if feedback_text else "",
         "timestamp": datetime.datetime.utcnow().isoformat() + "Z",
     }
     with _chat_feedback_lock:
@@ -18578,6 +18782,97 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 self.wfile.write(html.encode())
             else:
                 self.send_error(404, "Nova page not found")
+        elif path.startswith("/nova/shared/"):
+            # ── Shared conversation view (read-only) ──
+            share_id = path.split("/nova/shared/")[-1].rstrip("/")
+            if not share_id:
+                self.send_error(404, "Share ID required")
+                return
+            # Load from Supabase
+            shared_data: dict | None = None
+            try:
+                result = _supabase_rest(
+                    "nova_shared_conversations",
+                    params=f"?share_id=eq.{urllib.parse.quote(share_id)}&limit=1",
+                )
+                if result and len(result) > 0:
+                    shared_data = result[0]
+            except Exception as _sle:
+                logger.error("Load shared conversation failed: %s", _sle, exc_info=True)
+            if not shared_data:
+                self.send_error(404, "Shared conversation not found")
+                return
+            title = shared_data.get("title") or "Shared Conversation"
+            messages_json = shared_data.get("messages") or "[]"
+            try:
+                messages = (
+                    json.loads(messages_json)
+                    if isinstance(messages_json, str)
+                    else messages_json
+                )
+            except json.JSONDecodeError:
+                messages = []
+            # Build read-only HTML from nova.html template concept
+            msgs_html = ""
+            for msg in messages:
+                role = msg.get("role") or "user"
+                content = msg.get("content") or ""
+                is_user = role == "user"
+                avatar_cls = "user" if is_user else "nova"
+                avatar_txt = "U" if is_user else "N"
+                sender_txt = "You" if is_user else "Nova"
+                # Escape content for display
+                safe_content = (
+                    content.replace("&", "&amp;")
+                    .replace("<", "&lt;")
+                    .replace(">", "&gt;")
+                )
+                msgs_html += (
+                    f'<div class="message" style="animation:none;opacity:1">'
+                    f'<div class="message-avatar {avatar_cls}">{avatar_txt}</div>'
+                    f'<div class="message-body">'
+                    f'<div class="message-sender {avatar_cls}">{sender_txt}</div>'
+                    f'<div class="message-content"><p>{safe_content}</p></div>'
+                    f"</div></div>"
+                )
+            escaped_title = (
+                title.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+            )
+            shared_html = f"""<!doctype html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Nova AI - {escaped_title}</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+:root {{--bg-primary:#0f0f1a;--bg-secondary:#1a1a2e;--text-primary:#d4d4d8;--text-secondary:#888;
+--accent-teal:#6bb3cd;--accent-purple:#5a54bd;--accent-purple-light:#7b75d4;--border-color:rgba(107,179,205,0.1);}}
+*,*::before,*::after {{margin:0;padding:0;box-sizing:border-box;}}
+body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter',sans-serif;font-size:15px;line-height:1.6;}}
+.container {{max-width:720px;margin:0 auto;padding:40px 20px;}}
+.header {{text-align:center;margin-bottom:32px;padding-bottom:16px;border-bottom:1px solid var(--border-color);}}
+.header h1 {{font-size:20px;color:#fff;margin-bottom:4px;}}
+.header p {{font-size:13px;color:var(--text-secondary);}}
+.message {{display:flex;gap:12px;margin-bottom:24px;}}
+.message-avatar {{width:32px;height:32px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;}}
+.message-avatar.nova {{background:linear-gradient(135deg,var(--accent-teal),#4a9db5);color:#fff;}}
+.message-avatar.user {{background:var(--accent-purple);color:#fff;}}
+.message-body {{flex:1;min-width:0;}}
+.message-sender {{font-size:13px;font-weight:600;margin-bottom:4px;}}
+.message-sender.nova {{color:var(--accent-teal);}}
+.message-sender.user {{color:var(--accent-purple-light);}}
+.message-content {{font-size:15px;line-height:1.7;word-wrap:break-word;}}
+.message-content p {{margin:0 0 12px;}} .message-content p:last-child {{margin-bottom:0;}}
+.back-link {{display:inline-block;margin-top:24px;padding:8px 16px;border-radius:8px;border:1px solid var(--border-color);color:var(--accent-teal);font-size:13px;text-decoration:none;transition:all 0.15s;}}
+.back-link:hover {{background:rgba(107,179,205,0.08);text-decoration:none;}}
+</style></head><body>
+<div class="container">
+<div class="header"><h1>{escaped_title}</h1><p>Shared Nova AI conversation (read-only)</p></div>
+{msgs_html}
+<a href="/nova" class="back-link">Open Nova AI</a>
+</div></body></html>"""
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(shared_html.encode())
         elif path in ("/admin/nova", "/admin/nova/"):
             # ── Nova Admin Dashboard ──
             if not self._check_admin_auth():
@@ -21193,6 +21488,26 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 self.wfile.write(json.dumps({"error": "Invalid JSON"}).encode())
                 return
             try:
+                # ── File attachment parsing ──
+                _file_att = data.get("file_attachment")
+                if _file_att and isinstance(_file_att, dict):
+                    try:
+                        _file_text = _parse_file_attachment(_file_att)
+                        if _file_text:
+                            _fname = _file_att.get("name") or "file"
+                            data["message"] = (
+                                data.get("message") or ""
+                            ) + f"\n\n[Attached file: {_fname}]\n{_file_text}"
+                            logger.info(
+                                "Parsed file attachment %s (%d chars)",
+                                _fname,
+                                len(_file_text),
+                            )
+                    except Exception as _fpe:
+                        logger.error(
+                            "File attachment parse failed: %s", _fpe, exc_info=True
+                        )
+
                 # ── API Integrations: Enrich chat context with live data ──
                 if _api_integrations_available:
                     _chat_msg = (data.get("message") or "").lower()
@@ -21393,6 +21708,22 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 _chat_span_fn = getattr(self, "_sentry_span", lambda o, n: _nullctx())
                 with _chat_span_fn("nova.chat", "Nova chat LLM routing + response"):
                     response = handle_chat_request(data)
+
+                # ── Generate suggested follow-up questions ──
+                try:
+                    _resp_text = response.get("response") or ""
+                    _user_msg_text = data.get("message") or ""
+                    if _resp_text and _user_msg_text:
+                        _followups = _generate_followup_questions(
+                            _resp_text, _user_msg_text
+                        )
+                        if _followups:
+                            response["suggested_followups"] = _followups
+                except Exception as _fq_err:
+                    logger.error(
+                        "Follow-up generation failed: %s", _fq_err, exc_info=True
+                    )
+
                 # NOTE: Chat path routing is recorded inside nova.py (_nova_metrics.record_chat)
                 # which forwards to MetricsCollector. Do NOT double-count here.
             except Exception as chat_err:
@@ -21501,6 +21832,21 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             self.end_headers()
 
             try:
+                # ── File attachment parsing (same as /api/chat) ──
+                _sfile_att = data.get("file_attachment")
+                if _sfile_att and isinstance(_sfile_att, dict):
+                    try:
+                        _sfile_text = _parse_file_attachment(_sfile_att)
+                        if _sfile_text:
+                            _sfname = _sfile_att.get("name") or "file"
+                            data["message"] = (
+                                data.get("message") or ""
+                            ) + f"\n\n[Attached file: {_sfname}]\n{_sfile_text}"
+                    except Exception as _sfpe:
+                        logger.error(
+                            "Stream file parse failed: %s", _sfpe, exc_info=True
+                        )
+
                 # ── API enrichment (same as /api/chat) ──
                 if _api_integrations_available:
                     _chat_msg = (data.get("message") or "").lower()
@@ -21711,6 +22057,17 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                     self.wfile.flush()
                     time.sleep(0.035)  # 35ms per word for natural feel
 
+                # ── Generate follow-up suggestions ──
+                _stream_followups: list[str] = []
+                try:
+                    _stream_user_msg = data.get("message") or ""
+                    if full_response and _stream_user_msg:
+                        _stream_followups = _generate_followup_questions(
+                            full_response, _stream_user_msg
+                        )
+                except Exception as _sfq:
+                    logger.error("Stream follow-up gen failed: %s", _sfq, exc_info=True)
+
                 # ── Final event with metadata ──
                 final = json.dumps(
                     {
@@ -21722,6 +22079,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                         "tools_used": tools_used,
                         "message_id": message_id,
                         "conversation_id": conversation_id,
+                        "suggested_followups": _stream_followups,
                     }
                 )
                 self.wfile.write(f"data: {final}\n\n".encode())
@@ -21807,6 +22165,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             msg_id = data.get("message_id") or ""
             rating = data.get("rating") or ""
             conv_id = data.get("conversation_id") or ""
+            feedback_text = data.get("feedback_text") or ""
             if not msg_id or rating not in ("up", "down"):
                 resp_body = json.dumps(
                     {
@@ -21822,13 +22181,54 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(resp_body)
                 return
-            _store_feedback(msg_id, rating, conv_id)
+            _store_feedback(msg_id, rating, conv_id, feedback_text)
             resp_body = json.dumps(
                 {
                     "status": "ok",
                     "message_id": msg_id,
                     "rating": rating,
                 }
+            ).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            cors_origin = self._get_cors_origin()
+            if cors_origin:
+                self.send_header("Access-Control-Allow-Origin", cors_origin)
+            self.send_header("Content-Length", str(len(resp_body)))
+            self.end_headers()
+            self.wfile.write(resp_body)
+
+        elif path == "/api/chat/share":
+            # ── Share conversation ──
+            try:
+                content_len = int(self.headers.get("Content-Length") or 0)
+            except (ValueError, TypeError):
+                content_len = 0
+            body = self.rfile.read(content_len) if content_len > 0 else b""
+            try:
+                data = json.loads(body) if body else {}
+            except json.JSONDecodeError:
+                data = {}
+            conv_id = data.get("conversation_id") or str(uuid.uuid4())
+            share_id = str(uuid.uuid4())[:8]
+            # Store to Supabase
+            try:
+                _supabase_rest(
+                    "nova_shared_conversations",
+                    method="POST",
+                    payload={
+                        "share_id": share_id,
+                        "conversation_id": conv_id,
+                        "title": data.get("title") or "Shared Conversation",
+                        "messages": json.dumps(data.get("messages") or []),
+                        "created_at": datetime.datetime.utcnow().isoformat() + "Z",
+                    },
+                )
+            except Exception as _se:
+                logger.error("Share conversation save failed: %s", _se, exc_info=True)
+            share_url = f"{self.headers.get('Origin') or ''}/nova/shared/{share_id}"
+            resp_body = json.dumps(
+                {"status": "ok", "share_id": share_id, "share_url": share_url}
             ).encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
@@ -24543,6 +24943,157 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 self.wfile.write(
                     json.dumps({"error": "Report generation failed"}).encode()
                 )
+
+        # ── Sheets / CSV / XLSX Export ──
+        elif path == "/api/export/sheets":
+            try:
+                content_len = int(self.headers.get("Content-Length") or 0)
+                body = self.rfile.read(content_len) if content_len > 0 else b"{}"
+                data = json.loads(body)
+
+                plan_data = data.get("plan_data") or data
+                export_format = data.get("format") or "sheets"
+
+                from sheets_export import (
+                    export_media_plan,
+                    export_to_csv,
+                    export_to_xlsx,
+                    get_status as sheets_status,
+                )
+
+                if export_format == "sheets":
+                    sheet_url = export_media_plan(plan_data)
+                    if sheet_url:
+                        self._send_json({"url": sheet_url, "format": "sheets"})
+                    else:
+                        # Fall back to XLSX or CSV
+                        xlsx_bytes = export_to_xlsx(plan_data)
+                        if xlsx_bytes:
+                            client_name = re.sub(
+                                r"[^a-zA-Z0-9_\-]",
+                                "_",
+                                plan_data.get("client_name") or "Client",
+                            )
+                            self.send_response(200)
+                            self.send_header(
+                                "Content-Type",
+                                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            )
+                            self.send_header(
+                                "Content-Disposition",
+                                f'attachment; filename="{client_name}_Media_Plan_Export.xlsx"',
+                            )
+                            self.send_header("Content-Length", str(len(xlsx_bytes)))
+                            self.send_header("X-Export-Fallback", "xlsx")
+                            self.end_headers()
+                            self.wfile.write(xlsx_bytes)
+                        else:
+                            csv_bytes = export_to_csv(plan_data)
+                            client_name = re.sub(
+                                r"[^a-zA-Z0-9_\-]",
+                                "_",
+                                plan_data.get("client_name") or "Client",
+                            )
+                            self.send_response(200)
+                            self.send_header("Content-Type", "text/csv; charset=utf-8")
+                            self.send_header(
+                                "Content-Disposition",
+                                f'attachment; filename="{client_name}_Media_Plan_Export.csv"',
+                            )
+                            self.send_header("Content-Length", str(len(csv_bytes)))
+                            self.send_header("X-Export-Fallback", "csv")
+                            self.end_headers()
+                            self.wfile.write(csv_bytes)
+
+                elif export_format == "xlsx":
+                    xlsx_bytes = export_to_xlsx(plan_data)
+                    if xlsx_bytes:
+                        client_name = re.sub(
+                            r"[^a-zA-Z0-9_\-]",
+                            "_",
+                            plan_data.get("client_name") or "Client",
+                        )
+                        self.send_response(200)
+                        self.send_header(
+                            "Content-Type",
+                            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        )
+                        self.send_header(
+                            "Content-Disposition",
+                            f'attachment; filename="{client_name}_Media_Plan_Export.xlsx"',
+                        )
+                        self.send_header("Content-Length", str(len(xlsx_bytes)))
+                        self.end_headers()
+                        self.wfile.write(xlsx_bytes)
+                    else:
+                        # Fall back to CSV
+                        csv_bytes = export_to_csv(plan_data)
+                        client_name = re.sub(
+                            r"[^a-zA-Z0-9_\-]",
+                            "_",
+                            plan_data.get("client_name") or "Client",
+                        )
+                        self.send_response(200)
+                        self.send_header("Content-Type", "text/csv; charset=utf-8")
+                        self.send_header(
+                            "Content-Disposition",
+                            f'attachment; filename="{client_name}_Media_Plan_Export.csv"',
+                        )
+                        self.send_header("Content-Length", str(len(csv_bytes)))
+                        self.send_header("X-Export-Fallback", "csv")
+                        self.end_headers()
+                        self.wfile.write(csv_bytes)
+
+                elif export_format == "csv":
+                    csv_bytes = export_to_csv(plan_data)
+                    client_name = re.sub(
+                        r"[^a-zA-Z0-9_\-]",
+                        "_",
+                        plan_data.get("client_name") or "Client",
+                    )
+                    self.send_response(200)
+                    self.send_header("Content-Type", "text/csv; charset=utf-8")
+                    self.send_header(
+                        "Content-Disposition",
+                        f'attachment; filename="{client_name}_Media_Plan_Export.csv"',
+                    )
+                    self.send_header("Content-Length", str(len(csv_bytes)))
+                    self.end_headers()
+                    self.wfile.write(csv_bytes)
+
+                else:
+                    self.send_response(400)
+                    self.send_header("Content-Type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(
+                        json.dumps(
+                            {
+                                "error": f"Unknown format: {export_format}. Use 'sheets', 'xlsx', or 'csv'."
+                            }
+                        ).encode()
+                    )
+
+            except json.JSONDecodeError:
+                self.send_response(400)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Invalid JSON body"}).encode())
+            except Exception as e:
+                logger.error("Export endpoint error: %s", e, exc_info=True)
+                self.send_response(500)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Export failed"}).encode())
+
+        elif path == "/api/export/status":
+            try:
+                from sheets_export import get_status as sheets_status
+
+                self._send_json(sheets_status())
+            except Exception as e:
+                logger.error("Export status error: %s", e, exc_info=True)
+                self._send_json({"configured": False, "error": str(e)}, status_code=500)
+
         else:
             self.send_error(404)
 
