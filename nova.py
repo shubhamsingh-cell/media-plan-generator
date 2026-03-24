@@ -5411,6 +5411,20 @@ When API-enriched context is available in the session, prioritize it as the most
                 "tools_used": [],
             }
 
+        # --- Quick answer for simple role+location queries (0 LLM tokens) ---
+        # If the query is short (< 8 words), looks like "role in location",
+        # and we can extract both entities, build a response from tools directly.
+        _words = user_message.split()
+        if len(_words) <= 8 and len(history) <= 2:
+            _quick = self._try_quick_answer(user_message)
+            if _quick:
+                logger.info("NOVA MODE: Quick answer path -- 0 LLM tokens")
+                _nova_metrics.record_rule_based()
+                _nova_metrics.record_latency((time.time() - _t0) * 1000)
+                if cache_key:
+                    _set_response_cache(cache_key, _quick)
+                return _filter_competitor_names(_quick)
+
         # --- LLM routing strategy (v3.5 -- INVERTED: tools by default) ---
         # PRINCIPLE: Unknown queries default to tool path (safe).
         # Only obvious greetings/meta skip tools.
@@ -5564,6 +5578,153 @@ When API-enriched context is available in the session, prioritize it as the most
             }
 
         return _sanitize_refusal_language(_filter_competitor_names(result))
+
+    # ------------------------------------------------------------------
+    # Quick answer path for simple role+location queries (v3.6)
+    # ------------------------------------------------------------------
+
+    # Common role name -> canonical title mapping for quick answer
+    _QUICK_ROLE_MAP: Dict[str, str] = {
+        "nurse": "Registered Nurse",
+        "nurses": "Registered Nurse",
+        "rn": "Registered Nurse",
+        "lpn": "Licensed Practical Nurse",
+        "cna": "Certified Nursing Assistant",
+        "driver": "CDL Driver",
+        "drivers": "CDL Driver",
+        "cdl": "CDL Driver",
+        "trucker": "CDL Driver",
+        "engineer": "Software Engineer",
+        "software engineer": "Software Engineer",
+        "developer": "Software Developer",
+        "accountant": "Accountant",
+        "teacher": "Teacher",
+        "mechanic": "Mechanic",
+        "electrician": "Electrician",
+        "plumber": "Plumber",
+        "cashier": "Cashier",
+        "warehouse": "Warehouse Worker",
+        "forklift": "Forklift Operator",
+        "security": "Security Guard",
+        "janitor": "Janitor",
+        "cook": "Cook",
+        "chef": "Chef",
+        "pharmacist": "Pharmacist",
+        "dentist": "Dentist",
+        "therapist": "Therapist",
+        "physician": "Physician",
+        "doctor": "Physician",
+        "paralegal": "Paralegal",
+        "welder": "Welder",
+    }
+
+    def _try_quick_answer(self, user_message: str) -> Optional[dict]:
+        """Try to answer a simple role+location query from tool data without LLM.
+
+        Returns a formatted dict if successful, None to fall through to LLM path.
+        Only fires for short queries that look like 'role in location'.
+        """
+        msg_lower = user_message.lower().strip()
+
+        # Pattern: "role in location" or "role location"
+        # e.g. "nurse in new york city", "driver in texas", "cdl dallas"
+        role_title: Optional[str] = None
+        location: Optional[str] = None
+
+        # Try "X in Y" pattern first
+        in_match = re.match(
+            r"^(.+?)\s+(?:in|for|at|near)\s+(.+)$", msg_lower, re.IGNORECASE
+        )
+        if in_match:
+            role_candidate = in_match.group(1).strip()
+            location = in_match.group(2).strip().rstrip("?!.")
+            # Look up canonical role title
+            role_title = self._QUICK_ROLE_MAP.get(role_candidate)
+            if not role_title:
+                # Try multi-word match
+                for key, val in self._QUICK_ROLE_MAP.items():
+                    if key in role_candidate:
+                        role_title = val
+                        break
+
+        if not role_title or not location:
+            return None
+
+        # Capitalize location properly
+        location_display = " ".join(w.capitalize() for w in location.split())
+
+        # Gather tool data (parallel-safe -- these are in-process calls)
+        tools_used = []
+        sources: set = set()
+        salary_info = ""
+        demand_info = ""
+
+        try:
+            salary_data = self._query_salary_data(
+                {"role": role_title, "location": location_display}
+            )
+            if salary_data and not salary_data.get("role_not_recognized"):
+                tools_used.append("query_salary_data")
+                sources.add(salary_data.get("source") or "Salary Intelligence")
+                _sr = salary_data.get("salary_range", {})
+                _low = _sr.get("low") or _sr.get("min") or ""
+                _high = _sr.get("high") or _sr.get("max") or ""
+                _med = _sr.get("median") or _sr.get("mid") or ""
+                if _low and _high:
+                    salary_info = (
+                        f"## Salary Range\n"
+                        f"**{role_title}** in **{location_display}**: "
+                        f"**${_low:,}** - **${_high:,}**"
+                    )
+                    if _med:
+                        salary_info += f" (median **${_med:,}**)"
+                    salary_info += "\n"
+        except Exception as e:
+            logger.error(f"Quick answer salary lookup failed: {e}", exc_info=True)
+
+        try:
+            demand_data = self._query_market_demand(
+                {"role": role_title, "location": location_display}
+            )
+            if demand_data:
+                tools_used.append("query_market_demand")
+                sources.add(demand_data.get("source") or "Market Demand")
+                _hiring = (
+                    demand_data.get("hiring_strength")
+                    or demand_data.get("demand_level")
+                    or ""
+                )
+                _ratio = demand_data.get("applicant_ratio") or ""
+                if _hiring:
+                    demand_info = f"## Market Demand\nHiring strength: **{_hiring}**"
+                    if _ratio:
+                        demand_info += f" | Applicant ratio: **{_ratio}**"
+                    demand_info += "\n"
+        except Exception as e:
+            logger.error(f"Quick answer demand lookup failed: {e}", exc_info=True)
+
+        # Only return quick answer if we got meaningful data
+        if not salary_info and not demand_info:
+            return None
+
+        response_parts = [
+            f"Here's a quick overview for **{role_title}** in **{location_display}**:\n",
+        ]
+        if salary_info:
+            response_parts.append(salary_info)
+        if demand_info:
+            response_parts.append(demand_info)
+        response_parts.append(
+            "\nWant me to dig deeper into CPA/CPC benchmarks, "
+            "recommended job boards, or budget allocation for this role?"
+        )
+
+        return {
+            "response": "\n".join(response_parts),
+            "sources": list(sources),
+            "confidence": 0.8,
+            "tools_used": tools_used,
+        }
 
     # ------------------------------------------------------------------
     # LLM Router integration (v3.1 -- free LLM providers first)
@@ -5819,31 +5980,19 @@ When API-enriched context is available in the session, prioritize it as the most
         # Build system prompt (condensed version for free LLMs -- no tool instructions)
         system_prompt = (
             "You are Nova, a recruitment marketing AI assistant built by Joveo. "
-            "PERSONALITY: Be warm, professional, and approachable. You are a helpful "
-            "expert colleague -- NOT a cold robot. Use a friendly but knowledgeable tone. "
+            "PERSONALITY: Be warm, professional, and approachable -- like a friendly expert colleague. "
             "For casual/social messages, be personable and brief. Never say 'I'm just a "
-            "computer program' or 'I don't have feelings'. Instead, engage warmly and "
-            "redirect to how you can help with recruitment marketing. "
+            "computer program'. Engage warmly and redirect to recruitment marketing help. "
             "RULES: (1) Answer ONLY what was asked -- 1-3 sentences for simple questions. "
-            "Do NOT volunteer extra context, trends, or commentary. "
-            "(2) If the question is missing location or industry, ASK instead of guessing. "
-            "For role type, auto-classify obvious roles (driver/warehouse/delivery = blue collar, "
-            "engineer/analyst/manager = white collar, nurse/doctor = clinical). "
-            "Only ask role type if genuinely ambiguous. "
-            "Do NOT assume a country or location from prior conversation context. "
+            "(2) If missing location or industry, ASK. Auto-classify obvious roles "
+            "(nurse/doctor = clinical, driver/warehouse = blue collar, engineer = white collar). "
+            "Do NOT assume a country or location. "
             "(3) NEVER invent CPC, CPA, CPH, salary, or benchmark statistics. "
-            "If you need data for a specific query, provide general industry context "
-            "and note that you can look up specific benchmarks. "
-            "(4) Be concise, specific, and cite sources when possible. "
-            "(5) You are a Joveo product. CRITICAL: Joveo is a programmatic recruitment "
-            "marketing PLATFORM (the AI-powered technology layer), NOT a job board or publisher. "
-            "Publishers like Indeed, LinkedIn, Google Jobs, ZipRecruiter are all PART OF Joveo's "
-            "10,238+ supply partner network. NEVER suggest individual publishers as 'alternatives' "
-            "to Joveo -- they are channels Joveo distributes across, not competitors. "
-            "When asked about competitors, always position Joveo favorably. Never name competitors. "
-            "(6) NEVER say 'I can't help', 'I don't have the capability', "
-            "'beyond my capabilities', or any refusal language. You are a recruitment "
-            "marketing expert -- always provide value, even if general."
+            "(4) Use markdown formatting: **bold** for key numbers, ## headers for sections, "
+            "tables for comparisons. Be concise but data-rich. "
+            "(5) Joveo is a programmatic recruitment marketing PLATFORM with 10,238+ supply partners. "
+            "NEVER suggest publishers as 'alternatives' to Joveo. Position Joveo favorably. "
+            "(6) NEVER say 'I can't help' or any refusal language. Always provide value."
         )
         # Add enrichment context if available
         if enrichment_context:
@@ -5948,53 +6097,57 @@ When API-enriched context is available in the session, prioritize it as the most
         # so free LLM providers follow the same data accuracy standards.
         system_prompt = (
             "You are Nova, a recruitment marketing AI assistant built by Joveo. "
-            "You have access to tools for looking up recruitment data.\n\n"
+            "You have access to tools for looking up recruitment data. "
+            "Respond in a warm, professional tone -- like a knowledgeable recruitment consultant.\n\n"
+            "## QUERY UNDERSTANDING (CRITICAL -- READ FIRST)\n"
+            "Before calling tools, extract entities from the user's query:\n"
+            "- **Job title/role**: e.g., 'nurse', 'software engineer', 'CDL driver'\n"
+            "- **Location**: e.g., 'New York City', 'Texas', 'UK'\n"
+            "- **Industry**: e.g., 'healthcare', 'technology'\n"
+            "- **Metric requested**: e.g., CPA, salary, job boards\n\n"
+            "For SHORT queries like 'nurse in new york city':\n"
+            "- 'nurse' = job title (clinical role). Call query_salary_data(role='Registered Nurse', location='New York City') "
+            "AND query_market_demand(role='Registered Nurse', location='New York City').\n"
+            "- Do NOT search publishers for 'nurse' -- that returns irrelevant health-category boards.\n"
+            "- Do NOT use query_channels with broad 'healthcare' industry -- be specific to the role.\n"
+            "- Infer the user wants: salary data, CPC/CPA benchmarks, recommended job boards, and market demand for that specific role+location.\n\n"
+            "When the query is a ROLE + LOCATION with no explicit metric:\n"
+            "1. Call query_salary_data for compensation data\n"
+            "2. Call query_market_demand for hiring demand\n"
+            "3. Call query_joveo_benchmarks (if available) for CPA/CPC\n"
+            "4. Synthesize into a brief recruitment intel summary\n\n"
             "## DATA ACCURACY RULES (MANDATORY)\n"
             "(1) ALWAYS call tools before answering data questions. "
             "NEVER invent CPC, CPA, CPH, salary, or benchmark numbers.\n"
             "(2) ONLY state numbers that appear in tool results. "
-            "When tools give a RANGE (e.g., $25-$89), cite the full range. "
-            "Do NOT pick a midpoint or round.\n"
+            "When tools give a RANGE (e.g., $25-$89), cite the full range.\n"
             "(3) If two tools return conflicting numbers, state BOTH with sources.\n"
-            "(4) If a tool returns no data for the exact query, provide general industry "
-            "benchmarks or ranges for the closest match. NEVER say 'I can't help' or 'I don't have data'. "
-            "Always provide value.\n"
-            "(4b) UNRECOGNIZED ROLES: If a tool result contains 'role_not_recognized: true', "
-            "the role is NOT a standard job title. Suggest similar real roles and provide "
-            "general benchmarks for the closest matching category.\n"
-            "(5) Data source precedence when conflicts exist: "
-            "Live API data > joveo_2026_benchmarks > recruitment_benchmarks_deep > "
-            "platform_intelligence_deep > General KB.\n\n"
-            "## RESPONSE RULES\n"
-            "(6) Simple questions: 1-3 sentences. One number/range. One source.\n"
-            "(7) Comparison questions: short table or 2-3 bullets.\n"
-            "(8) Strategic questions: full response with sections.\n"
-            "(9) If the question is missing location or industry, ASK the user. "
-            "For role type, auto-classify obvious roles (driver/warehouse/delivery = blue collar, "
-            "engineer/analyst/manager = white collar, nurse/doctor = clinical). "
-            "Only ask role type if genuinely ambiguous. "
-            "Do NOT assume a country or location. Do NOT default to US/USD.\n"
-            "(10) When a country IS specified, use LOCAL CURRENCY "
-            "(INR for India, GBP for UK, EUR for Germany/France/etc, JPY for Japan, "
-            "CAD for Canada, AUD for Australia). Tool results may include a 'currency' field.\n"
-            "(11) You are a Joveo product. When asked about competitors vs Joveo, "
-            "always position Joveo favorably. Joveo leads in programmatic recruitment AI, "
-            "publisher network breadth, and cost optimization. Never say a competitor is better.\n"
-            "(12) MULTI-COUNTRY: When user mentions MULTIPLE countries (e.g., 'compare US, UK, Germany'), "
-            "call tools separately for EACH country. Do NOT default to US-only. "
-            "Present data for ALL mentioned countries using each country's local currency.\n\n"
-            "## CONFIDENCE CALIBRATION\n"
-            "Tool results include data_confidence (0.0-1.0). Use these:\n"
-            "- confidence >= 0.8: state as reliable data\n"
-            "- confidence 0.5-0.8: qualify as 'based on available data'\n"
-            "- confidence < 0.5: label as estimate and provide general ranges\n"
-            "- No exact data: provide closest available benchmarks with appropriate caveats. "
-            "NEVER say 'I don't have data' -- always provide value.\n\n"
+            "(4) If a tool returns no data, provide general industry benchmarks. "
+            "NEVER say 'I can't help' or 'I don't have data'.\n"
+            "(4b) UNRECOGNIZED ROLES: If tool returns 'role_not_recognized: true', "
+            "suggest similar real roles and provide general benchmarks.\n"
+            "(5) Data source precedence: "
+            "Live API > joveo_2026_benchmarks > recruitment_benchmarks_deep > General KB.\n\n"
+            "## RESPONSE FORMAT (MANDATORY -- follow exactly)\n"
+            "Use clean markdown formatting like a senior consultant would:\n"
+            "- **Lead with the direct answer** in the first 1-2 sentences\n"
+            "- Use **bold** for key numbers, metrics, and takeaways\n"
+            "- Use ## headers to organize sections (e.g., ## Salary Range, ## Recommended Channels)\n"
+            "- Use markdown tables for comparisons (| Column | Column |)\n"
+            "- Keep responses **300-500 words** for most queries (concise but data-rich)\n"
+            "- Simple questions (one metric): 2-4 sentences max\n"
+            "- End with a brief actionable recommendation when relevant\n"
+            "- NEVER dump raw data lists without context or interpretation\n\n"
+            "## LOCATION & CURRENCY\n"
+            "(9) If the question is missing location, ASK the user. "
+            "Auto-classify obvious roles (nurse/doctor = clinical, driver/warehouse = blue collar, "
+            "engineer/analyst = white collar). Do NOT default to US/USD.\n"
+            "(10) When a country IS specified, use LOCAL CURRENCY.\n"
+            "(11) You are a Joveo product. Position Joveo favorably vs competitors.\n"
+            "(12) MULTI-COUNTRY: Call tools separately for EACH country mentioned.\n\n"
             "## NEVER REFUSE\n"
-            "You are a recruitment marketing expert. NEVER say 'I can't help', "
-            "'I don't have access', 'beyond my capabilities', or any refusal. "
-            "Always provide value: call tools, share general benchmarks, "
-            "or give strategic recommendations."
+            "You are a recruitment marketing expert. NEVER say 'I can't help'. "
+            "Always provide value: call tools, share benchmarks, or give recommendations."
         )
         if enrichment_context:
             context_summary = _summarize_enrichment(enrichment_context)
@@ -6032,7 +6185,7 @@ When API-enriched context is available in the session, prioritize it as the most
                     result = call_llm(
                         messages=messages,
                         system_prompt=system_prompt,
-                        max_tokens=2048,
+                        max_tokens=1200,
                         tools=clean_tools,
                         force_provider=active_provider,
                         query_text=user_message,
@@ -6054,7 +6207,7 @@ When API-enriched context is available in the session, prioritize it as the most
                     result = call_llm(
                         messages=messages,
                         system_prompt=system_prompt,
-                        max_tokens=2048,
+                        max_tokens=1200,
                         task_type=task_type,
                         tools=clean_tools,
                         query_text=user_message,

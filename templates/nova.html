@@ -3132,7 +3132,7 @@
           state.abortController = new AbortController();
           var timeout = setTimeout(function () {
             if (state.abortController) state.abortController.abort();
-          }, 90000); // 90s for streaming
+          }, 60000); // 60s timeout for streaming
 
           fetch(STREAM_URL, {
             method: "POST",
@@ -3299,6 +3299,13 @@
           if (state.abortController) {
             state.abortController.abort();
           }
+          state.isLoading = false;
+          state.isStreaming = false;
+          state.abortController = null;
+          sendBtn.style.display = "";
+          sendBtn.disabled = !chatInput.value.trim();
+          stopBtn.classList.remove("visible");
+          hideThinking();
           var conv = getActiveConv();
           if (conv) {
             fetch(STOP_URL, {
@@ -3362,24 +3369,52 @@
         chatInput.addEventListener("keydown", function (e) {
           if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
-            // Safety: if isLoading stuck for >60s, force reset
+            // Safety: if isLoading stuck for >30s, force reset
             if (
               state.isLoading &&
               state._loadStart &&
-              Date.now() - state._loadStart > 60000
+              Date.now() - state._loadStart > 30000
             ) {
               state.isLoading = false;
               state.isStreaming = false;
+              if (state.abortController) {
+                state.abortController.abort();
+              }
               state.abortController = null;
               sendBtn.style.display = "";
+              sendBtn.disabled = false;
               stopBtn.classList.remove("visible");
               hideThinking();
+              var streamEl = document.getElementById("streaming-msg");
+              if (streamEl) streamEl.remove();
             }
             sendMessage();
           }
         });
 
         sendBtn.addEventListener("click", sendMessage);
+
+        // ========================================================================
+        // GLOBAL SAFETY: auto-reset stuck isLoading state every 5s
+        // ========================================================================
+        setInterval(function () {
+          if (
+            state.isLoading &&
+            state._loadStart &&
+            Date.now() - state._loadStart > 45000
+          ) {
+            state.isLoading = false;
+            state.isStreaming = false;
+            if (state.abortController) {
+              state.abortController.abort();
+            }
+            state.abortController = null;
+            sendBtn.style.display = "";
+            sendBtn.disabled = !chatInput.value.trim();
+            stopBtn.classList.remove("visible");
+            hideThinking();
+          }
+        }, 5000);
 
         // ========================================================================
         // CLEAR / NEW CHAT
