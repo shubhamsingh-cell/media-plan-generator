@@ -2972,45 +2972,102 @@
             <span class="card-status flagship">Flagship</span>
             <div class="card-preview">
               <svg viewBox="0 0 120 80" class="card-mini-viz">
+                <!-- Channel mix: job boards, social, search, programmatic -->
                 <rect
-                  x="8"
-                  y="50"
-                  width="20"
-                  height="22"
-                  rx="3"
-                  fill="var(--card-accent)"
-                  opacity="0.9"
-                  class="viz-bar"
+                  x="6"
+                  y="8"
+                  width="52"
+                  height="64"
+                  rx="4"
+                  fill="none"
+                  stroke="var(--card-accent)"
+                  stroke-width="1"
+                  opacity="0.2"
                 />
                 <rect
-                  x="34"
-                  y="30"
-                  width="20"
-                  height="42"
-                  rx="3"
-                  fill="var(--card-accent)"
-                  opacity="0.7"
-                  class="viz-bar"
-                />
-                <rect
-                  x="60"
-                  y="15"
-                  width="20"
-                  height="57"
-                  rx="3"
+                  x="12"
+                  y="16"
+                  width="18"
+                  height="3"
+                  rx="1"
                   fill="var(--card-accent)"
                   opacity="0.5"
+                />
+                <rect
+                  x="12"
+                  y="24"
+                  width="40"
+                  height="6"
+                  rx="2"
+                  fill="var(--card-accent)"
+                  opacity="0.3"
                   class="viz-bar"
                 />
                 <rect
-                  x="86"
-                  y="38"
-                  width="20"
-                  height="34"
-                  rx="3"
-                  fill="var(--card-accent)"
-                  opacity="0.6"
+                  x="12"
+                  y="34"
+                  width="32"
+                  height="6"
+                  rx="2"
+                  fill="#06b6d4"
+                  opacity="0.3"
                   class="viz-bar"
+                />
+                <rect
+                  x="12"
+                  y="44"
+                  width="24"
+                  height="6"
+                  rx="2"
+                  fill="#22c55e"
+                  opacity="0.3"
+                  class="viz-bar"
+                />
+                <rect
+                  x="12"
+                  y="54"
+                  width="16"
+                  height="6"
+                  rx="2"
+                  fill="#f59e0b"
+                  opacity="0.3"
+                  class="viz-bar"
+                />
+                <!-- Pie chart for budget split -->
+                <circle
+                  cx="88"
+                  cy="40"
+                  r="22"
+                  fill="none"
+                  stroke="var(--card-accent)"
+                  stroke-width="6"
+                  stroke-dasharray="55 83"
+                  opacity="0.8"
+                  transform="rotate(-90 88 40)"
+                />
+                <circle
+                  cx="88"
+                  cy="40"
+                  r="22"
+                  fill="none"
+                  stroke="#06b6d4"
+                  stroke-width="6"
+                  stroke-dasharray="35 103"
+                  stroke-dashoffset="-55"
+                  opacity="0.6"
+                  transform="rotate(-90 88 40)"
+                />
+                <circle
+                  cx="88"
+                  cy="40"
+                  r="22"
+                  fill="none"
+                  stroke="#22c55e"
+                  stroke-width="6"
+                  stroke-dasharray="20 118"
+                  stroke-dashoffset="-90"
+                  opacity="0.5"
+                  transform="rotate(-90 88 40)"
                 />
               </svg>
             </div>
@@ -3060,48 +3117,99 @@
             <span class="card-status flagship">Flagship</span>
             <div class="card-preview">
               <svg viewBox="0 0 120 80" class="card-mini-viz">
+                <!-- User message bubble -->
                 <rect
-                  x="10"
-                  y="10"
-                  width="50"
-                  height="20"
-                  rx="10"
+                  x="40"
+                  y="8"
+                  width="72"
+                  height="18"
+                  rx="9"
                   fill="var(--card-accent)"
-                  opacity="0.3"
+                  opacity="0.25"
                 />
                 <rect
-                  x="60"
-                  y="40"
-                  width="50"
-                  height="20"
-                  rx="10"
+                  x="48"
+                  y="14"
+                  width="28"
+                  height="3"
+                  rx="1.5"
+                  fill="var(--card-accent)"
+                  opacity="0.5"
+                />
+                <rect
+                  x="80"
+                  y="14"
+                  width="16"
+                  height="3"
+                  rx="1.5"
+                  fill="var(--card-accent)"
+                  opacity="0.35"
+                />
+                <!-- AI response bubble -->
+                <rect
+                  x="8"
+                  y="32"
+                  width="80"
+                  height="22"
+                  rx="9"
+                  fill="#06b6d4"
+                  opacity="0.2"
+                />
+                <rect
+                  x="16"
+                  y="38"
+                  width="36"
+                  height="3"
+                  rx="1.5"
+                  fill="#06b6d4"
+                  opacity="0.5"
+                />
+                <rect
+                  x="56"
+                  y="38"
+                  width="20"
+                  height="3"
+                  rx="1.5"
+                  fill="#06b6d4"
+                  opacity="0.35"
+                />
+                <rect
+                  x="16"
+                  y="45"
+                  width="24"
+                  height="3"
+                  rx="1.5"
                   fill="#06b6d4"
                   opacity="0.3"
                 />
+                <!-- AI sparkle -->
+                <path
+                  d="M100 42 L102 48 L108 48 L103 52 L105 58 L100 54 L95 58 L97 52 L92 48 L98 48 Z"
+                  fill="var(--card-accent)"
+                  opacity="0.5"
+                />
+                <!-- Typing indicator -->
                 <circle
                   cx="18"
-                  cy="20"
-                  r="3"
+                  cy="66"
+                  r="2.5"
                   fill="var(--card-accent)"
-                  opacity="0.8"
+                  opacity="0.3"
                 />
                 <circle
-                  cx="30"
-                  cy="20"
-                  r="3"
+                  cx="28"
+                  cy="66"
+                  r="2.5"
                   fill="var(--card-accent)"
-                  opacity="0.6"
+                  opacity="0.5"
                 />
                 <circle
-                  cx="42"
-                  cy="20"
-                  r="3"
+                  cx="38"
+                  cy="66"
+                  r="2.5"
                   fill="var(--card-accent)"
-                  opacity="0.4"
+                  opacity="0.7"
                 />
-                <circle cx="68" cy="50" r="3" fill="#06b6d4" opacity="0.8" />
-                <circle cx="80" cy="50" r="3" fill="#06b6d4" opacity="0.6" />
-                <circle cx="92" cy="50" r="3" fill="#06b6d4" opacity="0.4" />
               </svg>
             </div>
             <div
@@ -3139,7 +3247,7 @@
             </div>
           </a>
 
-          <!-- 1. Budget Simulator (pie chart) -->
+          <!-- 1. Budget Simulator (budget sliders + scenario) -->
           <a
             href="/simulator"
             class="product-card reveal-on-scroll stagger-1"
@@ -3150,41 +3258,125 @@
             <span class="card-status live">Live</span>
             <div class="card-preview">
               <svg viewBox="0 0 120 80" class="card-mini-viz">
-                <circle
-                  cx="60"
-                  cy="40"
-                  r="28"
-                  fill="none"
-                  stroke="var(--card-accent)"
-                  stroke-width="8"
-                  stroke-dasharray="70 106"
-                  opacity="0.9"
-                  transform="rotate(-90 60 40)"
+                <!-- Budget slider tracks -->
+                <text
+                  x="8"
+                  y="18"
+                  font-family="Inter,sans-serif"
+                  font-size="7"
+                  font-weight="600"
+                  fill="var(--card-accent)"
+                  opacity="0.6"
+                >
+                  Indeed
+                </text>
+                <rect
+                  x="38"
+                  y="13"
+                  width="54"
+                  height="4"
+                  rx="2"
+                  fill="var(--card-accent)"
+                  opacity="0.15"
+                />
+                <rect
+                  x="38"
+                  y="13"
+                  width="38"
+                  height="4"
+                  rx="2"
+                  fill="var(--card-accent)"
+                  opacity="0.6"
                 />
                 <circle
-                  cx="60"
-                  cy="40"
-                  r="28"
-                  fill="none"
-                  stroke="var(--card-accent)"
-                  stroke-width="8"
-                  stroke-dasharray="45 131"
-                  stroke-dashoffset="-70"
-                  opacity="0.5"
-                  transform="rotate(-90 60 40)"
+                  cx="76"
+                  cy="15"
+                  r="4"
+                  fill="var(--card-accent)"
+                  opacity="0.8"
                 />
-                <circle
-                  cx="60"
-                  cy="40"
-                  r="28"
-                  fill="none"
-                  stroke="var(--card-accent)"
-                  stroke-width="8"
-                  stroke-dasharray="30 146"
-                  stroke-dashoffset="-115"
-                  opacity="0.3"
-                  transform="rotate(-90 60 40)"
+                <text
+                  x="8"
+                  y="36"
+                  font-family="Inter,sans-serif"
+                  font-size="7"
+                  font-weight="600"
+                  fill="var(--card-accent)"
+                  opacity="0.6"
+                >
+                  LinkedIn
+                </text>
+                <rect
+                  x="38"
+                  y="31"
+                  width="54"
+                  height="4"
+                  rx="2"
+                  fill="var(--card-accent)"
+                  opacity="0.15"
                 />
+                <rect
+                  x="38"
+                  y="31"
+                  width="28"
+                  height="4"
+                  rx="2"
+                  fill="#06b6d4"
+                  opacity="0.6"
+                />
+                <circle cx="66" cy="33" r="4" fill="#06b6d4" opacity="0.8" />
+                <text
+                  x="8"
+                  y="54"
+                  font-family="Inter,sans-serif"
+                  font-size="7"
+                  font-weight="600"
+                  fill="var(--card-accent)"
+                  opacity="0.6"
+                >
+                  Google
+                </text>
+                <rect
+                  x="38"
+                  y="49"
+                  width="54"
+                  height="4"
+                  rx="2"
+                  fill="var(--card-accent)"
+                  opacity="0.15"
+                />
+                <rect
+                  x="38"
+                  y="49"
+                  width="18"
+                  height="4"
+                  rx="2"
+                  fill="#f59e0b"
+                  opacity="0.6"
+                />
+                <circle cx="56" cy="51" r="4" fill="#f59e0b" opacity="0.8" />
+                <!-- Total -->
+                <rect
+                  x="8"
+                  y="64"
+                  width="84"
+                  height="10"
+                  rx="3"
+                  fill="var(--card-accent)"
+                  opacity="0.1"
+                />
+                <text
+                  x="50"
+                  y="72"
+                  text-anchor="middle"
+                  font-family="Inter,sans-serif"
+                  font-size="7"
+                  font-weight="700"
+                  fill="var(--card-accent)"
+                  opacity="0.7"
+                >
+                  $24,500 / $30,000
+                </text>
               </svg>
             </div>
             <div
@@ -3219,7 +3411,7 @@
             </div>
           </a>
 
-          <!-- 2. Performance Tracker (line chart) -->
+          <!-- 2. Performance Tracker (KPI dashboard) -->
           <a
             href="/tracker"
             class="product-card reveal-on-scroll stagger-2"
@@ -3230,16 +3422,134 @@
             <span class="card-status live">Live</span>
             <div class="card-preview">
               <svg viewBox="0 0 120 80" class="card-mini-viz">
+                <!-- KPI cards row -->
+                <rect
+                  x="4"
+                  y="6"
+                  width="34"
+                  height="28"
+                  rx="3"
+                  fill="var(--card-accent)"
+                  fill-opacity="0.1"
+                  stroke="var(--card-accent)"
+                  stroke-width="0.5"
+                  stroke-opacity="0.2"
+                />
+                <text
+                  x="21"
+                  y="18"
+                  text-anchor="middle"
+                  font-family="Inter,sans-serif"
+                  font-size="6"
+                  fill="var(--card-accent)"
+                  opacity="0.5"
+                >
+                  CPA
+                </text>
+                <text
+                  x="21"
+                  y="28"
+                  text-anchor="middle"
+                  font-family="Inter,sans-serif"
+                  font-size="9"
+                  font-weight="700"
+                  fill="var(--card-accent)"
+                  opacity="0.8"
+                >
+                  $42
+                </text>
+                <rect
+                  x="42"
+                  y="6"
+                  width="34"
+                  height="28"
+                  rx="3"
+                  fill="#22c55e"
+                  fill-opacity="0.1"
+                  stroke="#22c55e"
+                  stroke-width="0.5"
+                  stroke-opacity="0.2"
+                />
+                <text
+                  x="59"
+                  y="18"
+                  text-anchor="middle"
+                  font-family="Inter,sans-serif"
+                  font-size="6"
+                  fill="#22c55e"
+                  opacity="0.5"
+                >
+                  Conv
+                </text>
+                <text
+                  x="59"
+                  y="28"
+                  text-anchor="middle"
+                  font-family="Inter,sans-serif"
+                  font-size="9"
+                  font-weight="700"
+                  fill="#22c55e"
+                  opacity="0.8"
+                >
+                  4.2%
+                </text>
+                <rect
+                  x="80"
+                  y="6"
+                  width="34"
+                  height="28"
+                  rx="3"
+                  fill="#f59e0b"
+                  fill-opacity="0.1"
+                  stroke="#f59e0b"
+                  stroke-width="0.5"
+                  stroke-opacity="0.2"
+                />
+                <text
+                  x="97"
+                  y="18"
+                  text-anchor="middle"
+                  font-family="Inter,sans-serif"
+                  font-size="6"
+                  fill="#f59e0b"
+                  opacity="0.5"
+                >
+                  CTR
+                </text>
+                <text
+                  x="97"
+                  y="28"
+                  text-anchor="middle"
+                  font-family="Inter,sans-serif"
+                  font-size="9"
+                  font-weight="700"
+                  fill="#f59e0b"
+                  opacity="0.8"
+                >
+                  2.8%
+                </text>
+                <!-- Trend line below -->
                 <polyline
-                  points="10,60 30,45 50,55 70,25 90,30 110,12"
+                  points="8,48 22,52 36,46 50,50 64,42 78,38 92,44 106,36"
                   fill="none"
                   stroke="var(--card-accent)"
-                  stroke-width="2.5"
+                  stroke-width="1.5"
                   stroke-linecap="round"
                   stroke-linejoin="round"
                   class="viz-line"
                 />
-                <circle cx="110" cy="12" r="3" fill="var(--card-accent)" />
+                <polyline
+                  points="8,48 22,52 36,46 50,50 64,42 78,38 92,44 106,36"
+                  fill="none"
+                  stroke="var(--card-accent)"
+                  stroke-width="0"
+                  opacity="0"
+                />
+                <polygon
+                  points="8,48 22,52 36,46 50,50 64,42 78,38 92,44 106,36 106,72 8,72"
+                  fill="var(--card-accent)"
+                  opacity="0.08"
+                />
               </svg>
             </div>
             <div
@@ -3273,7 +3583,7 @@
             </div>
           </a>
 
-          <!-- 3. Competitive Intel (comparison bars) -->
+          <!-- 3. Competitive Intel (versus comparison) -->
           <a
             href="/competitive"
             class="product-card reveal-on-scroll stagger-3"
@@ -3284,59 +3594,136 @@
             <span class="card-status live">Live</span>
             <div class="card-preview">
               <svg viewBox="0 0 120 80" class="card-mini-viz">
+                <!-- Your company (left) -->
                 <rect
-                  x="15"
+                  x="6"
                   y="10"
-                  width="35"
-                  height="12"
+                  width="48"
+                  height="60"
+                  rx="4"
+                  fill="var(--card-accent)"
+                  fill-opacity="0.08"
+                  stroke="var(--card-accent)"
+                  stroke-width="0.8"
+                  stroke-opacity="0.2"
+                />
+                <circle
+                  cx="30"
+                  cy="24"
+                  r="7"
+                  fill="var(--card-accent)"
+                  opacity="0.3"
+                />
+                <text
+                  x="30"
+                  y="27"
+                  text-anchor="middle"
+                  font-family="Inter,sans-serif"
+                  font-size="8"
+                  font-weight="700"
+                  fill="var(--card-accent)"
+                  opacity="0.7"
+                >
+                  You
+                </text>
+                <rect
+                  x="14"
+                  y="38"
+                  width="32"
+                  height="4"
                   rx="2"
                   fill="var(--card-accent)"
-                  opacity="0.8"
+                  opacity="0.6"
+                  class="viz-bar"
                 />
                 <rect
+                  x="14"
+                  y="46"
+                  width="24"
+                  height="4"
+                  rx="2"
+                  fill="var(--card-accent)"
+                  opacity="0.4"
+                  class="viz-bar"
+                />
+                <rect
+                  x="14"
+                  y="54"
+                  width="28"
+                  height="4"
+                  rx="2"
+                  fill="var(--card-accent)"
+                  opacity="0.5"
+                  class="viz-bar"
+                />
+                <!-- VS divider -->
+                <text
                   x="60"
+                  y="44"
+                  text-anchor="middle"
+                  font-family="Inter,sans-serif"
+                  font-size="9"
+                  font-weight="800"
+                  fill="var(--card-accent)"
+                  opacity="0.4"
+                >
+                  VS
+                </text>
+                <!-- Competitor (right) -->
+                <rect
+                  x="66"
                   y="10"
-                  width="45"
-                  height="12"
+                  width="48"
+                  height="60"
+                  rx="4"
+                  fill="#06b6d4"
+                  fill-opacity="0.08"
+                  stroke="#06b6d4"
+                  stroke-width="0.8"
+                  stroke-opacity="0.2"
+                />
+                <circle cx="90" cy="24" r="7" fill="#06b6d4" opacity="0.3" />
+                <text
+                  x="90"
+                  y="27"
+                  text-anchor="middle"
+                  font-family="Inter,sans-serif"
+                  font-size="7"
+                  font-weight="600"
+                  fill="#06b6d4"
+                  opacity="0.6"
+                >
+                  Rival
+                </text>
+                <rect
+                  x="74"
+                  y="38"
+                  width="22"
+                  height="4"
                   rx="2"
                   fill="#06b6d4"
                   opacity="0.5"
+                  class="viz-bar"
                 />
                 <rect
-                  x="15"
-                  y="30"
-                  width="50"
-                  height="12"
-                  rx="2"
-                  fill="var(--card-accent)"
-                  opacity="0.8"
-                />
-                <rect
-                  x="60"
-                  y="30"
+                  x="74"
+                  y="46"
                   width="30"
-                  height="12"
+                  height="4"
                   rx="2"
                   fill="#06b6d4"
-                  opacity="0.5"
+                  opacity="0.6"
+                  class="viz-bar"
                 />
                 <rect
-                  x="15"
-                  y="50"
-                  width="25"
-                  height="12"
-                  rx="2"
-                  fill="var(--card-accent)"
-                  opacity="0.8"
-                />
-                <rect
-                  x="60"
-                  y="50"
-                  width="40"
-                  height="12"
+                  x="74"
+                  y="54"
+                  width="18"
+                  height="4"
                   rx="2"
                   fill="#06b6d4"
-                  opacity="0.5"
+                  opacity="0.4"
+                  class="viz-bar"
                 />
               </svg>
             </div>
@@ -3371,7 +3758,7 @@
             </div>
           </a>
 
-          <!-- 4. Quick Plan (document lines) -->
+          <!-- 4. Quick Plan (60-second plan generation) -->
           <a
             href="/quick-plan"
             class="product-card reveal-on-scroll stagger-4"
@@ -3382,42 +3769,84 @@
             <span class="card-status live">Live</span>
             <div class="card-preview">
               <svg viewBox="0 0 120 80" class="card-mini-viz">
-                <rect
-                  x="20"
-                  y="18"
-                  width="80"
-                  height="4"
-                  rx="2"
+                <!-- Lightning bolt -->
+                <path
+                  d="M28 8 L20 36 L30 36 L24 58 L42 28 L32 28 L38 8 Z"
                   fill="var(--card-accent)"
-                  opacity="0.7"
+                  opacity="0.4"
+                  stroke="var(--card-accent)"
+                  stroke-width="0.5"
+                  stroke-linejoin="round"
                 />
+                <!-- Generated plan output -->
                 <rect
-                  x="20"
-                  y="30"
+                  x="52"
+                  y="10"
                   width="60"
-                  height="4"
-                  rx="2"
-                  fill="var(--card-accent)"
-                  opacity="0.5"
+                  height="56"
+                  rx="4"
+                  fill="none"
+                  stroke="var(--card-accent)"
+                  stroke-width="1"
+                  opacity="0.25"
                 />
                 <rect
-                  x="20"
-                  y="42"
-                  width="70"
-                  height="4"
-                  rx="2"
+                  x="58"
+                  y="18"
+                  width="24"
+                  height="3"
+                  rx="1"
+                  fill="var(--card-accent)"
+                  opacity="0.6"
+                />
+                <rect
+                  x="58"
+                  y="26"
+                  width="46"
+                  height="3"
+                  rx="1"
                   fill="var(--card-accent)"
                   opacity="0.3"
                 />
-                <path
-                  d="M90 52 L97 59 L107 46"
-                  fill="none"
-                  stroke="var(--card-accent)"
-                  stroke-width="2.5"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  opacity="0.8"
+                <rect
+                  x="58"
+                  y="33"
+                  width="38"
+                  height="3"
+                  rx="1"
+                  fill="var(--card-accent)"
+                  opacity="0.3"
                 />
+                <rect
+                  x="58"
+                  y="42"
+                  width="42"
+                  height="8"
+                  rx="2"
+                  fill="var(--card-accent)"
+                  opacity="0.15"
+                />
+                <rect
+                  x="58"
+                  y="54"
+                  width="30"
+                  height="6"
+                  rx="3"
+                  fill="var(--card-accent)"
+                  opacity="0.5"
+                />
+                <text
+                  x="73"
+                  y="59"
+                  text-anchor="middle"
+                  font-family="Inter,sans-serif"
+                  font-size="5"
+                  font-weight="600"
+                  fill="#000"
+                  opacity="0.8"
+                >
+                  60s
+                </text>
               </svg>
             </div>
             <div
@@ -3450,7 +3879,7 @@
             </div>
           </a>
 
-          <!-- 5. Media Plan Audit (magnifying glass) -->
+          <!-- 5. Media Plan Audit (document + score gauge) -->
           <a
             href="/audit"
             class="product-card reveal-on-scroll stagger-5"
@@ -3461,43 +3890,122 @@
             <span class="card-status live">Live</span>
             <div class="card-preview">
               <svg viewBox="0 0 120 80" class="card-mini-viz">
-                <circle
-                  cx="50"
-                  cy="38"
-                  r="22"
+                <!-- Document being audited -->
+                <rect
+                  x="8"
+                  y="8"
+                  width="44"
+                  height="58"
+                  rx="3"
                   fill="none"
                   stroke="var(--card-accent)"
-                  stroke-width="2"
-                  opacity="0.5"
-                />
-                <line
-                  x1="66"
-                  y1="54"
-                  x2="82"
-                  y2="70"
-                  stroke="var(--card-accent)"
-                  stroke-width="3"
-                  stroke-linecap="round"
-                  opacity="0.7"
+                  stroke-width="1"
+                  opacity="0.25"
                 />
                 <rect
-                  x="38"
-                  y="28"
-                  width="8"
-                  height="16"
+                  x="14"
+                  y="16"
+                  width="20"
+                  height="3"
                   rx="1"
                   fill="var(--card-accent)"
                   opacity="0.4"
                 />
                 <rect
-                  x="50"
-                  y="22"
-                  width="8"
-                  height="22"
+                  x="14"
+                  y="24"
+                  width="32"
+                  height="3"
                   rx="1"
                   fill="var(--card-accent)"
-                  opacity="0.6"
+                  opacity="0.25"
                 />
+                <rect
+                  x="14"
+                  y="31"
+                  width="28"
+                  height="3"
+                  rx="1"
+                  fill="var(--card-accent)"
+                  opacity="0.25"
+                />
+                <!-- Check marks -->
+                <path
+                  d="M14 42 L17 45 L22 38"
+                  fill="none"
+                  stroke="#22c55e"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  opacity="0.7"
+                />
+                <path
+                  d="M14 52 L17 55 L22 48"
+                  fill="none"
+                  stroke="#22c55e"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  opacity="0.7"
+                />
+                <rect
+                  x="26"
+                  y="41"
+                  width="20"
+                  height="2.5"
+                  rx="1"
+                  fill="var(--card-accent)"
+                  opacity="0.2"
+                />
+                <rect
+                  x="26"
+                  y="51"
+                  width="16"
+                  height="2.5"
+                  rx="1"
+                  fill="var(--card-accent)"
+                  opacity="0.2"
+                />
+                <!-- Score gauge (right) -->
+                <path
+                  d="M86 58 A24 24 0 0 1 62 34"
+                  fill="none"
+                  stroke="var(--card-accent)"
+                  stroke-width="4"
+                  stroke-linecap="round"
+                  opacity="0.15"
+                />
+                <path
+                  d="M86 58 A24 24 0 0 1 66 38"
+                  fill="none"
+                  stroke="var(--card-accent)"
+                  stroke-width="4"
+                  stroke-linecap="round"
+                  opacity="0.7"
+                />
+                <text
+                  x="80"
+                  y="52"
+                  text-anchor="middle"
+                  font-family="Inter,sans-serif"
+                  font-size="12"
+                  font-weight="800"
+                  fill="var(--card-accent)"
+                  opacity="0.7"
+                >
+                  87
+                </text>
+                <text
+                  x="80"
+                  y="62"
+                  text-anchor="middle"
+                  font-family="Inter,sans-serif"
+                  font-size="6"
+                  fill="var(--card-accent)"
+                  opacity="0.4"
+                >
+                  /100
+                </text>
               </svg>
             </div>
             <div
@@ -3533,7 +4041,7 @@
             </div>
           </a>
 
-          <!-- 6. Market Pulse (sparkline with uptick) -->
+          <!-- 6. Market Pulse (multi-trend with live indicator) -->
           <a
             href="/market-pulse"
             class="product-card reveal-on-scroll stagger-6"
@@ -3544,18 +4052,67 @@
             <span class="card-status live">Live</span>
             <div class="card-preview">
               <svg viewBox="0 0 120 80" class="card-mini-viz">
+                <!-- Live indicator -->
+                <circle cx="10" cy="10" r="3" fill="#22c55e" opacity="0.8" />
+                <circle cx="10" cy="10" r="5" fill="#22c55e" opacity="0.2" />
+                <text
+                  x="18"
+                  y="13"
+                  font-family="Inter,sans-serif"
+                  font-size="6"
+                  font-weight="600"
+                  fill="#22c55e"
+                  opacity="0.6"
+                >
+                  LIVE
+                </text>
+                <!-- Hiring trend (up) -->
                 <polyline
-                  points="10,55 25,50 40,52 55,45 70,48 85,35 100,20 110,10"
+                  points="6,55 20,50 34,52 48,44 62,40 76,32 90,28 104,18"
                   fill="none"
                   stroke="var(--card-accent)"
                   stroke-width="2"
                   stroke-linecap="round"
+                  stroke-linejoin="round"
                   class="viz-line"
                 />
                 <polygon
-                  points="105,8 112,12 108,18"
+                  points="6,55 20,50 34,52 48,44 62,40 76,32 90,28 104,18 104,68 6,68"
                   fill="var(--card-accent)"
-                  opacity="0.8"
+                  opacity="0.06"
+                />
+                <!-- Salary trend -->
+                <polyline
+                  points="6,48 20,46 34,42 48,44 62,38 76,36 90,32 104,30"
+                  fill="none"
+                  stroke="#f59e0b"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  opacity="0.4"
+                  class="viz-line"
+                />
+                <!-- Supply trend (down) -->
+                <polyline
+                  points="6,30 20,34 34,36 48,40 62,42 76,46 90,50 104,54"
+                  fill="none"
+                  stroke="#f43f5e"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  opacity="0.3"
+                  class="viz-line"
+                />
+                <!-- Trend arrows at end -->
+                <polygon
+                  points="106,16 112,18 108,22"
+                  fill="var(--card-accent)"
+                  opacity="0.7"
+                />
+                <polygon
+                  points="106,56 112,54 108,50"
+                  fill="#f43f5e"
+                  opacity="0.4"
                 />
               </svg>
             </div>
@@ -3589,7 +4146,7 @@
             </div>
           </a>
 
-          <!-- 7. Social Plan (3 social circles) -->
+          <!-- 7. Social Plan (social platform icons) -->
           <a
             href="/social-plan"
             class="product-card reveal-on-scroll stagger-1"
@@ -3600,33 +4157,139 @@
             <span class="card-status new">New</span>
             <div class="card-preview">
               <svg viewBox="0 0 120 80" class="card-mini-viz">
+                <!-- LinkedIn icon -->
+                <rect
+                  x="8"
+                  y="14"
+                  width="28"
+                  height="28"
+                  rx="6"
+                  fill="#0A66C2"
+                  opacity="0.25"
+                />
+                <text
+                  x="22"
+                  y="33"
+                  text-anchor="middle"
+                  font-family="Inter,sans-serif"
+                  font-size="14"
+                  font-weight="800"
+                  fill="#0A66C2"
+                  opacity="0.7"
+                >
+                  in
+                </text>
+                <!-- Facebook/Meta icon -->
+                <rect
+                  x="42"
+                  y="14"
+                  width="28"
+                  height="28"
+                  rx="6"
+                  fill="#1877F2"
+                  opacity="0.25"
+                />
+                <text
+                  x="56"
+                  y="34"
+                  text-anchor="middle"
+                  font-family="Inter,sans-serif"
+                  font-size="16"
+                  font-weight="700"
+                  fill="#1877F2"
+                  opacity="0.7"
+                >
+                  f
+                </text>
+                <!-- Instagram icon -->
+                <rect
+                  x="76"
+                  y="14"
+                  width="28"
+                  height="28"
+                  rx="6"
+                  fill="#E4405F"
+                  opacity="0.25"
+                />
                 <circle
-                  cx="35"
-                  cy="40"
-                  r="16"
+                  cx="90"
+                  cy="28"
+                  r="6"
+                  fill="none"
+                  stroke="#E4405F"
+                  stroke-width="1.5"
+                  opacity="0.7"
+                />
+                <circle cx="96" cy="22" r="1.5" fill="#E4405F" opacity="0.5" />
+                <!-- X/Twitter icon -->
+                <rect
+                  x="8"
+                  y="48"
+                  width="28"
+                  height="22"
+                  rx="5"
                   fill="var(--card-accent)"
-                  opacity="0.3"
-                  stroke="var(--card-accent)"
-                  stroke-width="1"
+                  opacity="0.15"
                 />
-                <circle
-                  cx="60"
-                  cy="40"
-                  r="16"
-                  fill="#06b6d4"
-                  opacity="0.3"
-                  stroke="#06b6d4"
-                  stroke-width="1"
+                <text
+                  x="22"
+                  y="63"
+                  text-anchor="middle"
+                  font-family="Inter,sans-serif"
+                  font-size="12"
+                  font-weight="800"
+                  fill="var(--card-accent)"
+                  opacity="0.5"
+                >
+                  X
+                </text>
+                <!-- Budget allocation bar -->
+                <rect
+                  x="42"
+                  y="52"
+                  width="62"
+                  height="6"
+                  rx="3"
+                  fill="var(--card-accent)"
+                  opacity="0.1"
                 />
-                <circle
-                  cx="85"
-                  cy="40"
-                  r="16"
-                  fill="#22c55e"
-                  opacity="0.3"
-                  stroke="#22c55e"
-                  stroke-width="1"
+                <rect
+                  x="42"
+                  y="52"
+                  width="30"
+                  height="6"
+                  rx="3"
+                  fill="#0A66C2"
+                  opacity="0.5"
                 />
+                <rect
+                  x="72"
+                  y="52"
+                  width="18"
+                  height="6"
+                  fill="#1877F2"
+                  opacity="0.4"
+                />
+                <rect
+                  x="90"
+                  y="52"
+                  width="14"
+                  height="6"
+                  rx="3"
+                  fill="#E4405F"
+                  opacity="0.3"
+                />
+                <text
+                  x="73"
+                  y="66"
+                  text-anchor="middle"
+                  font-family="Inter,sans-serif"
+                  font-size="6"
+                  fill="var(--card-accent)"
+                  opacity="0.4"
+                >
+                  Budget Split
+                </text>
               </svg>
             </div>
             <div
@@ -3662,7 +4325,7 @@
             </div>
           </a>
 
-          <!-- 8. HireSignal (3 wave lines) -->
+          <!-- 8. HireSignal (QoH scoring by source) -->
           <a
             href="/hire-signal"
             class="product-card reveal-on-scroll stagger-2"
@@ -3673,30 +4336,149 @@
             <span class="card-status new">New</span>
             <div class="card-preview">
               <svg viewBox="0 0 120 80" class="card-mini-viz">
-                <path
-                  d="M10,25 Q30,15 50,25 T90,25 T110,25"
-                  fill="none"
-                  stroke="var(--card-accent)"
-                  stroke-width="2"
-                  opacity="0.8"
-                  class="viz-line"
-                />
-                <path
-                  d="M10,40 Q30,30 50,40 T90,40 T110,40"
-                  fill="none"
-                  stroke="var(--card-accent)"
-                  stroke-width="2"
+                <!-- Source quality bars with labels -->
+                <text
+                  x="6"
+                  y="18"
+                  font-family="Inter,sans-serif"
+                  font-size="6"
+                  fill="var(--card-accent)"
                   opacity="0.5"
-                  class="viz-line"
+                >
+                  Indeed
+                </text>
+                <rect
+                  x="36"
+                  y="12"
+                  width="56"
+                  height="7"
+                  rx="2"
+                  fill="var(--card-accent)"
+                  opacity="0.15"
                 />
-                <path
-                  d="M10,55 Q30,45 50,55 T90,55 T110,55"
-                  fill="none"
-                  stroke="var(--card-accent)"
-                  stroke-width="2"
-                  opacity="0.3"
-                  class="viz-line"
+                <rect
+                  x="36"
+                  y="12"
+                  width="48"
+                  height="7"
+                  rx="2"
+                  fill="var(--card-accent)"
+                  opacity="0.5"
+                  class="viz-bar"
                 />
+                <text
+                  x="88"
+                  y="18"
+                  font-family="Inter,sans-serif"
+                  font-size="6"
+                  font-weight="700"
+                  fill="var(--card-accent)"
+                  opacity="0.7"
+                >
+                  86
+                </text>
+                <text
+                  x="6"
+                  y="34"
+                  font-family="Inter,sans-serif"
+                  font-size="6"
+                  fill="var(--card-accent)"
+                  opacity="0.5"
+                >
+                  LinkedIn
+                </text>
+                <rect
+                  x="36"
+                  y="28"
+                  width="56"
+                  height="7"
+                  rx="2"
+                  fill="var(--card-accent)"
+                  opacity="0.15"
+                />
+                <rect
+                  x="36"
+                  y="28"
+                  width="42"
+                  height="7"
+                  rx="2"
+                  fill="#06b6d4"
+                  opacity="0.5"
+                  class="viz-bar"
+                />
+                <text
+                  x="82"
+                  y="34"
+                  font-family="Inter,sans-serif"
+                  font-size="6"
+                  font-weight="700"
+                  fill="#06b6d4"
+                  opacity="0.7"
+                >
+                  78
+                </text>
+                <text
+                  x="6"
+                  y="50"
+                  font-family="Inter,sans-serif"
+                  font-size="6"
+                  fill="var(--card-accent)"
+                  opacity="0.5"
+                >
+                  Referral
+                </text>
+                <rect
+                  x="36"
+                  y="44"
+                  width="56"
+                  height="7"
+                  rx="2"
+                  fill="var(--card-accent)"
+                  opacity="0.15"
+                />
+                <rect
+                  x="36"
+                  y="44"
+                  width="52"
+                  height="7"
+                  rx="2"
+                  fill="#22c55e"
+                  opacity="0.5"
+                  class="viz-bar"
+                />
+                <text
+                  x="92"
+                  y="50"
+                  font-family="Inter,sans-serif"
+                  font-size="6"
+                  font-weight="700"
+                  fill="#22c55e"
+                  opacity="0.7"
+                >
+                  92
+                </text>
+                <!-- QoH score badge -->
+                <rect
+                  x="36"
+                  y="58"
+                  width="56"
+                  height="14"
+                  rx="4"
+                  fill="var(--card-accent)"
+                  opacity="0.15"
+                />
+                <text
+                  x="64"
+                  y="68"
+                  text-anchor="middle"
+                  font-family="Inter,sans-serif"
+                  font-size="7"
+                  font-weight="700"
+                  fill="var(--card-accent)"
+                  opacity="0.7"
+                >
+                  QoH Score: 85
+                </text>
               </svg>
             </div>
             <div
@@ -3732,7 +4514,7 @@
             </div>
           </a>
 
-          <!-- 9. ApplyFlow (funnel) -->
+          <!-- 9. ApplyFlow (conversational application steps) -->
           <a
             href="/applyflow"
             class="product-card reveal-on-scroll stagger-3"
@@ -3743,20 +4525,129 @@
             <span class="card-status new">New</span>
             <div class="card-preview">
               <svg viewBox="0 0 120 80" class="card-mini-viz">
-                <polygon
-                  points="30,12 90,12 78,35 42,35"
+                <!-- Step flow: 3 connected steps -->
+                <circle
+                  cx="20"
+                  cy="20"
+                  r="10"
                   fill="var(--card-accent)"
+                  fill-opacity="0.3"
+                  stroke="var(--card-accent)"
+                  stroke-width="1"
+                  stroke-opacity="0.4"
+                />
+                <text
+                  x="20"
+                  y="23"
+                  text-anchor="middle"
+                  font-family="Inter,sans-serif"
+                  font-size="8"
+                  font-weight="700"
+                  fill="var(--card-accent)"
+                  opacity="0.7"
+                >
+                  1
+                </text>
+                <line
+                  x1="30"
+                  y1="20"
+                  x2="48"
+                  y2="20"
+                  stroke="var(--card-accent)"
+                  stroke-width="1.5"
+                  stroke-dasharray="3 2"
                   opacity="0.3"
                 />
-                <polygon
-                  points="42,37 78,37 72,55 48,55"
+                <circle
+                  cx="58"
+                  cy="20"
+                  r="10"
                   fill="var(--card-accent)"
-                  opacity="0.5"
+                  fill-opacity="0.3"
+                  stroke="var(--card-accent)"
+                  stroke-width="1"
+                  stroke-opacity="0.4"
                 />
-                <polygon
-                  points="48,57 72,57 66,72 54,72"
+                <text
+                  x="58"
+                  y="23"
+                  text-anchor="middle"
+                  font-family="Inter,sans-serif"
+                  font-size="8"
+                  font-weight="700"
                   fill="var(--card-accent)"
-                  opacity="0.8"
+                  opacity="0.7"
+                >
+                  2
+                </text>
+                <line
+                  x1="68"
+                  y1="20"
+                  x2="86"
+                  y2="20"
+                  stroke="var(--card-accent)"
+                  stroke-width="1.5"
+                  stroke-dasharray="3 2"
+                  opacity="0.3"
+                />
+                <circle
+                  cx="96"
+                  cy="20"
+                  r="10"
+                  fill="var(--card-accent)"
+                  fill-opacity="0.3"
+                  stroke="var(--card-accent)"
+                  stroke-width="1"
+                  stroke-opacity="0.4"
+                />
+                <text
+                  x="96"
+                  y="23"
+                  text-anchor="middle"
+                  font-family="Inter,sans-serif"
+                  font-size="8"
+                  font-weight="700"
+                  fill="var(--card-accent)"
+                  opacity="0.7"
+                >
+                  3
+                </text>
+                <!-- Chat conversation below -->
+                <rect
+                  x="8"
+                  y="38"
+                  width="50"
+                  height="12"
+                  rx="6"
+                  fill="var(--card-accent)"
+                  opacity="0.15"
+                />
+                <rect
+                  x="14"
+                  y="42"
+                  width="24"
+                  height="3"
+                  rx="1"
+                  fill="var(--card-accent)"
+                  opacity="0.4"
+                />
+                <rect
+                  x="50"
+                  y="54"
+                  width="62"
+                  height="12"
+                  rx="6"
+                  fill="#06b6d4"
+                  opacity="0.15"
+                />
+                <rect
+                  x="56"
+                  y="58"
+                  width="36"
+                  height="3"
+                  rx="1"
+                  fill="#06b6d4"
+                  opacity="0.4"
                 />
               </svg>
             </div>
@@ -3792,7 +4683,7 @@
             </div>
           </a>
 
-          <!-- 10. API Portal (angle brackets) -->
+          <!-- 10. API Portal (endpoint structure) -->
           <a
             href="/api-portal"
             class="product-card reveal-on-scroll stagger-4"
@@ -3803,27 +4694,115 @@
             <span class="card-status new">New</span>
             <div class="card-preview">
               <svg viewBox="0 0 120 80" class="card-mini-viz">
-                <text
-                  x="32"
-                  y="52"
-                  font-family="Inter,monospace"
-                  font-size="32"
-                  font-weight="700"
+                <!-- Terminal-like API call -->
+                <rect
+                  x="6"
+                  y="6"
+                  width="108"
+                  height="68"
+                  rx="5"
                   fill="var(--card-accent)"
-                  opacity="0.6"
+                  fill-opacity="0.06"
+                  stroke="var(--card-accent)"
+                  stroke-width="0.8"
+                  stroke-opacity="0.15"
+                />
+                <rect
+                  x="6"
+                  y="6"
+                  width="108"
+                  height="12"
+                  rx="5"
+                  fill="var(--card-accent)"
+                  opacity="0.08"
+                />
+                <circle cx="14" cy="12" r="2" fill="#f43f5e" opacity="0.5" />
+                <circle cx="22" cy="12" r="2" fill="#f59e0b" opacity="0.5" />
+                <circle cx="30" cy="12" r="2" fill="#22c55e" opacity="0.5" />
+                <!-- GET badge + endpoint -->
+                <rect
+                  x="12"
+                  y="24"
+                  width="20"
+                  height="8"
+                  rx="2"
+                  fill="#22c55e"
+                  opacity="0.4"
+                />
+                <text
+                  x="22"
+                  y="30"
+                  text-anchor="middle"
+                  font-family="monospace"
+                  font-size="5"
+                  font-weight="700"
+                  fill="#22c55e"
+                  opacity="0.9"
                 >
-                  &lt;
+                  GET
                 </text>
                 <text
-                  x="70"
-                  y="52"
-                  font-family="Inter,monospace"
-                  font-size="32"
-                  font-weight="700"
+                  x="36"
+                  y="30"
+                  font-family="monospace"
+                  font-size="5.5"
                   fill="var(--card-accent)"
-                  opacity="0.6"
+                  opacity="0.5"
                 >
-                  &gt;
+                  /api/v1/plans
+                </text>
+                <!-- POST badge + endpoint -->
+                <rect
+                  x="12"
+                  y="38"
+                  width="22"
+                  height="8"
+                  rx="2"
+                  fill="#3b82f6"
+                  opacity="0.4"
+                />
+                <text
+                  x="23"
+                  y="44"
+                  text-anchor="middle"
+                  font-family="monospace"
+                  font-size="5"
+                  font-weight="700"
+                  fill="#3b82f6"
+                  opacity="0.9"
+                >
+                  POST
+                </text>
+                <text
+                  x="38"
+                  y="44"
+                  font-family="monospace"
+                  font-size="5.5"
+                  fill="var(--card-accent)"
+                  opacity="0.5"
+                >
+                  /api/v1/generate
+                </text>
+                <!-- Status indicator -->
+                <rect
+                  x="12"
+                  y="54"
+                  width="40"
+                  height="8"
+                  rx="2"
+                  fill="var(--card-accent)"
+                  opacity="0.08"
+                />
+                <circle cx="18" cy="58" r="2" fill="#22c55e" opacity="0.7" />
+                <text
+                  x="24"
+                  y="60"
+                  font-family="monospace"
+                  font-size="5"
+                  fill="var(--card-accent)"
+                  opacity="0.4"
+                >
+                  200 OK 12ms
                 </text>
               </svg>
             </div>
@@ -3858,7 +4837,7 @@
             </div>
           </a>
 
-          <!-- 11. Talent Heat Map (3x3 grid) -->
+          <!-- 11. Talent Heat Map (geographic heat zones) -->
           <a
             href="/talent-heatmap"
             class="product-card reveal-on-scroll stagger-5"
@@ -3869,87 +4848,91 @@
             <span class="card-status new">New</span>
             <div class="card-preview">
               <svg viewBox="0 0 120 80" class="card-mini-viz">
-                <rect
-                  x="22"
-                  y="12"
-                  width="22"
-                  height="16"
-                  rx="2"
-                  fill="var(--card-accent)"
-                  opacity="0.9"
+                <!-- Simplified US map outline -->
+                <path
+                  d="M10 30 L30 26 L48 22 L60 24 L72 20 L90 22 L105 28 L110 34 L108 42 L100 48 L92 52 L80 54 L70 50 L58 52 L44 56 L30 54 L18 48 L12 40 Z"
+                  fill="none"
+                  stroke="var(--card-accent)"
+                  stroke-width="0.8"
+                  opacity="0.2"
                 />
-                <rect
-                  x="48"
-                  y="12"
-                  width="22"
-                  height="16"
-                  rx="2"
+                <!-- Heat zones (radial gradients simulated) -->
+                <circle
+                  cx="35"
+                  cy="38"
+                  r="14"
                   fill="var(--card-accent)"
-                  opacity="0.5"
+                  opacity="0.35"
                 />
-                <rect
-                  x="74"
-                  y="12"
-                  width="22"
-                  height="16"
-                  rx="2"
+                <circle
+                  cx="35"
+                  cy="38"
+                  r="8"
+                  fill="var(--card-accent)"
+                  opacity="0.25"
+                />
+                <circle
+                  cx="78"
+                  cy="36"
+                  r="18"
+                  fill="var(--card-accent)"
+                  opacity="0.4"
+                />
+                <circle
+                  cx="78"
+                  cy="36"
+                  r="10"
                   fill="var(--card-accent)"
                   opacity="0.3"
                 />
-                <rect
-                  x="22"
-                  y="32"
-                  width="22"
-                  height="16"
-                  rx="2"
-                  fill="var(--card-accent)"
-                  opacity="0.4"
-                />
-                <rect
-                  x="48"
-                  y="32"
-                  width="22"
-                  height="16"
-                  rx="2"
+                <circle cx="56" cy="44" r="10" fill="#f59e0b" opacity="0.3" />
+                <circle cx="56" cy="44" r="5" fill="#f59e0b" opacity="0.2" />
+                <circle cx="96" cy="32" r="8" fill="#22c55e" opacity="0.3" />
+                <!-- Location pins -->
+                <circle
+                  cx="35"
+                  cy="38"
+                  r="2.5"
                   fill="var(--card-accent)"
                   opacity="0.8"
                 />
-                <rect
-                  x="74"
-                  y="32"
-                  width="22"
-                  height="16"
-                  rx="2"
+                <circle
+                  cx="78"
+                  cy="36"
+                  r="2.5"
                   fill="var(--card-accent)"
-                  opacity="0.6"
+                  opacity="0.8"
                 />
-                <rect
-                  x="22"
-                  y="52"
-                  width="22"
-                  height="16"
-                  rx="2"
+                <circle cx="96" cy="32" r="2" fill="#22c55e" opacity="0.7" />
+                <!-- Legend -->
+                <circle
+                  cx="10"
+                  cy="70"
+                  r="3"
                   fill="var(--card-accent)"
-                  opacity="0.2"
+                  opacity="0.5"
                 />
-                <rect
-                  x="48"
-                  y="52"
-                  width="22"
-                  height="16"
-                  rx="2"
-                  fill="var(--card-accent)"
-                  opacity="0.7"
-                />
-                <rect
-                  x="74"
-                  y="52"
-                  width="22"
-                  height="16"
-                  rx="2"
+                <text
+                  x="16"
+                  y="72"
+                  font-family="Inter,sans-serif"
+                  font-size="5"
                   fill="var(--card-accent)"
                   opacity="0.4"
-                />
+                >
+                  High demand
+                </text>
+                <circle cx="60" cy="70" r="3" fill="#22c55e" opacity="0.5" />
+                <text
+                  x="66"
+                  y="72"
+                  font-family="Inter,sans-serif"
+                  font-size="5"
+                  fill="var(--card-accent)"
+                  opacity="0.4"
+                >
+                  High supply
+                </text>
               </svg>
             </div>
             <div
@@ -3983,7 +4966,7 @@
             </div>
           </a>
 
-          <!-- 12. Market Intel (pin with bar) -->
+          <!-- 12. Market Intel (research report) -->
           <a
             href="/market-intel"
             class="product-card reveal-on-scroll stagger-6"
@@ -3994,56 +4977,172 @@
             <span class="card-status beta">Beta</span>
             <div class="card-preview">
               <svg viewBox="0 0 120 80" class="card-mini-viz">
-                <path
-                  d="M40 15 a12 12 0 1 1 0 0.01 Z"
+                <!-- Report document -->
+                <rect
+                  x="8"
+                  y="4"
+                  width="50"
+                  height="72"
+                  rx="3"
                   fill="none"
                   stroke="var(--card-accent)"
-                  stroke-width="2"
-                  opacity="0.7"
+                  stroke-width="1"
+                  opacity="0.2"
                 />
-                <line
-                  x1="40"
-                  y1="27"
-                  x2="40"
-                  y2="38"
-                  stroke="var(--card-accent)"
-                  stroke-width="2"
-                  opacity="0.7"
-                />
-                <circle
-                  cx="40"
-                  cy="15"
-                  r="4"
+                <rect
+                  x="14"
+                  y="10"
+                  width="26"
+                  height="3"
+                  rx="1"
                   fill="var(--card-accent)"
                   opacity="0.5"
                 />
                 <rect
-                  x="60"
-                  y="50"
-                  width="10"
-                  height="18"
-                  rx="2"
+                  x="14"
+                  y="17"
+                  width="38"
+                  height="2"
+                  rx="1"
                   fill="var(--card-accent)"
-                  opacity="0.5"
+                  opacity="0.2"
                 />
                 <rect
-                  x="74"
-                  y="40"
-                  width="10"
-                  height="28"
-                  rx="2"
+                  x="14"
+                  y="22"
+                  width="34"
+                  height="2"
+                  rx="1"
                   fill="var(--card-accent)"
-                  opacity="0.7"
+                  opacity="0.2"
                 />
+                <!-- Mini chart in report -->
                 <rect
-                  x="88"
+                  x="14"
                   y="30"
-                  width="10"
-                  height="38"
+                  width="38"
+                  height="20"
                   rx="2"
                   fill="var(--card-accent)"
-                  opacity="0.9"
+                  opacity="0.06"
                 />
+                <polyline
+                  points="16,46 22,42 28,44 34,38 40,40 46,34 50,32"
+                  fill="none"
+                  stroke="var(--card-accent)"
+                  stroke-width="1"
+                  stroke-linecap="round"
+                  opacity="0.5"
+                />
+                <rect
+                  x="14"
+                  y="56"
+                  width="30"
+                  height="2"
+                  rx="1"
+                  fill="var(--card-accent)"
+                  opacity="0.2"
+                />
+                <rect
+                  x="14"
+                  y="62"
+                  width="24"
+                  height="2"
+                  rx="1"
+                  fill="var(--card-accent)"
+                  opacity="0.15"
+                />
+                <!-- Key insights (right side) -->
+                <rect
+                  x="64"
+                  y="10"
+                  width="48"
+                  height="16"
+                  rx="3"
+                  fill="var(--card-accent)"
+                  opacity="0.08"
+                />
+                <text
+                  x="70"
+                  y="16"
+                  font-family="Inter,sans-serif"
+                  font-size="5"
+                  fill="var(--card-accent)"
+                  opacity="0.4"
+                >
+                  Avg Salary
+                </text>
+                <text
+                  x="70"
+                  y="23"
+                  font-family="Inter,sans-serif"
+                  font-size="8"
+                  font-weight="700"
+                  fill="var(--card-accent)"
+                  opacity="0.7"
+                >
+                  $95K
+                </text>
+                <rect
+                  x="64"
+                  y="32"
+                  width="48"
+                  height="16"
+                  rx="3"
+                  fill="var(--card-accent)"
+                  opacity="0.08"
+                />
+                <text
+                  x="70"
+                  y="38"
+                  font-family="Inter,sans-serif"
+                  font-size="5"
+                  fill="var(--card-accent)"
+                  opacity="0.4"
+                >
+                  Job Growth
+                </text>
+                <text
+                  x="70"
+                  y="45"
+                  font-family="Inter,sans-serif"
+                  font-size="8"
+                  font-weight="700"
+                  fill="#22c55e"
+                  opacity="0.7"
+                >
+                  +12%
+                </text>
+                <rect
+                  x="64"
+                  y="54"
+                  width="48"
+                  height="16"
+                  rx="3"
+                  fill="var(--card-accent)"
+                  opacity="0.08"
+                />
+                <text
+                  x="70"
+                  y="60"
+                  font-family="Inter,sans-serif"
+                  font-size="5"
+                  fill="var(--card-accent)"
+                  opacity="0.4"
+                >
+                  Supply Index
+                </text>
+                <text
+                  x="70"
+                  y="67"
+                  font-family="Inter,sans-serif"
+                  font-size="8"
+                  font-weight="700"
+                  fill="#f59e0b"
+                  opacity="0.7"
+                >
+                  0.73
+                </text>
               </svg>
             </div>
             <div
@@ -4082,7 +5181,7 @@
             </div>
           </a>
 
-          <!-- 13. SkillTarget (target rings) -->
+          <!-- 13. SkillTarget (skill-to-channel mapping) -->
           <a
             href="/skill-target"
             class="product-card reveal-on-scroll stagger-1"
@@ -4093,40 +5192,185 @@
             <span class="card-status beta">Beta</span>
             <div class="card-preview">
               <svg viewBox="0 0 120 80" class="card-mini-viz">
-                <circle
-                  cx="60"
-                  cy="40"
-                  r="30"
-                  fill="none"
+                <!-- Skills (left) -->
+                <rect
+                  x="4"
+                  y="10"
+                  width="36"
+                  height="12"
+                  rx="6"
+                  fill="var(--card-accent)"
+                  opacity="0.2"
+                />
+                <text
+                  x="22"
+                  y="18"
+                  text-anchor="middle"
+                  font-family="Inter,sans-serif"
+                  font-size="6"
+                  font-weight="600"
+                  fill="var(--card-accent)"
+                  opacity="0.6"
+                >
+                  React
+                </text>
+                <rect
+                  x="4"
+                  y="28"
+                  width="36"
+                  height="12"
+                  rx="6"
+                  fill="var(--card-accent)"
+                  opacity="0.15"
+                />
+                <text
+                  x="22"
+                  y="36"
+                  text-anchor="middle"
+                  font-family="Inter,sans-serif"
+                  font-size="6"
+                  font-weight="600"
+                  fill="var(--card-accent)"
+                  opacity="0.5"
+                >
+                  Python
+                </text>
+                <rect
+                  x="4"
+                  y="46"
+                  width="36"
+                  height="12"
+                  rx="6"
+                  fill="var(--card-accent)"
+                  opacity="0.12"
+                />
+                <text
+                  x="22"
+                  y="54"
+                  text-anchor="middle"
+                  font-family="Inter,sans-serif"
+                  font-size="6"
+                  font-weight="600"
+                  fill="var(--card-accent)"
+                  opacity="0.45"
+                >
+                  AWS
+                </text>
+                <!-- Connection lines -->
+                <line
+                  x1="40"
+                  y1="16"
+                  x2="74"
+                  y2="16"
                   stroke="var(--card-accent)"
-                  stroke-width="2"
+                  stroke-width="1"
+                  stroke-dasharray="3 2"
                   opacity="0.3"
                 />
-                <circle
-                  cx="60"
-                  cy="40"
-                  r="20"
-                  fill="none"
+                <line
+                  x1="40"
+                  y1="34"
+                  x2="74"
+                  y2="16"
                   stroke="var(--card-accent)"
-                  stroke-width="2"
-                  opacity="0.5"
+                  stroke-width="1"
+                  stroke-dasharray="3 2"
+                  opacity="0.2"
                 />
-                <circle
-                  cx="60"
-                  cy="40"
-                  r="10"
-                  fill="none"
+                <line
+                  x1="40"
+                  y1="34"
+                  x2="74"
+                  y2="40"
                   stroke="var(--card-accent)"
-                  stroke-width="2"
-                  opacity="0.8"
+                  stroke-width="1"
+                  stroke-dasharray="3 2"
+                  opacity="0.3"
                 />
-                <circle
-                  cx="60"
-                  cy="40"
-                  r="3"
+                <line
+                  x1="40"
+                  y1="52"
+                  x2="74"
+                  y2="40"
+                  stroke="var(--card-accent)"
+                  stroke-width="1"
+                  stroke-dasharray="3 2"
+                  opacity="0.2"
+                />
+                <line
+                  x1="40"
+                  y1="52"
+                  x2="74"
+                  y2="58"
+                  stroke="var(--card-accent)"
+                  stroke-width="1"
+                  stroke-dasharray="3 2"
+                  opacity="0.3"
+                />
+                <!-- Channels (right) -->
+                <rect
+                  x="74"
+                  y="8"
+                  width="42"
+                  height="14"
+                  rx="4"
                   fill="var(--card-accent)"
-                  opacity="0.9"
+                  opacity="0.2"
                 />
+                <text
+                  x="95"
+                  y="18"
+                  text-anchor="middle"
+                  font-family="Inter,sans-serif"
+                  font-size="6"
+                  font-weight="600"
+                  fill="var(--card-accent)"
+                  opacity="0.6"
+                >
+                  GitHub Jobs
+                </text>
+                <rect
+                  x="74"
+                  y="32"
+                  width="42"
+                  height="14"
+                  rx="4"
+                  fill="var(--card-accent)"
+                  opacity="0.15"
+                />
+                <text
+                  x="95"
+                  y="42"
+                  text-anchor="middle"
+                  font-family="Inter,sans-serif"
+                  font-size="6"
+                  font-weight="600"
+                  fill="var(--card-accent)"
+                  opacity="0.5"
+                >
+                  LinkedIn
+                </text>
+                <rect
+                  x="74"
+                  y="52"
+                  width="42"
+                  height="14"
+                  rx="4"
+                  fill="var(--card-accent)"
+                  opacity="0.12"
+                />
+                <text
+                  x="95"
+                  y="62"
+                  text-anchor="middle"
+                  font-family="Inter,sans-serif"
+                  font-size="6"
+                  font-weight="600"
+                  fill="var(--card-accent)"
+                  opacity="0.45"
+                >
+                  Stack OF
+                </text>
               </svg>
             </div>
             <div
@@ -4162,7 +5406,7 @@
             </div>
           </a>
 
-          <!-- 14. ROI Calculator (big 3.2x) -->
+          <!-- 14. ROI Calculator (investment return visualization) -->
           <a
             href="/roi-calculator"
             class="product-card reveal-on-scroll stagger-2"
@@ -4173,17 +5417,101 @@
             <span class="card-status new">New</span>
             <div class="card-preview">
               <svg viewBox="0 0 120 80" class="card-mini-viz">
+                <!-- Investment arrow going in, bigger arrow coming out -->
+                <rect
+                  x="6"
+                  y="20"
+                  width="38"
+                  height="40"
+                  rx="4"
+                  fill="var(--card-accent)"
+                  fill-opacity="0.08"
+                  stroke="var(--card-accent)"
+                  stroke-width="0.8"
+                  stroke-opacity="0.2"
+                />
                 <text
-                  x="60"
-                  y="52"
+                  x="25"
+                  y="35"
                   text-anchor="middle"
                   font-family="Inter,sans-serif"
-                  font-size="28"
+                  font-size="6"
+                  fill="var(--card-accent)"
+                  opacity="0.4"
+                >
+                  Invest
+                </text>
+                <text
+                  x="25"
+                  y="48"
+                  text-anchor="middle"
+                  font-family="Inter,sans-serif"
+                  font-size="12"
                   font-weight="800"
                   fill="var(--card-accent)"
-                  opacity="0.7"
+                  opacity="0.5"
+                >
+                  $50K
+                </text>
+                <!-- Arrow -->
+                <path
+                  d="M48 40 L62 40"
+                  stroke="var(--card-accent)"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  opacity="0.4"
+                />
+                <polygon
+                  points="64,40 58,36 58,44"
+                  fill="var(--card-accent)"
+                  opacity="0.5"
+                />
+                <!-- Return (bigger, brighter) -->
+                <rect
+                  x="68"
+                  y="14"
+                  width="46"
+                  height="52"
+                  rx="4"
+                  fill="var(--card-accent)"
+                  fill-opacity="0.12"
+                  stroke="var(--card-accent)"
+                  stroke-width="1"
+                  stroke-opacity="0.3"
+                />
+                <text
+                  x="91"
+                  y="30"
+                  text-anchor="middle"
+                  font-family="Inter,sans-serif"
+                  font-size="6"
+                  fill="var(--card-accent)"
+                  opacity="0.5"
+                >
+                  Return
+                </text>
+                <text
+                  x="91"
+                  y="46"
+                  text-anchor="middle"
+                  font-family="Inter,sans-serif"
+                  font-size="16"
+                  font-weight="800"
+                  fill="var(--card-accent)"
+                  opacity="0.8"
                 >
                   3.2x
+                </text>
+                <text
+                  x="91"
+                  y="58"
+                  text-anchor="middle"
+                  font-family="Inter,sans-serif"
+                  font-size="7"
+                  fill="var(--card-accent)"
+                  opacity="0.4"
+                >
+                  $160K
                 </text>
               </svg>
             </div>
@@ -4221,7 +5549,7 @@
             </div>
           </a>
 
-          <!-- 15. A/B Test Lab (split A|B) -->
+          <!-- 15. A/B Test Lab (split test with metrics) -->
           <a
             href="/ab-testing"
             class="product-card reveal-on-scroll stagger-3"
@@ -4232,39 +5560,163 @@
             <span class="card-status new">New</span>
             <div class="card-preview">
               <svg viewBox="0 0 120 80" class="card-mini-viz">
-                <line
-                  x1="60"
-                  y1="8"
-                  x2="60"
-                  y2="72"
+                <!-- Variant A card -->
+                <rect
+                  x="4"
+                  y="8"
+                  width="52"
+                  height="64"
+                  rx="4"
+                  fill="var(--card-accent)"
+                  fill-opacity="0.08"
                   stroke="var(--card-accent)"
-                  stroke-width="1"
-                  opacity="0.4"
+                  stroke-width="0.8"
+                  stroke-opacity="0.2"
+                />
+                <rect
+                  x="10"
+                  y="14"
+                  width="16"
+                  height="10"
+                  rx="3"
+                  fill="var(--card-accent)"
+                  opacity="0.3"
                 />
                 <text
-                  x="32"
-                  y="50"
+                  x="18"
+                  y="22"
                   text-anchor="middle"
                   font-family="Inter,sans-serif"
-                  font-size="26"
+                  font-size="7"
                   font-weight="800"
                   fill="var(--card-accent)"
-                  opacity="0.6"
+                  opacity="0.8"
                 >
                   A
                 </text>
+                <rect
+                  x="10"
+                  y="30"
+                  width="40"
+                  height="2"
+                  rx="1"
+                  fill="var(--card-accent)"
+                  opacity="0.2"
+                />
+                <rect
+                  x="10"
+                  y="36"
+                  width="32"
+                  height="2"
+                  rx="1"
+                  fill="var(--card-accent)"
+                  opacity="0.15"
+                />
                 <text
-                  x="88"
+                  x="10"
                   y="50"
+                  font-family="Inter,sans-serif"
+                  font-size="6"
+                  fill="var(--card-accent)"
+                  opacity="0.4"
+                >
+                  CTR
+                </text>
+                <text
+                  x="10"
+                  y="60"
+                  font-family="Inter,sans-serif"
+                  font-size="10"
+                  font-weight="700"
+                  fill="var(--card-accent)"
+                  opacity="0.6"
+                >
+                  2.4%
+                </text>
+                <!-- Variant B card (winner) -->
+                <rect
+                  x="62"
+                  y="8"
+                  width="52"
+                  height="64"
+                  rx="4"
+                  fill="#06b6d4"
+                  fill-opacity="0.08"
+                  stroke="#06b6d4"
+                  stroke-width="0.8"
+                  stroke-opacity="0.2"
+                />
+                <rect
+                  x="68"
+                  y="14"
+                  width="16"
+                  height="10"
+                  rx="3"
+                  fill="#06b6d4"
+                  opacity="0.3"
+                />
+                <text
+                  x="76"
+                  y="22"
                   text-anchor="middle"
                   font-family="Inter,sans-serif"
-                  font-size="26"
+                  font-size="7"
                   font-weight="800"
                   fill="#06b6d4"
-                  opacity="0.6"
+                  opacity="0.8"
                 >
                   B
                 </text>
+                <rect
+                  x="68"
+                  y="30"
+                  width="40"
+                  height="2"
+                  rx="1"
+                  fill="#06b6d4"
+                  opacity="0.2"
+                />
+                <rect
+                  x="68"
+                  y="36"
+                  width="36"
+                  height="2"
+                  rx="1"
+                  fill="#06b6d4"
+                  opacity="0.15"
+                />
+                <text
+                  x="68"
+                  y="50"
+                  font-family="Inter,sans-serif"
+                  font-size="6"
+                  fill="#06b6d4"
+                  opacity="0.4"
+                >
+                  CTR
+                </text>
+                <text
+                  x="68"
+                  y="60"
+                  font-family="Inter,sans-serif"
+                  font-size="10"
+                  font-weight="700"
+                  fill="#22c55e"
+                  opacity="0.7"
+                >
+                  3.8%
+                </text>
+                <!-- Winner badge on B -->
+                <circle cx="106" cy="14" r="5" fill="#22c55e" opacity="0.5" />
+                <path
+                  d="M103 14 L105 16 L109 12"
+                  fill="none"
+                  stroke="#fff"
+                  stroke-width="1.2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  opacity="0.8"
+                />
               </svg>
             </div>
             <div
@@ -4302,7 +5754,7 @@
             </div>
           </a>
 
-          <!-- 16. Quick Brief (doc with checkmarks) -->
+          <!-- 16. Quick Brief (NLP text to structured output) -->
           <a
             href="/quick-brief"
             class="product-card reveal-on-scroll stagger-4"
@@ -4313,53 +5765,184 @@
             <span class="card-status new">New</span>
             <div class="card-preview">
               <svg viewBox="0 0 120 80" class="card-mini-viz">
+                <!-- Plain text input (left) -->
                 <rect
-                  x="30"
+                  x="4"
                   y="8"
-                  width="60"
-                  height="64"
+                  width="48"
+                  height="50"
                   rx="4"
-                  fill="none"
-                  stroke="var(--card-accent)"
-                  stroke-width="1.5"
-                  opacity="0.4"
-                />
-                <rect
-                  x="40"
-                  y="20"
-                  width="30"
-                  height="3"
-                  rx="1"
                   fill="var(--card-accent)"
-                  opacity="0.5"
+                  fill-opacity="0.06"
+                  stroke="var(--card-accent)"
+                  stroke-width="0.8"
+                  stroke-opacity="0.15"
                 />
                 <rect
-                  x="40"
-                  y="30"
-                  width="40"
-                  height="3"
+                  x="10"
+                  y="14"
+                  width="36"
+                  height="2.5"
                   rx="1"
                   fill="var(--card-accent)"
                   opacity="0.3"
                 />
-                <path
-                  d="M40 44 L44 48 L52 40"
-                  fill="none"
-                  stroke="var(--card-accent)"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  opacity="0.7"
+                <rect
+                  x="10"
+                  y="20"
+                  width="28"
+                  height="2.5"
+                  rx="1"
+                  fill="var(--card-accent)"
+                  opacity="0.25"
                 />
-                <path
-                  d="M40 56 L44 60 L52 52"
-                  fill="none"
-                  stroke="var(--card-accent)"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  opacity="0.7"
+                <rect
+                  x="10"
+                  y="26"
+                  width="34"
+                  height="2.5"
+                  rx="1"
+                  fill="var(--card-accent)"
+                  opacity="0.2"
                 />
+                <rect
+                  x="10"
+                  y="32"
+                  width="30"
+                  height="2.5"
+                  rx="1"
+                  fill="var(--card-accent)"
+                  opacity="0.2"
+                />
+                <rect
+                  x="10"
+                  y="38"
+                  width="26"
+                  height="2.5"
+                  rx="1"
+                  fill="var(--card-accent)"
+                  opacity="0.15"
+                />
+                <rect
+                  x="10"
+                  y="44"
+                  width="32"
+                  height="2.5"
+                  rx="1"
+                  fill="var(--card-accent)"
+                  opacity="0.15"
+                />
+                <!-- Arrow -->
+                <path
+                  d="M56 34 L64 34"
+                  stroke="var(--card-accent)"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                  opacity="0.4"
+                />
+                <polygon
+                  points="66,34 62,31 62,37"
+                  fill="var(--card-accent)"
+                  opacity="0.5"
+                />
+                <!-- Structured output (right) -->
+                <rect
+                  x="68"
+                  y="8"
+                  width="48"
+                  height="50"
+                  rx="4"
+                  fill="var(--card-accent)"
+                  fill-opacity="0.08"
+                  stroke="var(--card-accent)"
+                  stroke-width="0.8"
+                  stroke-opacity="0.25"
+                />
+                <text
+                  x="74"
+                  y="18"
+                  font-family="Inter,sans-serif"
+                  font-size="5"
+                  fill="var(--card-accent)"
+                  opacity="0.4"
+                >
+                  Role
+                </text>
+                <text
+                  x="74"
+                  y="25"
+                  font-family="Inter,sans-serif"
+                  font-size="6"
+                  font-weight="600"
+                  fill="var(--card-accent)"
+                  opacity="0.6"
+                >
+                  Sr. Engineer
+                </text>
+                <text
+                  x="74"
+                  y="34"
+                  font-family="Inter,sans-serif"
+                  font-size="5"
+                  fill="var(--card-accent)"
+                  opacity="0.4"
+                >
+                  Location
+                </text>
+                <text
+                  x="74"
+                  y="41"
+                  font-family="Inter,sans-serif"
+                  font-size="6"
+                  font-weight="600"
+                  fill="var(--card-accent)"
+                  opacity="0.6"
+                >
+                  NYC Metro
+                </text>
+                <text
+                  x="74"
+                  y="50"
+                  font-family="Inter,sans-serif"
+                  font-size="5"
+                  fill="var(--card-accent)"
+                  opacity="0.4"
+                >
+                  Budget
+                </text>
+                <text
+                  x="74"
+                  y="57"
+                  font-family="Inter,sans-serif"
+                  font-size="6"
+                  font-weight="600"
+                  fill="var(--card-accent)"
+                  opacity="0.6"
+                >
+                  $15,000
+                </text>
+                <!-- AI badge -->
+                <rect
+                  x="42"
+                  y="62"
+                  width="36"
+                  height="12"
+                  rx="6"
+                  fill="var(--card-accent)"
+                  opacity="0.15"
+                />
+                <text
+                  x="60"
+                  y="70"
+                  text-anchor="middle"
+                  font-family="Inter,sans-serif"
+                  font-size="6"
+                  font-weight="600"
+                  fill="var(--card-accent)"
+                  opacity="0.5"
+                >
+                  AI Parse
+                </text>
               </svg>
             </div>
             <div
@@ -4400,7 +5983,7 @@
             </div>
           </a>
 
-          <!-- 17. Post-Campaign (doc with A+ grade) -->
+          <!-- 17. Post-Campaign (performance report with metrics) -->
           <a
             href="/post-campaign"
             class="product-card reveal-on-scroll stagger-5"
@@ -4411,38 +5994,112 @@
             <span class="card-status new">New</span>
             <div class="card-preview">
               <svg viewBox="0 0 120 80" class="card-mini-viz">
+                <!-- Report with metrics -->
                 <rect
-                  x="25"
-                  y="8"
-                  width="50"
-                  height="64"
+                  x="4"
+                  y="6"
+                  width="68"
+                  height="68"
                   rx="4"
                   fill="none"
                   stroke="var(--card-accent)"
-                  stroke-width="1.5"
+                  stroke-width="0.8"
+                  opacity="0.2"
+                />
+                <rect
+                  x="10"
+                  y="12"
+                  width="30"
+                  height="3"
+                  rx="1"
+                  fill="var(--card-accent)"
                   opacity="0.4"
                 />
+                <!-- Mini bar chart in report -->
                 <rect
-                  x="33"
-                  y="18"
-                  width="34"
-                  height="3"
+                  x="10"
+                  y="22"
+                  width="10"
+                  height="18"
                   rx="1"
                   fill="var(--card-accent)"
                   opacity="0.3"
+                  class="viz-bar"
                 />
                 <rect
-                  x="33"
-                  y="26"
-                  width="24"
-                  height="3"
+                  x="24"
+                  y="28"
+                  width="10"
+                  height="12"
                   rx="1"
                   fill="var(--card-accent)"
-                  opacity="0.3"
+                  opacity="0.4"
+                  class="viz-bar"
+                />
+                <rect
+                  x="38"
+                  y="18"
+                  width="10"
+                  height="22"
+                  rx="1"
+                  fill="var(--card-accent)"
+                  opacity="0.5"
+                  class="viz-bar"
+                />
+                <rect
+                  x="52"
+                  y="24"
+                  width="10"
+                  height="16"
+                  rx="1"
+                  fill="var(--card-accent)"
+                  opacity="0.35"
+                  class="viz-bar"
+                />
+                <!-- Recommendation lines -->
+                <rect
+                  x="10"
+                  y="48"
+                  width="52"
+                  height="2"
+                  rx="1"
+                  fill="var(--card-accent)"
+                  opacity="0.15"
+                />
+                <rect
+                  x="10"
+                  y="54"
+                  width="42"
+                  height="2"
+                  rx="1"
+                  fill="var(--card-accent)"
+                  opacity="0.12"
+                />
+                <rect
+                  x="10"
+                  y="60"
+                  width="48"
+                  height="2"
+                  rx="1"
+                  fill="var(--card-accent)"
+                  opacity="0.1"
+                />
+                <!-- Grade badge (right) -->
+                <rect
+                  x="80"
+                  y="16"
+                  width="34"
+                  height="44"
+                  rx="6"
+                  fill="var(--card-accent)"
+                  fill-opacity="0.12"
+                  stroke="var(--card-accent)"
+                  stroke-width="1"
+                  stroke-opacity="0.25"
                 />
                 <text
-                  x="95"
-                  y="52"
+                  x="97"
+                  y="44"
                   text-anchor="middle"
                   font-family="Inter,sans-serif"
                   font-size="22"
@@ -4451,6 +6108,17 @@
                   opacity="0.7"
                 >
                   A+
+                </text>
+                <text
+                  x="97"
+                  y="54"
+                  text-anchor="middle"
+                  font-family="Inter,sans-serif"
+                  font-size="6"
+                  fill="var(--card-accent)"
+                  opacity="0.4"
+                >
+                  Grade
                 </text>
               </svg>
             </div>
@@ -4488,7 +6156,7 @@
             </div>
           </a>
 
-          <!-- 18. PayScale Sync ($ with range bar) -->
+          <!-- 18. PayScale Sync (salary benchmarking) -->
           <a
             href="/payscale-sync"
             class="product-card reveal-on-scroll stagger-6"
@@ -4499,50 +6167,157 @@
             <span class="card-status new">New</span>
             <div class="card-preview">
               <svg viewBox="0 0 120 80" class="card-mini-viz">
+                <!-- Role title -->
                 <text
-                  x="30"
-                  y="48"
+                  x="60"
+                  y="14"
+                  text-anchor="middle"
                   font-family="Inter,sans-serif"
-                  font-size="28"
-                  font-weight="800"
+                  font-size="7"
+                  font-weight="600"
                   fill="var(--card-accent)"
                   opacity="0.5"
                 >
-                  $
+                  Sr. Software Engineer
                 </text>
-                <line
-                  x1="52"
-                  y1="40"
-                  x2="108"
-                  y2="40"
-                  stroke="var(--card-accent)"
-                  stroke-width="3"
-                  stroke-linecap="round"
-                  opacity="0.3"
-                />
-                <circle
-                  cx="70"
-                  cy="40"
-                  r="5"
-                  fill="var(--card-accent)"
-                  opacity="0.7"
-                />
-                <circle
-                  cx="95"
-                  cy="40"
-                  r="5"
-                  fill="var(--card-accent)"
-                  opacity="0.7"
-                />
+                <!-- Salary range bar -->
                 <rect
-                  x="70"
-                  y="37"
-                  width="25"
+                  x="10"
+                  y="24"
+                  width="100"
                   height="6"
                   rx="3"
                   fill="var(--card-accent)"
-                  opacity="0.4"
+                  opacity="0.1"
                 />
+                <rect
+                  x="30"
+                  y="24"
+                  width="50"
+                  height="6"
+                  rx="3"
+                  fill="var(--card-accent)"
+                  opacity="0.35"
+                />
+                <!-- Range markers -->
+                <line
+                  x1="30"
+                  y1="22"
+                  x2="30"
+                  y2="32"
+                  stroke="var(--card-accent)"
+                  stroke-width="1.5"
+                  opacity="0.5"
+                />
+                <line
+                  x1="80"
+                  y1="22"
+                  x2="80"
+                  y2="32"
+                  stroke="var(--card-accent)"
+                  stroke-width="1.5"
+                  opacity="0.5"
+                />
+                <!-- Median marker -->
+                <line
+                  x1="55"
+                  y1="20"
+                  x2="55"
+                  y2="34"
+                  stroke="var(--card-accent)"
+                  stroke-width="2"
+                  opacity="0.8"
+                />
+                <polygon
+                  points="55,18 52,14 58,14"
+                  fill="var(--card-accent)"
+                  opacity="0.6"
+                />
+                <!-- Labels -->
+                <text
+                  x="10"
+                  y="42"
+                  font-family="Inter,sans-serif"
+                  font-size="6"
+                  fill="var(--card-accent)"
+                  opacity="0.3"
+                >
+                  $80K
+                </text>
+                <text
+                  x="30"
+                  y="42"
+                  text-anchor="middle"
+                  font-family="Inter,sans-serif"
+                  font-size="6"
+                  fill="var(--card-accent)"
+                  opacity="0.5"
+                >
+                  P25
+                </text>
+                <text
+                  x="55"
+                  y="42"
+                  text-anchor="middle"
+                  font-family="Inter,sans-serif"
+                  font-size="6"
+                  font-weight="700"
+                  fill="var(--card-accent)"
+                  opacity="0.7"
+                >
+                  $135K
+                </text>
+                <text
+                  x="80"
+                  y="42"
+                  text-anchor="middle"
+                  font-family="Inter,sans-serif"
+                  font-size="6"
+                  fill="var(--card-accent)"
+                  opacity="0.5"
+                >
+                  P75
+                </text>
+                <text
+                  x="110"
+                  y="42"
+                  text-anchor="end"
+                  font-family="Inter,sans-serif"
+                  font-size="6"
+                  fill="var(--card-accent)"
+                  opacity="0.3"
+                >
+                  $200K
+                </text>
+                <!-- Compliance badge -->
+                <rect
+                  x="20"
+                  y="52"
+                  width="80"
+                  height="18"
+                  rx="4"
+                  fill="var(--card-accent)"
+                  opacity="0.08"
+                />
+                <path
+                  d="M34 58 L37 61 L42 54"
+                  fill="none"
+                  stroke="#22c55e"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  opacity="0.6"
+                />
+                <text
+                  x="48"
+                  y="64"
+                  font-family="Inter,sans-serif"
+                  font-size="6"
+                  fill="var(--card-accent)"
+                  opacity="0.4"
+                >
+                  Pay Transparency Compliant
+                </text>
               </svg>
             </div>
             <div
@@ -4577,7 +6352,7 @@
             </div>
           </a>
 
-          <!-- 19. ComplianceGuard (shield with check) -->
+          <!-- 19. ComplianceGuard (compliance scan checklist) -->
           <a
             href="/compliance-guard"
             class="product-card reveal-on-scroll stagger-1"
@@ -4588,22 +6363,128 @@
             <span class="card-status new">New</span>
             <div class="card-preview">
               <svg viewBox="0 0 120 80" class="card-mini-viz">
+                <!-- Shield outline -->
                 <path
-                  d="M60 10 L38 22 L38 42 C38 56 48 66 60 70 C72 66 82 56 82 42 L82 22 Z"
+                  d="M24 12 L12 20 L12 38 C12 50 17 58 24 62 C31 58 36 50 36 38 L36 20 Z"
+                  fill="var(--card-accent)"
+                  fill-opacity="0.1"
+                  stroke="var(--card-accent)"
+                  stroke-width="1"
+                  stroke-opacity="0.3"
+                />
+                <path
+                  d="M18 34 L22 38 L30 28"
                   fill="none"
                   stroke="var(--card-accent)"
                   stroke-width="2"
-                  opacity="0.5"
-                />
-                <path
-                  d="M50 40 L56 46 L72 30"
-                  fill="none"
-                  stroke="var(--card-accent)"
-                  stroke-width="3"
                   stroke-linecap="round"
                   stroke-linejoin="round"
-                  opacity="0.8"
+                  opacity="0.7"
                 />
+                <!-- Compliance scan results -->
+                <path
+                  d="M46 16 L49 19 L54 12"
+                  fill="none"
+                  stroke="#22c55e"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  opacity="0.7"
+                />
+                <text
+                  x="58"
+                  y="18"
+                  font-family="Inter,sans-serif"
+                  font-size="6"
+                  fill="var(--card-accent)"
+                  opacity="0.5"
+                >
+                  EEO Compliant
+                </text>
+                <path
+                  d="M46 28 L49 31 L54 24"
+                  fill="none"
+                  stroke="#22c55e"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  opacity="0.7"
+                />
+                <text
+                  x="58"
+                  y="30"
+                  font-family="Inter,sans-serif"
+                  font-size="6"
+                  fill="var(--card-accent)"
+                  opacity="0.5"
+                >
+                  Pay Transparency
+                </text>
+                <path
+                  d="M46 40 L49 43 L54 36"
+                  fill="none"
+                  stroke="#22c55e"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  opacity="0.7"
+                />
+                <text
+                  x="58"
+                  y="42"
+                  font-family="Inter,sans-serif"
+                  font-size="6"
+                  fill="var(--card-accent)"
+                  opacity="0.5"
+                >
+                  No Bias Detected
+                </text>
+                <!-- Warning item -->
+                <circle cx="50" cy="52" r="4" fill="#f59e0b" opacity="0.4" />
+                <text
+                  x="50"
+                  y="54"
+                  text-anchor="middle"
+                  font-family="Inter,sans-serif"
+                  font-size="6"
+                  font-weight="700"
+                  fill="#f59e0b"
+                  opacity="0.8"
+                >
+                  !
+                </text>
+                <text
+                  x="58"
+                  y="54"
+                  font-family="Inter,sans-serif"
+                  font-size="6"
+                  fill="#f59e0b"
+                  opacity="0.5"
+                >
+                  Age Language Risk
+                </text>
+                <!-- Score -->
+                <rect
+                  x="46"
+                  y="62"
+                  width="66"
+                  height="10"
+                  rx="3"
+                  fill="var(--card-accent)"
+                  opacity="0.1"
+                />
+                <text
+                  x="79"
+                  y="70"
+                  text-anchor="middle"
+                  font-family="Inter,sans-serif"
+                  font-size="6"
+                  font-weight="600"
+                  fill="var(--card-accent)"
+                  opacity="0.5"
+                >
+                  Score: 92/100
+                </text>
               </svg>
             </div>
             <div
@@ -4640,7 +6521,7 @@
             </div>
           </a>
 
-          <!-- 20. CreativeAI (sparkle star) -->
+          <!-- 20. CreativeAI (ad copy variants) -->
           <a
             href="/creative-ai"
             class="product-card reveal-on-scroll stagger-2"
@@ -4651,28 +6532,151 @@
             <span class="card-status new">New</span>
             <div class="card-preview">
               <svg viewBox="0 0 120 80" class="card-mini-viz">
+                <!-- AI sparkle -->
                 <path
-                  d="M60 10 L64 30 L84 30 L68 42 L74 62 L60 50 L46 62 L52 42 L36 30 L56 30 Z"
+                  d="M16 12 L18 18 L24 18 L19 22 L21 28 L16 24 L11 28 L13 22 L8 18 L14 18 Z"
                   fill="var(--card-accent)"
                   opacity="0.4"
-                  stroke="var(--card-accent)"
-                  stroke-width="1"
-                  stroke-linejoin="round"
                 />
                 <circle
-                  cx="85"
-                  cy="18"
-                  r="2"
+                  cx="28"
+                  cy="8"
+                  r="1.5"
+                  fill="var(--card-accent)"
+                  opacity="0.3"
+                />
+                <circle
+                  cx="8"
+                  cy="30"
+                  r="1"
+                  fill="var(--card-accent)"
+                  opacity="0.25"
+                />
+                <!-- Ad copy variant cards (stacked, offset) -->
+                <rect
+                  x="36"
+                  y="16"
+                  width="78"
+                  height="16"
+                  rx="3"
+                  fill="var(--card-accent)"
+                  fill-opacity="0.06"
+                  stroke="var(--card-accent)"
+                  stroke-width="0.6"
+                  stroke-opacity="0.15"
+                />
+                <rect
+                  x="40"
+                  y="20"
+                  width="30"
+                  height="2.5"
+                  rx="1"
+                  fill="var(--card-accent)"
+                  opacity="0.4"
+                />
+                <rect
+                  x="40"
+                  y="25"
+                  width="50"
+                  height="2"
+                  rx="1"
+                  fill="var(--card-accent)"
+                  opacity="0.2"
+                />
+                <rect
+                  x="36"
+                  y="36"
+                  width="78"
+                  height="16"
+                  rx="3"
+                  fill="var(--card-accent)"
+                  fill-opacity="0.08"
+                  stroke="var(--card-accent)"
+                  stroke-width="0.6"
+                  stroke-opacity="0.2"
+                />
+                <rect
+                  x="40"
+                  y="40"
+                  width="34"
+                  height="2.5"
+                  rx="1"
+                  fill="var(--card-accent)"
+                  opacity="0.5"
+                />
+                <rect
+                  x="40"
+                  y="45"
+                  width="46"
+                  height="2"
+                  rx="1"
+                  fill="var(--card-accent)"
+                  opacity="0.25"
+                />
+                <rect
+                  x="36"
+                  y="56"
+                  width="78"
+                  height="16"
+                  rx="3"
+                  fill="var(--card-accent)"
+                  fill-opacity="0.1"
+                  stroke="var(--card-accent)"
+                  stroke-width="0.6"
+                  stroke-opacity="0.25"
+                />
+                <rect
+                  x="40"
+                  y="60"
+                  width="28"
+                  height="2.5"
+                  rx="1"
                   fill="var(--card-accent)"
                   opacity="0.6"
                 />
-                <circle
-                  cx="38"
-                  cy="55"
-                  r="1.5"
+                <rect
+                  x="40"
+                  y="65"
+                  width="42"
+                  height="2"
+                  rx="1"
+                  fill="var(--card-accent)"
+                  opacity="0.3"
+                />
+                <!-- Variant labels -->
+                <text
+                  x="100"
+                  y="26"
+                  font-family="Inter,sans-serif"
+                  font-size="5"
+                  font-weight="600"
+                  fill="var(--card-accent)"
+                  opacity="0.3"
+                >
+                  v1
+                </text>
+                <text
+                  x="100"
+                  y="46"
+                  font-family="Inter,sans-serif"
+                  font-size="5"
+                  font-weight="600"
                   fill="var(--card-accent)"
                   opacity="0.4"
-                />
+                >
+                  v2
+                </text>
+                <text
+                  x="100"
+                  y="66"
+                  font-family="Inter,sans-serif"
+                  font-size="5"
+                  font-weight="600"
+                  fill="var(--card-accent)"
+                  opacity="0.5"
+                >
+                  v3
+                </text>
               </svg>
             </div>
             <div
@@ -4708,7 +6712,7 @@
             </div>
           </a>
 
-          <!-- 21. VendorIQ (3 ranked bars) -->
+          <!-- 21. VendorIQ (vendor comparison scorecard) -->
           <a
             href="/vendor-iq"
             class="product-card reveal-on-scroll stagger-3"
@@ -4719,71 +6723,235 @@
             <span class="card-status new">New</span>
             <div class="card-preview">
               <svg viewBox="0 0 120 80" class="card-mini-viz">
+                <!-- Table header -->
                 <rect
-                  x="20"
-                  y="50"
-                  width="24"
-                  height="22"
+                  x="4"
+                  y="6"
+                  width="112"
+                  height="12"
                   rx="3"
+                  fill="var(--card-accent)"
+                  opacity="0.08"
+                />
+                <text
+                  x="28"
+                  y="14"
+                  text-anchor="middle"
+                  font-family="Inter,sans-serif"
+                  font-size="5"
+                  font-weight="600"
+                  fill="var(--card-accent)"
+                  opacity="0.4"
+                >
+                  Vendor
+                </text>
+                <text
+                  x="62"
+                  y="14"
+                  text-anchor="middle"
+                  font-family="Inter,sans-serif"
+                  font-size="5"
+                  font-weight="600"
+                  fill="var(--card-accent)"
+                  opacity="0.4"
+                >
+                  CPC
+                </text>
+                <text
+                  x="86"
+                  y="14"
+                  text-anchor="middle"
+                  font-family="Inter,sans-serif"
+                  font-size="5"
+                  font-weight="600"
+                  fill="var(--card-accent)"
+                  opacity="0.4"
+                >
+                  Score
+                </text>
+                <text
+                  x="108"
+                  y="14"
+                  text-anchor="middle"
+                  font-family="Inter,sans-serif"
+                  font-size="5"
+                  font-weight="600"
+                  fill="var(--card-accent)"
+                  opacity="0.4"
+                >
+                  Rec
+                </text>
+                <!-- Row 1: Indeed (top rated) -->
+                <rect
+                  x="4"
+                  y="20"
+                  width="112"
+                  height="14"
+                  rx="0"
+                  fill="var(--card-accent)"
+                  opacity="0.04"
+                />
+                <text
+                  x="8"
+                  y="29"
+                  font-family="Inter,sans-serif"
+                  font-size="6"
+                  font-weight="600"
+                  fill="var(--card-accent)"
+                  opacity="0.6"
+                >
+                  Indeed
+                </text>
+                <text
+                  x="62"
+                  y="29"
+                  text-anchor="middle"
+                  font-family="Inter,sans-serif"
+                  font-size="6"
                   fill="var(--card-accent)"
                   opacity="0.5"
-                  class="viz-bar"
-                />
-                <rect
-                  x="48"
-                  y="30"
-                  width="24"
-                  height="42"
-                  rx="3"
-                  fill="var(--card-accent)"
-                  opacity="0.7"
-                  class="viz-bar"
-                />
-                <rect
-                  x="76"
-                  y="12"
-                  width="24"
-                  height="60"
-                  rx="3"
-                  fill="var(--card-accent)"
-                  opacity="0.9"
-                  class="viz-bar"
-                />
+                >
+                  $1.20
+                </text>
                 <text
-                  x="32"
-                  y="46"
+                  x="86"
+                  y="29"
                   text-anchor="middle"
                   font-family="Inter,sans-serif"
-                  font-size="8"
+                  font-size="7"
                   font-weight="700"
-                  fill="var(--card-accent)"
+                  fill="#22c55e"
                   opacity="0.7"
                 >
-                  3
+                  92
                 </text>
+                <rect
+                  x="102"
+                  y="24"
+                  width="10"
+                  height="6"
+                  rx="2"
+                  fill="#22c55e"
+                  opacity="0.3"
+                />
+                <!-- Row 2 -->
+                <text
+                  x="8"
+                  y="45"
+                  font-family="Inter,sans-serif"
+                  font-size="6"
+                  font-weight="600"
+                  fill="var(--card-accent)"
+                  opacity="0.5"
+                >
+                  LinkedIn
+                </text>
+                <text
+                  x="62"
+                  y="45"
+                  text-anchor="middle"
+                  font-family="Inter,sans-serif"
+                  font-size="6"
+                  fill="var(--card-accent)"
+                  opacity="0.5"
+                >
+                  $3.40
+                </text>
+                <text
+                  x="86"
+                  y="45"
+                  text-anchor="middle"
+                  font-family="Inter,sans-serif"
+                  font-size="7"
+                  font-weight="700"
+                  fill="#f59e0b"
+                  opacity="0.7"
+                >
+                  78
+                </text>
+                <rect
+                  x="102"
+                  y="40"
+                  width="10"
+                  height="6"
+                  rx="2"
+                  fill="#f59e0b"
+                  opacity="0.3"
+                />
+                <!-- Row 3 -->
+                <rect
+                  x="4"
+                  y="50"
+                  width="112"
+                  height="14"
+                  rx="0"
+                  fill="var(--card-accent)"
+                  opacity="0.04"
+                />
+                <text
+                  x="8"
+                  y="59"
+                  font-family="Inter,sans-serif"
+                  font-size="6"
+                  font-weight="600"
+                  fill="var(--card-accent)"
+                  opacity="0.4"
+                >
+                  ZipRecruiter
+                </text>
+                <text
+                  x="62"
+                  y="59"
+                  text-anchor="middle"
+                  font-family="Inter,sans-serif"
+                  font-size="6"
+                  fill="var(--card-accent)"
+                  opacity="0.4"
+                >
+                  $2.10
+                </text>
+                <text
+                  x="86"
+                  y="59"
+                  text-anchor="middle"
+                  font-family="Inter,sans-serif"
+                  font-size="7"
+                  font-weight="700"
+                  fill="var(--card-accent)"
+                  opacity="0.5"
+                >
+                  85
+                </text>
+                <rect
+                  x="102"
+                  y="54"
+                  width="10"
+                  height="6"
+                  rx="2"
+                  fill="#22c55e"
+                  opacity="0.2"
+                />
+                <!-- Best value badge -->
+                <rect
+                  x="28"
+                  y="66"
+                  width="64"
+                  height="10"
+                  rx="5"
+                  fill="var(--card-accent)"
+                  opacity="0.1"
+                />
                 <text
                   x="60"
-                  y="26"
+                  y="73"
                   text-anchor="middle"
                   font-family="Inter,sans-serif"
-                  font-size="8"
-                  font-weight="700"
+                  font-size="5.5"
+                  font-weight="600"
                   fill="var(--card-accent)"
-                  opacity="0.7"
+                  opacity="0.5"
                 >
-                  2
-                </text>
-                <text
-                  x="88"
-                  y="8"
-                  text-anchor="middle"
-                  font-family="Inter,sans-serif"
-                  font-size="8"
-                  font-weight="700"
-                  fill="var(--card-accent)"
-                  opacity="0.7"
-                >
-                  1
+                  Best Value: Indeed
                 </text>
               </svg>
             </div>
