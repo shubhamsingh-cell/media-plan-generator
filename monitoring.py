@@ -1391,13 +1391,12 @@ class AuditLogger:
         """Write audit log to disk (called in background thread)."""
         with self._write_lock:
             try:
-                os.makedirs(self._audit_path.parent, exist_ok=True)
+                self._audit_path.parent.mkdir(parents=True, exist_ok=True)
                 entries = list(self._entries)
-                with open(self._audit_path, "w") as f:
+                with self._audit_path.open("w") as f:
                     json.dump(entries, f, default=str, ensure_ascii=False)
             except (OSError, TypeError) as e:
-                # Never crash on audit write failure
-                pass
+                logger.warning("Audit persist failed: %s", e)
 
 
 def _safe_serialize(obj: Any, max_depth: int = 3) -> Any:

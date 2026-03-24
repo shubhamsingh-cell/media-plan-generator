@@ -25561,7 +25561,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 self._send_json({"error": "Invalid JSON"}, status_code=400)
             except Exception as e:
                 logger.error("ElevenLabs TTS error: %s", e, exc_info=True)
-                self._send_json({"error": f"TTS failed: {e}"}, status_code=500)
+                self._send_json({"error": "Internal TTS error"}, status_code=500)
 
         # ── ElevenLabs: Speech-to-Text ──
         elif path == "/api/elevenlabs/stt":
@@ -25572,9 +25572,15 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 return
             try:
                 content_len = int(self.headers.get("Content-Length") or 0)
+                _STT_MAX_BYTES = 25 * 1024 * 1024  # 25 MB
                 if content_len == 0:
                     self._send_json(
                         {"error": "No audio data provided"}, status_code=400
+                    )
+                    return
+                if content_len > _STT_MAX_BYTES:
+                    self._send_json(
+                        {"error": "Audio file too large (max 25MB)"}, status_code=413
                     )
                     return
                 audio_data = self.rfile.read(content_len)
@@ -25607,7 +25613,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 self._send_json({"error": "Invalid JSON"}, status_code=400)
             except Exception as e:
                 logger.error("ElevenLabs STT error: %s", e, exc_info=True)
-                self._send_json({"error": f"STT failed: {e}"}, status_code=500)
+                self._send_json({"error": "Internal STT error"}, status_code=500)
 
         # ── ElevenLabs: Sound Effects ──
         elif path == "/api/elevenlabs/sfx":
@@ -25650,7 +25656,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             except Exception as e:
                 logger.error("ElevenLabs SFX error: %s", e, exc_info=True)
                 self._send_json(
-                    {"error": f"Sound effect generation failed: {e}"}, status_code=500
+                    {"error": "Internal sound effect error"}, status_code=500
                 )
 
         # ── ElevenLabs: Ad Voiceover (CreativeAI) ──
@@ -25690,9 +25696,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 self._send_json({"error": "Invalid JSON"}, status_code=400)
             except Exception as e:
                 logger.error("ElevenLabs voiceover error: %s", e, exc_info=True)
-                self._send_json(
-                    {"error": f"Voiceover generation failed: {e}"}, status_code=500
-                )
+                self._send_json({"error": "Internal voiceover error"}, status_code=500)
 
         else:
             self.send_error(404)
