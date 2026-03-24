@@ -25493,6 +25493,23 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
         # Remove DOCTYPE
         content = re.sub(r"<!DOCTYPE[^>]*>", "", html, flags=re.IGNORECASE)
 
+        # Extract <style> blocks from <head> so CSS is preserved in fragments
+        head_styles = ""
+        head_match = re.search(
+            r"<head[^>]*>(.*?)</head>",
+            content,
+            flags=re.DOTALL | re.IGNORECASE,
+        )
+        if head_match:
+            head_content = head_match.group(1)
+            style_blocks = re.findall(
+                r"<style[^>]*>.*?</style>",
+                head_content,
+                flags=re.DOTALL | re.IGNORECASE,
+            )
+            if style_blocks:
+                head_styles = "\n".join(style_blocks)
+
         # Extract body content if <body> tags exist
         body_match = re.search(
             r"<body[^>]*>(.*)</body>",
@@ -25504,13 +25521,19 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
         else:
             # No <body> tag -- strip <html> and <head> if present
             content = re.sub(r"</?html[^>]*>", "", content, flags=re.IGNORECASE)
-            head_match = re.search(
+            head_match_2 = re.search(
                 r"<head[^>]*>.*?</head>",
                 content,
                 flags=re.DOTALL | re.IGNORECASE,
             )
-            if head_match:
-                content = content[: head_match.start()] + content[head_match.end() :]
+            if head_match_2:
+                content = (
+                    content[: head_match_2.start()] + content[head_match_2.end() :]
+                )
+
+        # Prepend head styles to body content so CSS works in fragments
+        if head_styles:
+            content = head_styles + "\n" + content
 
         # Remove any stray nova-chat.js widget injection (platform has its own)
         content = re.sub(
