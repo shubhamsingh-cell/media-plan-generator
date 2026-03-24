@@ -160,10 +160,20 @@ class ServiceTier:
         provider: Provider identifier (e.g., 'upstash').
         priority: Lower number = higher priority.
         is_configured: Whether env vars / deps are present.
+        cost_label: One of 'free', 'freemium', 'paid', 'local'.
+        rate_limit_info: Human-readable rate limit description.
         circuit_breaker: Circuit breaker instance for this tier.
     """
 
-    __slots__ = ("name", "provider", "priority", "is_configured", "circuit_breaker")
+    __slots__ = (
+        "name",
+        "provider",
+        "priority",
+        "is_configured",
+        "cost_label",
+        "rate_limit_info",
+        "circuit_breaker",
+    )
 
     def __init__(
         self,
@@ -173,11 +183,15 @@ class ServiceTier:
         is_configured: bool,
         max_failures: int = 3,
         cooldown_seconds: int = 3600,
+        cost_label: str = "free",
+        rate_limit_info: str = "unlimited",
     ) -> None:
         self.name = name
         self.provider = provider
         self.priority = priority
         self.is_configured = is_configured
+        self.cost_label = cost_label
+        self.rate_limit_info = rate_limit_info
         self.circuit_breaker = CircuitBreaker(
             max_failures=max_failures, cooldown_seconds=cooldown_seconds
         )
@@ -201,6 +215,8 @@ class ServiceTier:
             "provider": self.provider,
             "priority": self.priority,
             "is_configured": self.is_configured,
+            "cost_label": self.cost_label,
+            "rate_limit_info": self.rate_limit_info,
             "status": self.status_label(),
             "circuit_breaker": self.circuit_breaker.snapshot(),
         }
@@ -568,7 +584,7 @@ class ResilienceRouter:
     def _init_tiers(self) -> None:
         """Build all service fallback chains from environment config."""
 
-        # 1. CACHING
+        # -- Shared env checks ---
         upstash_url = (
             os.environ.get("UPSTASH_REDIS_REST_URL")
             or os.environ.get("UPSTASH_REDIS_URL")
@@ -581,7 +597,10 @@ class ResilienceRouter:
         ).strip()
         supabase_url = (os.environ.get("SUPABASE_URL") or "").strip()
         supabase_key = (os.environ.get("SUPABASE_ANON_KEY") or "").strip()
+        resend_key = (os.environ.get("RESEND_API_KEY") or "").strip()
+        sentry_dsn = (os.environ.get("SENTRY_DSN") or "").strip()
 
+        # 1. CACHING
         self._tiers["caching"] = [
             ServiceTier(
                 "Upstash Redis",
@@ -590,6 +609,8 @@ class ResilienceRouter:
                 bool(upstash_url and upstash_token),
                 max_failures=5,
                 cooldown_seconds=300,
+                cost_label="freemium",
+                rate_limit_info="10K req/day free",
             ),
             ServiceTier(
                 "Supabase Cache",
@@ -598,12 +619,28 @@ class ResilienceRouter:
                 bool(supabase_url and supabase_key),
                 max_failures=3,
                 cooldown_seconds=600,
+                cost_label="freemium",
+                rate_limit_info="500MB free tier",
             ),
             ServiceTier(
-                "Memory Dict", "memory", 3, True, max_failures=999, cooldown_seconds=60
+                "Memory Dict",
+                "memory",
+                3,
+                True,
+                max_failures=999,
+                cooldown_seconds=60,
+                cost_label="local",
+                rate_limit_info="unlimited (ephemeral)",
             ),
             ServiceTier(
-                "File Cache", "file", 4, True, max_failures=10, cooldown_seconds=120
+                "File Cache",
+                "file",
+                4,
+                True,
+                max_failures=10,
+                cooldown_seconds=120,
+                cost_label="local",
+                rate_limit_info="unlimited (disk)",
             ),
         ]
 
@@ -616,6 +653,8 @@ class ResilienceRouter:
                 bool(supabase_url and supabase_key),
                 max_failures=3,
                 cooldown_seconds=600,
+                cost_label="freemium",
+                rate_limit_info="500MB / 50K rows free",
             ),
             ServiceTier(
                 "Local JSON",
@@ -624,18 +663,26 @@ class ResilienceRouter:
                 True,
                 max_failures=10,
                 cooldown_seconds=120,
+                cost_label="local",
+                rate_limit_info="unlimited (disk)",
             ),
             ServiceTier(
-                "Memory KB", "memory_kb", 3, True, max_failures=999, cooldown_seconds=60
+                "Memory KB",
+                "memory_kb",
+                3,
+                True,
+                max_failures=999,
+                cooldown_seconds=60,
+                cost_label="local",
+                rate_limit_info="unlimited (ephemeral)",
             ),
         ]
 
         # 3. EMAIL
-        resend_key = (os.environ.get("RESEND_API_KEY") or "").strip()
         smtp_host = (os.environ.get("SMTP_HOST") or "").strip()
         smtp_user = (os.environ.get("SMTP_USER") or "").strip()
         smtp_pass = (os.environ.get("SMTP_PASS") or "").strip()
-        slack_configured = bool(os.environ.get("SLACK_BOT_TOKEN") or "").strip()
+        slack_configured = bool((os.environ.get("SLACK_BOT_TOKEN") or "").strip())
 
         self._tiers["email"] = [
             ServiceTier(
@@ -645,6 +692,8 @@ class ResilienceRouter:
                 bool(resend_key),
                 max_failures=3,
                 cooldown_seconds=1800,
+                cost_label="freemium",
+                rate_limit_info="100 emails/day free",
             ),
             ServiceTier(
                 "SMTP",
@@ -653,6 +702,8 @@ class ResilienceRouter:
                 bool(smtp_host and smtp_user and smtp_pass),
                 max_failures=3,
                 cooldown_seconds=1800,
+                cost_label="free",
+                rate_limit_info="depends on provider",
             ),
             ServiceTier(
                 "Slack Notification",
@@ -661,9 +712,28 @@ class ResilienceRouter:
                 slack_configured,
                 max_failures=5,
                 cooldown_seconds=900,
+                cost_label="freemium",
+                rate_limit_info="1 msg/sec",
             ),
             ServiceTier(
-                "Stderr Log", "stderr", 4, True, max_failures=999, cooldown_seconds=60
+                "Local Log File",
+                "local_log",
+                4,
+                True,
+                max_failures=999,
+                cooldown_seconds=60,
+                cost_label="local",
+                rate_limit_info="unlimited (disk)",
+            ),
+            ServiceTier(
+                "Sentry Breadcrumb",
+                "sentry_breadcrumb",
+                5,
+                bool(sentry_dsn),
+                max_failures=999,
+                cooldown_seconds=60,
+                cost_label="freemium",
+                rate_limit_info="piggyback on error tracking",
             ),
         ]
 
@@ -678,28 +748,42 @@ class ResilienceRouter:
                 bool(posthog_key),
                 max_failures=5,
                 cooldown_seconds=600,
+                cost_label="freemium",
+                rate_limit_info="1M events/mo free",
+            ),
+            ServiceTier(
+                "Sentry Breadcrumbs",
+                "sentry_breadcrumb",
+                2,
+                bool(sentry_dsn),
+                max_failures=5,
+                cooldown_seconds=600,
+                cost_label="freemium",
+                rate_limit_info="piggyback on error tracking",
             ),
             ServiceTier(
                 "Local Event File",
                 "local_file",
-                2,
+                3,
                 True,
                 max_failures=10,
                 cooldown_seconds=120,
+                cost_label="local",
+                rate_limit_info="unlimited (disk)",
             ),
             ServiceTier(
                 "Memory Counter",
                 "memory_counter",
-                3,
+                4,
                 True,
                 max_failures=999,
                 cooldown_seconds=60,
+                cost_label="local",
+                rate_limit_info="unlimited (ephemeral)",
             ),
         ]
 
         # 5. ERRORS
-        sentry_dsn = (os.environ.get("SENTRY_DSN") or "").strip()
-
         self._tiers["errors"] = [
             ServiceTier(
                 "Sentry",
@@ -708,6 +792,8 @@ class ResilienceRouter:
                 bool(sentry_dsn),
                 max_failures=5,
                 cooldown_seconds=600,
+                cost_label="freemium",
+                rate_limit_info="5K errors/mo free",
             ),
             ServiceTier(
                 "Local Error File",
@@ -716,6 +802,8 @@ class ResilienceRouter:
                 True,
                 max_failures=10,
                 cooldown_seconds=120,
+                cost_label="local",
+                rate_limit_info="unlimited (disk)",
             ),
             ServiceTier(
                 "Email Alert",
@@ -724,9 +812,18 @@ class ResilienceRouter:
                 bool(resend_key),
                 max_failures=5,
                 cooldown_seconds=1800,
+                cost_label="freemium",
+                rate_limit_info="100/day free",
             ),
             ServiceTier(
-                "Stderr Log", "stderr", 4, True, max_failures=999, cooldown_seconds=60
+                "Stderr Log",
+                "stderr",
+                4,
+                True,
+                max_failures=999,
+                cooldown_seconds=60,
+                cost_label="local",
+                rate_limit_info="unlimited",
             ),
         ]
 
@@ -742,6 +839,8 @@ class ResilienceRouter:
                 bool(grafana_url and grafana_key),
                 max_failures=5,
                 cooldown_seconds=600,
+                cost_label="freemium",
+                rate_limit_info="50GB free tier",
             ),
             ServiceTier(
                 "Local Structured File",
@@ -750,9 +849,125 @@ class ResilienceRouter:
                 True,
                 max_failures=10,
                 cooldown_seconds=120,
+                cost_label="local",
+                rate_limit_info="unlimited (disk)",
             ),
             ServiceTier(
-                "Stderr Log", "stderr", 3, True, max_failures=999, cooldown_seconds=60
+                "Stderr Log",
+                "stderr",
+                3,
+                True,
+                max_failures=999,
+                cooldown_seconds=60,
+                cost_label="local",
+                rate_limit_info="unlimited",
+            ),
+        ]
+
+        # 7. WEB SCRAPING (delegates to web_scraper_router.py)
+        firecrawl_key = (os.environ.get("FIRECRAWL_API_KEY") or "").strip()
+        jina_key = (os.environ.get("JINA_API_KEY") or "").strip()
+        tavily_key = (os.environ.get("TAVILY_API_KEY") or "").strip()
+        serper_key = (os.environ.get("SERPER_API_KEY") or "").strip()
+        brave_key = (os.environ.get("BRAVE_API_KEY") or "").strip()
+
+        self._tiers["web_scraping"] = [
+            ServiceTier(
+                "Firecrawl",
+                "firecrawl",
+                1,
+                bool(firecrawl_key),
+                max_failures=3,
+                cooldown_seconds=3600,
+                cost_label="paid",
+                rate_limit_info="500 credits/mo",
+            ),
+            ServiceTier(
+                "Jina AI Reader",
+                "jina",
+                2,
+                True,
+                max_failures=5,
+                cooldown_seconds=600,
+                cost_label="free",
+                rate_limit_info="no auth needed for basic",
+            ),
+            ServiceTier(
+                "Tavily Search",
+                "tavily",
+                3,
+                bool(tavily_key),
+                max_failures=3,
+                cooldown_seconds=1800,
+                cost_label="freemium",
+                rate_limit_info="1K free/mo",
+            ),
+            ServiceTier(
+                "Serper + Jina",
+                "serper",
+                4,
+                bool(serper_key),
+                max_failures=3,
+                cooldown_seconds=1800,
+                cost_label="freemium",
+                rate_limit_info="2,500 free lifetime",
+            ),
+            ServiceTier(
+                "Brave Search",
+                "brave",
+                5,
+                bool(brave_key),
+                max_failures=3,
+                cooldown_seconds=1800,
+                cost_label="freemium",
+                rate_limit_info="2K free/mo",
+            ),
+            ServiceTier(
+                "Direct urllib",
+                "urllib",
+                6,
+                True,
+                max_failures=10,
+                cooldown_seconds=120,
+                cost_label="free",
+                rate_limit_info="unlimited (stdlib)",
+            ),
+        ]
+
+        # 8. DECK GENERATION (delegates to deck_generator.py)
+        gamma_key = (os.environ.get("GAMMA_API_KEY") or "").strip()
+        presenton_url = (os.environ.get("PRESENTON_URL") or "").strip()
+
+        self._tiers["deck_generation"] = [
+            ServiceTier(
+                "Gamma MCP",
+                "gamma",
+                1,
+                bool(gamma_key),
+                max_failures=3,
+                cooldown_seconds=3600,
+                cost_label="freemium",
+                rate_limit_info="~10 free/mo",
+            ),
+            ServiceTier(
+                "python-pptx",
+                "pptx",
+                2,
+                True,
+                max_failures=10,
+                cooldown_seconds=120,
+                cost_label="free",
+                rate_limit_info="unlimited (offline)",
+            ),
+            ServiceTier(
+                "HTML-to-PDF",
+                "html_pdf",
+                3,
+                True,
+                max_failures=10,
+                cooldown_seconds=120,
+                cost_label="free",
+                rate_limit_info="unlimited (stdlib)",
             ),
         ]
 
@@ -1061,14 +1276,30 @@ class ResilienceRouter:
             return self._send_smtp(to, subject, body)
         elif tier.provider == "slack":
             return self._send_slack_notification(subject, body, severity)
-        elif tier.provider == "stderr":
-            severity_upper = (severity or "WARNING").upper()
-            sys.stderr.write(
-                f"[{severity_upper}] EMAIL FALLBACK | To: {to} | "
-                f"Subject: {subject} | Body: {body[:500]}\n"
-            )
-            sys.stderr.flush()
-            return True
+        elif tier.provider == "local_log":
+            # Write to local alert log file
+            alert_path = Path("/tmp/nova_alerts.log")
+            try:
+                with open(alert_path, "a", encoding="utf-8") as f:
+                    ts = datetime.now(timezone.utc).isoformat()
+                    f.write(f"[{ts}] [{severity.upper()}] To={to} Subject={subject}\n")
+                    f.write(f"  Body: {body[:500]}\n\n")
+                return True
+            except OSError:
+                return False
+        elif tier.provider == "sentry_breadcrumb":
+            try:
+                import sentry_sdk
+
+                sentry_sdk.add_breadcrumb(
+                    category="email_alert",
+                    message=f"[{severity}] {subject}",
+                    data={"to": to, "body": body[:200]},
+                    level=severity or "warning",
+                )
+                return True
+            except ImportError:
+                return False
         return False
 
     def _send_smtp(self, to: str, subject: str, body: str) -> bool:
@@ -1172,6 +1403,19 @@ class ResilienceRouter:
 
             capture(event, distinct_id=distinct_id, properties=properties)
             return True  # Fire-and-forget, assume success
+        elif tier.provider == "sentry_breadcrumb":
+            try:
+                import sentry_sdk
+
+                sentry_sdk.add_breadcrumb(
+                    category="analytics",
+                    message=event,
+                    data=dict(properties or {}, distinct_id=distinct_id),
+                    level="info",
+                )
+                return True
+            except ImportError:
+                return False
         elif tier.provider == "local_file":
             merged = dict(properties or {})
             merged["distinct_id"] = distinct_id
@@ -1287,6 +1531,300 @@ class ResilienceRouter:
             sys.stderr.flush()
             return True
         return False
+
+    # ------------------------------------------------------------------
+    # 7. WEB SCRAPING
+    # ------------------------------------------------------------------
+
+    def scrape_url(self, url: str, **kwargs: Any) -> Optional[str]:
+        """Scrape a URL via the web_scraper_router fallback chain.
+
+        Delegates to the existing web_scraper_router module which has
+        its own 6-tier fallback. This method wraps it with the
+        resilience router's circuit breaker on the web_scraping category.
+
+        Returns:
+            Markdown content string or None on failure.
+        """
+        for tier in self._tiers["web_scraping"]:
+            if not tier.is_available():
+                continue
+            try:
+                result = self._scrape_url_tier(tier, url, **kwargs)
+                if result:
+                    tier.circuit_breaker.record_success()
+                    return result
+                tier.circuit_breaker.record_success()
+            except Exception as exc:
+                tier.circuit_breaker.record_failure(str(exc))
+                logger.error(
+                    f"[resilience] Scrape failed on {tier.name}: {exc}",
+                    exc_info=True,
+                )
+        return None
+
+    def search_web(self, query: str, **kwargs: Any) -> list[dict[str, Any]]:
+        """Search the web via the web_scraper_router fallback chain.
+
+        Returns:
+            List of search result dicts, or empty list on failure.
+        """
+        for tier in self._tiers["web_scraping"]:
+            if not tier.is_available():
+                continue
+            try:
+                result = self._search_web_tier(tier, query, **kwargs)
+                if result:
+                    tier.circuit_breaker.record_success()
+                    return result
+                tier.circuit_breaker.record_success()
+            except Exception as exc:
+                tier.circuit_breaker.record_failure(str(exc))
+                logger.error(
+                    f"[resilience] Search failed on {tier.name}: {exc}",
+                    exc_info=True,
+                )
+        return []
+
+    def _scrape_url_tier(
+        self, tier: ServiceTier, url: str, **kwargs: Any
+    ) -> Optional[str]:
+        """Dispatch URL scrape to the web_scraper_router."""
+        try:
+            from web_scraper_router import scrape_url as _wsr_scrape
+
+            return _wsr_scrape(url, **kwargs)
+        except ImportError:
+            logger.debug("[resilience] web_scraper_router not available")
+            return None
+
+    def _search_web_tier(
+        self, tier: ServiceTier, query: str, **kwargs: Any
+    ) -> list[dict[str, Any]]:
+        """Dispatch web search to the web_scraper_router."""
+        try:
+            from web_scraper_router import search_web as _wsr_search
+
+            return _wsr_search(query, **kwargs)
+        except ImportError:
+            logger.debug("[resilience] web_scraper_router not available")
+            return []
+
+    # ------------------------------------------------------------------
+    # 8. DECK GENERATION
+    # ------------------------------------------------------------------
+
+    def generate_deck(self, data: Dict[str, Any], **kwargs: Any) -> Optional[bytes]:
+        """Generate a presentation deck via the best available tier.
+
+        Tries: Gamma -> python-pptx -> HTML-to-PDF.
+
+        Args:
+            data: Presentation data dict (title, slides, etc.).
+
+        Returns:
+            File content as bytes, or None on total failure.
+        """
+        for tier in self._tiers["deck_generation"]:
+            if not tier.is_available():
+                continue
+            try:
+                result = self._generate_deck_tier(tier, data, **kwargs)
+                if result:
+                    tier.circuit_breaker.record_success()
+                    return result
+            except Exception as exc:
+                tier.circuit_breaker.record_failure(str(exc))
+                logger.error(
+                    f"[resilience] Deck generation failed on {tier.name}: {exc}",
+                    exc_info=True,
+                )
+        return None
+
+    def _generate_deck_tier(
+        self, tier: ServiceTier, data: Dict[str, Any], **kwargs: Any
+    ) -> Optional[bytes]:
+        """Dispatch deck generation to the appropriate tier."""
+        if tier.provider == "gamma":
+            try:
+                from deck_generator import DeckGenerator
+
+                gen = DeckGenerator()
+                return gen.generate(data, **kwargs)
+            except (ImportError, Exception) as exc:
+                logger.debug(f"[resilience] Gamma deck gen failed: {exc}")
+                raise
+        elif tier.provider == "pptx":
+            try:
+                from ppt_generator import generate_pptx
+
+                return generate_pptx(data)
+            except ImportError:
+                logger.debug("[resilience] ppt_generator not available")
+                return None
+        elif tier.provider == "html_pdf":
+            return self._generate_html_pdf(data)
+        return None
+
+    def _generate_html_pdf(self, data: Dict[str, Any]) -> Optional[bytes]:
+        """Generate a simple HTML summary as a PDF-like HTML file (bytes).
+
+        This is the last-resort fallback. Produces an HTML document
+        that can be saved as .html and printed to PDF by the browser.
+        """
+        title = data.get("title") or data.get("client_name") or "Media Plan"
+        html_parts = [
+            "<!DOCTYPE html><html><head>",
+            f"<title>{title}</title>",
+            "<style>body{font-family:Inter,sans-serif;margin:40px;color:#202058;}",
+            "h1{color:#5A54BD;}table{border-collapse:collapse;width:100%;}",
+            "th,td{border:1px solid #ccc;padding:8px;text-align:left;}",
+            "th{background:#f0f0f5;}</style></head><body>",
+            f"<h1>{title}</h1>",
+        ]
+        # Render channels table if present
+        channels = data.get("channels") or data.get("channel_mix") or []
+        if channels:
+            html_parts.append("<h2>Channel Mix</h2><table><tr>")
+            if channels and isinstance(channels[0], dict):
+                headers = list(channels[0].keys())
+                for h in headers:
+                    html_parts.append(f"<th>{h}</th>")
+                html_parts.append("</tr>")
+                for ch in channels:
+                    html_parts.append("<tr>")
+                    for h in headers:
+                        html_parts.append(f"<td>{ch.get(h) or ''}</td>")
+                    html_parts.append("</tr>")
+            html_parts.append("</table>")
+        html_parts.append(
+            "<p style='color:#999;font-size:12px;'>Generated by Nova AI Suite</p>"
+        )
+        html_parts.append("</body></html>")
+        return "".join(html_parts).encode("utf-8")
+
+    # ------------------------------------------------------------------
+    # UNIFIED API
+    # ------------------------------------------------------------------
+
+    def execute(self, category: str, operation: str, **kwargs: Any) -> Any:
+        """Execute an operation against a service category with automatic fallback.
+
+        This is the unified entry point that dispatches to category-specific
+        methods based on the category and operation names.
+
+        Args:
+            category: Service category (e.g., 'caching', 'database', 'email').
+            operation: Operation name (e.g., 'get', 'set', 'query', 'send').
+            **kwargs: Operation-specific keyword arguments.
+
+        Returns:
+            Operation result, or None/False/[] on total failure.
+
+        Raises:
+            ValueError: If category or operation is unknown.
+        """
+        dispatch: Dict[str, Dict[str, Any]] = {
+            "caching": {
+                "get": lambda: self.cache_get(kwargs.get("key", "")),
+                "set": lambda: self.cache_set(
+                    kwargs.get("key", ""),
+                    kwargs.get("data"),
+                    kwargs.get("ttl_seconds", 86400),
+                    kwargs.get("category", "api"),
+                ),
+                "delete": lambda: self.cache_delete(kwargs.get("key", "")),
+            },
+            "database": {
+                "query": lambda: self.db_query(
+                    kwargs.get("table", ""),
+                    **{k: v for k, v in kwargs.items() if k != "table"},
+                ),
+                "write": lambda: self.db_write(
+                    kwargs.get("table", ""),
+                    kwargs.get("row", {}),
+                ),
+            },
+            "email": {
+                "send": lambda: self.send_email(
+                    kwargs.get("to", ""),
+                    kwargs.get("subject", ""),
+                    kwargs.get("body", ""),
+                    kwargs.get("severity", "warning"),
+                ),
+            },
+            "analytics": {
+                "track": lambda: self.track_event(
+                    kwargs.get("event", ""),
+                    kwargs.get("properties"),
+                    kwargs.get("distinct_id", "server"),
+                ),
+            },
+            "errors": {
+                "report": lambda: self.report_error(
+                    kwargs.get("error", RuntimeError("unknown")),
+                    kwargs.get("context"),
+                ),
+            },
+            "logging": {
+                "log": lambda: self.log_structured(
+                    kwargs.get("level", "info"),
+                    kwargs.get("message", ""),
+                    **{
+                        k: v for k, v in kwargs.items() if k not in ("level", "message")
+                    },
+                ),
+            },
+            "web_scraping": {
+                "scrape": lambda: self.scrape_url(
+                    kwargs.get("url", ""),
+                    **{k: v for k, v in kwargs.items() if k != "url"},
+                ),
+                "search": lambda: self.search_web(
+                    kwargs.get("query", ""),
+                    **{k: v for k, v in kwargs.items() if k != "query"},
+                ),
+            },
+            "deck_generation": {
+                "generate": lambda: self.generate_deck(
+                    kwargs.get("data", {}),
+                    **{k: v for k, v in kwargs.items() if k != "data"},
+                ),
+            },
+        }
+
+        if category not in dispatch:
+            raise ValueError(
+                f"Unknown category '{category}'. Available: {', '.join(sorted(dispatch))}"
+            )
+        ops = dispatch[category]
+        if operation not in ops:
+            raise ValueError(
+                f"Unknown operation '{operation}' for category '{category}'. "
+                f"Available: {', '.join(sorted(ops))}"
+            )
+        return ops[operation]()
+
+    def get_status(self) -> Dict[str, Any]:
+        """Alias for get_health_dashboard(). Returns full health status JSON."""
+        return self.get_health_dashboard()
+
+    def reset(self, category: Optional[str] = None) -> None:
+        """Reset circuit breakers for a category (or all if None).
+
+        Args:
+            category: Service category name, or None to reset all.
+        """
+        if category:
+            tiers = self._tiers.get(category, [])
+            for tier in tiers:
+                tier.circuit_breaker.reset()
+            logger.info(f"[resilience] Reset circuit breakers for {category}")
+        else:
+            for cat_name, tiers in self._tiers.items():
+                for tier in tiers:
+                    tier.circuit_breaker.reset()
+            logger.info("[resilience] Reset all circuit breakers")
 
     # ------------------------------------------------------------------
     # HEALTH DASHBOARD
