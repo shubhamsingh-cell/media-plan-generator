@@ -1,5 +1,5 @@
 """
-web_scraper_router.py -- Multi-tier web scraping fallback system (v2).
+web_scraper_router.py -- Multi-tier web scraping fallback system (v3).
 
 Provides a unified interface for web scraping and search with automatic
 fallback across 6 tiers.  When one tier fails (402 credit exhausted,
@@ -17,7 +17,10 @@ Tier 6:   stdlib urllib   -- Raw HTML fetch + HTMLParser text extraction (always
 All external API calls:
     - Use only stdlib (urllib.request, json, os) -- no third-party dependencies
     - Have per-tier circuit breakers (5 failures -> 60s cooldown)
-    - In-memory LRU cache (50 entries) + optional Upstash Redis L2 cache
+    - In-memory LRU cache (200 entries) + optional Upstash Redis L2 cache
+    - Content quality scoring (rejects login walls, bot blocks, cookie pages)
+    - Content freshness tracking (hash-based change detection for compliance)
+    - Per-tier cost/usage tracking with estimated spend
     - Track request counts and success rates
     - Are thread-safe (locks on shared state)
     - Log which tier was used with timing
@@ -71,7 +74,7 @@ CB_COOLDOWN_SECONDS: int = 60  # seconds to disable after trip
 # LRU IN-MEMORY CACHE (L1) + OPTIONAL UPSTASH REDIS (L2)
 # =============================================================================
 
-_LRU_MAX_SIZE: int = 50
+_LRU_MAX_SIZE: int = 200
 _LRU_TTL: float = 1800.0  # 30 minutes
 
 _lru_cache: OrderedDict[str, tuple[Any, float]] = OrderedDict()
@@ -318,6 +321,224 @@ _cb_tavily = CircuitBreaker("tavily")
 _cb_llm_assist = CircuitBreaker("llm_assisted")
 _cb_cache_fallback = CircuitBreaker("cache_fallback")
 _cb_urllib = CircuitBreaker("urllib_direct")
+
+
+# =============================================================================
+# CONTENT QUALITY SCORING (detects login walls, bot blocks, empty pages)
+# =============================================================================
+
+
+def _score_content_quality(content: str, url: str = "") -> float:
+    """Score scraped content quality 0.0-1.0.
+
+    Detects: login walls, cookie consent pages, bot detection, empty pages.
+
+    Args:
+        content: The scraped text content.
+        url: The source URL (for context, currently unused).
+
+    Returns:
+        Quality score between 0.0 (garbage) and 1.0 (good content).
+    """
+    if not content:
+        return 0.0
+
+    score = 1.0
+    lower = content.lower()
+    content_len = len(content.strip())
+
+    # Too short = likely blocked or empty
+    if content_len < 50:
+        return 0.1
+    if content_len < 200:
+        score *= 0.4
+
+    # Login wall detection
+    login_signals = [
+        "sign in",
+        "log in",
+        "create account",
+        "access denied",
+        "403 forbidden",
+        "please verify",
+        "captcha",
+        "are you a robot",
+        "cloudflare",
+    ]
+    login_matches = sum(1 for s in login_signals if s in lower)
+    if login_matches >= 2:
+        score *= 0.2  # Likely a login wall
+
+    # Cookie consent page (mostly cookie text, not real content)
+    cookie_signals = [
+        "cookie policy",
+        "we use cookies",
+        "cookie consent",
+        "accept cookies",
+        "privacy policy",
+        "gdpr",
+    ]
+    cookie_matches = sum(1 for s in cookie_signals if s in lower)
+    if cookie_matches >= 2 and content_len < 1000:
+        score *= 0.3
+
+    # Bot detection
+    bot_signals = [
+        "enable javascript",
+        "browser not supported",
+        "please enable",
+        "ray id",
+        "checking your browser",
+    ]
+    if any(s in lower for s in bot_signals):
+        score *= 0.2
+
+    return round(min(score, 1.0), 2)
+
+
+# =============================================================================
+# CONTENT FRESHNESS TRACKING (hash-based change detection)
+# =============================================================================
+
+
+class ContentFreshnessTracker:
+    """Tracks content freshness by storing hashes of scraped content.
+
+    Thread-safe. Stores SHA-256 prefix hashes to detect when page content
+    changes between scrapes. Useful for compliance monitoring.
+    """
+
+    def __init__(self) -> None:
+        """Initialize with empty hash store."""
+        self._hashes: dict[str, dict[str, Any]] = {}
+        self._lock = threading.Lock()
+
+    def record(self, url: str, content: str) -> dict[str, Any]:
+        """Record content and detect changes.
+
+        Args:
+            url: The URL that was scraped.
+            content: The scraped content text.
+
+        Returns:
+            Freshness metadata dict with keys: freshness, change_count,
+            and optionally days_since_change.
+        """
+        content_hash = hashlib.sha256(content.encode()[:10000]).hexdigest()[:16]
+        now = time.time()
+
+        with self._lock:
+            if url in self._hashes:
+                existing = self._hashes[url]
+                changed = existing["hash"] != content_hash
+                if changed:
+                    existing["hash"] = content_hash
+                    existing["change_count"] += 1
+                    existing["last_changed"] = now
+                existing["last_seen"] = now
+                return {
+                    "freshness": "changed" if changed else "unchanged",
+                    "change_count": existing["change_count"],
+                    "days_since_change": round(
+                        (now - existing.get("last_changed", now)) / 86400, 1
+                    ),
+                }
+            else:
+                self._hashes[url] = {
+                    "hash": content_hash,
+                    "first_seen": now,
+                    "last_seen": now,
+                    "last_changed": now,
+                    "change_count": 0,
+                }
+                return {"freshness": "new", "change_count": 0}
+
+    def get_stats(self) -> dict[str, Any]:
+        """Return summary stats for tracked URLs.
+
+        Returns:
+            Dict with tracked_urls count and recently_changed count.
+        """
+        with self._lock:
+            return {
+                "tracked_urls": len(self._hashes),
+                "recently_changed": sum(
+                    1
+                    for v in self._hashes.values()
+                    if time.time() - v.get("last_changed", 0) < 86400
+                ),
+            }
+
+
+_freshness_tracker = ContentFreshnessTracker()
+
+
+# =============================================================================
+# PER-TIER COST / USAGE TRACKING
+# =============================================================================
+
+
+class TierUsageTracker:
+    """Tracks usage and estimated cost per scraping tier.
+
+    Thread-safe. Records call counts, success/failure rates, and approximate
+    cost per tier based on known pricing.
+    """
+
+    # Approximate per-call costs in USD
+    TIER_COSTS: dict[str, float] = {
+        "firecrawl": 0.001,
+        "apify": 0.002,
+        "jina": 0.0005,
+        "tavily": 0.001,
+        "llm_assisted": 0.01,
+        "cache_fallback": 0.0,
+        "stdlib": 0.0,
+    }
+
+    def __init__(self) -> None:
+        """Initialize with empty usage counters."""
+        self._usage: dict[str, dict[str, Any]] = {}
+        self._lock = threading.Lock()
+
+    def record(self, tier_name: str, success: bool) -> None:
+        """Record a tier usage event.
+
+        Args:
+            tier_name: Name of the tier (e.g. 'firecrawl', 'jina').
+            success: Whether the call succeeded.
+        """
+        with self._lock:
+            if tier_name not in self._usage:
+                self._usage[tier_name] = {
+                    "calls": 0,
+                    "successes": 0,
+                    "failures": 0,
+                    "est_cost_usd": 0.0,
+                }
+            entry = self._usage[tier_name]
+            entry["calls"] += 1
+            if success:
+                entry["successes"] += 1
+            else:
+                entry["failures"] += 1
+            entry["est_cost_usd"] += self.TIER_COSTS.get(tier_name, 0)
+
+    def get_report(self) -> dict[str, Any]:
+        """Return a usage report across all tiers.
+
+        Returns:
+            Dict with total_est_cost_usd and by_tier breakdown.
+        """
+        with self._lock:
+            total_cost = sum(v["est_cost_usd"] for v in self._usage.values())
+            return {
+                "total_est_cost_usd": round(total_cost, 4),
+                "by_tier": {k: dict(v) for k, v in self._usage.items()},
+            }
+
+
+_tier_usage = TierUsageTracker()
 
 
 # =============================================================================
@@ -1365,84 +1586,101 @@ def scrape_url(
 
     t0_total = time.monotonic()
 
-    # -- Tier 1: Firecrawl --
-    result = _firecrawl_scrape(url)
-    if result and result.get("content"):
+    # Quality threshold: below this score, fall through to next tier
+    _QUALITY_THRESHOLD = 0.3
+
+    def _accept_result(
+        result: Optional[dict[str, Any]], tier_name: str, tier_label: str
+    ) -> Optional[dict[str, Any]]:
+        """Check quality, record usage/freshness, and accept or reject a result."""
+        if not result or not result.get("content"):
+            _tier_usage.record(tier_name, success=False)
+            return None
+
+        content = result["content"]
+        quality = _score_content_quality(content, url)
+        result["metadata"] = result.get("metadata") or {}
+        result["metadata"]["content_quality_score"] = quality
+
+        if quality < _QUALITY_THRESHOLD:
+            _tier_usage.record(tier_name, success=False)
+            logger.info(
+                f"scrape_url: {tier_label} content quality too low "
+                f"({quality:.2f} < {_QUALITY_THRESHOLD}) for {url}, falling through"
+            )
+            return None
+
+        # Quality OK -- record success and freshness
+        _tier_usage.record(tier_name, success=True)
+        freshness = _freshness_tracker.record(url, content)
+        result["metadata"]["freshness"] = freshness
+
         logger.info(
-            f"scrape_url: Tier 1 (Firecrawl) succeeded for {url} "
-            f"in {result.get('latency_ms', 0):.0f}ms"
+            f"scrape_url: {tier_label} succeeded for {url} "
+            f"in {result.get('latency_ms', 0):.0f}ms "
+            f"(quality={quality:.2f}, freshness={freshness.get('freshness', 'new')})"
         )
         if use_cache:
             _cache_put(_cache_key(url, "scrape"), result)
         return result
+
+    # -- Tier 1: Firecrawl --
+    accepted = _accept_result(_firecrawl_scrape(url), "firecrawl", "Tier 1 (Firecrawl)")
+    if accepted:
+        return accepted
 
     # -- Tier 1.5: Apify Website Content Crawler --
-    result = _apify_scrape(url)
-    if result and result.get("content"):
-        logger.info(
-            f"scrape_url: Tier 1.5 (Apify) succeeded for {url} "
-            f"in {result.get('latency_ms', 0):.0f}ms"
-        )
-        if use_cache:
-            _cache_put(_cache_key(url, "scrape"), result)
-        return result
+    accepted = _accept_result(_apify_scrape(url), "apify", "Tier 1.5 (Apify)")
+    if accepted:
+        return accepted
 
     # -- Tier 2: Jina AI Reader --
-    result = _jina_scrape(url)
-    if result and result.get("content"):
-        logger.info(
-            f"scrape_url: Tier 2 (Jina) succeeded for {url} "
-            f"in {result.get('latency_ms', 0):.0f}ms"
-        )
-        if use_cache:
-            _cache_put(_cache_key(url, "scrape"), result)
-        return result
+    accepted = _accept_result(_jina_scrape(url), "jina", "Tier 2 (Jina)")
+    if accepted:
+        return accepted
 
     # -- Tier 3: Tavily Extract --
-    result = _tavily_scrape(url)
-    if result and result.get("content"):
-        logger.info(
-            f"scrape_url: Tier 3 (Tavily) succeeded for {url} "
-            f"in {result.get('latency_ms', 0):.0f}ms"
-        )
-        if use_cache:
-            _cache_put(_cache_key(url, "scrape"), result)
-        return result
+    accepted = _accept_result(_tavily_scrape(url), "tavily", "Tier 3 (Tavily)")
+    if accepted:
+        return accepted
 
     # -- Tier 4: LLM-assisted scraping --
-    result = _llm_assisted_scrape(url, topic_hint=topic_hint)
-    if result and result.get("content"):
-        logger.info(
-            f"scrape_url: Tier 4 (LLM-assisted) succeeded for {url} "
-            f"in {result.get('latency_ms', 0):.0f}ms "
-            f"via {result.get('provider', '')}"
-        )
-        if use_cache:
-            _cache_put(_cache_key(url, "scrape"), result)
-        return result
+    accepted = _accept_result(
+        _llm_assisted_scrape(url, topic_hint=topic_hint),
+        "llm_assisted",
+        "Tier 4 (LLM-assisted)",
+    )
+    if accepted:
+        return accepted
 
     # -- Tier 5: Google Cache / Web Archive --
-    result = _cache_fallback_scrape(url)
-    if result and result.get("content"):
-        logger.info(
-            f"scrape_url: Tier 5 ({result.get('provider', 'cache')}) succeeded for {url} "
-            f"in {result.get('latency_ms', 0):.0f}ms"
-        )
-        if use_cache:
-            _cache_put(_cache_key(url, "scrape"), result)
-        return result
+    accepted = _accept_result(
+        _cache_fallback_scrape(url), "cache_fallback", "Tier 5 (Cache)"
+    )
+    if accepted:
+        return accepted
 
     # -- Tier 6: stdlib urllib + HTMLParser --
+    # Last resort: accept even low-quality results rather than returning nothing
     result = _urllib_scrape(url)
     if result and result.get("content"):
+        content = result["content"]
+        quality = _score_content_quality(content, url)
+        result["metadata"] = result.get("metadata") or {}
+        result["metadata"]["content_quality_score"] = quality
+        freshness = _freshness_tracker.record(url, content)
+        result["metadata"]["freshness"] = freshness
+        _tier_usage.record("stdlib", success=True)
         logger.info(
             f"scrape_url: Tier 6 (urllib) succeeded for {url} "
-            f"in {result.get('latency_ms', 0):.0f}ms"
+            f"in {result.get('latency_ms', 0):.0f}ms "
+            f"(quality={quality:.2f}, last-resort)"
         )
         if use_cache:
             _cache_put(_cache_key(url, "scrape"), result)
         return result
 
+    _tier_usage.record("stdlib", success=False)
     total_elapsed = (time.monotonic() - t0_total) * 1000
     logger.warning(
         f"scrape_url: ALL 7 tiers failed for {url} after {total_elapsed:.0f}ms"
@@ -1513,6 +1751,65 @@ def search_web(
 
     logger.warning(f"search_web: ALL tiers failed for query: {query[:80]}")
     return []
+
+
+# =============================================================================
+# PUBLIC API: check_content_changed (compliance monitoring)
+# =============================================================================
+
+
+def check_content_changed(url: str) -> dict[str, Any]:
+    """Check if a URL's content has changed since last scrape.
+
+    Useful for compliance monitoring -- scrapes the URL and compares
+    its content hash against the previously stored hash.
+
+    Args:
+        url: The URL to check for content changes.
+
+    Returns:
+        Dict with url, changed (bool or None on error), freshness metadata,
+        and a content_preview (first 500 chars).
+    """
+    result = scrape_url(url)
+    if result and result.get("content"):
+        freshness = _freshness_tracker.record(url, result["content"])
+        return {
+            "url": url,
+            "changed": freshness.get("freshness") == "changed",
+            "freshness": freshness,
+            "content_preview": result["content"][:500],
+        }
+    return {"url": url, "changed": None, "error": "Could not scrape URL"}
+
+
+# =============================================================================
+# PUBLIC API: get_tier_usage_report
+# =============================================================================
+
+
+def get_tier_usage_report() -> dict[str, Any]:
+    """Return per-tier usage and estimated cost report.
+
+    Returns:
+        Dict with total_est_cost_usd and per-tier breakdown of calls,
+        successes, failures, and estimated cost.
+    """
+    return _tier_usage.get_report()
+
+
+# =============================================================================
+# PUBLIC API: get_freshness_stats
+# =============================================================================
+
+
+def get_freshness_stats() -> dict[str, Any]:
+    """Return content freshness tracking statistics.
+
+    Returns:
+        Dict with tracked_urls count and recently_changed count.
+    """
+    return _freshness_tracker.get_stats()
 
 
 # =============================================================================
@@ -1615,6 +1912,8 @@ def get_scraper_status() -> dict[str, Any]:
             "l1_ttl_seconds": int(_LRU_TTL),
             "l2_redis_available": _redis_available,
         },
+        "tier_usage": _tier_usage.get_report(),
+        "freshness": _freshness_tracker.get_stats(),
         "tiers": tiers,
     }
 
@@ -1632,6 +1931,7 @@ def reset_circuit_breakers() -> dict[str, str]:
     """
     for cb in (
         _cb_firecrawl,
+        _cb_apify,
         _cb_jina,
         _cb_tavily,
         _cb_llm_assist,

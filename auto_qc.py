@@ -14,7 +14,8 @@ import time
 import urllib.request
 import urllib.error
 import json
-from typing import Any, Dict, Optional
+from collections import deque
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +26,16 @@ _running = False
 _thread: Optional[threading.Thread] = None
 _last_results: dict[str, Any] = {}
 _lock = threading.Lock()
+_check_history: deque = deque(maxlen=1440)  # 24h at 60s intervals
+
+# Configurable check definitions: list of (name, path) tuples
+_check_definitions: list[tuple[str, str]] = [
+    ("homepage", "/"),
+    ("health", "/api/health"),
+    ("health_ready", "/api/health/ready"),
+    ("channels", "/api/channels"),
+    ("dashboard_widgets", "/api/dashboard/widgets"),
+]
 
 
 def _probe(path: str, timeout: int = 10) -> tuple[bool, float]:
@@ -44,28 +55,29 @@ def _probe(path: str, timeout: int = 10) -> tuple[bool, float]:
         return False, latency
 
 
+def set_check_definitions(definitions: list[tuple[str, str]]) -> None:
+    """Replace the default check definitions with a custom list.
+
+    Each entry is a (name, path) tuple, e.g. ("health", "/api/health").
+    """
+    global _check_definitions
+    _check_definitions = list(definitions)
+
+
 def _check_cycle() -> dict[str, Any]:
     """Run one full health check cycle."""
     results: dict[str, Any] = {"ts": time.time(), "checks": {}, "overall": "healthy"}
 
-    # Product endpoints
-    endpoints = {
-        "homepage": "/",
-        "health": "/api/health",
-        "health_ready": "/api/health/ready",
-        "channels": "/api/channels",
-        "dashboard_widgets": "/api/dashboard/widgets",
-    }
-
+    # Product endpoints (configurable)
     failed = 0
-    for name, path in endpoints.items():
+    for name, path in _check_definitions:
         ok, latency = _probe(path)
         results["checks"][name] = {"ok": ok, "latency_ms": round(latency, 1)}
         if not ok:
             failed += 1
 
     # Health score
-    total = len(endpoints)
+    total = len(_check_definitions)
     score = (total - failed) / total if total > 0 else 0
     results["health_score"] = round(score, 2)
 
@@ -89,6 +101,32 @@ def _check_cycle() -> dict[str, Any]:
                 }
     except Exception as e:
         logger.debug("LLM router health check skipped: %s", e)
+
+    # Dependency probes
+    deps: dict[str, Any] = {}
+    try:
+        import sys
+
+        if "supabase_data" in sys.modules:
+            deps["supabase"] = {"ok": True}
+        else:
+            deps["supabase"] = {"ok": False}
+    except Exception:
+        deps["supabase"] = {"ok": False}
+    try:
+        import sys
+
+        if "api_integrations" in sys.modules:
+            deps["external_apis"] = {"ok": True}
+        else:
+            deps["external_apis"] = {"ok": False}
+    except Exception:
+        deps["external_apis"] = {"ok": False}
+    results["dependencies"] = deps
+
+    # Append to check history
+    with _lock:
+        _check_history.append(results)
 
     return results
 
@@ -158,10 +196,31 @@ def stop() -> None:
     _running = False
 
 
-def get_status() -> dict[str, Any]:
-    """Get latest QC results."""
+def get_sla_report() -> dict[str, Any]:
+    """Compute rolling SLA from check history."""
     with _lock:
-        return dict(_last_results) if _last_results else {"status": "not_started"}
+        if not _check_history:
+            return {"uptime_24h": None, "uptime_7d": None}
+        now = time.time()
+        checks_24h = [c for c in _check_history if now - c.get("ts", 0) < 86400]
+        healthy_24h = sum(1 for c in checks_24h if c.get("overall") == "healthy")
+        uptime_24h = healthy_24h / len(checks_24h) if checks_24h else None
+        return {
+            "uptime_24h": round(uptime_24h * 100, 2) if uptime_24h else None,
+            "total_checks_24h": len(checks_24h),
+            "healthy_checks_24h": healthy_24h,
+        }
+
+
+def get_status() -> dict[str, Any]:
+    """Get latest QC results, including history summary and SLA data."""
+    with _lock:
+        if not _last_results:
+            return {"status": "not_started"}
+        result = dict(_last_results)
+        result["history_size"] = len(_check_history)
+        result["sla"] = get_sla_report()
+        return result
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -180,6 +239,10 @@ class AutoQC:
     def get_status(self) -> Dict[str, Any]:
         """Get latest QC results."""
         return get_status()
+
+    def get_sla_report(self) -> Dict[str, Any]:
+        """Compute rolling SLA from check history."""
+        return get_sla_report()
 
     def stop(self) -> None:
         """Stop the background QC monitor."""

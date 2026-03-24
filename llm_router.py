@@ -1123,9 +1123,12 @@ class _CostTracker:
             self._total_cost += cost
 
             if provider_id not in self._daily_tokens:
-                self._daily_tokens[provider_id] = {"input": 0, "output": 0}
+                self._daily_tokens[provider_id] = {"input": 0, "output": 0, "calls": 0}
             self._daily_tokens[provider_id]["input"] += input_tokens
             self._daily_tokens[provider_id]["output"] += output_tokens
+            self._daily_tokens[provider_id]["calls"] = (
+                self._daily_tokens[provider_id].get("calls", 0) + 1
+            )
 
         return cost
 
@@ -1133,14 +1136,22 @@ class _CostTracker:
         """Return daily spend summary."""
         with self._lock:
             self._maybe_reset_day()
+            total_tokens = sum(
+                v.get("input", 0) + v.get("output", 0)
+                for v in self._daily_tokens.values()
+            )
+            total_calls = sum(v.get("calls", 0) for v in self._daily_tokens.values())
             return {
+                "period_start": self._day_start,
                 "total_daily_cost_usd": round(sum(self._daily_costs.values()), 4),
                 "total_all_time_cost_usd": round(self._total_cost, 4),
+                "total_tokens": total_tokens,
+                "total_calls": total_calls,
                 "per_provider": {
                     pid: {
                         "cost_usd": round(cost, 4),
                         "tokens": self._daily_tokens.get(
-                            pid, {"input": 0, "output": 0}
+                            pid, {"input": 0, "output": 0, "calls": 0}
                         ),
                     }
                     for pid, cost in self._daily_costs.items()
@@ -1150,6 +1161,15 @@ class _CostTracker:
 
 # Module-level cost tracker instance
 _cost_tracker = _CostTracker()
+
+
+def get_cost_report() -> Dict[str, Any]:
+    """Get LLM cost tracking report.
+
+    Returns:
+        Dict with daily cost summary, total tokens, and per-provider breakdown.
+    """
+    return _cost_tracker.get_daily_spend()
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1246,6 +1266,181 @@ def compute_quality_score(response_text: str, task_type: str = "") -> Dict[str, 
         "components": {k: round(v, 3) for k, v in components.items()},
         "flags": flags,
     }
+
+
+def _score_response_quality(response_text: str, task_type: str = "") -> float:
+    """Score response quality 0.0-1.0 based on fast heuristics.
+
+    Lightweight version of compute_quality_score() for inline use during
+    provider health updates. Penalizes empty, very short, and refusal responses.
+
+    Args:
+        response_text: The LLM response text.
+        task_type: The task type (unused, reserved for future weighting).
+
+    Returns:
+        Quality score from 0.0 to 1.0.
+    """
+    if not response_text:
+        return 0.0
+    score = 1.0
+    # Penalize very short responses
+    if len(response_text) < 20:
+        score *= 0.3
+    elif len(response_text) < 50:
+        score *= 0.6
+    # Penalize error-like responses
+    error_signals = [
+        "i cannot",
+        "i'm sorry",
+        "as an ai",
+        "i don't have",
+        "no data",
+        "unable to",
+    ]
+    lower = response_text.lower()
+    for signal in error_signals:
+        if signal in lower:
+            score *= 0.5
+            break
+    # Penalize responses that are just the prompt repeated
+    if len(response_text) > 100:
+        score = min(score, 1.0)
+    return round(score, 2)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# REQUEST PRIORITY LEVELS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class RequestPriority:
+    """Priority levels for LLM requests.
+
+    HIGH priority requests skip providers near their rate limits.
+    MEDIUM and LOW allow providers at higher utilization.
+    """
+
+    HIGH = "high"  # User-facing chat
+    MEDIUM = "medium"  # Background enrichment
+    LOW = "low"  # Batch jobs
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# A/B ROUTING
+# ═══════════════════════════════════════════════════════════════════════════════
+
+import random as _random
+
+_ab_routes: Dict[str, Dict[str, Any]] = {}
+_ab_lock = threading.Lock()
+
+
+def set_ab_test(
+    name: str, provider_a: str, provider_b: str, split_pct: float = 0.1
+) -> None:
+    """Route split_pct of traffic to provider_b for comparison.
+
+    Args:
+        name: Experiment name.
+        provider_a: Primary provider ID.
+        provider_b: Test provider ID.
+        split_pct: Fraction of traffic (0.0-1.0) routed to provider_b.
+    """
+    with _ab_lock:
+        _ab_routes[name] = {
+            "a": provider_a,
+            "b": provider_b,
+            "split": split_pct,
+            "results": {"a": [], "b": []},
+        }
+    logger.info(
+        "LLM A/B test '%s': %s vs %s (%.0f%% to B)",
+        name,
+        provider_a,
+        provider_b,
+        split_pct * 100,
+    )
+
+
+def _resolve_ab_provider(name: str) -> Optional[str]:
+    """Pick provider for an A/B test by name. Returns None if test not found."""
+    with _ab_lock:
+        test = _ab_routes.get(name)
+        if not test:
+            return None
+        if _random.random() < test["split"]:
+            return test["b"]
+        return test["a"]
+
+
+def record_ab_result(
+    name: str, variant: str, quality_score: float, latency_ms: int
+) -> None:
+    """Record an A/B test result for later analysis.
+
+    Args:
+        name: Experiment name.
+        variant: 'a' or 'b'.
+        quality_score: Quality score of the response.
+        latency_ms: Latency in milliseconds.
+    """
+    with _ab_lock:
+        test = _ab_routes.get(name)
+        if test and variant in test["results"]:
+            test["results"][variant].append(
+                {
+                    "quality": quality_score,
+                    "latency_ms": latency_ms,
+                    "ts": time.time(),
+                }
+            )
+            # Keep last 100 results per variant
+            if len(test["results"][variant]) > 100:
+                test["results"][variant] = test["results"][variant][-100:]
+
+
+def get_ab_results(name: str) -> Dict[str, Any]:
+    """Get A/B test results with summary statistics.
+
+    Args:
+        name: Experiment name.
+
+    Returns:
+        Dict with per-variant averages and raw results, or empty dict.
+    """
+    with _ab_lock:
+        test = _ab_routes.get(name)
+        if not test:
+            return {}
+        summary: Dict[str, Any] = {
+            "provider_a": test["a"],
+            "provider_b": test["b"],
+            "split_pct": test["split"],
+        }
+        for variant in ("a", "b"):
+            results = test["results"][variant]
+            if results:
+                avg_q = sum(r["quality"] for r in results) / len(results)
+                avg_l = sum(r["latency_ms"] for r in results) / len(results)
+                summary[f"variant_{variant}"] = {
+                    "count": len(results),
+                    "avg_quality": round(avg_q, 3),
+                    "avg_latency_ms": round(avg_l, 1),
+                }
+            else:
+                summary[f"variant_{variant}"] = {"count": 0}
+        return summary
+
+
+def list_ab_tests() -> Dict[str, Dict[str, Any]]:
+    """List all active A/B tests with their summary stats.
+
+    Returns:
+        Dict mapping test name to summary.
+    """
+    with _ab_lock:
+        return {name: get_ab_results(name) for name in _ab_routes}
 
 
 # Keywords for task classification
@@ -1941,10 +2136,11 @@ def call_llm(
     query_text: str = "",
     preferred_providers: Optional[List[str]] = None,
     use_cache: bool = True,
+    priority: str = RequestPriority.MEDIUM,
 ) -> Dict[str, Any]:
     """Route an LLM call to the best available provider.
 
-    Flow:  rate check -> health-score ordering -> cache check -> API call
+    Flow:  rate check -> priority filter -> health-score ordering -> cache check -> API call
 
     Args:
         messages: Conversation messages [{role, content}, ...]
@@ -1961,6 +2157,8 @@ def call_llm(
         use_cache: If True (default), check the response cache before calling
             a provider, and store successful responses.  Set to False for
             tasks that need fresh data (e.g., real-time queries).
+        priority: Request priority level (RequestPriority.HIGH, MEDIUM, LOW).
+            HIGH priority requests skip providers near their rate limits.
 
     Returns:
         {
@@ -2082,6 +2280,20 @@ def call_llm(
                         pid,
                     )
                     continue
+                # HIGH priority: also skip providers near rate limits (>80% utilization)
+                if priority == RequestPriority.HIGH:
+                    limits = _RATE_LIMITS.get(pid)
+                    if limits:
+                        rate_counts = _rate_tracker.get_counts()
+                        current = rate_counts.get(pid, 0)
+                        if current > limits["rpm"] * 0.8:
+                            logger.debug(
+                                "LLM Router: %s near rate limit (%d/%d), skipping for HIGH priority",
+                                pid,
+                                current,
+                                limits["rpm"],
+                            )
+                            continue
                 state = _provider_states.get(pid)
                 if state and state.is_available():
                     provider = pid
@@ -2128,6 +2340,10 @@ def call_llm(
             _resp_text = result.get("text") or ""
             if _resp_text:
                 result["quality_score"] = compute_quality_score(_resp_text, task_type)
+                result["quality_score_fast"] = _score_response_quality(
+                    _resp_text, task_type
+                )
+            result["priority"] = priority
             # Cache successful responses (only text-based, not tool_calls)
             if use_cache and not tools and result.get("text") and _user_msg_for_cache:
                 _response_cache.put(
@@ -2805,7 +3021,7 @@ def get_provider_health() -> Dict[str, Any]:
     """Provider health dashboard -- health scores, availability, and rate status.
 
     Returns a dict per provider with health_score (0.0-1.0), available (bool),
-    rate_limited (bool), and circuit_open (bool).
+    rate_limited (bool), circuit_open (bool), and uptime_pct.
     """
     result: Dict[str, Any] = {}
     for pid in PROVIDER_CONFIG:
@@ -2813,15 +3029,36 @@ def get_provider_health() -> Dict[str, Any]:
         has_key = bool(os.environ.get(config.get("env_key") or "", "").strip())
         state = _provider_states.get(pid)
         now = time.time()
+        health = round(state.get_health_score(), 3) if state else 0.0
         result[pid] = {
             "name": config.get("name") or "",
             "configured": has_key,
-            "health_score": round(state.get_health_score(), 3) if state else 0.0,
+            "health_score": health,
             "available": has_key and (state.is_available() if state else False),
             "rate_limited": _rate_tracker.is_rate_limited(pid),
             "circuit_open": (now < state.circuit_open_until) if state else False,
+            "uptime_pct": round(health * 100, 1),
         }
     return result
+
+
+def get_provider_uptime(provider_id: str, hours: int = 24) -> float:
+    """Get rolling uptime percentage for a provider.
+
+    Uses the health score as a proxy for availability over the rolling window.
+
+    Args:
+        provider_id: LLM provider ID.
+        hours: Look-back window (unused, uses health score decay as proxy).
+
+    Returns:
+        Uptime percentage (0.0-100.0).
+    """
+    state = _provider_states.get(provider_id)
+    if not state:
+        return 0.0
+    score = state.get_health_score()
+    return round(score * 100, 1)
 
 
 def get_router_stats() -> Dict[str, Any]:

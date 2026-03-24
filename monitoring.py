@@ -108,6 +108,65 @@ class RequestContext:
 
 
 # ---------------------------------------------------------------------------
+# Request Span Tracking
+# ---------------------------------------------------------------------------
+
+
+class RequestSpan:
+    """Lightweight span for request-level tracing."""
+
+    __slots__ = ("name", "start_ts", "end_ts", "metadata")
+
+    def __init__(self, name: str) -> None:
+        self.name = name
+        self.start_ts = time.monotonic()
+        self.end_ts: Optional[float] = None
+        self.metadata: Dict[str, Any] = {}
+
+    def end(self, **meta: Any) -> None:
+        """End the span and attach optional metadata."""
+        self.end_ts = time.monotonic()
+        self.metadata.update(meta)
+
+    @property
+    def duration_ms(self) -> float:
+        """Return span duration in milliseconds."""
+        if self.end_ts is None:
+            return (time.monotonic() - self.start_ts) * 1000
+        return (self.end_ts - self.start_ts) * 1000
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Return a serializable representation of the span."""
+        return {
+            "name": self.name,
+            "duration_ms": round(self.duration_ms, 1),
+            "metadata": self.metadata,
+        }
+
+
+_request_spans = threading.local()
+
+
+def start_span(name: str) -> RequestSpan:
+    """Start a new span for the current request."""
+    span = RequestSpan(name)
+    if not hasattr(_request_spans, "spans"):
+        _request_spans.spans = []
+    _request_spans.spans.append(span)
+    return span
+
+
+def get_request_spans() -> List[Dict[str, Any]]:
+    """Get all spans for current request."""
+    return [s.to_dict() for s in getattr(_request_spans, "spans", [])]
+
+
+def clear_request_spans() -> None:
+    """Clear spans for current request."""
+    _request_spans.spans = []
+
+
+# ---------------------------------------------------------------------------
 # Structured JSON Log Formatter
 # ---------------------------------------------------------------------------
 
@@ -853,6 +912,138 @@ class MetricsCollector:
             "checked_at": datetime.now(timezone.utc).isoformat(),
             "uptime_seconds": round(uptime, 1),
         }
+
+    def compute_burn_rate(self, window_hours: int = 1) -> Dict[str, Any]:
+        """Compute SLO error budget burn rate.
+
+        A burn rate of 1.0 means consuming budget exactly at the sustainable rate.
+        >1.0 means consuming faster than sustainable (alert at >2.0).
+
+        Args:
+            window_hours: Observation window in hours (unused currently, reserved
+                for future multi-window support).
+
+        Returns:
+            Dict mapping SLO name to burn rate data.
+        """
+        slo_compliance = self.check_slo_compliance()
+        slos = slo_compliance.get("slos", slo_compliance)
+        results: Dict[str, Any] = {}
+        for slo_name, slo_data in slos.items():
+            if (
+                isinstance(slo_data, dict)
+                and "target" in slo_data
+                and "actual" in slo_data
+            ):
+                target = slo_data["target"]
+                current = slo_data["actual"]
+                if (
+                    isinstance(target, (int, float))
+                    and isinstance(current, (int, float))
+                    and target > 0
+                ):
+                    # For error rate: burn_rate = actual_error_rate / allowed_error_rate
+                    allowed = 1.0 - target if target <= 1.0 else target
+                    actual = (
+                        current if isinstance(current, float) and current <= 1.0 else 0
+                    )
+                    burn_rate = actual / allowed if allowed > 0 else 0
+                    results[slo_name] = {
+                        "burn_rate": round(burn_rate, 2),
+                        "budget_remaining_pct": round(max(0, (1 - burn_rate)) * 100, 1),
+                        "status": (
+                            "critical"
+                            if burn_rate > 5
+                            else "warning" if burn_rate > 2 else "ok"
+                        ),
+                    }
+        return results
+
+    def check_anomalies(self) -> List[Dict[str, Any]]:
+        """Detect anomalies by comparing current metrics to rolling baselines.
+
+        Uses a 2-sigma threshold over a 60-sample rolling window.
+
+        Returns:
+            List of anomaly dicts with metric name, current value, baseline
+            mean/std, and deviation in sigma units.
+        """
+        import statistics as _stats
+
+        anomalies: List[Dict[str, Any]] = []
+        metrics = self.get_metrics()
+        if not isinstance(metrics, dict):
+            return anomalies
+        # Track baselines (stored as instance attribute)
+        if not hasattr(self, "_baselines"):
+            self._baselines: Dict[str, Dict[str, Any]] = {}
+        for key in ["avg_latency_ms", "error_rate_pct", "requests_per_minute"]:
+            current: float = 0.0
+            if key == "avg_latency_ms":
+                latency_data = metrics.get("latency_ms", {})
+                current = (
+                    latency_data.get("p50", 0)
+                    if isinstance(latency_data, dict)
+                    else 0.0
+                )
+            else:
+                current = metrics.get(key, 0)
+            if not isinstance(current, (int, float)):
+                continue
+            if key not in self._baselines:
+                self._baselines[key] = {"values": [], "mean": current, "std": 0.0}
+            bl = self._baselines[key]
+            bl["values"].append(current)
+            if len(bl["values"]) > 60:  # 1 hour of data at 1/min
+                bl["values"] = bl["values"][-60:]
+            if len(bl["values"]) >= 10:
+                bl["mean"] = _stats.mean(bl["values"])
+                bl["std"] = _stats.stdev(bl["values"]) if len(bl["values"]) > 1 else 0.0
+                if bl["std"] > 0 and abs(current - bl["mean"]) > 2 * bl["std"]:
+                    anomalies.append(
+                        {
+                            "metric": key,
+                            "current": current,
+                            "baseline_mean": round(bl["mean"], 2),
+                            "baseline_std": round(bl["std"], 2),
+                            "deviation_sigma": round(
+                                abs(current - bl["mean"]) / bl["std"], 1
+                            ),
+                        }
+                    )
+        return anomalies
+
+    def export_prometheus(self) -> str:
+        """Export metrics in Prometheus exposition format.
+
+        Returns:
+            Multi-line string in Prometheus text format.
+        """
+        metrics = self.get_metrics()
+        latency = metrics.get("latency_ms", {})
+        lines: List[str] = [
+            "# HELP nova_request_latency_ms Average request latency",
+            "# TYPE nova_request_latency_ms gauge",
+            f"nova_request_latency_ms {{quantile=\"0.5\"}} {latency.get('p50', 0)}",
+            f"nova_request_latency_ms {{quantile=\"0.95\"}} {latency.get('p95', 0)}",
+            f"nova_request_latency_ms {{quantile=\"0.99\"}} {latency.get('p99', 0)}",
+            "# HELP nova_error_rate Current error rate percentage",
+            "# TYPE nova_error_rate gauge",
+            f"nova_error_rate {metrics.get('error_rate_pct', 0)}",
+            "# HELP nova_rpm Requests per minute",
+            "# TYPE nova_rpm gauge",
+            f"nova_rpm {metrics.get('requests_per_minute', 0)}",
+            "# HELP nova_total_requests Total requests since startup",
+            "# TYPE nova_total_requests counter",
+            f"nova_total_requests {metrics.get('total_requests', 0)}",
+            "# HELP nova_total_errors Total errors since startup",
+            "# TYPE nova_total_errors counter",
+            f"nova_total_errors {metrics.get('total_errors', 0)}",
+            "# HELP nova_active_requests Currently active requests",
+            "# TYPE nova_active_requests gauge",
+            f"nova_active_requests {metrics.get('active_requests', 0)}",
+        ]
+        return "\n".join(lines) + "\n"
 
 
 def get_metrics() -> MetricsCollector:
@@ -2135,6 +2326,58 @@ class MonitoringAlertBridge:
                             f"Global error rate is {error_rate_pct:.1f}% "
                             f"(threshold: 5%).",
                         )
+
+            # Check burn rates for SLO budget exhaustion
+            try:
+                burn_rates = collector.compute_burn_rate()
+                for slo_name, br_data in burn_rates.items():
+                    if not isinstance(br_data, dict):
+                        continue
+                    br_status = br_data.get("status", "ok")
+                    burn_rate = br_data.get("burn_rate", 0)
+                    if br_status == "critical":
+                        alert_key = f"burn_rate_critical_{slo_name}"
+                        if self._should_alert(alert_key):
+                            self._fire_alert(
+                                "CRITICAL",
+                                f"[Nova] Burn rate critical: {slo_name} ({burn_rate}x)",
+                                f"SLO '{slo_name}' error budget burn rate is {burn_rate}x "
+                                f"(>5x threshold). Budget remaining: "
+                                f"{br_data.get('budget_remaining_pct', 0)}%.",
+                            )
+                    elif br_status == "warning":
+                        alert_key = f"burn_rate_warning_{slo_name}"
+                        if self._should_alert(alert_key):
+                            self._fire_alert(
+                                "WARNING",
+                                f"[Nova] Burn rate elevated: {slo_name} ({burn_rate}x)",
+                                f"SLO '{slo_name}' error budget burn rate is {burn_rate}x "
+                                f"(>2x threshold). Budget remaining: "
+                                f"{br_data.get('budget_remaining_pct', 0)}%.",
+                            )
+            except Exception as burn_err:
+                logger.debug("[MonitorAlertBridge] Burn rate check error: %s", burn_err)
+
+            # Check anomaly detection
+            try:
+                anomalies = collector.check_anomalies()
+                for anomaly in anomalies:
+                    if not isinstance(anomaly, dict):
+                        continue
+                    metric_name = anomaly.get("metric", "unknown")
+                    deviation = anomaly.get("deviation_sigma", 0)
+                    alert_key = f"anomaly_{metric_name}"
+                    if deviation > 3 and self._should_alert(alert_key):
+                        self._fire_alert(
+                            "WARNING",
+                            f"[Nova] Anomaly detected: {metric_name} ({deviation:.1f} sigma)",
+                            f"Metric '{metric_name}' is {deviation:.1f} standard deviations "
+                            f"from baseline. Current: {anomaly.get('current')}, "
+                            f"Baseline: {anomaly.get('baseline_mean')} +/- "
+                            f"{anomaly.get('baseline_std')}.",
+                        )
+            except Exception as anom_err:
+                logger.debug("[MonitorAlertBridge] Anomaly check error: %s", anom_err)
 
         except Exception as e:
             logger.error("[MonitorAlertBridge] Check cycle error: %s", e, exc_info=True)

@@ -18462,6 +18462,38 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
         # ── API Versioning: strip /v1 prefix (Feature 4) ──
         if path.startswith("/v1/"):
             path = path[3:]
+
+        # ── API Key Authentication (Phase 6) ──
+        try:
+            from auth import authenticate
+
+            auth_header = self.headers.get("Authorization") or ""
+            query_params = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            query_key = query_params.get("api_key", [None])[0]
+            auth_result = authenticate(path, auth_header, query_key)
+            if not auth_result["authenticated"]:
+                self._send_json(
+                    {
+                        "error": "Authentication required",
+                        "reason": auth_result["reason"],
+                    },
+                    status_code=401,
+                )
+                return
+        except ImportError:
+            pass  # Auth module not available, allow all
+
+        # ── Audit logging for API access ──
+        try:
+            from audit_logger import log_event
+
+            if path.startswith("/api/"):
+                log_event(
+                    "api.access", resource=path, ip_address=self.client_address[0]
+                )
+        except ImportError:
+            pass
+
         if path == "/" or path == "" or path in ("/hub", "/hub/"):
             self._serve_file(os.path.join(TEMPLATES_DIR, "hub.html"), "text/html")
         elif path in ("/media-plan", "/media-plan/", "/generator", "/generator/"):
@@ -20250,6 +20282,30 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 datetime.timezone.utc
             ).isoformat()
             self._send_json(_ph_stats)
+        # ── LLM Cost Tracking Report ──
+        elif path == "/api/llm/costs":
+            try:
+                from llm_router import get_cost_report
+
+                self._send_json(get_cost_report())
+            except Exception as e:
+                self._send_json(
+                    {"error": str(e), "note": "Cost tracking not available"}
+                )
+        # ── Audit Events Endpoint ──
+        elif path == "/api/audit/events":
+            try:
+                from audit_logger import get_recent_events, get_audit_summary
+
+                params = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+                if "summary" in params:
+                    self._send_json(get_audit_summary())
+                else:
+                    limit = int(params.get("limit", ["100"])[0])
+                    action = params.get("action", [None])[0]
+                    self._send_json({"events": get_recent_events(limit, action)})
+            except Exception as e:
+                self._send_json({"error": str(e)})
         # ── Campaign Performance Tracker Page ──
         elif path in (
             "/tracker",
@@ -21071,6 +21127,37 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
         # ── API Versioning: strip /v1 prefix (Feature 4) ──
         if path.startswith("/v1/"):
             path = path[3:]
+
+        # ── API Key Authentication (Phase 6) ──
+        try:
+            from auth import authenticate
+
+            auth_header = self.headers.get("Authorization") or ""
+            query_params = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            query_key = query_params.get("api_key", [None])[0]
+            auth_result = authenticate(path, auth_header, query_key)
+            if not auth_result["authenticated"]:
+                self._send_json(
+                    {
+                        "error": "Authentication required",
+                        "reason": auth_result["reason"],
+                    },
+                    status_code=401,
+                )
+                return
+        except ImportError:
+            pass  # Auth module not available, allow all
+
+        # ── Audit logging for API access ──
+        try:
+            from audit_logger import log_event
+
+            if path.startswith("/api/"):
+                log_event(
+                    "api.access", resource=path, ip_address=self.client_address[0]
+                )
+        except ImportError:
+            pass
 
         # ── Centralized route-aware rate limiting ──
         # Skip rate limiting for admin routes when valid auth is provided.
@@ -26540,6 +26627,14 @@ if __name__ == "__main__":
         logger.info("Proactive health checker started")
     except ImportError:
         logger.warning("proactive health checker not available")
+
+    # ── API Key Authentication Init (Phase 6) ──
+    try:
+        from auth import init as _init_auth
+
+        _init_auth()
+    except ImportError:
+        pass
 
     # ── Startup banner ──
     logger.info("=" * 60)

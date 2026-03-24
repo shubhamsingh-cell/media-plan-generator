@@ -149,6 +149,350 @@ _ESCALATION_THRESHOLD = 3  # 3 failures in 5 minutes
 _ESCALATION_WINDOW = 300.0  # 5 minutes
 
 
+# ── Incident Lifecycle Tracker ──────────────────────────────────────────────
+
+
+class IncidentTracker:
+    """Tracks incident lifecycle: detected -> healing -> resolved/escalated.
+
+    Thread-safe tracker that maintains a timeline of events for each
+    incident identified by its fingerprint.
+    """
+
+    def __init__(self) -> None:
+        self._incidents: Dict[str, Dict[str, Any]] = {}
+        self._lock = threading.Lock()
+
+    def open_incident(
+        self, fingerprint: str, error_type: str, module: str
+    ) -> Dict[str, Any]:
+        """Open a new incident or return existing active one.
+
+        Args:
+            fingerprint: Error fingerprint for dedup.
+            error_type: Python exception class name.
+            module: Module where the error occurred.
+
+        Returns:
+            The incident dict.
+        """
+        with self._lock:
+            # If already active, return it
+            existing = self._incidents.get(fingerprint)
+            if existing and existing["status"] in ("detected", "healing"):
+                return existing
+            incident: Dict[str, Any] = {
+                "fingerprint": fingerprint,
+                "error_type": error_type,
+                "module": module,
+                "status": "detected",
+                "detected_at": time.time(),
+                "healing_started_at": None,
+                "resolved_at": None,
+                "escalated_at": None,
+                "heal_attempts": 0,
+                "timeline": [{"event": "detected", "ts": time.time()}],
+            }
+            self._incidents[fingerprint] = incident
+            return incident
+
+    def start_healing(self, fingerprint: str, action: str) -> None:
+        """Mark an incident as healing with a specific action.
+
+        Args:
+            fingerprint: Error fingerprint.
+            action: The healing action being attempted.
+        """
+        with self._lock:
+            inc = self._incidents.get(fingerprint)
+            if inc:
+                inc["status"] = "healing"
+                inc["healing_started_at"] = time.time()
+                inc["heal_attempts"] += 1
+                inc["timeline"].append(
+                    {"event": f"healing:{action}", "ts": time.time()}
+                )
+
+    def resolve(self, fingerprint: str) -> None:
+        """Mark an incident as resolved.
+
+        Args:
+            fingerprint: Error fingerprint.
+        """
+        with self._lock:
+            inc = self._incidents.get(fingerprint)
+            if inc:
+                inc["status"] = "resolved"
+                inc["resolved_at"] = time.time()
+                duration = inc["resolved_at"] - inc["detected_at"]
+                inc["resolution_time_s"] = round(duration, 1)
+                inc["timeline"].append({"event": "resolved", "ts": time.time()})
+
+    def escalate(self, fingerprint: str, reason: str) -> None:
+        """Escalate an incident that could not be auto-healed.
+
+        Args:
+            fingerprint: Error fingerprint.
+            reason: Reason for escalation.
+        """
+        with self._lock:
+            inc = self._incidents.get(fingerprint)
+            if inc:
+                inc["status"] = "escalated"
+                inc["escalated_at"] = time.time()
+                inc["timeline"].append(
+                    {"event": f"escalated:{reason}", "ts": time.time()}
+                )
+
+    def get_active_incidents(self) -> List[Dict[str, Any]]:
+        """Get all currently active (detected or healing) incidents.
+
+        Returns:
+            List of active incident dicts.
+        """
+        with self._lock:
+            return [
+                dict(v)
+                for v in self._incidents.values()
+                if v["status"] in ("detected", "healing")
+            ]
+
+    def get_incident(self, fingerprint: str) -> Optional[Dict[str, Any]]:
+        """Get a specific incident by fingerprint.
+
+        Args:
+            fingerprint: Error fingerprint.
+
+        Returns:
+            Incident dict or None.
+        """
+        with self._lock:
+            inc = self._incidents.get(fingerprint)
+            return dict(inc) if inc else None
+
+    def get_incident_summary(self) -> Dict[str, Any]:
+        """Get aggregate incident statistics.
+
+        Returns:
+            Dict with total, active, resolved, escalated counts and avg resolution time.
+        """
+        with self._lock:
+            total = len(self._incidents)
+            resolved = sum(
+                1 for v in self._incidents.values() if v["status"] == "resolved"
+            )
+            escalated = sum(
+                1 for v in self._incidents.values() if v["status"] == "escalated"
+            )
+            active = sum(
+                1
+                for v in self._incidents.values()
+                if v["status"] in ("detected", "healing")
+            )
+            avg_resolution = 0.0
+            resolved_incidents = [
+                v for v in self._incidents.values() if v.get("resolution_time_s")
+            ]
+            if resolved_incidents:
+                avg_resolution = round(
+                    sum(v["resolution_time_s"] for v in resolved_incidents)
+                    / len(resolved_incidents),
+                    1,
+                )
+            return {
+                "total": total,
+                "active": active,
+                "resolved": resolved,
+                "escalated": escalated,
+                "avg_resolution_time_s": avg_resolution,
+            }
+
+
+_incident_tracker = IncidentTracker()
+
+
+def get_incident_summary() -> Dict[str, Any]:
+    """Get incident lifecycle summary statistics.
+
+    Returns:
+        Dict with total, active, resolved, escalated counts.
+    """
+    return _incident_tracker.get_incident_summary()
+
+
+def get_active_incidents() -> List[Dict[str, Any]]:
+    """Get all currently active incidents.
+
+    Returns:
+        List of active incident dicts.
+    """
+    return _incident_tracker.get_active_incidents()
+
+
+# ── Runbook Registry ───────────────────────────────────────────────────────
+
+
+_RUNBOOK_REGISTRY: Dict[str, Dict[str, Any]] = {
+    "llm_circuit_open": {
+        "url": "/docs/runbooks/llm-failures.md",
+        "steps": [
+            "Check provider status page",
+            "Review rate limits",
+            "Consider adding API key credits",
+        ],
+    },
+    "scraper_degraded": {
+        "url": "/docs/runbooks/scraper-failures.md",
+        "steps": [
+            "Check Firecrawl credits",
+            "Verify Jina API key",
+            "Review circuit breaker stats",
+        ],
+    },
+    "supabase_timeout": {
+        "url": "/docs/runbooks/database-issues.md",
+        "steps": [
+            "Check Supabase dashboard",
+            "Review connection pool",
+            "Check for long-running queries",
+        ],
+    },
+    "high_error_rate": {
+        "url": "/docs/runbooks/high-error-rate.md",
+        "steps": [
+            "Check /api/health/integrations",
+            "Review recent deployments",
+            "Check LLM provider status",
+        ],
+    },
+    "memory_pressure": {
+        "url": "/docs/runbooks/memory.md",
+        "steps": [
+            "Check cache sizes",
+            "Review LRU eviction",
+            "Consider cache TTL reduction",
+        ],
+    },
+    "network_retry": {
+        "url": "/docs/runbooks/network-issues.md",
+        "steps": [
+            "Check external API status pages",
+            "Verify DNS resolution",
+            "Review circuit breaker states",
+        ],
+    },
+    "json_parse_guard": {
+        "url": "/docs/runbooks/json-errors.md",
+        "steps": [
+            "Check upstream API response format changes",
+            "Clear API caches",
+            "Review recent data pipeline changes",
+        ],
+    },
+}
+
+
+def get_runbook(error_pattern: str) -> Dict[str, Any]:
+    """Get runbook for an error pattern.
+
+    Searches the runbook registry for a pattern match and returns the
+    associated documentation URL and remediation steps.
+
+    Args:
+        error_pattern: Error type, fix_type, or descriptive string.
+
+    Returns:
+        Dict with 'url' and 'steps' keys.
+    """
+    lower = error_pattern.lower()
+    for pattern, runbook in _RUNBOOK_REGISTRY.items():
+        if pattern in lower:
+            return runbook
+    return {"url": None, "steps": ["No runbook available. Investigate manually."]}
+
+
+# ── Post-Mortem Generation ─────────────────────────────────────────────────
+
+
+def generate_postmortem(fingerprint: str) -> Dict[str, Any]:
+    """Generate a post-mortem report for an incident.
+
+    Combines incident timeline, healing attempts, and runbook reference
+    into a structured report.
+
+    Args:
+        fingerprint: Error fingerprint identifying the incident.
+
+    Returns:
+        Post-mortem dict with timeline, duration, and runbook, or error.
+    """
+    inc = _incident_tracker.get_incident(fingerprint)
+    if not inc:
+        return {"error": "Incident not found"}
+    error_type = inc.get("error_type") or ""
+    return {
+        "incident_id": fingerprint[:12],
+        "module": inc.get("module") or "unknown",
+        "error_type": error_type,
+        "status": inc["status"],
+        "duration_s": inc.get("resolution_time_s") or 0,
+        "heal_attempts": inc.get("heal_attempts") or 0,
+        "timeline": inc.get("timeline") or [],
+        "runbook": get_runbook(error_type),
+    }
+
+
+# ── Dependency Checking ────────────────────────────────────────────────────
+
+
+def _check_service_safe_to_heal(module: str) -> bool:
+    """Check if a module is safe to heal (no active critical requests).
+
+    Lightweight check to avoid disrupting in-flight requests. Checks for
+    active HTTP handler threads and streaming connections.
+
+    Args:
+        module: Module name to check.
+
+    Returns:
+        True if safe to proceed with healing.
+    """
+    import sys
+
+    try:
+        # Check if there are active streaming generators in llm_router
+        if module == "nova_ai" and "llm_router" in sys.modules:
+            lr = sys.modules["llm_router"]
+            # If there's a stream lock or active stream count, check it
+            active_streams = getattr(lr, "_active_streams", 0)
+            if isinstance(active_streams, int) and active_streams > 0:
+                logger.debug(
+                    "sentry_integration: skipping heal for %s -- %d active streams",
+                    module,
+                    active_streams,
+                )
+                return False
+
+        # Check if data_orchestrator has in-flight requests
+        if module == "command_center" and "data_orchestrator" in sys.modules:
+            do = sys.modules["data_orchestrator"]
+            in_flight = getattr(do, "_in_flight_requests", 0)
+            if isinstance(in_flight, int) and in_flight > 0:
+                logger.debug(
+                    "sentry_integration: skipping heal for %s -- %d in-flight requests",
+                    module,
+                    in_flight,
+                )
+                return False
+
+        return True
+    except Exception as exc:
+        logger.debug(
+            "sentry_integration: dependency check error for %s: %s", module, exc
+        )
+        return True  # Default to allowing heal if check fails
+
+
 def _classify_error_to_module(file_path: str) -> str:
     """Classify a source file to its owning module.
 
@@ -920,6 +1264,11 @@ class SentryHealingBridge:
         function_name = parsed_issue.get("function") or ""
         level = parsed_issue.get("level") or "error"
 
+        # Track as escalated incident (no auto-fix available)
+        module = _classify_error_to_module(file_path)
+        _incident_tracker.open_incident(fingerprint, error_type, module or "unknown")
+        _incident_tracker.escalate(fingerprint, "unknown_pattern")
+
         # Record in history
         _record_heal_event(
             issue_id=issue_id,
@@ -973,18 +1322,32 @@ class SentryHealingBridge:
         """Trigger the appropriate self-healing action via AutoQC and module strategies.
 
         First tries module-specific healing, then falls back to generic AutoQC.
-        Tracks metrics and checks escalation thresholds.
+        Tracks metrics, checks escalation thresholds, and records incident lifecycle.
 
         Returns True if healing was successful.
         """
         file_path = parsed_issue.get("file") or ""
         fingerprint = parsed_issue.get("fingerprint") or ""
+        error_type = parsed_issue.get("error_type") or ""
         module = _classify_error_to_module(file_path)
+
+        # --- Open incident in tracker ---
+        _incident_tracker.open_incident(fingerprint, error_type, module or "unknown")
+
+        # --- Dependency check: is it safe to heal? ---
+        if module and not _check_service_safe_to_heal(module):
+            logger.info(
+                "sentry_integration: deferring heal for module=%s (active requests)",
+                module,
+            )
+            _incident_tracker.escalate(fingerprint, "deferred_active_requests")
+            return False
 
         # --- Module-specific healing (v4.0) ---
         if module and module in _MODULE_FIX_STRATEGIES:
             for strategy in _MODULE_FIX_STRATEGIES[module]:
                 action = strategy["action"]
+                _incident_tracker.start_healing(fingerprint, action)
                 success = _execute_module_healing(module, action, parsed_issue)
                 _record_module_heal(module, success)
                 if success:
@@ -993,9 +1356,11 @@ class SentryHealingBridge:
                         module,
                         action,
                     )
+                    _incident_tracker.resolve(fingerprint)
                     return True
             # All module strategies failed -- check escalation
             _check_escalation(fingerprint, module)
+            _incident_tracker.escalate(fingerprint, "all_module_strategies_failed")
 
         # --- Generic AutoQC healing ---
         try:
@@ -1004,12 +1369,18 @@ class SentryHealingBridge:
             qc = get_auto_qc()
         except ImportError:
             logger.warning("sentry_integration: auto_qc not available for self-healing")
+            _incident_tracker.escalate(fingerprint, "auto_qc_unavailable")
             return False
 
         try:
+            _incident_tracker.start_healing(fingerprint, f"autoqc:{fix_type}")
             result = _execute_healing_action(fix_type, parsed_issue, qc)
             if module:
                 _record_module_heal(module, result)
+            if result:
+                _incident_tracker.resolve(fingerprint)
+            else:
+                _incident_tracker.escalate(fingerprint, f"autoqc_failed:{fix_type}")
             return result
         except Exception as exc:
             logger.error(
@@ -1021,6 +1392,7 @@ class SentryHealingBridge:
             if module:
                 _record_module_heal(module, False)
                 _check_escalation(fingerprint, module)
+            _incident_tracker.escalate(fingerprint, f"exception:{exc}")
             return False
 
     def _check_rate_limit(self) -> bool:
@@ -1658,8 +2030,11 @@ def get_sentry_status() -> dict:
             "unique_issues_tracked": len(_issue_attempts),
         },
         "module_heal_stats": get_module_heal_stats(),
+        "incident_summary": get_incident_summary(),
+        "active_incidents": get_active_incidents(),
         "recent_heals": history,
         "known_patterns": len(_ERROR_PATTERNS),
+        "runbook_patterns": len(_RUNBOOK_REGISTRY),
     }
 
 

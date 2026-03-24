@@ -25,6 +25,7 @@ import smtplib
 import sys
 import threading
 import time
+from collections import deque
 from datetime import datetime, timezone
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -74,6 +75,9 @@ class CircuitBreaker:
         "total_failures",
         "last_failure_time",
         "last_failure_reason",
+        "_consecutive_failures",
+        "_on_open_callbacks",
+        "_on_close_callbacks",
     )
 
     def __init__(self, max_failures: int = 3, cooldown_seconds: int = 3600) -> None:
@@ -86,9 +90,21 @@ class CircuitBreaker:
         self.total_failures: int = 0
         self.last_failure_time: float = 0.0
         self.last_failure_reason: str = ""
+        self._consecutive_failures: int = 0
+        self._on_open_callbacks: list = []
+        self._on_close_callbacks: list = []
+
+    def on_open(self, callback: Any) -> None:
+        """Register a callback fired when the circuit opens."""
+        self._on_open_callbacks.append(callback)
+
+    def on_close(self, callback: Any) -> None:
+        """Register a callback fired when the circuit closes (recovers)."""
+        self._on_close_callbacks.append(callback)
 
     def is_open(self) -> bool:
         """Return True if the circuit is open (tier should be skipped)."""
+        fire_close = False
         with self._lock:
             if self.failures < self.max_failures:
                 return False
@@ -96,25 +112,69 @@ class CircuitBreaker:
                 # Cooldown expired -- half-open: reset and allow one attempt
                 self.failures = 0
                 self.disabled_until = 0.0
-                return False
-            return True
+                self._consecutive_failures = 0
+                fire_close = True
+            else:
+                return True
+        # Fire close callbacks outside the lock to avoid deadlocks
+        if fire_close:
+            for cb in self._on_close_callbacks:
+                try:
+                    cb(self)
+                except Exception:
+                    pass
+        return False
 
     def record_success(self) -> None:
         """Record a successful call -- resets failure count."""
+        fire_close = False
         with self._lock:
+            was_open = self.failures >= self.max_failures
             self.failures = 0
             self.disabled_until = 0.0
+            self._consecutive_failures = 0
             self.total_successes += 1
+            if was_open:
+                fire_close = True
+        if fire_close:
+            for cb in self._on_close_callbacks:
+                try:
+                    cb(self)
+                except Exception:
+                    pass
+
+    def _get_cooldown_with_jitter(self) -> float:
+        """Exponential backoff with jitter for circuit recovery.
+
+        Returns:
+            Cooldown period in seconds with exponential backoff and random jitter.
+        """
+        import random
+
+        base = self.cooldown_seconds
+        multiplier = min(2**self._consecutive_failures, 8)
+        jitter = random.uniform(0, base * 0.3)
+        return base * multiplier + jitter
 
     def record_failure(self, reason: str = "") -> None:
         """Record a failed call. Opens the circuit after max_failures."""
+        fire_open = False
         with self._lock:
             self.failures += 1
             self.total_failures += 1
+            self._consecutive_failures += 1
             self.last_failure_time = time.time()
             self.last_failure_reason = reason[:200]
             if self.failures >= self.max_failures:
-                self.disabled_until = time.time() + self.cooldown_seconds
+                cooldown = self._get_cooldown_with_jitter()
+                self.disabled_until = time.time() + cooldown
+                fire_open = True
+        if fire_open:
+            for cb in self._on_open_callbacks:
+                try:
+                    cb(self)
+                except Exception:
+                    pass
 
     def reset(self) -> None:
         """Manually reset the circuit breaker."""
@@ -546,6 +606,128 @@ class MemoryCounter:
 
 
 # =============================================================================
+# BULKHEAD LIMITER
+# =============================================================================
+
+
+class BulkheadLimiter:
+    """Limits concurrent calls to a service to prevent resource starvation.
+
+    Uses a semaphore-based approach to cap the number of in-flight requests
+    per service category. Thread-safe.
+    """
+
+    def __init__(self, max_concurrent: int = 10) -> None:
+        self._semaphore = threading.Semaphore(max_concurrent)
+        self._max = max_concurrent
+        self._active = 0
+        self._lock = threading.Lock()
+
+    def acquire(self, timeout: float = 5.0) -> bool:
+        """Acquire a slot. Returns True if acquired within timeout."""
+        acquired = self._semaphore.acquire(timeout=timeout)
+        if acquired:
+            with self._lock:
+                self._active += 1
+        return acquired
+
+    def release(self) -> None:
+        """Release a slot."""
+        self._semaphore.release()
+        with self._lock:
+            self._active = max(0, self._active - 1)
+
+    @property
+    def active_count(self) -> int:
+        """Return the number of active concurrent calls."""
+        with self._lock:
+            return self._active
+
+    def get_status(self) -> Dict[str, Any]:
+        """Return bulkhead status for dashboards."""
+        return {"max_concurrent": self._max, "active": self.active_count}
+
+
+# =============================================================================
+# ADAPTIVE TIMEOUT TRACKER
+# =============================================================================
+
+
+class AdaptiveTimeoutTracker:
+    """Track per-tier latency and dynamically adjust timeouts.
+
+    Maintains a rolling window of latencies per tier name and computes
+    p95 to set adaptive timeouts. The timeout is clamped between a
+    configurable minimum and maximum.
+    """
+
+    def __init__(
+        self,
+        min_timeout: float = 2.0,
+        max_timeout: float = 30.0,
+        multiplier: float = 1.5,
+    ) -> None:
+        self._lock = threading.Lock()
+        self._latencies: Dict[str, deque] = {}
+        self._min_timeout = min_timeout
+        self._max_timeout = max_timeout
+        self._multiplier = multiplier
+
+    def record_latency(self, tier_name: str, latency_seconds: float) -> None:
+        """Record a request latency for a tier."""
+        with self._lock:
+            if tier_name not in self._latencies:
+                self._latencies[tier_name] = deque(maxlen=100)
+            self._latencies[tier_name].append(latency_seconds)
+
+    def get_timeout(self, tier_name: str) -> float:
+        """Get the adaptive timeout for a tier based on p95 latency.
+
+        Returns:
+            Timeout in seconds, clamped between min and max.
+        """
+        with self._lock:
+            lats = self._latencies.get(tier_name)
+            if not lats or len(lats) < 5:
+                return self._max_timeout
+            sorted_lats = sorted(lats)
+            idx = int(len(sorted_lats) * 0.95)
+            p95 = sorted_lats[min(idx, len(sorted_lats) - 1)]
+            adaptive = p95 * self._multiplier
+            return max(self._min_timeout, min(self._max_timeout, adaptive))
+
+    def get_all_timeouts(self) -> Dict[str, float]:
+        """Return adaptive timeouts for all tracked tiers."""
+        with self._lock:
+            result: Dict[str, float] = {}
+            for tier_name in self._latencies:
+                lats = self._latencies[tier_name]
+                if not lats or len(lats) < 5:
+                    result[tier_name] = self._max_timeout
+                    continue
+                sorted_lats = sorted(lats)
+                idx = int(len(sorted_lats) * 0.95)
+                p95 = sorted_lats[min(idx, len(sorted_lats) - 1)]
+                adaptive = p95 * self._multiplier
+                result[tier_name] = max(
+                    self._min_timeout, min(self._max_timeout, adaptive)
+                )
+            return result
+
+    def get_status(self) -> Dict[str, Any]:
+        """Return tracker status for dashboards."""
+        timeouts = self.get_all_timeouts()
+        with self._lock:
+            counts = {k: len(v) for k, v in self._latencies.items()}
+        return {
+            "adaptive_timeouts": timeouts,
+            "sample_counts": counts,
+            "min_timeout": self._min_timeout,
+            "max_timeout": self._max_timeout,
+        }
+
+
+# =============================================================================
 # RESILIENCE ROUTER
 # =============================================================================
 
@@ -568,9 +750,23 @@ class ResilienceRouter:
         self._structured_logger = LocalStructuredLogger(_LOGS_DIR)
         self._memory_counter = MemoryCounter()
 
+        # -- Fallback quality tracking -----------------------------------------
+        self._fallback_lock = threading.Lock()
+        self._fallback_usage: Dict[str, int] = {}  # tier_name -> usage count
+
+        # -- Bulkhead limiters per service category ----------------------------
+        self._bulkheads: Dict[str, BulkheadLimiter] = {}
+
+        # -- Adaptive timeout tracker ------------------------------------------
+        self._adaptive_timeouts = AdaptiveTimeoutTracker()
+
         # -- Build service tier definitions -----------------------------------
         self._tiers: Dict[str, List[ServiceTier]] = {}
         self._init_tiers()
+
+        # -- Initialize bulkheads for each service category -------------------
+        for category in self._tiers:
+            self._bulkheads[category] = BulkheadLimiter(max_concurrent=10)
 
         logger.info(
             "[resilience_router] Initialized with %d service categories",
@@ -981,13 +1177,19 @@ class ResilienceRouter:
         Tries tiers in priority order: Upstash -> Supabase -> Memory -> File.
         Returns None on complete miss.
         """
+        attempted = 0
         for tier in self._tiers["caching"]:
             if not tier.is_available():
                 continue
+            attempted += 1
             try:
+                t0 = time.time()
                 result = self._cache_get_tier(tier, key)
+                self._adaptive_timeouts.record_latency(tier.name, time.time() - t0)
                 if result is not None:
                     tier.circuit_breaker.record_success()
+                    if attempted > 1:
+                        self._record_fallback_usage(tier.name)
                     return result
                 # None means cache miss, not a failure
                 tier.circuit_breaker.record_success()
@@ -1008,12 +1210,18 @@ class ResilienceRouter:
         Returns True if at least one tier succeeded.
         """
         success = False
+        attempted = 0
         for tier in self._tiers["caching"]:
             if not tier.is_available():
                 continue
+            attempted += 1
             try:
+                t0 = time.time()
                 self._cache_set_tier(tier, key, data, ttl_seconds, category)
+                self._adaptive_timeouts.record_latency(tier.name, time.time() - t0)
                 tier.circuit_breaker.record_success()
+                if attempted > 1:
+                    self._record_fallback_usage(tier.name)
                 success = True
                 break  # Only write to the highest-priority available tier
             except Exception as exc:
@@ -1101,13 +1309,19 @@ class ResilienceRouter:
         Returns:
             List of row dicts, or empty list on total failure.
         """
+        attempted = 0
         for tier in self._tiers["database"]:
             if not tier.is_available():
                 continue
+            attempted += 1
             try:
+                t0 = time.time()
                 result = self._db_query_tier(tier, table, **filters)
+                self._adaptive_timeouts.record_latency(tier.name, time.time() - t0)
                 if result:
                     tier.circuit_breaker.record_success()
+                    if attempted > 1:
+                        self._record_fallback_usage(tier.name)
                     return result
                 # Empty result is not a failure -- try next tier for data
                 tier.circuit_breaker.record_success()
@@ -1124,13 +1338,19 @@ class ResilienceRouter:
 
         Returns True if at least one tier succeeded.
         """
+        attempted = 0
         for tier in self._tiers["database"]:
             if not tier.is_available():
                 continue
+            attempted += 1
             try:
+                t0 = time.time()
                 success = self._db_write_tier(tier, table, row)
+                self._adaptive_timeouts.record_latency(tier.name, time.time() - t0)
                 if success:
                     tier.circuit_breaker.record_success()
+                    if attempted > 1:
+                        self._record_fallback_usage(tier.name)
                     return True
             except Exception as exc:
                 tier.circuit_breaker.record_failure(str(exc))
@@ -1374,13 +1594,19 @@ class ResilienceRouter:
         Tries: PostHog -> Local file -> Memory counter.
         Returns True if any tier succeeded.
         """
+        attempted = 0
         for tier in self._tiers["analytics"]:
             if not tier.is_available():
                 continue
+            attempted += 1
             try:
+                t0 = time.time()
                 success = self._track_event_tier(tier, event, properties, distinct_id)
+                self._adaptive_timeouts.record_latency(tier.name, time.time() - t0)
                 if success:
                     tier.circuit_breaker.record_success()
+                    if attempted > 1:
+                        self._record_fallback_usage(tier.name)
                     return True
             except Exception as exc:
                 tier.circuit_breaker.record_failure(str(exc))
@@ -1827,6 +2053,28 @@ class ResilienceRouter:
             logger.info("[resilience] Reset all circuit breakers")
 
     # ------------------------------------------------------------------
+    # FALLBACK & RESILIENCE HELPERS
+    # ------------------------------------------------------------------
+
+    def _record_fallback_usage(self, tier_name: str) -> None:
+        """Record that a fallback tier was used."""
+        with self._fallback_lock:
+            self._fallback_usage[tier_name] = self._fallback_usage.get(tier_name, 0) + 1
+
+    def get_fallback_usage(self) -> Dict[str, int]:
+        """Return fallback tier usage counts."""
+        with self._fallback_lock:
+            return dict(self._fallback_usage)
+
+    def get_bulkhead_status(self) -> Dict[str, Dict[str, Any]]:
+        """Return bulkhead status for all service categories."""
+        return {cat: bh.get_status() for cat, bh in self._bulkheads.items()}
+
+    def get_adaptive_timeout_status(self) -> Dict[str, Any]:
+        """Return adaptive timeout tracker status."""
+        return self._adaptive_timeouts.get_status()
+
+    # ------------------------------------------------------------------
     # HEALTH DASHBOARD
     # ------------------------------------------------------------------
 
@@ -1884,6 +2132,11 @@ class ResilienceRouter:
         dashboard["summary"]["health_score"] = (
             round((healthy / total) * 100) if total > 0 else 0
         )
+
+        # Include fallback usage, bulkhead status, and adaptive timeouts
+        dashboard["fallback_usage"] = self.get_fallback_usage()
+        dashboard["bulkheads"] = self.get_bulkhead_status()
+        dashboard["adaptive_timeouts"] = self.get_adaptive_timeout_status()
 
         return dashboard
 

@@ -307,6 +307,38 @@ class PostHogClient:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# CONSENT, SAMPLING, AND SCHEMA REGISTRY
+# ═══════════════════════════════════════════════════════════════════════════════
+_consent_granted: bool = True
+
+
+def set_consent(allowed: bool) -> None:
+    """Enable/disable all tracking based on user consent."""
+    global _consent_granted
+    _consent_granted = allowed
+
+
+_SAMPLE_RATES: dict[str, float] = {}  # event_prefix -> rate (0.0-1.0)
+
+
+def set_sample_rate(event_prefix: str, rate: float) -> None:
+    """Set sampling rate for events with this prefix.
+
+    rate=1.0 means track all, rate=0.0 means drop all.
+    """
+    _SAMPLE_RATES[event_prefix] = max(0.0, min(1.0, rate))
+
+
+_EVENT_SCHEMAS: dict[str, list[str]] = {
+    "plan.generated": ["plan_type", "budget", "channels"],
+    "intelligence.scraped": ["source", "query", "results_count"],
+    "compliance.checked": ["audit_type", "score"],
+    "nova.chat.sent": ["message_length", "module_context"],
+    "page.viewed": ["path", "referrer"],
+}
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # SINGLETON + MODULE-LEVEL HELPERS
 # ═══════════════════════════════════════════════════════════════════════════════
 _client: Optional[PostHogClient] = None
@@ -331,6 +363,20 @@ def track_event(
     properties: Optional[Dict[str, Any]] = None,
 ) -> None:
     """Track a named event for a user (fire-and-forget)."""
+    # Consent gate
+    if not _consent_granted:
+        return
+
+    # Sampling gate
+    import random
+
+    for prefix, rate in _SAMPLE_RATES.items():
+        if event.startswith(prefix):
+            if random.random() > rate:
+                logger.debug("[PostHog] Event %s sampled out (rate=%.2f)", event, rate)
+                return
+            break
+
     # Event taxonomy enforcement (Phase 6)
     VALID_PREFIXES = (
         "plan.",
@@ -349,6 +395,18 @@ def track_event(
             event,
             "/".join(VALID_PREFIXES),
         )
+
+    # Property schema validation
+    if event in _EVENT_SCHEMAS and properties:
+        expected = _EVENT_SCHEMAS[event]
+        missing = [k for k in expected if k not in properties]
+        if missing:
+            logger.warning(
+                "[PostHog] Event %s missing expected properties: %s",
+                event,
+                ", ".join(missing),
+            )
+
     _get_client().track_event(distinct_id, event, properties)
 
 
@@ -367,6 +425,35 @@ def identify_user(
 ) -> None:
     """Send an identify event to set user properties in PostHog."""
     _get_client().identify_user(distinct_id, properties)
+
+
+def track_group(
+    group_type: str,
+    group_key: str,
+    properties: Optional[Dict[str, Any]] = None,
+) -> None:
+    """Track group-level analytics (team/company)."""
+    track_event(
+        "system",
+        "$group_identify",
+        {
+            "$group_type": group_type,
+            "$group_key": group_key,
+            "$group_set": properties or {},
+        },
+    )
+
+
+def alias(distinct_id: str, alias_id: str) -> None:
+    """Link anonymous user to authenticated user."""
+    track_event(
+        distinct_id,
+        "$create_alias",
+        {
+            "distinct_id": distinct_id,
+            "alias": alias_id,
+        },
+    )
 
 
 def get_stats() -> Dict[str, Any]:
