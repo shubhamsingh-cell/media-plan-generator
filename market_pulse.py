@@ -1988,3 +1988,163 @@ def handle_pulse_api(
     except Exception as exc:
         logger.error("market_pulse: API error on %s: %s", path, exc)
         return 500, {"ok": False, "error": str(exc)}
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 8. PLG CONVENIENCE API -- Free Market Pulse Report wrappers
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def generate_market_pulse() -> Dict[str, Any]:
+    """Gather current market data and compute week-over-week trends.
+
+    This is the primary PLG entry-point: it reads from the data/ files
+    (live_market_data.json, channel_benchmarks_live.json), computes WoW
+    CPC changes, demand shifts, and channel performance, and returns a
+    structured dict suitable for JSON serialisation or HTML rendering.
+
+    Returns:
+        Dict with keys: report_id, period, cpc_trends, market_demand,
+        industry_spotlight, platform_shifts, seasonal_insights,
+        salary_trends, key_takeaways, generated_at, and
+        three convenience summary fields (avg_cpc, job_demand_index,
+        top_channel) for the email digest cards.
+    """
+    report = generate_pulse_report()
+
+    # Compute convenience summary metrics for the 3 key cards
+    avg_cpc: float = 0.0
+    top_channel: str = "Indeed"
+    top_channel_cpc: float = 999.0
+
+    cpc_data = report.get("cpc_trends") or {}
+    if cpc_data.get("available"):
+        platforms = cpc_data.get("platforms") or {}
+        cpc_values: list[float] = []
+        for pkey, pdata in platforms.items():
+            cur = pdata.get("avg_cpc_current")
+            if cur and cur > 0:
+                cpc_values.append(cur)
+                if cur < top_channel_cpc:
+                    top_channel_cpc = cur
+                    top_channel = pdata.get("label") or pkey.title()
+        if cpc_values:
+            avg_cpc = round(sum(cpc_values) / len(cpc_values), 2)
+
+    # Job Demand Index: composite of apply rates and industry activity
+    demand_data = report.get("market_demand") or {}
+    job_demand_index: float = 0.0
+    if demand_data.get("available"):
+        # Use overall demand score if present, else derive from industry count
+        job_demand_index = demand_data.get("demand_index") or 0.0
+        if not job_demand_index:
+            industries = demand_data.get("industries") or {}
+            if industries:
+                job_demand_index = round(
+                    sum(ind.get("demand_score") or 50.0 for ind in industries.values())
+                    / max(1, len(industries)),
+                    1,
+                )
+
+    # Generate the AI insight sentence
+    takeaways = report.get("key_takeaways") or []
+    market_insight = (
+        takeaways[0]
+        if takeaways
+        else (
+            "Recruitment advertising costs continue to fluctuate across platforms. "
+            "Use Nova AI Suite to optimise your media plan."
+        )
+    )
+
+    # Top 5 channels for the performance table
+    channel_performance: list[Dict[str, Any]] = []
+    if cpc_data.get("available"):
+        platforms = cpc_data.get("platforms") or {}
+        for pkey, pdata in platforms.items():
+            channel_performance.append(
+                {
+                    "channel": pdata.get("label") or pkey.title(),
+                    "avg_cpc": round(pdata.get("avg_cpc_current") or 0, 2),
+                    "wow_change_pct": round(pdata.get("avg_cpc_change_pct") or 0, 1),
+                    "model": pdata.get("model") or "",
+                }
+            )
+        # Sort by CPC ascending, take top 5
+        channel_performance.sort(key=lambda c: c["avg_cpc"])
+        channel_performance = channel_performance[:5]
+
+    report["summary"] = {
+        "avg_cpc": avg_cpc,
+        "job_demand_index": job_demand_index,
+        "top_channel": top_channel,
+        "market_insight": market_insight,
+        "channel_performance": channel_performance,
+    }
+
+    return report
+
+
+def send_pulse_email(
+    recipients: List[str],
+    pulse_data: Optional[Dict[str, Any]] = None,
+) -> bool:
+    """Send the market pulse email digest via Resend API.
+
+    Generates pulse data if not provided, renders the branded HTML email,
+    and dispatches via Resend.
+
+    Args:
+        recipients: List of email addresses to send to.
+        pulse_data: Pre-generated pulse data from generate_market_pulse().
+                    If None, generates fresh data.
+
+    Returns:
+        True if at least one email was sent successfully, False otherwise.
+    """
+    if pulse_data is None:
+        try:
+            pulse_data = generate_market_pulse()
+        except Exception as exc:
+            logger.error(
+                "market_pulse: failed to generate data for email: %s",
+                exc,
+                exc_info=True,
+            )
+            return False
+
+    try:
+        result = send_pulse_report(pulse_data, recipients)
+        return result.get("sent", False)
+    except Exception as exc:
+        logger.error("market_pulse: send_pulse_email failed: %s", exc, exc_info=True)
+        return False
+
+
+def get_pulse_stats() -> Dict[str, Any]:
+    """Return market pulse system stats for /api/health.
+
+    Returns:
+        Dict with report_count, last_generated, scheduler_running,
+        scheduler_next_run, and resend_configured.
+    """
+    scheduler_status = get_scheduler_status()
+    latest = get_latest_report()
+
+    last_generated: Optional[str] = None
+    if latest:
+        last_generated = latest.get("generated_at") or latest.get("report_date")
+
+    resend_configured = bool((os.environ.get("RESEND_API_KEY") or "").strip())
+
+    with _lock:
+        report_count = len(_report_history)
+
+    return {
+        "available": True,
+        "report_count": report_count,
+        "last_generated": last_generated,
+        "scheduler_running": scheduler_status.get("running", False),
+        "scheduler_next_run": scheduler_status.get("next_run"),
+        "resend_configured": resend_configured,
+    }

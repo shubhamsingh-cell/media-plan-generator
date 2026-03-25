@@ -2286,6 +2286,67 @@
         height: 16px;
         flex-shrink: 0;
       }
+      /* ── Confidence Pulse System ── */
+      .conf-pulse {
+        position: relative;
+        display: inline-block;
+      }
+      .conf-pulse::after {
+        content: "";
+        position: absolute;
+        inset: -4px;
+        border-radius: 8px;
+        border: 2px solid var(--conf-color, #5a54bd);
+        opacity: 0;
+        animation: conf-ring var(--conf-speed, 2s) ease-in-out infinite;
+        pointer-events: none;
+      }
+      @keyframes conf-ring {
+        0%,
+        100% {
+          opacity: 0;
+          transform: scale(0.95);
+        }
+        50% {
+          opacity: var(--conf-opacity, 0.6);
+          transform: scale(1.02);
+        }
+      }
+      .conf-high {
+        --conf-color: #22c55e;
+        --conf-speed: 1.2s;
+        --conf-opacity: 0.7;
+      }
+      .conf-medium {
+        --conf-color: #f59e0b;
+        --conf-speed: 2.5s;
+        --conf-opacity: 0.5;
+      }
+      .conf-low {
+        --conf-color: #ef4444;
+        --conf-speed: 4s;
+        --conf-opacity: 0.3;
+      }
+      .conf-pulse[data-confidence]::before {
+        content: attr(data-confidence) " confidence";
+        position: absolute;
+        bottom: calc(100% + 8px);
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.85);
+        color: #fff;
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-size: 0.72rem;
+        white-space: nowrap;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.2s;
+        z-index: 10;
+      }
+      .conf-pulse:hover::before {
+        opacity: 1;
+      }
     </style>
     <meta name="csrf-token" content="" />
   </head>
@@ -5298,6 +5359,32 @@
           })
           .catch(() => {});
       });
+    </script>
+    <script>
+      window.ConfidencePulse = {
+        apply: function (el, score) {
+          if (!el) return;
+          el.classList.add("conf-pulse");
+          var level = score >= 0.8 ? "high" : score >= 0.5 ? "medium" : "low";
+          var label = score >= 0.8 ? "High" : score >= 0.5 ? "Medium" : "Low";
+          el.classList.remove("conf-high", "conf-medium", "conf-low");
+          el.classList.add("conf-" + level);
+          el.setAttribute("data-confidence", label);
+          el.setAttribute(
+            "title",
+            label + " confidence (" + Math.round(score * 100) + "%)",
+          );
+        },
+        init: function () {
+          document.querySelectorAll("[data-conf-score]").forEach(function (el) {
+            var s = parseFloat(el.getAttribute("data-conf-score"));
+            if (!isNaN(s)) ConfidencePulse.apply(el, s);
+          });
+        },
+      };
+      document.readyState === "loading"
+        ? document.addEventListener("DOMContentLoaded", ConfidencePulse.init)
+        : ConfidencePulse.init();
     </script>
   </body>
 </html>

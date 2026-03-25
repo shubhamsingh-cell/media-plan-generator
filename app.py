@@ -3537,6 +3537,10 @@ _shared_plans_lock = threading.Lock()
 _plan_feedback: dict[str, list[dict]] = {}
 _plan_feedback_lock = threading.Lock()
 
+# SCORECARD STORE (in-memory, for shareable plan scorecards)
+_scorecards: dict[str, str] = {}
+_scorecards_lock = threading.Lock()
+
 # ASYNC GENERATION JOB STORE
 # ═══════════════════════════════════════════════════════════════════════════════
 _generation_jobs: dict = {}
@@ -3965,6 +3969,53 @@ def _build_health_response() -> dict:
         "upstash_redis_connected": _modules.get("upstash_redis") == "ok",
     }
 
+    # Request coalescing stats
+    try:
+        from request_coalescing import (
+            get_stats as _coal_stats,
+            _ENABLED as _coal_enabled,
+        )
+
+        if _coal_enabled:
+            result["request_coalescing"] = _coal_stats()
+        else:
+            result["request_coalescing"] = {"status": "not_configured"}
+    except ImportError:
+        result["request_coalescing"] = {"status": "not_installed"}
+
+    # Feature store status
+    try:
+        from feature_store import get_feature_store as _get_fs
+
+        _fs = _get_fs()
+        result["feature_store"] = _fs.get_all_features()
+        _modules["feature_store"] = "ok" if _fs._initialized else "down"
+    except ImportError:
+        result["feature_store"] = {"initialized": False}
+        _modules["feature_store"] = "not_installed"
+    except Exception as _fs_health_err:
+        logger.warning("Feature store health check failed: %s", _fs_health_err)
+        result["feature_store"] = {"initialized": False, "error": str(_fs_health_err)}
+        _modules["feature_store"] = "down"
+
+    # Circuit breaker mesh status
+    try:
+        from circuit_breaker_mesh import get_circuit_mesh as _get_cb_mesh
+
+        _cb_mesh = _get_cb_mesh()
+        _mesh_status = _cb_mesh.get_mesh_status()
+        result["circuit_breaker_mesh"] = {
+            "total_providers": _mesh_status.get("total_providers", 0),
+            "states": _mesh_status.get("states", {}),
+            "avg_health_score": _mesh_status.get("avg_health_score", 0.0),
+            "mesh_uptime_s": _mesh_status.get("mesh_uptime_s", 0.0),
+        }
+    except ImportError:
+        result["circuit_breaker_mesh"] = {"status": "not_available"}
+    except Exception as _cb_err:
+        logger.warning(f"Circuit breaker mesh status failed: {_cb_err}")
+        result["circuit_breaker_mesh"] = {"status": "error"}
+
     # Benchmark file freshness check
     try:
         from data_enrichment import check_benchmark_freshness
@@ -3978,6 +4029,42 @@ def _build_health_response() -> dict:
         pass
     except (ValueError, KeyError, TypeError, OSError) as bfe:
         logger.warning(f"Benchmark freshness check failed: {bfe}")
+
+    # Morning brief system status
+    try:
+        from morning_brief import get_brief_stats
+
+        result["morning_brief"] = get_brief_stats()
+    except ImportError:
+        result["morning_brief"] = {"status": "not_installed"}
+    except Exception as _mb_err:
+        logger.warning(f"Morning brief health check failed: {_mb_err}")
+        result["morning_brief"] = {"status": "error"}
+
+    # Market pulse system status
+    try:
+        from market_pulse import get_pulse_stats
+
+        result["market_pulse"] = get_pulse_stats()
+        _modules["market_pulse"] = "ok"
+    except ImportError:
+        result["market_pulse"] = {"available": False, "status": "not_installed"}
+        _modules["market_pulse"] = "not_installed"
+    except Exception as _mp_err:
+        logger.warning(f"Market pulse health check failed: {_mp_err}")
+        result["market_pulse"] = {"available": False, "status": "error"}
+        _modules["market_pulse"] = "down"
+
+    # Role taxonomy stats
+    try:
+        from role_taxonomy import get_role_taxonomy as _get_rt
+
+        result["role_taxonomy"] = _get_rt().get_taxonomy_stats()
+    except ImportError:
+        result["role_taxonomy"] = {"status": "not_installed"}
+    except Exception as _rt_err:
+        logger.warning(f"Role taxonomy health check failed: {_rt_err}")
+        result["role_taxonomy"] = {"status": "error"}
 
     return result
 
@@ -8219,6 +8306,41 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 self._send_json(get_proactive_stats())
             except Exception as e:
                 self._send_json({"error": str(e)})
+
+        # ── Role Taxonomy (semantic similarity) ──
+        elif path == "/api/roles/similar":
+            try:
+                from role_taxonomy import get_role_taxonomy
+
+                params = urllib.parse.parse_qs(parsed.query)
+                title = (params.get("title", [""])[0] or "").strip()
+                if not title:
+                    self._send_json(
+                        {"error": "Missing required query parameter: title"},
+                        status_code=400,
+                    )
+                else:
+                    top_k = min(int(params.get("top_k", ["5"])[0]), 20)
+                    taxonomy = get_role_taxonomy()
+                    similar = taxonomy.find_similar_roles(title, top_k=top_k)
+                    cluster = taxonomy.get_role_cluster(title)
+                    self._send_json(
+                        {
+                            "query": title,
+                            "similar_roles": [
+                                {"role": r, "similarity": s} for r, s in similar
+                            ],
+                            "cluster": cluster,
+                        }
+                    )
+            except ValueError as ve:
+                self._send_json({"error": f"Invalid parameter: {ve}"}, status_code=400)
+            except Exception as e:
+                logger.error("Role taxonomy error: %s", e, exc_info=True)
+                self._send_json(
+                    {"error": f"Role taxonomy lookup failed: {e}"},
+                    status_code=500,
+                )
 
         # NOTE: /api/pricing/live now handled by routes/pricing.py
         # NOTE: /api/campaign/list, /auto-qc, /eval-framework now handled by
@@ -13610,6 +13732,17 @@ if __name__ == "__main__":
         logger.info("Proactive intelligence engine started")
     except ImportError:
         logger.warning("nova_proactive not available")
+
+    # ── Feature Store Init ──
+    try:
+        from feature_store import get_feature_store
+
+        get_feature_store().initialize()
+        logger.info("Feature store initialized")
+    except ImportError:
+        logger.warning("feature_store module not available")
+    except Exception as _fs_err:
+        logger.error("Feature store init failed: %s", _fs_err, exc_info=True)
 
     # ── API Key Authentication Init (Phase 6) ──
     try:

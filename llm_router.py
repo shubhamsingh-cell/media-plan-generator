@@ -1809,6 +1809,18 @@ _provider_states: Dict[str, _ProviderState] = {
     pid: _ProviderState(pid) for pid in PROVIDER_CONFIG
 }
 
+# ---- Circuit Breaker Mesh registration ----
+try:
+    from circuit_breaker_mesh import get_circuit_mesh as _get_cb_mesh
+
+    _circuit_mesh = _get_cb_mesh()
+    for _pid in PROVIDER_CONFIG:
+        _circuit_mesh.register_provider(_pid)
+    logger.info(f"CircuitBreakerMesh: registered {len(PROVIDER_CONFIG)} providers")
+except ImportError:
+    _circuit_mesh = None
+    logger.debug("circuit_breaker_mesh module not available, skipping mesh init")
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # TASK CLASSIFICATION
@@ -1928,6 +1940,10 @@ def select_provider(
                     pid,
                 )
                 continue
+        # Circuit breaker mesh check (skip if mesh blocks this provider)
+        if _circuit_mesh is not None and not _circuit_mesh.can_use(pid):
+            logger.debug("LLM Router: %s blocked by circuit mesh, skipping", pid)
+            continue
         # Circuit breaker + health score check
         state = _provider_states.get(pid)
         if state and state.is_available():
@@ -2461,6 +2477,13 @@ def call_llm(
                                 limits["rpm"],
                             )
                             continue
+                # Circuit breaker mesh check
+                if _circuit_mesh is not None and not _circuit_mesh.can_use(pid):
+                    logger.debug(
+                        "LLM Router: %s blocked by circuit mesh (custom route), skipping",
+                        pid,
+                    )
+                    continue
                 state = _provider_states.get(pid)
                 if state and state.is_available():
                     provider = pid
@@ -2854,6 +2877,12 @@ def call_llm_stream(
                 env_key = config.get("env_key") or ""
                 if not os.environ.get(env_key, "").strip():
                     continue
+                # Circuit breaker mesh check (streaming path)
+                if _circuit_mesh is not None and not _circuit_mesh.can_use(pid):
+                    logger.debug(
+                        "LLM Stream: %s blocked by circuit mesh, skipping", pid
+                    )
+                    continue
                 state = _provider_states.get(pid)
                 if state and state.is_available():
                     provider = pid
@@ -2887,6 +2916,9 @@ def call_llm_stream(
                 latency_ms = round((time.time() - start_time) * 1000, 1)
                 if state:
                     state.record_success(latency_ms)
+                # Circuit breaker mesh: record streaming success
+                if _circuit_mesh is not None:
+                    _circuit_mesh.record_success(provider, latency_ms)
                 logger.info(
                     "LLM Stream: %s completed streaming in %.0fms",
                     provider,
@@ -2897,6 +2929,9 @@ def call_llm_stream(
             # No tokens yielded -- treat as failure
             if state:
                 state.record_failure()
+            # Circuit breaker mesh: record streaming failure
+            if _circuit_mesh is not None:
+                _circuit_mesh.record_failure(provider, "no tokens yielded")
             excluded.append(provider)
             logger.warning(
                 "LLM Stream: %s yielded no tokens (attempt %d), trying next",
@@ -2907,6 +2942,9 @@ def call_llm_stream(
         except (urllib.error.HTTPError, urllib.error.URLError) as http_err:
             if state:
                 state.record_failure()
+            # Circuit breaker mesh: record streaming HTTP failure
+            if _circuit_mesh is not None:
+                _circuit_mesh.record_failure(provider, f"stream HTTP error: {http_err}")
             excluded.append(provider)
             logger.error(
                 "LLM Stream: %s HTTP error: %s (attempt %d)",
@@ -2939,6 +2977,11 @@ def call_llm_stream(
         except Exception as exc:
             if state:
                 state.record_failure()
+            # Circuit breaker mesh: record streaming exception
+            if _circuit_mesh is not None:
+                _circuit_mesh.record_failure(
+                    provider, f"stream error: {str(exc)[:200]}"
+                )
             excluded.append(provider)
             logger.error(
                 "LLM Stream: %s error: %s (attempt %d)",
@@ -3046,6 +3089,9 @@ def _call_single_provider(
         if parsed.get("text") or parsed.get("raw_content") or parsed.get("tool_calls"):
             if state:
                 state.record_success(latency_ms)
+            # Circuit breaker mesh: record success
+            if _circuit_mesh is not None:
+                _circuit_mesh.record_success(provider_id, latency_ms)
             logger.info(
                 "LLM Router: %s responded in %.0fms (in=%d, out=%d)",
                 provider_id,
@@ -3056,6 +3102,9 @@ def _call_single_provider(
         else:
             if state:
                 state.record_failure()
+            # Circuit breaker mesh: record failure (empty response)
+            if _circuit_mesh is not None:
+                _circuit_mesh.record_failure(provider_id, "empty response")
 
         parsed["provider"] = provider_id
         parsed["provider_name"] = config.get("name") or ""
@@ -3081,6 +3130,12 @@ def _call_single_provider(
                 )
             else:
                 state.record_failure()
+
+        # Circuit breaker mesh: record failure for non-rate-limit errors
+        if _circuit_mesh is not None and http_err.code not in (429, 403):
+            _circuit_mesh.record_failure(
+                provider_id, f"HTTP {http_err.code}: {error_body[:100]}"
+            )
 
         logger.error(
             "LLM Router: %s HTTP %d: %s", provider_id, http_err.code, error_body[:200]
@@ -3110,6 +3165,9 @@ def _call_single_provider(
     except Exception as exc:
         if state:
             state.record_failure()
+        # Circuit breaker mesh: record failure
+        if _circuit_mesh is not None:
+            _circuit_mesh.record_failure(provider_id, str(exc)[:200])
         logger.error("LLM Router: %s error: %s", provider_id, exc, exc_info=True)
         # ── PostHog: Track provider failure ──
         try:

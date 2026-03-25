@@ -1171,8 +1171,138 @@ def _handle_config(handler, path: str, parsed: Any) -> None:
     _send_json_response(handler, config)
 
 
+def _handle_features(handler, path: str, parsed: Any) -> None:
+    """/api/features -- feature store status and channel recommendations.
+
+    Query params (all optional):
+        job_title: Target role for channel recommendations.
+        budget: Monthly budget in USD.
+        location: Hiring location for geo-adjusted CPCs.
+
+    When all three params are provided, returns full channel recommendations.
+    Otherwise returns feature store summary only.
+    """
+    try:
+        from feature_store import get_feature_store
+
+        fs = get_feature_store()
+        query = urllib.parse.parse_qs(parsed.query)
+        job_title = (query.get("job_title") or [None])[0]
+        budget_str = (query.get("budget") or [None])[0]
+        location = (query.get("location") or [None])[0]
+
+        result: dict[str, Any] = {
+            "status": "ok" if fs._initialized else "not_initialized",
+            "summary": fs.get_all_features(),
+        }
+
+        if job_title and budget_str and location:
+            try:
+                budget = float(budget_str)
+            except (ValueError, TypeError):
+                _send_json_response(
+                    handler,
+                    {"error": "Invalid budget value -- must be a number"},
+                    status_code=400,
+                )
+                return
+            result["recommendations"] = fs.get_channel_recommendations(
+                job_title, budget, location
+            )
+        elif job_title:
+            result["role_family"] = fs.get_role_family(job_title)
+
+        _send_json_response(handler, result)
+    except ImportError:
+        _send_json_response(
+            handler,
+            {"error": "feature_store module not available"},
+            status_code=503,
+        )
+    except Exception as e:
+        logger.error("Feature store endpoint error: %s", e, exc_info=True)
+        _send_json_response(
+            handler,
+            {"error": f"Feature store error: {e}"},
+            status_code=500,
+        )
+
+
+def _handle_morning_brief_api(handler, path: str, parsed: Any) -> None:
+    """/api/morning-brief -- JSON morning brief digest."""
+    try:
+        from morning_brief import generate_morning_brief
+
+        brief = generate_morning_brief()
+        _send_json_response(handler, brief)
+    except ImportError:
+        _send_json_response(
+            handler,
+            {"error": "morning_brief module not available"},
+            status_code=503,
+        )
+    except Exception as e:
+        logger.error("Morning brief API error: %s", e, exc_info=True)
+        _send_json_response(
+            handler,
+            {"error": f"Morning brief generation failed: {e}"},
+            status_code=500,
+        )
+
+
+def _handle_morning_brief_page(handler, path: str, parsed: Any) -> None:
+    """/morning-brief -- HTML morning brief page."""
+    try:
+        from morning_brief import generate_morning_brief, generate_brief_html
+
+        brief = generate_morning_brief()
+        html = generate_brief_html(brief)
+        body = html.encode("utf-8")
+        handler.send_response(200)
+        handler.send_header("Content-Type", "text/html; charset=utf-8")
+        handler.send_header("Content-Length", str(len(body)))
+        handler.end_headers()
+        handler.wfile.write(body)
+    except ImportError:
+        _send_json_response(
+            handler,
+            {"error": "morning_brief module not available"},
+            status_code=503,
+        )
+    except Exception as e:
+        logger.error("Morning brief page error: %s", e, exc_info=True)
+        _send_json_response(
+            handler,
+            {"error": f"Morning brief page failed: {e}"},
+            status_code=500,
+        )
+
+
+def _handle_market_pulse_json(handler, path: str, parsed: Any) -> None:
+    """/api/market-pulse -- JSON market pulse data for PLG digest."""
+    try:
+        from market_pulse import generate_market_pulse
+
+        pulse = generate_market_pulse()
+        _send_json_response(handler, {"ok": True, "pulse": pulse})
+    except ImportError:
+        _send_json_response(
+            handler,
+            {"ok": False, "error": "market_pulse module not available"},
+            status_code=503,
+        )
+    except Exception as e:
+        logger.error("Market pulse API error: %s", e, exc_info=True)
+        _send_json_response(
+            handler,
+            {"ok": False, "error": f"Market pulse generation failed: {e}"},
+            status_code=500,
+        )
+
+
 _HEALTH_ROUTE_MAP: dict[str, Any] = {
     "/api/config": _handle_config,
+    "/api/features": _handle_features,
     "/api/health": _handle_health,
     "/health": _handle_health,
     "/api/health/ready": _handle_health_ready,
@@ -1194,4 +1324,7 @@ _HEALTH_ROUTE_MAP: dict[str, Any] = {
     "/api/health/eval": _handle_health_eval,
     "/api/llm/costs": _handle_llm_costs,
     "/api/audit/events": _handle_audit_events,
+    "/api/morning-brief": _handle_morning_brief_api,
+    "/morning-brief": _handle_morning_brief_page,
+    "/api/market-pulse": _handle_market_pulse_json,
 }

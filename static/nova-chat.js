@@ -1703,6 +1703,9 @@
         msg.confidence,
         msg.confidence_breakdown,
       );
+
+      // Confidence Pulse: animate stat values with pulsing rings
+      applyConfidencePulse(msgEl, msg.confidence);
     } else {
       // User message: set text content and add edit icon
       msgEl.textContent = msg.content;
@@ -2142,6 +2145,33 @@
   // ---------------------------------------------------------------------------
   // Helper: add meta (sources, confidence) to an element
   // ---------------------------------------------------------------------------
+  // ── Confidence Pulse: wrap dollar/percent stats with pulsing rings ──
+  function applyConfidencePulse(containerEl, confidence) {
+    if (!containerEl || typeof confidence !== "number" || confidence <= 0)
+      return;
+    // Walk text nodes looking for $X,XXX or XX% patterns inside <strong>, <td>, <code>
+    var targets = containerEl.querySelectorAll("strong, td, code, b");
+    var statPattern = /(\$[\d,.]+[KMBkmb]?|[\d,.]+%)/;
+    targets.forEach(function (el) {
+      if (
+        statPattern.test(el.textContent) &&
+        !el.classList.contains("conf-pulse")
+      ) {
+        el.classList.add("conf-pulse");
+        var level =
+          confidence >= 0.8 ? "high" : confidence >= 0.5 ? "medium" : "low";
+        var label =
+          confidence >= 0.8 ? "High" : confidence >= 0.5 ? "Medium" : "Low";
+        el.classList.add("conf-" + level);
+        el.setAttribute("data-confidence", label);
+        el.setAttribute(
+          "title",
+          label + " confidence (" + Math.round(confidence * 100) + "%)",
+        );
+      }
+    });
+  }
+
   function addMetaToElement(msgEl, sources, confidence, breakdown) {
     if (
       (sources && sources.length > 0) ||
@@ -2642,6 +2672,9 @@
               finalConfidence,
               finalBreakdown,
             );
+
+            // Confidence Pulse: animate stat values with pulsing rings
+            applyConfidencePulse(streamEl, finalConfidence);
 
             // Add timestamp to the stream column
             var streamColEl = streamEl.parentNode;

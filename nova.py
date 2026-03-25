@@ -6891,6 +6891,19 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
                 "grounding_score": 1.0,
             }
 
+        # ── Request coalescing: check if identical query is already in-flight ──
+        try:
+            from request_coalescing import get_coalescer
+
+            _coalescer = get_coalescer()
+            _is_leader, _qhash, _cached = _coalescer.check_or_register(user_message)
+            if not _is_leader and _cached:
+                logger.info("Returning coalesced result for: %.40s...", user_message)
+                return _cached
+        except Exception as _coal_err:
+            logger.debug("Coalescing check skipped: %s", _coal_err)
+            _is_leader, _qhash, _coalescer = True, "", None
+
         messages = []
 
         # Build conversation history with context preservation
@@ -7209,7 +7222,7 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
                     elif confidence_breakdown["overall"] < 0.75:
                         confidence_breakdown["grade"] = "C"
 
-                return {
+                _result = {
                     "response": response_text,
                     "sources": list(sources),
                     "confidence": confidence_breakdown["overall"],
@@ -7220,6 +7233,13 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
                     "verification_status": verification_status,
                     "verification_score": round(verification_score, 2),
                 }
+                # Store result for request coalescing
+                try:
+                    if _coalescer and _is_leader and _qhash:
+                        _coalescer.complete(_qhash, _result)
+                except Exception as _coal_err:
+                    logger.debug("Coalescing complete skipped: %s", _coal_err)
+                return _result
 
         # If we exhausted iterations, extract any partial text
         partial_text = ""
@@ -7228,7 +7248,7 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
                 partial_text += block.get("text") or ""
 
         if partial_text:
-            return {
+            _result = {
                 "response": partial_text
                 + "\n\n_Note: I used all available tool iterations. Some data may be incomplete._",
                 "sources": list(sources),
@@ -7240,14 +7260,28 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
                 "tools_used": tools_used,
                 "tool_iterations": max_iterations,
             }
+            # Store result for request coalescing
+            try:
+                if _coalescer and _is_leader and _qhash:
+                    _coalescer.complete(_qhash, _result)
+            except Exception as _coal_err:
+                logger.debug("Coalescing complete skipped: %s", _coal_err)
+            return _result
 
-        return {
+        _result = {
             "response": "I gathered data but could not finalize a response. Please try rephrasing your question.",
             "sources": list(sources),
             "confidence": 0.3,
             "tools_used": tools_used,
             "tool_iterations": max_iterations,
         }
+        # Store result for request coalescing
+        try:
+            if _coalescer and _is_leader and _qhash:
+                _coalescer.complete(_qhash, _result)
+        except Exception as _coal_err:
+            logger.debug("Coalescing complete skipped: %s", _coal_err)
+        return _result
 
     def _chat_rule_based(
         self,

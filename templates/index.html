@@ -4322,6 +4322,84 @@
         }
       }
 
+      /* ── Inline Nudge Bubbles ── */
+      .copilot-nudge {
+        display: none;
+        margin-top: 8px;
+        padding: 10px 14px;
+        border-radius: 10px;
+        font-size: 12px;
+        line-height: 1.5;
+        position: relative;
+        animation: nudge-slide-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+      }
+      .copilot-nudge.visible {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+      }
+      .copilot-nudge .nudge-icon {
+        flex-shrink: 0;
+        width: 16px;
+        height: 16px;
+        margin-top: 1px;
+      }
+      .copilot-nudge .nudge-text {
+        flex: 1;
+      }
+      .copilot-nudge .nudge-source {
+        display: block;
+        font-size: 10px;
+        opacity: 0.6;
+        margin-top: 3px;
+      }
+      .copilot-nudge .nudge-dismiss {
+        position: absolute;
+        top: 6px;
+        right: 8px;
+        background: none;
+        border: none;
+        color: inherit;
+        opacity: 0.5;
+        cursor: pointer;
+        font-size: 14px;
+        line-height: 1;
+        padding: 2px 4px;
+      }
+      .copilot-nudge .nudge-dismiss:hover {
+        opacity: 1;
+      }
+      .copilot-nudge--info {
+        background: rgba(107, 179, 205, 0.1);
+        border: 1px solid rgba(107, 179, 205, 0.25);
+        color: #93d4e8;
+      }
+      .copilot-nudge--suggestion {
+        background: rgba(90, 84, 189, 0.1);
+        border: 1px solid rgba(90, 84, 189, 0.25);
+        color: #a5b4fc;
+      }
+      .copilot-nudge--warning {
+        background: rgba(251, 191, 36, 0.08);
+        border: 1px solid rgba(251, 191, 36, 0.25);
+        color: #fcd34d;
+      }
+      @keyframes nudge-slide-in {
+        from {
+          opacity: 0;
+          transform: translateY(-4px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .copilot-nudge {
+          animation: none;
+        }
+      }
+
       /* ── Plan Comparison Modal ── */
       .plan-compare-overlay {
         display: none;
@@ -5060,6 +5138,12 @@
                   Accepts: $12,500,000 / 12.5M / 500K / 2B etc.
                 </div>
               </div>
+              <div
+                class="copilot-nudge"
+                id="nudge-budget"
+                aria-live="polite"
+                aria-label="Budget insight"
+              ></div>
             </div>
             <div class="form-group">
               <label for="campaignDuration">Campaign Duration *</label>
@@ -5074,6 +5158,12 @@
                 </option>
                 <option value="Ongoing">Ongoing</option>
               </select>
+              <div
+                class="copilot-nudge"
+                id="nudge-duration"
+                aria-live="polite"
+                aria-label="Duration insight"
+              ></div>
             </div>
             <div class="form-group">
               <label for="campaignStartMonth"
@@ -5219,6 +5309,12 @@
               id="copilot-locations"
               aria-live="polite"
               aria-label="Nova AI location suggestions"
+            ></div>
+            <div
+              class="copilot-nudge"
+              id="nudge-location"
+              aria-live="polite"
+              aria-label="Location insight"
             ></div>
           </div>
 
@@ -5672,6 +5768,12 @@
               aria-live="polite"
               aria-label="Nova AI role suggestions"
             ></div>
+            <div
+              class="copilot-nudge"
+              id="nudge-job_title"
+              aria-live="polite"
+              aria-label="Role insight"
+            ></div>
           </div>
 
           <div class="form-group">
@@ -5948,6 +6050,12 @@
             id="copilot-channels"
             aria-live="polite"
             aria-label="Nova AI channel recommendations"
+          ></div>
+          <div
+            class="copilot-nudge"
+            id="nudge-channel"
+            aria-live="polite"
+            aria-label="Channel insight"
           ></div>
         </div>
 
@@ -7329,6 +7437,17 @@
           html += "</svg></div>";
         }
 
+        // ── 2b. Sankey Flow Budget Visualizer ──
+        if (channels.length > 1) {
+          html += '<div class="plan-section-label">Budget Flow</div>';
+          html +=
+            '<div id="sankeyFlowContainer" style="margin:0 0 16px;padding:12px;' +
+            "background:rgba(32,32,88,0.15);border-radius:12px;" +
+            'border:1px solid rgba(90,84,189,0.15);overflow:hidden;">' +
+            '<div style="color:#666;text-align:center;padding:30px;font-family:Inter,sans-serif;">' +
+            "Loading flow diagram...</div></div>";
+        }
+
         // ── 3. Channel Details Table (sortable) ──
         if (channels.length > 0) {
           html += '<div class="plan-section-label">Channel Details</div>';
@@ -7520,6 +7639,40 @@
 
         html += "</div>"; // .plan-dashboard
         container.innerHTML = html;
+
+        // ── Render Sankey Flow Diagram (if script loaded and container exists) ──
+        var sankeyContainer = document.getElementById("sankeyFlowContainer");
+        if (
+          sankeyContainer &&
+          typeof SankeyViz !== "undefined" &&
+          channels.length > 1
+        ) {
+          try {
+            var sankeyBudget =
+              Number(bs.total) ||
+              channels.reduce(function (s, c) {
+                return s + (Number(c.budget) || 0);
+              }, 0);
+            SankeyViz.render(
+              sankeyContainer,
+              {
+                budget: sankeyBudget,
+                channels: channels,
+              },
+              {
+                width: 900,
+                height: Math.max(320, channels.length * 60 + 80),
+                animate: true,
+                interactive: true,
+              },
+            );
+          } catch (sankeyErr) {
+            console.warn("[SankeyViz] Render error:", sankeyErr);
+            sankeyContainer.innerHTML =
+              '<div style="color:#666;text-align:center;padding:20px;font-size:12px;">' +
+              "Flow diagram unavailable</div>";
+          }
+        }
 
         // Animate SVG bars (already handled by inline <animate>)
 
@@ -10330,6 +10483,239 @@
       })();
     </script>
 
+    <!-- Inline Plan Copilot -- contextual AI nudges -->
+    <script>
+      (function () {
+        "use strict";
+
+        var NUDGE_DEBOUNCE_MS = 700;
+        var _nudgeTimers = {};
+        var _nudgeAbortControllers = {};
+
+        var NUDGE_ICONS = {
+          info: '<svg viewBox="0 0 16 16" fill="currentColor" class="nudge-icon"><circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 7v4M8 5h.01"/></svg>',
+          suggestion:
+            '<svg viewBox="0 0 16 16" fill="currentColor" class="nudge-icon"><path d="M8 1l2 4h4l-3 3 1 4-4-2-4 2 1-4-3-3h4z"/></svg>',
+          warning:
+            '<svg viewBox="0 0 16 16" fill="currentColor" class="nudge-icon"><path d="M8 1L1 14h14L8 1zm0 4v5m0 2h.01"/></svg>',
+        };
+
+        function nudgeGetContext() {
+          var ctx = {
+            industry:
+              (typeof selectedIndustry !== "undefined" && selectedIndustry) ||
+              "",
+            budget: (document.getElementById("budgetRange") || {}).value || "",
+            roles: typeof roles !== "undefined" ? roles.slice() : [],
+            locations:
+              typeof locations !== "undefined" ? locations.slice() : [],
+          };
+          var exactBudget = document.getElementById("exactBudget");
+          if (exactBudget && exactBudget.value) {
+            ctx.budget = exactBudget.value;
+          }
+          return ctx;
+        }
+
+        function nudgeFetch(field, value) {
+          if (!value || !value.trim()) {
+            nudgeClear(field);
+            return;
+          }
+          if (_nudgeAbortControllers[field]) {
+            _nudgeAbortControllers[field].abort();
+          }
+          var controller = new AbortController();
+          _nudgeAbortControllers[field] = controller;
+
+          var csrfToken = "";
+          try {
+            csrfToken = document.cookie.split("; ").find(function (r) {
+              return r.startsWith("csrf_token=");
+            });
+            csrfToken = csrfToken ? csrfToken.split("=")[1] : "";
+          } catch (_) {}
+
+          var headers = { "Content-Type": "application/json" };
+          if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
+
+          fetch("/api/copilot/nudge", {
+            method: "POST",
+            headers: headers,
+            body: JSON.stringify({
+              field: field,
+              value: value,
+              context: nudgeGetContext(),
+            }),
+            signal: controller.signal,
+          })
+            .then(function (r) {
+              if (!r.ok) throw new Error("HTTP " + r.status);
+              return r.json();
+            })
+            .then(function (data) {
+              nudgeRender(field, data.nudges || []);
+            })
+            .catch(function (err) {
+              if (err.name !== "AbortError") {
+                nudgeClear(field);
+              }
+            });
+        }
+
+        function nudgeRender(field, nudges) {
+          var container = document.getElementById("nudge-" + field);
+          if (!container) return;
+
+          if (!nudges || nudges.length === 0) {
+            container.className = "copilot-nudge";
+            container.innerHTML = "";
+            return;
+          }
+
+          // Show the first (highest priority) nudge
+          var n = nudges[0];
+          var typeClass = "copilot-nudge--" + (n.type || "info");
+          container.className = "copilot-nudge visible " + typeClass;
+          container.innerHTML =
+            (NUDGE_ICONS[n.type] || NUDGE_ICONS.info) +
+            '<div class="nudge-text">' +
+            escapeHTML(n.message) +
+            '<span class="nudge-source">' +
+            escapeHTML(n.source || "") +
+            "</span></div>" +
+            '<button class="nudge-dismiss" aria-label="Dismiss nudge" title="Dismiss">&times;</button>';
+
+          container
+            .querySelector(".nudge-dismiss")
+            .addEventListener("click", function () {
+              nudgeClear(field);
+            });
+        }
+
+        function nudgeClear(field) {
+          var container = document.getElementById("nudge-" + field);
+          if (container) {
+            container.className = "copilot-nudge";
+            container.innerHTML = "";
+          }
+        }
+
+        function escapeHTML(str) {
+          var d = document.createElement("div");
+          d.textContent = str || "";
+          return d.innerHTML;
+        }
+
+        function nudgeDebounce(field, value) {
+          clearTimeout(_nudgeTimers[field]);
+          _nudgeTimers[field] = setTimeout(function () {
+            nudgeFetch(field, value);
+          }, NUDGE_DEBOUNCE_MS);
+        }
+
+        // Wire up listeners on DOMContentLoaded
+        document.addEventListener("DOMContentLoaded", function () {
+          // Budget field -- on change of select + blur of exact input
+          var budgetSelect = document.getElementById("budgetRange");
+          if (budgetSelect) {
+            budgetSelect.addEventListener("change", function () {
+              if (this.value && this.value !== "__exact__") {
+                nudgeDebounce("budget", this.value);
+              } else {
+                nudgeClear("budget");
+              }
+            });
+          }
+          var exactBudget = document.getElementById("exactBudget");
+          if (exactBudget) {
+            exactBudget.addEventListener("blur", function () {
+              if (this.value.trim()) {
+                nudgeFetch("budget", this.value.trim());
+              }
+            });
+          }
+
+          // Duration field
+          var durationSelect = document.getElementById("campaignDuration");
+          if (durationSelect) {
+            durationSelect.addEventListener("change", function () {
+              if (this.value) {
+                nudgeFetch("duration", this.value);
+              } else {
+                nudgeClear("duration");
+              }
+            });
+          }
+
+          // Role input -- fire nudge when a tag is added (blur of input or Enter)
+          var roleInput = document.getElementById("roleInput");
+          if (roleInput) {
+            roleInput.addEventListener("blur", function () {
+              var allRoles =
+                typeof roles !== "undefined" ? roles.join(", ") : this.value;
+              if (allRoles) nudgeDebounce("job_title", allRoles);
+            });
+            // Also listen for tag additions via MutationObserver on container
+            var rolesContainer = document.getElementById("rolesContainer");
+            if (rolesContainer) {
+              var rolesObserver = new MutationObserver(function () {
+                if (typeof roles !== "undefined" && roles.length > 0) {
+                  nudgeDebounce("job_title", roles[roles.length - 1]);
+                }
+              });
+              rolesObserver.observe(rolesContainer, { childList: true });
+            }
+          }
+
+          // Location input -- fire nudge when a tag is added
+          var locInput = document.getElementById("locationInput");
+          if (locInput) {
+            locInput.addEventListener("blur", function () {
+              var allLocs =
+                typeof locations !== "undefined"
+                  ? locations.join(", ")
+                  : this.value;
+              if (allLocs) nudgeDebounce("location", allLocs);
+            });
+            var locsContainer = document.getElementById("locationsContainer");
+            if (locsContainer) {
+              var locsObserver = new MutationObserver(function () {
+                if (typeof locations !== "undefined" && locations.length > 0) {
+                  nudgeFetch("location", locations[locations.length - 1]);
+                }
+              });
+              locsObserver.observe(locsContainer, { childList: true });
+            }
+          }
+
+          // Channel toggles -- fire nudge when any channel checkbox changes
+          var channelCheckboxes = document.querySelectorAll(
+            '[id^="ch"]:is(input[type="checkbox"])',
+          );
+          channelCheckboxes.forEach(function (cb) {
+            cb.addEventListener("change", function () {
+              var selected = [];
+              channelCheckboxes.forEach(function (c) {
+                if (c.checked) {
+                  var label = c.closest(".channel-card");
+                  if (label) {
+                    var h4 = label.querySelector("h4");
+                    if (h4) selected.push(h4.textContent.trim());
+                  }
+                }
+              });
+              if (selected.length > 0) {
+                nudgeDebounce("channel", selected.join(", "));
+              } else {
+                nudgeClear("channel");
+              }
+            });
+          });
+        });
+      })();
+    </script>
+
     <!-- Keyboard accessibility for interactive cards -->
     <script>
       document.addEventListener("DOMContentLoaded", function () {
@@ -10424,6 +10810,9 @@
       // ── Phase 2/3: Page enter transition ──
       document.body.classList.add("page-enter");
     </script>
+
+    <!-- Sankey Flow Budget Visualizer -->
+    <script src="/static/sankey-viz.js?v=1.0.0"></script>
 
     <!-- Nova AI Suite — AI Chat Widget (floating bottom-right) -->
     <script src="/static/nova-chat.js?v=3.5.3"></script>

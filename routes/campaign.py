@@ -5,7 +5,9 @@ Extracted from app.py to reduce its size.  Handles:
 - GET  /api/campaign/list
 - POST /api/plan/share
 - POST /api/plan/feedback
+- POST /api/plan/scorecard
 - GET  /plan/shared/<id>  (read-only shared plan view)
+- GET  /scorecard/<id>    (shareable plan scorecard)
 """
 
 import datetime
@@ -35,6 +37,9 @@ def handle_campaign_get_routes(handler: Any, path: str, parsed: Any) -> bool:
     # /plan/{id} -- shareable read-only plan view (24h TTL)
     if path.startswith("/plan/") and not path.startswith("/plan/shared/"):
         _handle_plan_direct_view(handler, path, parsed)
+        return True
+    if path.startswith("/scorecard/"):
+        _handle_scorecard_view(handler, path, parsed)
         return True
     return False
 
@@ -466,6 +471,125 @@ def _handle_plan_feedback(handler: Any, path: str, parsed: Any) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Scorecard handlers
+# ---------------------------------------------------------------------------
+
+
+def _handle_plan_scorecard(handler: Any, path: str, parsed: Any) -> None:
+    """POST /api/plan/scorecard -- generate a shareable plan scorecard."""
+    _app = sys.modules.get("__main__") or sys.modules.get("app")
+    _scorecards = getattr(_app, "_scorecards", {})
+    _scorecards_lock = getattr(_app, "_scorecards_lock", None)
+
+    try:
+        content_len = int(handler.headers.get("Content-Length") or 0)
+        body = handler.rfile.read(content_len) if content_len > 0 else b"{}"
+        data = json.loads(body)
+        plan_data = data.get("plan_data") or {}
+
+        if not plan_data:
+            handler._send_json({"error": "plan_data is required"}, status_code=400)
+            return
+
+        from scorecard_generator import generate_share_id, generate_scorecard_html
+
+        share_id = generate_share_id(plan_data)
+        scorecard_html = generate_scorecard_html(plan_data, share_id)
+
+        # Store in memory
+        if _scorecards_lock:
+            with _scorecards_lock:
+                _scorecards[share_id] = scorecard_html
+        else:
+            _scorecards[share_id] = scorecard_html
+
+        # Persist to Supabase if available
+        try:
+            _supabase_rest = getattr(_app, "_supabase_rest", None)
+            if _supabase_rest:
+                _supabase_rest(
+                    "scorecards",
+                    method="POST",
+                    data={
+                        "share_id": share_id,
+                        "html": scorecard_html,
+                        "plan_data": json.dumps(plan_data, default=str),
+                        "created_at": time.strftime(
+                            "%Y-%m-%dT%H:%M:%SZ", time.gmtime()
+                        ),
+                    },
+                )
+        except Exception as e:
+            logger.warning("Supabase scorecard persist failed (non-fatal): %s", e)
+
+        base_url = "https://media-plan-generator.onrender.com"
+        handler._send_json(
+            {
+                "success": True,
+                "share_id": share_id,
+                "share_url": f"{base_url}/scorecard/{share_id}",
+            }
+        )
+    except json.JSONDecodeError:
+        handler._send_json({"error": "Invalid JSON"}, status_code=400)
+    except Exception as e:
+        logger.error("Scorecard generation error: %s", e, exc_info=True)
+        handler._send_json({"error": "Failed to generate scorecard"}, status_code=500)
+
+
+def _handle_scorecard_view(handler: Any, path: str, parsed: Any) -> None:
+    """GET /scorecard/<share_id> -- serve a shareable plan scorecard."""
+    _app = sys.modules.get("__main__") or sys.modules.get("app")
+    _scorecards = getattr(_app, "_scorecards", {})
+    _scorecards_lock = getattr(_app, "_scorecards_lock", None)
+
+    share_id = path.split("/scorecard/")[-1].rstrip("/")
+    if not share_id:
+        handler.send_error(404, "Scorecard ID required")
+        return
+
+    # Look up in memory first
+    if _scorecards_lock:
+        with _scorecards_lock:
+            html_content = _scorecards.get(share_id)
+    else:
+        html_content = _scorecards.get(share_id)
+
+    # Fallback: try Supabase
+    if not html_content:
+        try:
+            _supabase_rest = getattr(_app, "_supabase_rest", None)
+            if _supabase_rest:
+                result = _supabase_rest(
+                    "scorecards",
+                    method="GET",
+                    params=f"?share_id=eq.{share_id}&select=html&limit=1",
+                )
+                if result and isinstance(result, list) and result[0].get("html"):
+                    html_content = result[0]["html"]
+                    # Cache in memory for subsequent requests
+                    if _scorecards_lock:
+                        with _scorecards_lock:
+                            _scorecards[share_id] = html_content
+                    else:
+                        _scorecards[share_id] = html_content
+        except Exception as e:
+            logger.warning("Supabase scorecard lookup failed: %s", e)
+
+    if not html_content:
+        handler.send_error(404, "Scorecard not found")
+        return
+
+    body_bytes = html_content.encode("utf-8")
+    handler.send_response(200)
+    handler.send_header("Content-Type", "text/html; charset=utf-8")
+    handler.send_header("Content-Length", str(len(body_bytes)))
+    handler.send_header("Cache-Control", "public, max-age=3600")
+    handler.end_headers()
+    handler.wfile.write(body_bytes)
+
+
+# ---------------------------------------------------------------------------
 # Route map
 # ---------------------------------------------------------------------------
 
@@ -473,4 +597,5 @@ _CAMPAIGN_POST_ROUTE_MAP: dict[str, Any] = {
     "/api/campaign/save": _handle_campaign_save,
     "/api/plan/share": _handle_plan_share,
     "/api/plan/feedback": _handle_plan_feedback,
+    "/api/plan/scorecard": _handle_plan_scorecard,
 }
