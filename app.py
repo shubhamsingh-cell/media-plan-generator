@@ -9859,7 +9859,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                 pptx_bytes = None
 
                         if pptx_bytes:
-                            zip_buffer = io.BytesIO()
+                            import io as _io_mod
+
+                            zip_buffer = _io_mod.BytesIO()
                             with zipfile.ZipFile(
                                 zip_buffer, "w", zipfile.ZIP_DEFLATED
                             ) as zf:
