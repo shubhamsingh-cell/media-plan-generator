@@ -76,7 +76,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -121,12 +121,13 @@ except ImportError:
 
 API_TIMEOUT = 8  # seconds per HTTP call (increased from 5 for reliability)
 CACHE_TTL = 86400  # 24 hours in seconds
-MAX_WORKERS = 15
+MAX_WORKERS = 15  # (unused after deadlock fix; kept for compatibility)
 
-# Semaphore to limit concurrent enrich_data() calls.  Each call spawns a
-# ThreadPoolExecutor(max_workers=15), so 10 concurrent enrichments = 150
-# total threads -- a safe ceiling even under heavy load.
-_enrichment_semaphore = threading.Semaphore(10)
+# Semaphore to limit concurrent enrich_data() calls.
+# With sequential execution (no nested ThreadPoolExecutor), semaphore caps
+# total concurrent enrichments at 3, preventing resource exhaustion on
+# Supabase connection pool. Deadlock fixed: removed nested ThreadPoolExecutor.
+_enrichment_semaphore = threading.Semaphore(3)
 CACHE_DIR = Path(__file__).resolve().parent / "data" / "api_cache"
 
 # Ensure cache directory exists at import time
@@ -13338,8 +13339,8 @@ def enrich_data(data: Dict[str, Any], request_id: str = "") -> Dict[str, Any]:
     api_details: Dict[str, Dict[str, Any]] = {}  # per-API metadata
 
     # Gate concurrent enrichments to avoid thread explosion under load.
-    # Each enrich_data() creates a ThreadPoolExecutor(max_workers=15);
-    # the semaphore caps total concurrent enrichments at 10 (= 150 threads).
+    # DEADLOCK FIX: Do NOT create ThreadPoolExecutor inside semaphore.
+    # Sequential execution prevents circular waits while semaphore limits global concurrency.
     if not _enrichment_semaphore.acquire(timeout=120):  # 2-minute wait max
         _log_warn(
             "enrich_data: too many concurrent enrichments, returning partial data"
@@ -13347,46 +13348,40 @@ def enrich_data(data: Dict[str, Any], request_id: str = "") -> Dict[str, Any]:
         return enriched  # Return what we have so far
 
     try:
-        with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-            future_map = {}
-            for result_key, api_label, func in tasks:
-                apis_called.append(api_label)
-                future = executor.submit(_safe_call, func, api_label)
-                future_map[future] = (result_key, api_label)
+        # Execute API calls sequentially (no nested ThreadPoolExecutor to avoid deadlock)
+        for result_key, api_label, func in tasks:
+            apis_called.append(api_label)
+            try:
+                result, status, metadata = _safe_call(func, api_label)
+                # Store per-API details
+                api_details[api_label] = {
+                    "elapsed_time": metadata.get("elapsed_time", 0.0),
+                    "source": metadata.get("source", "unknown"),
+                    "success": metadata.get("success", False),
+                    "status": status,
+                }
 
-            for future in as_completed(future_map):
-                result_key, api_label = future_map[future]
-                try:
-                    result, status, metadata = future.result()
-                    # Store per-API details
-                    api_details[api_label] = {
-                        "elapsed_time": metadata.get("elapsed_time", 0.0),
-                        "source": metadata.get("source", "unknown"),
-                        "success": metadata.get("success", False),
-                        "status": status,
-                    }
-
-                    if status == "ok":
-                        enriched[result_key] = result
-                        apis_succeeded.append(api_label)
-                    elif status == "empty":
-                        # API ran fine but had no applicable data
-                        apis_skipped.append(api_label)
-                    elif status == "circuit_open":
-                        apis_circuit_broken.append(api_label)
-                        apis_failed.append(api_label)
-                    else:
-                        apis_failed.append(api_label)
-                except Exception as exc:
-                    _log_warn(f"Future for {api_label} raised: {exc}")
+                if status == "ok":
+                    enriched[result_key] = result
+                    apis_succeeded.append(api_label)
+                elif status == "empty":
+                    # API ran fine but had no applicable data
+                    apis_skipped.append(api_label)
+                elif status == "circuit_open":
+                    apis_circuit_broken.append(api_label)
                     apis_failed.append(api_label)
-                    api_details[api_label] = {
-                        "elapsed_time": 0.0,
-                        "source": "error",
-                        "success": False,
-                        "status": "error",
-                        "error_message": str(exc),
-                    }
+                else:
+                    apis_failed.append(api_label)
+            except Exception as exc:
+                _log_warn(f"Enrichment call for {api_label} raised: {exc}")
+                apis_failed.append(api_label)
+                api_details[api_label] = {
+                    "elapsed_time": 0.0,
+                    "source": "error",
+                    "success": False,
+                    "status": "error",
+                    "error_message": str(exc),
+                }
     finally:
         _enrichment_semaphore.release()
 

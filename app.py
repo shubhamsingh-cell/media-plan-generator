@@ -9494,7 +9494,18 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             return
 
         if path == "/api/generate":
+            # ── START TIMEOUT TIMER IMMEDIATELY ──
+            # Must cover entire pipeline: validation + enrichment (60s+) + excel generation
+            _gen_timeout_flag: threading.Event = threading.Event()
+            _gen_timer: threading.Timer = threading.Timer(
+                _GENERATE_TIMEOUT_SECONDS, _gen_timeout_flag.set
+            )
+            _gen_timer.daemon = True
+            _gen_timer.start()
+            _gen_start: float = time.time()
+
             if not self._check_rate_limit():
+                _gen_timer.cancel()
                 self._send_error(
                     "Rate limit exceeded. Please try again in a minute.",
                     "RATE_LIMITED",
@@ -9506,20 +9517,38 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             except (ValueError, TypeError):
                 content_len = 0
             if content_len <= 0:
+                _gen_timer.cancel()
                 self._send_error("Empty request body", "VALIDATION_ERROR", 400)
                 return
             if content_len > 10 * 1024 * 1024:  # 10MB limit for JSON API requests
+                _gen_timer.cancel()
                 self._send_error("Request too large", "VALIDATION_ERROR", 413)
                 return
             body = self.rfile.read(content_len)
             try:
                 data = json.loads(body)
             except json.JSONDecodeError:
+                _gen_timer.cancel()
                 self._send_error("Invalid JSON", "VALIDATION_ERROR", 400)
+                return
+
+            # ── TIMEOUT CHECK: After JSON parsing ──
+            if _gen_timeout_flag.is_set():
+                _gen_timer.cancel()
+                elapsed: float = time.time() - _gen_start
+                logger.error(
+                    f"Generation timeout (validation phase) after {elapsed:.1f}s"
+                )
+                self._send_error(
+                    f"Generation timed out after {_GENERATE_TIMEOUT_SECONDS} seconds. Please simplify your request.",
+                    "TIMEOUT",
+                    504,
+                )
                 return
 
             # Validate payload is a JSON object (not array/string/number)
             if not isinstance(data, dict):
+                _gen_timer.cancel()
                 self._send_error(
                     "Request body must be a JSON object", "VALIDATION_ERROR", 400
                 )
@@ -9545,10 +9574,25 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 return False
 
             if _check_nesting_depth(data):
+                _gen_timer.cancel()
                 self._send_error(
                     "Request JSON nesting too deep (max 5 levels)",
                     "VALIDATION_ERROR",
                     400,
+                )
+                return
+
+            # ── TIMEOUT CHECK: Before expensive sanitization ──
+            if _gen_timeout_flag.is_set():
+                _gen_timer.cancel()
+                elapsed = time.time() - _gen_start
+                logger.error(
+                    f"Generation timeout (before sanitization) after {elapsed:.1f}s"
+                )
+                self._send_error(
+                    f"Generation timed out after {_GENERATE_TIMEOUT_SECONDS} seconds. Please simplify your request.",
+                    "TIMEOUT",
+                    504,
                 )
                 return
 
@@ -9609,10 +9653,25 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 _missing.append("At least one target role")
 
             if _missing:
+                _gen_timer.cancel()
                 self._send_error(
                     f"Required fields missing: {', '.join(_missing)}.",
                     "VALIDATION_ERROR",
                     400,
+                )
+                return
+
+            # ── TIMEOUT CHECK: Before input length validation ──
+            if _gen_timeout_flag.is_set():
+                _gen_timer.cancel()
+                elapsed = time.time() - _gen_start
+                logger.error(
+                    f"Generation timeout (after required fields check) after {elapsed:.1f}s"
+                )
+                self._send_error(
+                    f"Generation timed out after {_GENERATE_TIMEOUT_SECONDS} seconds. Please simplify your request.",
+                    "TIMEOUT",
+                    504,
                 )
                 return
 
@@ -10708,6 +10767,20 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 _call_fred,
                 _call_jobspy,
             ]
+            # ── TIMEOUT CHECK: Before enrichment phase (expensive) ──
+            if _gen_timeout_flag.is_set():
+                _gen_timer.cancel()
+                elapsed = time.time() - _gen_start
+                logger.error(
+                    f"Generation timeout (before enrichment phase) after {elapsed:.1f}s"
+                )
+                self._send_error(
+                    f"Generation timed out after {_GENERATE_TIMEOUT_SECONDS} seconds. Please simplify your request.",
+                    "TIMEOUT",
+                    504,
+                )
+                return
+
             _parallel_t0 = time.time()
 
             try:
@@ -10736,11 +10809,24 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                     "Generate enrichment task error: %s", exc
                                 )
             except FuturesTimeoutError:
-                logger.warning(
-                    "Parallel enrichment hit 20s timeout -- using partial results "
-                    "(completed in %.1fs)",
-                    time.time() - _parallel_t0,
+                elapsed_time: float = time.time() - _parallel_t0
+                logger.error(
+                    "Parallel enrichment hit 20s timeout after %.1fs -- aborting "
+                    "generation to prevent client hang",
+                    elapsed_time,
                 )
+                # Cancel any pending futures to free up resources
+                for future in futures:
+                    future.cancel()
+                # Send 504 Gateway Timeout response
+                self._send_error(
+                    "Generation timeout: enrichment took too long (20s limit exceeded). "
+                    "Please try again with fewer roles or locations.",
+                    "ENRICHMENT_TIMEOUT",
+                    504,
+                )
+                _gen_timer.cancel()
+                return
             except Exception as exc:
                 logger.error("Parallel enrichment pool failed: %s", exc, exc_info=True)
 
@@ -10770,14 +10856,42 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     "api_enrichment_complete",
                     {
                         "apis_called": _enrich_apis_used,
-                        "total_latency_ms": round((time.time() - start_time) * 1000),
+                        "total_latency_ms": round((time.time() - _gen_start) * 1000),
                     },
                 )
+
+            # ── TIMEOUT CHECK: Before knowledge base loading ──
+            if _gen_timeout_flag.is_set():
+                _gen_timer.cancel()
+                elapsed = time.time() - _gen_start
+                logger.error(
+                    f"Generation timeout (after enrichment) after {elapsed:.1f}s"
+                )
+                self._send_error(
+                    f"Generation timed out after {_GENERATE_TIMEOUT_SECONDS} seconds. Please simplify your request.",
+                    "TIMEOUT",
+                    504,
+                )
+                return
 
             # ── Phase 2: Load Knowledge Base ──
             with _span_fn("kb.load", "Load knowledge base"):
                 kb = load_knowledge_base()
             data["_knowledge_base"] = kb  # Pass KB to PPT for fallback data
+
+            # ── TIMEOUT CHECK: Before data synthesis ──
+            if _gen_timeout_flag.is_set():
+                _gen_timer.cancel()
+                elapsed = time.time() - _gen_start
+                logger.error(
+                    f"Generation timeout (before synthesis) after {elapsed:.1f}s"
+                )
+                self._send_error(
+                    f"Generation timed out after {_GENERATE_TIMEOUT_SECONDS} seconds. Please simplify your request.",
+                    "TIMEOUT",
+                    504,
+                )
+                return
 
             # ── Phase 3: Data Synthesis ──
             if data_synthesize is not None:
@@ -11036,15 +11150,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             except Exception:
                 pass
 
-            # ── API HARDENING: 4-minute hard timeout for sync generation (Issue 4) ──
-            _gen_timeout_flag = threading.Event()
-            _gen_timer = threading.Timer(
-                _GENERATE_TIMEOUT_SECONDS, _gen_timeout_flag.set
-            )
-            _gen_timer.daemon = True
-            _gen_timer.start()
-
-            start_time = time.time()
+            # ── Excel generation phase (timeout timer already started at request entry) ──
             try:
                 # Check timeout before heavy work
                 if _gen_timeout_flag.is_set():
@@ -11084,7 +11190,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                             )
             except _GenerationTimeoutError:
                 _gen_timer.cancel()
-                elapsed = time.time() - start_time
+                elapsed = time.time() - _gen_start
                 logger.error(
                     f"Generation timeout after {elapsed:.1f}s for client={data.get('client_name')}"
                 )
@@ -11100,7 +11206,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
 
                 # Check if we hit the timeout during generation
                 if _gen_timeout_flag.is_set():
-                    elapsed = time.time() - start_time
+                    elapsed = time.time() - _gen_start
                     logger.error(
                         f"Generation timeout (detected in except) after {elapsed:.1f}s"
                     )
@@ -11113,7 +11219,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
 
                 tb = traceback.format_exc()
                 logger.error("Excel generation error: %s", tb)
-                generation_time = time.time() - start_time
+                generation_time = time.time() - _gen_start
                 log_request(
                     data, "error", generation_time=generation_time, error_msg=str(e)
                 )
