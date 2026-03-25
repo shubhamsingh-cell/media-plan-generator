@@ -33,6 +33,143 @@ _jobspy_lock = threading.Lock()
 
 _DEFAULT_SITES = ["indeed", "linkedin", "glassdoor", "zip_recruiter", "google"]
 
+# US state abbreviations for location-to-country normalization
+_US_STATE_ABBRS = {
+    "AL",
+    "AK",
+    "AZ",
+    "AR",
+    "CA",
+    "CO",
+    "CT",
+    "DE",
+    "FL",
+    "GA",
+    "HI",
+    "ID",
+    "IL",
+    "IN",
+    "IA",
+    "KS",
+    "KY",
+    "LA",
+    "ME",
+    "MD",
+    "MA",
+    "MI",
+    "MN",
+    "MS",
+    "MO",
+    "MT",
+    "NE",
+    "NV",
+    "NH",
+    "NJ",
+    "NM",
+    "NY",
+    "NC",
+    "ND",
+    "OH",
+    "OK",
+    "OR",
+    "PA",
+    "RI",
+    "SC",
+    "SD",
+    "TN",
+    "TX",
+    "UT",
+    "VT",
+    "VA",
+    "WA",
+    "WV",
+    "WI",
+    "WY",
+    "DC",
+}
+
+
+def _normalize_country(location: str) -> str:
+    """Convert a location string to a valid country for JobSpy.
+
+    JobSpy's scrape_jobs() expects a country name (e.g. 'usa'),
+    not a city+state like 'Charlotte, NC'. This function detects
+    US locations and returns 'usa'.
+    """
+    loc = location.strip()
+    loc_upper = loc.upper()
+
+    # Direct match
+    if loc_upper in ("USA", "US", "UNITED STATES", "UNITED STATES OF AMERICA"):
+        return "usa"
+
+    # "City, ST" pattern -- check if last token is a US state abbreviation
+    parts = [p.strip() for p in loc.split(",")]
+    if len(parts) >= 2:
+        last_token = parts[-1].strip().upper()
+        if last_token in _US_STATE_ABBRS:
+            return "usa"
+
+    # Full state names (common ones)
+    us_states_lower = {
+        "alabama",
+        "alaska",
+        "arizona",
+        "arkansas",
+        "california",
+        "colorado",
+        "connecticut",
+        "delaware",
+        "florida",
+        "georgia",
+        "hawaii",
+        "idaho",
+        "illinois",
+        "indiana",
+        "iowa",
+        "kansas",
+        "kentucky",
+        "louisiana",
+        "maine",
+        "maryland",
+        "massachusetts",
+        "michigan",
+        "minnesota",
+        "mississippi",
+        "missouri",
+        "montana",
+        "nebraska",
+        "nevada",
+        "new hampshire",
+        "new jersey",
+        "new mexico",
+        "new york",
+        "north carolina",
+        "north dakota",
+        "ohio",
+        "oklahoma",
+        "oregon",
+        "pennsylvania",
+        "rhode island",
+        "south carolina",
+        "south dakota",
+        "tennessee",
+        "texas",
+        "utah",
+        "vermont",
+        "virginia",
+        "washington",
+        "west virginia",
+        "wisconsin",
+        "wyoming",
+        "district of columbia",
+    }
+    if loc.lower() in us_states_lower:
+        return "usa"
+
+    # Return as-is for non-US locations (e.g. "canada", "united kingdom")
+    return loc
+
 
 def _ensure_jobspy() -> bool:
     """Lazy-load python-jobspy. Returns True if available."""
@@ -122,12 +259,13 @@ def scrape_jobs(
         return cached
 
     try:
+        country = _normalize_country(location)
         jobs_df = _jobspy.scrape_jobs(
             site_name=sites,
             search_term=role,
             location=location,
             results_wanted=results_wanted,
-            country_indeed="USA" if "usa" in location.lower() else location,
+            country_indeed=country,
         )
 
         if jobs_df is None or jobs_df.empty:
@@ -166,6 +304,14 @@ def scrape_jobs(
         )
         return results
 
+    except ValueError as e:
+        logger.warning(
+            "JobSpy invalid location for role=%s location=%s: %s",
+            role,
+            location,
+            e,
+        )
+        return []
     except Exception as e:
         logger.error("JobSpy scrape failed for role=%s: %s", role, e, exc_info=True)
         return None

@@ -238,13 +238,13 @@ class TestSentryIssueParser:
         payload = _make_sentry_payload(
             tags=[
                 {"key": "environment", "value": "production"},
-                {"key": "release", "value": "3.5.1"},
+                {"key": "release", "value": "4.0.0"},
             ]
         )
         result = SentryIssueParser.parse_webhook(payload)
         assert result is not None
         assert result["tags"]["environment"] == "production"
-        assert result["tags"]["release"] == "3.5.1"
+        assert result["tags"]["release"] == "4.0.0"
 
     def test_parse_stacktrace_skips_stdlib(self) -> None:
         """Parser should prefer app frames over stdlib frames."""

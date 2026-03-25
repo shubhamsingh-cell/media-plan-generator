@@ -532,12 +532,12 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         "max_tokens": 8192,
     },
     SAMBANOVA: {
-        "name": "SambaNova (Llama 3.1 405B)",
+        "name": "SambaNova (Llama 3.3 70B)",
         "api_style": "openai",  # OpenAI-compatible
         "endpoint": "https://api.sambanova.ai/v1/chat/completions",
-        "model": "Meta-Llama-3.1-405B-Instruct",
+        "model": "Meta-Llama-3.3-70B-Instruct",
         "env_key": "SAMBANOVA_API_KEY",
-        "rpm_limit": 10,  # 405B model has 10 RPM on free tier
+        "rpm_limit": 10,  # Free tier RPM limit
         "rpd_limit": 1000,
         "timeout": 25,  # Capped to fit within 30s global budget
         "max_tokens": 4096,

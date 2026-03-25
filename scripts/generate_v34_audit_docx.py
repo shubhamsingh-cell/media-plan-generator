@@ -638,10 +638,10 @@ def build_report():
         (
             "7",
             "SambaNova",
-            "Meta-Llama-3.1-405B",
+            "Meta-Llama-3.3-70B",
             "Free",
             "10 RPM",
-            "Largest open model (405B)",
+            "Fast open model (70B)",
         ),
         (
             "8",
