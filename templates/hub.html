@@ -74,6 +74,11 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
+      rel="preload"
+      as="style"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+    />
+    <link
       href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
       rel="stylesheet"
     />
@@ -98,7 +103,7 @@
         --accent-glow: rgba(90, 84, 189, 0.15);
         --accent-glow-strong: rgba(90, 84, 189, 0.25);
         --text-primary: #e4e4e7;
-        --text-secondary: #a1a1a1;
+        --text-secondary: #b4b4b4;
         --text-muted: #666666;
         --border: rgba(255, 255, 255, 0.08);
         --border-hover: rgba(255, 255, 255, 0.16);
@@ -344,6 +349,9 @@
         border-radius: 4px;
       }
 
+      .nav-hamburger {
+        display: none;
+      }
       .nav-links {
         display: flex;
         align-items: center;
@@ -1267,10 +1275,12 @@
         overflow: hidden;
         display: flex;
         flex-direction: column;
+        cursor: pointer;
       }
       .product-hero-card:hover {
-        border-color: var(--border-hover);
+        border-color: var(--accent, #5a54bd);
         transform: translateY(-4px);
+        box-shadow: 0 8px 32px rgba(90, 84, 189, 0.15);
         box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
       }
       .product-hero-card::before {
@@ -2332,8 +2342,32 @@
         .nav {
           padding: 0 1rem;
         }
+        .nav-hamburger {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: none;
+          border: 1px solid var(--border);
+          border-radius: 8px;
+          padding: 6px;
+          color: var(--text-primary);
+          cursor: pointer;
+        }
         .nav-links {
           display: none;
+          position: absolute;
+          top: 64px;
+          left: 0;
+          right: 0;
+          background: rgba(0, 0, 0, 0.95);
+          backdrop-filter: blur(20px);
+          flex-direction: column;
+          padding: 16px 24px;
+          gap: 12px;
+          border-bottom: 1px solid var(--border);
+        }
+        .nav-links--open {
+          display: flex;
         }
         .tab-bar {
           gap: 2px;
@@ -2794,8 +2828,31 @@
         <span>Nova</span>
         <span class="suite-badge">AI Suite</span>
       </a>
+      <button
+        class="nav-hamburger"
+        onclick="
+          document
+            .querySelector('.nav-links')
+            .classList.toggle('nav-links--open')
+        "
+        aria-label="Toggle navigation menu"
+        aria-expanded="false"
+      >
+        <svg
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+        >
+          <path d="M3 12h18M3 6h18M3 18h18" />
+        </svg>
+      </button>
       <div class="nav-links">
         <a href="#platform" data-nav-filter="all">Products</a>
+        <a href="/nova" aria-label="Open Nova AI chat">Nova AI</a>
         <a href="/media-plan" class="nav-cta" aria-label="Generate a media plan"
           >Generate Plan</a
         >
@@ -4386,7 +4443,20 @@
     </script>
 
     <!-- Nova AI Suite — AI Chat Widget (floating bottom-right) -->
-    <script src="/static/nova-chat.js?v=3.5.3"></script>
+    <script>
+      // Lazy-load Nova chat widget after page load for better performance
+      window.addEventListener("load", function () {
+        var s = document.createElement("script");
+        s.src = "/static/nova-chat.js?v=3.5.3";
+        s.async = true;
+        s.onload = function () {
+          if (typeof NovaChat !== "undefined") {
+            NovaChat.init({ containerId: null });
+          }
+        };
+        document.body.appendChild(s);
+      });
+    </script>
     <script>
       (function () {
         if (typeof NovaChat !== "undefined") {

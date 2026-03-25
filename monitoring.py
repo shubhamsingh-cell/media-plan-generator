@@ -728,7 +728,7 @@ class MetricsCollector:
                 tracker.record_request(
                     module=module,
                     latency_ms=latency_ms,
-                    is_error=status_code >= 400,
+                    is_error=status_code >= 500,
                     user_id=user_id,
                 )
             except Exception:
@@ -2448,7 +2448,16 @@ class MonitoringAlertBridge:
                     metric_name = anomaly.get("metric", "unknown")
                     deviation = anomaly.get("deviation_sigma", 0)
                     alert_key = f"anomaly_{metric_name}"
-                    if deviation > 3 and self._should_alert(alert_key):
+                    # Only alert on WORSE performance (higher latency), not improvements
+                    current_val = anomaly.get("current", 0)
+                    baseline_mean = anomaly.get("baseline_mean", 0)
+                    is_worse = (
+                        current_val > baseline_mean
+                        if isinstance(current_val, (int, float))
+                        and isinstance(baseline_mean, (int, float))
+                        else True
+                    )
+                    if deviation > 3 and is_worse and self._should_alert(alert_key):
                         self._fire_alert(
                             "WARNING",
                             f"[Nova] Anomaly detected: {metric_name} ({deviation:.1f} sigma)",

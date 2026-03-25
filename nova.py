@@ -6924,7 +6924,7 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
         sources = set()
         tool_call_details = []  # Track detailed tool interactions for debugging
         tool_results_raw = []  # Collect raw tool results for grounding verification
-        max_iterations = 8  # Allow more iterations for complex multi-tool queries
+        max_iterations = 5  # Reduced from 8 to cap P99 latency under 20s
 
         adaptive_max_tokens, selected_model = _classify_query_complexity(user_message)
         logger.info(

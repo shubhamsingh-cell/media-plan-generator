@@ -2364,6 +2364,36 @@
 
       <!-- ── TOPBAR ── -->
       <header class="topbar" role="banner">
+        <nav
+          class="topbar-breadcrumb"
+          aria-label="Breadcrumb"
+          style="
+            position: absolute;
+            left: 60px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 0.8rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--text-muted, #666);
+          "
+        >
+          <a
+            href="/"
+            style="
+              color: var(--text-secondary, #999);
+              text-decoration: none;
+              opacity: 0.7;
+            "
+            title="Back to home"
+            >Home</a
+          >
+          <span style="opacity: 0.4">/</span>
+          <span id="breadcrumb-current" style="color: var(--text-primary, #fff)"
+            >Platform</span
+          >
+        </nav>
         <button
           class="topbar-hamburger"
           onclick="NovaSidebar.toggleMobile()"
@@ -2944,7 +2974,7 @@
           '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>',
         share:
           '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>',
-        nova: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>',
+        nova: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a7 7 0 0 1 7 7c0 3-2 5.5-4 7l-1 4h-4l-1-4c-2-1.5-4-4-4-7a7 7 0 0 1 7-7z"/><line x1="10" y1="22" x2="14" y2="22"/></svg>',
       };
 
       /* ─────────────────────────────────────────────────────────────
