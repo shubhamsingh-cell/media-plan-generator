@@ -752,9 +752,9 @@ TASK_ROUTING: Dict[str, List[str]] = {
         CLAUDE_OPUS,
     ],
     TASK_CONVERSATIONAL: [
+        XIAOMI_MIMO,  # MiMo V2 Flash -- 309B MoE, best free-tier quality
         GROQ,
         ZHIPU,
-        XIAOMI_MIMO,  # MiMo V2 Flash -- strong 309B MoE reasoning
         CEREBRAS,
         GEMINI,
         MISTRAL,
@@ -776,8 +776,8 @@ TASK_ROUTING: Dict[str, List[str]] = {
         CLAUDE_OPUS,
     ],
     TASK_COMPLEX: [
-        OPENROUTER_DEEPSEEK_R1,  # DeepSeek R1 -- strong reasoning, HIGH priority
-        XIAOMI_MIMO,  # MiMo V2 Flash -- 309B MoE, strong complex reasoning
+        XIAOMI_MIMO,  # MiMo V2 Flash -- 309B MoE, best free-tier quality
+        OPENROUTER_DEEPSEEK_R1,  # DeepSeek R1 -- strong reasoning
         SAMBANOVA,
         GROQ,
         OPENROUTER,  # Spaced: non-OR providers between OR variants
@@ -922,9 +922,9 @@ TASK_ROUTING: Dict[str, List[str]] = {
     # ── v4.0 Platform Module Task Types ──────────────────────────────────
     # Command Center: fast for quick plans, Claude for full plans
     TASK_CAMPAIGN_PLAN: [
+        XIAOMI_MIMO,  # MiMo V2 Flash -- 309B MoE, best plan generation quality
         GROQ,
         CEREBRAS,
-        XIAOMI_MIMO,  # MiMo V2 Flash -- strong for structured plan generation
         GEMINI,
         ZHIPU,
         OPENROUTER,  # Spaced: non-OR providers between OR variants
@@ -973,9 +973,9 @@ TASK_ROUTING: Dict[str, List[str]] = {
     ],
     # Intelligence Hub: prefer structured data / analysis providers
     TASK_MARKET_ANALYSIS: [
+        XIAOMI_MIMO,  # MiMo V2 Flash -- 309B MoE, best analysis quality
         GEMINI,
         OPENROUTER_DEEPSEEK_R1,
-        XIAOMI_MIMO,  # MiMo V2 Flash -- strong analysis capabilities
         XAI,
         SAMBANOVA,
         GROQ,
@@ -1024,9 +1024,9 @@ TASK_ROUTING: Dict[str, List[str]] = {
     ],
     # Nova AI chat: lowest latency first, streaming-capable
     TASK_CHAT_RESPONSE: [
+        XIAOMI_MIMO,  # MiMo V2 Flash -- 309B MoE, best chat quality
         GROQ,
         CEREBRAS,
-        XIAOMI_MIMO,  # MiMo V2 Flash -- high-quality chat responses
         GEMINI,
         ZHIPU,
         MISTRAL,
