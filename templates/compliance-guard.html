@@ -2147,7 +2147,13 @@
           );
 
           // ── Render results ───────────────────────────────────────────
-          renderResults(violations, score, inclusiveCount, exclusiveCount);
+          renderResults(
+            violations,
+            score,
+            inclusiveCount,
+            exclusiveCount,
+            text,
+          );
         }
 
         function calculateScore(violations, inclusiveCount, exclusiveCount) {
@@ -2171,6 +2177,7 @@
           score,
           inclusiveCount,
           exclusiveCount,
+          text,
         ) {
           resultsSection.classList.add("visible");
 

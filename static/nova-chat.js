@@ -362,11 +362,19 @@
       "  }" +
       "  #nova-float-btn { bottom: 12px; right: 12px; }" +
       "}" +
+      // ── Streaming cursor ──
+      ".nova-streaming-cursor {" +
+      "  display: inline-block; width: 2px; height: 1em; background: #6BB3CD;" +
+      "  margin-left: 2px; vertical-align: text-bottom;" +
+      "  animation: nova-cursor-blink 0.7s steps(2) infinite;" +
+      "}" +
+      "@keyframes nova-cursor-blink { 0% { opacity: 1; } 50% { opacity: 0; } 100% { opacity: 1; } }" +
       // ── Reduced motion ──
       "@media (prefers-reduced-motion: reduce) {" +
       "  .nova-msg-user, .nova-msg-assistant { animation: none !important; }" +
       "  .nova-typing-dot { animation: none !important; opacity: 0.5; }" +
       "  #nova-float-btn, .nova-send-btn { transition: none !important; }" +
+      "  .nova-streaming-cursor { animation: none !important; opacity: 0.7; }" +
       "}";
 
     var styleEl = document.createElement("style");
@@ -1311,6 +1319,40 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Show streaming error with optional retry button
+  // ---------------------------------------------------------------------------
+  function showStreamError(errorMsg, retryText, isAbort) {
+    var messagesDiv = document.getElementById("nova-messages");
+    if (!messagesDiv) return;
+    var errEl = document.createElement("div");
+    errEl.className = "nova-msg nova-msg-assistant";
+    errEl.style.borderColor = "rgba(248,113,113,0.2)";
+    errEl.innerHTML = '<span style="color:#F87171;">' + errorMsg + "</span>";
+    if (!isAbort) {
+      var retryBtn = document.createElement("button");
+      retryBtn.textContent = "Retry";
+      retryBtn.style.cssText =
+        "display:inline-block;margin-top:8px;padding:4px 12px;border-radius:6px;font-size:11px;color:#6BB3CD;background:rgba(107,179,205,0.1);border:1px solid rgba(107,179,205,0.2);cursor:pointer;font-family:inherit;transition:all 0.15s;";
+      retryBtn.addEventListener("mouseenter", function () {
+        this.style.background = "rgba(107,179,205,0.2)";
+      });
+      retryBtn.addEventListener("mouseleave", function () {
+        this.style.background = "rgba(107,179,205,0.1)";
+      });
+      (function (btn, txt) {
+        btn.addEventListener("click", function () {
+          errEl.remove();
+          var inp = document.getElementById("nova-input");
+          if (inp) inp.value = txt;
+          sendMessage();
+        });
+      })(retryBtn, retryText);
+      errEl.appendChild(retryBtn);
+    }
+    messagesDiv.appendChild(errEl);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+  }
+
   // Send message
   // ---------------------------------------------------------------------------
   function sendMessage() {
@@ -1390,11 +1432,11 @@
         .then(function (res) {
           if (!res.ok) throw new Error("HTTP " + res.status);
           hideTyping();
-          // Create streaming message element
+          // Create streaming message element with blinking cursor
           var streamEl = document.createElement("div");
           streamEl.className = "nova-msg nova-msg-assistant";
           streamEl.id = "nova-stream-msg";
-          streamEl.innerHTML = "";
+          streamEl.innerHTML = '<span class="nova-streaming-cursor"></span>';
           var messagesEl = state.chatPanel
             ? state.chatPanel.querySelector(".nova-messages")
             : null;
@@ -1407,9 +1449,10 @@
           var buffer = "";
           var fullText = "";
           var metadata = {};
+          var streamDone = false;
           function processChunk() {
             return reader.read().then(function (result) {
-              if (result.done) return;
+              if (result.done) return "stream_complete";
               buffer += decoder.decode(result.value, { stream: true });
               var lines = buffer.split("\n");
               buffer = lines.pop() || "";
@@ -1419,16 +1462,23 @@
                   var evt = JSON.parse(line.substring(6));
                   if (evt.done) {
                     metadata = evt;
+                    streamDone = true;
                     return;
                   }
                   if (evt.token) {
                     fullText += evt.token;
                     streamEl.innerHTML = renderMarkdown(fullText);
+                    // Re-append blinking cursor at end of streamed content
+                    var curEl = document.createElement("span");
+                    curEl.className = "nova-streaming-cursor";
+                    streamEl.appendChild(curEl);
                     if (messagesEl)
                       messagesEl.scrollTop = messagesEl.scrollHeight;
                   }
                 } catch (e) {}
               });
+              // If server sent the done event, stop recursing
+              if (streamDone) return "stream_complete";
               return processChunk();
             });
           }
@@ -1451,45 +1501,42 @@
           hideTyping();
           var streamEl = document.getElementById("nova-stream-msg");
           if (streamEl) streamEl.remove();
-          var errorMsg =
-            err.name === "AbortError"
-              ? "Response was stopped."
-              : err.message && err.message.indexOf("429") > -1
-                ? "Nova is busy right now. Please wait a moment and try again."
-                : "Connection error. Please try again.";
 
-          // Show error with retry button
-          var messagesDiv = document.getElementById("nova-messages");
-          if (messagesDiv) {
-            var errEl = document.createElement("div");
-            errEl.className = "nova-msg nova-msg-assistant";
-            errEl.style.borderColor = "rgba(248,113,113,0.2)";
-            errEl.innerHTML =
-              '<span style="color:#F87171;">' + errorMsg + "</span>";
-            if (err.name !== "AbortError") {
-              var retryBtn = document.createElement("button");
-              retryBtn.textContent = "Retry";
-              retryBtn.style.cssText =
-                "display:inline-block;margin-top:8px;padding:4px 12px;border-radius:6px;font-size:11px;color:#6BB3CD;background:rgba(107,179,205,0.1);border:1px solid rgba(107,179,205,0.2);cursor:pointer;font-family:inherit;transition:all 0.15s;";
-              retryBtn.addEventListener("mouseenter", function () {
-                this.style.background = "rgba(107,179,205,0.2)";
-              });
-              retryBtn.addEventListener("mouseleave", function () {
-                this.style.background = "rgba(107,179,205,0.1)";
-              });
-              (function (btn, retryText) {
-                btn.addEventListener("click", function () {
-                  errEl.remove();
-                  var inp = document.getElementById("nova-input");
-                  if (inp) inp.value = retryText;
-                  sendMessage();
+          // Fallback: if streaming failed, try non-streaming endpoint
+          if (err.name !== "AbortError") {
+            console.warn(
+              "Streaming failed, falling back to non-streaming endpoint:",
+              err.message,
+            );
+            return fetch(CONFIG.apiUrl, {
+              method: "POST",
+              headers: headers,
+              body: JSON.stringify(payload),
+            })
+              .then(function (res) {
+                if (!res.ok) throw new Error("HTTP " + res.status);
+                return res.json();
+              })
+              .then(function (data) {
+                appendMessage({
+                  role: "assistant",
+                  content: data.response || "No response received.",
+                  sources: data.sources || [],
+                  confidence: data.confidence || 0,
+                  confidence_breakdown: data.confidence_breakdown || null,
                 });
-              })(retryBtn, text);
-              errEl.appendChild(retryBtn);
-            }
-            messagesDiv.appendChild(errEl);
-            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+              })
+              .catch(function (fallbackErr) {
+                // Fallback also failed -- show error with retry
+                showStreamError(
+                  fallbackErr.message || "Connection error. Please try again.",
+                  text,
+                );
+              });
           }
+
+          // AbortError -- user cancelled
+          showStreamError("Response was stopped.", text, true);
         })
         .finally(function () {
           state.isLoading = false;

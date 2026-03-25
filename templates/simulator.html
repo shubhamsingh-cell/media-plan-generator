@@ -1458,6 +1458,11 @@
         }
 
         async function loadDefaults() {
+          var btn = document.getElementById("btn-load-defaults");
+          if (btn) {
+            btn.disabled = true;
+            btn.textContent = "Loading...";
+          }
           let config = getConfig();
           let result = await apiCall("defaults", config);
 
@@ -1465,7 +1470,55 @@
             allocations = result.channel_allocations;
             updateSliderUI();
             runSimulation();
+            _showSimToast("Defaults loaded successfully");
+          } else {
+            _showSimToast(
+              "Could not load defaults -- using current values",
+              "warn",
+            );
           }
+          if (btn) {
+            btn.disabled = false;
+            btn.textContent = "Load Defaults";
+          }
+        }
+
+        function _showSimToast(msg, type) {
+          var existing = document.getElementById("sim-toast");
+          if (existing) existing.remove();
+          var toast = document.createElement("div");
+          toast.id = "sim-toast";
+          toast.setAttribute("role", "status");
+          toast.setAttribute("aria-live", "polite");
+          var bg =
+            type === "warn" ? "rgba(251,191,36,0.15)" : "rgba(52,211,153,0.12)";
+          var border =
+            type === "warn" ? "rgba(251,191,36,0.3)" : "rgba(52,211,153,0.25)";
+          var color = type === "warn" ? "#fbbf24" : "#34d399";
+          toast.style.cssText =
+            "position:fixed;bottom:24px;right:24px;z-index:9999;padding:10px 20px;" +
+            "border-radius:8px;font-size:0.85rem;font-weight:500;pointer-events:none;" +
+            "opacity:0;transform:translateY(8px);transition:all 0.3s ease;" +
+            "background:" +
+            bg +
+            ";border:1px solid " +
+            border +
+            ";color:" +
+            color +
+            ";";
+          toast.textContent = msg;
+          document.body.appendChild(toast);
+          requestAnimationFrame(function () {
+            toast.style.opacity = "1";
+            toast.style.transform = "translateY(0)";
+          });
+          setTimeout(function () {
+            toast.style.opacity = "0";
+            toast.style.transform = "translateY(8px)";
+            setTimeout(function () {
+              toast.remove();
+            }, 300);
+          }, 2500);
         }
 
         async function autoOptimize() {

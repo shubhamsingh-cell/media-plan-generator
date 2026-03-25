@@ -255,6 +255,364 @@ _MAX_WORKERS = 10
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# WELL-KNOWN COMPANIES FALLBACK DATABASE
+# Used when external APIs (Wikipedia, Clearbit, SEC EDGAR) are unavailable or
+# return empty results. Covers major employers frequently analyzed.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+_WELL_KNOWN_COMPANIES: Dict[str, Dict[str, Any]] = {
+    "amazon": {
+        "name": "Amazon",
+        "description": "Amazon.com, Inc. is an American multinational technology company focusing on e-commerce, cloud computing (AWS), online advertising, digital streaming, and artificial intelligence. It is one of the world's most valuable companies and the largest Internet company by revenue.",
+        "industry": "Technology & E-Commerce",
+        "employee_count": "1,500,000+",
+        "founded": "1994",
+        "headquarters": "Seattle, WA",
+        "domain": "amazon.com",
+        "stock_ticker": "AMZN",
+        "is_public": True,
+    },
+    "google": {
+        "name": "Google (Alphabet Inc.)",
+        "description": "Google LLC is an American multinational corporation and technology company focusing on search engine technology, online advertising, cloud computing, computer software, quantum computing, e-commerce, and artificial intelligence. It is a subsidiary of Alphabet Inc.",
+        "industry": "Technology",
+        "employee_count": "180,000+",
+        "founded": "1998",
+        "headquarters": "Mountain View, CA",
+        "domain": "google.com",
+        "stock_ticker": "GOOGL",
+        "is_public": True,
+    },
+    "alphabet": {
+        "name": "Alphabet Inc.",
+        "description": "Alphabet Inc. is an American multinational technology conglomerate and the parent company of Google, YouTube, Waymo, and other subsidiaries. It was created through a restructuring of Google in 2015.",
+        "industry": "Technology",
+        "employee_count": "180,000+",
+        "founded": "2015",
+        "headquarters": "Mountain View, CA",
+        "domain": "abc.xyz",
+        "stock_ticker": "GOOGL",
+        "is_public": True,
+    },
+    "microsoft": {
+        "name": "Microsoft Corporation",
+        "description": "Microsoft Corporation is an American multinational technology corporation producing computer software, consumer electronics, personal computers, and related services. Its best-known products include Windows, Office, Azure, and Xbox.",
+        "industry": "Technology",
+        "employee_count": "220,000+",
+        "founded": "1975",
+        "headquarters": "Redmond, WA",
+        "domain": "microsoft.com",
+        "stock_ticker": "MSFT",
+        "is_public": True,
+    },
+    "apple": {
+        "name": "Apple Inc.",
+        "description": "Apple Inc. is an American multinational corporation and technology company headquartered in Cupertino, California. It designs, develops, and sells consumer electronics, computer software, and online services including iPhone, Mac, iPad, and Apple Watch.",
+        "industry": "Technology & Consumer Electronics",
+        "employee_count": "160,000+",
+        "founded": "1976",
+        "headquarters": "Cupertino, CA",
+        "domain": "apple.com",
+        "stock_ticker": "AAPL",
+        "is_public": True,
+    },
+    "meta": {
+        "name": "Meta Platforms, Inc.",
+        "description": "Meta Platforms, Inc. (formerly Facebook, Inc.) is an American multinational technology conglomerate that owns and operates Facebook, Instagram, WhatsApp, and Threads, and is developing virtual and augmented reality technologies.",
+        "industry": "Technology & Social Media",
+        "employee_count": "67,000+",
+        "founded": "2004",
+        "headquarters": "Menlo Park, CA",
+        "domain": "meta.com",
+        "stock_ticker": "META",
+        "is_public": True,
+    },
+    "facebook": {
+        "name": "Meta Platforms, Inc.",
+        "description": "Meta Platforms, Inc. (formerly Facebook, Inc.) is an American multinational technology conglomerate that owns and operates Facebook, Instagram, WhatsApp, and Threads.",
+        "industry": "Technology & Social Media",
+        "employee_count": "67,000+",
+        "founded": "2004",
+        "headquarters": "Menlo Park, CA",
+        "domain": "meta.com",
+        "stock_ticker": "META",
+        "is_public": True,
+    },
+    "netflix": {
+        "name": "Netflix, Inc.",
+        "description": "Netflix, Inc. is an American subscription video on-demand over-the-top streaming service and production company. It offers a library of films and television series through distribution deals and its own productions.",
+        "industry": "Media & Entertainment",
+        "employee_count": "13,000+",
+        "founded": "1997",
+        "headquarters": "Los Gatos, CA",
+        "domain": "netflix.com",
+        "stock_ticker": "NFLX",
+        "is_public": True,
+    },
+    "tesla": {
+        "name": "Tesla, Inc.",
+        "description": "Tesla, Inc. is an American multinational automotive and clean energy company that designs, manufactures, and sells electric vehicles, battery energy storage, solar panels, and related products and services.",
+        "industry": "Automotive & Clean Energy",
+        "employee_count": "140,000+",
+        "founded": "2003",
+        "headquarters": "Austin, TX",
+        "domain": "tesla.com",
+        "stock_ticker": "TSLA",
+        "is_public": True,
+    },
+    "walmart": {
+        "name": "Walmart Inc.",
+        "description": "Walmart Inc. is an American multinational retail corporation that operates a chain of hypermarkets, discount department stores, and grocery stores. It is the world's largest company by revenue and the largest private employer.",
+        "industry": "Retail",
+        "employee_count": "2,100,000+",
+        "founded": "1962",
+        "headquarters": "Bentonville, AR",
+        "domain": "walmart.com",
+        "stock_ticker": "WMT",
+        "is_public": True,
+    },
+    "jpmorgan": {
+        "name": "JPMorgan Chase & Co.",
+        "description": "JPMorgan Chase & Co. is an American multinational financial services firm and the largest bank in the United States by assets. It provides investment banking, financial services, and asset management.",
+        "industry": "Finance & Banking",
+        "employee_count": "300,000+",
+        "founded": "2000",
+        "headquarters": "New York, NY",
+        "domain": "jpmorganchase.com",
+        "stock_ticker": "JPM",
+        "is_public": True,
+    },
+    "jpmorgan chase": {
+        "name": "JPMorgan Chase & Co.",
+        "description": "JPMorgan Chase & Co. is an American multinational financial services firm and the largest bank in the United States by assets.",
+        "industry": "Finance & Banking",
+        "employee_count": "300,000+",
+        "founded": "2000",
+        "headquarters": "New York, NY",
+        "domain": "jpmorganchase.com",
+        "stock_ticker": "JPM",
+        "is_public": True,
+    },
+    "nike": {
+        "name": "Nike, Inc.",
+        "description": "Nike, Inc. is an American multinational corporation that designs, develops, manufactures, and sells footwear, apparel, equipment, accessories, and services worldwide. It is the world's largest supplier of athletic shoes and apparel.",
+        "industry": "Retail & Consumer Goods",
+        "employee_count": "79,000+",
+        "founded": "1964",
+        "headquarters": "Beaverton, OR",
+        "domain": "nike.com",
+        "stock_ticker": "NKE",
+        "is_public": True,
+    },
+    "uber": {
+        "name": "Uber Technologies, Inc.",
+        "description": "Uber Technologies, Inc. is an American multinational transportation company that provides ride-hailing services, courier services, food delivery, and freight transport.",
+        "industry": "Technology & Transportation",
+        "employee_count": "32,000+",
+        "founded": "2009",
+        "headquarters": "San Francisco, CA",
+        "domain": "uber.com",
+        "stock_ticker": "UBER",
+        "is_public": True,
+    },
+    "salesforce": {
+        "name": "Salesforce, Inc.",
+        "description": "Salesforce, Inc. is an American cloud-based software company that provides customer relationship management (CRM) software and applications focused on sales, customer service, marketing automation, analytics, and application development.",
+        "industry": "Technology & SaaS",
+        "employee_count": "73,000+",
+        "founded": "1999",
+        "headquarters": "San Francisco, CA",
+        "domain": "salesforce.com",
+        "stock_ticker": "CRM",
+        "is_public": True,
+    },
+    "deloitte": {
+        "name": "Deloitte Touche Tohmatsu Limited",
+        "description": "Deloitte is a multinational professional services network and the largest professional services network in the world by revenue and number of professionals. It provides audit, consulting, financial advisory, risk advisory, tax, and legal services.",
+        "industry": "Professional Services",
+        "employee_count": "415,000+",
+        "founded": "1845",
+        "headquarters": "London, UK",
+        "domain": "deloitte.com",
+        "stock_ticker": "",
+        "is_public": False,
+    },
+    "mckinsey": {
+        "name": "McKinsey & Company",
+        "description": "McKinsey & Company is an American worldwide management consulting firm that conducts qualitative and quantitative analysis to evaluate management decisions across the public and private sectors.",
+        "industry": "Management Consulting",
+        "employee_count": "45,000+",
+        "founded": "1926",
+        "headquarters": "New York, NY",
+        "domain": "mckinsey.com",
+        "stock_ticker": "",
+        "is_public": False,
+    },
+    "nvidia": {
+        "name": "NVIDIA Corporation",
+        "description": "NVIDIA Corporation is an American multinational corporation and technology company that designs and supplies graphics processing units (GPUs), application programming interfaces (APIs), and system on a chip units (SoCs) for gaming, professional visualization, data centers, and automotive markets.",
+        "industry": "Technology & Semiconductors",
+        "employee_count": "30,000+",
+        "founded": "1993",
+        "headquarters": "Santa Clara, CA",
+        "domain": "nvidia.com",
+        "stock_ticker": "NVDA",
+        "is_public": True,
+    },
+    "ibm": {
+        "name": "International Business Machines Corporation",
+        "description": "IBM is an American multinational technology company that produces and sells computer hardware, middleware, and software, and provides hosting and consulting services in areas ranging from mainframe computers to nanotechnology.",
+        "industry": "Technology & Consulting",
+        "employee_count": "280,000+",
+        "founded": "1911",
+        "headquarters": "Armonk, NY",
+        "domain": "ibm.com",
+        "stock_ticker": "IBM",
+        "is_public": True,
+    },
+    "oracle": {
+        "name": "Oracle Corporation",
+        "description": "Oracle Corporation is an American multinational computer technology company that sells database software and technology, cloud engineered systems, and enterprise software products -- particularly its own brands of database management systems.",
+        "industry": "Technology & Enterprise Software",
+        "employee_count": "160,000+",
+        "founded": "1977",
+        "headquarters": "Austin, TX",
+        "domain": "oracle.com",
+        "stock_ticker": "ORCL",
+        "is_public": True,
+    },
+    "johnson & johnson": {
+        "name": "Johnson & Johnson",
+        "description": "Johnson & Johnson is an American multinational corporation that develops medical devices, pharmaceuticals, and consumer packaged goods. It is one of the world's most valuable companies and the world's largest healthcare company.",
+        "industry": "Healthcare & Pharmaceuticals",
+        "employee_count": "130,000+",
+        "founded": "1886",
+        "headquarters": "New Brunswick, NJ",
+        "domain": "jnj.com",
+        "stock_ticker": "JNJ",
+        "is_public": True,
+    },
+    "disney": {
+        "name": "The Walt Disney Company",
+        "description": "The Walt Disney Company is an American multinational mass media and entertainment conglomerate. Its divisions include Disney Entertainment, ESPN, and Disney Experiences, encompassing theme parks, film studios, television networks, and streaming platforms.",
+        "industry": "Media & Entertainment",
+        "employee_count": "220,000+",
+        "founded": "1923",
+        "headquarters": "Burbank, CA",
+        "domain": "disney.com",
+        "stock_ticker": "DIS",
+        "is_public": True,
+    },
+    "boeing": {
+        "name": "The Boeing Company",
+        "description": "The Boeing Company is an American multinational corporation that designs, manufactures, and sells airplanes, rotorcraft, rockets, satellites, telecommunications equipment, and missiles worldwide.",
+        "industry": "Aerospace & Defense",
+        "employee_count": "170,000+",
+        "founded": "1916",
+        "headquarters": "Arlington, VA",
+        "domain": "boeing.com",
+        "stock_ticker": "BA",
+        "is_public": True,
+    },
+    "goldman sachs": {
+        "name": "The Goldman Sachs Group, Inc.",
+        "description": "The Goldman Sachs Group, Inc. is an American multinational investment bank and financial services company. It offers services in investment management, securities, asset management, prime brokerage, and securities underwriting.",
+        "industry": "Finance & Investment Banking",
+        "employee_count": "45,000+",
+        "founded": "1869",
+        "headquarters": "New York, NY",
+        "domain": "goldmansachs.com",
+        "stock_ticker": "GS",
+        "is_public": True,
+    },
+    "target": {
+        "name": "Target Corporation",
+        "description": "Target Corporation is an American retail corporation that operates a chain of discount department stores and hypermarkets. It is the seventh-largest retailer in the United States.",
+        "industry": "Retail",
+        "employee_count": "400,000+",
+        "founded": "1902",
+        "headquarters": "Minneapolis, MN",
+        "domain": "target.com",
+        "stock_ticker": "TGT",
+        "is_public": True,
+    },
+    "indeed": {
+        "name": "Indeed",
+        "description": "Indeed is an American worldwide employment website for job listings launched in 2004. It is a subsidiary of Recruit Holdings. It aggregates job listings from thousands of websites, including job boards, staffing firms, associations, and company career pages.",
+        "industry": "Technology & HR Tech",
+        "employee_count": "15,000+",
+        "founded": "2004",
+        "headquarters": "Austin, TX",
+        "domain": "indeed.com",
+        "stock_ticker": "",
+        "is_public": False,
+    },
+    "linkedin": {
+        "name": "LinkedIn",
+        "description": "LinkedIn is a business and employment-focused social media platform owned by Microsoft. It works through websites and mobile apps. It is used for professional networking and career development.",
+        "industry": "Technology & Social Media",
+        "employee_count": "21,000+",
+        "founded": "2002",
+        "headquarters": "Sunnyvale, CA",
+        "domain": "linkedin.com",
+        "stock_ticker": "",
+        "is_public": False,
+    },
+    "joveo": {
+        "name": "Joveo",
+        "description": "Joveo is a global leader in programmatic job advertising technology. Its AI-powered platform helps enterprises and staffing agencies optimize their recruitment marketing spend across thousands of job sites and channels.",
+        "industry": "Technology & HR Tech",
+        "employee_count": "200+",
+        "founded": "2017",
+        "headquarters": "San Francisco, CA",
+        "domain": "joveo.com",
+        "stock_ticker": "",
+        "is_public": False,
+    },
+}
+
+
+def _lookup_well_known_company(company_name: str) -> Optional[Dict[str, Any]]:
+    """Look up a company in the well-known companies database.
+
+    Performs case-insensitive matching against company names and common
+    abbreviations. Returns a copy of the company data or None if not found.
+
+    Args:
+        company_name: Company name to look up.
+
+    Returns:
+        Dict with company profile data, or None if not in the database.
+    """
+    if not company_name:
+        return None
+    key = company_name.strip().lower()
+    # Direct match
+    if key in _WELL_KNOWN_COMPANIES:
+        return dict(_WELL_KNOWN_COMPANIES[key])
+    # Try removing common suffixes
+    for suffix in (
+        " inc",
+        " inc.",
+        " corp",
+        " corp.",
+        " llc",
+        " ltd",
+        " co",
+        " company",
+        " corporation",
+    ):
+        stripped = key.rstrip(".").removesuffix(suffix)
+        if stripped != key and stripped in _WELL_KNOWN_COMPANIES:
+            return dict(_WELL_KNOWN_COMPANIES[stripped])
+    # Substring match for names like "The Walt Disney Company" -> "disney"
+    for known_key, known_data in _WELL_KNOWN_COMPANIES.items():
+        if known_key in key or key in known_data.get("name", "").lower():
+            return dict(known_data)
+    return None
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # 1. COMPANY ANALYSIS
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -387,6 +745,57 @@ def analyze_company(company_name: str) -> Dict[str, Any]:
 
             except Exception as exc:
                 logger.warning("Failed to fetch %s for %s: %s", key, company_name, exc)
+
+    # ── Fallback: fill gaps from well-known companies database ──
+    _has_meaningful_data = bool(
+        profile.get("description")
+        or profile.get("employee_count")
+        or profile.get("founded")
+        or profile.get("headquarters")
+    )
+    if not _has_meaningful_data:
+        fallback = _lookup_well_known_company(company_name)
+        if fallback:
+            logger.info("Using well-known company fallback for '%s'", company_name)
+            for field in (
+                "description",
+                "industry",
+                "employee_count",
+                "founded",
+                "headquarters",
+                "domain",
+                "stock_ticker",
+                "is_public",
+                "name",
+            ):
+                if fallback.get(field) and not profile.get(field):
+                    profile[field] = fallback[field]
+            # is_public needs special handling since False is falsy
+            if fallback.get("is_public") and not profile.get("is_public"):
+                profile["is_public"] = True
+            if "Well-Known DB" not in profile.get("sources", []):
+                profile["sources"].append("Well-Known DB")
+    else:
+        # Even with partial API data, fill remaining empty fields from fallback
+        fallback = _lookup_well_known_company(company_name)
+        if fallback:
+            for field in (
+                "description",
+                "industry",
+                "employee_count",
+                "founded",
+                "headquarters",
+                "domain",
+                "stock_ticker",
+            ):
+                if fallback.get(field) and not profile.get(field):
+                    profile[field] = fallback[field]
+            if fallback.get("is_public") and not profile.get("is_public"):
+                profile["is_public"] = True
+                if fallback.get("stock_ticker"):
+                    profile["stock_ticker"] = (
+                        profile.get("stock_ticker") or fallback["stock_ticker"]
+                    )
 
     return profile
 

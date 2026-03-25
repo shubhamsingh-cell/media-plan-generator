@@ -374,6 +374,146 @@
         height: 18px;
       }
 
+      /* ── Insights Badge & Panel ── */
+      .insight-badge {
+        position: absolute;
+        top: -4px;
+        right: -4px;
+        background: var(--red);
+        color: white;
+        font-size: 10px;
+        font-weight: 600;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        line-height: 1;
+      }
+      .insights-panel {
+        position: fixed;
+        top: 56px;
+        right: 16px;
+        width: 380px;
+        max-height: 500px;
+        background: rgba(15, 15, 30, 0.95);
+        border: 1px solid rgba(90, 84, 189, 0.3);
+        border-radius: var(--radius-lg);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        overflow-y: auto;
+        z-index: 1000;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+      }
+      .insights-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--border-subtle);
+        position: sticky;
+        top: 0;
+        background: rgba(15, 15, 30, 0.98);
+        z-index: 1;
+      }
+      .insights-header h3 {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin: 0;
+      }
+      .insights-close {
+        background: none;
+        border: none;
+        color: var(--text-tertiary);
+        font-size: 20px;
+        cursor: pointer;
+        padding: 2px 6px;
+        border-radius: var(--radius-sm);
+        line-height: 1;
+      }
+      .insights-close:hover {
+        background: rgba(255, 255, 255, 0.06);
+        color: var(--text-primary);
+      }
+      .insights-list {
+        padding: 4px 0;
+      }
+      .insights-empty {
+        text-align: center;
+        padding: 32px 16px;
+        color: var(--text-tertiary);
+        font-size: 13px;
+      }
+      .insight-card {
+        padding: 12px 16px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        transition: background var(--transition-fast);
+      }
+      .insight-card:hover {
+        background: rgba(255, 255, 255, 0.03);
+      }
+      .insight-card.severity-high {
+        border-left: 3px solid var(--red);
+      }
+      .insight-card.severity-medium {
+        border-left: 3px solid var(--amber);
+      }
+      .insight-card.severity-low {
+        border-left: 3px solid var(--teal);
+      }
+      .insight-card-title {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 4px;
+      }
+      .insight-card-msg {
+        font-size: 12px;
+        color: var(--text-secondary);
+        line-height: 1.5;
+        margin-bottom: 8px;
+      }
+      .insight-card-actions {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      .insight-action-btn {
+        font-size: 11px;
+        padding: 3px 10px;
+        border-radius: var(--radius-sm);
+        background: rgba(90, 84, 189, 0.15);
+        color: var(--text-accent);
+        border: 1px solid rgba(90, 84, 189, 0.25);
+        cursor: pointer;
+        font-weight: 500;
+        transition: all var(--transition-fast);
+      }
+      .insight-action-btn:hover {
+        background: rgba(90, 84, 189, 0.25);
+      }
+      .insight-dismiss-btn {
+        font-size: 11px;
+        padding: 3px 10px;
+        border-radius: var(--radius-sm);
+        background: none;
+        color: var(--text-tertiary);
+        border: 1px solid var(--border-subtle);
+        cursor: pointer;
+        transition: all var(--transition-fast);
+      }
+      .insight-dismiss-btn:hover {
+        background: rgba(255, 255, 255, 0.06);
+        color: var(--text-secondary);
+      }
+      .insight-card-time {
+        font-size: 10px;
+        color: var(--text-tertiary);
+        margin-left: auto;
+      }
+
       .topbar-avatar {
         width: 30px;
         height: 30px;
@@ -2252,6 +2392,30 @@
         <div class="topbar-actions">
           <button
             class="topbar-btn"
+            id="btn-insights"
+            onclick="NovaInsights.toggle()"
+            title="Nova Insights"
+            aria-label="View insights"
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+              <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+            </svg>
+            <span class="insight-badge" id="insight-count" style="display: none"
+              >0</span
+            >
+          </button>
+          <button
+            class="topbar-btn"
             title="Nova AI (&#8984;/)"
             onclick="NovaDrawer.toggle()"
             aria-label="Toggle Nova AI assistant"
@@ -2313,6 +2477,23 @@
         ></div>
         <div id="module-frame"></div>
       </main>
+    </div>
+
+    <!-- ── INSIGHTS PANEL ── -->
+    <div id="insights-panel" class="insights-panel" style="display: none">
+      <div class="insights-header">
+        <h3>Nova Insights</h3>
+        <button
+          onclick="NovaInsights.toggle()"
+          class="insights-close"
+          aria-label="Close insights panel"
+        >
+          &times;
+        </button>
+      </div>
+      <div id="insights-list" class="insights-list">
+        <div class="insights-empty">No new insights</div>
+      </div>
     </div>
 
     <!-- ── SIDEBAR MOBILE OVERLAY ── -->
@@ -4169,6 +4350,7 @@
             fetch("/api/chat", {
               method: "POST",
               headers: headers,
+              credentials: "same-origin",
               body: JSON.stringify({
                 message: text,
                 conversation_history: _chatHistory
@@ -4186,7 +4368,48 @@
                 },
               }),
             })
-              .then((r) => r.json())
+              .then((r) => {
+                if (!r.ok && r.status === 403) {
+                  /* CSRF token expired -- re-fetch and retry once */
+                  return fetch("/api/csrf-token", {
+                    credentials: "same-origin",
+                  })
+                    .then((cr) => cr.json())
+                    .then((cd) => {
+                      const meta = document.querySelector(
+                        'meta[name="csrf-token"]',
+                      );
+                      if (meta && (cd.token || cd.csrf_token))
+                        meta.content = cd.token || cd.csrf_token;
+                      headers["X-CSRF-Token"] = cd.token || cd.csrf_token || "";
+                      return fetch("/api/chat", {
+                        method: "POST",
+                        headers: headers,
+                        credentials: "same-origin",
+                        body: JSON.stringify({
+                          message: text,
+                          conversation_history: _chatHistory
+                            .filter(
+                              (m) => m.role === "user" || m.role === "nova",
+                            )
+                            .slice(-10)
+                            .map((m) => ({
+                              role: m.role === "nova" ? "assistant" : "user",
+                              content: m.text,
+                            })),
+                          context: {
+                            active_module: activeModule,
+                            campaign_name: campaign.name || "",
+                            campaign_budget: campaign.budget || 0,
+                            campaign_industry: campaign.industry || "",
+                          },
+                        }),
+                      });
+                    })
+                    .then((r2) => r2.json());
+                }
+                return r.json();
+              })
               .then((data) => {
                 /* Remove typing indicator */
                 if (typingEl.parentNode) typingEl.remove();
@@ -4194,7 +4417,8 @@
                 const responseText =
                   data.response ||
                   data.text ||
-                  "I couldn't process that request. Try the standalone Nova page for full capabilities.";
+                  data.error ||
+                  "I couldn't process that request. Please try again.";
                 const actions = [];
 
                 /* Extract action buttons from response if any */
@@ -4429,6 +4653,16 @@
             } catch (e) {
               return;
             }
+            // Skip onboarding when user navigated directly to a module via hash
+            const hash = (location.hash || "").replace(/^#?\/?/, "");
+            if (hash && hash !== "home") {
+              try {
+                localStorage.setItem(SEEN_KEY, "1");
+              } catch (e) {
+                /* noop */
+              }
+              return;
+            }
             document
               .getElementById("onboarding-overlay")
               .classList.add("active");
@@ -4609,6 +4843,12 @@
 
         /* Escape: close overlays */
         if (e.key === "Escape") {
+          /* Close insights panel if open */
+          const insPanel = document.getElementById("insights-panel");
+          if (insPanel && insPanel.style.display !== "none") {
+            NovaInsights.toggle();
+            return;
+          }
           if (
             document.getElementById("tour-tooltip").classList.contains("active")
           ) {
@@ -4651,6 +4891,172 @@
       });
 
       /* ─────────────────────────────────────────────────────────────
+   NOVA INSIGHTS (proactive intelligence bell + panel)
+   ───────────────────────────────────────────────────────────── */
+      const NovaInsights = (() => {
+        let _open = false;
+        let _pollTimer = null;
+        let _insights = [];
+
+        function toggle() {
+          const panel = document.getElementById("insights-panel");
+          if (!panel) return;
+          _open = !_open;
+          panel.style.display = _open ? "block" : "none";
+          if (_open) poll(); // refresh on open
+        }
+
+        function poll() {
+          fetch("/api/insights?unread=1")
+            .then((r) => r.json())
+            .then((d) => {
+              _insights = d.insights || [];
+              updateBadge(_insights.length);
+              render(_insights);
+            })
+            .catch(() => {});
+        }
+
+        function updateBadge(count) {
+          const badge = document.getElementById("insight-count");
+          if (!badge) return;
+          if (count > 0) {
+            badge.textContent = count > 99 ? "99+" : count;
+            badge.style.display = "flex";
+          } else {
+            badge.style.display = "none";
+          }
+        }
+
+        function render(insights) {
+          const list = document.getElementById("insights-list");
+          if (!list) return;
+          if (!insights.length) {
+            list.innerHTML =
+              '<div class="insights-empty">No new insights</div>';
+            return;
+          }
+          list.innerHTML = insights
+            .map((ins) => {
+              const sev = (ins.severity || ins.priority || "low").toLowerCase();
+              const sevClass =
+                sev === "high"
+                  ? "severity-high"
+                  : sev === "medium"
+                    ? "severity-medium"
+                    : "severity-low";
+              const title = escapeHtml(ins.title || ins.type || "Insight");
+              const msg = escapeHtml(ins.message || ins.description || "");
+              const id = ins.id || ins.insight_id || "";
+              const actionRoute = ins.action_route || ins.route || "";
+              const timeAgo = ins.created_at
+                ? formatTimeAgo(ins.created_at)
+                : "";
+              let actions =
+                '<button class="insight-dismiss-btn" onclick="NovaInsights.dismiss(\'' +
+                id +
+                "')\">Dismiss</button>";
+              if (actionRoute) {
+                actions =
+                  '<button class="insight-action-btn" onclick="NovaInsights.act(\'' +
+                  id +
+                  "', '" +
+                  actionRoute +
+                  "')\">View</button>" +
+                  actions;
+              }
+              return (
+                '<div class="insight-card ' +
+                sevClass +
+                '">' +
+                '<div class="insight-card-title">' +
+                title +
+                "</div>" +
+                '<div class="insight-card-msg">' +
+                msg +
+                "</div>" +
+                '<div class="insight-card-actions">' +
+                actions +
+                (timeAgo
+                  ? '<span class="insight-card-time">' + timeAgo + "</span>"
+                  : "") +
+                "</div></div>"
+              );
+            })
+            .join("");
+        }
+
+        function dismiss(id) {
+          const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+          const csrf = csrfMeta ? csrfMeta.content : "";
+          fetch("/api/insights/dismiss", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-CSRF-Token": csrf,
+            },
+            body: JSON.stringify({ id: id }),
+          })
+            .then(() => poll())
+            .catch(() => {});
+        }
+
+        function act(id, route) {
+          // Mark as read then navigate
+          const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+          const csrf = csrfMeta ? csrfMeta.content : "";
+          fetch("/api/insights/read", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-CSRF-Token": csrf,
+            },
+            body: JSON.stringify({ id: id }),
+          })
+            .then(() => {
+              poll();
+              if (route && typeof NovaRouter !== "undefined") {
+                NovaRouter.navigate(route);
+              }
+              toggle(); // close panel
+            })
+            .catch(() => {});
+        }
+
+        function escapeHtml(s) {
+          const d = document.createElement("div");
+          d.textContent = s;
+          return d.innerHTML;
+        }
+
+        function formatTimeAgo(ts) {
+          try {
+            const diff = Date.now() - new Date(ts).getTime();
+            const mins = Math.floor(diff / 60000);
+            if (mins < 1) return "just now";
+            if (mins < 60) return mins + "m ago";
+            const hrs = Math.floor(mins / 60);
+            if (hrs < 24) return hrs + "h ago";
+            const days = Math.floor(hrs / 24);
+            return days + "d ago";
+          } catch (_) {
+            return "";
+          }
+        }
+
+        function start() {
+          poll();
+          _pollTimer = setInterval(poll, 30000);
+        }
+
+        function stop() {
+          if (_pollTimer) clearInterval(_pollTimer);
+        }
+
+        return { toggle, poll, dismiss, act, start, stop };
+      })();
+
+      /* ─────────────────────────────────────────────────────────────
    INIT
    ───────────────────────────────────────────────────────────── */
       document.addEventListener("DOMContentLoaded", () => {
@@ -4660,14 +5066,17 @@
         NovaRoleSelector.init();
         NovaDrawer.updateSuggestions("home");
         NovaRouter.init();
+        /* Start proactive insights polling */
+        NovaInsights.start();
         /* Show onboarding on first visit (Phase 6) */
         setTimeout(() => NovaOnboarding.check(), 500);
         /* Fetch CSRF token for API calls */
-        fetch("/api/csrf-token")
+        fetch("/api/csrf-token", { credentials: "same-origin" })
           .then((r) => r.json())
           .then((d) => {
             const meta = document.querySelector('meta[name="csrf-token"]');
-            if (meta && d.csrf_token) meta.content = d.csrf_token;
+            if (meta && (d.token || d.csrf_token))
+              meta.content = d.token || d.csrf_token;
           })
           .catch(() => {});
       });

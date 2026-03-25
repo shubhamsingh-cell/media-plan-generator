@@ -36,37 +36,22 @@ except ImportError:
 
 
 # ---------------------------------------------------------------------------
-# Thread-safe Supabase Client Singleton
+# Thread-safe Supabase Client Singleton (delegates to supabase_client.py)
 # ---------------------------------------------------------------------------
-_supabase_client = None
-_supabase_lock = threading.Lock()
 
 
 def _get_supabase():
-    """Get or initialize Supabase client (lazy, thread-safe)."""
-    global _supabase_client
-    if _supabase_client is None:
-        with _supabase_lock:
-            if _supabase_client is None:
-                if not SUPABASE_AVAILABLE:
-                    logger.error("Supabase client not available")
-                    return None
+    """Get or initialize Supabase client (lazy, thread-safe).
 
-                try:
-                    url = os.getenv("SUPABASE_URL") or ""
-                    key = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or ""
-                    if not url or not key:
-                        logger.error(
-                            "SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not set"
-                        )
-                        return None
-                    _supabase_client = create_client(url, key)
-                    logger.info("Supabase client initialized")
-                except Exception as e:
-                    logger.error("Failed to initialize Supabase: %s", e, exc_info=True)
-                    _supabase_client = False  # sentinel: tried and failed
+    Delegates to the shared singleton in supabase_client.py.
+    """
+    try:
+        from supabase_client import get_client
 
-    return _supabase_client if _supabase_client is not False else None
+        return get_client()
+    except ImportError:
+        logger.warning("supabase_client module not available")
+        return None
 
 
 # ---------------------------------------------------------------------------

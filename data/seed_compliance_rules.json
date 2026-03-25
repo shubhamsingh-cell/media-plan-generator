@@ -1,0 +1,143 @@
+[
+  {
+    "rule_id": "eeoc-title-vii",
+    "jurisdiction": "US",
+    "category": "equal_employment",
+    "title": "EEOC Title VII of the Civil Rights Act",
+    "description": "Prohibits employment discrimination based on race, color, religion, sex, or national origin. Applies to employers with 15+ employees. Covers hiring, firing, promotion, compensation, and all terms of employment.",
+    "requirements": [
+      "No discrimination in job postings or hiring criteria based on protected classes",
+      "Maintain records of applicant demographics for EEOC reporting",
+      "Reasonable accommodation for religious practices",
+      "Anti-retaliation protections for employees who file complaints",
+      "EEO-1 reporting for employers with 100+ employees"
+    ],
+    "penalties": "Back pay, compensatory damages up to $300K, punitive damages, injunctive relief, attorney fees. Pattern-or-practice suits by EEOC.",
+    "effective_date": "1964-07-02",
+    "status": "active"
+  },
+  {
+    "rule_id": "gdpr-recruitment",
+    "jurisdiction": "EU",
+    "category": "data_privacy",
+    "title": "GDPR - Recruitment Data Processing",
+    "description": "General Data Protection Regulation requirements for processing candidate personal data during recruitment. Requires lawful basis, data minimization, and candidate rights including right to erasure.",
+    "requirements": [
+      "Obtain explicit consent or establish legitimate interest for processing candidate data",
+      "Provide privacy notice before collecting personal data",
+      "Data minimization - collect only what is necessary for recruitment",
+      "Right to access, rectification, and erasure of candidate data",
+      "Data Protection Impact Assessment for large-scale processing",
+      "Appoint Data Protection Officer if processing at scale",
+      "72-hour breach notification to supervisory authority",
+      "Cross-border transfer restrictions (Standard Contractual Clauses required)"
+    ],
+    "penalties": "Up to 4% of annual global turnover or EUR 20 million, whichever is greater. Administrative fines, orders to cease processing.",
+    "effective_date": "2018-05-25",
+    "status": "active"
+  },
+  {
+    "rule_id": "ada-employment",
+    "jurisdiction": "US",
+    "category": "disability_accommodation",
+    "title": "Americans with Disabilities Act (ADA) - Employment",
+    "description": "Prohibits discrimination against qualified individuals with disabilities in all aspects of employment. Requires reasonable accommodations unless undue hardship. Applies to employers with 15+ employees.",
+    "requirements": [
+      "Job postings must focus on essential functions, not physical requirements unless essential",
+      "Reasonable accommodation during application and interview process",
+      "Cannot ask about disability status before conditional job offer",
+      "Interactive process to determine reasonable accommodations",
+      "Accessible application systems (WCAG 2.1 AA for online portals)",
+      "Medical exams only after conditional offer, must be job-related"
+    ],
+    "penalties": "Back pay, compensatory damages up to $300K, injunctive relief, reasonable accommodation orders, attorney fees.",
+    "effective_date": "1990-07-26",
+    "status": "active"
+  },
+  {
+    "rule_id": "pay-transparency-co",
+    "jurisdiction": "Colorado",
+    "category": "pay_transparency",
+    "title": "Colorado Equal Pay for Equal Work Act (SB 19-085)",
+    "description": "Requires employers to disclose compensation and benefits in job postings for positions that could be performed in Colorado. Prohibits pay history inquiries.",
+    "requirements": [
+      "Include salary range or hourly rate in all job postings",
+      "Disclose benefits information in job postings",
+      "Notify current employees of promotion opportunities",
+      "Maintain job description and wage rate records for each position",
+      "Cannot ask about salary history or rely on it for compensation decisions"
+    ],
+    "penalties": "Fine of $500-$10,000 per violation. Private right of action with compensatory and punitive damages.",
+    "effective_date": "2021-01-01",
+    "status": "active"
+  },
+  {
+    "rule_id": "pay-transparency-ca",
+    "jurisdiction": "California",
+    "category": "pay_transparency",
+    "title": "California Pay Transparency Act (SB 1162)",
+    "description": "Requires employers with 15+ employees to include pay scale in job postings. Employers with 100+ employees must file annual pay data reports including median and mean hourly rates by race/ethnicity and sex.",
+    "requirements": [
+      "Include pay scale (salary or hourly wage range) in all job postings",
+      "Provide pay scale to current employees for their role upon request",
+      "File annual pay data report with Civil Rights Department",
+      "Maintain records of job titles and wage rate history for 3 years",
+      "Cannot ask about salary history"
+    ],
+    "penalties": "$100-$10,000 per violation. No penalty for first violation if corrected. Injunctive relief and civil penalties.",
+    "effective_date": "2023-01-01",
+    "status": "active"
+  },
+  {
+    "rule_id": "pay-transparency-ny",
+    "jurisdiction": "New York",
+    "category": "pay_transparency",
+    "title": "New York Pay Transparency Law",
+    "description": "Requires employers with 4+ employees to disclose compensation range in job advertisements for positions performed in New York. Covers internal and external postings.",
+    "requirements": [
+      "Include minimum and maximum salary in job advertisements",
+      "Applies to jobs performed in whole or in part within New York",
+      "Covers promotions and transfer opportunities posted internally",
+      "Cannot retaliate against employees who inquire about or discuss wages",
+      "Maintain records of compensation ranges for each position"
+    ],
+    "penalties": "Civil penalties up to $250,000 for violations. Orders to comply, compensatory damages.",
+    "effective_date": "2023-09-17",
+    "status": "active"
+  },
+  {
+    "rule_id": "pay-transparency-wa",
+    "jurisdiction": "Washington",
+    "category": "pay_transparency",
+    "title": "Washington Equal Pay and Opportunities Act (SB 5761)",
+    "description": "Requires employers with 15+ employees to include wage scale or salary range and benefits description in job postings. Applies to positions that could be performed in Washington.",
+    "requirements": [
+      "Include wage scale or salary range in all job postings",
+      "Include general description of benefits and other compensation",
+      "Applies to postings by employers and third-party recruiters",
+      "Provide current employees with wage scale for their position upon request",
+      "Cannot seek salary history from applicants"
+    ],
+    "penalties": "Actual damages, statutory damages up to $5,000, attorney fees. Washington Department of Labor enforcement.",
+    "effective_date": "2023-01-01",
+    "status": "active"
+  },
+  {
+    "rule_id": "adea-age-discrimination",
+    "jurisdiction": "US",
+    "category": "age_discrimination",
+    "title": "Age Discrimination in Employment Act (ADEA)",
+    "description": "Prohibits employment discrimination against individuals 40 years of age or older. Applies to employers with 20+ employees. Covers hiring, firing, promotion, compensation, terms, and conditions of employment.",
+    "requirements": [
+      "No age-based criteria in job postings (avoid 'digital native', 'recent graduate')",
+      "Cannot set age limits for hiring unless bona fide occupational qualification",
+      "Interview questions must not target age or graduation dates",
+      "Equal training and development opportunities regardless of age",
+      "No mandatory retirement except for specific executive positions",
+      "Job advertisements cannot express age preference or limitation"
+    ],
+    "penalties": "Back pay, liquidated damages (double back pay for willful violations), injunctive relief, attorney fees. No compensatory or punitive damages.",
+    "effective_date": "1967-12-15",
+    "status": "active"
+  }
+]

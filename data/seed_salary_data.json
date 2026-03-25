@@ -1,0 +1,57 @@
+[
+  {"role": "Software Engineer", "location": "US", "min_salary": 85000, "median_salary": 120000, "max_salary": 180000, "currency": "USD", "source": "BLS OES + Glassdoor 2025", "updated_at": "2026-03-25T00:00:00Z"},
+  {"role": "Software Engineer", "location": "NYC", "min_salary": 105000, "median_salary": 145000, "max_salary": 220000, "currency": "USD", "source": "BLS OES + Glassdoor 2025", "updated_at": "2026-03-25T00:00:00Z"},
+  {"role": "Software Engineer", "location": "LA", "min_salary": 95000, "median_salary": 135000, "max_salary": 200000, "currency": "USD", "source": "BLS OES + Glassdoor 2025", "updated_at": "2026-03-25T00:00:00Z"},
+  {"role": "Software Engineer", "location": "Chicago", "min_salary": 85000, "median_salary": 118000, "max_salary": 175000, "currency": "USD", "source": "BLS OES + Glassdoor 2025", "updated_at": "2026-03-25T00:00:00Z"},
+  {"role": "Software Engineer", "location": "Dallas", "min_salary": 80000, "median_salary": 115000, "max_salary": 170000, "currency": "USD", "source": "BLS OES + Glassdoor 2025", "updated_at": "2026-03-25T00:00:00Z"},
+  {"role": "Software Engineer", "location": "Seattle", "min_salary": 110000, "median_salary": 155000, "max_salary": 230000, "currency": "USD", "source": "BLS OES + Glassdoor 2025", "updated_at": "2026-03-25T00:00:00Z"},
+
+  {"role": "Nurse", "location": "US", "min_salary": 55000, "median_salary": 77600, "max_salary": 116000, "currency": "USD", "source": "BLS OES 2025", "updated_at": "2026-03-25T00:00:00Z"},
+  {"role": "Nurse", "location": "NYC", "min_salary": 75000, "median_salary": 98000, "max_salary": 135000, "currency": "USD", "source": "BLS OES 2025", "updated_at": "2026-03-25T00:00:00Z"},
+  {"role": "Nurse", "location": "LA", "min_salary": 72000, "median_salary": 95000, "max_salary": 130000, "currency": "USD", "source": "BLS OES 2025", "updated_at": "2026-03-25T00:00:00Z"},
+  {"role": "Nurse", "location": "Chicago", "min_salary": 60000, "median_salary": 80000, "max_salary": 110000, "currency": "USD", "source": "BLS OES 2025", "updated_at": "2026-03-25T00:00:00Z"},
+  {"role": "Nurse", "location": "Dallas", "min_salary": 58000, "median_salary": 76000, "max_salary": 105000, "currency": "USD", "source": "BLS OES 2025", "updated_at": "2026-03-25T00:00:00Z"},
+  {"role": "Nurse", "location": "Seattle", "min_salary": 70000, "median_salary": 92000, "max_salary": 128000, "currency": "USD", "source": "BLS OES 2025", "updated_at": "2026-03-25T00:00:00Z"},
+
+  {"role": "Data Scientist", "location": "US", "min_salary": 90000, "median_salary": 130000, "max_salary": 195000, "currency": "USD", "source": "BLS OES + Levels.fyi 2025", "updated_at": "2026-03-25T00:00:00Z"},
+  {"role": "Data Scientist", "location": "NYC", "min_salary": 110000, "median_salary": 155000, "max_salary": 230000, "currency": "USD", "source": "BLS OES + Levels.fyi 2025", "updated_at": "2026-03-25T00:00:00Z"},
+  {"role": "Data Scientist", "location": "LA", "min_salary": 100000, "median_salary": 140000, "max_salary": 210000, "currency": "USD", "source": "BLS OES + Levels.fyi 2025", "updated_at": "2026-03-25T00:00:00Z"},
+  {"role": "Data Scientist", "location": "Chicago", "min_salary": 88000, "median_salary": 125000, "max_salary": 185000, "currency": "USD", "source": "BLS OES + Levels.fyi 2025", "updated_at": "2026-03-25T00:00:00Z"},
+  {"role": "Data Scientist", "location": "Dallas", "min_salary": 85000, "median_salary": 120000, "max_salary": 178000, "currency": "USD", "source": "BLS OES + Levels.fyi 2025", "updated_at": "2026-03-25T00:00:00Z"},
+  {"role": "Data Scientist", "location": "Seattle", "min_salary": 115000, "median_salary": 160000, "max_salary": 240000, "currency": "USD", "source": "BLS OES + Levels.fyi 2025", "updated_at": "2026-03-25T00:00:00Z"},
+
+  {"role": "Sales Rep", "location": "US", "min_salary": 40000, "median_salary": 65000, "max_salary": 120000, "currency": "USD", "source": "BLS OES + Glassdoor 2025", "updated_at": "2026-03-25T00:00:00Z"},
+  {"role": "Sales Rep", "location": "NYC", "min_salary": 50000, "median_salary": 80000, "max_salary": 150000, "currency": "USD", "source": "BLS OES + Glassdoor 2025", "updated_at": "2026-03-25T00:00:00Z"},
+  {"role": "Sales Rep", "location": "LA", "min_salary": 45000, "median_salary": 72000, "max_salary": 135000, "currency": "USD", "source": "BLS OES + Glassdoor 2025", "updated_at": "2026-03-25T00:00:00Z"},
+  {"role": "Sales Rep", "location": "Chicago", "min_salary": 42000, "median_salary": 66000, "max_salary": 120000, "currency": "USD", "source": "BLS OES + Glassdoor 2025", "updated_at": "2026-03-25T00:00:00Z"},
+  {"role": "Sales Rep", "location": "Dallas", "min_salary": 40000, "median_salary": 63000, "max_salary": 115000, "currency": "USD", "source": "BLS OES + Glassdoor 2025", "updated_at": "2026-03-25T00:00:00Z"},
+  {"role": "Sales Rep", "location": "Seattle", "min_salary": 48000, "median_salary": 75000, "max_salary": 140000, "currency": "USD", "source": "BLS OES + Glassdoor 2025", "updated_at": "2026-03-25T00:00:00Z"},
+
+  {"role": "Marketing Manager", "location": "US", "min_salary": 65000, "median_salary": 100000, "max_salary": 160000, "currency": "USD", "source": "BLS OES + LinkedIn Salary 2025", "updated_at": "2026-03-25T00:00:00Z"},
+  {"role": "Marketing Manager", "location": "NYC", "min_salary": 80000, "median_salary": 125000, "max_salary": 195000, "currency": "USD", "source": "BLS OES + LinkedIn Salary 2025", "updated_at": "2026-03-25T00:00:00Z"},
+  {"role": "Marketing Manager", "location": "LA", "min_salary": 75000, "median_salary": 115000, "max_salary": 180000, "currency": "USD", "source": "BLS OES + LinkedIn Salary 2025", "updated_at": "2026-03-25T00:00:00Z"},
+  {"role": "Marketing Manager", "location": "Chicago", "min_salary": 65000, "median_salary": 98000, "max_salary": 155000, "currency": "USD", "source": "BLS OES + LinkedIn Salary 2025", "updated_at": "2026-03-25T00:00:00Z"},
+  {"role": "Marketing Manager", "location": "Dallas", "min_salary": 62000, "median_salary": 95000, "max_salary": 150000, "currency": "USD", "source": "BLS OES + LinkedIn Salary 2025", "updated_at": "2026-03-25T00:00:00Z"},
+  {"role": "Marketing Manager", "location": "Seattle", "min_salary": 78000, "median_salary": 118000, "max_salary": 185000, "currency": "USD", "source": "BLS OES + LinkedIn Salary 2025", "updated_at": "2026-03-25T00:00:00Z"},
+
+  {"role": "Accountant", "location": "US", "min_salary": 50000, "median_salary": 73000, "max_salary": 110000, "currency": "USD", "source": "BLS OES 2025", "updated_at": "2026-03-25T00:00:00Z"},
+  {"role": "Accountant", "location": "NYC", "min_salary": 62000, "median_salary": 90000, "max_salary": 135000, "currency": "USD", "source": "BLS OES 2025", "updated_at": "2026-03-25T00:00:00Z"},
+  {"role": "Accountant", "location": "LA", "min_salary": 58000, "median_salary": 82000, "max_salary": 125000, "currency": "USD", "source": "BLS OES 2025", "updated_at": "2026-03-25T00:00:00Z"},
+  {"role": "Accountant", "location": "Chicago", "min_salary": 52000, "median_salary": 74000, "max_salary": 112000, "currency": "USD", "source": "BLS OES 2025", "updated_at": "2026-03-25T00:00:00Z"},
+  {"role": "Accountant", "location": "Dallas", "min_salary": 48000, "median_salary": 70000, "max_salary": 108000, "currency": "USD", "source": "BLS OES 2025", "updated_at": "2026-03-25T00:00:00Z"},
+  {"role": "Accountant", "location": "Seattle", "min_salary": 60000, "median_salary": 85000, "max_salary": 130000, "currency": "USD", "source": "BLS OES 2025", "updated_at": "2026-03-25T00:00:00Z"},
+
+  {"role": "Teacher", "location": "US", "min_salary": 38000, "median_salary": 58000, "max_salary": 85000, "currency": "USD", "source": "BLS OES + NEA 2025", "updated_at": "2026-03-25T00:00:00Z"},
+  {"role": "Teacher", "location": "NYC", "min_salary": 55000, "median_salary": 80000, "max_salary": 115000, "currency": "USD", "source": "BLS OES + NEA 2025", "updated_at": "2026-03-25T00:00:00Z"},
+  {"role": "Teacher", "location": "LA", "min_salary": 50000, "median_salary": 72000, "max_salary": 100000, "currency": "USD", "source": "BLS OES + NEA 2025", "updated_at": "2026-03-25T00:00:00Z"},
+  {"role": "Teacher", "location": "Chicago", "min_salary": 45000, "median_salary": 65000, "max_salary": 92000, "currency": "USD", "source": "BLS OES + NEA 2025", "updated_at": "2026-03-25T00:00:00Z"},
+  {"role": "Teacher", "location": "Dallas", "min_salary": 42000, "median_salary": 58000, "max_salary": 82000, "currency": "USD", "source": "BLS OES + NEA 2025", "updated_at": "2026-03-25T00:00:00Z"},
+  {"role": "Teacher", "location": "Seattle", "min_salary": 52000, "median_salary": 74000, "max_salary": 105000, "currency": "USD", "source": "BLS OES + NEA 2025", "updated_at": "2026-03-25T00:00:00Z"},
+
+  {"role": "Truck Driver", "location": "US", "min_salary": 42000, "median_salary": 55000, "max_salary": 78000, "currency": "USD", "source": "BLS OES + ATA 2025", "updated_at": "2026-03-25T00:00:00Z"},
+  {"role": "Truck Driver", "location": "NYC", "min_salary": 52000, "median_salary": 68000, "max_salary": 90000, "currency": "USD", "source": "BLS OES + ATA 2025", "updated_at": "2026-03-25T00:00:00Z"},
+  {"role": "Truck Driver", "location": "LA", "min_salary": 48000, "median_salary": 63000, "max_salary": 85000, "currency": "USD", "source": "BLS OES + ATA 2025", "updated_at": "2026-03-25T00:00:00Z"},
+  {"role": "Truck Driver", "location": "Chicago", "min_salary": 45000, "median_salary": 58000, "max_salary": 80000, "currency": "USD", "source": "BLS OES + ATA 2025", "updated_at": "2026-03-25T00:00:00Z"},
+  {"role": "Truck Driver", "location": "Dallas", "min_salary": 43000, "median_salary": 56000, "max_salary": 76000, "currency": "USD", "source": "BLS OES + ATA 2025", "updated_at": "2026-03-25T00:00:00Z"},
+  {"role": "Truck Driver", "location": "Seattle", "min_salary": 50000, "median_salary": 65000, "max_salary": 88000, "currency": "USD", "source": "BLS OES + ATA 2025", "updated_at": "2026-03-25T00:00:00Z"}
+]

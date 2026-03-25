@@ -927,6 +927,28 @@
       .thinking-dot:nth-child(3) {
         animation-delay: 0.4s;
       }
+      /* Streaming cursor -- blinking caret while tokens arrive */
+      .streaming-cursor {
+        display: inline-block;
+        width: 2px;
+        height: 1em;
+        background: var(--accent-teal);
+        margin-left: 2px;
+        vertical-align: text-bottom;
+        animation: cursor-blink 0.7s steps(2) infinite;
+      }
+      @keyframes cursor-blink {
+        0% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0;
+        }
+        100% {
+          opacity: 1;
+        }
+      }
+
       @keyframes thinking-pulse {
         0%,
         60%,
@@ -1429,6 +1451,40 @@
         height: 18px;
       }
 
+      /* Voice input button */
+      .voice-btn {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text-secondary);
+        transition: all var(--transition-fast);
+        flex-shrink: 0;
+      }
+      .voice-btn:hover {
+        color: var(--accent-teal);
+        background: rgba(107, 179, 205, 0.08);
+      }
+      .voice-btn svg {
+        width: 18px;
+        height: 18px;
+      }
+      .voice-btn.recording {
+        color: var(--accent-red);
+        animation: pulse-red 1s ease infinite;
+      }
+      @keyframes pulse-red {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.5;
+        }
+      }
+
       /* ================================================================
          FEEDBACK POPUP
          ================================================================ */
@@ -1922,6 +1978,30 @@
             <span class="topbar-model">v3.5</span>
           </div>
           <div class="topbar-right">
+            <!-- Conversations list (toggles sidebar) -->
+            <button
+              class="topbar-btn"
+              id="conv-list-btn"
+              title="Past conversations"
+              aria-label="View conversations"
+              onclick="document.getElementById('sidebar-toggle').click()"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <line x1="8" y1="6" x2="21" y2="6" />
+                <line x1="8" y1="12" x2="21" y2="12" />
+                <line x1="8" y1="18" x2="21" y2="18" />
+                <line x1="3" y1="6" x2="3.01" y2="6" />
+                <line x1="3" y1="12" x2="3.01" y2="12" />
+                <line x1="3" y1="18" x2="3.01" y2="18" />
+              </svg>
+            </button>
             <!-- Theme toggle (sun/moon) -->
             <button
               class="topbar-btn"
@@ -2091,7 +2171,7 @@
             <input
               type="file"
               id="file-input"
-              accept=".pdf,.csv,.xlsx,.txt,.json"
+              accept=".pdf,.csv,.xlsx,.txt,.json,.docx"
               style="display: none"
             />
             <div class="input-box" id="input-box">
@@ -2107,7 +2187,7 @@
                 <button
                   class="attach-btn"
                   id="attach-btn"
-                  title="Attach file (PDF, CSV, XLSX, TXT, JSON, max 5MB)"
+                  title="Attach file (PDF, CSV, XLSX, TXT, JSON, DOCX, max 10MB)"
                   aria-label="Attach file"
                 >
                   <svg
@@ -2121,6 +2201,29 @@
                     <path
                       d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"
                     />
+                  </svg>
+                </button>
+                <!-- Voice input -->
+                <button
+                  class="voice-btn"
+                  id="voice-btn"
+                  title="Voice input"
+                  aria-label="Voice input"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path
+                      d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"
+                    />
+                    <path d="M19 10v2a7 7 0 01-14 0v-2" />
+                    <line x1="12" y1="19" x2="12" y2="23" />
+                    <line x1="8" y1="23" x2="16" y2="23" />
                   </svg>
                 </button>
                 <!-- Stop generation -->
@@ -2177,7 +2280,7 @@
         var FEEDBACK_URL = "/api/chat/feedback";
         var STOP_URL = "/api/chat/stop";
         var MAX_CHARS = 4000;
-        var MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+        var MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
         var STORAGE_KEY = "nova_conversations";
         var ACTIVE_KEY = "nova_active_conv";
         var THEME_KEY = "nova_theme";
@@ -3294,11 +3397,11 @@
             fileInput.value = "";
             return;
           }
-          var validTypes = [".pdf", ".csv", ".xlsx", ".txt", ".json"];
+          var validTypes = [".pdf", ".csv", ".xlsx", ".txt", ".json", ".docx"];
           var ext = "." + file.name.split(".").pop().toLowerCase();
           if (validTypes.indexOf(ext) === -1) {
             showToast(
-              "Unsupported file type. Use: PDF, CSV, XLSX, TXT, JSON",
+              "Unsupported file type. Use: PDF, CSV, XLSX, TXT, JSON, DOCX",
               "error",
             );
             fileInput.value = "";
@@ -3516,6 +3619,10 @@
               var content = document.createElement("div");
               content.className = "message-content";
               content.id = "streaming-content";
+              var cursorEl = document.createElement("span");
+              cursorEl.className = "streaming-cursor";
+              cursorEl.id = "streaming-cursor";
+              content.appendChild(cursorEl);
               body.appendChild(sender);
               body.appendChild(content);
               wrapper.appendChild(avatar);
@@ -3556,6 +3663,13 @@
                         } catch (_) {
                           content.textContent = fullText;
                         }
+                        // Re-append blinking cursor at end of streamed content
+                        var cur =
+                          document.getElementById("streaming-cursor") ||
+                          document.createElement("span");
+                        cur.className = "streaming-cursor";
+                        cur.id = "streaming-cursor";
+                        content.appendChild(cur);
                         scrollToBottom();
                       }
                     } catch (e) {}
@@ -3575,6 +3689,9 @@
                 })
                 .then(function () {
                   if (readerTimeout) clearTimeout(readerTimeout);
+                  // Remove blinking cursor when stream completes
+                  var cur = document.getElementById("streaming-cursor");
+                  if (cur) cur.remove();
                   state.queryCount++;
                   var msgId = metadata.message_id || "msg-" + Date.now();
 
@@ -3759,6 +3876,80 @@
           forceResetIfStuck();
           sendMessage();
         });
+
+        // ========================================================================
+        // VOICE INPUT (Web Speech API)
+        // ========================================================================
+        var _recognition = null;
+        var voiceBtn = document.getElementById("voice-btn");
+
+        function toggleVoiceInput() {
+          if (
+            !("webkitSpeechRecognition" in window) &&
+            !("SpeechRecognition" in window)
+          ) {
+            showToast("Voice input not supported in this browser", "error");
+            return;
+          }
+          if (_recognition) {
+            _recognition.stop();
+            _recognition = null;
+            voiceBtn.classList.remove("recording");
+            return;
+          }
+          var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+          _recognition = new SR();
+          _recognition.continuous = false;
+          _recognition.interimResults = true;
+          _recognition.lang = "en-US";
+          voiceBtn.classList.add("recording");
+
+          _recognition.onresult = function (e) {
+            var transcript = Array.from(e.results)
+              .map(function (r) {
+                return r[0].transcript;
+              })
+              .join("");
+            chatInput.value = transcript;
+            updateSendBtn();
+            updateCharCount();
+          };
+
+          _recognition.onend = function () {
+            voiceBtn.classList.remove("recording");
+            _recognition = null;
+            // Auto-send if we got text
+            if (chatInput.value.trim()) {
+              sendMessage();
+            }
+          };
+
+          _recognition.onerror = function (e) {
+            voiceBtn.classList.remove("recording");
+            _recognition = null;
+            if (e.error === "not-allowed") {
+              showToast(
+                "Microphone access denied. Check browser permissions.",
+                "error",
+              );
+            } else if (e.error !== "aborted") {
+              showToast("Voice input error: " + e.error, "error");
+            }
+          };
+
+          try {
+            _recognition.start();
+            showToast("Listening... speak now", "info");
+          } catch (err) {
+            voiceBtn.classList.remove("recording");
+            _recognition = null;
+            showToast("Could not start voice input", "error");
+          }
+        }
+
+        if (voiceBtn) {
+          voiceBtn.addEventListener("click", toggleVoiceInput);
+        }
 
         // ========================================================================
         // GLOBAL SAFETY: auto-reset stuck isLoading state every 2s

@@ -582,6 +582,8 @@
         -webkit-text-fill-color: transparent;
         background-clip: text;
         font-variant-numeric: tabular-nums;
+        opacity: 0;
+        transition: opacity 0.3s ease;
       }
 
       .hero-stat-suffix {
@@ -780,6 +782,10 @@
         color: white;
         font-variant-numeric: tabular-nums;
       }
+      .dash-metric-value[data-counter] {
+        opacity: 0;
+        transition: opacity 0.3s ease;
+      }
 
       .dash-chart {
         margin-bottom: 20px;
@@ -931,16 +937,17 @@
         letter-spacing: 0.01em;
       }
 
-      .marquee-item img {
-        height: 28px;
-        width: auto;
-        object-fit: contain;
-        filter: grayscale(1) brightness(2);
-        opacity: 0.6;
+      .marquee-item .mi-name {
+        color: var(--text-muted);
+        font-size: 0.9rem;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        opacity: 0.55;
         transition: opacity 0.2s ease;
       }
-      .marquee-item:hover img {
-        opacity: 1;
+      .marquee-item:hover .mi-name {
+        opacity: 0.85;
       }
 
       .marquee-item .mi-icon {
@@ -2245,7 +2252,13 @@
           transition: none;
         }
         .hero-stat-pill .hero-stat-num {
-          /* counters still run, just no animation delay */
+          /* Show final values immediately -- no animation */
+          opacity: 1;
+          transition: none;
+        }
+        .dash-metric-value[data-counter] {
+          opacity: 1;
+          transition: none;
         }
         /* Dashboard reduced-motion overrides */
         .hero-dashboard {
@@ -2698,7 +2711,7 @@
           <span class="conf-dot"></span>
           <span>Based on real campaign data</span>
           <span class="conf-dot"></span>
-          <span>No signup required</span>
+          <span>Free tools available without signup</span>
         </div>
       </div>
 
@@ -3198,9 +3211,11 @@
               id="w-market-value"
               style="font-size: 1.5rem"
             >
-              Stable
+              --
             </div>
-            <div class="widget-sub" id="w-market-sub">Loading...</div>
+            <div class="widget-sub" id="w-market-sub">
+              Labor market trends steady
+            </div>
           </div>
           <div class="widget-card reveal" id="w-compliance">
             <div class="widget-header">
@@ -3244,180 +3259,76 @@
     <!-- ========================================== -->
     <!-- SECTION 2: LOGO MARQUEE (trust bar)        -->
     <!-- ========================================== -->
-    <div class="trust-bar page-section reveal-on-scroll">
+    <div
+      class="trust-bar page-section reveal-on-scroll"
+      role="marquee"
+      aria-label="Trusted by enterprise teams"
+    >
       <div class="trust-bar-label">
-        Powering recruitment for leading enterprises
+        Trusted by enterprise recruitment teams worldwide
       </div>
       <div class="marquee-wrap">
         <div class="marquee">
+          <div class="marquee-item"><span class="mi-name">Barclays</span></div>
           <div class="marquee-item">
-            <img
-              src="https://www.joveo.com/wp-content/uploads/2023/01/barclays.png.webp"
-              alt="Barclays"
-              height="28"
-            />
+            <span class="mi-name">Wells Fargo</span>
+          </div>
+          <div class="marquee-item"><span class="mi-name">Philips</span></div>
+          <div class="marquee-item"><span class="mi-name">Randstad</span></div>
+          <div class="marquee-item"><span class="mi-name">ING</span></div>
+          <div class="marquee-item">
+            <span class="mi-name">Adecco Group</span>
           </div>
           <div class="marquee-item">
-            <img
-              src="https://www.joveo.com/wp-content/uploads/2023/01/wellsfargo.png.webp"
-              alt="Wells Fargo"
-              height="28"
-            />
+            <span class="mi-name">HCA Healthcare</span>
           </div>
           <div class="marquee-item">
-            <img
-              src="https://www.joveo.com/wp-content/uploads/2023/01/philips.png.webp"
-              alt="Philips"
-              height="28"
-            />
+            <span class="mi-name">Korn Ferry</span>
+          </div>
+          <div class="marquee-item"><span class="mi-name">Pizza Hut</span></div>
+          <div class="marquee-item"><span class="mi-name">Circle K</span></div>
+          <div class="marquee-item">
+            <span class="mi-name">Johnson &amp; Johnson</span>
           </div>
           <div class="marquee-item">
-            <img
-              src="https://www.joveo.com/wp-content/uploads/2023/01/randstad.png.webp"
-              alt="Randstad"
-              height="28"
-            />
+            <span class="mi-name">HealthTrust</span>
           </div>
-          <div class="marquee-item">
-            <img
-              src="https://www.joveo.com/wp-content/uploads/2023/01/ing.png.webp"
-              alt="ING"
-              height="28"
-            />
+          <!-- Duplicate set for seamless loop — hidden from screen readers -->
+          <div class="marquee-item" aria-hidden="true">
+            <span class="mi-name">Barclays</span>
           </div>
-          <div class="marquee-item">
-            <img
-              src="https://www.joveo.com/wp-content/uploads/2023/01/adecco-group.png.webp"
-              alt="Adecco Group"
-              height="28"
-            />
+          <div class="marquee-item" aria-hidden="true">
+            <span class="mi-name">Wells Fargo</span>
           </div>
-          <div class="marquee-item">
-            <img
-              src="https://www.joveo.com/wp-content/uploads/2023/01/hca.png.webp"
-              alt="HCA Healthcare"
-              height="28"
-            />
+          <div class="marquee-item" aria-hidden="true">
+            <span class="mi-name">Philips</span>
           </div>
-          <div class="marquee-item">
-            <img
-              src="https://www.joveo.com/wp-content/uploads/2023/08/KornFerry_Color.png.webp"
-              alt="Korn Ferry"
-              height="28"
-            />
+          <div class="marquee-item" aria-hidden="true">
+            <span class="mi-name">Randstad</span>
           </div>
-          <div class="marquee-item">
-            <img
-              src="https://www.joveo.com/wp-content/uploads/2024/04/pizza-hut-logo.png.webp"
-              alt="Pizza Hut"
-              height="28"
-            />
+          <div class="marquee-item" aria-hidden="true">
+            <span class="mi-name">ING</span>
           </div>
-          <div class="marquee-item">
-            <img
-              src="https://www.joveo.com/wp-content/uploads/2024/05/Circle-K-2-600x180.png.webp"
-              alt="Circle K"
-              height="28"
-            />
+          <div class="marquee-item" aria-hidden="true">
+            <span class="mi-name">Adecco Group</span>
           </div>
-          <div class="marquee-item">
-            <img
-              src="https://www.joveo.com/wp-content/uploads/2023/01/johnson.png.webp"
-              alt="Johnson &amp; Johnson"
-              height="28"
-            />
+          <div class="marquee-item" aria-hidden="true">
+            <span class="mi-name">HCA Healthcare</span>
           </div>
-          <div class="marquee-item">
-            <img
-              src="https://www.joveo.com/wp-content/uploads/2022/11/healthtrust.png.webp"
-              alt="HealthTrust"
-              height="28"
-            />
+          <div class="marquee-item" aria-hidden="true">
+            <span class="mi-name">Korn Ferry</span>
           </div>
-          <!-- Duplicate for seamless loop -->
-          <div class="marquee-item">
-            <img
-              src="https://www.joveo.com/wp-content/uploads/2023/01/barclays.png.webp"
-              alt="Barclays"
-              height="28"
-            />
+          <div class="marquee-item" aria-hidden="true">
+            <span class="mi-name">Pizza Hut</span>
           </div>
-          <div class="marquee-item">
-            <img
-              src="https://www.joveo.com/wp-content/uploads/2023/01/wellsfargo.png.webp"
-              alt="Wells Fargo"
-              height="28"
-            />
+          <div class="marquee-item" aria-hidden="true">
+            <span class="mi-name">Circle K</span>
           </div>
-          <div class="marquee-item">
-            <img
-              src="https://www.joveo.com/wp-content/uploads/2023/01/philips.png.webp"
-              alt="Philips"
-              height="28"
-            />
+          <div class="marquee-item" aria-hidden="true">
+            <span class="mi-name">Johnson &amp; Johnson</span>
           </div>
-          <div class="marquee-item">
-            <img
-              src="https://www.joveo.com/wp-content/uploads/2023/01/randstad.png.webp"
-              alt="Randstad"
-              height="28"
-            />
-          </div>
-          <div class="marquee-item">
-            <img
-              src="https://www.joveo.com/wp-content/uploads/2023/01/ing.png.webp"
-              alt="ING"
-              height="28"
-            />
-          </div>
-          <div class="marquee-item">
-            <img
-              src="https://www.joveo.com/wp-content/uploads/2023/01/adecco-group.png.webp"
-              alt="Adecco Group"
-              height="28"
-            />
-          </div>
-          <div class="marquee-item">
-            <img
-              src="https://www.joveo.com/wp-content/uploads/2023/01/hca.png.webp"
-              alt="HCA Healthcare"
-              height="28"
-            />
-          </div>
-          <div class="marquee-item">
-            <img
-              src="https://www.joveo.com/wp-content/uploads/2023/08/KornFerry_Color.png.webp"
-              alt="Korn Ferry"
-              height="28"
-            />
-          </div>
-          <div class="marquee-item">
-            <img
-              src="https://www.joveo.com/wp-content/uploads/2024/04/pizza-hut-logo.png.webp"
-              alt="Pizza Hut"
-              height="28"
-            />
-          </div>
-          <div class="marquee-item">
-            <img
-              src="https://www.joveo.com/wp-content/uploads/2024/05/Circle-K-2-600x180.png.webp"
-              alt="Circle K"
-              height="28"
-            />
-          </div>
-          <div class="marquee-item">
-            <img
-              src="https://www.joveo.com/wp-content/uploads/2023/01/johnson.png.webp"
-              alt="Johnson &amp; Johnson"
-              height="28"
-            />
-          </div>
-          <div class="marquee-item">
-            <img
-              src="https://www.joveo.com/wp-content/uploads/2022/11/healthtrust.png.webp"
-              alt="HealthTrust"
-              height="28"
-            />
+          <div class="marquee-item" aria-hidden="true">
+            <span class="mi-name">HealthTrust</span>
           </div>
         </div>
       </div>
@@ -3664,7 +3575,8 @@
             color: rgba(255, 255, 255, 0.5);
           "
         >
-          3 AI Products &middot; 91+ Job Boards &middot; No signup required
+          3 AI Products &middot; 91+ Job Boards &middot; Free tools without
+          signup
         </div>
       </div>
     </section>
@@ -3724,14 +3636,7 @@
             <li><a href="/pricing">Pricing</a></li>
             <li><a href="/privacy">Privacy Policy</a></li>
             <li><a href="/terms">Terms of Service</a></li>
-            <li>
-              <a
-                href="https://www.linkedin.com/in/chandel13/"
-                target="_blank"
-                rel="noopener"
-                >LinkedIn</a
-              >
-            </li>
+            <li><a href="mailto:chandel95@gmail.com">Contact Us</a></li>
             <li><a href="/#platform">Product Suite</a></li>
           </ul>
         </div>
@@ -3816,6 +3721,7 @@
                   counterObserver.unobserve(el);
                   return;
                 }
+                el.style.opacity = "1";
                 var suffix = el.dataset.suffix || "";
                 var prefix = el.dataset.prefix || "";
                 var decimals = parseInt(el.dataset.decimals, 10) || 0;
@@ -3873,6 +3779,7 @@
                   heroCounterObserver.unobserve(el);
                   return;
                 }
+                el.style.opacity = "1";
                 var startTime = null;
                 var duration = 1600;
                 var heroStart = 0;

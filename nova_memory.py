@@ -44,9 +44,9 @@ class NovaMemory:
 
         # Try Supabase first
         try:
-            from nova_persistence import _get_supabase
+            from supabase_client import get_client
 
-            client = _get_supabase()
+            client = get_client()
             if client:
                 # Load conversation summaries
                 result = (
@@ -227,9 +227,9 @@ class NovaMemory:
         """Persist a memory entry to Supabase or local file."""
         # Try Supabase
         try:
-            from nova_persistence import _get_supabase
+            from supabase_client import get_client
 
-            client = _get_supabase()
+            client = get_client()
             if client:
                 client.table("nova_memory").insert(
                     {

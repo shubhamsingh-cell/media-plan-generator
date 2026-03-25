@@ -756,6 +756,48 @@ _PRELOADED_ANSWERS = [
 _PARTIAL_MATCH_THRESHOLD = 0.35
 
 # ---------------------------------------------------------------------------
+# Two-tier tool system: essential tools for free LLMs, full set for paid LLMs
+# ---------------------------------------------------------------------------
+# Free LLMs (Gemini, Groq, Mistral, etc.) have smaller context windows and
+# struggle with 33 tool definitions. Paid LLMs (Claude, GPT-4o) handle them fine.
+TOOLS_ESSENTIAL: set[str] = {
+    "query_knowledge_base",
+    "query_salary_data",
+    "query_market_demand",
+    "query_budget_projection",
+    "query_location_profile",
+    "web_search",
+    "knowledge_search",
+    "query_channels",
+    "query_hiring_insights",
+    "suggest_smart_defaults",
+}
+
+# Providers that get the full 33-tool set
+_PAID_TOOL_PROVIDERS: set[str] = {
+    "claude",
+    "claude_opus",
+    "gpt4o",
+    "gpt4",
+    "openai",
+}
+
+
+def get_tools_for_provider(
+    all_tools: list[dict], provider_name: str | None = None
+) -> list[dict]:
+    """Return the appropriate tool set based on provider tier.
+
+    Paid providers (Claude, GPT-4o) get all 33 tools.
+    Free providers get the essential 10 to fit smaller context windows.
+    """
+    if provider_name and provider_name.lower() in _PAID_TOOL_PROVIDERS:
+        return all_tools
+    # Free/unknown provider: return essential tools only
+    return [t for t in all_tools if t.get("name") in TOOLS_ESSENTIAL]
+
+
+# ---------------------------------------------------------------------------
 # Country -> Currency mapping (MEDIUM 1 fix)
 # ---------------------------------------------------------------------------
 _COUNTRY_CURRENCY: Dict[str, str] = {
@@ -6367,13 +6409,20 @@ When API-enriched context is available in the session, prioritize it as the most
         except Exception:
             pass  # Memory is optional enhancement
 
-        # Get tool definitions (Anthropic format -- llm_router auto-converts to OpenAI)
+        # Get tool definitions -- essential 10 only for free LLMs (smaller context)
         tool_defs = self.get_tool_definitions()
+        essential_tools = get_tools_for_provider(tool_defs, provider_name=None)
         # Strip cache_control from tool defs (Anthropic-only, would cause errors)
         clean_tools = []
-        for td in tool_defs:
+        for td in essential_tools:
             clean = {k: v for k, v in td.items() if k != "cache_control"}
             clean_tools.append(clean)
+
+        logger.info(
+            "Free LLM tools: using %d/%d essential tools",
+            len(clean_tools),
+            len(tool_defs),
+        )
 
         tools_used = []
         sources = set()

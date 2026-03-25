@@ -1,0 +1,1706 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Nova Admin Operations Dashboard</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      :root {
+        --port-gore: #202058;
+        --blue-violet: #5a54bd;
+        --downy-teal: #6bb3cd;
+        --bg: #080818;
+        --bg-elevated: #0c0c24;
+        --card: #111130;
+        --card-border: rgba(90, 84, 189, 0.15);
+        --card-border-hover: rgba(90, 84, 189, 0.35);
+        --text: #e4e4ef;
+        --text-dim: #7878a0;
+        --text-muted: #55557a;
+        --green: #34d399;
+        --green-bg: rgba(52, 211, 153, 0.1);
+        --yellow: #fbbf24;
+        --yellow-bg: rgba(251, 191, 36, 0.1);
+        --red: #ef4444;
+        --red-bg: rgba(239, 68, 68, 0.1);
+        --orange: #f97316;
+        --cyan: #22d3ee;
+        --purple: #a78bfa;
+      }
+      body {
+        font-family:
+          "Inter",
+          system-ui,
+          -apple-system,
+          sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        min-height: 100vh;
+        overflow-x: hidden;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation-duration: 0.01ms !important;
+          transition-duration: 0.01ms !important;
+        }
+      }
+
+      /* ── Top Bar ── */
+      .top-bar {
+        background: rgba(12, 12, 36, 0.9);
+        backdrop-filter: blur(16px);
+        border-bottom: 1px solid var(--card-border);
+        padding: 14px 28px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        position: sticky;
+        top: 0;
+        z-index: 100;
+      }
+      .top-bar-left {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+      }
+      .top-bar h1 {
+        font-size: 17px;
+        font-weight: 700;
+        background: linear-gradient(
+          135deg,
+          var(--blue-violet),
+          var(--downy-teal)
+        );
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+      .top-bar .badge {
+        font-size: 10px;
+        font-weight: 600;
+        padding: 3px 8px;
+        border-radius: 6px;
+        background: rgba(90, 84, 189, 0.2);
+        color: var(--blue-violet);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      .top-bar-right {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        font-size: 12px;
+        color: var(--text-dim);
+      }
+      .status-indicator {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .status-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--green);
+        animation: pulse 2.5s ease-in-out infinite;
+      }
+      .status-dot.warn {
+        background: var(--yellow);
+      }
+      .status-dot.error {
+        background: var(--red);
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+          box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.4);
+        }
+        50% {
+          opacity: 0.7;
+          box-shadow: 0 0 0 4px rgba(52, 211, 153, 0);
+        }
+      }
+      .back-link {
+        color: var(--text-dim);
+        text-decoration: none;
+        font-size: 12px;
+        transition: color 0.2s;
+      }
+      .back-link:hover {
+        color: var(--downy-teal);
+      }
+
+      /* ── Auth Gate ── */
+      .auth-gate {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 80vh;
+        gap: 20px;
+      }
+      .auth-gate h2 {
+        font-size: 22px;
+        font-weight: 700;
+        color: var(--text);
+      }
+      .auth-gate p {
+        color: var(--text-dim);
+        font-size: 13px;
+        max-width: 400px;
+        text-align: center;
+        line-height: 1.6;
+      }
+      .auth-form {
+        display: flex;
+        gap: 8px;
+        margin-top: 8px;
+      }
+      .auth-form input {
+        background: var(--card);
+        border: 1px solid var(--card-border);
+        border-radius: 8px;
+        padding: 10px 14px;
+        color: var(--text);
+        font-size: 13px;
+        width: 280px;
+        outline: none;
+        transition: border-color 0.2s;
+      }
+      .auth-form input:focus {
+        border-color: var(--blue-violet);
+      }
+      .auth-form input::placeholder {
+        color: var(--text-muted);
+      }
+      .auth-form button {
+        background: linear-gradient(
+          135deg,
+          var(--blue-violet),
+          var(--downy-teal)
+        );
+        border: none;
+        border-radius: 8px;
+        padding: 10px 20px;
+        color: #fff;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: opacity 0.2s;
+      }
+      .auth-form button:hover {
+        opacity: 0.9;
+      }
+      .auth-error {
+        color: var(--red);
+        font-size: 12px;
+        display: none;
+      }
+
+      /* ── Dashboard Grid ── */
+      .dashboard {
+        display: none;
+        padding: 20px 24px;
+        max-width: 1600px;
+        margin: 0 auto;
+      }
+      .dashboard.active {
+        display: block;
+      }
+      .section-title {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1.2px;
+        color: var(--text-muted);
+        margin: 24px 0 12px 4px;
+      }
+      .section-title:first-child {
+        margin-top: 0;
+      }
+      .grid-2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+      }
+      .grid-3 {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 16px;
+      }
+      .span-2 {
+        grid-column: span 2;
+      }
+      .span-3 {
+        grid-column: span 3;
+      }
+
+      /* ── Cards ── */
+      .card {
+        background: var(--card);
+        border: 1px solid var(--card-border);
+        border-radius: 12px;
+        padding: 18px;
+        transition: border-color 0.2s;
+      }
+      .card:hover {
+        border-color: var(--card-border-hover);
+      }
+      .card-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 14px;
+      }
+      .card-title {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text-dim);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      .card-badge {
+        font-size: 10px;
+        padding: 2px 7px;
+        border-radius: 5px;
+        font-weight: 600;
+      }
+      .badge-live {
+        background: var(--green-bg);
+        color: var(--green);
+      }
+      .badge-warn {
+        background: var(--yellow-bg);
+        color: var(--yellow);
+      }
+      .badge-error {
+        background: var(--red-bg);
+        color: var(--red);
+      }
+
+      /* ── Metric Values ── */
+      .metric-big {
+        font-size: 32px;
+        font-weight: 800;
+        line-height: 1;
+        margin-bottom: 4px;
+      }
+      .metric-label {
+        font-size: 11px;
+        color: var(--text-dim);
+      }
+      .metric-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        padding: 8px 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      }
+      .metric-row:last-child {
+        border-bottom: none;
+      }
+      .metric-row-key {
+        font-size: 12px;
+        color: var(--text-dim);
+      }
+      .metric-row-val {
+        font-size: 13px;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+      }
+
+      /* ── Stats Row ── */
+      .stats-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 12px;
+      }
+      .stat-item {
+        background: rgba(255, 255, 255, 0.02);
+        border-radius: 8px;
+        padding: 12px;
+        text-align: center;
+      }
+      .stat-val {
+        font-size: 24px;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+      }
+      .stat-label {
+        font-size: 10px;
+        color: var(--text-dim);
+        margin-top: 2px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      .color-green {
+        color: var(--green);
+      }
+      .color-yellow {
+        color: var(--yellow);
+      }
+      .color-red {
+        color: var(--red);
+      }
+      .color-teal {
+        color: var(--downy-teal);
+      }
+      .color-violet {
+        color: var(--blue-violet);
+      }
+      .color-cyan {
+        color: var(--cyan);
+      }
+      .color-purple {
+        color: var(--purple);
+      }
+      .color-orange {
+        color: var(--orange);
+      }
+
+      /* ── Bar Chart (CSS only) ── */
+      .bar-chart {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        max-height: 320px;
+        overflow-y: auto;
+      }
+      .bar-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .bar-label {
+        font-size: 11px;
+        color: var(--text-dim);
+        min-width: 120px;
+        text-align: right;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .bar-track {
+        flex: 1;
+        height: 18px;
+        background: rgba(255, 255, 255, 0.03);
+        border-radius: 4px;
+        overflow: hidden;
+        position: relative;
+      }
+      .bar-fill {
+        height: 100%;
+        border-radius: 4px;
+        background: linear-gradient(
+          90deg,
+          var(--blue-violet),
+          var(--downy-teal)
+        );
+        transition: width 0.6s ease;
+        min-width: 2px;
+      }
+      .bar-value {
+        font-size: 11px;
+        color: var(--text-dim);
+        min-width: 40px;
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+
+      /* ── Table ── */
+      .table-wrap {
+        overflow-x: auto;
+        max-height: 500px;
+        overflow-y: auto;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+      }
+      thead th {
+        text-align: left;
+        padding: 8px 10px;
+        font-size: 10px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--text-muted);
+        border-bottom: 1px solid var(--card-border);
+        position: sticky;
+        top: 0;
+        background: var(--card);
+        z-index: 2;
+      }
+      tbody tr {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+        transition: background 0.15s;
+      }
+      tbody tr:hover {
+        background: rgba(90, 84, 189, 0.06);
+      }
+      tbody td {
+        padding: 8px 10px;
+        color: var(--text);
+        font-variant-numeric: tabular-nums;
+      }
+      .status-pill {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-size: 10px;
+        font-weight: 600;
+      }
+      .pill-online {
+        background: var(--green-bg);
+        color: var(--green);
+      }
+      .pill-degraded {
+        background: var(--yellow-bg);
+        color: var(--yellow);
+      }
+      .pill-down {
+        background: var(--red-bg);
+        color: var(--red);
+      }
+      .pill-rate-limited {
+        background: var(--orange);
+        color: #fff;
+        opacity: 0.85;
+      }
+
+      /* ── Search / Pagination ── */
+      .search-bar {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+      .search-bar input {
+        flex: 1;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid var(--card-border);
+        border-radius: 8px;
+        padding: 8px 12px;
+        color: var(--text);
+        font-size: 12px;
+        outline: none;
+      }
+      .search-bar input:focus {
+        border-color: var(--blue-violet);
+      }
+      .search-bar input::placeholder {
+        color: var(--text-muted);
+      }
+      .pagination {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        margin-top: 12px;
+      }
+      .pagination button {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid var(--card-border);
+        border-radius: 6px;
+        padding: 5px 12px;
+        color: var(--text-dim);
+        font-size: 11px;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .pagination button:hover:not(:disabled) {
+        border-color: var(--blue-violet);
+        color: var(--text);
+      }
+      .pagination button:disabled {
+        opacity: 0.3;
+        cursor: default;
+      }
+      .pagination .page-info {
+        font-size: 11px;
+        color: var(--text-dim);
+      }
+
+      /* ── Provider Grid ── */
+      .provider-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 10px;
+      }
+      .provider-card {
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid rgba(255, 255, 255, 0.04);
+        border-radius: 8px;
+        padding: 12px;
+        transition: border-color 0.2s;
+      }
+      .provider-card:hover {
+        border-color: var(--card-border-hover);
+      }
+      .provider-name {
+        font-size: 12px;
+        font-weight: 600;
+        margin-bottom: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .provider-stat {
+        display: flex;
+        justify-content: space-between;
+        font-size: 11px;
+        padding: 2px 0;
+        color: var(--text-dim);
+      }
+      .provider-stat span:last-child {
+        color: var(--text);
+        font-weight: 500;
+      }
+      .health-bar {
+        height: 3px;
+        background: rgba(255, 255, 255, 0.06);
+        border-radius: 2px;
+        margin-top: 8px;
+        overflow: hidden;
+      }
+      .health-fill {
+        height: 100%;
+        border-radius: 2px;
+        transition:
+          width 0.6s ease,
+          background 0.3s;
+      }
+
+      /* ── Log Viewer ── */
+      .log-viewer {
+        max-height: 400px;
+        overflow-y: auto;
+        font-family: "SF Mono", "Fira Code", monospace;
+        font-size: 11px;
+        line-height: 1.7;
+        padding: 4px 0;
+      }
+      .log-entry {
+        display: flex;
+        gap: 10px;
+        padding: 3px 8px;
+        border-radius: 4px;
+        transition: background 0.15s;
+      }
+      .log-entry:hover {
+        background: rgba(255, 255, 255, 0.03);
+      }
+      .log-ts {
+        color: var(--text-muted);
+        white-space: nowrap;
+        min-width: 80px;
+      }
+      .log-sev {
+        font-weight: 600;
+        min-width: 55px;
+        text-transform: uppercase;
+        font-size: 10px;
+        padding-top: 1px;
+      }
+      .log-sev.info {
+        color: var(--downy-teal);
+      }
+      .log-sev.warning {
+        color: var(--yellow);
+      }
+      .log-sev.critical {
+        color: var(--red);
+      }
+      .log-action {
+        color: var(--text);
+      }
+      .log-actor {
+        color: var(--purple);
+      }
+      .log-resource {
+        color: var(--text-dim);
+      }
+
+      /* ── Session Table ── */
+      .session-table td.ua {
+        max-width: 200px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      /* ── Fallback Chain ── */
+      .fallback-chain {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        align-items: center;
+        margin-top: 8px;
+      }
+      .chain-node {
+        background: rgba(90, 84, 189, 0.15);
+        border: 1px solid rgba(90, 84, 189, 0.25);
+        border-radius: 6px;
+        padding: 3px 8px;
+        font-size: 10px;
+        font-weight: 500;
+        color: var(--blue-violet);
+      }
+      .chain-arrow {
+        color: var(--text-muted);
+        font-size: 10px;
+      }
+
+      /* ── Scrollbar ── */
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.08);
+        border-radius: 3px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.14);
+      }
+
+      /* ── Loading Shimmer ── */
+      .shimmer {
+        background: linear-gradient(
+          90deg,
+          rgba(255, 255, 255, 0.03) 25%,
+          rgba(255, 255, 255, 0.06) 50%,
+          rgba(255, 255, 255, 0.03) 75%
+        );
+        background-size: 200% 100%;
+        animation: shimmer 1.5s infinite;
+        border-radius: 4px;
+        height: 16px;
+      }
+      @keyframes shimmer {
+        0% {
+          background-position: -200% 0;
+        }
+        100% {
+          background-position: 200% 0;
+        }
+      }
+
+      /* ── Responsive ── */
+      @media (max-width: 1024px) {
+        .grid-3 {
+          grid-template-columns: 1fr 1fr;
+        }
+        .span-3 {
+          grid-column: span 2;
+        }
+      }
+      @media (max-width: 768px) {
+        .grid-2,
+        .grid-3 {
+          grid-template-columns: 1fr;
+        }
+        .span-2,
+        .span-3 {
+          grid-column: span 1;
+        }
+        .top-bar {
+          padding: 12px 16px;
+        }
+        .dashboard {
+          padding: 16px;
+        }
+        .bar-label {
+          min-width: 80px;
+        }
+        .provider-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      /* ── Refresh Flash ── */
+      .flash {
+        animation: flash 0.4s ease;
+      }
+      @keyframes flash {
+        0% {
+          opacity: 0.6;
+        }
+        100% {
+          opacity: 1;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Top Bar -->
+    <div class="top-bar">
+      <div class="top-bar-left">
+        <h1>Nova Admin Ops</h1>
+        <span class="badge">Internal</span>
+      </div>
+      <div class="top-bar-right">
+        <a href="/hub" class="back-link" aria-label="Back to hub">Hub</a>
+        <a
+          href="/health-dashboard"
+          class="back-link"
+          aria-label="Health dashboard"
+          >Health</a
+        >
+        <div class="status-indicator" id="connectionStatus">
+          <span class="status-dot" id="statusDot"></span>
+          <span id="statusText">Connecting...</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Auth Gate -->
+    <div class="auth-gate" id="authGate">
+      <h2>Admin Authentication Required</h2>
+      <p>
+        This dashboard is protected. Enter your NOVA_ADMIN_KEY to access the
+        operations console.
+      </p>
+      <div class="auth-form">
+        <input
+          type="password"
+          id="authKeyInput"
+          placeholder="Enter admin key..."
+          autocomplete="off"
+          aria-label="Admin API key"
+        />
+        <button onclick="authenticate()" aria-label="Authenticate">
+          Unlock
+        </button>
+      </div>
+      <div class="auth-error" id="authError">
+        Invalid admin key. Please try again.
+      </div>
+    </div>
+
+    <!-- Dashboard -->
+    <div class="dashboard" id="dashboard">
+      <!-- Section A: System Health -->
+      <div class="section-title">System Health</div>
+      <div class="stats-row" id="healthStats">
+        <div class="stat-item">
+          <div class="stat-val color-green" id="uptimeVal">--</div>
+          <div class="stat-label">Uptime</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-val color-teal" id="memoryVal">--</div>
+          <div class="stat-label">Memory (MB)</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-val color-violet" id="threadsVal">--</div>
+          <div class="stat-label">Active Threads</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-val color-cyan" id="versionVal">--</div>
+          <div class="stat-label">Version</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-val color-purple" id="restartVal">--</div>
+          <div class="stat-label">Last Restart</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-val color-green" id="healthStatus">--</div>
+          <div class="stat-label">Status</div>
+        </div>
+      </div>
+
+      <!-- Section B: API Usage Metrics -->
+      <div class="section-title">API Usage Metrics</div>
+      <div class="grid-3">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Overview</span>
+            <span class="card-badge badge-live" id="usageBadge">Live</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-row-key">Total Requests</span>
+            <span class="metric-row-val" id="totalRequests">--</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-row-key">Requests/min</span>
+            <span class="metric-row-val" id="reqPerMin">--</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-row-key">Error Rate</span>
+            <span class="metric-row-val" id="errorRate">--</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-row-key">Avg Latency</span>
+            <span class="metric-row-val" id="avgLatency">--</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-row-key">P99 Latency</span>
+            <span class="metric-row-val" id="p99Latency">--</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-row-key">Peak Concurrent</span>
+            <span class="metric-row-val" id="peakConcurrent">--</span>
+          </div>
+        </div>
+        <div class="card span-2">
+          <div class="card-header">
+            <span class="card-title">Calls Per Endpoint</span>
+          </div>
+          <div class="bar-chart" id="endpointChart">
+            <div class="shimmer" style="width: 100%; height: 200px"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section C: Media Plan Repository -->
+      <div class="section-title">Media Plan Repository</div>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Generated Plans</span>
+          <span class="card-badge badge-live" id="plansBadge">--</span>
+        </div>
+        <div class="search-bar">
+          <input
+            type="text"
+            id="planSearch"
+            placeholder="Search by client name or email..."
+            oninput="filterPlans()"
+            aria-label="Search plans"
+          />
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Client Name</th>
+                <th>Generated By</th>
+                <th>Date</th>
+                <th>Industry</th>
+                <th>Budget</th>
+                <th># Channels</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="plansTable">
+              <tr>
+                <td
+                  colspan="7"
+                  style="text-align: center; color: var(--text-dim)"
+                >
+                  Loading...
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="pagination" id="plansPagination"></div>
+      </div>
+
+      <!-- Section D: LLM Router Status -->
+      <div class="section-title">LLM Router Status</div>
+      <div class="grid-2">
+        <div class="card span-2">
+          <div class="card-header">
+            <span class="card-title">Provider Status</span>
+            <span class="card-badge badge-live" id="llmBadge">Live</span>
+          </div>
+          <div class="provider-grid" id="providerGrid">
+            <div class="shimmer" style="width: 100%; height: 120px"></div>
+          </div>
+        </div>
+      </div>
+      <div class="grid-2" style="margin-top: 12px">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Cost Tracking (Today)</span>
+          </div>
+          <div id="costTracking">
+            <div class="shimmer" style="width: 100%; height: 80px"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Fallback Chains</span>
+          </div>
+          <div id="fallbackChains">
+            <div class="shimmer" style="width: 100%; height: 80px"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section E: Active Sessions & Visitors -->
+      <div class="section-title">Active Sessions &amp; Visitors</div>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Recent Requests (24h)</span>
+          <span class="card-badge badge-live" id="sessionsBadge">--</span>
+        </div>
+        <div class="table-wrap">
+          <table class="session-table">
+            <thead>
+              <tr>
+                <th>IP (Hashed)</th>
+                <th>Requests</th>
+                <th>Last Seen</th>
+                <th>Rate Limiter</th>
+              </tr>
+            </thead>
+            <tbody id="sessionsTable">
+              <tr>
+                <td
+                  colspan="4"
+                  style="text-align: center; color: var(--text-dim)"
+                >
+                  Loading...
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Section F: Audit Log -->
+      <div class="section-title">Audit Log</div>
+      <div class="grid-2">
+        <div class="card span-2">
+          <div class="card-header">
+            <span class="card-title">Recent Events</span>
+            <span class="card-badge badge-live" id="auditBadge">--</span>
+          </div>
+          <div
+            class="log-viewer"
+            id="auditLog"
+            role="log"
+            aria-label="Audit log"
+          >
+            <div class="shimmer" style="width: 100%; height: 200px"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div
+        style="
+          text-align: center;
+          padding: 32px 0 16px;
+          font-size: 11px;
+          color: var(--text-muted);
+        "
+      >
+        Nova AI Suite Admin Dashboard &middot;
+        <a
+          href="https://www.linkedin.com/in/chandel13/"
+          target="_blank"
+          rel="noopener"
+          style="color: var(--blue-violet); text-decoration: none"
+          >Shubham Singh Chandel</a
+        >
+      </div>
+    </div>
+
+    <script>
+      /* ═══════════════════════════════════════════════════════════════════════
+       Nova Admin Dashboard - Pure JS (no external dependencies)
+       ═══════════════════════════════════════════════════════════════════════ */
+
+      let adminKey = "";
+      let healthTimer = null;
+      let usageTimer = null;
+      let plansTimer = null;
+      let llmTimer = null;
+      let sessionsTimer = null;
+      let auditTimer = null;
+
+      // State
+      let allPlans = [];
+      let planPage = 1;
+      const PLANS_PER_PAGE = 20;
+
+      // ── Auth ──
+
+      function getStoredKey() {
+        try {
+          return sessionStorage.getItem("nova_admin_key") || "";
+        } catch (e) {
+          return "";
+        }
+      }
+
+      function storeKey(key) {
+        try {
+          sessionStorage.setItem("nova_admin_key", key);
+        } catch (e) {
+          /* ignore */
+        }
+      }
+
+      function authenticate() {
+        const input = document.getElementById("authKeyInput");
+        const key = input.value.trim();
+        if (!key) return;
+        adminKey = key;
+        // Test with health endpoint
+        fetchJSON("/api/health?key=" + encodeURIComponent(key))
+          .then((data) => {
+            if (data && data.status) {
+              storeKey(key);
+              showDashboard();
+            } else {
+              showAuthError();
+            }
+          })
+          .catch(() => showAuthError());
+      }
+
+      function showAuthError() {
+        document.getElementById("authError").style.display = "block";
+        setTimeout(() => {
+          document.getElementById("authError").style.display = "none";
+        }, 3000);
+      }
+
+      function showDashboard() {
+        document.getElementById("authGate").style.display = "none";
+        document.getElementById("dashboard").classList.add("active");
+        startPolling();
+      }
+
+      // ── Fetch Helper ──
+
+      function fetchJSON(url) {
+        const sep = url.includes("?") ? "&" : "?";
+        const fullUrl = url + sep + "key=" + encodeURIComponent(adminKey);
+        return fetch(fullUrl, {
+          headers: { Authorization: "Bearer " + adminKey },
+        })
+          .then((r) => {
+            if (!r.ok) throw new Error("HTTP " + r.status);
+            return r.json();
+          })
+          .catch((err) => {
+            console.warn("Fetch error:", url, err);
+            return null;
+          });
+      }
+
+      // ── Formatters ──
+
+      function fmtUptime(seconds) {
+        if (!seconds || seconds < 0) return "--";
+        const d = Math.floor(seconds / 86400);
+        const h = Math.floor((seconds % 86400) / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        if (d > 0) return d + "d " + h + "h";
+        if (h > 0) return h + "h " + m + "m";
+        return m + "m " + Math.floor(seconds % 60) + "s";
+      }
+
+      function fmtNum(n) {
+        if (n === null || n === undefined) return "--";
+        return Number(n).toLocaleString();
+      }
+
+      function fmtMoney(n) {
+        if (n === null || n === undefined) return "--";
+        return (
+          "$" +
+          Number(n).toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })
+        );
+      }
+
+      function fmtDate(iso) {
+        if (!iso) return "--";
+        try {
+          const d = new Date(iso);
+          return (
+            d.toLocaleDateString() +
+            " " +
+            d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+          );
+        } catch (e) {
+          return iso.substring(0, 16);
+        }
+      }
+
+      function fmtShortDate(iso) {
+        if (!iso) return "--";
+        try {
+          return new Date(iso).toLocaleDateString();
+        } catch (e) {
+          return iso.substring(0, 10);
+        }
+      }
+
+      function escapeHtml(s) {
+        if (!s) return "";
+        const div = document.createElement("div");
+        div.textContent = String(s);
+        return div.innerHTML;
+      }
+
+      function flash(el) {
+        el.classList.remove("flash");
+        void el.offsetWidth; // reflow
+        el.classList.add("flash");
+      }
+
+      // ── Section A: System Health ──
+
+      function pollHealth() {
+        fetchJSON("/api/health").then((data) => {
+          if (!data) {
+            setStatus("error", "Disconnected");
+            return;
+          }
+          setStatus("ok", data.status || "healthy");
+
+          const el = document.getElementById("healthStats");
+          flash(el);
+
+          document.getElementById("uptimeVal").textContent = fmtUptime(
+            data.uptime_seconds,
+          );
+          document.getElementById("versionVal").textContent =
+            data.version || "--";
+          document.getElementById("healthStatus").textContent = (
+            data.status || "--"
+          ).toUpperCase();
+
+          // Memory from metrics
+          const mem =
+            data.metrics && data.metrics.active_requests !== undefined
+              ? data.metrics
+              : null;
+          document.getElementById("threadsVal").textContent = mem
+            ? fmtNum(mem.active_requests)
+            : "--";
+
+          // Server start time
+          if (data.uptime_seconds) {
+            const startTime = new Date(Date.now() - data.uptime_seconds * 1000);
+            document.getElementById("restartVal").textContent =
+              startTime.toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              });
+          }
+
+          // Memory - we'll get it from the detailed endpoint if available
+          fetchJSON("/api/admin/usage").then((uData) => {
+            if (uData && uData.memory_mb !== undefined) {
+              document.getElementById("memoryVal").textContent =
+                uData.memory_mb;
+            }
+          });
+        });
+      }
+
+      function setStatus(state, text) {
+        const dot = document.getElementById("statusDot");
+        const label = document.getElementById("statusText");
+        dot.className =
+          "status-dot" +
+          (state === "ok" ? "" : state === "warn" ? " warn" : " error");
+        label.textContent = text;
+      }
+
+      // ── Section B: API Usage Metrics ──
+
+      function pollUsage() {
+        fetchJSON("/api/health").then((data) => {
+          if (!data || !data.metrics) return;
+          const m = data.metrics;
+
+          document.getElementById("totalRequests").textContent = fmtNum(
+            m.total_requests,
+          );
+          document.getElementById("reqPerMin").textContent = (
+            m.requests_per_minute || 0
+          ).toFixed(1);
+          document.getElementById("errorRate").textContent =
+            (m.error_rate !== undefined
+              ? (m.error_rate * 100).toFixed(2)
+              : (m.error_rate_pct || 0).toFixed(2)) + "%";
+          document.getElementById("avgLatency").textContent =
+            (m.avg_latency_ms || 0).toFixed(0) + "ms";
+          document.getElementById("p99Latency").textContent =
+            (m.p99_latency_ms || 0).toFixed(0) + "ms";
+          document.getElementById("peakConcurrent").textContent = fmtNum(
+            m.active_requests || 0,
+          );
+
+          // Endpoint chart
+          if (data.metrics.endpoints || m.endpoints) {
+            renderEndpointChart(m.endpoints || {});
+          }
+        });
+
+        // Also get memory info from a deeper endpoint
+        fetchJSON("/api/admin/usage").then((data) => {
+          if (!data) return;
+          if (data.memory_mb !== undefined) {
+            document.getElementById("memoryVal").textContent = data.memory_mb;
+          }
+          if (data.threads !== undefined) {
+            document.getElementById("threadsVal").textContent = fmtNum(
+              data.threads,
+            );
+          }
+        });
+      }
+
+      function renderEndpointChart(endpoints) {
+        const container = document.getElementById("endpointChart");
+        if (!endpoints || Object.keys(endpoints).length === 0) {
+          container.innerHTML =
+            '<div style="color:var(--text-dim);font-size:12px;text-align:center;padding:20px">No endpoint data yet</div>';
+          return;
+        }
+
+        // Sort by count descending
+        const sorted = Object.entries(endpoints)
+          .map(([ep, stats]) => ({
+            ep,
+            count: stats.count || 0,
+            avg: stats.avg_ms || 0,
+          }))
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 20);
+
+        const maxCount = Math.max(...sorted.map((s) => s.count), 1);
+
+        container.innerHTML = sorted
+          .map((item) => {
+            const pct = Math.max((item.count / maxCount) * 100, 1);
+            const label =
+              item.ep.length > 25 ? "..." + item.ep.slice(-22) : item.ep;
+            return (
+              '<div class="bar-row">' +
+              '<span class="bar-label" title="' +
+              escapeHtml(item.ep) +
+              '">' +
+              escapeHtml(label) +
+              "</span>" +
+              '<div class="bar-track"><div class="bar-fill" style="width:' +
+              pct +
+              '%"></div></div>' +
+              '<span class="bar-value">' +
+              fmtNum(item.count) +
+              "</span>" +
+              "</div>"
+            );
+          })
+          .join("");
+      }
+
+      // ── Section C: Media Plans ──
+
+      function pollPlans() {
+        fetchJSON("/api/admin/plans").then((data) => {
+          if (!data || !data.plans) return;
+          allPlans = data.plans;
+          document.getElementById("plansBadge").textContent =
+            allPlans.length + " plans";
+          renderPlans();
+        });
+      }
+
+      function filterPlans() {
+        planPage = 1;
+        renderPlans();
+      }
+
+      function renderPlans() {
+        const query = (
+          document.getElementById("planSearch").value || ""
+        ).toLowerCase();
+        let filtered = allPlans;
+        if (query) {
+          filtered = allPlans.filter(
+            (p) =>
+              (p.client_name || "").toLowerCase().includes(query) ||
+              (p.email || "").toLowerCase().includes(query),
+          );
+        }
+
+        const total = filtered.length;
+        const totalPages = Math.max(1, Math.ceil(total / PLANS_PER_PAGE));
+        if (planPage > totalPages) planPage = totalPages;
+        const start = (planPage - 1) * PLANS_PER_PAGE;
+        const page = filtered.slice(start, start + PLANS_PER_PAGE);
+
+        const tbody = document.getElementById("plansTable");
+        if (page.length === 0) {
+          tbody.innerHTML =
+            '<tr><td colspan="7" style="text-align:center;color:var(--text-dim)">No plans found</td></tr>';
+        } else {
+          tbody.innerHTML = page
+            .map((p) => {
+              const budget =
+                typeof p.budget === "number"
+                  ? fmtMoney(p.budget)
+                  : typeof p.budget === "string"
+                    ? p.budget
+                    : "--";
+              return (
+                "<tr>" +
+                "<td>" +
+                escapeHtml(p.client_name || "Unknown") +
+                "</td>" +
+                "<td>" +
+                escapeHtml(p.email || "--") +
+                "</td>" +
+                "<td>" +
+                fmtShortDate(p.timestamp || p.date) +
+                "</td>" +
+                "<td>" +
+                escapeHtml(p.industry || "--") +
+                "</td>" +
+                "<td>" +
+                budget +
+                "</td>" +
+                "<td>" +
+                (p.channels || p.num_channels || "--") +
+                "</td>" +
+                '<td><span class="status-pill pill-online">Complete</span></td>' +
+                "</tr>"
+              );
+            })
+            .join("");
+        }
+
+        // Pagination
+        const pagDiv = document.getElementById("plansPagination");
+        pagDiv.innerHTML =
+          '<button onclick="changePage(-1)"' +
+          (planPage <= 1 ? " disabled" : "") +
+          ">Prev</button>" +
+          '<span class="page-info">Page ' +
+          planPage +
+          " of " +
+          totalPages +
+          " (" +
+          total +
+          " total)</span>" +
+          '<button onclick="changePage(1)"' +
+          (planPage >= totalPages ? " disabled" : "") +
+          ">Next</button>";
+      }
+
+      function changePage(delta) {
+        planPage += delta;
+        renderPlans();
+      }
+
+      // ── Section D: LLM Router ──
+
+      function pollLLM() {
+        fetchJSON("/api/admin/llm-status").then((data) => {
+          if (!data) return;
+
+          const providers = data.providers || {};
+          const grid = document.getElementById("providerGrid");
+
+          const entries = Object.entries(providers);
+          if (entries.length === 0) {
+            grid.innerHTML =
+              '<div style="color:var(--text-dim);font-size:12px;text-align:center;padding:20px">No providers configured</div>';
+            return;
+          }
+
+          let onlineCount = 0;
+          grid.innerHTML = entries
+            .map(([pid, info]) => {
+              const configured = info.configured;
+              const rateLimited = info.rate_limited;
+              const circuitOpen = info.circuit_open;
+              const health = info.health_score || 0;
+              const available = info.available;
+
+              let statusPill, statusClass;
+              if (!configured) {
+                statusPill = "Not Configured";
+                statusClass = "pill-down";
+              } else if (circuitOpen) {
+                statusPill = "Circuit Open";
+                statusClass = "pill-down";
+              } else if (rateLimited) {
+                statusPill = "Rate Limited";
+                statusClass = "pill-rate-limited";
+              } else if (available) {
+                statusPill = "Online";
+                statusClass = "pill-online";
+                onlineCount++;
+              } else {
+                statusPill = "Degraded";
+                statusClass = "pill-degraded";
+              }
+
+              const healthPct = Math.round(health * 100);
+              const healthColor =
+                healthPct >= 80
+                  ? "var(--green)"
+                  : healthPct >= 50
+                    ? "var(--yellow)"
+                    : "var(--red)";
+
+              const reqCount =
+                info.rate_window_count || info.total_requests || 0;
+              const costEst = info.estimated_cost || 0;
+
+              return (
+                '<div class="provider-card">' +
+                '<div class="provider-name">' +
+                "<span>" +
+                escapeHtml(info.name || pid) +
+                "</span>" +
+                '<span class="status-pill ' +
+                statusClass +
+                '">' +
+                statusPill +
+                "</span>" +
+                "</div>" +
+                '<div class="provider-stat"><span>Health</span><span>' +
+                healthPct +
+                "%</span></div>" +
+                '<div class="provider-stat"><span>Requests</span><span>' +
+                fmtNum(reqCount) +
+                "</span></div>" +
+                '<div class="provider-stat"><span>Model</span><span style="font-size:10px">' +
+                escapeHtml((info.model || "--").split("/").pop()) +
+                "</span></div>" +
+                '<div class="health-bar"><div class="health-fill" style="width:' +
+                healthPct +
+                "%;background:" +
+                healthColor +
+                '"></div></div>' +
+                "</div>"
+              );
+            })
+            .join("");
+
+          document.getElementById("llmBadge").textContent =
+            onlineCount + "/" + entries.length + " online";
+
+          // Cost tracking
+          const costDiv = document.getElementById("costTracking");
+          if (data.cost_tracking) {
+            const ct = data.cost_tracking;
+            const providerCosts = ct.by_provider || {};
+            let costHtml =
+              '<div class="metric-row"><span class="metric-row-key">Total Spend Today</span><span class="metric-row-val color-yellow">' +
+              fmtMoney(ct.total_usd || 0) +
+              "</span></div>";
+            costHtml +=
+              '<div class="metric-row"><span class="metric-row-key">Total Tokens</span><span class="metric-row-val">' +
+              fmtNum(ct.total_tokens || 0) +
+              "</span></div>";
+            for (const [pid, cost] of Object.entries(providerCosts)) {
+              costHtml +=
+                '<div class="metric-row"><span class="metric-row-key">' +
+                escapeHtml(pid) +
+                '</span><span class="metric-row-val">' +
+                fmtMoney(cost) +
+                "</span></div>";
+            }
+            costDiv.innerHTML = costHtml;
+          } else {
+            costDiv.innerHTML =
+              '<div style="color:var(--text-dim);font-size:12px">No cost data available</div>';
+          }
+
+          // Fallback chains
+          const chainsDiv = document.getElementById("fallbackChains");
+          if (data.routing) {
+            let chainHtml = "";
+            const entries = Object.entries(data.routing).slice(0, 6);
+            for (const [task, providerIds] of entries) {
+              chainHtml +=
+                '<div style="margin-bottom:8px"><span style="font-size:11px;color:var(--text-dim)">' +
+                escapeHtml(task) +
+                "</span>";
+              chainHtml += '<div class="fallback-chain">';
+              providerIds.forEach((pid, i) => {
+                if (i > 0)
+                  chainHtml += '<span class="chain-arrow">&#8594;</span>';
+                const pName = (providers[pid] && providers[pid].name) || pid;
+                chainHtml +=
+                  '<span class="chain-node">' + escapeHtml(pName) + "</span>";
+              });
+              chainHtml += "</div></div>";
+            }
+            chainsDiv.innerHTML =
+              chainHtml ||
+              '<div style="color:var(--text-dim);font-size:12px">No routing data</div>';
+          }
+        });
+      }
+
+      // ── Section E: Sessions ──
+
+      function pollSessions() {
+        fetchJSON("/api/admin/sessions").then((data) => {
+          if (!data) return;
+
+          const sessions = data.sessions || [];
+          document.getElementById("sessionsBadge").textContent =
+            sessions.length + " IPs";
+
+          const tbody = document.getElementById("sessionsTable");
+          if (sessions.length === 0) {
+            tbody.innerHTML =
+              '<tr><td colspan="4" style="text-align:center;color:var(--text-dim)">No session data</td></tr>';
+            return;
+          }
+
+          tbody.innerHTML = sessions
+            .slice(0, 50)
+            .map((s) => {
+              const ipHash = s.ip_hash || s.ip || "--";
+              return (
+                "<tr>" +
+                '<td style="font-family:monospace;font-size:11px">' +
+                escapeHtml(ipHash) +
+                "</td>" +
+                "<td>" +
+                fmtNum(s.request_count || 0) +
+                "</td>" +
+                "<td>" +
+                (s.last_seen ? fmtDate(s.last_seen) : "--") +
+                "</td>" +
+                "<td>" +
+                (s.rate_limited
+                  ? '<span class="status-pill pill-rate-limited">Limited</span>'
+                  : '<span class="status-pill pill-online">OK</span>') +
+                "</td>" +
+                "</tr>"
+              );
+            })
+            .join("");
+        });
+      }
+
+      // ── Section F: Audit Log ──
+
+      function pollAudit() {
+        fetchJSON("/api/admin/audit-log").then((data) => {
+          if (!data) return;
+
+          const events = data.events || [];
+          const summary = data.summary || {};
+          document.getElementById("auditBadge").textContent =
+            (summary.total_events || events.length) + " events";
+
+          const container = document.getElementById("auditLog");
+          if (events.length === 0) {
+            container.innerHTML =
+              '<div style="color:var(--text-dim);font-size:12px;text-align:center;padding:20px">No audit events recorded</div>';
+            return;
+          }
+
+          // Show most recent first
+          const reversed = [...events].reverse();
+          container.innerHTML = reversed
+            .map((e) => {
+              const ts = e.iso ? e.iso.substring(11, 19) : "--:--:--";
+              const sev = e.severity || "info";
+              return (
+                '<div class="log-entry">' +
+                '<span class="log-ts">' +
+                ts +
+                "</span>" +
+                '<span class="log-sev ' +
+                sev +
+                '">' +
+                sev +
+                "</span>" +
+                '<span class="log-action">' +
+                escapeHtml(e.action || "") +
+                "</span>" +
+                '<span class="log-actor">' +
+                escapeHtml(e.actor || "") +
+                "</span>" +
+                '<span class="log-resource">' +
+                escapeHtml(e.resource || "") +
+                "</span>" +
+                "</div>"
+              );
+            })
+            .join("");
+        });
+      }
+
+      // ── Polling ──
+
+      function startPolling() {
+        // Initial fetch all
+        pollHealth();
+        pollUsage();
+        pollPlans();
+        pollLLM();
+        pollSessions();
+        pollAudit();
+
+        // Set intervals
+        healthTimer = setInterval(pollHealth, 10000); // 10s
+        usageTimer = setInterval(pollUsage, 30000); // 30s
+        plansTimer = setInterval(pollPlans, 60000); // 60s
+        llmTimer = setInterval(pollLLM, 30000); // 30s
+        sessionsTimer = setInterval(pollSessions, 30000); // 30s
+        auditTimer = setInterval(pollAudit, 15000); // 15s
+      }
+
+      // ── Init ──
+
+      document.addEventListener("DOMContentLoaded", function () {
+        // Check for key in URL or sessionStorage
+        const params = new URLSearchParams(window.location.search);
+        const urlKey = params.get("key");
+        const storedKey = getStoredKey();
+
+        if (urlKey) {
+          adminKey = urlKey;
+          storeKey(urlKey);
+          // Clean URL
+          window.history.replaceState({}, "", window.location.pathname);
+          showDashboard();
+        } else if (storedKey) {
+          adminKey = storedKey;
+          // Verify key is still valid
+          fetchJSON("/api/health").then((data) => {
+            if (data && data.status) {
+              showDashboard();
+            } else {
+              sessionStorage.removeItem("nova_admin_key");
+            }
+          });
+        }
+
+        // Enter key to submit
+        document
+          .getElementById("authKeyInput")
+          .addEventListener("keydown", function (e) {
+            if (e.key === "Enter") authenticate();
+          });
+      });
+    </script>
+  </body>
+</html>

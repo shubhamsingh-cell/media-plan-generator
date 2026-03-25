@@ -48,7 +48,7 @@ Features (v4.0):
     - Circuit breaker: 5 consecutive failures -> 60s cooldown (hard cutoff)
     - Health scoring: 0.0-1.0 per provider, decays on failure, influences routing order
     - Rate-aware routing: sliding window rate limiter per provider, skip without penalty
-    - Response cache: LRU with 5-min TTL, semantic dedup by prompt hash
+    - Response cache: LRU with task-aware TTL (5-min default, 15-min for verification/compliance)
 
 Each provider has independent circuit breaker (5 failures -> 60s cooldown)
 and per-minute rate tracking.  24 total providers, 20 free + 4 paid.
@@ -100,6 +100,7 @@ TASK_CONTEXT_SUMMARIZE = "context_summarize"  # Nova AI: context compression
 
 # Provider IDs
 GEMINI = "gemini"
+GEMINI_FLASH_LITE = "gemini_flash_lite"
 GROQ = "groq"
 CEREBRAS = "cerebras"
 MISTRAL = "mistral"
@@ -141,7 +142,8 @@ _MIN_REMAINING_BUDGET = 5.0  # don't start a new attempt with < 5s left
 _RATE_LIMITS: dict[str, dict[str, int]] = {
     "groq": {"rpm": 30, "window": 60},
     "cerebras": {"rpm": 30, "window": 60},
-    "gemini": {"rpm": 15, "window": 60},
+    "gemini": {"rpm": 30, "window": 60},
+    "gemini_flash_lite": {"rpm": 30, "window": 60},
     "together": {"rpm": 60, "window": 60},
     "huggingface": {"rpm": 10, "window": 60},
     "mistral": {"rpm": 30, "window": 60},
@@ -149,7 +151,11 @@ _RATE_LIMITS: dict[str, dict[str, int]] = {
     "siliconflow": {"rpm": 30, "window": 60},
     "nvidia_nim": {"rpm": 30, "window": 60},
     "zhipu": {"rpm": 30, "window": 60},
-    # OpenRouter variants share a single rate limit bucket
+    # OpenRouter variants: each has its own tracking bucket, but a combined
+    # 20 RPM cap (_openrouter_combined) enforces the shared API key limit.
+    # Individual per-variant limits are set generously; the combined cap is
+    # the real constraint.
+    "_openrouter_combined": {"rpm": 20, "window": 60},
     "openrouter": {"rpm": 20, "window": 60},
     "openrouter_qwen": {"rpm": 20, "window": 60},
     "openrouter_arcee": {"rpm": 20, "window": 60},
@@ -182,12 +188,23 @@ class _RateTracker:
         self._windows: dict[str, list[float]] = {}
 
     def record_request(self, provider_id: str) -> None:
-        """Record that a request was sent to a provider."""
+        """Record that a request was sent to a provider.
+
+        For OpenRouter variants, also records to the shared
+        '_openrouter_combined' bucket so the 20 RPM API key limit
+        is enforced across all variants.
+        """
         now = time.time()
         with self._lock:
             if provider_id not in self._windows:
                 self._windows[provider_id] = []
             self._windows[provider_id].append(now)
+            # Track combined OpenRouter usage across all variants
+            if provider_id.startswith("openrouter"):
+                combined = "_openrouter_combined"
+                if combined not in self._windows:
+                    self._windows[combined] = []
+                self._windows[combined].append(now)
 
     def is_rate_limited(self, provider_id: str) -> bool:
         """Check if a provider has exceeded its RPM in the current window.
@@ -237,14 +254,24 @@ _rate_tracker = _RateTracker()
 # ═══════════════════════════════════════════════════════════════════════════════
 
 _CACHE_MAX_SIZE = 100
-_CACHE_TTL_SECONDS = 300.0  # 5 minutes
+_CACHE_TTL_SECONDS = 300.0  # 5 minutes (default)
+_CACHE_TTL_EXTENDED_SECONDS = 900.0  # 15 minutes (verification/compliance)
+
+# Task types that get extended cache TTL (results are stable, worth caching longer)
+_EXTENDED_TTL_TASK_TYPES: set[str] = {
+    "verification",
+    "compliance_check",
+}
 
 
 class _ResponseCache:
-    """Thread-safe LRU response cache with TTL for semantic dedup.
+    """Thread-safe LRU response cache with task-type-aware TTL for semantic dedup.
 
     Cache key is derived from a normalized hash of (task_type, system_prompt
     prefix, user_message prefix).  Only successful responses are cached.
+
+    Verification and compliance tasks get a 15-minute TTL (their results
+    are stable and expensive to recompute).  All other tasks get 5 minutes.
     """
 
     def __init__(
@@ -253,13 +280,20 @@ class _ResponseCache:
         self._lock = threading.Lock()
         self._max_size = max_size
         self._ttl = ttl
-        # key -> (timestamp, response_dict)
-        self._store: collections.OrderedDict[str, tuple[float, dict[str, Any]]] = (
-            collections.OrderedDict()
-        )
+        # key -> (timestamp, ttl, response_dict)
+        self._store: collections.OrderedDict[
+            str, tuple[float, float, dict[str, Any]]
+        ] = collections.OrderedDict()
         # Stats
         self._hits = 0
         self._misses = 0
+
+    @staticmethod
+    def _ttl_for_task(task_type: str) -> float:
+        """Return the cache TTL for a given task type."""
+        if task_type in _EXTENDED_TTL_TASK_TYPES:
+            return _CACHE_TTL_EXTENDED_SECONDS
+        return _CACHE_TTL_SECONDS
 
     @staticmethod
     def _make_key(task_type: str, system_prompt: str, user_message: str) -> str:
@@ -282,8 +316,8 @@ class _ResponseCache:
             if entry is None:
                 self._misses += 1
                 return None
-            ts, response = entry
-            if now - ts > self._ttl:
+            ts, entry_ttl, response = entry
+            if now - ts > entry_ttl:
                 # Expired -- evict
                 del self._store[key]
                 self._misses += 1
@@ -300,19 +334,24 @@ class _ResponseCache:
         user_message: str,
         response: dict[str, Any],
     ) -> None:
-        """Store a successful response in the cache."""
+        """Store a successful response in the cache.
+
+        Uses task-type-aware TTL: verification/compliance tasks get 15 min,
+        all others get 5 min.
+        """
         key = self._make_key(task_type, system_prompt, user_message)
+        entry_ttl = self._ttl_for_task(task_type)
         now = time.time()
         with self._lock:
             # If key exists, update it
             if key in self._store:
                 self._store.move_to_end(key)
-                self._store[key] = (now, response)
+                self._store[key] = (now, entry_ttl, response)
                 return
             # Evict oldest if at capacity
             while len(self._store) >= self._max_size:
                 self._store.popitem(last=False)
-            self._store[key] = (now, response)
+            self._store[key] = (now, entry_ttl, response)
 
     def get_stats(self) -> dict[str, Any]:
         """Return cache statistics."""
@@ -323,6 +362,8 @@ class _ResponseCache:
                 "cache_size": len(self._store),
                 "cache_max_size": self._max_size,
                 "cache_ttl_seconds": self._ttl,
+                "cache_ttl_extended_seconds": _CACHE_TTL_EXTENDED_SECONDS,
+                "cache_extended_ttl_tasks": sorted(_EXTENDED_TTL_TASK_TYPES),
                 "cache_hits": self._hits,
                 "cache_misses": self._misses,
                 "cache_hit_rate_pct": round(hit_rate, 1),
@@ -341,9 +382,20 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         "endpoint": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
         "model": "gemini-2.0-flash",
         "env_key": "GEMINI_API_KEY",
-        "rpm_limit": 15,
+        "rpm_limit": 30,
         "rpd_limit": 1500,
         "timeout": 30,
+        "max_tokens": 8192,
+    },
+    GEMINI_FLASH_LITE: {
+        "name": "Gemini 2.0 Flash Lite",
+        "api_style": "gemini",
+        "endpoint": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent",
+        "model": "gemini-2.0-flash-lite",
+        "env_key": "GEMINI_API_KEY",
+        "rpm_limit": 30,
+        "rpd_limit": 1500,
+        "timeout": 20,
         "max_tokens": 8192,
     },
     GROQ: {
@@ -662,24 +714,25 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
 TASK_ROUTING: Dict[str, List[str]] = {
     TASK_STRUCTURED: [
         GEMINI,
+        GEMINI_FLASH_LITE,  # Lighter Gemini variant for simple structured queries
         MISTRAL,
         OPENROUTER_GEMMA,  # Gemma 3 27B -- strong structured output
         GROQ,
         ZHIPU,
+        OPENROUTER_QWEN,  # Spaced: non-OR providers between OR variants
         CEREBRAS,
         NVIDIA_NIM,
+        OPENROUTER,
         SAMBANOVA,
         SILICONFLOW,
+        OPENROUTER_YI,
         TOGETHER,
         CLOUDFLARE,
-        OPENROUTER,
-        OPENROUTER_QWEN,
-        OPENROUTER_YI,
         OPENROUTER_ARCEE,
-        OPENROUTER_DEEPSEEK_R1,
-        OPENROUTER_LIQUID,
         XAI,
+        OPENROUTER_DEEPSEEK_R1,
         HUGGINGFACE,
+        OPENROUTER_LIQUID,
         CLAUDE_HAIKU,
         GPT4O,
         CLAUDE,
@@ -691,18 +744,18 @@ TASK_ROUTING: Dict[str, List[str]] = {
         CEREBRAS,
         GEMINI,
         MISTRAL,
+        OPENROUTER,  # Spaced: non-OR providers between OR variants
         NVIDIA_NIM,
         SAMBANOVA,
+        OPENROUTER_YI,
         SILICONFLOW,
         TOGETHER,
-        CLOUDFLARE,
-        OPENROUTER,
-        OPENROUTER_YI,
         OPENROUTER_ARCEE,
-        OPENROUTER_GEMMA,
-        OPENROUTER_LIQUID,
+        CLOUDFLARE,
         XAI,
+        OPENROUTER_GEMMA,
         HUGGINGFACE,
+        OPENROUTER_LIQUID,
         CLAUDE_HAIKU,
         GPT4O,
         CLAUDE,
@@ -711,19 +764,19 @@ TASK_ROUTING: Dict[str, List[str]] = {
     TASK_COMPLEX: [
         OPENROUTER_DEEPSEEK_R1,  # DeepSeek R1 -- strong reasoning, HIGH priority
         SAMBANOVA,
-        OPENROUTER,
-        OPENROUTER_ARCEE,
         GROQ,
+        OPENROUTER,  # Spaced: non-OR providers between OR variants
         ZHIPU,
         CEREBRAS,
+        OPENROUTER_ARCEE,
         GEMINI,
         MISTRAL,
+        OPENROUTER_YI,
         TOGETHER,
         NVIDIA_NIM,
-        OPENROUTER_YI,
+        OPENROUTER_GEMMA,
         SILICONFLOW,
         CLOUDFLARE,
-        OPENROUTER_GEMMA,
         OPENROUTER_LIQUID,
         XAI,
         HUGGINGFACE,
@@ -734,20 +787,20 @@ TASK_ROUTING: Dict[str, List[str]] = {
     ],
     TASK_CODE: [
         GEMINI,
-        OPENROUTER_QWEN,
+        OPENROUTER_QWEN,  # Qwen3 Coder -- code specialist, top priority OR variant
         MISTRAL,
         GROQ,
+        OPENROUTER,  # Spaced: non-OR providers between OR variants
         ZHIPU,
         CEREBRAS,
+        OPENROUTER_DEEPSEEK_R1,
         TOGETHER,
         NVIDIA_NIM,
+        OPENROUTER_YI,
         SAMBANOVA,
         SILICONFLOW,
-        CLOUDFLARE,
-        OPENROUTER,
-        OPENROUTER_YI,
-        OPENROUTER_DEEPSEEK_R1,
         OPENROUTER_GEMMA,
+        CLOUDFLARE,
         XAI,
         HUGGINGFACE,
         CLAUDE_HAIKU,
@@ -761,15 +814,15 @@ TASK_ROUTING: Dict[str, List[str]] = {
         OPENROUTER_GEMMA,  # Gemma 3 -- good for verification tasks
         GROQ,
         ZHIPU,
+        OPENROUTER_DEEPSEEK_R1,  # Spaced: non-OR providers between OR variants
         CEREBRAS,
         NVIDIA_NIM,
+        OPENROUTER,
         TOGETHER,
         SAMBANOVA,
+        OPENROUTER_YI,
         SILICONFLOW,
         CLOUDFLARE,
-        OPENROUTER,
-        OPENROUTER_DEEPSEEK_R1,
-        OPENROUTER_YI,
         OPENROUTER_ARCEE,
         XAI,
         HUGGINGFACE,
@@ -781,21 +834,21 @@ TASK_ROUTING: Dict[str, List[str]] = {
     TASK_RESEARCH: [
         OPENROUTER_DEEPSEEK_R1,  # DeepSeek R1 -- strong reasoning, HIGH priority
         XAI,
-        OPENROUTER,
-        OPENROUTER_ARCEE,
         SAMBANOVA,
+        OPENROUTER,  # Spaced: non-OR providers between OR variants
         GEMINI,
         GROQ,
+        OPENROUTER_ARCEE,
         ZHIPU,
         TOGETHER,
+        OPENROUTER_YI,
         CEREBRAS,
         MISTRAL,
-        NVIDIA_NIM,
-        OPENROUTER_YI,
         OPENROUTER_GEMMA,
+        NVIDIA_NIM,
         SILICONFLOW,
-        CLOUDFLARE,
         OPENROUTER_LIQUID,
+        CLOUDFLARE,
         HUGGINGFACE,
         CLAUDE_HAIKU,
         GPT4O,
@@ -804,19 +857,19 @@ TASK_ROUTING: Dict[str, List[str]] = {
     ],
     TASK_NARRATIVE: [
         GROQ,
-        OPENROUTER,
         GEMINI,
+        OPENROUTER,  # Spaced: non-OR providers between OR variants
         ZHIPU,
         CEREBRAS,
+        OPENROUTER_YI,
         MISTRAL,
         TOGETHER,
+        OPENROUTER_GEMMA,
         SAMBANOVA,
         NVIDIA_NIM,
-        OPENROUTER_YI,
+        OPENROUTER_DEEPSEEK_R1,
         SILICONFLOW,
         CLOUDFLARE,
-        OPENROUTER_GEMMA,
-        OPENROUTER_DEEPSEEK_R1,
         OPENROUTER_LIQUID,
         XAI,
         HUGGINGFACE,
@@ -831,24 +884,25 @@ TASK_ROUTING: Dict[str, List[str]] = {
         GROQ,
         ZHIPU,
         GEMINI,
+        GEMINI_FLASH_LITE,
         MISTRAL,
         TOGETHER,
         NVIDIA_NIM,
         SAMBANOVA,
         SILICONFLOW,
-        OPENROUTER,
-        OPENROUTER_QWEN,
-        OPENROUTER_YI,
-        OPENROUTER_ARCEE,
-        OPENROUTER_DEEPSEEK_R1,
-        OPENROUTER_GEMMA,
-        OPENROUTER_LIQUID,
+        OPENROUTER,  # Spaced: non-OR providers between OR variants
         XAI,
+        OPENROUTER_QWEN,
         HUGGINGFACE,
+        OPENROUTER_YI,
         CLAUDE_HAIKU,
+        OPENROUTER_ARCEE,
         GPT4O,
+        OPENROUTER_DEEPSEEK_R1,
         CLAUDE,
+        OPENROUTER_GEMMA,
         CLAUDE_OPUS,
+        OPENROUTER_LIQUID,
     ],
     # ── v4.0 Platform Module Task Types ──────────────────────────────────
     # Command Center: fast for quick plans, Claude for full plans
@@ -857,12 +911,12 @@ TASK_ROUTING: Dict[str, List[str]] = {
         CEREBRAS,
         GEMINI,
         ZHIPU,
+        OPENROUTER,  # Spaced: non-OR providers between OR variants
         MISTRAL,
         SAMBANOVA,
+        OPENROUTER_DEEPSEEK_R1,
         NVIDIA_NIM,
         TOGETHER,
-        OPENROUTER,
-        OPENROUTER_DEEPSEEK_R1,
         XAI,
         SILICONFLOW,
         CLOUDFLARE,
@@ -908,13 +962,13 @@ TASK_ROUTING: Dict[str, List[str]] = {
         XAI,
         SAMBANOVA,
         GROQ,
+        OPENROUTER,  # Spaced: non-OR providers between OR variants
         ZHIPU,
         MISTRAL,
+        OPENROUTER_ARCEE,
         TOGETHER,
         CEREBRAS,
         NVIDIA_NIM,
-        OPENROUTER,
-        OPENROUTER_ARCEE,
         SILICONFLOW,
         CLAUDE_HAIKU,
         GPT4O,
@@ -958,13 +1012,13 @@ TASK_ROUTING: Dict[str, List[str]] = {
         GEMINI,
         ZHIPU,
         MISTRAL,
+        OPENROUTER,  # Spaced: non-OR providers between OR variants
         NVIDIA_NIM,
         SAMBANOVA,
+        OPENROUTER_YI,
         SILICONFLOW,
         TOGETHER,
         CLOUDFLARE,
-        OPENROUTER,
-        OPENROUTER_YI,
         XAI,
         CLAUDE_HAIKU,
         GPT4O,
@@ -990,6 +1044,7 @@ TASK_ROUTING: Dict[str, List[str]] = {
         GROQ,
         CEREBRAS,
         GEMINI,
+        GEMINI_FLASH_LITE,
         ZHIPU,
         MISTRAL,
         NVIDIA_NIM,
@@ -1039,6 +1094,7 @@ MODULE_LLM_PREFERENCES: Dict[str, Dict[str, Any]] = {
 # Estimated cost per 1M tokens (USD) -- input/output
 _PROVIDER_COST_PER_M_TOKENS: Dict[str, Dict[str, float]] = {
     GEMINI: {"input": 0.0, "output": 0.0},
+    GEMINI_FLASH_LITE: {"input": 0.0, "output": 0.0},
     GROQ: {"input": 0.0, "output": 0.0},
     CEREBRAS: {"input": 0.0, "output": 0.0},
     ZHIPU: {"input": 0.0, "output": 0.0},
@@ -1774,10 +1830,10 @@ def select_provider(
             )
             continue
         # Shared rate limit for OpenRouter variants (all share one API key)
-        if pid.startswith("openrouter_"):
-            if _rate_tracker.is_rate_limited("openrouter"):
+        if pid.startswith("openrouter"):
+            if _rate_tracker.is_rate_limited("_openrouter_combined"):
                 logger.debug(
-                    "LLM Router: %s skipped -- parent openrouter key rate-limited",
+                    "LLM Router: %s skipped -- combined openrouter key rate-limited (20 RPM shared)",
                     pid,
                 )
                 continue
@@ -1799,10 +1855,14 @@ def _build_gemini_request(
     system_prompt: str,
     max_tokens: int,
     tools: Optional[List[Dict]] = None,
+    provider_id: str = GEMINI,
 ) -> Tuple[str, Dict[str, str], bytes]:
-    """Build a Gemini API request."""
+    """Build a Gemini API request.
+
+    Supports both gemini-2.0-flash and gemini-2.0-flash-lite via provider_id.
+    """
     api_key = (os.environ.get("GEMINI_API_KEY") or "").strip()
-    config = PROVIDER_CONFIG[GEMINI]
+    config = PROVIDER_CONFIG.get(provider_id) or PROVIDER_CONFIG[GEMINI]
     url = f"{config['endpoint']}?key={api_key}"
 
     # Convert messages to Gemini format
@@ -2056,11 +2116,13 @@ def _parse_gemini_response(resp_data: Dict) -> Dict[str, Any]:
         parts = content.get("parts") or []
         text = " ".join(p.get("text") or "" for p in parts if "text" in p)
         usage = resp_data.get("usageMetadata", {})
+        # Use modelVersion from response if available, fallback to generic name
+        model_name = resp_data.get("modelVersion") or "gemini-2.0-flash"
         return {
             "text": text.strip(),
             "input_tokens": usage.get("promptTokenCount") or 0,
             "output_tokens": usage.get("candidatesTokenCount") or 0,
-            "model": "gemini-2.0-flash",
+            "model": model_name,
             "stop_reason": candidates[0].get("finishReason", "STOP"),
         }
     except Exception as e:
@@ -2446,14 +2508,16 @@ def _stream_gemini(
     messages: List[Dict],
     system_prompt: str,
     max_tokens: int,
+    provider_id: str = GEMINI,
 ) -> Generator[str, None, None]:
     """Stream tokens from the Gemini streaming endpoint.
 
     Uses the streamGenerateContent endpoint which returns newline-delimited
-    JSON objects, each containing partial candidates.
+    JSON objects, each containing partial candidates.  Supports both
+    gemini-2.0-flash and gemini-2.0-flash-lite via provider_id.
     """
     api_key = (os.environ.get("GEMINI_API_KEY") or "").strip()
-    config = PROVIDER_CONFIG[GEMINI]
+    config = PROVIDER_CONFIG.get(provider_id) or PROVIDER_CONFIG[GEMINI]
     # Swap generateContent -> streamGenerateContent
     base_endpoint = config["endpoint"]
     stream_endpoint = base_endpoint.replace(
@@ -2601,7 +2665,9 @@ def _stream_single_provider(
         return
 
     if api_style == "gemini":
-        yield from _stream_gemini(messages, system_prompt, max_tokens)
+        yield from _stream_gemini(
+            messages, system_prompt, max_tokens, provider_id=provider_id
+        )
     elif api_style == "anthropic":
         yield from _stream_anthropic(
             messages, system_prompt, max_tokens, provider_id=provider_id
@@ -2841,7 +2907,7 @@ def _call_single_provider(
         # Build request based on API style
         if api_style == "gemini":
             url, headers, body = _build_gemini_request(
-                messages, system_prompt, max_tokens, tools
+                messages, system_prompt, max_tokens, tools, provider_id=provider_id
             )
         elif api_style == "openai":
             url, headers, body = _build_openai_request(

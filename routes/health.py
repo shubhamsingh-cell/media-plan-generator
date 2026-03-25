@@ -9,11 +9,26 @@ import datetime
 import json
 import logging
 import os
+import sys
 import time
 import urllib.parse
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+
+def _send_json_response(handler: Any, data: Any, status_code: int = 200) -> None:
+    """Send a JSON response using the standard HTTP response pattern.
+
+    Avoids reliance on handler._send_json() which may not exist when
+    routes are dispatched from a different handler class.
+    """
+    body = json.dumps(data).encode("utf-8")
+    handler.send_response(status_code)
+    handler.send_header("Content-Type", "application/json")
+    handler.send_header("Content-Length", str(len(body)))
+    handler.end_headers()
+    handler.wfile.write(body)
 
 
 # ---------------------------------------------------------------------------
@@ -67,7 +82,10 @@ def _handle_health_ready(handler, path: str, parsed: Any) -> None:
     _app = sys.modules.get("__main__") or sys.modules.get("app")
     health_check_readiness = getattr(_app, "health_check_readiness", None)
 
-    result = health_check_readiness()
+    if health_check_readiness is None:
+        result = {"status": "healthy", "note": "health_check_readiness not available"}
+    else:
+        result = health_check_readiness()
     status_code = 200 if result.get("status") == "healthy" else 503
     body = json.dumps(result).encode("utf-8")
     handler.send_response(status_code)
@@ -203,10 +221,10 @@ def _handle_dashboard_widgets(handler, path: str, parsed: Any) -> None:
             except Exception as e:
                 logger.error("Dashboard widget market data error: %s", e, exc_info=True)
 
-        handler._send_json(widgets)
+        _send_json_response(handler, widgets)
     except Exception as e:
         logger.error("Dashboard widgets error: %s", e, exc_info=True)
-        handler._send_json({"error": str(e)}, status_code=500)
+        _send_json_response(handler, {"error": str(e)}, status_code=500)
 
 
 def _handle_health_data_matrix(handler, path: str, parsed: Any) -> None:
@@ -967,7 +985,7 @@ def _handle_health_integrations_diagnose(handler, path: str, parsed: Any) -> Non
             "detail": f"diagnostic error: {_de}",
         }
     diag_results["timestamp"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
-    handler._send_json(diag_results)
+    _send_json_response(handler, diag_results)
 
 
 def _handle_health_orchestrator(handler, path: str, parsed: Any) -> None:
@@ -983,10 +1001,10 @@ def _handle_health_orchestrator(handler, path: str, parsed: Any) -> None:
             "fallback_telemetry": _do.get_fallback_telemetry(),
             "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         }
-        handler._send_json(orch_data)
+        _send_json_response(handler, orch_data)
     except Exception as _oe:
         logger.error("Orchestrator unavailable: %s", _oe, exc_info=True)
-        handler._send_json({"error": "Orchestrator unavailable"})
+        _send_json_response(handler, {"error": "Orchestrator unavailable"})
 
 
 def _handle_metrics(handler, path: str, parsed: Any) -> None:
@@ -1000,7 +1018,7 @@ def _handle_metrics(handler, path: str, parsed: Any) -> None:
     metrics_data = (
         _metrics.get_metrics() if _metrics else {"error": "Monitoring not available"}
     )
-    handler._send_json(metrics_data)
+    _send_json_response(handler, metrics_data)
 
 
 def _handle_nova_metrics(handler, path: str, parsed: Any) -> None:
@@ -1011,10 +1029,10 @@ def _handle_nova_metrics(handler, path: str, parsed: Any) -> None:
     try:
         from nova import get_nova_metrics
 
-        handler._send_json(get_nova_metrics())
+        _send_json_response(handler, get_nova_metrics())
     except Exception as e:
         logger.error("Nova metrics error: %s", e, exc_info=True)
-        handler._send_json({"error": "Failed to retrieve Nova metrics"})
+        _send_json_response(handler, {"error": "Failed to retrieve Nova metrics"})
 
 
 def _handle_health_slos(handler, path: str, parsed: Any) -> None:
@@ -1030,9 +1048,11 @@ def _handle_health_slos(handler, path: str, parsed: Any) -> None:
 
         if _mc_inst and hasattr(_mc_inst, "check_slo_compliance"):
             slo_result = _mc_inst.check_slo_compliance()
-            handler._send_json(slo_result)
+            _send_json_response(handler, slo_result)
         else:
-            handler._send_json({"error": "SLO compliance check not available"})
+            _send_json_response(
+                handler, {"error": "SLO compliance check not available"}
+            )
     except Exception as _slo_err:
         logger.error("SLO check error: %s", _slo_err, exc_info=True)
         slo_err_body = json.dumps({"error": "SLO check failed"}).encode("utf-8")
@@ -1053,7 +1073,7 @@ def _handle_observability_platform(handler, path: str, parsed: Any) -> None:
         get_platform_observability = getattr(_app, "get_platform_observability", None)
 
         obs_data = get_platform_observability()
-        handler._send_json(obs_data)
+        _send_json_response(handler, obs_data)
     except Exception as _obs_err:
         logger.error("Platform observability error: %s", _obs_err, exc_info=True)
         obs_err_body = json.dumps(
@@ -1089,9 +1109,9 @@ def _handle_health_eval(handler, path: str, parsed: Any) -> None:
                 },
                 context="Platform quality evaluation results",
             )
-        handler._send_json(eval_result)
+        _send_json_response(handler, eval_result)
     except ImportError:
-        handler._send_json({"error": "Eval framework not available"})
+        _send_json_response(handler, {"error": "Eval framework not available"})
     except Exception as _eval_err:
         logger.error("Eval framework error: %s", _eval_err, exc_info=True)
         eval_err_body = json.dumps({"error": "Eval failed"}).encode("utf-8")
@@ -1107,9 +1127,11 @@ def _handle_llm_costs(handler, path: str, parsed: Any) -> None:
     try:
         from llm_router import get_cost_report
 
-        handler._send_json(get_cost_report())
+        _send_json_response(handler, get_cost_report())
     except Exception as e:
-        handler._send_json({"error": str(e), "note": "Cost tracking not available"})
+        _send_json_response(
+            handler, {"error": str(e), "note": "Cost tracking not available"}
+        )
 
 
 def _handle_audit_events(handler, path: str, parsed: Any) -> None:
@@ -1119,13 +1141,13 @@ def _handle_audit_events(handler, path: str, parsed: Any) -> None:
 
         params = urllib.parse.parse_qs(urllib.parse.urlparse(handler.path).query)
         if "summary" in params:
-            handler._send_json(get_audit_summary())
+            _send_json_response(handler, get_audit_summary())
         else:
             limit = int(params.get("limit", ["100"])[0])
             action = params.get("action", [None])[0]
-            handler._send_json({"events": get_recent_events(limit, action)})
+            _send_json_response(handler, {"events": get_recent_events(limit, action)})
     except Exception as e:
-        handler._send_json({"error": str(e)})
+        _send_json_response(handler, {"error": str(e)})
 
 
 # ---------------------------------------------------------------------------
