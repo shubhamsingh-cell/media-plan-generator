@@ -10347,14 +10347,22 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                 "Plan generation exceeded 2-minute time limit"
                             )
 
-                        # PPT generation
+                        # PPT generation -- skip if caller only wants Excel
+                        # Accepted output_format values: "excel", "ppt", "all" (default)
+                        _requested_format = (
+                            (gen_data.get("output_format") or "all").lower().strip()
+                        )
                         client_name = re.sub(
                             r"[^a-zA-Z0-9_\-]",
                             "_",
                             gen_data.get("client_name") or "Client",
                         )
                         pptx_bytes = None
-                        if generate_pptx is not None:
+                        if generate_pptx is not None and _requested_format in (
+                            "all",
+                            "ppt",
+                            "bundle",
+                        ):
                             with _generation_jobs_lock:
                                 if jid in _generation_jobs:
                                     _generation_jobs[jid]["progress_pct"] = 90
@@ -10365,6 +10373,8 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                 pptx_bytes = generate_pptx(gen_data)
                             except Exception:
                                 pptx_bytes = None
+                        elif _requested_format == "excel":
+                            logger.info("Skipping PPT generation (output_format=excel)")
 
                         if pptx_bytes:
                             zip_buffer = io.BytesIO()

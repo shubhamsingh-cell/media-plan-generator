@@ -76,6 +76,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import concurrent.futures
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -124,9 +125,10 @@ CACHE_TTL = 86400  # 24 hours in seconds
 MAX_WORKERS = 15  # (unused after deadlock fix; kept for compatibility)
 
 # Semaphore to limit concurrent enrich_data() calls.
-# With sequential execution (no nested ThreadPoolExecutor), semaphore caps
-# total concurrent enrichments at 3, preventing resource exhaustion on
-# Supabase connection pool. Deadlock fixed: removed nested ThreadPoolExecutor.
+# Each enrichment uses a single ThreadPoolExecutor(max_workers=5) to parallelize
+# 30+ API tasks. The semaphore caps total concurrent enrichments at 3,
+# preventing resource exhaustion (max 15 threads across all enrichments).
+# No nesting: the ThreadPoolExecutor is NOT inside another thread pool.
 _enrichment_semaphore = threading.Semaphore(3)
 CACHE_DIR = Path(__file__).resolve().parent / "data" / "api_cache"
 
@@ -13339,48 +13341,142 @@ def enrich_data(data: Dict[str, Any], request_id: str = "") -> Dict[str, Any]:
     api_details: Dict[str, Dict[str, Any]] = {}  # per-API metadata
 
     # Gate concurrent enrichments to avoid thread explosion under load.
-    # DEADLOCK FIX: Do NOT create ThreadPoolExecutor inside semaphore.
-    # Sequential execution prevents circular waits while semaphore limits global concurrency.
+    # Semaphore limits global concurrency (max 3 parallel enrichments).
+    # Inside each enrichment, a SINGLE ThreadPoolExecutor(max_workers=5) runs
+    # the 30+ API tasks in parallel. This is NOT nesting -- the thread pool is
+    # created fresh each time and torn down before the semaphore is released.
     if not _enrichment_semaphore.acquire(timeout=120):  # 2-minute wait max
         _log_warn(
             "enrich_data: too many concurrent enrichments, returning partial data"
         )
         return enriched  # Return what we have so far
 
+    # Capture request_id so we can propagate it to worker threads
+    _parent_request_id = request_id
+
     try:
-        # Execute API calls sequentially (no nested ThreadPoolExecutor to avoid deadlock)
-        for result_key, api_label, func in tasks:
-            apis_called.append(api_label)
+        # Build the list of api_labels up front for summary tracking
+        for _rk, _al, _fn in tasks:
+            apis_called.append(_al)
+
+        # Thread-safe collectors (only appends, protected by GIL for list.append)
+        _results_lock = threading.Lock()
+
+        def _run_task(result_key: str, api_label: str, func: Any) -> tuple:
+            """Execute a single enrichment task in a worker thread."""
+            # Propagate request_id to this worker thread
+            if _parent_request_id:
+                set_request_id(_parent_request_id)
             try:
                 result, status, metadata = _safe_call(func, api_label)
-                # Store per-API details
-                api_details[api_label] = {
-                    "elapsed_time": metadata.get("elapsed_time", 0.0),
-                    "source": metadata.get("source", "unknown"),
-                    "success": metadata.get("success", False),
-                    "status": status,
-                }
-
-                if status == "ok":
-                    enriched[result_key] = result
-                    apis_succeeded.append(api_label)
-                elif status == "empty":
-                    # API ran fine but had no applicable data
-                    apis_skipped.append(api_label)
-                elif status == "circuit_open":
-                    apis_circuit_broken.append(api_label)
-                    apis_failed.append(api_label)
-                else:
-                    apis_failed.append(api_label)
+                return (result_key, api_label, result, status, metadata, None)
             except Exception as exc:
-                _log_warn(f"Enrichment call for {api_label} raised: {exc}")
-                apis_failed.append(api_label)
-                api_details[api_label] = {
-                    "elapsed_time": 0.0,
-                    "source": "error",
+                return (
+                    result_key,
+                    api_label,
+                    None,
+                    "error",
+                    {
+                        "elapsed_time": 0.0,
+                        "source": "error",
+                        "success": False,
+                        "status": "error",
+                        "error_message": str(exc),
+                    },
+                    exc,
+                )
+
+        # Parallel execution with per-task timeout of 8s and overall 25s hard limit
+        _ENRICHMENT_HARD_TIMEOUT = 25  # seconds
+        _PER_TASK_TIMEOUT = 8  # seconds
+        _enrichment_start = time.time()
+
+        with concurrent.futures.ThreadPoolExecutor(
+            max_workers=5, thread_name_prefix="enrich"
+        ) as executor:
+            future_to_label: Dict[concurrent.futures.Future, str] = {}
+            for result_key, api_label, func in tasks:
+                fut = executor.submit(_run_task, result_key, api_label, func)
+                future_to_label[fut] = api_label
+
+            for fut in concurrent.futures.as_completed(
+                future_to_label, timeout=_ENRICHMENT_HARD_TIMEOUT
+            ):
+                api_label = future_to_label[fut]
+                try:
+                    (
+                        result_key,
+                        _label,
+                        result,
+                        status,
+                        metadata,
+                        exc,
+                    ) = fut.result(timeout=_PER_TASK_TIMEOUT)
+
+                    if exc is not None:
+                        _log_warn(f"Enrichment call for {api_label} raised: {exc}")
+                        apis_failed.append(api_label)
+                        api_details[api_label] = metadata
+                        continue
+
+                    # Store per-API details
+                    api_details[api_label] = {
+                        "elapsed_time": metadata.get("elapsed_time", 0.0),
+                        "source": metadata.get("source", "unknown"),
+                        "success": metadata.get("success", False),
+                        "status": status,
+                    }
+
+                    if status == "ok":
+                        with _results_lock:
+                            enriched[result_key] = result
+                        apis_succeeded.append(api_label)
+                    elif status == "empty":
+                        apis_skipped.append(api_label)
+                    elif status == "circuit_open":
+                        apis_circuit_broken.append(api_label)
+                        apis_failed.append(api_label)
+                    else:
+                        apis_failed.append(api_label)
+
+                except concurrent.futures.TimeoutError:
+                    _log_warn(
+                        f"Enrichment task {api_label} timed out after {_PER_TASK_TIMEOUT}s"
+                    )
+                    apis_failed.append(api_label)
+                    api_details[api_label] = {
+                        "elapsed_time": float(_PER_TASK_TIMEOUT),
+                        "source": "timeout",
+                        "success": False,
+                        "status": "timeout",
+                    }
+                except Exception as exc:
+                    _log_warn(f"Enrichment task {api_label} failed: {exc}")
+                    apis_failed.append(api_label)
+                    api_details[api_label] = {
+                        "elapsed_time": 0.0,
+                        "source": "error",
+                        "success": False,
+                        "status": "error",
+                        "error_message": str(exc),
+                    }
+
+    except concurrent.futures.TimeoutError:
+        # Overall hard timeout reached -- some tasks still pending
+        _elapsed_so_far = round(time.time() - _enrichment_start, 2)
+        _log_warn(
+            f"Enrichment hard timeout ({_ENRICHMENT_HARD_TIMEOUT}s) reached "
+            f"after {_elapsed_so_far}s -- returning partial results"
+        )
+        # Mark any tasks without api_details as timed out
+        for _rk, _al, _fn in tasks:
+            if _al not in api_details:
+                apis_failed.append(_al)
+                api_details[_al] = {
+                    "elapsed_time": float(_ENRICHMENT_HARD_TIMEOUT),
+                    "source": "timeout",
                     "success": False,
-                    "status": "error",
-                    "error_message": str(exc),
+                    "status": "hard_timeout",
                 }
     finally:
         _enrichment_semaphore.release()
