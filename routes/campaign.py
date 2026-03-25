@@ -401,6 +401,22 @@ def _handle_plan_share(handler: Any, path: str, parsed: Any) -> None:
         plan_data = data.get("plan_data") or {}
         client = data.get("client") or "Unnamed"
 
+        # ── Gold Standard: Reject empty/null share creation ──
+        if not plan_data or (
+            isinstance(plan_data, dict) and not any(plan_data.values())
+        ):
+            handler._send_json(
+                {"error": "Cannot share an empty plan. Generate a plan first."},
+                status_code=400,
+            )
+            return
+        if not isinstance(plan_data, dict):
+            handler._send_json(
+                {"error": "plan_data must be a JSON object"},
+                status_code=400,
+            )
+            return
+
         share_id = uuid.uuid4().hex[:8]
         entry = {
             "plan_data": plan_data,

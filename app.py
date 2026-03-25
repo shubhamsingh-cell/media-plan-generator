@@ -3720,7 +3720,10 @@ def _extract_plan_json(data: dict) -> dict:
     )
     recs.append("Consider A/B testing job ad creatives across top 2 channels.")
 
-    return {
+    # ── Gold Standard enrichments ──
+    gold_standard = data.get("_gold_standard") or {}
+
+    result = {
         "channels": channels,
         "budget_summary": {
             "total": total_budget,
@@ -3742,8 +3745,27 @@ def _extract_plan_json(data: dict) -> dict:
             "industry": industry,
             "total_budget": total_budget,
             "generated_at": datetime.datetime.utcnow().isoformat() + "Z",
+            "gold_standard_gates": list(gold_standard.keys()),
         },
     }
+
+    # Attach Gold Standard sections if present
+    if gold_standard.get("city_level_data"):
+        result["city_level_data"] = gold_standard["city_level_data"]
+    if gold_standard.get("clearance_segmentation"):
+        result["clearance_segmentation"] = gold_standard["clearance_segmentation"]
+    if gold_standard.get("competitor_mapping"):
+        result["competitor_mapping"] = gold_standard["competitor_mapping"]
+    if gold_standard.get("difficulty_framework"):
+        result["difficulty_framework"] = gold_standard["difficulty_framework"]
+    if gold_standard.get("channel_strategy"):
+        result["channel_strategy"] = gold_standard["channel_strategy"]
+    if gold_standard.get("budget_tiers"):
+        result["budget_tiers"] = gold_standard["budget_tiers"]
+    if gold_standard.get("activation_calendar"):
+        result["activation_calendar"] = gold_standard["activation_calendar"]
+
+    return result
 
 
 def _store_plan_result(plan_id: str, data: dict) -> None:
@@ -9871,6 +9893,67 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         )
                         return
 
+            # ── Gold Standard: Negative budget rejection ──
+            _budget_raw_str = str(
+                data.get("budget") or data.get("budget_range") or ""
+            ).strip()
+            if _budget_raw_str and re.match(
+                r"^-", _budget_raw_str.replace("$", "").strip()
+            ):
+                _gen_timer.cancel()
+                self._send_error(
+                    "Budget cannot be negative. Please enter a positive value.",
+                    "VALIDATION_ERROR",
+                    400,
+                )
+                return
+
+            # ── Gold Standard: Campaign start month validation ──
+            _csm_raw = data.get("campaign_start_month")
+            if _csm_raw is not None and str(_csm_raw).strip():
+                try:
+                    _csm_val = int(str(_csm_raw).strip())
+                    if _csm_val < 1 or _csm_val > 12:
+                        _gen_timer.cancel()
+                        self._send_error(
+                            f"Invalid campaign_start_month: {_csm_val}. Must be 1-12.",
+                            "VALIDATION_ERROR",
+                            400,
+                        )
+                        return
+                except (ValueError, TypeError):
+                    _gen_timer.cancel()
+                    self._send_error(
+                        "campaign_start_month must be a number between 1 and 12.",
+                        "VALIDATION_ERROR",
+                        400,
+                    )
+                    return
+
+            # ── Gold Standard: Reject javascript:/file:// URLs in all string fields ──
+            _DANGEROUS_URL_RE = re.compile(
+                r"(?:javascript|file|data|vbscript)\s*:", re.IGNORECASE
+            )
+            for _fkey, _fval in data.items():
+                if isinstance(_fval, str) and _DANGEROUS_URL_RE.search(_fval):
+                    _gen_timer.cancel()
+                    self._send_error(
+                        f"Field '{_fkey}' contains a disallowed URL scheme (javascript/file/data).",
+                        "VALIDATION_ERROR",
+                        400,
+                    )
+                    return
+                if isinstance(_fval, list):
+                    for _item in _fval:
+                        if isinstance(_item, str) and _DANGEROUS_URL_RE.search(_item):
+                            _gen_timer.cancel()
+                            self._send_error(
+                                f"Field '{_fkey}' contains a disallowed URL scheme.",
+                                "VALIDATION_ERROR",
+                                400,
+                            )
+                            return
+
             _validation_warnings = []
             if not _roles_input or (
                 isinstance(_roles_input, list) and len(_roles_input) == 0
@@ -10192,6 +10275,19 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                 _generation_jobs[jid][
                                     "status_message"
                                 ] = "Verifying plan data..."
+
+                        # ── Gold Standard Quality Gates (async path) ──
+                        try:
+                            from gold_standard import apply_all_quality_gates
+
+                            apply_all_quality_gates(gen_data)
+                        except Exception as _gs_err:
+                            logger.error(
+                                "Async Gold Standard gates failed: %s",
+                                _gs_err,
+                                exc_info=True,
+                            )
+                            gen_data["_gold_standard"] = {}
 
                         # Gemini/LLM verification of key plan data points
                         try:
@@ -11208,6 +11304,29 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     data["_budget_allocation"] = {}
             else:
                 data["_budget_allocation"] = {}
+
+            # ── Gold Standard Quality Gates ──
+            # Apply all 7 quality gates: city-level data, clearance segmentation,
+            # competitor mapping, difficulty framework, channel strategy with splits,
+            # multi-tier budget breakdowns, and activation event calendars.
+            try:
+                from gold_standard import apply_all_quality_gates
+
+                _gs_result = apply_all_quality_gates(data)
+                logger.info(
+                    "Gold Standard gates complete: %d gates produced data",
+                    len(_gs_result),
+                )
+            except ImportError:
+                logger.warning(
+                    "gold_standard module not available -- skipping quality gates"
+                )
+                data["_gold_standard"] = {}
+            except Exception as _gs_err:
+                logger.error(
+                    "Gold Standard gates failed (non-fatal): %s", _gs_err, exc_info=True
+                )
+                data["_gold_standard"] = {}
 
             # ── Gemini/LLM verification of plan data (same as async path) ──
             try:
