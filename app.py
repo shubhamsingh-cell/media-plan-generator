@@ -14617,74 +14617,97 @@ if __name__ == "__main__":
     signal.signal(signal.SIGTERM, _handle_signal)
     signal.signal(signal.SIGINT, _handle_signal)
 
-    # ── Pre-warm knowledge base on startup ──
-    try:
-        kb = load_knowledge_base()
-        logger.info("Knowledge base pre-warmed: %d keys", len(kb))
-    except Exception as kb_err:
-        logger.error("Knowledge base pre-warm failed: %s", kb_err)
+    # ── Deferred startup: run heavy init AFTER server starts ──
+    # This ensures the health check passes quickly while modules load in background
+    def _deferred_startup():
+        """Run all heavy initialization in a background thread."""
+        import time as _t
 
-    # ── Build vector search index (async, non-blocking) ──
-    if _vector_search_available and _vector_index_kb:
+        _t.sleep(2)  # Let server start accepting connections first
+        logger.info("[deferred_startup] Beginning background initialization...")
 
-        def _bg_vector_index():
+        # Pre-warm knowledge base
+        try:
+            kb = load_knowledge_base()
+            logger.info(
+                "[deferred_startup] Knowledge base pre-warmed: %d keys", len(kb)
+            )
+        except Exception as kb_err:
+            logger.error(
+                "[deferred_startup] Knowledge base pre-warm failed: %s", kb_err
+            )
+
+        # Build vector search index
+        if _vector_search_available and _vector_index_kb:
             try:
                 count = _vector_index_kb()
-                logger.info("Vector search index built: %d documents", count)
+                logger.info(
+                    "[deferred_startup] Vector search index built: %d documents", count
+                )
             except Exception as ve:
                 logger.error(
-                    "Vector index build failed (non-fatal): %s", ve, exc_info=True
+                    "[deferred_startup] Vector index build failed: %s",
+                    ve,
+                    exc_info=True,
                 )
 
-        threading.Thread(
-            target=_bg_vector_index, daemon=True, name="vector-index"
-        ).start()
+        # Data Refresh Pipeline
+        try:
+            from data_refresh import start_data_refresh
 
-    # ── Data Refresh Pipeline (#15) ──
-    try:
-        from data_refresh import start_data_refresh
+            start_data_refresh()
+            logger.info("[deferred_startup] Data refresh pipeline started")
+        except ImportError:
+            logger.debug("[deferred_startup] data_refresh module not available")
 
-        start_data_refresh()
-        logger.info("Data refresh pipeline started")
-    except ImportError:
-        logger.debug("data_refresh module not available")
+        # Proactive Health Checker
+        try:
+            from sentry_integration import (
+                start_proactive_health as _start_proactive_health,
+            )
 
-    # ── Proactive Health Checker ──
-    try:
-        from sentry_integration import start_proactive_health as _start_proactive_health
+            _start_proactive_health()
+            logger.info("[deferred_startup] Proactive health checker started")
+        except ImportError:
+            pass
 
-        _start_proactive_health()
-        logger.info("Proactive health checker started")
-    except ImportError:
-        logger.warning("proactive health checker not available")
+        # Proactive Intelligence Engine
+        try:
+            from nova_proactive import start_proactive_engine
 
-    # ── Proactive Intelligence Engine ──
-    try:
-        from nova_proactive import start_proactive_engine
+            start_proactive_engine()
+            logger.info("[deferred_startup] Proactive intelligence engine started")
+        except ImportError:
+            pass
 
-        start_proactive_engine()
-        logger.info("Proactive intelligence engine started")
-    except ImportError:
-        logger.warning("nova_proactive not available")
+        # Feature Store Init
+        try:
+            from feature_store import get_feature_store
 
-    # ── Feature Store Init ──
-    try:
-        from feature_store import get_feature_store
+            get_feature_store().initialize()
+            logger.info("[deferred_startup] Feature store initialized")
+        except ImportError:
+            pass
+        except Exception as _fs_err:
+            logger.error(
+                "[deferred_startup] Feature store init failed: %s",
+                _fs_err,
+                exc_info=True,
+            )
 
-        get_feature_store().initialize()
-        logger.info("Feature store initialized")
-    except ImportError:
-        logger.warning("feature_store module not available")
-    except Exception as _fs_err:
-        logger.error("Feature store init failed: %s", _fs_err, exc_info=True)
+        # API Key Authentication Init
+        try:
+            from auth import init as _init_auth
 
-    # ── API Key Authentication Init (Phase 6) ──
-    try:
-        from auth import init as _init_auth
+            _init_auth()
+        except ImportError:
+            pass
 
-        _init_auth()
-    except ImportError:
-        pass
+        logger.info("[deferred_startup] Background initialization complete")
+
+    threading.Thread(
+        target=_deferred_startup, daemon=True, name="deferred-startup"
+    ).start()
 
     # ── Startup banner ──
     logger.info("=" * 60)
