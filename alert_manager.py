@@ -240,6 +240,7 @@ def _try_resend(
     req.add_header("Authorization", f"Bearer {api_key}")
     req.add_header("Content-Type", "application/json")
     req.add_header("Accept", "application/json")
+    req.add_header("User-Agent", "Nova-AI-Suite/4.0.0")
 
     try:
         with urllib.request.urlopen(req, timeout=_SEND_TIMEOUT) as resp:

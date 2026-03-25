@@ -238,10 +238,7 @@ def _send_email(to: str, subject: str, html: str) -> bool:
     req.add_header("Authorization", f"Bearer {_API_KEY}")
     req.add_header("Content-Type", "application/json")
     req.add_header("Accept", "application/json")
-    req.add_header(
-        "User-Agent",
-        "MediaPlanGenerator/1.0 (media-plan-generator.onrender.com)",
-    )
+    req.add_header("User-Agent", "Nova-AI-Suite/4.0.0")
 
     try:
         with urllib.request.urlopen(req, timeout=_SEND_TIMEOUT) as resp:
@@ -750,6 +747,7 @@ def diagnose_resend() -> Dict[str, Any]:
             headers={
                 "Authorization": f"Bearer {_API_KEY}",
                 "Accept": "application/json",
+                "User-Agent": "Nova-AI-Suite/4.0.0",
             },
         )
         with urllib.request.urlopen(req, timeout=10) as resp:
