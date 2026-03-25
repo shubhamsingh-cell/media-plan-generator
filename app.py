@@ -10998,52 +10998,52 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
 
             _parallel_t0 = time.time()
 
+            # CRITICAL: Do NOT use `with ThreadPoolExecutor() as pool:` context manager.
+            # The context manager calls pool.shutdown(wait=True) on exit, which blocks
+            # until ALL threads complete -- even after FuturesTimeoutError is raised.
+            # Threads stuck on semaphore.acquire() or slow API calls will block the
+            # entire response. Use manual pool with shutdown(wait=False) instead.
+            _enrich_pool = ThreadPoolExecutor(
+                max_workers=5, thread_name_prefix="gen-enrich"
+            )
             try:
                 with _span_fn(
                     "enrich_parallel",
                     "Parallel API enrichment (5 sources, 20s timeout)",
                 ):
-                    with ThreadPoolExecutor(
-                        max_workers=5, thread_name_prefix="gen-enrich"
-                    ) as pool:
-                        futures = {
-                            pool.submit(fn): fn.__doc__ or fn.__name__
-                            for fn in _enrich_tasks
-                        }
-                        for future in as_completed(futures, timeout=20):
-                            try:
-                                name, result = future.result()
-                                if name == "api_enrichment":
-                                    if result:
-                                        enriched = result
-                                else:
-                                    if result is not None:
-                                        _market_ctx[name] = result
-                            except Exception as exc:
-                                logger.warning(
-                                    "Generate enrichment task error: %s", exc
-                                )
+                    futures = {
+                        _enrich_pool.submit(fn): fn.__doc__ or fn.__name__
+                        for fn in _enrich_tasks
+                    }
+                    for future in as_completed(futures, timeout=20):
+                        try:
+                            name, result = future.result()
+                            if name == "api_enrichment":
+                                if result:
+                                    enriched = result
+                            else:
+                                if result is not None:
+                                    _market_ctx[name] = result
+                        except Exception as exc:
+                            logger.warning("Generate enrichment task error: %s", exc)
             except FuturesTimeoutError:
                 elapsed_time: float = time.time() - _parallel_t0
-                logger.error(
-                    "Parallel enrichment hit 20s timeout after %.1fs -- aborting "
-                    "generation to prevent client hang",
+                logger.warning(
+                    "Parallel enrichment hit 20s timeout after %.1fs -- "
+                    "continuing with partial data (not aborting)",
                     elapsed_time,
                 )
-                # Cancel any pending futures to free up resources
+                # Cancel pending futures (running threads can't be cancelled)
                 for future in futures:
                     future.cancel()
-                # Send 504 Gateway Timeout response
-                self._send_error(
-                    "Generation timeout: enrichment took too long (20s limit exceeded). "
-                    "Please try again with fewer roles or locations.",
-                    "ENRICHMENT_TIMEOUT",
-                    504,
-                )
-                _gen_timer.cancel()
-                return
+                # DON'T abort -- continue with whatever data we have
             except Exception as exc:
                 logger.error("Parallel enrichment pool failed: %s", exc, exc_info=True)
+            finally:
+                # shutdown(wait=False) exits immediately without blocking
+                _enrich_pool.shutdown(wait=False, cancel_futures=True)
+
+            # Enrichment complete (or timed out with partial data) -- continue
 
             data["_enriched"] = enriched
             if _market_ctx:
