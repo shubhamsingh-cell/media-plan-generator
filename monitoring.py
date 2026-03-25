@@ -930,7 +930,11 @@ class MetricsCollector:
             total_5xx = sum(
                 count for code, count in self._status_codes.items() if 500 <= code < 600
             )
-            avail = ((total - total_5xx) / total) * 100 if total > 0 else 100.0
+            avail = (
+                ((cumulative_total - total_5xx) / cumulative_total) * 100
+                if cumulative_total > 0
+                else 100.0
+            )
             target_avail = SLO_TARGETS["availability_pct"]["target"]
             results["availability_pct"] = {
                 "target": target_avail,
