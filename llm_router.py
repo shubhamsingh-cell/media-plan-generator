@@ -695,7 +695,7 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         "name": "OpenRouter (DeepSeek R1 Reasoning)",
         "api_style": "openai",  # OpenAI-compatible
         "endpoint": "https://openrouter.ai/api/v1/chat/completions",
-        "model": "deepseek/deepseek-r1-0528:free",
+        "model": "deepseek/deepseek-r1:free",
         "env_key": "OPENROUTER_API_KEY",
         "rpm_limit": 20,
         "rpd_limit": 1000,

@@ -4446,6 +4446,9 @@ def _sanitize_chat_input(text: Optional[str]) -> str:
     """
     if not text:
         return ""
+    # Ensure text is a string (handles int/bool/dict inputs from malformed requests)
+    if not isinstance(text, str):
+        text = str(text)
     # Strip null bytes and other control characters (prevent injection/log poisoning)
     text = text.replace("\x00", "")
     # Remove script and style blocks first (before stripping tags)
@@ -5014,9 +5017,7 @@ def _enrich_chat_context(data: dict, message: str) -> dict:
         ):
             return
         try:
-            results = _tavily_search(
-                f"recruitment hiring {_chat_msg[:60]}", max_results=3
-            )
+            results = _tavily_search(f"recruitment hiring {_chat_msg[:60]}")
             _merge("tavily_web_results", results)
             if results:
                 logger.info(
@@ -5849,7 +5850,7 @@ def _generate_creative_ads(data: dict) -> dict:
     if _tavily_available and _tavily_recruitment_news:
         try:
             trending = _tavily_recruitment_news(
-                f"recruitment trends {job_title} hiring", max_results=3
+                f"recruitment trends {job_title} hiring"
             )
             if trending and isinstance(trending, list):
                 headlines = [
