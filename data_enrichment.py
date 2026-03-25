@@ -526,9 +526,11 @@ class DataEnrichmentEngine:
             return None
 
         base = SUPABASE_URL.rstrip("/")
+        # Encode SELECT parameter to prevent HTTP 400 errors (commas must be %2C)
+        select_param = urllib.parse.quote("source,started_at,success,records", safe="")
         url = (
             f"{base}/rest/v1/enrichment_log"
-            "?select=source,started_at,success,records"
+            f"?select={select_param}"
             "&order=started_at.desc"
             "&limit=50"
         )

@@ -11,6 +11,7 @@ Extracted from app.py to reduce its size.  Handles:
 """
 
 import datetime
+import html
 import json
 import logging
 import sys
@@ -153,7 +154,7 @@ def _handle_shared_plan_view(handler: Any, path: str, parsed: Any) -> None:
         ),
     ]
     for label, val in detail_fields:
-        rows_html += f'<tr><td style="padding:10px 16px;color:rgba(255,255,255,0.5);font-size:13px;">{label}</td><td style="padding:10px 16px;color:rgba(255,255,255,0.85);font-size:13px;">{val}</td></tr>'
+        rows_html += f'<tr><td style="padding:10px 16px;color:rgba(255,255,255,0.5);font-size:13px;">{label}</td><td style="padding:10px 16px;color:rgba(255,255,255,0.85);font-size:13px;">{html.escape(str(val))}</td></tr>'
 
     # Channel detail
     if isinstance(channels, list) and channels:
@@ -168,7 +169,7 @@ def _handle_shared_plan_view(handler: Any, path: str, parsed: Any) -> None:
                 if isinstance(ch, dict)
                 else ""
             )
-            rows_html += f'<tr><td style="padding:6px 16px 6px 32px;color:rgba(255,255,255,0.4);font-size:12px;">Channel</td><td style="padding:6px 16px;color:rgba(255,255,255,0.7);font-size:12px;">{ch_name}{(" -- " + str(ch_spend)) if ch_spend else ""}</td></tr>'
+            rows_html += f'<tr><td style="padding:6px 16px 6px 32px;color:rgba(255,255,255,0.4);font-size:12px;">Channel</td><td style="padding:6px 16px;color:rgba(255,255,255,0.7);font-size:12px;">{html.escape(str(ch_name))}{(" -- " + html.escape(str(ch_spend))) if ch_spend else ""}</td></tr>'
 
     # Existing feedback
     if _plan_feedback_lock:
@@ -184,11 +185,11 @@ def _handle_shared_plan_view(handler: Any, path: str, parsed: Any) -> None:
         fb_time = time.strftime(
             "%b %d, %Y %H:%M", time.gmtime(fb.get("created_at") or 0)
         )
-        feedback_html += f'<div style="padding:12px;background:rgba(255,255,255,0.03);border-radius:8px;margin-bottom:8px;"><div style="font-size:12px;color:rgba(255,255,255,0.5);margin-bottom:4px;">{fb_name} -- {fb_time}</div><div style="font-size:13px;color:rgba(255,255,255,0.8);">{fb_comment}</div></div>'
+        feedback_html += f'<div style="padding:12px;background:rgba(255,255,255,0.03);border-radius:8px;margin-bottom:8px;"><div style="font-size:12px;color:rgba(255,255,255,0.5);margin-bottom:4px;">{html.escape(str(fb_name))} -- {fb_time}</div><div style="font-size:13px;color:rgba(255,255,255,0.8);">{html.escape(str(fb_comment))}</div></div>'
 
     html = f"""<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Shared Plan -- {client_name} | Nova</title>
+<title>Shared Plan -- {html.escape(client_name)} | Nova</title>
 <style>
 *{{margin:0;padding:0;box-sizing:border-box}}
 body{{font-family:'Inter',system-ui,sans-serif;background:#0a0a1e;color:white;min-height:100vh;padding:40px 20px}}
@@ -213,7 +214,7 @@ input:focus,textarea:focus{{outline:none;border-color:rgba(90,84,189,0.5)}}
 .toast.show{{opacity:1}}
 </style></head><body>
 <div class="container">
-  <h1>Media Plan: {client_name}</h1>
+  <h1>Media Plan: {html.escape(client_name)}</h1>
   <p class="subtitle">Shared on {created_str}</p>
   <div class="card">
     <h2>Plan Summary</h2>

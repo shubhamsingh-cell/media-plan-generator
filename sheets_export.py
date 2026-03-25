@@ -409,12 +409,25 @@ def create_spreadsheet(title: str, data: Dict[str, List[List[str]]]) -> Optional
 
 
 def _safe_str(value: Any) -> str:
-    """Convert a value to a safe string for spreadsheet cells."""
+    """Convert a value to a safe string for spreadsheet cells.
+
+    Escapes Excel formula indicators (=, +, @, -) by prefixing with apostrophe
+    to force text interpretation and prevent formula injection attacks.
+    """
     if value is None:
         return ""
     if isinstance(value, (int, float)):
         return str(value)
-    return str(value)
+
+    # Convert to string
+    str_val = str(value)
+
+    # Escape Excel formula indicators by prefixing with apostrophe
+    # This prevents formula injection attacks where malicious formulas execute code
+    if str_val and str_val[0] in ("=", "+", "@", "-"):
+        return f"'{str_val}"
+
+    return str_val
 
 
 def _format_currency(value: Any) -> str:
