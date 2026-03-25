@@ -331,14 +331,6 @@ def embed_batch(texts: list[str]) -> list[list[float]] | None:
     if not texts:
         return []
 
-    # Rate limit check
-    if _is_voyage_rate_limited():
-        logger.warning(
-            "Voyage AI rate limited (>%d req/min), skipping embed_batch",
-            _VOYAGE_RPM_LIMIT,
-        )
-        return None
-
     # Chunk into batches of _VOYAGE_MAX_BATCH
     all_embeddings: list[list[float]] = []
     last_request_time: float = (
@@ -356,16 +348,26 @@ def embed_batch(texts: list[str]) -> list[list[float]] | None:
         }
 
         try:
-            # Rate limiting: enforce delay between requests (but not before first one)
-            if i > 0:  # Skip delay for first batch
-                elapsed_since_last = time.monotonic() - last_request_time
-                request_delay = 60.0 / _VOYAGE_RPM_LIMIT  # 6 seconds for 10 req/min
-                if elapsed_since_last < request_delay:
-                    sleep_time = request_delay - elapsed_since_last
-                    logger.info(
-                        f"Voyage AI rate limiting: sleeping {sleep_time:.1f}s before batch {i // _VOYAGE_MAX_BATCH + 1}"
-                    )
-                    time.sleep(sleep_time)
+            # Rate limiting: enforce delay BEFORE EVERY request based on time window
+            # This ensures we never exceed Voyage API rate limits (10 req/min = 6s between requests)
+            now = time.monotonic()
+            with _voyage_rate_lock:
+                # Prune requests older than 60s from our tracking window
+                _voyage_request_times[:] = [
+                    t for t in _voyage_request_times if now - t < 60
+                ]
+
+                # If we have 10+ requests in the last 60s, wait until the oldest one ages out
+                if len(_voyage_request_times) >= _VOYAGE_RPM_LIMIT:
+                    oldest_request = min(_voyage_request_times)
+                    wait_time = 60.0 - (now - oldest_request)
+                    if wait_time > 0.001:
+                        logger.info(
+                            "Voyage AI rate limiting: waiting %.1f seconds for window to clear",
+                            wait_time,
+                        )
+                        time.sleep(wait_time)
+                        now = time.monotonic()
 
             _record_voyage_request()
             data = json.dumps(payload).encode("utf-8")
