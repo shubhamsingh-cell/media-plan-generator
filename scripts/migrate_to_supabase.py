@@ -130,7 +130,9 @@ def _post_rows(table: str, rows: list[dict[str, Any]], *, dry_run: bool = False)
     on_conflict = _on_conflict_map.get(table) or ""
     url = f"{base}/rest/v1/{table}"
     if on_conflict:
-        url += f"?on_conflict={on_conflict}"
+        # URL-encode the on_conflict parameter to handle commas correctly
+        encoded_conflict = urllib.parse.quote(on_conflict, safe="")
+        url += f"?on_conflict={encoded_conflict}"
     payload = json.dumps(rows, ensure_ascii=False).encode("utf-8")
     headers = _build_headers(prefer="resolution=merge-duplicates")
 
