@@ -1644,6 +1644,21 @@ def _set_response_cache(
             )
             del _response_cache[oldest_key]
 
+        # Proactive cache cleanup: remove expired entries every 50 writes
+        _cache_write_count = getattr(_set_response_cache, "_write_count", 0) + 1
+        _set_response_cache._write_count = _cache_write_count  # type: ignore[attr-defined]
+        if _cache_write_count % 50 == 0:
+            _now = time.time()
+            _expired_keys = [
+                k for k, v in _response_cache.items() if v.get("expires", 0) < _now
+            ]
+            for k in _expired_keys:
+                _response_cache.pop(k, None)
+            if _expired_keys:
+                logger.debug(
+                    f"Cache cleanup: removed {len(_expired_keys)} expired entries"
+                )
+
     # 2) Upstash Redis write (persistent across deploys)
     if _upstash_enabled:
         try:

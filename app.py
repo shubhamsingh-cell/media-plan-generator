@@ -9540,6 +9540,8 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
 
             # Sanitize all string inputs: strip HTML/script tags to prevent stored XSS
             def _sanitize_val(val):
+                if val is None:
+                    return ""
                 if isinstance(val, (int, float, bool)):
                     return str(val)
                 if isinstance(val, str):
@@ -9575,6 +9577,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 _missing.append("Requester email")
             if requester_email_input and not _EMAIL_RE.match(requester_email_input):
                 _missing.append("Valid email address")
+            # Strip any characters that passed regex but are suspicious
+            if requester_email_input:
+                requester_email_input = re.sub(r"[^\w.@+-]", "", requester_email_input)
 
             # Sanity checks: reject obviously bogus inputs
             if client_name_input and not re.search(r"[a-zA-Z]{2,}", client_name_input):

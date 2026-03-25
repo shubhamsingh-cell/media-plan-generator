@@ -861,7 +861,7 @@
       var trimmed = messages.slice(-CONFIG.maxHistoryStorage);
       localStorage.setItem(CONFIG.storageKey, JSON.stringify(trimmed));
     } catch (e) {
-      /* ignore storage errors */
+      console.warn("localStorage write failed:", e.message);
     }
   }
 
@@ -886,7 +886,9 @@
     try {
       var name = localStorage.getItem("nova_user_name");
       if (name && name.trim()) return name.trim().charAt(0).toUpperCase();
-    } catch (_e) {}
+    } catch (e) {
+      console.warn("localStorage read failed:", e.message);
+    }
     return "Y";
   }
 
@@ -894,7 +896,9 @@
     try {
       var name = localStorage.getItem("nova_user_name");
       if (name && name.trim()) return name.trim();
-    } catch (_e) {}
+    } catch (e) {
+      console.warn("localStorage read failed:", e.message);
+    }
     return "You";
   }
 
@@ -1288,7 +1292,9 @@
             if (ni) {
               try {
                 ni.value = localStorage.getItem("nova_user_name") || "";
-              } catch (_e) {}
+              } catch (e) {
+                console.warn("localStorage read failed:", e.message);
+              }
               ni.focus();
             }
           }
@@ -1301,7 +1307,9 @@
         var name = ni ? ni.value.trim() : "";
         try {
           localStorage.setItem("nova_user_name", name);
-        } catch (_e) {}
+        } catch (e) {
+          console.warn("localStorage write failed:", e.message);
+        }
         var sp = document.getElementById("nova-settings-panel");
         if (sp) sp.classList.remove("nova-settings-open");
         document
@@ -1355,7 +1363,12 @@
     var _themeBtn = header.querySelector(".nova-theme-btn");
     if (_themeBtn) {
       // Apply saved theme on build
-      var _savedTheme = localStorage.getItem("nova_theme");
+      var _savedTheme = null;
+      try {
+        _savedTheme = localStorage.getItem("nova_theme");
+      } catch (e) {
+        console.warn("localStorage read failed:", e.message);
+      }
       if (_savedTheme === "light") {
         panel.classList.add("nova-light");
         var _moonIcon = _themeBtn.querySelector(".nova-theme-icon-moon");
@@ -1368,11 +1381,19 @@
         var moonIcon = _themeBtn.querySelector(".nova-theme-icon-moon");
         var sunIcon = _themeBtn.querySelector(".nova-theme-icon-sun");
         if (isLight) {
-          localStorage.setItem("nova_theme", "light");
+          try {
+            localStorage.setItem("nova_theme", "light");
+          } catch (e) {
+            console.warn("localStorage write failed:", e.message);
+          }
           if (moonIcon) moonIcon.style.display = "none";
           if (sunIcon) sunIcon.style.display = "";
         } else {
-          localStorage.setItem("nova_theme", "dark");
+          try {
+            localStorage.setItem("nova_theme", "dark");
+          } catch (e) {
+            console.warn("localStorage write failed:", e.message);
+          }
           if (moonIcon) moonIcon.style.display = "";
           if (sunIcon) sunIcon.style.display = "none";
         }
@@ -2463,7 +2484,9 @@
     var sessionToken = "";
     try {
       sessionToken = localStorage.getItem(CONFIG.sessionTokenKey) || "";
-    } catch (_e) {}
+    } catch (e) {
+      console.warn("localStorage read failed:", e.message);
+    }
     var payload = {
       message: text,
       conversation_id: state.sessionId,
@@ -2555,6 +2578,7 @@
           var fullText = "";
           var metadata = {};
           var streamDone = false;
+          var _statusRemoved = false;
           var _chunkIterations = 0;
           var _streamStartTime = Date.now();
           function processChunk() {
@@ -2612,11 +2636,16 @@
                       messagesEl.scrollTop = messagesEl.scrollHeight;
                   }
                   if (evt.token) {
-                    // Remove status indicator once real tokens arrive
-                    var activeStatus = document.getElementById(
-                      "nova-status-indicator",
-                    );
-                    if (activeStatus) activeStatus.remove();
+                    // Remove status indicator once real tokens arrive (guarded)
+                    if (!_statusRemoved) {
+                      var activeStatus = document.getElementById(
+                        "nova-status-indicator",
+                      );
+                      if (activeStatus) {
+                        activeStatus.remove();
+                        _statusRemoved = true;
+                      }
+                    }
                     fullText += evt.token;
                     streamEl.innerHTML = renderMarkdown(fullText);
                     // Re-append blinking cursor at end of streamed content
@@ -2672,7 +2701,9 @@
                   CONFIG.sessionTokenKey,
                   metadata.session_token,
                 );
-              } catch (_e) {}
+              } catch (e) {
+                console.warn("localStorage write failed:", e.message);
+              }
             }
 
             // Remove blinking cursor
@@ -2684,9 +2715,14 @@
             // Re-render final markdown content into existing element
             streamEl.innerHTML = renderMarkdown(finalContent);
 
-            // Remove the status indicator if any
-            var statusEl = document.getElementById("nova-status-indicator");
-            if (statusEl) statusEl.remove();
+            // Remove the status indicator if any (guarded)
+            if (!_statusRemoved) {
+              var statusEl = document.getElementById("nova-status-indicator");
+              if (statusEl) {
+                statusEl.remove();
+                _statusRemoved = true;
+              }
+            }
 
             // Add action buttons to existing stream element
             addActionButtonsToElement(streamEl, finalContent);
