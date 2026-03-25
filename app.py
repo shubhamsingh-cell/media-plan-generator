@@ -2,6 +2,7 @@
 """AI Media Planner - Standalone HTTP server with real research data."""
 
 import json
+import hmac
 import os
 import io
 import datetime
@@ -4640,9 +4641,18 @@ _rl_copilot = RateLimiter()  # /api/copilot/* -- 30 req/min (lightweight)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
+_CSRF_TOKEN_TTL_SECONDS: int = 3600  # 1 hour expiry
+
+
 def _generate_csrf_token() -> str:
-    """Generate a cryptographically random CSRF token (64 hex chars)."""
-    return secrets.token_hex(32)
+    """Generate a CSRF token with embedded expiry timestamp.
+
+    Format: <random_hex>.<unix_timestamp>
+    The timestamp enables server-side expiry validation.
+    """
+    random_part = secrets.token_hex(32)
+    expiry = int(time.time()) + _CSRF_TOKEN_TTL_SECONDS
+    return f"{random_part}.{expiry}"
 
 
 def _build_csrf_cookie(token: str, *, secure: bool) -> str:
@@ -4688,20 +4698,32 @@ def _validate_csrf_double_submit(cookie_token: str, header_token: str) -> bool:
     Compares the token from the csrf_token cookie (set by server, sent
     automatically by browser) with the token from the X-CSRF-Token header
     (set by JavaScript). Uses constant-time comparison to prevent timing
-    attacks.
+    attacks. Also validates token expiry (Bug #15 fix).
 
     Args:
         cookie_token: Token read from the csrf_token cookie.
         header_token: Token read from the X-CSRF-Token request header.
 
     Returns:
-        True if both tokens are non-empty and match.
+        True if both tokens are non-empty, match, and have not expired.
     """
     import hmac as _hmac_mod
 
     if not cookie_token or not header_token:
         return False
-    return _hmac_mod.compare_digest(cookie_token, header_token)
+    if not _hmac_mod.compare_digest(cookie_token, header_token):
+        return False
+    # Bug #15 fix: Check expiry timestamp embedded in token
+    try:
+        parts = cookie_token.rsplit(".", 1)
+        if len(parts) == 2:
+            expiry = int(parts[1])
+            if time.time() > expiry:
+                return False
+    except (ValueError, TypeError):
+        # Legacy tokens without expiry -- allow for backward compat
+        pass
+    return True
 
 
 def _rate_limiter_cleanup_loop():
@@ -8312,6 +8334,24 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         _error_response("Job not found or expired", "NOT_FOUND", 404)[0]
                     )
                     return
+                # Bug #14 fix: Validate session owns this job (IDOR prevention)
+                _job_session = job.get("_session_token") or ""
+                if _job_session:
+                    _poll_csrf = _parse_cookie_value(
+                        self.headers.get("Cookie") or "", "csrf_token"
+                    )
+                    if not hmac.compare_digest(_job_session, _poll_csrf):
+                        self.send_response(403)
+                        self.send_header("Content-Type", "application/json")
+                        self.end_headers()
+                        self.wfile.write(
+                            _error_response(
+                                "Access denied: job belongs to a different session",
+                                "FORBIDDEN",
+                                403,
+                            )[0]
+                        )
+                        return
                 # Auto-expire check
                 if now - job["created"] > _GENERATION_JOB_EXPIRY_SECONDS:
                     _generation_jobs.pop(job_id, None)
@@ -9229,6 +9269,35 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             )
             return
 
+        # ── Bug #16 fix: Validate Content-Type for JSON API endpoints ──
+        # Routes that accept non-JSON bodies (file uploads, audio, etc.)
+        _non_json_post_routes = (
+            "/api/elevenlabs/stt",
+            "/api/elevenlabs/sfx",
+            "/api/elevenlabs/voiceover",
+            "/api/elevenlabs/audio-summary",
+            "/api/sentry/webhook",
+            "/api/slack/events",
+        )
+        if (
+            path.startswith("/api/")
+            and path not in _non_json_post_routes
+            and content_length > 0
+        ):
+            _ct = (self.headers.get("Content-Type") or "").lower()
+            if _ct and "application/json" not in _ct and "multipart/" not in _ct:
+                self.send_response(415)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(
+                    json.dumps(
+                        {
+                            "error": "Unsupported Media Type. Expected Content-Type: application/json"
+                        }
+                    ).encode()
+                )
+                return
+
         # ── API Versioning: strip /v1 prefix (Feature 4) ──
         if path.startswith("/v1/"):
             path = path[3:]
@@ -9619,6 +9688,16 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             roles_input = data.get("target_roles") or data.get("roles") or []
             if isinstance(roles_input, str):
                 roles_input = [r.strip() for r in roles_input.split(",") if r.strip()]
+            data["target_roles"] = roles_input
+            # Bug #2 fix: Auto-wrap string values to lists for array fields
+            for _arr_field in ("locations", "job_categories", "competitors"):
+                _arr_val = data.get(_arr_field)
+                if isinstance(_arr_val, str):
+                    data[_arr_field] = [
+                        s.strip() for s in _arr_val.split(",") if s.strip()
+                    ]
+                elif _arr_val is not None and not isinstance(_arr_val, list):
+                    data[_arr_field] = [str(_arr_val)]
             if isinstance(roles_input, list) and len(roles_input) > 50:
                 self._send_error(
                     "Target roles list exceeds 50 items limit", "VALIDATION_ERROR", 400
@@ -9816,6 +9895,10 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             # ── Feature 2b: Async generation mode ──
             if (self.headers.get("X-Async") or "").lower() == "true":
                 job_id = uuid.uuid4().hex[:12]
+                # Bug #14 fix: Store session token with job for IDOR prevention
+                _job_csrf = _parse_cookie_value(
+                    self.headers.get("Cookie") or "", "csrf_token"
+                )
                 with _generation_jobs_lock:
                     _generation_jobs[job_id] = {
                         "status": "processing",
@@ -9826,6 +9909,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         "result_content_type": None,
                         "result_filename": None,
                         "error": None,
+                        "_session_token": _job_csrf,
                     }
                 request_id = getattr(self, "_request_id", None)
 
@@ -14384,7 +14468,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 content_len = int(self.headers.get("Content-Length") or 0)
                 body_raw = self.rfile.read(content_len) if content_len > 0 else b"{}"
                 data = json.loads(body_raw)
-                text = data.get("text") or ""
+                text = str(data.get("text") or "")
                 if not text.strip():
                     self._send_json(
                         {"error": "Missing required field: text"}, status_code=400

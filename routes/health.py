@@ -51,21 +51,46 @@ def handle_health_routes(handler, path: str, parsed: Any) -> bool:
 
 
 def _handle_health(handler, path: str, parsed: Any) -> None:
-    """/api/health, /health -- detailed health check for Render.com monitoring."""
+    """/api/health, /health -- health check for Render.com monitoring.
+
+    Bug #9 fix: Public access returns minimal status only.
+    Full infra details require admin authentication.
+    """
     try:
-        # Use handler's server reference to call health_check_detailed
-        # This avoids circular import from app.py
         import sys
 
         app_mod = sys.modules.get("app") or sys.modules.get("__main__")
         if app_mod and hasattr(app_mod, "health_check_detailed"):
-            _health = app_mod.health_check_detailed()
+            _health_full = app_mod.health_check_detailed()
         else:
-            _health = {
+            _health_full = {
                 "status": "healthy",
                 "note": "health_check_detailed not available",
             }
-        status_code = 200 if _health.get("status") == "healthy" else 503
+        status_code = 200 if _health_full.get("status") == "healthy" else 503
+
+        # Check if request has admin auth -- only admin sees full details
+        _is_admin = False
+        try:
+            from auth import authenticate as _auth_fn
+
+            _auth_hdr = handler.headers.get("Authorization") or ""
+            _q_params = urllib.parse.parse_qs(parsed.query)
+            _q_key = (_q_params.get("api_key") or [None])[0]
+            _auth_result = _auth_fn(_auth_hdr, api_key_param=_q_key)
+            _is_admin = _auth_result.get("role") == "admin"
+        except Exception:
+            pass
+
+        if _is_admin:
+            _health = _health_full
+        else:
+            # Minimal public response: status + version only
+            _health = {
+                "status": _health_full.get("status", "healthy"),
+                "version": _health_full.get("version", "unknown"),
+                "timestamp": _health_full.get("timestamp", ""),
+            }
     except Exception as e:
         _health = {"status": "healthy", "error": str(e)}
         status_code = 200  # Don't block deploy on health check errors
@@ -1166,7 +1191,10 @@ def _handle_config(handler, path: str, parsed: Any) -> None:
     _ph_key: str = (os.environ.get("POSTHOG_API_KEY") or "").strip()
     config: dict[str, Any] = {}
     if _ph_key:
-        config["posthog_key"] = _ph_key
+        # Bug #8 fix: Redact PostHog key -- only expose existence, not the value
+        config["posthog_configured"] = True
+    else:
+        config["posthog_configured"] = False
     config["posthog_host"] = "https://us.i.posthog.com"
     _send_json_response(handler, config)
 

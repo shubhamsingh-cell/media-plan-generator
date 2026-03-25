@@ -95,8 +95,9 @@ def _handle_copilot_suggest(handler: Any, path: str, parsed: Any) -> None:
         )
         return
 
-    # Validate field
-    field = (data.get("field") or "").strip()
+    # Bug #12 fix: Coerce field to str before processing
+    _raw_field = data.get("field")
+    field = str(_raw_field).strip() if _raw_field is not None else ""
     if field not in ("roles", "locations", "channels", "brief"):
         handler._send_json(
             {
