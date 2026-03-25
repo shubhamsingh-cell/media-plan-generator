@@ -8640,6 +8640,19 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
             r"\bjoke\b",
             r"\bstory\b",
             r"\bpoem\b",
+            # Political / controversial / violent topics
+            r"\b(war|politics|political|election|president|democrat|republican)\b",
+            r"\b(iran|russia|china|ukraine|israel|palestine|gaza)\b.*\b(war|attack|bomb|conflict|invasion)\b",
+            r"\b(war|attack|bomb|conflict|invasion)\b.*\b(iran|russia|china|ukraine|israel|palestine|gaza)\b",
+            r"\b(abortion|gun\s*control|immigration\s*policy|death\s*penalty)\b",
+            r"\b(religion|religious|pray|church|mosque|temple|bible|quran)\b",
+            # General non-recruitment topics
+            r"\b(stock|crypto|bitcoin|invest|trading)\b",
+            r"\b(dating|relationship|love\s*advice)\b",
+            r"\b(medical|diagnosis|symptom|disease|prescription)\b",
+            r"\b(homework|essay|thesis|assignment)\b",
+            r"\b(hack|exploit|password|crack)\b",
+            r"\bwho\s+(is|was)\s+(the\s+)?(president|king|queen|prime\s*minister)\b",
         ]
         is_off_topic = any(_re.search(pat, msg_lower) for pat in _off_topic_patterns)
 
