@@ -1,0 +1,540 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Nova AI Embed Widget -- Integration Demo</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --port-gore: #202058;
+        --blue-violet: #5a54bd;
+        --downy-teal: #6bb3cd;
+        --bg: #0d0d1a;
+        --card: #14142b;
+        --border: #2a2a50;
+        --text: #e0e0e8;
+        --text-sec: #9a9ab0;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family:
+          Inter,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          Roboto,
+          sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        line-height: 1.6;
+      }
+
+      /* ── Header ── */
+      .demo-header {
+        background: linear-gradient(135deg, var(--port-gore), #1a1a40);
+        border-bottom: 1px solid var(--border);
+        padding: 48px 24px;
+        text-align: center;
+      }
+      .demo-header h1 {
+        font-size: 32px;
+        font-weight: 700;
+        margin-bottom: 8px;
+        background: linear-gradient(135deg, #fff, var(--downy-teal));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+      .demo-header p {
+        font-size: 16px;
+        color: var(--text-sec);
+        max-width: 600px;
+        margin: 0 auto;
+      }
+
+      /* ── Container ── */
+      .demo-container {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 40px 24px;
+      }
+
+      /* ── Section ── */
+      .demo-section {
+        margin-bottom: 48px;
+      }
+      .demo-section h2 {
+        font-size: 20px;
+        font-weight: 600;
+        margin-bottom: 16px;
+        color: var(--downy-teal);
+      }
+      .demo-section p {
+        font-size: 14px;
+        color: var(--text-sec);
+        margin-bottom: 16px;
+      }
+
+      /* ── Code block ── */
+      .code-block {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 20px;
+        overflow-x: auto;
+        margin-bottom: 16px;
+      }
+      .code-block pre {
+        font-family: "SF Mono", Monaco, "Cascadia Code", "Fira Code", monospace;
+        font-size: 13px;
+        line-height: 1.7;
+        color: #d4d4d8;
+        white-space: pre;
+      }
+      .code-block .comment {
+        color: #6a6a8a;
+      }
+      .code-block .tag {
+        color: #7dd3fc;
+      }
+      .code-block .attr {
+        color: #c084fc;
+      }
+      .code-block .string {
+        color: #86efac;
+      }
+      .code-block .keyword {
+        color: #fbbf24;
+      }
+
+      /* ── Config table ── */
+      .config-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 16px;
+      }
+      .config-table th,
+      .config-table td {
+        text-align: left;
+        padding: 10px 14px;
+        border-bottom: 1px solid var(--border);
+        font-size: 13px;
+      }
+      .config-table th {
+        color: var(--downy-teal);
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-size: 11px;
+      }
+      .config-table code {
+        background: rgba(90, 84, 189, 0.15);
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-family: "SF Mono", Monaco, monospace;
+        font-size: 12px;
+        color: #b0a8ff;
+      }
+
+      /* ── Demo controls ── */
+      .demo-controls {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-bottom: 24px;
+      }
+      .demo-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 10px 20px;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        border: 1px solid var(--border);
+        background: var(--card);
+        color: var(--text);
+        transition: all 0.2s;
+      }
+      .demo-btn:hover {
+        border-color: var(--blue-violet);
+        background: rgba(90, 84, 189, 0.1);
+      }
+      .demo-btn-primary {
+        background: linear-gradient(
+          135deg,
+          var(--blue-violet),
+          var(--downy-teal)
+        );
+        border: none;
+        color: #fff;
+      }
+      .demo-btn-primary:hover {
+        opacity: 0.9;
+      }
+
+      /* ── Event log ── */
+      .event-log {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 16px;
+        max-height: 240px;
+        overflow-y: auto;
+        font-family: "SF Mono", Monaco, monospace;
+        font-size: 12px;
+        line-height: 1.8;
+      }
+      .event-log .log-entry {
+        padding: 2px 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+      }
+      .event-log .log-time {
+        color: #6a6a8a;
+      }
+      .event-log .log-type {
+        color: var(--downy-teal);
+        font-weight: 600;
+      }
+      .event-log .log-data {
+        color: var(--text-sec);
+      }
+      .event-log-empty {
+        color: var(--text-sec);
+        font-style: italic;
+      }
+
+      /* ── Footer ── */
+      .demo-footer {
+        text-align: center;
+        padding: 24px;
+        border-top: 1px solid var(--border);
+        font-size: 12px;
+        color: var(--text-sec);
+      }
+      .demo-footer a {
+        color: var(--downy-teal);
+        text-decoration: none;
+      }
+      .demo-footer a:hover {
+        text-decoration: underline;
+      }
+
+      /* ── Responsive ── */
+      @media (max-width: 640px) {
+        .demo-header {
+          padding: 32px 16px;
+        }
+        .demo-header h1 {
+          font-size: 24px;
+        }
+        .demo-container {
+          padding: 24px 16px;
+        }
+        .demo-controls {
+          flex-direction: column;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- ═══════════════════════════════════════════════════════════════════════ -->
+    <!-- Header -->
+    <!-- ═══════════════════════════════════════════════════════════════════════ -->
+    <header class="demo-header">
+      <h1>Nova AI Embed Widget</h1>
+      <p>
+        A lightweight, zero-dependency JavaScript widget that ATS vendors can
+        embed to offer Nova-powered media planning directly in their platforms.
+      </p>
+    </header>
+
+    <div class="demo-container">
+      <!-- ═══════════════════════════════════════════════════════════════════ -->
+      <!-- Quick Start -->
+      <!-- ═══════════════════════════════════════════════════════════════════ -->
+      <section class="demo-section">
+        <h2>Quick Start</h2>
+        <p>
+          Add a single script tag to your page. The widget will appear as a
+          floating button in the bottom-right corner.
+        </p>
+        <div class="code-block">
+          <pre><span class="comment">&lt;!-- Minimal integration: one line of code --&gt;</span>
+<span class="tag">&lt;script</span> <span class="attr">src</span>=<span class="string">"https://media-plan-generator.onrender.com/embed/nova.js"</span><span class="tag">&gt;&lt;/script&gt;</span></pre>
+        </div>
+      </section>
+
+      <!-- ═══════════════════════════════════════════════════════════════════ -->
+      <!-- Configuration -->
+      <!-- ═══════════════════════════════════════════════════════════════════ -->
+      <section class="demo-section">
+        <h2>Configuration</h2>
+        <p>
+          Customize the widget using HTML data attributes on the script tag.
+        </p>
+        <div class="code-block">
+          <pre><span class="tag">&lt;script</span> <span class="attr">src</span>=<span class="string">"https://media-plan-generator.onrender.com/embed/nova.js"</span>
+        <span class="attr">data-nova-key</span>=<span class="string">"your-api-key"</span>
+        <span class="attr">data-nova-theme</span>=<span class="string">"dark"</span>
+        <span class="attr">data-nova-position</span>=<span class="string">"bottom-right"</span><span class="tag">&gt;&lt;/script&gt;</span></pre>
+        </div>
+
+        <table class="config-table">
+          <thead>
+            <tr>
+              <th>Attribute</th>
+              <th>Values</th>
+              <th>Default</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>data-nova-key</code></td>
+              <td>string</td>
+              <td>(none)</td>
+              <td>API key for authenticated access</td>
+            </tr>
+            <tr>
+              <td><code>data-nova-theme</code></td>
+              <td><code>dark</code> / <code>light</code></td>
+              <td><code>dark</code></td>
+              <td>Widget color theme</td>
+            </tr>
+            <tr>
+              <td><code>data-nova-position</code></td>
+              <td><code>bottom-right</code> / <code>bottom-left</code></td>
+              <td><code>bottom-right</code></td>
+              <td>Floating button position</td>
+            </tr>
+            <tr>
+              <td><code>data-nova-base-url</code></td>
+              <td>URL string</td>
+              <td>(auto-detected)</td>
+              <td>Override the Nova API endpoint</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- ═══════════════════════════════════════════════════════════════════ -->
+      <!-- postMessage API -->
+      <!-- ═══════════════════════════════════════════════════════════════════ -->
+      <section class="demo-section">
+        <h2>postMessage API</h2>
+        <p>Control the widget programmatically from your host page.</p>
+
+        <div class="code-block">
+          <pre><span class="comment">// Open the widget</span>
+<span class="keyword">window</span>.postMessage({ <span class="attr">type</span>: <span class="string">'nova-embed-open'</span> }, <span class="string">'*'</span>);
+
+<span class="comment">// Close the widget</span>
+<span class="keyword">window</span>.postMessage({ <span class="attr">type</span>: <span class="string">'nova-embed-close'</span> }, <span class="string">'*'</span>);
+
+<span class="comment">// Pre-fill the form</span>
+<span class="keyword">window</span>.postMessage({
+  <span class="attr">type</span>: <span class="string">'nova-embed-prefill'</span>,
+  <span class="attr">data</span>: {
+    <span class="attr">jobTitle</span>: <span class="string">'Senior Data Engineer'</span>,
+    <span class="attr">budget</span>: <span class="string">'8000'</span>,
+    <span class="attr">location</span>: <span class="string">'New York, NY'</span>
+  }
+}, <span class="string">'*'</span>);
+
+<span class="comment">// Listen for events from the widget</span>
+<span class="keyword">window</span>.addEventListener(<span class="string">'message'</span>, <span class="keyword">function</span>(ev) {
+  <span class="keyword">if</span> (ev.data.type === <span class="string">'nova-embed-ready'</span>) { <span class="comment">/* widget loaded */</span> }
+  <span class="keyword">if</span> (ev.data.type === <span class="string">'nova-embed-plan-generated'</span>) { <span class="comment">/* plan ready */</span> }
+  <span class="keyword">if</span> (ev.data.type === <span class="string">'nova-embed-error'</span>) { <span class="comment">/* error occurred */</span> }
+});</pre>
+        </div>
+      </section>
+
+      <!-- ═══════════════════════════════════════════════════════════════════ -->
+      <!-- Live Demo Controls -->
+      <!-- ═══════════════════════════════════════════════════════════════════ -->
+      <section class="demo-section">
+        <h2>Live Demo</h2>
+        <p>
+          Use these buttons to interact with the embedded widget on this page.
+          The widget is loaded in the bottom-right corner.
+        </p>
+
+        <div class="demo-controls">
+          <button
+            class="demo-btn demo-btn-primary"
+            onclick="window.postMessage({ type: 'nova-embed-open' }, '*')"
+          >
+            Open Widget
+          </button>
+          <button
+            class="demo-btn"
+            onclick="window.postMessage({ type: 'nova-embed-close' }, '*')"
+          >
+            Close Widget
+          </button>
+          <button
+            class="demo-btn"
+            onclick="
+              window.postMessage(
+                {
+                  type: 'nova-embed-prefill',
+                  data: {
+                    jobTitle: 'Senior Data Engineer',
+                    budget: '8000',
+                    location: 'New York, NY',
+                  },
+                },
+                '*',
+              )
+            "
+          >
+            Pre-fill Form
+          </button>
+          <button
+            class="demo-btn"
+            onclick="
+              window.postMessage(
+                {
+                  type: 'nova-embed-prefill',
+                  data: {
+                    jobTitle: 'Product Manager',
+                    budget: '12000',
+                    location: 'San Francisco, CA',
+                  },
+                },
+                '*',
+              );
+              window.postMessage({ type: 'nova-embed-open' }, '*');
+            "
+          >
+            Pre-fill + Open
+          </button>
+        </div>
+
+        <h2>Event Log</h2>
+        <p>Messages received from the widget via postMessage:</p>
+        <div class="event-log" id="event-log">
+          <div class="event-log-empty">Waiting for widget events...</div>
+        </div>
+      </section>
+
+      <!-- ═══════════════════════════════════════════════════════════════════ -->
+      <!-- ATS Integration Example -->
+      <!-- ═══════════════════════════════════════════════════════════════════ -->
+      <section class="demo-section">
+        <h2>ATS Integration Example</h2>
+        <p>
+          Here is how an ATS platform would integrate Nova to auto-populate the
+          widget when a recruiter views a job requisition:
+        </p>
+        <div class="code-block">
+          <pre><span class="comment">// In your ATS job detail page</span>
+<span class="keyword">function</span> onJobLoaded(job) {
+  <span class="comment">// Pre-fill Nova with job data from your ATS</span>
+  <span class="keyword">window</span>.postMessage({
+    <span class="attr">type</span>: <span class="string">'nova-embed-prefill'</span>,
+    <span class="attr">data</span>: {
+      <span class="attr">jobTitle</span>: job.title,
+      <span class="attr">budget</span>: job.recruitingBudget,
+      <span class="attr">location</span>: job.location
+    }
+  }, <span class="string">'*'</span>);
+}
+
+<span class="comment">// Listen for generated plans to save back to your ATS</span>
+<span class="keyword">window</span>.addEventListener(<span class="string">'message'</span>, <span class="keyword">function</span>(ev) {
+  <span class="keyword">if</span> (ev.data.type === <span class="string">'nova-embed-plan-generated'</span>) {
+    <span class="comment">// Save the media plan to your ATS database</span>
+    saveMediaPlanToATS(ev.data.data);
+  }
+});</pre>
+        </div>
+      </section>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════════ -->
+    <!-- Footer -->
+    <!-- ═══════════════════════════════════════════════════════════════════════ -->
+    <footer class="demo-footer">
+      Nova AI Suite &middot; Built by
+      <a
+        href="https://www.linkedin.com/in/chandel13/"
+        target="_blank"
+        rel="noopener"
+        >Shubham Singh Chandel</a
+      >
+      &middot;
+      <a href="/" target="_blank" rel="noopener">Visit Platform</a>
+    </footer>
+
+    <!-- ═══════════════════════════════════════════════════════════════════════ -->
+    <!-- Event log listener -->
+    <!-- ═══════════════════════════════════════════════════════════════════════ -->
+    <script>
+      (function () {
+        var logEl = document.getElementById("event-log");
+        var firstEvent = true;
+
+        window.addEventListener("message", function (ev) {
+          if (!ev.data || typeof ev.data.type !== "string") return;
+          if (!ev.data.type.startsWith("nova-embed-")) return;
+
+          if (firstEvent) {
+            logEl.innerHTML = "";
+            firstEvent = false;
+          }
+
+          var time = new Date().toLocaleTimeString();
+          var entry = document.createElement("div");
+          entry.className = "log-entry";
+
+          var dataStr = "";
+          if (ev.data.data) {
+            try {
+              dataStr = " " + JSON.stringify(ev.data.data).substring(0, 120);
+            } catch (e) {
+              /* noop */
+            }
+          }
+          if (ev.data.error) {
+            dataStr = " error=" + ev.data.error;
+          }
+
+          entry.innerHTML =
+            '<span class="log-time">' +
+            time +
+            "</span> " +
+            '<span class="log-type">' +
+            ev.data.type +
+            "</span>" +
+            '<span class="log-data">' +
+            dataStr +
+            "</span>";
+          logEl.appendChild(entry);
+          logEl.scrollTop = logEl.scrollHeight;
+        });
+      })();
+    </script>
+
+    <!-- ═══════════════════════════════════════════════════════════════════════ -->
+    <!-- Load the actual Nova Embed widget (dark theme, bottom-right) -->
+    <!-- ═══════════════════════════════════════════════════════════════════════ -->
+    <script
+      src="/embed/nova.js"
+      data-nova-theme="dark"
+      data-nova-position="bottom-right"
+    ></script>
+  </body>
+</html>

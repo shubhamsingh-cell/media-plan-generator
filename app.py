@@ -4033,6 +4033,17 @@ def _build_health_response() -> dict:
         logger.warning(f"Circuit breaker mesh status failed: {_cb_err}")
         result["circuit_breaker_mesh"] = {"status": "error"}
 
+    # Canvas engine stats
+    try:
+        from canvas_engine import get_canvas_stats as _canvas_stats_fn
+
+        result["canvas_engine"] = _canvas_stats_fn()
+    except ImportError:
+        result["canvas_engine"] = {"status": "not_installed"}
+    except Exception as _canvas_err:
+        logger.warning("Canvas engine health check failed: %s", _canvas_err)
+        result["canvas_engine"] = {"status": "error", "detail": str(_canvas_err)}
+
     # Benchmark file freshness check
     try:
         from data_enrichment import check_benchmark_freshness
@@ -4046,6 +4057,20 @@ def _build_health_response() -> dict:
         pass
     except (ValueError, KeyError, TypeError, OSError) as bfe:
         logger.warning(f"Benchmark freshness check failed: {bfe}")
+
+    # Edge routing (geographic LLM provider routing) stats
+    try:
+        from edge_routing import get_edge_routing_stats as _get_edge_stats
+
+        result["edge_routing"] = _get_edge_stats()
+        _modules["edge_routing"] = "ok"
+    except ImportError:
+        result["edge_routing"] = {"status": "not_installed"}
+        _modules["edge_routing"] = "not_installed"
+    except Exception as _er_err:
+        logger.warning(f"Edge routing health check failed: {_er_err}")
+        result["edge_routing"] = {"status": "error"}
+        _modules["edge_routing"] = "down"
 
     # Morning brief system status
     try:
@@ -4138,6 +4163,20 @@ def _build_health_response() -> dict:
         result["outcome_engine"] = {"status": "error"}
         _modules["outcome_engine"] = "down"
 
+    # Outcome pipeline stats (closed-loop feedback)
+    try:
+        from outcome_pipeline import get_pipeline_stats as _get_pipeline_stats
+
+        result["outcome_pipeline"] = _get_pipeline_stats()
+        _modules["outcome_pipeline"] = "ok"
+    except ImportError:
+        result["outcome_pipeline"] = {"status": "not_installed"}
+        _modules["outcome_pipeline"] = "not_installed"
+    except Exception as _op_err:
+        logger.warning(f"Outcome pipeline health check failed: {_op_err}")
+        result["outcome_pipeline"] = {"status": "error"}
+        _modules["outcome_pipeline"] = "down"
+
     # Attribution dashboard stats
     try:
         from attribution_dashboard import get_attribution_stats as _get_attr_stats
@@ -4151,6 +4190,89 @@ def _build_health_response() -> dict:
         logger.warning(f"Attribution dashboard health check failed: {_attr_err}")
         result["attribution_dashboard"] = {"status": "error"}
         _modules["attribution_dashboard"] = "down"
+
+    # Event store stats (legacy)
+    try:
+        from event_store import get_event_store_stats
+
+        result["event_store"] = get_event_store_stats()
+        _modules["event_store"] = "ok"
+    except ImportError:
+        result["event_store"] = {"status": "not_installed"}
+        _modules["event_store"] = "not_installed"
+    except Exception as _es_err:
+        logger.warning(f"Event store health check failed: {_es_err}")
+        result["event_store"] = {"status": "error"}
+        _modules["event_store"] = "down"
+
+    # Plan events state machine (event-sourced with fork/merge/undo)
+    try:
+        from plan_events import get_event_store_stats as _get_pe_stats
+
+        result["plan_events"] = _get_pe_stats()
+        _modules["plan_events"] = "ok"
+    except ImportError:
+        result["plan_events"] = {"status": "not_installed"}
+        _modules["plan_events"] = "not_installed"
+    except Exception as _pe_err:
+        logger.warning(f"Plan events health check failed: {_pe_err}")
+        result["plan_events"] = {"status": "error"}
+        _modules["plan_events"] = "down"
+
+    # Market signals engine stats
+    try:
+        from market_signals import get_signal_stats as _get_signal_stats
+
+        result["market_signals"] = _get_signal_stats()
+        _modules["market_signals"] = (
+            "ok" if result["market_signals"].get("status") == "ok" else "down"
+        )
+    except ImportError:
+        result["market_signals"] = {"status": "not_installed"}
+        _modules["market_signals"] = "not_installed"
+    except Exception as _ms_err:
+        logger.warning(f"Market signals health check failed: {_ms_err}")
+        result["market_signals"] = {"status": "error"}
+        _modules["market_signals"] = "down"
+
+    # ATS widget stats
+    try:
+        from ats_widget import get_widget_stats
+
+        result["ats_widget"] = get_widget_stats()
+        _modules["ats_widget"] = "ok"
+    except ImportError:
+        result["ats_widget"] = {"status": "not_installed"}
+        _modules["ats_widget"] = "not_installed"
+    except Exception as _aw_err:
+        logger.warning(f"ATS widget health check failed: {_aw_err}")
+        result["ats_widget"] = {"status": "error"}
+        _modules["ats_widget"] = "down"
+
+    # Prediction model stats
+    try:
+        from prediction_model import get_prediction_stats
+
+        result["prediction_model"] = get_prediction_stats()
+        _modules["prediction_model"] = "ok"
+    except ImportError:
+        result["prediction_model"] = {"status": "not_installed"}
+        _modules["prediction_model"] = "not_installed"
+    except Exception as _pm_err:
+        logger.warning(f"Prediction model health check failed: {_pm_err}")
+        result["prediction_model"] = {"status": "error"}
+        _modules["prediction_model"] = "down"
+
+    # Embed widget stats (ATS integration tracking)
+    with _embed_stats_lock:
+        result["embed_widget"] = {
+            "loads": _embed_stats["loads"],
+            "js_serves": _embed_stats["js_serves"],
+            "demo_views": _embed_stats["demo_views"],
+            "unique_hosts": len(_embed_stats["hosts"]),
+            "first_seen": _embed_stats["first_seen"],
+            "last_seen": _embed_stats["last_seen"],
+        }
 
     return result
 
@@ -4497,6 +4619,32 @@ _ALLOWED_ORIGINS = {
     "http://127.0.0.1:5001",
     "https://media-plan-generator.onrender.com",
 }
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# EMBED WIDGET STATS (thread-safe counters for ATS embed tracking)
+# ═══════════════════════════════════════════════════════════════════════════════
+_embed_stats_lock = threading.Lock()
+_embed_stats: dict[str, Any] = {
+    "loads": 0,
+    "js_serves": 0,
+    "demo_views": 0,
+    "hosts": {},  # hostname -> count
+    "first_seen": None,
+    "last_seen": None,
+}
+
+
+def _record_embed_event(event: str = "load", host: str = "") -> None:
+    """Record an embed widget event (thread-safe)."""
+    with _embed_stats_lock:
+        now = datetime.datetime.utcnow().isoformat() + "Z"
+        if event == "load":
+            _embed_stats["loads"] += 1
+        _embed_stats["last_seen"] = now
+        if not _embed_stats["first_seen"]:
+            _embed_stats["first_seen"] = now
+        if host:
+            _embed_stats["hosts"][host] = _embed_stats["hosts"].get(host, 0) + 1
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -7361,6 +7509,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
         from routes.pages import handle_page_routes
         from routes.campaign import handle_campaign_get_routes
         from routes.pricing import handle_pricing_get_routes
+        from routes.canvas import handle_canvas_get_routes
 
         if handle_health_routes(self, path, parsed):
             return
@@ -7373,6 +7522,8 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
         if handle_campaign_get_routes(self, path, parsed):
             return
         if handle_pricing_get_routes(self, path, parsed):
+            return
+        if handle_canvas_get_routes(self, path, parsed):
             return
         # NOTE: /plan/shared/<id>, page routes (platform, health-dashboard, etc.)
         # are now handled by routes/pages.py and routes/campaign.py above.
@@ -7854,6 +8005,109 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             self.end_headers()
             self.wfile.write(shared_html.encode())
         # NOTE: /admin/nova now handled by routes/pages.py
+        # ── Embedded ATS Widget routes ──
+        elif path == "/embed/nova.js":
+            # Serve the embed widget JS with permissive CORS for cross-origin embedding
+            js_path = os.path.join(
+                os.path.dirname(os.path.abspath(__file__)), "static", "nova-embed.js"
+            )
+            try:
+                with open(js_path, "rb") as f:
+                    js_content = f.read()
+                with _embed_stats_lock:
+                    _embed_stats["js_serves"] += 1
+                self.send_response(200)
+                self.send_header(
+                    "Content-Type", "application/javascript; charset=utf-8"
+                )
+                self.send_header("Content-Length", str(len(js_content)))
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.send_header("Access-Control-Allow-Methods", "GET")
+                self.send_header("Cache-Control", "public, max-age=3600")  # 1 hour
+                self.end_headers()
+                self.wfile.write(js_content)
+            except FileNotFoundError:
+                self.send_error(404, "Embed widget not found")
+        elif path == "/embed/demo":
+            # Serve the embed demo page
+            demo_path = os.path.join(
+                os.path.dirname(os.path.abspath(__file__)),
+                "static",
+                "nova-embed-demo.html",
+            )
+            try:
+                with open(demo_path, "rb") as f:
+                    demo_content = f.read()
+                with _embed_stats_lock:
+                    _embed_stats["demo_views"] += 1
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header("Content-Length", str(len(demo_content)))
+                self.end_headers()
+                self.wfile.write(demo_content)
+            except FileNotFoundError:
+                self.send_error(404, "Demo page not found")
+        elif path == "/api/embed/stats":
+            # Embed stats beacon endpoint (1x1 pixel or JSON based on Accept header)
+            query_params = urllib.parse.parse_qs(parsed.query)
+            event = (query_params.get("event", ["load"])[0]) or "load"
+            host = (query_params.get("host", [""])[0]) or ""
+            _record_embed_event(event, host)
+            # Return 1x1 transparent GIF (for pixel tracking from img tags)
+            gif_bytes = bytes(
+                [
+                    0x47,
+                    0x49,
+                    0x46,
+                    0x38,
+                    0x39,
+                    0x61,  # GIF89a
+                    0x01,
+                    0x00,
+                    0x01,
+                    0x00,
+                    0x80,
+                    0xFF,  # 1x1 with color table
+                    0x00,
+                    0xFF,
+                    0xFF,
+                    0xFF,
+                    0x00,
+                    0x00,  # white + black
+                    0x00,
+                    0x21,
+                    0xF9,
+                    0x04,
+                    0x01,
+                    0x00,  # graphic control ext
+                    0x00,
+                    0x00,
+                    0x00,
+                    0x2C,
+                    0x00,
+                    0x00,  # image descriptor
+                    0x00,
+                    0x00,
+                    0x01,
+                    0x00,
+                    0x01,
+                    0x00,
+                    0x00,
+                    0x02,
+                    0x02,
+                    0x44,
+                    0x01,
+                    0x00,  # image data
+                    0x3B,  # trailer
+                ]
+            )
+            self.send_response(200)
+            self.send_header("Content-Type", "image/gif")
+            self.send_header("Content-Length", str(len(gif_bytes)))
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(gif_bytes)
         elif path.startswith("/static/"):
             # Serve static files (JS, CSS, images) from the static/ directory
             # URL-decode the path first to catch encoded traversal (%2e%2e)
@@ -8035,6 +8289,95 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     self._send_json({"error": "Plan expired"}, status_code=404)
                     return
                 self._send_json({"plan_id": _pr_id, **_pr_entry["data"]})
+        # ── Event-sourced plan state (audit trail, time-travel) ──
+        elif path.startswith("/api/plan/events/"):
+            _es_plan_id = path.split("/")[-1]
+            if not _es_plan_id:
+                self._send_json({"error": "Missing plan_id"}, status_code=400)
+                return
+            try:
+                from event_store import get_event_store
+
+                _es = get_event_store()
+                events = _es.get_events(_es_plan_id)
+                self._send_json(
+                    {
+                        "plan_id": _es_plan_id,
+                        "event_count": len(events),
+                        "events": [e.to_dict() for e in events],
+                    }
+                )
+            except ImportError:
+                self._send_json(
+                    {"error": "event_store module not available"}, status_code=503
+                )
+            except Exception as e:
+                logger.error(f"Event store GET error: {e}", exc_info=True)
+                self._send_json({"error": str(e)}, status_code=500)
+        elif path.startswith("/api/plan/state/"):
+            _es_plan_id = path.split("/")[-1]
+            if not _es_plan_id:
+                self._send_json({"error": "Missing plan_id"}, status_code=400)
+                return
+            try:
+                from event_store import get_event_store
+
+                _es = get_event_store()
+                _qs = urllib.parse.parse_qs(parsed.query)
+                _ver_str = _qs.get("version", [None])[0]
+                if _ver_str is not None:
+                    try:
+                        _ver = int(_ver_str)
+                    except (ValueError, TypeError):
+                        self._send_json(
+                            {"error": "version must be an integer"}, status_code=400
+                        )
+                        return
+                    state = _es.get_state_at(_es_plan_id, _ver)
+                else:
+                    state = _es.get_current_state(_es_plan_id)
+                status = 404 if "error" in state else 200
+                self._send_json(state, status_code=status)
+            except ImportError:
+                self._send_json(
+                    {"error": "event_store module not available"}, status_code=503
+                )
+            except Exception as e:
+                logger.error(f"Event store state GET error: {e}", exc_info=True)
+                self._send_json({"error": str(e)}, status_code=500)
+        # ── Event-sourced plan state machine (plan_events module) ──
+        elif path.startswith("/api/plans/") and path.endswith("/history"):
+            # GET /api/plans/<plan_id>/history
+            parts = path.split("/")
+            # Expected: ['', 'api', 'plans', '<plan_id>', 'history']
+            _pe_plan_id = parts[3] if len(parts) >= 5 else ""
+            if not _pe_plan_id:
+                self._send_json({"error": "Missing plan_id"}, status_code=400)
+                return
+            try:
+                from plan_events import get_event_store as _get_pe_store
+
+                _pe_store = _get_pe_store()
+                _pe_qs = urllib.parse.parse_qs(parsed.query)
+                _pe_since = _pe_qs.get("since_version", [None])[0]
+                since_v = int(_pe_since) if _pe_since else 0
+                events = _pe_store.get_events(_pe_plan_id, since_version=since_v)
+                snapshot = _pe_store.get_snapshot(_pe_plan_id)
+                self._send_json(
+                    {
+                        "plan_id": _pe_plan_id,
+                        "event_count": len(events),
+                        "events": [e.to_dict() for e in events],
+                        "current_snapshot": snapshot,
+                    }
+                )
+            except ImportError:
+                self._send_json(
+                    {"error": "plan_events module not available"}, status_code=503
+                )
+            except Exception as e:
+                logger.error(f"Plan events history error: {e}", exc_info=True)
+                self._send_json({"error": str(e)}, status_code=500)
         # NOTE: /plan/{id} shareable view now handled by routes/campaign.py
         # ── Feature 5a: SLO compliance ──
         # ── Platform Observability (aggregated health dashboard) ──
@@ -8434,6 +8777,50 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             except Exception as e:
                 self._send_json({"error": str(e)})
 
+        # ── Outcome Pipeline: prediction accuracy report ──
+        elif path == "/api/outcomes/accuracy":
+            try:
+                from outcome_pipeline import get_accuracy_report
+
+                params = urllib.parse.parse_qs(parsed.query)
+                role_family = (params.get("role_family", [""])[0] or "").strip()
+                time_range = int(params.get("time_range_days", ["90"])[0])
+                report = get_accuracy_report(
+                    role_family=role_family, time_range_days=time_range
+                )
+                self._send_json(report)
+            except ValueError as ve:
+                self._send_json({"error": f"Invalid parameter: {ve}"}, status_code=400)
+            except Exception as e:
+                logger.error("Outcome accuracy report error: %s", e, exc_info=True)
+                self._send_json(
+                    {"error": f"Accuracy report failed: {e}"}, status_code=500
+                )
+
+        # ── Outcome Pipeline: get outcomes for a plan ──
+        elif path.startswith("/api/outcomes/") and not path.endswith("/record"):
+            try:
+                from outcome_pipeline import (
+                    get_plan_outcomes as _get_plan_outcomes,
+                    generate_improvement_suggestions as _gen_suggestions,
+                )
+
+                plan_id = path[len("/api/outcomes/") :]
+                if not plan_id:
+                    self._send_json(
+                        {"error": "Missing plan_id in URL"}, status_code=400
+                    )
+                else:
+                    funnel = _get_plan_outcomes(plan_id)
+                    suggestions = _gen_suggestions(plan_id)
+                    funnel["improvement_suggestions"] = suggestions
+                    self._send_json(funnel)
+            except Exception as e:
+                logger.error("Outcome lookup error: %s", e, exc_info=True)
+                self._send_json(
+                    {"error": f"Outcome lookup failed: {e}"}, status_code=500
+                )
+
         # ── Role Taxonomy (semantic similarity) ──
         elif path == "/api/roles/similar":
             try:
@@ -8469,6 +8856,37 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     status_code=500,
                 )
 
+        # ── Edge Router: Suggest optimal provider ──
+        elif path == "/api/routing/suggest":
+            try:
+                from edge_router import get_optimal_route, classify_query
+
+                params = urllib.parse.parse_qs(parsed.query)
+                query_text = (params.get("query", [""])[0] or "").strip()
+                if not query_text:
+                    self._send_json(
+                        {"error": "Missing required query parameter: query"},
+                        status_code=400,
+                    )
+                else:
+                    user_tier = (params.get("tier", ["free"])[0] or "free").strip()
+                    route = get_optimal_route(query_text, user_tier=user_tier)
+                    route["query_preview"] = (
+                        query_text[:80] + "..." if len(query_text) > 80 else query_text
+                    )
+                    self._send_json(route)
+            except ImportError:
+                self._send_json(
+                    {"error": "edge_router module not available"},
+                    status_code=503,
+                )
+            except Exception as e:
+                logger.error("Edge router suggest error: %s", e, exc_info=True)
+                self._send_json(
+                    {"error": f"Edge router failed: {e}"},
+                    status_code=500,
+                )
+
         # ── Anonymized Benchmarking Network ──
         elif path == "/api/benchmarks":
             try:
@@ -8483,6 +8901,42 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 self._send_json(
                     {"error": f"Benchmarking lookup failed: {e}", "sample_size": 0},
                     status_code=500,
+                )
+
+        # ── ATS Widget embed code (GET /api/widget/embed) ──
+        elif path == "/api/widget/embed":
+            try:
+                from ats_widget import generate_embed_code
+
+                params = urllib.parse.parse_qs(parsed.query)
+                widget_cfg = {
+                    "apiEndpoint": (params.get("api_endpoint", [""])[0] or "").strip()
+                    or "https://media-plan-generator.onrender.com",
+                    "jobTitle": (params.get("job_title", [""])[0] or "").strip(),
+                    "location": (params.get("location", [""])[0] or "").strip(),
+                    "budget": (params.get("budget", ["5000"])[0] or "5000").strip(),
+                    "theme": (params.get("theme", ["light"])[0] or "light").strip(),
+                    "position": (
+                        params.get("position", ["bottom-right"])[0] or "bottom-right"
+                    ).strip(),
+                }
+                embed_code = generate_embed_code(widget_cfg)
+                self._send_json(
+                    {
+                        "embed_code": embed_code,
+                        "config": widget_cfg,
+                        "version": "1.0.0",
+                        "docs": "Add the embed_code snippet to your ATS page HTML to show AI plan suggestions.",
+                    }
+                )
+            except ImportError:
+                self._send_json(
+                    {"error": "ATS widget module not available"}, status_code=503
+                )
+            except (ValueError, TypeError, KeyError) as e:
+                logger.error(f"Widget embed error: {e}", exc_info=True)
+                self._send_json(
+                    {"error": f"Failed to generate embed code: {e}"}, status_code=500
                 )
 
         # ── Attribution Dashboard (GET /attribution) ──
@@ -8784,6 +9238,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
         from routes.pricing import handle_pricing_post_routes
         from routes.tts import handle_tts_post_routes
         from routes.diagram import handle_diagram_post_routes
+        from routes.canvas import handle_canvas_post_routes
 
         if handle_tts_post_routes(self, path, parsed):
             return
@@ -8798,6 +9253,92 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
         if handle_campaign_post_routes(self, path, parsed):
             return
         if handle_pricing_post_routes(self, path, parsed):
+            return
+        if handle_canvas_post_routes(self, path, parsed):
+            return
+
+        # ── Event-sourced plan state machine (plan_events module): undo ──
+        if path.startswith("/api/plans/") and path.endswith("/undo"):
+            # POST /api/plans/<plan_id>/undo
+            parts = path.split("/")
+            # Expected: ['', 'api', 'plans', '<plan_id>', 'undo']
+            _pe_plan_id = parts[3] if len(parts) >= 5 else ""
+            if not _pe_plan_id:
+                self._send_json({"error": "Missing plan_id"}, status_code=400)
+                return
+            try:
+                from plan_events import get_event_store as _get_pe_store
+
+                _pe_store = _get_pe_store()
+                # Read optional user_id from body
+                content_len = int(self.headers.get("Content-Length") or 0)
+                raw = self.rfile.read(content_len) if content_len else b"{}"
+                body = json.loads(raw) if raw.strip() else {}
+                pe_user = body.get("user_id") or "system"
+                compensating = _pe_store.undo(_pe_plan_id, user_id=pe_user)
+                self._send_json(
+                    {
+                        "plan_id": _pe_plan_id,
+                        "compensating_event": compensating.to_dict(),
+                        "current_snapshot": _pe_store.get_snapshot(_pe_plan_id),
+                    }
+                )
+            except ImportError:
+                self._send_json(
+                    {"error": "plan_events module not available"}, status_code=503
+                )
+            except ValueError as ve:
+                self._send_json({"error": str(ve)}, status_code=400)
+            except Exception as e:
+                logger.error(f"Plan events undo error: {e}", exc_info=True)
+                self._send_json({"error": str(e)}, status_code=500)
+            return
+
+        # ── Event-sourced plan state (legacy event_store): undo / redo ──
+        if path.startswith("/api/plan/events/") and path.endswith("/undo"):
+            # POST /api/plan/events/<plan_id>/undo
+            parts = path.split("/")
+            # Expected: ['', 'api', 'plan', 'events', '<plan_id>', 'undo']
+            _es_plan_id = parts[4] if len(parts) >= 6 else ""
+            if not _es_plan_id:
+                self._send_json({"error": "Missing plan_id"}, status_code=400)
+                return
+            try:
+                from event_store import get_event_store
+
+                _es = get_event_store()
+                result = _es.undo(_es_plan_id)
+                status = 400 if "error" in result else 200
+                self._send_json(result, status_code=status)
+            except ImportError:
+                self._send_json(
+                    {"error": "event_store module not available"}, status_code=503
+                )
+            except Exception as e:
+                logger.error(f"Event store undo error: {e}", exc_info=True)
+                self._send_json({"error": str(e)}, status_code=500)
+            return
+        if path.startswith("/api/plan/events/") and path.endswith("/redo"):
+            # POST /api/plan/events/<plan_id>/redo
+            parts = path.split("/")
+            _es_plan_id = parts[4] if len(parts) >= 6 else ""
+            if not _es_plan_id:
+                self._send_json({"error": "Missing plan_id"}, status_code=400)
+                return
+            try:
+                from event_store import get_event_store
+
+                _es = get_event_store()
+                result = _es.redo(_es_plan_id)
+                status = 400 if "error" in result else 200
+                self._send_json(result, status_code=status)
+            except ImportError:
+                self._send_json(
+                    {"error": "event_store module not available"}, status_code=503
+                )
+            except Exception as e:
+                logger.error(f"Event store redo error: {e}", exc_info=True)
+                self._send_json({"error": str(e)}, status_code=500)
             return
 
         # ── Plan Templates Marketplace: Fork ──
@@ -13620,6 +14161,144 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 logger.error("Attribution report error: %s", e, exc_info=True)
                 self._send_json(
                     {"error": f"Attribution report failed: {e}"}, status_code=500
+                )
+
+        # ── Plan Outcome Prediction Model ──
+        elif path == "/api/predict":
+            try:
+                from prediction_model import predict_outcomes
+
+                content_len = int(self.headers.get("Content-Length") or 0)
+                body = self.rfile.read(content_len) if content_len > 0 else b"{}"
+                data = json.loads(body)
+                if not data:
+                    self._send_json(
+                        {"error": "Request body must contain plan data"},
+                        status_code=400,
+                    )
+                    return
+                result = predict_outcomes(data)
+                self._send_json(result)
+            except json.JSONDecodeError:
+                self._send_json({"error": "Invalid JSON body"}, status_code=400)
+            except ImportError:
+                self._send_json(
+                    {"error": "Prediction model not available"}, status_code=503
+                )
+            except Exception as e:
+                logger.error("Prediction error: %s", e, exc_info=True)
+                self._send_json({"error": f"Prediction failed: {e}"}, status_code=500)
+
+        elif path == "/api/predict/grade":
+            try:
+                from prediction_model import grade_plan
+
+                content_len = int(self.headers.get("Content-Length") or 0)
+                body = self.rfile.read(content_len) if content_len > 0 else b"{}"
+                data = json.loads(body)
+                if not data:
+                    self._send_json(
+                        {"error": "Request body must contain plan data"},
+                        status_code=400,
+                    )
+                    return
+                result = grade_plan(data)
+                self._send_json(result)
+            except json.JSONDecodeError:
+                self._send_json({"error": "Invalid JSON body"}, status_code=400)
+            except ImportError:
+                self._send_json(
+                    {"error": "Prediction model not available"}, status_code=503
+                )
+            except Exception as e:
+                logger.error("Plan grading error: %s", e, exc_info=True)
+                self._send_json({"error": f"Plan grading failed: {e}"}, status_code=500)
+
+        elif path == "/api/predict/compare":
+            try:
+                from prediction_model import compare_plans
+
+                content_len = int(self.headers.get("Content-Length") or 0)
+                body = self.rfile.read(content_len) if content_len > 0 else b"{}"
+                data = json.loads(body)
+                plan_a = data.get("plan_a")
+                plan_b = data.get("plan_b")
+                if not plan_a or not plan_b:
+                    self._send_json(
+                        {"error": "Request must include both 'plan_a' and 'plan_b'"},
+                        status_code=400,
+                    )
+                    return
+                result = compare_plans(plan_a, plan_b)
+                self._send_json(result)
+            except json.JSONDecodeError:
+                self._send_json({"error": "Invalid JSON body"}, status_code=400)
+            except ImportError:
+                self._send_json(
+                    {"error": "Prediction model not available"}, status_code=503
+                )
+            except Exception as e:
+                logger.error("Plan comparison error: %s", e, exc_info=True)
+                self._send_json(
+                    {"error": f"Plan comparison failed: {e}"}, status_code=500
+                )
+
+        # ── Outcome Pipeline: record outcome event ──
+        elif path == "/api/outcomes/record":
+            if not self._check_rate_limit():
+                self._send_error("Rate limit exceeded", "RATE_LIMITED", 429)
+                return
+            try:
+                content_len = int(self.headers.get("Content-Length") or 0)
+                if content_len <= 0 or content_len > 1024 * 1024:
+                    _sz_status = 400 if content_len <= 0 else 413
+                    _sz_msg = (
+                        "Empty request body"
+                        if content_len <= 0
+                        else "Request too large"
+                    )
+                    self._send_error(_sz_msg, "VALIDATION_ERROR", _sz_status)
+                    return
+                body = self.rfile.read(content_len)
+                data = json.loads(body)
+                plan_id = (data.get("plan_id") or "").strip()
+                stage = (data.get("stage") or "").strip()
+                if not plan_id or not stage:
+                    self._send_error(
+                        "Missing required fields: plan_id, stage",
+                        "VALIDATION_ERROR",
+                        400,
+                    )
+                    return
+
+                from outcome_pipeline import record_outcome, update_prediction_model
+
+                result = record_outcome(
+                    plan_id=plan_id,
+                    stage=stage,
+                    data=data.get("data"),
+                    role_family=data.get("role_family", ""),
+                    predicted=data.get("predicted"),
+                )
+
+                # Auto-trigger model update on terminal stages
+                if stage in ("hires_made", "offers_extended"):
+                    try:
+                        update_prediction_model()
+                    except Exception as model_err:
+                        logger.error(
+                            "Model update after outcome recording failed: %s",
+                            model_err,
+                            exc_info=True,
+                        )
+
+                self._send_json(result, status_code=201)
+            except json.JSONDecodeError:
+                self._send_error("Invalid JSON body", "VALIDATION_ERROR", 400)
+            except Exception as e:
+                logger.error("Outcome record error: %s", e, exc_info=True)
+                self._send_json(
+                    {"error": f"Failed to record outcome: {e}"}, status_code=500
                 )
 
         # ── AI Co-Pilot: Inline suggestions for media plan generator ──

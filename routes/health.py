@@ -1322,6 +1322,99 @@ def _handle_rate_limits(handler, path: str, parsed: Any) -> None:
         )
 
 
+# ---------------------------------------------------------------------------
+# Market Signals route handlers
+# ---------------------------------------------------------------------------
+
+
+def _handle_signals(handler, path: str, parsed: Any) -> None:
+    """/api/signals -- active market signals with optional ?role_family= filter."""
+    try:
+        from market_signals import get_active_signals
+
+        query_params = urllib.parse.parse_qs(parsed.query)
+        role_family = (query_params.get("role_family") or [None])[0]
+        location = (query_params.get("location") or [None])[0]
+
+        signals = get_active_signals(role_family=role_family, location=location)
+        _send_json_response(
+            handler,
+            {
+                "ok": True,
+                "count": len(signals),
+                "filters": {
+                    "role_family": role_family,
+                    "location": location,
+                },
+                "signals": signals,
+            },
+        )
+    except ImportError:
+        _send_json_response(
+            handler,
+            {"ok": False, "error": "market_signals module not available"},
+            status_code=503,
+        )
+    except Exception as e:
+        logger.error("Signals endpoint error: %s", e, exc_info=True)
+        _send_json_response(
+            handler,
+            {"ok": False, "error": f"Signal retrieval failed: {e}"},
+            status_code=500,
+        )
+
+
+def _handle_signals_volatility(handler, path: str, parsed: Any) -> None:
+    """/api/signals/volatility -- market volatility index."""
+    try:
+        from market_signals import get_market_volatility
+
+        volatility = get_market_volatility()
+        _send_json_response(handler, {"ok": True, **volatility})
+    except ImportError:
+        _send_json_response(
+            handler,
+            {"ok": False, "error": "market_signals module not available"},
+            status_code=503,
+        )
+    except Exception as e:
+        logger.error("Volatility endpoint error: %s", e, exc_info=True)
+        _send_json_response(
+            handler,
+            {"ok": False, "error": f"Volatility computation failed: {e}"},
+            status_code=500,
+        )
+
+
+def _handle_signals_trending(handler, path: str, parsed: Any) -> None:
+    """/api/signals/trending -- trending channels."""
+    try:
+        from market_signals import get_trending_channels
+
+        trending = get_trending_channels()
+        _send_json_response(
+            handler,
+            {
+                "ok": True,
+                "count": len(trending),
+                "channels": trending,
+            },
+        )
+    except ImportError:
+        _send_json_response(
+            handler,
+            {"ok": False, "error": "market_signals module not available"},
+            status_code=503,
+        )
+    except Exception as e:
+        logger.error("Trending channels endpoint error: %s", e, exc_info=True)
+        _send_json_response(
+            handler,
+            {"ok": False, "error": f"Trending channels failed: {e}"},
+            status_code=500,
+        )
+
+
 _HEALTH_ROUTE_MAP: dict[str, Any] = {
     "/api/config": _handle_config,
     "/api/features": _handle_features,
@@ -1350,4 +1443,7 @@ _HEALTH_ROUTE_MAP: dict[str, Any] = {
     "/morning-brief": _handle_morning_brief_page,
     "/api/market-pulse": _handle_market_pulse_json,
     "/api/rate-limits": _handle_rate_limits,
+    "/api/signals": _handle_signals,
+    "/api/signals/volatility": _handle_signals_volatility,
+    "/api/signals/trending": _handle_signals_trending,
 }
