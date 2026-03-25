@@ -6499,16 +6499,37 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
             task_type = classify_task(user_message)
 
             # Smart routing: complex queries get routed to stronger models
+            # BUT: filter preferred_providers to only those with configured API keys
+            # (avoid exhausting retries on disabled paid providers)
             _preferred = None
             if is_complex:
                 task_type = "research"  # Use TASK_RESEARCH routing chain
-                _preferred = _COMPLEX_PREFERRED_PROVIDERS
-                logger.info(
-                    "NOVA LLM Router: COMPLEX query detected, preferring paid models. "
-                    "task_type=%s, preferred=%s",
-                    task_type,
-                    _preferred,
-                )
+
+                # Filter preferred providers to only those with API keys configured
+                _configured_preferred = []
+                from llm_router import PROVIDER_CONFIG
+
+                for pid in _COMPLEX_PREFERRED_PROVIDERS:
+                    config = PROVIDER_CONFIG.get(pid, {})
+                    env_key = config.get("env_key") or ""
+                    if env_key and os.environ.get(env_key, "").strip():
+                        _configured_preferred.append(pid)
+
+                # Only use preferred routing if we have at least one configured paid provider
+                if _configured_preferred:
+                    _preferred = _configured_preferred
+                    logger.info(
+                        "NOVA LLM Router: COMPLEX query detected, preferring paid models. "
+                        "task_type=%s, preferred=%s",
+                        task_type,
+                        _preferred,
+                    )
+                else:
+                    logger.info(
+                        "NOVA LLM Router: COMPLEX query detected but no paid providers configured, "
+                        "using default routing. task_type=%s",
+                        task_type,
+                    )
             else:
                 logger.info(
                     "NOVA LLM Router: task_type=%s, available_providers=%s",
@@ -6736,12 +6757,31 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
             task_type = TASK_COMPLEX
 
         # Smart routing: complex queries prefer paid models for tool-calling quality
+        # BUT: filter preferred_providers to only those with configured API keys
         if is_complex:
-            _tool_preferred = _COMPLEX_PREFERRED_PROVIDERS
-            logger.info(
-                "LLM tools: COMPLEX query detected, preferring paid models: %s",
-                _tool_preferred,
-            )
+            # Filter preferred providers to only those with API keys configured
+            from llm_router import PROVIDER_CONFIG
+
+            _configured_preferred = []
+            for pid in _COMPLEX_PREFERRED_PROVIDERS:
+                config = PROVIDER_CONFIG.get(pid, {})
+                env_key = config.get("env_key") or ""
+                if env_key and os.environ.get(env_key, "").strip():
+                    _configured_preferred.append(pid)
+
+            # Use configured paid providers if available, otherwise use free tool providers
+            if _configured_preferred:
+                _tool_preferred = _configured_preferred
+                logger.info(
+                    "LLM tools: COMPLEX query detected, preferring paid models: %s",
+                    _tool_preferred,
+                )
+            else:
+                _tool_preferred = self._FREE_TOOL_PROVIDERS
+                logger.info(
+                    "LLM tools: COMPLEX query detected but no paid providers configured, "
+                    "using free tool providers"
+                )
         else:
             _tool_preferred = self._FREE_TOOL_PROVIDERS
 
