@@ -6447,9 +6447,11 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
             "- End with a brief actionable recommendation when relevant\n"
             "- NEVER dump raw data lists without context or interpretation\n\n"
             "## LOCATION & CURRENCY\n"
-            "(9) If the question is missing location, ASK the user. "
+            "(9) If the question is missing location, DEFAULT to United States national data. "
+            "Provide the national/US answer immediately, then add: 'This is US national data. "
+            "Let me know if you need a specific city, state, or country.' "
             "Auto-classify obvious roles (nurse/doctor = clinical, driver/warehouse = blue collar, "
-            "engineer/analyst = white collar). Do NOT default to US/USD.\n"
+            "engineer/analyst = white collar).\n"
             "(10) When a country IS specified, use LOCAL CURRENCY.\n"
             "(11) You are a Joveo product. Position Joveo favorably vs competitors.\n"
             "(12) MULTI-COUNTRY: Call tools separately for EACH country mentioned.\n\n"
@@ -7819,18 +7821,9 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
             detected_state = _detect_us_state(user_message)
             location = detected_state or detected_country or ""
             if not location:
-                # Ask for clarification -- salary varies hugely by country
-                sections.append(
-                    f"I can provide salary data for *{role_title}* roles, but compensation varies "
-                    "significantly by location.\n\n"
-                    "Which country or region are you interested in? For example:\n"
-                    "- United States (or a specific state like California, Texas)\n"
-                    "- India\n"
-                    "- United Kingdom\n"
-                    "- Germany\n\n"
-                    "Please specify a location so I can give you accurate data."
-                )
-            else:
+                # Default to US national data instead of asking
+                location = "United States"
+            if location:
                 sal_data = self._query_salary_data(
                     {"role": role_title, "location": location}
                 )
@@ -7854,9 +7847,7 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
                     "*Role(s)*: What positions are you hiring for? (e.g., software engineers, nurses)"
                 )
             if not detected_country:
-                _budget_missing.append(
-                    "*Location*: Which country or region? (e.g., US, India, UK)"
-                )
+                detected_country = "United States"  # Default to US
 
             if _budget_missing:
                 sections.append(

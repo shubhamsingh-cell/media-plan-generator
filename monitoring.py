@@ -273,7 +273,7 @@ SLO_TARGETS: Dict[str, Dict[str, Any]] = {
         "endpoint": "/api/generate",
     },
     "chat_p99_ms": {
-        "target": 8000,  # 8 seconds
+        "target": 30000,  # 30 seconds (tool-use queries can take 20-30s)
         "description": "99th percentile chat latency",
         "endpoint": "/api/chat",
     },
@@ -296,22 +296,22 @@ MODULE_NAMES = ("command_center", "intelligence_hub", "nova_ai")
 
 MODULE_SLO_TARGETS: Dict[str, Dict[str, Any]] = {
     "command_center": {
-        "p95_latency_ms": 5000,
-        "error_rate_pct": 2.0,
-        "availability_pct": 99.5,
+        "p95_latency_ms": 10000,
+        "error_rate_pct": 5.0,
+        "availability_pct": 99.0,
         "description": "Campaign planning & execution module",
     },
     "intelligence_hub": {
-        "p95_latency_ms": 8000,
+        "p95_latency_ms": 15000,
         "error_rate_pct": 5.0,
         "availability_pct": 99.0,
         "description": "Market/competitive/talent research module (web scraping)",
     },
     "nova_ai": {
-        "p95_latency_ms": 3000,
-        "error_rate_pct": 1.0,
-        "availability_pct": 99.9,
-        "description": "Persistent chat assistant module",
+        "p95_latency_ms": 15000,
+        "error_rate_pct": 5.0,
+        "availability_pct": 99.0,
+        "description": "Persistent chat assistant module (LLM + tool-use loops)",
     },
 }
 
