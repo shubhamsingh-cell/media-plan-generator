@@ -36,6 +36,20 @@ def handle_export_post_routes(handler: Any, path: str, parsed: Any) -> bool:
 # ---------------------------------------------------------------------------
 
 
+def _track_export_event(plan_data: dict, export_format: str) -> None:
+    """Fire PostHog media_plan_exported event (non-blocking)."""
+    try:
+        from posthog_tracker import track_plan_export
+
+        track_plan_export(
+            email=plan_data.get("requester_email", "anonymous"),
+            export_format=export_format,
+            client=plan_data.get("client_name") or "",
+        )
+    except Exception:
+        pass
+
+
 def _handle_export_sheets(handler: Any, path: str, parsed: Any) -> None:
     """POST /api/export/sheets -- Sheets/CSV/XLSX export."""
     try:
@@ -45,6 +59,9 @@ def _handle_export_sheets(handler: Any, path: str, parsed: Any) -> None:
 
         plan_data = data.get("plan_data") or data
         export_format = data.get("format") or "sheets"
+
+        # PostHog: track export event
+        _track_export_event(plan_data, export_format)
 
         from sheets_export import (
             export_media_plan,

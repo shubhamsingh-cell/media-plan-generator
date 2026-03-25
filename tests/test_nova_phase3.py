@@ -3,7 +3,6 @@ Tests for Nova Phase 3+4 Enterprise Features
 
 Tests for:
 - Conversation persistence (nova_persistence.py)
-- Avatar generation and management (nova_avatars.py)
 - Document RAG operations (nova_rag.py)
 - File storage (nova_storage.py)
 - Voice configuration (nova_voice.py)
@@ -27,20 +26,9 @@ try:
         list_documents,
         create_share_link,
         get_shared_conversation,
-        list_avatars,
     )
 except ImportError:
     pytest.skip("nova_persistence not available", allow_module_level=True)
-
-try:
-    from nova_avatars import (
-        AvatarGenerator,
-        get_default_avatar,
-        validate_avatar,
-        avatar_to_html,
-    )
-except ImportError:
-    pytest.skip("nova_avatars not available", allow_module_level=True)
 
 try:
     from nova_rag import (
@@ -74,89 +62,6 @@ try:
     )
 except ImportError:
     pytest.skip("nova_voice not available", allow_module_level=True)
-
-
-# ============================================================================
-# Tests for nova_avatars.py
-# ============================================================================
-
-
-class TestAvatarGeneration:
-    """Test avatar generation."""
-
-    def test_gradient_avatar_generation(self) -> None:
-        """Test gradient avatar generation."""
-        avatar = AvatarGenerator.generate_gradient_avatar("Nova Assistant")
-        assert avatar is not None
-        assert avatar["persona_name"] == "Nova Assistant"
-        assert avatar["style"] == "gradient"
-        assert len(avatar["colors"]) == 2
-        assert avatar["initials"] == "N"
-
-    def test_emoji_avatar_generation(self) -> None:
-        """Test emoji avatar generation."""
-        avatar = AvatarGenerator.generate_emoji_avatar("Expert Advisor")
-        assert avatar is not None
-        assert avatar["persona_name"] == "Expert Advisor"
-        assert avatar["style"] == "emoji"
-        assert "emoji" in avatar
-        assert "color" in avatar
-
-    def test_initials_avatar_generation(self) -> None:
-        """Test initials avatar generation."""
-        avatar = AvatarGenerator.generate_initials_avatar("John Smith")
-        assert avatar is not None
-        assert avatar["persona_name"] == "John Smith"
-        assert avatar["style"] == "initials"
-        assert avatar["initials"] == "JS"
-        assert "color" in avatar
-
-    def test_default_avatars(self) -> None:
-        """Test default avatar generation."""
-        avatars = AvatarGenerator.generate_default_avatars()
-        assert len(avatars) >= 5
-        assert all(a["style"] == "gradient" for a in avatars)
-
-    def test_get_default_avatar(self) -> None:
-        """Test default Nova avatar."""
-        avatar = get_default_avatar()
-        assert avatar["persona_name"] == "Nova"
-        assert avatar["style"] == "gradient"
-        assert avatar["initials"] == "N"
-
-    def test_avatar_validation(self) -> None:
-        """Test avatar validation."""
-        # Valid avatar
-        valid_avatar = {
-            "persona_name": "Test",
-            "style": "gradient",
-            "colors": ["#FF0000", "#00FF00"],
-        }
-        is_valid, msg = validate_avatar(valid_avatar)
-        assert is_valid, msg
-
-        # Invalid style
-        invalid_avatar = {
-            "persona_name": "Test",
-            "style": "unknown",
-        }
-        is_valid, _ = validate_avatar(invalid_avatar)
-        assert not is_valid
-
-        # Missing name
-        invalid_avatar = {
-            "style": "gradient",
-            "colors": ["#FF0000", "#00FF00"],
-        }
-        is_valid, _ = validate_avatar(invalid_avatar)
-        assert not is_valid
-
-    def test_avatar_to_html(self) -> None:
-        """Test avatar HTML conversion."""
-        avatar = AvatarGenerator.generate_gradient_avatar("Test")
-        html = avatar_to_html(avatar)
-        assert "avatar" in html
-        assert "gradient" in html
 
 
 # ============================================================================

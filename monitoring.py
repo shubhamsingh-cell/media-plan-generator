@@ -2255,6 +2255,7 @@ class MonitoringAlertBridge:
         self._alert_cooldowns: dict[str, float] = {}  # alert_key -> last_fired_ts
         self._cooldown_period = 300  # 5 min between same alerts
         self._lock = threading.Lock()
+        self._last_known_version: str = VERSION  # deploy detection
 
     def start(self) -> None:
         """Start the alerting bridge background thread."""
@@ -2281,20 +2282,45 @@ class MonitoringAlertBridge:
             return True
 
     def _fire_alert(self, severity: str, subject: str, body: str) -> None:
-        """Send alert via alert_manager if available."""
+        """Send alert via alert_manager and email_alerts for maximum reliability.
+
+        Tries both alert_manager (4-tier: Resend, SMTP, Slack, logfile)
+        and email_alerts (dedicated Resend) in parallel. Either path
+        succeeding is sufficient.
+        """
+        delivered = False
+        # Path 1: alert_manager (4-tier fallback chain)
         try:
             if "alert_manager" in sys.modules:
                 am = sys.modules["alert_manager"]
                 if hasattr(am, "send_alert"):
-                    am.send_alert(subject=subject, body=body, severity=severity)
-                    return
+                    am.send_alert(subject=subject, body=body, severity=severity.lower())
+                    delivered = True
+        except Exception as e:
+            logger.warning("[MonitorAlertBridge] alert_manager delivery failed: %s", e)
+        # Path 2: email_alerts (dedicated Resend with dedup/backoff)
+        try:
+            from email_alerts import send_error_alert
+
+            severity_map = {
+                "CRITICAL": "critical",
+                "WARNING": "warning",
+                "INFO": "info",
+            }
+            send_error_alert(
+                error_type=subject,
+                error_message=body,
+                context={"severity": severity_map.get(severity, "warning")},
+            )
+            delivered = True
+        except ImportError:
+            logger.debug("[MonitorAlertBridge] email_alerts not importable")
+        except Exception as e:
+            logger.warning("[MonitorAlertBridge] email_alerts delivery failed: %s", e)
+        if not delivered:
             # Fallback: log it
             logger.warning(
                 "[MonitorAlertBridge] ALERT (%s): %s -- %s", severity, subject, body
-            )
-        except Exception as e:
-            logger.error(
-                "[MonitorAlertBridge] Alert delivery failed: %s", e, exc_info=True
             )
 
     def _check_cycle(self) -> None:
@@ -2422,6 +2448,44 @@ class MonitoringAlertBridge:
                         )
             except Exception as anom_err:
                 logger.debug("[MonitorAlertBridge] Anomaly check error: %s", anom_err)
+
+            # Deploy detection: check if VERSION has changed
+            try:
+                current_version = VERSION
+                if current_version != self._last_known_version:
+                    old_version = self._last_known_version
+                    self._last_known_version = current_version
+                    alert_key = f"deploy_detected_{current_version}"
+                    if self._should_alert(alert_key):
+                        self._fire_alert(
+                            "INFO",
+                            f"[Nova] Deploy detected: v{old_version} -> v{current_version}",
+                            f"Server version changed from {old_version} to "
+                            f"{current_version}. Instance: "
+                            f"{os.environ.get('RENDER_INSTANCE_ID', 'local')}.",
+                        )
+            except Exception as deploy_err:
+                logger.debug("[MonitorAlertBridge] Deploy check error: %s", deploy_err)
+
+            # Module DOWN detection: any module with status 'critical' or score < 20
+            try:
+                for module_id, module_data in module_scores.items():
+                    score = module_data.get("health_score", 100)
+                    status = module_data.get("status", "healthy")
+                    if score < 20 or status == "critical":
+                        alert_key = f"module_down_{module_id}"
+                        if self._should_alert(alert_key):
+                            self._fire_alert(
+                                "CRITICAL",
+                                f"[Nova] Module DOWN: {module_id}",
+                                f"Module {module_id} appears DOWN "
+                                f"(score: {score}/100, status: {status}). "
+                                f"Requires immediate attention.",
+                            )
+            except Exception as down_err:
+                logger.debug(
+                    "[MonitorAlertBridge] Module DOWN check error: %s", down_err
+                )
 
         except Exception as e:
             logger.error("[MonitorAlertBridge] Check cycle error: %s", e, exc_info=True)

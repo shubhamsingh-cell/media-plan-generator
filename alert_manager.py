@@ -48,7 +48,7 @@ logger = logging.getLogger(__name__)
 # -- Configuration ------------------------------------------------------------
 
 _RESEND_ENDPOINT = "https://api.resend.com/emails"
-_FROM_EMAIL = "alerts@nova-ai-suite.com"
+_FROM_EMAIL = "Nova Alerts <onboarding@resend.dev>"
 _API_KEY: str = os.environ.get("RESEND_API_KEY") or ""
 _ALERT_EMAIL: str = os.environ.get("ALERT_EMAIL") or "shubhamsingh@joveo.com"
 

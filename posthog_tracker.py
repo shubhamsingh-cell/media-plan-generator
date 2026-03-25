@@ -244,6 +244,67 @@ def track_file_upload(email: str, upload_type: str, file_count: int) -> None:
     )
 
 
+def track_plan_started(
+    email: str,
+    client: str,
+    industry: str,
+    roles_count: int,
+) -> None:
+    """Track media plan generation started (funnel entry point)."""
+    capture(
+        "media_plan_started",
+        distinct_id=email,
+        properties={
+            "client_name": client,
+            "industry": industry,
+            "num_roles": roles_count,
+            "source": "server",
+        },
+    )
+
+
+def track_plan_completed(
+    email: str,
+    client: str,
+    industry: str,
+    budget: str,
+    roles_count: int,
+    gen_time: float,
+    file_size: int,
+) -> None:
+    """Track media plan generation completed (funnel completion)."""
+    capture(
+        "media_plan_completed",
+        distinct_id=email,
+        properties={
+            "client_name": client,
+            "industry": industry,
+            "budget": budget,
+            "num_roles": roles_count,
+            "generation_time_seconds": round(gen_time, 2),
+            "file_size_bytes": file_size,
+            "source": "server",
+        },
+    )
+
+
+def track_plan_export(
+    email: str,
+    export_format: str,
+    client: str,
+) -> None:
+    """Track media plan export (Excel/PPTX/CSV/Sheets)."""
+    capture(
+        "media_plan_exported",
+        distinct_id=email,
+        properties={
+            "export_format": export_format,
+            "client_name": client,
+            "source": "server",
+        },
+    )
+
+
 # ---------------------------------------------------------------------------
 # Stats API (for observability dashboard)
 # ---------------------------------------------------------------------------

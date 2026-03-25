@@ -450,6 +450,62 @@ def _handle_admin_slow_endpoints(handler: Any, path: str, parsed: Any) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Sentry error query
+# ---------------------------------------------------------------------------
+
+
+def _handle_admin_sentry_errors(handler, path: str, parsed: Any) -> None:
+    """/api/admin/sentry-errors -- query recent unresolved Sentry issues (admin-protected)."""
+    if not handler._check_admin_auth():
+        handler.send_error(401, "Unauthorized")
+        return
+
+    issues = _get_recent_sentry_errors()
+    handler._send_json(
+        {
+            "issues": issues,
+            "count": len(issues),
+            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        }
+    )
+
+
+def _get_recent_sentry_errors(hours: int = 24) -> list[dict[str, Any]]:
+    """Query recent unresolved errors from Sentry API.
+
+    Args:
+        hours: Look-back window in hours (default 24).
+
+    Returns:
+        List of issue summary dicts, or empty list on failure/no config.
+    """
+    try:
+        from sentry_integration import SentryAPIClient
+
+        raw_issues: list[dict[str, Any]] = SentryAPIClient.fetch_recent_issues(
+            hours=hours
+        )
+        return [
+            {
+                "title": issue.get("title") or "",
+                "count": issue.get("count") or 0,
+                "first_seen": issue.get("firstSeen") or "",
+                "last_seen": issue.get("lastSeen") or "",
+                "level": issue.get("level") or "",
+                "status": issue.get("status") or "",
+                "id": issue.get("id") or "",
+            }
+            for issue in raw_issues
+        ]
+    except ImportError:
+        logger.warning("sentry_integration module not available")
+        return []
+    except (OSError, ValueError) as exc:
+        logger.error("Failed to query Sentry errors: %s", exc, exc_info=True)
+        return []
+
+
+# ---------------------------------------------------------------------------
 # Route map
 # ---------------------------------------------------------------------------
 
@@ -462,4 +518,5 @@ _ADMIN_ROUTE_MAP: dict[str, Any] = {
     "/api/admin/sessions": _handle_admin_sessions,
     "/api/admin/audit-log": _handle_admin_audit_log,
     "/api/admin/slow-endpoints": _handle_admin_slow_endpoints,
+    "/api/admin/sentry-errors": _handle_admin_sentry_errors,
 }

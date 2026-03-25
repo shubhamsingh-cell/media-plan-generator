@@ -25,6 +25,9 @@ data/persistent/
 data/competitor_careers.json
 data/job_density_metros.json
 
+# Visual regression screenshots
+tests/screenshots/
+
 # Resilience router local data
 data/analytics/
 data/cache/

@@ -523,7 +523,7 @@
           codeId +
           '" onclick="(function(b){var c=document.getElementById(\'' +
           codeId +
-          "');if(c){navigator.clipboard.writeText(c.textContent).then(function(){b.textContent='Copied!';setTimeout(function(){b.textContent='Copy'},1500)})}})(this)\">Copy</button>" +
+          "');if(c){navigator.clipboard.writeText(c.textContent).then(function(){b.textContent='Copied!';setTimeout(function(){b.textContent='Copy'},1500);if(window.posthog){window.posthog.capture('nova_chat_code_copied',{source:'widget',page:window.location.pathname})}})}})(this)\">Copy</button>" +
           "</div>" +
           '<pre style="margin:0;padding:12px;background:#0d0d18;overflow-x:auto;"><code id="' +
           codeId +
@@ -1137,6 +1137,13 @@
     if (state.isOpen) {
       panel.classList.remove("nova-hidden");
       panel.classList.add("nova-visible");
+      // PostHog: track panel open
+      if (window.posthog) {
+        window.posthog.capture("nova_chat_opened", {
+          source: "widget",
+          page: window.location.pathname,
+        });
+      }
       // W-09: Pause orb animation when panel is open (canvas not visible)
       if (state.orbAnimId) {
         cancelAnimationFrame(state.orbAnimId);
@@ -1222,6 +1229,14 @@
       btn.className = "nova-suggestion-btn";
       btn.textContent = q;
       btn.addEventListener("click", function () {
+        // PostHog: track suggestion chip click
+        if (window.posthog) {
+          window.posthog.capture("nova_chat_suggestion_clicked", {
+            source: "widget",
+            page: window.location.pathname,
+            suggestion_text: q,
+          });
+        }
         var input = document.getElementById("nova-input");
         if (input) input.value = q;
         sendMessage();
@@ -1307,6 +1322,98 @@
         });
       })(copyBtn, msg.content);
       msgEl.appendChild(copyBtn);
+
+      // TTS speaker button for assistant messages
+      var ttsBtn = document.createElement("button");
+      ttsBtn.className = "nova-tts-btn";
+      ttsBtn.setAttribute("aria-label", "Listen to response");
+      ttsBtn.innerHTML =
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg> Listen';
+      ttsBtn.style.cssText =
+        "display:inline-flex;align-items:center;gap:4px;margin-top:6px;margin-left:6px;padding:3px 8px;border-radius:6px;font-size:10px;color:#666;background:rgba(107,179,205,0.06);border:1px solid rgba(107,179,205,0.1);cursor:pointer;transition:all 0.15s;font-family:inherit;";
+      ttsBtn.addEventListener("mouseenter", function () {
+        this.style.color = "#6BB3CD";
+        this.style.borderColor = "rgba(107,179,205,0.25)";
+      });
+      ttsBtn.addEventListener("mouseleave", function () {
+        if (!this.dataset.playing) {
+          this.style.color = "#666";
+          this.style.borderColor = "rgba(107,179,205,0.1)";
+        }
+      });
+      (function (btn, content) {
+        var audio = null;
+        btn.addEventListener("click", function () {
+          // If already playing, stop
+          if (audio && !audio.paused) {
+            audio.pause();
+            audio = null;
+            btn.innerHTML =
+              '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg> Listen';
+            btn.style.color = "#666";
+            delete btn.dataset.playing;
+            return;
+          }
+
+          btn.innerHTML =
+            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="10" y1="15" x2="10" y2="9"/><line x1="14" y1="15" x2="14" y2="9"/></svg> Loading...';
+          btn.style.color = "#6BB3CD";
+          btn.dataset.playing = "1";
+
+          // Get CSRF token
+          var csrfToken = "";
+          var csrfMeta = document.querySelector('meta[name="csrf-token"]');
+          if (csrfMeta) csrfToken = csrfMeta.getAttribute("content") || "";
+          if (!csrfToken) {
+            var cookies = document.cookie.split(";");
+            for (var ci = 0; ci < cookies.length; ci++) {
+              var c = cookies[ci].trim();
+              if (c.indexOf("csrf_token=") === 0) {
+                csrfToken = c.substring("csrf_token=".length);
+                break;
+              }
+            }
+          }
+
+          fetch("/api/tts", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-CSRF-Token": csrfToken,
+            },
+            credentials: "same-origin",
+            body: JSON.stringify({ text: content }),
+          })
+            .then(function (resp) {
+              if (!resp.ok) throw new Error("TTS failed: " + resp.status);
+              return resp.blob();
+            })
+            .then(function (blob) {
+              var url = URL.createObjectURL(blob);
+              audio = new Audio(url);
+              audio.play();
+              btn.innerHTML =
+                '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg> Playing';
+              audio.addEventListener("ended", function () {
+                btn.innerHTML =
+                  '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg> Listen';
+                btn.style.color = "#666";
+                delete btn.dataset.playing;
+                URL.revokeObjectURL(url);
+              });
+            })
+            .catch(function () {
+              btn.innerHTML =
+                '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg> Listen';
+              btn.style.color = "#F87171";
+              delete btn.dataset.playing;
+              setTimeout(function () {
+                btn.style.color = "#666";
+              }, 2000);
+            });
+        });
+      })(ttsBtn, msg.content);
+      msgEl.appendChild(ttsBtn);
 
       // Meta: sources + confidence
       var sources = msg.sources || [];
@@ -1638,6 +1745,15 @@
       return;
     }
 
+    // PostHog: track message sent
+    if (window.posthog) {
+      window.posthog.capture("nova_chat_message_sent", {
+        source: "widget",
+        page: window.location.pathname,
+        message_length: text.length,
+      });
+    }
+
     // W-02: Set loading state BEFORE appending message to prevent race condition
     state.isLoading = true;
     var sendBtn = document.getElementById("nova-send-btn");
@@ -1765,6 +1881,18 @@
           }
           return processChunk().then(function () {
             clearTimeout(fetchTimeout);
+            // PostHog: track response received
+            if (window.posthog) {
+              window.posthog.capture("nova_chat_response_received", {
+                source: "widget",
+                page: window.location.pathname,
+                response_length: (metadata.full_response || fullText || "")
+                  .length,
+                provider: metadata.provider || "",
+                confidence: metadata.confidence || 0,
+                streaming: true,
+              });
+            }
             // Replace streaming row with proper message
             var streamRowEl = document.getElementById("nova-stream-row");
             if (streamRowEl && streamRowEl.parentNode) streamRowEl.remove();
@@ -1782,6 +1910,16 @@
         .catch(function (err) {
           clearTimeout(fetchTimeout);
           hideTyping();
+          // PostHog: track chat error
+          if (window.posthog) {
+            window.posthog.capture("nova_chat_error", {
+              source: "widget",
+              page: window.location.pathname,
+              error_type: err.name || "Unknown",
+              error_message: (err.message || "").substring(0, 200),
+              streaming: true,
+            });
+          }
           var streamRowCleanup = document.getElementById("nova-stream-row");
           if (streamRowCleanup) streamRowCleanup.remove();
           var streamEl = document.getElementById("nova-stream-msg");
@@ -1858,6 +1996,17 @@
         })
         .then(function (data) {
           hideTyping();
+          // PostHog: track non-streaming response received
+          if (window.posthog) {
+            window.posthog.capture("nova_chat_response_received", {
+              source: "widget",
+              page: window.location.pathname,
+              response_length: (data.response || "").length,
+              provider: data.provider || "",
+              confidence: data.confidence || 0,
+              streaming: false,
+            });
+          }
           appendMessage({
             role: "assistant",
             content: data.response || "No response received.",
@@ -1869,6 +2018,16 @@
         .catch(function (err) {
           clearTimeout(fetchTimeout);
           hideTyping();
+          // PostHog: track non-streaming error
+          if (window.posthog) {
+            window.posthog.capture("nova_chat_error", {
+              source: "widget",
+              page: window.location.pathname,
+              error_type: err.name || "Unknown",
+              error_message: (err.message || "").substring(0, 200),
+              streaming: false,
+            });
+          }
           var errorMsg =
             err.name === "AbortError"
               ? "The request timed out. Please try a shorter question or try again later."
@@ -1978,6 +2137,34 @@
     setContext: function (context) {
       if (context && typeof context === "object") {
         CONFIG._sessionContext = context;
+      }
+    },
+
+    /**
+     * Track voice input usage (call from voice feature when implemented).
+     */
+    trackVoiceUsed: function () {
+      if (window.posthog) {
+        window.posthog.capture("nova_chat_voice_used", {
+          source: "widget",
+          page: window.location.pathname,
+        });
+      }
+    },
+
+    /**
+     * Track file upload (call from file upload feature when implemented).
+     * @param {string} fileType - MIME type or extension
+     * @param {number} fileSize - Size in bytes
+     */
+    trackFileUploaded: function (fileType, fileSize) {
+      if (window.posthog) {
+        window.posthog.capture("nova_chat_file_uploaded", {
+          source: "widget",
+          page: window.location.pathname,
+          file_type: fileType || "unknown",
+          file_size: fileSize || 0,
+        });
       }
     },
 
