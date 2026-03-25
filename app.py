@@ -4718,7 +4718,8 @@ def _parse_file_attachment(file_attachment: dict) -> str:
     """
     import base64
     import csv
-    import io
+
+    # io is imported at module level (line 6)
 
     name = file_attachment.get("name") or ""
     data_b64 = file_attachment.get("data") or ""
@@ -11914,7 +11915,8 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 content_type = self.headers.get("Content-Type") or ""
                 if "multipart/form-data" in content_type:
                     import cgi
-                    import io
+
+                    # io is imported at module level (line 6)
 
                     environ = {
                         "REQUEST_METHOD": "POST",

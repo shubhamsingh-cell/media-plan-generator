@@ -2884,7 +2884,7 @@ def _build_sheet_roi_projections(ws, data: dict) -> None:
             f"{roi_score}/10",
         ]
         alt_fill = _FILL_OFF_WHITE if idx % 2 == 0 else _FILL_WHITE
-        row = _write_table_row(ws, row, values, alt_fill=alt_fill)
+        row = _write_table_row(ws, row, values, alternate=(idx % 2 == 0))
 
         # Override ROI score cell styling
         roi_cell = ws.cell(row=row - 1, column=COL_START + 6)
@@ -2917,7 +2917,7 @@ def _build_sheet_roi_projections(ws, data: dict) -> None:
     for idx, (ch_type, rate, ttf_range, notes) in enumerate(assumption_data):
         values = [ch_type, rate, ttf_range, notes]
         alt_fill = _FILL_OFF_WHITE if idx % 2 == 0 else _FILL_WHITE
-        row = _write_table_row(ws, row, values, alt_fill=alt_fill)
+        row = _write_table_row(ws, row, values, alternate=(idx % 2 == 0))
 
     row += 1
     row = _write_footnote(
