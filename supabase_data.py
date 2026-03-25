@@ -151,10 +151,13 @@ def _query_supabase(table: str, params: str = "") -> list[dict[str, Any]]:
             )
         return []
     except urllib.error.URLError as exc:
-        logger.error(f"URLError querying {table}: {exc.reason}", exc_info=True)
+        logger.warning(f"URLError querying {table}: {exc.reason}")
+        return []
+    except TimeoutError as exc:
+        logger.debug(f"Supabase timeout querying {table} (transient): {exc}")
         return []
     except (json.JSONDecodeError, UnicodeDecodeError, OSError) as exc:
-        logger.error(f"Error querying {table}: {exc}", exc_info=True)
+        logger.warning(f"Error querying {table}: {exc}")
         return []
 
 

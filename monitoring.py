@@ -1253,8 +1253,8 @@ class SupabasePersistence:
                 data.get("total_errors", 0),
             )
             return True
-        except urllib.error.URLError as e:
-            logger.warning("Failed to load metrics from Supabase: %s", e)
+        except (urllib.error.URLError, TimeoutError, OSError) as e:
+            logger.debug("Failed to load metrics from Supabase (transient): %s", e)
             return False
         except (json.JSONDecodeError, KeyError, IndexError, TypeError) as e:
             logger.warning("Malformed Supabase metrics response: %s", e)
