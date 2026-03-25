@@ -137,6 +137,23 @@ except ImportError:
     _supabase_data_available = False
     logger.warning("supabase_data module not available; Supabase enrichment disabled")
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# ATTRIBUTION DASHBOARD (CFO-ready spend-to-hire attribution)
+# ═══════════════════════════════════════════════════════════════════════════════
+try:
+    from attribution_dashboard import (
+        generate_attribution_report as _attribution_report,
+        generate_dashboard_html as _attribution_html,
+        get_attribution_stats as _attribution_stats,
+    )
+
+    _attribution_available = True
+except ImportError:
+    _attribution_available = False
+    logger.warning(
+        "attribution_dashboard module not available; attribution features disabled"
+    )
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # JOB SCRAPER (python-jobspy -- multi-platform job data)
@@ -4066,6 +4083,75 @@ def _build_health_response() -> dict:
         logger.warning(f"Role taxonomy health check failed: {_rt_err}")
         result["role_taxonomy"] = {"status": "error"}
 
+    # Plan templates marketplace stats
+    try:
+        from plan_templates import get_templates_stats as _get_tmpl_stats
+
+        result["plan_templates"] = _get_tmpl_stats()
+    except ImportError:
+        result["plan_templates"] = {"status": "not_installed"}
+    except Exception as _tmpl_err:
+        logger.warning(f"Plan templates health check failed: {_tmpl_err}")
+        result["plan_templates"] = {"status": "error"}
+
+    # Anonymized benchmarking network stats
+    try:
+        from benchmarking import get_benchmarking_stats as _get_bench_stats
+
+        result["benchmarking_network"] = _get_bench_stats()
+        _modules["benchmarking_network"] = (
+            "ok" if result["benchmarking_network"].get("status") == "ok" else "down"
+        )
+    except ImportError:
+        result["benchmarking_network"] = {"status": "not_installed"}
+        _modules["benchmarking_network"] = "not_installed"
+    except Exception as _bench_err:
+        logger.warning(f"Benchmarking network health check failed: {_bench_err}")
+        result["benchmarking_network"] = {"status": "error"}
+        _modules["benchmarking_network"] = "down"
+
+    # Adaptive rate limiter stats
+    try:
+        from rate_limiter_adaptive import get_rate_limiter_stats as _get_rl_stats
+
+        result["rate_limiter"] = _get_rl_stats()
+        _modules["rate_limiter"] = "ok"
+    except ImportError:
+        result["rate_limiter"] = {"status": "not_installed"}
+        _modules["rate_limiter"] = "not_installed"
+    except Exception as _rl_err:
+        logger.warning(f"Rate limiter health check failed: {_rl_err}")
+        result["rate_limiter"] = {"status": "error"}
+        _modules["rate_limiter"] = "down"
+
+    # Outcome engine stats
+    try:
+        from outcome_engine import get_outcome_stats
+
+        result["outcome_engine"] = get_outcome_stats()
+        _modules["outcome_engine"] = "ok"
+    except ImportError:
+        result["outcome_engine"] = {"status": "not_installed"}
+        _modules["outcome_engine"] = "not_installed"
+    except Exception as _oe_err:
+        logger.warning(f"Outcome engine health check failed: {_oe_err}")
+        result["outcome_engine"] = {"status": "error"}
+        _modules["outcome_engine"] = "down"
+
+    # Attribution dashboard stats
+    try:
+        from attribution_dashboard import get_attribution_stats as _get_attr_stats
+
+        result["attribution_dashboard"] = _get_attr_stats()
+        _modules["attribution_dashboard"] = "ok"
+    except ImportError:
+        result["attribution_dashboard"] = {"status": "not_installed"}
+        _modules["attribution_dashboard"] = "not_installed"
+    except Exception as _attr_err:
+        logger.warning(f"Attribution dashboard health check failed: {_attr_err}")
+        result["attribution_dashboard"] = {"status": "error"}
+        _modules["attribution_dashboard"] = "down"
+
     return result
 
 
@@ -7497,6 +7583,47 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             self.send_header("Cache-Control", "public, max-age=86400")
             self.end_headers()
             self.wfile.write(sitemap_content.encode("utf-8"))
+        # ── Plan Templates Marketplace ──
+        elif path == "/api/templates":
+            try:
+                from plan_templates import list_templates as _list_templates
+
+                query_params = urllib.parse.parse_qs(parsed.query)
+                category = query_params.get("category", [None])[0]
+                role_family = query_params.get("role_family", [None])[0]
+                templates = _list_templates(category=category, role_family=role_family)
+                self._send_json({"total": len(templates), "templates": templates})
+            except ImportError:
+                self._send_json(
+                    {"error": "Plan templates module not available"}, status_code=503
+                )
+            except (ValueError, TypeError, KeyError) as e:
+                logger.error(f"Templates list error: {e}", exc_info=True)
+                self._send_json(
+                    {"error": f"Failed to list templates: {e}"}, status_code=500
+                )
+        elif path.startswith("/api/templates/") and not path.endswith("/fork"):
+            try:
+                from plan_templates import get_template as _get_template
+
+                template_id = path[len("/api/templates/") :]
+                tmpl = _get_template(template_id)
+                if tmpl is None:
+                    self._send_json(
+                        {"error": f"Template '{template_id}' not found"},
+                        status_code=404,
+                    )
+                else:
+                    self._send_json(tmpl)
+            except ImportError:
+                self._send_json(
+                    {"error": "Plan templates module not available"}, status_code=503
+                )
+            except (ValueError, TypeError, KeyError) as e:
+                logger.error(f"Template get error: {e}", exc_info=True)
+                self._send_json(
+                    {"error": f"Failed to get template: {e}"}, status_code=500
+                )
         elif path == "/api/channels":
             db = load_channels_db()
             # Inject the full industry options list for frontend consumption
@@ -8342,6 +8469,58 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     status_code=500,
                 )
 
+        # ── Anonymized Benchmarking Network ──
+        elif path == "/api/benchmarks":
+            try:
+                from benchmarking import get_benchmarks as _get_bench
+
+                params = urllib.parse.parse_qs(parsed.query)
+                role_family = (params.get("role_family", [""])[0] or "").strip() or None
+                location = (params.get("location", [""])[0] or "").strip() or None
+                self._send_json(_get_bench(role_family, location))
+            except Exception as e:
+                logger.error("Benchmarking API error: %s", e, exc_info=True)
+                self._send_json(
+                    {"error": f"Benchmarking lookup failed: {e}", "sample_size": 0},
+                    status_code=500,
+                )
+
+        # ── Attribution Dashboard (GET /attribution) ──
+        elif path == "/attribution":
+            try:
+                if not _attribution_available:
+                    self.send_error(503, "Attribution module not available")
+                    return
+                # Use cached report or generate sample
+                from attribution_dashboard import _report_cache, _lock as _attr_lock
+
+                with _attr_lock:
+                    cached = _report_cache.get("last_report")
+                if cached:
+                    html = _attribution_html(cached)
+                else:
+                    # Generate a sample dashboard with demo data
+                    sample_data = {
+                        "total_budget": 150000,
+                        "industry": "technology",
+                        "total_hiring_cost": 525000,
+                        "channels": [
+                            {"channel": "LinkedIn", "spend": 45000},
+                            {"channel": "Indeed", "spend": 30000},
+                            {"channel": "Google Ads", "spend": 25000},
+                            {"channel": "Programmatic", "spend": 20000},
+                            {"channel": "Glassdoor", "spend": 15000},
+                            {"channel": "Niche Job Boards", "spend": 15000},
+                        ],
+                    }
+                    report = _attribution_report(sample_data)
+                    html = _attribution_html(report)
+                html_bytes = html.encode("utf-8")
+                self._send_compressed_response(html_bytes, "text/html; charset=utf-8")
+            except Exception as e:
+                logger.error("Attribution dashboard error: %s", e, exc_info=True)
+                self.send_error(500, "Attribution dashboard failed")
+
         # NOTE: /api/pricing/live now handled by routes/pricing.py
         # NOTE: /api/campaign/list, /auto-qc, /eval-framework now handled by
         # routes/campaign.py and routes/pages.py
@@ -8619,6 +8798,43 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
         if handle_campaign_post_routes(self, path, parsed):
             return
         if handle_pricing_post_routes(self, path, parsed):
+            return
+
+        # ── Plan Templates Marketplace: Fork ──
+        if path == "/api/templates/fork":
+            try:
+                from plan_templates import fork_template as _fork_template
+
+                content_len = int(self.headers.get("Content-Length") or 0)
+                raw = self.rfile.read(content_len) if content_len else b"{}"
+                body = json.loads(raw)
+                template_id = body.get("template_id") or ""
+                customizations = body.get("customizations") or {}
+                if not template_id:
+                    self._send_json(
+                        {"error": "Missing required field: template_id"},
+                        status_code=400,
+                    )
+                    return
+                forked = _fork_template(template_id, customizations)
+                if forked is None:
+                    self._send_json(
+                        {"error": f"Template '{template_id}' not found"},
+                        status_code=404,
+                    )
+                    return
+                self._send_json({"forked_template": forked}, status_code=201)
+            except ImportError:
+                self._send_json(
+                    {"error": "Plan templates module not available"}, status_code=503
+                )
+            except json.JSONDecodeError as e:
+                self._send_json({"error": f"Invalid JSON body: {e}"}, status_code=400)
+            except (ValueError, TypeError, KeyError) as e:
+                logger.error(f"Template fork error: {e}", exc_info=True)
+                self._send_json(
+                    {"error": f"Failed to fork template: {e}"}, status_code=500
+                )
             return
 
         if path == "/api/generate":
@@ -13371,6 +13587,40 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 self._send_json({"ok": result})
             except Exception as e:
                 self._send_json({"error": str(e)})
+
+        # ── Attribution Report (POST /api/attribution/report) ──
+        elif path == "/api/attribution/report":
+            try:
+                if not _attribution_available:
+                    self._send_json(
+                        {"error": "Attribution module not available"},
+                        status_code=503,
+                    )
+                    return
+                content_len = int(self.headers.get("Content-Length") or 0)
+                body = self.rfile.read(content_len) if content_len > 0 else b"{}"
+                data = json.loads(body)
+                if (
+                    not data.get("total_budget")
+                    and not data.get("budget")
+                    and not data.get("channels")
+                ):
+                    self._send_json(
+                        {
+                            "error": "Request must include total_budget or channels with spend data"
+                        },
+                        status_code=400,
+                    )
+                    return
+                report = _attribution_report(data)
+                self._send_json(report)
+            except json.JSONDecodeError:
+                self._send_json({"error": "Invalid JSON body"}, status_code=400)
+            except Exception as e:
+                logger.error("Attribution report error: %s", e, exc_info=True)
+                self._send_json(
+                    {"error": f"Attribution report failed: {e}"}, status_code=500
+                )
 
         # ── AI Co-Pilot: Inline suggestions for media plan generator ──
         # NOTE: /api/copilot/suggest now handled by routes/copilot.py

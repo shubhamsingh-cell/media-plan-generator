@@ -1300,6 +1300,28 @@ def _handle_market_pulse_json(handler, path: str, parsed: Any) -> None:
         )
 
 
+def _handle_rate_limits(handler, path: str, parsed: Any) -> None:
+    """/api/rate-limits -- current rate limiter configuration, usage, and state."""
+    try:
+        from rate_limiter_adaptive import get_rate_limiter_stats
+
+        stats = get_rate_limiter_stats()
+        _send_json_response(handler, {"ok": True, **stats})
+    except ImportError:
+        _send_json_response(
+            handler,
+            {"ok": False, "error": "rate_limiter_adaptive module not available"},
+            status_code=503,
+        )
+    except Exception as e:
+        logger.error("Rate limits endpoint error: %s", e, exc_info=True)
+        _send_json_response(
+            handler,
+            {"ok": False, "error": f"Rate limiter stats failed: {e}"},
+            status_code=500,
+        )
+
+
 _HEALTH_ROUTE_MAP: dict[str, Any] = {
     "/api/config": _handle_config,
     "/api/features": _handle_features,
@@ -1327,4 +1349,5 @@ _HEALTH_ROUTE_MAP: dict[str, Any] = {
     "/api/morning-brief": _handle_morning_brief_api,
     "/morning-brief": _handle_morning_brief_page,
     "/api/market-pulse": _handle_market_pulse_json,
+    "/api/rate-limits": _handle_rate_limits,
 }

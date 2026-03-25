@@ -27,6 +27,9 @@ def handle_pricing_get_routes(handler: Any, path: str, parsed: Any) -> bool:
     if path == "/api/pricing/live":
         _handle_pricing_live(handler, path, parsed)
         return True
+    if path == "/api/pricing/models":
+        _handle_pricing_models(handler, path, parsed)
+        return True
     return False
 
 
@@ -371,9 +374,116 @@ def _handle_pricing_live(handler: Any, path: str, parsed: Any) -> None:
         handler._send_json({"error": str(e), "channels": []}, status_code=500)
 
 
+def _handle_pricing_models(handler: Any, path: str, parsed: Any) -> None:
+    """GET /api/pricing/models -- outcome pricing tiers and per-role pricing.
+
+    Query params: role_family (optional), location (optional), seniority (optional).
+    If role_family is provided, returns specific pricing for that role.
+    Otherwise, returns all pricing tiers.
+    """
+    import urllib.parse
+
+    try:
+        from outcome_engine import (
+            calculate_outcome_price,
+            get_all_pricing_tiers,
+        )
+
+        params = urllib.parse.parse_qs(urllib.parse.urlparse(handler.path).query)
+        role_family = (params.get("role_family", [""])[0] or "").strip()
+        location = (params.get("location", [""])[0] or "").strip()
+        seniority = (params.get("seniority", [""])[0] or "").strip()
+
+        if role_family:
+            result = calculate_outcome_price(
+                role_family=role_family,
+                location=location,
+                seniority=seniority or "mid",
+            )
+            handler._send_json(
+                {
+                    "pricing": result,
+                    "all_tiers": get_all_pricing_tiers(),
+                }
+            )
+        else:
+            handler._send_json(
+                {
+                    "tiers": get_all_pricing_tiers(),
+                    "note": "Add ?role_family=engineering&location=San Francisco&seniority=senior for specific pricing",
+                }
+            )
+    except ImportError:
+        handler._send_json(
+            {"error": "Outcome engine not available", "tiers": {}},
+            status_code=503,
+        )
+    except (ValueError, TypeError, KeyError) as e:
+        logger.error(f"Pricing models error: {e}", exc_info=True)
+        handler._send_json({"error": str(e)}, status_code=400)
+
+
 # ---------------------------------------------------------------------------
 # POST handlers
 # ---------------------------------------------------------------------------
+
+
+def _handle_pricing_estimate(handler: Any, path: str, parsed: Any) -> None:
+    """POST /api/pricing/estimate -- estimate outcomes and pricing from plan data.
+
+    Request body (JSON):
+        budget (float, required): Total media budget in USD.
+        role_family (str, required): Role category (engineering, healthcare, etc.).
+        seniority (str, optional): entry, mid, senior, executive. Default: mid.
+        location (str, optional): Geographic location.
+        channels (list[str], optional): Channel list. Default: [indeed, linkedin, google].
+        impressions (int, optional): Override estimated impressions.
+        cpc (float, optional): Override average CPC.
+        compare (bool, optional): If true, include pricing model comparison.
+
+    Returns:
+        Outcome estimate with funnel breakdown, pricing, and optional model comparison.
+    """
+    try:
+        from outcome_engine import estimate_outcomes, compare_pricing_models
+
+        content_len = int(handler.headers.get("Content-Length") or 0)
+        body = handler.rfile.read(content_len) if content_len > 0 else b"{}"
+        data = json.loads(body)
+
+        # Validate required fields
+        budget = data.get("budget")
+        role_family = data.get("role_family") or data.get("role")
+        if not budget:
+            handler._send_json(
+                {"error": "Missing required field: budget"},
+                status_code=400,
+            )
+            return
+        if not role_family:
+            handler._send_json(
+                {"error": "Missing required field: role_family"},
+                status_code=400,
+            )
+            return
+
+        result = estimate_outcomes(data)
+
+        # Optionally include pricing model comparison
+        if data.get("compare"):
+            result["model_comparison"] = compare_pricing_models(data)
+
+        handler._send_json(result)
+    except json.JSONDecodeError:
+        handler._send_json({"error": "Invalid JSON body"}, status_code=400)
+    except ImportError:
+        handler._send_json(
+            {"error": "Outcome engine not available"},
+            status_code=503,
+        )
+    except (ValueError, TypeError) as e:
+        logger.error(f"Pricing estimate error: {e}", exc_info=True)
+        handler._send_json({"error": str(e)}, status_code=400)
 
 
 def _handle_vendor_iq_pricing(handler: Any, path: str, parsed: Any) -> None:
@@ -552,6 +662,7 @@ def _handle_payscale_salary(handler: Any, path: str, parsed: Any) -> None:
 # ---------------------------------------------------------------------------
 
 _PRICING_POST_ROUTE_MAP: dict[str, Any] = {
+    "/api/pricing/estimate": _handle_pricing_estimate,
     "/api/vendor-iq/live-pricing": _handle_vendor_iq_pricing,
     "/api/payscale-sync/salary": _handle_payscale_salary,
 }
