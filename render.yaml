@@ -8,8 +8,8 @@ services:
     buildCommand: pip install -r requirements.txt
     preDeployCommand: python3 -c "import py_compile; py_compile.compile('app.py', doraise=True)"
     startCommand: python app.py
-    healthCheckPath: /health
-    healthCheckGracePeriod: 120
+    healthCheckPath: /
+    healthCheckGracePeriod: 300
     numInstances: 1
     envVars:
       - key: PORT
