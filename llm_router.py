@@ -148,7 +148,7 @@ CLAUDE_OPUS = "claude_opus"
 # Global timeout budget: max total wall-clock seconds for the entire call_llm()
 # fallback loop.  Individual per-provider timeouts are dynamically capped to the
 # remaining budget so the caller never waits longer than this.
-GLOBAL_TIMEOUT_BUDGET = 30.0  # seconds -- reduced from 60s to prevent stuck chats
+GLOBAL_TIMEOUT_BUDGET = 35.0  # seconds -- allows retry logic to complete
 _MIN_REMAINING_BUDGET = 5.0  # don't start a new attempt with < 5s left
 
 

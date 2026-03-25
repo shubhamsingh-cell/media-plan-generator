@@ -43,7 +43,7 @@ def _handle_competitive_scrape(handler: Any, path: str, parsed: Any) -> None:
         content_len = int(handler.headers.get("Content-Length") or 0)
         body = handler.rfile.read(content_len) if content_len > 0 else b"{}"
         data = json.loads(body)
-        domain = data.get("domain") or ""
+        domain = str(data.get("domain") or "").strip()
         if not domain:
             handler._send_json({"error": "Missing 'domain' field", "status": "error"})
             return

@@ -5144,6 +5144,7 @@
                 aria-live="polite"
                 aria-label="Budget insight"
               ></div>
+              <div class="field-error-msg" id="budgetRange-error"></div>
             </div>
             <div class="form-group">
               <label for="campaignDuration">Campaign Duration *</label>
@@ -5271,6 +5272,7 @@
                   Enter the exact number of hires needed
                 </div>
               </div>
+              <div class="field-error-msg" id="hireVolume-error"></div>
             </div>
             <div></div>
           </div>
@@ -5316,6 +5318,7 @@
               aria-live="polite"
               aria-label="Location insight"
             ></div>
+            <div class="field-error-msg" id="locationInput-error"></div>
           </div>
 
           <div class="form-group">
@@ -5381,6 +5384,7 @@
               -- we'll research what they're doing and include insights in your
               media plan.
             </div>
+            <div class="field-error-msg" id="competitorInput-error"></div>
             <button
               type="button"
               class="btn-analyze-competitors"
@@ -9576,6 +9580,272 @@
         }
       }
 
+      // ── CRITICAL FORM VALIDATION ──
+      // Valid US states + territories (for location validation)
+      const VALID_US_STATES = new Set([
+        "AL",
+        "AK",
+        "AZ",
+        "AR",
+        "CA",
+        "CO",
+        "CT",
+        "DE",
+        "FL",
+        "GA",
+        "HI",
+        "ID",
+        "IL",
+        "IN",
+        "IA",
+        "KS",
+        "KY",
+        "LA",
+        "ME",
+        "MD",
+        "MA",
+        "MI",
+        "MN",
+        "MS",
+        "MO",
+        "MT",
+        "NE",
+        "NV",
+        "NH",
+        "NJ",
+        "NM",
+        "NY",
+        "NC",
+        "ND",
+        "OH",
+        "OK",
+        "OR",
+        "PA",
+        "RI",
+        "SC",
+        "SD",
+        "TN",
+        "TX",
+        "UT",
+        "VT",
+        "VA",
+        "WA",
+        "WV",
+        "WI",
+        "WY",
+        "DC",
+        "PR",
+        "VI",
+        "GU",
+        "AS",
+        "MP",
+      ]);
+
+      // Valid countries (common recruitment markets)
+      const VALID_COUNTRIES = new Set([
+        "UNITED STATES",
+        "USA",
+        "US",
+        "CANADA",
+        "MEXICO",
+        "UNITED KINGDOM",
+        "UK",
+        "ENGLAND",
+        "IRELAND",
+        "FRANCE",
+        "GERMANY",
+        "NETHERLANDS",
+        "BELGIUM",
+        "ITALY",
+        "SPAIN",
+        "PORTUGAL",
+        "SWITZERLAND",
+        "AUSTRIA",
+        "SWEDEN",
+        "NORWAY",
+        "DENMARK",
+        "FINLAND",
+        "AUSTRALIA",
+        "NEW ZEALAND",
+        "SINGAPORE",
+        "MALAYSIA",
+        "INDIA",
+        "JAPAN",
+        "SOUTH KOREA",
+        "KOREA",
+        "CHINA",
+        "HONG KONG",
+        "PHILIPPINES",
+        "THAILAND",
+        "VIETNAM",
+        "BRAZIL",
+        "ARGENTINA",
+        "CHILE",
+        "COLOMBIA",
+        "PERU",
+        "SOUTH AFRICA",
+        "UAE",
+        "AUSTRALIA",
+        "INDIA",
+      ]);
+
+      function validateBudgetInput(budgetValue) {
+        if (!budgetValue) {
+          return { valid: false, error: "Budget is required" };
+        }
+
+        // Parse budget string (handles formats like $50,000, 50K, 50000, etc)
+        const budgetStr = budgetValue.replace(/[\$,]/g, "").trim();
+        let amount = 0;
+
+        // Handle K, M, B suffixes
+        if (/^\d+\.?\d*[KMB]$/.test(budgetStr.toUpperCase())) {
+          const num = parseFloat(budgetStr);
+          const suffix = budgetStr.charAt(budgetStr.length - 1).toUpperCase();
+          if (suffix === "K") amount = num * 1000;
+          else if (suffix === "M") amount = num * 1000000;
+          else if (suffix === "B") amount = num * 1000000000;
+        } else {
+          amount = parseFloat(budgetStr);
+        }
+
+        if (isNaN(amount) || amount <= 0) {
+          return { valid: false, error: "Budget must be greater than 0" };
+        }
+        if (amount > 1000000000) {
+          return {
+            valid: false,
+            error: "Budget exceeds maximum allowed value ($1B)",
+          };
+        }
+        return { valid: true, error: "" };
+      }
+
+      function validateLocations(locationList) {
+        const errors = [];
+
+        if (!locationList || locationList.length === 0) {
+          errors.push("At least one location is required");
+          return { valid: false, errors };
+        }
+
+        // Invalid location patterns
+        const invalidPatterns = [
+          /^hell$/i,
+          /^test$/i,
+          /^xxx$/i,
+          /^fake$/i,
+          /^placeholder$/i,
+          /^n\/a$/i,
+          /^\d+$/, // only numbers
+          /^[^a-z0-9\s,\-\.]*$/i, // no alphanumeric
+        ];
+
+        locationList.forEach((loc, idx) => {
+          const normalized = loc.trim().toUpperCase();
+
+          // Check against invalid patterns
+          if (invalidPatterns.some((p) => p.test(loc))) {
+            errors.push(`Location "${loc}" is not valid`);
+            return;
+          }
+
+          // Check if it looks like a real location (at least 2 characters, contains letters)
+          if (loc.length < 2 || !/[a-zA-Z]/.test(loc)) {
+            errors.push(`Location "${loc}" is too short or invalid`);
+            return;
+          }
+
+          // Try to match against known countries/states
+          const isValidLocation =
+            VALID_US_STATES.has(normalized.split(/[\s,]+/)[0]) ||
+            VALID_COUNTRIES.has(normalized.split(/[\s,]+/)[0]) ||
+            /^[a-zA-Z\s,\-\.]{2,}$/.test(loc); // Allow if contains valid city/region format
+
+          if (!isValidLocation && !/[a-z]{3,}/i.test(loc)) {
+            // Allow if at least 3 consecutive letters
+            errors.push(
+              `Location "${loc}" appears invalid (should be city/state/country)`,
+            );
+          }
+        });
+
+        return { valid: errors.length === 0, errors };
+      }
+
+      function validateHireVolume(hireVolumeStr) {
+        if (!hireVolumeStr) {
+          return { valid: true, error: "" }; // Optional field
+        }
+
+        // Parse hire volume (handles "100", "100 hires", "100-500", etc)
+        const match = hireVolumeStr.match(/(\d+)/);
+        if (!match) {
+          return {
+            valid: false,
+            error: "Hire volume must be a number greater than 0",
+          };
+        }
+
+        const num = parseInt(match[1], 10);
+        if (num <= 0) {
+          return { valid: false, error: "Hire volume must be greater than 0" };
+        }
+        if (num > 100000) {
+          return {
+            valid: false,
+            error: "Hire volume exceeds maximum (100,000)",
+          };
+        }
+
+        return { valid: true, error: "" };
+      }
+
+      function validateCompetitors(competitorList) {
+        const errors = [];
+
+        competitorList.forEach((comp) => {
+          const normalized = comp.trim();
+          if (normalized.length < 2) {
+            errors.push(`Competitor "${comp}" is too short`);
+          } else if (!/[a-zA-Z]/.test(normalized)) {
+            errors.push(`Competitor "${comp}" must contain letters`);
+          }
+        });
+
+        return { valid: errors.length === 0, errors };
+      }
+
+      function showFormError(fieldId, errorMsg) {
+        if (fieldId) {
+          const field = document.getElementById(fieldId);
+          if (field) {
+            const formGroup = field.closest(".form-group");
+            if (formGroup) {
+              formGroup.classList.add("field-error");
+              formGroup.classList.remove("field-valid");
+
+              // Find or create error message element
+              let errorEl = formGroup.querySelector(".field-error-msg");
+              if (!errorEl) {
+                errorEl = document.createElement("div");
+                errorEl.className = "field-error-msg";
+                formGroup.appendChild(errorEl);
+              }
+              errorEl.textContent = errorMsg;
+              errorEl.style.display = "block";
+
+              // Trigger shake animation
+              formGroup.style.animation = "none";
+              setTimeout(() => {
+                formGroup.style.animation = "shake 0.4s ease";
+              }, 10);
+            }
+          }
+        }
+        showToast(errorMsg, "error");
+      }
+
       // 26 & 28. Enhanced generatePlan with overlay, new fields, confetti, and toasts
       async function generatePlan() {
         // Validate name and email before generating
@@ -9590,6 +9860,68 @@
           showToast("Please enter a valid email address", "error");
           validateField("requesterEmail");
           return;
+        }
+
+        // ── CRITICAL: Validate budget ──
+        const budgetRangeSelect = document.getElementById("budgetRange");
+        const budgetValue =
+          budgetRangeSelect.value === "__exact__"
+            ? document.getElementById("exactBudget").value.trim()
+            : budgetRangeSelect.value;
+
+        const budgetValidation = validateBudgetInput(budgetValue);
+        if (!budgetValidation.valid) {
+          showFormError("budgetRange", budgetValidation.error);
+          return;
+        }
+
+        // ── CRITICAL: Validate locations ──
+        if (locations.length === 0) {
+          showFormError("locationInput", "At least one location is required");
+          const locContainer = document.getElementById("locationsContainer");
+          if (locContainer) {
+            locContainer.classList.add("field-error");
+            locContainer.style.animation = "shake 0.4s ease";
+          }
+          return;
+        }
+
+        const locValidation = validateLocations(locations);
+        if (!locValidation.valid) {
+          const errorMsg = locValidation.errors[0] || "Invalid location(s)";
+          showFormError("locationInput", errorMsg);
+          const locContainer = document.getElementById("locationsContainer");
+          if (locContainer) {
+            locContainer.classList.add("field-error");
+            locContainer.style.animation = "shake 0.4s ease";
+          }
+          return;
+        }
+
+        // ── CRITICAL: Validate hire volume if provided ──
+        const hireVolSelect = document.getElementById("hireVolume");
+        const hireVolValue =
+          hireVolSelect.value === "__exact__"
+            ? document.getElementById("exactHires").value.trim()
+            : hireVolSelect.value;
+
+        if (hireVolValue) {
+          const hireValidation = validateHireVolume(hireVolValue);
+          if (!hireValidation.valid) {
+            showFormError("hireVolume", hireValidation.error);
+            return;
+          }
+        }
+
+        // Validate competitors if provided
+        if (competitors.length > 0) {
+          const compValidation = validateCompetitors(competitors);
+          if (!compValidation.valid) {
+            const errorMsg =
+              compValidation.errors[0] || "Invalid competitor(s)";
+            showFormError("competitorInput", errorMsg);
+            return;
+          }
         }
 
         const btn = document.getElementById("generateBtn");

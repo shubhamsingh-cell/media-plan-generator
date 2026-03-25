@@ -371,7 +371,8 @@ def _handle_plan_direct_view(handler: Any, path: str, parsed: Any) -> None:
 def _handle_campaign_save(handler: Any, path: str, parsed: Any) -> None:
     """POST /api/campaign/save -- save campaign context."""
     try:
-        body = handler._read_body(max_size=50_000)
+        content_len = int(handler.headers.get("Content-Length") or 0)
+        body = handler.rfile.read(content_len) if content_len > 0 else b"{}"
         data = json.loads(body)
         campaign_id = data.get("id") or str(uuid.uuid4())[:8]
         data["id"] = campaign_id

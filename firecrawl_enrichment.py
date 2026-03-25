@@ -341,7 +341,7 @@ def scrape_job_board_pricing(board_name: str) -> dict[str, Any]:
         Dict with keys: board_name, cpc_range, cpa_estimate, posting_cost,
         model, source, last_updated.
     """
-    board_key = board_name.lower().strip()
+    board_key = str(board_name or "").lower().strip()
     fallback = _FALLBACK_BENCHMARKS.get(board_key) or {
         "board_name": board_name,
         "cpc_range": {"min": 0.50, "max": 5.00, "currency": "USD"},
@@ -501,7 +501,7 @@ def analyze_competitor_careers(company_domain: str) -> dict[str, Any]:
         Dict with keys: company, domain, total_openings, departments,
         locations, boards_detected, career_urls, source, last_updated.
     """
-    domain = company_domain.lower().strip().rstrip("/")
+    domain = str(company_domain or "").lower().strip().rstrip("/")
     # Strip protocol if accidentally included
     if domain.startswith("http://"):
         domain = domain[7:]
@@ -647,7 +647,7 @@ def analyze_competitor_careers(company_domain: str) -> dict[str, Any]:
         "bamboohr": "BambooHR",
         "ashbyhq": "Ashby",
     }
-    content_lower = markdown_content.lower()
+    content_lower = str(markdown_content or "").lower()
     for pattern, board_label in board_patterns.items():
         if pattern in content_lower:
             boards_detected.append(board_label)

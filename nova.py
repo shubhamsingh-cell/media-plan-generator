@@ -10617,7 +10617,7 @@ def handle_chat_request_stream(
     # Wrapped in a thread with hard 35s timeout to prevent "stuck on Thinking".
     yield {"status": "Analyzing your question...", "done": False}
 
-    _STREAM_TIMEOUT = 35.0  # Hard timeout -- slightly above router's 30s budget
+    _STREAM_TIMEOUT = 35.0  # Hard timeout -- matches GLOBAL_TIMEOUT_BUDGET
     _stream_result: dict = {}
     _stream_error: list = []
 

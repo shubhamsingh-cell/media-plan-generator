@@ -571,6 +571,7 @@ def _scrape_result(
     title: str = "",
     metadata: Optional[dict[str, Any]] = None,
     latency_ms: float = 0.0,
+    error: str = "",
 ) -> dict[str, Any]:
     """Build a normalized scrape result dict.
 
@@ -581,11 +582,12 @@ def _scrape_result(
         title: Page title if available.
         metadata: Any additional metadata from the provider.
         latency_ms: Time taken in milliseconds.
+        error: Error message if scrape failed (e.g., security validation).
 
     Returns:
         Normalized result dict.
     """
-    return {
+    result = {
         "content": content or "",
         "url": url,
         "provider": provider,
@@ -594,6 +596,9 @@ def _scrape_result(
         "latency_ms": round(latency_ms, 1),
         "scraped_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
     }
+    if error:
+        result["error"] = error
+    return result
 
 
 def _search_result(
@@ -1550,6 +1555,62 @@ def _urllib_scrape(url: str) -> Optional[dict[str, Any]]:
 # =============================================================================
 
 
+def _validate_url_security(url: str) -> tuple[bool, str]:
+    """Validate URL to prevent SSRF attacks.
+
+    Blocks:
+    - Dangerous schemes (only allow http/https)
+    - Private/internal IP ranges (127.*, 192.168.*, 10.*, 172.16.*, 169.254.*)
+    - Reserved hostnames (localhost, 0.0.0.0, ::1)
+    - AWS metadata endpoint (169.254.169.254)
+
+    Args:
+        url: The URL to validate.
+
+    Returns:
+        Tuple of (is_valid: bool, error_message: str). If valid, error_message is empty.
+    """
+    try:
+        parsed = urllib.parse.urlparse(url)
+    except Exception as e:
+        return False, f"Invalid URL format: {e}"
+
+    # Check scheme: only allow http and https
+    scheme = parsed.scheme.lower()
+    if scheme not in ("http", "https"):
+        return False, f"Dangerous scheme '{scheme}' not allowed (only http/https)"
+
+    hostname = parsed.hostname or ""
+    if not hostname:
+        return False, "URL missing hostname"
+
+    hostname_lower = hostname.lower()
+
+    # Blocked reserved hostnames
+    blocked_hostnames = {"localhost", "0.0.0.0", "::1", "127.0.0.1"}
+    if hostname_lower in blocked_hostnames:
+        return False, f"Reserved hostname '{hostname}' blocked"
+
+    # Block private IP ranges
+    private_patterns = [
+        r"^127\.",  # 127.0.0.0/8
+        r"^192\.168\.",  # 192.168.0.0/16
+        r"^10\.",  # 10.0.0.0/8
+        r"^172\.(1[6-9]|2[0-9]|3[0-1])\.",  # 172.16.0.0/12
+        r"^169\.254\.",  # 169.254.0.0/16 (link-local)
+    ]
+
+    for pattern in private_patterns:
+        if re.match(pattern, hostname):
+            return False, f"Private IP range '{hostname}' blocked (SSRF protection)"
+
+    # Block AWS metadata endpoint specifically
+    if hostname_lower == "169.254.169.254":
+        return False, "AWS metadata endpoint blocked (SSRF protection)"
+
+    return True, ""
+
+
 def scrape_url(
     url: str,
     topic_hint: str = "",
@@ -1582,6 +1643,14 @@ def scrape_url(
         return _scrape_result("", "", "none")
 
     url = url.strip()
+
+    # SECURITY: Validate URL to prevent SSRF attacks (P0 vulnerability fix)
+    is_valid, error_msg = _validate_url_security(url)
+    if not is_valid:
+        logger.warning(
+            f"scrape_url: URL security validation failed: {error_msg} for {url}"
+        )
+        return _scrape_result("", url, "none", error=error_msg)
 
     # Check cache first
     if use_cache:

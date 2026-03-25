@@ -9677,9 +9677,63 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 )
                 return
 
+            # ── CRITICAL: Validate budget is explicitly set (Ashlie Issue #1) ──
             _budget_input = str(
                 data.get("budget") or "" or data.get("budget_range") or "" or ""
             ).strip()
+            if not _budget_input or _budget_input == "":
+                self._send_error(
+                    "Budget must be specified. Please select a budget range or enter an exact amount.",
+                    "VALIDATION_ERROR",
+                    400,
+                )
+                return
+
+            # ── CRITICAL: Validate locations are valid (Ashlie Issue #2) ──
+            _invalid_locations = ["hell", "test", "xxx", "fake", "placeholder", "n/a"]
+            if isinstance(_locs_input, list):
+                for loc in _locs_input:
+                    loc_lower = str(loc or "").lower().strip()
+                    if loc_lower in _invalid_locations:
+                        self._send_error(
+                            f'Location "{loc}" is not valid. Please enter a real city, state, or country.',
+                            "VALIDATION_ERROR",
+                            400,
+                        )
+                        return
+                    # Reject locations that are too short or have no letters
+                    if len(loc_lower) < 2 or not any(c.isalpha() for c in loc_lower):
+                        self._send_error(
+                            f'Location "{loc}" is invalid. Please use a real city, state, or country name.',
+                            "VALIDATION_ERROR",
+                            400,
+                        )
+                        return
+
+            # ── CRITICAL: Validate hire_volume is reasonable (Ashlie Issue #3) ──
+            _hire_vol = data.get("hire_volume") or ""
+            if _hire_vol:
+                # Extract number from strings like "100 hires" or "100-500"
+                import re as _re_module
+
+                _hire_match = _re_module.search(r"(\d+)", str(_hire_vol))
+                if _hire_match:
+                    _hire_num = int(_hire_match.group(1))
+                    if _hire_num <= 0:
+                        self._send_error(
+                            "Hire volume must be greater than 0.",
+                            "VALIDATION_ERROR",
+                            400,
+                        )
+                        return
+                    if _hire_num > 100000:
+                        self._send_error(
+                            "Hire volume exceeds maximum (100,000).",
+                            "VALIDATION_ERROR",
+                            400,
+                        )
+                        return
+
             _validation_warnings = []
             if not _roles_input or (
                 isinstance(_roles_input, list) and len(_roles_input) == 0
@@ -11353,7 +11407,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     "Chat history exceeds 50 messages limit", "VALIDATION_ERROR", 400
                 )
                 return
-            _CHAT_REQUEST_TIMEOUT: float = 30.0  # seconds -- matches LLM router budget
+            _CHAT_REQUEST_TIMEOUT: float = (
+                35.0  # seconds -- matches GLOBAL_TIMEOUT_BUDGET
+            )
             try:
                 # ── Shared enrichment: file parsing + parallel API calls ──
                 _enrich_chat_context(data, data.get("message") or "")
