@@ -2871,18 +2871,20 @@
         })
         .then(function (data) {
           hideTyping();
+          // Unwrap API envelope: _send_json wraps as {success, data, error}
+          var result = data && data.data ? data.data : data;
           // PostHog: track non-streaming response received
           if (window.posthog) {
             window.posthog.capture("nova_chat_response_received", {
               source: "widget",
               page: window.location.pathname,
-              response_length: (data.response || "").length,
-              provider: data.provider || "",
-              confidence: data.confidence || 0,
+              response_length: (result.response || "").length,
+              provider: result.provider || "",
+              confidence: result.confidence || 0,
               streaming: false,
             });
             // PostHog: track each tool used during this response
-            var nsToolsUsed = data.tools_used || [];
+            var nsToolsUsed = result.tools_used || [];
             nsToolsUsed.forEach(function (toolName) {
               window.posthog.capture("nova_chat_tool_used", {
                 tool_name: toolName,
@@ -2892,10 +2894,10 @@
           }
           appendMessage({
             role: "assistant",
-            content: data.response || "No response received.",
-            sources: data.sources || [],
-            confidence: data.confidence || 0,
-            confidence_breakdown: data.confidence_breakdown || null,
+            content: result.response || "No response received.",
+            sources: result.sources || [],
+            confidence: result.confidence || 0,
+            confidence_breakdown: result.confidence_breakdown || null,
           });
         })
         .catch(function (err) {

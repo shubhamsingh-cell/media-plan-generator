@@ -112,11 +112,11 @@ def _http_request(
             except Exception:
                 pass
 
-            logger.error(f"HTTP {exc.code} {method} {url}: {error_body}")
+            logger.error(f"HTTP {exc.code} {method} {url}: {error_body}", exc_info=True)
             return (None, exc.code)
 
         except Exception as exc:
-            logger.error(f"Error {method} {url}: {exc}")
+            logger.error(f"Error {method} {url}: {exc}", exc_info=True)
             return (None, None)
 
     return (None, None)

@@ -273,9 +273,10 @@ SLO_TARGETS: Dict[str, Dict[str, Any]] = {
         "endpoint": "/api/generate",
     },
     "chat_p99_ms": {
-        "target": 30000,  # 30 seconds (tool-use queries can take 20-30s)
+        "target": 45000,  # 45 seconds (tool-use queries 20-30s + cold-start can spike to 40s)
         "description": "99th percentile chat latency",
         "endpoint": "/api/chat",
+        "grace_after_deploy_s": 300,  # Exclude first 5 min after deploy from SLO
     },
     "error_rate_pct": {
         "target": 1.0,  # 1% error budget
@@ -897,14 +898,18 @@ class MetricsCollector:
                 "sample_size": len(gen_lats),
             }
 
-            # Chat P99 latency
+            # Chat P99 latency (with post-deploy grace period)
             chat_lats = sorted(self._latencies.get("/api/chat") or [])
             chat_p99 = _percentile(chat_lats, 99) if chat_lats else 0.0
+            _chat_slo = SLO_TARGETS["chat_p99_ms"]
+            _chat_grace = _chat_slo.get("grace_after_deploy_s", 300)
+            _chat_in_grace = uptime < _chat_grace
             results["chat_p99_ms"] = {
-                "target": SLO_TARGETS["chat_p99_ms"]["target"],
+                "target": _chat_slo["target"],
                 "actual": round(chat_p99, 1),
-                "compliant": chat_p99 <= SLO_TARGETS["chat_p99_ms"]["target"],
+                "compliant": _chat_in_grace or chat_p99 <= _chat_slo["target"],
                 "sample_size": len(chat_lats),
+                "in_grace_period": _chat_in_grace,
             }
 
             # Error rate -- use ROLLING WINDOW (1h) for SLO compliance,

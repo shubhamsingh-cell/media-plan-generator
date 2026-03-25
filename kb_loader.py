@@ -44,7 +44,11 @@ KB_FILES: dict[str, str] = {
     "google_ads_benchmarks": "google_ads_2025_benchmarks.json",
     "external_benchmarks": "external_benchmarks_2025.json",
     "client_media_plans": "client_media_plans_kb.json",
+    "international_sources": "international_sources.json",
 }
+
+# Maximum file age (in days) before a startup warning is logged.
+_FILE_FRESHNESS_THRESHOLD_DAYS: int = 180
 
 # How often the reload thread checks for file changes (seconds).
 KB_RELOAD_INTERVAL_SECONDS: int = 300  # 5 minutes
@@ -115,6 +119,125 @@ def _validate_freshness(kb: dict[str, Any]) -> None:
         logger.warning("KB freshness check failed (non-fatal): %s", e)
 
 
+def _check_file_freshness_at_startup() -> list[dict[str, Any]]:
+    """Check on-disk file ages and warn if any data file exceeds the freshness threshold.
+
+    Scans all files in KB_FILES and reports those whose filesystem modification
+    time is older than ``_FILE_FRESHNESS_THRESHOLD_DAYS``.  Called once during
+    the initial ``load_knowledge_base()`` call.
+
+    Returns:
+        List of dicts with keys: filename, section_key, age_days, mtime_iso.
+    """
+    stale: list[dict[str, Any]] = []
+    now = datetime.datetime.now()
+    for section_key, filename in KB_FILES.items():
+        fpath = os.path.join(_DATA_DIR, filename)
+        mtime = _get_file_mtime(fpath)
+        if mtime <= 0:
+            continue
+        mtime_dt = datetime.datetime.fromtimestamp(mtime)
+        age_days = (now - mtime_dt).days
+        if age_days > _FILE_FRESHNESS_THRESHOLD_DAYS:
+            stale.append(
+                {
+                    "filename": filename,
+                    "section_key": section_key,
+                    "age_days": age_days,
+                    "mtime_iso": mtime_dt.isoformat(),
+                }
+            )
+            logger.warning(
+                "DATA FRESHNESS: '%s' (%s) is %d days old (threshold=%d days). "
+                "Consider refreshing this data file.",
+                filename,
+                section_key,
+                age_days,
+                _FILE_FRESHNESS_THRESHOLD_DAYS,
+            )
+    return stale
+
+
+def get_data_freshness_report() -> dict[str, Any]:
+    """Build a freshness report for every file in the data/ directory.
+
+    Designed to be called by the ``/api/data/freshness`` endpoint. Reports the
+    age, last-modified timestamp, and staleness status for each KB file plus
+    all supplementary JSON files found in the data directory.
+
+    Returns:
+        Dict with ``files`` list, ``stale_count``, and ``checked_at`` ISO timestamp.
+    """
+    now = datetime.datetime.now()
+    files_report: list[dict[str, Any]] = []
+
+    # KB_FILES (primary knowledge base files)
+    for section_key, filename in KB_FILES.items():
+        fpath = os.path.join(_DATA_DIR, filename)
+        mtime = _get_file_mtime(fpath)
+        if mtime <= 0:
+            files_report.append(
+                {
+                    "filename": filename,
+                    "section_key": section_key,
+                    "exists": False,
+                    "age_days": None,
+                    "mtime_iso": None,
+                    "stale": True,
+                    "source": "kb_primary",
+                }
+            )
+            continue
+        mtime_dt = datetime.datetime.fromtimestamp(mtime)
+        age_days = (now - mtime_dt).days
+        files_report.append(
+            {
+                "filename": filename,
+                "section_key": section_key,
+                "exists": True,
+                "age_days": age_days,
+                "mtime_iso": mtime_dt.isoformat(),
+                "stale": age_days > _FILE_FRESHNESS_THRESHOLD_DAYS,
+                "source": "kb_primary",
+            }
+        )
+
+    # Supplementary data files (*.json in data/ not already in KB_FILES)
+    kb_filenames = set(KB_FILES.values())
+    try:
+        data_path = Path(_DATA_DIR)
+        for json_file in sorted(data_path.glob("*.json")):
+            if json_file.name in kb_filenames:
+                continue
+            mtime = _get_file_mtime(str(json_file))
+            if mtime <= 0:
+                continue
+            mtime_dt = datetime.datetime.fromtimestamp(mtime)
+            age_days = (now - mtime_dt).days
+            files_report.append(
+                {
+                    "filename": json_file.name,
+                    "section_key": None,
+                    "exists": True,
+                    "age_days": age_days,
+                    "mtime_iso": mtime_dt.isoformat(),
+                    "stale": age_days > _FILE_FRESHNESS_THRESHOLD_DAYS,
+                    "source": "supplementary",
+                }
+            )
+    except OSError as e:
+        logger.warning("Failed to scan supplementary data files: %s", e)
+
+    stale_count = sum(1 for f in files_report if f.get("stale"))
+    return {
+        "checked_at": now.isoformat(),
+        "threshold_days": _FILE_FRESHNESS_THRESHOLD_DAYS,
+        "total_files": len(files_report),
+        "stale_count": stale_count,
+        "files": files_report,
+    }
+
+
 def load_knowledge_base() -> dict[str, Any]:
     """Load and merge all knowledge base files into unified dict.
 
@@ -151,6 +274,19 @@ def load_knowledge_base() -> dict[str, Any]:
 
         _rebuild_backward_compat(kb)
         _validate_freshness(kb)
+
+        # ── File-level freshness check (P3: data quality) ──
+        try:
+            stale_files = _check_file_freshness_at_startup()
+            if stale_files:
+                kb["_stale_data_files"] = stale_files
+                logger.warning(
+                    "DATA FRESHNESS: %d data file(s) exceed %d-day threshold",
+                    len(stale_files),
+                    _FILE_FRESHNESS_THRESHOLD_DAYS,
+                )
+        except Exception as freshness_err:
+            logger.debug("File freshness check failed (non-fatal): %s", freshness_err)
 
         # ── KB Memory Usage Tracking (#14) ──
         try:

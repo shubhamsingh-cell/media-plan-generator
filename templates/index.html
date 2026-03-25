@@ -284,6 +284,7 @@
       }
     </script>
 
+    <link rel="stylesheet" href="/static/css/tokens.css" />
     <style>
       :root {
         /* ============================================
@@ -3175,7 +3176,7 @@
         border-bottom: none;
       }
       .plan-channel-card-stat .stat-label {
-        color: #666;
+        color: #8e8e93;
       }
       .plan-channel-card-stat .stat-value {
         color: var(--text-secondary, #a1a1a1);
@@ -5304,6 +5305,7 @@
                 class="tags-input"
                 id="locationInput"
                 placeholder="e.g. San Francisco CA, London UK, Singapore... (press Enter or comma to add)"
+                autocomplete="off"
               />
             </div>
             <div class="form-hint" style="opacity: 0.7">
@@ -5382,6 +5384,7 @@
                 class="tags-input"
                 id="competitorInput"
                 placeholder="Type a competitor name and press Enter..."
+                autocomplete="off"
               />
             </div>
             <div class="form-hint" style="opacity: 0.7">
@@ -5502,6 +5505,7 @@
                 id="industrySearch"
                 placeholder="Search industries..."
                 class="form-input"
+                autocomplete="off"
                 style="
                   width: 100%;
                   max-width: 400px;
@@ -5762,6 +5766,7 @@
                 class="tags-input"
                 id="roleInput"
                 placeholder="Type a role and press Enter..."
+                autocomplete="off"
               />
             </div>
             <div
@@ -5794,6 +5799,7 @@
               type="text"
               id="targetDemographic"
               placeholder="e.g., Gen Z (18-26), Early-career professionals, Mid-level specialists"
+              autocomplete="off"
             />
           </div>
 
@@ -7456,7 +7462,7 @@
             '<div id="sankeyFlowContainer" style="margin:0 0 16px;padding:12px;' +
             "background:rgba(32,32,88,0.15);border-radius:12px;" +
             'border:1px solid rgba(90,84,189,0.15);overflow:hidden;">' +
-            '<div style="color:#666;text-align:center;padding:30px;font-family:Inter,sans-serif;">' +
+            '<div style="color:#8e8e93;text-align:center;padding:30px;font-family:Inter,sans-serif;">' +
             "Loading flow diagram...</div></div>";
         }
 
@@ -7681,7 +7687,7 @@
           } catch (sankeyErr) {
             console.warn("[SankeyViz] Render error:", sankeyErr);
             sankeyContainer.innerHTML =
-              '<div style="color:#666;text-align:center;padding:20px;font-size:12px;">' +
+              '<div style="color:#8e8e93;text-align:center;padding:20px;font-size:12px;">' +
               "Flow diagram unavailable</div>";
           }
         }

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Gold Standard Quality Gates for Media Plan Generator.
 

@@ -23,6 +23,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
+    <link rel="stylesheet" href="/static/css/tokens.css" />
     <style>
       /* ═══════════════════════════════════════════════════════════════════
    DESIGN SYSTEM: Deep Obsidian + Electric Indigo
@@ -1387,6 +1388,7 @@
             id="cfg-role"
             placeholder="e.g., Software Engineer, Registered Nurse, CDL Truck Driver"
             value="Software Engineer"
+            autocomplete="off"
           />
         </div>
 
@@ -1398,6 +1400,7 @@
             id="cfg-company"
             placeholder="e.g., Acme Corp"
             value="Acme Corp"
+            autocomplete="organization"
           />
         </div>
 
@@ -1409,6 +1412,7 @@
             id="cfg-location"
             placeholder="e.g., San Francisco, CA"
             value="San Francisco, CA"
+            autocomplete="off"
           />
         </div>
 
@@ -2433,7 +2437,7 @@
           var html =
             '<div class="af-summary-score">' +
             '<div class="af-summary-score-num">' +
-            (data.score || "--") +
+            escapeHtml(data.score || "--") +
             "%</div>" +
             '<div class="af-summary-score-label">Qualification Score</div>' +
             "</div>" +
@@ -2463,9 +2467,11 @@
           var html =
             '<div class="af-summary-score">' +
             '<div class="af-summary-score-num">' +
-            (data.qualification_score != null
-              ? Math.round(data.qualification_score) + "%"
-              : "--") +
+            escapeHtml(
+              data.qualification_score != null
+                ? Math.round(data.qualification_score) + "%"
+                : "--",
+            ) +
             "</div>" +
             '<div class="af-summary-score-label">Qualification Score</div>' +
             "</div>";
@@ -2500,7 +2506,7 @@
           var html =
             '<div class="af-summary-score">' +
             '<div class="af-summary-score-num">' +
-            statScore.textContent +
+            escapeHtml(statScore.textContent) +
             "</div>" +
             '<div class="af-summary-score-label">Qualification Score</div>' +
             "</div>" +

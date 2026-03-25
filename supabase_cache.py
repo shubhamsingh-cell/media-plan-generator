@@ -398,7 +398,7 @@ def _fire_and_forget_hit_increment(key: str) -> None:
             fetch_url = _rest_url(f"{_TABLE}?key=eq.{encoded_key}&select=hit_count")
             result = _http_request(fetch_url, method="GET")
             if result and isinstance(result, list) and len(result) > 0:
-                current = result[0].get("hit_count") or 0 or 0
+                current = result[0].get("hit_count") or 0
                 body = json.dumps({"hit_count": current + 1}).encode("utf-8")
                 _http_request(url, method="PATCH", body=body, headers=headers)
         except Exception:
@@ -808,7 +808,7 @@ def get_supabase_stats() -> Dict[str, Any]:
     )
 
     # Compute hit rate.
-    total_lookups = snapshot.get("hits") or 0 + snapshot.get("misses") or 0
+    total_lookups = (snapshot.get("hits") or 0) + (snapshot.get("misses") or 0)
     if total_lookups > 0:
         snapshot["hit_rate"] = round(snapshot["hits"] / total_lookups, 4)
     else:

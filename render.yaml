@@ -10,6 +10,9 @@ services:
     startCommand: python app.py
     healthCheckPath: /
     healthCheckGracePeriod: 300
+    # Blue-green deploy gate: poll /api/deploy/ready in CI/CD scripts
+    # to confirm the new instance has fully warmed up (KB loaded, caches primed).
+    # Render uses healthCheckPath (/) for liveness; /api/deploy/ready is readiness.
     numInstances: 1
     envVars:
       - key: PORT

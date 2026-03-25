@@ -23,6 +23,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
+    <link rel="stylesheet" href="/static/css/tokens.css" />
     <style>
       :root {
         --bg-primary: #000000;
@@ -2182,7 +2183,7 @@
               '<button class="channel-tab' +
               (i === 0 ? " active" : "") +
               '" data-channel-tab="' +
-              ch +
+              esc(ch) +
               '">' +
               esc(d.icon + " " + d.name) +
               "</button>";
@@ -2195,7 +2196,7 @@
               '<div class="channel-output' +
               (i === 0 ? " active" : "") +
               '" data-channel-output="' +
-              ch +
+              esc(ch) +
               '">';
             d.variations.forEach(function (v, vi) {
               h += renderVar(v, vi, ch, cfg);

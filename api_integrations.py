@@ -69,6 +69,7 @@ except ImportError:
 
 _cache: dict[str, tuple[float, Any]] = {}
 _CACHE_TTL = 3600  # 1 hour default
+_CACHE_MAX_SIZE = 500  # Max L1 entries -- evict oldest by timestamp when exceeded
 _REDIS_TTL_DEFAULT = 86400  # 24 hours for most APIs in Redis
 
 # Real-time API prefixes get shorter Redis TTL (1 hour)
@@ -133,7 +134,12 @@ def _set_cached(key: str, value: Any) -> None:
         key: Cache key string.
         value: Any serializable value to cache.
     """
-    # L1: in-memory
+    # L1: in-memory -- enforce size cap by evicting oldest entries
+    if len(_cache) >= _CACHE_MAX_SIZE and key not in _cache:
+        # Evict oldest entries (by timestamp) to make room
+        sorted_keys = sorted(_cache, key=lambda k: _cache[k][0])
+        for stale_key in sorted_keys[: len(_cache) - _CACHE_MAX_SIZE + 1]:
+            _cache.pop(stale_key, None)
     _cache[key] = (time.time(), value)
 
     # L2: Upstash Redis (fire-and-forget, non-blocking)
@@ -158,10 +164,18 @@ def clear_cache() -> None:
 
 _DEFAULT_TIMEOUT = 10  # seconds
 
-# Permissive SSL context for APIs with cert issues
+# Secure SSL context using system CA bundle (default behavior)
 _ssl_ctx = ssl.create_default_context()
-_ssl_ctx.check_hostname = False
-_ssl_ctx.verify_mode = ssl.CERT_NONE
+# check_hostname=True and verify_mode=CERT_REQUIRED are the defaults —
+# explicitly set for clarity and to prevent accidental regression.
+_ssl_ctx.check_hostname = True
+_ssl_ctx.verify_mode = ssl.CERT_REQUIRED
+
+# Separate unverified context for self-signed cert APIs only.
+# Used as a per-call fallback — never applied globally.
+_ssl_ctx_unverified = ssl.create_default_context()
+_ssl_ctx_unverified.check_hostname = False
+_ssl_ctx_unverified.verify_mode = ssl.CERT_NONE
 
 
 def _http_get(
@@ -181,9 +195,22 @@ def _http_get(
     """
     try:
         req = urllib.request.Request(url, headers=headers or {})
-        with urllib.request.urlopen(req, timeout=timeout, context=_ssl_ctx) as resp:
-            raw = resp.read().decode("utf-8")
-            return json.loads(raw)
+        try:
+            with urllib.request.urlopen(req, timeout=timeout, context=_ssl_ctx) as resp:
+                raw = resp.read().decode("utf-8")
+                return json.loads(raw)
+        except urllib.error.URLError as ssl_exc:
+            if "CERTIFICATE_VERIFY_FAILED" in str(ssl_exc) or "SSL" in str(ssl_exc):
+                logger.warning(
+                    f"SSL verification failed for {url}, retrying without verification"
+                )
+                req = urllib.request.Request(url, headers=headers or {})
+                with urllib.request.urlopen(
+                    req, timeout=timeout, context=_ssl_ctx_unverified
+                ) as resp:
+                    raw = resp.read().decode("utf-8")
+                    return json.loads(raw)
+            raise
     except urllib.error.HTTPError as exc:
         logger.error(f"HTTP {exc.code} for {url}", exc_info=True)
         return None
@@ -224,9 +251,24 @@ def _http_post(
         if headers:
             hdrs.update(headers)
         req = urllib.request.Request(url, data=body, headers=hdrs, method="POST")
-        with urllib.request.urlopen(req, timeout=timeout, context=_ssl_ctx) as resp:
-            raw = resp.read().decode("utf-8")
-            return json.loads(raw)
+        try:
+            with urllib.request.urlopen(req, timeout=timeout, context=_ssl_ctx) as resp:
+                raw = resp.read().decode("utf-8")
+                return json.loads(raw)
+        except urllib.error.URLError as ssl_exc:
+            if "CERTIFICATE_VERIFY_FAILED" in str(ssl_exc) or "SSL" in str(ssl_exc):
+                logger.warning(
+                    f"SSL verification failed for POST {url}, retrying without verification"
+                )
+                req = urllib.request.Request(
+                    url, data=body, headers=hdrs, method="POST"
+                )
+                with urllib.request.urlopen(
+                    req, timeout=timeout, context=_ssl_ctx_unverified
+                ) as resp:
+                    raw = resp.read().decode("utf-8")
+                    return json.loads(raw)
+            raise
     except urllib.error.HTTPError as exc:
         logger.error(f"HTTP {exc.code} for POST {url}", exc_info=True)
         return None

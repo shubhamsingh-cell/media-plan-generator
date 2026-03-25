@@ -23,6 +23,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
+    <link rel="stylesheet" href="/static/css/tokens.css" />
     <style>
       :root {
         --bg: #000000;
@@ -34,7 +35,7 @@
         --accent-glow: rgba(90, 84, 189, 0.2);
         --text: #d4d4d8;
         --text-sec: #a1a1a1;
-        --text-muted: #666666;
+        --text-muted: #8e8e93;
         --border: rgba(255, 255, 255, 0.08);
         --green: #34d399;
         --amber: #fbbf24;
@@ -763,6 +764,7 @@
               type="text"
               id="roleInput"
               placeholder="e.g. Software Engineer, Nurse, Truck Driver"
+              autocomplete="off"
             />
           </div>
           <div class="field">
@@ -801,6 +803,7 @@
               type="text"
               id="locationInput"
               placeholder="e.g. New York, US or London, UK"
+              autocomplete="off"
             />
           </div>
           <button
@@ -1130,11 +1133,11 @@
         document.getElementById("salaryMedian").style.left = medPos + "%";
         document.getElementById("salaryLabels").innerHTML =
           "<span>" +
-          fmt(min) +
+          escapeHtml(fmt(min)) +
           ' (P10)</span><span class="median-label">Median: ' +
-          fmt(med) +
+          escapeHtml(fmt(med)) +
           "</span><span>" +
-          fmt(max) +
+          escapeHtml(fmt(max)) +
           " (P90)</span>";
 
         var html = "";

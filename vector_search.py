@@ -36,6 +36,7 @@ All functions:
 from __future__ import annotations
 
 import collections
+import hashlib
 import json
 import logging
 import math
@@ -57,8 +58,20 @@ _VOYAGE_TIMEOUT = 20  # seconds
 _VOYAGE_API_KEY: str | None = None
 _VOYAGE_MAX_BATCH = 128  # Voyage API max batch size
 _VOYAGE_RPM_LIMIT = 10  # Voyage free tier: ~10 req/min
+_VOYAGE_MIN_DELAY = 6.5  # Seconds between requests (10 RPM = 6s + 0.5s buffer)
 _voyage_request_times: list[float] = []
 _voyage_rate_lock = threading.Lock()
+_voyage_last_request: float = 0.0  # monotonic timestamp of last API call
+
+# ── Embedding disk cache ─────────────────────────────────────────────────────
+# Caches Voyage AI embeddings to disk so server restarts don't re-compute them.
+# Cache is keyed by a hash of the text content, stored as JSON.
+_EMBEDDING_CACHE_FILE = (
+    Path(__file__).resolve().parent / "data" / ".embedding_cache.json"
+)
+_embedding_cache: dict[str, list[float]] = {}
+_embedding_cache_lock = threading.Lock()
+_embedding_cache_loaded = False
 
 # ── Qdrant Configuration ────────────────────────────────────────────────────
 _QDRANT_URL: str = os.environ.get("QDRANT_URL") or ""
@@ -91,6 +104,80 @@ def _get_api_key() -> str | None:
     if _VOYAGE_API_KEY is None:
         _VOYAGE_API_KEY = os.environ.get("VOYAGE_API_KEY") or ""
     return _VOYAGE_API_KEY if _VOYAGE_API_KEY else None
+
+
+# ── Embedding disk cache helpers ─────────────────────────────────────────────
+
+
+def _text_cache_key(text: str) -> str:
+    """Generate a stable cache key for a text string.
+
+    Uses SHA-256 of the text content combined with the model name
+    so cache invalidates if the model changes.
+
+    Args:
+        text: The text to compute a cache key for.
+
+    Returns:
+        Hex digest string suitable as a dict key.
+    """
+    content = f"{_VOYAGE_MODEL}:{text}"
+    return hashlib.sha256(content.encode("utf-8")).hexdigest()[:16]
+
+
+def _load_embedding_cache() -> None:
+    """Load the embedding cache from disk (thread-safe, called once).
+
+    Reads .embedding_cache.json from the data/ directory. If the file
+    does not exist or is corrupt, starts with an empty cache.
+    """
+    global _embedding_cache, _embedding_cache_loaded
+
+    if _embedding_cache_loaded:
+        return
+
+    with _embedding_cache_lock:
+        if _embedding_cache_loaded:
+            return
+
+        if _EMBEDDING_CACHE_FILE.exists():
+            try:
+                raw = _EMBEDDING_CACHE_FILE.read_text(encoding="utf-8")
+                loaded = json.loads(raw)
+                if isinstance(loaded, dict):
+                    _embedding_cache = loaded
+                    logger.info(
+                        "Loaded %d cached embeddings from disk", len(_embedding_cache)
+                    )
+            except (json.JSONDecodeError, OSError) as exc:
+                logger.warning(
+                    "Failed to load embedding cache, starting fresh: %s", exc
+                )
+                _embedding_cache = {}
+        else:
+            logger.debug("No embedding cache file found, starting fresh")
+
+        _embedding_cache_loaded = True
+
+
+def _save_embedding_cache() -> None:
+    """Persist the embedding cache to disk (thread-safe).
+
+    Writes atomically by writing to a temp file then renaming.
+    """
+    with _embedding_cache_lock:
+        cache_snapshot = dict(_embedding_cache)
+
+    try:
+        tmp_path = _EMBEDDING_CACHE_FILE.with_suffix(".tmp")
+        tmp_path.write_text(
+            json.dumps(cache_snapshot, separators=(",", ":")),
+            encoding="utf-8",
+        )
+        tmp_path.replace(_EMBEDDING_CACHE_FILE)
+        logger.info("Saved %d embeddings to disk cache", len(cache_snapshot))
+    except OSError as exc:
+        logger.error("Failed to save embedding cache: %s", exc, exc_info=True)
 
 
 # ── Qdrant REST API helpers (stdlib-only, no pip packages) ───────────────────
@@ -314,12 +401,18 @@ def embed_text(text: str) -> list[float] | None:
 def embed_batch(texts: list[str]) -> list[list[float]] | None:
     """Get embedding vectors for a batch of texts via Voyage AI API.
 
+    Uses a disk cache to avoid re-computing embeddings on server restart.
+    Only texts missing from the cache are sent to the Voyage API, with
+    rate-limited batching to avoid 429 errors.
+
     Args:
         texts: List of texts to embed (max 128 per call).
 
     Returns:
         List of embedding vectors (list[list[float]]), or None on failure.
     """
+    global _voyage_last_request
+
     api_key = _get_api_key()
     if not api_key:
         logger.warning(
@@ -331,16 +424,44 @@ def embed_batch(texts: list[str]) -> list[list[float]] | None:
     if not texts:
         return []
 
-    # Chunk into batches of _VOYAGE_MAX_BATCH
-    all_embeddings: list[list[float]] = []
-    last_request_time: float = (
-        time.monotonic() - 10.0
-    )  # Start with old timestamp to avoid delay on first batch
+    # Ensure disk cache is loaded
+    _load_embedding_cache()
 
-    for i in range(0, len(texts), _VOYAGE_MAX_BATCH):
-        batch = texts[i : i + _VOYAGE_MAX_BATCH]
-        # Truncate each text to avoid exceeding token limits
-        batch = [t[:8000] for t in batch]
+    # Truncate texts to match what we'd send to the API
+    truncated: list[str] = [t[:8000] for t in texts]
+
+    # Split into cached vs uncached
+    result_embeddings: list[list[float] | None] = [None] * len(truncated)
+    uncached_indices: list[int] = []
+
+    with _embedding_cache_lock:
+        for idx, text in enumerate(truncated):
+            key = _text_cache_key(text)
+            cached = _embedding_cache.get(key)
+            if cached is not None:
+                result_embeddings[idx] = cached
+            else:
+                uncached_indices.append(idx)
+
+    cache_hits = len(truncated) - len(uncached_indices)
+    if cache_hits > 0:
+        logger.info(
+            "Embedding cache: %d/%d hits, %d to compute via API",
+            cache_hits,
+            len(truncated),
+            len(uncached_indices),
+        )
+
+    if not uncached_indices:
+        # All embeddings were cached -- no API calls needed
+        return [e for e in result_embeddings if e is not None]
+
+    # Collect uncached texts and compute embeddings via API with rate limiting
+    uncached_texts = [truncated[i] for i in uncached_indices]
+    new_embeddings: list[list[float]] = []
+
+    for batch_start in range(0, len(uncached_texts), _VOYAGE_MAX_BATCH):
+        batch = uncached_texts[batch_start : batch_start + _VOYAGE_MAX_BATCH]
 
         payload = {
             "input": batch,
@@ -348,28 +469,38 @@ def embed_batch(texts: list[str]) -> list[list[float]] | None:
         }
 
         try:
-            # Rate limiting: enforce delay BEFORE EVERY request based on time window
-            # This ensures we never exceed Voyage API rate limits (10 req/min = 6s between requests)
+            # Rate limiting: enforce BOTH minimum inter-request delay AND sliding window
             now = time.monotonic()
             with _voyage_rate_lock:
-                # Prune requests older than 60s from our tracking window
+                # Minimum delay between consecutive requests to prevent bursts
+                elapsed = now - _voyage_last_request
+                if elapsed < _VOYAGE_MIN_DELAY and _voyage_last_request > 0:
+                    wait_time = _VOYAGE_MIN_DELAY - elapsed
+                    logger.debug(
+                        "Voyage AI: spacing requests, waiting %.1fs", wait_time
+                    )
+                    time.sleep(wait_time)
+                    now = time.monotonic()
+
+                # Sliding window: prune requests older than 60s
                 _voyage_request_times[:] = [
                     t for t in _voyage_request_times if now - t < 60
                 ]
 
-                # If we have 10+ requests in the last 60s, wait until the oldest one ages out
+                # If we have 10+ requests in the last 60s, wait until oldest ages out
                 if len(_voyage_request_times) >= _VOYAGE_RPM_LIMIT:
                     oldest_request = min(_voyage_request_times)
-                    wait_time = 60.0 - (now - oldest_request)
+                    wait_time = 60.0 - (now - oldest_request) + 0.5
                     if wait_time > 0.001:
                         logger.info(
-                            "Voyage AI rate limiting: waiting %.1f seconds for window to clear",
+                            "Voyage AI rate limiting: waiting %.1fs for window to clear",
                             wait_time,
                         )
                         time.sleep(wait_time)
-                        now = time.monotonic()
 
             _record_voyage_request()
+            _voyage_last_request = time.monotonic()
+
             data = json.dumps(payload).encode("utf-8")
             req = urllib.request.Request(
                 _VOYAGE_API_URL,
@@ -382,16 +513,13 @@ def embed_batch(texts: list[str]) -> list[list[float]] | None:
             )
             with urllib.request.urlopen(req, timeout=_VOYAGE_TIMEOUT) as resp:
                 body = resp.read().decode("utf-8")
-                result = json.loads(body)
+                api_result = json.loads(body)
 
-            embeddings_data = result.get("data") or []
+            embeddings_data = api_result.get("data") or []
             # Sort by index to preserve order
             embeddings_data.sort(key=lambda x: x.get("index", 0))
             batch_embeddings = [e.get("embedding") or [] for e in embeddings_data]
-            all_embeddings.extend(batch_embeddings)
-
-            # Update timestamp after successful request for next iteration's delay
-            last_request_time = time.monotonic()
+            new_embeddings.extend(batch_embeddings)
 
         except urllib.error.HTTPError as e:
             logger.error(
@@ -412,15 +540,40 @@ def embed_batch(texts: list[str]) -> list[list[float]] | None:
             logger.error("Voyage AI error: %s", e, exc_info=True)
             return None
 
-    if len(all_embeddings) != len(texts):
+    if len(new_embeddings) != len(uncached_indices):
         logger.warning(
             "Voyage AI returned %d embeddings for %d texts",
-            len(all_embeddings),
-            len(texts),
+            len(new_embeddings),
+            len(uncached_indices),
         )
         return None
 
-    return all_embeddings
+    # Merge new embeddings into result array and update cache
+    cache_updated = False
+    with _embedding_cache_lock:
+        for local_idx, original_idx in enumerate(uncached_indices):
+            embedding = new_embeddings[local_idx]
+            result_embeddings[original_idx] = embedding
+            # Save to cache
+            key = _text_cache_key(truncated[original_idx])
+            _embedding_cache[key] = embedding
+            cache_updated = True
+
+    # Persist cache to disk in background if we computed new embeddings
+    if cache_updated:
+        threading.Thread(
+            target=_save_embedding_cache, daemon=True, name="save-embed-cache"
+        ).start()
+
+    # Verify all slots are filled
+    final: list[list[float]] = []
+    for emb in result_embeddings:
+        if emb is None:
+            logger.warning("Embedding result has unfilled slot, returning None")
+            return None
+        final.append(emb)
+
+    return final
 
 
 # ── Pure-Python cosine similarity ────────────────────────────────────────────
@@ -1102,5 +1255,7 @@ def get_status() -> dict:
         "index_built": _index_built,
         "tfidf_index_size": len(_tfidf_index),
         "tfidf_built": _tfidf_built,
+        "embedding_cache_size": len(_embedding_cache),
+        "embedding_cache_loaded": _embedding_cache_loaded,
         "model": _VOYAGE_MODEL,
     }

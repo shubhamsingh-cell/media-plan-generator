@@ -1,0 +1,174 @@
+{
+  "_metadata": {
+    "description": "International recruitment data sources for non-US markets. Placeholder entries for future integration with live APIs.",
+    "last_updated": "2026-03-26",
+    "version": "1.0",
+    "coverage": ["EU", "UK", "Australia"],
+    "status": "placeholder",
+    "notes": "Each source includes expected data fields and API endpoints for future enrichment."
+  },
+  "sources": {
+    "eurostat": {
+      "name": "Eurostat",
+      "region": "European Union",
+      "url": "https://ec.europa.eu/eurostat",
+      "api_endpoint": "https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/",
+      "description": "Official EU statistical office providing labor market, salary, and employment data across 27 member states.",
+      "datasets": {
+        "labour_cost": {
+          "dataset_id": "lc_lci_r2_a",
+          "description": "Labour cost index by NACE activity",
+          "refresh_interval": "quarterly",
+          "fields": ["labour_cost_index", "nace_sector", "country", "quarter"]
+        },
+        "unemployment": {
+          "dataset_id": "une_rt_m",
+          "description": "Unemployment rate by age and sex",
+          "refresh_interval": "monthly",
+          "fields": ["unemployment_rate", "age_group", "country", "month"]
+        },
+        "job_vacancies": {
+          "dataset_id": "jvs_q_nace2",
+          "description": "Job vacancy statistics by NACE activity",
+          "refresh_interval": "quarterly",
+          "fields": ["vacancy_rate", "nace_sector", "country", "quarter"]
+        },
+        "earnings": {
+          "dataset_id": "earn_ses_annual",
+          "description": "Annual earnings by economic activity and occupation",
+          "refresh_interval": "annual",
+          "fields": ["mean_earnings", "median_earnings", "occupation", "country"]
+        }
+      },
+      "supported_countries": [
+        "Germany", "France", "Netherlands", "Spain", "Italy", "Poland",
+        "Belgium", "Sweden", "Austria", "Ireland", "Denmark", "Finland",
+        "Portugal", "Czech Republic", "Romania", "Greece", "Hungary"
+      ],
+      "recruitment_relevance": {
+        "salary_benchmarks": true,
+        "labour_market_tightness": true,
+        "cost_of_living": true,
+        "hiring_trends": true,
+        "industry_breakdown": true
+      }
+    },
+    "ons": {
+      "name": "Office for National Statistics (ONS)",
+      "region": "United Kingdom",
+      "url": "https://www.ons.gov.uk",
+      "api_endpoint": "https://api.beta.ons.gov.uk/v1/",
+      "description": "UK national statistical authority covering employment, wages, job vacancies, and labour market indicators.",
+      "datasets": {
+        "earnings": {
+          "dataset_id": "ashe-table-1",
+          "description": "Annual Survey of Hours and Earnings (ASHE) -- median pay by occupation",
+          "refresh_interval": "annual",
+          "fields": ["median_weekly_pay", "mean_weekly_pay", "occupation_group", "region"]
+        },
+        "vacancies": {
+          "dataset_id": "vacs01",
+          "description": "Vacancies by industry (ONS VACS01)",
+          "refresh_interval": "monthly",
+          "fields": ["vacancy_count", "industry_sector", "month"]
+        },
+        "labour_market": {
+          "dataset_id": "lms",
+          "description": "Labour Market Statistics time series",
+          "refresh_interval": "monthly",
+          "fields": ["employment_rate", "unemployment_rate", "economic_inactivity", "region"]
+        },
+        "redundancies": {
+          "dataset_id": "red01sa",
+          "description": "Redundancy levels and rates (seasonally adjusted)",
+          "refresh_interval": "quarterly",
+          "fields": ["redundancy_rate", "redundancy_level", "quarter"]
+        }
+      },
+      "supported_regions": [
+        "England", "Scotland", "Wales", "Northern Ireland",
+        "London", "South East", "North West", "West Midlands",
+        "East Midlands", "Yorkshire", "East of England", "South West",
+        "North East"
+      ],
+      "recruitment_relevance": {
+        "salary_benchmarks": true,
+        "labour_market_tightness": true,
+        "cost_of_living": true,
+        "hiring_trends": true,
+        "industry_breakdown": true
+      }
+    },
+    "abs": {
+      "name": "Australian Bureau of Statistics (ABS)",
+      "region": "Australia",
+      "url": "https://www.abs.gov.au",
+      "api_endpoint": "https://api.data.abs.gov.au/data/",
+      "description": "Australia official statistics covering labour force, earnings, job vacancies, and employment by industry and state.",
+      "datasets": {
+        "labour_force": {
+          "dataset_id": "LF",
+          "description": "Labour Force Survey -- employment and unemployment by state",
+          "refresh_interval": "monthly",
+          "fields": ["employment_count", "unemployment_rate", "participation_rate", "state"]
+        },
+        "earnings": {
+          "dataset_id": "EEH",
+          "description": "Employee Earnings and Hours -- average weekly earnings by occupation",
+          "refresh_interval": "biennial",
+          "fields": ["avg_weekly_earnings", "occupation_group", "industry", "state"]
+        },
+        "job_vacancies": {
+          "dataset_id": "JOB_VACANCIES",
+          "description": "Job Vacancies Australia",
+          "refresh_interval": "quarterly",
+          "fields": ["vacancy_count", "industry_sector", "quarter"]
+        },
+        "wage_price_index": {
+          "dataset_id": "WPI",
+          "description": "Wage Price Index -- wage growth by sector",
+          "refresh_interval": "quarterly",
+          "fields": ["wage_price_index", "sector", "state", "quarter"]
+        }
+      },
+      "supported_states": [
+        "New South Wales", "Victoria", "Queensland",
+        "Western Australia", "South Australia", "Tasmania",
+        "Australian Capital Territory", "Northern Territory"
+      ],
+      "recruitment_relevance": {
+        "salary_benchmarks": true,
+        "labour_market_tightness": true,
+        "cost_of_living": true,
+        "hiring_trends": true,
+        "industry_breakdown": true
+      }
+    }
+  },
+  "channel_benchmarks_international": {
+    "EU": {
+      "avg_cpc_eur": 1.85,
+      "avg_cpa_eur": 35.0,
+      "top_channels": ["StepStone", "Indeed", "XING", "LinkedIn", "Monster"],
+      "programmatic_adoption_pct": 0.32,
+      "mobile_apply_pct": 0.58,
+      "notes": "EU market is fragmented by language. StepStone dominates DACH, Pole Emploi in France."
+    },
+    "UK": {
+      "avg_cpc_gbp": 1.45,
+      "avg_cpa_gbp": 28.0,
+      "top_channels": ["Indeed", "Reed", "Totaljobs", "LinkedIn", "CV-Library"],
+      "programmatic_adoption_pct": 0.45,
+      "mobile_apply_pct": 0.65,
+      "notes": "UK market more consolidated than EU. Reed and Totaljobs are UK-specific leaders."
+    },
+    "Australia": {
+      "avg_cpc_aud": 2.10,
+      "avg_cpa_aud": 42.0,
+      "top_channels": ["SEEK", "Indeed", "LinkedIn", "Jora", "CareerOne"],
+      "programmatic_adoption_pct": 0.38,
+      "mobile_apply_pct": 0.62,
+      "notes": "SEEK dominates Australian market with ~60% share. Indeed growing in blue collar."
+    }
+  }
+}

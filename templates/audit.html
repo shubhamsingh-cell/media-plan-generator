@@ -56,7 +56,7 @@
         --glass-inset: 0 0 0 1px rgba(255, 255, 255, 0.04) inset;
         --text: #d4d4d8;
         --text-secondary: #a1a1a1;
-        --text-muted: #666666;
+        --text-muted: #8e8e93;
         --border: rgba(255, 255, 255, 0.08);
         --border-accent: rgba(90, 84, 189, 0.3);
         --shadow-md:
@@ -1577,6 +1577,7 @@
               type="text"
               id="targetRoles"
               placeholder="e.g., Software Engineer, Nurse, Warehouse"
+              autocomplete="off"
             />
           </div>
 
@@ -1586,6 +1587,7 @@
               type="text"
               id="targetLocations"
               placeholder="e.g., New York, California, United States"
+              autocomplete="off"
             />
           </div>
         </div>
@@ -2062,25 +2064,25 @@
               }) +
               "</td>" +
               '<td class="text-mono">' +
-              plannedCpc +
+              escapeHtml(plannedCpc) +
               "</td>" +
               '<td class="text-mono">' +
-              benchCpc +
+              escapeHtml(benchCpc) +
               "</td>" +
               '<td class="text-mono ' +
-              varClass +
+              escapeHtml(varClass) +
               '">' +
-              varStr +
+              escapeHtml(varStr) +
               "</td>" +
               '<td><span class="cell-grade ' +
-              gradeClass +
+              escapeHtml(gradeClass) +
               '">' +
-              grade +
+              escapeHtml(grade) +
               "</span></td>" +
               '<td><span class="cell-finding ' +
-              findingClass +
+              escapeHtml(findingClass) +
               '">' +
-              findingLabel +
+              escapeHtml(findingLabel) +
               "</span></td>";
 
             tbody.appendChild(tr);
@@ -2101,7 +2103,8 @@
           channels.forEach(function (mc) {
             const importance = mc.importance || "medium";
             const card = document.createElement("div");
-            card.className = "glass-card missing-card importance-" + importance;
+            card.className =
+              "glass-card missing-card importance-" + escapeHtml(importance);
 
             const badgeClass =
               {
@@ -2116,9 +2119,9 @@
               escapeHtml(mc.channel || "") +
               "</span>" +
               '<span class="importance-badge ' +
-              badgeClass +
+              escapeHtml(badgeClass) +
               '">' +
-              importance.toUpperCase() +
+              escapeHtml(importance.toUpperCase()) +
               "</span>" +
               "</div>" +
               '<div class="missing-card-reason">' +
@@ -2146,7 +2149,7 @@
             item.className = "rec-item";
             item.innerHTML =
               '<div class="rec-number">' +
-              (rec.priority_num || idx + 1) +
+              escapeHtml(rec.priority_num || idx + 1) +
               "</div>" +
               '<div class="rec-body">' +
               '<div class="rec-action">' +
@@ -2157,9 +2160,9 @@
               "</div>" +
               "</div>" +
               '<span class="rec-priority ' +
-              prioClass +
+              escapeHtml(prioClass) +
               '">' +
-              priority.toUpperCase() +
+              escapeHtml(priority.toUpperCase()) +
               "</span>";
             list.appendChild(item);
           });

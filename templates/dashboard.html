@@ -10,6 +10,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
+    <link rel="stylesheet" href="/static/css/tokens.css" />
     <style>
       :root {
         --navy: #111111;
@@ -1291,7 +1292,7 @@
       }
 
       .kpi-card-delta.neutral {
-        color: #666666;
+        color: #8e8e93;
         background: rgba(255, 255, 255, 0.06);
       }
 
@@ -1315,7 +1316,7 @@
 
       .kpi-no-data {
         font-size: 11px;
-        color: #666666;
+        color: #8e8e93;
         margin-top: 6px;
         font-style: italic;
       }
@@ -1737,6 +1738,7 @@
                     id="searchInput"
                     placeholder="Search by name, client, industry..."
                     oninput="filterTable()"
+                    autocomplete="off"
                   />
                 </div>
                 <select
@@ -2108,6 +2110,7 @@
                   class="archive-input"
                   placeholder="Search client name or industry..."
                   oninput="filterArchive()"
+                  autocomplete="off"
                 />
                 <select
                   id="archiveIndustry"
@@ -2155,6 +2158,7 @@
       </div>
     </div>
 
+    <link rel="stylesheet" href="/static/css/tokens.css" />
     <style>
       /* ===== PLAN ARCHIVE ===== */
       .archive-filters {

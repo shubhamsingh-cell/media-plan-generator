@@ -13391,9 +13391,14 @@ def enrich_data(data: Dict[str, Any], request_id: str = "") -> Dict[str, Any]:
         _PER_TASK_TIMEOUT = 8  # seconds
         _enrichment_start = time.time()
 
-        with concurrent.futures.ThreadPoolExecutor(
+        # Manual pool creation to avoid context manager hang.
+        # `with ThreadPoolExecutor() as pool:` calls shutdown(wait=True) on exit,
+        # which blocks indefinitely when threads are stuck on the semaphore.
+        # Instead we create manually and call shutdown(wait=False) in finally.
+        executor = concurrent.futures.ThreadPoolExecutor(
             max_workers=5, thread_name_prefix="enrich"
-        ) as executor:
+        )
+        try:
             future_to_label: Dict[concurrent.futures.Future, str] = {}
             for result_key, api_label, func in tasks:
                 fut = executor.submit(_run_task, result_key, api_label, func)
@@ -13460,6 +13465,8 @@ def enrich_data(data: Dict[str, Any], request_id: str = "") -> Dict[str, Any]:
                         "status": "error",
                         "error_message": str(exc),
                     }
+        finally:
+            executor.shutdown(wait=False, cancel_futures=True)
 
     except concurrent.futures.TimeoutError:
         # Overall hard timeout reached -- some tasks still pending

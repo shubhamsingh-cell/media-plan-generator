@@ -3,7 +3,7 @@
   "_description": "Nova AI Suite Knowledge Base Manifest -- catalogs every data file with metadata for the consolidated platform",
   "_generated_at": "2026-03-24",
   "_data_directory": "data/",
-  "_total_files": 12,
+  "_total_files": 13,
   "files": [
     {
       "filename": "recruitment_industry_knowledge.json",
@@ -161,6 +161,19 @@
       "last_updated": "2026-03-10",
       "used_by_modules": ["command_center", "nova_ai"],
       "priority": 1,
+      "auto_refresh": false
+    },
+    {
+      "filename": "international_sources.json",
+      "section_key": "international_sources",
+      "description": "International recruitment data sources for non-US markets: Eurostat (EU), ONS (UK), ABS (Australia). Includes channel benchmarks, API endpoints, and dataset references for future integration.",
+      "data_type": "international",
+      "source": "Public statistical agencies (Eurostat, ONS, ABS)",
+      "refresh_interval": "semi-annual",
+      "refresh_interval_days": 180,
+      "last_updated": "2026-03-26",
+      "used_by_modules": ["nova_ai", "intelligence_hub"],
+      "priority": 3,
       "auto_refresh": false
     }
   ],

@@ -23,6 +23,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
+    <link rel="stylesheet" href="/static/css/tokens.css" />
     <style>
       /* ═══════════════════════════════════════════════════════════════════
            DESIGN SYSTEM: Deep Obsidian + Electric Indigo
@@ -984,6 +985,7 @@
               id="roles"
               class="form-input"
               placeholder="e.g., Software Engineer"
+              autocomplete="off"
             />
           </div>
 
@@ -994,6 +996,7 @@
               id="locations"
               class="form-input"
               placeholder="e.g., San Francisco, CA"
+              autocomplete="off"
             />
           </div>
 
@@ -1144,6 +1147,17 @@
       (function () {
         "use strict";
 
+        /* ---- Escape HTML to prevent XSS ---- */
+        function escapeHtml(str) {
+          if (str == null) return "";
+          return String(str)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#39;");
+        }
+
         // ═══════════════════════════════════════════════════════════════════
         // CHANNEL DEFINITIONS
         // ═══════════════════════════════════════════════════════════════════
@@ -1270,12 +1284,12 @@
             row.className = "channel-slider";
             row.innerHTML =
               '<span class="channel-icon">' +
-              ch.icon +
+              escapeHtml(ch.icon) +
               "</span>" +
               '<span class="channel-name" title="' +
-              ch.label +
+              escapeHtml(ch.label) +
               '">' +
-              ch.label +
+              escapeHtml(ch.label) +
               "</span>" +
               '<div class="slider-track-wrap">' +
               '<input type="range" min="0" max="60" step="0.5" value="' +
@@ -1629,7 +1643,7 @@
             html +=
               "<tr>" +
               "<td>" +
-              (d.label || ch.label) +
+              escapeHtml(d.label || ch.label) +
               "</td>" +
               "<td>$" +
               (d.dollar_amount || 0).toLocaleString("en-US", {
@@ -1668,7 +1682,7 @@
             html +=
               '<div class="spend-bar-row">' +
               '<span class="spend-bar-label">' +
-              ch.label +
+              escapeHtml(ch.label) +
               "</span>" +
               '<div class="spend-bar-track">' +
               '<div class="spend-bar-fill" style="width:' +
@@ -1788,7 +1802,9 @@
             html += '<div class="' + cardClass + '">';
             html += '<div class="scenario-card-header">';
             html +=
-              '<span class="scenario-card-title">' + sc._label + "</span>";
+              '<span class="scenario-card-title">' +
+              escapeHtml(sc._label) +
+              "</span>";
             html += '<div style="display:flex;gap:4px;align-items:center;">';
             if (isBest) {
               html += '<span class="scenario-badge best-badge">BEST</span>';

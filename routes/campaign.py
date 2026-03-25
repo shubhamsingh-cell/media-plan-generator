@@ -468,16 +468,19 @@ def _handle_plan_feedback(handler: Any, path: str, parsed: Any) -> None:
             "comment": comment[:2000],
             "created_at": time.time(),
         }
+        _plan_feedback_ts = getattr(_app, "_plan_feedback_ts", {})
         if _plan_feedback_lock:
             with _plan_feedback_lock:
                 if share_id not in _plan_feedback:
                     _plan_feedback[share_id] = []
                 _plan_feedback[share_id].append(feedback_entry)
+                _plan_feedback_ts[share_id] = time.time()
                 count = len(_plan_feedback[share_id])
         else:
             if share_id not in _plan_feedback:
                 _plan_feedback[share_id] = []
             _plan_feedback[share_id].append(feedback_entry)
+            _plan_feedback_ts[share_id] = time.time()
             count = len(_plan_feedback[share_id])
 
         handler._send_json({"ok": True, "feedback_count": count})
@@ -514,12 +517,12 @@ def _handle_plan_scorecard(handler: Any, path: str, parsed: Any) -> None:
         share_id = generate_share_id(plan_data)
         scorecard_html = generate_scorecard_html(plan_data, share_id)
 
-        # Store in memory
+        # Store in memory as (html, timestamp) tuple
         if _scorecards_lock:
             with _scorecards_lock:
-                _scorecards[share_id] = scorecard_html
+                _scorecards[share_id] = (scorecard_html, time.time())
         else:
-            _scorecards[share_id] = scorecard_html
+            _scorecards[share_id] = (scorecard_html, time.time())
 
         # Persist to Supabase if available
         try:
@@ -566,12 +569,19 @@ def _handle_scorecard_view(handler: Any, path: str, parsed: Any) -> None:
         handler.send_error(404, "Scorecard ID required")
         return
 
-    # Look up in memory first
+    # Look up in memory first -- values are (html, timestamp) tuples
+    html_content = None
     if _scorecards_lock:
         with _scorecards_lock:
-            html_content = _scorecards.get(share_id)
+            _sc_entry = _scorecards.get(share_id)
+            if _sc_entry:
+                html_content = (
+                    _sc_entry[0] if isinstance(_sc_entry, tuple) else _sc_entry
+                )
     else:
-        html_content = _scorecards.get(share_id)
+        _sc_entry = _scorecards.get(share_id)
+        if _sc_entry:
+            html_content = _sc_entry[0] if isinstance(_sc_entry, tuple) else _sc_entry
 
     # Fallback: try Supabase
     if not html_content:
@@ -585,12 +595,12 @@ def _handle_scorecard_view(handler: Any, path: str, parsed: Any) -> None:
                 )
                 if result and isinstance(result, list) and result[0].get("html"):
                     html_content = result[0]["html"]
-                    # Cache in memory for subsequent requests
+                    # Cache in memory for subsequent requests as (html, ts) tuple
                     if _scorecards_lock:
                         with _scorecards_lock:
-                            _scorecards[share_id] = html_content
+                            _scorecards[share_id] = (html_content, time.time())
                     else:
-                        _scorecards[share_id] = html_content
+                        _scorecards[share_id] = (html_content, time.time())
         except Exception as e:
             logger.warning("Supabase scorecard lookup failed: %s", e)
 

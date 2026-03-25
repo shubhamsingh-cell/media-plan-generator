@@ -64,6 +64,7 @@ import json
 import logging
 import os
 import re
+import queue
 import threading
 import time
 import urllib.error
@@ -150,6 +151,52 @@ CLAUDE_OPUS = "claude_opus"
 # remaining budget so the caller never waits longer than this.
 GLOBAL_TIMEOUT_BUDGET = 35.0  # seconds -- allows retry logic to complete
 _MIN_REMAINING_BUDGET = 5.0  # don't start a new attempt with < 5s left
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# GLOBAL CONCURRENCY LIMITER
+# ═══════════════════════════════════════════════════════════════════════════════
+# Prevents thundering herd: caps total concurrent LLM calls across all providers.
+# Under burst load, excess requests wait up to _LLM_CONCURRENCY_TIMEOUT seconds
+# for a slot; if none frees up, they get a queued/busy response instead of
+# cascading into every provider's rate limit simultaneously.
+
+_LLM_MAX_CONCURRENT: int = 10  # max simultaneous LLM API calls
+_LLM_CONCURRENCY_TIMEOUT: float = 10.0  # seconds to wait for a slot
+_llm_concurrency_semaphore: threading.Semaphore = threading.Semaphore(
+    _LLM_MAX_CONCURRENT
+)
+
+# Metrics for concurrency monitoring (thread-safe via atomic int operations)
+_llm_active_calls: int = 0  # currently executing LLM calls
+_llm_waiting_calls: int = 0  # calls waiting for a semaphore slot
+_llm_rejected_calls: int = 0  # calls that timed out waiting
+_llm_total_calls: int = 0  # lifetime total calls that acquired the semaphore
+_llm_concurrency_lock: threading.Lock = threading.Lock()
+
+
+def get_concurrency_stats() -> Dict[str, Any]:
+    """Return current LLM concurrency limiter metrics.
+
+    Useful for monitoring dashboards and health checks to detect
+    saturation (high waiting count) or back-pressure (rejections).
+
+    Returns:
+        Dict with active, waiting, rejected, total counts and config.
+    """
+    with _llm_concurrency_lock:
+        return {
+            "active_calls": _llm_active_calls,
+            "waiting_calls": _llm_waiting_calls,
+            "rejected_calls": _llm_rejected_calls,
+            "total_calls": _llm_total_calls,
+            "max_concurrent": _LLM_MAX_CONCURRENT,
+            "timeout_seconds": _LLM_CONCURRENCY_TIMEOUT,
+            "utilization_pct": (
+                round((_llm_active_calls / _LLM_MAX_CONCURRENT) * 100, 1)
+                if _LLM_MAX_CONCURRENT > 0
+                else 0.0
+            ),
+        }
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -318,6 +365,14 @@ class _ResponseCache:
         # Stats
         self._hits = 0
         self._misses = 0
+        # Bounded queue for L3 (Upstash) writes -- single worker, drop if full
+        self._l3_queue: queue.Queue[tuple[str, dict[str, Any], int]] = queue.Queue(
+            maxsize=100
+        )
+        self._l3_worker = threading.Thread(
+            target=self._l3_write_loop, daemon=True, name="upstash-cache-writer"
+        )
+        self._l3_worker.start()
 
     @staticmethod
     def _ttl_for_task(task_type: str) -> float:
@@ -404,23 +459,22 @@ class _ResponseCache:
                     self._store.popitem(last=False)
                 self._store[key] = (now, entry_ttl, response)
 
-        # Write-through to L3 (Upstash Redis) -- fire-and-forget in background
+        # Write-through to L3 (Upstash Redis) -- enqueue, drop if full
         if _UPSTASH_ENABLED:
             l3_ttl = int(entry_ttl * 2)  # 2x TTL for persistence across deploys
-            threading.Thread(
-                target=self._l3_write,
-                args=(key, response, l3_ttl),
-                daemon=True,
-                name="upstash-cache-write",
-            ).start()
+            try:
+                self._l3_queue.put_nowait((key, response, l3_ttl))
+            except queue.Full:
+                logger.debug("L3 write queue full -- dropping cache write for %s", key)
 
-    @staticmethod
-    def _l3_write(key: str, response: dict[str, Any], ttl: int) -> None:
-        """Write to Upstash Redis L3 cache (background thread)."""
-        try:
-            _upstash_set(f"llm:{key}", response, ttl_seconds=ttl, category="llm")
-        except Exception as exc:
-            logger.debug("L3 cache write failed: %s", exc)
+    def _l3_write_loop(self) -> None:
+        """Single worker thread that processes L3 (Upstash Redis) writes."""
+        while True:
+            try:
+                key, response, ttl = self._l3_queue.get()
+                _upstash_set(f"llm:{key}", response, ttl_seconds=ttl, category="llm")
+            except Exception as exc:
+                logger.debug("L3 cache write failed: %s", exc)
 
     def get_stats(self) -> dict[str, Any]:
         """Return cache statistics including hit/miss rates and TTL config."""
@@ -2384,6 +2438,76 @@ def call_llm(
     # Tools are now supported by all OpenAI-compatible providers (auto-converted
     # from Anthropic format in _build_openai_request).  No longer force Claude.
 
+    # --- Global concurrency limiter ---
+    global _llm_active_calls, _llm_waiting_calls, _llm_rejected_calls, _llm_total_calls
+    with _llm_concurrency_lock:
+        _llm_waiting_calls += 1
+    try:
+        acquired = _llm_concurrency_semaphore.acquire(timeout=_LLM_CONCURRENCY_TIMEOUT)
+    finally:
+        with _llm_concurrency_lock:
+            _llm_waiting_calls -= 1
+    if not acquired:
+        with _llm_concurrency_lock:
+            _llm_rejected_calls += 1
+        logger.warning(
+            "LLM Router: concurrency limit reached (%d active), "
+            "request rejected after %.1fs wait",
+            _LLM_MAX_CONCURRENT,
+            _LLM_CONCURRENCY_TIMEOUT,
+        )
+        return {
+            "text": "",
+            "provider": "",
+            "provider_name": "",
+            "model": "",
+            "task_type": task_type,
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "latency_ms": 0,
+            "fallback_used": False,
+            "cache_hit": False,
+            "attempts": [],
+            "error": "Server busy -- too many concurrent LLM requests. Please retry shortly.",
+        }
+
+    with _llm_concurrency_lock:
+        _llm_active_calls += 1
+        _llm_total_calls += 1
+    try:
+        return _call_llm_inner(
+            messages=messages,
+            system_prompt=system_prompt,
+            max_tokens=max_tokens,
+            task_type=task_type,
+            tools=tools,
+            force_provider=force_provider,
+            query_text=query_text,
+            preferred_providers=preferred_providers,
+            use_cache=use_cache,
+            priority=priority,
+            _user_msg_for_cache=_user_msg_for_cache,
+        )
+    finally:
+        _llm_concurrency_semaphore.release()
+        with _llm_concurrency_lock:
+            _llm_active_calls -= 1
+
+
+def _call_llm_inner(
+    messages: List[Dict],
+    system_prompt: str,
+    max_tokens: int,
+    task_type: str,
+    tools: Optional[List[Dict]],
+    force_provider: str,
+    query_text: str,
+    preferred_providers: Optional[List[str]],
+    use_cache: bool,
+    priority: str,
+    _user_msg_for_cache: str,
+) -> Dict[str, Any]:
+    """Inner LLM call logic, runs under the global concurrency semaphore."""
     attempts: List[Dict[str, Any]] = []
     excluded: List[str] = []
 
@@ -2832,6 +2956,53 @@ def call_llm_stream(
     Yields:
         Text chunks (tokens) as they arrive from the LLM provider.
     """
+    # --- Global concurrency limiter (streaming path) ---
+    global _llm_active_calls, _llm_waiting_calls, _llm_rejected_calls, _llm_total_calls
+    with _llm_concurrency_lock:
+        _llm_waiting_calls += 1
+    try:
+        acquired = _llm_concurrency_semaphore.acquire(timeout=_LLM_CONCURRENCY_TIMEOUT)
+    finally:
+        with _llm_concurrency_lock:
+            _llm_waiting_calls -= 1
+    if not acquired:
+        with _llm_concurrency_lock:
+            _llm_rejected_calls += 1
+        logger.warning(
+            "LLM Stream: concurrency limit reached (%d active), "
+            "request rejected after %.1fs wait",
+            _LLM_MAX_CONCURRENT,
+            _LLM_CONCURRENCY_TIMEOUT,
+        )
+        return  # yield nothing -- caller handles empty stream
+
+    with _llm_concurrency_lock:
+        _llm_active_calls += 1
+        _llm_total_calls += 1
+    try:
+        yield from _call_llm_stream_inner(
+            messages=messages,
+            system_prompt=system_prompt,
+            max_tokens=max_tokens,
+            task_type=task_type,
+            query_text=query_text,
+            preferred_providers=preferred_providers,
+        )
+    finally:
+        _llm_concurrency_semaphore.release()
+        with _llm_concurrency_lock:
+            _llm_active_calls -= 1
+
+
+def _call_llm_stream_inner(
+    messages: List[Dict],
+    system_prompt: str,
+    max_tokens: int,
+    task_type: str,
+    query_text: str,
+    preferred_providers: Optional[List[str]],
+) -> Generator[str, None, None]:
+    """Inner streaming logic, runs under the global concurrency semaphore."""
     # Classify task if not provided
     if not task_type and query_text:
         task_type = classify_task(query_text)
@@ -3323,6 +3494,7 @@ def get_router_stats() -> Dict[str, Any]:
         },
         "circuit_breakers": circuit_breakers,
         "cache": cache_stats,
+        "concurrency": get_concurrency_stats(),
         "total_providers": len(PROVIDER_CONFIG),
         "available_providers": sum(
             1

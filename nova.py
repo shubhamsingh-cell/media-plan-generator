@@ -57,6 +57,105 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+
+# ---------------------------------------------------------------------------
+# Cooperative cancellation for stream-timeout orphaned threads (S17)
+# ---------------------------------------------------------------------------
+
+
+class ChatCancelledException(Exception):
+    """Raised when a chat thread detects its cancellation event has been set."""
+
+
+def _check_cancellation(cancel_event: Optional[threading.Event]) -> None:
+    """Check if cancellation has been requested and raise if so.
+
+    Args:
+        cancel_event: The cancellation event to check, or None to skip.
+
+    Raises:
+        ChatCancelledException: If the event is set.
+    """
+    if cancel_event is not None and cancel_event.is_set():
+        raise ChatCancelledException("Chat request cancelled by stream timeout")
+
+
+# Thread registry: tracks active chat threads for monitoring/cleanup.
+# Maps thread_ident -> {"thread": Thread, "start": float, "query": str}
+_chat_thread_registry: Dict[int, Dict[str, Any]] = {}
+_chat_thread_registry_lock = threading.Lock()
+
+_CHAT_THREAD_WARN_SECONDS = 120.0  # warn for threads older than this
+_CHAT_THREAD_CLEANUP_INTERVAL = 60.0  # cleanup sweep interval
+
+
+def _register_chat_thread(thread: threading.Thread, query: str) -> None:
+    """Register a chat thread in the active thread registry.
+
+    Args:
+        thread: The thread to track.
+        query: The user query (truncated) for logging.
+    """
+    with _chat_thread_registry_lock:
+        _chat_thread_registry[thread.ident or id(thread)] = {
+            "thread": thread,
+            "start": time.time(),
+            "query": query[:80],
+        }
+
+
+def _unregister_chat_thread(thread: threading.Thread) -> None:
+    """Remove a chat thread from the registry.
+
+    Args:
+        thread: The thread to remove.
+    """
+    with _chat_thread_registry_lock:
+        _chat_thread_registry.pop(thread.ident or id(thread), None)
+
+
+def _chat_thread_cleanup_loop() -> None:
+    """Background loop that logs warnings for long-running chat threads.
+
+    Runs as a daemon thread; sweeps the registry every 60s and warns
+    about threads older than 120s, removing entries for dead threads.
+    """
+    while True:
+        time.sleep(_CHAT_THREAD_CLEANUP_INTERVAL)
+        try:
+            now = time.time()
+            with _chat_thread_registry_lock:
+                dead_keys: list[int] = []
+                for key, info in _chat_thread_registry.items():
+                    t: threading.Thread = info["thread"]
+                    elapsed = now - info["start"]
+                    if not t.is_alive():
+                        dead_keys.append(key)
+                    elif elapsed > _CHAT_THREAD_WARN_SECONDS:
+                        logger.warning(
+                            "Orphaned chat thread %s running %.0fs for query: %s",
+                            t.name,
+                            elapsed,
+                            info["query"],
+                        )
+                for key in dead_keys:
+                    _chat_thread_registry.pop(key, None)
+                active_count = len(_chat_thread_registry)
+            if active_count > 0:
+                logger.info("Chat thread registry: %d active thread(s)", active_count)
+        except Exception as exc:
+            logger.warning("Chat thread cleanup error: %s", exc, exc_info=True)
+
+
+# Start the background cleanup thread at module load
+_cleanup_thread = threading.Thread(
+    target=_chat_thread_cleanup_loop,
+    name="nova-chat-thread-cleanup",
+    daemon=True,
+)
+_cleanup_thread.start()
+
+
 # ---------------------------------------------------------------------------
 # Unified data orchestrator (lazy import to avoid circular deps)
 # ---------------------------------------------------------------------------
@@ -1494,6 +1593,18 @@ _COMPLEX_QUERY_INDICATORS: list[str] = [
     "recommend strategy",
     "market shift",
     "disruption",
+    # Media plan / recruitment strategy (Ashlie use cases)
+    "media plan",
+    "recruitment plan",
+    "hiring plan",
+    "budget allocation",
+    "channel strategy",
+    "multiple cities",
+    "across cities",
+    "security clearance",
+    "diversity hiring",
+    "passive candidate",
+    "passive sourcing",
     # Complex synthesis
     "pros and cons",
     "trade-off",
@@ -1551,6 +1662,368 @@ def _detect_query_complexity(message: str) -> bool:
         return True
 
     return False
+
+
+# ---------------------------------------------------------------------------
+# Gold Standard Quality Gates -- Chat Integration
+# ---------------------------------------------------------------------------
+
+_PLAN_QUERY_KEYWORDS: set[str] = {
+    "media plan",
+    "hiring plan",
+    "recruitment plan",
+    "budget allocation",
+    "channel strategy",
+    "channel split",
+    "hiring strategy",
+    "media strategy",
+    "recruitment strategy",
+    "staffing plan",
+    "talent acquisition plan",
+    "campaign plan",
+    "sourcing plan",
+    "activation calendar",
+    "hiring difficulty",
+    "competitor map",
+    "competitor analysis",
+    "difficulty level",
+    "budget breakdown",
+    "budget tier",
+    "clearance requirement",
+    "security clearance",
+    "city-level",
+    "per-city",
+    "per city",
+    "non-traditional channel",
+}
+
+
+def _is_plan_related_query(message: str) -> bool:
+    """Detect whether a chat query is plan-related and should trigger gold standard gates.
+
+    Args:
+        message: The user's chat message.
+
+    Returns:
+        True if the query relates to media/hiring plans, budget allocation, or strategy.
+    """
+    if not message:
+        return False
+    msg_lower = message.lower()
+    return any(kw in msg_lower for kw in _PLAN_QUERY_KEYWORDS)
+
+
+def _extract_entities_from_query(
+    message: str, enrichment_context: Optional[dict] = None
+) -> dict[str, Any]:
+    """Extract locations, roles, industry, and budget from the query and enrichment context.
+
+    Builds a data dict compatible with gold_standard.py gate functions.
+
+    Args:
+        message: The user's chat message.
+        enrichment_context: Optional pre-computed enrichment data from the session.
+
+    Returns:
+        Dict with keys like locations, target_roles, industry, budget suitable
+        for gold_standard gate functions.
+    """
+    ctx = enrichment_context or {}
+    data: dict[str, Any] = {}
+
+    # Locations -- prefer enrichment context, fall back to query extraction
+    locations = ctx.get("locations") or []
+    if not locations:
+        # Simple extraction: look for common US city names in the query
+        msg_lower = message.lower()
+        from gold_standard import _CITY_SALARY_MULTIPLIERS
+
+        for city_name in _CITY_SALARY_MULTIPLIERS:
+            if city_name in msg_lower:
+                locations.append(city_name.title())
+    data["locations"] = locations
+
+    # Roles
+    roles = ctx.get("target_roles") or ctx.get("roles") or []
+    if not roles:
+        # Check for role-like words in the query (basic heuristic)
+        _role_hints = [
+            "engineer",
+            "nurse",
+            "developer",
+            "analyst",
+            "manager",
+            "driver",
+            "designer",
+            "recruiter",
+            "specialist",
+            "coordinator",
+            "director",
+            "vp",
+            "executive",
+            "intern",
+            "scientist",
+        ]
+        msg_lower = message.lower()
+        for hint in _role_hints:
+            if hint in msg_lower:
+                # Extract a phrase around the hint
+                idx = msg_lower.index(hint)
+                start = max(0, idx - 20)
+                end = min(len(message), idx + len(hint) + 10)
+                snippet = message[start:end].strip()
+                # Clean up to just the role phrase
+                words = snippet.split()
+                role_words = [
+                    w
+                    for w in words
+                    if not w.lower() in {"for", "in", "a", "an", "the", "at", "of"}
+                ]
+                if role_words:
+                    roles.append(" ".join(role_words[:4]))
+                break
+    data["target_roles"] = roles
+    data["roles"] = roles
+
+    # Industry
+    data["industry"] = ctx.get("industry") or ""
+
+    # Budget (for tier breakdowns)
+    budget_val = ctx.get("budget") or 0
+    if budget_val:
+        data["budget"] = str(budget_val)
+
+    # Brief / use_case from message
+    data["use_case"] = message
+
+    # Enrichment data passthrough
+    data["_enriched"] = ctx.get("enriched") or {}
+    data["_synthesized"] = ctx.get("synthesized") or {}
+    data["_budget_allocation"] = ctx.get("budget_allocation") or {}
+
+    return data
+
+
+def _run_gold_standard_for_chat(
+    message: str, enrichment_context: Optional[dict] = None
+) -> str:
+    """Run relevant gold standard quality gates and return formatted context for LLM prompt.
+
+    Only runs for plan-related queries. Each gate is wrapped in a 2-second timeout
+    and individual try/except so failures are isolated and non-blocking.
+
+    Args:
+        message: The user's chat message.
+        enrichment_context: Optional pre-computed enrichment data.
+
+    Returns:
+        Formatted string with gold standard insights to inject into the system prompt,
+        or empty string if not plan-related or no gates produced data.
+    """
+    if not _is_plan_related_query(message):
+        return ""
+
+    import concurrent.futures
+
+    data = _extract_entities_from_query(message, enrichment_context)
+    sections: list[str] = []
+    gate_timeout_s: float = 2.0
+
+    # Gate 1: City-level supply-demand data (only if locations detected)
+    if data.get("locations"):
+        try:
+            from gold_standard import enrich_city_level_data
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                future = pool.submit(enrich_city_level_data, data)
+                city_data = future.result(timeout=gate_timeout_s)
+            if city_data:
+                lines = ["## City-Level Supply-Demand Data"]
+                for city, info in list(city_data.items())[:5]:
+                    lines.append(
+                        f"- **{city}**: Salary ~{info.get('salary_range', 'N/A')}, "
+                        f"hiring difficulty {info.get('hiring_difficulty', 'N/A')}/10, "
+                        f"supply tier: {info.get('supply_tier', 'N/A')}"
+                    )
+                sections.append("\n".join(lines))
+        except concurrent.futures.TimeoutError:
+            logger.warning(
+                "Gold Standard chat Gate 1 (city-level) timed out at %.1fs",
+                gate_timeout_s,
+            )
+        except Exception as e:
+            logger.error(
+                "Gold Standard chat Gate 1 (city-level) failed: %s", e, exc_info=True
+            )
+    else:
+        city_data = {}
+
+    # Gate 2: Security clearance (only if defense/gov keywords present)
+    try:
+        from gold_standard import detect_clearance_requirements
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            future = pool.submit(detect_clearance_requirements, data)
+            clearance = future.result(timeout=gate_timeout_s)
+        if clearance:
+            lines = ["## Security Clearance Segmentation"]
+            for rec in clearance.get("recommendations", []):
+                lines.append(f"- {rec}")
+            sections.append("\n".join(lines))
+    except concurrent.futures.TimeoutError:
+        logger.warning(
+            "Gold Standard chat Gate 2 (clearance) timed out at %.1fs", gate_timeout_s
+        )
+    except Exception as e:
+        logger.error(
+            "Gold Standard chat Gate 2 (clearance) failed: %s", e, exc_info=True
+        )
+
+    # Gate 3: Competitor mapping (only if locations available)
+    if city_data:
+        try:
+            from gold_standard import build_competitor_map
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                future = pool.submit(build_competitor_map, data, city_data)
+                competitor_map = future.result(timeout=gate_timeout_s)
+            if competitor_map:
+                lines = ["## Competitor Mapping"]
+                for city, info in list(competitor_map.items())[:5]:
+                    if city == "_national":
+                        employers = info.get("top_employers", [])
+                        lines.append(
+                            f"- **National top employers**: {', '.join(employers[:5])}"
+                        )
+                    else:
+                        employers = info.get("top_employers", [])
+                        intensity = info.get("hiring_intensity", "moderate")
+                        lines.append(
+                            f"- **{city}**: {', '.join(employers[:4])} "
+                            f"(hiring intensity: {intensity})"
+                        )
+                sections.append("\n".join(lines))
+        except concurrent.futures.TimeoutError:
+            logger.warning(
+                "Gold Standard chat Gate 3 (competitors) timed out at %.1fs",
+                gate_timeout_s,
+            )
+        except Exception as e:
+            logger.error(
+                "Gold Standard chat Gate 3 (competitors) failed: %s", e, exc_info=True
+            )
+
+    # Gate 4: Difficulty level framework (only if roles available)
+    difficulty_results: list[dict] = []
+    if data.get("target_roles"):
+        try:
+            from gold_standard import classify_difficulty
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                future = pool.submit(classify_difficulty, data)
+                difficulty_results = future.result(timeout=gate_timeout_s)
+            if difficulty_results:
+                lines = ["## Role Difficulty Classification"]
+                for dr in difficulty_results[:5]:
+                    lines.append(
+                        f"- **{dr['role_title']}**: {dr['seniority_level']} level, "
+                        f"complexity {dr['complexity_score']}/10, "
+                        f"avg time-to-fill {dr['avg_time_to_fill_days']} days, "
+                        f"channel emphasis: {dr['channel_emphasis']}"
+                    )
+                sections.append("\n".join(lines))
+        except concurrent.futures.TimeoutError:
+            logger.warning(
+                "Gold Standard chat Gate 4 (difficulty) timed out at %.1fs",
+                gate_timeout_s,
+            )
+        except Exception as e:
+            logger.error(
+                "Gold Standard chat Gate 4 (difficulty) failed: %s", e, exc_info=True
+            )
+
+    # Gate 5: Channel strategy (depends on difficulty results)
+    try:
+        from gold_standard import build_channel_strategy
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            future = pool.submit(build_channel_strategy, data, difficulty_results)
+            channel_strategy = future.result(timeout=gate_timeout_s)
+        if channel_strategy:
+            split = channel_strategy.get("recommended_split", {})
+            trad = [
+                c["name"] for c in channel_strategy.get("traditional_channels", [])[:4]
+            ]
+            nontrad = [
+                c["name"]
+                for c in channel_strategy.get("non_traditional_channels", [])[:4]
+            ]
+            lines = [
+                "## Channel Strategy",
+                f"- **Recommended split**: {split.get('traditional_pct', 65)}% traditional / "
+                f"{split.get('non_traditional_pct', 35)}% non-traditional",
+            ]
+            if trad:
+                lines.append(f"- **Traditional**: {', '.join(trad)}")
+            if nontrad:
+                lines.append(f"- **Non-traditional**: {', '.join(nontrad)}")
+            if channel_strategy.get("strategy_note"):
+                lines.append(f"- {channel_strategy['strategy_note']}")
+            sections.append("\n".join(lines))
+    except concurrent.futures.TimeoutError:
+        logger.warning(
+            "Gold Standard chat Gate 5 (channel strategy) timed out at %.1fs",
+            gate_timeout_s,
+        )
+    except Exception as e:
+        logger.error(
+            "Gold Standard chat Gate 5 (channel strategy) failed: %s", e, exc_info=True
+        )
+
+    # Gate 6: Budget tiers -- skip for chat (requires concrete budget number)
+    # Gate 7: Activation calendar
+    try:
+        from gold_standard import build_activation_calendar
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            future = pool.submit(build_activation_calendar, data)
+            calendar = future.result(timeout=gate_timeout_s)
+        if calendar and calendar.get("timeline"):
+            lines = ["## Activation Calendar (next 6 months)"]
+            for month in calendar["timeline"][:3]:
+                events = ", ".join(month.get("key_events", [])[:2])
+                lines.append(
+                    f"- **{month['month_name']}**: {month['hiring_intensity']} intensity"
+                    f"{f' -- {events}' if events else ''}"
+                )
+            if calendar.get("industry_events"):
+                lines.append(
+                    f"- **Industry events**: {', '.join(calendar['industry_events'][:3])}"
+                )
+            sections.append("\n".join(lines))
+    except concurrent.futures.TimeoutError:
+        logger.warning(
+            "Gold Standard chat Gate 7 (calendar) timed out at %.1fs", gate_timeout_s
+        )
+    except Exception as e:
+        logger.error(
+            "Gold Standard chat Gate 7 (calendar) failed: %s", e, exc_info=True
+        )
+
+    if not sections:
+        return ""
+
+    header = (
+        "\n\n## Gold Standard Quality Intelligence (use this data in your response)\n"
+        "The following recruitment intelligence was generated from Joveo's Gold Standard "
+        "quality gates. Incorporate relevant data points into your response with proper context.\n\n"
+    )
+    result = header + "\n\n".join(sections)
+    logger.info(
+        "Gold Standard chat enrichment: %d gates produced data for plan-related query",
+        len(sections),
+    )
+    return result
 
 
 def _normalize_cache_key(question: str) -> str:
@@ -1847,7 +2320,7 @@ def _classify_query_complexity(user_message: str) -> Tuple[int, str]:
         "design a",
     ]
     if any(p in msg_lower for p in complex_patterns):
-        return (4096, CLAUDE_MODEL_COMPLEX)
+        return (8192, CLAUDE_MODEL_COMPLEX)
 
     # Simple patterns -> 512, Haiku
     simple_patterns = [
@@ -5600,6 +6073,7 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
         user_message: str,
         conversation_history: Optional[list] = None,
         enrichment_context: Optional[dict] = None,
+        cancel_event: Optional[threading.Event] = None,
     ) -> dict:
         """Process a chat message and return a response.
 
@@ -5607,9 +6081,14 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
             user_message: The user's question.
             conversation_history: List of previous messages [{role, content}].
             enrichment_context: Optional pre-computed enrichment data.
+            cancel_event: Optional event set by the stream handler on timeout;
+                checked before expensive operations for cooperative cancellation.
 
         Returns:
             Dict with response, sources, confidence, tools_used.
+
+        Raises:
+            ChatCancelledException: If cancel_event is set during processing.
         """
         if not user_message or not user_message.strip():
             return {
@@ -5930,6 +6409,9 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
         _is_complex = _detect_query_complexity(user_message)
         api_key = (os.environ.get("ANTHROPIC_API_KEY") or "").strip()
 
+        # Cancellation check before LLM routing (Path A/B/C)
+        _check_cancellation(cancel_event)
+
         # Path A: Conversational queries only -> LLM providers (no tools)
         # Complex queries get routed to paid models for better quality.
         if _is_conversational:
@@ -5997,6 +6479,7 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
         # NOTE (v3.6): This is the DEFAULT path. All non-conversational
         # queries come here, ensuring data lookups happen before responding.
         # Complex queries prefer paid models for better tool-calling quality.
+        _check_cancellation(cancel_event)
         if not _is_conversational:
             free_tool_result = self._chat_with_free_llm_tools(
                 user_message,
@@ -6026,6 +6509,7 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
             )
 
         # Path C: Claude API -- LAST RESORT paid fallback
+        _check_cancellation(cancel_event)
         if api_key:
             try:
                 logger.info(
@@ -6517,6 +7001,13 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
             if context_summary:
                 system_prompt += f"\n\nCurrent session context:\n{context_summary}"
 
+        # Gold Standard quality gates for plan-related queries
+        gold_standard_ctx = _run_gold_standard_for_chat(
+            user_message, enrichment_context
+        )
+        if gold_standard_ctx:
+            system_prompt += gold_standard_ctx
+
         # Auto-ground with vector search
         try:
             from vector_search import search as _vs_search
@@ -6589,10 +7080,12 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
                     available,
                 )
 
+            # Use higher token limit for complex queries to prevent truncation
+            _free_max_tokens = 4096 if is_complex else 2048
             result = call_llm(
                 messages=messages,
                 system_prompt=system_prompt,
-                max_tokens=2048,
+                max_tokens=_free_max_tokens,
                 task_type=task_type,
                 query_text=user_message,
                 preferred_providers=_preferred,
@@ -6749,6 +7242,13 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
             if context_summary:
                 system_prompt += f"\n\nCurrent session context:\n{context_summary}"
 
+        # Gold Standard quality gates for plan-related queries
+        gold_standard_ctx = _run_gold_standard_for_chat(
+            user_message, enrichment_context
+        )
+        if gold_standard_ctx:
+            system_prompt += gold_standard_ctx
+
         # Auto-ground with vector search
         try:
             from vector_search import search as _vs_search
@@ -6837,6 +7337,9 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
         else:
             _tool_preferred = self._FREE_TOOL_PROVIDERS
 
+        # Complex queries with tool results need more tokens for synthesis
+        _tool_max_tokens = 4096 if is_complex else 2048
+
         for iteration in range(max_iterations):
             try:
                 if active_provider:
@@ -6846,7 +7349,7 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
                     result = call_llm(
                         messages=messages,
                         system_prompt=system_prompt,
-                        max_tokens=1200,
+                        max_tokens=_tool_max_tokens,
                         tools=clean_tools,
                         force_provider=active_provider,
                         query_text=user_message,
@@ -6869,7 +7372,7 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
                     result = call_llm(
                         messages=messages,
                         system_prompt=system_prompt,
-                        max_tokens=1200,
+                        max_tokens=_tool_max_tokens,
                         task_type=task_type,
                         tools=clean_tools,
                         query_text=user_message,
@@ -6974,6 +7477,11 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
                         result_parsed = json.loads(tool_result_content)
                         if "source" in result_parsed:
                             sources.add(result_parsed["source"])
+                        # Also capture sources_used from enrichment
+                        if "sources_used" in result_parsed:
+                            for _su in result_parsed["sources_used"] or []:
+                                if isinstance(_su, str):
+                                    sources.add(_su)
                         has_data = not result_parsed.get("error")
                         tool_call_details.append(
                             {
@@ -7038,6 +7546,23 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
                     "Free LLM tools: empty text response from %s", active_provider
                 )
                 return None  # Fall back to Claude
+
+            # Quality gate (v4.1): reject responses where LLM skipped tools entirely.
+            # If iteration==0 and no tools were called, the LLM ignored tool definitions
+            # and is fabricating data from training data. This is dangerous for
+            # data-intensive queries (salary, market, media plans). Fall back to Claude
+            # which is much better at tool calling, or to rule-based which uses
+            # tools directly.
+            if iteration == 0 and not tools_used:
+                logger.warning(
+                    "Free LLM tools: REJECTED no-tool response from %s on first "
+                    "iteration (LLM returned text without calling any tools -- "
+                    "likely hallucinating data). Falling back to Claude/rule-based "
+                    "for proper tool use.",
+                    active_provider,
+                )
+                _nova_metrics.record_chat("suppressed")
+                return None  # Fall back to Claude which will call tools
 
             # Quality gate: reject obviously bad responses
             if len(response_text) < 20:
@@ -7301,6 +7826,13 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
                     f"## CONVERSATION MEMORY\nKey context from this conversation so far:\n{memory_summary}"
                 )
 
+        # Gold Standard quality gates for plan-related queries
+        gold_standard_ctx = _run_gold_standard_for_chat(
+            user_message, enrichment_context
+        )
+        if gold_standard_ctx:
+            dynamic_parts.append(gold_standard_ctx)
+
         # Auto-ground with vector search
         try:
             from vector_search import search as _vs_search
@@ -7424,6 +7956,11 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
                             result_parsed = json.loads(tool_result)
                             if "source" in result_parsed:
                                 sources.add(result_parsed["source"])
+                            # Also capture sources_used from enrichment
+                            if "sources_used" in result_parsed:
+                                for _su in result_parsed["sources_used"] or []:
+                                    if isinstance(_su, str):
+                                        sources.add(_su)
                             # Track tool details for confidence scoring
                             has_data = not result_parsed.get("error")
                             tool_call_details.append(
@@ -10483,7 +11020,10 @@ def _sanitize_history(raw_history) -> list:
     return sanitized[-MAX_HISTORY_TURNS:]
 
 
-def handle_chat_request(request_data: dict) -> dict:
+def handle_chat_request(
+    request_data: dict,
+    cancel_event: Optional[threading.Event] = None,
+) -> dict:
     """Handle an incoming chat API request.
 
     Expected request format::
@@ -10500,6 +11040,11 @@ def handle_chat_request(request_data: dict) -> dict:
                 "synthesized": {...}
             }
         }
+
+    Args:
+        request_data: The incoming chat request dict.
+        cancel_event: Optional event set by stream handler on timeout;
+            propagated to Nova.chat() for cooperative cancellation.
 
     Returns::
 
@@ -10539,6 +11084,7 @@ def handle_chat_request(request_data: dict) -> dict:
             user_message=message,
             conversation_history=history,
             enrichment_context=context if isinstance(context, dict) else None,
+            cancel_event=cancel_event,
         )
 
         # C-01: Graceful fallback when all LLM providers fail (empty response)
@@ -10617,6 +11163,15 @@ def handle_chat_request(request_data: dict) -> dict:
             logger.warning("Memory save failed: %s", e, exc_info=True)
 
         return result
+    except ChatCancelledException:
+        logger.info("Chat request cancelled by stream timeout for: %s", message[:80])
+        return {
+            "response": "",
+            "sources": [],
+            "confidence": 0.0,
+            "tools_used": [],
+            "error": "cancelled",
+        }
     except Exception as e:
         logger.error("Chat request failed: %s", e, exc_info=True)
         return {
@@ -10679,29 +11234,44 @@ def handle_chat_request_stream(
     # --- Phase 1: Run the full pipeline to get tool data + enrichment ---
     # handle_chat_request does greetings, cache, tool-use, LLM call, etc.
     # This is the single, authoritative LLM call -- no re-synthesis needed.
-    # Wrapped in a thread with hard 35s timeout to prevent "stuck on Thinking".
+    # Wrapped in a thread with hard timeout to prevent "stuck on Thinking".
+    # 55s allows complex multi-city/clearance queries to complete while still
+    # fitting within Render's 60s request timeout. Previous 35s was too aggressive
+    # for tool-use heavy queries (ProAmpac, US Army, Electrolux use cases).
     yield {"status": "Analyzing your question...", "done": False}
 
-    _STREAM_TIMEOUT = 35.0  # Hard timeout -- matches GLOBAL_TIMEOUT_BUDGET
+    _STREAM_TIMEOUT = 55.0
     _stream_result: dict = {}
     _stream_error: list = []
+    _cancel_event = threading.Event()
 
     def _run_chat() -> None:
         """Execute handle_chat_request in a thread for timeout control."""
         try:
-            _stream_result.update(handle_chat_request(request_data))
+            _stream_result.update(
+                handle_chat_request(request_data, cancel_event=_cancel_event)
+            )
+        except ChatCancelledException:
+            logger.info("Stream chat thread exiting cleanly after cancellation")
         except Exception as exc:
             _stream_error.append(exc)
+        finally:
+            _unregister_chat_thread(_chat_thread)
 
-    _chat_thread = threading.Thread(target=_run_chat, daemon=True)
+    _chat_thread = threading.Thread(
+        target=_run_chat, name=f"nova-chat-{id(_cancel_event)}", daemon=True
+    )
     _chat_thread.start()
+    _register_chat_thread(_chat_thread, message)
     _chat_thread.join(timeout=_STREAM_TIMEOUT)
 
     if _chat_thread.is_alive():
-        # Thread timed out -- the LLM call is still running in the background
-        # but we need to return something to the user NOW.
+        # Thread timed out -- signal cooperative cancellation so the thread
+        # exits at its next checkpoint instead of running indefinitely.
+        _cancel_event.set()
         logger.warning(
-            "Stream handler: chat request timed out after %.0fs for: %s",
+            "Stream handler: chat request timed out after %.0fs, "
+            "cancellation signalled for: %s",
             _STREAM_TIMEOUT,
             message[:80],
         )
@@ -10765,6 +11335,13 @@ def handle_chat_request_stream(
                 chunk += " "
             yield {"token": chunk, "done": False}
 
+        # Token counting for context window tracking
+        _msg_tokens = estimate_tokens(message)
+        _resp_tokens = estimate_tokens(full_response)
+        _history = request_data.get("history") or []
+        _history_tokens = sum(estimate_tokens(m.get("content") or "") for m in _history)
+        _total_tokens = _history_tokens + _msg_tokens + _resp_tokens
+
         yield {
             "token": "",
             "done": True,
@@ -10775,12 +11352,26 @@ def handle_chat_request_stream(
             "llm_provider": llm_provider,
             "llm_model": llm_model or "",
             "streamed": True,
+            "token_usage": {
+                "message_tokens": _msg_tokens,
+                "response_tokens": _resp_tokens,
+                "history_tokens": _history_tokens,
+                "total_tokens": _total_tokens,
+            },
         }
         return
 
     # --- Non-streaming fallback: yield full response as single burst ---
     # For short/cached/rule-based/empty responses
     yield {"token": full_response, "done": False}
+
+    # Token counting for context window tracking
+    _msg_tokens = estimate_tokens(message)
+    _resp_tokens = estimate_tokens(full_response)
+    _history = request_data.get("history") or []
+    _history_tokens = sum(estimate_tokens(m.get("content") or "") for m in _history)
+    _total_tokens = _history_tokens + _msg_tokens + _resp_tokens
+
     yield {
         "token": "",
         "done": True,
@@ -10791,9 +11382,256 @@ def handle_chat_request_stream(
         "llm_provider": llm_provider,
         "llm_model": llm_model or "",
         "streamed": False,
+        "token_usage": {
+            "message_tokens": _msg_tokens,
+            "response_tokens": _resp_tokens,
+            "history_tokens": _history_tokens,
+            "total_tokens": _total_tokens,
+        },
     }
 
 
 def get_nova_metrics() -> Dict[str, Any]:
     """Return Nova chatbot metrics snapshot for the health/metrics endpoint."""
     return _nova_metrics.snapshot()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# TOKEN COUNTING -- approximate token estimation for context window tracking
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def estimate_tokens(text: str) -> int:
+    """Estimate token count for a text string.
+
+    Uses a simple heuristic: split by whitespace and multiply by 1.3
+    to approximate sub-word tokenization. This is intentionally fast
+    and good enough for UI display purposes.
+
+    Args:
+        text: The text to estimate tokens for.
+
+    Returns:
+        Approximate token count (integer).
+    """
+    if not text:
+        return 0
+    word_count = len(text.split())
+    return int(word_count * 1.3)
+
+
+def count_conversation_tokens(messages: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Count tokens for an entire conversation with per-turn breakdown.
+
+    Args:
+        messages: List of message dicts with 'role' and 'content' keys.
+
+    Returns:
+        Dict with 'total_tokens', 'turn_tokens' list, and 'context_window_pct'.
+    """
+    turn_tokens: list[dict[str, Any]] = []
+    total = 0
+
+    for msg in messages:
+        content = msg.get("content") or msg.get("text") or ""
+        role = msg.get("role") or "unknown"
+        tokens = estimate_tokens(content)
+        turn_tokens.append(
+            {
+                "role": role,
+                "tokens": tokens,
+            }
+        )
+        total += tokens
+
+    # Assume ~128K context window for display purposes
+    context_window = 128_000
+    pct = round((total / context_window) * 100, 1) if context_window > 0 else 0.0
+
+    return {
+        "total_tokens": total,
+        "turn_tokens": turn_tokens,
+        "context_window_pct": pct,
+        "context_window_size": context_window,
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# LLM-BASED CONVERSATION SUMMARIZATION
+# ═══════════════════════════════════════════════════════════════════════════════
+
+_SUMMARIZE_THRESHOLD = 10  # messages before triggering summarization
+
+_SUMMARY_SYSTEM_PROMPT = (
+    "You are a concise conversation summarizer. Given a conversation between "
+    "a user and Nova (an AI recruitment marketing assistant), produce a 2-3 "
+    "sentence summary capturing: (1) the main topic/question, (2) key data "
+    "points or recommendations given, (3) any decisions or action items. "
+    "Be factual and brief. Do not use bullet points."
+)
+
+
+def summarize_conversation(
+    conversation_id: str,
+    messages: Optional[List[Dict[str, Any]]] = None,
+) -> Dict[str, Any]:
+    """Generate an LLM-based summary for a conversation.
+
+    When a conversation exceeds the threshold, uses a cheap/fast LLM
+    to produce a concise summary. Falls back to heuristic extraction
+    if the LLM call fails.
+
+    Args:
+        conversation_id: Unique conversation identifier.
+        messages: Conversation messages list. If None, attempts to load
+                  from nova_persistence.
+
+    Returns:
+        Dict with 'summary', 'conversation_id', 'message_count',
+        'token_count', 'method' ('llm' or 'heuristic').
+    """
+    # Load messages from persistence if not provided
+    if messages is None:
+        try:
+            from nova_persistence import get_conversation
+
+            conv = get_conversation(conversation_id)
+            if conv and conv.get("messages"):
+                messages = conv["messages"]
+            else:
+                return {
+                    "summary": "",
+                    "conversation_id": conversation_id,
+                    "message_count": 0,
+                    "token_count": 0,
+                    "method": "none",
+                    "error": "Conversation not found or empty",
+                }
+        except ImportError:
+            logger.warning("nova_persistence not available for summarization")
+            return {
+                "summary": "",
+                "conversation_id": conversation_id,
+                "message_count": 0,
+                "token_count": 0,
+                "method": "none",
+                "error": "Persistence layer unavailable",
+            }
+
+    if not messages:
+        return {
+            "summary": "",
+            "conversation_id": conversation_id,
+            "message_count": 0,
+            "token_count": 0,
+            "method": "none",
+        }
+
+    msg_count = len(messages)
+    token_info = count_conversation_tokens(messages)
+
+    # Build transcript for summarization (last 20 messages max to limit cost)
+    recent = messages[-20:]
+    transcript_parts: list[str] = []
+    for msg in recent:
+        role = msg.get("role") or "unknown"
+        content = (msg.get("content") or msg.get("text") or "")[:500]
+        label = "User" if role == "user" else "Nova"
+        transcript_parts.append(f"{label}: {content}")
+    transcript = "\n".join(transcript_parts)
+
+    # Attempt LLM-based summarization using cheap/fast model
+    summary = ""
+    method = "heuristic"
+
+    if msg_count >= _SUMMARIZE_THRESHOLD:
+        try:
+            from llm_router import call_llm, TASK_CONTEXT_SUMMARIZE
+
+            result = call_llm(
+                messages=[{"role": "user", "content": transcript}],
+                system_prompt=_SUMMARY_SYSTEM_PROMPT,
+                max_tokens=256,
+                task_type=TASK_CONTEXT_SUMMARIZE,
+                use_cache=True,
+            )
+            llm_text = (result.get("text") or "").strip()
+            if llm_text and len(llm_text) > 20:
+                summary = llm_text
+                method = "llm"
+                logger.info(
+                    f"[Nova] LLM summary generated for {conversation_id} "
+                    f"({msg_count} msgs, provider={result.get('provider', 'unknown')})"
+                )
+        except Exception as e:
+            logger.error(
+                f"[Nova] LLM summarization failed for {conversation_id}: {e}",
+                exc_info=True,
+            )
+
+    # Fallback: heuristic extraction
+    if not summary:
+        summary = _heuristic_summary(messages)
+        method = "heuristic"
+
+    # Store summary in conversation metadata via persistence
+    try:
+        from nova_persistence import _get_supabase
+
+        sb = _get_supabase()
+        if sb:
+            sb.table("nova_conversations").update(
+                {
+                    "metadata": json.dumps(
+                        {
+                            "summary": summary,
+                            "summary_method": method,
+                            "summary_generated_at": time.time(),
+                            "token_count": token_info["total_tokens"],
+                        }
+                    ),
+                }
+            ).eq("id", conversation_id).execute()
+    except Exception as e:
+        logger.debug(f"[Nova] Failed to persist summary metadata: {e}")
+
+    return {
+        "summary": summary,
+        "conversation_id": conversation_id,
+        "message_count": msg_count,
+        "token_count": token_info["total_tokens"],
+        "method": method,
+    }
+
+
+def _heuristic_summary(messages: List[Dict[str, Any]]) -> str:
+    """Generate a simple heuristic summary from conversation messages.
+
+    Extracts the first user question and last assistant response topic.
+
+    Args:
+        messages: Conversation messages list.
+
+    Returns:
+        Brief summary string.
+    """
+    if not messages:
+        return ""
+
+    first_user = ""
+    last_assistant = ""
+    for msg in messages:
+        role = msg.get("role") or ""
+        content = (msg.get("content") or msg.get("text") or "").strip()
+        if role == "user" and not first_user and content:
+            first_user = content[:150]
+        if role in ("assistant", "nova") and content:
+            last_assistant = content[:150]
+
+    parts: list[str] = []
+    if first_user:
+        parts.append(f"User asked about: {first_user}")
+    if last_assistant:
+        parts.append(f"Nova provided: {last_assistant}")
+
+    return " | ".join(parts)[:500]

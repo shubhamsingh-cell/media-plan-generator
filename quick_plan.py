@@ -273,6 +273,168 @@ _YOUNG_WORKFORCE_INDUSTRIES: set[str] = {
     "social_media",
 }
 
+# ── Dynamic Collar-to-Channel Fit Score Modifiers ──
+# Lookup table: (collar_type, metro_tier, industry_group) -> per-channel modifier dict.
+# Modifiers are additive adjustments (positive = boost, negative = penalty) applied
+# on top of the base _COLLAR_CHANNEL_FIT scores before clamping to 0-100.
+#
+# Industry groups collapse granular industry keys into strategic categories.
+_INDUSTRY_GROUP_MAP: Dict[str, str] = {
+    "technology": "tech",
+    "software": "tech",
+    "saas": "tech",
+    "fintech": "tech",
+    "it_services": "tech",
+    "cybersecurity": "tech",
+    "healthcare": "healthcare",
+    "hospital": "healthcare",
+    "pharma": "healthcare",
+    "nursing": "healthcare",
+    "clinical": "healthcare",
+    "logistics": "logistics",
+    "transportation": "logistics",
+    "warehousing": "logistics",
+    "supply_chain": "logistics",
+    "trucking": "logistics",
+    "manufacturing": "manufacturing",
+    "construction": "manufacturing",
+    "industrial": "manufacturing",
+    "retail": "retail",
+    "hospitality": "retail",
+    "food_service": "retail",
+    "quick_service_restaurant": "retail",
+    "fast_food": "retail",
+    "restaurant": "retail",
+    "finance": "finance",
+    "banking": "finance",
+    "insurance": "finance",
+    "accounting": "finance",
+    "government": "government",
+    "defense": "government",
+    "federal": "government",
+    "education": "education",
+    "higher_education": "education",
+    "k12": "education",
+}
+
+
+def _resolve_industry_group(industry: str) -> str:
+    """Map a granular industry key to a strategic industry group.
+
+    Args:
+        industry: Raw industry string from user input.
+
+    Returns:
+        Industry group key (e.g. "tech", "healthcare") or "general".
+    """
+    key = (industry or "").lower().replace(" ", "_").replace("-", "_")
+    return _INDUSTRY_GROUP_MAP.get(key, "general")
+
+
+# (collar_type, metro_tier, industry_group) -> channel modifier dict.
+# Only non-zero modifiers are listed. Missing combos fall back to
+# (collar, metro_tier, "general"), then (collar, "any", industry), then zero.
+_FIT_SCORE_MODIFIERS: Dict[tuple[str, str, str], Dict[str, int]] = {
+    # ── Blue collar ──
+    ("blue_collar", "tier_1", "logistics"): {
+        "programmatic": +5,
+        "indeed": +3,
+        "meta_facebook": +4,
+        "google_search": +3,
+    },
+    ("blue_collar", "tier_1", "retail"): {
+        "meta_facebook": +6,
+        "programmatic": +4,
+        "indeed": +3,
+    },
+    ("blue_collar", "tier_2", "manufacturing"): {
+        "indeed": +5,
+        "niche_boards": +4,
+        "programmatic": +3,
+    },
+    ("blue_collar", "tier_2", "logistics"): {
+        "programmatic": +4,
+        "indeed": +4,
+        "ziprecruiter": +3,
+    },
+    ("blue_collar", "tier_3", "manufacturing"): {
+        "indeed": +6,
+        "niche_boards": +5,
+        "meta_facebook": +3,
+    },
+    ("blue_collar", "rural", "general"): {
+        "indeed": +5,
+        "meta_facebook": +5,
+        "linkedin": -5,
+    },
+    # ── White collar ──
+    ("white_collar", "tier_1", "tech"): {
+        "linkedin": +5,
+        "niche_boards": +6,
+        "glassdoor": +4,
+        "programmatic": -3,
+    },
+    ("white_collar", "tier_1", "finance"): {
+        "linkedin": +4,
+        "glassdoor": +5,
+        "niche_boards": +3,
+    },
+    ("white_collar", "tier_2", "tech"): {
+        "linkedin": +3,
+        "niche_boards": +4,
+        "indeed": +2,
+    },
+    ("white_collar", "tier_2", "healthcare"): {
+        "niche_boards": +5,
+        "indeed": +3,
+        "linkedin": +2,
+    },
+    ("white_collar", "tier_3", "general"): {
+        "indeed": +4,
+        "linkedin": -2,
+        "glassdoor": -2,
+    },
+    ("white_collar", "rural", "general"): {
+        "indeed": +6,
+        "linkedin": -5,
+        "glassdoor": -4,
+        "programmatic": +3,
+    },
+    # ── Grey collar ──
+    ("grey_collar", "tier_1", "healthcare"): {
+        "niche_boards": +6,
+        "linkedin": +3,
+        "glassdoor": +2,
+    },
+    ("grey_collar", "tier_2", "healthcare"): {
+        "niche_boards": +5,
+        "indeed": +3,
+        "programmatic": +2,
+    },
+    ("grey_collar", "rural", "healthcare"): {
+        "indeed": +5,
+        "niche_boards": +4,
+        "meta_facebook": +4,
+        "linkedin": -3,
+    },
+    # ── Pink collar ──
+    ("pink_collar", "tier_1", "retail"): {
+        "meta_facebook": +5,
+        "programmatic": +3,
+        "indeed": +2,
+    },
+    ("pink_collar", "tier_2", "retail"): {
+        "meta_facebook": +4,
+        "indeed": +3,
+        "ziprecruiter": +2,
+    },
+    ("pink_collar", "rural", "general"): {
+        "indeed": +5,
+        "meta_facebook": +4,
+        "linkedin": -5,
+    },
+}
+
 
 def _classify_metro_tier(location: str) -> str:
     """Classify a location into metro tier for fit score adjustment.
@@ -307,10 +469,16 @@ def adjust_fit_scores(
     base_scores: Dict[str, int],
     location: str,
     industry: str,
+    collar_type: str = "white_collar",
 ) -> Dict[str, int]:
-    """Dynamically adjust collar-channel fit scores based on location and industry.
+    """Dynamically adjust collar-channel fit scores based on metro, industry, and collar.
 
-    Applies location-based and demographic-based adjustments:
+    Uses a three-tier lookup strategy:
+    1. Exact match: (collar_type, metro_tier, industry_group)
+    2. Fallback: (collar_type, metro_tier, "general")
+    3. Fallback: (collar_type, "any", industry_group) -- not yet populated
+
+    On top of the lookup-table modifiers, legacy heuristic adjustments still apply:
     - LinkedIn: +3 in Tier 1 metros, -3 in rural areas
     - Indeed/job boards: +2 in Tier 2/3 areas (lower LinkedIn penetration)
     - Social media: +2 for younger workforce demographics
@@ -322,6 +490,7 @@ def adjust_fit_scores(
         base_scores: Dict of channel_key -> fit_score (0-100).
         location: Free-text location string.
         industry: Industry key or label.
+        collar_type: Collar classification (blue_collar, white_collar, etc.).
 
     Returns:
         New dict of channel_key -> adjusted fit_score.
@@ -329,8 +498,20 @@ def adjust_fit_scores(
     adjusted = dict(base_scores)
     metro_tier = _classify_metro_tier(location)
     industry_lower = (industry or "").lower().replace(" ", "_")
+    industry_group = _resolve_industry_group(industry)
 
     try:
+        # ── Lookup-table modifiers (collar, metro, industry) ──
+        modifiers: Dict[str, int] = (
+            _FIT_SCORE_MODIFIERS.get((collar_type, metro_tier, industry_group))
+            or _FIT_SCORE_MODIFIERS.get((collar_type, metro_tier, "general"))
+            or {}
+        )
+        for ch_key, delta in modifiers.items():
+            if ch_key in adjusted:
+                adjusted[ch_key] = adjusted[ch_key] + delta
+
+        # ── Legacy heuristic adjustments (additive, stacks with lookup table) ──
         # LinkedIn adjustment: boost in Tier 1, reduce in rural
         if "linkedin" in adjusted:
             if metro_tier == "tier_1":
@@ -711,8 +892,8 @@ def score_channels_for_context(
             collar, _COLLAR_CHANNEL_FIT["white_collar"]
         )
 
-        # ── Dynamically adjust fit scores for location and industry ──
-        fit_scores = adjust_fit_scores(base_fit_scores, location, industry)
+        # ── Dynamically adjust fit scores for location, industry, and collar ──
+        fit_scores = adjust_fit_scores(base_fit_scores, location, industry, collar)
 
         # ── Get channel allocation percentages from collar strategy ──
         alloc_pcts = _get_collar_allocation(collar)
@@ -1061,13 +1242,35 @@ def _get_seasonal_advice(collar_type: str) -> Dict[str, Any]:
                 f"{best_months[0]['month']} or {best_months[1]['month']} for maximum impact."
             )
 
+        # Build human-readable adjustment explanation
+        pct_change = round((current_mult - 1.0) * 100, 1)
+        if abs(pct_change) < 1.0:
+            adjustment_label = "No seasonal adjustment applied (baseline month)"
+        elif pct_change > 0:
+            adjustment_label = f"Adjusted +{pct_change}% for {_MONTH_NAMES[current_month]} {collar.replace('_', ' ')} hiring surge"
+        else:
+            adjustment_label = f"Adjusted {pct_change}% for {_MONTH_NAMES[current_month]} {collar.replace('_', ' ')} hiring lull"
+
+        # Quarter label
+        quarter = (current_month - 1) // 3 + 1
+        quarter_label = f"Q{quarter}"
+
         return {
             "current_month": _MONTH_NAMES[current_month],
             "current_multiplier": round(current_mult, 2),
             "current_label": current_label,
+            "adjustment_label": adjustment_label,
+            "adjustment_pct": pct_change,
+            "quarter": quarter_label,
             "best_months": best_months,
             "worst_months": worst_months,
             "advice": advice,
+            "budget_impact_note": (
+                f"Your effective CPC is {current_mult:.2f}x baseline due to {_MONTH_NAMES[current_month]} "
+                f"seasonal demand. Plan budget accordingly."
+                if abs(pct_change) >= 5.0
+                else "Minimal seasonal impact on your budget this month."
+            ),
         }
 
     except Exception as e:
@@ -1076,14 +1279,224 @@ def _get_seasonal_advice(collar_type: str) -> Dict[str, Any]:
             "current_month": _MONTH_NAMES[datetime.now().month],
             "current_multiplier": 1.0,
             "current_label": "Normal",
+            "adjustment_label": "No seasonal adjustment applied",
+            "adjustment_pct": 0.0,
+            "quarter": f"Q{(datetime.now().month - 1) // 3 + 1}",
             "best_months": [],
             "worst_months": [],
             "advice": "Seasonal data unavailable. Campaign timing should be based on your hiring urgency.",
+            "budget_impact_note": "Seasonal impact unknown. Use baseline budget assumptions.",
         }
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# 6. MAIN ENTRY POINT
+# 6. A/B TESTING RECOMMENDATIONS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def _generate_ab_testing_recommendations(
+    collar_type: str,
+    channel_recommendations: List[Dict[str, Any]],
+    role: str,
+    location: str,
+    budget: float,
+) -> List[Dict[str, Any]]:
+    """Generate A/B testing recommendations for the media plan.
+
+    Produces actionable test hypotheses based on the collar type, top channels,
+    role, and budget. Each recommendation includes the variable to test, a
+    hypothesis, suggested duration, and sample size guidance.
+
+    Args:
+        collar_type: Collar classification for the role.
+        channel_recommendations: Scored channel list from ``score_channels_for_context``.
+        role: Job title being planned for.
+        location: Target location.
+        budget: Total plan budget in USD.
+
+    Returns:
+        List of A/B test recommendation dicts, each containing:
+        - test_id, variable, hypothesis, channels, duration_days,
+          min_sample_size, priority, expected_lift_pct.
+    """
+    tests: List[Dict[str, Any]] = []
+
+    # Sort channels by spend descending to identify top spenders
+    top_channels = sorted(
+        channel_recommendations, key=lambda c: c.get("spend", 0), reverse=True
+    )
+    top_2 = top_channels[:2] if len(top_channels) >= 2 else top_channels
+
+    # 1. Channel comparison test (always recommended if 2+ channels)
+    if len(top_2) >= 2:
+        ch_a = top_2[0].get("channel_name", "Channel A")
+        ch_b = top_2[1].get("channel_name", "Channel B")
+        tests.append(
+            {
+                "test_id": "channel_comparison",
+                "variable": "Channel Performance",
+                "hypothesis": (
+                    f"Test {ch_a} vs {ch_b} for {role} roles in {location}. "
+                    f"Allocate equal budget to each channel for a controlled comparison."
+                ),
+                "channels": [ch_a, ch_b],
+                "duration_days": 14,
+                "min_sample_size": 200,
+                "priority": "high",
+                "expected_lift_pct": 15,
+                "budget_split": "50/50",
+            }
+        )
+
+    # 2. Collar-specific messaging test
+    messaging_tests: Dict[str, Dict[str, str]] = {
+        "blue_collar": {
+            "variable": "Ad Copy: Pay vs Benefits",
+            "hypothesis": (
+                f"Test pay-rate-first messaging vs benefits-first messaging for {role}. "
+                f"Blue collar candidates typically respond better to upfront pay transparency."
+            ),
+            "variant_a": "Lead with hourly rate and schedule",
+            "variant_b": "Lead with benefits package and perks",
+        },
+        "white_collar": {
+            "variable": "Ad Copy: Growth vs Compensation",
+            "hypothesis": (
+                f"Test career-growth messaging vs total-compensation messaging for {role}. "
+                f"Senior professionals often value growth narratives over salary numbers."
+            ),
+            "variant_a": "Lead with career growth and title progression",
+            "variant_b": "Lead with total compensation and equity",
+        },
+        "grey_collar": {
+            "variable": "Ad Copy: Sign-On Bonus vs Schedule Flexibility",
+            "hypothesis": (
+                f"Test sign-on bonus offers vs flexible scheduling for {role}. "
+                f"Clinical roles are highly sensitive to both financial incentives and work-life balance."
+            ),
+            "variant_a": "Highlight sign-on bonus amount",
+            "variant_b": "Highlight shift flexibility and self-scheduling",
+        },
+        "pink_collar": {
+            "variable": "Ad Copy: Culture vs Stability",
+            "hypothesis": (
+                f"Test workplace-culture messaging vs job-stability messaging for {role}. "
+                f"Service and admin candidates value both team environment and predictable schedules."
+            ),
+            "variant_a": "Lead with team culture and work environment",
+            "variant_b": "Lead with job stability and benefits",
+        },
+    }
+    msg_test = messaging_tests.get(collar_type, messaging_tests["white_collar"])
+    tests.append(
+        {
+            "test_id": "messaging_variant",
+            "variable": msg_test["variable"],
+            "hypothesis": msg_test["hypothesis"],
+            "channels": (
+                [top_2[0].get("channel_name", "Primary Channel")]
+                if top_2
+                else ["Primary Channel"]
+            ),
+            "duration_days": 21,
+            "min_sample_size": 300,
+            "priority": "high",
+            "expected_lift_pct": 20,
+            "variant_a": msg_test.get("variant_a", ""),
+            "variant_b": msg_test.get("variant_b", ""),
+        }
+    )
+
+    # 3. Application flow test (if budget supports it)
+    if budget >= 10_000:
+        tests.append(
+            {
+                "test_id": "apply_flow",
+                "variable": "Application Length",
+                "hypothesis": (
+                    f"Test short-form (name + phone + resume optional) vs standard application "
+                    f"for {role}. Shorter forms typically increase apply rates 20-40% for "
+                    f"{collar_type.replace('_', ' ')} roles but may reduce quality."
+                ),
+                "channels": ["All channels"],
+                "duration_days": 14,
+                "min_sample_size": 150,
+                "priority": "medium",
+                "expected_lift_pct": 25,
+                "variant_a": "Short form (3 fields, no resume)",
+                "variant_b": "Standard form (5+ fields, resume required)",
+            }
+        )
+
+    # 4. Bid strategy test (for programmatic channels)
+    programmatic_channels = [
+        c
+        for c in channel_recommendations
+        if c.get("channel_key") in ("programmatic", "google_search")
+    ]
+    if programmatic_channels and budget >= 5_000:
+        tests.append(
+            {
+                "test_id": "bid_strategy",
+                "variable": "Bidding Strategy",
+                "hypothesis": (
+                    f"Test CPC-optimized bidding vs CPA-optimized bidding on programmatic channels. "
+                    f"CPA bidding often delivers better ROI for established campaigns with conversion data."
+                ),
+                "channels": [c.get("channel_name", "") for c in programmatic_channels],
+                "duration_days": 21,
+                "min_sample_size": 500,
+                "priority": "medium",
+                "expected_lift_pct": 12,
+                "variant_a": "CPC-optimized (maximize clicks)",
+                "variant_b": "CPA-optimized (maximize applications)",
+            }
+        )
+
+    # 5. Time-of-day targeting test (collar-specific)
+    peak_hours = {
+        "blue_collar": (
+            "early morning (6-8 AM) and evening (5-9 PM)",
+            "midday (11 AM-2 PM)",
+        ),
+        "white_collar": (
+            "morning commute (7-9 AM) and late evening (8-10 PM)",
+            "midday (12-1 PM)",
+        ),
+        "grey_collar": (
+            "shift change windows (6-7 AM, 2-3 PM, 10-11 PM)",
+            "standard business hours",
+        ),
+        "pink_collar": ("morning (8-10 AM) and evening (6-8 PM)", "midday"),
+    }
+    peak_a, peak_b = peak_hours.get(collar_type, peak_hours["white_collar"])
+    tests.append(
+        {
+            "test_id": "dayparting",
+            "variable": "Ad Scheduling (Dayparting)",
+            "hypothesis": (
+                f"Test ad delivery during peak engagement windows ({peak_a}) vs "
+                f"even distribution throughout the day. Dayparting can reduce wasted spend by 10-20%."
+            ),
+            "channels": (
+                [top_2[0].get("channel_name", "Primary Channel")]
+                if top_2
+                else ["Primary Channel"]
+            ),
+            "duration_days": 14,
+            "min_sample_size": 250,
+            "priority": "low",
+            "expected_lift_pct": 10,
+            "variant_a": f"Peak hours only: {peak_a}",
+            "variant_b": "Even distribution (24-hour)",
+        }
+    )
+
+    return tests
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 7. MAIN ENTRY POINT
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
@@ -1173,6 +1586,15 @@ def generate_quick_plan(
         # ── Seasonal advice ──
         seasonal_advice = _get_seasonal_advice(collar_type)
 
+        # ── A/B Testing recommendations ──
+        ab_testing = _generate_ab_testing_recommendations(
+            collar_type=collar_type,
+            channel_recommendations=channel_recommendations,
+            role=role,
+            location=location or "National",
+            budget=budget_val,
+        )
+
         # ── Aggregate projections ──
         total_clicks = sum(
             c.get("projected_clicks") or 0 for c in channel_recommendations
@@ -1202,6 +1624,7 @@ def generate_quick_plan(
             "channel_recommendations": channel_recommendations,
             "budget_assessment": budget_assessment,
             "seasonal_advice": seasonal_advice,
+            "ab_testing_recommendations": ab_testing,
             "total_projected": total_projected,
             "generated_at": datetime.now().isoformat(),
         }

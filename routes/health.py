@@ -1443,6 +1443,110 @@ def _handle_signals_trending(handler, path: str, parsed: Any) -> None:
         )
 
 
+def _handle_health_slo_modules(handler, path: str, parsed: Any) -> None:
+    """/api/health/slo -- Per-module SLO compliance report."""
+    try:
+        from slo_config import get_slo_tracker
+
+        tracker = get_slo_tracker()
+        report = tracker.get_compliance_report()
+        status_code = 200 if report.get("all_compliant", True) else 200
+        _send_json_response(handler, report, status_code)
+    except ImportError:
+        _send_json_response(
+            handler,
+            {"error": "slo_config module not available"},
+            status_code=503,
+        )
+    except Exception as e:
+        logger.error("SLO module compliance check error: %s", e, exc_info=True)
+        _send_json_response(
+            handler,
+            {"error": f"SLO check failed: {e}"},
+            status_code=500,
+        )
+
+
+def _handle_health_anomalies(handler, path: str, parsed: Any) -> None:
+    """/api/health/anomalies -- Anomaly detection status and active alerts."""
+    try:
+        from anomaly_detector import get_anomaly_detector
+
+        detector = get_anomaly_detector()
+        q_params = urllib.parse.parse_qs(parsed.query)
+        mode = (q_params.get("mode") or ["summary"])[0]
+
+        if mode == "baselines":
+            result = detector.get_baselines()
+        elif mode == "full":
+            result = detector.check_all_anomalies()
+        else:
+            # Default: summary with active anomalies only
+            active = detector.get_active_anomalies()
+            baselines = detector.get_baselines()
+            result = {
+                "anomaly_count": len(active),
+                "active_anomalies": active,
+                "tracked_metrics": len(baselines.get("baselines", {})),
+                "checked_at": baselines.get("generated_at", ""),
+            }
+
+        _send_json_response(handler, result)
+    except ImportError:
+        _send_json_response(
+            handler,
+            {"error": "anomaly_detector module not available"},
+            status_code=503,
+        )
+    except Exception as e:
+        logger.error("Anomaly detection endpoint error: %s", e, exc_info=True)
+        _send_json_response(
+            handler,
+            {"error": f"Anomaly check failed: {e}"},
+            status_code=500,
+        )
+
+
+def _handle_deploy_ready(handler, path: str, parsed: Any) -> None:
+    """/api/deploy/ready -- Blue-green deployment readiness gate (Linear JOV-21).
+
+    Returns 200 ONLY when the server is fully warmed up:
+    - Knowledge base loaded
+    - Vector search index built
+    - All deferred startup tasks complete
+
+    Returns 503 while still warming up. This is the endpoint to poll
+    in CI/CD after a deploy to confirm the new instance is ready.
+    """
+    _app = sys.modules.get("__main__") or sys.modules.get("app")
+
+    warmup_complete = getattr(_app, "_DEPLOY_WARMUP_COMPLETE", False)
+    kb = getattr(_app, "_knowledge_base", None)
+    kb_loaded = kb is not None and len(kb) > 0
+    deploy_version = getattr(_app, "_DEPLOY_VERSION", "unknown")
+    deploy_commit = getattr(_app, "_DEPLOY_GIT_COMMIT", "unknown")
+    instance_id = getattr(_app, "_DEPLOY_INSTANCE_ID", "unknown")
+    start_time = getattr(_app, "_SERVER_START_TIME", 0)
+    uptime = round(time.time() - start_time, 2) if start_time else 0
+
+    is_ready = warmup_complete and kb_loaded
+
+    result = {
+        "ready": is_ready,
+        "deploy_version": deploy_version,
+        "git_commit": deploy_commit,
+        "instance_id": instance_id,
+        "uptime_seconds": uptime,
+        "checks": {
+            "warmup_complete": warmup_complete,
+            "knowledge_base_loaded": kb_loaded,
+        },
+    }
+
+    status_code = 200 if is_ready else 503
+    _send_json_response(handler, result, status_code)
+
+
 _HEALTH_ROUTE_MAP: dict[str, Any] = {
     "/api/config": _handle_config,
     "/api/features": _handle_features,
@@ -1474,4 +1578,7 @@ _HEALTH_ROUTE_MAP: dict[str, Any] = {
     "/api/signals": _handle_signals,
     "/api/signals/volatility": _handle_signals_volatility,
     "/api/signals/trending": _handle_signals_trending,
+    "/api/health/slo": _handle_health_slo_modules,
+    "/api/health/anomalies": _handle_health_anomalies,
+    "/api/deploy/ready": _handle_deploy_ready,
 }

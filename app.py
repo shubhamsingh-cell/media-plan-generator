@@ -213,6 +213,56 @@ except ImportError:
     _vector_search_available = False
     logger.warning("vector_search module not available; semantic search disabled")
 
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# SLACK ALERTS MCP INTEGRATION (structured alerting for errors/deploys/health)
+# ═══════════════════════════════════════════════════════════════════════════════
+try:
+    from slack_alerts import (
+        send_alert as _slack_send_alert,
+        send_deploy_notification as _slack_deploy_notify,
+        send_error_alert as _slack_error_alert,
+        send_health_failure_alert as _slack_health_alert,
+        get_status as _slack_alerts_status,
+    )
+
+    _slack_alerts_available = True
+except ImportError:
+    _slack_alerts_available = False
+    logger.warning("slack_alerts module not available; Slack MCP alerting disabled")
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# CALENDAR SYNC MCP INTEGRATION (Google Calendar for hiring milestones)
+# ═══════════════════════════════════════════════════════════════════════════════
+try:
+    from calendar_sync import (
+        create_hiring_event as _cal_create_event,
+        get_upcoming_events as _cal_get_events,
+        get_status as _cal_status,
+    )
+
+    _calendar_sync_available = True
+except ImportError:
+    _calendar_sync_available = False
+    logger.warning("calendar_sync module not available; Calendar MCP disabled")
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# CHROMA RAG MCP INTEGRATION (ChromaDB embeddings for Nova knowledge search)
+# ═══════════════════════════════════════════════════════════════════════════════
+try:
+    from chroma_rag import (
+        search_similar as _chroma_search,
+        index_document as _chroma_index_doc,
+        get_collection_stats as _chroma_stats,
+        initialize as _chroma_init,
+        index_knowledge_base_chroma as _chroma_index_kb,
+    )
+
+    _chroma_rag_available = True
+except ImportError:
+    _chroma_rag_available = False
+    logger.warning("chroma_rag module not available; ChromaDB RAG disabled")
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # POSTHOG ANALYTICS (stdlib-only, fire-and-forget event tracking)
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -317,6 +367,212 @@ _INSIGHTS_CACHE_TTL = 3600.0  # 1 hour
 _copilot_cache: dict[str, tuple[list, float]] = {}
 _copilot_cache_lock = threading.Lock()
 _COPILOT_CACHE_TTL = 60.0  # 60 seconds
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# RESPONSE CACHE LIMITS & PERIODIC CLEANUP
+# ═══════════════════════════════════════════════════════════════════════════════
+_CACHE_MAX_ENTRIES = 500  # Max entries per cache before forced eviction
+_CACHE_CLEANUP_INTERVAL = 300.0  # 5 minutes between cleanup sweeps
+_FRAGMENT_CACHE_TTL = 600.0  # 10 minutes for HTML fragments (picks up file changes)
+
+
+def _cache_cleanup_loop() -> None:
+    """Periodically purge stale entries from all in-memory response caches.
+
+    Runs every _CACHE_CLEANUP_INTERVAL seconds in a daemon thread.
+    Removes expired entries and caps each cache at _CACHE_MAX_ENTRIES.
+    """
+    while True:
+        try:
+            time.sleep(_CACHE_CLEANUP_INTERVAL)
+            now = time.time()
+
+            # ── Insights cache ──
+            try:
+                with _insights_cache_lock:
+                    stale_keys = [
+                        k
+                        for k, (_, ts) in _insights_cache.items()
+                        if now - ts > _INSIGHTS_CACHE_TTL
+                    ]
+                    for k in stale_keys:
+                        del _insights_cache[k]
+                    # Cap size: evict oldest entries if still over limit
+                    if len(_insights_cache) > _CACHE_MAX_ENTRIES:
+                        sorted_keys = sorted(
+                            _insights_cache, key=lambda k: _insights_cache[k][1]
+                        )
+                        for k in sorted_keys[
+                            : len(_insights_cache) - _CACHE_MAX_ENTRIES
+                        ]:
+                            del _insights_cache[k]
+                    purged_insights = len(stale_keys)
+            except Exception as e:
+                logger.error(
+                    f"Cache cleanup failed for insights cache: {e}", exc_info=True
+                )
+                purged_insights = 0
+
+            # ── Copilot cache ──
+            try:
+                with _copilot_cache_lock:
+                    stale_keys = [
+                        k
+                        for k, (_, ts) in _copilot_cache.items()
+                        if now - ts > _COPILOT_CACHE_TTL
+                    ]
+                    for k in stale_keys:
+                        del _copilot_cache[k]
+                    if len(_copilot_cache) > _CACHE_MAX_ENTRIES:
+                        sorted_keys = sorted(
+                            _copilot_cache, key=lambda k: _copilot_cache[k][1]
+                        )
+                        for k in sorted_keys[
+                            : len(_copilot_cache) - _CACHE_MAX_ENTRIES
+                        ]:
+                            del _copilot_cache[k]
+                    purged_copilot = len(stale_keys)
+            except Exception as e:
+                logger.error(
+                    f"Cache cleanup failed for copilot cache: {e}", exc_info=True
+                )
+                purged_copilot = 0
+
+            # ── Fragment cache (TTL-based invalidation for template reloads) ──
+            try:
+                with _fragment_cache_lock:
+                    # Fragment cache stores str (no timestamp tuple), so track
+                    # insertion time via a parallel dict if needed. For now,
+                    # just cap the size since fragments are bounded by template count.
+                    if len(_fragment_cache) > _CACHE_MAX_ENTRIES:
+                        _fragment_cache.clear()
+                        purged_fragments = 1
+                    else:
+                        purged_fragments = 0
+            except Exception as e:
+                logger.error(
+                    f"Cache cleanup failed for fragment cache: {e}", exc_info=True
+                )
+                purged_fragments = 0
+
+            # ── Shared plans store (24h TTL, max 1000) ──
+            purged_shared_plans = 0
+            try:
+                with _shared_plans_lock:
+                    stale_keys = [
+                        k
+                        for k, v in _shared_plans.items()
+                        if now - v.get("created_at", 0) > _SHARED_PLANS_TTL
+                    ]
+                    for k in stale_keys:
+                        del _shared_plans[k]
+                    purged_shared_plans = len(stale_keys)
+                    if len(_shared_plans) > _SHARED_PLANS_MAX:
+                        sorted_keys = sorted(
+                            _shared_plans,
+                            key=lambda k: _shared_plans[k].get("created_at", 0),
+                        )
+                        for k in sorted_keys[: len(_shared_plans) - _SHARED_PLANS_MAX]:
+                            del _shared_plans[k]
+                            purged_shared_plans += 1
+            except Exception as e:
+                logger.error(
+                    f"Cache cleanup failed for shared plans: {e}", exc_info=True
+                )
+
+            # ── Plan feedback store (24h TTL, max 1000 keys) ──
+            purged_feedback = 0
+            try:
+                with _plan_feedback_lock:
+                    stale_keys = [
+                        k
+                        for k, ts in _plan_feedback_ts.items()
+                        if now - ts > _PLAN_FEEDBACK_TTL
+                    ]
+                    for k in stale_keys:
+                        _plan_feedback.pop(k, None)
+                        _plan_feedback_ts.pop(k, None)
+                    purged_feedback = len(stale_keys)
+                    if len(_plan_feedback) > _PLAN_FEEDBACK_MAX:
+                        sorted_keys = sorted(
+                            _plan_feedback_ts,
+                            key=lambda k: _plan_feedback_ts.get(k, 0),
+                        )
+                        for k in sorted_keys[
+                            : len(_plan_feedback) - _PLAN_FEEDBACK_MAX
+                        ]:
+                            _plan_feedback.pop(k, None)
+                            _plan_feedback_ts.pop(k, None)
+                            purged_feedback += 1
+            except Exception as e:
+                logger.error(
+                    f"Cache cleanup failed for plan feedback: {e}", exc_info=True
+                )
+
+            # ── Scorecards store (12h TTL, max 500) ──
+            purged_scorecards = 0
+            try:
+                with _scorecards_lock:
+                    stale_keys = [
+                        k
+                        for k, (_, ts) in _scorecards.items()
+                        if now - ts > _SCORECARDS_TTL
+                    ]
+                    for k in stale_keys:
+                        del _scorecards[k]
+                    purged_scorecards = len(stale_keys)
+                    if len(_scorecards) > _SCORECARDS_MAX:
+                        sorted_keys = sorted(
+                            _scorecards,
+                            key=lambda k: _scorecards[k][1],
+                        )
+                        for k in sorted_keys[: len(_scorecards) - _SCORECARDS_MAX]:
+                            del _scorecards[k]
+                            purged_scorecards += 1
+            except Exception as e:
+                logger.error(f"Cache cleanup failed for scorecards: {e}", exc_info=True)
+
+            # ── Plan results store (30min TTL, background sweep) ──
+            purged_plan_results = 0
+            try:
+                with _plan_results_lock:
+                    stale_keys = [
+                        k
+                        for k, v in _plan_results_store.items()
+                        if now - v.get("created", 0) > _PLAN_RESULTS_TTL_SECONDS
+                    ]
+                    for k in stale_keys:
+                        del _plan_results_store[k]
+                    purged_plan_results = len(stale_keys)
+            except Exception as e:
+                logger.error(
+                    f"Cache cleanup failed for plan results: {e}", exc_info=True
+                )
+
+            total_purged = (
+                purged_insights
+                + purged_copilot
+                + purged_fragments
+                + purged_shared_plans
+                + purged_feedback
+                + purged_scorecards
+                + purged_plan_results
+            )
+            if total_purged > 0:
+                logger.info(
+                    f"Cache cleanup: purged {purged_insights} insights, "
+                    f"{purged_copilot} copilot, {purged_fragments} fragment, "
+                    f"{purged_shared_plans} shared plans, {purged_feedback} feedback, "
+                    f"{purged_scorecards} scorecards, {purged_plan_results} plan results"
+                )
+        except Exception as e:
+            logger.error(f"Cache cleanup loop error: {e}", exc_info=True)
+
+
+_cache_cleanup_thread = threading.Thread(
+    target=_cache_cleanup_loop, daemon=True, name="response-cache-cleanup"
+)
+_cache_cleanup_thread.start()
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # SLOW ENDPOINT PROFILER
@@ -512,8 +768,9 @@ def _copilot_suggest(field: str, partial_input: str, context: dict) -> list[dict
 
     # Store in cache
     with _copilot_cache_lock:
-        # Evict stale entries if cache is large
-        if len(_copilot_cache) > 500:
+        _copilot_cache[cache_hash] = (suggestions, time.time())
+        # Evict stale + oldest entries if cache exceeds max
+        if len(_copilot_cache) > _CACHE_MAX_ENTRIES:
             now = time.time()
             stale = [
                 k
@@ -522,7 +779,11 @@ def _copilot_suggest(field: str, partial_input: str, context: dict) -> list[dict
             ]
             for k in stale:
                 _copilot_cache.pop(k, None)
-        _copilot_cache[cache_hash] = (suggestions, time.time())
+            # If still over limit, evict oldest
+            if len(_copilot_cache) > _CACHE_MAX_ENTRIES:
+                sorted_keys = sorted(_copilot_cache, key=lambda k: _copilot_cache[k][1])
+                for k in sorted_keys[: len(_copilot_cache) - _CACHE_MAX_ENTRIES]:
+                    _copilot_cache.pop(k, None)
 
     return suggestions
 
@@ -1097,8 +1358,8 @@ def _generate_product_insights(
         if text:
             with _insights_cache_lock:
                 _insights_cache[cache_key] = (text, time.time())
-                # Evict stale entries if cache grows too large
-                if len(_insights_cache) > 500:
+                # Evict stale + oldest entries if cache exceeds max
+                if len(_insights_cache) > _CACHE_MAX_ENTRIES:
                     now = time.time()
                     stale = [
                         k
@@ -1107,6 +1368,15 @@ def _generate_product_insights(
                     ]
                     for k in stale:
                         del _insights_cache[k]
+                    # If still over limit, evict oldest
+                    if len(_insights_cache) > _CACHE_MAX_ENTRIES:
+                        sorted_keys = sorted(
+                            _insights_cache, key=lambda k: _insights_cache[k][1]
+                        )
+                        for k in sorted_keys[
+                            : len(_insights_cache) - _CACHE_MAX_ENTRIES
+                        ]:
+                            del _insights_cache[k]
         return text
     except FuturesTimeoutError:
         logger.warning(
@@ -1964,6 +2234,42 @@ DATA_DIR = os.path.join(BASE_DIR, "data")
 
 # Server start time for uptime tracking (used by /health endpoint)
 _SERVER_START_TIME = time.time()
+
+# ===============================================================================
+# BLUE-GREEN DEPLOY TRACKING (Linear JOV-21)
+# ===============================================================================
+# Zero-downtime deployment strategy for Render.com:
+#
+# Architecture:
+#   Render.com Standard tier deploys by spinning up a NEW instance, running
+#   the health check, and only routing traffic once it passes. This is
+#   effectively blue-green: the old instance (blue) serves traffic while the
+#   new instance (green) warms up. Render tears down blue after green is healthy.
+#
+# Warmup sequence:
+#   1. Server starts, binds port, begins accepting connections
+#   2. _deferred_startup() thread loads KB, builds vector index, inits modules
+#   3. Once complete, _DEPLOY_WARMUP_COMPLETE is set to True
+#   4. /api/deploy/ready returns 200 ONLY when warmup is complete
+#   5. Render healthCheckPath (/) returns 200 immediately (liveness)
+#   6. /api/deploy/ready is the READINESS gate -- use in CI/CD scripts
+#
+# Deploy version tracking:
+#   RENDER_GIT_COMMIT is set automatically by Render on each deploy.
+#   _DEPLOY_VERSION combines the app version with the commit hash for
+#   traceability across blue/green instances.
+#
+# Usage in CI/CD:
+#   After push, poll: curl -sf https://YOUR_APP/api/deploy/ready
+#   Returns 200 with {"ready": true} when the new instance is fully warmed.
+#   Returns 503 with {"ready": false} while still warming up.
+# ===============================================================================
+
+_DEPLOY_WARMUP_COMPLETE: bool = False
+_DEPLOY_GIT_COMMIT: str = os.environ.get("RENDER_GIT_COMMIT") or "local"
+_DEPLOY_VERSION: str = f"4.0.0-{_DEPLOY_GIT_COMMIT[:8]}"
+_DEPLOY_INSTANCE_ID: str = os.environ.get("RENDER_INSTANCE_ID") or "local"
+
 TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
 
 # --- Request logging helpers ---
@@ -3418,6 +3724,30 @@ _OPENAPI_SPEC = {
                 },
             }
         },
+        "/api/health/slo": {
+            "get": {
+                "summary": "Per-module SLO compliance",
+                "description": "Per-module SLO compliance report for all 22+ modules with rolling 1-hour window metrics.",
+                "operationId": "healthSLOModules",
+                "tags": ["Health"],
+                "responses": {
+                    "200": {"description": "Per-module SLO compliance report"},
+                    "503": {"description": "SLO config module unavailable"},
+                },
+            }
+        },
+        "/api/health/anomalies": {
+            "get": {
+                "summary": "Anomaly detection status",
+                "description": "Statistical anomaly detection using rolling mean + 3 sigma thresholds.",
+                "operationId": "healthAnomalies",
+                "tags": ["Health"],
+                "responses": {
+                    "200": {"description": "Anomaly detection results"},
+                    "503": {"description": "Anomaly detector module unavailable"},
+                },
+            }
+        },
         "/api/health/eval": {
             "get": {
                 "summary": "Eval scores",
@@ -3431,6 +3761,62 @@ _OPENAPI_SPEC = {
                     },
                     "401": {"description": "Unauthorized"},
                     "503": {"description": "Eval framework unavailable"},
+                },
+            }
+        },
+        "/api/deploy/ready": {
+            "get": {
+                "summary": "Deploy readiness gate",
+                "description": "Blue-green deployment readiness probe. Returns 200 only when the server is fully warmed up (KB loaded, caches primed).",
+                "operationId": "deployReady",
+                "tags": ["Health"],
+                "responses": {
+                    "200": {"description": "Instance is fully warmed and ready"},
+                    "503": {"description": "Instance is still warming up"},
+                },
+            }
+        },
+        "/api/plan/negotiate": {
+            "post": {
+                "summary": "Multi-agent plan negotiation",
+                "description": "Run a multi-agent negotiation where BudgetAgent, ChannelAgent, and AudienceAgent collaborate to produce an optimal media plan allocation.",
+                "operationId": "planNegotiate",
+                "tags": ["Plan"],
+                "requestBody": {
+                    "required": True,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": ["budget", "job_title"],
+                                "properties": {
+                                    "budget": {"type": "number", "example": 50000},
+                                    "job_title": {
+                                        "type": "string",
+                                        "example": "Senior Software Engineer",
+                                    },
+                                    "location": {
+                                        "type": "string",
+                                        "example": "San Francisco, CA",
+                                    },
+                                    "industry": {
+                                        "type": "string",
+                                        "example": "Technology",
+                                    },
+                                    "goals": {
+                                        "type": "array",
+                                        "items": {"type": "string"},
+                                    },
+                                    "max_rounds": {"type": "integer", "example": 5},
+                                },
+                            }
+                        }
+                    },
+                },
+                "responses": {
+                    "200": {"description": "Negotiation result with final proposal"},
+                    "400": {"description": "Invalid request parameters"},
+                    "503": {"description": "Multi-agent module unavailable"},
                 },
             }
         },
@@ -3601,12 +3987,21 @@ SwaggerUIBundle({
 # ═══════════════════════════════════════════════════════════════════════════════
 _shared_plans: dict[str, dict] = {}
 _shared_plans_lock = threading.Lock()
+_SHARED_PLANS_MAX = 1000
+_SHARED_PLANS_TTL = 86400.0  # 24 hours
+
 _plan_feedback: dict[str, list[dict]] = {}
 _plan_feedback_lock = threading.Lock()
+_plan_feedback_ts: dict[str, float] = {}  # track last-update time per key
+_PLAN_FEEDBACK_MAX = 1000
+_PLAN_FEEDBACK_TTL = 86400.0  # 24 hours
 
 # SCORECARD STORE (in-memory, for shareable plan scorecards)
-_scorecards: dict[str, str] = {}
+# Values are (html_string, created_timestamp) tuples
+_scorecards: dict[str, tuple[str, float]] = {}
 _scorecards_lock = threading.Lock()
+_SCORECARDS_MAX = 500
+_SCORECARDS_TTL = 43200.0  # 12 hours
 
 # ASYNC GENERATION JOB STORE
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -4056,7 +4451,10 @@ def _build_health_response() -> dict:
     result: dict = {
         "status": "healthy" if is_healthy else "unhealthy",
         "uptime_seconds": round(time.time() - _SERVER_START_TIME, 2),
-        "version": "4.0.0",
+        "version": _DEPLOY_VERSION,
+        "git_commit": _DEPLOY_GIT_COMMIT,
+        "instance_id": _DEPLOY_INSTANCE_ID,
+        "warmup_complete": _DEPLOY_WARMUP_COMPLETE,
         "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "checks": {
             "knowledge_base": kb_loaded,
@@ -4075,6 +4473,9 @@ def _build_health_response() -> dict:
         "vector_search_available": _vector_ok,
         "posthog_configured": _ph_configured,
         "upstash_redis_connected": _modules.get("upstash_redis") == "ok",
+        "slack_alerts_available": _slack_alerts_available,
+        "calendar_sync_available": _calendar_sync_available,
+        "chroma_rag_available": _chroma_rag_available,
     }
 
     # ---- Time-guarded module stats (skip if >5s elapsed) ----
@@ -4100,6 +4501,33 @@ def _build_health_response() -> dict:
             result["vector_search"] = {"status": "error", "detail": str(_vs_err)}
     else:
         result["vector_search"] = {"status": "not_available"}
+
+    # Slack alerts MCP diagnostics
+    if _slack_alerts_available:
+        try:
+            result["slack_alerts"] = _slack_alerts_status()
+        except Exception as _sa_err:
+            result["slack_alerts"] = {"status": "error", "detail": str(_sa_err)}
+    else:
+        result["slack_alerts"] = {"status": "not_available"}
+
+    # Calendar sync MCP diagnostics
+    if _calendar_sync_available:
+        try:
+            result["calendar_sync"] = _cal_status()
+        except Exception as _cs_err:
+            result["calendar_sync"] = {"status": "error", "detail": str(_cs_err)}
+    else:
+        result["calendar_sync"] = {"status": "not_available"}
+
+    # Chroma RAG MCP diagnostics
+    if _chroma_rag_available:
+        try:
+            result["chroma_rag"] = _chroma_stats()
+        except Exception as _cr_err:
+            result["chroma_rag"] = {"status": "error", "detail": str(_cr_err)}
+    else:
+        result["chroma_rag"] = {"status": "not_available"}
 
     # Request coalescing stats
     try:
@@ -4779,6 +5207,7 @@ _ALLOWED_ORIGINS = {
 # EMBED WIDGET STATS (thread-safe counters for ATS embed tracking)
 # ═══════════════════════════════════════════════════════════════════════════════
 _embed_stats_lock = threading.Lock()
+_EMBED_HOSTS_MAX = 1000  # Cap host tracking to prevent unbounded growth
 _embed_stats: dict[str, Any] = {
     "loads": 0,
     "js_serves": 0,
@@ -4799,7 +5228,16 @@ def _record_embed_event(event: str = "load", host: str = "") -> None:
         if not _embed_stats["first_seen"]:
             _embed_stats["first_seen"] = now
         if host:
-            _embed_stats["hosts"][host] = _embed_stats["hosts"].get(host, 0) + 1
+            hosts: dict[str, int] = _embed_stats["hosts"]
+            if host in hosts:
+                hosts[host] += 1
+            elif len(hosts) < _EMBED_HOSTS_MAX:
+                hosts[host] = 1
+            else:
+                # At cap -- evict least-recently-seen host (lowest count as proxy)
+                min_host = min(hosts, key=hosts.get)  # type: ignore[arg-type]
+                del hosts[min_host]
+                hosts[host] = 1
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -7257,6 +7695,7 @@ def _error_response(
             "success": False,
             "error": message,
             "code": code,
+            "data": None,
             "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         }
     )
@@ -7302,6 +7741,83 @@ def _is_duplicate_request(payload: dict) -> bool:
             return True
         _recent_requests[dedup_key] = now
         return False
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# API HARDENING: Idempotency Key Support (P3 Improvement)
+# ═══════════════════════════════════════════════════════════════════════════════
+# Stores {idempotency_key: {response_body: bytes, status_code: int, expires: float}}
+_idempotency_cache: dict[str, dict] = {}
+_idempotency_lock = threading.Lock()
+_IDEMPOTENCY_TTL_SECONDS: float = 300.0  # 5 minutes
+
+# Endpoints that support idempotency keys
+_IDEMPOTENT_ENDPOINTS: frozenset[str] = frozenset(
+    {
+        "/api/chat",
+        "/api/chat/stream",
+        "/api/generate",
+        "/api/plan/share",
+    }
+)
+
+
+def _idempotency_get(key: str) -> Optional[dict]:
+    """Retrieve a cached response for an idempotency key if not expired.
+
+    Thread-safe. Evicts expired entries opportunistically.
+
+    Args:
+        key: The idempotency key from X-Idempotency-Key header.
+
+    Returns:
+        Cached response dict with response_body and status_code, or None.
+    """
+    now = time.time()
+    with _idempotency_lock:
+        # Opportunistic cleanup of expired entries (cap at 50 to avoid latency)
+        expired = [
+            k
+            for k, v in list(_idempotency_cache.items())[:200]
+            if now > v.get("expires", 0)
+        ]
+        for k in expired[:50]:
+            _idempotency_cache.pop(k, None)
+        entry = _idempotency_cache.get(key)
+        if entry and now <= entry.get("expires", 0):
+            return entry
+        # Expired or missing
+        if entry:
+            _idempotency_cache.pop(key, None)
+        return None
+
+
+def _idempotency_store(key: str, response_body: bytes, status_code: int) -> None:
+    """Cache a response for an idempotency key with TTL.
+
+    Thread-safe. Caps total cache size at 10,000 entries.
+
+    Args:
+        key: The idempotency key from X-Idempotency-Key header.
+        response_body: The serialized response bytes.
+        status_code: The HTTP status code of the response.
+    """
+    now = time.time()
+    with _idempotency_lock:
+        # Prevent unbounded growth
+        if len(_idempotency_cache) >= 10_000:
+            # Evict oldest 1000 entries
+            sorted_keys = sorted(
+                _idempotency_cache.keys(),
+                key=lambda k: _idempotency_cache[k].get("expires", 0),
+            )
+            for k in sorted_keys[:1000]:
+                _idempotency_cache.pop(k, None)
+        _idempotency_cache[key] = {
+            "response_body": response_body,
+            "status_code": status_code,
+            "expires": now + _IDEMPOTENCY_TTL_SECONDS,
+        }
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -7437,6 +7953,67 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
+
+    def _check_idempotency(self, path: str) -> bool:
+        """Check for X-Idempotency-Key header and return cached response if found.
+
+        If the request carries an idempotency key for a supported endpoint and
+        a cached response exists, sends the cached response and returns True.
+        Otherwise returns False so the caller proceeds with normal handling.
+
+        Thread-safe. Uses module-level _idempotency_cache with TTL.
+
+        Args:
+            path: The request path (e.g., '/api/chat').
+
+        Returns:
+            True if a cached response was sent (caller should return early).
+            False if no cached response -- caller should process normally.
+        """
+        if path not in _IDEMPOTENT_ENDPOINTS:
+            return False
+        idem_key = self.headers.get("X-Idempotency-Key") or ""
+        if not idem_key:
+            return False
+        # Validate key format: 1-128 printable ASCII chars
+        if len(idem_key) > 128 or not idem_key.isprintable():
+            return False
+        cached = _idempotency_get(idem_key)
+        if cached is None:
+            return False
+        # Send cached response
+        response_body: bytes = cached["response_body"]
+        status_code: int = cached["status_code"]
+        self.send_response(status_code)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("X-Idempotent-Replay", "true")
+        cors_origin = self._get_cors_origin()
+        if cors_origin:
+            self.send_header("Access-Control-Allow-Origin", cors_origin)
+        self.send_header("Content-Length", str(len(response_body)))
+        self.end_headers()
+        self.wfile.write(response_body)
+        return True
+
+    def _store_idempotency(
+        self, path: str, response_body: bytes, status_code: int
+    ) -> None:
+        """Store a response in the idempotency cache for the current request.
+
+        Only stores if the request carried an X-Idempotency-Key header and the
+        endpoint supports idempotency.
+
+        Args:
+            path: The request path.
+            response_body: The serialized response bytes.
+            status_code: The HTTP status code.
+        """
+        if path not in _IDEMPOTENT_ENDPOINTS:
+            return
+        idem_key = self.headers.get("X-Idempotency-Key") or ""
+        if not idem_key or len(idem_key) > 128:
+            return
+        _idempotency_store(idem_key, response_body, status_code)
 
     def _check_admin_auth(self):
         """Check for admin API key via Authorization header OR ?key= query param.
@@ -7576,6 +8153,16 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             # Sentry captures unhandled exceptions automatically; log + re-raise
             logger.exception("Unhandled exception in do_GET: %s", _exc)
             self._response_status = 500
+            # Slack alert for unhandled GET errors
+            if _slack_alerts_available:
+                try:
+                    _slack_error_alert(
+                        _exc,
+                        context="Unhandled exception in do_GET",
+                        endpoint=urlparse(self.path).path,
+                    )
+                except Exception:
+                    pass
             try:
                 self.send_error(500, "Internal Server Error")
             except Exception:
@@ -7590,6 +8177,21 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 )
             # ── Slow endpoint profiling ──
             _record_slow_endpoint(urlparse(self.path).path, "GET", _latency)
+            # ── SLO tracker + anomaly detector (S17) ──
+            try:
+                from slo_config import get_slo_tracker
+
+                get_slo_tracker().record_from_endpoint(
+                    urlparse(self.path).path, _latency, self._response_status
+                )
+            except Exception:
+                pass
+            try:
+                from anomaly_detector import record_metric, METRIC_REQUEST_LATENCY
+
+                record_metric(METRIC_REQUEST_LATENCY, _latency)
+            except Exception:
+                pass
             # ── PostHog: Track page views for HTML template routes ──
             if _posthog_available and self._response_status == 200:
                 _ph_path = urlparse(self.path).path.rstrip("/") or "/"
@@ -9079,6 +9681,25 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     status_code=500,
                 )
 
+        # ── Data Freshness Report (GET /api/data/freshness) ──
+        elif path == "/api/data/freshness":
+            try:
+                from kb_loader import get_data_freshness_report
+
+                freshness = get_data_freshness_report()
+                self._send_json(freshness)
+            except ImportError:
+                self._send_json(
+                    {"error": "kb_loader module not available"},
+                    status_code=503,
+                )
+            except Exception as e:
+                logger.error("Data freshness report error: %s", e, exc_info=True)
+                self._send_json(
+                    {"error": f"Freshness check failed: {e}"},
+                    status_code=500,
+                )
+
         # ── ATS Widget embed code (GET /api/widget/embed) ──
         elif path == "/api/widget/embed":
             try:
@@ -9151,6 +9772,99 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 logger.error("Attribution dashboard error: %s", e, exc_info=True)
                 self.send_error(500, "Attribution dashboard failed")
 
+        # ── Calendar Sync MCP: GET /api/calendar/events ──
+        elif path == "/api/calendar/events":
+            if not _calendar_sync_available:
+                self._send_json(
+                    {"error": "Calendar sync not available", "events": []},
+                    status_code=503,
+                )
+                return
+            try:
+                qs = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+                days = int(qs.get("days", ["30"])[0])
+                days = max(1, min(days, 365))
+                events = _cal_get_events(days=days)
+                self._send_json({"events": events, "count": len(events), "days": days})
+            except (ValueError, TypeError) as exc:
+                logger.error("Calendar events error: %s", exc, exc_info=True)
+                self._send_json(
+                    {"error": f"Invalid parameter: {exc}", "events": []},
+                    status_code=400,
+                )
+            except Exception as exc:
+                logger.error("Calendar events error: %s", exc, exc_info=True)
+                if _slack_alerts_available:
+                    _slack_error_alert(exc, context="GET /api/calendar/events")
+                self._send_json(
+                    {"error": "Calendar service error", "events": []},
+                    status_code=500,
+                )
+
+        # ── Chroma RAG MCP: GET /api/nova/rag/search?q=... ──
+        elif path == "/api/nova/rag/search":
+            if not _chroma_rag_available:
+                self._send_json(
+                    {"error": "ChromaDB RAG not available", "results": []},
+                    status_code=503,
+                )
+                return
+            try:
+                qs = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+                query = qs.get("q", [""])[0]
+                top_k = int(qs.get("top_k", ["5"])[0])
+                top_k = max(1, min(top_k, 20))
+                if not query:
+                    self._send_json(
+                        {"error": "Missing 'q' parameter", "results": []},
+                        status_code=400,
+                    )
+                    return
+                results = _chroma_search(query, top_k=top_k)
+                self._send_json(
+                    {"results": results, "count": len(results), "query": query}
+                )
+            except (ValueError, TypeError) as exc:
+                logger.error("Chroma RAG search error: %s", exc, exc_info=True)
+                self._send_json(
+                    {"error": f"Invalid parameter: {exc}", "results": []},
+                    status_code=400,
+                )
+            except Exception as exc:
+                logger.error("Chroma RAG search error: %s", exc, exc_info=True)
+                if _slack_alerts_available:
+                    _slack_error_alert(exc, context="GET /api/nova/rag/search")
+                self._send_json(
+                    {"error": "RAG search service error", "results": []},
+                    status_code=500,
+                )
+
+        # ── Chroma RAG MCP: GET /api/nova/rag/stats ──
+        elif path == "/api/nova/rag/stats":
+            if not _chroma_rag_available:
+                self._send_json({"available": False, "error": "ChromaDB not available"})
+                return
+            try:
+                stats = _chroma_stats()
+                self._send_json(stats)
+            except Exception as exc:
+                logger.error("Chroma RAG stats error: %s", exc, exc_info=True)
+                self._send_json({"error": str(exc)}, status_code=500)
+
+        # ── Slack Alerts MCP: GET /api/slack/alerts/status ──
+        elif path == "/api/slack/alerts/status":
+            if not _slack_alerts_available:
+                self._send_json(
+                    {"available": False, "error": "Slack alerts not available"}
+                )
+                return
+            try:
+                status = _slack_alerts_status()
+                self._send_json(status)
+            except Exception as exc:
+                logger.error("Slack alerts status error: %s", exc, exc_info=True)
+                self._send_json({"error": str(exc)}, status_code=500)
+
         # NOTE: /api/pricing/live now handled by routes/pricing.py
         # NOTE: /api/campaign/list, /auto-qc, /eval-framework now handled by
         # routes/campaign.py and routes/pages.py
@@ -9189,6 +9903,16 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
         except Exception as _exc:
             logger.exception("Unhandled exception in do_POST: %s", _exc)
             self._response_status = 500
+            # Slack alert for unhandled POST errors
+            if _slack_alerts_available:
+                try:
+                    _slack_error_alert(
+                        _exc,
+                        context="Unhandled exception in do_POST",
+                        endpoint=urlparse(self.path).path,
+                    )
+                except Exception:
+                    pass
             try:
                 self.send_error(500, "Internal Server Error")
             except Exception:
@@ -9203,6 +9927,21 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 )
             # ── Slow endpoint profiling ──
             _record_slow_endpoint(urlparse(self.path).path, "POST", _latency)
+            # ── SLO tracker + anomaly detector (S17) ──
+            try:
+                from slo_config import get_slo_tracker
+
+                get_slo_tracker().record_from_endpoint(
+                    urlparse(self.path).path, _latency, self._response_status
+                )
+            except Exception:
+                pass
+            try:
+                from anomaly_detector import record_metric, METRIC_REQUEST_LATENCY
+
+                record_metric(METRIC_REQUEST_LATENCY, _latency)
+            except Exception:
+                pass
             # ── PostHog: Track download events for any /download/ or /export endpoint ──
             if _posthog_available and self._response_status == 200:
                 _ph_post_path = urlparse(self.path).path
@@ -9246,6 +9985,10 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
         parsed = urlparse(self.path)
         path = parsed.path
 
+        # ── Idempotency: return cached response for duplicate mutation requests ──
+        if self._check_idempotency(path):
+            return
+
         # ── Global body size limits ──
         try:
             content_length = int(self.headers.get("Content-Length") or 0)
@@ -9266,28 +10009,20 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
         )
 
         if content_length > MAX_BODY_SIZE:
-            self.send_response(413)
-            self.send_header("Content-Type", "application/json")
-            self.end_headers()
-            self.wfile.write(
-                json.dumps(
-                    {"error": "Request body too large. Maximum size is 10 MB."}
-                ).encode()
+            self._send_error(
+                "Request body too large. Maximum size is 10 MB.",
+                "PAYLOAD_TOO_LARGE",
+                413,
             )
             return
 
         if content_length > MAX_API_BODY_SIZE and not any(
             path.startswith(r) for r in _file_upload_routes
         ):
-            self.send_response(413)
-            self.send_header("Content-Type", "application/json")
-            self.end_headers()
-            self.wfile.write(
-                json.dumps(
-                    {
-                        "error": "Request body too large. Maximum size is 1 MB for this endpoint."
-                    }
-                ).encode()
+            self._send_error(
+                "Request body too large. Maximum size is 1 MB for this endpoint.",
+                "PAYLOAD_TOO_LARGE",
+                413,
             )
             return
 
@@ -9397,17 +10132,10 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     client_ip, max_requests=30, window_seconds=60
                 )
             if not _rl_allowed:
-                self.send_response(429)
-                self.send_header("Content-Type", "application/json")
-                self.send_header("Retry-After", "60")
-                cors_origin = self._get_cors_origin()
-                if cors_origin:
-                    self.send_header("Access-Control-Allow-Origin", cors_origin)
-                self.end_headers()
-                self.wfile.write(
-                    json.dumps(
-                        {"error": "Too many requests. Please try again later."}
-                    ).encode()
+                self._send_error(
+                    "Too many requests. Please try again later.",
+                    "RATE_LIMITED",
+                    429,
                 )
                 return
 
@@ -9543,6 +10271,28 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 )
             except Exception as e:
                 logger.error(f"Event store redo error: {e}", exc_info=True)
+                self._send_json({"error": str(e)}, status_code=500)
+            return
+        # ── Multi-Agent Negotiation (Linear JOV-23) ──
+        if path == "/api/plan/negotiate":
+            try:
+                content_len = int(self.headers.get("Content-Length") or 0)
+                raw = self.rfile.read(content_len) if content_len else b"{}"
+                body = json.loads(raw) if raw.strip() else {}
+                from multi_agent import handle_negotiate_request
+
+                result, status = handle_negotiate_request(body)
+                self._send_json(result, status_code=status)
+            except json.JSONDecodeError:
+                self._send_json(
+                    {"error": "Invalid JSON in request body"}, status_code=400
+                )
+            except ImportError:
+                self._send_json(
+                    {"error": "multi_agent module not available"}, status_code=503
+                )
+            except Exception as e:
+                logger.error(f"Plan negotiate error: {e}", exc_info=True)
                 self._send_json({"error": str(e)}, status_code=500)
             return
 
@@ -9736,8 +10486,11 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             if requester_email_input and not _EMAIL_RE.match(requester_email_input):
                 _missing.append("Valid email address")
             # Strip any characters that passed regex but are suspicious
+            # Must match _EMAIL_RE charset: a-zA-Z0-9._%+-@
             if requester_email_input:
-                requester_email_input = re.sub(r"[^\w.@+-]", "", requester_email_input)
+                requester_email_input = re.sub(
+                    r"[^a-zA-Z0-9._%+@-]", "", requester_email_input
+                )
 
             # Sanity checks: reject obviously bogus inputs
             if client_name_input and not re.search(r"[a-zA-Z]{2,}", client_name_input):
@@ -10594,9 +11347,10 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             if raw_hire_vol:
                 data["hire_volume"] = raw_hire_vol
             elif raw_notes:
-                # Parse hire volume from notes (e.g. "5000+", "10,000+", "500+ teachers")
+                # Parse hire volume from notes (e.g. "5000+ hires", "10,000 positions", "500 teachers")
+                # Keyword group is REQUIRED to avoid matching budgets ($50,000), dates (2026), etc.
                 hv_match = re.search(
-                    r"(\d[\d,]*)\+?\s*(?:hires?|positions?|roles?|openings?|teachers?|nurses?|drivers?|employees?|workers?|associates?|people|staff|headcount)?",
+                    r"(\d[\d,]*)\+?\s*(?:hires?|positions?|roles?|openings?|teachers?|nurses?|drivers?|employees?|workers?|associates?|people|staff|headcount)",
                     raw_notes,
                     re.IGNORECASE,
                 )
@@ -11807,15 +12561,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     "tools_used": [],
                     "error": "Internal error processing request",
                 }
-            resp_body = json.dumps(response).encode("utf-8")
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            cors_origin = self._get_cors_origin()
-            if cors_origin:
-                self.send_header("Access-Control-Allow-Origin", cors_origin)
-            self.send_header("Content-Length", str(len(resp_body)))
-            self.end_headers()
-            self.wfile.write(resp_body)
+            self._send_json(response)
 
             # ── PostHog: Track chat message ──
             self._ph_track(
@@ -11982,6 +12728,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 tools_used: list = []
                 model_used = ""
                 message_id = str(uuid.uuid4())
+                _token_usage: dict = {}
                 _last_event_time = time.time()
                 _KEEPALIVE_INTERVAL = 15  # seconds between keepalive heartbeats
 
@@ -12050,6 +12797,18 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                 confidence = chunk.get("confidence") or confidence
                                 tools_used = chunk.get("tools_used") or tools_used
                                 model_used = chunk.get("llm_provider") or model_used
+                                _token_usage = chunk.get("token_usage") or {}
+                            elif chunk.get("status"):
+                                # Status/progress event -- forward to client
+                                status_evt = json.dumps(
+                                    {"status": chunk["status"], "done": False}
+                                )
+                                try:
+                                    self.wfile.write(f"data: {status_evt}\n\n".encode())
+                                    self.wfile.flush()
+                                    _last_event_time = time.time()
+                                except (BrokenPipeError, ConnectionResetError, OSError):
+                                    break
                             else:
                                 # Token chunk -- stream to client immediately
                                 token = chunk.get("token") or ""
@@ -12086,10 +12845,32 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         "conversation_id": conversation_id,
                         "suggested_followups": _stream_followups,
                         "session_token": _conv_session_token,
+                        "token_usage": _token_usage,
                     }
                 )
                 self.wfile.write(f"data: {final}\n\n".encode())
                 self.wfile.flush()
+
+                # Store in idempotency cache so retries get a clean JSON response
+                try:
+                    _idem_body = json.dumps(
+                        {
+                            "success": True,
+                            "error": None,
+                            "code": None,
+                            "data": {
+                                "full_response": full_response,
+                                "sources": sources,
+                                "confidence": confidence,
+                                "message_id": message_id,
+                                "conversation_id": conversation_id,
+                                "replayed": True,
+                            },
+                        }
+                    ).encode("utf-8")
+                    self._store_idempotency("/api/chat/stream", _idem_body, 200)
+                except Exception:
+                    pass  # Non-critical
 
                 # Persist to Supabase asynchronously
                 _user_msg = data.get("message") or ""
@@ -12156,6 +12937,51 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             self.send_header("Content-Length", str(len(resp_body)))
             self.end_headers()
             self.wfile.write(resp_body)
+
+        elif path == "/api/nova/summarize":
+            # ── Conversation Summarization Endpoint ──
+            try:
+                content_len = int(self.headers.get("Content-Length") or 0)
+            except (ValueError, TypeError):
+                content_len = 0
+            if content_len <= 0 or content_len > 100 * 1024:
+                self._send_error("Invalid request body", "VALIDATION_ERROR", 400)
+                return
+            body = self.rfile.read(content_len)
+            try:
+                data = json.loads(body) if body else {}
+            except (json.JSONDecodeError, ValueError):
+                self._send_error("Invalid JSON", "VALIDATION_ERROR", 400)
+                return
+
+            _sum_conv_id = data.get("conversation_id") or ""
+            if not _sum_conv_id or not isinstance(_sum_conv_id, str):
+                self._send_error("conversation_id is required", "VALIDATION_ERROR", 400)
+                return
+
+            # Optional: pass messages directly (for client-side conversations)
+            _sum_messages = data.get("messages")
+            if _sum_messages and not isinstance(_sum_messages, list):
+                self._send_error("messages must be an array", "VALIDATION_ERROR", 400)
+                return
+
+            try:
+                from nova import summarize_conversation
+
+                _sum_result = summarize_conversation(
+                    conversation_id=_sum_conv_id,
+                    messages=_sum_messages,
+                )
+                self._send_json(_sum_result)
+            except Exception as _sum_err:
+                logger.error("Summarize endpoint error: %s", _sum_err, exc_info=True)
+                self._send_json(
+                    {
+                        "error": "Failed to generate summary",
+                        "conversation_id": _sum_conv_id,
+                    },
+                    status_code=500,
+                )
 
         # NOTE: /api/campaign/save now handled by routes/campaign.py
         elif path == "/api/chat/feedback":
@@ -14984,6 +15810,117 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     {"error": f"Failed to record outcome: {e}"}, status_code=500
                 )
 
+        # ── Calendar Sync MCP: POST /api/calendar/events ──
+        elif path == "/api/calendar/events":
+            if not _calendar_sync_available:
+                self._send_json(
+                    {"error": "Calendar sync not available"}, status_code=503
+                )
+                return
+            try:
+                content_len = int(self.headers.get("Content-Length") or 0)
+                body_raw = self.rfile.read(content_len) if content_len > 0 else b"{}"
+                data = json.loads(body_raw)
+                title = data.get("title") or ""
+                date = data.get("date") or ""
+                details = data.get("details") or ""
+                duration = int(data.get("duration_hours") or 1)
+                attendees = data.get("attendees")
+                if not title or not date:
+                    self._send_json(
+                        {"error": "title and date are required"}, status_code=400
+                    )
+                    return
+                event = _cal_create_event(
+                    title=title,
+                    date=date,
+                    details=details,
+                    duration_hours=duration,
+                    attendees=attendees,
+                )
+                if event:
+                    self._send_json({"success": True, "event": event})
+                else:
+                    self._send_json(
+                        {"success": False, "error": "Failed to create event"},
+                        status_code=500,
+                    )
+            except json.JSONDecodeError:
+                self._send_json({"error": "Invalid JSON"}, status_code=400)
+            except Exception as exc:
+                logger.error("Calendar create event error: %s", exc, exc_info=True)
+                if _slack_alerts_available:
+                    _slack_error_alert(exc, context="POST /api/calendar/events")
+                self._send_json({"error": "Calendar service error"}, status_code=500)
+
+        # ── Chroma RAG MCP: POST /api/nova/rag/search ──
+        elif path == "/api/nova/rag/search":
+            if not _chroma_rag_available:
+                self._send_json(
+                    {"error": "ChromaDB RAG not available", "results": []},
+                    status_code=503,
+                )
+                return
+            try:
+                content_len = int(self.headers.get("Content-Length") or 0)
+                body_raw = self.rfile.read(content_len) if content_len > 0 else b"{}"
+                data = json.loads(body_raw)
+                query = data.get("query") or data.get("q") or ""
+                top_k = int(data.get("top_k") or 5)
+                top_k = max(1, min(top_k, 20))
+                if not query:
+                    self._send_json(
+                        {"error": "query is required", "results": []},
+                        status_code=400,
+                    )
+                    return
+                results = _chroma_search(query, top_k=top_k)
+                self._send_json(
+                    {"results": results, "count": len(results), "query": query}
+                )
+            except json.JSONDecodeError:
+                self._send_json(
+                    {"error": "Invalid JSON", "results": []}, status_code=400
+                )
+            except Exception as exc:
+                logger.error("Chroma RAG search POST error: %s", exc, exc_info=True)
+                if _slack_alerts_available:
+                    _slack_error_alert(exc, context="POST /api/nova/rag/search")
+                self._send_json(
+                    {"error": "RAG search service error", "results": []},
+                    status_code=500,
+                )
+
+        # ── Slack Alerts MCP: POST /api/slack/alerts/send ──
+        elif path == "/api/slack/alerts/send":
+            if not self._check_admin_auth():
+                self._send_json({"error": "Unauthorized"}, status_code=401)
+                return
+            if not _slack_alerts_available:
+                self._send_json(
+                    {"error": "Slack alerts not available"}, status_code=503
+                )
+                return
+            try:
+                content_len = int(self.headers.get("Content-Length") or 0)
+                body_raw = self.rfile.read(content_len) if content_len > 0 else b"{}"
+                data = json.loads(body_raw)
+                message = data.get("message") or ""
+                severity = data.get("severity") or "info"
+                channel = data.get("channel")
+                if not message:
+                    self._send_json({"error": "message is required"}, status_code=400)
+                    return
+                success = _slack_send_alert(
+                    channel=channel, message=message, severity=severity
+                )
+                self._send_json({"success": success})
+            except json.JSONDecodeError:
+                self._send_json({"error": "Invalid JSON"}, status_code=400)
+            except Exception as exc:
+                logger.error("Slack alert send error: %s", exc, exc_info=True)
+                self._send_json({"error": str(exc)}, status_code=500)
+
         # ── AI Co-Pilot: Inline suggestions for media plan generator ──
         # NOTE: /api/copilot/suggest now handled by routes/copilot.py
         # NOTE: /api/plan/share and /api/plan/feedback now handled by routes/campaign.py
@@ -15000,7 +15937,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header(
             "Access-Control-Allow-Headers",
-            "Content-Type, Authorization, X-Async, X-CSRF-Token",
+            "Content-Type, Authorization, X-Async, X-CSRF-Token, X-Idempotency-Key",
         )
         self.send_header("Access-Control-Max-Age", "86400")
         self.end_headers()
@@ -15254,10 +16191,51 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
         self._response_status = code
         super().send_response(code, message)
 
-    def _send_json(self, data, status_code: int = 200):
-        """Send a JSON response with gzip compression when beneficial."""
-        body = json.dumps(data).encode("utf-8")
+    def _send_json(self, data: Any, status_code: int = 200) -> None:
+        """Send a JSON response wrapped in a consistent API envelope.
+
+        Success responses (2xx) are wrapped as:
+            {success: true, data: <original_data>, error: null, code: null}
+
+        Error responses (4xx/5xx) passed through _send_json (legacy callers
+        that pass {"error": ...} instead of using _send_error) are wrapped as:
+            {success: false, data: null, error: <message>, code: "ERROR"}
+
+        Already-enveloped responses (containing a top-level "success" key)
+        are passed through unchanged to avoid double-wrapping.
+        """
+        # Avoid double-wrapping if caller already built the envelope
+        if isinstance(data, dict) and "success" in data:
+            body = json.dumps(data).encode("utf-8")
+        elif status_code >= 400:
+            # Legacy error path: callers passing {"error": "..."} directly
+            err_msg = (
+                data.get("error", "Unknown error")
+                if isinstance(data, dict)
+                else str(data)
+            )
+            envelope = {
+                "success": False,
+                "error": err_msg,
+                "code": "ERROR",
+                "data": None,
+            }
+            body = json.dumps(envelope).encode("utf-8")
+        else:
+            envelope = {
+                "success": True,
+                "error": None,
+                "code": None,
+                "data": data,
+            }
+            body = json.dumps(envelope).encode("utf-8")
         self._send_compressed_response(body, "application/json", status=status_code)
+        # Store in idempotency cache if applicable
+        try:
+            parsed_path = urlparse(self.path).path
+            self._store_idempotency(parsed_path, body, status_code)
+        except Exception:
+            pass  # Non-critical -- never fail the response for caching
 
 
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
@@ -15268,6 +16246,8 @@ class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
     daemon_threads = True
     # Allow port reuse to avoid "Address already in use" on quick restarts
     allow_reuse_address = True
+    # Cap pending connection backlog to prevent resource exhaustion
+    request_queue_size = 50
 
 
 if __name__ == "__main__":
@@ -15381,7 +16361,12 @@ if __name__ == "__main__":
         except ImportError:
             pass
 
-        logger.info("[deferred_startup] Background initialization complete")
+        # Mark deploy warmup as complete (blue-green readiness gate)
+        global _DEPLOY_WARMUP_COMPLETE
+        _DEPLOY_WARMUP_COMPLETE = True
+        logger.info(
+            "[deferred_startup] Background initialization complete -- deploy warmup READY"
+        )
 
     threading.Thread(
         target=_deferred_startup, daemon=True, name="deferred-startup"
