@@ -4658,7 +4658,6 @@ def _build_csrf_cookie(token: str, *, secure: bool) -> str:
     parts = [
         f"csrf_token={token}",
         "Path=/",
-        "HttpOnly",
         "SameSite=Strict",
     ]
     if secure:

@@ -4757,14 +4757,22 @@
   </head>
   <body>
     <script>
-      // ── CSRF token fetch (auto-included in POST requests) ──
-      window.__csrfToken = "";
-      window.__csrfReady = fetch("/api/csrf-token")
+      // ── CSRF token management (double-submit cookie pattern) ──
+      // Get CSRF token from cookie. Must be called after the cookie is set.
+      function getCsrfToken() {
+        try {
+          var cookie = document.cookie.split("; ").find(function (c) {
+            return c.startsWith("csrf_token=");
+          });
+          return cookie ? cookie.split("=")[1] : "";
+        } catch (_) {
+          return "";
+        }
+      }
+      // Fetch and set the CSRF token cookie on page load
+      fetch("/api/csrf-token")
         .then(function (r) {
           return r.json();
-        })
-        .then(function (d) {
-          window.__csrfToken = d.token || "";
         })
         .catch(function () {});
     </script>
@@ -10022,7 +10030,7 @@
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              "X-CSRF-Token": window.__csrfToken,
+              "X-CSRF-Token": getCsrfToken(),
               "X-Async": "true",
             },
             body: JSON.stringify(payload),
@@ -10615,15 +10623,8 @@
           if (!container) return;
           container.classList.add("loading");
 
-          var csrfToken = "";
-          try {
-            csrfToken = document.cookie.split("; ").find(function (r) {
-              return r.startsWith("csrf_token=");
-            });
-            csrfToken = csrfToken ? csrfToken.split("=")[1] : "";
-          } catch (_) {}
-
           var headers = { "Content-Type": "application/json" };
+          var csrfToken = getCsrfToken();
           if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
 
           fetch("/api/copilot/suggest", {
@@ -10860,15 +10861,8 @@
           var controller = new AbortController();
           _nudgeAbortControllers[field] = controller;
 
-          var csrfToken = "";
-          try {
-            csrfToken = document.cookie.split("; ").find(function (r) {
-              return r.startsWith("csrf_token=");
-            });
-            csrfToken = csrfToken ? csrfToken.split("=")[1] : "";
-          } catch (_) {}
-
           var headers = { "Content-Type": "application/json" };
+          var csrfToken = getCsrfToken();
           if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
 
           fetch("/api/copilot/nudge", {

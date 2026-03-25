@@ -107,8 +107,13 @@ class TestCSRFDoubleSubmit:
         assert "csrf_token=" in app_source, "csrf_token= cookie not found in app.py"
 
     def test_csrf_cookie_flags(self, app_source: str) -> None:
-        """CSRF cookie must have HttpOnly and SameSite=Strict flags."""
-        assert "HttpOnly" in app_source, "CSRF cookie missing HttpOnly flag"
+        """CSRF cookie must have SameSite=Strict flag (no HttpOnly for double-submit pattern).
+
+        Note: The double-submit CSRF pattern requires JavaScript to read the token
+        from the cookie and send it in the X-CSRF-Token header. Therefore, HttpOnly
+        flag is NOT used. The SameSite=Strict flag provides protection by preventing
+        the browser from sending the cookie cross-site.
+        """
         assert (
             "SameSite=Strict" in app_source
         ), "CSRF cookie missing SameSite=Strict flag"
@@ -140,13 +145,14 @@ class TestCSRFDoubleSubmit:
         # Cookie building -- HTTPS
         cookie = _build_csrf_cookie("abc123", secure=True)
         assert "csrf_token=abc123" in cookie
-        assert "HttpOnly" in cookie
         assert "SameSite=Strict" in cookie
         assert "Secure" in cookie
+        # Note: No HttpOnly flag because double-submit pattern requires JS to read the token
 
         # Cookie building -- HTTP (no Secure flag)
         cookie_http = _build_csrf_cookie("abc123", secure=False)
         assert "Secure" not in cookie_http
+        assert "SameSite=Strict" in cookie_http
 
         # Cookie parsing
         assert _parse_cookie_value("csrf_token=abc; other=1", "csrf_token") == "abc"

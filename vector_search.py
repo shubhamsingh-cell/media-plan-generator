@@ -341,6 +341,10 @@ def embed_batch(texts: list[str]) -> list[list[float]] | None:
 
     # Chunk into batches of _VOYAGE_MAX_BATCH
     all_embeddings: list[list[float]] = []
+    last_request_time: float = (
+        time.monotonic() - 10.0
+    )  # Start with old timestamp to avoid delay on first batch
+
     for i in range(0, len(texts), _VOYAGE_MAX_BATCH):
         batch = texts[i : i + _VOYAGE_MAX_BATCH]
         # Truncate each text to avoid exceeding token limits
@@ -352,6 +356,17 @@ def embed_batch(texts: list[str]) -> list[list[float]] | None:
         }
 
         try:
+            # Rate limiting: enforce delay between requests (but not before first one)
+            if i > 0:  # Skip delay for first batch
+                elapsed_since_last = time.monotonic() - last_request_time
+                request_delay = 60.0 / _VOYAGE_RPM_LIMIT  # 6 seconds for 10 req/min
+                if elapsed_since_last < request_delay:
+                    sleep_time = request_delay - elapsed_since_last
+                    logger.info(
+                        f"Voyage AI rate limiting: sleeping {sleep_time:.1f}s before batch {i // _VOYAGE_MAX_BATCH + 1}"
+                    )
+                    time.sleep(sleep_time)
+
             _record_voyage_request()
             data = json.dumps(payload).encode("utf-8")
             req = urllib.request.Request(
@@ -372,6 +387,9 @@ def embed_batch(texts: list[str]) -> list[list[float]] | None:
             embeddings_data.sort(key=lambda x: x.get("index", 0))
             batch_embeddings = [e.get("embedding") or [] for e in embeddings_data]
             all_embeddings.extend(batch_embeddings)
+
+            # Update timestamp after successful request for next iteration's delay
+            last_request_time = time.monotonic()
 
         except urllib.error.HTTPError as e:
             logger.error(

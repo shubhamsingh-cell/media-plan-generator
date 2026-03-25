@@ -1,0 +1,155 @@
+================================================================================
+SUPABASE CACHE TABLE INITIALIZATION - QUICK START
+================================================================================
+
+PROBLEM:
+--------
+Error: "Table 'public.cache' not found"
+
+This error means the cache table doesn't exist in your Supabase database.
+
+ROOT CAUSE:
+-----------
+The cache table must be manually created in Supabase. It is NOT created
+automatically by the application.
+
+QUICK FIX:
+----------
+
+STEP 1: Open Supabase SQL Editor
+  - Go to https://app.supabase.com
+  - Select your project
+  - Click "SQL Editor" (left sidebar)
+  - Click "New Query"
+
+STEP 2: Copy the SQL
+  - Open: scripts/cache_table_migration.sql
+  - Copy all the content
+  - Paste into Supabase SQL Editor
+
+STEP 3: Run the Query
+  - Click "Run"
+  - Wait for "Query complete" message
+  - No errors should appear
+
+STEP 4: Verify
+  - Run: python scripts/ensure_cache_table.py
+  - Should print: "✓ Cache table initialized and verified successfully!"
+
+WHAT WAS WRONG:
+---------------
+The cache table schema:
+
+  Table: cache
+  ├─ key (TEXT PRIMARY KEY)        -- Cache entry identifier
+  ├─ data (JSONB)                  -- Cached data (JSON)
+  ├─ created_at (TIMESTAMPTZ)      -- When created
+  ├─ expires_at (TIMESTAMPTZ)      -- When to expire (TTL)
+  ├─ category (TEXT)               -- Category tag
+  └─ hit_count (INTEGER)           -- Access counter
+
+Was MISSING from your Supabase project database.
+
+The application was trying to access this table but couldn't find it,
+causing "Table 'public.cache' not found".
+
+WHAT THIS FIXES:
+----------------
+✓ Creates the cache table with proper schema
+✓ Creates indexes for performance (expires_at, category)
+✓ Enables Row Level Security (RLS) for anon key access
+✓ Sets up RLS policy for read/write/delete operations
+✓ Includes cleanup function for expired entries
+
+HOW THE CACHE WORKS:
+--------------------
+3-layer cache hierarchy:
+
+  Layer 1: In-memory (fastest, lost on restart)
+          ↓
+  Layer 2: Disk files (survives restart)
+          ↓
+  Layer 3: Supabase database (survives deployment, shared across instances)
+          ↓
+  Fetch from API → Cache in all 3 layers
+
+The cache table is Layer 3 (persistent, shared, survives redeployments).
+
+VERIFICATION:
+-------------
+After running the migration, verify with:
+
+  python scripts/ensure_cache_table.py
+
+Expected output:
+  ✓ Cache table exists
+  ✓ All required columns present
+  ✓ RLS appears properly configured
+  ✓ Write operation successful
+  ✓ Read operation successful
+  ✓ Cache table initialized and verified successfully!
+
+TROUBLESHOOTING:
+----------------
+
+Q: Still getting "Table 'public.cache' not found"?
+A: 1. Make sure you ran the SQL in the CORRECT Supabase project
+   2. Verify SUPABASE_URL matches your project
+   3. Wait 10 seconds (schema changes take time to propagate)
+   4. Restart your application
+
+Q: Getting "new row violates row level security policy"?
+A: The RLS policy isn't set up. Run the migration script again.
+
+Q: Is the cache required?
+A: No. The app gracefully degrades to L1/L2 cache only if L3 is unavailable.
+   But L3 gives persistent caching across redeployments.
+
+Q: How often is the cache cleaned?
+A: Every 6 hours. Old entries (past expires_at) are automatically deleted.
+
+ENVIRONMENT VARIABLES:
+----------------------
+Make sure these are set (from Supabase project settings):
+
+  SUPABASE_URL=https://xxxxx.supabase.co
+  SUPABASE_ANON_KEY=eyJhbGciOi...
+
+FILES PROVIDED:
+----------------
+1. scripts/cache_table_migration.sql
+   - Complete SQL to set up the cache table
+   - Run this in Supabase SQL Editor
+   - Includes detailed comments and verification steps
+
+2. scripts/ensure_cache_table.py
+   - Python script to verify cache table exists
+   - Checks schema, RLS, and test operations
+   - Provides diagnostic output
+
+3. CACHE_TABLE_FIX.md
+   - Comprehensive guide with all details
+   - Troubleshooting section
+   - Performance notes
+
+4. SUPABASE_CACHE_INIT.txt
+   - This file (quick start)
+
+DEPLOYMENT STEPS:
+-----------------
+1. Run migration in Supabase SQL Editor
+2. Verify: python scripts/ensure_cache_table.py
+3. Commit changes to git
+4. Deploy to Render.com (auto-deploy from main)
+5. App will automatically use cache on next start
+
+TIME TO FIX:
+------------
+- Automatic (SQL): ~2 minutes
+- Manual (copy-paste): ~3-5 minutes
+
+That's it! The cache table will now persist data across deployments.
+
+Questions? See CACHE_TABLE_FIX.md for detailed documentation.
+
+================================================================================
