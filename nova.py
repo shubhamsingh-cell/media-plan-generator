@@ -5445,35 +5445,87 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
 
     def _web_search(self, params: dict) -> dict:
         """Search the live web for current information."""
+        import threading
+
         query = params.get("query") or ""
         if not query:
             return {"results": [], "error": "No query provided"}
 
-        # Try Tavily first
-        try:
-            from tavily_search import search as tavily_search_fn
+        # Per-tool timeout: 10 seconds (leaves buffer for LLM response)
+        _TOOL_TIMEOUT = 10.0
+        _search_result = [None]
+        _search_error = [None]
 
-            results = tavily_search_fn(query, max_results=5)
-            if results:
-                return {"results": results, "source": "tavily", "query": query}
-        except Exception as e:
-            logger.debug("Tavily search failed in web_search tool: %s", e)
+        def _run_search() -> None:
+            """Execute search in thread for timeout control."""
+            try:
+                from tavily_search import search as tavily_search_fn
 
-        # Fallback to web scraper router
-        try:
-            from web_scraper_router import search_web
+                results = tavily_search_fn(query, max_results=5)
+                if results:
+                    _search_result[0] = {
+                        "results": results,
+                        "source": "tavily",
+                        "query": query,
+                    }
+                    return
 
-            results = search_web(query)
-            if results:
-                return {"results": results, "source": "web_scraper", "query": query}
-        except Exception as e:
-            logger.debug("Web scraper search failed in web_search tool: %s", e)
+                # Fallback to web scraper router
+                from web_scraper_router import search_web
+
+                results = search_web(query)
+                if results:
+                    _search_result[0] = {
+                        "results": results,
+                        "source": "web_scraper",
+                        "query": query,
+                    }
+                    return
+            except Exception as e:
+                logger.error(
+                    "Web search failed for query=%s: %s", query[:50], e, exc_info=True
+                )
+                _search_error[0] = str(e)
+
+        # Run search in thread with timeout
+        search_thread = threading.Thread(target=_run_search, daemon=True)
+        search_thread.start()
+        search_thread.join(timeout=_TOOL_TIMEOUT)
+
+        if search_thread.is_alive():
+            logger.warning(
+                "Web search timed out after %.1fs for query=%s",
+                _TOOL_TIMEOUT,
+                query[:50],
+            )
+            return {
+                "results": [],
+                "source": "timeout",
+                "query": query,
+                "note": "Search timed out",
+                "error": "timeout",
+            }
+
+        if _search_error[0]:
+            logger.warning(
+                "Web search error for query=%s: %s", query[:50], _search_error[0]
+            )
+            return {
+                "results": [],
+                "source": "none",
+                "query": query,
+                "note": "Web search unavailable",
+                "error": "search_failed",
+            }
+
+        if _search_result[0]:
+            return _search_result[0]
 
         return {
             "results": [],
             "source": "none",
             "query": query,
-            "note": "Web search unavailable",
+            "note": "Web search returned no results",
         }
 
     def _knowledge_search(self, params: dict) -> dict:

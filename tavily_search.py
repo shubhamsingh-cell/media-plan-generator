@@ -38,7 +38,7 @@ logger = logging.getLogger(__name__)
 
 # ── Configuration ────────────────────────────────────────────────────────────
 _TAVILY_API_URL = "https://api.tavily.com/search"
-_TAVILY_TIMEOUT = 15  # seconds
+_TAVILY_TIMEOUT = 8  # seconds (shortened to prevent tool timeout)
 _TAVILY_API_KEY: str | None = None
 
 # Rate limiting for Tavily (1000 credits/month ~ 33/day ~ 2/hour conservative)
@@ -237,7 +237,7 @@ def _jina_search(query: str, max_results: int = 5) -> list[dict] | None:
             },
             method="GET",
         )
-        with urllib.request.urlopen(req, timeout=15) as resp:
+        with urllib.request.urlopen(req, timeout=8) as resp:
             body = resp.read().decode("utf-8")
             data = json.loads(body)
 
@@ -313,7 +313,7 @@ def _ddg_search(query: str, max_results: int = 5) -> list[dict] | None:
             },
             method="POST",
         )
-        with urllib.request.urlopen(req, timeout=15) as resp:
+        with urllib.request.urlopen(req, timeout=8) as resp:
             body = resp.read().decode("utf-8", errors="replace")
 
         # Parse results from HTML using regex (no lxml/bs4 needed)

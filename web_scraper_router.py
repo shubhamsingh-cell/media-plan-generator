@@ -61,7 +61,9 @@ APIFY_API_TOKEN: str = os.environ.get("APIFY_API_TOKEN") or ""
 JINA_API_KEY: str = os.environ.get("JINA_API_KEY") or ""
 TAVILY_API_KEY: str = os.environ.get("TAVILY_API_KEY") or ""
 
-REQUEST_TIMEOUT: int = 15  # seconds per external request
+REQUEST_TIMEOUT: int = (
+    8  # seconds per external request (tightened for tool timeout safety)
+)
 LLM_SCRAPE_TIMEOUT: int = 30  # LLM calls can take longer
 CACHE_SCRAPE_TIMEOUT: int = 10  # cache/archive lookups should be fast
 
