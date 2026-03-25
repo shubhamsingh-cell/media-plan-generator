@@ -7,11 +7,11 @@
       name="description"
       content="Quick Plan Builder - Get instant recruitment channel recommendations for any role and location. Powered by Nova AI Suite."
     />
-    <meta name="theme-color" content="#000000" />
+    <meta name="theme-color" content="#09090b" />
     <title>Quick Plan Builder | Nova AI Suite</title>
     <link
       rel="icon"
-      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%236366F1'/><path d='M8 22V14l4-4 4 6 4-8 4 12' stroke='white' stroke-width='2.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%235A54BD'/><path d='M8 22V14l4-4 4 6 4-8 4 12' stroke='white' stroke-width='2.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>"
     />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -32,15 +32,15 @@
       }
 
       :root {
-        --obsidian: #000000;
+        --obsidian: #09090b;
         --obsidian-light: #111111;
         --obsidian-card: #111111;
         --surface: #1a1a1a;
         --surface-hover: #222222;
-        --indigo: #6366f1;
-        --indigo-light: #818cf8;
-        --indigo-pale: rgba(99, 102, 241, 0.08);
-        --indigo-glow: rgba(99, 102, 241, 0.15);
+        --indigo: #5a54bd;
+        --indigo-light: #7b75d4;
+        --indigo-pale: rgba(90, 84, 189, 0.08);
+        --indigo-glow: rgba(90, 84, 189, 0.15);
         --indigo-border: rgba(255, 255, 255, 0.16);
         --text-primary: #d4d4d8;
         --text-secondary: #94a3b8;
@@ -276,7 +276,7 @@
       .qp-field input:focus {
         outline: none;
         border-color: var(--indigo);
-        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.3);
+        box-shadow: 0 0 0 3px rgba(90, 84, 189, 0.3);
       }
       .qp-submit-wrap {
         flex: 0 0 auto;
@@ -305,7 +305,7 @@
       }
       .qp-submit:hover:not(:disabled) {
         background: #5558e6;
-        box-shadow: 0 4px 20px rgba(99, 102, 241, 0.35);
+        box-shadow: 0 4px 20px rgba(90, 84, 189, 0.35);
       }
       .qp-submit:active:not(:disabled) {
         transform: scale(0.97);
@@ -387,6 +387,32 @@
       }
       .qp-error.visible {
         display: block;
+      }
+
+      /* -- Empty State -- */
+      .qp-empty-state {
+        text-align: center;
+        padding: 64px 24px;
+        color: var(--text-tertiary);
+      }
+      .qp-empty-state svg {
+        width: 64px;
+        height: 64px;
+        color: var(--indigo);
+        opacity: 0.35;
+        margin-bottom: 20px;
+      }
+      .qp-empty-state h3 {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        margin-bottom: 8px;
+      }
+      .qp-empty-state p {
+        font-size: 0.875rem;
+        max-width: 420px;
+        margin: 0 auto;
+        line-height: 1.6;
       }
 
       /* ================================================================
@@ -899,15 +925,15 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        background: rgba(99, 102, 241, 0.1);
+        background: rgba(90, 84, 189, 0.1);
         border-radius: 12px;
-        color: #818cf8;
+        color: #7b75d4;
         margin-bottom: 4px;
       }
       .hiw-number {
         font-size: 0.7rem;
         font-weight: 700;
-        color: #6366f1;
+        color: #5a54bd;
         text-transform: uppercase;
         letter-spacing: 0.5px;
       }
@@ -1020,7 +1046,7 @@
       // Initialize PostHog only if the backend provides the key via a meta tag or inline
       (function () {
         // Fetch the PostHog key from the server config endpoint
-        fetch("/api/health")
+        fetch("/api/config")
           .then((r) => r.json())
           .then((d) => {
             if (d && d.posthog_key) {
@@ -1058,7 +1084,7 @@
         <a href="/" class="qp-brand" aria-label="Nova AI Home">
           <span class="qp-brand-icon">
             <svg viewBox="0 0 32 32" fill="none" width="28" height="28">
-              <rect width="32" height="32" rx="6" fill="#6366F1" />
+              <rect width="32" height="32" rx="6" fill="#5A54BD" />
               <text
                 x="16"
                 y="22"
@@ -1160,6 +1186,30 @@
         role="alert"
         aria-live="assertive"
       ></div>
+
+      <!-- EMPTY STATE -->
+      <div class="qp-empty-state" id="qpEmptyState">
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path
+            d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"
+          />
+          <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+          <line x1="9" y1="12" x2="15" y2="12" />
+          <line x1="9" y1="16" x2="13" y2="16" />
+        </svg>
+        <h3>Enter a role and location to get started</h3>
+        <p>
+          Get instant, AI-powered recruitment channel recommendations tailored
+          to your specific hiring needs and market conditions.
+        </p>
+      </div>
 
       <!-- ============================================================
              RESULTS
@@ -1463,6 +1513,7 @@
         var submitBtn = document.getElementById("qpSubmit");
         var resultsEl = document.getElementById("qpResults");
         var errorEl = document.getElementById("qpError");
+        var emptyStateEl = document.getElementById("qpEmptyState");
 
         /* ──────────────────────────────────────────────────────
            BUDGET FORMATTING
@@ -1638,6 +1689,7 @@
           renderChannels(data.channel_recommendations);
           renderBudgetBanner(data.budget_assessment);
           renderSeasonal(data.seasonal_advice);
+          if (emptyStateEl) emptyStateEl.style.display = "none";
           resultsEl.classList.add("visible");
           // Scroll into view smoothly
           resultsEl.scrollIntoView({ behavior: "smooth", block: "start" });

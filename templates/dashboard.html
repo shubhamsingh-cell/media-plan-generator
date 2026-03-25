@@ -15,12 +15,12 @@
         --navy: #111111;
         --navy-light: #1a1f35;
         --navy-lighter: #252b45;
-        --accent-blue: #6366f1;
-        --accent-light: #818cf8;
-        --accent-pale: rgba(99, 102, 241, 0.15);
+        --accent-blue: #5a54bd;
+        --accent-light: #7b75d4;
+        --accent-pale: rgba(90, 84, 189, 0.15);
         --accent-dark: #4f46e5;
-        --blue-primary: #6366f1;
-        --blue-light: rgba(99, 102, 241, 0.15);
+        --blue-primary: #5a54bd;
+        --blue-light: rgba(90, 84, 189, 0.15);
         --green: #34d399;
         --green-light: rgba(52, 211, 153, 0.15);
         --green-dark: #059669;
@@ -162,7 +162,7 @@
       }
 
       .sidebar-nav a.active {
-        background: rgba(99, 102, 241, 0.2);
+        background: rgba(90, 84, 189, 0.2);
         color: white;
       }
 
@@ -362,7 +362,7 @@
         background: var(--red);
       }
       .stat-card:nth-child(6)::before {
-        background: #22d3ee;
+        background: #6bb3cd;
       }
 
       .stat-card .stat-icon {
@@ -465,7 +465,7 @@
 
       .search-box:focus-within {
         border-color: var(--accent-blue);
-        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+        box-shadow: 0 0 0 3px rgba(90, 84, 189, 0.15);
         background: rgba(15, 18, 30, 0.8);
       }
 
@@ -1246,7 +1246,7 @@
       }
 
       .kpi-card:hover {
-        border-color: rgba(99, 102, 241, 0.3);
+        border-color: rgba(90, 84, 189, 0.3);
         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
         transform: translateY(-2px);
       }
@@ -1310,7 +1310,7 @@
         align-items: center;
         justify-content: center;
         font-size: 18px;
-        background: rgba(99, 102, 241, 0.12);
+        background: rgba(90, 84, 189, 0.12);
       }
 
       .kpi-no-data {
@@ -1354,7 +1354,7 @@
         width: 8px;
         height: 8px;
         border-radius: 50%;
-        background: #6366f1;
+        background: #5a54bd;
       }
 
       .chart-container {
@@ -1435,7 +1435,7 @@
       // Initialize PostHog only if the backend provides the key via a meta tag or inline
       (function () {
         // Fetch the PostHog key from the server config endpoint
-        fetch("/api/health")
+        fetch("/api/config")
           .then((r) => r.json())
           .then((d) => {
             if (d && d.posthog_key) {
@@ -1560,7 +1560,7 @@
             <div class="kpi-card animate-in">
               <div
                 class="kpi-card-icon-bg"
-                style="background: rgba(99, 102, 241, 0.12)"
+                style="background: rgba(90, 84, 189, 0.12)"
               >
                 &#x1f4cb;
               </div>
@@ -1599,7 +1599,7 @@
             <div class="kpi-card animate-in">
               <div
                 class="kpi-card-icon-bg"
-                style="background: rgba(34, 211, 238, 0.12)"
+                style="background: rgba(107, 179, 205, 0.12)"
               >
                 &#x1f680;
               </div>
@@ -2177,7 +2177,7 @@
         transition: border-color 0.2s;
       }
       .archive-input:focus {
-        border-color: #6366f1;
+        border-color: #5a54bd;
       }
       .archive-input::placeholder {
         color: rgba(255, 255, 255, 0.3);
@@ -2196,7 +2196,7 @@
         min-width: 150px;
       }
       .archive-select:focus {
-        border-color: #6366f1;
+        border-color: #5a54bd;
       }
       .archive-table {
         width: 100%;
@@ -4104,7 +4104,7 @@
               barWidth: "50%",
               itemStyle: {
                 color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                  { offset: 0, color: "#6366f1" },
+                  { offset: 0, color: "#5a54bd" },
                   { offset: 1, color: "#4F46E5" },
                 ]),
                 borderRadius: [4, 4, 0, 0],
@@ -4261,7 +4261,7 @@
           return;
         }
 
-        const colors = ["#6366f1", "#34D399", "#FBBF24", "#F87171", "#22D3EE"];
+        const colors = ["#5a54bd", "#34D399", "#FBBF24", "#F87171", "#22D3EE"];
         chartBudgetInstance.setOption({
           backgroundColor: "transparent",
           tooltip: {
@@ -4425,7 +4425,7 @@
         padding: 2rem 1rem;
         color: #64748b;
         font-size: 0.8rem;
-        border-top: 1px solid rgba(99, 102, 241, 0.1);
+        border-top: 1px solid rgba(90, 84, 189, 0.1);
         margin-top: 3rem;
       "
     >
@@ -4434,7 +4434,7 @@
         href="https://www.linkedin.com/in/chandel13/"
         target="_blank"
         rel="noopener"
-        style="color: #818cf8; text-decoration: none"
+        style="color: #7b75d4; text-decoration: none"
         >Shubham Singh Chandel</a
       >
       &middot; Nova AI Suite

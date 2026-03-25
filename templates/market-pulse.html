@@ -31,11 +31,11 @@
         --obsidian: #000000;
         --obsidian-light: #111111;
         --navy: #1a1a1a;
-        --indigo: #6366f1;
-        --indigo-light: #818cf8;
-        --indigo-pale: rgba(99, 102, 241, 0.08);
-        --indigo-glow: rgba(99, 102, 241, 0.15);
-        --cyan-accent: #22d3ee;
+        --indigo: #5a54bd;
+        --indigo-light: #7b75d4;
+        --indigo-pale: rgba(90, 84, 189, 0.08);
+        --indigo-glow: rgba(90, 84, 189, 0.15);
+        --cyan-accent: #6bb3cd;
         --green-success: #34d399;
         --amber-warning: #fbbf24;
         --red-error: #f87171;
@@ -59,20 +59,20 @@
         --text-muted: #666666;
 
         --border: rgba(255, 255, 255, 0.08);
-        --border-accent: rgba(99, 102, 241, 0.3);
+        --border-accent: rgba(90, 84, 189, 0.3);
 
         --shadow-md:
           0 4px 12px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3);
         --shadow-lg:
           0 8px 32px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
-        --shadow-glow: 0 0 20px rgba(99, 102, 241, 0.15);
+        --shadow-glow: 0 0 20px rgba(90, 84, 189, 0.15);
 
         --radius: 12px;
         --radius-sm: 8px;
         --radius-lg: 16px;
 
-        --gradient-primary: linear-gradient(135deg, #6366f1 0%, #818cf8 100%);
-        --gradient-accent: linear-gradient(135deg, #6366f1 0%, #22d3ee 100%);
+        --gradient-primary: linear-gradient(135deg, #5a54bd 0%, #7b75d4 100%);
+        --gradient-accent: linear-gradient(135deg, #5a54bd 0%, #6bb3cd 100%);
       }
 
       * {
@@ -105,7 +105,7 @@
         height: 60%;
         background: radial-gradient(
           ellipse,
-          rgba(99, 102, 241, 0.06) 0%,
+          rgba(90, 84, 189, 0.06) 0%,
           transparent 70%
         );
         pointer-events: none;
@@ -120,7 +120,7 @@
         height: 50%;
         background: radial-gradient(
           ellipse,
-          rgba(34, 211, 238, 0.04) 0%,
+          rgba(107, 179, 205, 0.04) 0%,
           transparent 70%
         );
         pointer-events: none;
@@ -213,7 +213,7 @@
         color: var(--indigo);
       }
       .section-title .icon.cyan {
-        background: rgba(34, 211, 238, 0.1);
+        background: rgba(107, 179, 205, 0.1);
         color: var(--cyan-accent);
       }
       .section-title .icon.green {
@@ -294,10 +294,10 @@
         min-width: 2px;
       }
       .bar-fill.c0 {
-        background: linear-gradient(90deg, #6366f1, #818cf8);
+        background: linear-gradient(90deg, #5a54bd, #7b75d4);
       }
       .bar-fill.c1 {
-        background: linear-gradient(90deg, #22d3ee, #67e8f9);
+        background: linear-gradient(90deg, #6bb3cd, #67e8f9);
       }
       .bar-fill.c2 {
         background: linear-gradient(90deg, #f472b6, #fb7185);
@@ -421,7 +421,7 @@
         color: var(--indigo);
       }
       .rank-badge.r2 {
-        background: rgba(34, 211, 238, 0.1);
+        background: rgba(107, 179, 205, 0.1);
         color: var(--cyan-accent);
       }
       .rank-badge.r3 {
@@ -645,10 +645,10 @@
       .btn-primary {
         background: var(--gradient-primary);
         color: white;
-        box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+        box-shadow: 0 2px 8px rgba(90, 84, 189, 0.3);
       }
       .btn-primary:hover {
-        box-shadow: 0 4px 16px rgba(99, 102, 241, 0.4);
+        box-shadow: 0 4px 16px rgba(90, 84, 189, 0.4);
         transform: translateY(-1px);
       }
       .btn-primary:disabled {
@@ -949,7 +949,7 @@
       // Initialize PostHog only if the backend provides the key via a meta tag or inline
       (function () {
         // Fetch the PostHog key from the server config endpoint
-        fetch("/api/health")
+        fetch("/api/config")
           .then((r) => r.json())
           .then((d) => {
             if (d && d.posthog_key) {

@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>404 - Page Not Found | Nova AI Suite</title>
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="theme-color" content="#000000" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%235A54BD'/><text x='16' y='22' text-anchor='middle' fill='white' font-family='Inter,sans-serif' font-weight='800' font-size='18'>N</text></svg>"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      *,
+      *::before,
+      *::after {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      :root {
+        --bg: #000;
+        --surface: rgba(17, 17, 17, 0.8);
+        --accent: #5a54bd;
+        --accent-light: #7b75d4;
+        --teal: #6bb3cd;
+        --port-gore: #202058;
+        --text-1: #e4e4e7;
+        --text-2: #a1a1aa;
+        --text-3: #71717a;
+        --border: rgba(255, 255, 255, 0.08);
+      }
+      body {
+        font-family:
+          "Inter",
+          -apple-system,
+          BlinkMacSystemFont,
+          sans-serif;
+        background: var(--bg);
+        color: var(--text-1);
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        -webkit-font-smoothing: antialiased;
+        position: relative;
+      }
+      .glow {
+        position: fixed;
+        border-radius: 50%;
+        filter: blur(120px);
+        pointer-events: none;
+        z-index: 0;
+      }
+      .glow--v {
+        width: 500px;
+        height: 500px;
+        top: -10%;
+        left: -5%;
+        background: rgba(90, 84, 189, 0.15);
+        animation: drift 16s ease-in-out infinite alternate;
+      }
+      .glow--t {
+        width: 400px;
+        height: 400px;
+        bottom: -10%;
+        right: -5%;
+        background: rgba(107, 179, 205, 0.1);
+        animation: drift 20s ease-in-out infinite alternate-reverse;
+      }
+      @keyframes drift {
+        0% {
+          transform: translate(0, 0);
+        }
+        100% {
+          transform: translate(30px, -20px);
+        }
+      }
+      .ctr {
+        position: relative;
+        z-index: 1;
+        text-align: center;
+        padding: 24px;
+        max-width: 560px;
+        animation: fu 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+      }
+      @keyframes fu {
+        from {
+          opacity: 0;
+          transform: translateY(20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      .code {
+        font-size: clamp(6rem, 20vw, 12rem);
+        font-weight: 900;
+        line-height: 1;
+        letter-spacing: -0.04em;
+        background: linear-gradient(
+          135deg,
+          var(--accent) 0%,
+          var(--teal) 60%,
+          var(--accent-light) 100%
+        );
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 8px;
+        user-select: none;
+      }
+      .title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin-bottom: 12px;
+      }
+      .msg {
+        font-size: 0.95rem;
+        color: var(--text-2);
+        line-height: 1.6;
+        margin-bottom: 32px;
+        max-width: 420px;
+        margin-inline: auto;
+      }
+      .links {
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+        flex-wrap: wrap;
+        margin-bottom: 24px;
+      }
+      .lnk {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 20px;
+        border-radius: 10px;
+        font-size: 0.875rem;
+        font-weight: 600;
+        text-decoration: none;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      .lnk--p {
+        background: var(--accent);
+        color: #fff;
+      }
+      .lnk--p:hover {
+        background: var(--accent-light);
+        box-shadow: 0 0 24px rgba(90, 84, 189, 0.4);
+        transform: translateY(-1px);
+      }
+      .lnk--s {
+        background: var(--surface);
+        color: var(--text-1);
+        border: 1px solid var(--border);
+      }
+      .lnk--s:hover {
+        border-color: rgba(255, 255, 255, 0.16);
+        background: rgba(26, 26, 26, 0.9);
+        transform: translateY(-1px);
+      }
+      .hint {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        justify-content: center;
+        padding: 14px 20px;
+        border-radius: 12px;
+        background: rgba(90, 84, 189, 0.08);
+        border: 1px solid rgba(90, 84, 189, 0.2);
+        margin-top: 8px;
+        animation: fu 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.3s both;
+      }
+      .hint-ic {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--accent), var(--teal));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+      .hint-tx {
+        font-size: 0.85rem;
+        color: var(--text-2);
+        text-align: left;
+      }
+      .hint-tx strong {
+        color: var(--text-1);
+        font-weight: 600;
+      }
+      .bh {
+        display: inline-block;
+        margin-top: 32px;
+        font-size: 0.8rem;
+        color: var(--text-3);
+        text-decoration: none;
+        transition: color 0.2s;
+      }
+      .bh:hover {
+        color: var(--accent-light);
+      }
+      :focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation-duration: 0.01ms !important;
+          transition-duration: 0.01ms !important;
+        }
+      }
+      @media (max-width: 480px) {
+        .links {
+          flex-direction: column;
+        }
+        .lnk {
+          justify-content: center;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="glow glow--v" aria-hidden="true"></div>
+    <div class="glow glow--t" aria-hidden="true"></div>
+    <div class="ctr" role="main" aria-label="Error page">
+      <div class="code" aria-hidden="true">404</div>
+      <h1 class="title">Page not found</h1>
+      <p class="msg">
+        The page you are looking for does not exist, has been moved, or is
+        temporarily unavailable. Try one of the links below to get back on
+        track.
+      </p>
+      <nav class="links" aria-label="Error page navigation">
+        <a href="/" class="lnk lnk--p" aria-label="Go to homepage">
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+            <polyline points="9 22 9 12 15 12 15 22" />
+          </svg>
+          Homepage
+        </a>
+        <a href="/platform" class="lnk lnk--s" aria-label="Open Nova Platform">
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <rect x="3" y="3" width="7" height="7" />
+            <rect x="14" y="3" width="7" height="7" />
+            <rect x="3" y="14" width="7" height="7" />
+            <rect x="14" y="14" width="7" height="7" />
+          </svg>
+          Platform
+        </a>
+        <a
+          href="/media-plan"
+          class="lnk lnk--s"
+          aria-label="Go to Media Plan Generator"
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+            <polyline points="14 2 14 8 20 8" />
+            <line x1="16" y1="13" x2="8" y2="13" />
+            <line x1="16" y1="17" x2="8" y2="17" />
+          </svg>
+          Media Plan
+        </a>
+      </nav>
+      <div class="hint" role="complementary" aria-label="Nova AI suggestion">
+        <div class="hint-ic" aria-hidden="true">
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#fff"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M12 2L2 7l10 5 10-5-10-5z" />
+            <path d="M2 17l10 5 10-5" />
+            <path d="M2 12l10 5 10-5" />
+          </svg>
+        </div>
+        <div class="hint-tx">
+          <strong>Try Nova AI</strong> -- ask anything about recruitment
+          advertising, media planning, or competitive intelligence.
+        </div>
+      </div>
+      <a href="/" class="bh">nova-ai-suite.com</a>
+    </div>
+  </body>
+</html>

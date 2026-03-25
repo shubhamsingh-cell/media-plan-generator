@@ -7,11 +7,11 @@
       name="description"
       content="Quick Brief - Describe your hiring need in plain text and get a structured media plan brief auto-generated. Powered by Nova AI Suite."
     />
-    <meta name="theme-color" content="#000000" />
+    <meta name="theme-color" content="#09090b" />
     <title>Quick Brief | Nova AI Suite</title>
     <link
       rel="icon"
-      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%236366F1'/><text x='16' y='22' text-anchor='middle' fill='white' font-family='Inter,sans-serif' font-weight='800' font-size='18'>N</text></svg>"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%235A54BD'/><text x='16' y='22' text-anchor='middle' fill='white' font-family='Inter,sans-serif' font-weight='800' font-size='18'>N</text></svg>"
     />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -29,14 +29,14 @@
       }
 
       :root {
-        --bg-primary: #000000;
+        --bg-primary: #09090b;
         --bg-card: #111111;
         --bg-card-hover: #1a1a1a;
         --surface: #1a1a1a;
-        --accent: #6366f1;
-        --accent-light: #818cf8;
-        --accent-glow: rgba(99, 102, 241, 0.12);
-        --accent-glow-strong: rgba(99, 102, 241, 0.25);
+        --accent: #5a54bd;
+        --accent-light: #7b75d4;
+        --accent-glow: rgba(90, 84, 189, 0.12);
+        --accent-glow-strong: rgba(90, 84, 189, 0.25);
         --text-primary: #d4d4d8;
         --text-secondary: #a1a1a1;
         --text-muted: #666666;
@@ -228,7 +228,7 @@
 
       .qb-example-chip {
         background: var(--accent-glow);
-        border: 1px solid rgba(99, 102, 241, 0.2);
+        border: 1px solid rgba(90, 84, 189, 0.2);
         border-radius: 20px;
         padding: 6px 14px;
         font-size: 0.78rem;
@@ -275,6 +275,83 @@
       .qb-generate-btn svg {
         width: 18px;
         height: 18px;
+      }
+
+      .qb-generate-btn .spinner {
+        display: none;
+        width: 18px;
+        height: 18px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-top-color: #fff;
+        border-radius: 50%;
+        animation: qbSpin 0.6s linear infinite;
+      }
+
+      .qb-generate-btn.loading .spinner {
+        display: inline-block;
+      }
+
+      .qb-generate-btn.loading .btn-label {
+        display: none;
+      }
+
+      @keyframes qbSpin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* -- Error Banner -- */
+      .qb-error-banner {
+        display: none;
+        background: rgba(239, 68, 68, 0.1);
+        border: 1px solid rgba(239, 68, 68, 0.25);
+        color: #ef4444;
+        border-radius: var(--radius-md);
+        padding: 16px 20px;
+        margin-bottom: 24px;
+        font-size: 0.875rem;
+        font-weight: 500;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .qb-error-banner.visible {
+        display: flex;
+      }
+
+      .qb-error-banner svg {
+        width: 20px;
+        height: 20px;
+        flex-shrink: 0;
+      }
+
+      /* -- Empty State -- */
+      .qb-empty-state {
+        text-align: center;
+        padding: 64px 24px;
+        color: var(--text-muted);
+      }
+
+      .qb-empty-state svg {
+        width: 64px;
+        height: 64px;
+        color: var(--accent);
+        opacity: 0.4;
+        margin-bottom: 20px;
+      }
+
+      .qb-empty-state h3 {
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        margin-bottom: 8px;
+      }
+
+      .qb-empty-state p {
+        font-size: 0.875rem;
+        max-width: 400px;
+        margin: 0 auto;
       }
 
       /* ── RESULTS ── */
@@ -434,7 +511,7 @@
         flex-shrink: 0;
         background: var(--accent-glow);
         color: var(--accent-light);
-        border: 1px solid rgba(99, 102, 241, 0.2);
+        border: 1px solid rgba(90, 84, 189, 0.2);
       }
 
       .qb-channel-name {
@@ -646,7 +723,7 @@
       // Initialize PostHog only if the backend provides the key via a meta tag or inline
       (function () {
         // Fetch the PostHog key from the server config endpoint
-        fetch("/api/health")
+        fetch("/api/config")
           .then((r) => r.json())
           .then((d) => {
             if (d && d.posthog_key) {
@@ -668,7 +745,7 @@
     <nav class="qb-nav" role="navigation" aria-label="Main navigation">
       <a href="/" class="qb-nav-brand" aria-label="Nova AI Suite Home">
         <svg viewBox="0 0 32 32" fill="none">
-          <rect width="32" height="32" rx="6" fill="#6366F1" />
+          <rect width="32" height="32" rx="6" fill="#5A54BD" />
           <text
             x="16"
             y="22"
@@ -737,21 +814,71 @@
         </div>
 
         <button id="qb-generate" class="qb-generate-btn" disabled>
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <path d="M12 2L2 7l10 5 10-5-10-5z" />
-            <path d="M2 17l10 5 10-5" />
-            <path d="M2 12l10 5 10-5" />
-          </svg>
-          Generate Brief
+          <span class="btn-label">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M12 2L2 7l10 5 10-5-10-5z" />
+              <path d="M2 17l10 5 10-5" />
+              <path d="M2 12l10 5 10-5" />
+            </svg>
+            Generate Brief
+          </span>
+          <span class="spinner" aria-hidden="true"></span>
         </button>
       </section>
+
+      <!-- ERROR BANNER -->
+      <div
+        class="qb-error-banner"
+        id="qb-error"
+        role="alert"
+        aria-live="assertive"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <circle cx="12" cy="12" r="10" />
+          <line x1="12" y1="8" x2="12" y2="12" />
+          <line x1="12" y1="16" x2="12.01" y2="16" />
+        </svg>
+        <span id="qb-error-msg">An error occurred. Please try again.</span>
+      </div>
+
+      <!-- EMPTY STATE -->
+      <div class="qb-empty-state" id="qb-empty-state">
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path
+            d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+          />
+          <polyline points="14 2 14 8 20 8" />
+          <line x1="16" y1="13" x2="8" y2="13" />
+          <line x1="16" y1="17" x2="8" y2="17" />
+          <polyline points="10 9 9 9 8 9" />
+        </svg>
+        <h3>Enter a topic to generate a professional brief</h3>
+        <p>
+          Describe your hiring need above and we will parse it into a structured
+          media plan brief with channel recommendations.
+        </p>
+      </div>
 
       <!-- RESULTS -->
       <section id="qb-results" class="qb-results" aria-live="polite">
@@ -847,6 +974,9 @@
         var fullPlanLink = document.getElementById("qb-full-plan-link");
         var resetBtn = document.getElementById("qb-reset");
         var exampleChips = document.querySelectorAll(".qb-example-chip");
+        var errorBanner = document.getElementById("qb-error");
+        var errorMsg = document.getElementById("qb-error-msg");
+        var emptyState = document.getElementById("qb-empty-state");
 
         /* ── ENABLE/DISABLE BUTTON ── */
         textarea.addEventListener("input", function () {
@@ -866,8 +996,22 @@
         generateBtn.addEventListener("click", function () {
           var text = textarea.value.trim();
           if (text.length < 10) return;
-          var brief = parseBrief(text);
-          renderResults(brief);
+          errorBanner.classList.remove("visible");
+          generateBtn.classList.add("loading");
+          generateBtn.disabled = true;
+          if (emptyState) emptyState.style.display = "none";
+          try {
+            var brief = parseBrief(text);
+            renderResults(brief);
+          } catch (err) {
+            errorMsg.textContent =
+              "Failed to parse brief: " +
+              (err.message || "Unknown error. Please try again.");
+            errorBanner.classList.add("visible");
+          } finally {
+            generateBtn.classList.remove("loading");
+            generateBtn.disabled = textarea.value.trim().length < 10;
+          }
         });
 
         /* ── RESET ── */
@@ -877,6 +1021,8 @@
           resultsSection.classList.remove("visible");
           fieldGrid.innerHTML = "";
           channelsGrid.innerHTML = "";
+          errorBanner.classList.remove("visible");
+          if (emptyState) emptyState.style.display = "";
         });
 
         /* ── KEYBOARD SHORTCUT ── */

@@ -73,7 +73,11 @@ class TestCircuitBreaker(unittest.TestCase):
         cb = CircuitBreaker(max_failures=1, cooldown_seconds=1)
         cb.record_failure("err")
         self.assertTrue(cb.is_open())
-        time.sleep(1.1)
+        # _get_cooldown_with_jitter applies exponential backoff, so
+        # disabled_until may be > now + 1s.  Override it directly to
+        # test the cooldown-recovery path without sleeping too long.
+        cb.disabled_until = time.time() + 0.3
+        time.sleep(0.5)
         self.assertFalse(cb.is_open())
 
     def test_manual_reset(self) -> None:

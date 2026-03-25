@@ -1156,7 +1156,23 @@ def _handle_audit_events(handler, path: str, parsed: Any) -> None:
 # For paths with aliases (e.g., /health and /api/health), we register each
 # alias separately to keep the dispatch O(1).
 
+
+def _handle_config(handler, path: str, parsed: Any) -> None:
+    """/api/config -- public frontend configuration (PostHog key, feature flags).
+
+    This endpoint exposes only public frontend configuration values.
+    Sensitive keys and internal details are NOT included.
+    """
+    _ph_key: str = (os.environ.get("POSTHOG_API_KEY") or "").strip()
+    config: dict[str, Any] = {}
+    if _ph_key:
+        config["posthog_key"] = _ph_key
+    config["posthog_host"] = "https://us.i.posthog.com"
+    _send_json_response(handler, config)
+
+
 _HEALTH_ROUTE_MAP: dict[str, Any] = {
+    "/api/config": _handle_config,
     "/api/health": _handle_health,
     "/health": _handle_health,
     "/api/health/ready": _handle_health_ready,

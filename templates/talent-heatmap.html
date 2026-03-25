@@ -24,14 +24,14 @@
         --obsidian: #000000;
         --obsidian-light: #111111;
         --navy: #1a1a1a;
-        --indigo: #6366f1;
-        --indigo-light: #818cf8;
-        --indigo-pale: rgba(99, 102, 241, 0.08);
-        --indigo-glow: rgba(99, 102, 241, 0.15);
-        --cyan-accent: #22d3ee;
+        --indigo: #5a54bd;
+        --indigo-light: #7b75d4;
+        --indigo-pale: rgba(90, 84, 189, 0.08);
+        --indigo-glow: rgba(90, 84, 189, 0.15);
+        --cyan-accent: #6bb3cd;
         --green-success: #34d399;
-        --accent: #6366f1;
-        --accent-light: #818cf8;
+        --accent: #5a54bd;
+        --accent-light: #7b75d4;
         --accent-warm: #f87171;
         --warning: #fbbf24;
         --error: #f87171;
@@ -47,30 +47,30 @@
         --text-light: #a1a1a1;
         --text-muted: #666666;
         --border: rgba(255, 255, 255, 0.08);
-        --border-accent: rgba(99, 102, 241, 0.3);
+        --border-accent: rgba(90, 84, 189, 0.3);
         --shadow-md:
           0 4px 12px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3);
         --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
-        --shadow-glow: 0 0 20px rgba(99, 102, 241, 0.15);
+        --shadow-glow: 0 0 20px rgba(90, 84, 189, 0.15);
         --radius: 12px;
         --radius-sm: 8px;
         --radius-lg: 16px;
-        --gradient-primary: linear-gradient(135deg, #6366f1 0%, #818cf8 100%);
-        --gradient-accent: linear-gradient(135deg, #6366f1 0%, #22d3ee 100%);
+        --gradient-primary: linear-gradient(135deg, #5a54bd 0%, #7b75d4 100%);
+        --gradient-accent: linear-gradient(135deg, #5a54bd 0%, #6bb3cd 100%);
         --gradient-mesh:
           radial-gradient(
             ellipse at 20% 50%,
-            rgba(99, 102, 241, 0.08) 0%,
+            rgba(90, 84, 189, 0.08) 0%,
             transparent 50%
           ),
           radial-gradient(
             ellipse at 80% 20%,
-            rgba(34, 211, 238, 0.06) 0%,
+            rgba(107, 179, 205, 0.06) 0%,
             transparent 50%
           ),
           radial-gradient(
             ellipse at 40% 80%,
-            rgba(99, 102, 241, 0.04) 0%,
+            rgba(90, 84, 189, 0.04) 0%,
             transparent 50%
           );
         --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
@@ -258,7 +258,7 @@
       input:focus,
       select:focus {
         border-color: var(--accent);
-        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+        box-shadow: 0 0 0 3px rgba(90, 84, 189, 0.15);
       }
       select {
         background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23818CF8' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
@@ -285,12 +285,12 @@
         min-height: 52px;
         min-width: 200px;
         transition: all var(--duration-normal);
-        box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3);
+        box-shadow: 0 4px 16px rgba(90, 84, 189, 0.3);
         position: relative;
         overflow: hidden;
       }
       .btn-primary:hover:not(:disabled) {
-        box-shadow: 0 6px 24px rgba(99, 102, 241, 0.45);
+        box-shadow: 0 6px 24px rgba(90, 84, 189, 0.45);
         transform: translateY(-1px);
       }
       .btn-primary:disabled {
@@ -536,7 +536,7 @@
       .salary-bar-fill {
         height: 100%;
         border-radius: 4px;
-        background: linear-gradient(90deg, #2563eb, #6366f1);
+        background: linear-gradient(90deg, #2563eb, #5a54bd);
         transition: width 600ms var(--ease-out);
         display: flex;
         align-items: center;
@@ -783,7 +783,7 @@
       // Initialize PostHog only if the backend provides the key via a meta tag or inline
       (function () {
         // Fetch the PostHog key from the server config endpoint
-        fetch("/api/health")
+        fetch("/api/config")
           .then((r) => r.json())
           .then((d) => {
             if (d && d.posthog_key) {
@@ -1598,8 +1598,8 @@
             var pct = Math.round((item.count / maxCount) * 100);
             var barColor =
               idx === 0
-                ? "var(--cyan-accent, #22d3ee)"
-                : "var(--indigo, #6366f1)";
+                ? "var(--cyan-accent, #6bb3cd)"
+                : "var(--indigo, #5a54bd)";
             html += '<div style="display:flex;align-items:center;gap:12px;">';
             html +=
               '<div style="min-width:24px;color:var(--text-muted);font-size:0.8rem;font-weight:600;text-align:right;">#' +
@@ -1796,7 +1796,7 @@
         padding: 2rem 1rem;
         color: #64748b;
         font-size: 0.8rem;
-        border-top: 1px solid rgba(99, 102, 241, 0.1);
+        border-top: 1px solid rgba(90, 84, 189, 0.1);
         margin-top: 3rem;
       "
     >
@@ -1805,7 +1805,7 @@
         href="https://www.linkedin.com/in/chandel13/"
         target="_blank"
         rel="noopener"
-        style="color: #818cf8; text-decoration: none"
+        style="color: #7b75d4; text-decoration: none"
         >Shubham Singh Chandel</a
       >
       &middot; Nova AI Suite

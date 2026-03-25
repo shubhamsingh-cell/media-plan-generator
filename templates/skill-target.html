@@ -24,8 +24,8 @@
         --bg: #000000;
         --card: rgba(17, 17, 17, 0.8);
         --card-hover: rgba(26, 26, 26, 0.7);
-        --indigo: #6366f1;
-        --indigo-light: #818cf8;
+        --indigo: #5a54bd;
+        --indigo-light: #7b75d4;
         --text: #d4d4d8;
         --muted: #a1a1a1;
         --success: #22c55e;
@@ -33,7 +33,7 @@
         --error: #ef4444;
         --border: rgba(255, 255, 255, 0.08);
         --radius: 12px;
-        --gradient: linear-gradient(135deg, #6366f1, #818cf8);
+        --gradient: linear-gradient(135deg, #5a54bd, #7b75d4);
       }
       @media (prefers-reduced-motion: reduce) {
         .reveal-on-scroll {
@@ -88,12 +88,12 @@
         background:
           radial-gradient(
             ellipse at 20% 50%,
-            rgba(99, 102, 241, 0.06) 0%,
+            rgba(90, 84, 189, 0.06) 0%,
             transparent 50%
           ),
           radial-gradient(
             ellipse at 80% 20%,
-            rgba(129, 140, 248, 0.04) 0%,
+            rgba(123, 117, 212, 0.04) 0%,
             transparent 50%
           );
       }
@@ -222,7 +222,7 @@
       input:focus,
       select:focus {
         border-color: var(--indigo);
-        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+        box-shadow: 0 0 0 3px rgba(90, 84, 189, 0.15);
       }
       input::placeholder {
         color: rgba(148, 163, 184, 0.5);
@@ -246,7 +246,7 @@
       }
       .tag-input-wrap:focus-within {
         border-color: var(--indigo);
-        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+        box-shadow: 0 0 0 3px rgba(90, 84, 189, 0.15);
       }
       .tag-input-wrap input {
         background: none;
@@ -263,7 +263,7 @@
         display: inline-flex;
         align-items: center;
         gap: 0.3rem;
-        background: rgba(99, 102, 241, 0.2);
+        background: rgba(90, 84, 189, 0.2);
         color: var(--indigo-light);
         padding: 0.2rem 0.6rem;
         border-radius: 20px;
@@ -314,7 +314,7 @@
       .btn-primary:hover {
         opacity: 0.9;
         transform: translateY(-1px);
-        box-shadow: 0 4px 20px rgba(99, 102, 241, 0.3);
+        box-shadow: 0 4px 20px rgba(90, 84, 189, 0.3);
       }
       .btn-primary:disabled {
         opacity: 0.5;
@@ -323,12 +323,12 @@
         box-shadow: none;
       }
       .btn-secondary {
-        background: rgba(99, 102, 241, 0.1);
+        background: rgba(90, 84, 189, 0.1);
         color: var(--indigo-light);
         border: 1px solid var(--border);
       }
       .btn-secondary:hover {
-        background: rgba(99, 102, 241, 0.2);
+        background: rgba(90, 84, 189, 0.2);
       }
       .btn-row {
         display: flex;
@@ -377,7 +377,7 @@
         color: #4ade80;
       }
       .rarity-moderate {
-        background: rgba(99, 102, 241, 0.15);
+        background: rgba(90, 84, 189, 0.15);
         color: var(--indigo-light);
       }
       .rarity-rare {
@@ -409,7 +409,7 @@
       }
       .bar-track {
         height: 8px;
-        background: rgba(99, 102, 241, 0.1);
+        background: rgba(90, 84, 189, 0.1);
         border-radius: 4px;
         overflow: hidden;
       }
@@ -671,7 +671,7 @@
       // Initialize PostHog only if the backend provides the key via a meta tag or inline
       (function () {
         // Fetch the PostHog key from the server config endpoint
-        fetch("/api/health")
+        fetch("/api/config")
           .then((r) => r.json())
           .then((d) => {
             if (d && d.posthog_key) {
@@ -1129,8 +1129,8 @@
             return;
           }
           const colors = [
-            "#6366f1",
-            "#818cf8",
+            "#5a54bd",
+            "#7b75d4",
             "#22c55e",
             "#f59e0b",
             "#ef4444",

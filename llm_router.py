@@ -255,11 +255,21 @@ _rate_tracker = _RateTracker()
 # RESPONSE CACHE (Semantic Dedup)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-_CACHE_MAX_SIZE = 100
-_CACHE_TTL_SECONDS = 300.0  # 5 minutes (default)
-_CACHE_TTL_EXTENDED_SECONDS = 900.0  # 15 minutes (verification/compliance)
+_CACHE_MAX_SIZE = 200
+_CACHE_TTL_SECONDS = 900.0  # 15 minutes (default for general queries)
+_CACHE_TTL_REALTIME_SECONDS = 300.0  # 5 minutes (real-time / volatile data queries)
+# Legacy alias kept for backward compatibility with get_stats()
+_CACHE_TTL_EXTENDED_SECONDS = _CACHE_TTL_SECONDS
 
-# Task types that get extended cache TTL (results are stable, worth caching longer)
+# Task types that get REDUCED cache TTL (real-time data, changes frequently)
+_REALTIME_TTL_TASK_TYPES: set[str] = {
+    "market_analysis",
+    "competitor_scan",
+    "structured",  # CPC/CPA lookups, benchmark data
+    "research",  # market research with live data
+}
+
+# Legacy alias -- kept for backward compatibility
 _EXTENDED_TTL_TASK_TYPES: set[str] = {
     "verification",
     "compliance_check",
@@ -292,9 +302,13 @@ class _ResponseCache:
 
     @staticmethod
     def _ttl_for_task(task_type: str) -> float:
-        """Return the cache TTL for a given task type."""
-        if task_type in _EXTENDED_TTL_TASK_TYPES:
-            return _CACHE_TTL_EXTENDED_SECONDS
+        """Return the cache TTL for a given task type.
+
+        Real-time data tasks (market analysis, competitor scans, benchmarks)
+        get a shorter 5-minute TTL.  All other tasks get 15 minutes.
+        """
+        if task_type in _REALTIME_TTL_TASK_TYPES:
+            return _CACHE_TTL_REALTIME_SECONDS
         return _CACHE_TTL_SECONDS
 
     @staticmethod
@@ -356,13 +370,17 @@ class _ResponseCache:
             self._store[key] = (now, entry_ttl, response)
 
     def get_stats(self) -> dict[str, Any]:
-        """Return cache statistics."""
+        """Return cache statistics including hit/miss rates and TTL config."""
         with self._lock:
             total = self._hits + self._misses
             hit_rate = (self._hits / total * 100.0) if total > 0 else 0.0
             return {
                 "cache_size": len(self._store),
                 "cache_max_size": self._max_size,
+                "cache_ttl_default_seconds": _CACHE_TTL_SECONDS,
+                "cache_ttl_realtime_seconds": _CACHE_TTL_REALTIME_SECONDS,
+                "cache_realtime_ttl_tasks": sorted(_REALTIME_TTL_TASK_TYPES),
+                # Legacy fields for backward compat
                 "cache_ttl_seconds": self._ttl,
                 "cache_ttl_extended_seconds": _CACHE_TTL_EXTENDED_SECONDS,
                 "cache_extended_ttl_tasks": sorted(_EXTENDED_TTL_TASK_TYPES),

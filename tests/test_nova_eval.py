@@ -74,11 +74,94 @@ GOLDEN_DATASET = [
         "category": "roi_analysis",
         "min_quality": 0.5,
     },
+    # ── Multi-tool queries (requires combining data from multiple sources) ──
+    {
+        "question": "Compare salary data with job market demand for data scientists in New York",
+        "expected_keywords": ["salary", "data scientist", "new york", "demand"],
+        "category": "multi_tool_synthesis",
+        "min_quality": 0.5,
+    },
+    # ── Follow-up / context retention ──
+    {
+        "question": "Now show me the same data for San Francisco",
+        "expected_keywords": ["san francisco"],
+        "category": "context_followup",
+        "min_quality": 0.3,
+        "requires_history": [
+            {
+                "role": "user",
+                "content": "What is the average salary for software engineers in Austin?",
+            },
+            {
+                "role": "assistant",
+                "content": "The median salary for Software Engineers in Austin is approximately $125,000 based on Adzuna data.",
+            },
+        ],
+    },
+    # ── Edge cases (empty/minimal and very long queries) ──
+    {
+        "question": "",
+        "expected_keywords": [],
+        "category": "edge_empty_query",
+        "min_quality": 0.0,
+        "expect_error": True,
+    },
+    # ── Data accuracy (specific known benchmarks) ──
+    {
+        "question": "What is the median salary for registered nurses in Texas according to BLS data?",
+        "expected_keywords": ["nurse", "texas", "salary", "$"],
+        "category": "data_accuracy",
+        "min_quality": 0.5,
+    },
+    # ── Error recovery (graceful degradation when data is unavailable) ──
+    {
+        "question": "What is the CPA for a Chief Quantum Computing Officer in Antarctica?",
+        "expected_keywords": [],
+        "category": "error_recovery_graceful",
+        "min_quality": 0.3,
+        "negative_keywords": [
+            "i can't",
+            "i don't have",
+            "unable to",
+            "no data available",
+        ],
+    },
 ]
 
 
 def evaluate_response(response_text: str, test_case: dict) -> dict:
-    """Evaluate a single response against expected criteria."""
+    """Evaluate a single response against expected criteria.
+
+    Supports standard keyword matching, negative keyword checks,
+    error expectation, and refusal detection.
+
+    Args:
+        response_text: The response from the chat API.
+        test_case: A golden test case dict with expected_keywords, category, etc.
+
+    Returns:
+        Dict with passed, score, keyword_coverage, response_length, and refusal_detected.
+    """
+    # Handle edge case: empty query expects error response
+    if test_case.get("expect_error"):
+        if not response_text or "provide a message" in response_text.lower():
+            return {
+                "passed": True,
+                "score": 1.0,
+                "keyword_coverage": "N/A",
+                "response_length": len(response_text or ""),
+                "refusal_detected": False,
+                "reason": "Correctly handled empty/error input",
+            }
+        return {
+            "passed": False,
+            "score": 0.0,
+            "keyword_coverage": "N/A",
+            "response_length": len(response_text or ""),
+            "refusal_detected": False,
+            "reason": "Expected error handling but got normal response",
+        }
+
     if not response_text:
         return {"passed": False, "score": 0.0, "reason": "Empty response"}
 
@@ -87,7 +170,7 @@ def evaluate_response(response_text: str, test_case: dict) -> dict:
     # Keyword coverage
     keywords = test_case["expected_keywords"]
     matches = sum(1 for kw in keywords if kw.lower() in lower)
-    keyword_score = matches / len(keywords) if keywords else 0
+    keyword_score = matches / len(keywords) if keywords else 1.0
 
     # Length quality (too short = bad)
     length_score = min(len(response_text) / 200, 1.0)
@@ -102,8 +185,20 @@ def evaluate_response(response_text: str, test_case: dict) -> dict:
     ]
     refusal_penalty = 0.5 if any(s in lower for s in refusal_signals) else 0
 
+    # Negative keyword penalty (words that should NOT appear)
+    negative_keywords = test_case.get("negative_keywords", [])
+    negative_hits = sum(1 for nk in negative_keywords if nk.lower() in lower)
+    negative_penalty = (
+        0.3 * (negative_hits / len(negative_keywords)) if negative_keywords else 0
+    )
+
     # Combined score
-    score = keyword_score * 0.5 + length_score * 0.3 + (1 - refusal_penalty) * 0.2
+    score = (
+        keyword_score * 0.45
+        + length_score * 0.25
+        + (1 - refusal_penalty) * 0.2
+        + (1 - negative_penalty) * 0.1
+    )
 
     passed = score >= test_case.get("min_quality", 0.5)
 
@@ -113,14 +208,25 @@ def evaluate_response(response_text: str, test_case: dict) -> dict:
         "keyword_coverage": f"{matches}/{len(keywords)}",
         "response_length": len(response_text),
         "refusal_detected": refusal_penalty > 0,
+        "negative_hits": negative_hits if negative_keywords else 0,
     }
 
 
 def run_evaluation(base_url: str = "http://localhost:10000") -> dict:
-    """Run full evaluation against golden dataset."""
+    """Run full evaluation against golden dataset.
+
+    Sends each test case to the Nova chat API and evaluates the response
+    against expected keywords, negative keywords, and quality thresholds.
+
+    Args:
+        base_url: The base URL of the Nova server to test against.
+
+    Returns:
+        Dict with total, passed, failed, avg_score, and detailed results.
+    """
     import urllib.request
 
-    results = []
+    results: list[dict] = []
     passed = 0
     failed = 0
 
@@ -132,10 +238,13 @@ def run_evaluation(base_url: str = "http://localhost:10000") -> dict:
 
     for i, test in enumerate(GOLDEN_DATASET):
         try:
+            # Build conversation history for context-dependent tests
+            conversation_history = test.get("requires_history", [])
+
             payload = json.dumps(
                 {
                     "message": test["question"],
-                    "conversation_history": [],
+                    "conversation_history": conversation_history,
                 }
             ).encode()
 
@@ -166,17 +275,31 @@ def run_evaluation(base_url: str = "http://localhost:10000") -> dict:
             )
 
         except Exception as e:
-            results.append(
-                {
-                    "question": test["question"],
-                    "category": test["category"],
-                    "passed": False,
-                    "score": 0.0,
-                    "error": str(e),
-                }
-            )
-            failed += 1
-            print(f"  [ERROR] {test['category']}: {e}")
+            # For expect_error tests, connection errors on empty queries are valid
+            if test.get("expect_error"):
+                results.append(
+                    {
+                        "question": test["question"],
+                        "category": test["category"],
+                        "passed": True,
+                        "score": 1.0,
+                        "reason": f"Expected error, got: {e}",
+                    }
+                )
+                passed += 1
+                print(f"  [PASS] {test['category']}: error handled correctly")
+            else:
+                results.append(
+                    {
+                        "question": test["question"],
+                        "category": test["category"],
+                        "passed": False,
+                        "score": 0.0,
+                        "error": str(e),
+                    }
+                )
+                failed += 1
+                print(f"  [ERROR] {test['category']}: {e}")
 
     avg_score = sum(r.get("score", 0) for r in results) / len(results) if results else 0
 

@@ -24,16 +24,16 @@
         --obsidian: #000000;
         --obsidian-light: #111111;
         --navy: #1a1a1a;
-        --indigo: #6366f1;
-        --indigo-light: #818cf8;
-        --indigo-pale: rgba(99, 102, 241, 0.08);
-        --indigo-glow: rgba(99, 102, 241, 0.15);
-        --cyan-accent: #22d3ee;
+        --indigo: #5a54bd;
+        --indigo-light: #7b75d4;
+        --indigo-pale: rgba(90, 84, 189, 0.08);
+        --indigo-glow: rgba(90, 84, 189, 0.15);
+        --cyan-accent: #6bb3cd;
         --green-success: #34d399;
         --amber-warning: #fbbf24;
         --red-error: #f87171;
-        --accent: #6366f1;
-        --accent-light: #818cf8;
+        --accent: #5a54bd;
+        --accent-light: #7b75d4;
         --bg: #000000;
         --surface-1: rgba(17, 17, 17, 0.8);
         --surface-2: rgba(26, 26, 26, 0.5);
@@ -50,32 +50,32 @@
         --text-secondary: #a1a1a1;
         --text-muted: #666666;
         --border: rgba(255, 255, 255, 0.08);
-        --border-accent: rgba(99, 102, 241, 0.3);
+        --border-accent: rgba(90, 84, 189, 0.3);
         --shadow-md:
           0 4px 12px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3);
         --shadow-lg:
           0 8px 32px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
-        --shadow-glow: 0 0 20px rgba(99, 102, 241, 0.15);
+        --shadow-glow: 0 0 20px rgba(90, 84, 189, 0.15);
         --radius: 12px;
         --radius-sm: 8px;
         --radius-lg: 16px;
         --radius-xl: 20px;
-        --gradient-primary: linear-gradient(135deg, #6366f1 0%, #818cf8 100%);
-        --gradient-accent: linear-gradient(135deg, #6366f1 0%, #22d3ee 100%);
+        --gradient-primary: linear-gradient(135deg, #5a54bd 0%, #7b75d4 100%);
+        --gradient-accent: linear-gradient(135deg, #5a54bd 0%, #6bb3cd 100%);
         --gradient-mesh:
           radial-gradient(
             ellipse at 20% 50%,
-            rgba(99, 102, 241, 0.08) 0%,
+            rgba(90, 84, 189, 0.08) 0%,
             transparent 50%
           ),
           radial-gradient(
             ellipse at 80% 20%,
-            rgba(34, 211, 238, 0.06) 0%,
+            rgba(107, 179, 205, 0.06) 0%,
             transparent 50%
           ),
           radial-gradient(
             ellipse at 40% 80%,
-            rgba(99, 102, 241, 0.04) 0%,
+            rgba(90, 84, 189, 0.04) 0%,
             transparent 50%
           );
         --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
@@ -155,17 +155,17 @@
           background:
             radial-gradient(
               ellipse at 20% 50%,
-              rgba(99, 102, 241, 0.08) 0%,
+              rgba(90, 84, 189, 0.08) 0%,
               transparent 50%
             ),
             radial-gradient(
               ellipse at 80% 20%,
-              rgba(34, 211, 238, 0.06) 0%,
+              rgba(107, 179, 205, 0.06) 0%,
               transparent 50%
             ),
             radial-gradient(
               ellipse at 40% 80%,
-              rgba(99, 102, 241, 0.04) 0%,
+              rgba(90, 84, 189, 0.04) 0%,
               transparent 50%
             );
         }
@@ -173,17 +173,17 @@
           background:
             radial-gradient(
               ellipse at 60% 30%,
-              rgba(99, 102, 241, 0.1) 0%,
+              rgba(90, 84, 189, 0.1) 0%,
               transparent 50%
             ),
             radial-gradient(
               ellipse at 20% 70%,
-              rgba(34, 211, 238, 0.05) 0%,
+              rgba(107, 179, 205, 0.05) 0%,
               transparent 50%
             ),
             radial-gradient(
               ellipse at 80% 60%,
-              rgba(129, 140, 248, 0.06) 0%,
+              rgba(123, 117, 212, 0.06) 0%,
               transparent 50%
             );
         }
@@ -191,17 +191,17 @@
           background:
             radial-gradient(
               ellipse at 40% 60%,
-              rgba(99, 102, 241, 0.07) 0%,
+              rgba(90, 84, 189, 0.07) 0%,
               transparent 50%
             ),
             radial-gradient(
               ellipse at 70% 40%,
-              rgba(34, 211, 238, 0.08) 0%,
+              rgba(107, 179, 205, 0.08) 0%,
               transparent 50%
             ),
             radial-gradient(
               ellipse at 30% 20%,
-              rgba(99, 102, 241, 0.05) 0%,
+              rgba(90, 84, 189, 0.05) 0%,
               transparent 50%
             );
         }
@@ -244,7 +244,7 @@
         background: linear-gradient(
           90deg,
           transparent,
-          rgba(99, 102, 241, 0.3),
+          rgba(90, 84, 189, 0.3),
           transparent
         );
       }
@@ -437,7 +437,7 @@
         align-items: center;
         gap: 12px;
         padding: 12px 16px;
-        background: rgba(99, 102, 241, 0.1);
+        background: rgba(90, 84, 189, 0.1);
         border-radius: var(--radius-sm);
         margin-top: 12px;
       }
@@ -501,10 +501,10 @@
       .form-group input:focus,
       .form-group select:focus {
         outline: none;
-        border-color: rgba(99, 102, 241, 0.5);
+        border-color: rgba(90, 84, 189, 0.5);
         box-shadow:
-          0 0 0 3px rgba(99, 102, 241, 0.1),
-          0 0 20px rgba(99, 102, 241, 0.05);
+          0 0 0 3px rgba(90, 84, 189, 0.1),
+          0 0 20px rgba(90, 84, 189, 0.05);
       }
 
       .form-group select {
@@ -1074,7 +1074,7 @@
         color: var(--amber-warning);
       }
       .badge-low {
-        background: rgba(34, 211, 238, 0.12);
+        background: rgba(107, 179, 205, 0.12);
         color: var(--cyan-accent);
       }
 
@@ -1428,7 +1428,7 @@
       // Initialize PostHog only if the backend provides the key via a meta tag or inline
       (function () {
         // Fetch the PostHog key from the server config endpoint
-        fetch("/api/health")
+        fetch("/api/config")
           .then((r) => r.json())
           .then((d) => {
             if (d && d.posthog_key) {
@@ -2493,7 +2493,7 @@
           html +=
             '<div style="background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.2);border-radius:8px;padding:16px;text-align:center;">';
           html +=
-            '<div style="font-size:2rem;font-weight:800;color:var(--accent-light,#818cf8);">' +
+            '<div style="font-size:2rem;font-weight:800;color:var(--accent-light,#7b75d4);">' +
             totalListings.toLocaleString() +
             "</div>";
           html +=
@@ -2706,7 +2706,7 @@
         padding: 2rem 1rem;
         color: #64748b;
         font-size: 0.8rem;
-        border-top: 1px solid rgba(99, 102, 241, 0.1);
+        border-top: 1px solid rgba(90, 84, 189, 0.1);
         margin-top: 3rem;
       "
     >
@@ -2715,7 +2715,7 @@
         href="https://www.linkedin.com/in/chandel13/"
         target="_blank"
         rel="noopener"
-        style="color: #818cf8; text-decoration: none"
+        style="color: #7b75d4; text-decoration: none"
         >Shubham Singh Chandel</a
       >
       &middot; Nova AI Suite

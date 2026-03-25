@@ -39,11 +39,11 @@
         --obsidian: #000000;
         --obsidian-light: #111111;
         --navy: #1a1a1a;
-        --indigo: #6366f1;
-        --indigo-light: #818cf8;
-        --indigo-pale: rgba(99, 102, 241, 0.08);
-        --indigo-glow: rgba(99, 102, 241, 0.15);
-        --cyan-accent: #22d3ee;
+        --indigo: #5a54bd;
+        --indigo-light: #7b75d4;
+        --indigo-pale: rgba(90, 84, 189, 0.08);
+        --indigo-glow: rgba(90, 84, 189, 0.15);
+        --cyan-accent: #6bb3cd;
         --green-success: #34d399;
         --amber-warning: #fbbf24;
         --red-error: #f87171;
@@ -93,7 +93,7 @@
         height: 50vw;
         background: radial-gradient(
           circle,
-          rgba(99, 102, 241, 0.08) 0%,
+          rgba(90, 84, 189, 0.08) 0%,
           transparent 70%
         );
         pointer-events: none;
@@ -108,7 +108,7 @@
         height: 40vw;
         background: radial-gradient(
           circle,
-          rgba(34, 211, 238, 0.05) 0%,
+          rgba(107, 179, 205, 0.05) 0%,
           transparent 70%
         );
         pointer-events: none;
@@ -245,19 +245,19 @@
 
       /* ── Upload Zone ───────────────────────────── */
       .upload-zone {
-        border: 2px dashed rgba(99, 102, 241, 0.3);
+        border: 2px dashed rgba(90, 84, 189, 0.3);
         border-radius: var(--radius);
         padding: 48px 32px;
         text-align: center;
         cursor: pointer;
         transition: var(--transition);
-        background: rgba(99, 102, 241, 0.03);
+        background: rgba(90, 84, 189, 0.03);
         position: relative;
       }
       .upload-zone:hover,
       .upload-zone.drag-over {
         border-color: var(--indigo);
-        background: rgba(99, 102, 241, 0.08);
+        background: rgba(90, 84, 189, 0.08);
       }
       .upload-zone.has-file {
         border-color: var(--green-success);
@@ -365,7 +365,7 @@
       .form-group input:focus,
       .form-group select:focus {
         border-color: var(--indigo);
-        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+        box-shadow: 0 0 0 3px rgba(90, 84, 189, 0.15);
       }
       .form-group input::placeholder {
         color: var(--text-muted);
@@ -394,7 +394,7 @@
       }
       .btn-analyze:hover:not(:disabled) {
         transform: translateY(-2px);
-        box-shadow: 0 8px 30px rgba(99, 102, 241, 0.3);
+        box-shadow: 0 8px 30px rgba(90, 84, 189, 0.3);
       }
       .btn-analyze:disabled {
         opacity: 0.5;
@@ -509,9 +509,9 @@
       }
       .metric-item {
         padding: 12px;
-        background: rgba(99, 102, 241, 0.05);
+        background: rgba(90, 84, 189, 0.05);
         border-radius: var(--radius-xs);
-        border: 1px solid rgba(99, 102, 241, 0.1);
+        border: 1px solid rgba(90, 84, 189, 0.1);
       }
       .metric-label {
         font-size: 11px;
@@ -550,11 +550,11 @@
       }
       .comparison-table td {
         padding: 14px 16px;
-        border-bottom: 1px solid rgba(99, 102, 241, 0.06);
+        border-bottom: 1px solid rgba(90, 84, 189, 0.06);
         white-space: nowrap;
       }
       .comparison-table tr:hover td {
-        background: rgba(99, 102, 241, 0.04);
+        background: rgba(90, 84, 189, 0.04);
       }
       .comparison-table .channel-name {
         font-weight: 600;
@@ -617,7 +617,7 @@
       }
       .rec-card:hover {
         transform: translateY(-2px);
-        border-color: rgba(99, 102, 241, 0.3);
+        border-color: rgba(90, 84, 189, 0.3);
       }
       .rec-card::before {
         content: "";
@@ -708,7 +708,7 @@
       }
       .realloc-bar-wrap {
         height: 16px;
-        background: rgba(99, 102, 241, 0.08);
+        background: rgba(90, 84, 189, 0.08);
         border-radius: 4px;
         overflow: hidden;
         position: relative;
@@ -931,7 +931,7 @@
 
       :focus-visible {
         outline: none;
-        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.5);
+        box-shadow: 0 0 0 3px rgba(90, 84, 189, 0.5);
       }
       button:focus-visible,
       a:focus-visible,
@@ -939,7 +939,7 @@
       select:focus-visible,
       textarea:focus-visible {
         outline: none;
-        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.5);
+        box-shadow: 0 0 0 3px rgba(90, 84, 189, 0.5);
       }
 
       /* -- Scroll reveal animations -- */
@@ -1016,7 +1016,7 @@
       // Initialize PostHog only if the backend provides the key via a meta tag or inline
       (function () {
         // Fetch the PostHog key from the server config endpoint
-        fetch("/api/health")
+        fetch("/api/config")
           .then((r) => r.json())
           .then((d) => {
             if (d && d.posthog_key) {
@@ -1213,37 +1213,64 @@
           id="emptyState"
           style="
             text-align: center;
-            padding: 48px 24px;
+            padding: 64px 24px;
             color: var(--text-muted);
           "
         >
           <svg
-            width="48"
-            height="48"
+            width="64"
+            height="64"
             viewBox="0 0 24 24"
             fill="none"
-            stroke="currentColor"
+            stroke="#6BB3CD"
             stroke-width="1.5"
-            style="margin: 0 auto 16px; display: block; opacity: 0.4"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            style="margin: 0 auto 20px; display: block"
             aria-hidden="true"
           >
-            <circle cx="12" cy="12" r="10" />
-            <path d="M12 16v-4M12 8h.01" />
+            <rect x="3" y="3" width="18" height="18" rx="2" />
+            <path d="M3 9h18" />
+            <path d="M9 21V9" />
           </svg>
           <h3
             style="
-              font-size: 16px;
+              font-size: 18px;
               font-weight: 600;
               margin-bottom: 8px;
-              color: var(--text-muted);
+              color: #6bb3cd;
             "
           >
-            No analysis yet
+            No campaigns tracked yet
           </h3>
-          <p style="font-size: 14px">
-            Upload your campaign data and click Analyze Performance to see
-            results here.
+          <p
+            style="
+              font-size: 14px;
+              margin-bottom: 20px;
+              max-width: 360px;
+              margin-left: auto;
+              margin-right: auto;
+            "
+          >
+            Create your first media plan to start tracking campaign performance,
+            budgets, and ROI.
           </p>
+          <a
+            href="/"
+            class="btn btn-primary"
+            style="
+              background: #6bb3cd;
+              border: none;
+              padding: 10px 24px;
+              border-radius: 8px;
+              color: #fff;
+              font-weight: 600;
+              text-decoration: none;
+              display: inline-block;
+            "
+          >
+            Create Media Plan
+          </a>
         </div>
         <!-- Scorecard -->
         <div class="glass-card reveal-on-scroll">

@@ -35,9 +35,9 @@
         --text: #d4d4d8;
         --text-secondary: #a1a1a1;
         --text-muted: #666666;
-        --accent: #6366f1;
-        --accent-light: #818cf8;
-        --accent-glow: rgba(99, 102, 241, 0.12);
+        --accent: #5a54bd;
+        --accent-light: #7b75d4;
+        --accent-glow: rgba(90, 84, 189, 0.12);
         --border: rgba(255, 255, 255, 0.08);
         --border-hover: rgba(255, 255, 255, 0.16);
         --green: #34d399;
@@ -510,7 +510,7 @@
       // Initialize PostHog only if the backend provides the key via a meta tag or inline
       (function () {
         // Fetch the PostHog key from the server config endpoint
-        fetch("/api/health")
+        fetch("/api/config")
           .then((r) => r.json())
           .then((d) => {
             if (d && d.posthog_key) {
@@ -1066,14 +1066,14 @@
             barW +
             '" height="' +
             newBarH +
-            '" rx="6" fill="#6366f1"/>';
+            '" rx="6" fill="#5a54bd"/>';
           // New label
           svg +=
             '<text x="' +
             (newX + barW / 2) +
             '" y="' +
             (baseline - newBarH - 10) +
-            '" text-anchor="middle" fill="#818cf8" font-family="Inter,sans-serif" font-size="13" font-weight="700">' +
+            '" text-anchor="middle" fill="#7b75d4" font-family="Inter,sans-serif" font-size="13" font-weight="700">' +
             formatCurrency(newCPH) +
             "</text>";
           svg +=

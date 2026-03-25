@@ -33,10 +33,10 @@
         --port-gore: #202058;
         --blue-violet: #5a54bd;
         --downy-teal: #6bb3cd;
-        --accent: #6366f1;
-        --accent-light: #818cf8;
-        --accent-dim: rgba(99, 102, 241, 0.3);
-        --accent-glow: rgba(99, 102, 241, 0.15);
+        --accent: #5a54bd;
+        --accent-light: #7b75d4;
+        --accent-dim: rgba(90, 84, 189, 0.3);
+        --accent-glow: rgba(90, 84, 189, 0.15);
         --text-primary: #d4d4d8;
         --text-secondary: #a1a1a1;
         --text-muted: #666666;
@@ -62,7 +62,7 @@
         --radius: 12px;
         --radius-sm: 8px;
         --shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
-        --shadow-glow: 0 0 30px rgba(99, 102, 241, 0.1);
+        --shadow-glow: 0 0 30px rgba(90, 84, 189, 0.1);
         --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
       }
@@ -1228,7 +1228,7 @@
       // Initialize PostHog only if the backend provides the key via a meta tag or inline
       (function () {
         // Fetch the PostHog key from the server config endpoint
-        fetch("/api/health")
+        fetch("/api/config")
           .then((r) => r.json())
           .then((d) => {
             if (d && d.posthog_key) {

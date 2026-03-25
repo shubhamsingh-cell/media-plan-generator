@@ -33,10 +33,10 @@
         --bg-secondary: #0a0a0a;
         --card: #111111;
         --card-hover: #1a1a1a;
-        --accent: #6366f1;
-        --accent-light: #818cf8;
-        --accent-glow: rgba(99, 102, 241, 0.12);
-        --accent-glow-strong: rgba(99, 102, 241, 0.25);
+        --accent: #5a54bd;
+        --accent-light: #7b75d4;
+        --accent-glow: rgba(90, 84, 189, 0.12);
+        --accent-glow-strong: rgba(90, 84, 189, 0.25);
         --text-primary: #d4d4d8;
         --text-secondary: #a1a1a1;
         --text-muted: #666666;
@@ -44,7 +44,7 @@
         --green: #34d399;
         --amber: #fbbf24;
         --red: #f87171;
-        --cyan: #22d3ee;
+        --cyan: #6bb3cd;
         --radius: 16px;
         --radius-sm: 10px;
         --radius-xs: 6px;
@@ -78,7 +78,7 @@
         height: 50vw;
         background: radial-gradient(
           circle,
-          rgba(99, 102, 241, 0.08) 0%,
+          rgba(90, 84, 189, 0.08) 0%,
           transparent 70%
         );
         pointer-events: none;
@@ -94,7 +94,7 @@
         height: 40vw;
         background: radial-gradient(
           circle,
-          rgba(99, 102, 241, 0.05) 0%,
+          rgba(90, 84, 189, 0.05) 0%,
           transparent 70%
         );
         pointer-events: none;
@@ -561,8 +561,8 @@
         color: #f87171;
       }
       .finding-neutral {
-        background: rgba(99, 102, 241, 0.15);
-        color: #818cf8;
+        background: rgba(90, 84, 189, 0.15);
+        color: #7b75d4;
       }
       .finding-insight {
         background: rgba(251, 191, 36, 0.15);
@@ -721,7 +721,7 @@
       // Initialize PostHog only if the backend provides the key via a meta tag or inline
       (function () {
         // Fetch the PostHog key from the server config endpoint
-        fetch("/api/health")
+        fetch("/api/config")
           .then((r) => r.json())
           .then((d) => {
             if (d && d.posthog_key) {

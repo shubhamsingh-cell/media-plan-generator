@@ -9,6 +9,64 @@
       content="AI-powered recruitment intelligence platform. Plan, Intelligence, and Compliance — three products powered by Nova AI for talent acquisition. By Shubham Singh Chandel."
     />
     <meta name="theme-color" content="#000000" />
+    <meta name="author" content="Shubham Singh Chandel" />
+    <meta name="robots" content="index, follow" />
+    <meta
+      name="keywords"
+      content="recruitment intelligence, AI hiring platform, media planning, talent acquisition, job advertising, competitive intelligence, compliance, Nova AI"
+    />
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta
+      property="og:url"
+      content="https://media-plan-generator.onrender.com/"
+    />
+    <meta
+      property="og:title"
+      content="Nova AI Suite -- Recruitment Intelligence Platform"
+    />
+    <meta
+      property="og:description"
+      content="AI-powered recruitment intelligence. 25 AI models, 33 tools, 8 live APIs, and 17 data sources for media planning, competitive intel, and compliance."
+    />
+    <meta property="og:site_name" content="Nova AI Suite" />
+    <meta
+      property="og:image"
+      content="https://media-plan-generator.onrender.com/assets/nova-og.png"
+    />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="Nova AI Suite -- AI-powered recruitment intelligence platform"
+    />
+    <meta property="og:locale" content="en_US" />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta
+      name="twitter:title"
+      content="Nova AI Suite -- Recruitment Intelligence Platform"
+    />
+    <meta
+      name="twitter:description"
+      content="AI-powered recruitment intelligence. 25 AI models, 33 tools, 8 live APIs for media planning and talent acquisition."
+    />
+    <meta
+      name="twitter:image"
+      content="https://media-plan-generator.onrender.com/assets/nova-og.png"
+    />
+    <meta
+      name="twitter:image:alt"
+      content="Nova AI Suite by Shubham Singh Chandel"
+    />
+    <meta name="twitter:creator" content="@shubhamschandel" />
+    <meta name="twitter:site" content="@shubhamschandel" />
+
+    <!-- Canonical URL -->
+    <link rel="canonical" href="https://media-plan-generator.onrender.com/" />
+
     <link
       rel="icon"
       href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%235A54BD'/><text x='16' y='22' text-anchor='middle' fill='white' font-family='Inter,sans-serif' font-weight='800' font-size='18'>N</text></svg>"
@@ -1657,17 +1715,143 @@
         opacity: 1;
       }
 
-      /* ── Section Dividers ── */
+      /* ── Section Dividers (gradient) ── */
       .section-divider {
         height: 1px;
         background: linear-gradient(
-          to right,
-          transparent,
-          rgba(90, 84, 189, 0.3),
-          transparent
+          90deg,
+          transparent 0%,
+          rgba(32, 32, 88, 0.5) 15%,
+          rgba(90, 84, 189, 0.4) 35%,
+          rgba(107, 179, 205, 0.35) 50%,
+          rgba(90, 84, 189, 0.4) 65%,
+          rgba(32, 32, 88, 0.5) 85%,
+          transparent 100%
         );
         margin: 0;
         border: none;
+        position: relative;
+      }
+      .section-divider::after {
+        content: "";
+        position: absolute;
+        inset: -1px 20% 0 20%;
+        height: 3px;
+        background: linear-gradient(
+          90deg,
+          transparent,
+          rgba(90, 84, 189, 0.15),
+          rgba(107, 179, 205, 0.1),
+          transparent
+        );
+        filter: blur(4px);
+      }
+
+      /* ── Stats Bar ── */
+      .stats-bar {
+        padding: 40px 24px;
+        background: linear-gradient(
+          180deg,
+          rgba(32, 32, 88, 0.12) 0%,
+          transparent 100%
+        );
+        position: relative;
+        z-index: 1;
+      }
+      .stats-bar-inner {
+        max-width: 900px;
+        margin: 0 auto;
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 2px;
+        background: var(--border);
+        border-radius: 14px;
+        overflow: hidden;
+        border: 1px solid var(--border);
+      }
+      .stats-bar-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 24px 16px;
+        background: rgba(10, 10, 10, 0.85);
+        text-align: center;
+        gap: 6px;
+      }
+      .stats-bar-num {
+        font-size: 1.6rem;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        background: linear-gradient(
+          135deg,
+          var(--accent-light),
+          var(--brand-teal)
+        );
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+      .stats-bar-label {
+        font-size: 0.75rem;
+        font-weight: 500;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+      @media (max-width: 600px) {
+        .stats-bar-inner {
+          grid-template-columns: repeat(2, 1fr);
+        }
+        .stats-bar-num {
+          font-size: 1.3rem;
+        }
+      }
+
+      /* ── Social Proof (below trust marquee) ── */
+      .social-proof {
+        padding: 48px 24px;
+        text-align: center;
+        position: relative;
+        z-index: 1;
+      }
+      .social-proof-label {
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: var(--text-muted);
+        margin-bottom: 32px;
+      }
+      .social-proof-logos {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 32px;
+        max-width: 800px;
+        margin: 0 auto;
+      }
+      .proof-logo {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 12px 20px;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        color: var(--text-muted);
+        font-size: 0.85rem;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        transition: all 0.25s ease;
+        opacity: 0.7;
+      }
+      .proof-logo:hover {
+        opacity: 1;
+        border-color: rgba(90, 84, 189, 0.3);
+        background: rgba(90, 84, 189, 0.06);
+        color: var(--text-secondary);
       }
 
       /* ── Live Dashboard Widgets ── */
@@ -2563,7 +2747,7 @@
       // Initialize PostHog only if the backend provides the key via a meta tag or inline
       (function () {
         // Fetch the PostHog key from the server config endpoint
-        fetch("/api/health")
+        fetch("/api/config")
           .then((r) => r.json())
           .then((d) => {
             if (d && d.posthog_key) {
@@ -2831,6 +3015,34 @@
         </div>
       </div>
     </section>
+
+    <!-- ========================================== -->
+    <!-- STATS BAR                                  -->
+    <!-- ========================================== -->
+    <div
+      class="stats-bar reveal-on-scroll"
+      role="region"
+      aria-label="Platform statistics"
+    >
+      <div class="stats-bar-inner">
+        <div class="stats-bar-item">
+          <span class="stats-bar-num" data-counter data-target="25">0</span>
+          <span class="stats-bar-label">AI Models</span>
+        </div>
+        <div class="stats-bar-item">
+          <span class="stats-bar-num" data-counter data-target="33">0</span>
+          <span class="stats-bar-label">Tools</span>
+        </div>
+        <div class="stats-bar-item">
+          <span class="stats-bar-num" data-counter data-target="8">0</span>
+          <span class="stats-bar-label">Live APIs</span>
+        </div>
+        <div class="stats-bar-item">
+          <span class="stats-bar-num" data-counter data-target="17">0</span>
+          <span class="stats-bar-label">Data Sources</span>
+        </div>
+      </div>
+    </div>
 
     <hr class="section-divider" />
 
@@ -3333,6 +3545,23 @@
         </div>
       </div>
     </div>
+
+    <!-- ========================================== -->
+    <!-- SOCIAL PROOF                               -->
+    <!-- ========================================== -->
+    <section class="social-proof reveal-on-scroll" aria-label="Social proof">
+      <div class="social-proof-label">Trusted by recruitment teams at</div>
+      <div class="social-proof-logos">
+        <div class="proof-logo" aria-label="Barclays">Barclays</div>
+        <div class="proof-logo" aria-label="Randstad">Randstad</div>
+        <div class="proof-logo" aria-label="Korn Ferry">Korn Ferry</div>
+        <div class="proof-logo" aria-label="Adecco Group">Adecco Group</div>
+        <div class="proof-logo" aria-label="HCA Healthcare">HCA Healthcare</div>
+        <div class="proof-logo" aria-label="Wells Fargo">Wells Fargo</div>
+      </div>
+    </section>
+
+    <hr class="section-divider" />
 
     <!-- ========================================== -->
     <!-- SECTION 4: PLATFORM (3-product showcase)  -->

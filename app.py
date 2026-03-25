@@ -286,6 +286,144 @@ _copilot_cache: dict[str, tuple[list, float]] = {}
 _copilot_cache_lock = threading.Lock()
 _COPILOT_CACHE_TTL = 60.0  # 60 seconds
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# SLOW ENDPOINT PROFILER
+# ═══════════════════════════════════════════════════════════════════════════════
+_SLOW_THRESHOLD_MS = 1000.0  # Log endpoints taking >1 second
+_SLOW_ENDPOINTS_MAX = 10  # Track top 10 slowest
+
+_slow_endpoints_lock = threading.Lock()
+# List of (path, method, duration_ms, timestamp) tuples, sorted by duration desc
+_slow_endpoints: list[dict[str, Any]] = []
+
+
+def _record_slow_endpoint(path: str, method: str, duration_ms: float) -> None:
+    """Record an endpoint that exceeded the slow threshold.
+
+    Maintains a sorted list of the top 10 slowest endpoints seen.
+    Thread-safe.
+
+    Args:
+        path: The endpoint path (e.g., /api/chat).
+        method: HTTP method (GET, POST).
+        duration_ms: Request duration in milliseconds.
+    """
+    if duration_ms < _SLOW_THRESHOLD_MS:
+        return
+
+    logger.warning(f"SLOW ENDPOINT: {method} {path} took {duration_ms:.0f}ms")
+
+    entry = {
+        "path": path,
+        "method": method,
+        "duration_ms": round(duration_ms, 1),
+        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+    }
+
+    with _slow_endpoints_lock:
+        _slow_endpoints.append(entry)
+        # Sort by duration descending, keep top N
+        _slow_endpoints.sort(key=lambda x: x["duration_ms"], reverse=True)
+        del _slow_endpoints[_SLOW_ENDPOINTS_MAX:]
+
+
+def get_slow_endpoints() -> list[dict[str, Any]]:
+    """Return the top 10 slowest endpoints recorded.
+
+    Returns:
+        List of dicts with path, method, duration_ms, timestamp.
+    """
+    with _slow_endpoints_lock:
+        return list(_slow_endpoints)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# BACKGROUND TASK EXECUTOR
+# ═══════════════════════════════════════════════════════════════════════════════
+_BG_DEFAULT_TIMEOUT = 30.0  # seconds
+
+_background_executor = ThreadPoolExecutor(max_workers=8, thread_name_prefix="bg-task")
+_bg_task_metrics_lock = threading.Lock()
+_bg_task_metrics: dict[str, int] = {
+    "submitted": 0,
+    "completed": 0,
+    "failed": 0,
+    "timed_out": 0,
+}
+
+
+def submit_background_task(
+    fn: Any,
+    *args: Any,
+    task_name: str = "",
+    timeout: float = _BG_DEFAULT_TIMEOUT,
+    **kwargs: Any,
+) -> None:
+    """Submit a function to run in the background thread pool.
+
+    Wraps the function with error handling, timeout enforcement,
+    and start/end logging. Never blocks the caller.
+
+    Args:
+        fn: Callable to execute in the background.
+        *args: Positional arguments for fn.
+        task_name: Human-readable name for logging (defaults to fn.__name__).
+        timeout: Max seconds the task may run (default 30s).
+        **kwargs: Keyword arguments for fn.
+    """
+    _name = task_name or getattr(fn, "__name__", "unknown")
+
+    def _wrapper() -> None:
+        start = time.time()
+        logger.debug(f"[bg-task] START: {_name}")
+        with _bg_task_metrics_lock:
+            _bg_task_metrics["submitted"] += 1
+        try:
+            fn(*args, **kwargs)
+            elapsed = (time.time() - start) * 1000
+            logger.debug(f"[bg-task] DONE: {_name} ({elapsed:.0f}ms)")
+            with _bg_task_metrics_lock:
+                _bg_task_metrics["completed"] += 1
+        except Exception as exc:
+            elapsed = (time.time() - start) * 1000
+            logger.error(
+                f"[bg-task] FAILED: {_name} after {elapsed:.0f}ms: {exc}",
+                exc_info=True,
+            )
+            with _bg_task_metrics_lock:
+                _bg_task_metrics["failed"] += 1
+
+    try:
+        future = _background_executor.submit(_wrapper)
+
+        # Add timeout callback -- cancels if still running after timeout
+        def _check_timeout(f: Any) -> None:
+            if not f.done():
+                logger.warning(f"[bg-task] TIMEOUT: {_name} exceeded {timeout}s")
+                with _bg_task_metrics_lock:
+                    _bg_task_metrics["timed_out"] += 1
+
+        # Schedule timeout check using a timer thread
+        timer = threading.Timer(timeout, _check_timeout, args=(future,))
+        timer.daemon = True
+        timer.start()
+    except RuntimeError:
+        # Executor was shut down
+        logger.warning(f"[bg-task] Executor shutdown, cannot submit: {_name}")
+
+
+def get_background_task_metrics() -> dict[str, Any]:
+    """Return background task execution metrics.
+
+    Returns:
+        Dict with submitted, completed, failed, timed_out counts.
+    """
+    with _bg_task_metrics_lock:
+        return {
+            **_bg_task_metrics,
+            "executor_threads": _background_executor._max_workers,
+        }
+
 
 def _copilot_suggest(field: str, partial_input: str, context: dict) -> list[dict]:
     """Generate inline co-pilot suggestions for the media plan generator.
@@ -2772,9 +2910,17 @@ OR
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# LEGACY EXCEL GENERATOR (extracted to excel_legacy.py for maintainability)
+# LEGACY EXCEL GENERATOR (archived to archive/excel_legacy.py)
 # ═══════════════════════════════════════════════════════════════════════════════
-from excel_legacy import generate_excel  # noqa: E402 -- 13K-line legacy fallback
+try:
+    from archive.excel_legacy import generate_excel  # noqa: E402
+
+    logger.info("Legacy Excel generator loaded from archive/")
+except ImportError:
+    logger.warning(
+        "Legacy excel_legacy not found in archive/ -- legacy fallback disabled"
+    )
+    generate_excel = None  # type: ignore[assignment]
 
 
 ADMIN_API_KEY = os.environ.get("ADMIN_API_KEY") or ""
@@ -3540,8 +3686,8 @@ def _build_health_response() -> dict:
     except NameError:
         pass
 
-    # PostHog key for frontend initialization (safe to expose -- it's a public project key)
-    _ph_key_val = (os.environ.get("POSTHOG_API_KEY") or "").strip()
+    # PostHog availability flag (key is NOT exposed in health response for security)
+    _ph_configured = bool((os.environ.get("POSTHOG_API_KEY") or "").strip())
 
     # Resolve metrics_persisted from the persistence singleton (with grace period)
     _metrics_ok = False
@@ -3561,14 +3707,17 @@ def _build_health_response() -> dict:
             _total_err = _mc_snap.get("total_errors") or 0
             _err_rate = (_total_err / max(1, _total_req)) if _total_req else 0.0
             _latency_data = _mc_snap.get("latency_ms") or {}
+            _total_client_err = _mc_snap.get("total_client_errors") or 0
             _rt_metrics = {
                 "total_requests": _total_req,
                 "total_errors": _total_err,
+                "total_client_errors": _total_client_err,
                 "error_rate": round(_err_rate, 4),
                 "avg_latency_ms": _latency_data.get("p50", 0.0),
                 "p99_latency_ms": _latency_data.get("p99", 0.0),
                 "active_requests": _mc_snap.get("active_requests") or 0,
                 "requests_per_minute": _mc_snap.get("requests_per_minute") or 0,
+                "status_codes": _mc_snap.get("status_codes", {}),
             }
         else:
             _rt_metrics = {
@@ -3601,9 +3750,23 @@ def _build_health_response() -> dict:
         "api_integrations": "ok" if _api_integ else "down",
         "metrics_collector": "ok" if (_metrics is not None) else "down",
     }
-    # Check optional modules via sys.modules
+    # Check optional modules -- attempt import if not yet in sys.modules (self-healing)
     for _mod_name in ("resilience_router", "posthog_tracker", "nova", "eval_framework"):
-        _modules[_mod_name] = "ok" if sys.modules.get(_mod_name) else "down"
+        if sys.modules.get(_mod_name):
+            _modules[_mod_name] = "ok"
+        else:
+            # Self-healing: try to import the module on-demand
+            try:
+                __import__(_mod_name)
+                _modules[_mod_name] = "ok"
+                logger.info(
+                    f"Self-healed module '{_mod_name}' -- imported on health check"
+                )
+            except ImportError:
+                _modules[_mod_name] = "down"
+            except Exception as _mod_err:
+                logger.warning(f"Module '{_mod_name}' failed to initialize: {_mod_err}")
+                _modules[_mod_name] = "down"
 
     # ---- LLM provider info for dashboard ----
     _llm_info: dict = {}
@@ -3641,9 +3804,8 @@ def _build_health_response() -> dict:
         "jobspy_available": _jobspy_ok,
         "tavily_available": _tavily_ok,
         "vector_search_available": _vector_ok,
+        "posthog_configured": _ph_configured,
     }
-    if _ph_key_val:
-        result["posthog_key"] = _ph_key_val
     return result
 
 
@@ -3767,7 +3929,6 @@ else:
 
 # Simple in-memory rate limiter
 from collections import defaultdict
-from concurrent.futures import ThreadPoolExecutor
 
 # Bounded thread pool for async Slack event processing (max 4 concurrent)
 _slack_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="slack-event")
@@ -3788,7 +3949,7 @@ _global_chat_lock = threading.Lock()
 # INPUT SANITIZATION
 # ═══════════════════════════════════════════════════════════════════════════════
 
-import re as _re_sanitize
+_re_sanitize = re  # re already imported at top of file
 
 _HTML_TAG_RE = _re_sanitize.compile(r"<[^>]+>")
 _SCRIPT_BLOCK_RE = _re_sanitize.compile(
@@ -6640,6 +6801,13 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             self._request_id = _gen_rid()
         except Exception:
             self._request_id = uuid.uuid4().hex[:12]
+        # ── Set request context for structured logging ──
+        try:
+            from monitoring import set_request_id as _set_rid
+
+            _set_rid(self._request_id)
+        except ImportError:
+            pass
         _req_start = time.time()
         if _metrics:
             _metrics.enter_request()
@@ -6663,13 +6831,15 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             except Exception:
                 pass
         finally:
+            _latency = (time.time() - _req_start) * 1000
             if _metrics:
                 _metrics.exit_request()
-                _latency = (time.time() - _req_start) * 1000
                 parsed = urlparse(self.path)
                 _metrics.record_request(
                     parsed.path, "GET", self._response_status, _latency
                 )
+            # ── Slow endpoint profiling ──
+            _record_slow_endpoint(urlparse(self.path).path, "GET", _latency)
             # ── PostHog: Track page views for HTML template routes ──
             if _posthog_available and self._response_status == 200:
                 _ph_path = urlparse(self.path).path.rstrip("/") or "/"
@@ -6690,6 +6860,13 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                         self._ph_track_page(_ph_path, _ph_path.strip("/") or "hub")
                     except Exception:
                         pass  # Never let analytics break the request
+            # ── Clear request context for thread reuse ──
+            try:
+                from monitoring import clear_request_context as _clear_ctx
+
+                _clear_ctx()
+            except ImportError:
+                pass
 
     def _handle_GET(self):
         parsed = urlparse(self.path)
@@ -7680,6 +7857,13 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             self._request_id = _gen_rid()
         except Exception:
             self._request_id = uuid.uuid4().hex[:12]
+        # ── Set request context for structured logging ──
+        try:
+            from monitoring import set_request_id as _set_rid
+
+            _set_rid(self._request_id)
+        except ImportError:
+            pass
         _req_start = time.time()
         if _metrics:
             _metrics.enter_request()
@@ -7702,13 +7886,15 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             except Exception:
                 pass
         finally:
+            _latency = (time.time() - _req_start) * 1000
             if _metrics:
                 _metrics.exit_request()
-                _latency = (time.time() - _req_start) * 1000
                 parsed = urlparse(self.path)
                 _metrics.record_request(
                     parsed.path, "POST", self._response_status, _latency
                 )
+            # ── Slow endpoint profiling ──
+            _record_slow_endpoint(urlparse(self.path).path, "POST", _latency)
             # ── PostHog: Track download events for any /download/ or /export endpoint ──
             if _posthog_available and self._response_status == 200:
                 _ph_post_path = urlparse(self.path).path
@@ -7740,6 +7926,13 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         )
                     except Exception:
                         pass  # Never let analytics break the request
+            # ── Clear request context for thread reuse ──
+            try:
+                from monitoring import clear_request_context as _clear_ctx
+
+                _clear_ctx()
+            except ImportError:
+                pass
 
     def _handle_POST(self):
         parsed = urlparse(self.path)
@@ -8354,9 +8547,19 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                     "excel_v2 failed, falling back to legacy: %s",
                                     v2_err,
                                 )
-                                excel_bytes = generate_excel(gen_data)
+                                if generate_excel is not None:
+                                    excel_bytes = generate_excel(gen_data)
+                                else:
+                                    raise RuntimeError(
+                                        "Both excel_v2 and legacy generator unavailable"
+                                    ) from v2_err
                         else:
-                            excel_bytes = generate_excel(gen_data)
+                            if generate_excel is not None:
+                                excel_bytes = generate_excel(gen_data)
+                            else:
+                                raise RuntimeError(
+                                    "No Excel generator available (excel_v2 and legacy both missing)"
+                                )
 
                         with _generation_jobs_lock:
                             if jid in _generation_jobs:
@@ -9185,9 +9388,19 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                             logger.warning(
                                 "excel_v2 failed, falling back to legacy: %s", v2_err
                             )
-                            excel_bytes = generate_excel(data)
+                            if generate_excel is not None:
+                                excel_bytes = generate_excel(data)
+                            else:
+                                raise RuntimeError(
+                                    "Both excel_v2 and legacy generator unavailable"
+                                ) from v2_err
                     else:
-                        excel_bytes = generate_excel(data)
+                        if generate_excel is not None:
+                            excel_bytes = generate_excel(data)
+                        else:
+                            raise RuntimeError(
+                                "No Excel generator available (excel_v2 and legacy both missing)"
+                            )
             except Exception as e:
                 import traceback
 
@@ -9413,25 +9626,22 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 )
                 if _metrics:
                     _metrics.record_generation(generation_time)
-                # ── Track module usage (fire-and-forget) ──
+                # ── Track module usage (fire-and-forget via background executor) ──
                 try:
                     from nova_persistence import track_module_usage
 
-                    threading.Thread(
-                        target=track_module_usage,
-                        kwargs={
-                            "module_name": "command_center",
-                            "action": "generate_plan",
-                            "latency_ms": generation_time * 1000,
-                            "success": True,
-                            "metadata": {
-                                "client": data.get("client_name") or "",
-                                "file_size": len(excel_bytes),
-                            },
+                    submit_background_task(
+                        track_module_usage,
+                        task_name="track-generate",
+                        module_name="command_center",
+                        action="generate_plan",
+                        latency_ms=generation_time * 1000,
+                        success=True,
+                        metadata={
+                            "client": data.get("client_name") or "",
+                            "file_size": len(excel_bytes),
                         },
-                        daemon=True,
-                        name="track-generate",
-                    ).start()
+                    )
                 except Exception:
                     pass
         elif path == "/api/chat":
@@ -9545,25 +9755,22 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 },
             )
 
-            # ── Track module usage (fire-and-forget) ──
+            # ── Track module usage (fire-and-forget via background executor) ──
             try:
                 from nova_persistence import track_module_usage as _track_chat_usage
 
-                threading.Thread(
-                    target=_track_chat_usage,
-                    kwargs={
-                        "module_name": "nova_ai",
-                        "action": "chat_message",
-                        "success": "error" not in response,
-                        "metadata": {
-                            "provider": response.get("llm_provider") or "",
-                            "tools_used": response.get("tools_used") or [],
-                            "confidence": response.get("confidence") or 0.0,
-                        },
+                submit_background_task(
+                    _track_chat_usage,
+                    task_name="track-chat",
+                    module_name="nova_ai",
+                    action="chat_message",
+                    success="error" not in response,
+                    metadata={
+                        "provider": response.get("llm_provider") or "",
+                        "tools_used": response.get("tools_used") or [],
+                        "confidence": response.get("confidence") or 0.0,
                     },
-                    daemon=True,
-                    name="track-chat",
-                ).start()
+                )
             except Exception:
                 pass
 
@@ -9576,22 +9783,19 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 _sources = response.get("sources") or []
                 _conf = response.get("confidence") or 0.0
                 if _conv_id and _user_msg:
-                    threading.Thread(
-                        target=_save_conversation_turn,
-                        args=(
-                            _conv_id,
-                            _user_msg,
-                            _assistant_resp,
-                            _model,
-                            _sources,
-                            _conf,
-                        ),
-                        daemon=True,
-                        name="supabase-persist",
-                    ).start()
+                    submit_background_task(
+                        _save_conversation_turn,
+                        _conv_id,
+                        _user_msg,
+                        _assistant_resp,
+                        _model,
+                        _sources,
+                        _conf,
+                        task_name="supabase-persist",
+                    )
             except Exception as _persist_err:
                 logger.error(
-                    "Conversation persist error: %s", _persist_err, exc_info=True
+                    f"Conversation persist error: {_persist_err}", exc_info=True
                 )
 
         elif path == "/api/chat/stream":
@@ -12703,6 +12907,40 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 self.wfile.write(content)
         except FileNotFoundError:
             self.send_error(404)
+
+    # ── Cached 404 page (loaded once on first use) ──
+    _404_page_cache: Optional[bytes] = None
+
+    def send_error(
+        self, code: int, message: Optional[str] = None, explain: Optional[str] = None
+    ) -> None:
+        """Override to serve branded 404 page for HTML requests.
+
+        For API requests (Accept: application/json or /api/ paths), falls back
+        to the default JSON-style error. For browser requests hitting a 404,
+        serves the branded templates/404.html page.
+        """
+        if code == 404:
+            accept = self.headers.get("Accept") or ""
+            path = getattr(self, "path", "") or ""
+            # Serve HTML 404 for browser requests, not API calls
+            if "application/json" not in accept and not path.startswith("/api/"):
+                try:
+                    if self.__class__._404_page_cache is None:
+                        p = os.path.join(TEMPLATES_DIR, "404.html")
+                        with open(p, "rb") as f:
+                            self.__class__._404_page_cache = f.read()
+                    body = self.__class__._404_page_cache
+                    self.send_response(404)
+                    self.send_header("Content-Type", "text/html; charset=utf-8")
+                    self.send_header("Content-Length", str(len(body)))
+                    self.send_header("Cache-Control", "no-cache")
+                    self.end_headers()
+                    self.wfile.write(body)
+                    return
+                except OSError:
+                    pass  # Fall through to default error
+        super().send_error(code, message, explain)
 
     def send_response(self, code: int, message=None) -> None:
         """Override to track the response status code for metrics."""

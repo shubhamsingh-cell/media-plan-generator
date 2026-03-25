@@ -7,11 +7,11 @@
       name="description"
       content="API Portal - Generate API keys, explore endpoints, and manage your usage of the Nova AI Media Plan Generator REST API."
     />
-    <meta name="theme-color" content="#000000" />
+    <meta name="theme-color" content="#09090b" />
     <title>API Portal | Nova AI Suite</title>
     <link
       rel="icon"
-      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%236366F1'/><path d='M8 16h4l2-6 4 12 2-6h4' stroke='white' stroke-width='2.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%235A54BD'/><path d='M8 16h4l2-6 4 12 2-6h4' stroke='white' stroke-width='2.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>"
     />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -24,21 +24,21 @@
            Design System: Deep Obsidian + Electric Indigo
            ============================================ */
       :root {
-        --obsidian: #000000;
+        --obsidian: #09090b;
         --obsidian-light: #111111;
         --navy: #1a1a1a;
-        --indigo: #6366f1;
-        --indigo-light: #818cf8;
-        --indigo-pale: rgba(99, 102, 241, 0.08);
-        --indigo-glow: rgba(99, 102, 241, 0.15);
-        --cyan-accent: #22d3ee;
+        --indigo: #5a54bd;
+        --indigo-light: #7b75d4;
+        --indigo-pale: rgba(90, 84, 189, 0.08);
+        --indigo-glow: rgba(90, 84, 189, 0.15);
+        --cyan-accent: #6bb3cd;
         --green-success: #34d399;
-        --accent: #6366f1;
-        --accent-light: #818cf8;
+        --accent: #5a54bd;
+        --accent-light: #7b75d4;
         --accent-warm: #f87171;
         --warning: #fbbf24;
         --error: #f87171;
-        --bg: #000000;
+        --bg: #09090b;
         --surface-1: rgba(17, 17, 17, 0.8);
         --surface-2: rgba(26, 26, 26, 0.5);
         --card: rgba(17, 17, 17, 0.8);
@@ -53,32 +53,32 @@
         --text-light: #a1a1a1;
         --text-muted: #666666;
         --border: rgba(255, 255, 255, 0.08);
-        --border-accent: rgba(99, 102, 241, 0.3);
+        --border-accent: rgba(90, 84, 189, 0.3);
         --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
         --shadow-md:
           0 4px 12px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3);
         --shadow-lg:
           0 8px 32px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
-        --shadow-glow: 0 0 20px rgba(99, 102, 241, 0.15);
+        --shadow-glow: 0 0 20px rgba(90, 84, 189, 0.15);
         --radius: 12px;
         --radius-sm: 8px;
         --radius-lg: 16px;
-        --gradient-primary: linear-gradient(135deg, #6366f1 0%, #818cf8 100%);
-        --gradient-accent: linear-gradient(135deg, #6366f1 0%, #22d3ee 100%);
+        --gradient-primary: linear-gradient(135deg, #5a54bd 0%, #7b75d4 100%);
+        --gradient-accent: linear-gradient(135deg, #5a54bd 0%, #6bb3cd 100%);
         --gradient-mesh:
           radial-gradient(
             ellipse at 20% 50%,
-            rgba(99, 102, 241, 0.08) 0%,
+            rgba(90, 84, 189, 0.08) 0%,
             transparent 50%
           ),
           radial-gradient(
             ellipse at 80% 20%,
-            rgba(34, 211, 238, 0.06) 0%,
+            rgba(107, 179, 205, 0.06) 0%,
             transparent 50%
           ),
           radial-gradient(
             ellipse at 40% 80%,
-            rgba(99, 102, 241, 0.04) 0%,
+            rgba(90, 84, 189, 0.04) 0%,
             transparent 50%
           );
         --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
@@ -227,7 +227,7 @@
       .tab-btn.active {
         color: white;
         background: var(--gradient-primary);
-        box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+        box-shadow: 0 2px 8px rgba(90, 84, 189, 0.3);
       }
       .tab-btn:focus-visible {
         outline: none;
@@ -334,7 +334,7 @@
       input:focus,
       select:focus {
         border-color: var(--accent);
-        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+        box-shadow: 0 0 0 3px rgba(90, 84, 189, 0.15);
       }
       select {
         background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23818CF8' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
@@ -362,10 +362,10 @@
         min-height: 52px;
         letter-spacing: 0.01em;
         transition: all var(--duration-normal);
-        box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3);
+        box-shadow: 0 4px 16px rgba(90, 84, 189, 0.3);
       }
       .btn-primary:hover:not(:disabled) {
-        box-shadow: 0 6px 24px rgba(99, 102, 241, 0.45);
+        box-shadow: 0 6px 24px rgba(90, 84, 189, 0.45);
         transform: translateY(-1px);
       }
       .btn-primary:disabled {
@@ -402,7 +402,7 @@
         border-color: var(--border-accent);
       }
       .btn-sm--accent:hover {
-        background: rgba(99, 102, 241, 0.15);
+        background: rgba(90, 84, 189, 0.15);
       }
 
       /* API Key display */
@@ -429,7 +429,7 @@
         font-weight: 600;
         font-family: inherit;
         color: var(--accent-light);
-        background: rgba(99, 102, 241, 0.1);
+        background: rgba(90, 84, 189, 0.1);
         border: 1px solid var(--border-accent);
         border-radius: 6px;
         cursor: pointer;
@@ -437,7 +437,7 @@
         transition: all var(--duration-normal);
       }
       .key-display .btn-copy:hover {
-        background: rgba(99, 102, 241, 0.2);
+        background: rgba(90, 84, 189, 0.2);
       }
 
       /* Keys Table */
@@ -487,7 +487,7 @@
       }
       .badge--enterprise {
         color: var(--cyan-accent);
-        background: rgba(34, 211, 238, 0.08);
+        background: rgba(107, 179, 205, 0.08);
       }
       .badge--active {
         color: var(--green-success);
@@ -986,7 +986,7 @@
       // Initialize PostHog only if the backend provides the key via a meta tag or inline
       (function () {
         // Fetch the PostHog key from the server config endpoint
-        fetch("/api/health")
+        fetch("/api/config")
           .then((r) => r.json())
           .then((d) => {
             if (d && d.posthog_key) {
@@ -1535,7 +1535,7 @@ print(response.json())</pre
                   width: 100%;
                   font-size: 0.875rem;
                   padding: 0.75rem;
-                  background: linear-gradient(135deg, #22d3ee, #6366f1);
+                  background: linear-gradient(135deg, #6bb3cd, #5a54bd);
                 "
                 onclick="switchTab('keys')"
               >
@@ -1985,7 +1985,7 @@ print(response.json())</pre
                 "</span>" +
                 '<div class="usage-bar-track"><div class="usage-bar-fill" style="width:' +
                 pctW +
-                '%;background:linear-gradient(90deg,#22D3EE,#6366F1);"></div></div>' +
+                '%;background:linear-gradient(90deg,#6BB3CD,#5A54BD);"></div></div>' +
                 '<span class="usage-bar-value">' +
                 ep.count +
                 "</span></div>";
@@ -2146,7 +2146,7 @@ print(response.json())</pre
         padding: 2rem 1rem;
         color: #64748b;
         font-size: 0.8rem;
-        border-top: 1px solid rgba(99, 102, 241, 0.1);
+        border-top: 1px solid rgba(90, 84, 189, 0.1);
         margin-top: 3rem;
       "
     >
@@ -2155,7 +2155,7 @@ print(response.json())</pre
         href="https://www.linkedin.com/in/chandel13/"
         target="_blank"
         rel="noopener"
-        style="color: #818cf8; text-decoration: none"
+        style="color: #7b75d4; text-decoration: none"
         >Shubham Singh Chandel</a
       >
       &middot; Nova AI Suite

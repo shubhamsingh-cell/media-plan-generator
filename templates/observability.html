@@ -13,8 +13,8 @@
     <style>
       :root {
         --navy: #111111;
-        --purple: #6366f1;
-        --teal: #22d3ee;
+        --purple: #5a54bd;
+        --teal: #6bb3cd;
         --pink: #f472b6;
         --bronze: #fbbf24;
         --bg: #000000;
@@ -154,7 +154,7 @@
         font-size: 13px;
       }
       th {
-        background: rgba(99, 102, 241, 0.08);
+        background: rgba(90, 84, 189, 0.08);
         color: var(--text);
         font-weight: 700;
         font-size: 11px;
@@ -172,7 +172,7 @@
         border-bottom: none;
       }
       tr:hover {
-        background: rgba(99, 102, 241, 0.04);
+        background: rgba(90, 84, 189, 0.04);
       }
 
       /* Status dots & badges */
@@ -584,7 +584,7 @@
       // Initialize PostHog only if the backend provides the key via a meta tag or inline
       (function () {
         // Fetch the PostHog key from the server config endpoint
-        fetch("/api/health")
+        fetch("/api/config")
           .then((r) => r.json())
           .then((d) => {
             if (d && d.posthog_key) {
@@ -1352,7 +1352,7 @@
         padding: 2rem 1rem;
         color: #64748b;
         font-size: 0.8rem;
-        border-top: 1px solid rgba(99, 102, 241, 0.1);
+        border-top: 1px solid rgba(90, 84, 189, 0.1);
         margin-top: 3rem;
       "
     >
@@ -1361,7 +1361,7 @@
         href="https://www.linkedin.com/in/chandel13/"
         target="_blank"
         rel="noopener"
-        style="color: #818cf8; text-decoration: none"
+        style="color: #7b75d4; text-decoration: none"
         >Shubham Singh Chandel</a
       >
       &middot; Nova AI Suite

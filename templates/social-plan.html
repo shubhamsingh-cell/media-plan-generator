@@ -21,9 +21,9 @@
         --bg: #000000;
         --card: rgba(17, 17, 17, 0.8);
         --card-border: rgba(255, 255, 255, 0.08);
-        --accent: #6366f1;
-        --accent-light: #818cf8;
-        --accent-glow: rgba(99, 102, 241, 0.25);
+        --accent: #5a54bd;
+        --accent-light: #7b75d4;
+        --accent-glow: rgba(90, 84, 189, 0.25);
         --text: #d4d4d8;
         --text-muted: #a1a1a1;
         --text-dim: #666666;
@@ -411,7 +411,7 @@
         font-weight: 700;
         padding: 0.25rem 0.6rem;
         border-radius: 20px;
-        background: rgba(99, 102, 241, 0.2);
+        background: rgba(90, 84, 189, 0.2);
         color: var(--accent-light);
       }
       .fit-high {
@@ -970,7 +970,7 @@
       // Initialize PostHog only if the backend provides the key via a meta tag or inline
       (function () {
         // Fetch the PostHog key from the server config endpoint
-        fetch("/api/health")
+        fetch("/api/config")
           .then((r) => r.json())
           .then((d) => {
             if (d && d.posthog_key) {
@@ -1681,7 +1681,7 @@
         const labels = entries.map(([k, v]) => v.name);
         const data = entries.map(([k, v]) => v.budget);
         const colors = [
-          "#6366f1",
+          "#5a54bd",
           "#22c55e",
           "#f59e0b",
           "#ef4444",
@@ -1995,7 +1995,7 @@
           const platformName =
             platform.charAt(0).toUpperCase() + platform.slice(1);
           html += `<div class="card" style="background:var(--card,rgba(17,17,17,0.8));border:1px solid var(--border,rgba(255,255,255,0.08));border-radius:12px;padding:20px;">`;
-          html += `<h4 style="font-size:1rem;font-weight:700;color:var(--accent-light,#818cf8);margin-bottom:12px;text-transform:capitalize;">${escapeHtml(platformName)}</h4>`;
+          html += `<h4 style="font-size:1rem;font-weight:700;color:var(--accent-light,#7b75d4);margin-bottom:12px;text-transform:capitalize;">${escapeHtml(platformName)}</h4>`;
 
           if (typeof specs === "string") {
             html += `<p style="font-size:0.85rem;color:var(--text-muted);">${escapeHtml(specs)}</p>`;
@@ -2039,7 +2039,7 @@
               Object.entries(imageSizes).forEach(([key, val]) => {
                 html += `<div style="display:flex;justify-content:space-between;padding:4px 8px;font-size:0.8rem;">`;
                 html += `<span style="color:var(--text);">${escapeHtml(key)}</span>`;
-                html += `<span style="color:var(--cyan-accent,#22d3ee);font-family:monospace;">${escapeHtml(String(val))}</span>`;
+                html += `<span style="color:var(--cyan-accent,#6bb3cd);font-family:monospace;">${escapeHtml(String(val))}</span>`;
                 html += "</div>";
               });
             }
@@ -2165,7 +2165,7 @@
         padding: 2rem 1rem;
         color: #64748b;
         font-size: 0.8rem;
-        border-top: 1px solid rgba(99, 102, 241, 0.1);
+        border-top: 1px solid rgba(90, 84, 189, 0.1);
         margin-top: 3rem;
       "
     >
@@ -2174,7 +2174,7 @@
         href="https://www.linkedin.com/in/chandel13/"
         target="_blank"
         rel="noopener"
-        style="color: #818cf8; text-decoration: none"
+        style="color: #7b75d4; text-decoration: none"
         >Shubham Singh Chandel</a
       >
       &middot; Nova AI Suite

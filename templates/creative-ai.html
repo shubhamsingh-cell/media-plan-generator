@@ -26,10 +26,10 @@
         --bg-card: rgba(17, 17, 17, 0.8);
         --bg-card-hover: rgba(26, 26, 26, 0.9);
         --bg-input: rgba(26, 26, 26, 0.6);
-        --accent: #6366f1;
-        --accent-light: #818cf8;
-        --accent-dim: rgba(99, 102, 241, 0.3);
-        --accent-glow: rgba(99, 102, 241, 0.15);
+        --accent: #5a54bd;
+        --accent-light: #7b75d4;
+        --accent-dim: rgba(90, 84, 189, 0.3);
+        --accent-glow: rgba(90, 84, 189, 0.15);
         --text-primary: #d4d4d8;
         --text-secondary: #a1a1a1;
         --text-muted: #666666;
@@ -46,7 +46,7 @@
         --blue: #3b82f6;
         --blue-bg: rgba(59, 130, 246, 0.1);
         --blue-border: rgba(59, 130, 246, 0.3);
-        --cyan: #22d3ee;
+        --cyan: #6bb3cd;
         --border: rgba(255, 255, 255, 0.08);
         --border-strong: rgba(255, 255, 255, 0.16);
         --blur: 20px;
@@ -54,7 +54,7 @@
         --radius-sm: 8px;
         --radius-lg: 16px;
         --shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
-        --shadow-glow: 0 0 30px rgba(99, 102, 241, 0.1);
+        --shadow-glow: 0 0 30px rgba(90, 84, 189, 0.1);
         --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       }
       * {
@@ -95,17 +95,17 @@
         background:
           radial-gradient(
             ellipse 600px 400px at 20% 10%,
-            rgba(99, 102, 241, 0.06),
+            rgba(90, 84, 189, 0.06),
             transparent
           ),
           radial-gradient(
             ellipse 500px 300px at 80% 80%,
-            rgba(34, 211, 238, 0.04),
+            rgba(107, 179, 205, 0.04),
             transparent
           ),
           radial-gradient(
             ellipse 400px 300px at 50% 50%,
-            rgba(99, 102, 241, 0.03),
+            rgba(90, 84, 189, 0.03),
             transparent
           );
       }
@@ -199,9 +199,9 @@
         display: inline-flex;
         align-items: center;
         gap: 4px;
-        background: rgba(99, 102, 241, 0.08);
+        background: rgba(90, 84, 189, 0.08);
         color: var(--accent-light);
-        border: 1px solid rgba(99, 102, 241, 0.2);
+        border: 1px solid rgba(90, 84, 189, 0.2);
         padding: 4px 10px;
         border-radius: 20px;
         font-size: 0.7rem;
@@ -892,7 +892,7 @@
       }
       :focus-visible {
         outline: none;
-        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.5);
+        box-shadow: 0 0 0 3px rgba(90, 84, 189, 0.5);
       }
       button:focus-visible,
       a:focus-visible,
@@ -900,7 +900,7 @@
       select:focus-visible,
       textarea:focus-visible {
         outline: none;
-        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.5);
+        box-shadow: 0 0 0 3px rgba(90, 84, 189, 0.5);
       }
       .reveal-on-scroll {
         opacity: 0;
@@ -993,7 +993,7 @@
       // Initialize PostHog only if the backend provides the key via a meta tag or inline
       (function () {
         // Fetch the PostHog key from the server config endpoint
-        fetch("/api/health")
+        fetch("/api/config")
           .then((r) => r.json())
           .then((d) => {
             if (d && d.posthog_key) {
@@ -1041,7 +1041,7 @@
             height="44"
             viewBox="0 0 24 24"
             fill="none"
-            stroke="#818cf8"
+            stroke="#7b75d4"
             stroke-width="1.5"
             stroke-linecap="round"
             stroke-linejoin="round"
@@ -1339,21 +1339,37 @@
               height="64"
               viewBox="0 0 24 24"
               fill="none"
-              stroke="var(--text-muted)"
-              stroke-width="1"
+              stroke="#6BB3CD"
+              stroke-width="1.5"
               stroke-linecap="round"
+              stroke-linejoin="round"
             >
-              <rect x="3" y="3" width="7" height="7" rx="1" />
-              <rect x="14" y="3" width="7" height="7" rx="1" />
-              <rect x="3" y="14" width="7" height="7" rx="1" />
-              <rect x="14" y="14" width="7" height="7" rx="1" />
+              <polygon
+                points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"
+              />
             </svg>
           </div>
-          <h2>Ready to Generate</h2>
-          <p>
-            Fill in the job details on the left and click Generate to create
+          <h2 style="color: #6bb3cd">No creatives generated yet</h2>
+          <p style="max-width: 360px; margin-left: auto; margin-right: auto">
+            Describe your campaign on the left and click Generate to create
             channel-optimized ad copy with quality scoring and bias detection.
           </p>
+          <button
+            onclick="document.getElementById('jobTitle')?.focus()"
+            class="btn btn-primary"
+            style="
+              background: #6bb3cd;
+              border: none;
+              padding: 10px 24px;
+              border-radius: 8px;
+              color: #fff;
+              font-weight: 600;
+              cursor: pointer;
+              margin-top: 16px;
+            "
+          >
+            Get Started
+          </button>
         </div>
       </div>
     </div>
@@ -2532,7 +2548,7 @@
         padding: 2rem 1rem;
         color: #64748b;
         font-size: 0.8rem;
-        border-top: 1px solid rgba(99, 102, 241, 0.1);
+        border-top: 1px solid rgba(90, 84, 189, 0.1);
         margin-top: 3rem;
       "
     >
@@ -2541,7 +2557,7 @@
         href="https://www.linkedin.com/in/chandel13/"
         target="_blank"
         rel="noopener"
-        style="color: #818cf8; text-decoration: none"
+        style="color: #7b75d4; text-decoration: none"
         >Shubham Singh Chandel</a
       >
       &middot; Nova AI Suite

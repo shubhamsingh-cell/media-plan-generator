@@ -24,8 +24,8 @@
         --bg: #000000;
         --card: rgba(17, 17, 17, 0.8);
         --card-solid: #111111;
-        --indigo: #6366f1;
-        --indigo-light: #818cf8;
+        --indigo: #5a54bd;
+        --indigo-light: #7b75d4;
         --text: #d4d4d8;
         --muted: #a1a1a1;
         --success: #22c55e;
@@ -33,7 +33,7 @@
         --error: #ef4444;
         --border: rgba(255, 255, 255, 0.08);
         --radius: 12px;
-        --gradient: linear-gradient(135deg, #6366f1, #818cf8);
+        --gradient: linear-gradient(135deg, #5a54bd, #7b75d4);
       }
       @media (prefers-reduced-motion: reduce) {
         .reveal-on-scroll {
@@ -80,12 +80,12 @@
         background:
           radial-gradient(
             ellipse at 20% 50%,
-            rgba(99, 102, 241, 0.06) 0%,
+            rgba(90, 84, 189, 0.06) 0%,
             transparent 50%
           ),
           radial-gradient(
             ellipse at 80% 20%,
-            rgba(129, 140, 248, 0.04) 0%,
+            rgba(123, 117, 212, 0.04) 0%,
             transparent 50%
           );
       }
@@ -177,7 +177,7 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        background: rgba(99, 102, 241, 0.12);
+        background: rgba(90, 84, 189, 0.12);
         border-radius: 8px;
         font-size: 0.85rem;
         flex-shrink: 0;
@@ -288,7 +288,7 @@
         margin-bottom: 1rem;
       }
       .variant-a .variant-label {
-        background: rgba(99, 102, 241, 0.15);
+        background: rgba(90, 84, 189, 0.15);
         color: var(--indigo-light);
       }
       .variant-b .variant-label {
@@ -334,7 +334,7 @@
         font-weight: 600;
       }
       .variant-a .ad-cta {
-        background: rgba(99, 102, 241, 0.15);
+        background: rgba(90, 84, 189, 0.15);
         color: var(--indigo-light);
       }
       .variant-b .ad-cta {
@@ -380,8 +380,8 @@
       }
       .metric-badge {
         padding: 0.35rem 0.75rem;
-        background: rgba(99, 102, 241, 0.1);
-        border: 1px solid rgba(99, 102, 241, 0.2);
+        background: rgba(90, 84, 189, 0.1);
+        border: 1px solid rgba(90, 84, 189, 0.2);
         border-radius: 6px;
         font-size: 0.8rem;
         font-weight: 500;
@@ -552,7 +552,7 @@
       // Initialize PostHog only if the backend provides the key via a meta tag or inline
       (function () {
         // Fetch the PostHog key from the server config endpoint
-        fetch("/api/health")
+        fetch("/api/config")
           .then((r) => r.json())
           .then((d) => {
             if (d && d.posthog_key) {

@@ -401,6 +401,54 @@ def _handle_admin_audit_log(handler, path: str, parsed: Any) -> None:
     )
 
 
+def _handle_admin_slow_endpoints(handler: Any, path: str, parsed: Any) -> None:
+    """/api/admin/slow-endpoints -- top 10 slowest endpoints (admin-protected).
+
+    Returns the endpoints that exceeded the 1-second threshold, sorted by
+    duration descending. Useful for identifying performance bottlenecks.
+    """
+    if not handler._check_admin_auth():
+        handler.send_error(401, "Unauthorized")
+        return
+
+    _app = sys.modules.get("__main__") or sys.modules.get("app")
+    get_slow = getattr(_app, "get_slow_endpoints", None)
+
+    if get_slow is None:
+        handler._send_json(
+            {"error": "Slow endpoint profiling not available"}, status_code=501
+        )
+        return
+
+    slow_list = get_slow()
+
+    # Also include Supabase connection metrics if available
+    supabase_metrics: dict[str, Any] = {}
+    try:
+        from supabase_client import get_connection_metrics
+
+        supabase_metrics = get_connection_metrics()
+    except ImportError:
+        pass
+
+    # Background task executor metrics
+    bg_metrics: dict[str, Any] = {}
+    get_bg = getattr(_app, "get_background_task_metrics", None)
+    if get_bg is not None:
+        bg_metrics = get_bg()
+
+    handler._send_json(
+        {
+            "slow_endpoints": slow_list,
+            "threshold_ms": 1000,
+            "count": len(slow_list),
+            "supabase_connection_metrics": supabase_metrics,
+            "background_task_metrics": bg_metrics,
+            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        }
+    )
+
+
 # ---------------------------------------------------------------------------
 # Route map
 # ---------------------------------------------------------------------------
@@ -413,4 +461,5 @@ _ADMIN_ROUTE_MAP: dict[str, Any] = {
     "/api/admin/llm-status": _handle_admin_llm_status,
     "/api/admin/sessions": _handle_admin_sessions,
     "/api/admin/audit-log": _handle_admin_audit_log,
+    "/api/admin/slow-endpoints": _handle_admin_slow_endpoints,
 }

@@ -52,5 +52,13 @@ def python_files() -> list[Path]:
 
 @pytest.fixture(scope="session")
 def app_source() -> str:
-    """Read and return app.py source code (cached for the session)."""
-    return (PROJECT_ROOT / "app.py").read_text(encoding="utf-8")
+    """Read and return app.py + routes/pages.py source code (cached for the session).
+
+    Routes were decomposed from app.py into routes/pages.py, so tests that
+    check for route strings need both files concatenated.
+    """
+    source = (PROJECT_ROOT / "app.py").read_text(encoding="utf-8")
+    pages_path = PROJECT_ROOT / "routes" / "pages.py"
+    if pages_path.exists():
+        source += "\n" + pages_path.read_text(encoding="utf-8")
+    return source

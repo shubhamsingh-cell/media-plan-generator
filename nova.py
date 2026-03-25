@@ -121,6 +121,106 @@ MAX_RESPONSE_CACHE_SIZE = 200
 _response_cache: Dict[str, Any] = {}
 _response_cache_lock = threading.Lock()
 
+# Trivial query patterns that don't need long responses
+_TRIVIAL_PATTERNS = re.compile(
+    r"^(hi|hello|hey|thanks|thank you|ok|okay|bye|goodbye|yes|no|sure|got it)\b",
+    re.IGNORECASE,
+)
+
+# Placeholder/refusal patterns that indicate low-quality responses
+_PLACEHOLDER_PATTERNS = [
+    "i don't know",
+    "i'm not sure",
+    "i cannot help",
+    "i can't help",
+    "i don't have the capability",
+    "i'm unable to",
+    "beyond my capabilities",
+    "i don't have access",
+    "i cannot provide",
+    "i'm not able to",
+]
+
+# Data query indicators -- responses to these should contain data points
+_DATA_QUERY_INDICATORS = [
+    "salary",
+    "cpa",
+    "cpc",
+    "cph",
+    "cost",
+    "budget",
+    "benchmark",
+    "average",
+    "median",
+    "range",
+    "how much",
+    "what is the",
+    "compare",
+    "trend",
+    "rate",
+    "percentage",
+    "number of",
+]
+
+
+def validate_response_quality(response: str, query: str = "") -> tuple[bool, str]:
+    """Validate that a Nova response meets minimum quality standards.
+
+    Checks response length, placeholder text, and data content for data queries.
+    Returns a tuple of (is_valid, reason) where reason explains any failure.
+
+    Args:
+        response: The response text to validate.
+        query: The original user query (used to determine if data is expected).
+
+    Returns:
+        Tuple of (is_valid, reason). is_valid is True if quality passes.
+    """
+    if not response or not response.strip():
+        return False, "empty_response"
+
+    stripped = response.strip()
+
+    # Check minimum length for non-trivial queries
+    is_trivial = bool(_TRIVIAL_PATTERNS.match(query.strip())) if query else False
+    if not is_trivial and len(stripped) < 50:
+        return (
+            False,
+            f"response_too_short: {len(stripped)} chars (min 50 for non-trivial queries)",
+        )
+
+    # Check for placeholder/refusal text without actionable content
+    lower = stripped.lower()
+    for pattern in _PLACEHOLDER_PATTERNS:
+        if pattern in lower:
+            # Allow if response also contains substantive content (>200 chars beyond the refusal)
+            refusal_idx = lower.index(pattern)
+            remaining = stripped[refusal_idx + len(pattern) :]
+            if len(remaining.strip()) < 150:
+                return (
+                    False,
+                    f"placeholder_refusal: contains '{pattern}' without substantive follow-up",
+                )
+
+    # For data queries, check that response contains at least one data point
+    query_lower = query.lower() if query else ""
+    is_data_query = any(
+        indicator in query_lower for indicator in _DATA_QUERY_INDICATORS
+    )
+    if is_data_query:
+        has_number = bool(re.search(r"\$[\d,]+|\d+%|\d{2,}", stripped))
+        has_data_word = any(
+            w in lower
+            for w in ["$", "%", "median", "average", "range", "benchmark", "data"]
+        )
+        if not has_number and not has_data_word:
+            return (
+                False,
+                "data_query_missing_data: response to data query lacks numbers or metrics",
+            )
+
+    return True, "ok"
+
 
 # ---------------------------------------------------------------------------
 # Nova Metrics Tracker (lightweight, thread-safe)
@@ -1729,9 +1829,21 @@ You are not a generic chatbot. You are a domain expert who:
 
 When you have data, LEAD with numbers. Not "data suggests salaries are competitive" but "Adzuna data shows the median salary for this role in this market is $X, with the 25th-75th percentile range of $Y-$Z."
 
-## PERSONALITY: CONFIDENT AND APPROACHABLE
+## PERSONALITY: PROFESSIONAL, DATA-DRIVEN, PROACTIVE
 
-Be direct, data-forward, and decisive -- like a senior analyst presenting to a VP of Talent Acquisition. NEVER hedge when you have data. NEVER say "I'm just a computer program" or "I don't have feelings." For casual/social messages, engage warmly and briefly, then redirect to how you can help. Use a conversational but professional tone throughout.
+- **Professional**: Direct, confident, decisive -- like a senior analyst presenting to a VP of Talent Acquisition
+- **Data-driven**: Always lead with specific numbers and cite sources. Never hedge when you have data
+- **Proactive**: Anticipate follow-up questions. If salary data suggests a tight market, mention it. If CPA seems high for the role, suggest optimization strategies
+- NEVER say "I'm just a computer program" or "I don't have feelings"
+- For casual/social messages, engage warmly and briefly, then redirect to how you can help
+- Use a conversational but professional tone throughout
+
+## SOURCE CITATION (MANDATORY)
+
+Every data point MUST include its source. Use inline numbered references:
+- "The median salary is **$95,000** [1]" with "[1] Adzuna Salary Data" at the end
+- "CPA ranges from **$25-$89** [2]" with "[2] Joveo 2026 Benchmarks" at the end
+- When combining multiple sources, number each separately and list all at response end
 
 ## RULE #0: NEVER REFUSE -- ALWAYS PROVIDE VALUE (HIGHEST PRIORITY)
 
@@ -6173,20 +6285,27 @@ When API-enriched context is available in the session, prioritize it as the most
         # Build system prompt (condensed version for free LLMs -- no tool instructions)
         system_prompt = (
             "You are Nova, Joveo's senior recruitment marketing intelligence analyst. "
-            "You are a domain expert, not a generic assistant. "
-            "TONE: Confident, data-forward, decisive -- like a senior analyst presenting to a VP of TA. "
-            "For casual messages, be personable and brief, then redirect to recruitment insights. "
-            "RULES: (1) Answer ONLY what was asked -- 1-3 sentences for simple questions. "
-            "LEAD with specific numbers when available, not vague statements. "
-            "(2) If missing location or industry, ASK. Auto-classify obvious roles "
-            "(nurse = clinical, driver = blue collar, engineer = white collar). "
-            "Do NOT assume a country or location. "
-            "(3) NEVER invent CPC, CPA, CPH, salary, or benchmark statistics. "
-            "If you have data, state it with the source: '$85K median (Adzuna)'. "
-            "(4) Use markdown: **bold** for key metrics, ## headers, | tables | for comparisons. "
-            "(5) Joveo is a programmatic recruitment marketing PLATFORM with 10,238+ supply partners. "
-            "NEVER suggest publishers as 'alternatives' to Joveo. "
-            "(6) NEVER say 'I can't help'. Always provide actionable value."
+            "You are a domain expert in programmatic job advertising, media planning, "
+            "talent acquisition economics, and labor market analytics -- NOT a generic assistant.\n\n"
+            "## PERSONALITY\n"
+            "Professional, data-driven, and proactive. Speak like a senior analyst presenting "
+            "to a VP of Talent Acquisition. Lead with numbers and cite sources. "
+            "For casual messages, be personable and brief, then redirect to recruitment insights.\n\n"
+            "## RESPONSE RULES\n"
+            "(1) Answer ONLY what was asked. Simple questions: 1-3 sentences with specific numbers. "
+            "Strategic questions: structured response with headers and tables.\n"
+            "(2) ALWAYS cite data sources inline: '$85K median (Adzuna)', 'CPA $45-$89 [Joveo 2026 Benchmarks]'.\n"
+            "(3) If missing location or industry, ASK. Auto-classify obvious roles "
+            "(nurse=clinical, driver=blue collar, engineer=white collar). Do NOT assume US/USD.\n"
+            "(4) NEVER invent CPC, CPA, CPH, salary, or benchmark statistics. "
+            "Only state numbers from tool results or provided context.\n"
+            "(5) Use markdown: **bold** for key metrics, ## headers, | tables | for comparisons.\n"
+            "(6) Joveo is a programmatic recruitment marketing PLATFORM with 10,238+ supply partners. "
+            "NEVER suggest publishers as 'alternatives' to Joveo.\n"
+            "(7) NEVER say 'I can't help' or 'I don't have data'. "
+            "Always provide actionable value -- benchmarks, ranges, or strategic recommendations.\n"
+            "(8) Be concise but thorough. Quick lookups: 50-100 words. "
+            "Standard questions: 150-300 words. Media plans: 300-500 words."
         )
         # Add enrichment context if available
         if enrichment_context:
@@ -6321,9 +6440,12 @@ When API-enriched context is available in the session, prioritize it as the most
         # System prompt -- mirrors the full Claude prompt's critical rules
         # so free LLM providers follow the same data accuracy standards.
         system_prompt = (
-            "You are Nova, a recruitment marketing AI assistant built by Joveo. "
-            "You have access to tools for looking up recruitment data. "
-            "Respond in a warm, professional tone -- like a knowledgeable recruitment consultant.\n\n"
+            "You are Nova, Joveo's senior recruitment marketing intelligence analyst. "
+            "You are a domain expert in programmatic job advertising, media planning, "
+            "and labor market analytics. You have access to tools for looking up recruitment data.\n\n"
+            "## PERSONALITY: Professional, data-driven, proactive\n"
+            "Speak like a senior analyst presenting to a VP of Talent Acquisition. "
+            "Lead with specific numbers and cite sources. Be concise but thorough.\n\n"
             "## QUERY UNDERSTANDING (CRITICAL -- READ FIRST)\n"
             "Before calling tools, extract entities from the user's query:\n"
             "- **Job title/role**: e.g., 'nurse', 'software engineer', 'CDL driver'\n"
@@ -6370,6 +6492,11 @@ When API-enriched context is available in the session, prioritize it as the most
             "(10) When a country IS specified, use LOCAL CURRENCY.\n"
             "(11) You are a Joveo product. Position Joveo favorably vs competitors.\n"
             "(12) MULTI-COUNTRY: Call tools separately for EACH country mentioned.\n\n"
+            "## SOURCE CITATION (MANDATORY)\n"
+            "Every data point must include its source inline:\n"
+            "- 'The median salary is **$95,000** [1]' with '[1] Adzuna Salary Data' at end\n"
+            "- 'CPA ranges from **$25-$89** [2]' with '[2] Joveo 2026 Benchmarks' at end\n"
+            "List all numbered sources at the end of your response.\n\n"
             "## NEVER REFUSE\n"
             "You are a recruitment marketing expert. NEVER say 'I can't help'. "
             "Always provide value: call tools, share benchmarks, or give recommendations."
@@ -10007,6 +10134,18 @@ def handle_chat_request(request_data: dict) -> dict:
                 "tools_used": [],
                 "error": "all_providers_failed",
             }
+
+        # Quality gate: validate response before returning
+        is_valid, quality_reason = validate_response_quality(_resp_text, message)
+        if not is_valid:
+            logger.warning(
+                "Response quality check failed (%s) for query: %s",
+                quality_reason,
+                message[:80],
+            )
+            # Attach quality warning to result metadata (don't block response)
+            if isinstance(result, dict):
+                result["quality_warning"] = quality_reason
 
         # Save conversation to memory
         try:

@@ -29,10 +29,10 @@
         --bg-card: rgba(17, 17, 17, 0.8);
         --bg-card-hover: rgba(26, 26, 26, 0.9);
         --bg-input: rgba(26, 26, 26, 0.6);
-        --accent: #6366f1;
-        --accent-light: #818cf8;
-        --accent-dim: rgba(99, 102, 241, 0.3);
-        --accent-glow: rgba(99, 102, 241, 0.15);
+        --accent: #5a54bd;
+        --accent-light: #7b75d4;
+        --accent-dim: rgba(90, 84, 189, 0.3);
+        --accent-glow: rgba(90, 84, 189, 0.15);
         --text-primary: #d4d4d8;
         --text-secondary: #a1a1a1;
         --text-muted: #666666;
@@ -52,7 +52,7 @@
         --radius: 12px;
         --radius-sm: 8px;
         --shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
-        --shadow-glow: 0 0 30px rgba(99, 102, 241, 0.1);
+        --shadow-glow: 0 0 30px rgba(90, 84, 189, 0.1);
         --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       }
 
@@ -85,12 +85,12 @@
         background:
           radial-gradient(
             ellipse 600px 400px at 20% 10%,
-            rgba(99, 102, 241, 0.06),
+            rgba(90, 84, 189, 0.06),
             transparent
           ),
           radial-gradient(
             ellipse 500px 300px at 80% 80%,
-            rgba(99, 102, 241, 0.04),
+            rgba(90, 84, 189, 0.04),
             transparent
           );
         pointer-events: none;
@@ -421,7 +421,7 @@
         font-size: 0.85rem;
       }
       .comparison-table th {
-        background: rgba(99, 102, 241, 0.08);
+        background: rgba(90, 84, 189, 0.08);
         padding: 12px 16px;
         text-align: left;
         font-size: 0.7rem;
@@ -441,7 +441,7 @@
         border-bottom: none;
       }
       .comparison-table tr:hover td {
-        background: rgba(99, 102, 241, 0.04);
+        background: rgba(90, 84, 189, 0.04);
       }
       /* ── Live Pricing Badges & Button ── */
       .source-badge {
@@ -755,7 +755,7 @@
         border: 1px solid var(--green-border);
       }
       .composite-badge.tier-a {
-        background: rgba(99, 102, 241, 0.1);
+        background: rgba(90, 84, 189, 0.1);
         color: var(--accent-light);
         border: 1px solid var(--accent-dim);
       }
@@ -812,14 +812,14 @@
 
       :focus-visible {
         outline: none;
-        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.5);
+        box-shadow: 0 0 0 3px rgba(90, 84, 189, 0.5);
       }
       button:focus-visible,
       a:focus-visible,
       input:focus-visible,
       select:focus-visible {
         outline: none;
-        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.5);
+        box-shadow: 0 0 0 3px rgba(90, 84, 189, 0.5);
       }
 
       /* -- Scroll reveal animations -- */
@@ -896,7 +896,7 @@
       // Initialize PostHog only if the backend provides the key via a meta tag or inline
       (function () {
         // Fetch the PostHog key from the server config endpoint
-        fetch("/api/health")
+        fetch("/api/config")
           .then((r) => r.json())
           .then((d) => {
             if (d && d.posthog_key) {
@@ -949,7 +949,7 @@
             height="40"
             viewBox="0 0 24 24"
             fill="none"
-            stroke="#818cf8"
+            stroke="#7b75d4"
             stroke-width="2"
             stroke-linecap="round"
           >
@@ -5627,7 +5627,7 @@
         var selectedVendors = {};
         window.__vendorIQ_selectedVendors = selectedVendors;
         var VENDOR_COLORS = [
-          "#6366f1",
+          "#5a54bd",
           "#22c55e",
           "#f59e0b",
           "#ef4444",
@@ -6152,7 +6152,7 @@
         padding: 2rem 1rem;
         color: #64748b;
         font-size: 0.8rem;
-        border-top: 1px solid rgba(99, 102, 241, 0.1);
+        border-top: 1px solid rgba(90, 84, 189, 0.1);
         margin-top: 3rem;
       "
     >
@@ -6161,7 +6161,7 @@
         href="https://www.linkedin.com/in/chandel13/"
         target="_blank"
         rel="noopener"
-        style="color: #818cf8; text-decoration: none"
+        style="color: #7b75d4; text-decoration: none"
         >Shubham Singh Chandel</a
       >
       &middot; Nova AI Suite

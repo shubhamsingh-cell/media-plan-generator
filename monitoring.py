@@ -174,12 +174,15 @@ def clear_request_spans() -> None:
 class StructuredJsonFormatter(logging.Formatter):
     """Emit log records as single-line JSON objects.
 
-    Each log entry includes: timestamp, level, logger name, message,
-    request_id (from thread-local context), duration_ms, and any extra fields.
+    Each log entry includes: timestamp, level, logger name, module, function,
+    message, request_id (from thread-local context), latency_ms, status_code,
+    and any extra fields.
+
+    Compatible with Grafana Loki label extraction (flat top-level keys).
 
     Example output::
 
-        {"ts":"2025-03-09T14:23:01Z","level":"INFO","logger":"nova","msg":"Tool executed","request_id":"a1b2c3d4e5f6","extra":{}}
+        {"ts":"2025-03-09T14:23:01.123Z","level":"INFO","logger":"nova","module":"app","function":"do_GET","msg":"Request handled","request_id":"a1b2c3d4e5f6","latency_ms":12.3,"status_code":200}
     """
 
     def format(self, record: logging.LogRecord) -> str:
@@ -190,6 +193,8 @@ class StructuredJsonFormatter(logging.Formatter):
             + "Z",
             "level": record.levelname,
             "logger": record.name,
+            "module": record.module or "",
+            "function": record.funcName or "",
             "msg": record.getMessage(),
         }
 
@@ -197,7 +202,15 @@ class StructuredJsonFormatter(logging.Formatter):
         rid = get_request_id()
         if rid:
             entry["request_id"] = rid
-            entry["elapsed_ms"] = round(get_request_elapsed_ms(), 1)
+            latency = round(get_request_elapsed_ms(), 1)
+            entry["latency_ms"] = latency
+            # Legacy alias for backward compat with Grafana dashboards
+            entry["elapsed_ms"] = latency
+
+        # Include status_code if set via extra kwarg
+        _status = getattr(record, "status_code", None)
+        if _status is not None:
+            entry["status_code"] = _status
 
         # Include exception info if present
         if record.exc_info and record.exc_info[0] is not None:
@@ -227,6 +240,7 @@ class StructuredJsonFormatter(logging.Formatter):
             "processName",
             "message",
             "taskName",
+            "status_code",
         }
         extras = {
             k: v
@@ -636,7 +650,10 @@ class MetricsCollector:
         self._req_lock = threading.Lock()
         # Counters
         self.total_requests: int = 0
-        self.total_errors: int = 0
+        self.total_errors: int = 0  # 5xx server errors only
+        self.total_client_errors: int = (
+            0  # 4xx client errors (not counted in error rate)
+        )
         self.total_generations: int = 0
         self.total_chat_requests: int = 0
         self.total_slack_events: int = 0
@@ -688,9 +705,13 @@ class MetricsCollector:
             self._status_codes[status_code] += 1
             self._latencies[endpoint].append(latency_ms)
 
-            if status_code >= 400:
+            if status_code >= 500:
+                # Only 5xx server errors count toward error rate
                 self.total_errors += 1
                 self._recent_errors.append(now)
+            elif status_code >= 400:
+                # 4xx client errors tracked separately (not in error rate)
+                self.total_client_errors += 1
 
             # Prune old entries from rolling windows
             cutoff = now - METRICS_WINDOW
@@ -802,6 +823,7 @@ class MetricsCollector:
                 "uptime_human": _format_duration(uptime),
                 "total_requests": self.total_requests,
                 "total_errors": self.total_errors,
+                "total_client_errors": self.total_client_errors,
                 "total_generations": self.total_generations,
                 "total_chat_requests": self.total_chat_requests,
                 "total_slack_events": self.total_slack_events,
@@ -1589,11 +1611,27 @@ def health_check_readiness() -> Dict[str, Any]:
 def configure_logging(level: str = "INFO", json_format: bool = True) -> None:
     """Configure structured logging for production.
 
+    In production (json_format=True), emits single-line JSON with fields:
+    timestamp, level, module, function, request_id, latency_ms, status_code.
+
+    In development (json_format=False or LOG_FORMAT=text), uses human-readable
+    format with module and function name for easy debugging.
+
+    Auto-detects dev mode via RENDER_ENV or LOG_FORMAT env vars.
+
     Args:
         level: Log level string (DEBUG, INFO, WARNING, ERROR).
         json_format: If True, use JSON formatter for machine-readable logs.
                      If False, use human-readable format (useful for local dev).
+                     Overridden by LOG_FORMAT=text env var.
     """
+    # Allow env var override: LOG_FORMAT=text forces human-readable
+    env_format = os.environ.get("LOG_FORMAT", "").lower()
+    if env_format == "text":
+        json_format = False
+    elif env_format == "json":
+        json_format = True
+
     log_level = getattr(logging, level.upper(), logging.INFO)
 
     # Root logger configuration
@@ -1611,7 +1649,7 @@ def configure_logging(level: str = "INFO", json_format: bool = True) -> None:
         formatter = StructuredJsonFormatter()
     else:
         formatter = logging.Formatter(
-            fmt="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+            fmt="%(asctime)s [%(levelname)s] %(name)s.%(module)s.%(funcName)s: %(message)s",
             datefmt="%Y-%m-%d %H:%M:%S",
         )
     handler.setFormatter(formatter)

@@ -149,7 +149,7 @@
       "  color: #ededed;" +
       "}" +
       ".nova-header-subtitle {" +
-      "  font-size: 10px; opacity: 0.6; margin-top: 1px; letter-spacing: 0.5px; color: #8899aa;" +
+      "  font-size: 11px; opacity: 0.7; margin-top: 1px; letter-spacing: 0.5px; color: #8899aa;" +
       "}" +
       ".nova-close-btn {" +
       "  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);" +
@@ -170,11 +170,33 @@
       ".nova-messages::-webkit-scrollbar-track { background: transparent; }" +
       ".nova-messages::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 2px; }" +
       ".nova-messages::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }" +
+      // ── Message row (avatar + bubble) ──
+      ".nova-msg-row {" +
+      "  display: flex; gap: 8px; max-width: 92%;" +
+      "  animation: nova-msgIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);" +
+      "}" +
+      ".nova-msg-row-user { align-self: flex-end; flex-direction: row-reverse; }" +
+      ".nova-msg-row-assistant { align-self: flex-start; }" +
+      ".nova-msg-avatar {" +
+      "  width: 24px; height: 24px; border-radius: 50%; flex-shrink: 0;" +
+      "  display: flex; align-items: center; justify-content: center;" +
+      "  font-size: 11px; font-weight: 700; color: #fff; margin-top: 18px;" +
+      "}" +
+      ".nova-msg-avatar-user { background: #5A54BD; }" +
+      ".nova-msg-avatar-assistant { background: linear-gradient(135deg, #6BB3CD, #4a9db5); }" +
+      ".nova-msg-sender {" +
+      "  font-size: 10px; font-weight: 600; margin-bottom: 2px; letter-spacing: 0.3px;" +
+      "}" +
+      ".nova-msg-sender-user { color: #5A54BD; text-align: right; }" +
+      ".nova-msg-sender-assistant { color: #6BB3CD; }" +
+      ".nova-msg-timestamp {" +
+      "  font-size: 9px; color: #555; margin-top: 3px; letter-spacing: 0.2px;" +
+      "}" +
+      ".nova-msg-timestamp-user { text-align: right; }" +
       // ── Message bubbles ──
       ".nova-msg {" +
-      "  max-width: 88%; padding: 12px 16px; border-radius: 16px;" +
-      "  font-size: 13px; line-height: 1.65; word-wrap: break-word;" +
-      "  animation: nova-msgIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);" +
+      "  max-width: 100%; padding: 14px 18px; border-radius: 16px;" +
+      "  font-size: 14px; line-height: 1.7; word-wrap: break-word;" +
       "}" +
       "@keyframes nova-msgIn {" +
       "  from { opacity: 0; transform: translateY(12px) scale(0.97); }" +
@@ -286,32 +308,73 @@
       "  0%, 60%, 100% { transform: translateY(0); opacity: 0.3; }" +
       "  30% { transform: translateY(-8px); opacity: 1; }" +
       "}" +
-      // ── Suggested questions ──
-      ".nova-suggestions {" +
-      "  padding: 12px 16px 8px; display: flex; flex-direction: column; gap: 6px;" +
+      // ── Welcome state ──
+      ".nova-welcome {" +
+      "  display: flex; flex-direction: column; align-items: center;" +
+      "  justify-content: center; padding: 32px 20px 16px; text-align: center;" +
       "}" +
-      ".nova-suggestions-title {" +
-      "  font-size: 9px; color: #555; font-weight: 600;" +
-      "  text-transform: uppercase; letter-spacing: 2px; margin-bottom: 4px;" +
+      ".nova-welcome-orb {" +
+      "  width: 40px; height: 40px; border-radius: 50%;" +
+      "  background: linear-gradient(135deg, #5A54BD, #6BB3CD);" +
+      "  margin-bottom: 16px; box-shadow: 0 0 24px rgba(107,179,205,0.3), 0 0 48px rgba(90,84,189,0.15);" +
+      "  animation: nova-orb-pulse 3s ease-in-out infinite;" +
+      "}" +
+      "@keyframes nova-orb-pulse {" +
+      "  0%, 100% { transform: scale(1); box-shadow: 0 0 24px rgba(107,179,205,0.3), 0 0 48px rgba(90,84,189,0.15); }" +
+      "  50% { transform: scale(1.08); box-shadow: 0 0 32px rgba(107,179,205,0.45), 0 0 64px rgba(90,84,189,0.25); }" +
+      "}" +
+      ".nova-welcome-title {" +
+      "  font-size: 18px; font-weight: 700; color: #ededed; margin-bottom: 6px;" +
+      "}" +
+      ".nova-welcome-subtitle {" +
+      "  font-size: 12px; color: #888; margin-bottom: 20px; line-height: 1.5;" +
+      "}" +
+      // ── Suggested questions (2x2 grid) ──
+      ".nova-suggestions {" +
+      "  display: grid; grid-template-columns: 1fr 1fr; gap: 8px;" +
+      "  padding: 0 20px 16px; width: 100%; box-sizing: border-box;" +
       "}" +
       ".nova-suggestion-btn {" +
-      "  background: transparent; border: 1px solid rgba(107,179,205,0.1);" +
-      "  padding: 9px 14px; border-radius: 12px; cursor: pointer;" +
-      "  font-size: 12px; color: #a1a1a1; text-align: left;" +
-      "  font-family: inherit;" +
-      "  transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.25s ease; line-height: 1.4;" +
+      "  background: rgba(26,26,46,0.6); border: 1px solid rgba(107,179,205,0.12);" +
+      "  padding: 12px 14px; border-radius: 12px; cursor: pointer;" +
+      "  font-size: 11px; color: #a1a1a1; text-align: left;" +
+      "  font-family: inherit; line-height: 1.45;" +
+      "  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);" +
       "}" +
       ".nova-suggestion-btn:hover {" +
-      "  border-color: rgba(107,179,205,0.25);" +
-      "  opacity: 1;" +
+      "  border-color: rgba(107,179,205,0.35);" +
+      "  background: rgba(107,179,205,0.06);" +
       "  color: #d4d4d8;" +
+      "  transform: translateY(-1px);" +
+      "  box-shadow: 0 4px 12px rgba(0,0,0,0.15);" +
+      "}" +
+      ".nova-suggestion-btn:focus-visible {" +
+      "  outline: 2px solid #6BB3CD; outline-offset: 2px;" +
       "}" +
       // ── Input area ──
-      ".nova-input-area {" +
-      "  padding: 14px 16px; border-top: 1px solid rgba(107,179,205,0.1);" +
-      "  display: flex; gap: 10px; align-items: flex-end;" +
+      ".nova-input-wrap {" +
+      "  padding: 14px 16px 4px; border-top: 1px solid rgba(107,179,205,0.1);" +
       "  background: rgba(15,15,26,0.9); flex-shrink: 0;" +
       "}" +
+      ".nova-input-area {" +
+      "  display: flex; gap: 10px; align-items: flex-end;" +
+      "}" +
+      ".nova-char-counter {" +
+      "  font-size: 9px; color: #555; text-align: right; padding: 2px 4px 4px 0;" +
+      "  font-variant-numeric: tabular-nums; letter-spacing: 0.3px;" +
+      "}" +
+      ".nova-char-counter-warn { color: #ffaa00; }" +
+      ".nova-char-counter-over { color: #F87171; }" +
+      // ── Stop button ──
+      ".nova-stop-btn {" +
+      "  width: 40px; height: 40px; border-radius: 12px;" +
+      "  background: rgba(248,113,113,0.15); color: #F87171;" +
+      "  border: 1px solid rgba(248,113,113,0.25); cursor: pointer;" +
+      "  display: flex; align-items: center; justify-content: center;" +
+      "  flex-shrink: 0; transition: all 0.2s;" +
+      "}" +
+      ".nova-stop-btn:hover { background: rgba(248,113,113,0.25); border-color: rgba(248,113,113,0.4); }" +
+      ".nova-stop-btn svg { width: 16px; height: 16px; }" +
       ".nova-input {" +
       "  flex: 1; border: 1px solid rgba(107,179,205,0.1);" +
       "  border-radius: 12px; padding: 10px 14px;" +
@@ -351,16 +414,36 @@
       "  border-top: 1px solid rgba(107,179,205,0.06);" +
       "  letter-spacing: 1px; text-transform: uppercase;" +
       "}" +
-      // ── Mobile responsive ──
+      // ── Code syntax highlighting ──
+      ".nova-code-header {" +
+      "  display: flex; align-items: center; justify-content: space-between;" +
+      "  padding: 6px 12px; background: rgba(107,179,205,0.06);" +
+      "  font-size: 10px; color: #888;" +
+      "}" +
+      ".nova-code-copy-btn {" +
+      "  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);" +
+      "  color: #888; cursor: pointer; padding: 2px 8px; border-radius: 4px;" +
+      "  font-size: 10px; font-family: inherit; transition: all 0.15s;" +
+      "}" +
+      ".nova-code-copy-btn:hover { color: #6BB3CD; border-color: rgba(107,179,205,0.3); }" +
+      ".nova-hl-kw { color: #818cf8; }" +
+      ".nova-hl-str { color: #34D399; }" +
+      ".nova-hl-num { color: #fb923c; }" +
+      ".nova-hl-cmt { color: #555; font-style: italic; }" +
+      ".nova-hl-fn { color: #c084fc; }" +
+      ".nova-hl-type { color: #22d3ee; }" +
+      // ── Mobile full-screen ──
       "@media (max-width: " +
       CONFIG.mobileBreakpoint +
       "px) {" +
       "  #nova-panel {" +
-      "    width: calc(100vw - 16px); height: calc(100vh - 80px);" +
-      "    max-height: none; bottom: 76px; right: 8px;" +
-      "    border-radius: 16px;" +
+      "    width: 100vw; height: 100vh;" +
+      "    max-height: none; bottom: 0; right: 0; top: 0; left: 0;" +
+      "    border-radius: 0;" +
       "  }" +
       "  #nova-float-btn { bottom: 12px; right: 12px; }" +
+      "  #nova-float-btn.nova-mobile-hidden { display: none !important; }" +
+      "  .nova-suggestions { grid-template-columns: 1fr; }" +
       "}" +
       // ── Streaming cursor ──
       ".nova-streaming-cursor {" +
@@ -371,10 +454,11 @@
       "@keyframes nova-cursor-blink { 0% { opacity: 1; } 50% { opacity: 0; } 100% { opacity: 1; } }" +
       // ── Reduced motion ──
       "@media (prefers-reduced-motion: reduce) {" +
-      "  .nova-msg-user, .nova-msg-assistant { animation: none !important; }" +
+      "  .nova-msg-row, .nova-msg-user, .nova-msg-assistant { animation: none !important; }" +
       "  .nova-typing-dot { animation: none !important; opacity: 0.5; }" +
       "  #nova-float-btn, .nova-send-btn { transition: none !important; }" +
       "  .nova-streaming-cursor { animation: none !important; opacity: 0.7; }" +
+      "  .nova-welcome-orb { animation: none !important; }" +
       "}";
 
     var styleEl = document.createElement("style");
@@ -409,6 +493,10 @@
       '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>' +
       '<polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>' +
       "</svg>",
+    stop:
+      '<svg viewBox="0 0 24 24" fill="currentColor">' +
+      '<rect x="6" y="6" width="12" height="12" rx="2"/>' +
+      "</svg>",
   };
 
   // ---------------------------------------------------------------------------
@@ -423,15 +511,24 @@
       /```(\w+)?\n([\s\S]*?)```/g,
       function (match, lang, code) {
         var langLabel = lang ? lang : "code";
+        var highlighted = highlightSyntax(code.trim(), langLabel);
+        var codeId = "nova-code-" + Math.random().toString(36).substr(2, 8);
         return (
           '<div style="margin:8px 0;border-radius:8px;overflow:hidden;border:1px solid rgba(107,179,205,0.1);">' +
-          '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 12px;background:rgba(107,179,205,0.06);font-size:10px;color:#888;">' +
+          '<div class="nova-code-header">' +
           "<span>" +
           langLabel +
           "</span>" +
+          '<button class="nova-code-copy-btn" data-code-id="' +
+          codeId +
+          '" onclick="(function(b){var c=document.getElementById(\'' +
+          codeId +
+          "');if(c){navigator.clipboard.writeText(c.textContent).then(function(){b.textContent='Copied!';setTimeout(function(){b.textContent='Copy'},1500)})}})(this)\">Copy</button>" +
           "</div>" +
-          '<pre style="margin:0;padding:12px;background:#0d0d18;overflow-x:auto;"><code style="background:none;padding:0;color:#d4d4d8;font-size:11.5px;font-family:\'SF Mono\',Monaco,Menlo,monospace;line-height:1.6;">' +
-          code.trim() +
+          '<pre style="margin:0;padding:12px;background:#0d0d18;overflow-x:auto;"><code id="' +
+          codeId +
+          '" style="background:none;padding:0;color:#d4d4d8;font-size:11.5px;font-family:\'SF Mono\',Monaco,Menlo,monospace;line-height:1.6;">' +
+          highlighted +
           "</code></pre></div>"
         );
       },
@@ -546,6 +643,47 @@
     var div = document.createElement("div");
     div.appendChild(document.createTextNode(String(str)));
     return div.innerHTML;
+  }
+
+  function highlightSyntax(code, lang) {
+    // Simple regex-based syntax highlighting for JS/Python/SQL patterns
+    var l = (lang || "").toLowerCase();
+
+    // Comments: // or # style (single line)
+    code = code.replace(
+      /(\/\/.*$|#.*$)/gm,
+      '<span class="nova-hl-cmt">$1</span>',
+    );
+    // Multi-line comments /* */
+    code = code.replace(
+      /(\/\*[\s\S]*?\*\/)/g,
+      '<span class="nova-hl-cmt">$1</span>',
+    );
+
+    // Strings (double and single quoted)
+    code = code.replace(
+      /(&quot;(?:[^&]|&(?!quot;))*?&quot;|&#39;(?:[^&]|&(?!#39;))*?&#39;|"[^"]*"|'[^']*')/g,
+      '<span class="nova-hl-str">$1</span>',
+    );
+
+    // Numbers
+    code = code.replace(
+      /\b(\d+\.?\d*)\b/g,
+      '<span class="nova-hl-num">$1</span>',
+    );
+
+    // Keywords (JS + Python + SQL common set)
+    var kwPattern =
+      /\b(function|const|let|var|return|if|else|for|while|class|import|from|export|default|async|await|try|catch|finally|throw|new|this|typeof|instanceof|def|self|print|lambda|yield|with|as|raise|except|pass|True|False|None|SELECT|FROM|WHERE|INSERT|UPDATE|DELETE|JOIN|LEFT|RIGHT|INNER|OUTER|GROUP|ORDER|BY|HAVING|LIMIT|CREATE|TABLE|ALTER|DROP|AND|OR|NOT|IN|IS|NULL|LIKE|BETWEEN|UNION|SET|VALUES|INTO|ON|AS|DISTINCT|COUNT|SUM|AVG|MAX|MIN|CASE|WHEN|THEN|ELSE|END)\b/g;
+    code = code.replace(kwPattern, '<span class="nova-hl-kw">$1</span>');
+
+    // Function calls: word followed by (
+    code = code.replace(
+      /\b([a-zA-Z_]\w*)\s*\(/g,
+      '<span class="nova-hl-fn">$1</span>(',
+    );
+
+    return code;
   }
 
   // ---------------------------------------------------------------------------
@@ -892,11 +1030,18 @@
     var messagesDiv = document.createElement("div");
     messagesDiv.className = "nova-messages";
     messagesDiv.id = "nova-messages";
+    messagesDiv.setAttribute("role", "log");
+    messagesDiv.setAttribute("aria-live", "polite");
+    messagesDiv.setAttribute("aria-label", "Chat messages");
     panel.appendChild(messagesDiv);
 
-    // Input area
+    // Input area wrapper (contains input row + char counter)
+    var inputWrap = document.createElement("div");
+    inputWrap.className = "nova-input-wrap";
+
     var inputArea = document.createElement("div");
     inputArea.className = "nova-input-area";
+    inputArea.id = "nova-input-area";
 
     var textarea = document.createElement("textarea");
     textarea.className = "nova-input";
@@ -904,6 +1049,7 @@
     textarea.placeholder = "Ask about recruitment marketing...";
     textarea.rows = 1;
     textarea.setAttribute("aria-label", "Chat message input");
+    textarea.setAttribute("maxlength", "4000");
     textarea.addEventListener("keydown", function (e) {
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
@@ -914,6 +1060,8 @@
       // Auto-resize
       this.style.height = "auto";
       this.style.height = Math.min(this.scrollHeight, 100) + "px";
+      // Update character counter
+      updateCharCounter(this.value.length);
     });
     inputArea.appendChild(textarea);
 
@@ -925,7 +1073,16 @@
     sendBtn.setAttribute("aria-label", "Send message");
     sendBtn.addEventListener("click", sendMessage);
     inputArea.appendChild(sendBtn);
-    panel.appendChild(inputArea);
+    inputWrap.appendChild(inputArea);
+
+    // Character counter
+    var charCounter = document.createElement("div");
+    charCounter.className = "nova-char-counter";
+    charCounter.id = "nova-char-counter";
+    charCounter.textContent = "0 / 4000";
+    inputWrap.appendChild(charCounter);
+
+    panel.appendChild(inputWrap);
 
     // Footer
     var footer = document.createElement("div");
@@ -961,6 +1118,15 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Escape key handler (accessibility)
+  // ---------------------------------------------------------------------------
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && state.isOpen) {
+      togglePanel();
+    }
+  });
+
+  // ---------------------------------------------------------------------------
   // Panel toggle
   // ---------------------------------------------------------------------------
   function togglePanel() {
@@ -989,6 +1155,10 @@
       btn.appendChild(closeSpan);
       btn.title = "Close Nova Chat";
       btn.setAttribute("aria-label", "Close Nova Chat");
+      // Hide float button on mobile when panel is open
+      if (window.innerWidth <= CONFIG.mobileBreakpoint) {
+        btn.classList.add("nova-mobile-hidden");
+      }
       // Focus input
       setTimeout(function () {
         var input = document.getElementById("nova-input");
@@ -1008,6 +1178,8 @@
       }
       btn.title = "Open Nova Chat";
       btn.setAttribute("aria-label", "Open Nova Chat");
+      // Restore float button on mobile
+      btn.classList.remove("nova-mobile-hidden");
     }
   }
 
@@ -1018,27 +1190,32 @@
     var messagesDiv = document.getElementById("nova-messages");
     if (!messagesDiv) return;
 
-    // Welcome message
-    var welcomeMsg = {
-      role: "assistant",
-      content:
-        "Hello! I'm **Nova**, your recruitment marketing intelligence assistant. " +
-        "I have access to data from **10,238+ Supply Partners**, job boards across **70+ countries**, " +
-        "and comprehensive industry benchmarks and salary data.\n\nHow can I help you today?",
-      sources: [],
-      confidence: 1.0,
-    };
-    appendMessage(welcomeMsg, false);
+    // Centered welcome layout
+    var welcomeDiv = document.createElement("div");
+    welcomeDiv.className = "nova-welcome";
+    welcomeDiv.id = "nova-welcome-state";
 
-    // Suggestions
+    var orb = document.createElement("div");
+    orb.className = "nova-welcome-orb";
+    welcomeDiv.appendChild(orb);
+
+    var titleEl = document.createElement("div");
+    titleEl.className = "nova-welcome-title";
+    titleEl.textContent = "Hi, I'm Nova";
+    welcomeDiv.appendChild(titleEl);
+
+    var subtitleEl = document.createElement("div");
+    subtitleEl.className = "nova-welcome-subtitle";
+    subtitleEl.textContent =
+      "Your recruitment marketing intelligence assistant. Ask me anything about media planning, salaries, job boards, and market data.";
+    welcomeDiv.appendChild(subtitleEl);
+
+    messagesDiv.appendChild(welcomeDiv);
+
+    // 2x2 suggestion cards
     var sugDiv = document.createElement("div");
     sugDiv.className = "nova-suggestions";
     sugDiv.id = "nova-suggestions";
-
-    var title = document.createElement("div");
-    title.className = "nova-suggestions-title";
-    title.textContent = "Suggested questions";
-    sugDiv.appendChild(title);
 
     SUGGESTED_QUESTIONS.forEach(function (q) {
       var btn = document.createElement("button");
@@ -1062,11 +1239,37 @@
     var messagesDiv = document.getElementById("nova-messages");
     if (!messagesDiv) return;
 
-    // Remove suggestions on first user message
+    // Remove welcome state and suggestions on first user message
     var sugEl = document.getElementById("nova-suggestions");
     if (sugEl && msg.role === "user") {
       sugEl.remove();
     }
+    var welcomeEl = document.getElementById("nova-welcome-state");
+    if (welcomeEl && msg.role === "user") {
+      welcomeEl.remove();
+    }
+
+    // Build message row: avatar + bubble column
+    var rowEl = document.createElement("div");
+    rowEl.className = "nova-msg-row nova-msg-row-" + msg.role;
+
+    // Avatar
+    var avatarEl = document.createElement("div");
+    avatarEl.className = "nova-msg-avatar nova-msg-avatar-" + msg.role;
+    avatarEl.textContent = msg.role === "user" ? "Y" : "N";
+    avatarEl.setAttribute("aria-hidden", "true");
+    rowEl.appendChild(avatarEl);
+
+    // Bubble column (sender + bubble + timestamp)
+    var colEl = document.createElement("div");
+    colEl.style.cssText =
+      "display:flex;flex-direction:column;min-width:0;flex:1;";
+
+    // Sender name
+    var senderEl = document.createElement("div");
+    senderEl.className = "nova-msg-sender nova-msg-sender-" + msg.role;
+    senderEl.textContent = msg.role === "user" ? "You" : "Nova";
+    colEl.appendChild(senderEl);
 
     var msgEl = document.createElement("div");
     msgEl.className = "nova-msg nova-msg-" + msg.role;
@@ -1188,7 +1391,20 @@
       msgEl.textContent = msg.content;
     }
 
-    messagesDiv.appendChild(msgEl);
+    colEl.appendChild(msgEl);
+
+    // Timestamp
+    var now = new Date();
+    var tsEl = document.createElement("div");
+    tsEl.className = "nova-msg-timestamp nova-msg-timestamp-" + msg.role;
+    tsEl.textContent =
+      String(now.getHours()).padStart(2, "0") +
+      ":" +
+      String(now.getMinutes()).padStart(2, "0");
+    colEl.appendChild(tsEl);
+
+    rowEl.appendChild(colEl);
+    messagesDiv.appendChild(rowEl);
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
 
     if (persist !== false) {
@@ -1244,6 +1460,49 @@
       _typingElapsedInterval = null;
     }
     var el = document.getElementById("nova-typing");
+    if (el) el.remove();
+  }
+
+  function updateCharCounter(len) {
+    var el = document.getElementById("nova-char-counter");
+    if (!el) return;
+    el.textContent = len + " / 4000";
+    el.className = "nova-char-counter";
+    if (len > 4000) {
+      el.classList.add("nova-char-counter-over");
+    } else if (len > 3500) {
+      el.classList.add("nova-char-counter-warn");
+    }
+  }
+
+  // Active AbortController for streaming (exposed for stop button)
+  var _activeAbortCtrl = null;
+
+  function showStopButton() {
+    var inputArea = document.getElementById("nova-input-area");
+    if (!inputArea) return;
+    // Remove existing stop button if any
+    var existing = document.getElementById("nova-stop-btn");
+    if (existing) existing.remove();
+
+    var stopBtn = document.createElement("button");
+    stopBtn.className = "nova-stop-btn";
+    stopBtn.id = "nova-stop-btn";
+    stopBtn.innerHTML = ICONS.stop;
+    stopBtn.title = "Stop response";
+    stopBtn.setAttribute("aria-label", "Stop response");
+    stopBtn.addEventListener("click", function () {
+      if (_activeAbortCtrl) {
+        _activeAbortCtrl.abort();
+        _activeAbortCtrl = null;
+      }
+      hideStopButton();
+    });
+    inputArea.appendChild(stopBtn);
+  }
+
+  function hideStopButton() {
+    var el = document.getElementById("nova-stop-btn");
     if (el) el.remove();
   }
 
@@ -1412,9 +1671,13 @@
 
     // AbortController with 60-second timeout for chat requests
     var abortCtrl = new AbortController();
+    _activeAbortCtrl = abortCtrl;
     var fetchTimeout = setTimeout(function () {
       abortCtrl.abort();
     }, 60000);
+
+    // Reset char counter
+    updateCharCounter(0);
 
     // Get CSRF token (fetched on widget init)
     var csrfToken = window.__csrfToken || "";
@@ -1423,6 +1686,7 @@
 
     if (CONFIG.useStreaming) {
       // ── SSE Streaming mode ──
+      showStopButton();
       fetch(CONFIG.streamUrl, {
         method: "POST",
         headers: headers,
@@ -1432,16 +1696,33 @@
         .then(function (res) {
           if (!res.ok) throw new Error("HTTP " + res.status);
           hideTyping();
-          // Create streaming message element with blinking cursor
+          // Create streaming message element with avatar row and blinking cursor
+          var streamRow = document.createElement("div");
+          streamRow.className = "nova-msg-row nova-msg-row-assistant";
+          streamRow.id = "nova-stream-row";
+          var streamAvatar = document.createElement("div");
+          streamAvatar.className = "nova-msg-avatar nova-msg-avatar-assistant";
+          streamAvatar.textContent = "N";
+          streamAvatar.setAttribute("aria-hidden", "true");
+          streamRow.appendChild(streamAvatar);
+          var streamCol = document.createElement("div");
+          streamCol.style.cssText =
+            "display:flex;flex-direction:column;min-width:0;flex:1;";
+          var streamSender = document.createElement("div");
+          streamSender.className = "nova-msg-sender nova-msg-sender-assistant";
+          streamSender.textContent = "Nova";
+          streamCol.appendChild(streamSender);
           var streamEl = document.createElement("div");
           streamEl.className = "nova-msg nova-msg-assistant";
           streamEl.id = "nova-stream-msg";
           streamEl.innerHTML = '<span class="nova-streaming-cursor"></span>';
+          streamCol.appendChild(streamEl);
+          streamRow.appendChild(streamCol);
           var messagesEl = state.chatPanel
             ? state.chatPanel.querySelector(".nova-messages")
             : null;
           if (messagesEl) {
-            messagesEl.appendChild(streamEl);
+            messagesEl.appendChild(streamRow);
             messagesEl.scrollTop = messagesEl.scrollHeight;
           }
           var reader = res.body.getReader();
@@ -1484,8 +1765,10 @@
           }
           return processChunk().then(function () {
             clearTimeout(fetchTimeout);
-            // Replace streaming element with proper message
-            if (streamEl && streamEl.parentNode) streamEl.remove();
+            // Replace streaming row with proper message
+            var streamRowEl = document.getElementById("nova-stream-row");
+            if (streamRowEl && streamRowEl.parentNode) streamRowEl.remove();
+            else if (streamEl && streamEl.parentNode) streamEl.remove();
             appendMessage({
               role: "assistant",
               content: metadata.full_response || fullText,
@@ -1499,6 +1782,8 @@
         .catch(function (err) {
           clearTimeout(fetchTimeout);
           hideTyping();
+          var streamRowCleanup = document.getElementById("nova-stream-row");
+          if (streamRowCleanup) streamRowCleanup.remove();
           var streamEl = document.getElementById("nova-stream-msg");
           if (streamEl) streamEl.remove();
 
@@ -1540,8 +1825,23 @@
         })
         .finally(function () {
           state.isLoading = false;
+          _activeAbortCtrl = null;
+          hideStopButton();
           if (sendBtn) sendBtn.disabled = false;
           if (input) input.focus();
+          // Defensive cleanup: remove any stray streaming cursors that
+          // may persist after errors or edge-case race conditions
+          var strayCursors = document.querySelectorAll(
+            ".nova-streaming-cursor",
+          );
+          strayCursors.forEach(function (el) {
+            el.remove();
+          });
+          // Also remove any orphaned stream message elements
+          var orphanStreamRow = document.getElementById("nova-stream-row");
+          if (orphanStreamRow) orphanStreamRow.remove();
+          var orphanStream = document.getElementById("nova-stream-msg");
+          if (orphanStream) orphanStream.remove();
         });
     } else {
       // ── Non-streaming fallback ──

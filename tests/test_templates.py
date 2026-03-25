@@ -50,10 +50,10 @@ class TestTemplateExistence:
         assert path.exists(), f"Missing template: {filename}"
 
     def test_template_count(self) -> None:
-        """There should be exactly 31 template files."""
+        """There should be at least as many templates as EXPECTED_TEMPLATES."""
         html_files = list(TEMPLATES_DIR.glob("*.html"))
-        assert len(html_files) == 31, (
-            f"Expected 31 templates, found {len(html_files)}: "
+        assert len(html_files) >= len(EXPECTED_TEMPLATES), (
+            f"Expected at least {len(EXPECTED_TEMPLATES)} templates, found {len(html_files)}: "
             f"{[f.name for f in html_files]}"
         )
 

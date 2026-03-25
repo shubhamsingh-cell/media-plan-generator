@@ -286,6 +286,74 @@
         color: var(--downy-teal);
         text-decoration: none;
       }
+      /* Skip nav */
+      .skip-nav {
+        position: absolute;
+        top: -100%;
+        left: 16px;
+        background: var(--blue-violet);
+        color: #fff;
+        padding: 8px 16px;
+        border-radius: 0 0 8px 8px;
+        z-index: 100;
+        font-size: 14px;
+        font-weight: 600;
+        text-decoration: none;
+        transition: top 0.2s;
+      }
+      .skip-nav:focus {
+        top: 0;
+      }
+
+      /* Focus-visible styles */
+      a:focus-visible,
+      button:focus-visible {
+        outline: 2px solid var(--downy-teal);
+        outline-offset: 2px;
+      }
+
+      /* Skeleton animation */
+      .skeleton {
+        background: linear-gradient(
+          90deg,
+          rgba(255, 255, 255, 0.04) 25%,
+          rgba(255, 255, 255, 0.08) 50%,
+          rgba(255, 255, 255, 0.04) 75%
+        );
+        background-size: 200% 100%;
+        animation: shimmer 1.5s ease-in-out infinite;
+        border-radius: 4px;
+        display: inline-block;
+      }
+      .skeleton-line {
+        height: 14px;
+        width: 80%;
+        margin-bottom: 6px;
+      }
+      .skeleton-number {
+        height: 36px;
+        width: 120px;
+      }
+      .skeleton-bar {
+        height: 6px;
+        width: 100%;
+      }
+
+      @keyframes shimmer {
+        0% {
+          background-position: 200% 0;
+        }
+        100% {
+          background-position: -200% 0;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .skeleton {
+          animation: none;
+        }
+      }
+
       @media (max-width: 768px) {
         .grid {
           padding: 12px;
@@ -301,11 +369,17 @@
     </style>
   </head>
   <body>
-    <div class="top-bar">
+    <a href="#main-grid" class="skip-nav">Skip to dashboard content</a>
+    <div class="top-bar" role="banner">
       <div>
         <h1>Nova Health Dashboard</h1>
-        <div class="meta">
-          <span class="status-dot" id="liveDot"></span
+        <div class="meta" aria-live="polite">
+          <span
+            class="status-dot"
+            id="liveDot"
+            role="status"
+            aria-label="System connection status"
+          ></span
           ><span id="lastUpdate">Connecting...</span>
         </div>
       </div>
@@ -319,62 +393,94 @@
       </div>
     </div>
 
-    <div class="grid">
+    <div
+      class="grid"
+      id="main-grid"
+      role="region"
+      aria-label="Health metrics dashboard"
+    >
       <!-- System Status -->
-      <div class="card" id="cardStatus">
+      <div
+        class="card"
+        id="cardStatus"
+        role="region"
+        aria-label="System status"
+      >
         <div class="card-title">System Status</div>
-        <div class="big-number green" id="sysStatus">--</div>
-        <div class="sub-text" id="sysUptime">Uptime: --</div>
+        <div class="big-number green" id="sysStatus" aria-live="polite">
+          <span class="skeleton skeleton-number"></span>
+        </div>
+        <div class="sub-text" id="sysUptime" aria-live="polite">Uptime: --</div>
       </div>
 
       <!-- Error Rate -->
-      <div class="card">
+      <div class="card" role="region" aria-label="Error rate">
         <div class="card-title">Error Rate</div>
-        <div class="big-number green" id="errorRate">--%</div>
-        <div class="sub-text" id="errorCount">0 errors / 0 requests</div>
+        <div class="big-number green" id="errorRate" aria-live="polite">
+          <span class="skeleton skeleton-number"></span>
+        </div>
+        <div class="sub-text" id="errorCount" aria-live="polite">
+          0 errors / 0 requests
+        </div>
       </div>
 
       <!-- LLM Costs Today -->
-      <div class="card">
+      <div class="card" role="region" aria-label="LLM costs">
         <div class="card-title">LLM Costs Today</div>
-        <div class="big-number teal" id="llmCost">$--</div>
-        <div class="sub-text" id="llmRequests">-- requests</div>
+        <div class="big-number teal" id="llmCost" aria-live="polite">
+          <span class="skeleton skeleton-number"></span>
+        </div>
+        <div class="sub-text" id="llmRequests" aria-live="polite">
+          -- requests
+        </div>
       </div>
 
       <!-- Unread Insights -->
-      <div class="card">
+      <div class="card" role="region" aria-label="Proactive insights count">
         <div class="card-title">Proactive Insights</div>
-        <div class="big-number teal" id="insightCount">0</div>
-        <div class="sub-text" id="insightEngine">Engine: --</div>
+        <div class="big-number teal" id="insightCount" aria-live="polite">
+          <span class="skeleton skeleton-number"></span>
+        </div>
+        <div class="sub-text" id="insightEngine" aria-live="polite">
+          Engine: --
+        </div>
       </div>
 
       <!-- Avg Latency -->
-      <div class="card">
+      <div class="card" role="region" aria-label="Average latency">
         <div class="card-title">Avg Latency (P50)</div>
-        <div class="big-number green" id="latency">--ms</div>
-        <div class="sub-text" id="latencyP99">P99: --ms</div>
+        <div class="big-number green" id="latency" aria-live="polite">
+          <span class="skeleton skeleton-number"></span>
+        </div>
+        <div class="sub-text" id="latencyP99" aria-live="polite">P99: --ms</div>
       </div>
 
       <!-- Active Requests -->
-      <div class="card">
+      <div class="card" role="region" aria-label="Active requests">
         <div class="card-title">Active Requests</div>
-        <div class="big-number teal" id="activeReqs">0</div>
-        <div class="sub-text" id="totalReqs">Total served: --</div>
+        <div class="big-number teal" id="activeReqs" aria-live="polite">
+          <span class="skeleton skeleton-number"></span>
+        </div>
+        <div class="sub-text" id="totalReqs" aria-live="polite">
+          Total served: --
+        </div>
       </div>
 
       <!-- Module Health -->
-      <div class="card wide">
+      <div class="card wide" role="region" aria-label="Module health status">
         <div class="card-title">Module Health</div>
-        <div id="moduleHealth">
-          <div class="sub-text">Loading...</div>
+        <div id="moduleHealth" aria-live="polite">
+          <div class="skeleton skeleton-line"></div>
+          <div class="skeleton skeleton-line" style="width: 60%"></div>
+          <div class="skeleton skeleton-line" style="width: 70%"></div>
         </div>
       </div>
 
       <!-- LLM Provider Status -->
-      <div class="card wide">
+      <div class="card wide" role="region" aria-label="LLM provider status">
         <div class="card-title">LLM Provider Status</div>
         <div style="overflow-x: auto">
-          <table id="llmTable">
+          <table id="llmTable" aria-label="LLM provider status table">
             <thead>
               <tr>
                 <th>Provider</th>
@@ -383,9 +489,58 @@
                 <th>Avg Latency</th>
               </tr>
             </thead>
-            <tbody id="llmBody">
+            <tbody id="llmBody" aria-live="polite">
               <tr>
-                <td colspan="4" style="color: var(--text-dim)">Loading...</td>
+                <td>
+                  <span
+                    class="skeleton skeleton-line"
+                    style="width: 100px"
+                  ></span>
+                </td>
+                <td>
+                  <span
+                    class="skeleton skeleton-line"
+                    style="width: 50px"
+                  ></span>
+                </td>
+                <td>
+                  <span
+                    class="skeleton skeleton-line"
+                    style="width: 40px"
+                  ></span>
+                </td>
+                <td>
+                  <span
+                    class="skeleton skeleton-line"
+                    style="width: 60px"
+                  ></span>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <span
+                    class="skeleton skeleton-line"
+                    style="width: 80px"
+                  ></span>
+                </td>
+                <td>
+                  <span
+                    class="skeleton skeleton-line"
+                    style="width: 50px"
+                  ></span>
+                </td>
+                <td>
+                  <span
+                    class="skeleton skeleton-line"
+                    style="width: 40px"
+                  ></span>
+                </td>
+                <td>
+                  <span
+                    class="skeleton skeleton-line"
+                    style="width: 60px"
+                  ></span>
+                </td>
               </tr>
             </tbody>
           </table>
@@ -393,18 +548,21 @@
       </div>
 
       <!-- Recent Insights -->
-      <div class="card wide">
+      <div class="card wide" role="region" aria-label="Recent insights">
         <div class="card-title">Recent Insights</div>
-        <div class="insight-list" id="insightList">
-          <div class="sub-text">Loading...</div>
+        <div class="insight-list" id="insightList" aria-live="polite">
+          <div class="skeleton skeleton-line"></div>
+          <div class="skeleton skeleton-line" style="width: 90%"></div>
+          <div class="skeleton skeleton-line" style="width: 75%"></div>
         </div>
       </div>
 
       <!-- Dashboard Widgets -->
-      <div class="card wide">
+      <div class="card wide" role="region" aria-label="Dashboard widget data">
         <div class="card-title">Dashboard Widget Data</div>
-        <div id="widgetData">
-          <div class="sub-text">Loading...</div>
+        <div id="widgetData" aria-live="polite">
+          <div class="skeleton skeleton-line"></div>
+          <div class="skeleton skeleton-line" style="width: 60%"></div>
         </div>
       </div>
     </div>
