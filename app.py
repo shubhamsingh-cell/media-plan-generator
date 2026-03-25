@@ -7028,6 +7028,20 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             ]
             diag["required_bot_events"] = ["app_mention", "message.im"]
             self._send_json(diag)
+        elif path.startswith("/google") and path.endswith(".html") and len(path) < 60:
+            # Google Search Console verification file
+            verify_file = os.path.join(STATIC_DIR, path.lstrip("/"))
+            if os.path.isfile(verify_file):
+                with open(verify_file, "r") as f:
+                    content = f.read()
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html")
+                self.end_headers()
+                self.wfile.write(content.encode())
+            else:
+                self.send_error(404)
+            return
+
         elif path == "/robots.txt":
             robots_content = (
                 "User-agent: *\n"
