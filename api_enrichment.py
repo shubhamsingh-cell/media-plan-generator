@@ -13345,7 +13345,7 @@ def enrich_data(data: Dict[str, Any], request_id: str = "") -> Dict[str, Any]:
     # Inside each enrichment, a SINGLE ThreadPoolExecutor(max_workers=5) runs
     # the 30+ API tasks in parallel. This is NOT nesting -- the thread pool is
     # created fresh each time and torn down before the semaphore is released.
-    if not _enrichment_semaphore.acquire(timeout=120):  # 2-minute wait max
+    if not _enrichment_semaphore.acquire(timeout=20):  # 20-second wait max (was 120s)
         _log_warn(
             "enrich_data: too many concurrent enrichments, returning partial data"
         )

@@ -10014,28 +10014,32 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                 "Plan generation exceeded 2-minute time limit"
                             )
 
-                        # Enrichment -- wrapped in ThreadPoolExecutor with 25s hard timeout
-                        # to prevent indefinite blocking (root cause of async hang bug)
+                        # Enrichment -- ThreadPoolExecutor with 25s hard timeout.
+                        # CRITICAL: Do NOT use context manager (`with ... as pool:`)
+                        # because pool.shutdown(wait=True) blocks until thread completes,
+                        # defeating the timeout. Instead, create pool, submit, get result,
+                        # and shutdown(wait=False) to avoid blocking on semaphore.
                         enriched = {}
                         if enrich_data is not None:
+                            _enrich_pool = ThreadPoolExecutor(
+                                max_workers=1, thread_name_prefix="async-enrich"
+                            )
                             try:
-                                with ThreadPoolExecutor(
-                                    max_workers=1, thread_name_prefix="async-enrich"
-                                ) as _enrich_pool:
-                                    _enrich_future = (
-                                        _enrich_pool.submit(
-                                            enrich_data, gen_data, request_id=rid
-                                        )
-                                        if rid
-                                        else _enrich_pool.submit(enrich_data, gen_data)
+                                _enrich_future = (
+                                    _enrich_pool.submit(
+                                        enrich_data, gen_data, request_id=rid
                                     )
-                                    enriched = _enrich_future.result(timeout=25) or {}
+                                    if rid
+                                    else _enrich_pool.submit(enrich_data, gen_data)
+                                )
+                                enriched = _enrich_future.result(timeout=25) or {}
                                 gen_data["_enriched"] = enriched
                             except FuturesTimeoutError:
                                 logger.error(
-                                    "Async enrichment timed out after 25s for job %s",
+                                    "Async enrichment timed out after 25s for job %s -- continuing with empty data",
                                     jid,
                                 )
+                                _enrich_future.cancel()
                                 gen_data["_enriched"] = {}
                             except Exception:
                                 logger.error(
@@ -10044,6 +10048,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                     exc_info=True,
                                 )
                                 gen_data["_enriched"] = {}
+                            finally:
+                                # shutdown(wait=False) does NOT block on running threads
+                                _enrich_pool.shutdown(wait=False, cancel_futures=True)
                         else:
                             gen_data["_enriched"] = {}
 
