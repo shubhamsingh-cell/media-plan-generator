@@ -7064,15 +7064,51 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             self.wfile.write(robots_content.encode("utf-8"))
         elif path == "/sitemap.xml":
             _today = datetime.date.today().isoformat()
+            _BASE = "https://media-plan-generator.onrender.com"
+            # All public product pages with SEO priority
+            _SITEMAP_PAGES: list[tuple[str, str, str]] = [
+                ("/", "1.0", "weekly"),
+                ("/platform", "0.9", "weekly"),
+                ("/nova", "0.9", "weekly"),
+                ("/media-plan", "0.9", "weekly"),
+                ("/competitive-intel", "0.8", "weekly"),
+                ("/market-pulse", "0.8", "weekly"),
+                ("/market-intel", "0.8", "weekly"),
+                ("/vendor-iq", "0.8", "weekly"),
+                ("/talent-heatmap", "0.8", "weekly"),
+                ("/hire-signal", "0.8", "weekly"),
+                ("/payscale-sync", "0.8", "weekly"),
+                ("/skill-target", "0.8", "weekly"),
+                ("/applyflow", "0.7", "weekly"),
+                ("/compliance-guard", "0.8", "weekly"),
+                ("/audit", "0.7", "weekly"),
+                ("/budget-simulator", "0.7", "weekly"),
+                ("/roi-calculator", "0.7", "weekly"),
+                ("/performance-tracker", "0.7", "weekly"),
+                ("/post-campaign", "0.7", "weekly"),
+                ("/quick-plan", "0.7", "weekly"),
+                ("/quick-brief", "0.7", "weekly"),
+                ("/social-plan", "0.7", "weekly"),
+                ("/creative-ai", "0.7", "weekly"),
+                ("/ab-testing", "0.7", "weekly"),
+                ("/pricing", "0.6", "monthly"),
+                ("/privacy", "0.3", "monthly"),
+                ("/terms", "0.3", "monthly"),
+            ]
+            _url_entries = ""
+            for _pg_path, _pg_prio, _pg_freq in _SITEMAP_PAGES:
+                _url_entries += (
+                    f"  <url>\n"
+                    f"    <loc>{_BASE}{_pg_path}</loc>\n"
+                    f"    <lastmod>{_today}</lastmod>\n"
+                    f"    <changefreq>{_pg_freq}</changefreq>\n"
+                    f"    <priority>{_pg_prio}</priority>\n"
+                    f"  </url>\n"
+                )
             sitemap_content = (
                 '<?xml version="1.0" encoding="UTF-8"?>\n'
                 '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
-                "  <url>\n"
-                "    <loc>https://media-plan-generator.onrender.com/</loc>\n"
-                f"    <lastmod>{_today}</lastmod>\n"
-                "    <changefreq>weekly</changefreq>\n"
-                "    <priority>1.0</priority>\n"
-                "  </url>\n"
+                f"{_url_entries}"
                 "</urlset>\n"
             )
             self.send_response(200)

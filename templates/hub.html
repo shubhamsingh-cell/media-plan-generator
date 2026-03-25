@@ -1910,7 +1910,7 @@
       }
       .widget-badge--blue {
         background: rgba(90, 84, 189, 0.15);
-        color: #7b75d4;
+        color: #a9a4e8;
       }
       .widget-badge--green {
         background: rgba(34, 197, 94, 0.15);
@@ -1936,7 +1936,7 @@
       }
       .widget-sub {
         font-size: 13px;
-        color: var(--text-muted);
+        color: var(--text-secondary);
       }
       .widget-meter {
         height: 4px;
@@ -2765,7 +2765,7 @@
     </script>
   </head>
   <body>
-    <a href="#platform" class="skip-nav">Skip to main content</a>
+    <a href="#main-content" class="skip-nav">Skip to main content</a>
 
     <div class="bg-mesh" aria-hidden="true">
       <div class="aurora-layer aurora-1" aria-hidden="true"></div>
@@ -2811,64 +2811,1002 @@
       </div>
     </nav>
 
-    <!-- ========================================== -->
-    <!-- SECTION 1: HERO (split layout)             -->
-    <!-- ========================================== -->
-    <section class="hero" role="banner" aria-label="Hero">
-      <div class="ambient-glow ambient-glow--violet" aria-hidden="true"></div>
-      <div class="ambient-glow ambient-glow--teal" aria-hidden="true"></div>
-      <div class="ambient-glow ambient-glow--deep" aria-hidden="true"></div>
+    <main id="main-content" role="main">
+      <!-- ========================================== -->
+      <!-- SECTION 1: HERO (split layout)             -->
+      <!-- ========================================== -->
+      <section class="hero" role="banner" aria-label="Hero">
+        <div class="ambient-glow ambient-glow--violet" aria-hidden="true"></div>
+        <div class="ambient-glow ambient-glow--teal" aria-hidden="true"></div>
+        <div class="ambient-glow ambient-glow--deep" aria-hidden="true"></div>
 
-      <div class="hero-text">
-        <h1 class="streaming-text" data-streaming>
-          The AI Platform for Recruitment Advertising
-        </h1>
+        <div class="hero-text">
+          <h1 class="streaming-text" data-streaming>
+            The AI Platform for Recruitment Advertising
+          </h1>
 
-        <p class="hero-subline">
-          Plan smarter. Optimize budgets. Hire faster. Three AI-powered
-          products, one platform.
-        </p>
+          <p class="hero-subline">
+            Plan smarter. Optimize budgets. Hire faster. Three AI-powered
+            products, one platform.
+          </p>
 
-        <p
-          style="
-            font-size: 14px;
-            color: rgba(255, 255, 255, 0.5);
-            margin-top: -4px;
-            margin-bottom: 16px;
-          "
-        >
-          &#10022; The only media planning platform built exclusively for
-          recruitment advertising.
-        </p>
+          <p
+            style="
+              font-size: 14px;
+              color: rgba(255, 255, 255, 0.5);
+              margin-top: -4px;
+              margin-bottom: 16px;
+            "
+          >
+            &#10022; The only media planning platform built exclusively for
+            recruitment advertising.
+          </p>
 
-        <div class="hero-stats-row">
-          <div class="hero-stat-pill">
-            <span class="hero-stat-num" data-hero-counter data-target="3"
-              >0</span
-            >
-            <span class="hero-stat-suffix"></span>
-            <span>Products</span>
+          <div class="hero-stats-row">
+            <div class="hero-stat-pill">
+              <span class="hero-stat-num" data-hero-counter data-target="3"
+                >0</span
+              >
+              <span class="hero-stat-suffix"></span>
+              <span>Products</span>
+            </div>
+            <div class="hero-stat-pill">
+              <span class="hero-stat-num" data-hero-counter data-target="91"
+                >0</span
+              >
+              <span class="hero-stat-suffix">+</span>
+              <span>Job Boards</span>
+            </div>
+            <div class="hero-stat-pill">
+              <span style="font-size: 1rem; margin-right: 2px">&#10022;</span>
+              <span>AI-Powered</span>
+            </div>
           </div>
-          <div class="hero-stat-pill">
-            <span class="hero-stat-num" data-hero-counter data-target="91"
-              >0</span
+
+          <div class="hero-cta-row">
+            <a
+              href="/media-plan"
+              class="btn-primary cta-btn"
+              aria-label="Generate a media plan"
             >
-            <span class="hero-stat-suffix">+</span>
-            <span>Job Boards</span>
+              Generate a Media Plan
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                aria-hidden="true"
+              >
+                <path d="M5 12h14" />
+                <path d="M12 5l7 7-7 7" />
+              </svg>
+            </a>
+            <a
+              href="/platform"
+              class="btn-secondary"
+              aria-label="Open the platform"
+              >Open Platform</a
+            >
           </div>
-          <div class="hero-stat-pill">
-            <span style="font-size: 1rem; margin-right: 2px">&#10022;</span>
-            <span>AI-Powered</span>
+          <div class="confidence-signals">
+            <span>Takes &lt;30 seconds</span>
+            <span class="conf-dot"></span>
+            <span>Based on real campaign data</span>
+            <span class="conf-dot"></span>
+            <span>Free tools available without signup</span>
           </div>
         </div>
 
-        <div class="hero-cta-row">
-          <a
-            href="/media-plan"
-            class="btn-primary cta-btn"
-            aria-label="Generate a media plan"
+        <div class="hero-dashboard" aria-hidden="true">
+          <div class="dash-window">
+            <div class="dash-titlebar">
+              <span class="dash-dot red"></span>
+              <span class="dash-dot yellow"></span>
+              <span class="dash-dot green"></span>
+              <span class="dash-title">Nova AI &#8212; Media Plan</span>
+            </div>
+            <div class="dash-body">
+              <div class="dash-metrics">
+                <div class="dash-metric">
+                  <div class="dash-metric-label">Total Budget</div>
+                  <div
+                    class="dash-metric-value"
+                    data-counter
+                    data-target="50000"
+                    data-prefix="$"
+                  >
+                    $0
+                  </div>
+                </div>
+                <div class="dash-metric">
+                  <div class="dash-metric-label">Avg CPC</div>
+                  <div
+                    class="dash-metric-value"
+                    data-counter
+                    data-target="2.41"
+                    data-prefix="$"
+                    data-decimals="2"
+                  >
+                    $0
+                  </div>
+                </div>
+                <div class="dash-metric">
+                  <div class="dash-metric-label">Applications</div>
+                  <div class="dash-metric-value" data-counter data-target="847">
+                    0
+                  </div>
+                </div>
+                <div class="dash-metric">
+                  <div class="dash-metric-label">Quality Score</div>
+                  <div
+                    class="dash-metric-value"
+                    data-counter
+                    data-target="92"
+                    data-suffix="%"
+                  >
+                    0%
+                  </div>
+                </div>
+              </div>
+              <div class="dash-chart">
+                <div class="dash-chart-title">Budget Allocation</div>
+                <div class="dash-bar-row">
+                  <span class="dash-bar-label">Indeed</span>
+                  <div class="dash-bar-track">
+                    <div
+                      class="dash-bar-fill"
+                      style="--bar-width: 72%; --bar-color: #5a54bd"
+                    ></div>
+                  </div>
+                  <span class="dash-bar-value">$18,000</span>
+                </div>
+                <div class="dash-bar-row">
+                  <span class="dash-bar-label">LinkedIn</span>
+                  <div class="dash-bar-track">
+                    <div
+                      class="dash-bar-fill"
+                      style="--bar-width: 55%; --bar-color: #06b6d4"
+                    ></div>
+                  </div>
+                  <span class="dash-bar-value">$13,750</span>
+                </div>
+                <div class="dash-bar-row">
+                  <span class="dash-bar-label">ZipRecruiter</span>
+                  <div class="dash-bar-track">
+                    <div
+                      class="dash-bar-fill"
+                      style="--bar-width: 38%; --bar-color: #22c55e"
+                    ></div>
+                  </div>
+                  <span class="dash-bar-value">$9,500</span>
+                </div>
+                <div class="dash-bar-row">
+                  <span class="dash-bar-label">Glassdoor</span>
+                  <div class="dash-bar-track">
+                    <div
+                      class="dash-bar-fill"
+                      style="--bar-width: 25%; --bar-color: #f59e0b"
+                    ></div>
+                  </div>
+                  <span class="dash-bar-value">$6,250</span>
+                </div>
+              </div>
+              <div class="dash-table">
+                <div class="dash-table-header">
+                  <span>Channel</span><span>CPC</span><span>CPA</span
+                  ><span>Score</span>
+                </div>
+                <div class="dash-table-row">
+                  <span>Indeed</span><span>$1.82</span><span>$24</span
+                  ><span class="score-good">A+</span>
+                </div>
+                <div class="dash-table-row">
+                  <span>LinkedIn</span><span>$3.45</span><span>$38</span
+                  ><span class="score-ok">B+</span>
+                </div>
+                <div class="dash-table-row">
+                  <span>ZipRecruiter</span><span>$2.10</span><span>$28</span
+                  ><span class="score-good">A</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================== -->
+      <!-- STATS BAR                                  -->
+      <!-- ========================================== -->
+      <div
+        class="stats-bar reveal-on-scroll"
+        role="region"
+        aria-label="Platform statistics"
+      >
+        <div class="stats-bar-inner">
+          <div class="stats-bar-item">
+            <span class="stats-bar-num" data-counter data-target="25">0</span>
+            <span class="stats-bar-label">AI Models</span>
+          </div>
+          <div class="stats-bar-item">
+            <span class="stats-bar-num" data-counter data-target="33">0</span>
+            <span class="stats-bar-label">Tools</span>
+          </div>
+          <div class="stats-bar-item">
+            <span class="stats-bar-num" data-counter data-target="8">0</span>
+            <span class="stats-bar-label">Live APIs</span>
+          </div>
+          <div class="stats-bar-item">
+            <span class="stats-bar-num" data-counter data-target="17">0</span>
+            <span class="stats-bar-label">Data Sources</span>
+          </div>
+        </div>
+      </div>
+
+      <hr class="section-divider" />
+
+      <!-- ========================================== -->
+      <!-- SECTION 1b: WHAT YOU GET                   -->
+      <!-- ========================================== -->
+      <section
+        class="outcomes-section"
+        aria-label="What You Get"
+        style="padding: 96px 24px 48px"
+      >
+        <div class="container">
+          <div class="section-header reveal-on-scroll">
+            <div class="section-label">What You Get</div>
+            <h2 class="section-title">AI-powered answers in seconds</h2>
+          </div>
+          <div class="outcomes-grid">
+            <a
+              href="/media-plan"
+              class="outcome-card reveal-on-scroll stagger-1"
+              style="border-left: 3px solid #5a54bd"
+            >
+              <div
+                class="outcome-icon"
+                style="background: rgba(90, 84, 189, 0.12); color: #5a54bd"
+              >
+                <svg
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M3 3h18v18H3z" />
+                  <path d="M3 9h18" />
+                  <path d="M9 21V9" />
+                </svg>
+              </div>
+              <h3>Channel Mix</h3>
+              <p>
+                Where to spend across 91+ job boards for maximum reach and
+                quality.
+              </p>
+            </a>
+            <a
+              href="/simulator"
+              class="outcome-card reveal-on-scroll stagger-2"
+              style="border-left: 3px solid #22c55e"
+            >
+              <div
+                class="outcome-icon"
+                style="background: rgba(34, 197, 94, 0.12); color: #22c55e"
+              >
+                <svg
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M12 2a10 10 0 0 1 0 20" />
+                  <path d="M12 2v10l7 4" />
+                </svg>
+              </div>
+              <h3>Budget Allocation</h3>
+              <p>
+                How much per platform, optimized for cost-per-hire, not clicks.
+              </p>
+            </a>
+            <a
+              href="/media-plan"
+              class="outcome-card reveal-on-scroll stagger-3"
+              style="border-left: 3px solid #06b6d4"
+            >
+              <div
+                class="outcome-icon"
+                style="background: rgba(6, 182, 212, 0.12); color: #06b6d4"
+              >
+                <svg
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+                </svg>
+              </div>
+              <h3>Funnel Forecast</h3>
+              <p>
+                Projected impressions, applications, and hires based on real
+                benchmarks.
+              </p>
+            </a>
+            <a
+              href="/creative-ai"
+              class="outcome-card reveal-on-scroll stagger-4"
+              style="border-left: 3px solid #f59e0b"
+            >
+              <div
+                class="outcome-icon"
+                style="background: rgba(245, 158, 11, 0.12); color: #f59e0b"
+              >
+                <svg
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M12 20h9" />
+                  <path
+                    d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"
+                  />
+                </svg>
+              </div>
+              <h3>Creative Strategy</h3>
+              <p>
+                What messaging works for your role, industry, and target
+                audience.
+              </p>
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================== -->
+      <!-- SECTION 1c: USE CASES                      -->
+      <!-- ========================================== -->
+      <section
+        class="usecases-section"
+        aria-label="Use Cases"
+        style="padding: 64px 24px"
+      >
+        <div class="container">
+          <div class="section-header reveal-on-scroll">
+            <div class="section-label">Built For</div>
+            <div class="section-title">Every hiring scenario</div>
+          </div>
+          <div class="usecases-grid">
+            <div class="usecase-card reveal-on-scroll">
+              <div class="usecase-icon">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#5a54bd"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                </svg>
+              </div>
+              <div class="usecase-text">
+                <strong>High-Volume Hiring</strong>
+                <span
+                  >BPO, logistics, retail -- thousands of roles optimized at
+                  once</span
+                >
+              </div>
+            </div>
+            <div class="usecase-card reveal-on-scroll">
+              <div class="usecase-icon">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#06b6d4"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polyline points="16 18 22 12 16 6" />
+                  <polyline points="8 6 2 12 8 18" />
+                  <line x1="14" y1="4" x2="10" y2="20" />
+                </svg>
+              </div>
+              <div class="usecase-text">
+                <strong>Tech Hiring</strong>
+                <span
+                  >Engineers, product, data -- reach passive candidates
+                  effectively</span
+                >
+              </div>
+            </div>
+            <div class="usecase-card reveal-on-scroll">
+              <div class="usecase-icon">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#f59e0b"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path
+                    d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"
+                  />
+                </svg>
+              </div>
+              <div class="usecase-text">
+                <strong>Blue-Collar Roles</strong>
+                <span
+                  >Drivers, warehouse, field -- high-volume at lowest
+                  cost-per-hire</span
+                >
+              </div>
+            </div>
+            <div class="usecase-card reveal-on-scroll">
+              <div class="usecase-icon">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#22c55e"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="2" y1="12" x2="22" y2="12" />
+                  <path
+                    d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"
+                  />
+                </svg>
+              </div>
+              <div class="usecase-text">
+                <strong>Multi-Location Hiring</strong>
+                <span
+                  >Global campaigns with location-specific budget
+                  optimization</span
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================== -->
+      <!-- SECTION 1d: WHY THIS IS DIFFERENT          -->
+      <!-- ========================================== -->
+      <section
+        class="differentiator-section"
+        aria-label="Why Nova AI"
+        style="padding: 64px 24px"
+      >
+        <div class="container" style="max-width: 960px">
+          <div
+            class="section-header reveal-on-scroll"
+            style="text-align: center"
           >
-            Generate a Media Plan
+            <div class="section-label">Why Nova AI</div>
+            <div class="section-title">
+              Built for recruitment, not generic marketing
+            </div>
+          </div>
+          <div class="diff-layout reveal-on-scroll">
+            <div class="diff-list">
+              <div class="diff-item">
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#22c55e"
+                  stroke-width="2.5"
+                >
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                <span
+                  >Optimized for cost-per-hire and quality-of-hire, not vanity
+                  clicks</span
+                >
+              </div>
+              <div class="diff-item">
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#22c55e"
+                  stroke-width="2.5"
+                >
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                <span
+                  >Uses real hiring performance patterns across 91+ job
+                  boards</span
+                >
+              </div>
+              <div class="diff-item">
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#22c55e"
+                  stroke-width="2.5"
+                >
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                <span>25 real-time API integrations for live market data</span>
+              </div>
+              <div class="diff-item">
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#22c55e"
+                  stroke-width="2.5"
+                >
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                <span
+                  >Built by recruitment marketing practitioners, not generic
+                  AI</span
+                >
+              </div>
+            </div>
+            <div class="diff-code-card">
+              <div class="diff-code-titlebar">
+                <span class="dc-dot" style="background: #ff5f56"></span>
+                <span class="dc-dot" style="background: #ffbd2e"></span>
+                <span class="dc-dot" style="background: #27c93f"></span>
+                <span>nova_ai_output.json</span>
+              </div>
+              <div class="diff-code-body">
+                { <span class="ck">"recommended_channel"</span>:
+                <span class="cv">"Indeed"</span>,
+                <span class="ck">"budget_allocation"</span>:
+                <span class="cv">"38%"</span>,
+                <span class="ck">"predicted_cpa"</span>:
+                <span class="cv">"$22.50"</span>,
+                <span class="ck">"confidence"</span>:
+                <span class="cv">"high"</span> }
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+      <hr class="section-divider" />
+
+      <!-- ══════════════════════════════════════════════════════════════
+     SECTION: LIVE DASHBOARD WIDGETS
+     ══════════════════════════════════════════════════════════════ -->
+      <section
+        class="live-dashboard"
+        id="live-dashboard"
+        aria-label="Live Dashboard"
+      >
+        <div class="container">
+          <div class="platform-header">
+            <span class="section-eyebrow reveal">Live Platform Health</span>
+            <h2 class="reveal">Real-Time Intelligence Dashboard</h2>
+            <p class="section-sub reveal">
+              Live metrics from your campaigns, market signals, and compliance
+              checks.
+            </p>
+          </div>
+          <div class="widget-grid" id="widget-grid">
+            <div class="widget-card reveal" id="w-campaigns">
+              <div class="widget-header">
+                <span class="widget-label">Active Campaigns</span>
+                <span class="widget-badge widget-badge--blue">Live</span>
+              </div>
+              <div class="widget-value" id="w-campaigns-value">--</div>
+              <div class="widget-sub" id="w-campaigns-sub">Loading...</div>
+            </div>
+            <div class="widget-card reveal" id="w-budget">
+              <div class="widget-header">
+                <span class="widget-label">Budget Health</span>
+                <span
+                  class="widget-badge widget-badge--green"
+                  id="w-budget-badge"
+                  >Healthy</span
+                >
+              </div>
+              <div class="widget-value" id="w-budget-value">--</div>
+              <div class="widget-sub" id="w-budget-sub">Loading...</div>
+              <div class="widget-meter">
+                <div class="widget-meter-fill" id="w-budget-meter"></div>
+              </div>
+            </div>
+            <div class="widget-card reveal" id="w-market">
+              <div class="widget-header">
+                <span class="widget-label">Market Signals</span>
+                <span
+                  class="widget-badge widget-badge--teal"
+                  id="w-market-badge"
+                  >Stable</span
+                >
+              </div>
+              <div
+                class="widget-value"
+                id="w-market-value"
+                style="font-size: 1.5rem"
+              >
+                --
+              </div>
+              <div class="widget-sub" id="w-market-sub">
+                Labor market trends steady
+              </div>
+            </div>
+            <div class="widget-card reveal" id="w-compliance">
+              <div class="widget-header">
+                <span class="widget-label">Compliance Score</span>
+                <div class="widget-ring" id="w-compliance-ring">
+                  <svg viewBox="0 0 48 48">
+                    <circle
+                      cx="24"
+                      cy="24"
+                      r="18"
+                      fill="none"
+                      stroke="rgba(255,255,255,0.06)"
+                      stroke-width="4"
+                    />
+                    <circle
+                      id="w-compliance-arc"
+                      cx="24"
+                      cy="24"
+                      r="18"
+                      fill="none"
+                      stroke="var(--success)"
+                      stroke-width="4"
+                      stroke-linecap="round"
+                      stroke-dasharray="113.1"
+                      stroke-dashoffset="113.1"
+                    />
+                  </svg>
+                  <span class="widget-ring-label" id="w-compliance-score"
+                    >--</span
+                  >
+                </div>
+              </div>
+              <div class="widget-sub" id="w-compliance-sub">Loading...</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <hr class="section-divider" />
+
+      <!-- ========================================== -->
+      <!-- SECTION 2: LOGO MARQUEE (trust bar)        -->
+      <!-- ========================================== -->
+      <section
+        class="trust-bar page-section reveal-on-scroll"
+        role="marquee"
+        aria-label="Trusted by enterprise teams"
+      >
+        <div class="trust-bar-label">
+          Trusted by enterprise recruitment teams worldwide
+        </div>
+        <div class="marquee-wrap">
+          <div class="marquee">
+            <div class="marquee-item">
+              <span class="mi-name">Barclays</span>
+            </div>
+            <div class="marquee-item">
+              <span class="mi-name">Wells Fargo</span>
+            </div>
+            <div class="marquee-item"><span class="mi-name">Philips</span></div>
+            <div class="marquee-item">
+              <span class="mi-name">Randstad</span>
+            </div>
+            <div class="marquee-item"><span class="mi-name">ING</span></div>
+            <div class="marquee-item">
+              <span class="mi-name">Adecco Group</span>
+            </div>
+            <div class="marquee-item">
+              <span class="mi-name">HCA Healthcare</span>
+            </div>
+            <div class="marquee-item">
+              <span class="mi-name">Korn Ferry</span>
+            </div>
+            <div class="marquee-item">
+              <span class="mi-name">Pizza Hut</span>
+            </div>
+            <div class="marquee-item">
+              <span class="mi-name">Circle K</span>
+            </div>
+            <div class="marquee-item">
+              <span class="mi-name">Johnson &amp; Johnson</span>
+            </div>
+            <div class="marquee-item">
+              <span class="mi-name">HealthTrust</span>
+            </div>
+            <!-- Duplicate set for seamless loop — hidden from screen readers -->
+            <div class="marquee-item" aria-hidden="true">
+              <span class="mi-name">Barclays</span>
+            </div>
+            <div class="marquee-item" aria-hidden="true">
+              <span class="mi-name">Wells Fargo</span>
+            </div>
+            <div class="marquee-item" aria-hidden="true">
+              <span class="mi-name">Philips</span>
+            </div>
+            <div class="marquee-item" aria-hidden="true">
+              <span class="mi-name">Randstad</span>
+            </div>
+            <div class="marquee-item" aria-hidden="true">
+              <span class="mi-name">ING</span>
+            </div>
+            <div class="marquee-item" aria-hidden="true">
+              <span class="mi-name">Adecco Group</span>
+            </div>
+            <div class="marquee-item" aria-hidden="true">
+              <span class="mi-name">HCA Healthcare</span>
+            </div>
+            <div class="marquee-item" aria-hidden="true">
+              <span class="mi-name">Korn Ferry</span>
+            </div>
+            <div class="marquee-item" aria-hidden="true">
+              <span class="mi-name">Pizza Hut</span>
+            </div>
+            <div class="marquee-item" aria-hidden="true">
+              <span class="mi-name">Circle K</span>
+            </div>
+            <div class="marquee-item" aria-hidden="true">
+              <span class="mi-name">Johnson &amp; Johnson</span>
+            </div>
+            <div class="marquee-item" aria-hidden="true">
+              <span class="mi-name">HealthTrust</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================== -->
+      <!-- SOCIAL PROOF                               -->
+      <!-- ========================================== -->
+      <section class="social-proof reveal-on-scroll" aria-label="Social proof">
+        <div class="social-proof-label">Trusted by recruitment teams at</div>
+        <div class="social-proof-logos">
+          <div class="proof-logo" aria-label="Barclays">Barclays</div>
+          <div class="proof-logo" aria-label="Randstad">Randstad</div>
+          <div class="proof-logo" aria-label="Korn Ferry">Korn Ferry</div>
+          <div class="proof-logo" aria-label="Adecco Group">Adecco Group</div>
+          <div class="proof-logo" aria-label="HCA Healthcare">
+            HCA Healthcare
+          </div>
+          <div class="proof-logo" aria-label="Wells Fargo">Wells Fargo</div>
+        </div>
+      </section>
+
+      <hr class="section-divider" />
+
+      <!-- ========================================== -->
+      <!-- SECTION 4: PLATFORM (3-product showcase)  -->
+      <!-- ========================================== -->
+      <section
+        class="platform-section page-section"
+        id="platform"
+        aria-label="Products"
+      >
+        <div class="container">
+          <div class="platform-header">
+            <span class="section-eyebrow reveal">The Platform</span>
+            <h2 class="reveal">Three products. One intelligence layer.</h2>
+            <p class="section-sub reveal">
+              Everything a recruitment marketing team needs, organized into
+              three focused products powered by Nova AI.
+            </p>
+          </div>
+
+          <div class="products-trio reveal">
+            <!-- PLAN -->
+            <a
+              href="/platform#plan/campaign"
+              class="product-hero-card product-plan"
+            >
+              <div class="product-hero-icon">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <rect x="3" y="3" width="18" height="18" rx="2" />
+                  <path d="M3 9h18" />
+                  <path d="M9 21V9" />
+                </svg>
+              </div>
+              <div class="product-hero-badge">4 tools</div>
+              <h3>Plan</h3>
+              <p>
+                Campaign planning, budget optimization, social strategy, and A/B
+                testing. From brief to launch in minutes.
+              </p>
+              <div class="product-hero-tools">
+                <span>Campaign Planner</span>
+                <span>Budget &amp; Performance</span>
+                <span>Social &amp; Creative</span>
+                <span>A/B Testing Lab</span>
+              </div>
+              <div class="product-hero-cta">
+                Open Plan
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  width="16"
+                  height="16"
+                >
+                  <path d="M5 12h14M12 5l7 7-7 7" />
+                </svg>
+              </div>
+            </a>
+
+            <!-- INTELLIGENCE -->
+            <a
+              href="/platform#intelligence/competitive"
+              class="product-hero-card product-intelligence"
+            >
+              <div class="product-hero-icon">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+                </svg>
+              </div>
+              <div class="product-hero-badge">4 tools</div>
+              <h3>Intelligence</h3>
+              <p>
+                Competitive monitoring, market pulse, vendor analysis, and
+                talent intelligence. Real-time data from 8 live APIs.
+              </p>
+              <div class="product-hero-tools">
+                <span>Competitive Intel</span>
+                <span>Market Pulse</span>
+                <span>Vendor IQ</span>
+                <span>Talent Intelligence</span>
+              </div>
+              <div class="product-hero-cta">
+                Open Intelligence
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  width="16"
+                  height="16"
+                >
+                  <path d="M5 12h14M12 5l7 7-7 7" />
+                </svg>
+              </div>
+            </a>
+
+            <!-- COMPLIANCE -->
+            <a
+              href="/platform#compliance/comply"
+              class="product-hero-card product-compliance"
+            >
+              <div class="product-hero-icon">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                </svg>
+              </div>
+              <div class="product-hero-badge">2 tools</div>
+              <h3>Compliance</h3>
+              <p>
+                Regulatory compliance checks, ad copy audits, and bias
+                detection. Stay compliant across every jurisdiction.
+              </p>
+              <div class="product-hero-tools">
+                <span>ComplianceGuard</span>
+                <span>Ad Audit</span>
+              </div>
+              <div class="product-hero-cta">
+                Open Compliance
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  width="16"
+                  height="16"
+                >
+                  <path d="M5 12h14M12 5l7 7-7 7" />
+                </svg>
+              </div>
+            </a>
+          </div>
+
+          <!-- Nova AI Banner -->
+          <div class="nova-banner reveal">
+            <div class="nova-banner-content">
+              <div class="nova-banner-icon">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                >
+                  <path
+                    d="M12 2a7 7 0 0 1 7 7c0 3-2 5.5-4 7l-1 4h-4l-1-4c-2-1.5-4-4-4-7a7 7 0 0 1 7-7z"
+                  />
+                  <line x1="10" y1="22" x2="14" y2="22" />
+                </svg>
+              </div>
+              <div>
+                <h3>Nova AI runs across everything</h3>
+                <p>
+                  33 tools, 24 LLM providers, 8 live data APIs. Ask anything
+                  about recruitment advertising.
+                </p>
+              </div>
+            </div>
+            <a href="/platform" class="nova-banner-btn">Try Nova AI</a>
+          </div>
+        </div>
+      </section>
+
+      <hr class="section-divider" />
+
+      <!-- ========================================== -->
+      <!-- SECTION 8: CTA                             -->
+      <!-- ========================================== -->
+      <section class="cta-section page-section" aria-label="Call to action">
+        <div class="cta-card reveal-on-scroll">
+          <div
+            style="
+              font-size: 1.6rem;
+              margin-bottom: 20px;
+              color: var(--accent-light);
+              opacity: 0.8;
+            "
+            aria-hidden="true"
+          >
+            &#10022;
+          </div>
+          <h3 style="color: #ffffff; -webkit-text-fill-color: #ffffff">
+            Ready to transform your recruitment advertising?
+          </h3>
+          <p>
+            Start with the Media Plan Generator, or explore the full platform of
+            AI-powered products.
+          </p>
+          <a href="/media-plan" class="cta-btn">
+            Generate Your First Plan
             <svg
               width="16"
               height="16"
@@ -2877,938 +3815,35 @@
               stroke="currentColor"
               stroke-width="2"
               stroke-linecap="round"
-              aria-hidden="true"
             >
               <path d="M5 12h14" />
               <path d="M12 5l7 7-7 7" />
             </svg>
           </a>
           <a
-            href="/platform"
-            class="btn-secondary"
-            aria-label="Open the platform"
-            >Open Platform</a
+            href="/#platform"
+            style="
+              color: #9ca3af;
+              font-size: 0.85rem;
+              margin-top: 12px;
+              display: inline-block;
+              text-decoration: none;
+            "
+            >Explore the platform &rarr;</a
           >
-        </div>
-        <div class="confidence-signals">
-          <span>Takes &lt;30 seconds</span>
-          <span class="conf-dot"></span>
-          <span>Based on real campaign data</span>
-          <span class="conf-dot"></span>
-          <span>Free tools available without signup</span>
-        </div>
-      </div>
-
-      <div class="hero-dashboard" aria-hidden="true">
-        <div class="dash-window">
-          <div class="dash-titlebar">
-            <span class="dash-dot red"></span>
-            <span class="dash-dot yellow"></span>
-            <span class="dash-dot green"></span>
-            <span class="dash-title">Nova AI &#8212; Media Plan</span>
-          </div>
-          <div class="dash-body">
-            <div class="dash-metrics">
-              <div class="dash-metric">
-                <div class="dash-metric-label">Total Budget</div>
-                <div
-                  class="dash-metric-value"
-                  data-counter
-                  data-target="50000"
-                  data-prefix="$"
-                >
-                  $0
-                </div>
-              </div>
-              <div class="dash-metric">
-                <div class="dash-metric-label">Avg CPC</div>
-                <div
-                  class="dash-metric-value"
-                  data-counter
-                  data-target="2.41"
-                  data-prefix="$"
-                  data-decimals="2"
-                >
-                  $0
-                </div>
-              </div>
-              <div class="dash-metric">
-                <div class="dash-metric-label">Applications</div>
-                <div class="dash-metric-value" data-counter data-target="847">
-                  0
-                </div>
-              </div>
-              <div class="dash-metric">
-                <div class="dash-metric-label">Quality Score</div>
-                <div
-                  class="dash-metric-value"
-                  data-counter
-                  data-target="92"
-                  data-suffix="%"
-                >
-                  0%
-                </div>
-              </div>
-            </div>
-            <div class="dash-chart">
-              <div class="dash-chart-title">Budget Allocation</div>
-              <div class="dash-bar-row">
-                <span class="dash-bar-label">Indeed</span>
-                <div class="dash-bar-track">
-                  <div
-                    class="dash-bar-fill"
-                    style="--bar-width: 72%; --bar-color: #5a54bd"
-                  ></div>
-                </div>
-                <span class="dash-bar-value">$18,000</span>
-              </div>
-              <div class="dash-bar-row">
-                <span class="dash-bar-label">LinkedIn</span>
-                <div class="dash-bar-track">
-                  <div
-                    class="dash-bar-fill"
-                    style="--bar-width: 55%; --bar-color: #06b6d4"
-                  ></div>
-                </div>
-                <span class="dash-bar-value">$13,750</span>
-              </div>
-              <div class="dash-bar-row">
-                <span class="dash-bar-label">ZipRecruiter</span>
-                <div class="dash-bar-track">
-                  <div
-                    class="dash-bar-fill"
-                    style="--bar-width: 38%; --bar-color: #22c55e"
-                  ></div>
-                </div>
-                <span class="dash-bar-value">$9,500</span>
-              </div>
-              <div class="dash-bar-row">
-                <span class="dash-bar-label">Glassdoor</span>
-                <div class="dash-bar-track">
-                  <div
-                    class="dash-bar-fill"
-                    style="--bar-width: 25%; --bar-color: #f59e0b"
-                  ></div>
-                </div>
-                <span class="dash-bar-value">$6,250</span>
-              </div>
-            </div>
-            <div class="dash-table">
-              <div class="dash-table-header">
-                <span>Channel</span><span>CPC</span><span>CPA</span
-                ><span>Score</span>
-              </div>
-              <div class="dash-table-row">
-                <span>Indeed</span><span>$1.82</span><span>$24</span
-                ><span class="score-good">A+</span>
-              </div>
-              <div class="dash-table-row">
-                <span>LinkedIn</span><span>$3.45</span><span>$38</span
-                ><span class="score-ok">B+</span>
-              </div>
-              <div class="dash-table-row">
-                <span>ZipRecruiter</span><span>$2.10</span><span>$28</span
-                ><span class="score-good">A</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ========================================== -->
-    <!-- STATS BAR                                  -->
-    <!-- ========================================== -->
-    <div
-      class="stats-bar reveal-on-scroll"
-      role="region"
-      aria-label="Platform statistics"
-    >
-      <div class="stats-bar-inner">
-        <div class="stats-bar-item">
-          <span class="stats-bar-num" data-counter data-target="25">0</span>
-          <span class="stats-bar-label">AI Models</span>
-        </div>
-        <div class="stats-bar-item">
-          <span class="stats-bar-num" data-counter data-target="33">0</span>
-          <span class="stats-bar-label">Tools</span>
-        </div>
-        <div class="stats-bar-item">
-          <span class="stats-bar-num" data-counter data-target="8">0</span>
-          <span class="stats-bar-label">Live APIs</span>
-        </div>
-        <div class="stats-bar-item">
-          <span class="stats-bar-num" data-counter data-target="17">0</span>
-          <span class="stats-bar-label">Data Sources</span>
-        </div>
-      </div>
-    </div>
-
-    <hr class="section-divider" />
-
-    <!-- ========================================== -->
-    <!-- SECTION 1b: WHAT YOU GET                   -->
-    <!-- ========================================== -->
-    <section class="outcomes-section" style="padding: 96px 24px 48px">
-      <div class="container">
-        <div class="section-header reveal-on-scroll">
-          <div class="section-label">What You Get</div>
-          <div class="section-title">AI-powered answers in seconds</div>
-        </div>
-        <div class="outcomes-grid">
-          <a
-            href="/media-plan"
-            class="outcome-card reveal-on-scroll stagger-1"
-            style="border-left: 3px solid #5a54bd"
+          <div
+            style="
+              margin-top: 24px;
+              font-size: 0.875rem;
+              color: rgba(255, 255, 255, 0.5);
+            "
           >
-            <div
-              class="outcome-icon"
-              style="background: rgba(90, 84, 189, 0.12); color: #5a54bd"
-            >
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-              >
-                <path d="M3 3h18v18H3z" />
-                <path d="M3 9h18" />
-                <path d="M9 21V9" />
-              </svg>
-            </div>
-            <h3>Channel Mix</h3>
-            <p>
-              Where to spend across 91+ job boards for maximum reach and
-              quality.
-            </p>
-          </a>
-          <a
-            href="/simulator"
-            class="outcome-card reveal-on-scroll stagger-2"
-            style="border-left: 3px solid #22c55e"
-          >
-            <div
-              class="outcome-icon"
-              style="background: rgba(34, 197, 94, 0.12); color: #22c55e"
-            >
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-              >
-                <circle cx="12" cy="12" r="10" />
-                <path d="M12 2a10 10 0 0 1 0 20" />
-                <path d="M12 2v10l7 4" />
-              </svg>
-            </div>
-            <h3>Budget Allocation</h3>
-            <p>
-              How much per platform, optimized for cost-per-hire, not clicks.
-            </p>
-          </a>
-          <a
-            href="/media-plan"
-            class="outcome-card reveal-on-scroll stagger-3"
-            style="border-left: 3px solid #06b6d4"
-          >
-            <div
-              class="outcome-icon"
-              style="background: rgba(6, 182, 212, 0.12); color: #06b6d4"
-            >
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-              >
-                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-              </svg>
-            </div>
-            <h3>Funnel Forecast</h3>
-            <p>
-              Projected impressions, applications, and hires based on real
-              benchmarks.
-            </p>
-          </a>
-          <a
-            href="/creative-ai"
-            class="outcome-card reveal-on-scroll stagger-4"
-            style="border-left: 3px solid #f59e0b"
-          >
-            <div
-              class="outcome-icon"
-              style="background: rgba(245, 158, 11, 0.12); color: #f59e0b"
-            >
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-              >
-                <path d="M12 20h9" />
-                <path
-                  d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"
-                />
-              </svg>
-            </div>
-            <h3>Creative Strategy</h3>
-            <p>
-              What messaging works for your role, industry, and target audience.
-            </p>
-          </a>
-        </div>
-      </div>
-    </section>
-
-    <!-- ========================================== -->
-    <!-- SECTION 1c: USE CASES                      -->
-    <!-- ========================================== -->
-    <section class="usecases-section" style="padding: 64px 24px">
-      <div class="container">
-        <div class="section-header reveal-on-scroll">
-          <div class="section-label">Built For</div>
-          <div class="section-title">Every hiring scenario</div>
-        </div>
-        <div class="usecases-grid">
-          <div class="usecase-card reveal-on-scroll">
-            <div class="usecase-icon">
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="#5a54bd"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                <circle cx="9" cy="7" r="4" />
-                <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-              </svg>
-            </div>
-            <div class="usecase-text">
-              <strong>High-Volume Hiring</strong>
-              <span
-                >BPO, logistics, retail -- thousands of roles optimized at
-                once</span
-              >
-            </div>
-          </div>
-          <div class="usecase-card reveal-on-scroll">
-            <div class="usecase-icon">
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="#06b6d4"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <polyline points="16 18 22 12 16 6" />
-                <polyline points="8 6 2 12 8 18" />
-                <line x1="14" y1="4" x2="10" y2="20" />
-              </svg>
-            </div>
-            <div class="usecase-text">
-              <strong>Tech Hiring</strong>
-              <span
-                >Engineers, product, data -- reach passive candidates
-                effectively</span
-              >
-            </div>
-          </div>
-          <div class="usecase-card reveal-on-scroll">
-            <div class="usecase-icon">
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="#f59e0b"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <path
-                  d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"
-                />
-              </svg>
-            </div>
-            <div class="usecase-text">
-              <strong>Blue-Collar Roles</strong>
-              <span
-                >Drivers, warehouse, field -- high-volume at lowest
-                cost-per-hire</span
-              >
-            </div>
-          </div>
-          <div class="usecase-card reveal-on-scroll">
-            <div class="usecase-icon">
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="#22c55e"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <circle cx="12" cy="12" r="10" />
-                <line x1="2" y1="12" x2="22" y2="12" />
-                <path
-                  d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"
-                />
-              </svg>
-            </div>
-            <div class="usecase-text">
-              <strong>Multi-Location Hiring</strong>
-              <span
-                >Global campaigns with location-specific budget
-                optimization</span
-              >
-            </div>
+            3 AI Products &middot; 91+ Job Boards &middot; Free tools without
+            signup
           </div>
         </div>
-      </div>
-    </section>
-
-    <!-- ========================================== -->
-    <!-- SECTION 1d: WHY THIS IS DIFFERENT          -->
-    <!-- ========================================== -->
-    <section class="differentiator-section" style="padding: 64px 24px">
-      <div class="container" style="max-width: 960px">
-        <div class="section-header reveal-on-scroll" style="text-align: center">
-          <div class="section-label">Why Nova AI</div>
-          <div class="section-title">
-            Built for recruitment, not generic marketing
-          </div>
-        </div>
-        <div class="diff-layout reveal-on-scroll">
-          <div class="diff-list">
-            <div class="diff-item">
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="#22c55e"
-                stroke-width="2.5"
-              >
-                <polyline points="20 6 9 17 4 12" />
-              </svg>
-              <span
-                >Optimized for cost-per-hire and quality-of-hire, not vanity
-                clicks</span
-              >
-            </div>
-            <div class="diff-item">
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="#22c55e"
-                stroke-width="2.5"
-              >
-                <polyline points="20 6 9 17 4 12" />
-              </svg>
-              <span
-                >Uses real hiring performance patterns across 91+ job
-                boards</span
-              >
-            </div>
-            <div class="diff-item">
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="#22c55e"
-                stroke-width="2.5"
-              >
-                <polyline points="20 6 9 17 4 12" />
-              </svg>
-              <span>25 real-time API integrations for live market data</span>
-            </div>
-            <div class="diff-item">
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="#22c55e"
-                stroke-width="2.5"
-              >
-                <polyline points="20 6 9 17 4 12" />
-              </svg>
-              <span
-                >Built by recruitment marketing practitioners, not generic
-                AI</span
-              >
-            </div>
-          </div>
-          <div class="diff-code-card">
-            <div class="diff-code-titlebar">
-              <span class="dc-dot" style="background: #ff5f56"></span>
-              <span class="dc-dot" style="background: #ffbd2e"></span>
-              <span class="dc-dot" style="background: #27c93f"></span>
-              <span>nova_ai_output.json</span>
-            </div>
-            <div class="diff-code-body">
-              { <span class="ck">"recommended_channel"</span>:
-              <span class="cv">"Indeed"</span>,
-              <span class="ck">"budget_allocation"</span>:
-              <span class="cv">"38%"</span>,
-              <span class="ck">"predicted_cpa"</span>:
-              <span class="cv">"$22.50"</span>,
-              <span class="ck">"confidence"</span>:
-              <span class="cv">"high"</span> }
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-    <hr class="section-divider" />
-
-    <!-- ══════════════════════════════════════════════════════════════
-     SECTION: LIVE DASHBOARD WIDGETS
-     ══════════════════════════════════════════════════════════════ -->
-    <section class="live-dashboard" id="live-dashboard">
-      <div class="container">
-        <div class="platform-header">
-          <span class="section-eyebrow reveal">Live Platform Health</span>
-          <h2 class="reveal">Real-Time Intelligence Dashboard</h2>
-          <p class="section-sub reveal">
-            Live metrics from your campaigns, market signals, and compliance
-            checks.
-          </p>
-        </div>
-        <div class="widget-grid" id="widget-grid">
-          <div class="widget-card reveal" id="w-campaigns">
-            <div class="widget-header">
-              <span class="widget-label">Active Campaigns</span>
-              <span class="widget-badge widget-badge--blue">Live</span>
-            </div>
-            <div class="widget-value" id="w-campaigns-value">--</div>
-            <div class="widget-sub" id="w-campaigns-sub">Loading...</div>
-          </div>
-          <div class="widget-card reveal" id="w-budget">
-            <div class="widget-header">
-              <span class="widget-label">Budget Health</span>
-              <span class="widget-badge widget-badge--green" id="w-budget-badge"
-                >Healthy</span
-              >
-            </div>
-            <div class="widget-value" id="w-budget-value">--</div>
-            <div class="widget-sub" id="w-budget-sub">Loading...</div>
-            <div class="widget-meter">
-              <div class="widget-meter-fill" id="w-budget-meter"></div>
-            </div>
-          </div>
-          <div class="widget-card reveal" id="w-market">
-            <div class="widget-header">
-              <span class="widget-label">Market Signals</span>
-              <span class="widget-badge widget-badge--teal" id="w-market-badge"
-                >Stable</span
-              >
-            </div>
-            <div
-              class="widget-value"
-              id="w-market-value"
-              style="font-size: 1.5rem"
-            >
-              --
-            </div>
-            <div class="widget-sub" id="w-market-sub">
-              Labor market trends steady
-            </div>
-          </div>
-          <div class="widget-card reveal" id="w-compliance">
-            <div class="widget-header">
-              <span class="widget-label">Compliance Score</span>
-              <div class="widget-ring" id="w-compliance-ring">
-                <svg viewBox="0 0 48 48">
-                  <circle
-                    cx="24"
-                    cy="24"
-                    r="18"
-                    fill="none"
-                    stroke="rgba(255,255,255,0.06)"
-                    stroke-width="4"
-                  />
-                  <circle
-                    id="w-compliance-arc"
-                    cx="24"
-                    cy="24"
-                    r="18"
-                    fill="none"
-                    stroke="var(--success)"
-                    stroke-width="4"
-                    stroke-linecap="round"
-                    stroke-dasharray="113.1"
-                    stroke-dashoffset="113.1"
-                  />
-                </svg>
-                <span class="widget-ring-label" id="w-compliance-score"
-                  >--</span
-                >
-              </div>
-            </div>
-            <div class="widget-sub" id="w-compliance-sub">Loading...</div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <hr class="section-divider" />
-
-    <!-- ========================================== -->
-    <!-- SECTION 2: LOGO MARQUEE (trust bar)        -->
-    <!-- ========================================== -->
-    <div
-      class="trust-bar page-section reveal-on-scroll"
-      role="marquee"
-      aria-label="Trusted by enterprise teams"
-    >
-      <div class="trust-bar-label">
-        Trusted by enterprise recruitment teams worldwide
-      </div>
-      <div class="marquee-wrap">
-        <div class="marquee">
-          <div class="marquee-item"><span class="mi-name">Barclays</span></div>
-          <div class="marquee-item">
-            <span class="mi-name">Wells Fargo</span>
-          </div>
-          <div class="marquee-item"><span class="mi-name">Philips</span></div>
-          <div class="marquee-item"><span class="mi-name">Randstad</span></div>
-          <div class="marquee-item"><span class="mi-name">ING</span></div>
-          <div class="marquee-item">
-            <span class="mi-name">Adecco Group</span>
-          </div>
-          <div class="marquee-item">
-            <span class="mi-name">HCA Healthcare</span>
-          </div>
-          <div class="marquee-item">
-            <span class="mi-name">Korn Ferry</span>
-          </div>
-          <div class="marquee-item"><span class="mi-name">Pizza Hut</span></div>
-          <div class="marquee-item"><span class="mi-name">Circle K</span></div>
-          <div class="marquee-item">
-            <span class="mi-name">Johnson &amp; Johnson</span>
-          </div>
-          <div class="marquee-item">
-            <span class="mi-name">HealthTrust</span>
-          </div>
-          <!-- Duplicate set for seamless loop — hidden from screen readers -->
-          <div class="marquee-item" aria-hidden="true">
-            <span class="mi-name">Barclays</span>
-          </div>
-          <div class="marquee-item" aria-hidden="true">
-            <span class="mi-name">Wells Fargo</span>
-          </div>
-          <div class="marquee-item" aria-hidden="true">
-            <span class="mi-name">Philips</span>
-          </div>
-          <div class="marquee-item" aria-hidden="true">
-            <span class="mi-name">Randstad</span>
-          </div>
-          <div class="marquee-item" aria-hidden="true">
-            <span class="mi-name">ING</span>
-          </div>
-          <div class="marquee-item" aria-hidden="true">
-            <span class="mi-name">Adecco Group</span>
-          </div>
-          <div class="marquee-item" aria-hidden="true">
-            <span class="mi-name">HCA Healthcare</span>
-          </div>
-          <div class="marquee-item" aria-hidden="true">
-            <span class="mi-name">Korn Ferry</span>
-          </div>
-          <div class="marquee-item" aria-hidden="true">
-            <span class="mi-name">Pizza Hut</span>
-          </div>
-          <div class="marquee-item" aria-hidden="true">
-            <span class="mi-name">Circle K</span>
-          </div>
-          <div class="marquee-item" aria-hidden="true">
-            <span class="mi-name">Johnson &amp; Johnson</span>
-          </div>
-          <div class="marquee-item" aria-hidden="true">
-            <span class="mi-name">HealthTrust</span>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ========================================== -->
-    <!-- SOCIAL PROOF                               -->
-    <!-- ========================================== -->
-    <section class="social-proof reveal-on-scroll" aria-label="Social proof">
-      <div class="social-proof-label">Trusted by recruitment teams at</div>
-      <div class="social-proof-logos">
-        <div class="proof-logo" aria-label="Barclays">Barclays</div>
-        <div class="proof-logo" aria-label="Randstad">Randstad</div>
-        <div class="proof-logo" aria-label="Korn Ferry">Korn Ferry</div>
-        <div class="proof-logo" aria-label="Adecco Group">Adecco Group</div>
-        <div class="proof-logo" aria-label="HCA Healthcare">HCA Healthcare</div>
-        <div class="proof-logo" aria-label="Wells Fargo">Wells Fargo</div>
-      </div>
-    </section>
-
-    <hr class="section-divider" />
-
-    <!-- ========================================== -->
-    <!-- SECTION 4: PLATFORM (3-product showcase)  -->
-    <!-- ========================================== -->
-    <section
-      class="platform-section page-section"
-      id="platform"
-      role="main"
-      aria-label="Products"
-    >
-      <div class="container">
-        <div class="platform-header">
-          <span class="section-eyebrow reveal">The Platform</span>
-          <h2 class="reveal">Three products. One intelligence layer.</h2>
-          <p class="section-sub reveal">
-            Everything a recruitment marketing team needs, organized into three
-            focused products powered by Nova AI.
-          </p>
-        </div>
-
-        <div class="products-trio reveal">
-          <!-- PLAN -->
-          <a
-            href="/platform#plan/campaign"
-            class="product-hero-card product-plan"
-          >
-            <div class="product-hero-icon">
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.5"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <rect x="3" y="3" width="18" height="18" rx="2" />
-                <path d="M3 9h18" />
-                <path d="M9 21V9" />
-              </svg>
-            </div>
-            <div class="product-hero-badge">4 tools</div>
-            <h3>Plan</h3>
-            <p>
-              Campaign planning, budget optimization, social strategy, and A/B
-              testing. From brief to launch in minutes.
-            </p>
-            <div class="product-hero-tools">
-              <span>Campaign Planner</span>
-              <span>Budget &amp; Performance</span>
-              <span>Social &amp; Creative</span>
-              <span>A/B Testing Lab</span>
-            </div>
-            <div class="product-hero-cta">
-              Open Plan
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                width="16"
-                height="16"
-              >
-                <path d="M5 12h14M12 5l7 7-7 7" />
-              </svg>
-            </div>
-          </a>
-
-          <!-- INTELLIGENCE -->
-          <a
-            href="/platform#intelligence/competitive"
-            class="product-hero-card product-intelligence"
-          >
-            <div class="product-hero-icon">
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.5"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <circle cx="12" cy="12" r="10" />
-                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-              </svg>
-            </div>
-            <div class="product-hero-badge">4 tools</div>
-            <h3>Intelligence</h3>
-            <p>
-              Competitive monitoring, market pulse, vendor analysis, and talent
-              intelligence. Real-time data from 8 live APIs.
-            </p>
-            <div class="product-hero-tools">
-              <span>Competitive Intel</span>
-              <span>Market Pulse</span>
-              <span>Vendor IQ</span>
-              <span>Talent Intelligence</span>
-            </div>
-            <div class="product-hero-cta">
-              Open Intelligence
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                width="16"
-                height="16"
-              >
-                <path d="M5 12h14M12 5l7 7-7 7" />
-              </svg>
-            </div>
-          </a>
-
-          <!-- COMPLIANCE -->
-          <a
-            href="/platform#compliance/comply"
-            class="product-hero-card product-compliance"
-          >
-            <div class="product-hero-icon">
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.5"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-              </svg>
-            </div>
-            <div class="product-hero-badge">2 tools</div>
-            <h3>Compliance</h3>
-            <p>
-              Regulatory compliance checks, ad copy audits, and bias detection.
-              Stay compliant across every jurisdiction.
-            </p>
-            <div class="product-hero-tools">
-              <span>ComplianceGuard</span>
-              <span>Ad Audit</span>
-            </div>
-            <div class="product-hero-cta">
-              Open Compliance
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                width="16"
-                height="16"
-              >
-                <path d="M5 12h14M12 5l7 7-7 7" />
-              </svg>
-            </div>
-          </a>
-        </div>
-
-        <!-- Nova AI Banner -->
-        <div class="nova-banner reveal">
-          <div class="nova-banner-content">
-            <div class="nova-banner-icon">
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.5"
-              >
-                <path
-                  d="M12 2a7 7 0 0 1 7 7c0 3-2 5.5-4 7l-1 4h-4l-1-4c-2-1.5-4-4-4-7a7 7 0 0 1 7-7z"
-                />
-                <line x1="10" y1="22" x2="14" y2="22" />
-              </svg>
-            </div>
-            <div>
-              <h3>Nova AI runs across everything</h3>
-              <p>
-                33 tools, 24 LLM providers, 8 live data APIs. Ask anything about
-                recruitment advertising.
-              </p>
-            </div>
-          </div>
-          <a href="/platform" class="nova-banner-btn">Try Nova AI</a>
-        </div>
-      </div>
-    </section>
-
-    <hr class="section-divider" />
-
-    <!-- ========================================== -->
-    <!-- SECTION 8: CTA                             -->
-    <!-- ========================================== -->
-    <section class="cta-section page-section">
-      <div class="cta-card reveal-on-scroll">
-        <div
-          style="
-            font-size: 1.6rem;
-            margin-bottom: 20px;
-            color: var(--accent-light);
-            opacity: 0.8;
-          "
-          aria-hidden="true"
-        >
-          &#10022;
-        </div>
-        <h3 style="color: #ffffff; -webkit-text-fill-color: #ffffff">
-          Ready to transform your recruitment advertising?
-        </h3>
-        <p>
-          Start with the Media Plan Generator, or explore the full platform of
-          AI-powered products.
-        </p>
-        <a href="/media-plan" class="cta-btn">
-          Generate Your First Plan
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-          >
-            <path d="M5 12h14" />
-            <path d="M12 5l7 7-7 7" />
-          </svg>
-        </a>
-        <a
-          href="/#platform"
-          style="
-            color: #9ca3af;
-            font-size: 0.85rem;
-            margin-top: 12px;
-            display: inline-block;
-            text-decoration: none;
-          "
-          >Explore the platform &rarr;</a
-        >
-        <div
-          style="
-            margin-top: 24px;
-            font-size: 0.875rem;
-            color: rgba(255, 255, 255, 0.5);
-          "
-        >
-          3 AI Products &middot; 91+ Job Boards &middot; Free tools without
-          signup
-        </div>
-      </div>
-    </section>
+      </section>
+    </main>
 
     <!-- ========================================== -->
     <!-- SECTION 9: FOOTER                          -->

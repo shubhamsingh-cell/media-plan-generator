@@ -126,6 +126,13 @@ GOLDEN_DATASET = [
             "no data available",
         ],
     },
+    # ── Cross-session memory recall ──
+    {
+        "question": "Based on what we discussed earlier about the marketing budget, what channels would you recommend?",
+        "expected_keywords": ["channel", "recommend", "budget"],
+        "category": "memory_recall",
+        "min_quality": 0.4,
+    },
 ]
 
 
@@ -320,6 +327,317 @@ def run_evaluation(base_url: str = "http://localhost:10000") -> dict:
     }
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# Cross-session memory tests (NovaMemory unit tests)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+import unittest
+from unittest.mock import patch, MagicMock
+
+
+class TestNovaMemoryStorage(unittest.TestCase):
+    """Test that conversations store key facts into memory."""
+
+    def setUp(self) -> None:
+        """Create a fresh NovaMemory instance with Supabase mocked out."""
+        from nova_memory import NovaMemory
+
+        self.memory = NovaMemory(user_id="test_user")
+        self.memory._loaded = True  # Skip Supabase load
+
+    @patch("nova_memory.threading.Thread")
+    def test_save_conversation_summary_stores_entry(
+        self, mock_thread: MagicMock
+    ) -> None:
+        """Verify save_conversation_summary() adds an entry to short-term memory."""
+        mock_thread.return_value.start = MagicMock()
+
+        messages = [
+            {"role": "user", "text": "What is the average CPC for LinkedIn?"},
+            {"role": "assistant", "text": "The average CPC for LinkedIn is $5.26."},
+        ]
+        self.memory.save_conversation_summary(
+            conversation_id="conv_001",
+            messages=messages,
+            summary="Discussed LinkedIn CPC benchmarks",
+        )
+
+        self.assertEqual(len(self.memory._short_term), 1)
+        entry = self.memory._short_term[0]
+        self.assertEqual(entry["content"], "Discussed LinkedIn CPC benchmarks")
+        self.assertEqual(entry["memory_type"], "short_term")
+        self.assertEqual(entry["metadata"]["conversation_id"], "conv_001")
+        self.assertEqual(entry["metadata"]["message_count"], 2)
+
+    @patch("nova_memory.threading.Thread")
+    def test_save_conversation_triggers_persistence(
+        self, mock_thread: MagicMock
+    ) -> None:
+        """Verify that saving a summary spawns a background persist thread."""
+        mock_instance = MagicMock()
+        mock_thread.return_value = mock_instance
+
+        self.memory.save_conversation_summary(
+            conversation_id="conv_002",
+            messages=[{"role": "user", "text": "Hello"}],
+            summary="Greeting exchange",
+        )
+
+        mock_thread.assert_called_once()
+        mock_instance.start.assert_called_once()
+
+    @patch("nova_memory.threading.Thread")
+    def test_learn_fact_stores_long_term(self, mock_thread: MagicMock) -> None:
+        """Verify learn_fact() adds a long-term memory entry."""
+        mock_thread.return_value.start = MagicMock()
+
+        self.memory.learn_fact(
+            "User prefers LinkedIn for tech hiring", category="preference"
+        )
+
+        self.assertEqual(len(self.memory._long_term), 1)
+        entry = self.memory._long_term[0]
+        self.assertEqual(entry["content"], "User prefers LinkedIn for tech hiring")
+        self.assertEqual(entry["memory_type"], "long_term")
+        self.assertEqual(entry["metadata"]["category"], "preference")
+
+    @patch("nova_memory.threading.Thread")
+    def test_learn_fact_deduplicates(self, mock_thread: MagicMock) -> None:
+        """Verify learn_fact() does not store duplicate facts."""
+        mock_thread.return_value.start = MagicMock()
+
+        self.memory.learn_fact("Budget is $50K")
+        self.memory.learn_fact("Budget is $50K")
+
+        self.assertEqual(len(self.memory._long_term), 1)
+
+    @patch("nova_memory.threading.Thread")
+    def test_set_preference_stores_value(self, mock_thread: MagicMock) -> None:
+        """Verify set_preference() stores key-value pair in preferences."""
+        mock_thread.return_value.start = MagicMock()
+
+        self.memory.set_preference("default_channel", "LinkedIn")
+
+        self.assertEqual(self.memory._preferences["default_channel"], "LinkedIn")
+
+    @patch("nova_memory.threading.Thread")
+    def test_auto_summarize_from_messages(self, mock_thread: MagicMock) -> None:
+        """Verify _auto_summarize generates a summary from messages."""
+        messages = [
+            {"role": "user", "text": "What channels work for nursing?"},
+            {
+                "role": "assistant",
+                "text": "Indeed and LinkedIn are top for nursing roles.",
+            },
+        ]
+
+        summary = self.memory._auto_summarize(messages)
+
+        self.assertIn("User asked:", summary)
+        self.assertIn("nursing", summary.lower())
+
+    def test_auto_summarize_empty_messages(self) -> None:
+        """Verify _auto_summarize handles empty message list."""
+        summary = self.memory._auto_summarize([])
+        self.assertEqual(summary, "")
+
+
+class TestNovaMemoryRecall(unittest.TestCase):
+    """Test that memory recall retrieves relevant context for follow-up queries."""
+
+    def setUp(self) -> None:
+        """Create a NovaMemory instance pre-loaded with test data."""
+        from nova_memory import NovaMemory
+
+        self.memory = NovaMemory(user_id="test_user")
+        self.memory._loaded = True
+
+    @patch("nova_memory.threading.Thread")
+    def test_context_injection_includes_preferences(
+        self, mock_thread: MagicMock
+    ) -> None:
+        """Verify get_context_injection() includes stored preferences."""
+        mock_thread.return_value.start = MagicMock()
+
+        self.memory.set_preference("budget", "$75,000")
+        self.memory.set_preference("industry", "Healthcare")
+
+        context = self.memory.get_context_injection()
+
+        self.assertIn("[MEMORY", context)
+        self.assertIn("budget", context)
+        self.assertIn("$75,000", context)
+        self.assertIn("Healthcare", context)
+
+    @patch("nova_memory.threading.Thread")
+    def test_context_injection_includes_long_term_facts(
+        self, mock_thread: MagicMock
+    ) -> None:
+        """Verify get_context_injection() includes learned long-term facts."""
+        mock_thread.return_value.start = MagicMock()
+
+        self.memory.learn_fact("Client Acme Corp budget is $50K/quarter")
+        self.memory.learn_fact("User prefers Indeed for blue-collar roles")
+
+        context = self.memory.get_context_injection()
+
+        self.assertIn("Known facts", context)
+        self.assertIn("Acme Corp", context)
+        self.assertIn("Indeed", context)
+
+    @patch("nova_memory.threading.Thread")
+    def test_context_injection_includes_short_term_summaries(
+        self, mock_thread: MagicMock
+    ) -> None:
+        """Verify get_context_injection() includes recent conversation summaries."""
+        mock_thread.return_value.start = MagicMock()
+
+        self.memory.save_conversation_summary(
+            conversation_id="conv_100",
+            messages=[{"role": "user", "text": "test"}],
+            summary="Discussed marketing budget allocation for Q2",
+        )
+
+        context = self.memory.get_context_injection()
+
+        self.assertIn("Recent conversation context", context)
+        self.assertIn("marketing budget allocation", context)
+
+    def test_context_injection_empty_when_no_memory(self) -> None:
+        """Verify get_context_injection() returns empty string with no data."""
+        context = self.memory.get_context_injection()
+        self.assertEqual(context, "")
+
+    @patch("nova_memory.threading.Thread")
+    def test_context_injection_wraps_in_memory_tags(
+        self, mock_thread: MagicMock
+    ) -> None:
+        """Verify the context injection is wrapped in [MEMORY] delimiters."""
+        mock_thread.return_value.start = MagicMock()
+
+        self.memory.set_preference("region", "US-West")
+        context = self.memory.get_context_injection()
+
+        self.assertTrue(context.startswith("\n\n[MEMORY"))
+        self.assertTrue(context.strip().endswith("[/MEMORY]"))
+
+    def test_get_stats_returns_counts(self) -> None:
+        """Verify get_stats() reflects current memory state."""
+        stats = self.memory.get_stats()
+
+        self.assertEqual(stats["short_term_count"], 0)
+        self.assertEqual(stats["long_term_count"], 0)
+        self.assertEqual(stats["preference_count"], 0)
+        self.assertTrue(stats["loaded"])
+
+
+class TestNovaMemoryQuality(unittest.TestCase):
+    """Golden eval test for memory-aware responses."""
+
+    def test_memory_recall_golden_case_exists(self) -> None:
+        """Verify the memory recall golden test case is in the dataset."""
+        memory_cases = [
+            tc for tc in GOLDEN_DATASET if tc["category"] == "memory_recall"
+        ]
+        self.assertEqual(
+            len(memory_cases), 1, "Expected exactly 1 memory_recall test case"
+        )
+
+        case = memory_cases[0]
+        self.assertIn("budget", case["expected_keywords"])
+        self.assertIn("channel", case["expected_keywords"])
+        self.assertIn("recommend", case["expected_keywords"])
+
+    def test_memory_recall_eval_with_channel_response(self) -> None:
+        """Verify evaluate_response scores well for a memory-aware response."""
+        case = next(tc for tc in GOLDEN_DATASET if tc["category"] == "memory_recall")
+
+        good_response = (
+            "While I don't have context from a prior conversation about your marketing budget, "
+            "I can still recommend the best channels for your recruitment needs. "
+            "For a typical budget allocation, I'd recommend LinkedIn for professional roles "
+            "(40% of budget), Indeed for high-volume hiring (30%), and niche job boards (20%), "
+            "with the remaining 10% for programmatic channels."
+        )
+
+        result = evaluate_response(good_response, case)
+
+        self.assertTrue(
+            result["passed"], f"Expected PASS but got score={result['score']}"
+        )
+        self.assertGreaterEqual(result["score"], case["min_quality"])
+
+    def test_memory_recall_eval_rejects_empty_response(self) -> None:
+        """Verify evaluate_response fails on an empty response for memory recall."""
+        case = next(tc for tc in GOLDEN_DATASET if tc["category"] == "memory_recall")
+
+        result = evaluate_response("", case)
+
+        self.assertFalse(result["passed"])
+        self.assertEqual(result["score"], 0.0)
+
+
+class TestNovaMemorySingleton(unittest.TestCase):
+    """Test the get_memory() singleton factory."""
+
+    @patch("nova_memory.NovaMemory.load")
+    def test_get_memory_returns_same_instance(self, mock_load: MagicMock) -> None:
+        """Verify get_memory() returns the same instance for the same user_id."""
+        from nova_memory import get_memory, _memory_instances, _global_lock
+
+        # Clear singleton cache for test isolation
+        with _global_lock:
+            _memory_instances.pop("test_singleton", None)
+
+        mem1 = get_memory("test_singleton")
+        mem2 = get_memory("test_singleton")
+
+        self.assertIs(mem1, mem2)
+
+        # Cleanup
+        with _global_lock:
+            _memory_instances.pop("test_singleton", None)
+
+    @patch("nova_memory.NovaMemory.load")
+    def test_get_memory_different_users_different_instances(
+        self, mock_load: MagicMock
+    ) -> None:
+        """Verify get_memory() returns different instances for different user_ids."""
+        from nova_memory import get_memory, _memory_instances, _global_lock
+
+        with _global_lock:
+            _memory_instances.pop("user_a_test", None)
+            _memory_instances.pop("user_b_test", None)
+
+        mem_a = get_memory("user_a_test")
+        mem_b = get_memory("user_b_test")
+
+        self.assertIsNot(mem_a, mem_b)
+
+        # Cleanup
+        with _global_lock:
+            _memory_instances.pop("user_a_test", None)
+            _memory_instances.pop("user_b_test", None)
+
+
 if __name__ == "__main__":
     url = os.environ.get("TEST_BASE_URL", "http://localhost:10000")
-    run_evaluation(url)
+
+    # Run unit tests first
+    print("Running NovaMemory unit tests...")
+    loader = unittest.TestLoader()
+    suite = unittest.TestSuite()
+    suite.addTests(loader.loadTestsFromTestCase(TestNovaMemoryStorage))
+    suite.addTests(loader.loadTestsFromTestCase(TestNovaMemoryRecall))
+    suite.addTests(loader.loadTestsFromTestCase(TestNovaMemoryQuality))
+    suite.addTests(loader.loadTestsFromTestCase(TestNovaMemorySingleton))
+    runner = unittest.TextTestRunner(verbosity=2)
+    result = runner.run(suite)
+
+    # Run golden eval if unit tests pass
+    if result.wasSuccessful():
+        print("\nUnit tests passed. Running golden evaluation...")
+        run_evaluation(url)
+    else:
+        print("\nUnit tests failed. Skipping golden evaluation.")
+        sys.exit(1)
