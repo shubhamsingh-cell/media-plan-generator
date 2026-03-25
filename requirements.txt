@@ -20,6 +20,5 @@ pytrends>=4.9.0,<5.0.0
 # Optional: import is guarded with try/except in job_scraper.py
 python-jobspy>=0.28.0
 
-# Visual regression testing (optional, dev-only)
-playwright>=1.40.0
+# Image processing (for Pillow-based features)
 Pillow>=10.0.0
