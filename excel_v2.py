@@ -3047,11 +3047,9 @@ def generate_excel_v2(
             classify_tier_fn=classify_tier_fn,
         )
     except Exception as exc:
-        logger.error("Sheet 1 (Executive Summary) failed: %s", exc, exc_info=True)
-        ws1.title = "Executive Summary"
-        ws1.cell(
-            row=2, column=2, value=f"Error generating Executive Summary: {exc}"
-        ).font = _FONT_BODY
+        logger.error("Executive Summary sheet failed: %s", exc, exc_info=True)
+        # Critical sheet -- re-raise to fail the generation
+        raise RuntimeError(f"Failed to build Executive Summary: {exc}") from exc
 
     # ── Sheet 2: Channels & Strategy ──
     ws2 = wb.create_sheet()
@@ -3063,11 +3061,9 @@ def generate_excel_v2(
             load_kb_fn=load_kb_fn,
         )
     except Exception as exc:
-        logger.error("Sheet 2 (Channels & Strategy) failed: %s", exc, exc_info=True)
-        ws2.title = "Channels & Strategy"
-        ws2.cell(
-            row=2, column=2, value=f"Error generating Channels sheet: {exc}"
-        ).font = _FONT_BODY
+        logger.error("Channel Strategy sheet failed: %s", exc, exc_info=True)
+        # Critical sheet -- re-raise to fail the generation
+        raise RuntimeError(f"Failed to build Channel Strategy: {exc}") from exc
 
     # ── Sheet 3: Market Intelligence ──
     ws3 = wb.create_sheet()

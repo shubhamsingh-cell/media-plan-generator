@@ -1601,7 +1601,7 @@ def _get_response_cache(key: str) -> Optional[Dict[str, Any]]:
                     }
                 return cached
         except Exception as exc:
-            logger.warning(f"Upstash cache read error: {exc}")
+            logger.warning("Upstash cache read failed (non-fatal): %s", exc)
 
     # 3) Disk fallback (when Upstash is not configured)
     if not _upstash_enabled:
@@ -1650,7 +1650,7 @@ def _set_response_cache(
             _upstash_set(_redis_key, data, ttl_seconds=ttl, category="nova_response")
             return  # Redis write succeeded, skip disk
         except Exception as exc:
-            logger.warning(f"Upstash cache write error (falling back to disk): {exc}")
+            logger.warning("Upstash cache write failed (falling back to disk): %s", exc)
 
     # 3) Disk fallback (when Upstash is not configured or write failed)
     with _response_cache_lock:
@@ -5841,6 +5841,8 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
                 "sources": [],
                 "confidence": 0.0,
                 "tools_used": [],
+                "error": "all_providers_and_fallback_failed",
+                "error_type": "rule_based_empty",
             }
 
         return _sanitize_refusal_language(_filter_competitor_names(result))
@@ -10192,19 +10194,28 @@ def handle_chat_request(request_data: dict) -> dict:
             (result.get("response") or "").strip() if isinstance(result, dict) else ""
         )
         if not _resp_text:
+            _attempts = result.get("attempts", []) if isinstance(result, dict) else []
+            _n_tried = len(_attempts)
+            _last_err = (
+                _attempts[-1].get("error", "unknown") if _attempts else "unknown"
+            )
             logger.warning(
-                "All LLM providers returned empty response for: %s", message[:80]
+                "All LLM providers returned empty response (tried %d) for: %s",
+                _n_tried,
+                message[:80],
             )
             return {
                 "response": (
-                    "I'm temporarily unable to process your request. "
-                    "All AI providers are currently experiencing issues. "
-                    "Please try again in a moment."
+                    f"I'm temporarily unable to process your request. "
+                    f"Tried {_n_tried} AI provider{'s' if _n_tried != 1 else ''}. "
+                    f"Please try again in a moment."
                 ),
                 "sources": [],
                 "confidence": 0.0,
                 "tools_used": [],
                 "error": "all_providers_failed",
+                "error_type": _last_err,
+                "providers_tried": _n_tried,
             }
 
         # Quality gate: validate response before returning
@@ -10259,13 +10270,14 @@ def handle_chat_request(request_data: dict) -> dict:
         return {
             "response": (
                 "I'm temporarily unable to process your request. "
-                "All AI providers are currently experiencing issues. "
+                "An internal error occurred. "
                 "Please try again in a moment."
             ),
             "sources": [],
             "confidence": 0.0,
             "tools_used": [],
-            "error": "Internal error processing request",
+            "error": "internal_error",
+            "error_type": type(e).__name__,
         }
 
 

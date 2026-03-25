@@ -3763,6 +3763,20 @@ def _cleanup_generation_jobs():
             time.sleep(300)  # Every 5 minutes
             now = time.time()
             with _generation_jobs_lock:
+                # Mark stale "processing" jobs as failed (stuck > 3 minutes)
+                for jid, jdata in _generation_jobs.items():
+                    if (
+                        jdata.get("status") == "processing"
+                        and (now - jdata.get("created", 0)) > 180
+                    ):
+                        jdata["status"] = "failed"
+                        jdata["error"] = "Generation timed out after 3 minutes"
+                        jdata["result_bytes"] = None
+                        logger.warning(
+                            "Marked stale job %s as failed (stuck in processing > 3min)",
+                            jid,
+                        )
+
                 expired = [
                     jid
                     for jid, jdata in _generation_jobs.items()
@@ -3850,7 +3864,14 @@ def _build_health_response() -> dict:
 
     Centralised so both the except-block fallback and the
     'if not in dir()' guard share the same logic.
+
+    Includes a 5-second time guard: if the check takes longer than 5s,
+    partial results are returned with a warning so Render health probes
+    never time out.
     """
+    _health_start = time.time()
+    _HEALTH_TIMEOUT = 5.0  # seconds -- hard cap for the entire check
+
     kb_loaded = _knowledge_base is not None and len(_knowledge_base) > 0
     data_dir_exists = os.path.isdir(DATA_DIR)
     is_healthy = kb_loaded and data_dir_exists
@@ -4033,6 +4054,16 @@ def _build_health_response() -> dict:
         "upstash_redis_connected": _modules.get("upstash_redis") == "ok",
     }
 
+    # ---- Time-guarded module stats (skip if >5s elapsed) ----
+    def _health_expired() -> bool:
+        """Return True if the health check has exceeded its time budget."""
+        return (time.time() - _health_start) > _HEALTH_TIMEOUT
+
+    if _health_expired():
+        result["warning"] = "Health check truncated (>5s) -- skipped module stats"
+        result["health_check_ms"] = round((time.time() - _health_start) * 1000, 1)
+        return result
+
     # Request coalescing stats
     try:
         from request_coalescing import (
@@ -4104,6 +4135,11 @@ def _build_health_response() -> dict:
         pass
     except (ValueError, KeyError, TypeError, OSError) as bfe:
         logger.warning(f"Benchmark freshness check failed: {bfe}")
+
+    if _health_expired():
+        result["warning"] = "Health check truncated (>5s) -- partial module stats"
+        result["health_check_ms"] = round((time.time() - _health_start) * 1000, 1)
+        return result
 
     # Edge routing (geographic LLM provider routing) stats
     try:
@@ -4196,6 +4232,11 @@ def _build_health_response() -> dict:
         result["rate_limiter"] = {"status": "error"}
         _modules["rate_limiter"] = "down"
 
+    if _health_expired():
+        result["warning"] = "Health check truncated (>5s) -- partial module stats"
+        result["health_check_ms"] = round((time.time() - _health_start) * 1000, 1)
+        return result
+
     # Outcome engine stats
     try:
         from outcome_engine import get_outcome_stats
@@ -4266,6 +4307,11 @@ def _build_health_response() -> dict:
         result["plan_events"] = {"status": "error"}
         _modules["plan_events"] = "down"
 
+    if _health_expired():
+        result["warning"] = "Health check truncated (>5s) -- partial module stats"
+        result["health_check_ms"] = round((time.time() - _health_start) * 1000, 1)
+        return result
+
     # Market signals engine stats
     try:
         from market_signals import get_signal_stats as _get_signal_stats
@@ -4321,6 +4367,7 @@ def _build_health_response() -> dict:
             "last_seen": _embed_stats["last_seen"],
         }
 
+    result["health_check_ms"] = round((time.time() - _health_start) * 1000, 1)
     return result
 
 
@@ -9571,7 +9618,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             # ── API HARDENING: Request deduplication (Issue 3) ──
             if _is_duplicate_request(data):
                 self._send_error(
-                    "Duplicate request detected. An identical request was submitted in the last 60 seconds.",
+                    "Your plan is already being generated. Please wait for the current request to complete, or try again in 60 seconds.",
                     "RATE_LIMITED",
                     429,
                 )
@@ -9645,6 +9692,8 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 def _async_generate(jid, gen_data, rid):
                     """Run the full sync generation pipeline in a background thread."""
                     try:
+                        _gen_deadline = time.time() + 120  # 2 minute hard limit
+
                         with _generation_jobs_lock:
                             if jid in _generation_jobs:
                                 _generation_jobs[jid]["progress_pct"] = 10
@@ -9666,6 +9715,11 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                 gen_data["_enriched"] = {}
                         else:
                             gen_data["_enriched"] = {}
+
+                        if time.time() > _gen_deadline:
+                            raise TimeoutError(
+                                "Plan generation exceeded 2-minute time limit"
+                            )
 
                         with _generation_jobs_lock:
                             if jid in _generation_jobs:
@@ -9722,6 +9776,11 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                     "geopolitical_context"
                                 ] = _geo_from_enriched
 
+                        if time.time() > _gen_deadline:
+                            raise TimeoutError(
+                                "Plan generation exceeded 2-minute time limit"
+                            )
+
                         with _generation_jobs_lock:
                             if jid in _generation_jobs:
                                 _generation_jobs[jid]["progress_pct"] = 40
@@ -9750,6 +9809,11 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         gen_data["talent_profile"] = industry_profile["talent_profile"]
                         gen_data["bls_sector"] = industry_profile["bls_sector"]
                         gen_data["naics_code"] = industry_profile.get("naics", "00")
+
+                        if time.time() > _gen_deadline:
+                            raise TimeoutError(
+                                "Plan generation exceeded 2-minute time limit"
+                            )
 
                         with _generation_jobs_lock:
                             if jid in _generation_jobs:
@@ -9893,6 +9957,11 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         else:
                             gen_data["_budget_allocation"] = {}
 
+                        if time.time() > _gen_deadline:
+                            raise TimeoutError(
+                                "Plan generation exceeded 2-minute time limit"
+                            )
+
                         with _generation_jobs_lock:
                             if jid in _generation_jobs:
                                 _generation_jobs[jid]["progress_pct"] = 70
@@ -9908,6 +9977,11 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                 "status": "skipped",
                                 "reason": "verification_error",
                             }
+
+                        if time.time() > _gen_deadline:
+                            raise TimeoutError(
+                                "Plan generation exceeded 2-minute time limit"
+                            )
 
                         # Excel generation (v2 consolidated 4-sheet or legacy fallback)
                         if generate_excel_v2 is not None:
@@ -9947,6 +10021,11 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                 _generation_jobs[jid][
                                     "status_message"
                                 ] = "Generating Excel report..."
+
+                        if time.time() > _gen_deadline:
+                            raise TimeoutError(
+                                "Plan generation exceeded 2-minute time limit"
+                            )
 
                         # PPT generation
                         client_name = re.sub(
@@ -11490,6 +11569,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                 self.wfile.flush()
                                 _last_event_time = time.time()
                             except (BrokenPipeError, ConnectionResetError, OSError):
+                                logger.debug("SSE keepalive: client disconnected")
                                 break
 
                 _ka_thread = threading.Thread(
