@@ -11363,7 +11363,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 self.send_header("Access-Control-Expose-Headers", "X-Plan-Id")
                 self.end_headers()
                 self.wfile.write(zip_bytes)
-                generation_time = time.time() - start_time
+                generation_time = time.time() - _gen_start
                 log_request(
                     data,
                     "success",
@@ -11462,7 +11462,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     self.send_header("X-PPT-Warning", pptx_warning)
                 self.end_headers()
                 self.wfile.write(excel_bytes)
-                generation_time = time.time() - start_time
+                generation_time = time.time() - _gen_start
                 log_request(
                     data,
                     "success",
