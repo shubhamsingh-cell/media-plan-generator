@@ -1131,7 +1131,7 @@ if _SENTRY_DSN:
             traces_sample_rate=0.1,  # 10% of requests get traces
             profiles_sample_rate=0.1,  # 10% get profiling
             environment=os.environ.get("RENDER", "local"),
-            release=f"media-plan-generator@3.5.1",
+            release="media-plan-generator@4.0.0",
             send_default_pii=False,  # Never send PII
             attach_stacktrace=True,
         )
@@ -10008,25 +10008,44 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                     "status_message"
                                 ] = "Enriching market data..."
 
-                        # Enrichment
-                        enriched = {}
-                        if enrich_data is not None:
-                            try:
-                                enriched = (
-                                    enrich_data(gen_data, request_id=rid)
-                                    if rid
-                                    else enrich_data(gen_data)
-                                )
-                                gen_data["_enriched"] = enriched
-                            except Exception:
-                                gen_data["_enriched"] = {}
-                        else:
-                            gen_data["_enriched"] = {}
-
+                        # ── TIMEOUT CHECK: Before enrichment (expensive) ──
                         if time.time() > _gen_deadline:
                             raise TimeoutError(
                                 "Plan generation exceeded 2-minute time limit"
                             )
+
+                        # Enrichment -- wrapped in ThreadPoolExecutor with 25s hard timeout
+                        # to prevent indefinite blocking (root cause of async hang bug)
+                        enriched = {}
+                        if enrich_data is not None:
+                            try:
+                                with ThreadPoolExecutor(
+                                    max_workers=1, thread_name_prefix="async-enrich"
+                                ) as _enrich_pool:
+                                    _enrich_future = (
+                                        _enrich_pool.submit(
+                                            enrich_data, gen_data, request_id=rid
+                                        )
+                                        if rid
+                                        else _enrich_pool.submit(enrich_data, gen_data)
+                                    )
+                                    enriched = _enrich_future.result(timeout=25) or {}
+                                gen_data["_enriched"] = enriched
+                            except FuturesTimeoutError:
+                                logger.error(
+                                    "Async enrichment timed out after 25s for job %s",
+                                    jid,
+                                )
+                                gen_data["_enriched"] = {}
+                            except Exception:
+                                logger.error(
+                                    "Async enrichment failed for job %s",
+                                    jid,
+                                    exc_info=True,
+                                )
+                                gen_data["_enriched"] = {}
+                        else:
+                            gen_data["_enriched"] = {}
 
                         with _generation_jobs_lock:
                             if jid in _generation_jobs:
