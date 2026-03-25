@@ -146,3 +146,113 @@ class TestSecurityInTemplates:
         assert (
             '"Chandel13"' not in content and "'Chandel13'" not in content
         ), f"{filename} contains hardcoded admin key 'Chandel13'"
+
+    @pytest.mark.parametrize("filename", EXPECTED_TEMPLATES)
+    def test_no_hardcoded_api_keys(self, filename: str) -> None:
+        """No template should contain hardcoded API keys."""
+        content = (TEMPLATES_DIR / filename).read_text(encoding="utf-8")
+        # Check for common API key patterns (sk-xxx, phc_xxx, etc.)
+        # Allow PostHog project token in templates (it's public by design)
+        suspicious_patterns = [
+            "sk-ant-",  # Anthropic keys
+            "sk-proj-",  # OpenAI keys
+            "gsk_",  # Groq keys
+        ]
+        for pattern in suspicious_patterns:
+            assert (
+                pattern not in content
+            ), f"{filename} may contain hardcoded API key (found '{pattern}')"
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Brand Color Validation
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Brand colors: PORT_GORE=#202058, BLUE_VIOLET=#5A54BD, DOWNY_TEAL=#6BB3CD
+_BRAND_COLORS = {"#202058", "#5a54bd", "#6bb3cd"}
+# Off-brand colors that should NOT appear
+_OFF_BRAND_COLORS = {"#4f46e5", "#6366f1", "#3b82f6", "#8b5cf6"}
+
+
+class TestBrandColors:
+    """Validate brand color consistency across templates."""
+
+    @pytest.mark.parametrize("filename", EXPECTED_TEMPLATES)
+    def test_has_brand_color(self, filename: str) -> None:
+        """Each template should use at least one brand color."""
+        content = (TEMPLATES_DIR / filename).read_text(encoding="utf-8").lower()
+        has_brand = any(color in content for color in _BRAND_COLORS)
+        assert (
+            has_brand
+        ), f"{filename} missing brand colors ({', '.join(_BRAND_COLORS)})"
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Title Tag Validation
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestTitleTags:
+    """Validate title tags are present and meaningful."""
+
+    @pytest.mark.parametrize("filename", EXPECTED_TEMPLATES)
+    def test_has_title_tag(self, filename: str) -> None:
+        """Each template should have a <title> tag."""
+        content = (TEMPLATES_DIR / filename).read_text(encoding="utf-8").lower()
+        assert (
+            "<title>" in content and "</title>" in content
+        ), f"{filename} missing <title> tag"
+
+    @pytest.mark.parametrize("filename", EXPECTED_TEMPLATES)
+    def test_title_not_empty(self, filename: str) -> None:
+        """Title tag should not be empty."""
+        content = (TEMPLATES_DIR / filename).read_text(encoding="utf-8")
+        match = re.search(
+            r"<title[^>]*>(.*?)</title>", content, re.IGNORECASE | re.DOTALL
+        )
+        assert match is not None, f"{filename} missing <title>"
+        title = match.group(1).strip()
+        assert len(title) > 0, f"{filename} has empty <title>"
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Meta Tags (SEO/OG)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestMetaTags:
+    """Validate meta tags for SEO and social sharing."""
+
+    @pytest.mark.parametrize("filename", EXPECTED_TEMPLATES)
+    def test_has_viewport_meta(self, filename: str) -> None:
+        """Each template should have a viewport meta tag for mobile."""
+        content = (TEMPLATES_DIR / filename).read_text(encoding="utf-8").lower()
+        assert "viewport" in content, f"{filename} missing viewport meta tag"
+
+    @pytest.mark.parametrize("filename", EXPECTED_TEMPLATES)
+    def test_has_charset_meta(self, filename: str) -> None:
+        """Each template should declare UTF-8 charset."""
+        content = (TEMPLATES_DIR / filename).read_text(encoding="utf-8").lower()
+        assert "utf-8" in content, f"{filename} missing UTF-8 charset declaration"
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Template File Size
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestTemplateSize:
+    """Validate template file sizes are reasonable."""
+
+    @pytest.mark.parametrize("filename", EXPECTED_TEMPLATES)
+    def test_not_empty(self, filename: str) -> None:
+        """Template files should not be empty."""
+        path = TEMPLATES_DIR / filename
+        assert path.stat().st_size > 0, f"{filename} is empty"
+
+    @pytest.mark.parametrize("filename", EXPECTED_TEMPLATES)
+    def test_not_oversized(self, filename: str) -> None:
+        """Template files should not exceed 500KB (inline CSS/JS can be large)."""
+        path = TEMPLATES_DIR / filename
+        size_kb = path.stat().st_size / 1024
+        assert size_kb < 500, f"{filename} is {size_kb:.0f}KB, exceeds 500KB limit"

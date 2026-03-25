@@ -57,6 +57,7 @@
   // ---------------------------------------------------------------------------
   // State
   // ---------------------------------------------------------------------------
+  // PostHog Funnel: opened -> message_sent -> response_received -> rated -> action_taken
   var state = {
     isOpen: false,
     isLoading: false,
@@ -68,6 +69,8 @@
     initialized: false,
     orbAnimId: null,
     orbDrawFn: null,
+    chatOpenedAt: 0,
+    messagesSentCount: 0,
   };
 
   // ---------------------------------------------------------------------------
@@ -523,7 +526,7 @@
           codeId +
           '" onclick="(function(b){var c=document.getElementById(\'' +
           codeId +
-          "');if(c){navigator.clipboard.writeText(c.textContent).then(function(){b.textContent='Copied!';setTimeout(function(){b.textContent='Copy'},1500);if(window.posthog){window.posthog.capture('nova_chat_code_copied',{source:'widget',page:window.location.pathname})}})}})(this)\">Copy</button>" +
+          "');if(c){navigator.clipboard.writeText(c.textContent).then(function(){b.textContent='Copied!';setTimeout(function(){b.textContent='Copy'},1500);if(window.posthog){window.posthog.capture('nova_chat_code_copied',{source:'widget',page:window.location.pathname});window.posthog.capture('nova_chat_action_taken',{action_type:'code_copy',page:window.location.pathname})}})}})(this)\">Copy</button>" +
           "</div>" +
           '<pre style="margin:0;padding:12px;background:#0d0d18;overflow-x:auto;"><code id="' +
           codeId +
@@ -1033,6 +1036,16 @@
     messagesDiv.setAttribute("role", "log");
     messagesDiv.setAttribute("aria-live", "polite");
     messagesDiv.setAttribute("aria-label", "Chat messages");
+    // PostHog: delegated listener for link clicks inside Nova responses
+    messagesDiv.addEventListener("click", function (e) {
+      var link = e.target.closest("a[href]");
+      if (link && window.posthog) {
+        window.posthog.capture("nova_chat_action_taken", {
+          action_type: "link_click",
+          page: window.location.pathname,
+        });
+      }
+    });
     panel.appendChild(messagesDiv);
 
     // Input area wrapper (contains input row + char counter)
@@ -1137,7 +1150,9 @@
     if (state.isOpen) {
       panel.classList.remove("nova-hidden");
       panel.classList.add("nova-visible");
-      // PostHog: track panel open
+      // PostHog: track panel open + record session start time
+      state.chatOpenedAt = Date.now();
+      state.messagesSentCount = 0;
       if (window.posthog) {
         window.posthog.capture("nova_chat_opened", {
           source: "widget",
@@ -1172,6 +1187,15 @@
         if (input) input.focus();
       }, 300);
     } else {
+      // PostHog: track session duration on close
+      if (window.posthog && state.chatOpenedAt > 0) {
+        window.posthog.capture("nova_chat_session_duration", {
+          duration_ms: Date.now() - state.chatOpenedAt,
+          messages_sent: state.messagesSentCount,
+          page: window.location.pathname,
+        });
+      }
+      state.chatOpenedAt = 0;
       panel.classList.remove("nova-visible");
       panel.classList.add("nova-hidden");
       // Remove close icon, restore orb
@@ -1414,6 +1438,55 @@
         });
       })(ttsBtn, msg.content);
       msgEl.appendChild(ttsBtn);
+
+      // Thumbs up / thumbs down feedback buttons
+      var msgIdx = state.messages.length;
+      var ratingBtnStyle =
+        "display:inline-flex;align-items:center;gap:2px;margin-top:6px;margin-left:6px;padding:3px 8px;border-radius:6px;font-size:10px;color:#666;background:rgba(107,179,205,0.06);border:1px solid rgba(107,179,205,0.1);cursor:pointer;transition:all 0.15s;font-family:inherit;";
+      var thumbUpBtn = document.createElement("button");
+      thumbUpBtn.className = "nova-rate-btn";
+      thumbUpBtn.setAttribute("aria-label", "Rate positive");
+      thumbUpBtn.innerHTML =
+        '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/><path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>';
+      thumbUpBtn.style.cssText = ratingBtnStyle;
+      var thumbDownBtn = document.createElement("button");
+      thumbDownBtn.className = "nova-rate-btn";
+      thumbDownBtn.setAttribute("aria-label", "Rate negative");
+      thumbDownBtn.innerHTML =
+        '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3H10z"/><path d="M17 2h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3"/></svg>';
+      thumbDownBtn.style.cssText = ratingBtnStyle;
+      (function (upBtn, downBtn, idx) {
+        function handleRating(rating) {
+          if (window.posthog) {
+            window.posthog.capture("nova_chat_response_rated", {
+              rating: rating,
+              message_index: idx,
+              page: window.location.pathname,
+            });
+          }
+          if (rating === "positive") {
+            upBtn.style.color = "#34D399";
+            upBtn.style.borderColor = "rgba(52,211,153,0.3)";
+            downBtn.style.color = "#666";
+            downBtn.style.borderColor = "rgba(107,179,205,0.1)";
+          } else {
+            downBtn.style.color = "#F87171";
+            downBtn.style.borderColor = "rgba(248,113,113,0.3)";
+            upBtn.style.color = "#666";
+            upBtn.style.borderColor = "rgba(107,179,205,0.1)";
+          }
+          upBtn.disabled = true;
+          downBtn.disabled = true;
+        }
+        upBtn.addEventListener("click", function () {
+          handleRating("positive");
+        });
+        downBtn.addEventListener("click", function () {
+          handleRating("negative");
+        });
+      })(thumbUpBtn, thumbDownBtn, msgIdx);
+      msgEl.appendChild(thumbUpBtn);
+      msgEl.appendChild(thumbDownBtn);
 
       // Meta: sources + confidence
       var sources = msg.sources || [];
@@ -1746,6 +1819,7 @@
     }
 
     // PostHog: track message sent
+    state.messagesSentCount++;
     if (window.posthog) {
       window.posthog.capture("nova_chat_message_sent", {
         source: "widget",
@@ -1892,6 +1966,14 @@
                 confidence: metadata.confidence || 0,
                 streaming: true,
               });
+              // PostHog: track each tool used during this response
+              var toolsUsed = metadata.tools_used || [];
+              toolsUsed.forEach(function (toolName) {
+                window.posthog.capture("nova_chat_tool_used", {
+                  tool_name: toolName,
+                  page: window.location.pathname,
+                });
+              });
             }
             // Replace streaming row with proper message
             var streamRowEl = document.getElementById("nova-stream-row");
@@ -2005,6 +2087,14 @@
               provider: data.provider || "",
               confidence: data.confidence || 0,
               streaming: false,
+            });
+            // PostHog: track each tool used during this response
+            var nsToolsUsed = data.tools_used || [];
+            nsToolsUsed.forEach(function (toolName) {
+              window.posthog.capture("nova_chat_tool_used", {
+                tool_name: toolName,
+                page: window.location.pathname,
+              });
             });
           }
           appendMessage({

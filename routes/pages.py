@@ -7,10 +7,40 @@ routes that serve templates from the templates/ directory.  Returns
 
 import logging
 import os
+import re
 import sys
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Platform sub-route SEO metadata
+# ---------------------------------------------------------------------------
+# Maps /platform/<section> paths to their SEO metadata and initial JS route.
+# The initial_route value is injected into the platform template so the
+# frontend router navigates directly to the correct section on page load.
+_PLATFORM_SUB_ROUTES: dict[str, dict[str, str]] = {
+    "plan": {
+        "title": "Plan | Nova Platform - AI Campaign Planning Suite",
+        "description": "AI-powered campaign planning tools: full media plans, quick plans, creative briefs, budget simulator, and A/B testing.",
+        "initial_route": "plan/campaign",
+    },
+    "intelligence": {
+        "title": "Intelligence | Nova Platform - Market & Competitive Intel",
+        "description": "Real-time competitive monitoring, market pulse, vendor analysis, and talent intelligence for recruitment advertising.",
+        "initial_route": "intelligence/competitive",
+    },
+    "compliance": {
+        "title": "Compliance | Nova Platform - Regulatory Compliance Tools",
+        "description": "Automated compliance checks, ad audits, and regulatory monitoring for recruitment advertising campaigns.",
+        "initial_route": "compliance/comply",
+    },
+    "nova": {
+        "title": "Nova AI | Nova Platform - AI Assistant",
+        "description": "Nova AI assistant for recruitment intelligence, campaign analysis, and market insights.",
+        "initial_route": "nova",
+    },
+}
 
 
 def _get_dirs() -> tuple[str, str]:
@@ -149,6 +179,18 @@ def handle_page_routes(handler: Any, path: str, parsed: Any) -> bool:
         _serve_template(handler, templates_dir, template)
         return True
 
+    # Platform sub-routes: /platform/plan, /platform/intelligence, etc.
+    # Serves the platform SPA shell with the correct initial route injected
+    # so the frontend router navigates to the right section on page load.
+    if path.startswith("/platform/"):
+        section = path[len("/platform/") :].strip("/").split("/")[0]
+        sub_route_meta = _PLATFORM_SUB_ROUTES.get(section)
+        if sub_route_meta:
+            # Build the full sub-path (may include deeper routes like /platform/plan/budget)
+            sub_path = path[len("/platform/") :].strip("/")
+            _serve_platform_with_route(handler, templates_dir, sub_path, sub_route_meta)
+            return True
+
     # Nova page (special handling)
     if path in ("/nova", "/nova/"):
         nova_html = os.path.join(base_dir, "templates", "nova.html")
@@ -225,3 +267,91 @@ def _serve_template(handler: Any, templates_dir: str, template: str) -> None:
         handler.wfile.write(html.encode())
     else:
         handler.send_error(404, f"{template} not found")
+
+
+_BASE_URL = "https://media-plan-generator.onrender.com"
+
+
+def _serve_platform_with_route(
+    handler: Any,
+    templates_dir: str,
+    sub_path: str,
+    meta: dict[str, str],
+) -> None:
+    """Serve the platform template with SEO metadata and initial route injected.
+
+    Replaces the generic <title>, <meta description>, and <link canonical>
+    with section-specific values, and injects a __NOVA_INITIAL_ROUTE variable
+    so the frontend router navigates to the correct section on page load.
+
+    Args:
+        handler: The MediaPlanHandler instance.
+        templates_dir: Path to templates directory.
+        sub_path: The sub-path after /platform/ (e.g. "plan", "plan/budget").
+        meta: SEO metadata dict with 'title', 'description', 'initial_route'.
+    """
+    html_path = os.path.join(templates_dir, "platform.html")
+    if not os.path.exists(html_path):
+        handler.send_error(404, "platform.html not found")
+        return
+
+    try:
+        with open(html_path, "r", encoding="utf-8") as f:
+            html = f.read()
+    except OSError as e:
+        logger.error("Failed to read platform.html: %s", e, exc_info=True)
+        handler.send_error(500, "Failed to read platform template")
+        return
+
+    # Determine the actual route to pass to the frontend.
+    # If the URL is /platform/plan/budget, use "plan/budget" directly.
+    # If just /platform/plan, use the default initial_route from metadata.
+    section_root = sub_path.split("/")[0]
+    if "/" in sub_path:
+        # Deeper path like plan/budget or intelligence/talent/hire-signal
+        initial_route = sub_path
+    else:
+        # Top-level section: use the default first module route
+        initial_route = meta["initial_route"]
+
+    # Canonical URL always points to the clean section URL
+    canonical_url = f"{_BASE_URL}/platform/{section_root}"
+
+    # Replace <title>
+    html = re.sub(
+        r"<title>[^<]*</title>",
+        f"<title>{meta['title']}</title>",
+        html,
+        count=1,
+    )
+
+    # Replace meta description
+    html = re.sub(
+        r'<meta\s+name="description"\s+content="[^"]*"\s*/?>',
+        f'<meta name="description" content="{meta["description"]}" />',
+        html,
+        count=1,
+    )
+
+    # Replace canonical URL
+    html = re.sub(
+        r'<link\s+rel="canonical"\s+href="[^"]*"\s*/?>',
+        f'<link rel="canonical" href="{canonical_url}" />',
+        html,
+        count=1,
+    )
+
+    # Inject initial route variable before the closing </head> tag.
+    # The frontend router reads this to navigate on page load instead of
+    # relying on hash fragments.
+    route_script = (
+        f'<script>window.__NOVA_INITIAL_ROUTE = "{initial_route}";</script>\n'
+    )
+    html = html.replace("</head>", f"{route_script}</head>", 1)
+
+    body = html.encode("utf-8")
+    handler.send_response(200)
+    handler.send_header("Content-Type", "text/html; charset=utf-8")
+    handler.send_header("Content-Length", str(len(body)))
+    handler.end_headers()
+    handler.wfile.write(body)

@@ -1060,65 +1060,23 @@ def health_check() -> bool:
 
 
 # ---------------------------------------------------------------------------
-# Module Usage Tracking (v4.0)
+# Module Usage Tracking (DEPRECATED -- table nova_module_usage is dead/underutilized)
 # ---------------------------------------------------------------------------
-#
-# Table schema (run via Supabase SQL editor):
-#
-# CREATE TABLE IF NOT EXISTS nova_module_usage (
-#     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-#     module_name TEXT NOT NULL,
-#     action TEXT NOT NULL,
-#     user_id TEXT NOT NULL DEFAULT 'anonymous',
-#     timestamp TIMESTAMPTZ DEFAULT now(),
-#     latency_ms FLOAT DEFAULT 0,
-#     success BOOLEAN DEFAULT true,
-#     metadata JSONB DEFAULT '{}'::jsonb,
-#     created_at TIMESTAMPTZ DEFAULT now()
-# );
-# CREATE INDEX idx_module_usage_module ON nova_module_usage(module_name);
-# CREATE INDEX idx_module_usage_timestamp ON nova_module_usage(timestamp);
-# CREATE INDEX idx_module_usage_user ON nova_module_usage(user_id);
+# Analytics are now tracked via PostHog. This stub is kept for backward
+# compatibility so existing callers do not raise ImportError.
 
 
 def track_module_usage(
-    module_name: str,
-    action: str,
+    module_name: str = "",
+    action: str = "",
     user_id: str = "anonymous",
     latency_ms: float = 0.0,
     success: bool = True,
     metadata: Optional[Dict[str, Any]] = None,
 ) -> bool:
-    """Track a module usage event in Supabase.
+    """No-op stub. Module usage tracking moved to PostHog.
 
-    Fire-and-forget: errors are logged but do not propagate.
-
-    Args:
-        module_name: Module identifier (command_center, intelligence_hub, nova_ai).
-        action: Action performed (e.g., 'generate_plan', 'chat_message', 'web_search').
-        user_id: Anonymous user identifier.
-        latency_ms: Request latency in milliseconds.
-        success: Whether the action succeeded.
-        metadata: Optional JSONB metadata (model used, sources, etc.).
-
-    Returns:
-        True if tracking succeeded, False otherwise.
+    Kept for backward compatibility -- callers can safely import and call
+    this function without side effects.
     """
-    sb = _get_supabase()
-    if not sb:
-        return False
-
-    try:
-        row = {
-            "module_name": module_name,
-            "action": action,
-            "user_id": user_id or "anonymous",
-            "latency_ms": round(latency_ms, 1),
-            "success": success,
-            "metadata": metadata or {},
-        }
-        sb.table("nova_module_usage").insert(row).execute()
-        return True
-    except Exception as e:
-        logger.error("Failed to track module usage: %s", e, exc_info=True)
-        return False
+    return False

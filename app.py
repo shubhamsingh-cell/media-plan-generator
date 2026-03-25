@@ -3750,6 +3750,17 @@ def _build_health_response() -> dict:
         "api_integrations": "ok" if _api_integ else "down",
         "metrics_collector": "ok" if (_metrics is not None) else "down",
     }
+    # Check Upstash Redis (L3 cache) connectivity
+    try:
+        from upstash_cache import ping as _upstash_ping, _ENABLED as _upstash_on
+
+        if _upstash_on:
+            _modules["upstash_redis"] = "ok" if _upstash_ping() else "down"
+        else:
+            _modules["upstash_redis"] = "not_configured"
+    except ImportError:
+        _modules["upstash_redis"] = "not_configured"
+
     # Check optional modules -- attempt import if not yet in sys.modules (self-healing)
     for _mod_name in ("resilience_router", "posthog_tracker", "nova", "eval_framework"):
         if sys.modules.get(_mod_name):
@@ -3805,6 +3816,7 @@ def _build_health_response() -> dict:
         "tavily_available": _tavily_ok,
         "vector_search_available": _vector_ok,
         "posthog_configured": _ph_configured,
+        "upstash_redis_connected": _modules.get("upstash_redis") == "ok",
     }
     return result
 
@@ -7084,6 +7096,10 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             _SITEMAP_PAGES: list[tuple[str, str, str]] = [
                 ("/", "1.0", "weekly"),
                 ("/platform", "0.9", "weekly"),
+                ("/platform/plan", "0.85", "weekly"),
+                ("/platform/intelligence", "0.85", "weekly"),
+                ("/platform/compliance", "0.85", "weekly"),
+                ("/platform/nova", "0.8", "weekly"),
                 ("/nova", "0.9", "weekly"),
                 ("/media-plan", "0.9", "weekly"),
                 ("/competitive-intel", "0.8", "weekly"),
@@ -9724,24 +9740,8 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 )
                 if _metrics:
                     _metrics.record_generation(generation_time)
-                # ── Track module usage (fire-and-forget via background executor) ──
-                try:
-                    from nova_persistence import track_module_usage
-
-                    submit_background_task(
-                        track_module_usage,
-                        task_name="track-generate",
-                        module_name="command_center",
-                        action="generate_plan",
-                        latency_ms=generation_time * 1000,
-                        success=True,
-                        metadata={
-                            "client": data.get("client_name") or "",
-                            "file_size": len(excel_bytes),
-                        },
-                    )
-                except Exception:
-                    pass
+                # NOTE: Module usage tracking removed (nova_module_usage deprecated).
+                # Analytics now tracked via PostHog (_ph_track calls above).
         elif path == "/api/chat":
             # ── Nova Chat Endpoint ──
             if not self._check_rate_limit() or not self._check_global_chat_rate_limit():
@@ -9853,24 +9853,8 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 },
             )
 
-            # ── Track module usage (fire-and-forget via background executor) ──
-            try:
-                from nova_persistence import track_module_usage as _track_chat_usage
-
-                submit_background_task(
-                    _track_chat_usage,
-                    task_name="track-chat",
-                    module_name="nova_ai",
-                    action="chat_message",
-                    success="error" not in response,
-                    metadata={
-                        "provider": response.get("llm_provider") or "",
-                        "tools_used": response.get("tools_used") or [],
-                        "confidence": response.get("confidence") or 0.0,
-                    },
-                )
-            except Exception:
-                pass
+            # NOTE: Module usage tracking removed (nova_module_usage deprecated).
+            # Analytics now tracked via PostHog (_ph_track calls above).
 
             # ── Persist conversation turn to Supabase (async, non-blocking) ──
             try:
@@ -12325,25 +12309,8 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         "endpoint": "/api/compliance/analyze",
                     },
                 )
-                # ── Track module usage (fire-and-forget) ──
-                try:
-                    from nova_persistence import track_module_usage as _track_comp
-
-                    threading.Thread(
-                        target=_track_comp,
-                        kwargs={
-                            "module_name": "compliance_guard",
-                            "action": "compliance_scan",
-                            "success": True,
-                            "metadata": {
-                                "location": data.get("location") or "",
-                            },
-                        },
-                        daemon=True,
-                        name="track-compliance",
-                    ).start()
-                except Exception:
-                    pass
+                # NOTE: Module usage tracking removed (nova_module_usage deprecated).
+                # Analytics now tracked via PostHog (_ph_track calls above).
             except json.JSONDecodeError:
                 self.send_response(400)
                 self.send_header("Content-Type", "application/json")

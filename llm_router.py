@@ -71,6 +71,25 @@ import urllib.parse
 import urllib.request
 from typing import Any, Dict, Generator, List, Optional, Tuple
 
+# L3 persistent cache (Upstash Redis) -- graceful no-op when not configured
+try:
+    from upstash_cache import (
+        cache_get as _upstash_get,
+        cache_set as _upstash_set,
+        _ENABLED as _UPSTASH_ENABLED,
+    )
+except ImportError:
+    _UPSTASH_ENABLED = False
+
+    def _upstash_get(key: str) -> Optional[Any]:
+        return None  # noqa: E731
+
+    def _upstash_set(
+        key: str, data: Any, ttl_seconds: int = 86400, category: str = "api"
+    ) -> None:
+        pass  # noqa: E731
+
+
 logger = logging.getLogger(__name__)
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -324,24 +343,40 @@ class _ResponseCache:
     def get(
         self, task_type: str, system_prompt: str, user_message: str
     ) -> Optional[dict[str, Any]]:
-        """Look up a cached response.  Returns None on miss or expired entry."""
+        """Look up a cached response.  L1 (in-memory) first, then L3 (Upstash Redis)."""
         key = self._make_key(task_type, system_prompt, user_message)
         now = time.time()
         with self._lock:
             entry = self._store.get(key)
-            if entry is None:
-                self._misses += 1
-                return None
-            ts, entry_ttl, response = entry
-            if now - ts > entry_ttl:
-                # Expired -- evict
+            if entry is not None:
+                ts, entry_ttl, response = entry
+                if now - ts <= entry_ttl:
+                    self._store.move_to_end(key)
+                    self._hits += 1
+                    return response
+                # Expired -- evict from L1
                 del self._store[key]
-                self._misses += 1
-                return None
-            # Move to end (most recently used)
-            self._store.move_to_end(key)
-            self._hits += 1
-            return response
+
+        # L1 miss -- try L3 (Upstash Redis) read-through
+        if _UPSTASH_ENABLED:
+            try:
+                l3_data = _upstash_get(f"llm:{key}")
+                if l3_data and isinstance(l3_data, dict) and l3_data.get("text"):
+                    # Promote to L1
+                    entry_ttl = self._ttl_for_task(task_type)
+                    with self._lock:
+                        while len(self._store) >= self._max_size:
+                            self._store.popitem(last=False)
+                        self._store[key] = (now, entry_ttl, l3_data)
+                        self._hits += 1
+                    logger.debug("LLM cache L3 HIT (Upstash) for key=%s...", key[:12])
+                    return l3_data
+            except Exception:
+                pass  # L3 failure is non-fatal
+
+        with self._lock:
+            self._misses += 1
+        return None
 
     def put(
         self,
@@ -350,10 +385,10 @@ class _ResponseCache:
         user_message: str,
         response: dict[str, Any],
     ) -> None:
-        """Store a successful response in the cache.
+        """Store a successful response in L1 (in-memory) and L3 (Upstash Redis).
 
-        Uses task-type-aware TTL: verification/compliance tasks get 15 min,
-        all others get 5 min.
+        Uses task-type-aware TTL: real-time tasks get 5 min, others get 15 min.
+        L3 gets 2x the TTL for persistence across deploys.
         """
         key = self._make_key(task_type, system_prompt, user_message)
         entry_ttl = self._ttl_for_task(task_type)
@@ -363,11 +398,29 @@ class _ResponseCache:
             if key in self._store:
                 self._store.move_to_end(key)
                 self._store[key] = (now, entry_ttl, response)
-                return
-            # Evict oldest if at capacity
-            while len(self._store) >= self._max_size:
-                self._store.popitem(last=False)
-            self._store[key] = (now, entry_ttl, response)
+            else:
+                # Evict oldest if at capacity
+                while len(self._store) >= self._max_size:
+                    self._store.popitem(last=False)
+                self._store[key] = (now, entry_ttl, response)
+
+        # Write-through to L3 (Upstash Redis) -- fire-and-forget in background
+        if _UPSTASH_ENABLED:
+            l3_ttl = int(entry_ttl * 2)  # 2x TTL for persistence across deploys
+            threading.Thread(
+                target=self._l3_write,
+                args=(key, response, l3_ttl),
+                daemon=True,
+                name="upstash-cache-write",
+            ).start()
+
+    @staticmethod
+    def _l3_write(key: str, response: dict[str, Any], ttl: int) -> None:
+        """Write to Upstash Redis L3 cache (background thread)."""
+        try:
+            _upstash_set(f"llm:{key}", response, ttl_seconds=ttl, category="llm")
+        except Exception as exc:
+            logger.debug("L3 cache write failed: %s", exc)
 
     def get_stats(self) -> dict[str, Any]:
         """Return cache statistics including hit/miss rates and TTL config."""
@@ -387,6 +440,7 @@ class _ResponseCache:
                 "cache_hits": self._hits,
                 "cache_misses": self._misses,
                 "cache_hit_rate_pct": round(hit_rate, 1),
+                "l3_upstash_enabled": _UPSTASH_ENABLED,
             }
 
 

@@ -3567,8 +3567,13 @@
         let _currentRoute = null;
         let _currentTabId = null;
 
-        function _getRouteConfig(hash) {
-          const path = hash.replace(/^#?\/?/, "");
+        function _getRouteConfig(pathOrHash) {
+          /* Accept both hash (#/plan/campaign) and path (/platform/plan/campaign) formats */
+          let path = pathOrHash;
+          /* Strip hash prefix */
+          path = path.replace(/^#?\/?/, "");
+          /* Strip /platform/ prefix if present (from pushState URLs) */
+          path = path.replace(/^platform\//, "");
           if (!path || path === "home")
             return { fragment: null, route: "", module: null, tabId: null };
 
@@ -3714,9 +3719,34 @@
           }
         }
 
+        function _getCurrentRoutePath() {
+          /* Determine the current route from the URL.
+             Priority: 1) pathname /platform/<route>  2) hash #/<route>  3) server-injected initial route */
+          const pathname = location.pathname;
+          if (
+            pathname.startsWith("/platform/") &&
+            pathname.length > "/platform/".length
+          ) {
+            return pathname.slice("/platform/".length);
+          }
+          if (
+            location.hash &&
+            location.hash !== "#" &&
+            location.hash !== "#/"
+          ) {
+            return location.hash.replace(/^#?\/?/, "");
+          }
+          if (window.__NOVA_INITIAL_ROUTE) {
+            const route = window.__NOVA_INITIAL_ROUTE;
+            delete window.__NOVA_INITIAL_ROUTE; /* consume once */
+            return route;
+          }
+          return "";
+        }
+
         async function handleRoute() {
-          const hash = location.hash || "#/";
-          const config = _getRouteConfig(hash);
+          const routePath = _getCurrentRoutePath();
+          const config = _getRouteConfig(routePath);
           const routeKey =
             config.route + (config.tabId ? "/" + config.tabId : "");
 
@@ -3822,7 +3852,9 @@
 
         return {
           navigate(route) {
-            location.hash = "#/" + route;
+            const newPath = route ? "/platform/" + route : "/platform";
+            history.pushState({ novaRoute: route }, "", newPath);
+            handleRoute();
           },
           switchTab(tabId) {
             if (!_currentRoute) return;
@@ -3830,11 +3862,17 @@
             if (!mod || !mod.tabs) return;
             const tab = mod.tabs.find((t) => t.id === tabId);
             if (!tab) return;
-            location.hash = "#/" + mod.route + "/" + tabId;
+            const newRoute = mod.route + "/" + tabId;
+            history.pushState(
+              { novaRoute: newRoute },
+              "",
+              "/platform/" + newRoute,
+            );
+            handleRoute();
           },
           reload() {
-            const hash = location.hash || "#/";
-            const config = _getRouteConfig(hash);
+            const routePath = _getCurrentRoutePath();
+            const config = _getRouteConfig(routePath);
             if (config.fragment) delete _fragmentCache[config.fragment];
             _currentRoute = null;
             _currentTabId = null;
@@ -3842,7 +3880,23 @@
           },
           init() {
             window.__NOVA_PLATFORM = true;
-            window.addEventListener("hashchange", handleRoute);
+            /* Listen for back/forward navigation */
+            window.addEventListener("popstate", handleRoute);
+            /* Backward compat: redirect old hash routes to pushState paths */
+            if (
+              location.hash &&
+              location.hash !== "#" &&
+              location.hash !== "#/"
+            ) {
+              const hashRoute = location.hash.replace(/^#?\/?/, "");
+              if (hashRoute) {
+                history.replaceState(
+                  { novaRoute: hashRoute },
+                  "",
+                  "/platform/" + hashRoute,
+                );
+              }
+            }
             handleRoute();
           },
           clearCache() {
@@ -4767,9 +4821,16 @@
             } catch (e) {
               return;
             }
-            // Skip onboarding when user navigated directly to a module via hash
+            // Skip onboarding when user navigated directly to a module via URL path or hash
+            const currentPath = (location.pathname || "").replace(
+              /^\/platform\/?/,
+              "",
+            );
             const hash = (location.hash || "").replace(/^#?\/?/, "");
-            if (hash && hash !== "home") {
+            if (
+              (currentPath && currentPath !== "home") ||
+              (hash && hash !== "home")
+            ) {
               try {
                 localStorage.setItem(SEEN_KEY, "1");
               } catch (e) {

@@ -5,8 +5,8 @@
 --              (Command Center, Intelligence Hub, Nova AI)
 --
 -- Tables:
---   1. nova_campaigns        -- Campaign context persistence
---   2. nova_module_usage     -- Per-action analytics
+--   1. nova_campaigns        -- Campaign context persistence  [DEPRECATED]
+--   2. nova_module_usage     -- Per-action analytics  [DEPRECATED]
 --   3. nova_module_health    -- Health snapshot time-series
 --   4. nova_data_cache       -- Structured data cache with TTL
 --   5. nova_user_preferences -- User settings and personalization
@@ -21,9 +21,9 @@
 -- =============================================================================
 
 -- ---------------------------------------------------------------------------
--- 1. Nova Campaigns -- Campaign context persistence
---    Stores full campaign state so users can resume, share, and track
---    campaigns across sessions and modules.
+-- 1. Nova Campaigns -- Campaign context persistence  [DEPRECATED 2026-03-25]
+--    This table was never populated -- campaign state is stored client-side.
+--    Kept for reference only -- do NOT add new code that reads/writes this table.
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS nova_campaigns (
     id              UUID            PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -57,9 +57,9 @@ CREATE TRIGGER trg_nova_campaigns_updated_at
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- ---------------------------------------------------------------------------
--- 2. Nova Module Usage -- Per-action analytics
---    Tracks every significant action across all 3 modules for usage analytics,
---    billing metering, and performance monitoring.
+-- 2. Nova Module Usage -- Per-action analytics  [DEPRECATED 2026-03-25]
+--    Analytics now tracked via PostHog. Python callers replaced with no-op stub.
+--    Kept for reference only -- do NOT add new code that reads/writes this table.
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS nova_module_usage (
     id              UUID            PRIMARY KEY DEFAULT gen_random_uuid(),

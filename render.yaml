@@ -60,6 +60,19 @@ services:
         sync: false
       - key: CEREBRAS_API_KEY
         sync: false
+      # --- Upstash Redis (L3 persistent cache) ---
+      - key: UPSTASH_REDIS_REST_URL
+        sync: false
+      - key: UPSTASH_REDIS_REST_TOKEN
+        sync: false
+      # --- Email Alerts (Resend API) ---
+      - key: RESEND_API_KEY
+        sync: false
+      - key: ALERT_EMAIL_TO
+        sync: false
+      # --- TTS (ElevenLabs) ---
+      - key: ELEVENLABS_API_KEY
+        sync: false
     disk:
       name: media-plan-data
       mountPath: /data/persistent

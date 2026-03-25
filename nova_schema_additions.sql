@@ -58,7 +58,9 @@ CREATE INDEX IF NOT EXISTS idx_nova_shared_conversations_conversation_id ON nova
 CREATE INDEX IF NOT EXISTS idx_nova_shared_conversations_expires_at ON nova_shared_conversations(expires_at);
 
 -- ---------------------------------------------------------------------------
--- 4. Nova Avatars Table
+-- 4. Nova Avatars Table  [DEPRECATED 2026-03-25]
+--    This table is unused. Avatar display is handled via CSS in the chat UI.
+--    Kept for reference only -- do NOT add new code that reads/writes this table.
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS nova_avatars (
     id              UUID            PRIMARY KEY DEFAULT gen_random_uuid(),
