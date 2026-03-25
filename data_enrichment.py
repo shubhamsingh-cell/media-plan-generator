@@ -292,7 +292,9 @@ def _upsert_to_supabase(
     on_conflict = _ON_CONFLICT_MAP.get(table) or ""
     url = f"{base}/rest/v1/{table}"
     if on_conflict:
-        url += f"?on_conflict={on_conflict}"
+        # URL-encode the on_conflict parameter to handle commas correctly
+        encoded_conflict = urllib.parse.quote(on_conflict, safe="")
+        url += f"?on_conflict={encoded_conflict}"
 
     headers = _build_supabase_headers(prefer="resolution=merge-duplicates")
     total_upserted = 0
