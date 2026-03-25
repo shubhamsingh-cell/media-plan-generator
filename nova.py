@@ -3003,7 +3003,40 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
         """Query recruitment industry knowledge base.
 
         Tries Supabase first for fresher data, falls back to local cache.
+        Augments keyword results with semantic vector search when available.
         """
+        # Semantic vector search (augments keyword search)
+        _vector_results: list[dict] = []
+        _vs_query = (
+            " ".join(
+                filter(
+                    None,
+                    [
+                        params.get("topic") or "",
+                        params.get("metric") or "",
+                        params.get("industry") or "",
+                        params.get("platform") or "",
+                    ],
+                )
+            ).strip()
+            or "recruitment benchmarks"
+        )
+        try:
+            from vector_search import search as _vsearch
+
+            _vr = _vsearch(_vs_query, top_k=3)
+            if isinstance(_vr, list):
+                _vector_results = _vr
+                logger.info(
+                    "Vector search returned %d results for: %s",
+                    len(_vr),
+                    _vs_query[:50],
+                )
+        except ImportError:
+            pass  # vector_search module not available
+        except (OSError, ValueError, TypeError, RuntimeError) as e:
+            logger.warning("Vector search failed (non-fatal): %s", e)
+
         kb = self._data_cache.get("knowledge_base", {})
 
         # Enrich with Supabase knowledge if available
@@ -3127,6 +3160,18 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
 
         if topic == "regional":
             result["regional_insights"] = kb.get("regional_insights", {})
+
+        # Merge vector search results into response
+        if _vector_results:
+            _vr_texts: list[str] = []
+            for vr in _vector_results[:3]:
+                if isinstance(vr, dict):
+                    _vr_texts.append(vr.get("text") or vr.get("content") or str(vr))
+                elif isinstance(vr, str):
+                    _vr_texts.append(vr)
+            if _vr_texts:
+                result["_semantic_context"] = "\n\n".join(_vr_texts)
+                result["_search_tier"] = "vector"
 
         return result
 
@@ -6699,6 +6744,20 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
 
                     tool_results_raw.append(tool_result_content)
 
+                    # Append semantic vector context if present
+                    try:
+                        _parsed_for_sem = json.loads(tool_result_content)
+                        if (
+                            isinstance(_parsed_for_sem, dict)
+                            and "_semantic_context" in _parsed_for_sem
+                        ):
+                            tool_result_content += (
+                                f"\n\n--- Semantic Search Context ---\n"
+                                f"{_parsed_for_sem['_semantic_context']}"
+                            )
+                    except (json.JSONDecodeError, TypeError):
+                        pass
+
                     # Add guardrail for empty tool results
                     if not has_data:
                         tool_result_content = (
@@ -7137,6 +7196,21 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
                         tool_results_raw.append(
                             tool_result
                         )  # For grounding verification
+
+                        # Append semantic vector context if present
+                        try:
+                            _parsed_for_sem = json.loads(tool_result)
+                            if (
+                                isinstance(_parsed_for_sem, dict)
+                                and "_semantic_context" in _parsed_for_sem
+                            ):
+                                tool_result += (
+                                    f"\n\n--- Semantic Search Context ---\n"
+                                    f"{_parsed_for_sem['_semantic_context']}"
+                                )
+                        except (json.JSONDecodeError, TypeError):
+                            pass
+
                         # Add guardrail for tool errors to prevent hallucination
                         tool_content = tool_result
                         if not has_data:

@@ -4064,6 +4064,20 @@ def _build_health_response() -> dict:
         result["health_check_ms"] = round((time.time() - _health_start) * 1000, 1)
         return result
 
+    # Vector search diagnostics
+    if _vector_search_available:
+        try:
+            from vector_search import get_status as _vs_status
+
+            result["vector_search"] = _vs_status()
+        except ImportError:
+            result["vector_search"] = {"status": "import_error"}
+        except (OSError, ValueError, RuntimeError) as _vs_err:
+            logger.warning("Vector search health check failed: %s", _vs_err)
+            result["vector_search"] = {"status": "error", "detail": str(_vs_err)}
+    else:
+        result["vector_search"] = {"status": "not_available"}
+
     # Request coalescing stats
     try:
         from request_coalescing import (
