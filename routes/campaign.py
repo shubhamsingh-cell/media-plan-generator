@@ -32,6 +32,10 @@ def handle_campaign_get_routes(handler: Any, path: str, parsed: Any) -> bool:
     if path.startswith("/plan/shared/"):
         _handle_shared_plan_view(handler, path, parsed)
         return True
+    # /plan/{id} -- shareable read-only plan view (24h TTL)
+    if path.startswith("/plan/") and not path.startswith("/plan/shared/"):
+        _handle_plan_direct_view(handler, path, parsed)
+        return True
     return False
 
 
@@ -264,6 +268,94 @@ function showFbToast(msg) {{
     handler.send_header("Content-Length", str(len(body_bytes)))
     handler.end_headers()
     handler.wfile.write(body_bytes)
+
+
+def _handle_plan_direct_view(handler: Any, path: str, parsed: Any) -> None:
+    """GET /plan/{id} -- read-only shareable plan view via plan_id (24h TTL)."""
+    import html as _html_m
+    import re as _re_m
+
+    _app = sys.modules.get("__main__") or sys.modules.get("app")
+    _plan_results_store = getattr(_app, "_plan_results_store", {})
+    _plan_results_lock = getattr(_app, "_plan_results_lock", None)
+
+    _pv_id = path.split("/plan/")[-1].rstrip("/").split("?")[0]
+    if not _pv_id or not _re_m.match(r"^[a-f0-9]{1,12}$", _pv_id):
+        handler.send_error(404)
+        return
+
+    _pv_entry = None
+    if _plan_results_lock:
+        with _plan_results_lock:
+            _pv_entry = _plan_results_store.get(_pv_id)
+            if _pv_entry and time.time() - _pv_entry["created"] > 86400:
+                _plan_results_store.pop(_pv_id, None)
+                _pv_entry = None
+    else:
+        _pv_entry = _plan_results_store.get(_pv_id)
+
+    if not _pv_entry:
+        handler.send_response(404)
+        handler.send_header("Content-Type", "text/html; charset=utf-8")
+        handler.end_headers()
+        handler.wfile.write(
+            b'<html><body style="font-family:system-ui;background:#0a0a1e;color:#e2e8f0;'
+            b'display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0">'
+            b'<div style="text-align:center"><h1>Plan Expired</h1>'
+            b'<p style="color:#94a3b8">This link expired (24h limit).</p>'
+            b'<a href="/" style="color:#6BB3CD">Generate New Plan</a></div></body></html>'
+        )
+        return
+
+    try:
+        _pd = _pv_entry.get("data") or {}
+        _ps = _pd.get("summary") or {}
+        _pch = _ps.get("channels") or []
+        _mt = _pd.get("metadata") or {}
+        _cl = _html_m.escape(_mt.get("client_name") or "Client")
+        _ind = _html_m.escape(_mt.get("industry_label") or "")
+        _bud = _html_m.escape(str(_mt.get("total_budget") or ""))
+        _gen = _html_m.escape((_mt.get("generated_at") or "")[:10])
+        _rows = ""
+        for _c in (_pch if isinstance(_pch, list) else [])[:20]:
+            if isinstance(_c, dict):
+                _rows += (
+                    f"<tr><td>{_html_m.escape(str(_c.get('name', '')))}</td>"
+                    f"<td>${_c.get('budget', 0):,.0f}</td>"
+                    f"<td>{_c.get('allocation_pct', 0)}%</td>"
+                    f"<td>{_html_m.escape(str(_c.get('cpc_range', '--')))}</td>"
+                    f"<td>{_html_m.escape(str(_c.get('cpa_range', '--')))}</td></tr>"
+                )
+        _nc = _ps.get("total_channels") or (len(_pch) if isinstance(_pch, list) else 0)
+        _ea = _ps.get("est_applications") or "--"
+        _eh = _ps.get("est_hires") or "--"
+        _empty_row = '<tr><td colspan="5" style="text-align:center;color:#94a3b8">No data</td></tr>'
+        _body = f"""<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Plan: {_cl} | Nova AI Suite</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<style>*{{box-sizing:border-box}}body{{font-family:Inter,system-ui;background:#0a0a1e;color:#e2e8f0;margin:0;padding:20px}}.w{{max-width:900px;margin:0 auto}}h1{{font-size:22px;margin:0 0 8px}}.mt{{color:#94a3b8;font-size:13px}}.cd{{background:rgba(20,20,45,.8);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:20px;margin-bottom:16px}}.cd h3{{margin:0 0 12px;font-size:15px;color:#7b75d4}}.sg{{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:24px}}.si{{background:rgba(255,255,255,.04);border-radius:8px;padding:16px;text-align:center}}.sv{{font-size:24px;font-weight:700;color:#fff}}.sl{{font-size:11px;color:#94a3b8;text-transform:uppercase;margin-top:4px}}table{{width:100%;border-collapse:collapse;font-size:13px}}th{{text-align:left;padding:10px;border-bottom:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.5);font-size:11px;text-transform:uppercase}}td{{padding:10px;border-bottom:1px solid rgba(255,255,255,.05)}}.bd{{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;background:rgba(107,179,205,.15);color:#6BB3CD}}.ft{{text-align:center;padding:24px 0;color:#64748b;font-size:12px}}a{{color:#6BB3CD}}</style>
+</head><body><div class="w">
+<div style="padding:24px 0;border-bottom:1px solid rgba(255,255,255,.1);margin-bottom:24px">
+<h1>Media Plan: {_cl}</h1>
+<div class="mt">{_ind} &middot; Budget: {_bud} &middot; {_gen} <span class="bd">Read-only</span></div></div>
+<div class="sg"><div class="si"><div class="sv">{_nc}</div><div class="sl">Channels</div></div>
+<div class="si"><div class="sv">{_ea}</div><div class="sl">Est. Applications</div></div>
+<div class="si"><div class="sv">{_eh}</div><div class="sl">Est. Hires</div></div></div>
+<div class="cd"><h3>Channel Strategy</h3><table><thead><tr><th>Channel</th><th>Budget</th><th>Alloc</th><th>CPC</th><th>CPA</th></tr></thead>
+<tbody>{_rows or _empty_row}</tbody></table></div>
+<div class="ft">Shared via <a href="/">Nova AI Suite</a> &middot; Expires 24h</div>
+</div></body></html>"""
+        body_bytes = _body.encode("utf-8")
+        handler.send_response(200)
+        handler.send_header("Content-Type", "text/html; charset=utf-8")
+        handler.send_header("Cache-Control", "private, max-age=300")
+        handler.send_header("Content-Length", str(len(body_bytes)))
+        handler.end_headers()
+        handler.wfile.write(body_bytes)
+    except Exception as _pv_exc:
+        logger.error("Plan direct view render failed: %s", _pv_exc, exc_info=True)
+        handler.send_error(500)
 
 
 # ---------------------------------------------------------------------------

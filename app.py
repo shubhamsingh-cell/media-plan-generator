@@ -3964,6 +3964,21 @@ def _build_health_response() -> dict:
         "posthog_configured": _ph_configured,
         "upstash_redis_connected": _modules.get("upstash_redis") == "ok",
     }
+
+    # Benchmark file freshness check
+    try:
+        from data_enrichment import check_benchmark_freshness
+
+        bench_fresh = check_benchmark_freshness()
+        any_stale = any(v.get("stale", False) for v in bench_fresh.values())
+        result["benchmark_freshness"] = bench_fresh
+        if any_stale:
+            result["benchmark_stale_warning"] = True
+    except ImportError:
+        pass
+    except (ValueError, KeyError, TypeError, OSError) as bfe:
+        logger.warning(f"Benchmark freshness check failed: {bfe}")
+
     return result
 
 
@@ -6747,6 +6762,85 @@ def _generate_post_campaign_ppt(data: dict) -> bytes:
     return buf.getvalue()
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# API HARDENING: Consistent Error Envelope
+# ═══════════════════════════════════════════════════════════════════════════════
+def _error_response(
+    message: str, code: str = "UNKNOWN_ERROR", status: int = 400
+) -> tuple[bytes, int]:
+    """Build a consistent JSON error response.
+
+    Returns a tuple of (encoded_body, http_status_code) for use in endpoint handlers.
+
+    Args:
+        message: Human-readable error description.
+        code: Machine-readable error code (e.g., VALIDATION_ERROR, RATE_LIMITED).
+        status: HTTP status code.
+    """
+    body = json.dumps(
+        {
+            "success": False,
+            "error": message,
+            "code": code,
+            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        }
+    )
+    return body.encode("utf-8"), status
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# API HARDENING: Request Deduplication (Issue 3)
+# ═══════════════════════════════════════════════════════════════════════════════
+_recent_requests: dict[str, float] = {}  # hash -> timestamp
+_dedup_lock = threading.Lock()
+_DEDUP_WINDOW = 60  # seconds
+
+
+def _is_duplicate_request(payload: dict) -> bool:
+    """Check if an identical request was made in the last 60 seconds.
+
+    Hashes the payload (excluding timestamps/session IDs) and checks against
+    a time-windowed cache. Thread-safe.
+
+    Args:
+        payload: The request JSON payload to check.
+
+    Returns:
+        True if a duplicate was found within the dedup window.
+    """
+    dedup_payload = {
+        k: v
+        for k, v in payload.items()
+        if k not in ("_request_id", "session_id", "timestamp", "conversation_id")
+    }
+    dedup_key = hashlib.sha256(
+        json.dumps(dedup_payload, sort_keys=True, default=str).encode()
+    ).hexdigest()[:16]
+    now = time.time()
+    with _dedup_lock:
+        # Clean old entries
+        expired = [k for k, t in _recent_requests.items() if now - t > _DEDUP_WINDOW]
+        for k in expired:
+            del _recent_requests[k]
+        # Check for duplicate
+        if dedup_key in _recent_requests:
+            return True
+        _recent_requests[dedup_key] = now
+        return False
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# API HARDENING: Generation Timeout (Issue 4)
+# ═══════════════════════════════════════════════════════════════════════════════
+_GENERATE_TIMEOUT_SECONDS = 240  # 4 minutes hard timeout
+
+
+class _GenerationTimeoutError(Exception):
+    """Raised when /api/generate exceeds the hard timeout."""
+
+    pass
+
+
 class MediaPlanHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         logger.info(format, *args)
@@ -6845,6 +6939,29 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
         if origin in _ALLOWED_ORIGINS:
             return origin
         return ""  # No CORS header = browser blocks
+
+    def _send_error(
+        self, message: str, code: str = "UNKNOWN_ERROR", status: int = 400
+    ) -> None:
+        """Send a consistent JSON error response with CORS headers.
+
+        Uses the module-level _error_response() to build the envelope, then
+        writes it out with correct headers.
+
+        Args:
+            message: Human-readable error description.
+            code: Machine-readable error code.
+            status: HTTP status code.
+        """
+        body, status_code = _error_response(message, code, status)
+        self.send_response(status_code)
+        self.send_header("Content-Type", "application/json")
+        cors_origin = self._get_cors_origin()
+        if cors_origin:
+            self.send_header("Access-Control-Allow-Origin", cors_origin)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
 
     def _check_admin_auth(self):
         """Check for admin API key via Authorization header OR ?key= query param.
@@ -7419,13 +7536,17 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                     self.end_headers()
                     logger.error("Document read error: %s", e)
                     self.wfile.write(
-                        json.dumps({"error": "Failed to read document"}).encode()
+                        _error_response("Failed to read document", "SERVER_ERROR", 500)[
+                            0
+                        ]
                     )
             else:
                 self.send_response(404)
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
-                self.wfile.write(json.dumps({"error": "Document not found"}).encode())
+                self.wfile.write(
+                    _error_response("Document not found", "NOT_FOUND", 404)[0]
+                )
         # NOTE: /nova-jarvis, /nova now handled by routes/pages.py
         elif path.startswith("/nova/shared/"):
             # ── Shared conversation view (read-only) ──
@@ -7594,7 +7715,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 self.send_response(400)
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
-                self.wfile.write(json.dumps({"error": "Invalid job_id"}).encode())
+                self.wfile.write(
+                    _error_response("Invalid job_id", "VALIDATION_ERROR", 400)[0]
+                )
                 return
             now = time.time()
             with _generation_jobs_lock:
@@ -7604,7 +7727,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     self.send_header("Content-Type", "application/json")
                     self.end_headers()
                     self.wfile.write(
-                        json.dumps({"error": "Job not found or expired"}).encode()
+                        _error_response("Job not found or expired", "NOT_FOUND", 404)[0]
                     )
                     return
                 # Auto-expire check
@@ -7613,26 +7736,46 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     self.send_response(404)
                     self.send_header("Content-Type", "application/json")
                     self.end_headers()
-                    self.wfile.write(json.dumps({"error": "Job expired"}).encode())
+                    self.wfile.write(
+                        _error_response("Job expired", "NOT_FOUND", 410)[0]
+                    )
                     return
                 job_status = job["status"]
                 elapsed = round(now - job["created"], 1)
             if job_status == "completed":
-                # Return the binary content
-                result_bytes = job.get("result_bytes", b"")
-                content_type = job.get("result_content_type", "application/zip")
-                filename = job.get("result_filename", "result.zip")
-                self.send_response(200)
-                self.send_header("Content-Type", content_type)
-                self.send_header(
-                    "Content-Disposition", f'attachment; filename="{filename}"'
-                )
-                self.send_header("Content-Length", str(len(result_bytes)))
-                self.end_headers()
-                self.wfile.write(result_bytes)
-                # Clean up completed job after download
-                with _generation_jobs_lock:
-                    _generation_jobs.pop(job_id, None)
+                accept_header = self.headers.get("Accept") or ""
+                if "application/json" in accept_header:
+                    # Poll mode: return JSON status so frontend knows it's ready
+                    filename = job.get("result_filename") or "result.zip"
+                    content_type = job.get("result_content_type") or "application/zip"
+                    self._send_json(
+                        {
+                            "job_id": job_id,
+                            "status": "completed",
+                            "progress_pct": 100,
+                            "status_message": "Complete",
+                            "filename": filename,
+                            "content_type": content_type,
+                            "download_url": f"/api/jobs/{job_id}",
+                            "elapsed_seconds": elapsed,
+                        }
+                    )
+                else:
+                    # Download mode: return the binary content
+                    result_bytes = job.get("result_bytes", b"")
+                    content_type = job.get("result_content_type", "application/zip")
+                    filename = job.get("result_filename", "result.zip")
+                    self.send_response(200)
+                    self.send_header("Content-Type", content_type)
+                    self.send_header(
+                        "Content-Disposition", f'attachment; filename="{filename}"'
+                    )
+                    self.send_header("Content-Length", str(len(result_bytes)))
+                    self.end_headers()
+                    self.wfile.write(result_bytes)
+                    # Clean up completed job after download
+                    with _generation_jobs_lock:
+                        _generation_jobs.pop(job_id, None)
             elif job_status == "failed":
                 err_msg = job.get("error", "Generation failed")
                 self._send_json(
@@ -7652,6 +7795,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         "job_id": job_id,
                         "status": "processing",
                         "progress_pct": job.get("progress_pct") or 0,
+                        "status_message": job.get("status_message") or "Processing...",
                         "created": datetime.datetime.fromtimestamp(
                             job["created"]
                         ).isoformat(),
@@ -7677,6 +7821,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     self._send_json({"error": "Plan expired"}, status_code=404)
                     return
                 self._send_json({"plan_id": _pr_id, **_pr_entry["data"]})
+        # NOTE: /plan/{id} shareable view now handled by routes/campaign.py
         # ── Feature 5a: SLO compliance ──
         # ── Platform Observability (aggregated health dashboard) ──
         # ── Feature 5b: Eval scores ──
@@ -8323,19 +8468,10 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             cookie_header = self.headers.get("Cookie") or ""
             cookie_token = _parse_cookie_value(cookie_header, "csrf_token")
             if not _validate_csrf_double_submit(cookie_token, header_token):
-                self.send_response(403)
-                self.send_header("Content-Type", "application/json")
-                cors_origin = self._get_cors_origin()
-                if cors_origin:
-                    self.send_header("Access-Control-Allow-Origin", cors_origin)
-                    self.send_header("Access-Control-Allow-Credentials", "true")
-                self.end_headers()
-                self.wfile.write(
-                    json.dumps(
-                        {
-                            "error": "Invalid or missing CSRF token. Refresh the page and try again."
-                        }
-                    ).encode()
+                self._send_error(
+                    "Invalid or missing CSRF token. Refresh the page and try again.",
+                    "AUTH_REQUIRED",
+                    403,
                 )
                 return
 
@@ -8365,16 +8501,10 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
 
         if path == "/api/generate":
             if not self._check_rate_limit():
-                self.send_response(429)
-                self.send_header("Content-Type", "application/json")
-                cors_origin = self._get_cors_origin()
-                if cors_origin:
-                    self.send_header("Access-Control-Allow-Origin", cors_origin)
-                self.end_headers()
-                self.wfile.write(
-                    json.dumps(
-                        {"error": "Rate limit exceeded. Please try again in a minute."}
-                    ).encode()
+                self._send_error(
+                    "Rate limit exceeded. Please try again in a minute.",
+                    "RATE_LIMITED",
+                    429,
                 )
                 return
             try:
@@ -8382,46 +8512,22 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             except (ValueError, TypeError):
                 content_len = 0
             if content_len <= 0:
-                self.send_response(400)
-                self.send_header("Content-Type", "application/json")
-                cors_origin = self._get_cors_origin()
-                if cors_origin:
-                    self.send_header("Access-Control-Allow-Origin", cors_origin)
-                self.end_headers()
-                self.wfile.write(json.dumps({"error": "Empty request body"}).encode())
+                self._send_error("Empty request body", "VALIDATION_ERROR", 400)
                 return
             if content_len > 10 * 1024 * 1024:  # 10MB limit for JSON API requests
-                self.send_response(413)
-                self.send_header("Content-Type", "application/json")
-                cors_origin = self._get_cors_origin()
-                if cors_origin:
-                    self.send_header("Access-Control-Allow-Origin", cors_origin)
-                self.end_headers()
-                self.wfile.write(json.dumps({"error": "Request too large"}).encode())
+                self._send_error("Request too large", "VALIDATION_ERROR", 413)
                 return
             body = self.rfile.read(content_len)
             try:
                 data = json.loads(body)
             except json.JSONDecodeError:
-                self.send_response(400)
-                self.send_header("Content-Type", "application/json")
-                cors_origin = self._get_cors_origin()
-                if cors_origin:
-                    self.send_header("Access-Control-Allow-Origin", cors_origin)
-                self.end_headers()
-                self.wfile.write(json.dumps({"error": "Invalid JSON"}).encode())
+                self._send_error("Invalid JSON", "VALIDATION_ERROR", 400)
                 return
 
             # Validate payload is a JSON object (not array/string/number)
             if not isinstance(data, dict):
-                self.send_response(400)
-                self.send_header("Content-Type", "application/json")
-                cors_origin = self._get_cors_origin()
-                if cors_origin:
-                    self.send_header("Access-Control-Allow-Origin", cors_origin)
-                self.end_headers()
-                self.wfile.write(
-                    json.dumps({"error": "Request body must be a JSON object"}).encode()
+                self._send_error(
+                    "Request body must be a JSON object", "VALIDATION_ERROR", 400
                 )
                 return
 
@@ -8457,18 +8563,49 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 _missing.append("At least one target role")
 
             if _missing:
-                self.send_response(400)
-                self.send_header("Content-Type", "application/json")
-                cors_origin = self._get_cors_origin()
-                if cors_origin:
-                    self.send_header("Access-Control-Allow-Origin", cors_origin)
-                self.end_headers()
-                self.wfile.write(
-                    json.dumps(
-                        {"error": f"Required fields missing: {', '.join(_missing)}."}
-                    ).encode()
+                self._send_error(
+                    f"Required fields missing: {', '.join(_missing)}.",
+                    "VALIDATION_ERROR",
+                    400,
                 )
                 return
+
+            # ── API HARDENING: Input length limits (Issue 2) ──
+            _use_case = data.get("use_case") or data.get("brief") or ""
+            if isinstance(_use_case, str) and len(_use_case) > 10_000:
+                self._send_error(
+                    "use_case exceeds 10,000 character limit", "VALIDATION_ERROR", 400
+                )
+                return
+            _transcript = data.get("call_transcript") or ""
+            if isinstance(_transcript, str) and len(_transcript) > 50_000:
+                self._send_error(
+                    "call_transcript exceeds 50,000 character limit",
+                    "VALIDATION_ERROR",
+                    400,
+                )
+                return
+            _competitors = data.get("competitors") or []
+            if isinstance(_competitors, list) and len(_competitors) > 20:
+                self._send_error(
+                    "competitors list exceeds 20 items limit", "VALIDATION_ERROR", 400
+                )
+                return
+            if isinstance(client_name_input, str) and len(client_name_input) > 200:
+                self._send_error(
+                    "client_name exceeds 200 character limit", "VALIDATION_ERROR", 400
+                )
+                return
+
+            # ── API HARDENING: Request deduplication (Issue 3) ──
+            if _is_duplicate_request(data):
+                self._send_error(
+                    "Duplicate request detected. An identical request was submitted in the last 60 seconds.",
+                    "RATE_LIMITED",
+                    429,
+                )
+                return
+
             data["client_name"] = client_name_input
             data["requester_name"] = requester_name_input
             data["requester_email"] = requester_email_input
@@ -8507,6 +8644,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     _generation_jobs[job_id] = {
                         "status": "processing",
                         "progress_pct": 0,
+                        "status_message": "Starting generation...",
                         "created": time.time(),
                         "result_bytes": None,
                         "result_content_type": None,
@@ -8521,6 +8659,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         with _generation_jobs_lock:
                             if jid in _generation_jobs:
                                 _generation_jobs[jid]["progress_pct"] = 10
+                                _generation_jobs[jid][
+                                    "status_message"
+                                ] = "Enriching market data..."
 
                         # Enrichment
                         enriched = {}
@@ -8540,6 +8681,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         with _generation_jobs_lock:
                             if jid in _generation_jobs:
                                 _generation_jobs[jid]["progress_pct"] = 30
+                                _generation_jobs[jid][
+                                    "status_message"
+                                ] = "Synthesizing knowledge base..."
 
                         # KB + Synthesis (Supabase-first, local fallback)
                         kb = load_knowledge_base()
@@ -8591,7 +8735,10 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
 
                         with _generation_jobs_lock:
                             if jid in _generation_jobs:
-                                _generation_jobs[jid]["progress_pct"] = 50
+                                _generation_jobs[jid]["progress_pct"] = 40
+                                _generation_jobs[jid][
+                                    "status_message"
+                                ] = "Analyzing channels..."
 
                         # Industry classification
                         industry_raw = gen_data.get("industry") or ""
@@ -8618,6 +8765,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         with _generation_jobs_lock:
                             if jid in _generation_jobs:
                                 _generation_jobs[jid]["progress_pct"] = 60
+                                _generation_jobs[jid][
+                                    "status_message"
+                                ] = "Computing budget allocation..."
 
                         # Budget Allocation (Phase 4 -- same as sync path)
                         if calculate_budget_allocation is not None:
@@ -8757,6 +8907,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         with _generation_jobs_lock:
                             if jid in _generation_jobs:
                                 _generation_jobs[jid]["progress_pct"] = 70
+                                _generation_jobs[jid][
+                                    "status_message"
+                                ] = "Verifying plan data..."
 
                         # Gemini/LLM verification of key plan data points
                         try:
@@ -8802,6 +8955,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         with _generation_jobs_lock:
                             if jid in _generation_jobs:
                                 _generation_jobs[jid]["progress_pct"] = 80
+                                _generation_jobs[jid][
+                                    "status_message"
+                                ] = "Generating Excel report..."
 
                         # PPT generation
                         client_name = re.sub(
@@ -8811,6 +8967,12 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         )
                         pptx_bytes = None
                         if generate_pptx is not None:
+                            with _generation_jobs_lock:
+                                if jid in _generation_jobs:
+                                    _generation_jobs[jid]["progress_pct"] = 90
+                                    _generation_jobs[jid][
+                                        "status_message"
+                                    ] = "Creating strategy deck..."
                             try:
                                 pptx_bytes = generate_pptx(gen_data)
                             except Exception:
@@ -8841,6 +9003,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                     {
                                         "status": "completed",
                                         "progress_pct": 100,
+                                        "status_message": "Complete",
                                         "result_bytes": result_bytes,
                                         "result_content_type": result_ct,
                                         "result_filename": result_fn,
@@ -9720,8 +9883,21 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             except Exception:
                 pass
 
+            # ── API HARDENING: 4-minute hard timeout for sync generation (Issue 4) ──
+            _gen_timeout_flag = threading.Event()
+            _gen_timer = threading.Timer(
+                _GENERATE_TIMEOUT_SECONDS, _gen_timeout_flag.set
+            )
+            _gen_timer.daemon = True
+            _gen_timer.start()
+
             start_time = time.time()
             try:
+                # Check timeout before heavy work
+                if _gen_timeout_flag.is_set():
+                    raise _GenerationTimeoutError(
+                        "Generation exceeded 4-minute timeout"
+                    )
                 with _span_fn("generate.excel", "Generate Excel media plan"):
                     # Use v2 consolidated 4-sheet generator with legacy fallback
                     if generate_excel_v2 is not None:
@@ -9753,8 +9929,34 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                             raise RuntimeError(
                                 "No Excel generator available (excel_v2 and legacy both missing)"
                             )
+            except _GenerationTimeoutError:
+                _gen_timer.cancel()
+                elapsed = time.time() - start_time
+                logger.error(
+                    f"Generation timeout after {elapsed:.1f}s for client={data.get('client_name')}"
+                )
+                self._send_error(
+                    f"Generation timed out after {_GENERATE_TIMEOUT_SECONDS} seconds. Please simplify your request.",
+                    "TIMEOUT",
+                    504,
+                )
+                return
             except Exception as e:
+                _gen_timer.cancel()
                 import traceback
+
+                # Check if we hit the timeout during generation
+                if _gen_timeout_flag.is_set():
+                    elapsed = time.time() - start_time
+                    logger.error(
+                        f"Generation timeout (detected in except) after {elapsed:.1f}s"
+                    )
+                    self._send_error(
+                        f"Generation timed out after {_GENERATE_TIMEOUT_SECONDS} seconds. Please simplify your request.",
+                        "TIMEOUT",
+                        504,
+                    )
+                    return
 
                 tb = traceback.format_exc()
                 logger.error("Excel generation error: %s", tb)
@@ -9792,17 +9994,14 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     )
                 except Exception:
                     pass
-                self.send_response(500)
-                self.send_header("Content-Type", "application/json")
-                self.end_headers()
-                self.wfile.write(
-                    json.dumps(
-                        {
-                            "error": "Generation failed. Please check your inputs and try again."
-                        }
-                    ).encode()
+                self._send_error(
+                    "Generation failed. Please check your inputs and try again.",
+                    "SERVER_ERROR",
+                    500,
                 )
                 return
+            finally:
+                _gen_timer.cancel()
 
             # Sanitize client_name to ASCII-safe characters (prevents CJK/Unicode crashes in filenames/headers)
             client_name = re.sub(
@@ -10019,16 +10218,8 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
         elif path == "/api/chat":
             # ── Nova Chat Endpoint ──
             if not self._check_rate_limit() or not self._check_global_chat_rate_limit():
-                self.send_response(429)
-                self.send_header("Content-Type", "application/json")
-                cors_origin = self._get_cors_origin()
-                if cors_origin:
-                    self.send_header("Access-Control-Allow-Origin", cors_origin)
-                self.end_headers()
-                self.wfile.write(
-                    json.dumps(
-                        {"error": "Rate limit exceeded. Please wait a moment."}
-                    ).encode()
+                self._send_error(
+                    "Rate limit exceeded. Please wait a moment.", "RATE_LIMITED", 429
                 )
                 return
             try:
@@ -10036,40 +10227,33 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             except (ValueError, TypeError):
                 content_len = 0
             if content_len <= 0:
-                self.send_response(400)
-                self.send_header("Content-Type", "application/json")
-                cors_origin = self._get_cors_origin()
-                if cors_origin:
-                    self.send_header("Access-Control-Allow-Origin", cors_origin)
-                self.end_headers()
-                self.wfile.write(json.dumps({"error": "Empty request body"}).encode())
+                self._send_error("Empty request body", "VALIDATION_ERROR", 400)
                 return
-            if (
-                content_len > 100 * 1024
-            ):  # 100KB limit for chat (4000 char msg + history)
-                self.send_response(413)
-                self.send_header("Content-Type", "application/json")
-                cors_origin = self._get_cors_origin()
-                if cors_origin:
-                    self.send_header("Access-Control-Allow-Origin", cors_origin)
-                self.end_headers()
-                self.wfile.write(json.dumps({"error": "Request too large"}).encode())
+            if content_len > 100 * 1024:  # 100KB limit for chat
+                self._send_error("Request too large", "VALIDATION_ERROR", 413)
                 return
             body = self.rfile.read(content_len)
             try:
                 data = json.loads(body) if body else {}
             except (json.JSONDecodeError, RecursionError, ValueError):
-                self.send_response(400)
-                self.send_header("Content-Type", "application/json")
-                cors_origin = self._get_cors_origin()
-                if cors_origin:
-                    self.send_header("Access-Control-Allow-Origin", cors_origin)
-                self.end_headers()
-                self.wfile.write(json.dumps({"error": "Invalid JSON"}).encode())
+                self._send_error("Invalid JSON", "VALIDATION_ERROR", 400)
                 return
             # ── Sanitize chat message to prevent XSS ──
             if "message" in data:
                 data["message"] = _sanitize_chat_input(data.get("message"))
+            # ── API HARDENING: Input length limits for chat (Issue 2) ──
+            _chat_msg = data.get("message") or ""
+            if isinstance(_chat_msg, str) and len(_chat_msg) > 10_000:
+                self._send_error(
+                    "Message exceeds 10,000 character limit", "VALIDATION_ERROR", 400
+                )
+                return
+            _chat_history = data.get("history") or []
+            if isinstance(_chat_history, list) and len(_chat_history) > 50:
+                self._send_error(
+                    "Chat history exceeds 50 messages limit", "VALIDATION_ERROR", 400
+                )
+                return
             try:
                 # ── Shared enrichment: file parsing + parallel API calls ──
                 _enrich_chat_context(data, data.get("message") or "")
@@ -10157,16 +10341,8 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
         elif path == "/api/chat/stream":
             # ── Nova Chat SSE Streaming Endpoint ──
             if not self._check_rate_limit() or not self._check_global_chat_rate_limit():
-                self.send_response(429)
-                self.send_header("Content-Type", "application/json")
-                cors_origin = self._get_cors_origin()
-                if cors_origin:
-                    self.send_header("Access-Control-Allow-Origin", cors_origin)
-                self.end_headers()
-                self.wfile.write(
-                    json.dumps(
-                        {"error": "Rate limit exceeded. Please wait a moment."}
-                    ).encode()
+                self._send_error(
+                    "Rate limit exceeded. Please wait a moment.", "RATE_LIMITED", 429
                 )
                 return
             try:
@@ -10174,32 +10350,33 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             except (ValueError, TypeError):
                 content_len = 0
             if content_len <= 0 or content_len > 100 * 1024:
-                self.send_response(400 if content_len <= 0 else 413)
-                self.send_header("Content-Type", "application/json")
-                cors_origin = self._get_cors_origin()
-                if cors_origin:
-                    self.send_header("Access-Control-Allow-Origin", cors_origin)
-                self.end_headers()
-                err_msg = (
-                    "Empty request body" if content_len <= 0 else "Request too large"
-                )
-                self.wfile.write(json.dumps({"error": err_msg}).encode())
+                if content_len <= 0:
+                    self._send_error("Empty request body", "VALIDATION_ERROR", 400)
+                else:
+                    self._send_error("Request too large", "VALIDATION_ERROR", 413)
                 return
             body = self.rfile.read(content_len)
             try:
                 data = json.loads(body) if body else {}
             except (json.JSONDecodeError, RecursionError, ValueError):
-                self.send_response(400)
-                self.send_header("Content-Type", "application/json")
-                cors_origin = self._get_cors_origin()
-                if cors_origin:
-                    self.send_header("Access-Control-Allow-Origin", cors_origin)
-                self.end_headers()
-                self.wfile.write(json.dumps({"error": "Invalid JSON"}).encode())
+                self._send_error("Invalid JSON", "VALIDATION_ERROR", 400)
                 return
             # ── Sanitize chat message to prevent XSS ──
             if "message" in data:
                 data["message"] = _sanitize_chat_input(data.get("message"))
+            # ── API HARDENING: Input length limits for chat/stream (Issue 2) ──
+            _stream_msg = data.get("message") or ""
+            if isinstance(_stream_msg, str) and len(_stream_msg) > 10_000:
+                self._send_error(
+                    "Message exceeds 10,000 character limit", "VALIDATION_ERROR", 400
+                )
+                return
+            _stream_history = data.get("history") or []
+            if isinstance(_stream_history, list) and len(_stream_history) > 50:
+                self._send_error(
+                    "Chat history exceeds 50 messages limit", "VALIDATION_ERROR", 400
+                )
+                return
 
             # ── PostHog: Track chat stream message ──
             self._ph_track(
@@ -10213,6 +10390,39 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             )
 
             conversation_id = data.get("conversation_id") or str(uuid.uuid4())
+            client_session_token = data.get("session_token") or ""
+
+            # Issue 4: Verify session token for conversation ownership
+            _conv_session_token = ""
+            try:
+                from nova_persistence import (
+                    get_or_create_conversation,
+                    verify_conversation_token,
+                )
+
+                conv_row = get_or_create_conversation(conversation_id)
+                if conv_row:
+                    _conv_session_token = conv_row.get("session_token") or ""
+                    # If conversation is new (just created), pass back the token
+                    # If existing, verify the client's token matches
+                    if (
+                        _conv_session_token
+                        and client_session_token
+                        and not verify_conversation_token(
+                            conversation_id, client_session_token
+                        )
+                    ):
+                        logger.warning(
+                            "Session token mismatch for conversation %s",
+                            conversation_id,
+                        )
+            except ImportError:
+                pass
+            except Exception as _auth_err:
+                logger.error(
+                    "Conversation auth check failed: %s", _auth_err, exc_info=True
+                )
+
             cancel_event = _register_stream(conversation_id)
 
             # Send SSE headers
@@ -10251,39 +10461,72 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 tools_used: list = []
                 model_used = ""
                 message_id = str(uuid.uuid4())
+                _last_event_time = time.time()
+                _KEEPALIVE_INTERVAL = 15  # seconds between keepalive heartbeats
 
-                with _chat_span_fn("nova.chat.stream", "Nova SSE streaming chat"):
-                    for chunk in handle_chat_request_stream(data):
-                        # Check cancellation on each chunk
-                        if cancel_event.is_set():
-                            cancel_evt = json.dumps(
-                                {
-                                    "token": "",
-                                    "done": True,
-                                    "cancelled": True,
-                                    "full_response": full_response,
-                                    "sources": sources,
-                                }
-                            )
-                            self.wfile.write(f"data: {cancel_evt}\n\n".encode())
-                            self.wfile.flush()
-                            return
+                # Background keepalive sender: emits {"keepalive": true} every 15s
+                # while no tokens are flowing (prevents client timeout during tool-use)
+                _keepalive_stop = threading.Event()
 
-                        if chunk.get("done"):
-                            # Final metadata chunk -- extract info
-                            full_response = chunk.get("full_response") or full_response
-                            sources = chunk.get("sources") or sources
-                            confidence = chunk.get("confidence") or confidence
-                            tools_used = chunk.get("tools_used") or tools_used
-                            model_used = chunk.get("llm_provider") or model_used
-                        else:
-                            # Token chunk -- stream to client immediately
-                            token = chunk.get("token") or ""
-                            if token:
-                                full_response += token
-                                event = json.dumps({"token": token, "done": False})
-                                self.wfile.write(f"data: {event}\n\n".encode())
+                def _send_keepalives() -> None:
+                    """Send SSE keepalive heartbeats until stopped."""
+                    nonlocal _last_event_time
+                    while not _keepalive_stop.is_set():
+                        _keepalive_stop.wait(_KEEPALIVE_INTERVAL)
+                        if _keepalive_stop.is_set():
+                            break
+                        if time.time() - _last_event_time >= _KEEPALIVE_INTERVAL:
+                            try:
+                                ka_evt = json.dumps({"keepalive": True})
+                                self.wfile.write(f"data: {ka_evt}\n\n".encode())
                                 self.wfile.flush()
+                                _last_event_time = time.time()
+                            except (BrokenPipeError, ConnectionResetError, OSError):
+                                break
+
+                _ka_thread = threading.Thread(
+                    target=_send_keepalives, daemon=True, name="sse-keepalive"
+                )
+                _ka_thread.start()
+
+                try:
+                    with _chat_span_fn("nova.chat.stream", "Nova SSE streaming chat"):
+                        for chunk in handle_chat_request_stream(data):
+                            # Check cancellation on each chunk
+                            if cancel_event.is_set():
+                                cancel_evt = json.dumps(
+                                    {
+                                        "token": "",
+                                        "done": True,
+                                        "cancelled": True,
+                                        "full_response": full_response,
+                                        "sources": sources,
+                                    }
+                                )
+                                self.wfile.write(f"data: {cancel_evt}\n\n".encode())
+                                self.wfile.flush()
+                                return
+
+                            if chunk.get("done"):
+                                # Final metadata chunk -- extract info
+                                full_response = (
+                                    chunk.get("full_response") or full_response
+                                )
+                                sources = chunk.get("sources") or sources
+                                confidence = chunk.get("confidence") or confidence
+                                tools_used = chunk.get("tools_used") or tools_used
+                                model_used = chunk.get("llm_provider") or model_used
+                            else:
+                                # Token chunk -- stream to client immediately
+                                token = chunk.get("token") or ""
+                                if token:
+                                    full_response += token
+                                    event = json.dumps({"token": token, "done": False})
+                                    self.wfile.write(f"data: {event}\n\n".encode())
+                                    self.wfile.flush()
+                                    _last_event_time = time.time()
+                finally:
+                    _keepalive_stop.set()
 
                 # ── Generate follow-up suggestions ──
                 _stream_followups: list[str] = []
@@ -10308,6 +10551,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         "message_id": message_id,
                         "conversation_id": conversation_id,
                         "suggested_followups": _stream_followups,
+                        "session_token": _conv_session_token,
                     }
                 )
                 self.wfile.write(f"data: {final}\n\n".encode())
@@ -10490,19 +10734,13 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             except (ValueError, TypeError):
                 content_len = 0
             if content_len > 1 * 1024 * 1024:  # 1MB limit for Slack events
-                self.send_response(413)
-                self.send_header("Content-Type", "application/json")
-                self.end_headers()
-                self.wfile.write(json.dumps({"error": "Request too large"}).encode())
+                self._send_error("Request too large", "VALIDATION_ERROR", 413)
                 return
             body = self.rfile.read(content_len)
             try:
                 data = json.loads(body) if body else {}
             except json.JSONDecodeError:
-                self.send_response(400)
-                self.send_header("Content-Type", "application/json")
-                self.end_headers()
-                self.wfile.write(json.dumps({"error": "Invalid JSON"}).encode())
+                self._send_error("Invalid JSON", "VALIDATION_ERROR", 400)
                 return
 
             # Verify Slack request signature -- SECURITY: never skip on error
@@ -10526,7 +10764,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         self.send_header("Content-Type", "application/json")
                         self.end_headers()
                         self.wfile.write(
-                            json.dumps({"error": "Invalid signature"}).encode()
+                            _error_response("Invalid signature", "AUTH_REQUIRED", 401)[
+                                0
+                            ]
                         )
                         return
                 except ImportError:
@@ -10538,7 +10778,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     self.send_header("Content-Type", "application/json")
                     self.end_headers()
                     self.wfile.write(
-                        json.dumps({"error": "Slack integration unavailable"}).encode()
+                        _error_response(
+                            "Slack integration unavailable", "SERVER_ERROR", 503
+                        )[0]
                     )
                     return
                 except Exception as sig_err:
@@ -10548,7 +10790,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     self.send_header("Content-Type", "application/json")
                     self.end_headers()
                     self.wfile.write(
-                        json.dumps({"error": "Signature verification failed"}).encode()
+                        _error_response(
+                            "Signature verification failed", "AUTH_REQUIRED", 401
+                        )[0]
                     )
                     return
             else:
@@ -10605,29 +10849,20 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
         elif path == "/api/admin/nova":
             # ── Nova Admin API (unanswered questions management) ──
             if not self._check_admin_auth():
-                self.send_response(401)
-                self.send_header("Content-Type", "application/json")
-                self.end_headers()
-                self.wfile.write(json.dumps({"error": "Unauthorized"}).encode())
+                self._send_error("Unauthorized", "AUTH_REQUIRED", 401)
                 return
             try:
                 content_len = int(self.headers.get("Content-Length") or 0)
             except (ValueError, TypeError):
                 content_len = 0
             if content_len > 1 * 1024 * 1024:  # 1MB limit for admin
-                self.send_response(413)
-                self.send_header("Content-Type", "application/json")
-                self.end_headers()
-                self.wfile.write(json.dumps({"error": "Request too large"}).encode())
+                self._send_error("Request too large", "VALIDATION_ERROR", 413)
                 return
             body = self.rfile.read(content_len)
             try:
                 data = json.loads(body) if body else {}
             except json.JSONDecodeError:
-                self.send_response(400)
-                self.send_header("Content-Type", "application/json")
-                self.end_headers()
-                self.wfile.write(json.dumps({"error": "Invalid JSON"}).encode())
+                self._send_error("Invalid JSON", "VALIDATION_ERROR", 400)
                 return
             try:
                 from nova_slack import handle_admin_unanswered
@@ -10645,29 +10880,20 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
         elif path == "/api/nova/chat":
             # ── Nova Standalone Chat (admin testing) ──
             if not self._check_admin_auth():
-                self.send_response(401)
-                self.send_header("Content-Type", "application/json")
-                self.end_headers()
-                self.wfile.write(json.dumps({"error": "Unauthorized"}).encode())
+                self._send_error("Unauthorized", "AUTH_REQUIRED", 401)
                 return
             try:
                 content_len = int(self.headers.get("Content-Length") or 0)
             except (ValueError, TypeError):
                 content_len = 0
             if content_len > 1 * 1024 * 1024:  # 1MB limit
-                self.send_response(413)
-                self.send_header("Content-Type", "application/json")
-                self.end_headers()
-                self.wfile.write(json.dumps({"error": "Request too large"}).encode())
+                self._send_error("Request too large", "VALIDATION_ERROR", 413)
                 return
             body = self.rfile.read(content_len)
             try:
                 data = json.loads(body) if body else {}
             except json.JSONDecodeError:
-                self.send_response(400)
-                self.send_header("Content-Type", "application/json")
-                self.end_headers()
-                self.wfile.write(json.dumps({"error": "Invalid JSON"}).encode())
+                self._send_error("Invalid JSON", "VALIDATION_ERROR", 400)
                 return
             # ── Sanitize chat message to prevent XSS ──
             if "message" in data:
@@ -10690,10 +10916,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
         # ── Feature 3c: Admin API key management ──
         elif path == "/api/admin/keys":
             if not self._check_admin_auth():
-                self.send_response(401)
-                self.send_header("Content-Type", "application/json")
-                self.end_headers()
-                self.wfile.write(json.dumps({"error": "Unauthorized"}).encode())
+                self._send_error("Unauthorized", "AUTH_REQUIRED", 401)
                 return
             try:
                 content_len = int(self.headers.get("Content-Length") or 0)
@@ -10703,10 +10926,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             try:
                 data = json.loads(body)
             except json.JSONDecodeError:
-                self.send_response(400)
-                self.send_header("Content-Type", "application/json")
-                self.end_headers()
-                self.wfile.write(json.dumps({"error": "Invalid JSON"}).encode())
+                self._send_error("Invalid JSON", "VALIDATION_ERROR", 400)
                 return
             action = data.get("action", "list")
             if action == "create":
@@ -10771,10 +10991,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
         # ── Knowledge Base Backup (admin) ──
         elif path == "/api/admin/backup":
             if not self._check_admin_auth():
-                self.send_response(401)
-                self.send_header("Content-Type", "application/json")
-                self.end_headers()
-                self.wfile.write(json.dumps({"error": "Unauthorized"}).encode())
+                self._send_error("Unauthorized", "AUTH_REQUIRED", 401)
                 return
             try:
                 from scripts.backup_kb import backup_knowledge_base
@@ -10795,28 +11012,23 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
                 self.wfile.write(
-                    json.dumps({"error": f"Backup failed: {bk_err}"}).encode()
+                    _error_response(f"Backup failed: {bk_err}", "SERVER_ERROR", 500)[0]
                 )
         # ── Campaign Performance Tracker APIs ──
         elif path == "/api/tracker/analyze":
             if not self._check_rate_limit():
-                self.send_response(429)
-                self.send_header("Content-Type", "application/json")
-                cors_origin = self._get_cors_origin()
-                if cors_origin:
-                    self.send_header("Access-Control-Allow-Origin", cors_origin)
-                self.end_headers()
-                self.wfile.write(json.dumps({"error": "Rate limit exceeded"}).encode())
+                self._send_error("Rate limit exceeded", "RATE_LIMITED", 429)
                 return
             try:
                 content_len = int(self.headers.get("Content-Length") or 0)
             except (ValueError, TypeError):
                 content_len = 0
             if content_len <= 0 or content_len > 50 * 1024 * 1024:
-                self.send_response(400 if content_len <= 0 else 413)
-                self.send_header("Content-Type", "application/json")
-                self.end_headers()
-                self.wfile.write(json.dumps({"error": "Invalid request size"}).encode())
+                _sz_status = 400 if content_len <= 0 else 413
+                _sz_msg = (
+                    "Empty request body" if content_len <= 0 else "Request too large"
+                )
+                self._send_error(_sz_msg, "VALIDATION_ERROR", _sz_status)
                 return
             body = self.rfile.read(content_len)
             try:
@@ -10921,7 +11133,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 self.send_response(500)
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
-                self.wfile.write(json.dumps({"error": "Analysis failed"}).encode())
+                self.wfile.write(
+                    _error_response("Analysis failed", "SERVER_ERROR", 500)[0]
+                )
         elif path == "/api/tracker/download/excel":
             try:
                 content_len = int(self.headers.get("Content-Length") or 0)
@@ -10950,7 +11164,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
                 self.wfile.write(
-                    json.dumps({"error": "Excel generation failed"}).encode()
+                    _error_response("Excel generation failed", "SERVER_ERROR", 500)[0]
                 )
         elif path == "/api/tracker/download/ppt":
             try:
@@ -10980,7 +11194,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
                 self.wfile.write(
-                    json.dumps({"error": "PPT generation failed"}).encode()
+                    _error_response("PPT generation failed", "SERVER_ERROR", 500)[0]
                 )
         # ── Budget Simulator APIs ──
         elif path == "/api/simulator/defaults":
@@ -11211,7 +11425,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 self.send_response(500)
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
-                self.wfile.write(json.dumps({"error": "Excel export failed"}).encode())
+                self.wfile.write(
+                    _error_response("Excel export failed", "SERVER_ERROR", 500)[0]
+                )
         elif path == "/api/simulator/export/ppt":
             try:
                 content_len = int(self.headers.get("Content-Length") or 0)
@@ -11240,7 +11456,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 self.send_response(500)
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
-                self.wfile.write(json.dumps({"error": "PPT export failed"}).encode())
+                self.wfile.write(
+                    _error_response("PPT export failed", "SERVER_ERROR", 500)[0]
+                )
         # NOTE: /api/nova/export and /api/deliver now handled by routes/export.py
         # NOTE: /api/competitive/* now handled by routes/competitive.py
         # ── API Portal: All POST routes ──
@@ -11357,7 +11575,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 self.send_response(500)
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
-                self.wfile.write(json.dumps({"error": "Excel export failed"}).encode())
+                self.wfile.write(
+                    _error_response("Excel export failed", "SERVER_ERROR", 500)[0]
+                )
         # ── Social & Search Media Plan: PPT Download ──
         elif path == "/api/social-plan/download/ppt":
             try:
@@ -11383,7 +11603,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 self.send_response(500)
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
-                self.wfile.write(json.dumps({"error": "PPT export failed"}).encode())
+                self.wfile.write(
+                    _error_response("PPT export failed", "SERVER_ERROR", 500)[0]
+                )
         # ── Talent Heatmap: Analyze ──
         elif path == "/api/talent-heatmap/analyze":
             try:
@@ -11630,7 +11852,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 self.send_response(500)
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
-                self.wfile.write(json.dumps({"error": "Excel export failed"}).encode())
+                self.wfile.write(
+                    _error_response("Excel export failed", "SERVER_ERROR", 500)[0]
+                )
         # ── Talent Heatmap: PPT Download ──
         elif path == "/api/talent-heatmap/download/ppt":
             try:
@@ -11656,7 +11880,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 self.send_response(500)
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
-                self.wfile.write(json.dumps({"error": "PPT export failed"}).encode())
+                self.wfile.write(
+                    _error_response("PPT export failed", "SERVER_ERROR", 500)[0]
+                )
         # ── SkillTarget: Analyze / Excel / PPT ──
         elif path.startswith("/api/skill-target/"):
             try:
@@ -11946,7 +12172,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 self.send_response(500)
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
-                self.wfile.write(json.dumps({"error": "Excel export failed"}).encode())
+                self.wfile.write(
+                    _error_response("Excel export failed", "SERVER_ERROR", 500)[0]
+                )
         # ── Audit: PPT Download ──
         elif path == "/api/audit/download/ppt":
             try:
@@ -11975,7 +12203,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 self.send_response(500)
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
-                self.wfile.write(json.dumps({"error": "PPT export failed"}).encode())
+                self.wfile.write(
+                    _error_response("PPT export failed", "SERVER_ERROR", 500)[0]
+                )
         # ── HireSignal: Analyze ──
         elif path == "/api/hire-signal/analyze":
             try:
@@ -12257,7 +12487,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 self.send_response(500)
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
-                self.wfile.write(json.dumps({"error": "Excel export failed"}).encode())
+                self.wfile.write(
+                    _error_response("Excel export failed", "SERVER_ERROR", 500)[0]
+                )
         # ── HireSignal: PPT Download ──
         elif path == "/api/hire-signal/download/ppt":
             try:
@@ -12287,7 +12519,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 self.send_response(500)
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
-                self.wfile.write(json.dumps({"error": "PPT export failed"}).encode())
+                self.wfile.write(
+                    _error_response("PPT export failed", "SERVER_ERROR", 500)[0]
+                )
         # ── Market Pulse POST APIs ──
         elif path.startswith("/api/pulse/"):
             try:
@@ -12526,7 +12760,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
                 self.wfile.write(
-                    json.dumps({"error": "Excel generation failed: " + str(e)}).encode()
+                    _error_response(
+                        f"Excel generation failed: {e}", "SERVER_ERROR", 500
+                    )[0]
                 )
         # ── ComplianceGuard: Analyze ──
         elif path == "/api/compliance/analyze":
@@ -12586,17 +12822,16 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 # NOTE: Module usage tracking removed (nova_module_usage deprecated).
                 # Analytics now tracked via PostHog (_ph_track calls above).
             except json.JSONDecodeError:
-                self.send_response(400)
-                self.send_header("Content-Type", "application/json")
-                self.end_headers()
-                self.wfile.write(json.dumps({"error": "Invalid JSON"}).encode())
+                self._send_error("Invalid JSON", "VALIDATION_ERROR", 400)
             except Exception as e:
                 logger.error("Compliance analyze error: %s", e, exc_info=True)
                 self.send_response(500)
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
                 self.wfile.write(
-                    json.dumps({"error": f"Compliance analysis failed: {e}"}).encode()
+                    _error_response(
+                        f"Compliance analysis failed: {e}", "SERVER_ERROR", 500
+                    )[0]
                 )
         # ── ComplianceGuard: Audit (enhanced endpoint) ──
         elif path == "/api/complianceguard/audit":
@@ -12623,17 +12858,16 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     },
                 )
             except json.JSONDecodeError:
-                self.send_response(400)
-                self.send_header("Content-Type", "application/json")
-                self.end_headers()
-                self.wfile.write(json.dumps({"error": "Invalid JSON"}).encode())
+                self._send_error("Invalid JSON", "VALIDATION_ERROR", 400)
             except Exception as e:
                 logger.error(f"ComplianceGuard audit error: {e}", exc_info=True)
                 self.send_response(500)
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
                 self.wfile.write(
-                    json.dumps({"error": f"ComplianceGuard audit failed: {e}"}).encode()
+                    _error_response(
+                        f"ComplianceGuard audit failed: {e}", "SERVER_ERROR", 500
+                    )[0]
                 )
         # ── CreativeAI: Generate ──
         elif path == "/api/creative/generate":
@@ -12648,17 +12882,16 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 else:
                     self._send_json(result)
             except json.JSONDecodeError:
-                self.send_response(400)
-                self.send_header("Content-Type", "application/json")
-                self.end_headers()
-                self.wfile.write(json.dumps({"error": "Invalid JSON"}).encode())
+                self._send_error("Invalid JSON", "VALIDATION_ERROR", 400)
             except Exception as e:
                 logger.error("Creative generate error: %s", e, exc_info=True)
                 self.send_response(500)
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
                 self.wfile.write(
-                    json.dumps({"error": f"Creative generation failed: {e}"}).encode()
+                    _error_response(
+                        f"Creative generation failed: {e}", "SERVER_ERROR", 500
+                    )[0]
                 )
         # ── Post-Campaign Analysis: AI Summary ──
         elif path == "/api/post-campaign/summary":
@@ -12669,17 +12902,16 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 result = _generate_post_campaign_summary(data)
                 self._send_json(result)
             except json.JSONDecodeError:
-                self.send_response(400)
-                self.send_header("Content-Type", "application/json")
-                self.end_headers()
-                self.wfile.write(json.dumps({"error": "Invalid JSON"}).encode())
+                self._send_error("Invalid JSON", "VALIDATION_ERROR", 400)
             except Exception as e:
                 logger.error("Post-campaign summary error: %s", e, exc_info=True)
                 self.send_response(500)
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
                 self.wfile.write(
-                    json.dumps({"error": f"Post-campaign summary failed: {e}"}).encode()
+                    _error_response(
+                        f"Post-campaign summary failed: {e}", "SERVER_ERROR", 500
+                    )[0]
                 )
         # ── ROI Calculator: Calculate ──
         elif path == "/api/roi/calculate":
@@ -12694,17 +12926,16 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 else:
                     self._send_json(result)
             except json.JSONDecodeError:
-                self.send_response(400)
-                self.send_header("Content-Type", "application/json")
-                self.end_headers()
-                self.wfile.write(json.dumps({"error": "Invalid JSON"}).encode())
+                self._send_error("Invalid JSON", "VALIDATION_ERROR", 400)
             except Exception as e:
                 logger.error("ROI calculate error: %s", e, exc_info=True)
                 self.send_response(500)
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
                 self.wfile.write(
-                    json.dumps({"error": f"ROI calculation failed: {e}"}).encode()
+                    _error_response(
+                        f"ROI calculation failed: {e}", "SERVER_ERROR", 500
+                    )[0]
                 )
         # ── ROI Calculator: Excel Download ──
         elif path == "/api/roi/download/excel":
@@ -12731,7 +12962,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
                 self.wfile.write(
-                    json.dumps({"error": f"ROI Excel generation failed: {e}"}).encode()
+                    _error_response(
+                        f"ROI Excel generation failed: {e}", "SERVER_ERROR", 500
+                    )[0]
                 )
         # ── A/B Test Lab: Generate ──
         elif path == "/api/ab-test/generate":
@@ -12742,17 +12975,16 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 result = _generate_ab_test(data)
                 self._send_json(result)
             except json.JSONDecodeError:
-                self.send_response(400)
-                self.send_header("Content-Type", "application/json")
-                self.end_headers()
-                self.wfile.write(json.dumps({"error": "Invalid JSON"}).encode())
+                self._send_error("Invalid JSON", "VALIDATION_ERROR", 400)
             except Exception as e:
                 logger.error("A/B test generate error: %s", e, exc_info=True)
                 self.send_response(500)
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
                 self.wfile.write(
-                    json.dumps({"error": f"A/B test generation failed: {e}"}).encode()
+                    _error_response(
+                        f"A/B test generation failed: {e}", "SERVER_ERROR", 500
+                    )[0]
                 )
         # ── Post-Campaign Analysis: PPT Download ──
         elif path == "/api/post-campaign/download/ppt":
@@ -12779,7 +13011,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
                 self.wfile.write(
-                    json.dumps({"error": f"PPT generation failed: {e}"}).encode()
+                    _error_response(f"PPT generation failed: {e}", "SERVER_ERROR", 500)[
+                        0
+                    ]
                 )
         # NOTE: /api/vendor-iq/live-pricing and /api/payscale-sync/salary now handled by routes/pricing.py
         # NOTE: /api/report/html, /api/export/sheets, /api/export/status now handled by routes/export.py

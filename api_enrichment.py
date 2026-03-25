@@ -12368,6 +12368,225 @@ def fetch_ilo_labour_data(locations: List[str]) -> Dict[str, Any]:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# INTERNATIONAL DATA SOURCE STUBS
+# Regional labour-market APIs for non-US locations. These stubs are wired into
+# the enrichment dispatcher (enrich_data) so that non-US plans automatically
+# attempt the correct regional source.  Each function is a no-op today and
+# returns None; implement the HTTP calls when the region is prioritised.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# -- Country / region detection helpers ----------------------------------------
+
+_UK_LOCATION_KEYWORDS: set[str] = {
+    "uk",
+    "united kingdom",
+    "england",
+    "scotland",
+    "wales",
+    "northern ireland",
+    "london",
+    "manchester",
+    "birmingham",
+    "edinburgh",
+    "glasgow",
+    "bristol",
+    "leeds",
+    "liverpool",
+    "cambridge",
+    "oxford",
+}
+
+_AUSTRALIA_LOCATION_KEYWORDS: set[str] = {
+    "australia",
+    "sydney",
+    "melbourne",
+    "brisbane",
+    "perth",
+    "adelaide",
+    "canberra",
+    "hobart",
+    "darwin",
+    "gold coast",
+}
+
+# EU countries already covered by _EUROSTAT_COUNTRY_MAP — reuse that dict
+# for region detection in the enrichment dispatcher.
+
+
+def _detect_region(location: str) -> str:
+    """Detect the geographic region for a location string.
+
+    Returns one of: 'us', 'uk', 'eu', 'australia', or 'other'.
+
+    Args:
+        location: Free-text location string (e.g., "London, UK").
+
+    Returns:
+        Region key string.
+    """
+    loc_lower = (location or "").lower().strip()
+    if not loc_lower:
+        return "other"
+
+    # US detection: state abbreviations, "united states", "usa"
+    if any(kw in loc_lower for kw in ("united states", "usa", ", us")):
+        return "us"
+    # Check for US state abbreviations (", CA", ", NY", etc.)
+    if re.search(r",\s*[A-Z]{2}\s*$", location.strip()):
+        return "us"
+
+    # UK detection
+    if any(kw in loc_lower for kw in _UK_LOCATION_KEYWORDS):
+        return "uk"
+
+    # Australia detection
+    if any(kw in loc_lower for kw in _AUSTRALIA_LOCATION_KEYWORDS):
+        return "australia"
+
+    # EU detection (reuse existing Eurostat country map)
+    for name in _EUROSTAT_COUNTRY_MAP:
+        if name in loc_lower:
+            return "eu"
+
+    return "other"
+
+
+def fetch_ons_uk_data(occupation: str) -> Optional[Dict[str, Any]]:
+    """Fetch UK labour market data from ONS (Office for National Statistics).
+
+    API: https://api.beta.ons.gov.uk/v1/
+    Free, no auth required. Returns employment, earnings, and vacancy data
+    by SOC occupation code.
+
+    Args:
+        occupation: Job title or SOC occupation code.
+
+    Returns:
+        Dict with UK labour stats, or None if not yet implemented.
+    """
+    # TODO: Wire up when EMEA plans are prioritised
+    # Planned endpoints:
+    #   - /datasets/ashe-tables-7-and-8  (earnings by occupation)
+    #   - /datasets/lms    (labour market statistics)
+    #   - /datasets/vacancies-and-jobs   (vacancy data)
+    _log_info(f"ONS UK enrichment not yet implemented for occupation={occupation}")
+    return None
+
+
+def fetch_abs_australia_data(occupation: str) -> Optional[Dict[str, Any]]:
+    """Fetch Australian labour market data from ABS (Australian Bureau of Statistics).
+
+    API: https://api.data.abs.gov.au/
+    Free, SDMX format. Returns employment stats, earnings, and labour force
+    data by ANZSCO occupation classification.
+
+    Args:
+        occupation: Job title or ANZSCO occupation code.
+
+    Returns:
+        Dict with Australian labour stats, or None if not yet implemented.
+    """
+    # TODO: Wire up when APAC plans are prioritised
+    # Planned dataflows:
+    #   - ABS,LF,1.0.0     (Labour Force survey)
+    #   - ABS,EE,1.0.0     (Employee Earnings)
+    #   - ABS,JV,1.0.0     (Job Vacancies)
+    _log_info(
+        f"ABS Australia enrichment not yet implemented for occupation={occupation}"
+    )
+    return None
+
+
+def fetch_eurostat_detailed_data(
+    country: str, occupation: str
+) -> Optional[Dict[str, Any]]:
+    """Fetch detailed EU labour market data from Eurostat REST API.
+
+    API: https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/
+    Free, no auth required. Returns employment stats by NACE sector,
+    earnings by ISCO occupation, and vacancy rates.
+
+    This is a more granular companion to fetch_eurostat_labour_data() which
+    fetches country-level aggregates. This stub will fetch occupation-level
+    data when wired up.
+
+    Args:
+        country: Country name or ISO-2 code.
+        occupation: Job title or ISCO occupation code.
+
+    Returns:
+        Dict with Eurostat occupation-level stats, or None if not yet implemented.
+    """
+    # TODO: Wire up when EMEA plans are prioritised
+    # Planned datasets:
+    #   - earn_ses_annual   (Structure of Earnings Survey)
+    #   - lfsa_egised       (Employment by NACE sector)
+    #   - jvs_q_nace2       (Job vacancy statistics)
+    _log_info(
+        f"Eurostat detailed enrichment not yet implemented for country={country}, "
+        f"occupation={occupation}"
+    )
+    return None
+
+
+def fetch_regional_labour_data(
+    locations: List[str], roles: List[str]
+) -> Dict[str, Any]:
+    """Dispatch to the appropriate regional data source based on location.
+
+    Detects the region for each location and calls the matching stub.
+    US locations are skipped (handled by BLS/Census in the main pipeline).
+
+    Args:
+        locations: List of location strings.
+        roles: List of job titles / occupation strings.
+
+    Returns:
+        Dict keyed by region with any available regional data, or empty
+        sub-dicts for stub sources.
+    """
+    result: Dict[str, Any] = {}
+    occupation = roles[0] if roles else ""
+
+    for loc in locations:
+        region = _detect_region(loc)
+
+        if region == "us":
+            # US locations are handled by BLS/Census/FRED in the main pipeline
+            continue
+
+        try:
+            if region == "uk":
+                uk_data = fetch_ons_uk_data(occupation)
+                if uk_data:
+                    result.setdefault("uk", {})[loc] = uk_data
+
+            elif region == "eu":
+                # Use existing fetch_eurostat_labour_data for country-level,
+                # plus the detailed stub for occupation-level
+                eu_detail = fetch_eurostat_detailed_data(loc, occupation)
+                if eu_detail:
+                    result.setdefault("eu", {})[loc] = eu_detail
+
+            elif region == "australia":
+                aus_data = fetch_abs_australia_data(occupation)
+                if aus_data:
+                    result.setdefault("australia", {})[loc] = aus_data
+
+            else:
+                # 'other' regions -- no specific stub yet
+                _log_info(
+                    f"No regional data source available for location={loc} "
+                    f"(region={region})"
+                )
+
+        except (ValueError, KeyError, TypeError, OSError) as exc:
+            _log_warn(f"Regional enrichment failed for {loc} ({region}): {exc}")
+
+    return result
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # API 30: H-1B Visa Wage Benchmarks (curated from DOL OFLC LCA data)
 # Prevailing wages and offered wages by SOC code for H-1B positions
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -12879,6 +13098,7 @@ def enrich_data(data: Dict[str, Any], request_id: str = "") -> Dict[str, Any]:
         "eurostat_data": {},
         "ilo_data": {},
         "h1b_data": {},
+        "regional_labour_data": {},
         "enrichment_summary": {},
     }
 
@@ -13094,6 +13314,16 @@ def enrich_data(data: Dict[str, Any], request_id: str = "") -> Dict[str, Any]:
     if roles:
         tasks.append(
             ("h1b_data", "H1B-Wages", lambda _r=roles: fetch_h1b_wage_benchmarks(_r))
+        )
+
+    # --- Regional labour data (ONS UK, Eurostat detailed, ABS Australia) ---
+    if locations and roles:
+        tasks.append(
+            (
+                "regional_labour_data",
+                "RegionalLabour",
+                lambda _l=locations, _r=roles: fetch_regional_labour_data(_l, _r),
+            )
         )
 
     # --- Execute tasks concurrently ---

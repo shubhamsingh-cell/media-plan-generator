@@ -910,6 +910,563 @@ def compute_role_weighted_spend(
     return result
 
 
+# ---------------------------------------------------------------------------
+# Dynamic Budget Allocation Scoring Engine
+# ---------------------------------------------------------------------------
+
+# Channel scoring weights by factor
+_CHANNEL_BASE_SCORES: Dict[str, Dict[str, float]] = {
+    # channel_key: {factor: base_score 0-100}
+    "programmatic_dsp": {
+        "blue_collar": 85,
+        "white_collar": 60,
+        "grey_collar": 72,
+        "tier_1": 70,
+        "tier_2": 80,
+        "tier_3": 90,
+        "entry": 90,
+        "mid": 70,
+        "senior": 45,
+        "exec": 20,
+        "small_budget": 80,
+        "medium_budget": 85,
+        "large_budget": 75,
+        "high_competition": 80,
+        "medium_competition": 75,
+        "low_competition": 65,
+    },
+    "global_boards": {
+        "blue_collar": 70,
+        "white_collar": 75,
+        "grey_collar": 72,
+        "tier_1": 80,
+        "tier_2": 70,
+        "tier_3": 55,
+        "entry": 75,
+        "mid": 80,
+        "senior": 65,
+        "exec": 40,
+        "small_budget": 70,
+        "medium_budget": 75,
+        "large_budget": 70,
+        "high_competition": 70,
+        "medium_competition": 72,
+        "low_competition": 75,
+    },
+    "niche_boards": {
+        "blue_collar": 40,
+        "white_collar": 85,
+        "grey_collar": 65,
+        "tier_1": 80,
+        "tier_2": 70,
+        "tier_3": 50,
+        "entry": 30,
+        "mid": 70,
+        "senior": 90,
+        "exec": 85,
+        "small_budget": 90,
+        "medium_budget": 80,
+        "large_budget": 70,
+        "high_competition": 90,
+        "medium_competition": 75,
+        "low_competition": 60,
+    },
+    "social_media": {
+        "blue_collar": 55,
+        "white_collar": 80,
+        "grey_collar": 68,
+        "tier_1": 85,
+        "tier_2": 70,
+        "tier_3": 50,
+        "entry": 85,
+        "mid": 75,
+        "senior": 70,
+        "exec": 60,
+        "small_budget": 60,
+        "medium_budget": 75,
+        "large_budget": 85,
+        "high_competition": 85,
+        "medium_competition": 70,
+        "low_competition": 55,
+    },
+    "regional_boards": {
+        "blue_collar": 90,
+        "white_collar": 40,
+        "grey_collar": 65,
+        "tier_1": 30,
+        "tier_2": 70,
+        "tier_3": 95,
+        "entry": 85,
+        "mid": 60,
+        "senior": 30,
+        "exec": 15,
+        "small_budget": 85,
+        "medium_budget": 70,
+        "large_budget": 55,
+        "high_competition": 60,
+        "medium_competition": 70,
+        "low_competition": 80,
+    },
+    "employer_branding": {
+        "blue_collar": 25,
+        "white_collar": 80,
+        "grey_collar": 55,
+        "tier_1": 85,
+        "tier_2": 65,
+        "tier_3": 35,
+        "entry": 20,
+        "mid": 50,
+        "senior": 85,
+        "exec": 95,
+        "small_budget": 15,
+        "medium_budget": 50,
+        "large_budget": 85,
+        "high_competition": 90,
+        "medium_competition": 65,
+        "low_competition": 35,
+    },
+    "apac_regional": {
+        "blue_collar": 50,
+        "white_collar": 55,
+        "grey_collar": 52,
+        "tier_1": 40,
+        "tier_2": 50,
+        "tier_3": 30,
+        "entry": 45,
+        "mid": 50,
+        "senior": 40,
+        "exec": 30,
+        "small_budget": 20,
+        "medium_budget": 35,
+        "large_budget": 50,
+        "high_competition": 40,
+        "medium_competition": 35,
+        "low_competition": 30,
+    },
+    "emea_regional": {
+        "blue_collar": 45,
+        "white_collar": 55,
+        "grey_collar": 50,
+        "tier_1": 40,
+        "tier_2": 50,
+        "tier_3": 30,
+        "entry": 40,
+        "mid": 50,
+        "senior": 40,
+        "exec": 30,
+        "small_budget": 15,
+        "medium_budget": 30,
+        "large_budget": 50,
+        "high_competition": 40,
+        "medium_competition": 35,
+        "low_competition": 30,
+    },
+}
+
+# Factor weights (must sum to 1.0)
+_FACTOR_WEIGHTS: Dict[str, float] = {
+    "collar": 0.25,
+    "metro": 0.20,
+    "seniority": 0.25,
+    "competition": 0.15,
+    "budget_size": 0.15,
+}
+
+# Minimum allocation percentage per channel (prevent channels from zeroing out)
+_MIN_ALLOC_PCT: float = 1.0
+# Maximum allocation percentage per channel (prevent over-concentration)
+_MAX_ALLOC_PCT: float = 50.0
+
+
+def _classify_metro_tier(locations: List[str]) -> str:
+    """Classify location list into metro tier for budget scoring.
+
+    Tier 1: Major metros (NYC, SF, LA, Chicago, Boston, Seattle, DC, etc.)
+    Tier 2: Mid-size cities (Denver, Austin, Nashville, Raleigh, etc.)
+    Tier 3: Smaller markets and rural areas
+
+    Args:
+        locations: List of location strings from user input.
+
+    Returns:
+        One of 'tier_1', 'tier_2', or 'tier_3'.
+    """
+    if not locations:
+        return "tier_2"  # default to mid-tier
+
+    combined = " ".join(loc.lower() for loc in locations)
+
+    tier_1_markers = [
+        "new york",
+        "nyc",
+        "manhattan",
+        "brooklyn",
+        "san francisco",
+        "sf bay",
+        "los angeles",
+        "la ",
+        "chicago",
+        "boston",
+        "seattle",
+        "washington dc",
+        "dc metro",
+        "miami",
+        "dallas",
+        "houston",
+        "atlanta",
+        "philadelphia",
+        "denver",
+        "phoenix",
+        "san diego",
+        "san jose",
+        "silicon valley",
+        "london",
+        "paris",
+        "tokyo",
+        "singapore",
+        "sydney",
+        "toronto",
+        "mumbai",
+        "bangalore",
+        "berlin",
+        "amsterdam",
+    ]
+    tier_2_markers = [
+        "austin",
+        "nashville",
+        "raleigh",
+        "charlotte",
+        "portland",
+        "minneapolis",
+        "salt lake",
+        "tampa",
+        "orlando",
+        "pittsburgh",
+        "indianapolis",
+        "columbus",
+        "kansas city",
+        "st. louis",
+        "cincinnati",
+        "milwaukee",
+        "sacramento",
+        "richmond",
+        "jacksonville",
+        "memphis",
+        "san antonio",
+        "birmingham",
+        "manchester",
+        "dublin",
+        "melbourne",
+        "calgary",
+        "vancouver",
+        "munich",
+        "barcelona",
+    ]
+
+    for marker in tier_1_markers:
+        if marker in combined:
+            return "tier_1"
+
+    for marker in tier_2_markers:
+        if marker in combined:
+            return "tier_2"
+
+    return "tier_3"
+
+
+def _classify_seniority(roles: List[str], role_tiers: Optional[Dict] = None) -> str:
+    """Classify dominant seniority level from role titles or tier data.
+
+    Args:
+        roles: List of role title strings.
+        role_tiers: Optional dict of role -> tier info from classify_tier_fn.
+
+    Returns:
+        One of 'entry', 'mid', 'senior', or 'exec'.
+    """
+    if role_tiers:
+        tier_counts: Dict[str, int] = {}
+        for role, tier_info in role_tiers.items():
+            tier = (
+                tier_info.get("tier", "Professional")
+                if isinstance(tier_info, dict)
+                else str(tier_info)
+            )
+            tier_counts[tier] = tier_counts.get(tier, 0) + 1
+
+        exec_tiers = {"Executive", "Executive / Leadership"}
+        senior_tiers = {
+            "Professional",
+            "Professional / White-Collar",
+            "Clinical",
+            "Clinical / Licensed",
+        }
+        entry_tiers = {
+            "Hourly",
+            "Hourly / Entry-Level",
+            "Gig",
+            "Gig / Independent Contractor",
+        }
+
+        exec_count = sum(tier_counts.get(t, 0) for t in exec_tiers)
+        senior_count = sum(tier_counts.get(t, 0) for t in senior_tiers)
+        entry_count = sum(tier_counts.get(t, 0) for t in entry_tiers)
+        total = max(exec_count + senior_count + entry_count, 1)
+
+        if exec_count / total > 0.3:
+            return "exec"
+        if senior_count / total > 0.5:
+            return "senior"
+        if entry_count / total > 0.5:
+            return "entry"
+        return "mid"
+
+    if not roles:
+        return "mid"
+
+    combined = " ".join(r.lower() for r in roles)
+    exec_keywords = [
+        "ceo",
+        "cfo",
+        "cto",
+        "coo",
+        "vp ",
+        "vice president",
+        "chief",
+        "president",
+        "director",
+        "partner",
+        "principal",
+    ]
+    senior_keywords = ["senior", "lead", "staff", "architect", "manager", "head of"]
+    entry_keywords = [
+        "intern",
+        "junior",
+        "entry",
+        "associate",
+        "assistant",
+        "trainee",
+        "apprentice",
+        "hourly",
+        "part-time",
+    ]
+
+    if any(kw in combined for kw in exec_keywords):
+        return "exec"
+    if any(kw in combined for kw in senior_keywords):
+        return "senior"
+    if any(kw in combined for kw in entry_keywords):
+        return "entry"
+    return "mid"
+
+
+def _classify_competition_level(
+    synthesized_data: Optional[Dict] = None,
+    industry: str = "",
+) -> str:
+    """Classify competition level from enrichment data.
+
+    Args:
+        synthesized_data: Enrichment payload with market data.
+        industry: Industry key for fallback classification.
+
+    Returns:
+        One of 'high_competition', 'medium_competition', or 'low_competition'.
+    """
+    if synthesized_data:
+        # Check labor market data for competition signals
+        labor = synthesized_data.get("labor_market", {})
+        if isinstance(labor, dict):
+            unemployment = labor.get("unemployment_rate")
+            if isinstance(unemployment, (int, float)):
+                if unemployment < 3.5:
+                    return "high_competition"
+                if unemployment > 5.5:
+                    return "low_competition"
+                return "medium_competition"
+
+        # Check competition data
+        competition = synthesized_data.get("competition_analysis", {})
+        if isinstance(competition, dict):
+            level = competition.get("competition_level", "").lower()
+            if "high" in level:
+                return "high_competition"
+            if "low" in level:
+                return "low_competition"
+
+    # Industry-based fallback
+    high_comp_industries = {
+        "tech_engineering",
+        "healthcare_medical",
+        "pharma_biotech",
+        "aerospace_defense",
+        "finance_banking",
+    }
+    low_comp_industries = {
+        "hospitality_travel",
+        "retail_consumer",
+        "general_entry_level",
+    }
+    if industry in high_comp_industries:
+        return "high_competition"
+    if industry in low_comp_industries:
+        return "low_competition"
+    return "medium_competition"
+
+
+def _classify_budget_size(total_budget: float) -> str:
+    """Classify budget into small/medium/large for scoring.
+
+    Args:
+        total_budget: Total campaign budget in USD.
+
+    Returns:
+        One of 'small_budget', 'medium_budget', or 'large_budget'.
+    """
+    if total_budget < 5000:
+        return "small_budget"
+    if total_budget > 50000:
+        return "large_budget"
+    return "medium_budget"
+
+
+def compute_dynamic_allocation(
+    collar_type: str = "",
+    locations: Optional[List[str]] = None,
+    roles: Optional[List[str]] = None,
+    role_tiers: Optional[Dict] = None,
+    total_budget: float = 0.0,
+    industry: str = "",
+    synthesized_data: Optional[Dict] = None,
+    static_fallback: Optional[Dict[str, float]] = None,
+) -> Dict[str, float]:
+    """Compute dynamic channel allocation percentages based on multi-factor scoring.
+
+    Each channel receives a weighted score (0-100) based on:
+    - Collar type (blue/white/grey) -- affects channel mix
+    - Metro tier (Tier 1 NYC/SF vs Tier 2 vs Tier 3 rural) -- affects digital vs traditional
+    - Role seniority (entry/mid/senior/exec) -- affects LinkedIn weight
+    - Competition level (from enrichment data if available)
+    - Budget size (small <$5K favors focused channels, large >$50K can diversify)
+
+    Scores are normalized to percentages for allocation.
+    Falls back to static profiles when dynamic data is insufficient.
+
+    Args:
+        collar_type: One of 'blue_collar', 'white_collar', 'grey_collar', 'both'.
+        locations: List of location strings for metro tier classification.
+        roles: List of role title strings.
+        role_tiers: Optional dict of role -> tier info.
+        total_budget: Total campaign budget in USD.
+        industry: Industry classification key.
+        synthesized_data: Enrichment payload for competition analysis.
+        static_fallback: Static percentage profile to use if scoring fails.
+
+    Returns:
+        Dict mapping channel names to allocation percentages (sum to ~100).
+    """
+    try:
+        # Classify factors
+        collar_key = (
+            collar_type.lower().replace("-", "_").replace(" ", "_")
+            if collar_type
+            else "white_collar"
+        )
+        if collar_key == "both":
+            collar_key = "grey_collar"
+        if collar_key not in ("blue_collar", "white_collar", "grey_collar"):
+            collar_key = "white_collar"
+
+        metro_tier = _classify_metro_tier(locations or [])
+        seniority = _classify_seniority(roles or [], role_tiers)
+        competition = _classify_competition_level(synthesized_data, industry)
+        budget_size = _classify_budget_size(total_budget)
+
+        logger.info(
+            "Dynamic allocation factors: collar=%s, metro=%s, seniority=%s, "
+            "competition=%s, budget=%s",
+            collar_key,
+            metro_tier,
+            seniority,
+            competition,
+            budget_size,
+        )
+
+        # Score each channel
+        channel_scores: Dict[str, float] = {}
+
+        for channel, scores in _CHANNEL_BASE_SCORES.items():
+            weighted_score = 0.0
+
+            # Collar factor
+            collar_score = scores.get(collar_key, 50.0)
+            weighted_score += collar_score * _FACTOR_WEIGHTS["collar"]
+
+            # Metro tier factor
+            metro_score = scores.get(metro_tier, 50.0)
+            weighted_score += metro_score * _FACTOR_WEIGHTS["metro"]
+
+            # Seniority factor
+            seniority_score = scores.get(seniority, 50.0)
+            weighted_score += seniority_score * _FACTOR_WEIGHTS["seniority"]
+
+            # Competition factor
+            comp_score = scores.get(competition, 50.0)
+            weighted_score += comp_score * _FACTOR_WEIGHTS["competition"]
+
+            # Budget size factor
+            budget_score = scores.get(budget_size, 50.0)
+            weighted_score += budget_score * _FACTOR_WEIGHTS["budget_size"]
+
+            channel_scores[channel] = round(weighted_score, 2)
+
+        # Normalize scores to percentages
+        total_score = sum(channel_scores.values())
+        if total_score <= 0:
+            logger.warning(
+                "All channel scores are zero; falling back to static profiles"
+            )
+            return dict(static_fallback) if static_fallback else {}
+
+        raw_pcts: Dict[str, float] = {}
+        for channel, score in channel_scores.items():
+            pct = (score / total_score) * 100.0
+            # Apply min/max clamps
+            pct = max(_MIN_ALLOC_PCT, min(_MAX_ALLOC_PCT, pct))
+            raw_pcts[channel] = pct
+
+        # Re-normalize after clamping to ensure sum is exactly 100
+        pct_sum = sum(raw_pcts.values())
+        allocation: Dict[str, float] = {}
+        for channel, pct in raw_pcts.items():
+            allocation[channel] = round((pct / pct_sum) * 100.0, 1)
+
+        # Validate: ensure sum is close to 100 (adjust largest channel for rounding)
+        alloc_sum = sum(allocation.values())
+        if abs(alloc_sum - 100.0) > 0.5:
+            largest_ch = max(allocation, key=allocation.get)
+            allocation[largest_ch] = round(
+                allocation[largest_ch] + (100.0 - alloc_sum), 1
+            )
+
+        logger.info(
+            "Dynamic allocation computed: %s (total=%.1f%%)",
+            {k: f"{v:.1f}%" for k, v in allocation.items()},
+            sum(allocation.values()),
+        )
+        return allocation
+
+    except Exception as exc:
+        logger.error(
+            "Dynamic allocation scoring failed, falling back to static: %s",
+            exc,
+            exc_info=True,
+        )
+        if static_fallback:
+            return dict(static_fallback)
+        return {}
+
+
 def compute_channel_dollar_amounts(
     channel_percentages: Dict[str, float],
     role_budgets: Dict[str, Dict],

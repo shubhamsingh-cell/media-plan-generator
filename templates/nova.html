@@ -200,6 +200,42 @@
         height: 16px;
       }
 
+      /* Conversation search */
+      .sidebar-search {
+        padding: 8px 12px 4px;
+      }
+      .sidebar-search-input {
+        width: 100%;
+        padding: 8px 12px 8px 32px;
+        background: var(--bg-tertiary, rgba(255, 255, 255, 0.05));
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm);
+        color: var(--text-primary);
+        font-size: 13px;
+        font-family: inherit;
+        outline: none;
+        transition: border-color var(--transition-fast);
+      }
+      .sidebar-search-input::placeholder {
+        color: var(--text-muted);
+      }
+      .sidebar-search-input:focus {
+        border-color: var(--accent-teal);
+      }
+      .sidebar-search-wrap {
+        position: relative;
+      }
+      .sidebar-search-icon {
+        position: absolute;
+        left: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 14px;
+        height: 14px;
+        color: var(--text-muted);
+        pointer-events: none;
+      }
+
       /* Conversation list */
       .sidebar-conversations {
         flex: 1;
@@ -1906,6 +1942,30 @@
             New Chat
           </button>
         </div>
+        <div class="sidebar-search">
+          <div class="sidebar-search-wrap">
+            <svg
+              class="sidebar-search-icon"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input
+              type="text"
+              class="sidebar-search-input"
+              id="conv-search-input"
+              placeholder="Search conversations..."
+              aria-label="Search conversations"
+              autocomplete="off"
+            />
+          </div>
+        </div>
         <div
           class="sidebar-conversations"
           id="conv-list"
@@ -2324,6 +2384,7 @@
         var charCount = document.getElementById("char-count");
         var toastContainer = document.getElementById("toast-container");
         var themeToggleBtn = document.getElementById("theme-toggle-btn");
+        var convSearchInput = document.getElementById("conv-search-input");
         var shareBtn = document.getElementById("share-btn");
         var exportBtn = document.getElementById("export-btn");
         var shortcutsBtn = document.getElementById("shortcuts-btn");
@@ -3001,17 +3062,40 @@
         // ========================================================================
         function renderSidebar() {
           convList.innerHTML = "";
+          var searchTerm = (convSearchInput ? convSearchInput.value : "")
+            .trim()
+            .toLowerCase();
           var keys = Object.keys(state.conversations).sort(function (a, b) {
             return (
               (state.conversations[b].updatedAt || 0) -
               (state.conversations[a].updatedAt || 0)
             );
           });
+          // Filter by search term (title or first user message)
+          if (searchTerm) {
+            keys = keys.filter(function (id) {
+              var conv = state.conversations[id];
+              if ((conv.title || "").toLowerCase().indexOf(searchTerm) !== -1)
+                return true;
+              var firstMsg = (conv.messages || []).find(function (m) {
+                return m.role === "user";
+              });
+              if (
+                firstMsg &&
+                (firstMsg.content || "").toLowerCase().indexOf(searchTerm) !==
+                  -1
+              )
+                return true;
+              return false;
+            });
+          }
           if (keys.length === 0) {
             var empty = document.createElement("div");
             empty.style.cssText =
               "padding:20px 12px;text-align:center;font-size:13px;color:var(--text-muted);";
-            empty.textContent = "No conversations yet";
+            empty.textContent = searchTerm
+              ? "No matching conversations"
+              : "No conversations yet";
             convList.appendChild(empty);
             return;
           }
@@ -4376,6 +4460,19 @@
           }
           draw();
         })();
+
+        // ========================================================================
+        // CONVERSATION SEARCH (sidebar filter)
+        // ========================================================================
+        if (convSearchInput) {
+          var _searchDebounce = null;
+          convSearchInput.addEventListener("input", function () {
+            clearTimeout(_searchDebounce);
+            _searchDebounce = setTimeout(function () {
+              renderSidebar();
+            }, 150);
+          });
+        }
 
         // ========================================================================
         // INIT

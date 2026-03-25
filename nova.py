@@ -126,6 +126,8 @@ DATA_DIR = Path(__file__).resolve().parent / "data"
 JOVEO_PRIMARY_COLOR = "#0066CC"
 MAX_HISTORY_TURNS = 20
 MAX_MESSAGE_LENGTH = 4000
+# Token estimation: ~4 chars per token (conservative estimate)
+MAX_CONTEXT_CHARS = 180_000  # ~45K tokens, safe margin for Claude's 200K window
 CLAUDE_MODEL_PRIMARY = (
     "claude-haiku-4-5-20251001"  # Fast + cheap for simple/medium queries
 )
@@ -6901,6 +6903,20 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
 
         messages.append({"role": "user", "content": user_message})
 
+        # ── Token budget: estimate system + tools size, trim history if needed ──
+        # System prompt and tools are built below, but we estimate their size
+        # here to trim conversation history proactively.
+        _est_system_chars = (
+            len(self.get_system_prompt(message=user_message)) + 2000
+        )  # +buffer for dynamic parts
+        _est_tools_chars = (
+            len(json.dumps(self.get_tool_definitions()))
+            if self.get_tool_definitions()
+            else 0
+        )
+        _est_overhead = _est_system_chars + _est_tools_chars
+        messages = _trim_history_to_fit(messages, _est_overhead)
+
         # System prompt is built in the caching section below (static + dynamic split)
         tools_used = []
         sources = set()
@@ -8674,6 +8690,75 @@ def _sanitize_refusal_language(response: dict) -> dict:
         logger.info("Refusal sanitizer: cleaned refusal language from response")
 
     return response
+
+
+def _estimate_tokens(text: str) -> int:
+    """Estimate token count for a text string.
+
+    Uses a conservative 4 chars per token ratio.
+    This is a fast approximation -- not exact, but sufficient
+    for context window management.
+
+    Args:
+        text: Input text to estimate tokens for.
+
+    Returns:
+        Estimated token count.
+    """
+    return len(text) // 4
+
+
+def _trim_history_to_fit(
+    messages: list[dict],
+    system_chars: int,
+    max_chars: int = MAX_CONTEXT_CHARS,
+) -> list[dict]:
+    """Trim oldest history messages to fit within context window.
+
+    Preserves the most recent user message (last item) and trims
+    from the beginning of the history when total chars exceed limit.
+
+    Args:
+        messages: List of message dicts with 'role' and 'content'.
+        system_chars: Estimated char count of system prompt + tools.
+        max_chars: Maximum total character budget.
+
+    Returns:
+        Trimmed message list.
+    """
+    if not messages:
+        return messages
+
+    total_msg_chars = sum(len(m.get("content") or "") for m in messages)
+    total_chars = system_chars + total_msg_chars
+
+    if total_chars <= max_chars:
+        return messages
+
+    # Must trim -- remove oldest messages first, always keep the last one
+    trimmed = list(messages)
+    removed = 0
+    while (
+        len(trimmed) > 1
+        and (system_chars + sum(len(m.get("content") or "") for m in trimmed))
+        > max_chars
+    ):
+        trimmed.pop(0)
+        removed += 1
+
+    if removed > 0:
+        logger.warning(
+            "Token budget: trimmed %d oldest messages (system=%d chars, "
+            "remaining msgs=%d, est. total tokens ~%d)",
+            removed,
+            system_chars,
+            len(trimmed),
+            _estimate_tokens(
+                str(system_chars + sum(len(m.get("content") or "") for m in trimmed))
+            ),
+        )
+
+    return trimmed
 
 
 def _is_blocked_question(message: str) -> bool:

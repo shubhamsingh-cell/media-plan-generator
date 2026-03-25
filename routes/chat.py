@@ -64,6 +64,72 @@ def _handle_chat_conversations(handler, path: str, parsed: Any) -> None:
     handler._send_json({"conversations": conversations, "count": len(conversations)})
 
 
+def _handle_chat_conversations_search(handler, path: str, parsed: Any) -> None:
+    """/api/nova/conversations/search -- search conversations by query term."""
+    qs = urllib.parse.parse_qs(parsed.query)
+    query = (qs.get("q") or [""])[0].strip()
+    if not query:
+        handler._send_json({"error": "q parameter required"}, status_code=400)
+        return
+
+    limit_str = (qs.get("limit") or ["20"])[0]
+    try:
+        limit_val = min(int(limit_str), 100)
+    except (ValueError, TypeError):
+        limit_val = 20
+
+    try:
+        _app = sys.modules.get("__main__") or sys.modules.get("app")
+        _supabase_rest = getattr(_app, "_supabase_rest", None)
+        if not _supabase_rest:
+            handler._send_json({"conversations": [], "count": 0, "query": query})
+            return
+
+        # Search by title (ilike) in Supabase
+        params = (
+            f"?select=id,title,updated_at,messages"
+            f"&title=ilike.*{urllib.parse.quote(query)}*"
+            f"&order=updated_at.desc"
+            f"&limit={limit_val}"
+        )
+        result = _supabase_rest("nova_conversations", method="GET", params=params)
+        if not isinstance(result, list):
+            result = []
+
+        conversations = []
+        for row in result:
+            cid = row.get("id") or ""
+            messages = row.get("messages") or []
+            last_msg = ""
+            if isinstance(messages, list):
+                for msg in reversed(messages):
+                    if isinstance(msg, dict) and msg.get("role") == "user":
+                        last_msg = (msg.get("content") or "")[:100]
+                        break
+            conversations.append(
+                {
+                    "conversation_id": cid,
+                    "title": row.get("title") or "New Chat",
+                    "updated_at": row.get("updated_at") or "",
+                    "preview": last_msg,
+                    "message_count": len(messages) if isinstance(messages, list) else 0,
+                }
+            )
+
+        handler._send_json(
+            {
+                "conversations": conversations,
+                "count": len(conversations),
+                "query": query,
+            }
+        )
+    except Exception as exc:
+        logger.error("Conversation search failed: %s", exc, exc_info=True)
+        handler._send_json(
+            {"conversations": [], "count": 0, "query": query, "error": str(exc)}
+        )
+
+
 def _handle_chat_migrate(handler, path: str, parsed: Any) -> None:
     """/api/chat/migrate -- one-time migration (admin-protected)."""
     if not handler._check_admin_auth():
@@ -90,5 +156,6 @@ def _handle_chat_migrate(handler, path: str, parsed: Any) -> None:
 _CHAT_GET_ROUTE_MAP: dict[str, Any] = {
     "/api/chat/history": _handle_chat_history,
     "/api/chat/conversations": _handle_chat_conversations,
+    "/api/nova/conversations/search": _handle_chat_conversations_search,
     "/api/chat/migrate": _handle_chat_migrate,
 }

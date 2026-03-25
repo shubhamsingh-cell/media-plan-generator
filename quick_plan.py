@@ -232,6 +232,139 @@ _CHANNEL_REASONING: Dict[str, Dict[str, str]] = {
     },
 }
 
+# ── Metro tier lookup for dynamic fit score adjustment ──
+TIER_1_METROS: set[str] = {
+    "new york",
+    "san francisco",
+    "los angeles",
+    "chicago",
+    "boston",
+    "seattle",
+    "washington dc",
+    "washington d.c.",
+}
+
+TIER_2_METROS: set[str] = {
+    "denver",
+    "austin",
+    "atlanta",
+    "dallas",
+    "phoenix",
+    "portland",
+    "minneapolis",
+    "san diego",
+    "raleigh",
+    "nashville",
+    "charlotte",
+    "salt lake city",
+}
+
+# Industries with younger workforce demographics (social media boost)
+_YOUNG_WORKFORCE_INDUSTRIES: set[str] = {
+    "hospitality",
+    "retail",
+    "food_service",
+    "entertainment",
+    "quick_service_restaurant",
+    "fast_food",
+    "gig_economy",
+    "startup",
+    "gaming",
+    "social_media",
+}
+
+
+def _classify_metro_tier(location: str) -> str:
+    """Classify a location into metro tier for fit score adjustment.
+
+    Args:
+        location: Free-text location string (e.g., "San Francisco, CA").
+
+    Returns:
+        One of "tier_1", "tier_2", "tier_3", or "rural".
+    """
+    loc_lower = (location or "").lower().strip()
+    if not loc_lower:
+        return "tier_3"
+
+    for metro in TIER_1_METROS:
+        if metro in loc_lower:
+            return "tier_1"
+
+    for metro in TIER_2_METROS:
+        if metro in loc_lower:
+            return "tier_2"
+
+    # Check for common rural indicators
+    rural_keywords = {"rural", "county", "township", "village", "unincorporated"}
+    if any(kw in loc_lower for kw in rural_keywords):
+        return "rural"
+
+    return "tier_3"
+
+
+def adjust_fit_scores(
+    base_scores: Dict[str, int],
+    location: str,
+    industry: str,
+) -> Dict[str, int]:
+    """Dynamically adjust collar-channel fit scores based on location and industry.
+
+    Applies location-based and demographic-based adjustments:
+    - LinkedIn: +3 in Tier 1 metros, -3 in rural areas
+    - Indeed/job boards: +2 in Tier 2/3 areas (lower LinkedIn penetration)
+    - Social media: +2 for younger workforce demographics
+    - Glassdoor: +2 in Tier 1 metros (research-driven professionals)
+
+    All scores are clamped to the 0-100 range.
+
+    Args:
+        base_scores: Dict of channel_key -> fit_score (0-100).
+        location: Free-text location string.
+        industry: Industry key or label.
+
+    Returns:
+        New dict of channel_key -> adjusted fit_score.
+    """
+    adjusted = dict(base_scores)
+    metro_tier = _classify_metro_tier(location)
+    industry_lower = (industry or "").lower().replace(" ", "_")
+
+    try:
+        # LinkedIn adjustment: boost in Tier 1, reduce in rural
+        if "linkedin" in adjusted:
+            if metro_tier == "tier_1":
+                adjusted["linkedin"] = adjusted["linkedin"] + 3
+            elif metro_tier == "rural":
+                adjusted["linkedin"] = adjusted["linkedin"] - 3
+
+        # Indeed / job board boost in Tier 2/3/rural (lower LinkedIn penetration)
+        if metro_tier in ("tier_2", "tier_3", "rural"):
+            for ch in ("indeed", "ziprecruiter", "niche_boards"):
+                if ch in adjusted:
+                    adjusted[ch] = adjusted[ch] + 2
+
+        # Social media boost for younger workforce demographics
+        if industry_lower in _YOUNG_WORKFORCE_INDUSTRIES:
+            if "meta_facebook" in adjusted:
+                adjusted["meta_facebook"] = adjusted["meta_facebook"] + 2
+
+        # Glassdoor boost in Tier 1 metros (research-driven market)
+        if metro_tier == "tier_1":
+            if "glassdoor" in adjusted:
+                adjusted["glassdoor"] = adjusted["glassdoor"] + 2
+
+        # Clamp all scores to 0-100
+        adjusted = {k: max(0, min(100, v)) for k, v in adjusted.items()}
+
+    except (ValueError, KeyError, TypeError) as exc:
+        logger.warning(f"Fit score adjustment failed: {exc}")
+        # Return base scores on any error
+        return dict(base_scores)
+
+    return adjusted
+
+
 # ── Hiring difficulty descriptors ──
 _DIFFICULTY_LEVELS = [
     (20, "Easy", "Ample candidate supply. Fast fills expected."),
@@ -574,9 +707,12 @@ def score_channels_for_context(
     """
     try:
         collar = collar_type if collar_type in _COLLAR_CHANNEL_FIT else "white_collar"
-        fit_scores = _COLLAR_CHANNEL_FIT.get(
+        base_fit_scores = _COLLAR_CHANNEL_FIT.get(
             collar, _COLLAR_CHANNEL_FIT["white_collar"]
         )
+
+        # ── Dynamically adjust fit scores for location and industry ──
+        fit_scores = adjust_fit_scores(base_fit_scores, location, industry)
 
         # ── Get channel allocation percentages from collar strategy ──
         alloc_pcts = _get_collar_allocation(collar)

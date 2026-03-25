@@ -41,6 +41,7 @@
     maxHistoryStorage: 50,
     storageKey: "nova_chat_history",
     sessionKey: "nova_session",
+    sessionTokenKey: "nova_session_token",
     widgetWidth: "400px",
     widgetHeight: "580px",
     mobileBreakpoint: 640,
@@ -80,51 +81,48 @@
     if (document.getElementById("nova-styles")) return;
 
     var css =
-      "" +
-      "#nova-float-btn {" +
-      "  position: fixed; bottom: 24px; right: 24px; z-index: 99999;" +
-      "  width: 68px; height: 68px; border-radius: 50%;" +
-      "  background: #0f0f1a;" +
-      "  color: #fff; border: 1.5px solid rgba(107,179,205,0.3); cursor: pointer;" +
-      "  box-shadow: 0 4px 24px rgba(90,84,189,0.25), 0 0 12px rgba(107,179,205,0.15);" +
-      "  display: flex; align-items: center; justify-content: center;" +
-      "  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;" +
-      "  font-size: 0; padding: 0; overflow: hidden;" +
-      "}" +
-      "#nova-float-btn:hover {" +
-      "  transform: translateY(-3px) scale(1.1);" +
-      "  box-shadow: 0 8px 36px rgba(90,84,189,0.35), 0 0 20px rgba(107,179,205,0.25), 0 0 0 1px rgba(107,179,205,0.3);" +
-      "  border-color: rgba(107,179,205,0.4);" +
-      "}" +
-      "#nova-float-btn:active {" +
-      "  transform: scale(0.95);" +
-      "}" +
-      "#nova-float-btn svg { width: 26px; height: 26px; }" +
-      "#nova-float-btn canvas { display: block; }" +
-      "#nova-float-btn.nova-btn-close { background: linear-gradient(135deg, #1a1a2e 0%, #5A54BD 100%); border-color: rgba(107,179,205,0.2); }" +
-      "#nova-float-btn.nova-btn-close:hover { box-shadow: 0 8px 36px rgba(107,179,205,0.3), 0 0 60px rgba(90,84,189,0.1); }" +
-      // ── Dark Glassmorphism Panel ──
-      "#nova-panel {" +
-      "  position: fixed; bottom: 96px; right: 24px; z-index: 99998;" +
-      "  width: 420px; height: 600px;" +
-      "  max-height: calc(100vh - 120px);" +
-      "  background: rgba(15,15,26,0.97);" +
-      "  backdrop-filter: blur(24px) saturate(1.4);" +
-      "  -webkit-backdrop-filter: blur(24px) saturate(1.4);" +
-      "  border-radius: 16px;" +
-      "  box-shadow: 0 16px 48px rgba(0,0,0,0.6);" +
-      "  display: flex; flex-direction: column;" +
-      "  overflow: hidden;" +
-      "  transition: opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1), transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);" +
-      '  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;' +
-      "  border: 1px solid rgba(107,179,205,0.1);" +
-      "}" +
-      "#nova-panel.nova-hidden {" +
-      "  opacity: 0; transform: translateY(20px) scale(0.92); pointer-events: none;" +
-      "}" +
-      "#nova-panel.nova-visible {" +
-      "  opacity: 1; transform: translateY(0) scale(1); pointer-events: auto;" +
-      "}" +
+      `
+/* ==========================================================================
+   Nova AI Chat Widget Styles
+   Sections: Layout, Header, Messages, Input, Suggestions, Actions,
+   Animations, Responsive, Print, Reduced Motion
+   ========================================================================== */
+
+/* -- Layout & Container -------------------------------------------------- */
+#nova-float-btn {
+  position: fixed; bottom: 24px; right: 24px; z-index: 99999;
+  width: 68px; height: 68px; border-radius: 50%;
+  background: #0f0f1a;
+  color: #fff; border: 1.5px solid rgba(107,179,205,0.3); cursor: pointer;
+  box-shadow: 0 4px 24px rgba(90,84,189,0.25), 0 0 12px rgba(107,179,205,0.15);
+  display: flex; align-items: center; justify-content: center;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
+  font-size: 0; padding: 0; overflow: hidden;
+}
+#nova-float-btn:hover {
+  transform: translateY(-3px) scale(1.1);
+  box-shadow: 0 8px 36px rgba(90,84,189,0.35), 0 0 20px rgba(107,179,205,0.25), 0 0 0 1px rgba(107,179,205,0.3);
+  border-color: rgba(107,179,205,0.4);
+}
+#nova-float-btn:active { transform: scale(0.95); }
+#nova-float-btn svg { width: 26px; height: 26px; }
+#nova-float-btn canvas { display: block; }
+#nova-float-btn.nova-btn-close { background: linear-gradient(135deg, #1a1a2e 0%, #5A54BD 100%); border-color: rgba(107,179,205,0.2); }
+#nova-float-btn.nova-btn-close:hover { box-shadow: 0 8px 36px rgba(107,179,205,0.3), 0 0 60px rgba(90,84,189,0.1); }
+
+#nova-panel {
+  position: fixed; bottom: 96px; right: 24px; z-index: 99998;
+  width: 420px; height: 600px; max-height: calc(100vh - 120px);
+  background: rgba(15,15,26,0.97);
+  backdrop-filter: blur(24px) saturate(1.4); -webkit-backdrop-filter: blur(24px) saturate(1.4);
+  border-radius: 16px; box-shadow: 0 16px 48px rgba(0,0,0,0.6);
+  display: flex; flex-direction: column; overflow: hidden;
+  transition: opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1), transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  border: 1px solid rgba(107,179,205,0.1);
+}
+#nova-panel.nova-hidden { opacity: 0; transform: translateY(20px) scale(0.92); pointer-events: none; }
+#nova-panel.nova-visible { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }` +
       // ── Header ──
       ".nova-header {" +
       "  background: rgba(15,15,26,0.95);" +
@@ -505,6 +503,88 @@
       "  cursor: pointer; transition: all 0.15s; font-family: inherit;" +
       "}" +
       ".nova-regen-btn:hover { color: #6BB3CD; border-color: rgba(107,179,205,0.25); }" +
+      // ── Theme toggle button ──
+      ".nova-theme-btn {" +
+      "  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);" +
+      "  color: rgba(255,255,255,0.7); cursor: pointer;" +
+      "  padding: 5px; border-radius: 8px; line-height: 1;" +
+      "  transition: all 0.2s;" +
+      "}" +
+      ".nova-theme-btn:hover { background: rgba(255,255,255,0.1); color: #fff; border-color: rgba(255,255,255,0.2); }" +
+      ".nova-theme-btn svg { width: 16px; height: 16px; }" +
+      // ── Light theme overrides ──
+      "#nova-panel.nova-light {" +
+      "  background: rgba(245,245,247,0.97);" +
+      "  border-color: rgba(0,0,0,0.08);" +
+      "}" +
+      "#nova-panel.nova-light .nova-header {" +
+      "  background: rgba(245,245,247,0.95);" +
+      "  color: #1a1a2e;" +
+      "}" +
+      "#nova-panel.nova-light .nova-header-title { color: #1a1a2e; }" +
+      "#nova-panel.nova-light .nova-header-subtitle { color: #666; }" +
+      "#nova-panel.nova-light .nova-close-btn," +
+      "#nova-panel.nova-light .nova-theme-btn," +
+      "#nova-panel.nova-light .nova-export-btn {" +
+      "  background: rgba(0,0,0,0.04) !important; border-color: rgba(0,0,0,0.1) !important;" +
+      "  color: #555 !important;" +
+      "}" +
+      "#nova-panel.nova-light .nova-close-btn:hover," +
+      "#nova-panel.nova-light .nova-theme-btn:hover," +
+      "#nova-panel.nova-light .nova-export-btn:hover {" +
+      "  background: rgba(0,0,0,0.08) !important; color: #1a1a2e !important;" +
+      "}" +
+      "#nova-panel.nova-light .nova-messages { color: #1a1a2e; }" +
+      "#nova-panel.nova-light .nova-msg-assistant {" +
+      "  background: #ffffff; color: #1a1a2e;" +
+      "  border-color: rgba(0,0,0,0.06);" +
+      "}" +
+      "#nova-panel.nova-light .nova-msg-sender-assistant { color: #5a54bd; }" +
+      "#nova-panel.nova-light .nova-msg-sender-user { color: #5a54bd; }" +
+      "#nova-panel.nova-light .nova-welcome-title { color: #1a1a2e; }" +
+      "#nova-panel.nova-light .nova-welcome-subtitle { color: #555; }" +
+      "#nova-panel.nova-light .nova-suggestion {" +
+      "  background: rgba(90,84,189,0.06); color: #1a1a2e;" +
+      "  border-color: rgba(90,84,189,0.15);" +
+      "}" +
+      "#nova-panel.nova-light .nova-suggestion:hover {" +
+      "  background: rgba(90,84,189,0.12); border-color: rgba(90,84,189,0.25);" +
+      "}" +
+      "#nova-panel.nova-light .nova-input-area {" +
+      "  background: rgba(245,245,247,0.95); border-color: rgba(0,0,0,0.06);" +
+      "}" +
+      "#nova-panel.nova-light .nova-input {" +
+      "  background: #ffffff; color: #1a1a2e; border-color: rgba(0,0,0,0.1);" +
+      "}" +
+      "#nova-panel.nova-light .nova-input::placeholder { color: #999; }" +
+      "#nova-panel.nova-light .nova-char-count { color: #999; }" +
+      "#nova-panel.nova-light .nova-footer { color: #999; }" +
+      "#nova-panel.nova-light .nova-msg strong { color: #111; }" +
+      "#nova-panel.nova-light code { background: rgba(0,0,0,0.05); color: #1a1a2e; }" +
+      "#nova-panel.nova-light table th { background: rgba(0,0,0,0.04); }" +
+      "#nova-panel.nova-light table td { border-color: rgba(0,0,0,0.06); }" +
+      // ── Settings panel ──
+      ".nova-settings-btn:hover { background: rgba(255,255,255,0.1) !important; color: #fff !important; border-color: rgba(255,255,255,0.2) !important; }" +
+      ".nova-settings-panel { position: absolute; top: 56px; right: 8px; z-index: 10; background: rgba(15,15,26,0.98); border: 1px solid rgba(107,179,205,0.15); border-radius: 12px; padding: 14px 16px; min-width: 220px; box-shadow: 0 8px 32px rgba(0,0,0,0.5); backdrop-filter: blur(16px); display: none; }" +
+      ".nova-settings-panel.nova-settings-open { display: block; }" +
+      ".nova-settings-panel label { display: block; font-size: 11px; color: #888; margin-bottom: 4px; letter-spacing: 0.3px; }" +
+      ".nova-settings-panel input[type='text'] { width: 100%; box-sizing: border-box; padding: 6px 10px; background: rgba(20,20,37,0.9); border: 1px solid rgba(107,179,205,0.15); border-radius: 8px; color: #d4d4d8; font-size: 13px; font-family: inherit; outline: none; }" +
+      ".nova-settings-panel input[type='text']:focus { border-color: rgba(107,179,205,0.4); }" +
+      ".nova-settings-save-btn { margin-top: 8px; width: 100%; padding: 6px; border-radius: 8px; background: rgba(90,84,189,0.2); color: #8b85e0; border: 1px solid rgba(90,84,189,0.3); font-size: 11px; font-family: inherit; cursor: pointer; transition: all 0.15s; }" +
+      ".nova-settings-save-btn:hover { background: rgba(90,84,189,0.35); color: #a5a0f0; }" +
+      // ── Export dropdown ──
+      ".nova-export-dropdown { position: absolute; top: 56px; right: 44px; z-index: 10; background: rgba(15,15,26,0.98); border: 1px solid rgba(107,179,205,0.15); border-radius: 10px; min-width: 180px; overflow: hidden; box-shadow: 0 8px 32px rgba(0,0,0,0.5); backdrop-filter: blur(16px); display: none; }" +
+      ".nova-export-dropdown.nova-export-open { display: block; }" +
+      ".nova-export-option { display: flex; align-items: center; gap: 8px; padding: 10px 14px; font-size: 12px; color: #a1a1a1; cursor: pointer; transition: all 0.15s; border: none; background: none; width: 100%; text-align: left; font-family: inherit; }" +
+      ".nova-export-option:hover { background: rgba(107,179,205,0.08); color: #d4d4d8; }" +
+      ".nova-export-option svg { width: 14px; height: 14px; flex-shrink: 0; }" +
+      // ── Avatar tooltip ──
+      ".nova-msg-avatar[data-tooltip]:hover::after { content: attr(data-tooltip); position: absolute; bottom: -22px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.9); color: #d4d4d8; padding: 2px 8px; border-radius: 4px; font-size: 9px; font-weight: 400; white-space: nowrap; pointer-events: none; z-index: 10; }" +
+      // ── Branch indicator ──
+      ".nova-branch-indicator { display: inline-flex; align-items: center; gap: 4px; font-size: 9px; color: #5A54BD; margin-bottom: 2px; letter-spacing: 0.3px; opacity: 0.8; }" +
+      ".nova-branch-indicator svg { width: 10px; height: 10px; }" +
+      // ── Print ──
+      "@media print { #nova-float-btn, .nova-input-wrap, .nova-footer, .nova-close-btn, .nova-export-btn, .nova-settings-btn, .nova-suggestion-btn, .nova-suggestions, .nova-welcome, .nova-copy-btn, .nova-tts-btn, .nova-rate-btn, .nova-regen-btn, .nova-edit-btn, .nova-stop-btn, .nova-settings-panel, .nova-export-dropdown { display: none !important; } #nova-panel { position: static !important; width: 100% !important; height: auto !important; max-height: none !important; background: #fff !important; color: #000 !important; border: none !important; box-shadow: none !important; border-radius: 0 !important; backdrop-filter: none !important; } .nova-header { background: #fff !important; color: #000 !important; border-bottom: 2px solid #202058; } .nova-header-title { color: #202058 !important; } .nova-messages { overflow: visible !important; background: #fff !important; } .nova-msg { color: #000 !important; background: transparent !important; border: 1px solid #ddd !important; } .nova-msg-user { background: #f0f0f5 !important; } .nova-msg-assistant { background: #fff !important; } .nova-msg-sender { color: #333 !important; } .nova-msg-avatar { background: #ccc !important; } }" +
       // ── Reduced motion ──
       "@media (prefers-reduced-motion: reduce) {" +
       "  .nova-msg-row, .nova-msg-user, .nova-msg-assistant { animation: none !important; }" +
@@ -627,6 +707,30 @@
 
     // Inline code
     html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
+
+    // Images: ![alt text](url) -- must come before link regex
+    // Only allow https:// and data:image/ protocols for security
+    html = html.replace(
+      /!\[([^\]]*)\]\(([^)]+)\)/g,
+      function (match, alt, url) {
+        var trimmedUrl = url.trim();
+        var lowerUrl = trimmedUrl.toLowerCase();
+        if (
+          lowerUrl.indexOf("https://") !== 0 &&
+          lowerUrl.indexOf("data:image/") !== 0
+        ) {
+          return escapeHtml(alt || "image"); // Strip unsafe image, keep alt text
+        }
+        return (
+          '<img src="' +
+          trimmedUrl +
+          '" alt="' +
+          escapeHtml(alt) +
+          '" style="max-width:100%;border-radius:8px;margin:8px 0;" loading="lazy" ' +
+          "onerror=\"this.style.display='none'\" />"
+        );
+      },
+    );
 
     // Links with URL protocol validation (W-08: block javascript:/data:/vbscript:)
     html = html.replace(
@@ -772,6 +876,79 @@
       return sid;
     } catch (e) {
       return "nova-" + Date.now();
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // User initial helper (Issue 1: avatars)
+  // ---------------------------------------------------------------------------
+  function _getUserInitial() {
+    try {
+      var name = localStorage.getItem("nova_user_name");
+      if (name && name.trim()) return name.trim().charAt(0).toUpperCase();
+    } catch (_e) {}
+    return "Y";
+  }
+
+  function _getUserDisplayName() {
+    try {
+      var name = localStorage.getItem("nova_user_name");
+      if (name && name.trim()) return name.trim();
+    } catch (_e) {}
+    return "You";
+  }
+
+  // ---------------------------------------------------------------------------
+  // Export handlers (Issue 2: export dropdown)
+  // ---------------------------------------------------------------------------
+  function handleExportOption(exportType) {
+    var history = collectConversationHistory();
+    if (!history.length) {
+      appendMessage(
+        {
+          role: "assistant",
+          content: "No conversation to export yet. Start chatting first!",
+        },
+        false,
+      );
+      return;
+    }
+    if (exportType === "text") {
+      var textContent = "";
+      history.forEach(function (m) {
+        var label = m.role === "user" ? _getUserDisplayName() : "Nova";
+        textContent += label + ": " + m.content + "\n\n";
+      });
+      navigator.clipboard.writeText(textContent).then(function () {
+        appendMessage(
+          { role: "assistant", content: "Conversation copied as plain text!" },
+          false,
+        );
+      });
+    } else if (exportType === "markdown") {
+      var mdContent = "# Nova AI Conversation\n\n";
+      history.forEach(function (m) {
+        var label =
+          m.role === "user"
+            ? "**" + _getUserDisplayName() + ":**"
+            : "**Nova:**";
+        mdContent += label + " " + m.content + "\n\n---\n\n";
+      });
+      navigator.clipboard.writeText(mdContent).then(function () {
+        appendMessage(
+          { role: "assistant", content: "Conversation copied as Markdown!" },
+          false,
+        );
+      });
+    } else if (exportType === "pdf") {
+      // Open the panel fullscreen for print
+      if (state.chatPanel) {
+        state.chatPanel.classList.add("nova-visible");
+        state.chatPanel.classList.remove("nova-hidden");
+      }
+      window.print();
+    } else if (exportType === "html") {
+      exportConversation(); // existing HTML export via server
     }
   }
 
@@ -1059,22 +1236,148 @@
       "  </div>" +
       "</div>" +
       '<div style="display:flex;align-items:center;gap:6px;">' +
-      '<button class="nova-export-btn" aria-label="Export conversation" title="Export conversation" style="' +
-      "background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);" +
-      "color:rgba(255,255,255,0.7);cursor:pointer;padding:5px;border-radius:8px;line-height:1;" +
-      'transition:all 0.2s;">' +
+      '<button class="nova-settings-btn" aria-label="Settings" title="Settings" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);cursor:pointer;padding:5px;border-radius:8px;line-height:1;transition:all 0.2s;">' +
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>' +
+      "</button>" +
+      '<button class="nova-export-btn" aria-label="Export conversation" title="Export conversation" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);cursor:pointer;padding:5px;border-radius:8px;line-height:1;transition:all 0.2s;">' +
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
       'stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;">' +
       '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>' +
       '<polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>' +
       "</button>" +
+      '<button class="nova-theme-btn" aria-label="Toggle theme" title="Toggle dark/light mode">' +
+      '<svg class="nova-theme-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
+      'stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;">' +
+      '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>' +
+      '<svg class="nova-theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
+      'stroke-linecap="round" stroke-linejoin="round" style="display:none;width:16px;height:16px;">' +
+      '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/>' +
+      '<line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>' +
+      '<line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/>' +
+      '<line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>' +
+      '<line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>' +
+      "</button>" +
       '<button class="nova-close-btn" aria-label="Close chat">' +
       ICONS.close +
       "</button>" +
+      "</div>" +
+      '<div class="nova-settings-panel" id="nova-settings-panel">' +
+      '  <label for="nova-name-input">Your Name</label>' +
+      '  <input type="text" id="nova-name-input" placeholder="Enter your name" maxlength="40" />' +
+      '  <button class="nova-settings-save-btn" id="nova-settings-save">Save</button>' +
+      "</div>" +
+      '<div class="nova-export-dropdown" id="nova-export-dropdown">' +
+      '  <button class="nova-export-option" data-export="text">Copy as Text</button>' +
+      '  <button class="nova-export-option" data-export="markdown">Copy as Markdown</button>' +
+      '  <button class="nova-export-option" data-export="pdf">Download as PDF</button>' +
+      '  <button class="nova-export-option" data-export="html">Export as HTML</button>' +
       "</div>";
+
+    // Settings gear
+    header
+      .querySelector(".nova-settings-btn")
+      .addEventListener("click", function (e) {
+        e.stopPropagation();
+        var sp = document.getElementById("nova-settings-panel");
+        var ed = document.getElementById("nova-export-dropdown");
+        if (ed) ed.classList.remove("nova-export-open");
+        if (sp) {
+          sp.classList.toggle("nova-settings-open");
+          if (sp.classList.contains("nova-settings-open")) {
+            var ni = document.getElementById("nova-name-input");
+            if (ni) {
+              try {
+                ni.value = localStorage.getItem("nova_user_name") || "";
+              } catch (_e) {}
+              ni.focus();
+            }
+          }
+        }
+      });
+    header
+      .querySelector("#nova-settings-save")
+      .addEventListener("click", function () {
+        var ni = document.getElementById("nova-name-input");
+        var name = ni ? ni.value.trim() : "";
+        try {
+          localStorage.setItem("nova_user_name", name);
+        } catch (_e) {}
+        var sp = document.getElementById("nova-settings-panel");
+        if (sp) sp.classList.remove("nova-settings-open");
+        document
+          .querySelectorAll(".nova-msg-avatar-user")
+          .forEach(function (a) {
+            a.textContent = _getUserInitial();
+            a.setAttribute("data-tooltip", name || "You");
+          });
+      });
+    header
+      .querySelector("#nova-name-input")
+      .addEventListener("keydown", function (e) {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          header.querySelector("#nova-settings-save").click();
+        }
+      });
+
+    // Export dropdown
     header
       .querySelector(".nova-export-btn")
-      .addEventListener("click", exportConversation);
+      .addEventListener("click", function (e) {
+        e.stopPropagation();
+        var ed = document.getElementById("nova-export-dropdown");
+        var sp = document.getElementById("nova-settings-panel");
+        if (sp) sp.classList.remove("nova-settings-open");
+        if (ed) ed.classList.toggle("nova-export-open");
+      });
+    header.querySelectorAll(".nova-export-option").forEach(function (opt) {
+      opt.addEventListener("click", function () {
+        var dd = document.getElementById("nova-export-dropdown");
+        if (dd) dd.classList.remove("nova-export-open");
+        handleExportOption(this.getAttribute("data-export"));
+      });
+    });
+    // Close dropdowns on panel click
+    panel.addEventListener("click", function (e) {
+      if (
+        !e.target.closest(".nova-settings-panel") &&
+        !e.target.closest(".nova-settings-btn") &&
+        !e.target.closest(".nova-export-dropdown") &&
+        !e.target.closest(".nova-export-btn")
+      ) {
+        var sp = document.getElementById("nova-settings-panel");
+        var ed = document.getElementById("nova-export-dropdown");
+        if (sp) sp.classList.remove("nova-settings-open");
+        if (ed) ed.classList.remove("nova-export-open");
+      }
+    });
+    // Theme toggle: dark/light mode
+    var _themeBtn = header.querySelector(".nova-theme-btn");
+    if (_themeBtn) {
+      // Apply saved theme on build
+      var _savedTheme = localStorage.getItem("nova_theme");
+      if (_savedTheme === "light") {
+        panel.classList.add("nova-light");
+        var _moonIcon = _themeBtn.querySelector(".nova-theme-icon-moon");
+        var _sunIcon = _themeBtn.querySelector(".nova-theme-icon-sun");
+        if (_moonIcon) _moonIcon.style.display = "none";
+        if (_sunIcon) _sunIcon.style.display = "";
+      }
+      _themeBtn.addEventListener("click", function () {
+        var isLight = panel.classList.toggle("nova-light");
+        var moonIcon = _themeBtn.querySelector(".nova-theme-icon-moon");
+        var sunIcon = _themeBtn.querySelector(".nova-theme-icon-sun");
+        if (isLight) {
+          localStorage.setItem("nova_theme", "light");
+          if (moonIcon) moonIcon.style.display = "none";
+          if (sunIcon) sunIcon.style.display = "";
+        } else {
+          localStorage.setItem("nova_theme", "dark");
+          if (moonIcon) moonIcon.style.display = "";
+          if (sunIcon) sunIcon.style.display = "none";
+        }
+      });
+    }
     header
       .querySelector(".nova-close-btn")
       .addEventListener("click", togglePanel);
@@ -1356,8 +1659,12 @@
     // Avatar
     var avatarEl = document.createElement("div");
     avatarEl.className = "nova-msg-avatar nova-msg-avatar-" + msg.role;
-    avatarEl.textContent = msg.role === "user" ? "Y" : "N";
+    avatarEl.textContent = msg.role === "user" ? _getUserInitial() : "N";
     avatarEl.setAttribute("aria-hidden", "true");
+    avatarEl.setAttribute(
+      "data-tooltip",
+      msg.role === "user" ? _getUserDisplayName() : "Nova",
+    );
     rowEl.appendChild(avatarEl);
 
     // Bubble column (sender + bubble + timestamp)
@@ -1365,10 +1672,19 @@
     colEl.style.cssText =
       "display:flex;flex-direction:column;min-width:0;flex:1;";
 
+    // Branch indicator (Issue 5)
+    if (msg.branched_from !== undefined && msg.branched_from !== null) {
+      var branchEl = document.createElement("div");
+      branchEl.className = "nova-branch-indicator";
+      branchEl.innerHTML =
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg> Edited from original';
+      colEl.appendChild(branchEl);
+    }
+
     // Sender name
     var senderEl = document.createElement("div");
     senderEl.className = "nova-msg-sender nova-msg-sender-" + msg.role;
-    senderEl.textContent = msg.role === "user" ? "You" : "Nova";
+    senderEl.textContent = msg.role === "user" ? _getUserDisplayName() : "Nova";
     colEl.appendChild(senderEl);
 
     var msgEl = document.createElement("div");
@@ -2003,6 +2319,9 @@
       state.messages = state.messages.slice(0, msgIndex);
       saveHistory(state.messages);
 
+      // Mark next message as branched (Issue 5)
+      state._pendingBranch = { branched_from: msgIndex };
+
       // Send the edited message
       var input = document.getElementById("nova-input");
       if (input) input.value = newText;
@@ -2088,8 +2407,13 @@
     var sendBtn = document.getElementById("nova-send-btn");
     if (sendBtn) sendBtn.disabled = true;
 
-    // Add user message
-    appendMessage({ role: "user", content: text });
+    // Add user message (with branch metadata if from edit)
+    var userMsg = { role: "user", content: text };
+    if (state._pendingBranch) {
+      userMsg.branched_from = state._pendingBranch.branched_from;
+      delete state._pendingBranch;
+    }
+    appendMessage(userMsg);
     input.value = "";
     input.style.height = "auto";
 
@@ -2104,9 +2428,14 @@
     });
 
     // API call
+    var sessionToken = "";
+    try {
+      sessionToken = localStorage.getItem(CONFIG.sessionTokenKey) || "";
+    } catch (_e) {}
     var payload = {
       message: text,
       conversation_id: state.sessionId,
+      session_token: sessionToken,
       history: history.slice(-20),
     };
     // Include session context if set via setContext() public API
@@ -2114,12 +2443,20 @@
       payload.context = CONFIG._sessionContext;
     }
 
-    // AbortController with 60-second timeout for chat requests
+    // AbortController with 120-second timeout for chat requests
+    // Timeout resets on every SSE event (keepalive, status, token)
     var abortCtrl = new AbortController();
     _activeAbortCtrl = abortCtrl;
+    var _streamTimeoutMs = 120000;
     var fetchTimeout = setTimeout(function () {
       abortCtrl.abort();
-    }, 60000);
+    }, _streamTimeoutMs);
+    function _resetStreamTimeout() {
+      clearTimeout(fetchTimeout);
+      fetchTimeout = setTimeout(function () {
+        abortCtrl.abort();
+      }, _streamTimeoutMs);
+    }
 
     // Reset char counter
     updateCharCounter(0);
@@ -2149,6 +2486,7 @@
           streamAvatar.className = "nova-msg-avatar nova-msg-avatar-assistant";
           streamAvatar.textContent = "N";
           streamAvatar.setAttribute("aria-hidden", "true");
+          streamAvatar.setAttribute("data-tooltip", "Nova");
           streamRow.appendChild(streamAvatar);
           var streamCol = document.createElement("div");
           streamCol.style.cssText =
@@ -2184,8 +2522,12 @@
               buffer = lines.pop() || "";
               lines.forEach(function (line) {
                 if (line.indexOf("data: ") !== 0) return;
+                // Reset timeout on every SSE event (keepalive, status, token)
+                _resetStreamTimeout();
                 try {
                   var evt = JSON.parse(line.substring(6));
+                  // Skip keepalive heartbeats (just reset timeout above)
+                  if (evt.keepalive) return;
                   if (evt.done) {
                     metadata = evt;
                     streamDone = true;
@@ -2266,6 +2608,16 @@
             var finalConfidence = metadata.confidence || 0;
             var finalBreakdown = null;
             var finalMsgId = metadata.message_id || "";
+
+            // Store session token if returned by server (Issue 4)
+            if (metadata.session_token) {
+              try {
+                localStorage.setItem(
+                  CONFIG.sessionTokenKey,
+                  metadata.session_token,
+                );
+              } catch (_e) {}
+            }
 
             // Remove blinking cursor
             var cursors = streamEl.querySelectorAll(".nova-streaming-cursor");

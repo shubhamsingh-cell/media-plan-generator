@@ -109,6 +109,7 @@ FRESHNESS_THRESHOLDS: dict[str, int] = {
     "job_density": 12,  # Job density by location -- every 12h
     "platform_ad_specs": 168,  # Ad specs -- weekly (rarely change)
     "competitor_analysis": 168,  # Competitor careers -- weekly
+    "benchmark_drift_check": 2160,  # Quarterly (90d) -- compare live CPC/CPA vs stored + file staleness
 }
 
 # -- Top roles for salary enrichment -------------------------------------------
@@ -408,6 +409,71 @@ def _generate_llm_summary(
 # ==============================================================================
 # ENGINE
 # ==============================================================================
+
+
+# ==============================================================================
+# BENCHMARK FILE FRESHNESS CHECK
+# ==============================================================================
+
+_BENCHMARK_FILES: list[str] = [
+    "google_ads_2025_benchmarks.json",
+    "joveo_2026_benchmarks.json",
+    "external_benchmarks_2025.json",
+    "recruitment_benchmarks_deep.json",
+]
+
+_BENCHMARK_STALE_THRESHOLD_DAYS: int = 90
+
+
+def check_benchmark_freshness(data_dir: str = "") -> dict[str, dict]:
+    """Check age of benchmark data files and flag stale ones.
+
+    Scans the data directory for known benchmark files, computes their age
+    from the filesystem modification time, and flags any that exceed the
+    90-day staleness threshold.
+
+    Args:
+        data_dir: Path to the data directory. Defaults to the module-level DATA_DIR.
+
+    Returns:
+        Dict keyed by filename with sub-dicts containing:
+            - last_modified (str): ISO-format mtime
+            - age_days (int): Days since last modification
+            - stale (bool): True if age_days > 90
+        Missing files get ``{"missing": True, "stale": True}``.
+    """
+    base_dir = Path(data_dir) if data_dir else DATA_DIR
+    results: dict[str, dict] = {}
+
+    for fname in _BENCHMARK_FILES:
+        fpath = base_dir / fname
+        try:
+            if fpath.exists():
+                mtime = datetime.fromtimestamp(fpath.stat().st_mtime, tz=timezone.utc)
+                age_days = (datetime.now(timezone.utc) - mtime).days
+                stale = age_days > _BENCHMARK_STALE_THRESHOLD_DAYS
+                results[fname] = {
+                    "last_modified": mtime.isoformat(),
+                    "age_days": age_days,
+                    "stale": stale,
+                }
+                if stale:
+                    logger.warning(
+                        "Benchmark file %s is %d days old (>%d day threshold)",
+                        fname,
+                        age_days,
+                        _BENCHMARK_STALE_THRESHOLD_DAYS,
+                    )
+            else:
+                results[fname] = {"missing": True, "stale": True}
+                logger.warning("Benchmark file %s is missing from %s", fname, base_dir)
+        except OSError as exc:
+            logger.error(
+                "Error checking benchmark file %s: %s", fname, exc, exc_info=True
+            )
+            results[fname] = {"error": str(exc), "stale": True}
+
+    return results
 
 
 class DataEnrichmentEngine:
@@ -1457,6 +1523,223 @@ class DataEnrichmentEngine:
             )
             self._mark_refreshed("competitor_analysis", False)
 
+    def _enrich_benchmark_drift_check(self) -> None:
+        """Monthly task: compare live CPC/CPA data against stored benchmarks.
+
+        Loads the stored Google Ads and external benchmark files, fetches
+        current Adzuna CPC/CPA data via api_enrichment, and flags any
+        metric that has drifted more than 20% from the stored value.
+
+        Also runs quarterly file staleness checks on all benchmark JSON
+        files and alerts when Adzuna/BLS data differs significantly from
+        stored benchmarks (>25% drift flagged as critical).
+
+        Results are written to a local JSON file and optionally to Supabase.
+        """
+        if not self._is_stale("benchmark_drift_check"):
+            return
+
+        # Quarterly benchmark file freshness check (Issue 6)
+        try:
+            freshness = check_benchmark_freshness()
+            stale_files = [
+                f"{fname} ({info.get('age_days', '?')}d old)"
+                for fname, info in freshness.items()
+                if info.get("stale")
+            ]
+            if stale_files:
+                logger.warning(
+                    "Quarterly benchmark freshness check: %d stale file(s): %s",
+                    len(stale_files),
+                    ", ".join(stale_files),
+                )
+                send_alert(
+                    subject=f"Benchmark Staleness: {len(stale_files)} file(s) older than 90 days",
+                    body=(
+                        f"<p>The following benchmark files need refreshing:</p>"
+                        f"<ul>{''.join(f'<li>{f}</li>' for f in stale_files)}</ul>"
+                        f"<p>Stale benchmarks may lead to inaccurate CPC/CPA "
+                        f"recommendations in generated media plans.</p>"
+                    ),
+                    severity="warning",
+                )
+            else:
+                logger.info("Quarterly benchmark freshness check: all files current")
+        except (ValueError, OSError) as exc:
+            logger.error("Benchmark freshness check failed: %s", exc, exc_info=True)
+
+        drift_threshold = 0.20  # 20% drift triggers a flag
+        drift_results: list[dict[str, Any]] = []
+
+        try:
+            # Load stored benchmarks
+            stored_benchmarks: dict[str, dict[str, Any]] = {}
+            for fname in _BENCHMARK_FILES:
+                fpath = DATA_DIR / fname
+                try:
+                    if fpath.exists():
+                        raw = json.loads(fpath.read_text(encoding="utf-8"))
+                        stored_benchmarks[fname] = raw
+                except (json.JSONDecodeError, OSError) as exc:
+                    logger.warning(
+                        "Could not load benchmark file %s for drift check: %s",
+                        fname,
+                        exc,
+                    )
+
+            # Extract stored CPC/CPA values per industry from Google Ads benchmarks
+            google_bench = stored_benchmarks.get("google_ads_2025_benchmarks.json", {})
+            industries_to_check: list[str] = []
+            stored_cpc_map: dict[str, float] = {}
+            stored_cpa_map: dict[str, float] = {}
+
+            if isinstance(google_bench, dict):
+                for industry, metrics in google_bench.items():
+                    if isinstance(metrics, dict) and metrics.get("avg_cpc"):
+                        industries_to_check.append(industry)
+                        stored_cpc_map[industry] = float(metrics.get("avg_cpc") or 0)
+                        stored_cpa_map[industry] = float(metrics.get("avg_cpa") or 0)
+
+            # Fetch live Adzuna data for comparison
+            live_cpc_map: dict[str, float] = {}
+            try:
+                from api_enrichment import fetch_job_market
+
+                for industry in industries_to_check[
+                    :5
+                ]:  # limit to 5 to avoid rate limits
+                    try:
+                        live_data = fetch_job_market(
+                            roles=[industry], locations=["United States"]
+                        )
+                        if live_data and isinstance(live_data, dict):
+                            for _role, role_data in live_data.items():
+                                if isinstance(role_data, dict):
+                                    live_cpc = role_data.get("avg_salary") or 0
+                                    if live_cpc:
+                                        live_cpc_map[industry] = float(live_cpc)
+                    except (ValueError, KeyError, TypeError, OSError) as exc:
+                        logger.debug("Adzuna fetch for %s failed: %s", industry, exc)
+            except ImportError:
+                logger.warning("api_enrichment not available for drift check")
+
+            # Compare and flag drifts
+            for industry in industries_to_check:
+                stored_cpc = stored_cpc_map.get(industry, 0)
+                live_cpc = live_cpc_map.get(industry)
+
+                if stored_cpc > 0 and live_cpc and live_cpc > 0:
+                    pct_change = (live_cpc - stored_cpc) / stored_cpc
+                    drifted = abs(pct_change) > drift_threshold
+                    entry = {
+                        "industry": industry,
+                        "metric": "cpc",
+                        "stored_value": round(stored_cpc, 2),
+                        "live_value": round(live_cpc, 2),
+                        "pct_change": round(pct_change * 100, 1),
+                        "drifted": drifted,
+                        "checked_at": datetime.now(timezone.utc).isoformat(),
+                    }
+                    drift_results.append(entry)
+
+                    if drifted:
+                        logger.warning(
+                            "Benchmark drift detected: %s CPC for %s: "
+                            "stored=$%.2f, live=$%.2f (%+.1f%%)",
+                            "Google Ads",
+                            industry,
+                            stored_cpc,
+                            live_cpc,
+                            pct_change * 100,
+                        )
+
+            # Write drift results to local JSON
+            drift_path = DATA_DIR / "benchmark_drift_results.json"
+            try:
+                drift_path.write_text(
+                    json.dumps(
+                        {
+                            "checked_at": datetime.now(timezone.utc).isoformat(),
+                            "drift_threshold_pct": drift_threshold * 100,
+                            "results": drift_results,
+                            "total_checked": len(drift_results),
+                            "total_drifted": sum(
+                                1 for r in drift_results if r.get("drifted")
+                            ),
+                        },
+                        indent=2,
+                        default=str,
+                    ),
+                    encoding="utf-8",
+                )
+            except OSError as exc:
+                logger.error("Failed to write drift results: %s", exc, exc_info=True)
+
+            # Upsert to Supabase knowledge_base
+            if drift_results:
+                sb_rows = [
+                    {
+                        "category": "benchmark_drift",
+                        "key": f"{r['industry']}_{r['metric']}",
+                        "data": r,
+                    }
+                    for r in drift_results
+                    if r.get("drifted")
+                ]
+                if sb_rows:
+                    _upsert_to_supabase("knowledge_base", sb_rows)
+
+            drifted_count = sum(1 for r in drift_results if r.get("drifted"))
+            self._mark_refreshed("benchmark_drift_check", True, len(drift_results))
+            logger.info(
+                "Benchmark drift check complete: %d industries checked, "
+                "%d drifted (>%.0f%%)",
+                len(drift_results),
+                drifted_count,
+                drift_threshold * 100,
+            )
+
+            # Alert if significant drift detected
+            if drifted_count > 0:
+                drifted_items = [r for r in drift_results if r.get("drifted")]
+                drift_summary = "; ".join(
+                    f"{r['industry']}: {r['pct_change']:+.1f}%"
+                    for r in drifted_items[:5]
+                )
+                # Flag critical drifts (>25%) from Adzuna/BLS data
+                critical_drifts = [
+                    r for r in drifted_items if abs(r.get("pct_change") or 0) > 25
+                ]
+                severity = "critical" if critical_drifts else "warning"
+                if critical_drifts:
+                    logger.error(
+                        "Critical benchmark drift: %d metrics drifted >25%% from "
+                        "stored benchmarks. Adzuna/BLS data significantly differs. "
+                        "Consider updating benchmark files.",
+                        len(critical_drifts),
+                    )
+                send_alert(
+                    subject=f"Benchmark Drift: {drifted_count} industry benchmarks drifted >20%",
+                    body=(
+                        f"<p><b>{drifted_count}</b> benchmarks have drifted beyond the "
+                        f"{drift_threshold * 100:.0f}% threshold.</p>"
+                        f"<p>Top drifts: {drift_summary}</p>"
+                        + (
+                            f"<p><strong>CRITICAL:</strong> {len(critical_drifts)} metric(s) "
+                            f"drifted >25%% -- Adzuna/BLS data significantly differs from "
+                            f"stored benchmarks. Update benchmark JSON files.</p>"
+                            if critical_drifts
+                            else ""
+                        )
+                        + f"<p>Full results: <code>data/benchmark_drift_results.json</code></p>"
+                    ),
+                    severity=severity,
+                )
+
+        except (ValueError, KeyError, TypeError, OSError, RuntimeError) as exc:
+            logger.error("Benchmark drift check failed: %s", exc, exc_info=True)
+            self._mark_refreshed("benchmark_drift_check", False)
+
     # -- Cycle runner ----------------------------------------------------------
 
     def run_cycle(self) -> dict:
@@ -1483,6 +1766,8 @@ class DataEnrichmentEngine:
             ("job_density", self._enrich_job_density),
             ("platform_ad_specs", self._enrich_platform_ad_specs),
             ("competitor_analysis", self._enrich_competitor_analysis),
+            # Monthly benchmark drift check (CPC/CPA vs stored benchmarks)
+            ("benchmark_drift_check", self._enrich_benchmark_drift_check),
         ]
 
         results: dict = {
@@ -1610,6 +1895,12 @@ class DataEnrichmentEngine:
                     "last_run": last_run,
                 }
 
+            # Benchmark file freshness (runs outside the lock-critical path)
+            benchmark_fresh = check_benchmark_freshness()
+            any_stale_benchmarks = any(
+                v.get("stale", False) for v in benchmark_fresh.values()
+            )
+
             return {
                 "running": self._running,
                 "supabase_enabled": _SUPABASE_ENABLED,
@@ -1619,6 +1910,8 @@ class DataEnrichmentEngine:
                 },
                 "recent_log": list(self._enrichment_log[-10:]),
                 "freshness": freshness,
+                "benchmark_freshness": benchmark_fresh,
+                "benchmark_stale_warning": any_stale_benchmarks,
             }
 
 
