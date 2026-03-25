@@ -7030,7 +7030,8 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             self._send_json(diag)
         elif path.startswith("/google") and path.endswith(".html") and len(path) < 60:
             # Google Search Console verification file
-            verify_file = os.path.join(STATIC_DIR, path.lstrip("/"))
+            _static = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+            verify_file = os.path.join(_static, path.lstrip("/"))
             if os.path.isfile(verify_file):
                 with open(verify_file, "r") as f:
                     content = f.read()
@@ -8163,7 +8164,13 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
         from routes.copilot import handle_copilot_post_routes
         from routes.campaign import handle_campaign_post_routes
         from routes.pricing import handle_pricing_post_routes
+        from routes.tts import handle_tts_post_routes
+        from routes.diagram import handle_diagram_post_routes
 
+        if handle_tts_post_routes(self, path, parsed):
+            return
+        if handle_diagram_post_routes(self, path, parsed):
+            return
         if handle_competitive_post_routes(self, path, parsed):
             return
         if handle_export_post_routes(self, path, parsed):
@@ -9418,6 +9425,21 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     "reason": "verification_error",
                 }
 
+            # PostHog: track plan generation started (funnel entry)
+            try:
+                from posthog_tracker import track_plan_started
+
+                track_plan_started(
+                    email=data.get("requester_email", "anonymous"),
+                    client=data.get("client_name") or "",
+                    industry=data.get("industry") or "",
+                    roles_count=len(
+                        data.get("target_roles") or data.get("roles") or []
+                    ),
+                )
+            except Exception:
+                pass
+
             start_time = time.time()
             try:
                 with _span_fn("generate.excel", "Generate Excel media plan"):
@@ -9470,14 +9492,23 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     )
                 except Exception:
                     pass
-                # PostHog: track failed generation
+                # PostHog: track failed generation (both legacy + funnel event)
                 try:
-                    from posthog_tracker import track_plan_failed
+                    from posthog_tracker import track_plan_failed, capture
 
                     track_plan_failed(
                         email=data.get("requester_email", "anonymous"),
                         client=data.get("client_name") or "",
                         error=str(e),
+                    )
+                    capture(
+                        "media_plan_failed",
+                        distinct_id=data.get("requester_email", "anonymous"),
+                        properties={
+                            "client_name": data.get("client_name") or "",
+                            "error": str(e)[:200],
+                            "source": "server",
+                        },
                     )
                 except Exception:
                     pass
@@ -9598,9 +9629,13 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 )
                 if _metrics:
                     _metrics.record_generation(generation_time)
-                # PostHog: track successful generation
+                # PostHog: track successful generation + funnel completion
                 try:
-                    from posthog_tracker import track_plan_generated, track_file_upload
+                    from posthog_tracker import (
+                        track_plan_generated,
+                        track_file_upload,
+                        track_plan_completed,
+                    )
 
                     track_plan_generated(
                         email=data.get("requester_email", "anonymous"),
@@ -9610,6 +9645,19 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                             data.get("budget") or "" or data.get("budget_range") or ""
                         ),
                         roles=data.get("target_roles") or data.get("roles") or [],
+                        gen_time=generation_time,
+                        file_size=len(zip_bytes),
+                    )
+                    track_plan_completed(
+                        email=data.get("requester_email", "anonymous"),
+                        client=data.get("client_name") or "",
+                        industry=data.get("industry") or "",
+                        budget=str(
+                            data.get("budget") or "" or data.get("budget_range") or ""
+                        ),
+                        roles_count=len(
+                            data.get("target_roles") or data.get("roles") or []
+                        ),
                         gen_time=generation_time,
                         file_size=len(zip_bytes),
                     )
