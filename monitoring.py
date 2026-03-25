@@ -1037,8 +1037,18 @@ class MetricsCollector:
                 bl["values"] = bl["values"][-60:]
             if len(bl["values"]) >= 10:
                 bl["mean"] = _stats.mean(bl["values"])
-                bl["std"] = _stats.stdev(bl["values"]) if len(bl["values"]) > 1 else 0.0
-                if bl["std"] > 0 and abs(current - bl["mean"]) > 2 * bl["std"]:
+                raw_std = _stats.stdev(bl["values"]) if len(bl["values"]) > 1 else 0.0
+                # Apply minimum std floors to prevent false positives on stable metrics
+                # Latency: min 50ms floor (sub-ms jitter is normal)
+                # RPM: min 2.0 floor (traffic naturally fluctuates)
+                # Error rate: min 0.5% floor
+                _MIN_STD_FLOORS: Dict[str, float] = {
+                    "avg_latency_ms": 50.0,
+                    "requests_per_minute": 2.0,
+                    "error_rate_pct": 0.5,
+                }
+                bl["std"] = max(raw_std, _MIN_STD_FLOORS.get(key, 0.1))
+                if abs(current - bl["mean"]) > 3 * bl["std"]:
                     anomalies.append(
                         {
                             "metric": key,
@@ -1287,10 +1297,10 @@ class SupabasePersistence:
                 self._last_save_ts = time.time()
             logger.debug("Metrics snapshot saved to Supabase (%d rows)", len(rows))
             return True
-        except urllib.error.URLError as e:
+        except (urllib.error.URLError, TimeoutError, OSError) as e:
             with self._lock:
                 self._last_save_ok = False
-            logger.warning("Failed to save metrics to Supabase: %s", e)
+            logger.debug("Metrics save to Supabase failed (transient): %s", e)
             return False
         except (TypeError, ValueError) as e:
             with self._lock:
@@ -1355,8 +1365,8 @@ class SupabasePersistence:
             try:
                 self.save()
             except Exception as e:
-                logger.error(
-                    "Unexpected error in metrics persistence loop: %s",
+                logger.warning(
+                    "Metrics persistence loop error (non-fatal): %s",
                     e,
                     exc_info=True,
                 )
@@ -2457,9 +2467,9 @@ class MonitoringAlertBridge:
                         and isinstance(baseline_mean, (int, float))
                         else True
                     )
-                    if deviation > 3 and is_worse and self._should_alert(alert_key):
+                    if deviation > 5 and is_worse and self._should_alert(alert_key):
                         self._fire_alert(
-                            "WARNING",
+                            "INFO",
                             f"[Nova] Anomaly detected: {metric_name} ({deviation:.1f} sigma)",
                             f"Metric '{metric_name}' is {deviation:.1f} standard deviations "
                             f"from baseline. Current: {anomaly.get('current')}, "

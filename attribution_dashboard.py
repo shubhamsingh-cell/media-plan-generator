@@ -379,7 +379,7 @@ def generate_attribution_report(plan_data: dict[str, Any]) -> dict[str, Any]:
         "methodology": "Multi-touch last-click attribution with industry benchmark fallbacks",
         "confidence_methodology": "Weighted by data source reliability and recency",
         "industry_used": industry,
-        "benchmark_set": "Nova AI Suite v3.5 recruitment benchmarks",
+        "benchmark_set": "Nova AI Suite v4.0 recruitment benchmarks",
     }
 
     report = {

@@ -113,10 +113,15 @@ def _supabase_rest(
     try:
         with urllib.request.urlopen(req, timeout=10) as resp:
             return json.loads(resp.read().decode())
-    except (urllib.error.URLError, OSError, json.JSONDecodeError, ValueError) as exc:
-        logger.error(
-            "Supabase REST %s %s failed: %s", method, table, exc, exc_info=True
-        )
+    except (
+        urllib.error.URLError,
+        OSError,
+        json.JSONDecodeError,
+        ValueError,
+        TimeoutError,
+    ) as exc:
+        # Downgrade to warning -- benchmarking_data table may not exist yet
+        logger.warning("Supabase REST %s %s failed (non-fatal): %s", method, table, exc)
         return None
 
 

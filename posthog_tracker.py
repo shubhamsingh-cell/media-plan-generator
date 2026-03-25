@@ -156,7 +156,7 @@ def capture(
         "properties": {
             **(properties or {}),
             "$lib": "media-plan-generator",
-            "$lib_version": "3.5.1",
+            "$lib_version": "4.0.0",
         },
         "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime()),
     }
