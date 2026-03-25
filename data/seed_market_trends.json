@@ -1,133 +1,165 @@
 [
   {
-    "trend_id": "tech-hiring-slowdown-2025",
-    "category": "hiring_volume",
     "title": "Tech Hiring Slowdown and Selective Recovery",
     "summary": "Major tech companies reduced hiring by 30-50% from 2023 peaks. Recovery is underway but selective -- AI/ML roles and infrastructure engineering see strong demand while general SWE roles remain competitive. Startups absorbing displaced talent from FAANG layoffs.",
-    "impact_score": 8.5,
-    "direction": "stable",
-    "regions": ["US", "EU", "India"],
-    "data_points": {
-      "tech_job_postings_yoy_change": "-18%",
-      "ai_ml_postings_yoy_change": "+42%",
-      "avg_time_to_fill_swe": "45 days",
-      "avg_applications_per_posting": 250
-    },
-    "updated_at": "2026-03-25T00:00:00Z"
+    "source": "BLS + LinkedIn Economic Graph",
+    "url": "https://www.bls.gov/ooh/computer-and-information-technology/",
+    "category": "hiring_volume",
+    "published_date": "2026-03-01",
+    "scraped_at": "2026-03-25T00:00:00Z",
+    "metadata": {
+      "impact_score": 8.5,
+      "direction": "stable",
+      "regions": ["US", "EU", "India"],
+      "data_points": {
+        "tech_job_postings_yoy_change": "-18%",
+        "ai_ml_postings_yoy_change": "+42%",
+        "avg_time_to_fill_swe": "45 days",
+        "avg_applications_per_posting": 250
+      }
+    }
   },
   {
-    "trend_id": "healthcare-hiring-surge-2025",
-    "category": "hiring_volume",
     "title": "Healthcare Hiring Surge Continues",
     "summary": "Healthcare sector experiencing sustained hiring growth driven by aging population, post-pandemic capacity expansion, and mental health investment. Nursing shortages particularly acute in rural areas. Travel nursing rates stabilizing after pandemic peak but still elevated.",
-    "impact_score": 9.0,
-    "direction": "up",
-    "regions": ["US", "UK", "Canada", "Australia"],
-    "data_points": {
-      "healthcare_job_postings_yoy_change": "+22%",
-      "nursing_vacancy_rate": "8.5%",
-      "avg_time_to_fill_rn": "62 days",
-      "travel_nurse_premium_vs_staff": "+35%"
-    },
-    "updated_at": "2026-03-25T00:00:00Z"
+    "source": "BLS + AHA",
+    "url": "https://www.bls.gov/ooh/healthcare/",
+    "category": "hiring_volume",
+    "published_date": "2026-03-01",
+    "scraped_at": "2026-03-25T00:00:00Z",
+    "metadata": {
+      "impact_score": 9.0,
+      "direction": "up",
+      "regions": ["US", "UK", "Canada", "Australia"],
+      "data_points": {
+        "healthcare_job_postings_yoy_change": "+22%",
+        "nursing_vacancy_rate": "8.5%",
+        "avg_time_to_fill_rn": "62 days",
+        "travel_nurse_premium_vs_staff": "+35%"
+      }
+    }
   },
   {
-    "trend_id": "remote-work-normalization-2025",
-    "category": "work_arrangement",
     "title": "Remote Work Normalization and Hybrid Dominance",
     "summary": "Remote-first job postings stabilized at 15-20% of total (down from 25% peak). Hybrid (2-3 days in office) emerged as dominant model at 45% of postings. Companies offering full remote see 2.5x more applications but face retention challenges. Geographic pay differentials narrowing.",
-    "impact_score": 8.0,
-    "direction": "stable",
-    "regions": ["US", "EU", "UK", "Global"],
-    "data_points": {
-      "fully_remote_postings_share": "17%",
-      "hybrid_postings_share": "45%",
-      "onsite_postings_share": "38%",
-      "remote_application_multiplier": "2.5x",
-      "salary_geo_differential_shrink": "-12% YoY"
-    },
-    "updated_at": "2026-03-25T00:00:00Z"
+    "source": "LinkedIn + FlexJobs",
+    "url": "https://www.flexjobs.com/blog/post/remote-work-statistics/",
+    "category": "work_arrangement",
+    "published_date": "2026-03-01",
+    "scraped_at": "2026-03-25T00:00:00Z",
+    "metadata": {
+      "impact_score": 8.0,
+      "direction": "stable",
+      "regions": ["US", "EU", "UK", "Global"],
+      "data_points": {
+        "fully_remote_postings_share": "17%",
+        "hybrid_postings_share": "45%",
+        "onsite_postings_share": "38%",
+        "remote_application_multiplier": "2.5x",
+        "salary_geo_differential_shrink": "-12% YoY"
+      }
+    }
   },
   {
-    "trend_id": "ai-ml-demand-spike-2025",
-    "category": "skills_demand",
     "title": "AI/ML Talent Demand Spike",
     "summary": "Demand for AI/ML engineers, prompt engineers, and LLM specialists surged 40%+ YoY. Companies across all sectors building AI capabilities. Salaries for senior AI roles exceed $300K in major metros. Supply gap estimated at 3:1 (openings vs qualified candidates).",
-    "impact_score": 9.5,
-    "direction": "up",
-    "regions": ["US", "EU", "India", "UK", "Canada"],
-    "data_points": {
-      "ai_ml_postings_yoy_change": "+42%",
-      "avg_salary_senior_ai_engineer": "$285,000",
-      "supply_demand_ratio": "3:1",
-      "companies_with_ai_hiring_plans": "78%",
-      "prompt_engineer_postings_growth": "+180%"
-    },
-    "updated_at": "2026-03-25T00:00:00Z"
+    "source": "Indeed + Levels.fyi",
+    "url": "https://www.indeed.com/career-advice/finding-a-job/ai-ml-jobs",
+    "category": "skills_demand",
+    "published_date": "2026-03-01",
+    "scraped_at": "2026-03-25T00:00:00Z",
+    "metadata": {
+      "impact_score": 9.5,
+      "direction": "up",
+      "regions": ["US", "EU", "India", "UK", "Canada"],
+      "data_points": {
+        "ai_ml_postings_yoy_change": "+42%",
+        "avg_salary_senior_ai_engineer": "$285,000",
+        "supply_demand_ratio": "3:1",
+        "companies_with_ai_hiring_plans": "78%",
+        "prompt_engineer_postings_growth": "+180%"
+      }
+    }
   },
   {
-    "trend_id": "cpc-inflation-2025",
-    "category": "cpc_trends",
     "title": "Job Board CPC Inflation Continues",
-    "summary": "Average cost-per-click on major job boards increased 12-18% YoY as competition intensifies. Indeed and LinkedIn lead price increases. Programmatic buying provides 15-25% savings vs direct but requires minimum $10K/month spend. Emerging boards (Otta, Wellfound) offer lower CPCs for tech roles.",
-    "impact_score": 7.5,
-    "direction": "up",
-    "regions": ["US", "UK", "EU"],
-    "data_points": {
-      "indeed_avg_cpc": "$0.55",
-      "linkedin_avg_cpc": "$1.85",
-      "ziprecruiter_avg_cpc": "$0.70",
-      "programmatic_savings_vs_direct": "20%",
-      "yoy_cpc_increase": "+15%"
-    },
-    "updated_at": "2026-03-25T00:00:00Z"
+    "summary": "Average cost-per-click on major job boards increased 12-18% YoY as competition intensifies. Indeed and LinkedIn lead price increases. Programmatic buying provides 15-25% savings vs direct but requires minimum $10K/month spend. Emerging boards offer lower CPCs for tech roles.",
+    "source": "Joveo + Appcast",
+    "url": "https://www.appcast.io/benchmarks/",
+    "category": "cpc_trends",
+    "published_date": "2026-03-01",
+    "scraped_at": "2026-03-25T00:00:00Z",
+    "metadata": {
+      "impact_score": 7.5,
+      "direction": "up",
+      "regions": ["US", "UK", "EU"],
+      "data_points": {
+        "indeed_avg_cpc": "$0.55",
+        "linkedin_avg_cpc": "$1.85",
+        "ziprecruiter_avg_cpc": "$0.70",
+        "programmatic_savings_vs_direct": "20%",
+        "yoy_cpc_increase": "+15%"
+      }
+    }
   },
   {
-    "trend_id": "dei-hiring-evolution-2025",
-    "category": "compliance",
     "title": "DEI Hiring Practices Evolution",
     "summary": "Corporate DEI hiring programs undergoing transformation amid legal challenges. Focus shifting from quota-based approaches to skills-based hiring that naturally broadens candidate pools. Blind resume screening adoption up 35%. Pay equity audits now standard at Fortune 500 companies.",
-    "impact_score": 7.0,
-    "direction": "stable",
-    "regions": ["US", "EU", "UK"],
-    "data_points": {
-      "blind_screening_adoption": "35%",
-      "pay_equity_audit_f500": "82%",
-      "skills_based_hiring_adoption": "+28% YoY",
-      "diverse_slate_policies": "65% of Fortune 500"
-    },
-    "updated_at": "2026-03-25T00:00:00Z"
+    "source": "SHRM + McKinsey",
+    "url": "https://www.shrm.org/topics-tools/topics/diversity-equity-inclusion",
+    "category": "compliance",
+    "published_date": "2026-03-01",
+    "scraped_at": "2026-03-25T00:00:00Z",
+    "metadata": {
+      "impact_score": 7.0,
+      "direction": "stable",
+      "regions": ["US", "EU", "UK"],
+      "data_points": {
+        "blind_screening_adoption": "35%",
+        "pay_equity_audit_f500": "82%",
+        "skills_based_hiring_adoption": "+28% YoY",
+        "diverse_slate_policies": "65% of Fortune 500"
+      }
+    }
   },
   {
-    "trend_id": "gig-contingent-growth-2025",
-    "category": "work_arrangement",
     "title": "Gig and Contingent Workforce Expansion",
     "summary": "Contingent workforce now represents 35-40% of total workforce at large enterprises. Platforms like Upwork, Toptal, and Fiverr see 20% revenue growth. Companies building dedicated contingent workforce programs. Regulatory scrutiny on worker classification intensifying globally.",
-    "impact_score": 7.0,
-    "direction": "up",
-    "regions": ["US", "EU", "India", "Global"],
-    "data_points": {
-      "contingent_workforce_share": "37%",
-      "platform_revenue_growth": "+20%",
-      "companies_with_cwm_programs": "45%",
-      "avg_contractor_premium_vs_fte": "+30%"
-    },
-    "updated_at": "2026-03-25T00:00:00Z"
+    "source": "Staffing Industry Analysts",
+    "url": "https://www2.staffingindustry.com/",
+    "category": "work_arrangement",
+    "published_date": "2026-03-01",
+    "scraped_at": "2026-03-25T00:00:00Z",
+    "metadata": {
+      "impact_score": 7.0,
+      "direction": "up",
+      "regions": ["US", "EU", "India", "Global"],
+      "data_points": {
+        "contingent_workforce_share": "37%",
+        "platform_revenue_growth": "+20%",
+        "companies_with_cwm_programs": "45%",
+        "avg_contractor_premium_vs_fte": "+30%"
+      }
+    }
   },
   {
-    "trend_id": "skills-based-hiring-2025",
-    "category": "hiring_practices",
     "title": "Skills-Based Hiring Replacing Degree Requirements",
     "summary": "Major employers (Google, Apple, IBM, GM) removing degree requirements for most roles. 45% of job postings now list skills instead of degrees. Assessment-based hiring tools growing 25% YoY. Bootcamp and certification acceptance increasing as alternatives to traditional degrees.",
-    "impact_score": 8.0,
-    "direction": "up",
-    "regions": ["US", "UK", "EU"],
-    "data_points": {
-      "postings_without_degree_req": "45%",
-      "assessment_tool_market_growth": "+25%",
-      "fortune_500_removing_degree_req": "52%",
-      "bootcamp_grad_hire_rate": "+18% YoY"
-    },
-    "updated_at": "2026-03-25T00:00:00Z"
+    "source": "Harvard Business School + Burning Glass",
+    "url": "https://www.hbs.edu/managing-the-future-of-work/research/Pages/default.aspx",
+    "category": "hiring_practices",
+    "published_date": "2026-03-01",
+    "scraped_at": "2026-03-25T00:00:00Z",
+    "metadata": {
+      "impact_score": 8.0,
+      "direction": "up",
+      "regions": ["US", "UK", "EU"],
+      "data_points": {
+        "postings_without_degree_req": "45%",
+        "assessment_tool_market_growth": "+25%",
+        "fortune_500_removing_degree_req": "52%",
+        "bootcamp_grad_hire_rate": "+18% YoY"
+      }
+    }
   }
 ]

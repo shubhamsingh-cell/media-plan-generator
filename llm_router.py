@@ -377,10 +377,10 @@ _response_cache = _ResponseCache()
 # Provider configs: endpoint, model, auth header, rate limits
 PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
     GEMINI: {
-        "name": "Gemini 2.0 Flash",
+        "name": "Gemini 2.5 Flash",
         "api_style": "gemini",  # Google-specific format
-        "endpoint": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
-        "model": "gemini-2.0-flash",
+        "endpoint": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+        "model": "gemini-2.5-flash",
         "env_key": "GEMINI_API_KEY",
         "rpm_limit": 30,
         "rpd_limit": 1500,
@@ -388,10 +388,10 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         "max_tokens": 8192,
     },
     GEMINI_FLASH_LITE: {
-        "name": "Gemini 2.0 Flash Lite",
+        "name": "Gemini 2.5 Flash Lite",
         "api_style": "gemini",
-        "endpoint": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent",
-        "model": "gemini-2.0-flash-lite",
+        "endpoint": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent",
+        "model": "gemini-2.5-flash-lite",
         "env_key": "GEMINI_API_KEY",
         "rpm_limit": 30,
         "rpd_limit": 1500,
@@ -2117,7 +2117,7 @@ def _parse_gemini_response(resp_data: Dict) -> Dict[str, Any]:
         text = " ".join(p.get("text") or "" for p in parts if "text" in p)
         usage = resp_data.get("usageMetadata", {})
         # Use modelVersion from response if available, fallback to generic name
-        model_name = resp_data.get("modelVersion") or "gemini-2.0-flash"
+        model_name = resp_data.get("modelVersion") or "gemini-2.5-flash"
         return {
             "text": text.strip(),
             "input_tokens": usage.get("promptTokenCount") or 0,
@@ -2232,8 +2232,8 @@ def call_llm(
         {
             "text": "response text",
             "provider": "gemini|groq|cerebras|claude|claude_opus",
-            "provider_name": "Gemini 2.0 Flash",
-            "model": "gemini-2.0-flash",
+            "provider_name": "Gemini 2.5 Flash",
+            "model": "gemini-2.5-flash",
             "task_type": "conversational",
             "input_tokens": 100,
             "output_tokens": 200,

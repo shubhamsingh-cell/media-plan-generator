@@ -175,9 +175,7 @@ def seed_salary_data(client: Any, *, dry_run: bool = False) -> int:
     if not rows:
         return 0
     logger.info(f"Seeding salary_data with {len(rows)} rows...")
-    return _upsert_rows(
-        client, "salary_data", rows, dry_run=dry_run, on_conflict="role,location"
-    )
+    return _upsert_rows(client, "salary_data", rows, dry_run=dry_run)
 
 
 def seed_compliance_rules(client: Any, *, dry_run: bool = False) -> int:
@@ -195,7 +193,7 @@ def seed_compliance_rules(client: Any, *, dry_run: bool = False) -> int:
         return 0
     logger.info(f"Seeding compliance_rules with {len(rows)} rows...")
     return _upsert_rows(
-        client, "compliance_rules", rows, dry_run=dry_run, on_conflict="rule_id"
+        client, "compliance_rules", rows, dry_run=dry_run, on_conflict="id"
     )
 
 
@@ -214,7 +212,7 @@ def seed_market_trends(client: Any, *, dry_run: bool = False) -> int:
         return 0
     logger.info(f"Seeding market_trends with {len(rows)} rows...")
     return _upsert_rows(
-        client, "market_trends", rows, dry_run=dry_run, on_conflict="trend_id"
+        client, "market_trends", rows, dry_run=dry_run, on_conflict="id"
     )
 
 
@@ -233,7 +231,7 @@ def seed_vendor_profiles(client: Any, *, dry_run: bool = False) -> int:
         return 0
     logger.info(f"Seeding vendor_profiles with {len(rows)} rows...")
     return _upsert_rows(
-        client, "vendor_profiles", rows, dry_run=dry_run, on_conflict="vendor_id"
+        client, "vendor_profiles", rows, dry_run=dry_run, on_conflict="name"
     )
 
 
@@ -252,7 +250,7 @@ def seed_supply_repository(client: Any, *, dry_run: bool = False) -> int:
         return 0
     logger.info(f"Seeding supply_repository with {len(rows)} rows...")
     return _upsert_rows(
-        client, "supply_repository", rows, dry_run=dry_run, on_conflict="board_id"
+        client, "supply_repository", rows, dry_run=dry_run, on_conflict="name"
     )
 
 

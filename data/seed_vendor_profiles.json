@@ -1,179 +1,90 @@
 [
   {
-    "vendor_id": "indeed",
     "name": "Indeed",
-    "type": "major_job_board",
-    "avg_cpc": 0.55,
-    "avg_cpa": 28.00,
-    "reach": "350M+ monthly visitors globally",
-    "strengths": [
-      "Largest job board by traffic volume",
-      "Strong organic SEO for job postings",
-      "Pay-per-click and sponsored job models",
-      "Indeed Hiring Platform for ATS integration",
-      "Strong blue-collar and hourly worker reach"
-    ],
-    "weaknesses": [
-      "Rising CPC costs (+15% YoY)",
-      "Lower quality for senior/executive roles",
-      "Resume database quality declining",
-      "High competition drives up sponsored costs"
-    ],
-    "best_for": ["high-volume hiring", "hourly roles", "entry-level positions", "blue-collar recruitment"]
+    "category": "major_job_board",
+    "description": "Largest job board by traffic volume with 350M+ monthly visitors globally. Strong organic SEO, pay-per-click and sponsored job models, ATS integration via Indeed Hiring Platform. Best for high-volume, hourly, and entry-level hiring.",
+    "website_url": "https://www.indeed.com",
+    "pricing_info": "Pay-per-click model. Average CPC $0.55, average CPA $28.00. Sponsored jobs and premium listings available.",
+    "features": ["Pay-per-click model", "Sponsored jobs", "Indeed Hiring Platform ATS", "Resume database", "Strong organic SEO", "Blue-collar and hourly reach"],
+    "ratings": {"overall": 4.2, "reach": 5.0, "value": 3.8, "quality": 3.5, "support": 3.5},
+    "created_at": "2026-03-25T00:00:00Z",
+    "updated_at": "2026-03-25T00:00:00Z"
   },
   {
-    "vendor_id": "linkedin",
     "name": "LinkedIn",
-    "type": "professional_network",
-    "avg_cpc": 1.85,
-    "avg_cpa": 55.00,
-    "reach": "1B+ members, 65M decision makers",
-    "strengths": [
-      "Highest quality professional candidate pool",
-      "InMail for direct sourcing",
-      "Detailed professional targeting (skills, company, title)",
-      "Strong employer branding tools",
-      "Best for passive candidate engagement"
-    ],
-    "weaknesses": [
-      "Highest CPC among major boards",
-      "Limited reach for blue-collar/hourly roles",
-      "InMail fatigue reducing response rates",
-      "Expensive recruiter seat licenses"
-    ],
-    "best_for": ["professional roles", "passive candidates", "employer branding", "executive search", "tech hiring"]
+    "category": "professional_network",
+    "description": "Highest quality professional candidate pool with 1B+ members and 65M decision makers. InMail for direct sourcing, detailed professional targeting, strong employer branding tools. Best for professional, passive candidate, and executive search.",
+    "website_url": "https://www.linkedin.com",
+    "pricing_info": "Pay-per-click model. Average CPC $1.85, average CPA $55.00. Recruiter seat licenses, LinkedIn Jobs, and Talent Solutions.",
+    "features": ["InMail sourcing", "Professional targeting", "Employer branding", "1B+ member network", "Passive candidate engagement", "Skills-based matching"],
+    "ratings": {"overall": 4.5, "reach": 4.8, "value": 3.2, "quality": 5.0, "support": 4.0},
+    "created_at": "2026-03-25T00:00:00Z",
+    "updated_at": "2026-03-25T00:00:00Z"
   },
   {
-    "vendor_id": "ziprecruiter",
     "name": "ZipRecruiter",
-    "type": "major_job_board",
-    "avg_cpc": 0.70,
-    "avg_cpa": 32.00,
-    "reach": "25M+ monthly visitors",
-    "strengths": [
-      "AI matching technology (Phil) for candidate-job fit",
-      "One-click apply increases application volume",
-      "Distributes to 100+ partner boards",
-      "Strong SMB market penetration",
-      "Good candidate engagement features"
-    ],
-    "weaknesses": [
-      "Smaller direct traffic vs Indeed/LinkedIn",
-      "Candidate quality can be inconsistent due to one-click apply",
-      "Less effective for specialized/niche roles",
-      "Limited employer branding options"
-    ],
-    "best_for": ["SMB hiring", "general positions", "quick-fill roles", "multi-board distribution"]
+    "category": "major_job_board",
+    "description": "AI matching technology (Phil) for candidate-job fit with 25M+ monthly visitors. One-click apply increases application volume. Distributes to 100+ partner boards. Strong SMB market penetration.",
+    "website_url": "https://www.ziprecruiter.com",
+    "pricing_info": "Pay-per-click model. Average CPC $0.70, average CPA $32.00. Subscription plans for SMB.",
+    "features": ["AI matching (Phil)", "One-click apply", "100+ partner board distribution", "SMB-focused", "Candidate engagement tools"],
+    "ratings": {"overall": 3.9, "reach": 3.5, "value": 4.2, "quality": 3.5, "support": 4.0},
+    "created_at": "2026-03-25T00:00:00Z",
+    "updated_at": "2026-03-25T00:00:00Z"
   },
   {
-    "vendor_id": "glassdoor",
     "name": "Glassdoor",
-    "type": "employer_review_platform",
-    "avg_cpc": 0.90,
-    "avg_cpa": 42.00,
-    "reach": "55M+ monthly visitors",
-    "strengths": [
-      "Combined job search + employer reviews",
-      "Salary transparency builds candidate trust",
-      "Enhanced employer profiles for branding",
-      "Integrates with Indeed (same parent: Recruit Holdings)",
-      "Candidates are more informed and qualified"
-    ],
-    "weaknesses": [
-      "Smaller applicant volume vs Indeed/LinkedIn",
-      "Negative reviews can deter candidates",
-      "Limited geographic reach outside US/UK",
-      "Review management requires ongoing effort"
-    ],
-    "best_for": ["employer branding", "mid-career professionals", "knowledge workers", "companies with strong culture"]
+    "category": "employer_review_platform",
+    "description": "Combined job search and employer reviews platform with 55M+ monthly visitors. Salary transparency builds candidate trust. Integrates with Indeed (same parent: Recruit Holdings). Candidates are more informed and qualified.",
+    "website_url": "https://www.glassdoor.com",
+    "pricing_info": "Pay-per-click model. Average CPC $0.90, average CPA $42.00. Enhanced employer profiles available.",
+    "features": ["Employer reviews", "Salary transparency", "Enhanced employer profiles", "Indeed integration", "Informed candidate pool"],
+    "ratings": {"overall": 3.8, "reach": 3.5, "value": 3.5, "quality": 4.0, "support": 3.5},
+    "created_at": "2026-03-25T00:00:00Z",
+    "updated_at": "2026-03-25T00:00:00Z"
   },
   {
-    "vendor_id": "monster",
     "name": "Monster",
-    "type": "major_job_board",
-    "avg_cpc": 0.45,
-    "avg_cpa": 35.00,
-    "reach": "30M+ monthly visitors",
-    "strengths": [
-      "Lower CPC than Indeed/LinkedIn",
-      "Strong in healthcare and government sectors",
-      "Resume database for sourcing",
-      "Power Resume Search for targeted sourcing",
-      "Good EMEA presence"
-    ],
-    "weaknesses": [
-      "Declining market share and brand relevance",
-      "Lower traffic than top competitors",
-      "Older candidate demographics skew",
-      "Platform technology behind competitors"
-    ],
-    "best_for": ["budget-conscious hiring", "healthcare roles", "government positions", "EMEA hiring"]
+    "category": "major_job_board",
+    "description": "Legacy job board with 30M+ monthly visitors. Lower CPC than Indeed/LinkedIn. Strong in healthcare and government sectors. Resume database and Power Resume Search for targeted sourcing. Good EMEA presence.",
+    "website_url": "https://www.monster.com",
+    "pricing_info": "Pay-per-click model. Average CPC $0.45, average CPA $35.00. Volume discounts available.",
+    "features": ["Lower CPC", "Healthcare and government focus", "Resume database", "Power Resume Search", "EMEA presence"],
+    "ratings": {"overall": 3.2, "reach": 3.0, "value": 4.0, "quality": 3.0, "support": 3.0},
+    "created_at": "2026-03-25T00:00:00Z",
+    "updated_at": "2026-03-25T00:00:00Z"
   },
   {
-    "vendor_id": "careerbuilder",
     "name": "CareerBuilder",
-    "type": "major_job_board",
-    "avg_cpc": 0.50,
-    "avg_cpa": 38.00,
-    "reach": "20M+ monthly visitors",
-    "strengths": [
-      "Supply-side intelligence and labor market analytics",
-      "Strong talent acquisition technology",
-      "Broad industry coverage",
-      "Compliance and background check integrations",
-      "Competitive pricing for volume buyers"
-    ],
-    "weaknesses": [
-      "Significantly reduced traffic from peak years",
-      "Brand awareness declining",
-      "Less effective for tech and startup roles",
-      "UI/UX behind modern competitors"
-    ],
-    "best_for": ["enterprise hiring", "compliance-heavy industries", "volume hiring", "analytics-driven recruitment"]
+    "category": "major_job_board",
+    "description": "Enterprise-focused job board with 20M+ monthly visitors. Supply-side intelligence and labor market analytics. Broad industry coverage with compliance and background check integrations. Competitive pricing for volume buyers.",
+    "website_url": "https://www.careerbuilder.com",
+    "pricing_info": "Pay-per-click model. Average CPC $0.50, average CPA $38.00. Enterprise packages available.",
+    "features": ["Labor market analytics", "Compliance integrations", "Background check integrations", "Volume pricing", "Broad industry coverage"],
+    "ratings": {"overall": 3.0, "reach": 2.5, "value": 3.8, "quality": 3.0, "support": 3.0},
+    "created_at": "2026-03-25T00:00:00Z",
+    "updated_at": "2026-03-25T00:00:00Z"
   },
   {
-    "vendor_id": "dice",
     "name": "Dice",
-    "type": "niche_job_board",
-    "avg_cpc": 1.20,
-    "avg_cpa": 48.00,
-    "reach": "6M+ monthly visitors (tech-focused)",
-    "strengths": [
-      "Highly targeted tech talent pool",
-      "Detailed skills-based matching",
-      "Tech salary and career tools build engagement",
-      "Strong for contract/freelance tech roles",
-      "IntelliSearch for proactive sourcing"
-    ],
-    "weaknesses": [
-      "Limited to technology sector only",
-      "Higher CPC than generalist boards",
-      "Smaller candidate pool overall",
-      "Less effective for non-tech positions within tech companies"
-    ],
-    "best_for": ["software engineering", "IT infrastructure", "cybersecurity", "tech contract roles", "data engineering"]
+    "category": "niche_job_board",
+    "description": "Highly targeted tech talent pool with 6M+ monthly visitors. Detailed skills-based matching. Strong for contract/freelance tech roles. IntelliSearch for proactive sourcing. Tech salary and career tools build engagement.",
+    "website_url": "https://www.dice.com",
+    "pricing_info": "Pay-per-click model. Average CPC $1.20, average CPA $48.00. Tech-specific packages.",
+    "features": ["Tech-focused talent pool", "Skills-based matching", "IntelliSearch sourcing", "Contract/freelance roles", "Tech salary tools"],
+    "ratings": {"overall": 3.8, "reach": 2.5, "value": 3.5, "quality": 4.5, "support": 3.5},
+    "created_at": "2026-03-25T00:00:00Z",
+    "updated_at": "2026-03-25T00:00:00Z"
   },
   {
-    "vendor_id": "google-for-jobs",
     "name": "Google for Jobs",
-    "type": "aggregator",
-    "avg_cpc": 0.00,
-    "avg_cpa": 0.00,
-    "reach": "Billions of Google searches monthly",
-    "strengths": [
-      "Free organic distribution via structured data markup",
-      "Massive reach through Google Search integration",
-      "Aggregates from multiple job boards automatically",
-      "Location-based job matching",
-      "Mobile-optimized experience"
-    ],
-    "weaknesses": [
-      "No direct posting -- requires structured data on your site or board",
-      "Limited employer branding within Google results",
-      "Algorithm changes can affect visibility unpredictably",
-      "No resume database or sourcing tools",
-      "Indirect -- drives traffic to source rather than owning the application"
-    ],
-    "best_for": ["organic job visibility", "SEO-optimized career sites", "cost-free distribution", "local hiring"]
+    "category": "aggregator",
+    "description": "Free organic distribution via structured data markup with billions of Google searches monthly. Aggregates from multiple job boards automatically. Location-based job matching. Mobile-optimized experience. No direct posting -- requires structured data on your site or board.",
+    "website_url": "https://jobs.google.com",
+    "pricing_info": "Free. No CPC or CPA. Requires structured data markup (schema.org/JobPosting) on your career site.",
+    "features": ["Free organic distribution", "Massive Google Search reach", "Multi-board aggregation", "Location-based matching", "Mobile-optimized"],
+    "ratings": {"overall": 4.0, "reach": 5.0, "value": 5.0, "quality": 3.0, "support": 1.0},
+    "created_at": "2026-03-25T00:00:00Z",
+    "updated_at": "2026-03-25T00:00:00Z"
   }
 ]
