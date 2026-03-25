@@ -148,7 +148,7 @@ CLAUDE_OPUS = "claude_opus"
 # Global timeout budget: max total wall-clock seconds for the entire call_llm()
 # fallback loop.  Individual per-provider timeouts are dynamically capped to the
 # remaining budget so the caller never waits longer than this.
-GLOBAL_TIMEOUT_BUDGET = 60.0  # seconds
+GLOBAL_TIMEOUT_BUDGET = 30.0  # seconds -- reduced from 60s to prevent stuck chats
 _MIN_REMAINING_BUDGET = 5.0  # don't start a new attempt with < 5s left
 
 
@@ -539,7 +539,7 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         "env_key": "SAMBANOVA_API_KEY",
         "rpm_limit": 10,  # 405B model has 10 RPM on free tier
         "rpd_limit": 1000,
-        "timeout": 45,  # 405B is larger, allow more time
+        "timeout": 25,  # Capped to fit within 30s global budget
         "max_tokens": 4096,
     },
     NVIDIA_NIM: {
@@ -595,7 +595,7 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         "env_key": "HUGGINGFACE_API_KEY",
         "rpm_limit": 10,  # Rate-limited free tier
         "rpd_limit": 1000,
-        "timeout": 45,  # Can be slow on cold start
+        "timeout": 25,  # Capped to fit within 30s global budget
         "max_tokens": 1024,
     },
     XIAOMI_MIMO: {
@@ -699,7 +699,7 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         "env_key": "OPENROUTER_API_KEY",
         "rpm_limit": 20,
         "rpd_limit": 1000,
-        "timeout": 45,  # Reasoning model may be slower
+        "timeout": 25,  # Capped to fit within 30s global budget
         "max_tokens": 4096,
         "extra_headers": {
             "HTTP-Referer": "https://media-plan-generator.onrender.com",
@@ -729,7 +729,7 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         "env_key": "OPENAI_API_KEY",
         "rpm_limit": 60,
         "rpd_limit": 10000,
-        "timeout": 45,
+        "timeout": 25,  # Capped to fit within 30s global budget
         "max_tokens": 4096,
     },
     CLAUDE_HAIKU: {
@@ -751,7 +751,7 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         "env_key": "ANTHROPIC_API_KEY",
         "rpm_limit": 50,
         "rpd_limit": 10000,
-        "timeout": 45,
+        "timeout": 25,  # Capped to fit within 30s global budget
         "max_tokens": 4096,
     },
     CLAUDE_OPUS: {
@@ -762,7 +762,7 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         "env_key": "ANTHROPIC_API_KEY",  # Same API key, different model
         "rpm_limit": 25,  # Conservative -- most expensive model
         "rpd_limit": 2000,
-        "timeout": 90,  # Opus is slower but more thorough
+        "timeout": 25,  # Capped to fit within 30s global budget (was 90s)
         "max_tokens": 4096,
     },
 }

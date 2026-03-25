@@ -1838,6 +1838,7 @@
     stopBtn.setAttribute("aria-label", "Stop response");
     stopBtn.addEventListener("click", function () {
       if (_activeAbortCtrl) {
+        _activeAbortCtrl._isUserCancel = true;
         _activeAbortCtrl.abort();
         _activeAbortCtrl = null;
       }
@@ -2473,11 +2474,12 @@
       payload.context = CONFIG._sessionContext;
     }
 
-    // AbortController with 120-second timeout for chat requests
+    // AbortController with 35-second timeout for chat requests (matches 30s server budget + margin)
     // Timeout resets on every SSE event (keepalive, status, token)
     var abortCtrl = new AbortController();
     _activeAbortCtrl = abortCtrl;
-    var _streamTimeoutMs = 120000;
+    var _streamTimeoutMs = 35000;
+    var _isUserCancel = false;
     var fetchTimeout = setTimeout(function () {
       abortCtrl.abort();
     }, _streamTimeoutMs);
@@ -2544,7 +2546,20 @@
           var fullText = "";
           var metadata = {};
           var streamDone = false;
+          var _chunkIterations = 0;
+          var _streamStartTime = Date.now();
           function processChunk() {
+            if (++_chunkIterations > 50000) {
+              _removeTypingIndicator();
+              state.isLoading = false;
+              return;
+            }
+            if (Date.now() - _streamStartTime > 60000) {
+              abortCtrl.abort();
+              _removeTypingIndicator();
+              state.isLoading = false;
+              return;
+            }
             return reader.read().then(function (result) {
               if (result.done) return "stream_complete";
               buffer += decoder.decode(result.value, { stream: true });
@@ -2602,7 +2617,9 @@
                     if (messagesEl)
                       messagesEl.scrollTop = messagesEl.scrollHeight;
                   }
-                } catch (e) {}
+                } catch (e) {
+                  console.warn("SSE parse error:", e);
+                }
               });
               // If server sent the done event, stop recursing
               if (streamDone) return "stream_complete";
@@ -2726,7 +2743,7 @@
           var streamEl = document.getElementById("nova-stream-msg");
           if (streamEl) streamEl.remove();
 
-          // Fallback: if streaming failed, try non-streaming endpoint
+          // Fallback: if streaming failed (not abort), try non-streaming endpoint
           if (err.name !== "AbortError") {
             console.warn(
               "Streaming failed, falling back to non-streaming endpoint:",
@@ -2756,11 +2773,23 @@
                   fallbackErr.message || "Connection error. Please try again.",
                   text,
                 );
+              })
+              .finally(function () {
+                state.isLoading = false;
+                if (sendBtn) sendBtn.disabled = false;
+                _removeTypingIndicator();
               });
           }
 
-          // AbortError -- user cancelled
-          showStreamError("Response was stopped.", text, true);
+          // AbortError -- distinguish user cancel from timeout
+          if (abortCtrl._isUserCancel) {
+            showStreamError("Response was stopped.", text, true);
+          } else {
+            showStreamError(
+              "I'm having trouble connecting. Please try again.",
+              text,
+            );
+          }
         })
         .finally(function () {
           state.isLoading = false;

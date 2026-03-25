@@ -45,6 +45,16 @@ import benchmark_registry
 
 logger = logging.getLogger(__name__)
 
+
+def _safe_str(val: object, default: str = "") -> str:
+    """Safely convert any value to string, returning default for None/empty."""
+    if val is None:
+        return default
+    if isinstance(val, str):
+        return val
+    return str(val)
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # FIRECRAWL WEB DATA ENRICHMENT (lazy import)
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -2487,12 +2497,51 @@ def fetch_client_logo(client_name, client_website=""):
                 if "://" in client_website
                 else f"https://{client_website}"
             )
-            domain = parsed.hostname or ""
-            # Remove www. prefix for cleaner domain
-            if domain.startswith("www."):
-                domain = domain[4:]
-        except Exception:
+            # SSRF prevention: only allow http/https schemes
+            if parsed.scheme.lower() not in ("http", "https"):
+                logger.warning(f"Blocked unsafe URL scheme: {parsed.scheme}")
+                domain = ""
+            else:
+                domain = parsed.hostname or ""
+                # Remove www. prefix for cleaner domain
+                if domain.startswith("www."):
+                    domain = domain[4:]
+        except ValueError:
             pass
+
+    # Block private/internal IPs (SSRF prevention)
+    if domain:
+        _blocked_patterns = (
+            "localhost",
+            "127.0.0.1",
+            "0.0.0.0",
+            "169.254.",
+            "10.",
+            "172.16.",
+            "172.17.",
+            "172.18.",
+            "172.19.",
+            "172.20.",
+            "172.21.",
+            "172.22.",
+            "172.23.",
+            "172.24.",
+            "172.25.",
+            "172.26.",
+            "172.27.",
+            "172.28.",
+            "172.29.",
+            "172.30.",
+            "172.31.",
+            "192.168.",
+            "[::1]",
+            "metadata.google",
+        )
+        if any(
+            domain.startswith(p) or domain == p.rstrip(".") for p in _blocked_patterns
+        ):
+            logger.warning(f"Blocked internal/private domain: {domain}")
+            domain = ""
 
     # 2. Fallback: guess domain from client name
     if not domain and client_name:
@@ -3717,12 +3766,10 @@ def _cleanup_generation_jobs():
                 expired = [
                     jid
                     for jid, jdata in _generation_jobs.items()
-                    if now - jdata.get("created")
-                    or 0 > _GENERATION_JOB_EXPIRY_SECONDS
+                    if (now - jdata.get("created", 0)) > _GENERATION_JOB_EXPIRY_SECONDS
                     or (
                         jdata.get("status") in ("completed", "failed")
-                        and now - jdata.get("created")
-                        or 0 > 600
+                        and (now - jdata.get("created", 0)) > 600
                     )
                 ]
                 for jid in expired:
@@ -4430,6 +4477,7 @@ _EVENT_HANDLER_RE = _re_sanitize.compile(
     r'\bon\w+\s*=\s*["\'][^"\']*["\']', _re_sanitize.IGNORECASE
 )
 _MAX_CHAT_INPUT_LENGTH = 10000
+_EMAIL_RE = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
 
 
 def _sanitize_chat_input(text: Optional[str]) -> str:
@@ -7931,7 +7979,11 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 if result and len(result) > 0:
                     shared_data = result[0]
             except Exception as _sle:
-                logger.error("Load shared conversation failed: %s", _sle, exc_info=True)
+                logger.error(
+                    "Load shared conversation failed (table nova_shared_conversations may not exist): %s",
+                    _sle,
+                    exc_info=True,
+                )
             if not shared_data:
                 self.send_error(404, "Shared conversation not found")
                 return
@@ -9412,8 +9464,37 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 )
                 return
 
+            # P3: Max JSON nesting depth (prevent DoS via deeply nested payloads)
+            def _check_nesting_depth(
+                obj: object, max_depth: int = 5, current: int = 0
+            ) -> bool:
+                """Return True if nesting depth exceeds max_depth."""
+                if current > max_depth:
+                    return True
+                if isinstance(obj, dict):
+                    return any(
+                        _check_nesting_depth(v, max_depth, current + 1)
+                        for v in obj.values()
+                    )
+                if isinstance(obj, list):
+                    return any(
+                        _check_nesting_depth(item, max_depth, current + 1)
+                        for item in obj
+                    )
+                return False
+
+            if _check_nesting_depth(data):
+                self._send_error(
+                    "Request JSON nesting too deep (max 5 levels)",
+                    "VALIDATION_ERROR",
+                    400,
+                )
+                return
+
             # Sanitize all string inputs: strip HTML/script tags to prevent stored XSS
             def _sanitize_val(val):
+                if isinstance(val, (int, float, bool)):
+                    return str(val)
                 if isinstance(val, str):
                     return re.sub(r"<[^>]+>", "", val).strip()
                 if isinstance(val, list):
@@ -9426,10 +9507,17 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 data[_skey] = _sanitize_val(data[_skey])
 
             # Validate required fields
-            client_name_input = (data.get("client_name") or "").strip()
-            requester_name_input = (data.get("requester_name") or "").strip()
-            requester_email_input = (data.get("requester_email") or "").strip()
+            client_name_input = _safe_str(data.get("client_name")).strip()
+            requester_name_input = _safe_str(data.get("requester_name")).strip()
+            requester_email_input = _safe_str(data.get("requester_email")).strip()
             roles_input = data.get("target_roles") or data.get("roles") or []
+            if isinstance(roles_input, str):
+                roles_input = [r.strip() for r in roles_input.split(",") if r.strip()]
+            if isinstance(roles_input, list) and len(roles_input) > 50:
+                self._send_error(
+                    "Target roles list exceeds 50 items limit", "VALIDATION_ERROR", 400
+                )
+                return
 
             _missing = []
             if not client_name_input:
@@ -9438,6 +9526,8 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 _missing.append("Requester name")
             if not requester_email_input:
                 _missing.append("Requester email")
+            if requester_email_input and not _EMAIL_RE.match(requester_email_input):
+                _missing.append("Valid email address")
             if not roles_input or (
                 isinstance(roles_input, list) and len(roles_input) == 0
             ):
@@ -9494,6 +9584,24 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             # Validate critical input fields (non-blocking: store warnings, don't 400)
             _roles_input = data.get("target_roles") or data.get("roles") or []
             _locs_input = data.get("locations") or []
+            if isinstance(_locs_input, list) and len(_locs_input) > 100:
+                self._send_error(
+                    "Locations list exceeds 100 items limit", "VALIDATION_ERROR", 400
+                )
+                return
+
+            # P2: Numeric range validation -- budget cap
+            _bval = parse_budget(
+                _safe_str(data.get("budget") or data.get("budget_range") or "")
+            )
+            if _bval <= 0:
+                _bval = 100_000.0  # Default to $100K instead of blocking
+            if _bval > 100_000_000:  # $100M cap
+                self._send_error(
+                    "Budget exceeds maximum allowed value", "VALIDATION_ERROR", 400
+                )
+                return
+
             _budget_input = str(
                 data.get("budget") or "" or data.get("budget_range") or "" or ""
             ).strip()
@@ -9860,9 +9968,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                 pptx_bytes = None
 
                         if pptx_bytes:
-                            import io as _io_mod
-
-                            zip_buffer = _io_mod.BytesIO()
+                            zip_buffer = io.BytesIO()
                             with zipfile.ZipFile(
                                 zip_buffer, "w", zipfile.ZIP_DEFLATED
                             ) as zf:
@@ -9905,6 +10011,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                     {
                                         "status": "failed",
                                         "error": str(async_err),
+                                        "result_bytes": None,
                                     }
                                 )
                         # Send email alert for async generation failure (matches sync path)
@@ -11137,6 +11244,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     "Chat history exceeds 50 messages limit", "VALIDATION_ERROR", 400
                 )
                 return
+            _CHAT_REQUEST_TIMEOUT: float = 30.0  # seconds -- matches LLM router budget
             try:
                 # ── Shared enrichment: file parsing + parallel API calls ──
                 _enrich_chat_context(data, data.get("message") or "")
@@ -11144,8 +11252,25 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 from nova import handle_chat_request
 
                 _chat_span_fn = getattr(self, "_sentry_span", lambda o, n: _nullctx())
-                with _chat_span_fn("nova.chat", "Nova chat LLM routing + response"):
-                    response = handle_chat_request(data)
+
+                # ── Timeout wrapper: prevent hanging if LLM router stalls ──
+                _chat_future = _background_executor.submit(handle_chat_request, data)
+                try:
+                    with _chat_span_fn("nova.chat", "Nova chat LLM routing + response"):
+                        response = _chat_future.result(timeout=_CHAT_REQUEST_TIMEOUT)
+                except FuturesTimeoutError:
+                    _chat_future.cancel()
+                    logger.error(
+                        f"Chat request timed out after {_CHAT_REQUEST_TIMEOUT}s",
+                        exc_info=True,
+                    )
+                    response = {
+                        "response": "I took too long to respond. Please try again with a simpler question.",
+                        "sources": [],
+                        "confidence": 0.0,
+                        "tools_used": [],
+                        "error": "Request timed out",
+                    }
 
                 # ── Generate suggested follow-up questions ──
                 try:
@@ -11372,6 +11497,18 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 )
                 _ka_thread.start()
 
+                # ── Immediate status event so frontend shows progress ──
+                try:
+                    _status_evt = json.dumps(
+                        {"type": "status", "status": "Thinking..."}
+                    )
+                    self.wfile.write(f"data: {_status_evt}\n\n".encode())
+                    self.wfile.flush()
+                    _last_event_time = time.time()
+                except (BrokenPipeError, ConnectionResetError, OSError):
+                    _keepalive_stop.set()
+                    return
+
                 try:
                     with _chat_span_fn("nova.chat.stream", "Nova SSE streaming chat"):
                         for chunk in handle_chat_request_stream(data):
@@ -11567,7 +11704,8 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 data = {}
             conv_id = data.get("conversation_id") or str(uuid.uuid4())
             share_id = str(uuid.uuid4())[:8]
-            # Store to Supabase
+            # Store to Supabase (table may not exist -- graceful degrade)
+            _share_saved = False
             try:
                 _supabase_rest(
                     "nova_shared_conversations",
@@ -11580,8 +11718,29 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         "created_at": datetime.datetime.utcnow().isoformat() + "Z",
                     },
                 )
+                _share_saved = True
             except Exception as _se:
-                logger.error("Share conversation save failed: %s", _se, exc_info=True)
+                logger.error(
+                    "Share conversation save failed (table nova_shared_conversations may not exist): %s",
+                    _se,
+                    exc_info=True,
+                )
+            if not _share_saved:
+                resp_body = json.dumps(
+                    {
+                        "status": "error",
+                        "message": "Sharing is temporarily unavailable.",
+                    }
+                ).encode("utf-8")
+                self.send_response(503)
+                self.send_header("Content-Type", "application/json")
+                cors_origin = self._get_cors_origin()
+                if cors_origin:
+                    self.send_header("Access-Control-Allow-Origin", cors_origin)
+                self.send_header("Content-Length", str(len(resp_body)))
+                self.end_headers()
+                self.wfile.write(resp_body)
+                return
             share_url = f"{self.headers.get('Origin') or ''}/nova/shared/{share_id}"
             resp_body = json.dumps(
                 {"status": "ok", "share_id": share_id, "share_url": share_url}

@@ -136,10 +136,17 @@ def _make_request(
             error_body = e.read().decode("utf-8", errors="replace")
         except Exception:
             pass
-        logger.error(
-            f"ElevenLabs API HTTP {e.code} for {endpoint}: {error_body}",
-            exc_info=True,
-        )
+        if e.code == 401:
+            logger.warning(
+                "ElevenLabs API key is invalid or expired (HTTP 401) for %s. "
+                "Check ELEVENLABS_API_KEY env var on Render.",
+                endpoint,
+            )
+        else:
+            logger.error(
+                f"ElevenLabs API HTTP {e.code} for {endpoint}: {error_body}",
+                exc_info=True,
+            )
         return None
     except urllib.error.URLError as e:
         logger.error(
@@ -222,10 +229,17 @@ def _make_multipart_request(
             error_body = e.read().decode("utf-8", errors="replace")
         except Exception:
             pass
-        logger.error(
-            f"ElevenLabs multipart HTTP {e.code} for {endpoint}: {error_body}",
-            exc_info=True,
-        )
+        if e.code == 401:
+            logger.warning(
+                "ElevenLabs API key is invalid or expired (HTTP 401) for %s. "
+                "Check ELEVENLABS_API_KEY env var on Render.",
+                endpoint,
+            )
+        else:
+            logger.error(
+                f"ElevenLabs multipart HTTP {e.code} for {endpoint}: {error_body}",
+                exc_info=True,
+            )
         return None
     except urllib.error.URLError as e:
         logger.error(
@@ -375,7 +389,13 @@ def text_to_speech_stream(
                     break
                 yield chunk
     except urllib.error.HTTPError as e:
-        logger.error(f"ElevenLabs stream HTTP {e.code}: {e}", exc_info=True)
+        if e.code == 401:
+            logger.warning(
+                "ElevenLabs API key is invalid or expired (HTTP 401) for streaming. "
+                "Check ELEVENLABS_API_KEY env var on Render.",
+            )
+        else:
+            logger.error(f"ElevenLabs stream HTTP {e.code}: {e}", exc_info=True)
     except urllib.error.URLError as e:
         logger.error(f"ElevenLabs stream connection error: {e}", exc_info=True)
     except OSError as e:

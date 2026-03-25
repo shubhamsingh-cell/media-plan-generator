@@ -6519,7 +6519,7 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
         tool_call_details = []
         tool_results_raw = []
         max_iterations = (
-            3  # Conservative: 3 iterations to respect free-tier rate limits
+            2  # Aggressive: 2 iterations to stay within 30s global timeout budget
         )
         active_provider = None  # Lock to same provider for multi-turn
 
@@ -6937,7 +6937,7 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
         sources = set()
         tool_call_details = []  # Track detailed tool interactions for debugging
         tool_results_raw = []  # Collect raw tool results for grounding verification
-        max_iterations = 5  # Reduced from 8 to cap P99 latency under 20s
+        max_iterations = 2  # Reduced from 5 to stay within 30s global timeout budget
 
         adaptive_max_tokens, selected_model = _classify_query_complexity(user_message)
         logger.info(
@@ -10251,7 +10251,7 @@ def handle_chat_request(request_data: dict) -> dict:
                         f"User said: {message[:200]}", category="user_statement"
                     )
         except Exception as e:
-            logger.debug("Memory save failed: %s", e)
+            logger.warning("Memory save failed: %s", e, exc_info=True)
 
         return result
     except Exception as e:
