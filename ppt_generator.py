@@ -6052,6 +6052,302 @@ def _build_slide_workforce_trends(prs: Presentation, data: Dict):
 
 
 # ===================================================================
+# SLIDE: Creative Testing Plan (A/B Test Recommendations)
+# ===================================================================
+
+
+# -- Channel-specific creative testing data --
+_CHANNEL_CREATIVE_DATA: Dict[str, Dict[str, Any]] = {
+    "indeed": {
+        "variants": [
+            "Benefit-focused: Lead with salary range and benefits package",
+            "Growth-focused: Emphasize career development and training",
+            "Culture-focused: Highlight team dynamics and work environment",
+        ],
+        "bidding": "Start with CPC bidding; shift to CPA once 50+ conversions",
+        "ctr_range": "2.5% - 4.2%",
+    },
+    "linkedin": {
+        "variants": [
+            "Professional tone: Industry-specific language and requirements",
+            "Employer brand: Company mission and values-led messaging",
+            "Opportunity-focused: Unique projects and impact statements",
+        ],
+        "bidding": "Maximum delivery bidding for awareness; target cost for applications",
+        "ctr_range": "0.4% - 0.9%",
+    },
+    "google": {
+        "variants": [
+            "Direct CTA: 'Apply Now' with role title and location",
+            "Question-based: 'Looking for [Role]? Join [Company]'",
+            "Benefit-led: '[Salary] + Benefits - [Role] at [Company]'",
+        ],
+        "bidding": "Enhanced CPC with conversion tracking; shift to target CPA at scale",
+        "ctr_range": "3.0% - 6.5%",
+    },
+    "facebook": {
+        "variants": [
+            "Video testimonial: 30s employee day-in-the-life",
+            "Carousel: Multiple roles with distinct creative per card",
+            "Single image: Bold text overlay with clear CTA",
+        ],
+        "bidding": "Lowest cost bidding; use cost cap once baseline CPA established",
+        "ctr_range": "0.8% - 2.1%",
+    },
+    "programmatic": {
+        "variants": [
+            "Retargeting: Personalized ads for previous job page visitors",
+            "Contextual: Industry-relevant placement with role-specific copy",
+            "Dynamic: Auto-populate role title and location from feed",
+        ],
+        "bidding": "Programmatic CPC with daily budget caps; optimize toward CPA",
+        "ctr_range": "0.3% - 1.2%",
+    },
+}
+
+_INDUSTRY_TEST_FRAMEWORKS: Dict[str, List[str]] = {
+    "healthcare_medical": [
+        "Test credential requirements prominence (above vs. below fold)",
+        "Compare sign-on bonus vs. career growth messaging",
+        "A/B shift flexibility language (flexible vs. set schedules)",
+    ],
+    "tech_engineering": [
+        "Test remote-first vs. hybrid messaging in job titles",
+        "Compare tech stack listing vs. project impact descriptions",
+        "A/B salary transparency (range shown vs. competitive compensation)",
+    ],
+    "retail_consumer": [
+        "Test immediate start language vs. standard posting",
+        "Compare hourly rate prominence vs. total compensation",
+        "A/B employee discount/perks messaging effectiveness",
+    ],
+    "default": [
+        "Test salary transparency vs. competitive compensation language",
+        "Compare short-form (3 bullet) vs. detailed job descriptions",
+        "A/B apply button placement and CTA wording",
+    ],
+}
+
+
+def _build_slide_creative_testing(prs: Presentation, data: Dict) -> None:
+    """Build the Creative Testing Plan slide with A/B test recommendations.
+
+    Provides per-channel ad copy variants, testing framework, bidding
+    strategies, and expected CTR ranges based on the plan's channel list
+    and industry vertical.
+    """
+    try:
+        slide_layout = prs.slide_layouts[6]
+        slide = prs.slides.add_slide(slide_layout)
+
+        client = data.get("client_name") or "Client"
+        industry = data.get("industry") or "general_entry_level"
+        industry_label = (
+            data.get("industry_label") or industry.replace("_", " ").title()
+        )
+        today = datetime.date.today().strftime("%B %d, %Y")
+
+        # Off-white background
+        _add_filled_rect(
+            slide, Inches(0), Inches(0), SLIDE_WIDTH, SLIDE_HEIGHT, OFF_WHITE
+        )
+
+        # Top band
+        _add_top_band(slide, "CREATIVE TESTING PLAN", today)
+
+        # Subtitle
+        _add_textbox(
+            slide,
+            Inches(0.55),
+            Inches(0.92),
+            Inches(12.2),
+            Inches(0.5),
+            text=f"A/B testing recommendations for {client}'s {industry_label} campaigns",
+            font_size=15,
+            bold=True,
+            color=NAVY,
+        )
+
+        # Get channels from plan data
+        channels_raw = data.get("channel_categories") or {}
+        channel_names: List[str] = []
+        if isinstance(channels_raw, dict):
+            channel_names = [k for k, v in channels_raw.items() if v]
+        elif isinstance(channels_raw, list):
+            channel_names = [
+                (c.get("name") or str(c)) if isinstance(c, dict) else str(c)
+                for c in channels_raw
+            ]
+
+        # Map channel names to creative data keys
+        matched_channels: List[Tuple[str, Dict]] = []
+        for ch_name in channel_names[:5]:
+            ch_lower = ch_name.lower().replace("_", " ")
+            for key, cdata in _CHANNEL_CREATIVE_DATA.items():
+                if key in ch_lower or ch_lower in key:
+                    matched_channels.append((ch_name.replace("_", " ").title(), cdata))
+                    break
+        # Ensure at least 2 channels
+        if len(matched_channels) < 2:
+            for key in ["indeed", "linkedin", "google"]:
+                if len(matched_channels) >= 3:
+                    break
+                if not any(key in mc[0].lower() for mc in matched_channels):
+                    matched_channels.append((key.title(), _CHANNEL_CREATIVE_DATA[key]))
+
+        # ── LEFT COLUMN: Channel-specific variants (60% width) ──
+        col1_left = Inches(0.55)
+        col1_w = Inches(7.3)
+        col2_left = Inches(8.1)
+        col2_w = Inches(4.7)
+        section_top = Inches(1.55)
+
+        # Channel variant cards
+        _add_rounded_rect(slide, col1_left, section_top, col1_w, Inches(5.0), WHITE)
+        _add_filled_rect(slide, col1_left, section_top, col1_w, Inches(0.05), BLUE)
+
+        _add_textbox(
+            slide,
+            col1_left + Inches(0.15),
+            section_top + Inches(0.1),
+            col1_w - Inches(0.3),
+            Inches(0.3),
+            text="AD COPY VARIANTS BY CHANNEL",
+            font_size=10,
+            bold=True,
+            color=BLUE,
+        )
+
+        box_ch, tf_ch = _add_textbox(
+            slide,
+            col1_left + Inches(0.15),
+            section_top + Inches(0.45),
+            col1_w - Inches(0.3),
+            Inches(4.4),
+        )
+        tf_ch.paragraphs[0].space_before = Pt(0)
+        tf_ch.paragraphs[0].space_after = Pt(0)
+
+        first_item = True
+        for ch_label, ch_data in matched_channels[:4]:
+            if first_item:
+                p = tf_ch.paragraphs[0]
+                first_item = False
+            else:
+                p = tf_ch.add_paragraph()
+            p.space_before = Pt(6)
+            p.space_after = Pt(2)
+            rh = p.add_run()
+            rh.text = f"{ch_label}  (CTR: {ch_data.get('ctr_range', 'N/A')})"
+            _set_font(rh, size=9, bold=True, color=NAVY)
+
+            for vi, variant in enumerate(ch_data.get("variants", [])[:3]):
+                pv = tf_ch.add_paragraph()
+                pv.space_before = Pt(1)
+                pv.space_after = Pt(2)
+                rv = pv.add_run()
+                rv.text = f"  {chr(65 + vi)}. {variant}"
+                _set_font(rv, size=7, color=MUTED_TEXT)
+
+            # Bidding strategy
+            pb = tf_ch.add_paragraph()
+            pb.space_before = Pt(1)
+            pb.space_after = Pt(4)
+            rb = pb.add_run()
+            rb.text = f"  Bidding: {ch_data.get('bidding', 'CPC recommended')}"
+            _set_font(rb, size=7, italic=True, color=TEAL)
+
+        # ── RIGHT COLUMN: Testing Framework ──
+        _add_rounded_rect(slide, col2_left, section_top, col2_w, Inches(5.0), WHITE)
+        _add_filled_rect(slide, col2_left, section_top, col2_w, Inches(0.05), TEAL)
+
+        _add_textbox(
+            slide,
+            col2_left + Inches(0.15),
+            section_top + Inches(0.1),
+            col2_w - Inches(0.3),
+            Inches(0.3),
+            text="TESTING FRAMEWORK",
+            font_size=10,
+            bold=True,
+            color=TEAL,
+        )
+
+        box_fw, tf_fw = _add_textbox(
+            slide,
+            col2_left + Inches(0.15),
+            section_top + Inches(0.45),
+            col2_w - Inches(0.3),
+            Inches(4.4),
+        )
+        tf_fw.paragraphs[0].space_before = Pt(0)
+        tf_fw.paragraphs[0].space_after = Pt(0)
+
+        # A/B test structure
+        framework_items = [
+            ("Test Duration", "7-14 days per variant (min. 100 conversions)"),
+            ("Sample Split", "50/50 traffic split; 95% confidence threshold"),
+            ("Primary Metric", "Cost Per Application (CPA)"),
+            ("Secondary Metrics", "CTR, Apply Rate, Quality Score"),
+            ("Winner Criteria", "Lower CPA at statistical significance"),
+        ]
+
+        first_fw = True
+        for fw_label, fw_val in framework_items:
+            if first_fw:
+                p = tf_fw.paragraphs[0]
+                first_fw = False
+            else:
+                p = tf_fw.add_paragraph()
+            p.space_before = Pt(3)
+            p.space_after = Pt(3)
+            rl = p.add_run()
+            rl.text = f"{fw_label}:  "
+            _set_font(rl, size=8, bold=True, color=DARK_TEXT)
+            rv = p.add_run()
+            rv.text = fw_val
+            _set_font(rv, size=8, color=MUTED_TEXT)
+
+        # Industry-specific tests
+        p_ind_h = tf_fw.add_paragraph()
+        p_ind_h.space_before = Pt(10)
+        p_ind_h.space_after = Pt(4)
+        r_ind_h = p_ind_h.add_run()
+        r_ind_h.text = f"INDUSTRY-SPECIFIC TESTS ({industry_label.upper()})"
+        _set_font(r_ind_h, size=8, bold=True, color=NAVY)
+
+        industry_tests = _INDUSTRY_TEST_FRAMEWORKS.get(
+            industry, _INDUSTRY_TEST_FRAMEWORKS["default"]
+        )
+        for test_desc in industry_tests[:3]:
+            pt = tf_fw.add_paragraph()
+            pt.space_before = Pt(2)
+            pt.space_after = Pt(3)
+            rt = pt.add_run()
+            rt.text = f"\u25b8 {test_desc}"
+            _set_font(rt, size=7, color=TEAL)
+
+        # Source line
+        _add_textbox(
+            slide,
+            Inches(0.55),
+            Inches(6.7),
+            Inches(12.2),
+            Inches(0.2),
+            text="Source: Nova AI Suite Creative Testing Engine | Industry Benchmarks from Google Ads & Meta Ads data",
+            font_size=7,
+            italic=True,
+            color=MUTED_TEXT,
+        )
+
+        # Footer
+        _add_footer(slide, today)
+
+    except Exception as exc:
+        logger.warning("Failed to build creative testing slide: %s", exc)
+
+
+# ===================================================================
 # SLIDE N (Last) - Data Sources & Methodology
 # ===================================================================
 
@@ -6532,6 +6828,9 @@ def generate_pptx(data: Dict[str, Any]) -> bytes:
 
         # Slide 3: Channel Strategy with benchmarks + attribution
         _build_slide_channel_strategy(prs, data)
+
+        # Slide 3b: Creative Testing Plan (A/B test recommendations)
+        _build_slide_creative_testing(prs, data)
 
         if extended:
             # Extended mode: include deeper analysis slides

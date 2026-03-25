@@ -19,6 +19,7 @@ import time
 import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
+from secrets import token_hex
 from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
@@ -190,7 +191,14 @@ def update_conversation(
         return None
 
     # Validate input
-    allowed_fields = {"title", "messages", "theme", "avatar_style", "shared_link_id"}
+    allowed_fields = {
+        "title",
+        "messages",
+        "theme",
+        "avatar_style",
+        "shared_link_id",
+        "session_token",
+    }
     for key in kwargs:
         if key not in allowed_fields:
             logger.warning("Ignoring invalid field: %s", key)
@@ -336,22 +344,32 @@ def get_or_create_conversation(
         if result.data:
             return result.data[0]
 
-        # Does not exist -- create with the explicit ID
-        def _insert() -> Any:
+        # Does not exist -- create with the explicit ID and session token
+        new_token = token_hex(32)
+        row_data: Dict[str, Any] = {
+            "id": conversation_id,
+            "user_id": user_id,
+            "title": title,
+            "messages": [],
+        }
+
+        def _insert_with_token() -> Any:
             return (
                 sb.table("nova_conversations")
-                .insert(
-                    {
-                        "id": conversation_id,
-                        "user_id": user_id,
-                        "title": title,
-                        "messages": [],
-                    }
-                )
+                .insert({**row_data, "session_token": new_token})
                 .execute()
             )
 
-        insert_result = _retry_with_backoff(_insert)
+        def _insert_without_token() -> Any:
+            return sb.table("nova_conversations").insert(row_data).execute()
+
+        # Try with session_token first; fall back if column doesn't exist
+        try:
+            insert_result = _retry_with_backoff(_insert_with_token)
+        except Exception:
+            logger.info("session_token column may not exist; retrying without it")
+            insert_result = _retry_with_backoff(_insert_without_token)
+
         if insert_result.data:
             logger.info("Created conversation with explicit ID: %s", conversation_id)
             return insert_result.data[0]
@@ -365,6 +383,53 @@ def get_or_create_conversation(
             exc_info=True,
         )
         return None
+
+
+def verify_conversation_token(
+    conversation_id: str,
+    session_token: str,
+) -> bool:
+    """Verify that the session_token matches the conversation's stored token.
+
+    If the conversation has no session_token stored (legacy), allow access.
+
+    Args:
+        conversation_id: UUID of the conversation.
+        session_token: Token from the client.
+
+    Returns:
+        True if token matches or no token is set on the conversation.
+    """
+    if not session_token:
+        return False
+
+    sb = _get_supabase()
+    if not sb:
+        return True  # Allow if persistence unavailable
+
+    try:
+        result = (
+            sb.table("nova_conversations")
+            .select("session_token")
+            .eq("id", conversation_id)
+            .execute()
+        )
+        if not result.data:
+            return True  # Conversation doesn't exist yet; allow creation
+
+        stored_token = result.data[0].get("session_token") or ""
+        if not stored_token:
+            return True  # Legacy conversation without token
+
+        return stored_token == session_token
+    except Exception as exc:
+        logger.error(
+            "verify_conversation_token(%s) failed: %s",
+            conversation_id,
+            exc,
+            exc_info=True,
+        )
+        return True  # Fail open if verification itself errors
 
 
 def append_message(
