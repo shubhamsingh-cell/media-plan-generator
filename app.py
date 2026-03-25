@@ -9575,6 +9575,15 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 _missing.append("Requester email")
             if requester_email_input and not _EMAIL_RE.match(requester_email_input):
                 _missing.append("Valid email address")
+
+            # Sanity checks: reject obviously bogus inputs
+            if client_name_input and not re.search(r"[a-zA-Z]{2,}", client_name_input):
+                _missing.append("Valid client name (must contain letters)")
+            if requester_name_input and not re.search(
+                r"[a-zA-Z]{2,}", requester_name_input
+            ):
+                _missing.append("Valid requester name (must contain letters)")
+
             if not roles_input or (
                 isinstance(roles_input, list) and len(roles_input) == 0
             ):
@@ -10248,6 +10257,8 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     hv_num = hv_match.group(1).replace(",", "")
                     try:
                         hv_int = int(hv_num)
+                        if hv_int > 1_000_000:
+                            hv_int = 1_000_000  # Cap at 1M
                         if hv_int >= 5:  # Only treat as hire volume if >= 5
                             # Preserve the original text snippet for context
                             hv_text = hv_match.group(0).strip()
@@ -11503,6 +11514,10 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                             "Session token mismatch for conversation %s",
                             conversation_id,
                         )
+                        self._send_error(
+                            "Unauthorized: invalid session token", "AUTH_ERROR", 403
+                        )
+                        return
             except ImportError:
                 pass
             except Exception as _auth_err:
@@ -13794,6 +13809,11 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     cell.border = border_thin
 
                 channels = data.get("channels") or []
+                if isinstance(channels, list) and len(channels) > 100:
+                    self._send_error(
+                        "Channels list exceeds 100 items limit", "VALIDATION_ERROR", 400
+                    )
+                    return
                 total_spend = 0
                 total_apps = 0
                 total_hires = 0

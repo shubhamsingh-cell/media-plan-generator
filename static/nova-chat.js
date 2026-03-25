@@ -1420,6 +1420,7 @@
     textarea.addEventListener("keydown", function (e) {
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
+        if (state.isLoading) return; // Block input during active stream
         sendMessage();
       }
     });
@@ -2472,6 +2473,14 @@
     // Include session context if set via setContext() public API
     if (CONFIG._sessionContext && typeof CONFIG._sessionContext === "object") {
       payload.context = CONFIG._sessionContext;
+    }
+
+    // Abort any in-progress stream before starting a new one
+    if (_activeAbortCtrl) {
+      try {
+        _activeAbortCtrl.abort();
+      } catch (_) {}
+      _activeAbortCtrl = null;
     }
 
     // AbortController with 35-second timeout for chat requests (matches 30s server budget + margin)
