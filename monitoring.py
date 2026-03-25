@@ -907,15 +907,22 @@ class MetricsCollector:
                 "sample_size": len(chat_lats),
             }
 
-            # Error rate
-            total = max(1, self.total_requests)
-            error_rate = (self.total_errors / total) * 100
+            # Error rate -- use ROLLING WINDOW (1h) for SLO compliance,
+            # not cumulative totals which include inherited pre-deploy errors
+            window_req = max(1, len(self._recent_requests))
+            window_err = len(self._recent_errors)
+            error_rate = (window_err / window_req) * 100 if window_req > 0 else 0.0
             target_err = SLO_TARGETS["error_rate_pct"]["target"]
+            # Also compute cumulative for dashboard display
+            cumulative_total = max(1, self.total_requests)
+            cumulative_error_rate = (self.total_errors / cumulative_total) * 100
             results["error_rate_pct"] = {
                 "target": target_err,
                 "actual": round(error_rate, 3),
                 "compliant": error_rate <= target_err,
                 "budget_remaining_pct": round(max(0, target_err - error_rate), 3),
+                "window_seconds": METRICS_WINDOW,
+                "cumulative_error_rate_pct": round(cumulative_error_rate, 3),
             }
 
             # Availability (based on uptime -- simple heuristic)
@@ -2376,7 +2383,7 @@ class MonitoringAlertBridge:
             # Check error rate across all endpoints (error_rate is a percentage)
             metrics = collector.get_metrics()
             if isinstance(metrics, dict):
-                error_rate_pct = metrics.get("error_rate", 0)
+                error_rate_pct = metrics.get("error_rate_pct", 0)
                 if error_rate_pct > 10:  # >10% error rate
                     alert_key = "global_error_rate"
                     if self._should_alert(alert_key):

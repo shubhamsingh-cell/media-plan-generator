@@ -33,8 +33,20 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 # Accept both Upstash naming conventions: UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_URL
-UPSTASH_URL = (os.environ.get("UPSTASH_REDIS_REST_URL") or os.environ.get("UPSTASH_REDIS_URL") or "").strip().rstrip("/")
-UPSTASH_TOKEN = (os.environ.get("UPSTASH_REDIS_REST_TOKEN") or os.environ.get("UPSTASH_REDIS_TOKEN") or "").strip()
+UPSTASH_URL = (
+    (
+        os.environ.get("UPSTASH_REDIS_REST_URL")
+        or os.environ.get("UPSTASH_REDIS_URL")
+        or ""
+    )
+    .strip()
+    .rstrip("/")
+)
+UPSTASH_TOKEN = (
+    os.environ.get("UPSTASH_REDIS_REST_TOKEN")
+    or os.environ.get("UPSTASH_REDIS_TOKEN")
+    or ""
+).strip()
 
 # Connection validation
 _ENABLED = bool(UPSTASH_URL and UPSTASH_TOKEN)
@@ -47,6 +59,12 @@ _MAX_OPS_PER_MINUTE = 1000
 
 # Request timeout (seconds)
 _TIMEOUT = 5
+
+# Circuit breaker: disable after N consecutive failures to prevent error spam
+_consecutive_failures = 0
+_failure_lock = threading.Lock()
+_MAX_CONSECUTIVE_FAILURES = 5
+_circuit_open_until = 0.0  # timestamp when circuit breaker resets
 
 
 def _rate_ok() -> bool:
@@ -70,8 +88,20 @@ def _execute(command: list) -> Any:
     Headers: Authorization: Bearer {token}
     Response: {"result": <value>}
     """
+    global _consecutive_failures, _circuit_open_until
+
     if not _ENABLED:
         return None
+
+    # Circuit breaker: skip requests when circuit is open
+    now = time.time()
+    if _consecutive_failures >= _MAX_CONSECUTIVE_FAILURES:
+        if now < _circuit_open_until:
+            return None  # Circuit open -- silently skip
+        # Reset circuit breaker after cooldown
+        with _failure_lock:
+            _consecutive_failures = 0
+            logger.info("Upstash circuit breaker reset -- retrying")
 
     if not _rate_ok():
         return None
@@ -89,9 +119,24 @@ def _execute(command: list) -> Any:
     try:
         with urllib.request.urlopen(req, timeout=_TIMEOUT) as resp:
             body = json.loads(resp.read().decode("utf-8"))
+            # Success -- reset failure counter
+            with _failure_lock:
+                _consecutive_failures = 0
             return body.get("result")
     except urllib.error.HTTPError as e:
         logger.debug("Upstash HTTP error %d for %s", e.code, command[0])
+        return None
+    except (urllib.error.URLError, OSError, ConnectionError) as e:
+        # DNS/network failures -- increment circuit breaker
+        with _failure_lock:
+            _consecutive_failures += 1
+            if _consecutive_failures >= _MAX_CONSECUTIVE_FAILURES:
+                _circuit_open_until = time.time() + 60.0  # 60s cooldown
+                logger.warning(
+                    "Upstash circuit breaker OPEN after %d failures (cooldown 60s): %s",
+                    _consecutive_failures,
+                    e,
+                )
         return None
     except Exception as e:
         logger.debug("Upstash request failed: %s", e)
@@ -101,6 +146,7 @@ def _execute(command: list) -> Any:
 # ---------------------------------------------------------------------------
 # Public API (compatible with supabase_cache interface)
 # ---------------------------------------------------------------------------
+
 
 def cache_get(key: str) -> Optional[Any]:
     """Retrieve a cached value by key. Returns None on miss or error."""
@@ -113,7 +159,9 @@ def cache_get(key: str) -> Optional[Any]:
         return raw
 
 
-def cache_set(key: str, data: Any, ttl_seconds: int = 86400, category: str = "api") -> None:
+def cache_set(
+    key: str, data: Any, ttl_seconds: int = 86400, category: str = "api"
+) -> None:
     """Store a value with optional TTL (default 24h). Category is for namespacing."""
     try:
         value = json.dumps(data, ensure_ascii=False, default=str)
@@ -131,6 +179,7 @@ def cache_delete(key: str) -> None:
 # ---------------------------------------------------------------------------
 # Health check (used by data_matrix_monitor extended_health)
 # ---------------------------------------------------------------------------
+
 
 def ping() -> bool:
     """Return True if Upstash is reachable."""
