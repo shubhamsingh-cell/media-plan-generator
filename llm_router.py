@@ -121,6 +121,7 @@ MOONSHOT = "moonshot"
 OPENROUTER_YI = "openrouter_yi"
 OPENROUTER_DEEPSEEK_R1 = "openrouter_deepseek_r1"
 OPENROUTER_GEMMA = "openrouter_gemma"
+XIAOMI_MIMO = "xiaomi_mimo"
 CLAUDE_HAIKU = "claude_haiku"
 CLAUDE = "claude"
 CLAUDE_OPUS = "claude_opus"
@@ -163,6 +164,7 @@ _RATE_LIMITS: dict[str, dict[str, int]] = {
     "openrouter_yi": {"rpm": 20, "window": 60},
     "openrouter_deepseek_r1": {"rpm": 20, "window": 60},
     "openrouter_gemma": {"rpm": 20, "window": 60},
+    "xiaomi_mimo": {"rpm": 30, "window": 60},
     "moonshot": {"rpm": 15, "window": 60},
     "cloudflare": {"rpm": 300, "window": 60},
     # Paid tiers -- higher limits
@@ -524,6 +526,17 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         "timeout": 45,  # Can be slow on cold start
         "max_tokens": 1024,
     },
+    XIAOMI_MIMO: {
+        "name": "Xiaomi MiMo V2 Flash",
+        "api_style": "openai",  # OpenAI-compatible
+        "endpoint": "https://api.xiaomimimo.com/v1/chat/completions",
+        "model": "mimo-v2-flash",
+        "env_key": "XIAOMI_MIMO_API_KEY",
+        "rpm_limit": 30,
+        "rpd_limit": 1500,
+        "timeout": 30,
+        "max_tokens": 8192,
+    },
     OPENROUTER_QWEN: {
         "name": "OpenRouter (Qwen3 Coder)",
         "api_style": "openai",  # OpenAI-compatible
@@ -741,6 +754,7 @@ TASK_ROUTING: Dict[str, List[str]] = {
     TASK_CONVERSATIONAL: [
         GROQ,
         ZHIPU,
+        XIAOMI_MIMO,  # MiMo V2 Flash -- strong 309B MoE reasoning
         CEREBRAS,
         GEMINI,
         MISTRAL,
@@ -763,6 +777,7 @@ TASK_ROUTING: Dict[str, List[str]] = {
     ],
     TASK_COMPLEX: [
         OPENROUTER_DEEPSEEK_R1,  # DeepSeek R1 -- strong reasoning, HIGH priority
+        XIAOMI_MIMO,  # MiMo V2 Flash -- 309B MoE, strong complex reasoning
         SAMBANOVA,
         GROQ,
         OPENROUTER,  # Spaced: non-OR providers between OR variants
@@ -909,6 +924,7 @@ TASK_ROUTING: Dict[str, List[str]] = {
     TASK_CAMPAIGN_PLAN: [
         GROQ,
         CEREBRAS,
+        XIAOMI_MIMO,  # MiMo V2 Flash -- strong for structured plan generation
         GEMINI,
         ZHIPU,
         OPENROUTER,  # Spaced: non-OR providers between OR variants
@@ -959,6 +975,7 @@ TASK_ROUTING: Dict[str, List[str]] = {
     TASK_MARKET_ANALYSIS: [
         GEMINI,
         OPENROUTER_DEEPSEEK_R1,
+        XIAOMI_MIMO,  # MiMo V2 Flash -- strong analysis capabilities
         XAI,
         SAMBANOVA,
         GROQ,
@@ -1009,6 +1026,7 @@ TASK_ROUTING: Dict[str, List[str]] = {
     TASK_CHAT_RESPONSE: [
         GROQ,
         CEREBRAS,
+        XIAOMI_MIMO,  # MiMo V2 Flash -- high-quality chat responses
         GEMINI,
         ZHIPU,
         MISTRAL,
@@ -1105,6 +1123,7 @@ _PROVIDER_COST_PER_M_TOKENS: Dict[str, Dict[str, float]] = {
     CLOUDFLARE: {"input": 0.0, "output": 0.0},
     TOGETHER: {"input": 0.0, "output": 0.0},
     MOONSHOT: {"input": 0.0, "output": 0.0},
+    XIAOMI_MIMO: {"input": 0.1, "output": 0.3},  # $0.1/M in, $0.3/M out
     HUGGINGFACE: {"input": 0.0, "output": 0.0},
     OPENROUTER: {"input": 0.0, "output": 0.0},
     OPENROUTER_QWEN: {"input": 0.0, "output": 0.0},
