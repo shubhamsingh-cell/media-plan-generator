@@ -9327,11 +9327,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             (self.headers.get("Authorization") or "").startswith("Bearer ")
         )
         # Paths exempt from CSRF: external webhooks that use their own signature
-        _CSRF_EXEMPT_PATHS = (
-            "/api/sentry/webhook",
-            "/api/slack/events",
-            "/api/generate",
-        )
+        _CSRF_EXEMPT_PATHS = ("/api/sentry/webhook", "/api/slack/events")
         if (
             not _has_api_key
             and not _is_admin
