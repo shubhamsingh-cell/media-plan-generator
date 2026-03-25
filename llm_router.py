@@ -1611,7 +1611,9 @@ _VERIFICATION_KEYWORDS = re.compile(
 )
 _RESEARCH_KEYWORDS = re.compile(
     r"\b(research|investigate|geopolitical|market.analysis|risk.assessment|"
-    r"macro|economic.outlook|political|immigration|policy)\b",
+    r"macro|economic.outlook|political|immigration|policy|"
+    r"war|recession|inflation|tariff|sanctions|economy|regulation|"
+    r"uptick|downtick|disruption|impact|causation|correlation)\b",
     re.IGNORECASE,
 )
 _NARRATIVE_KEYWORDS = re.compile(

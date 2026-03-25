@@ -1,14 +1,15 @@
 {
   "description": "Best-in-class client media plans from Joveo's portfolio - used as reference patterns for AI-generated plans",
   "source": "Joveo internal client deliverables",
-  "last_updated": "2026-03-14",
-  "total_plans": 6,
+  "last_updated": "2026-03-26",
+  "total_plans": 7,
   "industries_covered": [
     "aerospace_defense",
     "defense_shipbuilding",
     "defense_it_aviation",
     "technology_ecommerce",
-    "marine_defense_engineering"
+    "marine_defense_engineering",
+    "defense_aerospace_usa"
   ],
   "plans": {
     "rtx_us": {
@@ -1979,6 +1980,463 @@
         "Robert Half acts as staffing intermediary for Peraton",
         "Diverse role mix (39 positions across 7 categories) requires highly segmented channel strategy"
       ]
+    },
+    "rtx_usa": {
+      "client": "RTX (Raytheon Technologies) - USA Engineering",
+      "industry": "defense_aerospace",
+      "date": "2026-02-20",
+      "regions": [
+        "Huntsville, AL",
+        "Tucson, AZ",
+        "McKinney, TX"
+      ],
+      "roles": [
+        "Software Engineer",
+        "Hardware Engineer",
+        "Systems Engineer"
+      ],
+      "hiring_context": "Defense sector engineering talent with security clearance segmentation. Multi-city recruitment across three distinct defense industry hubs.",
+      "supply_demand": {
+        "huntsville_al": {
+          "software_engineer": {
+            "with_clearance": 3047,
+            "without_clearance": 8870,
+            "demand_clearance": "High",
+            "demand_no_clearance": "High"
+          },
+          "hardware_engineer": {
+            "with_clearance": 1215,
+            "without_clearance": 4320,
+            "demand_clearance": "High",
+            "demand_no_clearance": "Medium"
+          },
+          "systems_engineer": {
+            "with_clearance": 2180,
+            "without_clearance": 6540,
+            "demand_clearance": "High",
+            "demand_no_clearance": "High"
+          }
+        },
+        "tucson_az": {
+          "software_engineer": {
+            "with_clearance": 944,
+            "without_clearance": 5511,
+            "demand_clearance": "Low",
+            "demand_no_clearance": "Low"
+          },
+          "hardware_engineer": {
+            "with_clearance": 612,
+            "without_clearance": 3280,
+            "demand_clearance": "Low",
+            "demand_no_clearance": "Low"
+          },
+          "systems_engineer": {
+            "with_clearance": 785,
+            "without_clearance": 4120,
+            "demand_clearance": "Low",
+            "demand_no_clearance": "Low"
+          }
+        },
+        "mckinney_tx": {
+          "software_engineer": {
+            "with_clearance": "NA",
+            "without_clearance": "NA",
+            "demand_clearance": "Low",
+            "demand_no_clearance": "Low"
+          },
+          "hardware_engineer": {
+            "with_clearance": "NA",
+            "without_clearance": "NA",
+            "demand_clearance": "Low",
+            "demand_no_clearance": "Low"
+          },
+          "systems_engineer": {
+            "with_clearance": "NA",
+            "without_clearance": "NA",
+            "demand_clearance": "Low",
+            "demand_no_clearance": "Low"
+          }
+        },
+        "segmentation_note": "Security clearance creates a critical supply bifurcation. Cleared talent pools are 3-5x smaller than total available supply. Consider sponsoring clearance to expand addressable market."
+      },
+      "supply_hotspots": [
+        {
+          "location": "Washington-Arlington-Alexandria MSA, DC",
+          "count": 13760,
+          "note": "Largest cleared talent pool in US"
+        },
+        {
+          "location": "Los Angeles-Long Beach-Anaheim, CA",
+          "count": 6118,
+          "note": "Strong aerospace cluster"
+        },
+        {
+          "location": "Denver-Aurora-Lakewood MSA, CO",
+          "count": 4676,
+          "note": "Growing defense tech hub"
+        },
+        {
+          "location": "Baltimore-Columbia, MD",
+          "count": 4516,
+          "note": "NSA/defense corridor"
+        },
+        {
+          "location": "Dallas-Fort Worth-Arlington MSA, TX",
+          "count": 3463,
+          "note": "Proximate to McKinney"
+        },
+        {
+          "location": "San Diego-Chula Vista-Carlsbad, CA",
+          "count": 3210,
+          "note": "Navy/defense tech"
+        },
+        {
+          "location": "Boston-Cambridge-Newton MSA, MA",
+          "count": 2945,
+          "note": "Defense R&D"
+        },
+        {
+          "location": "Seattle-Tacoma-Bellevue, WA",
+          "count": 2780,
+          "note": "Boeing/aerospace cluster"
+        }
+      ],
+      "competitors_per_city": {
+        "huntsville_al": {
+          "software_engineer": [
+            "Lockheed Martin",
+            "Northrop Grumman",
+            "SCI Technology (Sanmina)",
+            "SAIC",
+            "Leidos"
+          ],
+          "hardware_engineer": [
+            "Lockheed Martin",
+            "Northrop Grumman",
+            "SCI Technology (Sanmina)",
+            "General Dynamics",
+            "Boeing"
+          ],
+          "systems_engineer": [
+            "Lockheed Martin",
+            "Northrop Grumman",
+            "SAIC",
+            "Leidos",
+            "General Dynamics"
+          ]
+        },
+        "tucson_az": {
+          "software_engineer": [
+            "Northrop Grumman",
+            "General Dynamics",
+            "Universal Avionics",
+            "Lunewave",
+            "University of Arizona"
+          ],
+          "hardware_engineer": [
+            "Bombardier Aerospace",
+            "Howmet Aerospace",
+            "RBC Sargent",
+            "Universal Avionics",
+            "General Dynamics"
+          ],
+          "systems_engineer": [
+            "Northrop Grumman",
+            "General Dynamics",
+            "Vector Launch",
+            "Universal Avionics",
+            "Bombardier Aerospace"
+          ]
+        },
+        "mckinney_tx": {
+          "software_engineer": [
+            "L3Harris Technologies",
+            "Lockheed Martin",
+            "Raytheon Intelligence & Space",
+            "Texas Instruments",
+            "Collins Aerospace"
+          ],
+          "hardware_engineer": [
+            "Texas Instruments",
+            "L3Harris Technologies",
+            "Lockheed Martin",
+            "Collins Aerospace",
+            "Raytheon Intelligence & Space"
+          ],
+          "systems_engineer": [
+            "L3Harris Technologies",
+            "Lockheed Martin",
+            "Collins Aerospace",
+            "SAIC",
+            "Raytheon Intelligence & Space"
+          ]
+        },
+        "competitive_insight": "Defense sector has extremely concentrated competition. Top 5 competitors appear across ALL cities. Lockheed Martin and Northrop Grumman are the primary talent competitors in every market."
+      },
+      "difficulty_framework": {
+        "level_1": {
+          "name": "Standard",
+          "criteria": "Years of experience only",
+          "example": "5+ years software engineering",
+          "recommended_channels": [
+            "Niche job boards",
+            "Re-engagement campaigns"
+          ],
+          "budget_multiplier": 1.0
+        },
+        "level_2": {
+          "name": "Moderate",
+          "criteria": "Experience + location supply-demand gap",
+          "example": "5+ years systems engineering in Tucson where supply is limited",
+          "recommended_channels": [
+            "Niche job boards",
+            "Re-engagement campaigns",
+            "Geofenced programmatic targeting",
+            "Relocation marketing"
+          ],
+          "budget_multiplier": 1.5
+        },
+        "level_3": {
+          "name": "Hard-to-Fill",
+          "criteria": "Experience + location gap + security clearance requirement",
+          "example": "5+ years cleared software engineer in Huntsville (only 3,047 available)",
+          "recommended_channels": [
+            "All channels activated",
+            "Influencer partnerships",
+            "Industry event sponsorships",
+            "Clearance sponsorship programs",
+            "Passive candidate hunting"
+          ],
+          "budget_multiplier": 2.5,
+          "strategic_note": "Consider sponsoring security clearance instead of requiring existing clearance to expand talent pool by 3-5x"
+        }
+      },
+      "channel_strategy": {
+        "traditional_digital": {
+          "channels": [
+            "Stack Overflow",
+            "Stack Exchange",
+            "Reddit ads",
+            "GitHub Sponsors/Jobs",
+            "X (Twitter) ads",
+            "Glassdoor",
+            "Blind",
+            "Vault"
+          ],
+          "purpose": "Reach active and passive engineering candidates on platforms they already use",
+          "best_for": "Level 1 and Level 2 roles"
+        },
+        "non_traditional_digital": {
+          "channels": [
+            "CPQA (Joveo)",
+            "Reddit sponsored posts",
+            "Discord engineering channels",
+            "Quora targeted posts",
+            "College forums (12Twenty, Handshake)",
+            "Defense influencer partnerships",
+            "GEO Optimization (LLM/AI search visibility)"
+          ],
+          "purpose": "Access untapped talent pools through emerging channels and community engagement",
+          "best_for": "Level 2 and Level 3 roles",
+          "geo_optimization_note": "Optimize employer career pages and job descriptions for AI search engines (ChatGPT, Perplexity, Gemini) to capture candidates using conversational job search"
+        },
+        "traditional_offline": {
+          "channels": [
+            "Industry networking events",
+            "Defense industry conferences",
+            "Career fairs at defense installations"
+          ],
+          "purpose": "Build relationships and employer brand in defense community",
+          "events_recommended": true
+        },
+        "non_traditional_offline": {
+          "channels": [
+            "Happy hour series (multi-city rotation)",
+            "Tech talk series (invite-only, cleared venues)",
+            "Hackathon series (online + offline hybrid)",
+            "RTX-only branded activation events"
+          ],
+          "purpose": "Create exclusive, high-value touchpoints for passive senior talent",
+          "best_for": "Level 3 hard-to-fill and senior leadership roles"
+        }
+      },
+      "budget_tiers": {
+        "tier_1_500k": {
+          "total": 500000,
+          "digital": 350000,
+          "offline": 150000,
+          "digital_pct": 70,
+          "offline_pct": 30,
+          "focus": "Digital channels prioritized - easier and cheaper to execute, faster time to first apply",
+          "channels_activated": [
+            "Programmatic job boards",
+            "CPQA",
+            "Social ads",
+            "Niche boards",
+            "Re-engagement"
+          ],
+          "expected_reach": "Medium",
+          "best_for": "Companies starting programmatic recruitment or with limited budget approval"
+        },
+        "tier_2_1m": {
+          "total": 1000000,
+          "digital": 600000,
+          "offline": 400000,
+          "digital_pct": 60,
+          "offline_pct": 40,
+          "focus": "Increased scope with offline events and employer branding for higher reach and recall",
+          "channels_activated": [
+            "All Tier 1 channels",
+            "Industry events sponsorship",
+            "Career fairs",
+            "Employer branding DSPs",
+            "Content marketing"
+          ],
+          "expected_reach": "High",
+          "best_for": "Established defense contractors with brand recognition goals"
+        },
+        "tier_3_2m": {
+          "total": 2000000,
+          "digital": 1000000,
+          "offline": 1000000,
+          "digital_pct": 50,
+          "offline_pct": 50,
+          "focus": "Full activation including influencer marketing, branded events, and premium sponsorships",
+          "channels_activated": [
+            "All Tier 2 channels",
+            "Influencer activations",
+            "Branded events",
+            "Hackathon series",
+            "Tech talk series",
+            "Premium conference sponsorships"
+          ],
+          "expected_reach": "Maximum",
+          "best_for": "Major hiring pushes requiring comprehensive market saturation"
+        }
+      },
+      "activation_events": [
+        {
+          "name": "AUSA Global Force Symposium",
+          "location": "Huntsville, AL",
+          "date": "Mar 24-26, 2026",
+          "fit": "Army modernization, senior defense engineers",
+          "sponsorship_available": true,
+          "estimated_attendance": 8000,
+          "recommended_tier": "tier_2_1m"
+        },
+        {
+          "name": "Space & Missile Defense Symposium",
+          "location": "Huntsville, AL",
+          "date": "Aug 11-13, 2026",
+          "fit": "Missile/space defense, hardware+software engineers",
+          "sponsorship_available": true,
+          "estimated_attendance": 5000,
+          "recommended_tier": "tier_2_1m"
+        },
+        {
+          "name": "National Cyber Summit",
+          "location": "Huntsville, AL",
+          "date": "Sep 22-24, 2026",
+          "fit": "Cybersecurity technology, cleared cyber professionals",
+          "sponsorship_available": true,
+          "estimated_attendance": 4000,
+          "recommended_tier": "tier_1_500k"
+        },
+        {
+          "name": "CodeStock",
+          "location": "Knoxville, TN",
+          "date": "Apr 9-10, 2026",
+          "fit": "Developer conference, mid/senior software engineers, 2hr from Huntsville",
+          "sponsorship_available": true,
+          "estimated_attendance": 1500,
+          "recommended_tier": "tier_1_500k"
+        },
+        {
+          "name": "IEEE Radar Conference",
+          "location": "Phoenix, AZ",
+          "date": "May 11-15, 2026",
+          "fit": "Hardware/signal/RF/defense tech, 1hr from Tucson",
+          "sponsorship_available": true,
+          "estimated_attendance": 2000,
+          "recommended_tier": "tier_2_1m"
+        },
+        {
+          "name": "CactusCon",
+          "location": "Mesa, AZ",
+          "date": "Feb 6-7, 2026",
+          "fit": "Security community, red/blue teams, near Tucson",
+          "sponsorship_available": true,
+          "estimated_attendance": 3000,
+          "recommended_tier": "tier_1_500k"
+        },
+        {
+          "name": "SecureWorld Boston",
+          "location": "Boston, MA",
+          "date": "Apr 8-9, 2026",
+          "fit": "Security practitioners, relocation pipeline from Boston hotspot",
+          "sponsorship_available": true,
+          "estimated_attendance": 2500,
+          "recommended_tier": "tier_2_1m"
+        },
+        {
+          "name": "Blue Innovation Symposium",
+          "location": "Middletown, RI",
+          "date": "Feb 9-12, 2026",
+          "fit": "Blue economy, undersea/defense innovation",
+          "sponsorship_available": true,
+          "estimated_attendance": 1200,
+          "recommended_tier": "tier_2_1m"
+        }
+      ],
+      "recommendations": {
+        "by_difficulty_level": {
+          "level_1": {
+            "channels": [
+              "Niche job boards",
+              "Re-engagement campaigns"
+            ],
+            "strategy": "Standard programmatic distribution with performance optimization"
+          },
+          "level_2": {
+            "channels": [
+              "Niche job boards",
+              "Re-engagement",
+              "Geofenced programmatic targeting"
+            ],
+            "strategy": "Add location-based targeting and relocation incentive messaging"
+          },
+          "level_3": {
+            "channels": [
+              "All channels activated simultaneously"
+            ],
+            "strategy": "Full multi-channel activation with clearance sponsorship messaging"
+          }
+        },
+        "key_insight": "Consider sponsoring security clearance instead of requiring existing clearance to expand the addressable talent pool by 3-5x. This single change can transform Level 3 roles into Level 2 difficulty.",
+        "clearance_sponsorship_roi": "Average clearance processing costs $5K-$15K per person but expands addressable pool from ~3,000 to ~9,000+ in Huntsville alone"
+      },
+      "multi_channel_strategy": {
+        "approach": "Triangulation",
+        "description": "Expose target candidates via multiple channels at different foundational levels to achieve higher recall and social proof",
+        "example_sequence": [
+          "1. Programmatic job ad appears on job board (awareness)",
+          "2. Retargeted display ad on industry news site (reinforcement)",
+          "3. Sponsored Reddit post in r/engineering community (social proof)",
+          "4. LinkedIn InMail from recruiter (personal touch)",
+          "5. In-person meeting at defense conference (relationship building)"
+        ],
+        "expected_lift": "2-3x higher conversion rate vs single-channel approach",
+        "minimum_touchpoints": 3,
+        "optimal_touchpoints": 5
+      },
+      "patterns_for_ai": {
+        "supply_demand_framework": "Always segment by security clearance status when analyzing defense sector supply. Cleared talent is a fundamentally different market.",
+        "competitor_mapping": "Map competitors per city AND per role. Defense sector competitors vary significantly by geography.",
+        "budget_allocation": "For defense, budget should shift from digital-heavy (70/30) at lower tiers to balanced (50/50) at higher tiers as offline events become critical for cleared talent.",
+        "difficulty_scoring": "Three-tier framework: experience-only (L1), experience+location (L2), experience+location+clearance (L3). Each level requires incrementally more channel activation.",
+        "event_strategy": "Defense industry events are not optional at Tier 2+. They are the primary channel for reaching passive cleared talent who do not respond to digital advertising.",
+        "geo_expansion": "When local supply is insufficient, target supply hotspots (DC, LA, Denver, Baltimore, DFW) with relocation messaging and remote-first positioning."
+      }
     }
   },
   "aggregate_patterns": {
@@ -2229,7 +2687,13 @@
       "India market requires localized social media (Sharechat, Moj) and newspapers for English qualification",
       "5-year awareness campaigns are recommended for large-scale, long-term hiring commitments",
       "Tiered pricing (3 tiers) is the standard proposal format, with more channels at higher tiers",
-      "Media channels (Meta, Google, LinkedIn) serve dual purpose: awareness retargeting and application generation"
+      "Media channels (Meta, Google, LinkedIn) serve dual purpose: awareness retargeting and application generation",
+      "Defense sector requires security clearance segmentation in all supply-demand analysis",
+      "Clearance sponsorship can expand addressable talent pool by 3-5x",
+      "Triangulation (multi-channel exposure) yields 2-3x conversion lift",
+      "Budget allocation shifts from digital-heavy (70/30) to balanced (50/50) at higher investment tiers",
+      "Industry events are mandatory channels for cleared talent at Tier 2+ budgets",
+      "GEO Optimization (AI search engine visibility) is an emerging non-traditional digital channel"
     ]
   }
 }

@@ -1439,6 +1439,120 @@ def _detect_all_countries(text: str) -> List[str]:
     return found
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# QUERY COMPLEXITY DETECTION (v3.6 -- smart routing)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Indicators that a query requires stronger reasoning / analytical models.
+# These queries benefit from Claude/GPT-4o instead of free tier LLMs.
+_COMPLEX_QUERY_INDICATORS: list[str] = [
+    # Geopolitical / macro-economic
+    "war",
+    "geopolitical",
+    "recession",
+    "inflation",
+    "tariff",
+    "sanctions",
+    "regulation",
+    "policy",
+    "legislation",
+    "political",
+    "election",
+    "immigration",
+    "pandemic",
+    "economic impact",
+    "trade war",
+    "interest rate",
+    # Analytical reasoning
+    "because of",
+    "impact of",
+    "effect on",
+    "effect of",
+    "correlation",
+    "causation",
+    "predict",
+    "prediction",
+    "what if",
+    "how does",
+    "how would",
+    "why did",
+    "why does",
+    "uptick",
+    "downtick",
+    "lowtick",
+    "decline",
+    "surge",
+    # Strategic / multi-step
+    "analyze",
+    "compare across",
+    "multi-country",
+    "global trend",
+    "long-term",
+    "short-term",
+    "forecast",
+    "projection",
+    "recommend strategy",
+    "market shift",
+    "disruption",
+    # Complex synthesis
+    "pros and cons",
+    "trade-off",
+    "tradeoff",
+    "versus",
+    "which is better",
+    "rank",
+    "prioritize",
+    "evaluate",
+]
+
+# Paid providers that handle complex queries well (ordered by cost-efficiency)
+_COMPLEX_PREFERRED_PROVIDERS: list[str] = [
+    "claude_haiku",  # Fast + cheap paid, good reasoning
+    "gemini",  # Free but strong reasoning
+    "gpt4o",  # Strong analytical capability
+    "groq",  # Fast free, decent reasoning
+    "xai",  # Good reasoning (credits-based)
+    "claude",  # Claude Sonnet -- high quality
+]
+
+
+def _detect_query_complexity(message: str) -> bool:
+    """Detect whether a query requires stronger LLM models for quality answers.
+
+    Complex queries involve geopolitical analysis, causal reasoning, multi-step
+    synthesis, or macro-economic topics that free-tier LLMs handle poorly.
+
+    Args:
+        message: User message text.
+
+    Returns:
+        True if the query is complex and should prefer paid/stronger models.
+    """
+    if not message:
+        return False
+
+    query_lower = message.lower()
+
+    # Check keyword indicators
+    indicator_count = sum(1 for ind in _COMPLEX_QUERY_INDICATORS if ind in query_lower)
+
+    # 2+ indicators = definitely complex
+    if indicator_count >= 2:
+        return True
+
+    # 1 indicator + long message (>150 chars) = likely complex
+    if indicator_count >= 1 and len(message) > 150:
+        return True
+
+    # Very long messages (>300 chars) with question words = likely complex
+    if len(message) > 300 and any(
+        qw in query_lower for qw in ["why", "how", "what if", "because"]
+    ):
+        return True
+
+    return False
+
+
 def _normalize_cache_key(question: str) -> str:
     """Normalize a question into a canonical cache key.
 
@@ -5751,20 +5865,27 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
                     _set_response_cache(cache_key, _quick)
                 return _filter_competitor_names(_quick)
 
-        # --- LLM routing strategy (v3.5 -- INVERTED: tools by default) ---
+        # --- LLM routing strategy (v3.6 -- SMART: complexity-aware routing) ---
         # PRINCIPLE: Unknown queries default to tool path (safe).
-        # Only obvious greetings/meta skip tools.
-        # 1. Conversational queries -> free LLM providers (no tools, cost=0)
-        # 2. Everything else  -> free LLM providers WITH tools (cost=0)
-        # 3. Claude API -> LAST RESORT paid fallback (only if free fails)
+        # Complex/analytical queries prefer paid models for quality.
+        # 1. Conversational queries -> LLM providers (no tools)
+        #    - Simple: free providers | Complex: paid providers preferred
+        # 2. Everything else  -> LLM providers WITH tools
+        #    - Simple: free providers | Complex: paid providers preferred
+        # 3. Claude API -> LAST RESORT paid fallback (only if router fails)
         # 4. Rule-based fallback
         _is_conversational = self._query_is_conversational(user_message)
+        _is_complex = _detect_query_complexity(user_message)
         api_key = (os.environ.get("ANTHROPIC_API_KEY") or "").strip()
 
-        # Path A: Conversational queries only -> free LLM providers (no tools)
+        # Path A: Conversational queries only -> LLM providers (no tools)
+        # Complex queries get routed to paid models for better quality.
         if _is_conversational:
             router_result = self._chat_with_llm_router(
-                user_message, conversation_history, enrichment_context
+                user_message,
+                conversation_history,
+                enrichment_context,
+                is_complex=_is_complex,
             )
             if router_result:
                 # Quality gate: if the LLM admits it lacks data, escalate to
@@ -5820,12 +5941,16 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
                         _set_response_cache(cache_key, router_result)
                     return router_result
 
-        # Path B: Tool-use queries -> free LLM providers WITH tools
-        # NOTE (v3.5): This is now the DEFAULT path. All non-conversational
+        # Path B: Tool-use queries -> LLM providers WITH tools
+        # NOTE (v3.6): This is the DEFAULT path. All non-conversational
         # queries come here, ensuring data lookups happen before responding.
+        # Complex queries prefer paid models for better tool-calling quality.
         if not _is_conversational:
             free_tool_result = self._chat_with_free_llm_tools(
-                user_message, conversation_history, enrichment_context
+                user_message,
+                conversation_history,
+                enrichment_context,
+                is_complex=_is_complex,
             )
             if free_tool_result:
                 logger.info(
@@ -6270,8 +6395,12 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
         user_message: str,
         conversation_history: Optional[list],
         enrichment_context: Optional[dict],
+        is_complex: bool = False,
     ) -> Optional[dict]:
-        """Try free LLM providers via the LLM Router for conversational queries.
+        """Try LLM providers via the LLM Router for conversational queries.
+
+        For complex queries (geopolitical, analytical, causal reasoning),
+        routes to paid models (Claude Haiku, GPT-4o) for better quality.
 
         Returns a response dict on success, or None to signal fallback to Claude.
         """
@@ -6368,11 +6497,24 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
 
         try:
             task_type = classify_task(user_message)
-            logger.info(
-                "NOVA LLM Router: task_type=%s, available_providers=%s",
-                task_type,
-                available,
-            )
+
+            # Smart routing: complex queries get routed to stronger models
+            _preferred = None
+            if is_complex:
+                task_type = "research"  # Use TASK_RESEARCH routing chain
+                _preferred = _COMPLEX_PREFERRED_PROVIDERS
+                logger.info(
+                    "NOVA LLM Router: COMPLEX query detected, preferring paid models. "
+                    "task_type=%s, preferred=%s",
+                    task_type,
+                    _preferred,
+                )
+            else:
+                logger.info(
+                    "NOVA LLM Router: task_type=%s, available_providers=%s",
+                    task_type,
+                    available,
+                )
 
             result = call_llm(
                 messages=messages,
@@ -6380,6 +6522,7 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
                 max_tokens=2048,
                 task_type=task_type,
                 query_text=user_message,
+                preferred_providers=_preferred,
             )
 
             response_text = (result or {}).get("text") or (result or {}).get("content")
@@ -6422,14 +6565,16 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
         user_message: str,
         conversation_history: Optional[list],
         enrichment_context: Optional[dict],
+        is_complex: bool = False,
     ) -> Optional[dict]:
-        """Try free LLM providers WITH tool calling via OpenAI-compatible format.
+        """Try LLM providers WITH tool calling via OpenAI-compatible format.
 
-        Multi-turn tool iteration loop (max 3 iterations to respect rate limits).
+        Multi-turn tool iteration loop (max 2 iterations to respect rate limits).
+        Complex queries prefer paid models (Claude Haiku, GPT-4o) for quality.
         On any failure or poor quality, returns None to signal fallback to Claude.
 
         Flow:
-            1. Send query + tool definitions to best available free provider
+            1. Send query + tool definitions to best available provider
             2. If provider returns tool_calls: execute tools, feed results back
             3. Repeat until provider returns text (or max iterations hit)
             4. Verify response grounding against tool data
@@ -6586,9 +6731,19 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
         active_provider = None  # Lock to same provider for multi-turn
 
         task_type = classify_task(user_message)
-        # Use COMPLEX routing for tool queries (best free providers first)
+        # Use COMPLEX routing for tool queries (best providers first)
         if task_type not in (TASK_COMPLEX,):
             task_type = TASK_COMPLEX
+
+        # Smart routing: complex queries prefer paid models for tool-calling quality
+        if is_complex:
+            _tool_preferred = _COMPLEX_PREFERRED_PROVIDERS
+            logger.info(
+                "LLM tools: COMPLEX query detected, preferring paid models: %s",
+                _tool_preferred,
+            )
+        else:
+            _tool_preferred = self._FREE_TOOL_PROVIDERS
 
         for iteration in range(max_iterations):
             try:
@@ -6617,7 +6772,8 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
                         )
                         return None
                 else:
-                    # First call: let router pick best available free provider
+                    # First call: let router pick best available provider
+                    # (complex queries prefer paid models via _tool_preferred)
                     result = call_llm(
                         messages=messages,
                         system_prompt=system_prompt,
@@ -6625,15 +6781,17 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
                         task_type=task_type,
                         tools=clean_tools,
                         query_text=user_message,
-                        preferred_providers=self._FREE_TOOL_PROVIDERS,
+                        preferred_providers=_tool_preferred,
                     )
                     active_provider = (result or {}).get("provider")
-                    # Guard: if router fell through to a paid provider, bail out
-                    # so the dedicated _chat_with_claude path handles it instead
+                    # Guard: if router fell through to a paid provider AND
+                    # we did NOT request paid models, bail out so the
+                    # dedicated _chat_with_claude path handles it instead.
+                    # When is_complex=True, we WANT paid providers, so don't bail.
                     _PAID_PROVIDERS = {"gpt4o", "claude", "claude_opus"}
-                    if active_provider in _PAID_PROVIDERS:
+                    if active_provider in _PAID_PROVIDERS and not is_complex:
                         logger.info(
-                            "Free LLM tools: router fell through to paid provider %s, "
+                            "LLM tools: router fell through to paid provider %s, "
                             "returning None for Claude fallback path",
                             active_provider,
                         )
@@ -10416,9 +10574,62 @@ def handle_chat_request_stream(
     # --- Phase 1: Run the full pipeline to get tool data + enrichment ---
     # handle_chat_request does greetings, cache, tool-use, LLM call, etc.
     # This is the single, authoritative LLM call -- no re-synthesis needed.
+    # Wrapped in a thread with hard 35s timeout to prevent "stuck on Thinking".
     yield {"status": "Analyzing your question...", "done": False}
 
-    response = handle_chat_request(request_data)
+    _STREAM_TIMEOUT = 35.0  # Hard timeout -- slightly above router's 30s budget
+    _stream_result: dict = {}
+    _stream_error: list = []
+
+    def _run_chat() -> None:
+        """Execute handle_chat_request in a thread for timeout control."""
+        try:
+            _stream_result.update(handle_chat_request(request_data))
+        except Exception as exc:
+            _stream_error.append(exc)
+
+    _chat_thread = threading.Thread(target=_run_chat, daemon=True)
+    _chat_thread.start()
+    _chat_thread.join(timeout=_STREAM_TIMEOUT)
+
+    if _chat_thread.is_alive():
+        # Thread timed out -- the LLM call is still running in the background
+        # but we need to return something to the user NOW.
+        logger.warning(
+            "Stream handler: chat request timed out after %.0fs for: %s",
+            _STREAM_TIMEOUT,
+            message[:80],
+        )
+        response = {
+            "response": (
+                "I apologize for the delay. Your question requires deeper analysis "
+                "than I could complete in time. Please try again -- I will route it "
+                "to a faster provider."
+            ),
+            "sources": [],
+            "confidence": 0.0,
+            "tools_used": [],
+            "error": "stream_timeout",
+        }
+    elif _stream_error:
+        logger.error(
+            "Stream handler: chat request raised exception: %s",
+            _stream_error[0],
+            exc_info=True,
+        )
+        response = {
+            "response": (
+                "I encountered an error processing your request. "
+                "Please try again in a moment."
+            ),
+            "sources": [],
+            "confidence": 0.0,
+            "tools_used": [],
+            "error": "stream_exception",
+        }
+    else:
+        response = _stream_result
+
     full_response = response.get("response") or ""
     sources = response.get("sources") or []
     confidence = response.get("confidence") or 0.0

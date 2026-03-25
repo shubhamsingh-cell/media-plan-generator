@@ -1,6 +1,6 @@
 {
-  "last_updated": "2026-03-22",
-  "version": "1.0",
+  "last_updated": "2026-03-26",
+  "version": "1.1",
   "description": "Comprehensive recruitment strategy intelligence covering employer branding, DEI recruitment, technology landscape, budget frameworks, content marketing, and creative best practices. Powers strategic recommendations in media plans and chatbot responses.",
   "sources": [
     "LinkedIn Employer Brand Statistics",
@@ -32,7 +32,9 @@
     "Work Institute Retention Report",
     "Omnisend SMS Marketing Statistics 2025",
     "Sakari SMS Benchmarks 2025",
-    "Recruitment Technology Landscape Report 2025-2026 (Joveo Strategic Research)"
+    "Recruitment Technology Landscape Report 2025-2026 (Joveo Strategic Research)",
+    "RTX USA Media Plan (Joveo 2026) - Defense Sector Channel Strategy",
+    "GEO Optimization Research 2025-2026 (Joveo Strategic Research)"
   ],
   "employer_branding": {
     "roi_data": {
@@ -1943,5 +1945,245 @@
     },
     "average_hiring_journey": "68.5 days from application to offer",
     "dropout_rate": "60% of applicants drop off due to long processes"
+  },
+  "non_traditional_channels": {
+    "description": "Emerging and non-traditional recruitment channels that go beyond standard job boards and social media. These channels are increasingly important for hard-to-fill roles, defense/cleared talent, and passive candidates.",
+    "source": "RTX USA media plan patterns, Joveo internal research, industry best practices",
+    "geo_optimization": {
+      "description": "Generative Engine Optimization (GEO) - optimizing employer career pages and job descriptions for AI-powered search engines",
+      "target_platforms": [
+        "ChatGPT",
+        "Perplexity",
+        "Google AI Overviews",
+        "Gemini",
+        "Claude",
+        "Microsoft Copilot"
+      ],
+      "strategies": [
+        "Structure career pages with clear FAQ sections that AI can extract and cite",
+        "Include specific salary ranges, benefits, and role requirements in structured data (schema.org/JobPosting)",
+        "Optimize for conversational queries like 'best companies for software engineers in [city]'",
+        "Ensure job descriptions contain natural language that matches how candidates ask questions",
+        "Add company culture, growth opportunities, and differentiators in crawlable text (not images/PDFs)",
+        "Maintain up-to-date glassdoor/blind presence as AI models pull from review sites",
+        "Create comparison-friendly content (vs competitors) that AI can surface in 'which company' queries"
+      ],
+      "expected_impact": "5-15% increase in organic qualified applicants within 6 months of optimization",
+      "best_for": [
+        "Tech roles",
+        "Engineering roles",
+        "Roles where candidates research extensively before applying"
+      ],
+      "maturity": "Emerging (2025-2026) - early adopters gain significant advantage"
+    },
+    "experiential_activations": {
+      "description": "In-person and hybrid events designed to build relationships with passive candidates through value-first engagement rather than direct recruiting",
+      "types": {
+        "happy_hour_series": {
+          "format": "Multi-city rotating casual networking events",
+          "frequency": "Monthly per city",
+          "cost_per_event": "$3,000-$8,000",
+          "expected_attendance": "30-80 per event",
+          "best_for": "Building employer brand awareness and soft pipeline",
+          "key_success_factor": "No recruiting pitches - pure networking and community building"
+        },
+        "tech_talk_series": {
+          "format": "Invite-only technical presentations by company engineers",
+          "frequency": "Bi-monthly",
+          "cost_per_event": "$5,000-$15,000",
+          "expected_attendance": "40-100 per event",
+          "best_for": "Senior and staff-level engineers, demonstrating technical depth",
+          "key_success_factor": "Content must be genuinely valuable and non-promotional",
+          "cleared_venue_note": "For defense sector, host at cleared facilities to naturally filter for clearance holders"
+        },
+        "hackathon_series": {
+          "format": "Online + offline hybrid hackathons with company-relevant challenges",
+          "frequency": "Quarterly",
+          "cost_per_event": "$15,000-$50,000",
+          "expected_attendance": "100-500 participants",
+          "best_for": "Junior to mid-level engineers, university pipeline",
+          "key_success_factor": "Real prizes, real problems, and post-event follow-up within 48 hours"
+        },
+        "branded_activation_events": {
+          "format": "Company-only branded recruitment events at premium venues",
+          "frequency": "2-4 per year",
+          "cost_per_event": "$25,000-$100,000",
+          "expected_attendance": "100-300 per event",
+          "best_for": "Tier 3 budgets ($2M+), maximum employer brand impact",
+          "key_success_factor": "Premium experience that reflects company culture and values"
+        }
+      },
+      "roi_measurement": {
+        "metrics": [
+          "Attendee-to-applicant conversion rate",
+          "Attendee-to-hire conversion rate",
+          "Cost per attendee",
+          "Brand sentiment lift (survey)",
+          "Pipeline velocity improvement"
+        ],
+        "typical_conversion": "8-15% attendee-to-applicant rate, 2-5% attendee-to-hire rate",
+        "attribution_window": "Track attendees for 12 months post-event for delayed conversion"
+      }
+    },
+    "influencer_marketing": {
+      "description": "Partnering with industry influencers, thought leaders, and content creators to amplify employer brand and reach passive talent through trusted voices",
+      "channel_types": {
+        "linkedin_influencers": {
+          "reach": "10K-500K followers per influencer",
+          "cost": "$500-$5,000 per post",
+          "format": "Sponsored posts, company culture features, day-in-the-life content",
+          "best_for": "Professional audience, B2B industries, defense/aerospace"
+        },
+        "youtube_tech_creators": {
+          "reach": "50K-2M subscribers per creator",
+          "cost": "$2,000-$25,000 per video",
+          "format": "Office tours, tech stack reviews, interview prep content",
+          "best_for": "Software engineers, tech talent, junior/mid-level"
+        },
+        "podcast_sponsorships": {
+          "reach": "5K-100K listeners per episode",
+          "cost": "$500-$5,000 per episode",
+          "format": "Host-read ads, sponsored segments, guest appearances by company leaders",
+          "best_for": "Niche audiences, defense/cleared professionals, leadership roles"
+        },
+        "reddit_community_engagement": {
+          "reach": "Varies by subreddit (r/cscareerquestions: 1M+, r/engineering: 500K+)",
+          "cost": "$1,000-$5,000 for sponsored posts/AMAs",
+          "format": "Sponsored posts, AMA sessions with hiring managers, community participation",
+          "best_for": "Authentic engagement with tech community, early-career talent"
+        },
+        "discord_communities": {
+          "reach": "Varies by server (500-50K active members)",
+          "cost": "$500-$3,000 for sponsored events/channels",
+          "format": "Sponsored channels, virtual meetups, coding challenges",
+          "best_for": "Developer communities, gaming-adjacent tech talent, junior engineers"
+        }
+      },
+      "best_practices": [
+        "Choose influencers whose audience demographics match your target candidate profiles",
+        "Prioritize authenticity - forced endorsements backfire with technical audiences",
+        "Provide influencers with genuine access to engineers and company culture",
+        "Measure both immediate applications and 30/60/90-day pipeline impact",
+        "Defense sector: partner with veterans/military transition influencers for cleared talent"
+      ]
+    },
+    "community_channels": {
+      "description": "Niche online communities and platforms where target candidates naturally congregate",
+      "platforms": {
+        "stack_overflow_exchange": {
+          "type": "Q&A community",
+          "audience": "Developers",
+          "ad_formats": [
+            "Display ads",
+            "Sponsored tags",
+            "Company page"
+          ]
+        },
+        "github": {
+          "type": "Code repository",
+          "audience": "Open source developers",
+          "ad_formats": [
+            "Sponsors",
+            "README placements",
+            "GitHub Jobs"
+          ]
+        },
+        "blind": {
+          "type": "Anonymous workplace reviews",
+          "audience": "Tech professionals",
+          "ad_formats": [
+            "Company page",
+            "Sponsored content"
+          ]
+        },
+        "vault": {
+          "type": "Industry rankings/reviews",
+          "audience": "Professional candidates",
+          "ad_formats": [
+            "Company profile",
+            "Sponsored rankings"
+          ]
+        },
+        "college_platforms": {
+          "type": "University recruiting",
+          "platforms": [
+            "12Twenty",
+            "Handshake",
+            "Symplicity"
+          ],
+          "audience": "Students and recent graduates",
+          "ad_formats": [
+            "Virtual career fairs",
+            "Employer profiles",
+            "Targeted messaging"
+          ]
+        },
+        "quora": {
+          "type": "Q&A platform",
+          "audience": "Knowledge seekers",
+          "ad_formats": [
+            "Sponsored answers",
+            "Topic targeting"
+          ]
+        },
+        "clearancejobs_com": {
+          "type": "Niche job board",
+          "audience": "Security-cleared professionals",
+          "note": "Essential for defense sector Level 3 roles"
+        }
+      }
+    },
+    "multi_channel_triangulation": {
+      "description": "Strategy of exposing target candidates to employer messaging through 3-5 different channels at different engagement levels to achieve higher recall, trust, and conversion",
+      "framework": {
+        "layer_1_awareness": {
+          "channels": [
+            "Programmatic job ads",
+            "Display ads",
+            "Social media ads"
+          ],
+          "goal": "First exposure - candidate becomes aware of employer"
+        },
+        "layer_2_consideration": {
+          "channels": [
+            "Retargeted ads",
+            "Content marketing",
+            "Community posts"
+          ],
+          "goal": "Reinforcement - candidate begins considering employer"
+        },
+        "layer_3_social_proof": {
+          "channels": [
+            "Glassdoor reviews",
+            "Reddit discussions",
+            "Blind posts",
+            "Influencer content"
+          ],
+          "goal": "Validation - candidate seeks third-party confirmation"
+        },
+        "layer_4_personal": {
+          "channels": [
+            "LinkedIn InMail",
+            "Recruiter outreach",
+            "Employee referrals"
+          ],
+          "goal": "Personal connection - candidate engages directly"
+        },
+        "layer_5_relationship": {
+          "channels": [
+            "In-person events",
+            "Tech talks",
+            "Conference meetings"
+          ],
+          "goal": "Relationship building - candidate develops trust"
+        }
+      },
+      "expected_outcomes": {
+        "conversion_lift": "2-3x higher conversion rate vs single-channel approach",
+        "minimum_touchpoints": 3,
+        "optimal_touchpoints": 5,
+        "attribution_note": "Use multi-touch attribution models to properly credit each channel in the sequence"
+      }
+    }
   }
 }
