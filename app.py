@@ -3006,7 +3006,7 @@ _OPENAPI_SPEC = {
         "title": "AI Media Planner API",
         "description": "Recruitment advertising media plan generator with AI-powered research, "
         "budget optimization, and strategy deck creation.",
-        "version": "3.5.0",
+        "version": "4.0.0",
         "contact": {
             "name": "Joveo Engineering",
             "url": "https://media-plan-generator.onrender.com",
@@ -3335,7 +3335,7 @@ _OPENAPI_SPEC = {
                                         "status": {"type": "string", "example": "ok"},
                                         "version": {
                                             "type": "string",
-                                            "example": "3.5.0",
+                                            "example": "4.0.0",
                                         },
                                         "timestamp": {
                                             "type": "string",
@@ -3841,7 +3841,7 @@ except ImportError as _mon_err:
     def health_check_liveness():
         return {
             "status": "ok",
-            "version": "3.5.0",
+            "version": "4.0.0",
             "timestamp": datetime.datetime.now().isoformat(),
         }
 
@@ -3850,7 +3850,7 @@ except ImportError as _mon_err:
         return _build_health_response()
 
     def health_check_readiness():
-        return {"status": "healthy", "version": "3.5.0", "metrics_persisted": False}
+        return {"status": "healthy", "version": "4.0.0", "metrics_persisted": False}
 
     def get_persistence():
         return None
@@ -4033,7 +4033,7 @@ def _build_health_response() -> dict:
     result: dict = {
         "status": "healthy" if is_healthy else "unhealthy",
         "uptime_seconds": round(time.time() - _SERVER_START_TIME, 2),
-        "version": "3.5.0",
+        "version": "4.0.0",
         "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "checks": {
             "knowledge_base": kb_loaded,
@@ -15151,7 +15151,7 @@ if __name__ == "__main__":
 
     # ── Startup banner ──
     logger.info("=" * 60)
-    logger.info("AI Media Planner v3.5.0")
+    logger.info("AI Media Planner v4.0.0")
     logger.info("Port: %d | PID: %d | Threads: daemon", port, os.getpid())
     logger.info("Health: http://localhost:%d/health", port)
     logger.info("Readiness: http://localhost:%d/ready", port)
