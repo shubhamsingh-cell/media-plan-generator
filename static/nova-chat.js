@@ -455,6 +455,56 @@
       "  animation: nova-cursor-blink 0.7s steps(2) infinite;" +
       "}" +
       "@keyframes nova-cursor-blink { 0% { opacity: 1; } 50% { opacity: 0; } 100% { opacity: 1; } }" +
+      // ── Status/progress indicator ──
+      ".nova-status-indicator {" +
+      "  font-size: 11px; color: #888; padding: 4px 12px; text-align: center;" +
+      "  animation: nova-status-pulse 2s ease-in-out infinite;" +
+      "}" +
+      "@keyframes nova-status-pulse {" +
+      "  0%, 100% { opacity: 0.6; }" +
+      "  50% { opacity: 1; }" +
+      "}" +
+      // ── Edit icon on user messages ──
+      ".nova-msg-row-user .nova-edit-btn {" +
+      "  opacity: 0; position: absolute; top: 4px; left: -28px;" +
+      "  background: rgba(90,84,189,0.15); border: 1px solid rgba(90,84,189,0.2);" +
+      "  color: #888; cursor: pointer; padding: 3px; border-radius: 6px;" +
+      "  line-height: 1; transition: all 0.15s; display: flex; align-items: center; justify-content: center;" +
+      "}" +
+      ".nova-msg-row-user:hover .nova-edit-btn { opacity: 1; }" +
+      ".nova-msg-row-user .nova-edit-btn:hover { color: #5A54BD; border-color: rgba(90,84,189,0.4); }" +
+      // ── Edit textarea ──
+      ".nova-edit-textarea {" +
+      "  width: 100%; border: 1px solid rgba(90,84,189,0.3);" +
+      "  border-radius: 8px; padding: 8px 10px;" +
+      "  font-size: 13px; font-family: inherit;" +
+      "  resize: none; outline: none; min-height: 40px; max-height: 120px;" +
+      "  line-height: 1.5; background: rgba(20,20,37,0.9);" +
+      "  color: #d4d4d8; margin-top: 4px;" +
+      "}" +
+      ".nova-edit-actions {" +
+      "  display: flex; gap: 6px; margin-top: 6px; justify-content: flex-end;" +
+      "}" +
+      ".nova-edit-save-btn {" +
+      "  padding: 4px 12px; border-radius: 6px; font-size: 11px; font-family: inherit;" +
+      "  background: rgba(90,84,189,0.2); color: #8b85e0; border: 1px solid rgba(90,84,189,0.3);" +
+      "  cursor: pointer; transition: all 0.15s;" +
+      "}" +
+      ".nova-edit-save-btn:hover { background: rgba(90,84,189,0.3); color: #a5a0f0; }" +
+      ".nova-edit-cancel-btn {" +
+      "  padding: 4px 12px; border-radius: 6px; font-size: 11px; font-family: inherit;" +
+      "  background: rgba(255,255,255,0.05); color: #888; border: 1px solid rgba(255,255,255,0.1);" +
+      "  cursor: pointer; transition: all 0.15s;" +
+      "}" +
+      ".nova-edit-cancel-btn:hover { color: #aaa; border-color: rgba(255,255,255,0.2); }" +
+      // ── Regenerate button ──
+      ".nova-regen-btn {" +
+      "  display: inline-flex; align-items: center; gap: 4px; margin-top: 6px; margin-left: 6px;" +
+      "  padding: 3px 8px; border-radius: 6px; font-size: 10px; color: #666;" +
+      "  background: rgba(107,179,205,0.06); border: 1px solid rgba(107,179,205,0.1);" +
+      "  cursor: pointer; transition: all 0.15s; font-family: inherit;" +
+      "}" +
+      ".nova-regen-btn:hover { color: #6BB3CD; border-color: rgba(107,179,205,0.25); }" +
       // ── Reduced motion ──
       "@media (prefers-reduced-motion: reduce) {" +
       "  .nova-msg-row, .nova-msg-user, .nova-msg-assistant { animation: none !important; }" +
@@ -462,6 +512,7 @@
       "  #nova-float-btn, .nova-send-btn { transition: none !important; }" +
       "  .nova-streaming-cursor { animation: none !important; opacity: 0.7; }" +
       "  .nova-welcome-orb { animation: none !important; }" +
+      "  .nova-status-indicator { animation: none !important; }" +
       "}";
 
     var styleEl = document.createElement("style");
@@ -694,7 +745,7 @@
   // ---------------------------------------------------------------------------
   function loadHistory() {
     try {
-      var stored = sessionStorage.getItem(CONFIG.storageKey);
+      var stored = localStorage.getItem(CONFIG.storageKey);
       return stored ? JSON.parse(stored) : [];
     } catch (e) {
       return [];
@@ -704,7 +755,7 @@
   function saveHistory(messages) {
     try {
       var trimmed = messages.slice(-CONFIG.maxHistoryStorage);
-      sessionStorage.setItem(CONFIG.storageKey, JSON.stringify(trimmed));
+      localStorage.setItem(CONFIG.storageKey, JSON.stringify(trimmed));
     } catch (e) {
       /* ignore storage errors */
     }
@@ -712,11 +763,11 @@
 
   function getSessionId() {
     try {
-      var sid = sessionStorage.getItem(CONFIG.sessionKey);
+      var sid = localStorage.getItem(CONFIG.sessionKey);
       if (!sid) {
         sid =
           "nova-" + Date.now() + "-" + Math.random().toString(36).substr(2, 6);
-        sessionStorage.setItem(CONFIG.sessionKey, sid);
+        localStorage.setItem(CONFIG.sessionKey, sid);
       }
       return sid;
     } catch (e) {
@@ -1137,6 +1188,16 @@
     if (e.key === "Escape" && state.isOpen) {
       togglePanel();
     }
+    // Cmd+Shift+L (Mac) or Ctrl+Shift+L (Win/Linux): Clear conversation
+    if (
+      e.key === "L" &&
+      e.shiftKey &&
+      (e.metaKey || e.ctrlKey) &&
+      state.isOpen
+    ) {
+      e.preventDefault();
+      clearConversation();
+    }
   });
 
   // ---------------------------------------------------------------------------
@@ -1316,259 +1377,41 @@
     if (msg.role === "assistant") {
       msgEl.innerHTML = renderMarkdown(msg.content);
 
-      // Copy button for assistant messages
-      var copyBtn = document.createElement("button");
-      copyBtn.className = "nova-copy-btn";
-      copyBtn.innerHTML =
-        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy';
-      copyBtn.style.cssText =
-        "display:inline-flex;align-items:center;gap:4px;margin-top:6px;padding:3px 8px;border-radius:6px;font-size:10px;color:#666;background:rgba(107,179,205,0.06);border:1px solid rgba(107,179,205,0.1);cursor:pointer;transition:all 0.15s;font-family:inherit;";
-      copyBtn.addEventListener("mouseenter", function () {
-        this.style.color = "#6BB3CD";
-        this.style.borderColor = "rgba(107,179,205,0.25)";
-      });
-      copyBtn.addEventListener("mouseleave", function () {
-        this.style.color = "#666";
-        this.style.borderColor = "rgba(107,179,205,0.1)";
-      });
-      (function (btn, content) {
-        btn.addEventListener("click", function () {
-          navigator.clipboard.writeText(content).then(function () {
-            btn.innerHTML =
-              '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Copied';
-            btn.style.color = "#34D399";
-            setTimeout(function () {
-              btn.innerHTML =
-                '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy';
-              btn.style.color = "#666";
-            }, 1500);
-          });
-        });
-      })(copyBtn, msg.content);
-      msgEl.appendChild(copyBtn);
+      // Add action buttons (copy, TTS, feedback, regenerate) via shared helper
+      addActionButtonsToElement(msgEl, msg.content);
 
-      // TTS speaker button for assistant messages
-      var ttsBtn = document.createElement("button");
-      ttsBtn.className = "nova-tts-btn";
-      ttsBtn.setAttribute("aria-label", "Listen to response");
-      ttsBtn.innerHTML =
-        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg> Listen';
-      ttsBtn.style.cssText =
-        "display:inline-flex;align-items:center;gap:4px;margin-top:6px;margin-left:6px;padding:3px 8px;border-radius:6px;font-size:10px;color:#666;background:rgba(107,179,205,0.06);border:1px solid rgba(107,179,205,0.1);cursor:pointer;transition:all 0.15s;font-family:inherit;";
-      ttsBtn.addEventListener("mouseenter", function () {
-        this.style.color = "#6BB3CD";
-        this.style.borderColor = "rgba(107,179,205,0.25)";
-      });
-      ttsBtn.addEventListener("mouseleave", function () {
-        if (!this.dataset.playing) {
-          this.style.color = "#666";
-          this.style.borderColor = "rgba(107,179,205,0.1)";
-        }
-      });
-      (function (btn, content) {
-        var audio = null;
-        btn.addEventListener("click", function () {
-          // If already playing, stop
-          if (audio && !audio.paused) {
-            audio.pause();
-            audio = null;
-            btn.innerHTML =
-              '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg> Listen';
-            btn.style.color = "#666";
-            delete btn.dataset.playing;
-            return;
-          }
-
-          btn.innerHTML =
-            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="10" y1="15" x2="10" y2="9"/><line x1="14" y1="15" x2="14" y2="9"/></svg> Loading...';
-          btn.style.color = "#6BB3CD";
-          btn.dataset.playing = "1";
-
-          // Get CSRF token
-          var csrfToken = "";
-          var csrfMeta = document.querySelector('meta[name="csrf-token"]');
-          if (csrfMeta) csrfToken = csrfMeta.getAttribute("content") || "";
-          if (!csrfToken) {
-            var cookies = document.cookie.split(";");
-            for (var ci = 0; ci < cookies.length; ci++) {
-              var c = cookies[ci].trim();
-              if (c.indexOf("csrf_token=") === 0) {
-                csrfToken = c.substring("csrf_token=".length);
-                break;
-              }
-            }
-          }
-
-          fetch("/api/tts", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "X-CSRF-Token": csrfToken,
-            },
-            credentials: "same-origin",
-            body: JSON.stringify({ text: content }),
-          })
-            .then(function (resp) {
-              if (!resp.ok) throw new Error("TTS failed: " + resp.status);
-              return resp.blob();
-            })
-            .then(function (blob) {
-              var url = URL.createObjectURL(blob);
-              audio = new Audio(url);
-              audio.play();
-              btn.innerHTML =
-                '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg> Playing';
-              audio.addEventListener("ended", function () {
-                btn.innerHTML =
-                  '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg> Listen';
-                btn.style.color = "#666";
-                delete btn.dataset.playing;
-                URL.revokeObjectURL(url);
-              });
-            })
-            .catch(function () {
-              btn.innerHTML =
-                '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg> Listen';
-              btn.style.color = "#F87171";
-              delete btn.dataset.playing;
-              setTimeout(function () {
-                btn.style.color = "#666";
-              }, 2000);
-            });
-        });
-      })(ttsBtn, msg.content);
-      msgEl.appendChild(ttsBtn);
-
-      // Thumbs up / thumbs down feedback buttons
-      var msgIdx = state.messages.length;
-      var ratingBtnStyle =
-        "display:inline-flex;align-items:center;gap:2px;margin-top:6px;margin-left:6px;padding:3px 8px;border-radius:6px;font-size:10px;color:#666;background:rgba(107,179,205,0.06);border:1px solid rgba(107,179,205,0.1);cursor:pointer;transition:all 0.15s;font-family:inherit;";
-      var thumbUpBtn = document.createElement("button");
-      thumbUpBtn.className = "nova-rate-btn";
-      thumbUpBtn.setAttribute("aria-label", "Rate positive");
-      thumbUpBtn.innerHTML =
-        '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/><path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>';
-      thumbUpBtn.style.cssText = ratingBtnStyle;
-      var thumbDownBtn = document.createElement("button");
-      thumbDownBtn.className = "nova-rate-btn";
-      thumbDownBtn.setAttribute("aria-label", "Rate negative");
-      thumbDownBtn.innerHTML =
-        '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3H10z"/><path d="M17 2h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3"/></svg>';
-      thumbDownBtn.style.cssText = ratingBtnStyle;
-      (function (upBtn, downBtn, idx) {
-        function handleRating(rating) {
-          if (window.posthog) {
-            window.posthog.capture("nova_chat_response_rated", {
-              rating: rating,
-              message_index: idx,
-              page: window.location.pathname,
-            });
-          }
-          if (rating === "positive") {
-            upBtn.style.color = "#34D399";
-            upBtn.style.borderColor = "rgba(52,211,153,0.3)";
-            downBtn.style.color = "#666";
-            downBtn.style.borderColor = "rgba(107,179,205,0.1)";
-          } else {
-            downBtn.style.color = "#F87171";
-            downBtn.style.borderColor = "rgba(248,113,113,0.3)";
-            upBtn.style.color = "#666";
-            upBtn.style.borderColor = "rgba(107,179,205,0.1)";
-          }
-          upBtn.disabled = true;
-          downBtn.disabled = true;
-        }
-        upBtn.addEventListener("click", function () {
-          handleRating("positive");
-        });
-        downBtn.addEventListener("click", function () {
-          handleRating("negative");
-        });
-      })(thumbUpBtn, thumbDownBtn, msgIdx);
-      msgEl.appendChild(thumbUpBtn);
-      msgEl.appendChild(thumbDownBtn);
-
-      // Meta: sources + confidence
-      var sources = msg.sources || [];
-      var confidence = msg.confidence;
-      if (
-        sources.length > 0 ||
-        (typeof confidence === "number" && confidence > 0)
-      ) {
-        var metaDiv = document.createElement("div");
-        metaDiv.className = "nova-msg-meta";
-
-        sources.forEach(function (src) {
-          var badge = document.createElement("span");
-          badge.className = "nova-badge";
-          badge.textContent = src;
-          metaDiv.appendChild(badge);
-        });
-
-        if (typeof confidence === "number" && confidence > 0) {
-          var confBadge = document.createElement("span");
-          var pct = Math.round(confidence * 100);
-          var confClass = pct >= 75 ? "high" : pct >= 50 ? "medium" : "low";
-          confBadge.className = "nova-confidence nova-confidence-" + confClass;
-
-          // Use structured breakdown if available
-          var bd = msg.confidence_breakdown;
-          if (bd && bd.grade) {
-            var gradeText = "Grade " + bd.grade;
-            var srcCount = bd.sources_count || 0;
-            var freshness = bd.data_freshness || "curated";
-            var verif = bd.verification || "unverified";
-            var verifLabel =
-              verif === "verified"
-                ? "Verified"
-                : verif === "issues_found"
-                  ? "Issues flagged"
-                  : "Unverified";
-            confBadge.textContent =
-              gradeText +
-              " \u2022 " +
-              srcCount +
-              " " +
-              freshness +
-              " source" +
-              (srcCount !== 1 ? "s" : "");
-
-            // Build tooltip
-            var tooltip = document.createElement("div");
-            tooltip.className = "nova-confidence-tooltip";
-            tooltip.innerHTML =
-              '<div class="nova-tooltip-title">Confidence Breakdown</div>' +
-              '<div class="nova-tooltip-row"><span>Overall Score</span><span>' +
-              pct +
-              "%</span></div>" +
-              '<div class="nova-tooltip-row"><span>Grade</span><span>' +
-              bd.grade +
-              "</span></div>" +
-              '<div class="nova-tooltip-row"><span>Data Sources</span><span>' +
-              srcCount +
-              " (" +
-              freshness +
-              ")</span></div>" +
-              '<div class="nova-tooltip-row"><span>Grounding</span><span>' +
-              Math.round((bd.grounding_score || 0) * 100) +
-              "%</span></div>" +
-              '<div class="nova-tooltip-row"><span>Verification</span><span>' +
-              verifLabel +
-              "</span></div>" +
-              '<div class="nova-tooltip-divider"></div>' +
-              '<div class="nova-tooltip-note">Confidence is a quality signal, not a filter. ' +
-              "Lower scores widen estimate ranges but do not suppress data.</div>";
-            confBadge.appendChild(tooltip);
-          } else {
-            confBadge.textContent = pct + "% confidence";
-          }
-          metaDiv.appendChild(confBadge);
-        }
-
-        msgEl.appendChild(metaDiv);
-      }
+      // Meta: sources + confidence via shared helper
+      addMetaToElement(
+        msgEl,
+        msg.sources || [],
+        msg.confidence,
+        msg.confidence_breakdown,
+      );
     } else {
+      // User message: set text content and add edit icon
       msgEl.textContent = msg.content;
+      msgEl.style.position = "relative";
+
+      var editBtn = document.createElement("button");
+      editBtn.className = "nova-edit-btn";
+      editBtn.setAttribute("aria-label", "Edit message");
+      editBtn.innerHTML =
+        '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>';
+      // Calculate the correct index for this message in state.messages
+      // If persisting, the message will be pushed after this block, so index = current length
+      // If rendering from history (persist===false), use the _renderIndex counter
+      var editMsgIdx =
+        persist !== false
+          ? state.messages.length
+          : typeof msg._renderIndex === "number"
+            ? msg._renderIndex
+            : state.messages.length - 1;
+      (function (btn, row, idx) {
+        btn.addEventListener("click", function () {
+          editAndResend(row, idx);
+        });
+      })(editBtn, rowEl, editMsgIdx);
+      msgEl.appendChild(editBtn);
     }
 
     colEl.appendChild(msgEl);
@@ -1598,8 +1441,11 @@
     if (!messagesDiv) return;
     messagesDiv.innerHTML = "";
 
-    state.messages.forEach(function (msg) {
+    state.messages.forEach(function (msg, idx) {
+      // Attach render index so appendMessage can use it for edit button
+      msg._renderIndex = idx;
       appendMessage(msg, false);
+      delete msg._renderIndex;
     });
   }
 
@@ -1792,6 +1638,415 @@
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
   }
 
+  // ---------------------------------------------------------------------------
+  // Helper: add action buttons (copy, TTS, feedback, regenerate) to an element
+  // ---------------------------------------------------------------------------
+  function addActionButtonsToElement(msgEl, content) {
+    // Copy button
+    var copyBtn = document.createElement("button");
+    copyBtn.className = "nova-copy-btn";
+    copyBtn.innerHTML =
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy';
+    copyBtn.style.cssText =
+      "display:inline-flex;align-items:center;gap:4px;margin-top:6px;padding:3px 8px;border-radius:6px;font-size:10px;color:#666;background:rgba(107,179,205,0.06);border:1px solid rgba(107,179,205,0.1);cursor:pointer;transition:all 0.15s;font-family:inherit;";
+    copyBtn.addEventListener("mouseenter", function () {
+      this.style.color = "#6BB3CD";
+      this.style.borderColor = "rgba(107,179,205,0.25)";
+    });
+    copyBtn.addEventListener("mouseleave", function () {
+      this.style.color = "#666";
+      this.style.borderColor = "rgba(107,179,205,0.1)";
+    });
+    (function (btn, c) {
+      btn.addEventListener("click", function () {
+        navigator.clipboard.writeText(c).then(function () {
+          btn.innerHTML =
+            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Copied';
+          btn.style.color = "#34D399";
+          setTimeout(function () {
+            btn.innerHTML =
+              '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy';
+            btn.style.color = "#666";
+          }, 1500);
+        });
+      });
+    })(copyBtn, content);
+    msgEl.appendChild(copyBtn);
+
+    // TTS button
+    var ttsBtn = document.createElement("button");
+    ttsBtn.className = "nova-tts-btn";
+    ttsBtn.setAttribute("aria-label", "Listen to response");
+    ttsBtn.innerHTML =
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg> Listen';
+    ttsBtn.style.cssText =
+      "display:inline-flex;align-items:center;gap:4px;margin-top:6px;margin-left:6px;padding:3px 8px;border-radius:6px;font-size:10px;color:#666;background:rgba(107,179,205,0.06);border:1px solid rgba(107,179,205,0.1);cursor:pointer;transition:all 0.15s;font-family:inherit;";
+    ttsBtn.addEventListener("mouseenter", function () {
+      this.style.color = "#6BB3CD";
+      this.style.borderColor = "rgba(107,179,205,0.25)";
+    });
+    ttsBtn.addEventListener("mouseleave", function () {
+      if (!this.dataset.playing) {
+        this.style.color = "#666";
+        this.style.borderColor = "rgba(107,179,205,0.1)";
+      }
+    });
+    (function (btn, c) {
+      var audio = null;
+      btn.addEventListener("click", function () {
+        if (audio && !audio.paused) {
+          audio.pause();
+          audio = null;
+          btn.innerHTML =
+            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg> Listen';
+          btn.style.color = "#666";
+          delete btn.dataset.playing;
+          return;
+        }
+        btn.innerHTML =
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="10" y1="15" x2="10" y2="9"/><line x1="14" y1="15" x2="14" y2="9"/></svg> Loading...';
+        btn.style.color = "#6BB3CD";
+        btn.dataset.playing = "1";
+        var csrfToken = "";
+        var csrfMeta = document.querySelector('meta[name="csrf-token"]');
+        if (csrfMeta) csrfToken = csrfMeta.getAttribute("content") || "";
+        if (!csrfToken) {
+          var cookies = document.cookie.split(";");
+          for (var ci = 0; ci < cookies.length; ci++) {
+            var ck = cookies[ci].trim();
+            if (ck.indexOf("csrf_token=") === 0) {
+              csrfToken = ck.substring("csrf_token=".length);
+              break;
+            }
+          }
+        }
+        fetch("/api/tts", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRF-Token": csrfToken,
+          },
+          credentials: "same-origin",
+          body: JSON.stringify({ text: c }),
+        })
+          .then(function (resp) {
+            if (!resp.ok) throw new Error("TTS failed: " + resp.status);
+            return resp.blob();
+          })
+          .then(function (blob) {
+            var url = URL.createObjectURL(blob);
+            audio = new Audio(url);
+            audio.play();
+            btn.innerHTML =
+              '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg> Playing';
+            audio.addEventListener("ended", function () {
+              btn.innerHTML =
+                '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg> Listen';
+              btn.style.color = "#666";
+              delete btn.dataset.playing;
+              URL.revokeObjectURL(url);
+            });
+          })
+          .catch(function () {
+            btn.innerHTML =
+              '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg> Listen';
+            btn.style.color = "#F87171";
+            delete btn.dataset.playing;
+            setTimeout(function () {
+              btn.style.color = "#666";
+            }, 2000);
+          });
+      });
+    })(ttsBtn, content);
+    msgEl.appendChild(ttsBtn);
+
+    // Thumbs up / thumbs down
+    var msgIdx = state.messages.length;
+    var ratingBtnStyle =
+      "display:inline-flex;align-items:center;gap:2px;margin-top:6px;margin-left:6px;padding:3px 8px;border-radius:6px;font-size:10px;color:#666;background:rgba(107,179,205,0.06);border:1px solid rgba(107,179,205,0.1);cursor:pointer;transition:all 0.15s;font-family:inherit;";
+    var thumbUpBtn = document.createElement("button");
+    thumbUpBtn.className = "nova-rate-btn";
+    thumbUpBtn.setAttribute("aria-label", "Rate positive");
+    thumbUpBtn.innerHTML =
+      '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/><path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>';
+    thumbUpBtn.style.cssText = ratingBtnStyle;
+    var thumbDownBtn = document.createElement("button");
+    thumbDownBtn.className = "nova-rate-btn";
+    thumbDownBtn.setAttribute("aria-label", "Rate negative");
+    thumbDownBtn.innerHTML =
+      '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3H10z"/><path d="M17 2h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3"/></svg>';
+    thumbDownBtn.style.cssText = ratingBtnStyle;
+    (function (upBtn, downBtn, idx) {
+      function handleRating(rating) {
+        if (window.posthog) {
+          window.posthog.capture("nova_chat_response_rated", {
+            rating: rating,
+            message_index: idx,
+            page: window.location.pathname,
+          });
+        }
+        if (rating === "positive") {
+          upBtn.style.color = "#34D399";
+          upBtn.style.borderColor = "rgba(52,211,153,0.3)";
+          downBtn.style.color = "#666";
+          downBtn.style.borderColor = "rgba(107,179,205,0.1)";
+        } else {
+          downBtn.style.color = "#F87171";
+          downBtn.style.borderColor = "rgba(248,113,113,0.3)";
+          upBtn.style.color = "#666";
+          upBtn.style.borderColor = "rgba(107,179,205,0.1)";
+        }
+        upBtn.disabled = true;
+        downBtn.disabled = true;
+      }
+      upBtn.addEventListener("click", function () {
+        handleRating("positive");
+      });
+      downBtn.addEventListener("click", function () {
+        handleRating("negative");
+      });
+    })(thumbUpBtn, thumbDownBtn, msgIdx);
+    msgEl.appendChild(thumbUpBtn);
+    msgEl.appendChild(thumbDownBtn);
+
+    // Regenerate button
+    var regenBtn = document.createElement("button");
+    regenBtn.className = "nova-regen-btn";
+    regenBtn.setAttribute("aria-label", "Regenerate response");
+    regenBtn.innerHTML =
+      '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> Regenerate';
+    (function (btn) {
+      btn.addEventListener("click", function () {
+        regenerateLastResponse();
+      });
+    })(regenBtn);
+    msgEl.appendChild(regenBtn);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Helper: add meta (sources, confidence) to an element
+  // ---------------------------------------------------------------------------
+  function addMetaToElement(msgEl, sources, confidence, breakdown) {
+    if (
+      (sources && sources.length > 0) ||
+      (typeof confidence === "number" && confidence > 0)
+    ) {
+      var metaDiv = document.createElement("div");
+      metaDiv.className = "nova-msg-meta";
+
+      (sources || []).forEach(function (src) {
+        var badge = document.createElement("span");
+        badge.className = "nova-badge";
+        badge.textContent = src;
+        metaDiv.appendChild(badge);
+      });
+
+      if (typeof confidence === "number" && confidence > 0) {
+        var confBadge = document.createElement("span");
+        var pct = Math.round(confidence * 100);
+        var confClass = pct >= 75 ? "high" : pct >= 50 ? "medium" : "low";
+        confBadge.className = "nova-confidence nova-confidence-" + confClass;
+        var bd = breakdown;
+        if (bd && bd.grade) {
+          var gradeText = "Grade " + bd.grade;
+          var srcCount = bd.sources_count || 0;
+          var freshness = bd.data_freshness || "curated";
+          var verif = bd.verification || "unverified";
+          var verifLabel =
+            verif === "verified"
+              ? "Verified"
+              : verif === "issues_found"
+                ? "Issues flagged"
+                : "Unverified";
+          confBadge.textContent =
+            gradeText +
+            " \u2022 " +
+            srcCount +
+            " " +
+            freshness +
+            " source" +
+            (srcCount !== 1 ? "s" : "");
+          var tooltip = document.createElement("div");
+          tooltip.className = "nova-confidence-tooltip";
+          tooltip.innerHTML =
+            '<div class="nova-tooltip-title">Confidence Breakdown</div>' +
+            '<div class="nova-tooltip-row"><span>Overall Score</span><span>' +
+            pct +
+            "%</span></div>" +
+            '<div class="nova-tooltip-row"><span>Grade</span><span>' +
+            bd.grade +
+            "</span></div>" +
+            '<div class="nova-tooltip-row"><span>Data Sources</span><span>' +
+            srcCount +
+            " (" +
+            freshness +
+            ")</span></div>" +
+            '<div class="nova-tooltip-row"><span>Grounding</span><span>' +
+            Math.round((bd.grounding_score || 0) * 100) +
+            "%</span></div>" +
+            '<div class="nova-tooltip-row"><span>Verification</span><span>' +
+            verifLabel +
+            "</span></div>" +
+            '<div class="nova-tooltip-divider"></div>' +
+            '<div class="nova-tooltip-note">Confidence is a quality signal, not a filter. Lower scores widen estimate ranges but do not suppress data.</div>';
+          confBadge.appendChild(tooltip);
+        } else {
+          confBadge.textContent = pct + "% confidence";
+        }
+        metaDiv.appendChild(confBadge);
+      }
+
+      msgEl.appendChild(metaDiv);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Regenerate last assistant response
+  // ---------------------------------------------------------------------------
+  function regenerateLastResponse() {
+    if (state.isLoading) return;
+    // Find the last user message
+    var lastUserMsg = null;
+    for (var i = state.messages.length - 1; i >= 0; i--) {
+      if (state.messages[i].role === "user") {
+        lastUserMsg = state.messages[i].content;
+        break;
+      }
+    }
+    if (!lastUserMsg) return;
+
+    // Remove the last assistant message from state
+    if (
+      state.messages.length > 0 &&
+      state.messages[state.messages.length - 1].role === "assistant"
+    ) {
+      state.messages.pop();
+      saveHistory(state.messages);
+    }
+
+    // Remove the last assistant message row from DOM
+    var messagesDiv = document.getElementById("nova-messages");
+    if (messagesDiv) {
+      var rows = messagesDiv.querySelectorAll(".nova-msg-row-assistant");
+      if (rows.length > 0) {
+        rows[rows.length - 1].remove();
+      }
+    }
+
+    // Re-send the user message
+    var input = document.getElementById("nova-input");
+    if (input) input.value = lastUserMsg;
+    sendMessage();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Edit and re-send a user message
+  // ---------------------------------------------------------------------------
+  function editAndResend(msgRowEl, msgIndex) {
+    if (state.isLoading) return;
+    var originalContent = state.messages[msgIndex].content;
+    var colEl = msgRowEl.querySelector("div[style]");
+    var bubbleEl = colEl ? colEl.querySelector(".nova-msg-user") : null;
+    if (!bubbleEl) return;
+
+    // Replace bubble content with editable textarea
+    var originalHtml = bubbleEl.innerHTML;
+    bubbleEl.innerHTML = "";
+
+    var editArea = document.createElement("textarea");
+    editArea.className = "nova-edit-textarea";
+    editArea.value = originalContent;
+    editArea.rows = 2;
+    bubbleEl.appendChild(editArea);
+
+    var actionsDiv = document.createElement("div");
+    actionsDiv.className = "nova-edit-actions";
+
+    var cancelBtn = document.createElement("button");
+    cancelBtn.className = "nova-edit-cancel-btn";
+    cancelBtn.textContent = "Cancel";
+    cancelBtn.addEventListener("click", function () {
+      bubbleEl.innerHTML = originalHtml;
+    });
+
+    var saveBtn = document.createElement("button");
+    saveBtn.className = "nova-edit-save-btn";
+    saveBtn.textContent = "Save & Send";
+    saveBtn.addEventListener("click", function () {
+      var newText = editArea.value.trim();
+      if (!newText) return;
+
+      // Remove all messages after this index from state and DOM
+      var messagesDiv = document.getElementById("nova-messages");
+      var allRows = messagesDiv
+        ? messagesDiv.querySelectorAll(".nova-msg-row")
+        : [];
+      // Find which DOM row corresponds to msgIndex
+      var rowIdx = 0;
+      var targetDomIdx = -1;
+      for (var r = 0; r < allRows.length; r++) {
+        if (allRows[r] === msgRowEl) {
+          targetDomIdx = r;
+          break;
+        }
+      }
+      // Remove subsequent DOM rows
+      if (targetDomIdx >= 0) {
+        for (var r = allRows.length - 1; r > targetDomIdx; r--) {
+          allRows[r].remove();
+        }
+      }
+      // Remove the current row too (it will be re-created by appendMessage)
+      msgRowEl.remove();
+
+      // Truncate state messages
+      state.messages = state.messages.slice(0, msgIndex);
+      saveHistory(state.messages);
+
+      // Send the edited message
+      var input = document.getElementById("nova-input");
+      if (input) input.value = newText;
+      sendMessage();
+    });
+
+    // Enter key to save
+    editArea.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        saveBtn.click();
+      }
+    });
+
+    actionsDiv.appendChild(cancelBtn);
+    actionsDiv.appendChild(saveBtn);
+    bubbleEl.appendChild(actionsDiv);
+
+    // Auto-resize and focus
+    editArea.style.height = "auto";
+    editArea.style.height = Math.min(editArea.scrollHeight, 120) + "px";
+    editArea.focus();
+    editArea.setSelectionRange(editArea.value.length, editArea.value.length);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Clear conversation (internal)
+  // ---------------------------------------------------------------------------
+  function clearConversation() {
+    state.messages = [];
+    saveHistory([]);
+    var messagesDiv = document.getElementById("nova-messages");
+    if (messagesDiv) {
+      messagesDiv.innerHTML = "";
+      showWelcome();
+    }
+    if (window.posthog) {
+      window.posthog.capture("nova_chat_history_cleared", {
+        source: "keyboard_shortcut",
+        page: window.location.pathname,
+      });
+    }
+  }
+
   // Send message
   // ---------------------------------------------------------------------------
   function sendMessage() {
@@ -1936,7 +2191,36 @@
                     streamDone = true;
                     return;
                   }
+                  // Handle status/progress events
+                  if (evt.status) {
+                    var statusEl = document.getElementById(
+                      "nova-status-indicator",
+                    );
+                    if (!statusEl) {
+                      statusEl = document.createElement("div");
+                      statusEl.className = "nova-status-indicator";
+                      statusEl.id = "nova-status-indicator";
+                      // Insert after typing indicator or at end of messages
+                      var typingEl = document.getElementById("nova-typing");
+                      if (typingEl && typingEl.parentNode) {
+                        typingEl.parentNode.insertBefore(
+                          statusEl,
+                          typingEl.nextSibling,
+                        );
+                      } else if (messagesEl) {
+                        messagesEl.appendChild(statusEl);
+                      }
+                    }
+                    statusEl.textContent = escapeHtml(evt.status);
+                    if (messagesEl)
+                      messagesEl.scrollTop = messagesEl.scrollHeight;
+                  }
                   if (evt.token) {
+                    // Remove status indicator once real tokens arrive
+                    var activeStatus = document.getElementById(
+                      "nova-status-indicator",
+                    );
+                    if (activeStatus) activeStatus.remove();
                     fullText += evt.token;
                     streamEl.innerHTML = renderMarkdown(fullText);
                     // Re-append blinking cursor at end of streamed content
@@ -1975,18 +2259,68 @@
                 });
               });
             }
-            // Replace streaming row with proper message
-            var streamRowEl = document.getElementById("nova-stream-row");
-            if (streamRowEl && streamRowEl.parentNode) streamRowEl.remove();
-            else if (streamEl && streamEl.parentNode) streamEl.remove();
-            appendMessage({
-              role: "assistant",
-              content: metadata.full_response || fullText,
-              sources: metadata.sources || [],
-              confidence: metadata.confidence || 0,
-              confidence_breakdown: null,
-              message_id: metadata.message_id || "",
+
+            // Fix: Update streaming element IN PLACE instead of remove+recreate (avoids flash)
+            var finalContent = metadata.full_response || fullText;
+            var finalSources = metadata.sources || [];
+            var finalConfidence = metadata.confidence || 0;
+            var finalBreakdown = null;
+            var finalMsgId = metadata.message_id || "";
+
+            // Remove blinking cursor
+            var cursors = streamEl.querySelectorAll(".nova-streaming-cursor");
+            cursors.forEach(function (c) {
+              c.remove();
             });
+
+            // Re-render final markdown content into existing element
+            streamEl.innerHTML = renderMarkdown(finalContent);
+
+            // Remove the status indicator if any
+            var statusEl = document.getElementById("nova-status-indicator");
+            if (statusEl) statusEl.remove();
+
+            // Add action buttons to existing stream element
+            addActionButtonsToElement(streamEl, finalContent);
+
+            // Add source badges and confidence to existing stream element
+            addMetaToElement(
+              streamEl,
+              finalSources,
+              finalConfidence,
+              finalBreakdown,
+            );
+
+            // Add timestamp to the stream column
+            var streamColEl = streamEl.parentNode;
+            if (streamColEl) {
+              var now = new Date();
+              var tsEl = document.createElement("div");
+              tsEl.className =
+                "nova-msg-timestamp nova-msg-timestamp-assistant";
+              tsEl.textContent =
+                String(now.getHours()).padStart(2, "0") +
+                ":" +
+                String(now.getMinutes()).padStart(2, "0");
+              streamColEl.appendChild(tsEl);
+            }
+
+            // Remove the temporary IDs so they don't conflict
+            var streamRowEl = document.getElementById("nova-stream-row");
+            if (streamRowEl) streamRowEl.removeAttribute("id");
+            streamEl.removeAttribute("id");
+
+            // Persist message to state + storage
+            var msgObj = {
+              role: "assistant",
+              content: finalContent,
+              sources: finalSources,
+              confidence: finalConfidence,
+              confidence_breakdown: finalBreakdown,
+              message_id: finalMsgId,
+            };
+            state.messages.push(msgObj);
+            saveHistory(state.messages);
           });
         })
         .catch(function (err) {
@@ -2262,13 +2596,7 @@
      * Clear conversation history.
      */
     clearHistory: function () {
-      state.messages = [];
-      saveHistory([]);
-      var messagesDiv = document.getElementById("nova-messages");
-      if (messagesDiv) {
-        messagesDiv.innerHTML = "";
-        showWelcome();
-      }
+      clearConversation();
     },
   };
 })();

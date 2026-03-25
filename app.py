@@ -273,7 +273,11 @@ def _generate_narrative(
 # LLM PRODUCT INSIGHTS -- optional AI insights for "dumb" products
 # ═══════════════════════════════════════════════════════════════════════════════
 import hashlib
-from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
+from concurrent.futures import (
+    ThreadPoolExecutor,
+    TimeoutError as FuturesTimeoutError,
+    as_completed,
+)
 
 _insights_cache: dict[str, tuple[str, float]] = {}
 _insights_cache_lock = threading.Lock()
@@ -3538,6 +3542,148 @@ _plan_feedback_lock = threading.Lock()
 _generation_jobs: dict = {}
 _generation_jobs_lock = threading.Lock()
 _GENERATION_JOB_EXPIRY_SECONDS = 30 * 60  # 30 minutes
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PLAN RESULTS STORE (in-memory, TTL 30min, for on-screen dashboard)
+# ═══════════════════════════════════════════════════════════════════════════════
+_plan_results_store: dict[str, dict] = {}
+_plan_results_lock = threading.Lock()
+_PLAN_RESULTS_TTL_SECONDS = 30 * 60
+
+
+def _extract_plan_json(data: dict) -> dict:
+    """Extract a JSON summary from generation data for the on-screen dashboard."""
+    budget_alloc = data.get("_budget_allocation") or {}
+    synthesized = data.get("_synthesized") or {}
+    enriched = data.get("_enriched") or {}
+    roles_raw = data.get("target_roles") or data.get("roles") or []
+    locations_raw = data.get("locations") or []
+    industry = data.get("industry_label") or data.get("industry") or ""
+
+    channels: list[dict] = []
+    ch_allocs = budget_alloc.get("channel_allocations") or {}
+    meta = budget_alloc.get("metadata") or {}
+    total_budget = float(meta.get("total_budget") or 0)
+
+    for ch_name, ch_data in ch_allocs.items():
+        if not isinstance(ch_data, dict):
+            continue
+        dollar_amt = float(ch_data.get("dollar_amount") or 0)
+        pct = float(ch_data.get("percentage") or ch_data.get("pct") or 0)
+        if pct == 0 and total_budget > 0:
+            pct = round(dollar_amt / total_budget * 100, 1)
+        cpc = ch_data.get("cpc") or ch_data.get("cpc_range") or 0
+        cpa = ch_data.get("cpa") or ch_data.get("cpa_range") or 0
+        clicks = int(ch_data.get("projected_clicks") or 0)
+        reason = ch_data.get("reason") or ch_data.get("recommendation") or ""
+        channels.append(
+            {
+                "name": ch_name.replace("_", " ").title(),
+                "allocation_pct": round(pct, 1),
+                "budget": round(dollar_amt, 2),
+                "cpc_range": (
+                    f"${cpc:.2f}" if isinstance(cpc, (int, float)) else str(cpc)
+                ),
+                "cpa_range": (
+                    f"${cpa:.2f}" if isinstance(cpa, (int, float)) else str(cpa)
+                ),
+                "projected_clicks": clicks,
+                "recommended_reason": str(reason),
+            }
+        )
+    channels.sort(key=lambda c: c["budget"], reverse=True)
+
+    by_channel = {c["name"]: c["budget"] for c in channels}
+    by_category: dict[str, float] = {}
+    for ch in channels:
+        cat = "Other"
+        name_lower = ch["name"].lower()
+        if "programmatic" in name_lower or "dsp" in name_lower:
+            cat = "Programmatic"
+        elif "board" in name_lower:
+            cat = "Job Boards"
+        elif "social" in name_lower:
+            cat = "Social Media"
+        elif "brand" in name_lower:
+            cat = "Employer Branding"
+        by_category[cat] = by_category.get(cat, 0) + ch["budget"]
+
+    hiring_difficulty = str(
+        synthesized.get("hiring_difficulty")
+        or enriched.get("hiring_difficulty")
+        or "moderate"
+    )
+    competition = str(
+        synthesized.get("competition_level")
+        or enriched.get("market_competition")
+        or "medium"
+    )
+    salary_range = str(
+        synthesized.get("salary_range") or enriched.get("salary_range") or "N/A"
+    )
+    demand_trend = str(
+        synthesized.get("demand_trend") or enriched.get("demand_trend") or "stable"
+    )
+
+    recs: list[str] = []
+    if channels:
+        recs.append(
+            f"Lead with {channels[0]['name']} for highest ROI based on industry benchmarks."
+        )
+    if len(channels) > 1:
+        recs.append(
+            f"Diversify across {len(channels)} channels to reduce single-source risk."
+        )
+    avg_cpc_vals = [
+        c["budget"] / max(c["projected_clicks"], 1)
+        for c in channels
+        if c["projected_clicks"] > 0
+    ]
+    if avg_cpc_vals:
+        avg = sum(avg_cpc_vals) / len(avg_cpc_vals)
+        recs.append(
+            f"Average effective CPC is ${avg:.2f} -- monitor and optimize weekly."
+        )
+    recs.append(
+        "Review channel performance after 2 weeks and reallocate underperforming budget."
+    )
+    recs.append("Consider A/B testing job ad creatives across top 2 channels.")
+
+    return {
+        "channels": channels,
+        "budget_summary": {
+            "total": total_budget,
+            "by_channel": by_channel,
+            "by_category": by_category,
+        },
+        "market_insights": {
+            "hiring_difficulty": hiring_difficulty,
+            "competition_level": competition,
+            "salary_range": salary_range,
+            "demand_trend": demand_trend,
+        },
+        "recommendations": recs,
+        "metadata": {
+            "roles": roles_raw if isinstance(roles_raw, list) else [roles_raw],
+            "locations": (
+                locations_raw if isinstance(locations_raw, list) else [locations_raw]
+            ),
+            "industry": industry,
+            "total_budget": total_budget,
+            "generated_at": datetime.datetime.utcnow().isoformat() + "Z",
+        },
+    }
+
+
+def _store_plan_result(plan_id: str, data: dict) -> None:
+    """Store extracted plan JSON with TTL for dashboard retrieval."""
+    try:
+        plan_json = _extract_plan_json(data)
+        with _plan_results_lock:
+            _plan_results_store[plan_id] = {"data": plan_json, "created": time.time()}
+        logger.info("Plan result stored: %s", plan_id)
+    except Exception as e:
+        logger.error("Failed to store plan result: %s", e, exc_info=True)
 
 
 def _cleanup_generation_jobs():
@@ -7512,6 +7658,25 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         "elapsed_seconds": elapsed,
                     }
                 )
+        # ── Plan Results JSON (on-screen dashboard data) ──
+        elif path.startswith("/api/plan-results/"):
+            _pr_id = path.split("/")[-1]
+            if not _pr_id or not re.match(r"^[a-f0-9]{1,12}$", _pr_id):
+                self._send_json({"error": "Invalid plan_id"}, status_code=400)
+                return
+            now = time.time()
+            with _plan_results_lock:
+                _pr_entry = _plan_results_store.get(_pr_id)
+                if not _pr_entry:
+                    self._send_json(
+                        {"error": "Plan not found or expired"}, status_code=404
+                    )
+                    return
+                if now - _pr_entry["created"] > _PLAN_RESULTS_TTL_SECONDS:
+                    _plan_results_store.pop(_pr_id, None)
+                    self._send_json({"error": "Plan expired"}, status_code=404)
+                    return
+                self._send_json({"plan_id": _pr_id, **_pr_entry["data"]})
         # ── Feature 5a: SLO compliance ──
         # ── Platform Observability (aggregated health dashboard) ──
         # ── Feature 5b: Eval scores ──
@@ -8995,146 +9160,289 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         "Standardizer normalization failed (non-fatal): %s", e
                     )
 
-            # Enrich data with live API data
+            # ── Parallel API Enrichment for /api/generate ──
+            # All enrichment sources run concurrently with a 20s global timeout.
+            # Previously serial (worst-case 60s+), now parallel (worst-case ~20s).
             _span_fn = getattr(self, "_sentry_span", lambda o, n: _nullctx())
-            enriched = {}
-            if enrich_data is not None:
+            enriched: dict = {}
+            _market_ctx: dict = {}
+
+            # -- Extract shared params once for all enrichment tasks --
+            _roles_for_api = data.get("target_roles") or data.get("roles") or []
+
+            # Build normalized list of roles (up to 5) with title + SOC code
+            _roles_normalized: list[dict[str, str]] = []
+            if isinstance(_roles_for_api, list):
+                for _r in _roles_for_api[:5]:
+                    if isinstance(_r, dict):
+                        _t = str(_r.get("title") or "")
+                        _s = str(_r.get("_soc_code") or "")
+                        if _t:
+                            _roles_normalized.append({"title": _t, "soc": _s})
+                    elif isinstance(_r, str) and _r.strip():
+                        _roles_normalized.append({"title": _r.strip(), "soc": ""})
+            elif _roles_for_api:
+                _roles_normalized.append({"title": str(_roles_for_api), "soc": ""})
+
+            # Backward-compat: first role string for callables that need a single value
+            _role_str = _roles_normalized[0]["title"] if _roles_normalized else ""
+
+            _locs_for_api = data.get("locations") or []
+            _state_code = ""
+            if _locs_for_api:
+                _first_loc = (
+                    _locs_for_api[0]
+                    if isinstance(_locs_for_api, list)
+                    else str(_locs_for_api)
+                )
+                if isinstance(_first_loc, dict):
+                    _state_code = _first_loc.get("state") or ""
+                elif isinstance(_first_loc, str):
+                    _parts = [p.strip() for p in _first_loc.split(",")]
+                    _state_code = _parts[1] if len(_parts) > 1 else ""
+                if len(_state_code) > 2:
+                    _state_code = ""  # Only 2-letter state codes
+
+            _soc_code = ""
+            for _rr in (_roles_for_api if isinstance(_roles_for_api, list) else []):
+                if isinstance(_rr, dict):
+                    _soc_code = _rr.get("_soc_code") or ""
+                    break
+
+            # JobSpy location extraction
+            _js_loc = "USA"
+            if isinstance(_locs_for_api, list) and _locs_for_api:
+                _js_first_loc = _locs_for_api[0]
+                if isinstance(_js_first_loc, str):
+                    _js_loc = _js_first_loc
+                elif isinstance(_js_first_loc, dict):
+                    _js_loc = (
+                        _js_first_loc.get("city") or _js_first_loc.get("state") or "USA"
+                    )
+
+            # -- Define individual enrichment callables --
+            # Each returns (name, result_dict_or_none) and isolates its own errors.
+
+            def _call_enrich_data() -> tuple[str, dict | None]:
+                """Run the api_enrichment.enrich_data module."""
+                if enrich_data is None:
+                    return ("api_enrichment", None)
                 try:
-                    with _span_fn(
-                        "enrich", "API enrichment (BLS, salary, company intel)"
-                    ):
-                        # Feature 6c: propagate request_id to enrich_data
-                        _rid = getattr(self, "_request_id", None)
-                        enriched = (
-                            enrich_data(data, request_id=_rid)
-                            if _rid
-                            else enrich_data(data)
-                        ) or {}
-                    data["_enriched"] = enriched
+                    _rid = getattr(self, "_request_id", None)
+                    result = (
+                        enrich_data(data, request_id=_rid)
+                        if _rid
+                        else enrich_data(data)
+                    ) or {}
                     logger.info(
                         "API enrichment complete: %s",
-                        enriched.get("enrichment_summary", {}),
+                        result.get("enrichment_summary", {}),
                     )
-                except Exception as e:
-                    logger.warning("API enrichment failed (non-fatal): %s", e)
-                    data["_enriched"] = {}
-            else:
-                data["_enriched"] = {}
+                    return ("api_enrichment", result)
+                except Exception as exc:
+                    logger.warning("API enrichment failed (non-fatal): %s", exc)
+                    return ("api_enrichment", None)
 
-            # ── API Integrations: Market Context for /api/generate ──
-            if _api_integrations_available:
-                try:
-                    _market_ctx: dict = {}
-                    _roles_for_api = data.get("target_roles") or data.get("roles") or []
-                    _role_str = (
-                        _roles_for_api[0]
-                        if isinstance(_roles_for_api, list) and _roles_for_api
-                        else str(_roles_for_api)
-                    )
-                    if isinstance(_role_str, dict):
-                        _role_str = _role_str.get("title") or ""
-                    _role_str = str(_role_str) if _role_str else ""
-                    _locs_for_api = data.get("locations") or []
-                    _state_code = ""
-                    if _locs_for_api:
-                        _first_loc = (
-                            _locs_for_api[0]
-                            if isinstance(_locs_for_api, list)
-                            else str(_locs_for_api)
-                        )
-                        if isinstance(_first_loc, dict):
-                            _state_code = _first_loc.get("state") or ""
-                        elif isinstance(_first_loc, str):
-                            _parts = [p.strip() for p in _first_loc.split(",")]
-                            _state_code = _parts[1] if len(_parts) > 1 else ""
-                        if len(_state_code) > 2:
-                            _state_code = ""  # Only 2-letter state codes
-                    # Adzuna job count
+            def _call_adzuna() -> tuple[str, dict | None]:
+                """Fetch Adzuna job count for ALL roles (up to 5)."""
+                if not (
+                    _api_integrations_available and _api_adzuna and _roles_normalized
+                ):
+                    return ("adzuna_job_count", None)
+                per_role: list[dict[str, Any]] = []
+                for _ri in _roles_normalized:
                     try:
-                        if _api_adzuna and _role_str:
-                            _adzuna_count = _api_adzuna.get_job_count(_role_str, "us")
-                            if _adzuna_count:
-                                _market_ctx["adzuna_job_count"] = _adzuna_count
-                                logger.info(
-                                    "Enriched /api/generate with adzuna job_count data"
-                                )
+                        count = _api_adzuna.get_job_count(_ri["title"], "us")
+                        if count:
+                            per_role.append({"role": _ri["title"], "count": count})
                     except (
                         urllib.error.URLError,
                         OSError,
                         ValueError,
                         TypeError,
-                    ) as _ae:
+                    ) as exc:
                         logger.error(
-                            "Adzuna enrichment for /api/generate failed: %s",
-                            _ae,
+                            f"Adzuna enrichment for role '{_ri['title']}' failed: {exc}",
                             exc_info=True,
                         )
-                    # BLS occupational employment
+                if not per_role:
+                    return ("adzuna_job_count", None)
+                total = sum(
+                    r["count"] for r in per_role if isinstance(r["count"], (int, float))
+                )
+                logger.info(
+                    f"Enriched /api/generate with adzuna data for {len(per_role)} role(s)"
+                )
+                return (
+                    "adzuna_job_count",
+                    {
+                        "total": total,
+                        "per_role": per_role,
+                    },
+                )
+
+            def _call_bls() -> tuple[str, dict | None]:
+                """Fetch BLS occupational employment data for ALL roles with SOC codes."""
+                if not (_api_integrations_available and _api_bls):
+                    return ("bls_occupational_employment", None)
+                per_role: list[dict[str, Any]] = []
+                for _ri in _roles_normalized:
+                    _soc = _ri.get("soc") or ""
+                    if not _soc:
+                        continue
                     try:
-                        if _api_bls and _role_str:
-                            # Try to get SOC code from data or use role string
-                            _soc = ""
-                            for _rr in (
-                                _roles_for_api
-                                if isinstance(_roles_for_api, list)
-                                else []
-                            ):
-                                if isinstance(_rr, dict):
-                                    _soc = _rr.get("_soc_code") or ""
-                                    break
-                            if _soc:
-                                _bls_oes = _api_bls.get_occupational_employment(_soc)
-                                if _bls_oes:
-                                    _market_ctx["bls_occupational_employment"] = (
-                                        _bls_oes
-                                    )
-                                    logger.info(
-                                        "Enriched /api/generate with bls OES data"
-                                    )
-                    except (
-                        urllib.error.URLError,
-                        OSError,
-                        ValueError,
-                        TypeError,
-                    ) as _be:
-                        logger.error(
-                            "BLS enrichment for /api/generate failed: %s",
-                            _be,
-                            exc_info=True,
-                        )
-                    # FRED unemployment rate
-                    try:
-                        if _api_fred:
-                            _fred_unemp = _api_fred.get_unemployment_rate(
-                                state_code=_state_code if _state_code else None
+                        oes = _api_bls.get_occupational_employment(_soc)
+                        if oes:
+                            per_role.append(
+                                {"role": _ri["title"], "soc": _soc, "data": oes}
                             )
-                            if _fred_unemp:
-                                _market_ctx["fred_unemployment"] = _fred_unemp
-                                logger.info(
-                                    "Enriched /api/generate with fred unemployment data"
-                                )
                     except (
                         urllib.error.URLError,
                         OSError,
                         ValueError,
                         TypeError,
-                    ) as _fe:
+                    ) as exc:
                         logger.error(
-                            "FRED enrichment for /api/generate failed: %s",
-                            _fe,
+                            f"BLS enrichment for role '{_ri['title']}' (SOC {_soc}) failed: {exc}",
                             exc_info=True,
                         )
-                    if _market_ctx:
-                        data["market_context"] = _market_ctx
-                except Exception as _mkt_err:
+                if not per_role:
+                    return ("bls_occupational_employment", None)
+                logger.info(
+                    f"Enriched /api/generate with BLS OES data for {len(per_role)} role(s)"
+                )
+                # Return first role's data at top level for backward compat, plus per_role array
+                return (
+                    "bls_occupational_employment",
+                    {
+                        **per_role[0]["data"],
+                        "per_role": per_role,
+                    },
+                )
+
+            def _call_fred() -> tuple[str, dict | None]:
+                """Fetch FRED unemployment rate (optionally by state)."""
+                if not (_api_integrations_available and _api_fred):
+                    return ("fred_unemployment", None)
+                try:
+                    unemp = _api_fred.get_unemployment_rate(
+                        state_code=_state_code if _state_code else None
+                    )
+                    if unemp:
+                        logger.info(
+                            "Enriched /api/generate with fred unemployment data"
+                        )
+                        return ("fred_unemployment", unemp)
+                    return ("fred_unemployment", None)
+                except (urllib.error.URLError, OSError, ValueError, TypeError) as exc:
                     logger.error(
-                        "Market context enrichment failed (non-fatal): %s",
-                        _mkt_err,
+                        "FRED enrichment for /api/generate failed: %s",
+                        exc,
                         exc_info=True,
                     )
+                    return ("fred_unemployment", None)
+
+            def _call_jobspy() -> tuple[str, dict | None]:
+                """Fetch JobSpy market stats for ALL roles (posting volume + salary)."""
+                if not (
+                    _jobspy_available and _jobspy_market_stats and _roles_normalized
+                ):
+                    return ("jobspy_market_stats", None)
+                per_role: list[dict[str, Any]] = []
+                for _ri in _roles_normalized:
+                    try:
+                        stats = _jobspy_market_stats(_ri["title"], _js_loc)
+                        if stats:
+                            per_role.append({"role": _ri["title"], **stats})
+                    except (ValueError, TypeError, KeyError, OSError) as exc:
+                        logger.error(
+                            f"JobSpy enrichment for role '{_ri['title']}' failed: {exc}",
+                            exc_info=True,
+                        )
+                if not per_role:
+                    return ("jobspy_market_stats", None)
+                # Aggregate totals
+                total_postings = sum(r.get("total_postings") or 0 for r in per_role)
+                avg_salaries = [
+                    r["avg_salary"] for r in per_role if r.get("avg_salary")
+                ]
+                avg_salary = (
+                    round(sum(avg_salaries) / len(avg_salaries), 2)
+                    if avg_salaries
+                    else None
+                )
+                logger.info(
+                    f"Enriched /api/generate with jobspy stats for {len(per_role)} role(s) "
+                    f"({total_postings} postings, avg_salary={avg_salary})"
+                )
+                return (
+                    "jobspy_market_stats",
+                    {
+                        "total_postings": total_postings,
+                        "avg_salary": avg_salary,
+                        "per_role": per_role,
+                    },
+                )
+
+            # -- Dispatch all enrichment tasks concurrently (20s combined timeout) --
+            _enrich_tasks = [
+                _call_enrich_data,
+                _call_adzuna,
+                _call_bls,
+                _call_fred,
+                _call_jobspy,
+            ]
+            _parallel_t0 = time.time()
+
+            try:
+                with _span_fn(
+                    "enrich_parallel",
+                    "Parallel API enrichment (5 sources, 20s timeout)",
+                ):
+                    with ThreadPoolExecutor(
+                        max_workers=5, thread_name_prefix="gen-enrich"
+                    ) as pool:
+                        futures = {
+                            pool.submit(fn): fn.__doc__ or fn.__name__
+                            for fn in _enrich_tasks
+                        }
+                        for future in as_completed(futures, timeout=20):
+                            try:
+                                name, result = future.result()
+                                if name == "api_enrichment":
+                                    if result:
+                                        enriched = result
+                                else:
+                                    if result is not None:
+                                        _market_ctx[name] = result
+                            except Exception as exc:
+                                logger.warning(
+                                    "Generate enrichment task error: %s", exc
+                                )
+            except FuturesTimeoutError:
+                logger.warning(
+                    "Parallel enrichment hit 20s timeout -- using partial results "
+                    "(completed in %.1fs)",
+                    time.time() - _parallel_t0,
+                )
+            except Exception as exc:
+                logger.error("Parallel enrichment pool failed: %s", exc, exc_info=True)
+
+            data["_enriched"] = enriched
+            if _market_ctx:
+                data["market_context"] = _market_ctx
+
+            logger.info(
+                "Parallel enrichment completed in %.2fs (sources: %s)",
+                time.time() - _parallel_t0,
+                ", ".join(
+                    ["api_enrichment"] * bool(enriched) + list(_market_ctx.keys())
+                )
+                or "none",
+            )
 
             # ── PostHog: Track enrichment pipeline completion ──
-            _enrich_apis_used = []
+            _enrich_apis_used: list[str] = []
             if data.get("_enriched"):
                 _enrich_apis_used.append("api_enrichment")
             if data.get("market_context"):
@@ -9149,50 +9457,6 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         "total_latency_ms": round((time.time() - start_time) * 1000),
                     },
                 )
-
-            # ── JobSpy: Real job posting volume + salary data for /api/generate ──
-            if _jobspy_available and _jobspy_market_stats:
-                try:
-                    _js_role = ""
-                    _js_roles = data.get("target_roles") or data.get("roles") or []
-                    if isinstance(_js_roles, list) and _js_roles:
-                        _js_first = _js_roles[0]
-                        _js_role = (
-                            _js_first.get("title")
-                            if isinstance(_js_first, dict)
-                            else str(_js_first)
-                        )
-                    _js_role = str(_js_role) if _js_role else ""
-                    if _js_role:
-                        _js_loc_raw = data.get("locations") or []
-                        _js_loc = "USA"
-                        if isinstance(_js_loc_raw, list) and _js_loc_raw:
-                            _js_first_loc = _js_loc_raw[0]
-                            if isinstance(_js_first_loc, str):
-                                _js_loc = _js_first_loc
-                            elif isinstance(_js_first_loc, dict):
-                                _js_loc = (
-                                    _js_first_loc.get("city")
-                                    or _js_first_loc.get("state")
-                                    or "USA"
-                                )
-                        _js_stats = _jobspy_market_stats(_js_role, _js_loc)
-                        if _js_stats:
-                            _mctx = data.get("market_context") or {}
-                            _mctx["jobspy_market_stats"] = _js_stats
-                            data["market_context"] = _mctx
-                            logger.info(
-                                "Enriched /api/generate with jobspy market stats "
-                                "(%d postings, avg_salary=%s)",
-                                _js_stats.get("total_postings") or 0,
-                                _js_stats.get("avg_salary"),
-                            )
-                except (ValueError, TypeError, KeyError, OSError) as _js_err:
-                    logger.error(
-                        "JobSpy enrichment for /api/generate failed: %s",
-                        _js_err,
-                        exc_info=True,
-                    )
 
             # ── Phase 2: Load Knowledge Base ──
             with _span_fn("kb.load", "Load knowledge base"):
@@ -9545,6 +9809,10 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 r"[^a-zA-Z0-9_\-]", "_", data.get("client_name") or "Client"
             )
 
+            # Store plan results JSON for on-screen dashboard
+            _plan_id = uuid.uuid4().hex[:12]
+            _store_plan_result(_plan_id, data)
+
             # Generate Strategy PPT deck (7-tier fallback via DeckGenerator)
             pptx_bytes = None
             pptx_warning = None
@@ -9633,6 +9901,8 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     f'attachment; filename="{client_name}_Media_Plan_Bundle.zip"',
                 )
                 self.send_header("Content-Length", str(len(zip_bytes)))
+                self.send_header("X-Plan-Id", _plan_id)
+                self.send_header("Access-Control-Expose-Headers", "X-Plan-Id")
                 self.end_headers()
                 self.wfile.write(zip_bytes)
                 generation_time = time.time() - start_time
@@ -9726,6 +9996,10 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     f'attachment; filename="{client_name}_Media_Plan.xlsx"',
                 )
                 self.send_header("Content-Length", str(len(excel_bytes)))
+                self.send_header("X-Plan-Id", _plan_id)
+                self.send_header(
+                    "Access-Control-Expose-Headers", "X-Plan-Id, X-PPT-Warning"
+                )
                 if pptx_warning:
                     self.send_header("X-PPT-Warning", pptx_warning)
                 self.end_headers()

@@ -3263,6 +3263,162 @@
       }
 
       /* ============================================
+           PLAN DASHBOARD ENHANCEMENTS (server-driven)
+           ============================================ */
+      .plan-market-insights {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+      }
+      .plan-insight-item {
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 10px;
+        padding: 16px;
+      }
+      .plan-insight-item .insight-label {
+        font-size: 0.7rem;
+        color: #6b7280;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 6px;
+      }
+      .plan-insight-item .insight-val {
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--text);
+      }
+      .plan-insight-item .insight-val.favorable {
+        color: #6bb3cd;
+      }
+      .plan-insight-item .insight-val.moderate {
+        color: #f59e0b;
+      }
+      .plan-insight-item .insight-val.challenging {
+        color: #ef4444;
+      }
+      .plan-svg-chart {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 12px;
+        padding: 20px;
+        overflow-x: auto;
+      }
+      .plan-table-wrap {
+        overflow-x: auto;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+      }
+      .plan-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.85rem;
+      }
+      .plan-table th {
+        background: rgba(255, 255, 255, 0.06);
+        color: #a1a1a1;
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 0.7rem;
+        letter-spacing: 0.5px;
+        padding: 12px 16px;
+        text-align: left;
+        cursor: pointer;
+        user-select: none;
+        white-space: nowrap;
+      }
+      .plan-table th:hover {
+        color: white;
+      }
+      .plan-table th .sort-arrow {
+        opacity: 0.4;
+        margin-left: 4px;
+      }
+      .plan-table th.sorted .sort-arrow {
+        opacity: 1;
+        color: var(--accent);
+      }
+      .plan-table td {
+        padding: 12px 16px;
+        color: var(--text-secondary);
+        border-top: 1px solid rgba(255, 255, 255, 0.04);
+      }
+      .plan-table tr:hover td {
+        background: rgba(255, 255, 255, 0.03);
+      }
+      .plan-recs-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+      .plan-recs-list li {
+        padding: 10px 0;
+        font-size: 0.88rem;
+        color: var(--text-secondary);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+      }
+      .plan-recs-list li:last-child {
+        border-bottom: none;
+      }
+      .plan-rec-icon {
+        flex-shrink: 0;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: rgba(90, 84, 189, 0.15);
+        color: var(--accent);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.7rem;
+        font-weight: 700;
+        margin-top: 1px;
+      }
+      .plan-clear-form {
+        background: transparent;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        color: var(--text-muted);
+        font-size: 0.78rem;
+        padding: 6px 14px;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-family: inherit;
+      }
+      .plan-clear-form:hover {
+        border-color: #ef4444;
+        color: #ef4444;
+      }
+      .form-restored-toast {
+        position: fixed;
+        bottom: 24px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(90, 84, 189, 0.9);
+        color: white;
+        padding: 10px 24px;
+        border-radius: 10px;
+        font-size: 0.82rem;
+        z-index: 9999;
+        backdrop-filter: blur(12px);
+        animation: fadeInUp 0.4s ease-out;
+        pointer-events: none;
+      }
+      @media (max-width: 768px) {
+        .plan-market-insights {
+          grid-template-columns: repeat(2, 1fr);
+        }
+      }
+      @media (max-width: 480px) {
+        .plan-market-insights {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      /* ============================================
            SKIP NAVIGATION (Accessibility)
            ============================================ */
       .skip-nav {
@@ -6340,6 +6496,14 @@
           <span>Based on real campaign data</span>
           <span class="conf-dot"></span>
           <span>No signup required</span>
+          <span class="conf-dot"></span>
+          <button
+            class="plan-clear-form"
+            onclick="clearFormState()"
+            type="button"
+          >
+            Clear Form
+          </button>
         </div>
       </div>
     </main>
@@ -6884,309 +7048,300 @@
       // ============================================
       // Plan Summary Dashboard Builder
       // ============================================
-      function buildPlanDashboard(payload) {
+      function buildPlanDashboard(payload, serverData) {
         const container = document.getElementById("planDashboardContent");
         if (!container) return;
+        const sd = serverData || {};
+        const channels = sd.channels || [];
+        const bs = sd.budget_summary || {};
+        const mi = sd.market_insights || {};
+        const recs = sd.recommendations || [];
+        const meta = sd.metadata || {};
 
-        // Parse budget for display
-        const budgetRaw = payload.budget_range || "Not specified";
-        const budgetDisplay = budgetRaw;
+        // Fallback values from payload when server data is unavailable
+        const budgetDisplay = bs.total
+          ? "$" + Number(bs.total).toLocaleString()
+          : payload.budget_range || "Not specified";
+        const rolesCount = (meta.roles || payload.target_roles || []).length;
+        const locationsCount = (meta.locations || payload.locations || [])
+          .length;
+        const channelCount =
+          channels.length ||
+          Object.keys(payload.channel_categories || {}).filter(
+            (k) => payload.channel_categories[k] !== false,
+          ).length;
 
-        // Channel allocation defaults by category (percentages)
-        const channelCategories = payload.channel_categories || {};
-        const enabledChannels = [];
-        const channelMeta = {
-          programmatic_dsp: {
-            label: "Programmatic / DSP",
-            pct: 35,
-            type: "programmatic",
-            bar: "bar-cyan",
-            cpc: "$0.30-$1.20",
-          },
-          global_boards: {
-            label: "Global Job Boards",
-            pct: 20,
-            type: "major",
-            bar: "bar-indigo",
-            cpc: "$0.50-$2.00",
-          },
-          niche_boards: {
-            label: "Niche / Specialty Boards",
-            pct: 15,
-            type: "major",
-            bar: "bar-indigo",
-            cpc: "$0.80-$3.50",
-          },
-          social_media: {
-            label: "Social Media",
-            pct: 12,
-            type: "social",
-            bar: "bar-green",
-            cpc: "$0.40-$1.80",
-          },
-          regional_boards: {
-            label: "Regional Boards",
-            pct: 8,
-            type: "other",
-            bar: "bar-amber",
-            cpc: "$0.60-$2.50",
-          },
-          employer_branding: {
-            label: "Employer Branding",
-            pct: 5,
-            type: "other",
-            bar: "bar-rose",
-            cpc: "$1.00-$4.00",
-          },
-          apac_regional: {
-            label: "APAC Regional",
-            pct: 3,
-            type: "other",
-            bar: "bar-amber",
-            cpc: "$0.25-$1.50",
-          },
-          emea_regional: {
-            label: "EMEA Regional",
-            pct: 2,
-            type: "other",
-            bar: "bar-amber",
-            cpc: "$0.35-$1.80",
-          },
-        };
-
-        // Determine which channels are enabled
-        let totalPct = 0;
-        for (const [key, meta] of Object.entries(channelMeta)) {
-          if (channelCategories[key] !== false) {
-            enabledChannels.push({ key, ...meta });
-            totalPct += meta.pct;
-          }
+        // Compute avg CPC from server channels
+        let avgCpc = "N/A";
+        if (channels.length > 0) {
+          const cpcNums = channels
+            .map((c) => parseFloat(String(c.cpc_range).replace(/[^0-9.]/g, "")))
+            .filter((n) => n > 0);
+          if (cpcNums.length > 0)
+            avgCpc =
+              "$" +
+              (cpcNums.reduce((a, b) => a + b, 0) / cpcNums.length).toFixed(2);
         }
 
-        // Normalize percentages to 100
-        if (totalPct > 0 && totalPct !== 100) {
-          enabledChannels.forEach((ch) => {
-            ch.pct = Math.round((ch.pct / totalPct) * 100);
-          });
-        }
+        const hiringDiff = mi.hiring_difficulty || "moderate";
+        const diffClass = /easy|low|favorable/i.test(hiringDiff)
+          ? "favorable"
+          : /hard|high|challenging|difficult/i.test(hiringDiff)
+            ? "challenging"
+            : "moderate";
 
-        // Compute summary metrics
-        const rolesCount = (payload.target_roles || []).length;
-        const locationsCount = (payload.locations || []).length;
-        const channelCount = enabledChannels.length;
-        const goalsCount = (payload.campaign_goals || []).length;
-
-        // Build recommended strategy decision line
-        const topChannels = enabledChannels
-          .slice(0, 2)
-          .map((c) => c.label)
-          .join(" + ");
-        const decisionText =
-          "Focus on " +
-          topChannels +
-          " for fastest hiring at optimal cost-per-application.";
-
-        // Build metrics row HTML
         let html = '<div class="plan-dashboard">';
-        html += '<div class="plan-decision-card">';
-        html += '<div class="plan-decision-label">Recommended Strategy</div>';
-        html +=
-          '<div class="plan-decision-text">' +
-          escapeHtml(decisionText) +
-          "</div>";
-        html += "</div>";
 
-        // ── "Why This Plan Works" collapsible reasoning section ──
-        const industryLabel = (payload.industry || "your").replace(/_/g, " ");
-        html += '<div class="plan-reasoning">';
-        html += "<details>";
-        html += "<summary>Why This Plan Works</summary>";
-        html += '<ul class="plan-reasoning-list">';
-        html += '<li class="plan-reasoning-item">';
-        html += '<span class="plan-reasoning-icon">1</span>';
+        // ── 1. Summary Cards Row ──
         html +=
-          "<span>Channel selection optimized for " +
-          escapeHtml(industryLabel) +
-          " hiring patterns</span>";
-        html += "</li>";
-        html += '<li class="plan-reasoning-item">';
-        html += '<span class="plan-reasoning-icon">2</span>';
-        html +=
-          "<span>Budget split weighted by cost-per-application benchmarks</span>";
-        html += "</li>";
-        html += '<li class="plan-reasoning-item">';
-        html += '<span class="plan-reasoning-icon">3</span>';
-        html +=
-          "<span>Timeline aligned with typical " +
-          escapeHtml(industryLabel) +
-          " hiring velocity</span>";
-        html += "</li>";
-        html += "</ul>";
-        html += "</details>";
-        html += "</div>";
-
-        html +=
-          '<div class="plan-dashboard-title">Plan Summary Dashboard</div>';
-
+          '<div class="plan-dashboard-title">Plan Results Dashboard</div>';
         html += '<div class="plan-metrics-row">';
-        html += '<div class="plan-metric-card">';
-        html += '<div class="plan-metric-label">Budget</div>';
         html +=
-          '<div class="plan-metric-value accent">' +
+          '<div class="plan-metric-card"><div class="plan-metric-label">Total Budget</div><div class="plan-metric-value accent">' +
           escapeHtml(budgetDisplay) +
-          "</div>";
+          "</div></div>";
+        html +=
+          '<div class="plan-metric-card"><div class="plan-metric-label">Channels Selected</div><div class="plan-metric-value">' +
+          channelCount +
+          "</div></div>";
+        html +=
+          '<div class="plan-metric-card"><div class="plan-metric-label">Avg CPC</div><div class="plan-metric-value">' +
+          escapeHtml(avgCpc) +
+          "</div></div>";
+        html +=
+          '<div class="plan-metric-card"><div class="plan-metric-label">Hiring Difficulty</div><div class="plan-metric-value ' +
+          diffClass +
+          '">' +
+          escapeHtml(hiringDiff.charAt(0).toUpperCase() + hiringDiff.slice(1)) +
+          "</div></div>";
         html += "</div>";
-        html += '<div class="plan-metric-card">';
-        html += '<div class="plan-metric-label">Target Roles</div>';
-        html += '<div class="plan-metric-value">' + rolesCount + "</div>";
-        html += "</div>";
-        html += '<div class="plan-metric-card">';
-        html += '<div class="plan-metric-label">Locations</div>';
-        html += '<div class="plan-metric-value">' + locationsCount + "</div>";
-        html += "</div>";
-        html += '<div class="plan-metric-card">';
-        html += '<div class="plan-metric-label">Channels</div>';
-        html += '<div class="plan-metric-value">' + channelCount + "</div>";
-        html += "</div>";
-        html += "</div>"; // .plan-metrics-row
 
-        // Channel allocation bars
-        html += '<div class="plan-section-label">Channel Allocation</div>';
-        html += '<div class="plan-channels">';
-        enabledChannels
-          .sort((a, b) => b.pct - a.pct)
-          .forEach((ch) => {
-            html += '<div class="plan-channel-bar">';
+        // ── 2. Channel Allocation Chart (inline SVG) ──
+        if (channels.length > 0) {
+          html +=
+            '<div class="plan-section-label">Channel Budget Allocation</div>';
+          html += '<div class="plan-svg-chart">';
+          const maxBudget = Math.max(...channels.map((c) => c.budget), 1);
+          const barH = 28,
+            gap = 8,
+            labelW = 150,
+            chartW = 500,
+            padR = 90;
+          const svgH = channels.length * (barH + gap) + 10;
+          const colors = [
+            "#5a54bd",
+            "#6bb3cd",
+            "#7b75d4",
+            "#f59e0b",
+            "#06b6d4",
+            "#f43f5e",
+            "#a78bfa",
+            "#34d399",
+          ];
+          html +=
+            '<svg width="100%" viewBox="0 0 ' +
+            (labelW + chartW + padR) +
+            " " +
+            svgH +
+            '" role="img" aria-label="Channel allocation chart">';
+          channels.forEach((ch, i) => {
+            const y = i * (barH + gap) + 5;
+            const w = Math.max((ch.budget / maxBudget) * chartW, 4);
+            const col = colors[i % colors.length];
             html +=
-              '<div class="plan-channel-name">' +
-              escapeHtml(ch.label) +
-              "</div>";
-            html += '<div class="plan-channel-track">';
+              '<text x="' +
+              (labelW - 8) +
+              '" y="' +
+              (y + barH / 2 + 4) +
+              '" fill="#a1a1a1" font-size="12" text-anchor="end" font-family="Inter,sans-serif">' +
+              escapeHtml(ch.name) +
+              "</text>";
             html +=
-              '<div class="plan-channel-fill ' +
-              ch.bar +
-              '" style="width: 0%" data-target-width="' +
-              ch.pct +
-              '%"></div>';
-            html += "</div>";
-            html += '<div class="plan-channel-value">' + ch.pct + "%</div>";
-            html += "</div>";
+              '<rect x="' +
+              labelW +
+              '" y="' +
+              y +
+              '" width="0" height="' +
+              barH +
+              '" rx="4" fill="' +
+              col +
+              '" opacity="0.85"><animate attributeName="width" from="0" to="' +
+              w +
+              '" dur="0.8s" fill="freeze" begin="0.' +
+              i * 1 +
+              's"/></rect>';
+            html +=
+              '<text x="' +
+              (labelW + w + 8) +
+              '" y="' +
+              (y + barH / 2 + 4) +
+              '" fill="#d4d4d8" font-size="11" font-family="Inter,sans-serif" font-weight="600">$' +
+              Number(ch.budget).toLocaleString() +
+              " (" +
+              ch.allocation_pct +
+              "%)</text>";
           });
-        html += "</div>"; // .plan-channels
+          html += "</svg></div>";
+        }
 
-        // Channel detail cards
-        html += '<div class="plan-section-label">Channel Details</div>';
-        html += '<div class="plan-channel-cards">';
-        enabledChannels.forEach((ch) => {
-          const badgeClass =
-            ch.type === "major"
-              ? "badge-major"
-              : ch.type === "programmatic"
-                ? "badge-programmatic"
-                : ch.type === "social"
-                  ? "badge-social"
-                  : "badge-other";
-          html += '<div class="plan-channel-card">';
+        // ── 3. Channel Details Table (sortable) ──
+        if (channels.length > 0) {
+          html += '<div class="plan-section-label">Channel Details</div>';
           html +=
-            '<div class="plan-channel-card-name">' +
-            escapeHtml(ch.label) +
-            "</div>";
+            '<div class="plan-table-wrap"><table class="plan-table" id="planChannelTable">';
+          html += "<thead><tr>";
           html +=
-            '<span class="plan-channel-badge ' +
-            badgeClass +
+            '<th data-col="name">Channel <span class="sort-arrow">&#9650;</span></th>';
+          html +=
+            '<th data-col="budget">Budget <span class="sort-arrow">&#9650;</span></th>';
+          html +=
+            '<th data-col="allocation_pct">% <span class="sort-arrow">&#9650;</span></th>';
+          html +=
+            '<th data-col="cpc_range">CPC Range <span class="sort-arrow">&#9650;</span></th>';
+          html +=
+            '<th data-col="cpa_range">CPA Range <span class="sort-arrow">&#9650;</span></th>';
+          html +=
+            '<th data-col="projected_clicks">Proj. Clicks <span class="sort-arrow">&#9650;</span></th>';
+          html += "</tr></thead><tbody>";
+          channels.forEach((ch) => {
+            html += "<tr>";
+            html +=
+              '<td style="color:white;font-weight:500">' +
+              escapeHtml(ch.name) +
+              "</td>";
+            html += "<td>$" + Number(ch.budget).toLocaleString() + "</td>";
+            html += "<td>" + ch.allocation_pct + "%</td>";
+            html += "<td>" + escapeHtml(ch.cpc_range) + "</td>";
+            html += "<td>" + escapeHtml(ch.cpa_range) + "</td>";
+            html +=
+              "<td>" + Number(ch.projected_clicks).toLocaleString() + "</td>";
+            html += "</tr>";
+          });
+          html += "</tbody></table></div>";
+        }
+
+        // ── 4. Market Insights Panel ──
+        html += '<div class="plan-section-label">Market Insights</div>';
+        html += '<div class="plan-market-insights">';
+        const insightItems = [
+          {
+            label: "Hiring Difficulty",
+            val: mi.hiring_difficulty || "moderate",
+          },
+          { label: "Competition Level", val: mi.competition_level || "medium" },
+          { label: "Salary Range", val: mi.salary_range || "N/A" },
+          { label: "Demand Trend", val: mi.demand_trend || "stable" },
+        ];
+        insightItems.forEach((item) => {
+          const cls = /easy|low|favorable|growing|high.demand/i.test(item.val)
+            ? "favorable"
+            : /hard|challenging|difficult|declining/i.test(item.val)
+              ? "challenging"
+              : "moderate";
+          html +=
+            '<div class="plan-insight-item"><div class="insight-label">' +
+            escapeHtml(item.label) +
+            '</div><div class="insight-val ' +
+            cls +
             '">' +
-            escapeHtml(ch.type) +
-            "</span>";
-          html += '<div class="plan-channel-card-stat">';
-          html += '<span class="stat-label">Allocation</span>';
-          html += '<span class="stat-value">' + ch.pct + "%</span>";
-          html += "</div>";
-          html += '<div class="plan-channel-card-stat">';
-          html += '<span class="stat-label">Est. CPC Range</span>';
-          html += '<span class="stat-value">' + escapeHtml(ch.cpc) + "</span>";
-          html += "</div>";
-          html += '<div class="plan-channel-card-stat">';
-          html += '<span class="stat-label">Strength</span>';
+            escapeHtml(
+              String(item.val).charAt(0).toUpperCase() +
+                String(item.val).slice(1),
+            ) +
+            "</div></div>";
+        });
+        html += "</div>";
+
+        // ── 5. AI Recommendations ──
+        const finalRecs =
+          recs.length > 0
+            ? recs
+            : [
+                "Targeting " +
+                  rolesCount +
+                  " role(s) across " +
+                  locationsCount +
+                  " location(s).",
+                "Full channel strategy included in downloaded files.",
+                "Review plan and reallocate underperforming channels after 2 weeks.",
+              ];
+        html += '<div class="plan-section-label">AI Recommendations</div>';
+        html += '<div class="plan-insights-card"><ul class="plan-recs-list">';
+        finalRecs.forEach((r, i) => {
           html +=
-            '<span class="stat-value">' +
-            (ch.pct >= 15 ? "High" : ch.pct >= 8 ? "Medium" : "Low") +
-            "</span>";
-          html += "</div>";
-          html += "</div>";
+            '<li><span class="plan-rec-icon">' +
+            (i + 1) +
+            "</span><span>" +
+            escapeHtml(r) +
+            "</span></li>";
         });
-        html += "</div>"; // .plan-channel-cards
+        html += "</ul></div>";
 
-        // Recommendations / insights
-        const insights = [];
-        if (rolesCount > 0) {
-          insights.push(
-            "Targeting " +
-              rolesCount +
-              " role" +
-              (rolesCount > 1 ? "s" : "") +
-              ": " +
-              (payload.target_roles || [])
-                .slice(0, 3)
-                .map(escapeHtml)
-                .join(", ") +
-              (rolesCount > 3 ? ", and more" : ""),
-          );
-        }
-        if (locationsCount > 0) {
-          insights.push(
-            "Geographic coverage: " +
-              (payload.locations || []).slice(0, 3).map(escapeHtml).join(", ") +
-              (locationsCount > 3
-                ? " + " + (locationsCount - 3) + " more"
-                : ""),
-          );
-        }
-        if (goalsCount > 0) {
-          insights.push(
-            "Campaign goals: " +
-              (payload.campaign_goals || []).map(escapeHtml).join(", "),
-          );
-        }
-        if (payload.campaign_duration) {
-          insights.push("Duration: " + escapeHtml(payload.campaign_duration));
-        }
-        if (payload.hire_volume) {
-          insights.push(
-            "Target hire volume: " + escapeHtml(payload.hire_volume),
-          );
-        }
-        const industryLabel = payload.industry_label || payload.industry || "";
-        if (industryLabel) {
-          insights.push("Industry: " + escapeHtml(industryLabel));
-        }
-        insights.push(
-          "Full channel strategy, budget breakdowns, and hiring funnel projections are included in the downloaded Excel and PPT files.",
-        );
-
-        html += '<div class="plan-section-label">Key Insights</div>';
-        html += '<div class="plan-insights-card">';
-        html += "<ul>";
-        insights.forEach((insight) => {
-          html += "<li>" + insight + "</li>";
-        });
-        html += "</ul>";
-        html += "</div>"; // .plan-insights-card
+        // ── 6. Download Section ──
+        html += '<div class="plan-section-label">Downloads</div>';
+        html += '<div style="display:flex;gap:12px;flex-wrap:wrap">';
+        html +=
+          '<button onclick="redownloadBundle()" style="background:var(--accent);color:white;border:none;padding:10px 24px;border-radius:8px;cursor:pointer;font-family:inherit;font-weight:600;font-size:0.88rem;">Download Excel + PPT</button>';
+        html +=
+          '<button onclick="exportPlan(\'csv\')" style="background:rgba(255,255,255,0.08);color:var(--text-secondary);border:1px solid rgba(255,255,255,0.12);padding:10px 24px;border-radius:8px;cursor:pointer;font-family:inherit;font-weight:600;font-size:0.88rem;">Export CSV</button>';
+        html += "</div>";
 
         html += "</div>"; // .plan-dashboard
-
         container.innerHTML = html;
 
-        // Animate bars after render
-        requestAnimationFrame(() => {
-          setTimeout(() => {
-            container.querySelectorAll(".plan-channel-fill").forEach((bar) => {
-              const target = bar.dataset.targetWidth;
-              if (target) {
-                bar.style.width = target;
+        // Animate SVG bars (already handled by inline <animate>)
+
+        // Wire sortable table headers
+        const table = document.getElementById("planChannelTable");
+        if (table && channels.length > 0) {
+          let sortCol = null,
+            sortAsc = true;
+          table.querySelectorAll("th[data-col]").forEach((th) => {
+            th.addEventListener("click", function () {
+              const col = this.dataset.col;
+              if (sortCol === col) {
+                sortAsc = !sortAsc;
+              } else {
+                sortCol = col;
+                sortAsc = true;
               }
+              table
+                .querySelectorAll("th")
+                .forEach((h) => h.classList.remove("sorted"));
+              this.classList.add("sorted");
+              this.querySelector(".sort-arrow").innerHTML = sortAsc
+                ? "&#9650;"
+                : "&#9660;";
+              const sorted = [...channels].sort((a, b) => {
+                let va = a[col],
+                  vb = b[col];
+                if (typeof va === "number") return sortAsc ? va - vb : vb - va;
+                return sortAsc
+                  ? String(va).localeCompare(String(vb))
+                  : String(vb).localeCompare(String(va));
+              });
+              const tbody = table.querySelector("tbody");
+              tbody.innerHTML = "";
+              sorted.forEach((ch) => {
+                let row = "<tr>";
+                row +=
+                  '<td style="color:white;font-weight:500">' +
+                  escapeHtml(ch.name) +
+                  "</td>";
+                row += "<td>$" + Number(ch.budget).toLocaleString() + "</td>";
+                row += "<td>" + ch.allocation_pct + "%</td>";
+                row += "<td>" + escapeHtml(ch.cpc_range) + "</td>";
+                row += "<td>" + escapeHtml(ch.cpa_range) + "</td>";
+                row +=
+                  "<td>" +
+                  Number(ch.projected_clicks).toLocaleString() +
+                  "</td>";
+                row += "</tr>";
+                tbody.innerHTML += row;
+              });
             });
-          }, 100);
-        });
+          });
+        }
 
         // Show the dashboard section
         const section = document.getElementById("planDashboardSection");
@@ -7217,6 +7372,157 @@
           .catch(function (err) {
             console.error("Copy failed:", err);
           });
+      }
+
+      // ============================================
+      // Form State Persistence (sessionStorage)
+      // ============================================
+      const _FORM_STORAGE_KEY = "nova_plan_form";
+      function saveFormState() {
+        try {
+          const state = {
+            clientName:
+              (document.getElementById("clientName") || {}).value || "",
+            clientWebsite:
+              (document.getElementById("clientWebsite") || {}).value || "",
+            useCase: (document.getElementById("useCase") || {}).value || "",
+            budgetRange:
+              (document.getElementById("budgetRange") || {}).value || "",
+            exactBudget:
+              (document.getElementById("exactBudget") || {}).value || "",
+            campaignDuration:
+              (document.getElementById("campaignDuration") || {}).value || "",
+            campaignStartMonth:
+              (document.getElementById("campaignStartMonth") || {}).value || "",
+            hireVolume:
+              (document.getElementById("hireVolume") || {}).value || "",
+            exactHires:
+              (document.getElementById("exactHires") || {}).value || "",
+            targetDemographic:
+              (document.getElementById("targetDemographic") || {}).value || "",
+            requesterName:
+              (document.getElementById("requesterName") || {}).value || "",
+            requesterEmail:
+              (document.getElementById("requesterEmail") || {}).value || "",
+            selectedIndustry: selectedIndustry || null,
+            locations: locations || [],
+            roles: roles || [],
+            competitors: competitors || [],
+            ts: Date.now(),
+          };
+          sessionStorage.setItem(_FORM_STORAGE_KEY, JSON.stringify(state));
+        } catch (_e) {
+          /* quota exceeded or private browsing */
+        }
+      }
+      function restoreFormState() {
+        try {
+          const raw = sessionStorage.getItem(_FORM_STORAGE_KEY);
+          if (!raw) return false;
+          const s = JSON.parse(raw);
+          if (!s || !s.ts) return false;
+          // Only restore if saved within last 2 hours
+          if (Date.now() - s.ts > 7200000) {
+            sessionStorage.removeItem(_FORM_STORAGE_KEY);
+            return false;
+          }
+          const setVal = (id, val) => {
+            const el = document.getElementById(id);
+            if (el && val) el.value = val;
+          };
+          setVal("clientName", s.clientName);
+          setVal("clientWebsite", s.clientWebsite);
+          setVal("useCase", s.useCase);
+          setVal("budgetRange", s.budgetRange);
+          setVal("exactBudget", s.exactBudget);
+          setVal("campaignDuration", s.campaignDuration);
+          setVal("campaignStartMonth", s.campaignStartMonth);
+          setVal("hireVolume", s.hireVolume);
+          setVal("exactHires", s.exactHires);
+          setVal("targetDemographic", s.targetDemographic);
+          setVal("requesterName", s.requesterName);
+          setVal("requesterEmail", s.requesterEmail);
+          if (s.selectedIndustry) {
+            selectedIndustry = s.selectedIndustry;
+          }
+          if (Array.isArray(s.locations) && s.locations.length > 0) {
+            s.locations.forEach((loc) => {
+              if (typeof addTag === "function")
+                addTag("locationsContainer", "locationInput", locations, loc);
+              else locations.push(loc);
+            });
+          }
+          if (Array.isArray(s.roles) && s.roles.length > 0) {
+            s.roles.forEach((r) => {
+              if (typeof addTag === "function")
+                addTag("rolesContainer", "roleInput", roles, r);
+              else roles.push(r);
+            });
+          }
+          if (Array.isArray(s.competitors) && s.competitors.length > 0) {
+            s.competitors.forEach((c) => {
+              if (typeof addTag === "function")
+                addTag(
+                  "competitorsContainer",
+                  "competitorInput",
+                  competitors,
+                  c,
+                );
+              else competitors.push(c);
+            });
+          }
+          return true;
+        } catch (_e) {
+          return false;
+        }
+      }
+      function clearFormState() {
+        sessionStorage.removeItem(_FORM_STORAGE_KEY);
+        // Reset all fields
+        [
+          "clientName",
+          "clientWebsite",
+          "useCase",
+          "budgetRange",
+          "exactBudget",
+          "campaignDuration",
+          "campaignStartMonth",
+          "hireVolume",
+          "exactHires",
+          "targetDemographic",
+          "requesterName",
+          "requesterEmail",
+        ].forEach((id) => {
+          const el = document.getElementById(id);
+          if (el) el.value = "";
+        });
+        selectedIndustry = null;
+        locations = [];
+        roles = [];
+        competitors = [];
+        [
+          "locationsContainer",
+          "rolesContainer",
+          "competitorsContainer",
+        ].forEach((id) => {
+          const el = document.getElementById(id);
+          if (el) el.innerHTML = "";
+        });
+        // Reset industry selection visual
+        document
+          .querySelectorAll(".industry-card")
+          .forEach((c) => c.classList.remove("selected"));
+        showToast("Form cleared", "success");
+      }
+      function _wireFormPersistence() {
+        // Save on every input/change event in the form area
+        const form =
+          document.querySelector(".form-container") ||
+          document.querySelector("main");
+        if (form) {
+          form.addEventListener("input", saveFormState);
+          form.addEventListener("change", saveFormState);
+        }
       }
 
       // ============================================
@@ -7599,6 +7905,21 @@
             );
           });
         });
+
+        // Form state persistence: restore + wire auto-save
+        _wireFormPersistence();
+        const wasRestored = restoreFormState();
+        if (wasRestored) {
+          const toast = document.createElement("div");
+          toast.className = "form-restored-toast";
+          toast.textContent = "Restored from previous session";
+          document.body.appendChild(toast);
+          setTimeout(() => {
+            toast.style.opacity = "0";
+            toast.style.transition = "opacity 0.5s";
+            setTimeout(() => toast.remove(), 600);
+          }, 3000);
+        }
       }
 
       // ============================================
@@ -9029,8 +9350,23 @@
               heroSection.classList.add("visible");
             }
 
-            // Build and show the plan summary dashboard
-            buildPlanDashboard(payload);
+            // Fetch server-side plan results JSON for enhanced dashboard
+            const planId = response.headers.get("X-Plan-Id");
+            if (planId) {
+              try {
+                const prRes = await fetch(`/api/plan-results/${planId}`);
+                if (prRes.ok) {
+                  const planData = await prRes.json();
+                  buildPlanDashboard(payload, planData);
+                } else {
+                  buildPlanDashboard(payload, null);
+                }
+              } catch (_e) {
+                buildPlanDashboard(payload, null);
+              }
+            } else {
+              buildPlanDashboard(payload, null);
+            }
 
             // Scroll to dashboard (or hero section)
             const scrollTarget =
