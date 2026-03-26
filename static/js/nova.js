@@ -978,8 +978,15 @@
 
     var wrapper = document.createElement("div");
     wrapper.className = "message";
-    if (animate === false) wrapper.style.animation = "none";
-    if (animate === false) wrapper.style.opacity = "1";
+    if (animate === false) {
+      wrapper.style.animation = "none";
+      wrapper.style.opacity = "1";
+    } else {
+      // Safety net: force opacity if CSS animation fails to fire
+      setTimeout(function () {
+        wrapper.style.opacity = "1";
+      }, 350);
+    }
 
     var isUser = msg.role === "user";
 
