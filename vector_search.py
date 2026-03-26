@@ -1272,6 +1272,19 @@ def index_knowledge_base() -> int:
         "channels_db.json",
         "joveo_publishers.json",
         "international_sources.json",
+        # 2026 research files (added to close data flow gap)
+        "hr_tech_landscape_2026.json",
+        "publisher_benchmarks_2026.json",
+        "recruitment_marketing_trends_2026.json",
+        "labor_market_outlook_2026.json",
+        "salary_benchmarks_detailed_2026.json",
+        "ad_benchmarks_recruitment_2026.json",
+        "industry_hiring_patterns_2026.json",
+        "top_employers_by_city_2026.json",
+        "compliance_regulations_2026.json",
+        "agency_rpo_market_2026.json",
+        # H-1B salary intelligence (rich city-level wage data)
+        "h1b_salary_intelligence.json",
     ]
 
     documents: list[dict] = []

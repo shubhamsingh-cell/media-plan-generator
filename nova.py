@@ -1105,6 +1105,7 @@ _TOOL_LABELS: Dict[str, str] = {
     "query_h1b_salaries": "Searching H-1B salary data",
     "query_occupation_projections": "Loading occupation projections",
     "query_workforce_demographics": "Loading Census demographics",
+    "query_vendor_profiles": "Loading vendor profiles",
 }
 
 # Thread-local storage for tool status queue.
@@ -3114,6 +3115,14 @@ Before calling any tools, briefly plan which tools you need:
 - For competitive analysis: call analyze_competitors + query_market_signals + query_location_profile
 - For skills/occupation questions: call query_skills_profile + query_salary_data + query_market_demand
 - For "what roles are similar to X": call query_skills_profile with include='related'
+- For remote/distributed workforce questions: call query_remote_jobs + query_workforce_demographics
+- For federal/government hiring questions: call query_federal_jobs + query_h1b_salaries
+- For economic/market context questions: call query_regional_economics + query_labor_market_indicators
+- For skills/career path questions: call query_skills_profile + query_occupation_projections
+- For compliance/legal questions: call query_knowledge_base with topic="compliance"
+- For channel/platform questions: call query_remote_jobs + query_channels + query_benchmarks
+- For vendor/publisher questions: call query_vendor_profiles for platform-specific data (Indeed, LinkedIn, etc.)
+- For any hiring question: ALWAYS also call query_h1b_salaries for competitive salary intelligence
 - Always call at least 3 tools for substantive queries
 
 ## FORMATTING
@@ -4420,6 +4429,23 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                     "required": ["state"],
                 },
             },
+            {
+                "name": "query_vendor_profiles",
+                "description": "Get recruitment vendor/publisher profiles from the Supabase vendor_profiles table. Returns platform-specific data for job boards and recruitment channels (e.g., Indeed, LinkedIn, ZipRecruiter, Glassdoor). Includes vendor category, strengths, pricing model, audience reach, and best-fit industries. Use for questions like 'Tell me about Indeed as a recruitment platform', 'Compare LinkedIn vs ZipRecruiter', or 'Which job boards are best for healthcare hiring'.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "category": {
+                            "type": "string",
+                            "description": "Filter by vendor category (e.g., 'job_board', 'social', 'programmatic', 'niche'). Optional -- omit to get all vendors.",
+                        },
+                        "name": {
+                            "type": "string",
+                            "description": "Filter by vendor name (e.g., 'Indeed', 'LinkedIn'). Optional -- omit to get all vendors in category.",
+                        },
+                    },
+                },
+            },
         ]
 
     # ------------------------------------------------------------------
@@ -4493,6 +4519,7 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
             "query_h1b_salaries": self._query_h1b_salaries,
             "query_occupation_projections": self._query_occupation_projections,
             "query_workforce_demographics": self._query_workforce_demographics,
+            "query_vendor_profiles": self._query_vendor_profiles,
         }
 
     def execute_tool(self, tool_name: str, tool_input: dict) -> str:
@@ -8254,6 +8281,52 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                 "source": "Census-ACS",
             }
 
+    def _query_vendor_profiles(self, params: dict) -> dict:
+        """Query vendor/publisher profiles from Supabase.
+
+        Returns platform-specific data for recruitment channels including
+        strengths, pricing model, audience reach, and best-fit industries.
+
+        Args:
+            params: Dict with optional category and name filters.
+
+        Returns:
+            Dict with vendor profile data or error.
+        """
+        try:
+            from supabase_data import get_vendor_profiles
+
+            category = (params.get("category") or "").strip()
+            name_filter = (params.get("name") or "").strip()
+
+            profiles = get_vendor_profiles(category=category)
+
+            if name_filter:
+                profiles = [
+                    p
+                    for p in profiles
+                    if name_filter.lower() in (p.get("name") or "").lower()
+                ]
+
+            if not profiles:
+                return {
+                    "message": f"No vendor profiles found{f' for category={category}' if category else ''}{f' matching name={name_filter}' if name_filter else ''}",
+                    "source": "Supabase vendor_profiles",
+                    "count": 0,
+                }
+
+            return {
+                "vendors": profiles,
+                "count": len(profiles),
+                "source": "Supabase vendor_profiles",
+            }
+        except ImportError:
+            logger.warning("supabase_data module not available for vendor_profiles")
+            return {"error": "Vendor profiles data source not available"}
+        except Exception as e:
+            logger.error("query_vendor_profiles failed: %s", e, exc_info=True)
+            return {"error": f"Vendor profiles query failed: {e}"}
+
     # ------------------------------------------------------------------
     # Chat orchestration
     # ------------------------------------------------------------------
@@ -9588,10 +9661,21 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
             "List all numbered sources at the end of your response.\n\n"
             "## TOOL PLANNING (MANDATORY -- plan before calling)\n"
             "Before calling any tools, briefly plan which tools you need:\n"
-            "- For salary questions: call query_salary_data + query_market_demand + query_location_profile\n"
+            "- For salary questions: call query_salary_data + query_h1b_salaries + query_market_demand + query_location_profile\n"
+            "- For H-1B/visa salary questions: call query_h1b_salaries (city-level H-1B wage data with top employers)\n"
+            "- For labor market outlook: call query_occupation_projections + query_market_demand\n"
             "- For media plan questions: call query_budget_projection + query_channels + query_salary_data + query_market_demand + query_benchmarks\n"
             "- For comparison questions: call the relevant tool for EACH item being compared\n"
             "- For competitive analysis: call analyze_competitors + query_market_signals + query_location_profile\n"
+            "- For skills/occupation questions: call query_skills_profile + query_salary_data + query_market_demand\n"
+            "- For remote/distributed workforce questions: call query_remote_jobs + query_workforce_demographics\n"
+            "- For federal/government hiring questions: call query_federal_jobs + query_h1b_salaries\n"
+            "- For economic/market context questions: call query_regional_economics + query_labor_market_indicators\n"
+            "- For skills/career path questions: call query_skills_profile + query_occupation_projections\n"
+            "- For compliance/legal questions: call query_knowledge_base with topic='compliance'\n"
+            "- For channel/platform questions: call query_remote_jobs + query_channels + query_benchmarks\n"
+            "- For vendor/publisher questions: call query_vendor_profiles for platform-specific data (Indeed, LinkedIn, etc.)\n"
+            "- For any hiring question: ALWAYS also call query_h1b_salaries for competitive salary intelligence\n"
             "- Always call at least 3 tools for substantive queries\n\n"
             "## NEVER REFUSE\n"
             "You are a recruitment marketing expert. NEVER say 'I can't help'. "
@@ -13717,6 +13801,7 @@ _TOOL_SOURCE_MAP: Dict[str, str] = {
     "query_h1b_salaries": "DOL H-1B/LCA Salary Data",
     "query_occupation_projections": "CareerOneStop (Employment Projections)",
     "query_workforce_demographics": "US Census Bureau (Workforce Demographics)",
+    "query_vendor_profiles": "Supabase Vendor Profiles",
 }
 
 _FOLLOW_UP_TEMPLATES: Dict[str, List[str]] = {

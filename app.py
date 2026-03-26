@@ -139,6 +139,7 @@ try:
         get_compliance_rules,
         get_market_trends,
         get_supply_repository,
+        get_vendor_profiles,
     )
 
     _supabase_data_available = True
@@ -11547,6 +11548,17 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                 )
                                 if _sb_kb_insights:
                                     kb["_supabase_industry_insights"] = _sb_kb_insights
+                                # Vendor/publisher profiles for channel strategy
+                                try:
+                                    _sb_vendors = get_vendor_profiles()
+                                    if _sb_vendors:
+                                        kb["_supabase_vendor_profiles"] = _sb_vendors
+                                        gen_data["_vendor_profiles"] = _sb_vendors
+                                except Exception as _vp_err:
+                                    logger.warning(
+                                        "Vendor profiles enrichment failed (non-fatal): %s",
+                                        _vp_err,
+                                    )
                             except (
                                 urllib.error.URLError,
                                 OSError,
@@ -12623,6 +12635,18 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             # ── Phase 2: Load Knowledge Base ──
             with _span_fn("kb.load", "Load knowledge base"):
                 kb = load_knowledge_base()
+            # Enrich KB with vendor/publisher profiles for channel strategy
+            if _supabase_data_available:
+                try:
+                    _sb_vendors = get_vendor_profiles()
+                    if _sb_vendors:
+                        kb["_supabase_vendor_profiles"] = _sb_vendors
+                        data["_vendor_profiles"] = _sb_vendors
+                except Exception as _vp_err:
+                    logger.warning(
+                        "Vendor profiles enrichment failed (non-fatal): %s",
+                        _vp_err,
+                    )
             data["_knowledge_base"] = kb  # Pass KB to PPT for fallback data
 
             # ── TIMEOUT CHECK: Before data synthesis ──
