@@ -1,0 +1,155 @@
+{
+  "_metadata": {
+    "source_urls": [
+      "https://ppcchief.com/blog/average-cpc-by-ad-platform-2026",
+      "https://100hires.com/indeed-job-posting-cost.html",
+      "https://juicebox.ai/blog/linkedin-recruiter-pricing",
+      "https://www.pin.com/blog/linkedin-recruiter-pricing-2026/",
+      "https://www.jobscore.com/articles/recruiting-benchmarks/",
+      "https://www.joveo.com/blog/pay-per-application-vs-pay-per-click-navigating-job-site-pricing-models-to-get-the-results-you-want/",
+      "https://www.glassdoor.com/blog/the-cost-of-an-employer-brand/",
+      "https://www.getapp.com/hr-employee-management-software/a/ziprecruiter/pricing/"
+    ],
+    "researched_date": "2026-03-26",
+    "data_quality": "high",
+    "category": "Job Board & Publisher Benchmarks"
+  },
+  "platforms": [
+    {
+      "name": "Indeed",
+      "pricing_model": "Pay-per-click (shifting to pay-per-application)",
+      "avg_cpc_range_usd": {"min": 0.25, "max": 1.50},
+      "avg_cpa_range_usd": {"min": 5.00, "max": 30.00},
+      "click_to_apply_rate_pct": 5,
+      "reach": "350M+ monthly unique visitors globally",
+      "demographics": "Broad: hourly, skilled, professional, all levels",
+      "best_for": "Volume hiring, hourly/frontline roles",
+      "free_posting": true,
+      "sponsored_minimum_daily_usd": 5.00,
+      "key_metrics": {
+        "sponsored_vs_organic_visibility": "Sponsored jobs get 4.5x more visibility",
+        "apply_completion_rate_pct": 50,
+        "median_time_to_first_apply_hours": 4
+      },
+      "source": "100hires.com, ppcchief.com"
+    },
+    {
+      "name": "LinkedIn",
+      "pricing_model": "Subscription + per-job CPC/CPA",
+      "avg_cpc_usd": 5.26,
+      "recruiter_lite_monthly_usd": 170,
+      "recruiter_lite_annual_usd": 2040,
+      "recruiter_lite_inmails_per_month": 30,
+      "recruiter_corporate_monthly_usd": 900,
+      "recruiter_corporate_annual_usd": 10800,
+      "talent_insights_annual_range_usd": {"min": 6000, "max": 20000},
+      "staffing_recruiting_cpc_usd": {"min": 4.00, "max": 6.00},
+      "hidden_costs": "InMail overages ~$10 each, ~15% annual price hikes, job promotion separate",
+      "demographics": "1B+ members, strong in professional/executive roles",
+      "best_for": "Senior/specialized roles, passive candidates, employer branding",
+      "reach": "1 billion members in 200+ countries",
+      "key_metrics": {
+        "inmail_response_rate_pct": 18,
+        "job_view_to_apply_rate_pct": 3,
+        "avg_time_to_fill_days": 42
+      },
+      "source": "juicebox.ai, pin.com, ppcchief.com"
+    },
+    {
+      "name": "ZipRecruiter",
+      "pricing_model": "Per-job-slot subscription",
+      "standard_daily_per_job_usd": 16,
+      "premium_daily_per_job_usd": 24,
+      "monthly_plan_range_usd": {"min": 249, "max": 999},
+      "standard_monthly_per_job_usd": 399,
+      "premium_monthly_per_job_usd": 519,
+      "pro_monthly_per_job_usd": 899,
+      "extra_resume_view_usd": 1.00,
+      "extra_seat_monthly_usd": 15,
+      "unlimited_applications": true,
+      "demographics": "Broad: hourly, skilled, professional",
+      "best_for": "SMBs, multi-job posting, AI matching",
+      "reach": "25M+ monthly active job seekers",
+      "key_metrics": {
+        "ai_match_rate_pct": 80,
+        "avg_time_to_first_candidate_hours": 24
+      },
+      "source": "ziprecruiter.com, getapp.com"
+    },
+    {
+      "name": "Glassdoor",
+      "pricing_model": "Employer branding subscription (custom pricing)",
+      "free_employer_account": true,
+      "employer_branding_avg_spend_usd": {
+        "1_to_499_employees": 6300,
+        "500_to_3499_employees": 81400,
+        "3500_plus_employees": 335900,
+        "overall_average": 129000
+      },
+      "impact_metrics": {
+        "users_more_likely_to_apply_if_active_pct": 70,
+        "perception_improvement_when_responding_pct": 71,
+        "apply_lift_after_10_brand_exposures": "7x more likely",
+        "cost_per_hire_reduction_strong_brand_pct": 50
+      },
+      "demographics": "Job seekers researching company reviews and culture",
+      "best_for": "Employer branding, reputation management, candidate research",
+      "reach": "55M+ monthly unique visitors",
+      "source": "glassdoor.com, pricingnow.com"
+    },
+    {
+      "name": "CareerBuilder",
+      "pricing_model": "Per-job posting + resume database",
+      "single_job_30_day_usd": 375,
+      "resume_database_monthly_usd": 599,
+      "demographics": "Broad professional roles",
+      "best_for": "Traditional professional hiring, resume sourcing",
+      "reach": "20M+ monthly visitors",
+      "source": "Industry estimates"
+    },
+    {
+      "name": "Monster",
+      "pricing_model": "Per-job posting + subscription",
+      "single_job_30_day_usd": 299,
+      "demographics": "Broad: entry-level to mid-career",
+      "best_for": "Volume posting, entry-level to mid-career",
+      "reach": "15M+ monthly visitors",
+      "source": "Industry estimates"
+    },
+    {
+      "name": "Dice",
+      "pricing_model": "Subscription",
+      "annual_subscription_range_usd": {"min": 3000, "max": 8000},
+      "demographics": "Technology professionals",
+      "best_for": "Tech hiring, IT roles",
+      "reach": "5M+ monthly visitors (tech-focused)",
+      "source": "Industry estimates"
+    },
+    {
+      "name": "Handshake",
+      "pricing_model": "Freemium + premium",
+      "demographics": "Students and early-career candidates",
+      "best_for": "Campus recruiting, early-career talent",
+      "reach": "15M+ students, 1500+ universities",
+      "source": "Industry estimates"
+    },
+    {
+      "name": "AngelList / Wellfound",
+      "pricing_model": "Freemium + recruiting tools",
+      "demographics": "Startup ecosystem talent",
+      "best_for": "Startup hiring, equity-interested candidates",
+      "reach": "10M+ candidates",
+      "source": "Industry estimates"
+    }
+  ],
+  "cross_platform_benchmarks": {
+    "median_cost_per_hire_usd": 1340,
+    "cost_per_hire_nonexecutive_usd": 1200,
+    "cost_per_hire_executive_usd": 10625,
+    "avg_time_to_fill_days": 44,
+    "avg_applicants_per_opening": 250,
+    "avg_interview_to_offer_ratio": "3:1",
+    "offer_acceptance_rate_pct": 70,
+    "source": "jobscore.com"
+  }
+}

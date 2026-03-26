@@ -1,0 +1,128 @@
+{
+  "_metadata": {
+    "source_urls": [
+      "https://www.wonderkind.com/blog/10-recruitment-trends-to-watch-out-for-in-2026",
+      "https://www.sourcingsquare.com/programmatic-job-advertising-will-change-recruitment-in-2026/",
+      "https://www.joveo.com/programmatic-job-advertising-the-ultimate-guide/",
+      "https://www.researchandmarkets.com/reports/6177478/recruitment-advertising-agency-market-report",
+      "https://www.veritone.com/blog/the-evolution-of-programmatic-job-advertising-3-game-changing-stats-for-2025/",
+      "https://www.vouchfor.com/blog/employer-brand-statistics",
+      "https://passivesecrets.com/employer-branding-statistics/",
+      "https://dsmn8.com/blog/employer-branding-statistics/",
+      "https://peoplemanagingpeople.com/recruitment/recruitment-trends/"
+    ],
+    "researched_date": "2026-03-26",
+    "data_quality": "high",
+    "category": "Recruitment Marketing Trends"
+  },
+  "programmatic_advertising": {
+    "market_size": {
+      "2025_usd_billions": 6.88,
+      "2026_usd_billions": 7.44,
+      "2030_projected_usd_billions": 10.08,
+      "cagr_2025_2026_pct": 8.1,
+      "cagr_2026_2030_pct": 7.9
+    },
+    "adoption": {
+      "projected_programmatic_job_offers_by_2026_pct": 80,
+      "growth_vs_overall_job_advertising": "2x faster",
+      "avg_cost_per_applicant_reduction_pct": {"min": 20, "max": 50},
+      "avg_cost_per_hire_reduction_pct": 50,
+      "manual_hours_saved_per_week": 10
+    },
+    "key_trends": [
+      "Hyper-personalization of job ads based on candidate demographics and journey stage",
+      "AI-driven candidate targeting replacing manual placement",
+      "Multi-channel distribution becoming standard (social, display, job boards, search)",
+      "Real-time bidding optimization for recruitment spend",
+      "Budget fluidity -- spend flows to channels delivering qualified candidates",
+      "CPA (cost-per-application) models gaining over CPC for recruitment",
+      "Dynamic job ads adapting content to viewer context"
+    ]
+  },
+  "employer_branding": {
+    "strategic_priority": {
+      "hr_professionals_consider_strategic_priority_pct": 90,
+      "executives_consider_strategic_priority_pct": 80,
+      "organizations_say_important_to_hr_strategy_pct": 77,
+      "increased_budget_past_2_years_pct": 49,
+      "recruiting_leaders_investing_more_pct": 59
+    },
+    "candidate_behavior": {
+      "research_reviews_before_applying_pct": 83,
+      "more_likely_to_apply_positive_brand_pct": 96,
+      "wont_apply_negative_reviews_pct": 87,
+      "would_switch_for_better_reputation_pct": 92,
+      "wont_join_bad_reputation_even_unemployed_pct": 81,
+      "look_up_social_media_before_applying_pct": 62
+    },
+    "roi_impact": {
+      "cost_per_hire_reduction_strong_brand_pct": 50,
+      "weaker_brand_cost_per_hire_multiplier": 2,
+      "poor_brand_salary_premium_pct": 10,
+      "roi_per_dollar_over_2_years": 3.2,
+      "revenue_growth_outperformance_pct": 33
+    },
+    "social_media": {
+      "recruitment_teams_using_social_media_pct": 98,
+      "dedicated_employer_branding_accounts_pct": 65,
+      "gen_z_expect_authentic_content_pct": 81,
+      "employee_shared_posts_engagement_multiplier": 8
+    },
+    "top_motivators_2026": {
+      "work_life_balance_pct": 83,
+      "pay_pct": 82,
+      "note": "Work-life balance has overtaken pay as the top global motivator"
+    }
+  },
+  "key_recruitment_trends_2026": [
+    {
+      "trend": "AI-Powered Recruitment",
+      "description": "AI agents performing multi-step recruitment tasks autonomously",
+      "adoption_rate_pct": 42,
+      "impact": "2-3x faster screening, 30% reduction in time-to-fill"
+    },
+    {
+      "trend": "Skills-Based Hiring",
+      "description": "Evaluating candidates on competencies rather than degrees",
+      "adoption_rate_pct": 65,
+      "impact": "Better retention, wider talent pools"
+    },
+    {
+      "trend": "Employee Advocacy",
+      "description": "Leveraging employee networks for authentic employer branding",
+      "adoption_rate_pct": 55,
+      "impact": "8x more engagement than corporate posts"
+    },
+    {
+      "trend": "Internal Mobility Platforms",
+      "description": "AI-driven internal talent marketplace for existing employees",
+      "adoption_rate_pct": 35,
+      "impact": "30-50% reduction in external hiring costs"
+    },
+    {
+      "trend": "Predictive Analytics",
+      "description": "Using data to predict hiring needs, attrition, and candidate fit",
+      "adoption_rate_pct": 40,
+      "impact": "20% improvement in quality of hire"
+    },
+    {
+      "trend": "Personalized Candidate Experience",
+      "description": "Dynamic career sites, chatbots, and tailored communications",
+      "adoption_rate_pct": 50,
+      "impact": "40% improvement in application completion rates"
+    },
+    {
+      "trend": "DEI-Focused Recruitment",
+      "description": "Inclusive language tools, blind screening, diverse sourcing",
+      "adoption_rate_pct": 60,
+      "impact": "35% increase in diverse candidate pipelines"
+    },
+    {
+      "trend": "Video-First Recruiting",
+      "description": "Video job posts, video interviews, video employer branding",
+      "adoption_rate_pct": 72,
+      "impact": "34% higher application rates for video job posts"
+    }
+  ]
+}

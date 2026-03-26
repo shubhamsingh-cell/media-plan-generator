@@ -40,6 +40,7 @@ import json
 import logging
 import os
 import ssl
+import tempfile
 import time
 import urllib.error
 import urllib.parse
@@ -658,6 +659,423 @@ class FREDClient:
             series_id = self.SERIES_CIVPART
         return self._fetch_series(series_id)
 
+    def get_u6_rate(self) -> dict | None:
+        """Get U-6 unemployment rate (broader measure including underemployment).
+
+        Returns:
+            Dict with U6RATE observations or None.
+        """
+        return self._fetch_series("U6RATE")
+
+    def get_jolts_data(self, industry: str = "total") -> dict | None:
+        """Get JOLTS job openings, hires, separations by industry.
+
+        Args:
+            industry: Industry key. One of: total, manufacturing,
+                      healthcare, tech, retail, construction.
+
+        Returns:
+            Dict with JOLTS series data keyed by metric name, or None.
+        """
+        JOLTS_SERIES: dict[str, dict[str, str]] = {
+            "total": {
+                "openings": "JTSJOL",
+                "hires": "JTSHIL",
+                "separations": "JTSTSL",
+                "quits": "JTSQUL",
+            },
+            "manufacturing": {"openings": "JTS3000JOL"},
+            "healthcare": {"openings": "JTS6200JOL"},
+            "tech": {"openings": "JTS5100JOL"},
+            "retail": {"openings": "JTS4400JOL"},
+            "construction": {"openings": "JTS2300JOL"},
+        }
+
+        if not self._is_configured():
+            logger.warning("FRED_API_KEY not set, skipping JOLTS request")
+            return None
+
+        industry_key = industry.lower().strip()
+        series_map = JOLTS_SERIES.get(industry_key)
+        if series_map is None:
+            # Fall back to total if unknown industry
+            series_map = JOLTS_SERIES["total"]
+
+        cache_key = f"fred:jolts:{industry_key}"
+        cached = _get_cached(cache_key)
+        if cached is not None:
+            return cached
+
+        result: dict[str, Any] = {"industry": industry_key, "metrics": {}}
+        for metric_name, series_id in series_map.items():
+            try:
+                data = self._fetch_series(series_id, limit=12)
+                if data and data.get("observations"):
+                    obs = data["observations"]
+                    values = []
+                    for o in obs:
+                        try:
+                            values.append(float(o["value"]))
+                        except (ValueError, KeyError):
+                            continue
+                    result["metrics"][metric_name] = {
+                        "series_id": series_id,
+                        "latest_value": values[0] if values else None,
+                        "latest_date": obs[0].get("date") or "" if obs else "",
+                        "trend_3m": (
+                            round(values[0] - values[2], 2)
+                            if len(values) >= 3
+                            else None
+                        ),
+                        "observations": obs[:6],
+                    }
+            except Exception as exc:
+                logger.error(
+                    f"JOLTS fetch failed for {series_id}: {exc}", exc_info=True
+                )
+                continue
+
+        if result["metrics"]:
+            _set_cached(cache_key, result)
+            return result
+        return None
+
+    def get_labor_market_summary(self) -> dict | None:
+        """Get a comprehensive labor market summary: unemployment, U6, LFPR, JOLTS.
+
+        Returns:
+            Dict with combined labor market indicators, or None.
+        """
+        cache_key = "fred:labor_market_summary"
+        cached = _get_cached(cache_key)
+        if cached is not None:
+            return cached
+
+        summary: dict[str, Any] = {"source": "FRED", "indicators": {}}
+
+        # Unemployment rate
+        try:
+            unemp = self.get_unemployment_rate()
+            if unemp and unemp.get("observations"):
+                obs = unemp["observations"]
+                summary["indicators"]["unemployment_rate"] = {
+                    "value": obs[0].get("value") or "",
+                    "date": obs[0].get("date") or "",
+                    "series_id": "UNRATE",
+                }
+        except Exception as exc:
+            logger.error(f"Labor summary UNRATE failed: {exc}", exc_info=True)
+
+        # U-6 rate
+        try:
+            u6 = self.get_u6_rate()
+            if u6 and u6.get("observations"):
+                obs = u6["observations"]
+                summary["indicators"]["u6_rate"] = {
+                    "value": obs[0].get("value") or "",
+                    "date": obs[0].get("date") or "",
+                    "series_id": "U6RATE",
+                    "description": "Total unemployed + marginally attached + part-time for economic reasons",
+                }
+        except Exception as exc:
+            logger.error(f"Labor summary U6RATE failed: {exc}", exc_info=True)
+
+        # Labor force participation
+        try:
+            lfpr = self.get_labor_force_participation()
+            if lfpr and lfpr.get("observations"):
+                obs = lfpr["observations"]
+                summary["indicators"]["labor_force_participation"] = {
+                    "value": obs[0].get("value") or "",
+                    "date": obs[0].get("date") or "",
+                    "series_id": "CIVPART",
+                }
+        except Exception as exc:
+            logger.error(f"Labor summary CIVPART failed: {exc}", exc_info=True)
+
+        # JOLTS total
+        try:
+            jolts = self.get_jolts_data("total")
+            if jolts and jolts.get("metrics"):
+                summary["indicators"]["jolts"] = jolts["metrics"]
+        except Exception as exc:
+            logger.error(f"Labor summary JOLTS failed: {exc}", exc_info=True)
+
+        if summary["indicators"]:
+            _set_cached(cache_key, summary)
+            return summary
+        return None
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 1b. REMOTEOK (Remote Job Market Intelligence -- zero auth)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Disk cache for RemoteOK (24hr TTL, avoids hammering the API)
+_REMOTEOK_DISK_CACHE_DIR = Path(tempfile.gettempdir()) / "nova_remoteok_cache"
+_REMOTEOK_DISK_CACHE_TTL = 86400  # 24 hours
+
+
+def _remoteok_disk_cache_get(key: str) -> Any | None:
+    """Read a cached value from disk if it exists and is not expired.
+
+    Args:
+        key: Cache key (sanitized to filesystem-safe name).
+
+    Returns:
+        Cached value or None if missing/expired.
+    """
+    safe_key = "".join(c if c.isalnum() or c in "-_" else "_" for c in key)
+    cache_file = _REMOTEOK_DISK_CACHE_DIR / f"{safe_key}.json"
+    try:
+        if cache_file.exists():
+            data = json.loads(cache_file.read_text(encoding="utf-8"))
+            if time.time() - data.get("ts", 0) < _REMOTEOK_DISK_CACHE_TTL:
+                return data.get("value")
+            # Expired -- remove
+            cache_file.unlink(missing_ok=True)
+    except (json.JSONDecodeError, OSError, KeyError) as exc:
+        logger.debug(f"RemoteOK disk cache read error for {key}: {exc}")
+    return None
+
+
+def _remoteok_disk_cache_set(key: str, value: Any) -> None:
+    """Write a value to disk cache.
+
+    Args:
+        key: Cache key.
+        value: JSON-serializable value.
+    """
+    safe_key = "".join(c if c.isalnum() or c in "-_" else "_" for c in key)
+    try:
+        _REMOTEOK_DISK_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        cache_file = _REMOTEOK_DISK_CACHE_DIR / f"{safe_key}.json"
+        cache_file.write_text(
+            json.dumps({"ts": time.time(), "value": value}),
+            encoding="utf-8",
+        )
+    except OSError as exc:
+        logger.debug(f"RemoteOK disk cache write error for {key}: {exc}")
+
+
+class RemoteOKClient:
+    """Remote job market intelligence from RemoteOK (zero auth).
+
+    Fetches the full JSON feed from remoteok.io/api and provides
+    search, salary stats, and trending skills analysis.
+
+    No API key required. Data is cached to disk for 24 hours.
+    Docs: https://remoteok.io/api
+    """
+
+    BASE_URL = "https://remoteok.io/api"
+
+    def _fetch_all_jobs(self) -> list[dict]:
+        """Fetch the full RemoteOK job feed with disk caching.
+
+        Returns:
+            List of job dicts from the API, or empty list on failure.
+        """
+        cache_key = "remoteok_all_jobs"
+
+        # L1: in-memory
+        cached_mem = _get_cached(cache_key, ttl=3600)
+        if cached_mem is not None:
+            return cached_mem
+
+        # L2: disk cache (24hr)
+        cached_disk = _remoteok_disk_cache_get(cache_key)
+        if cached_disk is not None:
+            _set_cached(cache_key, cached_disk)
+            return cached_disk
+
+        # Fetch from API
+        try:
+            data = _http_get(
+                self.BASE_URL,
+                headers={"User-Agent": "NovaAISuite/1.0"},
+                timeout=15,
+            )
+            if data is None:
+                return []
+            # RemoteOK returns a JSON array; first element is metadata
+            if isinstance(data, list) and len(data) > 1:
+                jobs = [j for j in data[1:] if isinstance(j, dict)]
+            elif isinstance(data, list):
+                jobs = []
+            else:
+                jobs = []
+
+            if jobs:
+                _set_cached(cache_key, jobs)
+                _remoteok_disk_cache_set(cache_key, jobs)
+            return jobs
+        except Exception as exc:
+            logger.error(f"RemoteOK fetch failed: {exc}", exc_info=True)
+            return []
+
+    def search_jobs(self, query: str, limit: int = 20) -> list[dict]:
+        """Search remote job listings by keyword.
+
+        Args:
+            query: Search keyword (matched against title, company, tags).
+            limit: Max results to return. Defaults to 20.
+
+        Returns:
+            List of dicts with: title, company, salary_min, salary_max,
+            tags, location, date, url.
+        """
+        cache_key = f"remoteok:search:{query.lower().strip()}:{limit}"
+        cached = _get_cached(cache_key, ttl=3600)
+        if cached is not None:
+            return cached
+
+        all_jobs = self._fetch_all_jobs()
+        query_lower = query.lower().strip()
+        matches: list[dict] = []
+
+        for job in all_jobs:
+            searchable = " ".join(
+                [
+                    job.get("position") or "",
+                    job.get("company") or "",
+                    " ".join(job.get("tags") or []),
+                    job.get("description") or "",
+                ]
+            ).lower()
+
+            if query_lower in searchable:
+                matches.append(
+                    {
+                        "title": job.get("position") or "",
+                        "company": job.get("company") or "",
+                        "salary_min": job.get("salary_min") or None,
+                        "salary_max": job.get("salary_max") or None,
+                        "tags": job.get("tags") or [],
+                        "location": job.get("location") or "Remote",
+                        "date": job.get("date") or "",
+                        "url": job.get("url") or "",
+                    }
+                )
+                if len(matches) >= limit:
+                    break
+
+        _set_cached(cache_key, matches)
+        return matches
+
+    def get_salary_stats(self, role: str) -> dict:
+        """Get salary statistics for a role from remote job listings.
+
+        Aggregates salary_min and salary_max across matching listings to
+        compute median, 25th percentile, 75th percentile, and sample size.
+
+        Args:
+            role: Job title to search for (e.g., 'Software Engineer').
+
+        Returns:
+            Dict with median, p25, p75, sample_size, companies, and source.
+        """
+        cache_key = f"remoteok:salary:{role.lower().strip()}"
+        cached = _get_cached(cache_key, ttl=3600)
+        if cached is not None:
+            return cached
+
+        all_jobs = self._fetch_all_jobs()
+        role_lower = role.lower().strip()
+        salaries: list[float] = []
+        companies: set[str] = set()
+
+        for job in all_jobs:
+            position = (job.get("position") or "").lower()
+            if role_lower not in position:
+                continue
+
+            sal_min = job.get("salary_min")
+            sal_max = job.get("salary_max")
+            company = job.get("company") or ""
+
+            if sal_min and sal_max:
+                try:
+                    avg = (float(sal_min) + float(sal_max)) / 2
+                    salaries.append(avg)
+                    if company:
+                        companies.add(company)
+                except (ValueError, TypeError):
+                    continue
+            elif sal_min:
+                try:
+                    salaries.append(float(sal_min))
+                    if company:
+                        companies.add(company)
+                except (ValueError, TypeError):
+                    continue
+
+        if not salaries:
+            result = {
+                "role": role,
+                "sample_size": 0,
+                "source": "RemoteOK",
+                "note": "No salary data found for this role in remote listings",
+            }
+            _set_cached(cache_key, result)
+            return result
+
+        salaries.sort()
+        n = len(salaries)
+        result = {
+            "role": role,
+            "median": round(salaries[n // 2]),
+            "p25": round(salaries[n // 4]) if n >= 4 else round(salaries[0]),
+            "p75": round(salaries[3 * n // 4]) if n >= 4 else round(salaries[-1]),
+            "sample_size": n,
+            "companies": sorted(companies)[:15],
+            "source": "RemoteOK",
+        }
+        _set_cached(cache_key, result)
+        return result
+
+    def get_trending_skills(self, limit: int = 20) -> list[dict]:
+        """Get most common skills/tags from recent remote jobs.
+
+        Counts tag frequencies across all current listings.
+
+        Args:
+            limit: Max tags to return. Defaults to 20.
+
+        Returns:
+            List of dicts with: tag, count, percentage.
+        """
+        cache_key = f"remoteok:trending:{limit}"
+        cached = _get_cached(cache_key, ttl=3600)
+        if cached is not None:
+            return cached
+
+        all_jobs = self._fetch_all_jobs()
+        tag_counts: dict[str, int] = {}
+        total_jobs = len(all_jobs)
+
+        for job in all_jobs:
+            tags = job.get("tags") or []
+            for tag in tags:
+                if isinstance(tag, str) and tag.strip():
+                    tag_lower = tag.strip().lower()
+                    tag_counts[tag_lower] = tag_counts.get(tag_lower, 0) + 1
+
+        sorted_tags = sorted(tag_counts.items(), key=lambda x: x[1], reverse=True)
+        result = [
+            {
+                "tag": tag,
+                "count": count,
+                "percentage": (
+                    round(count / total_jobs * 100, 1) if total_jobs > 0 else 0
+                ),
+            }
+            for tag, count in sorted_tags[:limit]
+        ]
+
+        _set_cached(cache_key, result)
+        return result
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 2. ADZUNA (Job Market Data)
@@ -1179,17 +1597,26 @@ class ONetClient:
         return results
 
     def get_related_occupations(self, soc_code: str) -> list[dict] | None:
-        """Get occupations related to a given SOC code.
+        """Get occupations related by task/skill similarity (v2.0).
+
+        Uses the /details/ endpoint for richer similarity data including
+        fitness scores compared to the /summary/ endpoint.
 
         Args:
             soc_code: O*NET-SOC code (e.g., '15-1252.00').
 
         Returns:
-            List of related occupation dicts or None.
+            List of related occupation dicts with code, title, and
+            similarity score, or None.
         """
         data = self._fetch(
-            f"/online/occupations/{soc_code}/summary/related_occupations"
+            f"/online/occupations/{soc_code}/details/related_occupations"
         )
+        if data is None:
+            # Fallback to summary endpoint if details unavailable
+            data = self._fetch(
+                f"/online/occupations/{soc_code}/summary/related_occupations"
+            )
         if data is None:
             return None
 
@@ -1198,143 +1625,729 @@ class ONetClient:
             {
                 "code": occ.get("code") or "",
                 "title": occ.get("title") or "",
+                "fitness": occ.get("fitness") or occ.get("relevance_score") or 0,
             }
             for occ in occupations
         ]
+
+    def get_knowledge(self, soc_code: str) -> list[dict] | None:
+        """Get knowledge requirements for an occupation (v2.0).
+
+        Args:
+            soc_code: O*NET-SOC code (e.g., '15-1252.00').
+
+        Returns:
+            List of knowledge area dicts with name, description, and
+            importance score (1-5), or None.
+        """
+        data = self._fetch(f"/online/occupations/{soc_code}/summary/knowledge")
+        if data is None:
+            return None
+
+        elements = data.get("element") or []
+        return [
+            {
+                "id": elem.get("id") or "",
+                "name": elem.get("name") or "",
+                "description": elem.get("description") or "",
+                "score": (elem.get("score") or {}).get("value") or 0,
+            }
+            for elem in elements
+        ]
+
+    def search_my_next_move(self, keyword: str) -> list[dict] | None:
+        """Search the My Next Move career explorer (v2.0).
+
+        My Next Move provides career exploration data optimized for
+        career changers and job seekers, with simpler descriptions
+        and career pathway information.
+
+        Args:
+            keyword: Search term (e.g., 'data analyst').
+
+        Returns:
+            List of career dicts with code, title, and tags, or None.
+        """
+        encoded = urllib.parse.quote(keyword)
+        data = self._fetch(f"/mnm/search?keyword={encoded}")
+        if data is None:
+            return None
+
+        careers = data.get("career") or []
+        return [
+            {
+                "code": c.get("code") or "",
+                "title": c.get("title") or "",
+                "tags": c.get("tags") or {},
+            }
+            for c in careers
+        ]
+
+    def get_skills_profile(self, soc_code: str) -> dict | None:
+        """Get complete skills + knowledge profile with importance scores (v2.0).
+
+        Combines skills, technology skills, knowledge areas, and related
+        occupations into a single comprehensive profile for an occupation.
+
+        Args:
+            soc_code: O*NET-SOC code (e.g., '15-1252.00').
+
+        Returns:
+            Dict with skills, technology_skills, knowledge, and
+            related_occupations, or None if all calls fail.
+        """
+        skills = self.get_skills(soc_code)
+        tech_skills = self.get_technology_skills(soc_code)
+        knowledge = self.get_knowledge(soc_code)
+        related = self.get_related_occupations(soc_code)
+
+        # Return None only if everything failed
+        if all(x is None for x in [skills, tech_skills, knowledge, related]):
+            return None
+
+        profile: dict[str, Any] = {"soc_code": soc_code}
+        if skills is not None:
+            profile["skills"] = skills
+        if tech_skills is not None:
+            profile["technology_skills"] = tech_skills
+        if knowledge is not None:
+            profile["knowledge"] = knowledge
+        if related is not None:
+            profile["related_occupations"] = related
+        return profile
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 5. BEA (Bureau of Economic Analysis)
 # ═══════════════════════════════════════════════════════════════════════════════
 
+# Disk cache for BEA (7-day TTL -- BEA data updates quarterly)
+_BEA_DISK_CACHE_DIR = Path(tempfile.gettempdir()) / "nova_bea_cache"
+_BEA_DISK_CACHE_TTL = 604800  # 7 days in seconds
+
+
+def _bea_disk_cache_get(key: str) -> Any | None:
+    """Read a cached BEA value from disk if it exists and is not expired.
+
+    Args:
+        key: Cache key (sanitized to filesystem-safe name).
+
+    Returns:
+        Cached value or None if missing/expired.
+    """
+    safe_key = "".join(c if c.isalnum() or c in "-_" else "_" for c in key)
+    cache_file = _BEA_DISK_CACHE_DIR / f"{safe_key}.json"
+    try:
+        if cache_file.exists():
+            data = json.loads(cache_file.read_text(encoding="utf-8"))
+            if time.time() - data.get("ts", 0) < _BEA_DISK_CACHE_TTL:
+                return data.get("value")
+            # Expired -- remove
+            cache_file.unlink(missing_ok=True)
+    except (json.JSONDecodeError, OSError, KeyError) as exc:
+        logger.debug(f"BEA disk cache read error for {key}: {exc}")
+    return None
+
+
+def _bea_disk_cache_set(key: str, value: Any) -> None:
+    """Write a BEA value to disk cache (7-day TTL).
+
+    Args:
+        key: Cache key.
+        value: JSON-serializable value.
+    """
+    safe_key = "".join(c if c.isalnum() or c in "-_" else "_" for c in key)
+    try:
+        _BEA_DISK_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        cache_file = _BEA_DISK_CACHE_DIR / f"{safe_key}.json"
+        cache_file.write_text(
+            json.dumps({"ts": time.time(), "value": value}),
+            encoding="utf-8",
+        )
+    except OSError as exc:
+        logger.debug(f"BEA disk cache write error for {key}: {exc}")
+
+
+# State FIPS codes for all 50 states + DC
+STATE_FIPS: dict[str, str] = {
+    "Alabama": "01000",
+    "Alaska": "02000",
+    "Arizona": "04000",
+    "Arkansas": "05000",
+    "California": "06000",
+    "Colorado": "08000",
+    "Connecticut": "09000",
+    "Delaware": "10000",
+    "District of Columbia": "11000",
+    "Florida": "12000",
+    "Georgia": "13000",
+    "Hawaii": "15000",
+    "Idaho": "16000",
+    "Illinois": "17000",
+    "Indiana": "18000",
+    "Iowa": "19000",
+    "Kansas": "20000",
+    "Kentucky": "21000",
+    "Louisiana": "22000",
+    "Maine": "23000",
+    "Maryland": "24000",
+    "Massachusetts": "25000",
+    "Michigan": "26000",
+    "Minnesota": "27000",
+    "Mississippi": "28000",
+    "Missouri": "29000",
+    "Montana": "30000",
+    "Nebraska": "31000",
+    "Nevada": "32000",
+    "New Hampshire": "33000",
+    "New Jersey": "34000",
+    "New Mexico": "35000",
+    "New York": "36000",
+    "North Carolina": "37000",
+    "North Dakota": "38000",
+    "Ohio": "39000",
+    "Oklahoma": "40000",
+    "Oregon": "41000",
+    "Pennsylvania": "42000",
+    "Rhode Island": "44000",
+    "South Carolina": "45000",
+    "South Dakota": "46000",
+    "Tennessee": "47000",
+    "Texas": "48000",
+    "Utah": "49000",
+    "Vermont": "50000",
+    "Virginia": "51000",
+    "Washington": "53000",
+    "West Virginia": "54000",
+    "Wisconsin": "55000",
+    "Wyoming": "56000",
+}
+
+# Reverse lookup: abbreviation -> full name
+_STATE_ABBREV_TO_NAME: dict[str, str] = {
+    "AL": "Alabama",
+    "AK": "Alaska",
+    "AZ": "Arizona",
+    "AR": "Arkansas",
+    "CA": "California",
+    "CO": "Colorado",
+    "CT": "Connecticut",
+    "DE": "Delaware",
+    "DC": "District of Columbia",
+    "FL": "Florida",
+    "GA": "Georgia",
+    "HI": "Hawaii",
+    "ID": "Idaho",
+    "IL": "Illinois",
+    "IN": "Indiana",
+    "IA": "Iowa",
+    "KS": "Kansas",
+    "KY": "Kentucky",
+    "LA": "Louisiana",
+    "ME": "Maine",
+    "MD": "Maryland",
+    "MA": "Massachusetts",
+    "MI": "Michigan",
+    "MN": "Minnesota",
+    "MS": "Mississippi",
+    "MO": "Missouri",
+    "MT": "Montana",
+    "NE": "Nebraska",
+    "NV": "Nevada",
+    "NH": "New Hampshire",
+    "NJ": "New Jersey",
+    "NM": "New Mexico",
+    "NY": "New York",
+    "NC": "North Carolina",
+    "ND": "North Dakota",
+    "OH": "Ohio",
+    "OK": "Oklahoma",
+    "OR": "Oregon",
+    "PA": "Pennsylvania",
+    "RI": "Rhode Island",
+    "SC": "South Carolina",
+    "SD": "South Dakota",
+    "TN": "Tennessee",
+    "TX": "Texas",
+    "UT": "Utah",
+    "VT": "Vermont",
+    "VA": "Virginia",
+    "WA": "Washington",
+    "WV": "West Virginia",
+    "WI": "Wisconsin",
+    "WY": "Wyoming",
+}
+
+
+def _resolve_state_fips(state: str) -> str | None:
+    """Resolve a state name or abbreviation to its FIPS code.
+
+    Args:
+        state: State name (e.g., 'California') or abbreviation (e.g., 'CA').
+
+    Returns:
+        FIPS code string (e.g., '06000') or None if not found.
+    """
+    if not state:
+        return None
+    state_clean = state.strip()
+    # Try direct name match (case-insensitive)
+    for name, fips in STATE_FIPS.items():
+        if name.lower() == state_clean.lower():
+            return fips
+    # Try abbreviation
+    full_name = _STATE_ABBREV_TO_NAME.get(state_clean.upper())
+    if full_name:
+        return STATE_FIPS.get(full_name)
+    return None
+
 
 class BEAClient:
     """Client for the Bureau of Economic Analysis (BEA) API.
 
-    Provides state-level GDP, personal income, and regional employment data.
+    Provides regional economic data: state GDP by industry, per capita personal
+    income, employment by industry, and metro area income data.
+
+    Uses a 3-tier cache: L1 in-memory (1h) + L2 Upstash Redis (24h) + L3 disk (7 days).
+    BEA data updates quarterly, so aggressive caching is appropriate.
 
     Env var: BEA_API_KEY
     Docs: https://apps.bea.gov/api/
     """
 
-    BASE_URL = "https://apps.bea.gov/api/data"
+    BASE_URL = "https://apps.bea.gov/api/data/"
 
     def __init__(self) -> None:
         """Initialize BEA client with API key from environment."""
-        self.api_key = os.environ.get("BEA_API_KEY") or ""
+        self._api_key = os.environ.get("BEA_API_KEY") or ""
+        self._enabled = bool(self._api_key)
 
     def _is_configured(self) -> bool:
         """Check if API key is set."""
-        return bool(self.api_key)
+        return self._enabled
 
-    def _fetch(self, params: dict[str, str]) -> dict | None:
-        """Fetch BEA data with caching.
+    def _fetch(self, params: dict[str, str], cache_suffix: str = "") -> dict | None:
+        """Fetch BEA data with 3-tier caching (memory + Redis + disk).
 
         Args:
             params: Query parameters for the BEA API.
+            cache_suffix: Optional suffix for readable cache key.
 
         Returns:
-            Parsed data dict or None.
+            Parsed BEAAPI.Results dict or None on failure.
         """
         if not self._is_configured():
-            logger.warning("BEA_API_KEY not set")
+            logger.warning("BEA_API_KEY not set -- skipping BEA request")
             return None
 
-        params["UserID"] = self.api_key
+        # Inject common params
+        params["UserID"] = self._api_key
+        params["method"] = "GetData"
         params["ResultFormat"] = "JSON"
 
-        cache_key = f"bea:{json.dumps(params, sort_keys=True)}"
+        cache_key = f"bea:{cache_suffix or json.dumps(params, sort_keys=True)}"
+
+        # L1 + L2: in-memory + Redis
         cached = _get_cached(cache_key)
         if cached is not None:
             return cached
 
-        qs = urllib.parse.urlencode(params)
-        url = f"{self.BASE_URL}?{qs}"
-        data = _http_get(url)
-        if data is None:
+        # L3: disk cache (7-day TTL)
+        disk_cached = _bea_disk_cache_get(cache_key)
+        if disk_cached is not None:
+            # Promote to L1 + L2
+            _set_cached(cache_key, disk_cached)
+            return disk_cached
+
+        try:
+            qs = urllib.parse.urlencode(params)
+            url = f"{self.BASE_URL}?{qs}"
+            data = _http_get(url, timeout=15)
+            if data is None:
+                return None
+
+            # BEA wraps everything in BEAAPI.Results
+            bea_api = data.get("BEAAPI") or {}
+            results = bea_api.get("Results") or {}
+            if not results:
+                logger.warning("BEA response missing BEAAPI.Results")
+                return None
+
+            # Store in all 3 cache tiers
+            _set_cached(cache_key, results)
+            _bea_disk_cache_set(cache_key, results)
+            return results
+
+        except (urllib.error.URLError, TimeoutError, OSError) as exc:
+            logger.error(f"BEA API request failed: {exc}", exc_info=True)
             return None
 
-        # BEA wraps everything in BEAAPI.Results
-        bea_api = data.get("BEAAPI") or {}
-        results = bea_api.get("Results") or {}
-        if not results:
-            logger.warning("BEA response missing BEAAPI.Results")
-            return None
-
-        _set_cached(cache_key, results)
-        return results
-
-    def get_gdp_by_state(self, year: str = "LAST5") -> dict | None:
-        """Get GDP by state from the Regional dataset.
+    def get_regional_gdp(
+        self, state_fips: str, industry: str = "ALL", year: str = "LAST5"
+    ) -> dict | None:
+        """Get GDP by industry for a specific state.
 
         Args:
-            year: Year specification. 'LAST5' for last 5 years, or specific year.
+            state_fips: State FIPS code (e.g., '06000' for California).
+            industry: Industry filter ('ALL' for all industries).
+            year: Year specification ('LAST5', 'LAST10', or specific year).
 
         Returns:
-            Dict with state GDP data or None.
+            Dict with state GDP data by industry or None.
         """
         return self._fetch(
             {
-                "method": "GetData",
                 "DataSetName": "Regional",
-                "TableName": "SAGDP1",
+                "TableName": "CAGDP2",
                 "LineCode": "1",
-                "GeoFips": "STATE",
+                "GeoFips": state_fips,
                 "Year": year,
-            }
+            },
+            cache_suffix=f"gdp:{state_fips}:{industry}:{year}",
         )
 
-    def get_personal_income_by_state(self, year: str = "LAST5") -> dict | None:
-        """Get personal income by state.
+    def get_personal_income(self, state_fips: str, year: str = "LAST5") -> dict | None:
+        """Get per capita personal income by state.
+
+        Args:
+            state_fips: State FIPS code (e.g., '36000' for New York).
+            year: Year specification.
+
+        Returns:
+            Dict with per capita personal income data or None.
+        """
+        return self._fetch(
+            {
+                "DataSetName": "Regional",
+                "TableName": "CAINC1",
+                "LineCode": "3",
+                "GeoFips": state_fips,
+                "Year": year,
+            },
+            cache_suffix=f"income:{state_fips}:{year}",
+        )
+
+    def get_employment_by_industry(
+        self, state_fips: str, year: str = "LAST5"
+    ) -> dict | None:
+        """Get employment counts by industry for a state.
+
+        Args:
+            state_fips: State FIPS code.
+            year: Year specification.
+
+        Returns:
+            Dict with employment data by industry or None.
+        """
+        return self._fetch(
+            {
+                "DataSetName": "Regional",
+                "TableName": "CAEMP25N",
+                "LineCode": "10",
+                "GeoFips": state_fips,
+                "Year": year,
+            },
+            cache_suffix=f"employment:{state_fips}:{year}",
+        )
+
+    def get_metro_income(self, metro_fips: str, year: str = "LAST5") -> dict | None:
+        """Get income data for a metro area (MSA).
+
+        Args:
+            metro_fips: Metro area FIPS code (e.g., '12420' for Austin-Round Rock).
+            year: Year specification.
+
+        Returns:
+            Dict with metro area income data or None.
+        """
+        return self._fetch(
+            {
+                "DataSetName": "Regional",
+                "TableName": "CAINC1",
+                "LineCode": "3",
+                "GeoFips": metro_fips,
+                "Year": year,
+            },
+            cache_suffix=f"metro_income:{metro_fips}:{year}",
+        )
+
+    def get_gdp_by_state_all(self, year: str = "LAST5") -> dict | None:
+        """Get GDP for all states (aggregate view).
 
         Args:
             year: Year specification.
 
         Returns:
-            Dict with state personal income data or None.
+            Dict with all-state GDP data or None.
         """
         return self._fetch(
             {
-                "method": "GetData",
                 "DataSetName": "Regional",
-                "TableName": "SAINC1",
+                "TableName": "CAGDP2",
                 "LineCode": "1",
                 "GeoFips": "STATE",
                 "Year": year,
-            }
+            },
+            cache_suffix=f"gdp_all_states:{year}",
         )
 
-    def get_regional_employment(self, area: str = "STATE") -> dict | None:
-        """Get regional employment data.
+    def get_personal_income_all_states(self, year: str = "LAST5") -> dict | None:
+        """Get personal income for all states.
 
         Args:
-            area: Geographic area ('STATE', 'MSA', or specific FIPS).
+            year: Year specification.
 
         Returns:
-            Dict with employment data or None.
+            Dict with all-state income data or None.
         """
         return self._fetch(
             {
-                "method": "GetData",
                 "DataSetName": "Regional",
-                "TableName": "SAEMP25N",
-                "LineCode": "10",
-                "GeoFips": area,
-                "Year": "LAST5",
-            }
+                "TableName": "CAINC1",
+                "LineCode": "3",
+                "GeoFips": "STATE",
+                "Year": year,
+            },
+            cache_suffix=f"income_all_states:{year}",
         )
+
+    def query_regional_economics(
+        self,
+        state: str = "",
+        metro_fips: str = "",
+        metric_type: str = "all",
+    ) -> dict:
+        """High-level tool: query regional economics for Nova AI.
+
+        Combines GDP, income, and employment data into a single enriched response
+        for media planning context.
+
+        Args:
+            state: State name or abbreviation (e.g., 'California' or 'CA').
+            metro_fips: Metro area FIPS code (e.g., '12420' for Austin).
+            metric_type: 'gdp', 'income', 'employment', or 'all'.
+
+        Returns:
+            Dict with economic data, trends, and media planning context.
+        """
+        result: dict[str, Any] = {
+            "source": "bea_regional_economics",
+            "api": "Bureau of Economic Analysis",
+        }
+
+        if not self._is_configured():
+            result["error"] = "BEA API not configured (BEA_API_KEY missing)"
+            return result
+
+        # Resolve state
+        state_fips: str | None = None
+        state_name = ""
+        if state:
+            state_fips = _resolve_state_fips(state)
+            if not state_fips:
+                result["error"] = f"Unknown state: '{state}'"
+                result["hint"] = (
+                    "Use full state name (e.g., 'California') or abbreviation (e.g., 'CA')"
+                )
+                return result
+            # Find display name
+            for name, fips in STATE_FIPS.items():
+                if fips == state_fips:
+                    state_name = name
+                    break
+
+        result["state"] = state_name or state
+        result["state_fips"] = state_fips or ""
+
+        # Fetch requested metrics
+        metrics_to_fetch = (
+            ["gdp", "income", "employment"] if metric_type == "all" else [metric_type]
+        )
+
+        for metric in metrics_to_fetch:
+            try:
+                if metric == "gdp" and state_fips:
+                    gdp_data = self.get_regional_gdp(state_fips)
+                    if gdp_data:
+                        result["gdp"] = self._extract_data_rows(gdp_data, limit=20)
+
+                elif metric == "income" and state_fips:
+                    income_data = self.get_personal_income(state_fips)
+                    if income_data:
+                        result["personal_income"] = self._extract_data_rows(
+                            income_data, limit=10
+                        )
+
+                elif metric == "employment" and state_fips:
+                    emp_data = self.get_employment_by_industry(state_fips)
+                    if emp_data:
+                        result["employment"] = self._extract_data_rows(
+                            emp_data, limit=20
+                        )
+
+            except (TypeError, KeyError, ValueError) as exc:
+                logger.error(
+                    f"BEA data extraction error for {metric}: {exc}",
+                    exc_info=True,
+                )
+                result[f"{metric}_error"] = str(exc)
+
+        # Metro income if requested
+        if metro_fips:
+            try:
+                metro_data = self.get_metro_income(metro_fips)
+                if metro_data:
+                    result["metro_income"] = self._extract_data_rows(
+                        metro_data, limit=10
+                    )
+                    result["metro_fips"] = metro_fips
+            except (TypeError, KeyError, ValueError) as exc:
+                logger.error(f"BEA metro income error: {exc}", exc_info=True)
+                result["metro_error"] = str(exc)
+
+        return result
+
+    @staticmethod
+    def _extract_data_rows(results: dict, limit: int = 20) -> list[dict[str, str]]:
+        """Extract data rows from BEA Results payload.
+
+        Args:
+            results: BEA Results dict (contains 'Data' key).
+            limit: Maximum number of rows to return.
+
+        Returns:
+            List of dicts with cleaned data rows.
+        """
+        data_rows = results.get("Data") or []
+        if not isinstance(data_rows, list):
+            return []
+        cleaned: list[dict[str, str]] = []
+        for row in data_rows[:limit]:
+            if not isinstance(row, dict):
+                continue
+            cleaned.append(
+                {
+                    "geo": row.get("GeoName") or "",
+                    "year": row.get("TimePeriod") or "",
+                    "value": row.get("DataValue") or "",
+                    "unit": row.get("UNIT_MULT_DESC") or row.get("CL_UNIT") or "",
+                    "description": row.get("Description") or "",
+                }
+            )
+        return cleaned
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 6. CENSUS (US Census Bureau)
 # ═══════════════════════════════════════════════════════════════════════════════
 
+# Disk cache for Census data (30-day TTL -- Census ACS updates annually)
+_CENSUS_DISK_CACHE_DIR = Path(tempfile.gettempdir()) / "nova_census_cache"
+_CENSUS_DISK_CACHE_TTL = 86400 * 30  # 30 days
+
+
+def _census_disk_cache_get(key: str) -> Any | None:
+    """Read a cached Census value from disk if it exists and is not expired.
+
+    Args:
+        key: Cache key (sanitized to filesystem-safe name).
+
+    Returns:
+        Cached value or None if missing/expired.
+    """
+    safe_key = "".join(c if c.isalnum() or c in "-_" else "_" for c in key)
+    cache_file = _CENSUS_DISK_CACHE_DIR / f"{safe_key}.json"
+    try:
+        if cache_file.exists():
+            data = json.loads(cache_file.read_text(encoding="utf-8"))
+            if time.time() - data.get("ts", 0) < _CENSUS_DISK_CACHE_TTL:
+                return data.get("value")
+            cache_file.unlink(missing_ok=True)
+    except (json.JSONDecodeError, OSError, KeyError) as exc:
+        logger.debug(f"Census disk cache read error for {key}: {exc}")
+    return None
+
+
+def _census_disk_cache_set(key: str, value: Any) -> None:
+    """Write a Census value to disk cache.
+
+    Args:
+        key: Cache key.
+        value: JSON-serializable value.
+    """
+    safe_key = "".join(c if c.isalnum() or c in "-_" else "_" for c in key)
+    try:
+        _CENSUS_DISK_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        cache_file = _CENSUS_DISK_CACHE_DIR / f"{safe_key}.json"
+        cache_file.write_text(
+            json.dumps({"ts": time.time(), "value": value}),
+            encoding="utf-8",
+        )
+    except OSError as exc:
+        logger.debug(f"Census disk cache write error for {key}: {exc}")
+
+
+# County FIPS codes for the top 50 US metro areas (primary county)
+_METRO_COUNTY_FIPS: dict[str, tuple[str, str]] = {
+    "new york": ("36", "061"),
+    "los angeles": ("06", "037"),
+    "chicago": ("17", "031"),
+    "dallas": ("48", "113"),
+    "houston": ("48", "201"),
+    "washington": ("11", "001"),
+    "philadelphia": ("42", "101"),
+    "miami": ("12", "086"),
+    "atlanta": ("13", "121"),
+    "boston": ("25", "025"),
+    "phoenix": ("04", "013"),
+    "san francisco": ("06", "075"),
+    "riverside": ("06", "065"),
+    "detroit": ("26", "163"),
+    "seattle": ("53", "033"),
+    "minneapolis": ("27", "053"),
+    "san diego": ("06", "073"),
+    "tampa": ("12", "057"),
+    "denver": ("08", "031"),
+    "st louis": ("29", "510"),
+    "baltimore": ("24", "510"),
+    "orlando": ("12", "095"),
+    "charlotte": ("37", "119"),
+    "san antonio": ("48", "029"),
+    "portland": ("41", "051"),
+    "sacramento": ("06", "067"),
+    "pittsburgh": ("42", "003"),
+    "austin": ("48", "453"),
+    "las vegas": ("32", "003"),
+    "cincinnati": ("39", "061"),
+    "kansas city": ("29", "095"),
+    "columbus": ("39", "049"),
+    "indianapolis": ("18", "097"),
+    "cleveland": ("39", "035"),
+    "san jose": ("06", "085"),
+    "nashville": ("47", "037"),
+    "virginia beach": ("51", "810"),
+    "providence": ("44", "007"),
+    "milwaukee": ("55", "079"),
+    "jacksonville": ("12", "031"),
+    "memphis": ("47", "157"),
+    "oklahoma city": ("40", "109"),
+    "raleigh": ("37", "183"),
+    "richmond": ("51", "760"),
+    "new orleans": ("22", "071"),
+    "louisville": ("21", "111"),
+    "salt lake city": ("49", "035"),
+    "hartford": ("09", "003"),
+    "buffalo": ("36", "029"),
+    "birmingham": ("01", "073"),
+}
+
 
 class CensusClient:
     """Client for the US Census Bureau API.
 
-    Provides population, income, education, and workforce demographics
-    from the American Community Survey (ACS) 5-year estimates.
+    Provides population, income, education, workforce demographics,
+    commuting patterns, and industry employment from the American
+    Community Survey (ACS) 5-year estimates and Current Population Survey.
 
     Env var: CENSUS_API_KEY
     Docs: https://www.census.gov/data/developers.html
@@ -1343,7 +2356,7 @@ class CensusClient:
     BASE_URL = "https://api.census.gov/data"
 
     # ACS 5-year estimates year (update as new data releases)
-    ACS_YEAR = "2022"
+    ACS_YEAR = "2023"
 
     def __init__(self) -> None:
         """Initialize Census client with API key from environment."""
@@ -1359,7 +2372,7 @@ class CensusClient:
         geo: str = "state:*",
         extra_params: dict[str, str] | None = None,
     ) -> dict | None:
-        """Fetch ACS 5-year estimate data.
+        """Fetch ACS 5-year estimate data with 3-tier caching (memory/Redis/disk).
 
         Args:
             variables: Comma-separated Census variable codes.
@@ -1374,9 +2387,17 @@ class CensusClient:
             return None
 
         cache_key = f"census:{variables}:{geo}"
-        cached = _get_cached(cache_key)
+
+        # L1+L2: memory + Redis (24h TTL -- Census data updates annually)
+        cached = _get_cached(cache_key, ttl=86400)
         if cached is not None:
             return cached
+
+        # L3: disk cache (30-day TTL for Census data)
+        cached_disk = _census_disk_cache_get(cache_key)
+        if cached_disk is not None:
+            _set_cached(cache_key, cached_disk)
+            return cached_disk
 
         params: dict[str, str] = {
             "get": variables,
@@ -1394,12 +2415,62 @@ class CensusClient:
 
         headers = data[0]
         rows = data[1:]
-        result = {
+        result: dict[str, Any] = {
             "headers": headers,
             "data": rows,
             "count": len(rows),
         }
         _set_cached(cache_key, result)
+        _census_disk_cache_set(cache_key, result)
+        return result
+
+    def _fetch_cps(
+        self,
+        variables: str,
+        geo: str = "state:*",
+    ) -> dict | None:
+        """Fetch Current Population Survey (CPS) Basic Monthly data.
+
+        Args:
+            variables: Comma-separated CPS variable codes.
+            geo: Geographic filter string.
+
+        Returns:
+            Dict with headers and data rows, or None.
+        """
+        if not self._is_configured():
+            logger.warning("CENSUS_API_KEY not set")
+            return None
+
+        cache_key = f"census_cps:{variables}:{geo}"
+        cached = _get_cached(cache_key, ttl=86400)
+        if cached is not None:
+            return cached
+
+        cached_disk = _census_disk_cache_get(cache_key)
+        if cached_disk is not None:
+            _set_cached(cache_key, cached_disk)
+            return cached_disk
+
+        params: dict[str, str] = {
+            "get": variables,
+            "for": geo,
+            "key": self.api_key,
+        }
+        qs = urllib.parse.urlencode(params)
+        # CPS Basic Monthly -- January 2024
+        url = f"{self.BASE_URL}/2024/cps/basic/jan?{qs}"
+        data = _http_get(url)
+        if data is None or not isinstance(data, list) or len(data) < 2:
+            return None
+
+        result: dict[str, Any] = {
+            "headers": data[0],
+            "data": data[1:],
+            "count": len(data) - 1,
+        }
+        _set_cached(cache_key, result)
+        _census_disk_cache_set(cache_key, result)
         return result
 
     def get_population_by_state(self) -> dict | None:
@@ -1450,16 +2521,314 @@ class CensusClient:
             geo = "state:*"
         return self._fetch_acs(variables, geo=geo)
 
+    def get_labor_force(self, state_fips: str) -> dict | None:
+        """Get labor force statistics from Current Population Survey.
+
+        Variables: PEMLR (employment status), PRTAGE (age),
+                   PESEX (sex), GTMETSTA (metro status).
+
+        Args:
+            state_fips: Two-digit state FIPS code (e.g., '06' for CA).
+
+        Returns:
+            Dict with CPS labor force data or None.
+        """
+        return self._fetch_cps(
+            "PEMLR,PRTAGE,PESEX,GTMETSTA",
+            geo=f"state:{state_fips}",
+        )
+
+    def get_demographics(self, state_fips: str, county_fips: str = "") -> dict | None:
+        """Get population demographics from ACS 5-year estimates.
+
+        Variables: B01001_001E (total pop), B19013_001E (median income),
+                   B15003_022E (bachelor's degree), B23025_002E (in labor force).
+
+        Args:
+            state_fips: Two-digit state FIPS code.
+            county_fips: Three-digit county FIPS code (optional).
+
+        Returns:
+            Dict with demographic data or None.
+        """
+        variables = "NAME,B01001_001E,B19013_001E,B15003_022E,B23025_002E"
+        if county_fips:
+            geo = f"county:{county_fips}&in=state:{state_fips}"
+        else:
+            geo = f"state:{state_fips}"
+        return self._fetch_acs(variables, geo=geo)
+
+    def get_workforce_education(self, state_fips: str) -> dict | None:
+        """Get educational attainment of the workforce.
+
+        Uses B15003 table: total 25+ pop, high school, some college,
+        associates, bachelor's, master's, professional, doctorate.
+
+        Args:
+            state_fips: Two-digit state FIPS code.
+
+        Returns:
+            Dict with education level data or None.
+        """
+        variables = (
+            "NAME,B15003_001E,"  # Total pop 25+
+            "B15003_017E,B15003_018E,"  # High school diploma, GED
+            "B15003_019E,B15003_020E,"  # Some college <1yr, 1yr+
+            "B15003_021E,"  # Associate's
+            "B15003_022E,"  # Bachelor's
+            "B15003_023E,"  # Master's
+            "B15003_024E,"  # Professional
+            "B15003_025E"  # Doctorate
+        )
+        return self._fetch_acs(variables, geo=f"state:{state_fips}")
+
+    def get_commute_data(self, state_fips: str) -> dict | None:
+        """Get commuting patterns including remote work percentage.
+
+        Uses B08006 (means of transportation to work) and
+        B08301 (work from home) variables.
+
+        Args:
+            state_fips: Two-digit state FIPS code.
+
+        Returns:
+            Dict with commute/remote work data or None.
+        """
+        variables = "NAME,B08006_001E,B08006_017E,B08301_001E,B08301_021E"
+        return self._fetch_acs(variables, geo=f"state:{state_fips}")
+
+    def get_industry_employment(self, state_fips: str) -> dict | None:
+        """Get employment by industry from ACS.
+
+        Uses C24030 table (industry by occupation for the civilian
+        employed population 16+).
+
+        Args:
+            state_fips: Two-digit state FIPS code.
+
+        Returns:
+            Dict with industry employment data or None.
+        """
+        variables = (
+            "NAME,C24030_001E,C24030_002E,C24030_029E,"
+            "C24030_036E,C24030_043E,C24030_050E"
+        )
+        return self._fetch_acs(variables, geo=f"state:{state_fips}")
+
+    def get_workforce_profile(self, state: str, city: str = "") -> dict[str, Any]:
+        """Build a comprehensive workforce profile for a state/metro area.
+
+        Combines demographics, education, commute, and industry data
+        into a single enriched profile for Nova AI tool consumption.
+
+        Args:
+            state: Two-letter state abbreviation (e.g., 'CA').
+            city: Optional city name for metro-level county data.
+
+        Returns:
+            Dict with workforce profile or error info.
+        """
+        fips = _state_to_fips(state.upper()) if state else None
+        if not fips:
+            return {"error": f"Unknown state: {state}", "source": "Census-ACS"}
+
+        profile: dict[str, Any] = {
+            "state": state.upper(),
+            "source": "Census-ACS",
+            "acs_year": self.ACS_YEAR,
+        }
+
+        # --- Demographics (state or county level) ---
+        county_fips = ""
+        city_lower = city.lower().strip() if city else ""
+        if city_lower and city_lower in _METRO_COUNTY_FIPS:
+            metro_state, county_fips = _METRO_COUNTY_FIPS[city_lower]
+            if metro_state != fips:
+                county_fips = ""  # State mismatch; fall back to state-level
+
+        if city_lower:
+            profile["city"] = city.strip().title()
+
+        try:
+            demo = self.get_demographics(fips, county_fips)
+            if demo and demo.get("data"):
+                row = demo["data"][0]
+                headers = demo["headers"]
+                idx = {h: i for i, h in enumerate(headers)}
+                total_pop = int(row[idx.get("B01001_001E", 0)] or 0)
+                median_income = int(row[idx.get("B19013_001E", 0)] or 0)
+                labor_force = int(row[idx.get("B23025_002E", 0)] or 0)
+                profile["population"] = total_pop
+                profile["median_household_income"] = median_income
+                profile["labor_force_size"] = labor_force
+                if total_pop > 0:
+                    profile["labor_force_participation_pct"] = round(
+                        labor_force / total_pop * 100, 1
+                    )
+        except Exception as exc:
+            logger.error(f"Census demographics fetch failed: {exc}", exc_info=True)
+
+        # --- Education levels ---
+        try:
+            edu = self.get_workforce_education(fips)
+            if edu and edu.get("data"):
+                row = edu["data"][0]
+                headers = edu["headers"]
+                idx = {h: i for i, h in enumerate(headers)}
+                total_25 = int(row[idx.get("B15003_001E", 0)] or 0)
+                bachelors = int(row[idx.get("B15003_022E", 0)] or 0)
+                masters = int(row[idx.get("B15003_023E", 0)] or 0)
+                professional = int(row[idx.get("B15003_024E", 0)] or 0)
+                doctorate = int(row[idx.get("B15003_025E", 0)] or 0)
+                associates = int(row[idx.get("B15003_021E", 0)] or 0)
+                hs_diploma = int(row[idx.get("B15003_017E", 0)] or 0)
+                ged = int(row[idx.get("B15003_018E", 0)] or 0)
+
+                bachelors_plus = bachelors + masters + professional + doctorate
+                if total_25 > 0:
+                    profile["education"] = {
+                        "population_25_plus": total_25,
+                        "high_school_pct": round(
+                            (hs_diploma + ged) / total_25 * 100, 1
+                        ),
+                        "associates_pct": round(associates / total_25 * 100, 1),
+                        "bachelors_plus_pct": round(bachelors_plus / total_25 * 100, 1),
+                        "graduate_pct": round(
+                            (masters + professional + doctorate) / total_25 * 100, 1
+                        ),
+                    }
+        except Exception as exc:
+            logger.error(f"Census education fetch failed: {exc}", exc_info=True)
+
+        # --- Remote work / commute ---
+        try:
+            commute = self.get_commute_data(fips)
+            if commute and commute.get("data"):
+                row = commute["data"][0]
+                headers = commute["headers"]
+                idx = {h: i for i, h in enumerate(headers)}
+                total_workers = int(row[idx.get("B08006_001E", 0)] or 0)
+                wfh = int(row[idx.get("B08006_017E", 0)] or 0)
+                if total_workers > 0:
+                    profile["remote_work_pct"] = round(wfh / total_workers * 100, 1)
+                    profile["total_workers_16_plus"] = total_workers
+        except Exception as exc:
+            logger.error(f"Census commute fetch failed: {exc}", exc_info=True)
+
+        # --- Industry mix ---
+        try:
+            industry = self.get_industry_employment(fips)
+            if industry and industry.get("data"):
+                row = industry["data"][0]
+                headers = industry["headers"]
+                idx = {h: i for i, h in enumerate(headers)}
+                total_emp = int(row[idx.get("C24030_001E", 0)] or 0)
+                if total_emp > 0:
+                    profile["industry_mix"] = {
+                        "total_employed": total_emp,
+                        "mgmt_business_science_arts_pct": round(
+                            int(row[idx.get("C24030_002E", 0)] or 0) / total_emp * 100,
+                            1,
+                        ),
+                        "service_pct": round(
+                            int(row[idx.get("C24030_029E", 0)] or 0) / total_emp * 100,
+                            1,
+                        ),
+                        "sales_office_pct": round(
+                            int(row[idx.get("C24030_036E", 0)] or 0) / total_emp * 100,
+                            1,
+                        ),
+                        "construction_maintenance_pct": round(
+                            int(row[idx.get("C24030_043E", 0)] or 0) / total_emp * 100,
+                            1,
+                        ),
+                        "production_transportation_pct": round(
+                            int(row[idx.get("C24030_050E", 0)] or 0) / total_emp * 100,
+                            1,
+                        ),
+                    }
+        except Exception as exc:
+            logger.error(f"Census industry fetch failed: {exc}", exc_info=True)
+
+        # Build a human-readable summary line
+        parts: list[str] = []
+        if "labor_force_size" in profile:
+            lf = profile["labor_force_size"]
+            if lf >= 1_000_000:
+                parts.append(f"{lf / 1_000_000:.1f}M labor force")
+            else:
+                parts.append(f"{lf:,} labor force")
+        if "education" in profile:
+            bp = profile["education"].get("bachelors_plus_pct", 0)
+            parts.append(f"{bp}% with bachelor's+")
+        if "remote_work_pct" in profile:
+            parts.append(f"{profile['remote_work_pct']}% remote workers")
+        if "median_household_income" in profile:
+            inc = profile["median_household_income"]
+            parts.append(f"${inc:,} median income")
+
+        geo_label = city.strip().title() if city else state.upper()
+        if parts:
+            profile["summary"] = f"{geo_label} metro has {', '.join(parts)}"
+
+        return profile
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 7. USAJOBS (Federal Job Listings)
 # ═══════════════════════════════════════════════════════════════════════════════
 
+# Disk cache for USAJobs (6hr TTL -- federal listings update daily)
+_USAJOBS_DISK_CACHE_DIR = Path(tempfile.gettempdir()) / "nova_usajobs_cache"
+_USAJOBS_DISK_CACHE_TTL = 21600  # 6 hours
+
+
+def _usajobs_disk_cache_get(key: str) -> Any | None:
+    """Read a cached USAJobs value from disk if it exists and is not expired.
+
+    Args:
+        key: Cache key string.
+
+    Returns:
+        Cached value or None if missing/expired.
+    """
+    safe_key = "".join(c if c.isalnum() or c in "-_" else "_" for c in key)
+    cache_file = _USAJOBS_DISK_CACHE_DIR / f"{safe_key}.json"
+    try:
+        if cache_file.exists():
+            data = json.loads(cache_file.read_text(encoding="utf-8"))
+            if time.time() - data.get("ts", 0) < _USAJOBS_DISK_CACHE_TTL:
+                return data.get("value")
+            cache_file.unlink(missing_ok=True)
+    except (json.JSONDecodeError, OSError, KeyError) as exc:
+        logger.debug(f"USAJobs disk cache read error for {key}: {exc}")
+    return None
+
+
+def _usajobs_disk_cache_set(key: str, value: Any) -> None:
+    """Write a USAJobs value to disk cache.
+
+    Args:
+        key: Cache key string.
+        value: Value to cache.
+    """
+    safe_key = "".join(c if c.isalnum() or c in "-_" else "_" for c in key)
+    try:
+        _USAJOBS_DISK_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        cache_file = _USAJOBS_DISK_CACHE_DIR / f"{safe_key}.json"
+        cache_file.write_text(
+            json.dumps({"ts": time.time(), "value": value}),
+            encoding="utf-8",
+        )
+    except OSError as exc:
+        logger.debug(f"USAJobs disk cache write error for {key}: {exc}")
+
 
 class USAJobsClient:
     """Client for the USAJobs.gov API.
 
-    Provides federal job search, job details, and hiring path information.
+    Provides federal job search, salary by grade, agency aggregation,
+    security clearance filtering, and hiring path information.
 
     Env vars: USAJOBS_API_KEY, USAJOBS_EMAIL
     Docs: https://developer.usajobs.gov/API-Reference
@@ -1470,11 +2839,54 @@ class USAJobsClient:
     def __init__(self) -> None:
         """Initialize USAJobs client with credentials from environment."""
         self.api_key = os.environ.get("USAJOBS_API_KEY") or ""
-        self.email = os.environ.get("USAJOBS_EMAIL") or ""
+        self.email = os.environ.get("USAJOBS_EMAIL") or "shubhamsingh@joveo.com"
 
     def _is_configured(self) -> bool:
-        """Check if both API key and email are set."""
-        return bool(self.api_key and self.email)
+        """Check if API key is set (email has a fallback)."""
+        return bool(self.api_key)
+
+    @staticmethod
+    def _parse_job_item(item: dict) -> dict:
+        """Parse a single SearchResultItem into a normalized job dict.
+
+        Args:
+            item: Raw USAJobs SearchResultItem.
+
+        Returns:
+            Normalized job dict with title, org, salary, grade, clearance, etc.
+        """
+        desc = item.get("MatchedObjectDescriptor") or {}
+        user_area = desc.get("UserArea") or {}
+        details = user_area.get("Details") or {}
+        remun_list = desc.get("PositionRemuneration") or [{}]
+        remun = remun_list[0] if remun_list else {}
+
+        # Extract security clearance from QualificationSummary or details
+        clearance = details.get("SecurityClearance") or ""
+        if not clearance:
+            qual = details.get("QualificationSummary") or ""
+            for lvl in ("top secret", "secret", "confidential", "public trust"):
+                if lvl in qual.lower():
+                    clearance = lvl.title()
+                    break
+
+        return {
+            "position_title": desc.get("PositionTitle") or "",
+            "organization": desc.get("OrganizationName") or "",
+            "department": desc.get("DepartmentName") or "",
+            "location": desc.get("PositionLocationDisplay") or "",
+            "salary_min": remun.get("MinimumRange") or "",
+            "salary_max": remun.get("MaximumRange") or "",
+            "rate_interval": remun.get("RateIntervalCode") or "",
+            "grade": details.get("LowGrade") or "",
+            "high_grade": details.get("HighGrade") or "",
+            "security_clearance": clearance,
+            "hiring_path": details.get("HiringPath") or [],
+            "url": desc.get("PositionURI") or "",
+            "control_number": desc.get("PositionID") or "",
+            "open_date": desc.get("PositionStartDate") or "",
+            "close_date": desc.get("PositionEndDate") or "",
+        }
 
     def _get_headers(self) -> dict[str, str]:
         """Build required USAJobs request headers.
@@ -1492,6 +2904,7 @@ class USAJobsClient:
         self,
         keyword: str,
         location: str = "",
+        salary_min: int = 0,
         results_per_page: int = 25,
     ) -> dict | None:
         """Search federal job listings.
@@ -1499,19 +2912,30 @@ class USAJobsClient:
         Args:
             keyword: Job keyword or title.
             location: Location filter (city, state).
+            salary_min: Minimum salary filter (USD).
             results_per_page: Number of results (max 500).
 
         Returns:
-            Dict with search results or None.
+            Dict with count and parsed job list, or None on failure.
         """
         if not self._is_configured():
-            logger.warning("USAJobs credentials not set")
+            logger.warning("USAJOBS_API_KEY not set")
             return None
 
-        cache_key = f"usajobs:search:{keyword}:{location}:{results_per_page}"
+        cache_key = (
+            f"usajobs:search:{keyword}:{location}:{salary_min}:{results_per_page}"
+        )
+
+        # L1: in-memory
         cached = _get_cached(cache_key)
         if cached is not None:
             return cached
+
+        # L2: disk (6hr TTL)
+        cached_disk = _usajobs_disk_cache_get(cache_key)
+        if cached_disk is not None:
+            _set_cached(cache_key, cached_disk)
+            return cached_disk
 
         params: dict[str, str | int] = {
             "Keyword": keyword,
@@ -1519,10 +2943,17 @@ class USAJobsClient:
         }
         if location:
             params["LocationName"] = location
+        if salary_min > 0:
+            params["RemunerationMinimumAmount"] = salary_min
 
         qs = urllib.parse.urlencode(params)
         url = f"{self.BASE_URL}/Search?{qs}"
-        data = _http_get(url, headers=self._get_headers())
+        try:
+            data = _http_get(url, headers=self._get_headers())
+        except Exception as exc:
+            logger.error("USAJobs search_jobs failed: %s", exc, exc_info=True)
+            return None
+
         if data is None:
             return None
 
@@ -1532,56 +2963,212 @@ class USAJobsClient:
 
         result = {
             "count": search_result_count,
-            "jobs": [
-                {
-                    "position_title": (item.get("MatchedObjectDescriptor") or {}).get(
-                        "PositionTitle"
-                    )
-                    or "",
-                    "organization": (item.get("MatchedObjectDescriptor") or {}).get(
-                        "OrganizationName"
-                    )
-                    or "",
-                    "department": (item.get("MatchedObjectDescriptor") or {}).get(
-                        "DepartmentName"
-                    )
-                    or "",
-                    "location": (item.get("MatchedObjectDescriptor") or {}).get(
-                        "PositionLocationDisplay"
-                    )
-                    or "",
-                    "salary_min": (
-                        (
-                            (item.get("MatchedObjectDescriptor") or {}).get(
-                                "PositionRemuneration"
-                            )
-                            or [{}]
-                        )[0].get("MinimumRange")
-                        or ""
-                    ),
-                    "salary_max": (
-                        (
-                            (item.get("MatchedObjectDescriptor") or {}).get(
-                                "PositionRemuneration"
-                            )
-                            or [{}]
-                        )[0].get("MaximumRange")
-                        or ""
-                    ),
-                    "url": (item.get("MatchedObjectDescriptor") or {}).get(
-                        "PositionURI"
-                    )
-                    or "",
-                    "control_number": (item.get("MatchedObjectDescriptor") or {}).get(
-                        "PositionID"
-                    )
-                    or "",
-                }
-                for item in items
-            ],
+            "jobs": [self._parse_job_item(item) for item in items],
         }
         _set_cached(cache_key, result)
+        _usajobs_disk_cache_set(cache_key, result)
         return result
+
+    def get_job_count(self, keyword: str, location: str = "") -> int:
+        """Get total federal job count for a role/location.
+
+        Args:
+            keyword: Job keyword or title.
+            location: Optional location filter.
+
+        Returns:
+            Total count of matching federal jobs (0 on failure).
+        """
+        result = self.search_jobs(keyword, location=location, results_per_page=1)
+        if result is None:
+            return 0
+        return result.get("count") or 0
+
+    def get_salary_by_grade(self, grade: str = "GS-13") -> dict | None:
+        """Get federal jobs for a specific GS grade to determine salary ranges.
+
+        Args:
+            grade: GS grade string (e.g., 'GS-13', 'GS-15').
+
+        Returns:
+            Dict with grade, sample salary range, and job count, or None.
+        """
+        if not self._is_configured():
+            logger.warning("USAJOBS_API_KEY not set")
+            return None
+
+        grade_num = grade.replace("GS-", "").replace("gs-", "").strip()
+
+        cache_key = f"usajobs:grade:{grade_num}"
+        cached = _get_cached(cache_key)
+        if cached is not None:
+            return cached
+
+        cached_disk = _usajobs_disk_cache_get(cache_key)
+        if cached_disk is not None:
+            _set_cached(cache_key, cached_disk)
+            return cached_disk
+
+        params: dict[str, str | int] = {
+            "PayGradeLow": grade_num,
+            "PayGradeHigh": grade_num,
+            "ResultsPerPage": 10,
+        }
+        qs = urllib.parse.urlencode(params)
+        url = f"{self.BASE_URL}/Search?{qs}"
+        try:
+            data = _http_get(url, headers=self._get_headers())
+        except Exception as exc:
+            logger.error("USAJobs get_salary_by_grade failed: %s", exc, exc_info=True)
+            return None
+
+        if data is None:
+            return None
+
+        search_result = data.get("SearchResult") or {}
+        items = search_result.get("SearchResultItems") or []
+        count = search_result.get("SearchResultCount") or 0
+
+        min_salaries: list[float] = []
+        max_salaries: list[float] = []
+        for item in items:
+            desc = item.get("MatchedObjectDescriptor") or {}
+            remun_list = desc.get("PositionRemuneration") or [{}]
+            remun = remun_list[0] if remun_list else {}
+            try:
+                s_min = float(remun.get("MinimumRange") or 0)
+                s_max = float(remun.get("MaximumRange") or 0)
+                if s_min > 0:
+                    min_salaries.append(s_min)
+                if s_max > 0:
+                    max_salaries.append(s_max)
+            except (ValueError, TypeError):
+                pass
+
+        result = {
+            "grade": f"GS-{grade_num}",
+            "total_jobs": count,
+            "salary_range_low": min(min_salaries) if min_salaries else 0,
+            "salary_range_high": max(max_salaries) if max_salaries else 0,
+            "avg_salary_min": (
+                sum(min_salaries) / len(min_salaries) if min_salaries else 0
+            ),
+            "avg_salary_max": (
+                sum(max_salaries) / len(max_salaries) if max_salaries else 0
+            ),
+        }
+        _set_cached(cache_key, result)
+        _usajobs_disk_cache_set(cache_key, result)
+        return result
+
+    def get_agencies_hiring(self, keyword: str, location: str = "") -> list[dict]:
+        """Get top agencies hiring for a role, aggregated from search results.
+
+        Args:
+            keyword: Job keyword or title.
+            location: Optional location filter.
+
+        Returns:
+            List of agency dicts sorted by job count (descending).
+        """
+        cache_key = f"usajobs:agencies:{keyword}:{location}"
+        cached = _get_cached(cache_key)
+        if cached is not None:
+            return cached
+
+        result = self.search_jobs(keyword, location=location, results_per_page=100)
+        if not result or not result.get("jobs"):
+            return []
+
+        agency_counts: dict[str, dict[str, Any]] = {}
+        for job in result["jobs"]:
+            org = job.get("organization") or "Unknown"
+            dept = job.get("department") or ""
+            if org not in agency_counts:
+                agency_counts[org] = {"agency": org, "department": dept, "count": 0}
+            agency_counts[org]["count"] += 1
+
+        agencies = sorted(
+            agency_counts.values(), key=lambda x: x["count"], reverse=True
+        )
+        _set_cached(cache_key, agencies)
+        return agencies
+
+    def get_security_clearance_jobs(
+        self,
+        clearance_level: str = "secret",
+        keyword: str = "",
+        location: str = "",
+    ) -> dict | None:
+        """Search jobs requiring a specific security clearance level.
+
+        Args:
+            clearance_level: Clearance type ('secret', 'top secret', 'public trust').
+            keyword: Optional job keyword filter.
+            location: Optional location filter.
+
+        Returns:
+            Dict with count, jobs, and clearance breakdown, or None.
+        """
+        if not self._is_configured():
+            logger.warning("USAJOBS_API_KEY not set")
+            return None
+
+        cache_key = f"usajobs:clearance:{clearance_level}:{keyword}:{location}"
+        cached = _get_cached(cache_key)
+        if cached is not None:
+            return cached
+
+        cached_disk = _usajobs_disk_cache_get(cache_key)
+        if cached_disk is not None:
+            _set_cached(cache_key, cached_disk)
+            return cached_disk
+
+        params: dict[str, str | int] = {
+            "SecurityClearanceRequired": "1",
+            "ResultsPerPage": 50,
+        }
+        if keyword:
+            params["Keyword"] = keyword
+        if location:
+            params["LocationName"] = location
+
+        qs = urllib.parse.urlencode(params)
+        url = f"{self.BASE_URL}/Search?{qs}"
+        try:
+            data = _http_get(url, headers=self._get_headers())
+        except Exception as exc:
+            logger.error("USAJobs clearance search failed: %s", exc, exc_info=True)
+            return None
+
+        if data is None:
+            return None
+
+        search_result = data.get("SearchResult") or {}
+        items = search_result.get("SearchResultItems") or []
+        total = search_result.get("SearchResultCount") or 0
+
+        all_jobs = [self._parse_job_item(item) for item in items]
+        clearance_lower = clearance_level.lower()
+
+        clearance_breakdown: dict[str, int] = {}
+        filtered_jobs: list[dict] = []
+        for job in all_jobs:
+            cl = job.get("security_clearance") or "Unspecified"
+            clearance_breakdown[cl] = clearance_breakdown.get(cl, 0) + 1
+            if clearance_lower in cl.lower():
+                filtered_jobs.append(job)
+
+        result_data = {
+            "total_clearance_jobs": total,
+            "clearance_level_filter": clearance_level,
+            "matched_count": len(filtered_jobs),
+            "clearance_breakdown": clearance_breakdown,
+            "jobs": filtered_jobs[:25],
+        }
+        _set_cached(cache_key, result_data)
+        _usajobs_disk_cache_set(cache_key, result_data)
+        return result_data
 
     def get_job_details(self, control_number: str) -> dict | None:
         """Get detailed information about a specific federal job.
@@ -1593,7 +3180,7 @@ class USAJobsClient:
             Dict with full job details or None.
         """
         if not self._is_configured():
-            logger.warning("USAJobs credentials not set")
+            logger.warning("USAJOBS_API_KEY not set")
             return None
 
         cache_key = f"usajobs:detail:{control_number}"
@@ -1602,7 +3189,12 @@ class USAJobsClient:
             return cached
 
         url = f"{self.BASE_URL}/Search?ControlNumber={control_number}"
-        data = _http_get(url, headers=self._get_headers())
+        try:
+            data = _http_get(url, headers=self._get_headers())
+        except Exception as exc:
+            logger.error("USAJobs get_job_details failed: %s", exc, exc_info=True)
+            return None
+
         if data is None:
             return None
 
@@ -1612,19 +3204,14 @@ class USAJobsClient:
             return None
 
         descriptor = items[0].get("MatchedObjectDescriptor") or {}
+        user_area = descriptor.get("UserArea") or {}
+        details = user_area.get("Details") or {}
         result = {
             "position_title": descriptor.get("PositionTitle") or "",
             "organization": descriptor.get("OrganizationName") or "",
             "department": descriptor.get("DepartmentName") or "",
-            "job_summary": descriptor.get("UserArea", {})
-            .get("Details", {})
-            .get("JobSummary")
-            or "",
-            "who_may_apply": descriptor.get("UserArea", {})
-            .get("Details", {})
-            .get("WhoMayApply", {})
-            .get("Name")
-            or "",
+            "job_summary": details.get("JobSummary") or "",
+            "who_may_apply": (details.get("WhoMayApply") or {}).get("Name") or "",
             "position_location": descriptor.get("PositionLocationDisplay") or "",
             "salary_min": (descriptor.get("PositionRemuneration") or [{}])[0].get(
                 "MinimumRange"
@@ -1639,6 +3226,7 @@ class USAJobsClient:
             "url": descriptor.get("PositionURI") or "",
         }
         _set_cached(cache_key, result)
+        _usajobs_disk_cache_set(cache_key, result)
         return result
 
     def get_hiring_paths(self) -> list[dict] | None:
@@ -1648,7 +3236,7 @@ class USAJobsClient:
             List of hiring path dicts or None.
         """
         if not self._is_configured():
-            logger.warning("USAJobs credentials not set")
+            logger.warning("USAJOBS_API_KEY not set")
             return None
 
         cache_key = "usajobs:hiring_paths"
@@ -1657,7 +3245,12 @@ class USAJobsClient:
             return cached
 
         url = f"{self.BASE_URL}/codelist/hiringpaths"
-        data = _http_get(url, headers=self._get_headers())
+        try:
+            data = _http_get(url, headers=self._get_headers())
+        except Exception as exc:
+            logger.error("USAJobs get_hiring_paths failed: %s", exc, exc_info=True)
+            return None
+
         if data is None:
             return None
 
@@ -1936,6 +3529,7 @@ bea = BEAClient()
 census = CensusClient()
 usajobs = USAJobsClient()
 bls = BLSClient()
+remoteok = RemoteOKClient()
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -2019,6 +3613,22 @@ def test_all_apis() -> dict[str, bool]:
         logger.warning("BLS test failed: %s", exc)
         results["bls"] = False
 
+    # 9. RemoteOK (no auth required)
+    try:
+        r = remoteok.get_trending_skills(limit=5)
+        results["remoteok"] = isinstance(r, list) and len(r) > 0
+    except Exception as exc:
+        logger.warning("RemoteOK test failed: %s", exc)
+        results["remoteok"] = False
+
+    # 10. FRED JOLTS (uses existing FRED key)
+    try:
+        r = fred.get_jolts_data("total")
+        results["fred_jolts"] = r is not None and bool(r.get("metrics"))
+    except Exception as exc:
+        logger.warning("FRED JOLTS test failed: %s", exc)
+        results["fred_jolts"] = False
+
     passed = sum(1 for v in results.values() if v)
     total = len(results)
     logger.info(f"API integration test: {passed}/{total} passed")
@@ -2069,6 +3679,11 @@ def get_api_status() -> dict[str, dict[str, Any]]:
         "bls": {
             "configured": bls._is_configured(),
             "env_vars": ["BLS_API_KEY"],
+        },
+        "remoteok": {
+            "configured": True,
+            "env_vars": [],
+            "note": "No API key required",
         },
     }
 
@@ -2314,11 +3929,12 @@ def get_gdp_resilient(state_level: bool = False) -> dict | None:
         return _call_with_fallback(_try_fred_gdp, _try_bea_fallback)
 
 
-# ── O*NET Local Cache (occupational data changes infrequently) ─────────────
+# ── O*NET Disk Cache v2.0 (30-day TTL, occupational data changes infrequently)
 
 _onet_cache_file = Path(__file__).resolve().parent / "data" / "onet_cache.json"
 _onet_local_cache: dict[str, Any] = {}
 _onet_cache_loaded = False
+_ONET_DISK_CACHE_TTL = 30 * 86400  # 30 days in seconds
 
 
 def _load_onet_local_cache() -> None:
@@ -2333,7 +3949,19 @@ def _load_onet_local_cache() -> None:
         if _onet_cache_file.exists():
             try:
                 with open(_onet_cache_file, "r", encoding="utf-8") as f:
-                    _onet_local_cache = json.load(f)
+                    raw = json.load(f)
+                # Migrate old flat cache to timestamped format if needed
+                if raw and isinstance(raw, dict):
+                    first_val = next(iter(raw.values()), None)
+                    if isinstance(first_val, dict) and "ts" in first_val:
+                        _onet_local_cache = raw
+                    else:
+                        # Old format: wrap each entry with current timestamp
+                        _onet_local_cache = {
+                            k: {"ts": time.time(), "data": v} for k, v in raw.items()
+                        }
+                else:
+                    _onet_local_cache = {}
                 logger.info(
                     "Loaded O*NET local cache: %d entries", len(_onet_local_cache)
                 )
@@ -2353,11 +3981,42 @@ def _save_onet_local_cache() -> None:
             logger.warning("Failed to save O*NET local cache: %s", e)
 
 
+def _onet_disk_get(cache_key: str) -> Any | None:
+    """Read from disk cache with 30-day TTL check.
+
+    Args:
+        cache_key: Cache key string.
+
+    Returns:
+        Cached data or None if expired/missing.
+    """
+    entry = _onet_local_cache.get(cache_key)
+    if entry is None:
+        return None
+    if not isinstance(entry, dict) or "ts" not in entry:
+        return entry  # Legacy format -- return as-is
+    if time.time() - entry["ts"] > _ONET_DISK_CACHE_TTL:
+        logger.debug("O*NET disk cache expired for %s", cache_key)
+        return None
+    return entry.get("data")
+
+
+def _onet_disk_set(cache_key: str, data: Any) -> None:
+    """Write to disk cache with timestamp.
+
+    Args:
+        cache_key: Cache key string.
+        data: Data to cache.
+    """
+    _onet_local_cache[cache_key] = {"ts": time.time(), "data": data}
+    _save_onet_local_cache()
+
+
 def get_onet_skills_resilient(soc_code: str) -> list[dict] | None:
     """Get O*NET skills with local cache fallback.
 
     Tier 1: O*NET API (live data)
-    Tier 2: Local cache (data/onet_cache.json)
+    Tier 2: Local disk cache (data/onet_cache.json, 30-day TTL)
 
     Args:
         soc_code: O*NET-SOC code (e.g., '15-1252.00').
@@ -2366,21 +4025,18 @@ def get_onet_skills_resilient(soc_code: str) -> list[dict] | None:
         List of skill dicts, or None if both fail.
     """
     _load_onet_local_cache()
+    cache_key = f"skills:{soc_code}"
 
     # Try live API first
     result = onet.get_skills(soc_code)
     if result is not None:
-        # Update local cache on success
-        cache_key = f"skills:{soc_code}"
-        _onet_local_cache[cache_key] = result
-        _save_onet_local_cache()
+        _onet_disk_set(cache_key, result)
         return result
 
-    # Fallback to local cache
-    cache_key = f"skills:{soc_code}"
-    cached = _onet_local_cache.get(cache_key)
+    # Fallback to disk cache
+    cached = _onet_disk_get(cache_key)
     if cached is not None:
-        logger.info("O*NET skills served from local cache for %s", soc_code)
+        logger.info("O*NET skills served from disk cache for %s", soc_code)
         return cached
 
     return None
@@ -2396,21 +4052,101 @@ def get_onet_tech_skills_resilient(soc_code: str) -> list[dict] | None:
         List of tech skill dicts, or None if both fail.
     """
     _load_onet_local_cache()
+    cache_key = f"tech_skills:{soc_code}"
 
     result = onet.get_technology_skills(soc_code)
     if result is not None:
-        cache_key = f"tech_skills:{soc_code}"
-        _onet_local_cache[cache_key] = result
-        _save_onet_local_cache()
+        _onet_disk_set(cache_key, result)
         return result
 
-    cache_key = f"tech_skills:{soc_code}"
-    cached = _onet_local_cache.get(cache_key)
+    cached = _onet_disk_get(cache_key)
     if cached is not None:
-        logger.info("O*NET tech skills served from local cache for %s", soc_code)
+        logger.info("O*NET tech skills served from disk cache for %s", soc_code)
         return cached
 
     return None
+
+
+def get_onet_knowledge_resilient(soc_code: str) -> list[dict] | None:
+    """Get O*NET knowledge requirements with local cache fallback (v2.0).
+
+    Args:
+        soc_code: O*NET-SOC code.
+
+    Returns:
+        List of knowledge area dicts, or None if both fail.
+    """
+    _load_onet_local_cache()
+    cache_key = f"knowledge:{soc_code}"
+
+    result = onet.get_knowledge(soc_code)
+    if result is not None:
+        _onet_disk_set(cache_key, result)
+        return result
+
+    cached = _onet_disk_get(cache_key)
+    if cached is not None:
+        logger.info("O*NET knowledge served from disk cache for %s", soc_code)
+        return cached
+
+    return None
+
+
+def get_onet_related_resilient(soc_code: str) -> list[dict] | None:
+    """Get O*NET related occupations with local cache fallback (v2.0).
+
+    Args:
+        soc_code: O*NET-SOC code.
+
+    Returns:
+        List of related occupation dicts, or None if both fail.
+    """
+    _load_onet_local_cache()
+    cache_key = f"related:{soc_code}"
+
+    result = onet.get_related_occupations(soc_code)
+    if result is not None:
+        _onet_disk_set(cache_key, result)
+        return result
+
+    cached = _onet_disk_get(cache_key)
+    if cached is not None:
+        logger.info("O*NET related occupations served from disk cache for %s", soc_code)
+        return cached
+
+    return None
+
+
+def get_onet_skills_profile_resilient(soc_code: str) -> dict | None:
+    """Get complete O*NET skills profile with local cache fallback (v2.0).
+
+    Combines skills, tech skills, knowledge, and related occupations
+    with per-component disk caching.
+
+    Args:
+        soc_code: O*NET-SOC code.
+
+    Returns:
+        Combined profile dict, or None if all components fail.
+    """
+    skills = get_onet_skills_resilient(soc_code)
+    tech_skills = get_onet_tech_skills_resilient(soc_code)
+    knowledge = get_onet_knowledge_resilient(soc_code)
+    related = get_onet_related_resilient(soc_code)
+
+    if all(x is None for x in [skills, tech_skills, knowledge, related]):
+        return None
+
+    profile: dict[str, Any] = {"soc_code": soc_code}
+    if skills is not None:
+        profile["skills"] = skills
+    if tech_skills is not None:
+        profile["technology_skills"] = tech_skills
+    if knowledge is not None:
+        profile["knowledge"] = knowledge
+    if related is not None:
+        profile["related_occupations"] = related
+    return profile
 
 
 # ── Demographics Cross-Reference: Census <-> BEA ──────────────────────────

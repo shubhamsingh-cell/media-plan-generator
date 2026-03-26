@@ -1,21 +1,31 @@
 #!/usr/bin/env python3
-"""Semantic vector search using Voyage AI embeddings + Qdrant vector store.
+"""Hybrid search using Voyage AI vector embeddings + BM25 keyword matching.
 
 Uses Voyage AI HTTP API for embeddings (no chromadb/voyageai pip packages).
 Stores vectors in Qdrant Cloud for production persistence, with in-memory
 fallback and TF-IDF as last resort.
 
-Search tiers (in order):
-    Tier 1: Qdrant Cloud vector store (production, QDRANT_URL + QDRANT_API_KEY)
-    Tier 2: In-memory vector store with cosine similarity (warm standby)
-    Tier 3: TF-IDF keyword matching (pure Python, no external calls)
+Search strategy:
+    Hybrid = Vector similarity (semantic) + BM25 (exact keyword matching)
+    Combined via Reciprocal Rank Fusion (RRF, k=60).
+
+    Vector tiers (in order):
+        Tier 1: Qdrant Cloud vector store (production, QDRANT_URL + QDRANT_API_KEY)
+        Tier 2: In-memory vector store with cosine similarity (warm standby)
+
+    BM25 tier:
+        Always available once index is built. Pure Python, no external deps.
+
+    Fallback:
+        TF-IDF keyword matching if both vector and BM25 fail.
 
 Storage tiers for build_index:
     - Qdrant Cloud: persistent, shared across deploys
     - In-memory dict: fast, ephemeral, per-process
+    - BM25 index: always built alongside vector index
     - TF-IDF index: always built as warm standby
 
-This keeps our stdlib-only approach while enabling semantic search across
+This keeps our stdlib-only approach while enabling hybrid search across
 the Nova knowledge base.
 
 APIs:
@@ -702,21 +712,24 @@ def build_index(documents: list[dict]) -> None:
 
     embeddings = all_embeddings if not embedding_failed else None
 
+    # Prepare flat doc list for BM25 + TF-IDF indexing (shared by both paths)
+    flat_docs = [
+        {
+            "id": doc.get("id") or "",
+            "text": text,
+            "metadata": doc.get("metadata") or {},
+        }
+        for doc, text in valid_docs
+    ]
+
     if embeddings is None:
         logger.info(
-            "build_index: Voyage AI embedding unavailable, building TF-IDF fallback index"
+            "build_index: Voyage AI embedding unavailable, building BM25 + TF-IDF fallback"
         )
+        # Build BM25 index (always, for hybrid search)
+        _bm25_index.index(flat_docs)
         # Build TF-IDF fallback index from the valid documents
-        _build_tfidf_index(
-            [
-                {
-                    "id": doc.get("id") or "",
-                    "text": text,
-                    "metadata": doc.get("metadata") or {},
-                }
-                for doc, text in valid_docs
-            ]
-        )
+        _build_tfidf_index(flat_docs)
         return
 
     with _index_lock:
@@ -765,17 +778,11 @@ def build_index(documents: list[dict]) -> None:
         except (OSError, ValueError, TypeError) as exc:
             logger.error("Qdrant indexing error: %s", exc, exc_info=True)
 
+    # Build BM25 index for hybrid search (always alongside vector index)
+    _bm25_index.index(flat_docs)
+
     # Also build TF-IDF index as a warm standby for runtime fallback
-    _build_tfidf_index(
-        [
-            {
-                "id": doc.get("id") or "",
-                "text": text,
-                "metadata": doc.get("metadata") or {},
-            }
-            for doc, text in valid_docs
-        ]
-    )
+    _build_tfidf_index(flat_docs)
 
     qdrant_msg = f", Qdrant: {_qdrant_index_count}" if _qdrant_index_count else ""
     logger.info(
@@ -826,16 +833,311 @@ def _rerank_results(results: list[dict], query: str, top_k: int = 3) -> list[dic
     return results[:top_k]
 
 
+# ── BM25 Index (Okapi BM25 keyword scoring) ─────────────────────────────────
+
+
+class BM25Index:
+    """Okapi BM25 keyword index for knowledge base documents.
+
+    Pure Python implementation with no external dependencies.
+    Built alongside the vector index at startup for hybrid search.
+
+    BM25 excels at exact keyword matches (e.g., "LinkedIn CPC benchmarks")
+    while vector search excels at semantic similarity (e.g., "social media
+    cost metrics"). Combining both via RRF gives best-of-both-worlds retrieval.
+
+    Args:
+        k1: Term frequency saturation parameter (default 1.5).
+        b: Document length normalization parameter (default 0.75).
+    """
+
+    def __init__(self, k1: float = 1.5, b: float = 0.75) -> None:
+        self.k1 = k1
+        self.b = b
+        self.doc_lengths: list[int] = []
+        self.avg_dl: float = 0.0
+        self.doc_freqs: dict[str, int] = {}  # term -> number of docs containing term
+        self.term_freqs: list[dict[str, int]] = []  # doc_idx -> {term: raw_count}
+        self.doc_ids: list[str] = []
+        self.doc_texts: list[str] = []
+        self.doc_meta: list[dict] = []
+        self.N: int = 0
+        self._built = False
+        self._lock = threading.Lock()
+
+    @property
+    def is_built(self) -> bool:
+        """Whether the BM25 index has been built."""
+        return self._built
+
+    def index(self, documents: list[dict]) -> None:
+        """Build BM25 index from documents.
+
+        Each document should have: {"id": str, "text": str, "metadata": dict}.
+        Tokenizes using the shared _tokenize() function (lowercase, stop-word removal).
+
+        Args:
+            documents: List of document dicts to index.
+        """
+        if not documents:
+            return
+
+        with self._lock:
+            self.doc_lengths.clear()
+            self.doc_freqs.clear()
+            self.term_freqs.clear()
+            self.doc_ids.clear()
+            self.doc_texts.clear()
+            self.doc_meta.clear()
+
+            df: dict[str, int] = collections.defaultdict(int)
+
+            for doc in documents:
+                text = doc.get("text") or ""
+                tokens = _tokenize(text)
+                tf = dict(collections.Counter(tokens))
+
+                self.term_freqs.append(tf)
+                self.doc_lengths.append(len(tokens))
+                self.doc_ids.append(doc.get("id") or "")
+                self.doc_texts.append(text[:500])
+                self.doc_meta.append(doc.get("metadata") or {})
+
+                for term in set(tokens):
+                    df[term] += 1
+
+            self.doc_freqs = dict(df)
+            self.N = len(documents)
+            self.avg_dl = sum(self.doc_lengths) / self.N if self.N > 0 else 0.0
+            self._built = True
+
+        logger.info(
+            "BM25 index built: %d documents, %d unique terms, avg_dl=%.1f",
+            self.N,
+            len(self.doc_freqs),
+            self.avg_dl,
+        )
+
+    def search(self, query: str, top_k: int = 10) -> list[tuple[str, float]]:
+        """Search the BM25 index and return ranked (doc_id, score) tuples.
+
+        Uses Okapi BM25 scoring formula:
+            score(D,Q) = sum_over_terms( IDF(qi) * (f(qi,D) * (k1+1)) /
+                                          (f(qi,D) + k1 * (1 - b + b * |D|/avgdl)) )
+
+        Args:
+            query: Natural language query string.
+            top_k: Number of top results to return.
+
+        Returns:
+            List of (doc_id, bm25_score) tuples sorted by score descending.
+        """
+        if not self._built or self.N == 0:
+            return []
+
+        query_tokens = _tokenize(query)
+        if not query_tokens:
+            return []
+
+        scores: list[tuple[float, int]] = []
+
+        with self._lock:
+            for doc_idx in range(self.N):
+                score = 0.0
+                dl = self.doc_lengths[doc_idx]
+                tf_map = self.term_freqs[doc_idx]
+
+                for term in query_tokens:
+                    if term not in self.doc_freqs:
+                        continue
+
+                    # IDF: log((N - df + 0.5) / (df + 0.5) + 1)
+                    df = self.doc_freqs[term]
+                    idf = math.log((self.N - df + 0.5) / (df + 0.5) + 1.0)
+
+                    # TF component with length normalization
+                    f = tf_map.get(term, 0)
+                    if f == 0:
+                        continue
+
+                    tf_norm = (f * (self.k1 + 1.0)) / (
+                        f + self.k1 * (1.0 - self.b + self.b * dl / self.avg_dl)
+                    )
+
+                    score += idf * tf_norm
+
+                if score > 0.0:
+                    scores.append((score, doc_idx))
+
+        scores.sort(key=lambda x: x[0], reverse=True)
+
+        results: list[tuple[str, float]] = []
+        for bm25_score, doc_idx in scores[:top_k]:
+            results.append((self.doc_ids[doc_idx], round(bm25_score, 4)))
+
+        return results
+
+    def get_doc(self, doc_id: str) -> dict | None:
+        """Retrieve a document by its ID from the BM25 index.
+
+        Args:
+            doc_id: The document ID to look up.
+
+        Returns:
+            Dict with id, text, metadata -- or None if not found.
+        """
+        try:
+            idx = self.doc_ids.index(doc_id)
+            return {
+                "id": self.doc_ids[idx],
+                "text": self.doc_texts[idx],
+                "metadata": self.doc_meta[idx],
+            }
+        except ValueError:
+            return None
+
+
+# ── BM25 index instance (module-level singleton) ────────────────────────────
+_bm25_index = BM25Index()
+
+
+def reciprocal_rank_fusion(
+    vector_results: list[tuple[str, float]],
+    bm25_results: list[tuple[str, float]],
+    k: int = 60,
+) -> list[tuple[str, float]]:
+    """Combine vector and BM25 rankings using Reciprocal Rank Fusion.
+
+    RRF merges two ranked lists by summing reciprocal ranks. Documents
+    that appear in both lists get boosted, while documents appearing in
+    only one list still contribute. The parameter k controls how much
+    weight is given to lower-ranked results (higher k = more uniform).
+
+    Reference: Cormack, Clarke, Buettcher (2009) - "Reciprocal Rank Fusion
+    outperforms Condorcet and individual Rank Learning Methods"
+
+    Args:
+        vector_results: List of (doc_id, score) from vector search.
+        bm25_results: List of (doc_id, score) from BM25 search.
+        k: RRF constant (default 60, per original paper).
+
+    Returns:
+        Merged list of (doc_id, rrf_score) sorted by RRF score descending.
+    """
+    scores: dict[str, float] = {}
+
+    for rank, (doc_id, _) in enumerate(vector_results):
+        scores[doc_id] = scores.get(doc_id, 0.0) + 1.0 / (k + rank + 1)
+
+    for rank, (doc_id, _) in enumerate(bm25_results):
+        scores[doc_id] = scores.get(doc_id, 0.0) + 1.0 / (k + rank + 1)
+
+    ranked = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+    return [(doc_id, round(score, 6)) for doc_id, score in ranked]
+
+
+def _get_vector_results(
+    query: str,
+    query_embedding: list[float] | None,
+    fetch_k: int,
+) -> list[tuple[str, float]]:
+    """Get vector search results as (doc_id, score) tuples.
+
+    Tries Qdrant first, then falls back to in-memory vector index.
+
+    Args:
+        query: The search query (for logging).
+        query_embedding: Pre-computed query embedding vector.
+        fetch_k: Number of results to fetch.
+
+    Returns:
+        List of (doc_id, score) tuples sorted by score descending.
+    """
+    if query_embedding is None:
+        return []
+
+    # Tier 1: Qdrant production vector store
+    if _qdrant_available:
+        try:
+            qdrant_results = _qdrant_search(query_embedding, top_k=fetch_k)
+            if qdrant_results:
+                logger.debug(
+                    "Qdrant search returned %d results for query=%s",
+                    len(qdrant_results),
+                    query[:50],
+                )
+                return [(r["id"], r.get("score", 0.0)) for r in qdrant_results]
+        except (OSError, ValueError, TypeError) as exc:
+            logger.error("Qdrant search error, falling back: %s", exc, exc_info=True)
+
+    # Tier 2: In-memory vector search
+    if _index:
+        scored: list[tuple[float, str]] = []
+        with _index_lock:
+            for entry in _index:
+                sim = _cosine_similarity(query_embedding, entry["embedding"])
+                scored.append((sim, entry["id"]))
+
+        scored.sort(key=lambda x: x[0], reverse=True)
+        return [(doc_id, score) for score, doc_id in scored[:fetch_k]]
+
+    return []
+
+
+def _resolve_doc(doc_id: str) -> dict | None:
+    """Look up full document data by doc_id from any available index.
+
+    Checks in-memory vector index, BM25 index, then TF-IDF index.
+
+    Args:
+        doc_id: The document identifier.
+
+    Returns:
+        Dict with id, text, metadata -- or None if not found.
+    """
+    # Check in-memory vector index
+    with _index_lock:
+        for entry in _index:
+            if entry["id"] == doc_id:
+                return {
+                    "id": entry["id"],
+                    "text": entry["text"][:500],
+                    "metadata": entry["metadata"],
+                }
+
+    # Check BM25 index
+    bm25_doc = _bm25_index.get_doc(doc_id)
+    if bm25_doc:
+        return bm25_doc
+
+    # Check TF-IDF index
+    if _tfidf_built:
+        try:
+            idx = _tfidf_doc_ids.index(doc_id)
+            return {
+                "id": _tfidf_doc_ids[idx],
+                "text": _tfidf_doc_texts[idx],
+                "metadata": _tfidf_doc_meta[idx],
+            }
+        except ValueError:
+            pass
+
+    return None
+
+
 def search(query: str, top_k: int = 5) -> list[dict]:
-    """Semantic search across indexed documents.
+    """Hybrid search across indexed documents (vector + BM25 via RRF).
 
-    Tries in order:
-        1. Qdrant vector store (production, if configured)
-        2. In-memory vector search (Voyage AI embeddings)
-        3. TF-IDF keyword search (pure Python fallback)
+    Combines semantic vector similarity with BM25 keyword matching using
+    Reciprocal Rank Fusion for best-of-both-worlds retrieval:
+    - Vector search catches semantic matches ("talent acquisition" ~ "hiring")
+    - BM25 catches exact keyword matches ("LinkedIn CPC benchmarks")
+    - RRF merges both rankings without needing score normalization
 
-    Results are reranked using hybrid scoring (vector + keyword overlap)
-    before being returned.
+    Fallback order when hybrid is unavailable:
+        1. Vector-only with keyword reranking (if BM25 not built)
+        2. BM25-only (if embeddings unavailable)
+        3. TF-IDF keyword search (if both above fail)
 
     Args:
         query: Natural language search query.
@@ -845,55 +1147,85 @@ def search(query: str, top_k: int = 5) -> list[dict]:
         List of dicts with keys: id, text, metadata, score.
         Returns empty list on failure.
     """
+    fetch_k = top_k * 2  # Fetch 2x from each source for better RRF fusion
+
     query_embedding: list[float] | None = None
 
     # Get embedding once (shared by Qdrant and in-memory tiers)
     if _qdrant_available or _index:
         query_embedding = embed_text(query)
 
-    # Tier 1: Qdrant production vector store
-    if _qdrant_available and query_embedding is not None:
-        try:
-            qdrant_results = _qdrant_search(query_embedding, top_k=top_k)
-            if qdrant_results:
-                logger.debug(
-                    "Qdrant search returned %d results for query=%s",
-                    len(qdrant_results),
-                    query[:50],
-                )
-                results = _rerank_results(qdrant_results, query, top_k)
-                return results
-        except (OSError, ValueError, TypeError) as exc:
-            logger.error("Qdrant search error, falling back: %s", exc, exc_info=True)
+    if query_embedding is None and (_qdrant_available or _index):
+        logger.warning(
+            "Voyage AI embedding failed for query, falling back to BM25/TF-IDF"
+        )
 
-    # Tier 2: In-memory Voyage AI vector search
-    if _index and query_embedding is not None:
-        scored: list[tuple[float, dict]] = []
-        with _index_lock:
-            for entry in _index:
-                sim = _cosine_similarity(query_embedding, entry["embedding"])
-                scored.append((sim, entry))
+    # ── Hybrid path: Vector + BM25 via RRF ──────────────────────────────
+    vector_results = _get_vector_results(query, query_embedding, fetch_k)
+    bm25_results = (
+        _bm25_index.search(query, top_k=fetch_k) if _bm25_index.is_built else []
+    )
 
-        scored.sort(key=lambda x: x[0], reverse=True)
+    if vector_results and bm25_results:
+        # Full hybrid: merge both via RRF
+        fused = reciprocal_rank_fusion(vector_results, bm25_results, k=60)
+        logger.debug(
+            "Hybrid search: %d vector + %d BM25 -> %d fused for query=%s",
+            len(vector_results),
+            len(bm25_results),
+            len(fused),
+            query[:50],
+        )
 
         results: list[dict] = []
-        for score, entry in scored[:top_k]:
-            results.append(
-                {
-                    "id": entry["id"],
-                    "text": entry["text"][:500],
-                    "metadata": entry["metadata"],
-                    "score": round(score, 4),
-                }
-            )
-        results = _rerank_results(results, query, top_k)
-        return results
+        for doc_id, rrf_score in fused[:top_k]:
+            doc = _resolve_doc(doc_id)
+            if doc:
+                doc["score"] = rrf_score
+                doc["search_method"] = "hybrid_rrf"
+                results.append(doc)
 
-    if query_embedding is None and (_qdrant_available or _index):
-        # Voyage AI failed at query time -- fall through to TF-IDF
-        logger.warning("Voyage AI embedding failed for query, falling back to TF-IDF")
+        if results:
+            return results
 
-    # Tier 3: TF-IDF keyword search fallback
+    # ── Vector-only path (BM25 not available) ───────────────────────────
+    if vector_results:
+        logger.debug(
+            "Vector-only search: %d results for query=%s",
+            len(vector_results),
+            query[:50],
+        )
+        results = []
+        for doc_id, score in vector_results[:top_k]:
+            doc = _resolve_doc(doc_id)
+            if doc:
+                doc["score"] = round(score, 4)
+                doc["search_method"] = "vector"
+                results.append(doc)
+
+        if results:
+            results = _rerank_results(results, query, top_k)
+            return results
+
+    # ── BM25-only path (embeddings unavailable) ─────────────────────────
+    if bm25_results:
+        logger.info(
+            "BM25-only search: %d results for query=%s",
+            len(bm25_results),
+            query[:50],
+        )
+        results = []
+        for doc_id, score in bm25_results[:top_k]:
+            doc = _resolve_doc(doc_id)
+            if doc:
+                doc["score"] = round(score, 4)
+                doc["search_method"] = "bm25"
+                results.append(doc)
+
+        if results:
+            return results
+
+    # ── TF-IDF fallback (last resort) ───────────────────────────────────
     tfidf_results = _tfidf_search(query, top_k=top_k)
     if tfidf_results:
         logger.info(
@@ -901,6 +1233,8 @@ def search(query: str, top_k: int = 5) -> list[dict]:
             len(tfidf_results),
             query[:50],
         )
+        for r in tfidf_results:
+            r["search_method"] = "tfidf"
         results = _rerank_results(tfidf_results, query, top_k)
         return results
 
@@ -1329,6 +1663,18 @@ def get_status() -> dict:
         "voyage_configured": has_key,
         "index_size": len(_index),
         "index_built": _index_built,
+        "bm25_index_size": _bm25_index.N,
+        "bm25_built": _bm25_index.is_built,
+        "bm25_vocab_size": len(_bm25_index.doc_freqs),
+        "search_mode": (
+            "hybrid_rrf"
+            if (_index_built or _qdrant_available) and _bm25_index.is_built
+            else (
+                "vector"
+                if _index_built or _qdrant_available
+                else ("bm25" if _bm25_index.is_built else "tfidf")
+            )
+        ),
         "tfidf_index_size": len(_tfidf_index),
         "tfidf_built": _tfidf_built,
         "embedding_cache_size": len(_embedding_cache),

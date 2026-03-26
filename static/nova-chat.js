@@ -172,6 +172,13 @@
           callbacks.onComplete(metadata, fullText);
           return;
         }
+        // S18: Tool status events (real-time progress)
+        if (evt.type === "tool_start" || evt.type === "tool_complete") {
+          if (callbacks.onToolStatus) {
+            callbacks.onToolStatus(evt.type, evt.tool, evt.label);
+          }
+          return;
+        }
         if (evt.status) {
           callbacks.onStatus(evt.status);
           return;
@@ -617,6 +624,38 @@
       "  0%, 100% { opacity: 0.6; }" +
       "  50% { opacity: 1; }" +
       "}" +
+      // ── S18: Tool status pills ──
+      ".nova-tool-status-container {" +
+      "  display: flex; flex-direction: column; gap: 3px;" +
+      "  padding: 4px 12px; margin-bottom: 2px;" +
+      "}" +
+      ".nova-tool-pill {" +
+      "  display: inline-flex; align-items: center; gap: 6px;" +
+      "  padding: 3px 10px; border-radius: 999px; font-size: 11px;" +
+      "  width: fit-content; transition: opacity 0.3s ease;" +
+      "}" +
+      ".nova-tool-pill-active {" +
+      "  background: rgba(90,84,189,0.12); color: #7b75d4;" +
+      "  border: 1px solid rgba(90,84,189,0.2);" +
+      "}" +
+      ".nova-tool-pill-done {" +
+      "  background: rgba(52,211,153,0.08); color: #34d399;" +
+      "  border: 1px solid rgba(52,211,153,0.15);" +
+      "}" +
+      ".nova-tool-spinner {" +
+      "  display: inline-block; width: 10px; height: 10px;" +
+      "  border: 1.5px solid #5a54bd; border-top-color: transparent;" +
+      "  border-radius: 50%; animation: nova-tool-spin 0.7s linear infinite;" +
+      "  flex-shrink: 0;" +
+      "}" +
+      ".nova-tool-check {" +
+      "  display: inline-flex; align-items: center; justify-content: center;" +
+      "  width: 12px; height: 12px; font-size: 9px; flex-shrink: 0; color: #34d399;" +
+      "}" +
+      ".nova-tool-label {" +
+      "  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px;" +
+      "}" +
+      "@keyframes nova-tool-spin { to { transform: rotate(360deg); } }" +
       // ── Edit icon on user messages ──
       ".nova-msg-row-user .nova-edit-btn {" +
       "  opacity: 0; position: absolute; top: 4px; left: -28px;" +
@@ -748,6 +787,7 @@
       "  .nova-streaming-cursor { animation: none !important; opacity: 0.7; }" +
       "  .nova-welcome-orb { animation: none !important; }" +
       "  .nova-status-indicator { animation: none !important; }" +
+      "  .nova-tool-spinner { animation: none !important; opacity: 0.7; }" +
       "}";
 
     var styleEl = document.createElement("style");
@@ -956,6 +996,68 @@
     var div = document.createElement("div");
     div.appendChild(document.createTextNode(String(str)));
     return div.innerHTML;
+  }
+
+  // ── S18: Tool Status Indicator (real-time tool progress) ──
+  var _widgetActiveTools = {};
+
+  function showWidgetToolStatus(type, toolName, label) {
+    var messagesEl = state.chatPanel
+      ? state.chatPanel.querySelector(".nova-messages")
+      : null;
+    if (!messagesEl) return;
+
+    var container = document.getElementById("nova-widget-tool-status");
+    if (!container) {
+      container = document.createElement("div");
+      container.id = "nova-widget-tool-status";
+      container.className = "nova-tool-status-container";
+      messagesEl.appendChild(container);
+    }
+
+    if (type === "tool_start") {
+      _widgetActiveTools[toolName] = true;
+      var pillId = "nova-wt-" + toolName.replace(/[^a-zA-Z0-9]/g, "_");
+      var pill = document.getElementById(pillId);
+      if (!pill) {
+        pill = document.createElement("div");
+        pill.id = pillId;
+        pill.className = "nova-tool-pill nova-tool-pill-active";
+        pill.innerHTML =
+          '<span class="nova-tool-spinner"></span>' +
+          '<span class="nova-tool-label">' +
+          escapeHtml(label) +
+          "</span>";
+        container.appendChild(pill);
+      }
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    } else if (type === "tool_complete") {
+      delete _widgetActiveTools[toolName];
+      var pillId2 = "nova-wt-" + toolName.replace(/[^a-zA-Z0-9]/g, "_");
+      var pill2 = document.getElementById(pillId2);
+      if (pill2) {
+        pill2.className = "nova-tool-pill nova-tool-pill-done";
+        pill2.innerHTML =
+          '<span class="nova-tool-check">&#10003;</span>' +
+          '<span class="nova-tool-label">' +
+          escapeHtml(label) +
+          "</span>";
+        setTimeout(function () {
+          if (pill2 && pill2.parentNode) {
+            pill2.style.opacity = "0";
+            setTimeout(function () {
+              if (pill2 && pill2.parentNode) pill2.remove();
+            }, 300);
+          }
+        }, 1500);
+      }
+    }
+  }
+
+  function clearWidgetToolStatus() {
+    _widgetActiveTools = {};
+    var container = document.getElementById("nova-widget-tool-status");
+    if (container) container.remove();
   }
 
   function highlightSyntax(code, lang) {
@@ -2796,7 +2898,11 @@
               }
               statusEl.textContent = escapeHtml(statusText);
             },
+            onToolStatus: function (type, tool, label) {
+              showWidgetToolStatus(type, tool, label);
+            },
             onComplete: function (metadata, fullText) {
+              clearWidgetToolStatus();
               clearTimeout(fetchTimeout);
               // PostHog tracking
               if (window.posthog) {
@@ -2970,6 +3076,15 @@
                     if (evt.done) {
                       metadata = evt;
                       streamDone = true;
+                      clearWidgetToolStatus();
+                      return;
+                    }
+                    // S18: Tool status events
+                    if (
+                      evt.type === "tool_start" ||
+                      evt.type === "tool_complete"
+                    ) {
+                      showWidgetToolStatus(evt.type, evt.tool, evt.label);
                       return;
                     }
                     // Handle status/progress events
@@ -3006,6 +3121,7 @@
                           activeStatus.remove();
                           _statusRemoved = true;
                         }
+                        clearWidgetToolStatus();
                       }
                       fullText += evt.token;
                       streamEl.innerHTML = renderMarkdown(fullText);

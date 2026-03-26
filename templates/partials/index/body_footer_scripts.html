@@ -118,21 +118,83 @@
   })();
 
   // ============================================
-  // PDF Export via window.print()
+  // PDF Export via /api/export/pdf endpoint
   // ============================================
   function exportPlanPDF() {
-    var dashboard = document.getElementById("planDashboardSection");
-    if (!dashboard || !dashboard.classList.contains("visible")) {
-      showToast("Generate a plan first to export as PDF.", "warning");
+    if (!_lastPlanPayload) {
+      showToast(
+        "Generate a media plan first before exporting as PDF.",
+        "warning",
+      );
       return;
     }
-    showToast(
-      "Opening print dialog -- use 'Save as PDF' for best results.",
-      "info",
-    );
-    setTimeout(function () {
-      window.print();
-    }, 300);
+
+    var exportBtn = document.getElementById("exportBtn");
+    var origHTML = exportBtn ? exportBtn.innerHTML : "";
+    if (exportBtn) {
+      exportBtn.disabled = true;
+      exportBtn.innerHTML =
+        '<span style="display:flex;align-items:center;gap:6px;"><span class="spinner-sm"></span> Generating PDF...</span>';
+    }
+
+    // Close dropdown
+    var menu = document.getElementById("exportDropdown");
+    if (menu) menu.classList.remove("open");
+
+    var body = JSON.stringify({
+      plan_data: _lastPlanPayload,
+      client_name:
+        _lastPlanPayload.client_name ||
+        document.getElementById("clientName")?.value ||
+        "Client",
+      industry:
+        _lastPlanPayload.industry ||
+        (typeof selectedIndustry !== "undefined"
+          ? selectedIndustry
+          : "Technology"),
+    });
+
+    fetch("/api/export/pdf", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: body,
+    })
+      .then(function (response) {
+        if (!response.ok) {
+          return response.json().then(function (data) {
+            throw new Error(data.error || "PDF export failed");
+          });
+        }
+        return response.blob();
+      })
+      .then(function (blob) {
+        var disposition = "Media_Plan_Report.pdf";
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement("a");
+        a.href = url;
+        a.download = disposition;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        showToast("PDF report downloaded successfully!", "success");
+      })
+      .catch(function (err) {
+        // Fallback to browser print if PDF generation fails
+        showToast(
+          "PDF generation unavailable, opening print dialog instead.",
+          "info",
+        );
+        setTimeout(function () {
+          window.print();
+        }, 300);
+      })
+      .finally(function () {
+        if (exportBtn) {
+          exportBtn.disabled = false;
+          exportBtn.innerHTML = origHTML;
+        }
+      });
   }
 
   // ============================================

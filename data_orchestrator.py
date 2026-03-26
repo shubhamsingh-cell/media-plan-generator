@@ -1262,9 +1262,14 @@ def _register_default_handlers(orch: DataOrchestrator) -> None:
             def _bea_handler(query: str, context: Dict) -> Optional[Any]:
                 """Fetch economic data from BEA."""
                 state = context.get("state") or ""
-                if state:
-                    return bea.get_state_gdp(state)
-                return bea.get_national_income()
+                metro_fips = context.get("metro_fips") or ""
+                if state or metro_fips:
+                    return bea.query_regional_economics(
+                        state=state,
+                        metro_fips=metro_fips,
+                        metric_type="all",
+                    )
+                return bea.get_gdp_by_state_all()
 
             orch.register_source(DataSourceType.BEA, _bea_handler)
 

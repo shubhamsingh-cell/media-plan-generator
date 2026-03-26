@@ -1,0 +1,193 @@
+{
+  "_metadata": {
+    "source_urls": [
+      "https://www.grandviewresearch.com/industry-analysis/recruitment-process-outsourcing-rpo-market",
+      "https://talentplace.com/blog/for-employers/top-10-rpo-companies-2026-which-provider-fits-your-hiring-needs/",
+      "https://www.businessresearchinsights.com/market-reports/recruitment-market-106353",
+      "https://straitsresearch.com/report/recruitment-process-outsourcing-rpo-market",
+      "https://recruiterflow.com/blog/recruitment-trends/",
+      "https://www.mordorintelligence.com/industry-reports/recruiting-market",
+      "https://www.leonar.app/blog/how-much-do-recruitment-agencies-charge/",
+      "https://giighire.com/2025/12/10/best-recruitment-fee-structure/",
+      "https://remotepad.net/recruiting-fee/",
+      "https://americanstaffing.net/posts/2026/01/06/top-5-staffing-trends-to-watch-for-2026/"
+    ],
+    "researched_date": "2026-03-26",
+    "data_quality": "high",
+    "category": "Agency & RPO Market"
+  },
+  "recruitment_market": {
+    "total_market_size_2025_usd_billions": 642.28,
+    "total_market_size_2026_usd_billions": 690.3,
+    "projected_2031_usd_billions": 989.32,
+    "cagr_2026_2031_pct": 7.47,
+    "alternative_estimate_2026_usd_billions": 968.33,
+    "alternative_projected_2035_usd_billions": 2932.15,
+    "alternative_cagr_pct": 13.1
+  },
+  "rpo_market": {
+    "market_size_2022_usd_billions": 7.33,
+    "market_size_2026_estimated_usd_billions": 9.53,
+    "projected_2030_usd_billions": 24.32,
+    "projected_2031_usd_billions": 36.79,
+    "cagr_2023_2030_pct": 16.1,
+    "cagr_2026_2031_pct": 9.23,
+    "note": "Fastest momentum of any staffing segment",
+    "cost_per_hire_reduction_pct": {"min": 20, "max": 50}
+  },
+  "rpo_providers": [
+    {
+      "company": "Cielo",
+      "specialization": "Enterprise RPO",
+      "coverage": "Global",
+      "key_strengths": ["Comprehensive RPO", "Technology integration", "Global reach"],
+      "target_segment": "Large enterprise"
+    },
+    {
+      "company": "Korn Ferry RPO",
+      "specialization": "Executive & professional RPO",
+      "coverage": "Global",
+      "key_strengths": ["Executive search heritage", "Talent strategy", "Assessment tools"],
+      "target_segment": "Enterprise"
+    },
+    {
+      "company": "ManpowerGroup Solutions",
+      "specialization": "Full-cycle RPO",
+      "coverage": "Global",
+      "key_strengths": ["Scale", "Agentic AI (Carv partnership)", "Volume hiring"],
+      "target_segment": "Large enterprise",
+      "notable": "Partnered with Carv to build Agentic-AI capabilities"
+    },
+    {
+      "company": "Kelly Services (KellyOCG)",
+      "specialization": "RPO & MSP",
+      "coverage": "Global",
+      "key_strengths": ["STEM specialization", "Managed services", "Workforce consulting"],
+      "target_segment": "Enterprise"
+    },
+    {
+      "company": "Randstad Sourceright",
+      "specialization": "RPO & Talent Solutions",
+      "coverage": "Global",
+      "key_strengths": ["Market intelligence", "Technology platform", "Employer branding"],
+      "target_segment": "Enterprise"
+    },
+    {
+      "company": "AMS (Alexander Mann Solutions)",
+      "specialization": "Talent Acquisition RPO",
+      "coverage": "Global",
+      "key_strengths": ["Innovation", "DE&I focus", "Contingent workforce"],
+      "target_segment": "Enterprise"
+    },
+    {
+      "company": "Robert Half",
+      "specialization": "Professional staffing & RPO",
+      "coverage": "Global",
+      "key_strengths": ["Professional/financial staffing", "Agentic AI development", "Market research"],
+      "target_segment": "Mid-market to enterprise",
+      "notable": "Making advancements toward building agentic-AI"
+    },
+    {
+      "company": "Hudson Talent Solutions",
+      "specialization": "Modular RPO",
+      "coverage": "US/Europe",
+      "key_strengths": ["Flexibility", "Modular services", "Mid-market focus"],
+      "target_segment": "Mid-market"
+    },
+    {
+      "company": "Pearl Talent",
+      "specialization": "Remote-first RPO",
+      "coverage": "Latin America, Philippines, South Africa",
+      "key_strengths": ["Remote hiring", "Cost-effective global talent", "Fast scaling"],
+      "target_segment": "Startups and growth companies"
+    },
+    {
+      "company": "Heidrick & Struggles",
+      "specialization": "Executive RPO",
+      "coverage": "Global",
+      "key_strengths": ["C-suite search", "Board advisory", "Leadership consulting"],
+      "target_segment": "Enterprise (executive level)"
+    }
+  ],
+  "fee_structures": {
+    "contingency": {
+      "typical_range_pct": {"min": 15, "max": 30},
+      "average_pct": 20,
+      "payment_trigger": "Successful placement only",
+      "guarantee_period_days": {"min": 60, "max": 90},
+      "guarantee_type": "Partial refund or replacement search",
+      "best_for": "Standard professional roles, volume hiring"
+    },
+    "retained": {
+      "typical_range_pct": {"min": 25, "max": 35},
+      "payment_schedule": "One-third at kickoff, one-third at shortlist, one-third at placement",
+      "minimum_fee_range_usd": {"min": 80000, "max": 100000},
+      "based_on": "Total first-year compensation (base + projected bonuses)",
+      "best_for": "Executive search, C-suite roles, specialized positions"
+    },
+    "hybrid_retingency": {
+      "upfront_fee_pct": {"min": 10, "max": 25},
+      "remainder": "Paid upon placement",
+      "best_for": "Mid-level specialized roles"
+    },
+    "flat_fee": {
+      "range_usd": {"min": 5000, "max": 30000},
+      "typical_for_100k_plus_roles_usd": {"min": 8000, "max": 12000},
+      "comparison_note": "Flat fee of $10K on a $150K role beats 20% contingency fee of $30K"
+    },
+    "rpo_subscription": {
+      "model": "Monthly or per-hire fee",
+      "typical_per_hire_usd": {"min": 3000, "max": 8000},
+      "typical_monthly_retainer_usd": {"min": 10000, "max": 50000},
+      "best_for": "Ongoing hiring needs, strategic partnerships"
+    },
+    "2026_trends": [
+      "AI recruiting tools putting downward pressure on traditional fees",
+      "Retainers rising in popularity for accountability and partnership",
+      "Hybrid contingency + retained + subscription models winning more clients",
+      "Flat-fee alternatives gaining traction for mid-senior roles",
+      "Total fees in 2026 typically 18-30% depending on seniority and complexity"
+    ]
+  },
+  "staffing_industry_trends_2026": [
+    {
+      "trend": "AI & Automation Integration",
+      "description": "AI agents becoming integral to recruiter tech stacks; shifting from solving volume to solving efficiency",
+      "adoption_ai_screening_pct": 67,
+      "adoption_video_interviewing_pct": 72,
+      "digital_candidate_management_pct": 45
+    },
+    {
+      "trend": "Service Diversification",
+      "description": "Agencies expanding beyond single models to Temp + RPO + consulting",
+      "driver": "Permanent hiring demand decline forcing new revenue streams"
+    },
+    {
+      "trend": "RPO as Dominant Model",
+      "description": "Clients seeking strategic hiring partners over one-off vendor relationships",
+      "note": "Subscription-like model aligns with client expectations"
+    },
+    {
+      "trend": "Skills-Based Hiring",
+      "description": "Matching on competencies rather than credentials",
+      "benefit": "Faster ramp-up, better retention"
+    },
+    {
+      "trend": "Regional Expansion to Asia-Pacific",
+      "description": "Asia-Pacific advancing at 8.12% CAGR",
+      "drivers": ["Digital economy expansion", "Employer of record uptake"]
+    }
+  ],
+  "top_staffing_agencies_by_revenue": [
+    {"rank": 1, "company": "Randstad", "headquarters": "Netherlands", "revenue_usd_billions": 28.5},
+    {"rank": 2, "company": "Adecco Group", "headquarters": "Switzerland", "revenue_usd_billions": 24.0},
+    {"rank": 3, "company": "ManpowerGroup", "headquarters": "USA", "revenue_usd_billions": 17.5},
+    {"rank": 4, "company": "Robert Half", "headquarters": "USA", "revenue_usd_billions": 5.5},
+    {"rank": 5, "company": "Hays", "headquarters": "UK", "revenue_usd_billions": 5.0},
+    {"rank": 6, "company": "Korn Ferry", "headquarters": "USA", "revenue_usd_billions": 2.8},
+    {"rank": 7, "company": "Kelly Services", "headquarters": "USA", "revenue_usd_billions": 2.5},
+    {"rank": 8, "company": "Heidrick & Struggles", "headquarters": "USA", "revenue_usd_billions": 1.1},
+    {"rank": 9, "company": "Insperity", "headquarters": "USA", "revenue_usd_billions": 6.5},
+    {"rank": 10, "company": "TrueBlue", "headquarters": "USA", "revenue_usd_billions": 2.2}
+  ]
+}

@@ -504,6 +504,34 @@ def _get_recent_sentry_errors(hours: int = 24) -> list[dict[str, Any]]:
         return []
 
 
+def _handle_ab_test_results(handler, path: str, parsed: Any) -> None:
+    """/api/ab/results -- A/B test experiment results (admin-protected)."""
+    if not handler._check_admin_auth():
+        handler.send_error(401, "Unauthorized")
+        return
+
+    try:
+        from ab_testing import get_ab_manager
+
+        mgr = get_ab_manager()
+        import urllib.parse
+
+        query_params = urllib.parse.parse_qs(parsed.query)
+        view = query_params.get("view", ["summary"])[0]
+
+        if view == "by_query_type":
+            report = mgr.get_report_by_query_type()
+        else:
+            report = mgr.get_report()
+
+        handler._send_json(report)
+    except ImportError:
+        handler._send_json({"error": "ab_testing module not available"})
+    except Exception as exc:
+        logger.error("A/B test results error: %s", exc, exc_info=True)
+        handler._send_json({"error": f"Failed to fetch A/B test results: {exc}"})
+
+
 # ---------------------------------------------------------------------------
 # Route map
 # ---------------------------------------------------------------------------
@@ -518,4 +546,5 @@ _ADMIN_ROUTE_MAP: dict[str, Any] = {
     "/api/admin/audit-log": _handle_admin_audit_log,
     "/api/admin/slow-endpoints": _handle_admin_slow_endpoints,
     "/api/admin/sentry-errors": _handle_admin_sentry_errors,
+    "/api/ab/results": _handle_ab_test_results,
 }

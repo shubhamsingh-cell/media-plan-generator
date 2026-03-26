@@ -45,6 +45,17 @@ KB_FILES: dict[str, str] = {
     "external_benchmarks": "external_benchmarks_2025.json",
     "client_media_plans": "client_media_plans_kb.json",
     "international_sources": "international_sources.json",
+    # 2026 Research Data (added 2026-03-26)
+    "hr_tech_landscape": "hr_tech_landscape_2026.json",
+    "publisher_benchmarks": "publisher_benchmarks_2026.json",
+    "recruitment_marketing_trends": "recruitment_marketing_trends_2026.json",
+    "labor_market_outlook": "labor_market_outlook_2026.json",
+    "salary_benchmarks_detailed": "salary_benchmarks_detailed_2026.json",
+    "ad_benchmarks_recruitment": "ad_benchmarks_recruitment_2026.json",
+    "industry_hiring_patterns": "industry_hiring_patterns_2026.json",
+    "top_employers_by_city": "top_employers_by_city_2026.json",
+    "compliance_regulations": "compliance_regulations_2026.json",
+    "agency_rpo_market": "agency_rpo_market_2026.json",
 }
 
 # Maximum file age (in days) before a startup warning is logged.

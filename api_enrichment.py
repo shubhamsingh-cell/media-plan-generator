@@ -10968,6 +10968,435 @@ def fetch_careeronestop_data(roles: List[str], locations: List[str]) -> Dict[str
     return result
 
 
+# ─── CareerOneStop Upgraded Endpoints (S19) ──────────────────────────────────
+# New endpoints: Wages by ONet+Location (percentiles), Employment Projections,
+# Skills Matcher for gap analysis, and Occupation keyword search.
+
+
+def _fetch_cos_wages_by_location(
+    user_id: str, api_key: str, onet_code: str, location: str
+) -> Optional[Dict[str, Any]]:
+    """Fetch detailed wage data (10th-90th percentiles) by O*NET code and location.
+
+    Uses: /v1/occupation/{userId}/{onetCode}/wages/{location}
+    Returns hourly and annual wages at 10th, 25th, median, 75th, 90th percentiles.
+    """
+    encoded_onet = urllib.parse.quote(onet_code, safe="")
+    encoded_loc = urllib.parse.quote(location, safe="")
+    path = f"/v1/occupation/{urllib.parse.quote(user_id, safe='')}/{encoded_onet}/wages/{encoded_loc}"
+    cache_key = _cache_key("cos_wages_loc", f"{onet_code}:{location}")
+    cached = _get_cached(cache_key)
+    if cached is not None:
+        return cached
+    data = _cos_api_get(path, api_key)
+    if data:
+        _set_cached(cache_key, data)
+    return data
+
+
+def _parse_wages_by_location(raw: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Parse wage percentile data from CareerOneStop wages endpoint.
+
+    Extracts annual and hourly wages at P10, P25, median, P75, P90.
+    """
+    if not raw:
+        return None
+
+    wages = raw.get("OccupationDetail") or raw.get("Wages") or raw
+    if isinstance(wages, list) and wages:
+        wages = wages[0]
+
+    def _safe_num(val: Any) -> Optional[float]:
+        if val is None:
+            return None
+        try:
+            return float(str(val).replace(",", "").replace("$", ""))
+        except (ValueError, TypeError):
+            return None
+
+    result: Dict[str, Any] = {}
+
+    # Try multiple key patterns (API version variance)
+    for prefix, label in [("Annual", "annual"), ("Hourly", "hourly")]:
+        percentiles = {}
+        for pct_key, pct_label in [
+            ("Pct10", "p10"),
+            ("Pct25", "p25"),
+            ("Median", "median"),
+            ("Pct75", "p75"),
+            ("Pct90", "p90"),
+        ]:
+            val = _safe_num(
+                wages.get(f"{prefix}{pct_key}")
+                or wages.get(f"{label}_{pct_label}")
+                or wages.get(f"{prefix.lower()}{pct_key}")
+            )
+            if val is not None and val > 0:
+                percentiles[pct_label] = val
+        if percentiles:
+            result[label] = percentiles
+
+    # Location context
+    for loc_key in ["AreaName", "AreaTitle", "Location", "StateName"]:
+        if wages.get(loc_key):
+            result["location"] = str(wages[loc_key])
+            break
+
+    return result if result else None
+
+
+def _fetch_cos_projections(
+    user_id: str, api_key: str, onet_code: str, stfips: str
+) -> Optional[Dict[str, Any]]:
+    """Fetch employment projections by O*NET code and state FIPS.
+
+    Uses: /v1/occupation/{userId}/{onetCode}/projections/{stfips}
+    Returns 10-year employment projections including growth rate and openings.
+    """
+    encoded_onet = urllib.parse.quote(onet_code, safe="")
+    path = f"/v1/occupation/{urllib.parse.quote(user_id, safe='')}/{encoded_onet}/projections/{stfips}"
+    cache_key = _cache_key("cos_projections", f"{onet_code}:{stfips}")
+    cached = _get_cached(cache_key)
+    if cached is not None:
+        return cached
+    data = _cos_api_get(path, api_key)
+    if data:
+        _set_cached(cache_key, data)
+    return data
+
+
+def _parse_projections(raw: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Parse employment projection data from CareerOneStop projections endpoint."""
+    if not raw:
+        return None
+
+    proj = raw.get("Projections") or raw.get("OccupationDetail") or raw
+    if isinstance(proj, list) and proj:
+        proj = proj[0]
+
+    result: Dict[str, Any] = {}
+
+    for key_src, key_dst in [
+        ("EstimatedEmployment", "current_employment"),
+        ("ProjectedEmployment", "projected_employment"),
+        ("PercentChange", "growth_rate_pct"),
+        ("AnnualOpenings", "annual_openings"),
+        ("ProjectionPeriod", "projection_period"),
+        ("StateName", "state"),
+    ]:
+        val = proj.get(key_src)
+        if val is not None:
+            try:
+                if key_dst in ("growth_rate_pct",):
+                    result[key_dst] = float(str(val).replace("%", ""))
+                elif key_dst in (
+                    "current_employment",
+                    "projected_employment",
+                    "annual_openings",
+                ):
+                    result[key_dst] = int(str(val).replace(",", ""))
+                else:
+                    result[key_dst] = str(val)
+            except (ValueError, TypeError):
+                result[key_dst] = str(val)
+
+    return result if result else None
+
+
+def _fetch_cos_occupation_search(
+    user_id: str, api_key: str, keyword: str, location: str = "0"
+) -> Optional[Dict[str, Any]]:
+    """Search occupations by keyword using CareerOneStop.
+
+    Uses: /v1/occupation/{userId}/{keyword}/{location}
+    Returns matching occupations with SOC codes and brief descriptions.
+    """
+    encoded_kw = urllib.parse.quote(keyword, safe="")
+    encoded_loc = urllib.parse.quote(location, safe="")
+    path = f"/v1/occupation/{urllib.parse.quote(user_id, safe='')}/{encoded_kw}/{encoded_loc}?source=NationalAverage&lang=en"
+    cache_key = _cache_key("cos_occ_search", f"{keyword}:{location}")
+    cached = _get_cached(cache_key)
+    if cached is not None:
+        return cached
+    data = _cos_api_get(path, api_key)
+    if data:
+        _set_cached(cache_key, data)
+    return data
+
+
+def _fetch_cos_skills_matcher(
+    user_id: str, api_key: str, skills: List[str]
+) -> Optional[Dict[str, Any]]:
+    """Match skills to occupations using CareerOneStop Skills Matcher.
+
+    Uses: /v1/skillsmatcher/{userId}
+    Returns occupations that match the provided skills with relevance scores.
+    """
+    # Skills Matcher uses POST with JSON body
+    base_url = "https://api.careeronestop.org"
+    path = f"/v1/skillsmatcher/{urllib.parse.quote(user_id, safe='')}"
+    url = base_url + path
+
+    cache_key = _cache_key(
+        "cos_skills", ",".join(sorted(s.lower() for s in skills[:20]))
+    )
+    cached = _get_cached(cache_key)
+    if cached is not None:
+        return cached
+
+    # Build skill items for the API
+    skill_items = [{"SkillName": s, "SkillValue": 4} for s in skills[:20]]
+    body = json.dumps({"SKAValueList": skill_items}).encode("utf-8")
+
+    headers = {
+        "Authorization": "Bearer " + api_key,
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+    }
+    try:
+        req = urllib.request.Request(url, data=body, headers=headers, method="POST")
+        ctx = ssl.create_default_context()
+        with urllib.request.urlopen(req, timeout=15, context=ctx) as resp:
+            data = json.loads(resp.read().decode())
+        if data:
+            _set_cached(cache_key, data)
+        return data
+    except Exception as exc:
+        _log_warn(f"CareerOneStop Skills Matcher failed: {exc}")
+        return None
+
+
+# State name -> FIPS code mapping for projections endpoint
+_STATE_FIPS: Dict[str, str] = {
+    "AL": "01",
+    "AK": "02",
+    "AZ": "04",
+    "AR": "05",
+    "CA": "06",
+    "CO": "08",
+    "CT": "09",
+    "DE": "10",
+    "DC": "11",
+    "FL": "12",
+    "GA": "13",
+    "HI": "15",
+    "ID": "16",
+    "IL": "17",
+    "IN": "18",
+    "IA": "19",
+    "KS": "20",
+    "KY": "21",
+    "LA": "22",
+    "ME": "23",
+    "MD": "24",
+    "MA": "25",
+    "MI": "26",
+    "MN": "27",
+    "MS": "28",
+    "MO": "29",
+    "MT": "30",
+    "NE": "31",
+    "NV": "32",
+    "NH": "33",
+    "NJ": "34",
+    "NM": "35",
+    "NY": "36",
+    "NC": "37",
+    "ND": "38",
+    "OH": "39",
+    "OK": "40",
+    "OR": "41",
+    "PA": "42",
+    "RI": "44",
+    "SC": "45",
+    "SD": "46",
+    "TN": "47",
+    "TX": "48",
+    "UT": "49",
+    "VT": "50",
+    "VA": "51",
+    "WA": "53",
+    "WV": "54",
+    "WI": "55",
+    "WY": "56",
+    "PR": "72",
+}
+
+
+def fetch_cos_occupation_projections(
+    roles: List[str], locations: List[str]
+) -> Dict[str, Any]:
+    """Fetch employment projections and detailed wages from CareerOneStop.
+
+    New S19 endpoint that provides:
+    - Wage percentiles (P10-P90) by location
+    - 10-year employment projections (growth rate, annual openings)
+    - Skills-to-occupation matching
+
+    Falls back to empty data if API credentials are missing.
+
+    Args:
+        roles: Job role strings (e.g., ["Software Engineer"]).
+        locations: Location strings (e.g., ["California", "TX"]).
+
+    Returns:
+        Dict with wage percentiles, projections, and skills data per role.
+    """
+    cache_k = _cache_key("cos_projections_v2", f"{sorted(roles)}|{sorted(locations)}")
+    cached = _get_cached(cache_k)
+    if cached is not None:
+        return cached
+
+    api_key = (os.environ.get("CAREERONESTOP_API_KEY") or "").strip()
+    user_id = (os.environ.get("CAREERONESTOP_USER_ID") or "").strip()
+    use_api = bool(api_key and user_id)
+
+    if not use_api:
+        _log_info(
+            "CareerOneStop projections: API credentials not found. "
+            "Set CAREERONESTOP_API_KEY and CAREERONESTOP_USER_ID."
+        )
+        return {
+            "source": "CareerOneStop Projections",
+            "note": "API credentials not configured",
+        }
+
+    # Extract state abbreviations and FIPS codes
+    state_abbrs = []
+    for loc in locations:
+        state = _cos_extract_state_abbr(loc)
+        if state != "0" and state not in state_abbrs:
+            state_abbrs.append(state)
+
+    primary_state = state_abbrs[0] if state_abbrs else "0"
+
+    result: Dict[str, Any] = {
+        "source": "CareerOneStop API (Projections + Wages)",
+        "occupations": {},
+    }
+
+    for role in roles:
+        occupation_key = _resolve_occupation_key(role)
+        if occupation_key is None:
+            _log_warn(
+                f"No CareerOneStop mapping for role '{role}' in projections. Skipping."
+            )
+            continue
+
+        # Get SOC/O*NET code from benchmarks
+        bench = CAREERONESTOP_BENCHMARKS.get(occupation_key, {})
+        onet_code = bench.get("soc_code", "")
+        if not onet_code:
+            continue
+
+        occ_entry: Dict[str, Any] = {
+            "title": bench.get("title", occupation_key.title()),
+            "onet_code": onet_code,
+        }
+
+        # Fetch detailed wages by location (percentiles)
+        wages_raw = _fetch_cos_wages_by_location(
+            user_id, api_key, onet_code, primary_state
+        )
+        wages_parsed = _parse_wages_by_location(wages_raw)
+        if wages_parsed:
+            occ_entry["wage_percentiles"] = wages_parsed
+
+        # Fetch employment projections for each state
+        projections_by_state: Dict[str, Any] = {}
+        for state in state_abbrs:
+            fips = _STATE_FIPS.get(state)
+            if fips:
+                proj_raw = _fetch_cos_projections(user_id, api_key, onet_code, fips)
+                proj_parsed = _parse_projections(proj_raw)
+                if proj_parsed:
+                    projections_by_state[state] = proj_parsed
+
+        if projections_by_state:
+            occ_entry["projections_by_state"] = projections_by_state
+
+        result["occupations"][role] = occ_entry
+        time.sleep(0.2)  # Rate limit
+
+    _set_cached(cache_k, result)
+    return result
+
+
+def fetch_cos_skills_gap(source_role: str, target_role: str = "") -> Dict[str, Any]:
+    """Analyze skills gap between roles using CareerOneStop Skills Matcher.
+
+    If only source_role is provided, returns skills profile.
+    If target_role is also provided, identifies the gap between them.
+
+    Args:
+        source_role: Current/source job role.
+        target_role: Optional target job role for gap analysis.
+
+    Returns:
+        Dict with skills data and gap analysis.
+    """
+    api_key = (os.environ.get("CAREERONESTOP_API_KEY") or "").strip()
+    user_id = (os.environ.get("CAREERONESTOP_USER_ID") or "").strip()
+
+    if not api_key or not user_id:
+        return {
+            "source": "CareerOneStop Skills Matcher",
+            "note": "API credentials not configured",
+        }
+
+    cache_k = _cache_key("cos_skills_gap", f"{source_role}|{target_role}")
+    cached = _get_cached(cache_k)
+    if cached is not None:
+        return cached
+
+    result: Dict[str, Any] = {
+        "source": "CareerOneStop Skills Matcher API",
+        "source_role": source_role,
+    }
+
+    # Search for the source occupation to get its skills
+    source_occ = _fetch_cos_occupation_search(user_id, api_key, source_role)
+    if source_occ:
+        occ_list = (
+            source_occ.get("OccupationList") or source_occ.get("OccupationDetail") or []
+        )
+        if isinstance(occ_list, list) and occ_list:
+            first_occ = occ_list[0] if isinstance(occ_list[0], dict) else {}
+            result["source_occupation"] = {
+                "title": first_occ.get("OnetTitle")
+                or first_occ.get("Title")
+                or source_role,
+                "onet_code": first_occ.get("OnetCode") or first_occ.get("Code") or "",
+                "description": first_occ.get("OnetDescription")
+                or first_occ.get("Description")
+                or "",
+            }
+
+    if target_role:
+        result["target_role"] = target_role
+        target_occ = _fetch_cos_occupation_search(user_id, api_key, target_role)
+        if target_occ:
+            t_list = (
+                target_occ.get("OccupationList")
+                or target_occ.get("OccupationDetail")
+                or []
+            )
+            if isinstance(t_list, list) and t_list:
+                first_t = t_list[0] if isinstance(t_list[0], dict) else {}
+                result["target_occupation"] = {
+                    "title": first_t.get("OnetTitle")
+                    or first_t.get("Title")
+                    or target_role,
+                    "onet_code": first_t.get("OnetCode") or first_t.get("Code") or "",
+                    "description": first_t.get("OnetDescription")
+                    or first_t.get("Description")
+                    or "",
+                }
+
+    _set_cached(cache_k, result)
+    return result
+
+
 # API 25: Jooble API (International Job Market)
 
 # ---------------------------------------------------------------------------
@@ -13855,6 +14284,44 @@ def fetch_h1b_wage_benchmarks(roles: List[str]) -> Dict[str, Any]:
     return result if len(result) > 1 else {}
 
 
+def _fetch_h1b_salary_intelligence(
+    roles: List[str], locations: List[str]
+) -> Dict[str, Any]:
+    """Fetch city-level H-1B salary intelligence from h1b_data.py.
+
+    Provides median, P25, P75 wages by role and metro area with top
+    H-1B sponsoring employers and sample sizes.
+
+    Args:
+        roles: Job role strings.
+        locations: Location strings for metro matching.
+
+    Returns:
+        Dict with per-role, per-metro salary data.
+    """
+    try:
+        from h1b_data import query_h1b_salaries
+    except ImportError:
+        _log_warn("h1b_data module not available for salary intelligence")
+        return {}
+
+    result: Dict[str, Any] = {
+        "source": "DOL OFLC LCA Disclosure Data (FY2024-2025)",
+        "roles": {},
+    }
+
+    for role in roles[:10]:
+        primary_location = locations[0] if locations else ""
+        try:
+            role_data = query_h1b_salaries(role, primary_location)
+            if role_data and not role_data.get("error"):
+                result["roles"][role] = role_data
+        except (ValueError, KeyError, TypeError) as exc:
+            _log_warn(f"H-1B salary intelligence failed for {role}: {exc}")
+
+    return result if result.get("roles") else {}
+
+
 def fetch_geopolitical_context(
     locations: list,
     industry: str = "",
@@ -14088,6 +14555,8 @@ def enrich_data(data: Dict[str, Any], request_id: str = "") -> Dict[str, Any]:
         "tiktok_ads_data": {},
         "linkedin_ads_data": {},
         "careeronestop_data": {},
+        "cos_projections_data": {},
+        "h1b_salary_intelligence": {},
         "jooble_data": {},
         "eurostat_data": {},
         "ilo_data": {},
@@ -14281,6 +14750,14 @@ def enrich_data(data: Dict[str, Any], request_id: str = "") -> Dict[str, Any]:
                 lambda _r=roles, _l=locations: fetch_careeronestop_data(_r, _l),
             )
         )
+        # S19: CareerOneStop Projections + Detailed Wages (new endpoints)
+        tasks.append(
+            (
+                "cos_projections_data",
+                "COS-Projections",
+                lambda _r=roles, _l=locations: fetch_cos_occupation_projections(_r, _l),
+            )
+        )
 
     if roles and locations:
         tasks.append(
@@ -14308,6 +14785,14 @@ def enrich_data(data: Dict[str, Any], request_id: str = "") -> Dict[str, Any]:
     if roles:
         tasks.append(
             ("h1b_data", "H1B-Wages", lambda _r=roles: fetch_h1b_wage_benchmarks(_r))
+        )
+        # S19: H-1B city-level salary intelligence (from h1b_data.py)
+        tasks.append(
+            (
+                "h1b_salary_intelligence",
+                "H1B-Salary-Intel",
+                lambda _r=roles, _l=locations: _fetch_h1b_salary_intelligence(_r, _l),
+            )
         )
 
     # --- Regional labour data (ONS UK, Eurostat detailed, ABS Australia) ---

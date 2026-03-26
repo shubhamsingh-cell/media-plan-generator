@@ -20,6 +20,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import queue
 import re
 import tempfile
 import threading
@@ -53,6 +54,31 @@ try:
     _nova_supabase_available = True
 except ImportError:
     _nova_supabase_available = False
+
+# Intelligent query cache (Supabase-backed, with pre-warming)
+try:
+    from nova_cache import (
+        get_cached_response as _intelligent_cache_get,
+        cache_response as _intelligent_cache_set,
+        start_prewarm_thread as _start_cache_prewarm,
+    )
+
+    _intelligent_cache_available = True
+except ImportError:
+    _intelligent_cache_available = False
+
+    def _intelligent_cache_get(query: str, conversation_history: Optional[list] = None) -> Optional[Dict[str, Any]]:  # type: ignore[misc]
+        """Stub when nova_cache is not available."""
+        return None
+
+    def _intelligent_cache_set(query: str, response: Dict[str, Any], conversation_history: Optional[list] = None, ttl_hours: Optional[int] = None) -> bool:  # type: ignore[misc]
+        """Stub when nova_cache is not available."""
+        return False
+
+    def _start_cache_prewarm() -> None:  # type: ignore[misc]
+        """Stub when nova_cache is not available."""
+        pass
+
 
 logger = logging.getLogger(__name__)
 
@@ -982,6 +1008,7 @@ _PARTIAL_MATCH_THRESHOLD = 0.35
 TOOLS_ESSENTIAL: set[str] = {
     "query_knowledge_base",
     "query_salary_data",
+    "query_h1b_salaries",
     "query_market_demand",
     "query_budget_projection",
     "query_location_profile",
@@ -1014,6 +1041,87 @@ def get_tools_for_provider(
         return all_tools
     # Free/unknown provider: return essential tools only
     return [t for t in all_tools if t.get("name") in TOOLS_ESSENTIAL]
+
+
+# ---------------------------------------------------------------------------
+# Real-time tool status labels for streaming UX (S18)
+# ---------------------------------------------------------------------------
+# Maps internal tool names to user-friendly labels shown during streaming.
+# Used by execute_tool() to emit tool_start/tool_complete events to the
+# streaming queue so the frontend can show progress in real time.
+
+_TOOL_LABELS: Dict[str, str] = {
+    "query_salary_data": "Searching salary data",
+    "query_market_demand": "Analyzing market demand",
+    "query_budget_projection": "Calculating budget projections",
+    "query_channels": "Finding best channels",
+    "query_location_profile": "Loading location data",
+    "analyze_competitors": "Analyzing competitors",
+    "query_recruitment_benchmarks": "Fetching recruitment benchmarks",
+    "query_market_signals": "Reading market signals",
+    "predict_hiring_outcome": "Predicting hiring outcomes",
+    "query_knowledge_base": "Searching knowledge base",
+    "query_publishers": "Searching publishers",
+    "query_global_supply": "Querying global supply data",
+    "query_ad_platform": "Checking ad platform data",
+    "query_linkedin_guidewire": "Checking LinkedIn data",
+    "query_platform_deep": "Analyzing platform data",
+    "query_employer_branding": "Analyzing employer brand",
+    "query_regional_market": "Checking regional market",
+    "query_regional_economics": "Fetching BEA economic data",
+    "query_supply_ecosystem": "Analyzing supply ecosystem",
+    "query_workforce_trends": "Reviewing workforce trends",
+    "query_white_papers": "Searching white papers",
+    "suggest_smart_defaults": "Generating smart defaults",
+    "query_employer_brand": "Checking employer brand",
+    "query_ad_benchmarks": "Fetching ad benchmarks",
+    "query_hiring_insights": "Loading hiring insights",
+    "query_collar_strategy": "Analyzing collar strategy",
+    "query_market_trends": "Checking market trends",
+    "query_role_decomposition": "Decomposing role requirements",
+    "simulate_what_if": "Running what-if simulation",
+    "query_skills_gap": "Analyzing skills gap",
+    "query_geopolitical_risk": "Assessing geopolitical risk",
+    "query_google_ads_benchmarks": "Fetching Google Ads benchmarks",
+    "query_external_benchmarks": "Loading external benchmarks",
+    "query_client_plans": "Searching client plans",
+    "web_search": "Searching the web",
+    "knowledge_search": "Searching knowledge base",
+    "scrape_url": "Scraping URL content",
+    "get_benchmarks": "Fetching benchmarks",
+    "generate_scorecard": "Generating scorecard",
+    "get_copilot_suggestions": "Getting copilot suggestions",
+    "get_morning_brief": "Preparing morning brief",
+    "get_feature_data": "Loading feature data",
+    "get_outcome_data": "Getting outcome data",
+    "get_attribution_data": "Loading attribution data",
+    "render_canvas": "Rendering canvas",
+    "get_ats_data": "Loading ATS data",
+    "detect_anomalies": "Detecting anomalies",
+    "query_federal_jobs": "Searching federal jobs",
+    "query_remote_jobs": "Searching remote job market",
+    "query_labor_market_indicators": "Loading labor market indicators",
+    "query_skills_profile": "Loading occupational skills profile",
+    "query_h1b_salaries": "Searching H-1B salary data",
+    "query_occupation_projections": "Loading occupation projections",
+    "query_workforce_demographics": "Loading Census demographics",
+}
+
+# Thread-local storage for tool status queue.
+# When handle_chat_request_stream starts, it sets a queue on the current
+# request thread. execute_tool checks for this queue and pushes status
+# events that the streaming generator yields to the SSE client.
+_tool_status_local = threading.local()
+
+
+def _get_tool_status_queue() -> "queue.Queue[Dict[str, Any]] | None":
+    """Return the tool status queue for the current thread, or None."""
+    return getattr(_tool_status_local, "queue", None)
+
+
+def _set_tool_status_queue(q: "queue.Queue[Dict[str, Any]] | None") -> None:
+    """Set the tool status queue for the current thread."""
+    _tool_status_local.queue = q
 
 
 # ---------------------------------------------------------------------------
@@ -1926,6 +2034,58 @@ def _get_response_template_injection(query: str) -> str:
     return f"\n\n## RESPONSE FORMAT\n{template}"
 
 
+# ---------------------------------------------------------------------------
+# User Profile Personalization Helpers (S18)
+# ---------------------------------------------------------------------------
+
+
+def _extract_session_id(conversation_history: Optional[list] = None) -> str:
+    """Extract a session identifier from conversation history metadata.
+
+    Looks for a conversation_id in the history entries. Falls back to 'default'.
+
+    Args:
+        conversation_history: List of conversation message dicts.
+
+    Returns:
+        The session ID string, or 'default' if none found.
+    """
+    if not conversation_history:
+        return "default"
+    for msg in conversation_history:
+        if isinstance(msg, dict):
+            cid = msg.get("conversation_id") or ""
+            if cid:
+                return str(cid)
+    return "default"
+
+
+def _inject_user_profile_context(
+    conversation_history: Optional[list] = None,
+    session_id: str = "",
+) -> str:
+    """Build user profile context string for system prompt injection.
+
+    Fetches the user profile for the session and returns the personalization
+    context string. Returns empty string on any failure (non-blocking).
+
+    Args:
+        conversation_history: Conversation history for session ID extraction.
+        session_id: Explicit session ID (overrides extraction from history).
+
+    Returns:
+        Formatted profile context string, or empty string.
+    """
+    try:
+        from nova_memory import get_user_profile
+
+        sid = session_id or _extract_session_id(conversation_history) or "default"
+        profile = get_user_profile(sid)
+        return profile.get_context_injection()
+    except Exception:
+        return ""
+
+
 _FOLLOW_UP_MAP: Dict[str, list[str]] = {
     "salary": [
         "How does this compare to {nearby_city}?",
@@ -1969,31 +2129,62 @@ def _generate_follow_ups(
     query: str,
     query_type: str,
     tools_used: Optional[list[str]] = None,
+    session_id: str = "default",
 ) -> list[str]:
     """Generate contextual follow-up suggestions based on query type.
+
+    Merges generic follow-ups with personalized suggestions derived from
+    the user's profile (frequently queried roles, locations, industries).
+    Personalized suggestions are prioritized over generic ones.
 
     Args:
         query: The original user query.
         query_type: The classified query type.
-        tools_used: List of tool names that were invoked (unused for now,
-            reserved for future context-aware follow-ups).
+        tools_used: List of tool names that were invoked.
+        session_id: Session ID for fetching the user profile.
 
     Returns:
         List of 2-3 follow-up question strings.
     """
-    suggestions = _FOLLOW_UP_MAP.get(query_type) or _FOLLOW_UP_MAP["general"]
-    return suggestions[:3]
+    generic = _FOLLOW_UP_MAP.get(query_type) or _FOLLOW_UP_MAP["general"]
+
+    # Try personalized follow-ups from user profile
+    personalized: list[str] = []
+    try:
+        from nova_memory import get_user_profile
+
+        profile = get_user_profile(session_id)
+        personalized = profile.generate_personalized_follow_ups(query_type, query)
+    except Exception:
+        pass  # Personalization is optional
+
+    # Merge: personalized first, fill remainder with generic (deduped)
+    combined: list[str] = []
+    seen_lower: set[str] = set()
+    for s in personalized + generic:
+        s_lower = s.lower().strip()
+        if s_lower not in seen_lower:
+            combined.append(s)
+            seen_lower.add(s_lower)
+        if len(combined) >= 3:
+            break
+
+    return combined[:3]
 
 
-def _append_follow_ups_to_response(result: dict, user_message: str) -> dict:
+def _append_follow_ups_to_response(
+    result: dict, user_message: str, session_id: str = "default"
+) -> dict:
     """Post-process a chat result dict to append follow-up suggestions.
 
     Modifies the result in-place: appends a 'You might also want to know'
     section to the response text and adds a 'follow_ups' key.
+    Follow-ups are personalized when a user profile is available.
 
     Args:
         result: The chat result dict with at minimum a 'response' key.
         user_message: The original user query.
+        session_id: Session ID for personalized follow-ups.
 
     Returns:
         The same result dict with follow-ups appended.
@@ -2003,7 +2194,7 @@ def _append_follow_ups_to_response(result: dict, user_message: str) -> dict:
 
     query_type = _classify_query_type(user_message)
     follow_ups = _generate_follow_ups(
-        user_message, query_type, result.get("tools_used")
+        user_message, query_type, result.get("tools_used"), session_id=session_id
     )
     result["follow_ups"] = follow_ups
     result["query_type"] = query_type
@@ -2772,6 +2963,10 @@ class Nova:
         self._data_cache: Dict[str, Any] = {}
         self._load_data_sources()
 
+        # Start intelligent cache pre-warming in background
+        if _intelligent_cache_available:
+            _start_cache_prewarm()
+
     # ------------------------------------------------------------------
     # Data loading
     # ------------------------------------------------------------------
@@ -2911,10 +3106,14 @@ Professional, data-driven, proactive -- like a senior analyst presenting to a VP
 
 ## TOOL PLANNING (MANDATORY -- plan before calling)
 Before calling any tools, briefly plan which tools you need:
-- For salary questions: call query_salary_data + query_market_demand + query_location_profile
+- For salary questions: call query_salary_data + query_h1b_salaries + query_market_demand + query_location_profile
+- For H-1B/visa salary questions: call query_h1b_salaries (city-level H-1B wage data with top employers)
+- For labor market outlook: call query_occupation_projections + query_market_demand
 - For media plan questions: call query_budget_projection + query_channels + query_salary_data + query_market_demand + query_benchmarks
 - For comparison questions: call the relevant tool for EACH item being compared
 - For competitive analysis: call analyze_competitors + query_market_signals + query_location_profile
+- For skills/occupation questions: call query_skills_profile + query_salary_data + query_market_demand
+- For "what roles are similar to X": call query_skills_profile with include='related'
 - Always call at least 3 tools for substantive queries
 
 ## FORMATTING
@@ -3365,6 +3564,28 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                         },
                     },
                     "required": ["region"],
+                },
+            },
+            {
+                "name": "query_regional_economics",
+                "description": "Bureau of Economic Analysis (BEA) regional economic data: state GDP by industry, per capita personal income, employment by industry, metro area income. Use for economic context in media plans (e.g., 'Austin tech GDP grew 12% YoY, high-competition market').",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "state": {
+                            "type": "string",
+                            "description": "US state name or abbreviation (e.g., 'California', 'TX', 'New York')",
+                        },
+                        "metro_fips": {
+                            "type": "string",
+                            "description": "Metro area FIPS code (e.g., '12420' for Austin-Round Rock, '35620' for NYC)",
+                        },
+                        "metric_type": {
+                            "type": "string",
+                            "description": "'gdp', 'income', 'employment', or 'all' (default: 'all')",
+                        },
+                    },
+                    "required": ["state"],
                 },
             },
             {
@@ -4023,6 +4244,182 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                     "required": [],
                 },
             },
+            {
+                "name": "query_remote_jobs",
+                "description": "Remote job market intelligence from RemoteOK: search remote listings, salary stats, and trending skills/tags. Use for remote work questions, remote salary data, trending remote skills, or remote hiring market analysis.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "Job title or keyword to search (e.g., 'Software Engineer', 'Data Scientist')",
+                        },
+                        "action": {
+                            "type": "string",
+                            "enum": ["search", "salary_stats", "trending_skills"],
+                            "description": "Action: 'search' for job listings, 'salary_stats' for salary aggregation, 'trending_skills' for top skills. Default: 'search'.",
+                        },
+                        "limit": {
+                            "type": "integer",
+                            "description": "Max results to return. Default: 20.",
+                        },
+                    },
+                    "required": [],
+                },
+            },
+            {
+                "name": "query_labor_market_indicators",
+                "description": "Comprehensive labor market indicators from FRED: unemployment rate (U-3), broader unemployment (U-6), labor force participation rate (CIVPART), and JOLTS data (job openings, hires, separations, quits) by industry. Use for macroeconomic labor market questions, hiring conditions, job market tightness, or economic context for recruitment.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "indicator": {
+                            "type": "string",
+                            "enum": [
+                                "summary",
+                                "jolts",
+                                "unemployment",
+                                "u6",
+                                "participation",
+                            ],
+                            "description": "Which indicator: 'summary' for all-in-one, 'jolts' for JOLTS data, 'unemployment' for U-3 rate, 'u6' for broader unemployment, 'participation' for LFPR. Default: 'summary'.",
+                        },
+                        "industry": {
+                            "type": "string",
+                            "description": "Industry for JOLTS: 'total', 'manufacturing', 'healthcare', 'tech', 'retail', 'construction'. Default: 'total'.",
+                        },
+                        "state": {
+                            "type": "string",
+                            "description": "Two-letter US state code for state-level unemployment/LFPR (e.g., 'CA', 'TX').",
+                        },
+                    },
+                    "required": [],
+                },
+            },
+            {
+                "name": "query_skills_profile",
+                "description": "O*NET v2.0 occupational skills profile: technology skills (with hot technology flags), related occupations by task/skill similarity, knowledge requirements with importance scores, and career pathway data. Use for: 'What skills does a data scientist need?', 'What roles are similar to product manager?', 'What technologies do software engineers use?', 'What knowledge is needed for nursing?'",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "role": {
+                            "type": "string",
+                            "description": "Job title or keyword (e.g., 'Software Engineer', 'Registered Nurse')",
+                        },
+                        "soc_code": {
+                            "type": "string",
+                            "description": "O*NET-SOC code if known (e.g., '15-1252.00'). If not provided, searches by role keyword.",
+                        },
+                        "include": {
+                            "type": "string",
+                            "enum": [
+                                "all",
+                                "skills",
+                                "technology",
+                                "knowledge",
+                                "related",
+                                "career_paths",
+                            ],
+                            "description": "What to include: 'all' (default), 'skills', 'technology', 'knowledge', 'related', or 'career_paths' (My Next Move).",
+                        },
+                    },
+                    "required": ["role"],
+                },
+            },
+            {
+                "name": "query_federal_jobs",
+                "description": "Search USAJobs.gov for federal government job listings. Returns job count, top hiring agencies, salary ranges (GS grades), and security clearance breakdown. Especially valuable for defense, military, and government recruitment plans (e.g., US Army, DoD, VA, DHS). Use when asked about federal hiring, government jobs, GS pay scales, security clearance requirements, or public sector recruitment.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "keyword": {
+                            "type": "string",
+                            "description": "Job title or keyword to search (e.g., 'Software Engineer', 'Cybersecurity', 'Intelligence Analyst')",
+                        },
+                        "location": {
+                            "type": "string",
+                            "description": "Location filter (e.g., 'Washington, DC', 'Virginia', 'Colorado Springs')",
+                        },
+                        "clearance_level": {
+                            "type": "string",
+                            "enum": [
+                                "secret",
+                                "top secret",
+                                "public trust",
+                                "confidential",
+                            ],
+                            "description": "Filter by security clearance requirement. Omit for all jobs.",
+                        },
+                    },
+                    "required": ["keyword"],
+                },
+            },
+            # ── S19: H-1B salary intelligence + COS projections ──────────
+            {
+                "name": "query_h1b_salaries",
+                "description": "H-1B/LCA salary intelligence from DOL disclosure data: city-level median, P25, P75, P90 wages with top H-1B sponsoring employers and sample sizes. Use for competitive salary benchmarking, H-1B wage analysis, or comparing compensation across cities. Gold standard for tech salary data.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "role": {
+                            "type": "string",
+                            "description": "Job title (e.g., 'Software Engineer', 'Data Scientist', 'Product Manager')",
+                        },
+                        "location": {
+                            "type": "string",
+                            "description": "Metro area (e.g., 'San Francisco', 'NYC', 'Seattle'). Omit for national data with top metros.",
+                        },
+                    },
+                    "required": ["role"],
+                },
+            },
+            {
+                "name": "query_occupation_projections",
+                "description": "Employment projections and detailed wage percentiles from CareerOneStop/DOL: 10-year growth rate, annual openings, P10-P90 wages by state. Use for labor market outlook, growth projections, or detailed wage analysis.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "role": {
+                            "type": "string",
+                            "description": "Job title (e.g., 'Software Engineer', 'Registered Nurse')",
+                        },
+                        "location": {
+                            "type": "string",
+                            "description": "State or location for projections (e.g., 'California', 'TX')",
+                        },
+                    },
+                    "required": ["role"],
+                },
+            },
+            {
+                "name": "query_workforce_demographics",
+                "description": "US Census Bureau workforce demographics: population, labor force size, education levels (bachelor's+, graduate), median household income, remote work %, and industry mix (management/service/sales/construction/production). Covers all 50 states + top 50 metro counties. Use for location-specific workforce context: 'What's the labor force in San Francisco?', 'Education levels in Texas', 'Remote work % in Seattle'.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "state": {
+                            "type": "string",
+                            "description": "Two-letter US state code (e.g., 'CA', 'TX', 'NY'). Required.",
+                        },
+                        "city": {
+                            "type": "string",
+                            "description": "City name for metro-level data (e.g., 'San Francisco', 'Austin'). Optional -- falls back to state level if not a top-50 metro.",
+                        },
+                        "metric": {
+                            "type": "string",
+                            "enum": [
+                                "all",
+                                "demographics",
+                                "education",
+                                "commute",
+                                "industry",
+                            ],
+                            "description": "Which metric to return: 'all' (default), 'demographics', 'education', 'commute', or 'industry'.",
+                        },
+                    },
+                    "required": ["state"],
+                },
+            },
         ]
 
     # ------------------------------------------------------------------
@@ -4054,6 +4451,7 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
             "query_recruitment_benchmarks": self._query_recruitment_benchmarks,
             "query_employer_branding": self._query_employer_branding,
             "query_regional_market": self._query_regional_market,
+            "query_regional_economics": self._query_regional_economics,
             "query_supply_ecosystem": self._query_supply_ecosystem,
             "query_workforce_trends": self._query_workforce_trends,
             "query_white_papers": self._query_white_papers,
@@ -4087,19 +4485,78 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
             "render_canvas": self._render_canvas,
             "get_ats_data": self._get_ats_data,
             "detect_anomalies": self._detect_anomalies,
+            "query_remote_jobs": self._query_remote_jobs,
+            "query_labor_market_indicators": self._query_labor_market_indicators,
+            "query_skills_profile": self._query_skills_profile,
+            "query_federal_jobs": self._query_federal_jobs,
+            # S19: H-1B + COS projections
+            "query_h1b_salaries": self._query_h1b_salaries,
+            "query_occupation_projections": self._query_occupation_projections,
+            "query_workforce_demographics": self._query_workforce_demographics,
         }
 
     def execute_tool(self, tool_name: str, tool_input: dict) -> str:
-        """Execute a tool call and return the result as a JSON string."""
+        """Execute a tool call and return the result as a JSON string.
+
+        Emits tool_start/tool_complete events to the streaming queue (if set)
+        so the frontend can show real-time tool progress during SSE streaming.
+        """
         handlers = self._tool_handler_map()
         handler = handlers.get(tool_name)
         if not handler:
             return json.dumps({"error": f"Unknown tool: {tool_name}"})
+
+        # Emit tool_start event to streaming queue
+        _sq = _get_tool_status_queue()
+        _label = _TOOL_LABELS.get(tool_name, tool_name.replace("_", " ").title())
+        if _sq is not None:
+            try:
+                _sq.put_nowait(
+                    {
+                        "type": "tool_start",
+                        "tool": tool_name,
+                        "label": f"{_label}...",
+                    }
+                )
+            except queue.Full:
+                pass  # Non-critical, skip if queue is full
+
         try:
             result = handler(tool_input)
-            return json.dumps(result, default=str)
+            result_json = json.dumps(result, default=str)
+
+            # Emit tool_complete event with brief summary
+            if _sq is not None:
+                _complete_label = _label
+                if isinstance(result, dict):
+                    _source = result.get("source") or ""
+                    if _source:
+                        _complete_label = f"{_label} ({_source})"
+                try:
+                    _sq.put_nowait(
+                        {
+                            "type": "tool_complete",
+                            "tool": tool_name,
+                            "label": _complete_label,
+                        }
+                    )
+                except queue.Full:
+                    pass
+
+            return result_json
         except Exception as e:
             logger.error("Tool %s failed: %s", tool_name, e, exc_info=True)
+            if _sq is not None:
+                try:
+                    _sq.put_nowait(
+                        {
+                            "type": "tool_complete",
+                            "tool": tool_name,
+                            "label": f"{_label} (no data)",
+                        }
+                    )
+                except queue.Full:
+                    pass
             return json.dumps(
                 {"error": f"Tool '{tool_name}' encountered an internal error"}
             )
@@ -4540,11 +4997,52 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
     def _query_salary_data(self, params: dict) -> dict:
         """Get salary intelligence for roles and locations.
 
-        Uses DataOrchestrator to cascade:
+        Checks pre-computed cache first (instant), then falls back to
+        DataOrchestrator cascade:
             research.py (COLI-adjusted) -> BLS API (cached 24h) -> KB fallback.
         """
         role = (params.get("role") or "").strip()
         location = (params.get("location") or "").strip()
+
+        # Fast path: check pre-computed data first (zero API calls)
+        if role and location:
+            try:
+                from precompute import get_precomputed_salary
+
+                precomputed = get_precomputed_salary(role, location)
+                if precomputed and (
+                    precomputed.get("salary_range") or precomputed.get("raw")
+                ):
+                    pc_result: Dict[str, Any] = {
+                        "source": f"Joveo Salary Intelligence (pre-computed, {precomputed.get('source', 'cached')})",
+                        "role": role,
+                        "location": location,
+                        "salary_range_estimate": precomputed.get("salary_range", "N/A"),
+                        "role_tier": precomputed.get("role_tier", "Professional"),
+                        "data_confidence": precomputed.get("confidence"),
+                        "data_freshness": precomputed.get(
+                            "data_freshness", "pre-computed"
+                        ),
+                        "sources_used": precomputed.get(
+                            "sources_used", ["precomputed_cache"]
+                        ),
+                    }
+                    if precomputed.get("bls_percentiles"):
+                        pc_result["bls_salary_percentiles"] = precomputed[
+                            "bls_percentiles"
+                        ]
+                    if precomputed.get("coli"):
+                        pc_result["cost_of_living_index"] = precomputed["coli"]
+                    logger.debug(
+                        "Salary data served from pre-computed cache: %s/%s",
+                        role,
+                        location,
+                    )
+                    return pc_result
+            except ImportError:
+                pass
+            except Exception as e:
+                logger.debug("Pre-computed salary lookup failed: %s", e)
 
         # CRITICAL 1 FIX: Validate role is real before providing salary data
         if role:
@@ -4599,6 +5097,8 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                     result["data_freshness"] = enriched["data_freshness"]
                 if enriched.get("sources_used"):
                     result["sources_used"] = enriched["sources_used"]
+                # v2.0: Enrich with O*NET skills data when available
+                result = self._enrich_salary_with_skills(result, role)
                 return result
             except Exception as e:
                 logger.warning(
@@ -4658,17 +5158,226 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                 f"please note that local salaries should be quoted in {_local_currency}. "
                 "Actual ranges may differ significantly."
             )
+        # v2.0: Enrich with O*NET skills data when available
+        result = self._enrich_salary_with_skills(result, role)
+        return result
+
+    @staticmethod
+    def _enrich_salary_with_skills(result: dict, role: str) -> dict:
+        """Enrich salary result with top O*NET skills when available.
+
+        Adds a lightweight skills summary to salary responses so Claude
+        can reference skills context alongside compensation data.
+
+        Args:
+            result: Existing salary result dict.
+            role: Job title string.
+
+        Returns:
+            The result dict, possibly with 'top_skills' and
+            'hot_technologies' keys added.
+        """
+        if not role:
+            return result
+        try:
+            from api_integrations import (
+                onet,
+                get_onet_skills_resilient,
+                get_onet_tech_skills_resilient,
+            )
+
+            search_results = onet.search_occupations(role)
+            if not search_results:
+                return result
+            soc_code = search_results[0].get("code") or ""
+            if not soc_code:
+                return result
+
+            # Add top 5 skills by importance
+            skills = get_onet_skills_resilient(soc_code)
+            if skills:
+                top_skills = sorted(
+                    skills, key=lambda s: s.get("score", 0), reverse=True
+                )[:5]
+                result["top_skills"] = [
+                    {"name": s.get("name") or "", "importance": s.get("score", 0)}
+                    for s in top_skills
+                ]
+
+            # Add hot technologies
+            tech = get_onet_tech_skills_resilient(soc_code)
+            if tech:
+                hot = [t for t in tech if t.get("hot_technology")]
+                if hot:
+                    result["hot_technologies"] = [t.get("name") or "" for t in hot[:8]]
+
+            result["onet_soc_code"] = soc_code
+        except ImportError:
+            pass
+        except Exception as e:
+            logger.debug("Skills enrichment for salary failed (non-fatal): %s", e)
+        return result
+
+    def _query_skills_profile(self, params: dict) -> dict:
+        """Get O*NET v2.0 occupational skills profile.
+
+        Returns technology skills, related occupations, knowledge requirements,
+        and career pathway data for a role.
+        """
+        role = (params.get("role") or "").strip()
+        soc_code = (params.get("soc_code") or "").strip()
+        include = (params.get("include") or "all").strip().lower()
+
+        if not role and not soc_code:
+            return {"error": "Either 'role' or 'soc_code' is required."}
+
+        try:
+            from api_integrations import (
+                onet,
+                get_onet_skills_resilient,
+                get_onet_tech_skills_resilient,
+                get_onet_knowledge_resilient,
+                get_onet_related_resilient,
+                get_onet_skills_profile_resilient,
+            )
+        except ImportError:
+            return {"error": "O*NET integration not available."}
+
+        # Resolve SOC code from role keyword if not provided
+        if not soc_code:
+            try:
+                search_results = onet.search_occupations(role)
+                if search_results:
+                    soc_code = search_results[0].get("code") or ""
+                    matched_title = search_results[0].get("title") or role
+                else:
+                    # Try My Next Move search as fallback
+                    mnm_results = onet.search_my_next_move(role)
+                    if mnm_results:
+                        soc_code = mnm_results[0].get("code") or ""
+                        matched_title = mnm_results[0].get("title") or role
+                    else:
+                        return {
+                            "source": "O*NET v2.0",
+                            "role": role,
+                            "note": f"No O*NET occupation found matching '{role}'. Try a more specific job title.",
+                        }
+            except Exception as e:
+                logger.error("O*NET occupation search failed: %s", e, exc_info=True)
+                return {
+                    "source": "O*NET v2.0",
+                    "role": role,
+                    "error": "O*NET search temporarily unavailable.",
+                }
+        else:
+            matched_title = role
+
+        result: dict = {
+            "source": "O*NET v2.0 Skills Intelligence",
+            "role": matched_title,
+            "soc_code": soc_code,
+        }
+
+        try:
+            if include == "career_paths":
+                # My Next Move career explorer
+                mnm = onet.search_my_next_move(role)
+                if mnm:
+                    result["career_paths"] = mnm[:10]
+                else:
+                    result["career_paths"] = []
+                    result["note"] = "No career paths found in My Next Move."
+                return result
+
+            if include == "all":
+                profile = get_onet_skills_profile_resilient(soc_code)
+                if profile:
+                    result.update(profile)
+                else:
+                    result["note"] = (
+                        "O*NET data temporarily unavailable for this occupation."
+                    )
+            elif include == "skills":
+                skills = get_onet_skills_resilient(soc_code)
+                if skills:
+                    result["skills"] = skills
+            elif include == "technology":
+                tech = get_onet_tech_skills_resilient(soc_code)
+                if tech:
+                    result["technology_skills"] = tech
+                    hot_techs = [t for t in tech if t.get("hot_technology")]
+                    if hot_techs:
+                        result["hot_technologies"] = hot_techs
+            elif include == "knowledge":
+                knowledge = get_onet_knowledge_resilient(soc_code)
+                if knowledge:
+                    result["knowledge"] = knowledge
+            elif include == "related":
+                related = get_onet_related_resilient(soc_code)
+                if related:
+                    result["related_occupations"] = related
+
+        except Exception as e:
+            logger.error("O*NET skills profile failed: %s", e, exc_info=True)
+            result["error"] = "O*NET data retrieval failed."
+
         return result
 
     def _query_market_demand(self, params: dict) -> dict:
         """Get job market demand signals for roles and locations.
 
-        Uses DataOrchestrator to cascade:
+        Checks pre-computed cache first (instant), then falls back to
+        DataOrchestrator cascade:
             research.py (labor market intel) -> Adzuna/Jooble API -> KB fallback.
         """
         role = (params.get("role") or "").strip()
         location = (params.get("location") or "").strip()
         industry = (params.get("industry") or "").strip()
+
+        # Fast path: check pre-computed demand data first (zero API calls)
+        if role and location and not industry:
+            try:
+                from precompute import get_precomputed_demand
+
+                precomputed = get_precomputed_demand(role, location)
+                if precomputed and (
+                    precomputed.get("raw") or precomputed.get("job_count")
+                ):
+                    kb_pc = self._data_cache.get("knowledge_base", {})
+                    bm_pc = kb_pc.get("benchmarks", {})
+                    pc_result: Dict[str, Any] = {
+                        "source": f"Joveo Market Demand Intelligence (pre-computed, {precomputed.get('source', 'cached')})",
+                        "role": role,
+                        "location": location,
+                        "data_confidence": precomputed.get("confidence"),
+                        "data_freshness": precomputed.get(
+                            "data_freshness", "pre-computed"
+                        ),
+                        "sources_used": precomputed.get(
+                            "sources_used", ["precomputed_cache"]
+                        ),
+                    }
+                    apo_pc = bm_pc.get("applicants_per_opening", {})
+                    if apo_pc:
+                        pc_result["applicants_per_opening"] = apo_pc
+                    if precomputed.get("job_count"):
+                        pc_result["current_posting_count"] = precomputed["job_count"]
+                    if precomputed.get("competitors"):
+                        pc_result["top_competitors"] = precomputed["competitors"]
+                    if precomputed.get("seasonal"):
+                        pc_result["seasonal_patterns"] = precomputed["seasonal"]
+                    if precomputed.get("raw"):
+                        pc_result["live_job_market"] = precomputed["raw"]
+                    logger.debug(
+                        "Demand data served from pre-computed cache: %s/%s",
+                        role,
+                        location,
+                    )
+                    return pc_result
+            except ImportError:
+                pass
+            except Exception as e:
+                logger.debug("Pre-computed demand lookup failed: %s", e)
 
         kb = self._data_cache.get("knowledge_base", {})
         benchmarks = kb.get("benchmarks", {})
@@ -6013,6 +6722,43 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
             "source": "regional_hiring_intelligence",
         }
 
+    def _query_regional_economics(self, args: dict) -> dict:
+        """Handler for query_regional_economics tool (BEA API).
+
+        Queries Bureau of Economic Analysis for GDP, income, and employment
+        data to enrich media planning with economic context.
+        """
+        state = (args.get("state") or "").strip()
+        metro_fips = (args.get("metro_fips") or "").strip()
+        metric_type = (args.get("metric_type") or "all").lower().strip()
+
+        if not state and not metro_fips:
+            return {
+                "error": "At least 'state' or 'metro_fips' is required",
+                "source": "bea_regional_economics",
+            }
+
+        try:
+            from api_integrations import bea
+
+            result = bea.query_regional_economics(
+                state=state,
+                metro_fips=metro_fips,
+                metric_type=metric_type,
+            )
+            return result
+        except ImportError:
+            return {
+                "error": "BEA API integration not available",
+                "source": "bea_regional_economics",
+            }
+        except Exception as exc:
+            logger.error(f"BEA query_regional_economics failed: {exc}", exc_info=True)
+            return {
+                "error": f"BEA API error: {str(exc)[:200]}",
+                "source": "bea_regional_economics",
+            }
+
     def _query_supply_ecosystem(self, args: dict) -> dict:
         """Handler for query_supply_ecosystem tool."""
         topic = (args.get("topic", "all") or "all").lower().strip()
@@ -7193,6 +7939,321 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
             logger.error("detect_anomalies failed: %s", e, exc_info=True)
             return {"error": f"Anomaly detection failed: {e}"}
 
+    def _query_federal_jobs(self, params: dict) -> dict:
+        """Search USAJobs.gov for federal government job listings.
+
+        Returns job count, top hiring agencies, salary ranges, and
+        security clearance breakdown. Especially valuable for defense,
+        military, and government recruitment plans.
+
+        Args:
+            params: Dict with keyword (required), location, clearance_level.
+
+        Returns:
+            Dict with federal job intelligence data.
+        """
+        try:
+            from api_integrations import usajobs
+
+            keyword = (params.get("keyword") or "").strip()
+            if not keyword:
+                return {"error": "keyword parameter is required"}
+
+            location = (params.get("location") or "").strip()
+            clearance_level = (params.get("clearance_level") or "").strip()
+
+            result: dict[str, Any] = {"source": "USAJobs.gov", "keyword": keyword}
+
+            # Get job count and sample listings
+            search = usajobs.search_jobs(
+                keyword, location=location, results_per_page=25
+            )
+            if search:
+                result["total_federal_jobs"] = search.get("count") or 0
+                result["sample_jobs"] = (search.get("jobs") or [])[:10]
+            else:
+                result["total_federal_jobs"] = 0
+                result["sample_jobs"] = []
+                result["note"] = "USAJobs API unavailable or USAJOBS_API_KEY not set"
+                return result
+
+            # Get top hiring agencies
+            agencies = usajobs.get_agencies_hiring(keyword, location=location)
+            if agencies:
+                result["top_agencies"] = agencies[:10]
+
+            # Get GS grade salary ranges for common grades
+            grade_salaries = {}
+            for grade in ["GS-9", "GS-11", "GS-13", "GS-14", "GS-15"]:
+                grade_data = usajobs.get_salary_by_grade(grade)
+                if grade_data and grade_data.get("total_jobs", 0) > 0:
+                    grade_salaries[grade] = {
+                        "range": f"${grade_data.get('salary_range_low', 0):,.0f} - ${grade_data.get('salary_range_high', 0):,.0f}",
+                        "jobs_at_grade": grade_data.get("total_jobs", 0),
+                    }
+            if grade_salaries:
+                result["gs_salary_ranges"] = grade_salaries
+
+            # Security clearance breakdown (if requested or always useful)
+            if clearance_level:
+                clearance_data = usajobs.get_security_clearance_jobs(
+                    clearance_level=clearance_level,
+                    keyword=keyword,
+                    location=location,
+                )
+                if clearance_data:
+                    result["security_clearance"] = {
+                        "level": clearance_level,
+                        "total_clearance_jobs": clearance_data.get(
+                            "total_clearance_jobs", 0
+                        ),
+                        "matched_count": clearance_data.get("matched_count", 0),
+                        "breakdown": clearance_data.get("clearance_breakdown", {}),
+                    }
+            else:
+                # Still provide a clearance summary from the search results
+                clearance_counts: dict[str, int] = {}
+                for job in result.get("sample_jobs", []):
+                    cl = job.get("security_clearance") or "None/Not Specified"
+                    clearance_counts[cl] = clearance_counts.get(cl, 0) + 1
+                if clearance_counts:
+                    result["clearance_summary"] = clearance_counts
+
+            if location:
+                result["location_filter"] = location
+
+            return result
+        except ImportError:
+            logger.warning("api_integrations.usajobs not available")
+            return {"error": "USAJobs integration not available"}
+        except Exception as e:
+            logger.error("query_federal_jobs failed: %s", e, exc_info=True)
+            return {"error": f"Federal jobs query failed: {e}"}
+
+    # ── S19: H-1B salary intelligence + COS projections ──────────────
+
+    def _query_h1b_salaries(self, params: dict) -> dict:
+        """Query H-1B/LCA city-level salary intelligence.
+
+        Returns salary percentiles, top employers, and metro comparisons
+        from DOL OFLC LCA disclosure data.
+
+        Args:
+            params: Dict with role (required), location (optional).
+
+        Returns:
+            Dict with H-1B salary data including city breakdowns.
+        """
+        try:
+            from h1b_data import query_h1b_salaries
+
+            role = (params.get("role") or "").strip()
+            if not role:
+                return {"error": "role parameter is required"}
+
+            location = (params.get("location") or "").strip()
+            result = query_h1b_salaries(role, location)
+            return result
+        except ImportError:
+            logger.warning("h1b_data module not available")
+            return {"error": "H-1B salary data module not available"}
+        except Exception as e:
+            logger.error("query_h1b_salaries failed: %s", e, exc_info=True)
+            return {"error": f"H-1B salary query failed: {e}"}
+
+    def _query_occupation_projections(self, params: dict) -> dict:
+        """Query employment projections and detailed wage percentiles.
+
+        Uses CareerOneStop API for 10-year growth projections, annual
+        openings, and P10-P90 wage data by state/location.
+
+        Args:
+            params: Dict with role (required), location (optional).
+
+        Returns:
+            Dict with projections and wage percentile data.
+        """
+        try:
+            from api_enrichment import fetch_cos_occupation_projections
+
+            role = (params.get("role") or "").strip()
+            if not role:
+                return {"error": "role parameter is required"}
+
+            location = (params.get("location") or "").strip()
+            roles = [role]
+            locations = [location] if location else ["0"]
+
+            result = fetch_cos_occupation_projections(roles, locations)
+            return result
+        except ImportError:
+            logger.warning("fetch_cos_occupation_projections not available")
+            return {"error": "CareerOneStop projections not available"}
+        except Exception as e:
+            logger.error("query_occupation_projections failed: %s", e, exc_info=True)
+            return {"error": f"Occupation projections query failed: {e}"}
+
+    def _query_remote_jobs(self, params: dict) -> dict:
+        """Search remote job market data from RemoteOK."""
+        try:
+            from api_integrations import remoteok
+
+            action = (params.get("action") or "search").strip().lower()
+            query = (params.get("query") or "").strip()
+            limit = params.get("limit") or 20
+
+            if action == "salary_stats" and query:
+                result = remoteok.get_salary_stats(query)
+                result["source"] = "RemoteOK"
+                return result
+
+            if action == "trending_skills":
+                skills = remoteok.get_trending_skills(limit=limit)
+                return {
+                    "trending_skills": skills,
+                    "count": len(skills),
+                    "source": "RemoteOK",
+                }
+
+            # Default: search
+            if not query:
+                return {
+                    "error": "Please provide a query (job title or keyword) to search remote jobs",
+                    "source": "RemoteOK",
+                }
+
+            jobs = remoteok.search_jobs(query, limit=limit)
+            return {
+                "jobs": jobs,
+                "count": len(jobs),
+                "query": query,
+                "source": "RemoteOK",
+            }
+        except Exception as e:
+            logger.error("query_remote_jobs failed: %s", e, exc_info=True)
+            return {"error": f"Remote job search failed: {e}", "source": "RemoteOK"}
+
+    def _query_labor_market_indicators(self, params: dict) -> dict:
+        """Get labor market indicators from FRED (JOLTS, U6, LFPR, unemployment)."""
+        try:
+            from api_integrations import fred as _fred
+
+            indicator = (params.get("indicator") or "summary").strip().lower()
+            industry = (params.get("industry") or "total").strip().lower()
+            state = (params.get("state") or "").strip().upper() or None
+
+            if indicator == "summary":
+                result = _fred.get_labor_market_summary()
+                if result:
+                    return result
+                return {
+                    "error": "Unable to fetch labor market summary (FRED API key may not be set)",
+                    "source": "FRED",
+                }
+
+            if indicator == "jolts":
+                result = _fred.get_jolts_data(industry)
+                if result:
+                    result["source"] = "FRED JOLTS"
+                    return result
+                return {
+                    "error": f"Unable to fetch JOLTS data for {industry}",
+                    "source": "FRED",
+                }
+
+            if indicator == "unemployment":
+                result = _fred.get_unemployment_rate(state_code=state)
+                if result:
+                    result["source"] = "FRED"
+                    result["indicator"] = "U-3 Unemployment Rate"
+                    return result
+                return {"error": "Unable to fetch unemployment rate", "source": "FRED"}
+
+            if indicator == "u6":
+                result = _fred.get_u6_rate()
+                if result:
+                    result["source"] = "FRED"
+                    result["indicator"] = "U-6 Unemployment Rate (broader)"
+                    return result
+                return {"error": "Unable to fetch U-6 rate", "source": "FRED"}
+
+            if indicator == "participation":
+                result = _fred.get_labor_force_participation(state_code=state)
+                if result:
+                    result["source"] = "FRED"
+                    result["indicator"] = "Civilian Labor Force Participation Rate"
+                    return result
+                return {
+                    "error": "Unable to fetch labor force participation rate",
+                    "source": "FRED",
+                }
+
+            return {"error": f"Unknown indicator: {indicator}", "source": "FRED"}
+        except Exception as e:
+            logger.error("query_labor_market_indicators failed: %s", e, exc_info=True)
+            return {
+                "error": f"Labor market indicator query failed: {e}",
+                "source": "FRED",
+            }
+
+    def _query_workforce_demographics(self, params: dict) -> dict:
+        """Handler for query_workforce_demographics tool."""
+        try:
+            from api_integrations import census as _census
+
+            state = (params.get("state") or "").strip().upper()
+            city = (params.get("city") or "").strip()
+            metric = (params.get("metric") or "all").strip().lower()
+
+            if not state or len(state) != 2:
+                return {
+                    "error": "State is required (two-letter code, e.g., 'CA')",
+                    "source": "Census-ACS",
+                }
+
+            profile = _census.get_workforce_profile(state, city)
+            if profile.get("error"):
+                return profile
+
+            if metric != "all":
+                filtered: dict = {
+                    "state": profile.get("state"),
+                    "source": profile.get("source"),
+                    "acs_year": profile.get("acs_year"),
+                }
+                if profile.get("city"):
+                    filtered["city"] = profile["city"]
+                if metric == "demographics":
+                    for k in (
+                        "population",
+                        "median_household_income",
+                        "labor_force_size",
+                        "labor_force_participation_pct",
+                    ):
+                        if k in profile:
+                            filtered[k] = profile[k]
+                elif metric == "education":
+                    if "education" in profile:
+                        filtered["education"] = profile["education"]
+                elif metric == "commute":
+                    for k in ("remote_work_pct", "total_workers_16_plus"):
+                        if k in profile:
+                            filtered[k] = profile[k]
+                elif metric == "industry":
+                    if "industry_mix" in profile:
+                        filtered["industry_mix"] = profile["industry_mix"]
+                if "summary" in profile:
+                    filtered["summary"] = profile["summary"]
+                return filtered
+
+            return profile
+        except Exception as e:
+            logger.error("query_workforce_demographics failed: %s", e, exc_info=True)
+            return {
+                "error": f"Census demographics query failed: {e}",
+                "source": "Census-ACS",
+            }
+
     # ------------------------------------------------------------------
     # Chat orchestration
     # ------------------------------------------------------------------
@@ -7203,6 +8264,7 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
         conversation_history: Optional[list] = None,
         enrichment_context: Optional[dict] = None,
         cancel_event: Optional[threading.Event] = None,
+        session_id: Optional[str] = None,
     ) -> dict:
         """Process a chat message and return a response.
 
@@ -7212,6 +8274,7 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
             enrichment_context: Optional pre-computed enrichment data.
             cancel_event: Optional event set by the stream handler on timeout;
                 checked before expensive operations for cooperative cancellation.
+            session_id: Optional session identifier for A/B test variant assignment.
 
         Returns:
             Dict with response, sources, confidence, tools_used.
@@ -7229,6 +8292,9 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
 
         # Truncate message
         user_message = user_message.strip()[:MAX_MESSAGE_LENGTH]
+
+        # Extract session ID for personalization (S18)
+        _session_id = _extract_session_id(conversation_history)
 
         # --- Security filter: block internal/technical/exploit questions ---
         if _is_blocked_question(user_message):
@@ -7252,13 +8318,22 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
             _nova_metrics.record_latency((time.time() - _t0) * 1000)
             return _filter_competitor_names(learned)
 
-        # --- Response cache (standalone questions only) ---
+        # --- Intelligent query cache (Supabase-backed, fastest for repeat queries) ---
         history = conversation_history or []
+        if _intelligent_cache_available:
+            intelligent_cached = _intelligent_cache_get(user_message, history)
+            if intelligent_cached:
+                logger.info("NOVA MODE: Intelligent cache hit -- instant response")
+                _nova_metrics.record_cache_hit()
+                _nova_metrics.record_latency((time.time() - _t0) * 1000)
+                return _filter_competitor_names(intelligent_cached)
+
+        # --- Response cache fallback (standalone questions only) ---
         cache_key = _normalize_cache_key(user_message)
         if len(history) <= 2 and cache_key:
             cached = _get_response_cache(cache_key)
             if cached:
-                logger.info("NOVA MODE: Cache hit -- returning cached response")
+                logger.info("NOVA MODE: Legacy cache hit -- returning cached response")
                 _nova_metrics.record_cache_hit()
                 _nova_metrics.record_latency((time.time() - _t0) * 1000)
                 return _filter_competitor_names(cached)
@@ -7523,6 +8598,7 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                 _nova_metrics.record_latency((time.time() - _t0) * 1000)
                 if cache_key:
                     _set_response_cache(cache_key, _quick)
+                _intelligent_cache_set(user_message, _quick, history)
                 return _filter_competitor_names(_quick)
 
         # --- LLM routing strategy (v3.6 -- SMART: complexity-aware routing) ---
@@ -7538,6 +8614,27 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
         _is_complex = _detect_query_complexity(user_message)
         api_key = (os.environ.get("ANTHROPIC_API_KEY") or "").strip()
 
+        # --- A/B Testing: provider quality experiments ---
+        _ab_variant: Optional[str] = None
+        _ab_experiment: str = ""
+        _ab_session = session_id or _session_id
+        if _ab_session:
+            try:
+                from ab_testing import get_ab_manager
+
+                _ab_mgr = get_ab_manager()
+                _ab_experiment = "complex_provider" if _is_complex else "chat_provider"
+                _ab_variant = _ab_mgr.get_variant(_ab_experiment, _ab_session)
+                if _ab_variant:
+                    logger.info(
+                        "AB Test: session=%s variant='%s' experiment='%s'",
+                        _ab_session[:12],
+                        _ab_variant,
+                        _ab_experiment,
+                    )
+            except Exception as _ab_err:
+                logger.debug("AB Test: variant check failed: %s", _ab_err)
+
         # Cancellation check before LLM routing (Path A/B/C)
         _check_cancellation(cancel_event)
 
@@ -7549,6 +8646,7 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                 conversation_history,
                 enrichment_context,
                 is_complex=_is_complex,
+                ab_force_provider=_ab_variant,
             )
             if router_result:
                 # Quality gate: if the LLM admits it lacks data, escalate to
@@ -7605,7 +8703,17 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                         and len(history) <= 2
                     ):
                         _set_response_cache(cache_key, router_result)
-                    return _append_follow_ups_to_response(router_result, user_message)
+                    _intelligent_cache_set(user_message, router_result, history)
+                    _record_ab_test_result(
+                        _ab_variant,
+                        _ab_experiment,
+                        router_result,
+                        user_message,
+                        (time.time() - _t0) * 1000,
+                    )
+                    return _append_follow_ups_to_response(
+                        router_result, user_message, session_id=_session_id
+                    )
 
         # Path B: Tool-use queries -> LLM providers WITH tools
         # NOTE (v3.6): This is the DEFAULT path. All non-conversational
@@ -7618,6 +8726,7 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                 conversation_history,
                 enrichment_context,
                 is_complex=_is_complex,
+                ab_force_provider=_ab_variant,
             )
             if free_tool_result:
                 logger.info(
@@ -7638,7 +8747,17 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                     and len(history) <= 2
                 ):
                     _set_response_cache(cache_key, free_tool_result)
-                return _append_follow_ups_to_response(free_tool_result, user_message)
+                _intelligent_cache_set(user_message, free_tool_result, history)
+                _record_ab_test_result(
+                    _ab_variant,
+                    _ab_experiment,
+                    free_tool_result,
+                    user_message,
+                    (time.time() - _t0) * 1000,
+                )
+                return _append_follow_ups_to_response(
+                    free_tool_result, user_message, session_id=_session_id
+                )
             logger.info(
                 "NOVA MODE: Free LLM tools returned None, falling back to Claude"
             )
@@ -7667,7 +8786,17 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                     and len(history) <= 2
                 ):
                     _set_response_cache(cache_key, result)
-                return _append_follow_ups_to_response(result, user_message)
+                _intelligent_cache_set(user_message, result, history)
+                _record_ab_test_result(
+                    _ab_variant,
+                    _ab_experiment,
+                    result,
+                    user_message,
+                    (time.time() - _t0) * 1000,
+                )
+                return _append_follow_ups_to_response(
+                    result, user_message, session_id=_session_id
+                )
             except Exception as e:
                 logger.error(
                     "Claude API call failed, falling back to rule-based: %s", e
@@ -7707,6 +8836,7 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
         return _append_follow_ups_to_response(
             _sanitize_refusal_language(_filter_competitor_names(result)),
             user_message,
+            session_id=_session_id,
         )
 
     # ------------------------------------------------------------------
@@ -8073,11 +9203,13 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
         conversation_history: Optional[list],
         enrichment_context: Optional[dict],
         is_complex: bool = False,
+        ab_force_provider: Optional[str] = None,
     ) -> Optional[dict]:
         """Try LLM providers via the LLM Router for conversational queries.
 
         For complex queries (geopolitical, analytical, causal reasoning),
         routes to paid models (Claude Haiku, GPT-4o) for better quality.
+        If ab_force_provider is set by A/B testing, forces that provider.
 
         Returns a response dict on success, or None to signal fallback to Claude.
         """
@@ -8249,6 +9381,9 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
         except Exception:
             pass  # Memory is optional enhancement
 
+        # Inject user personalization profile (S18 -- free LLM no-tools path)
+        system_prompt += _inject_user_profile_context(conversation_history)
+
         try:
             task_type = classify_task(user_message)
 
@@ -8300,6 +9435,7 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                 task_type=task_type,
                 query_text=user_message,
                 preferred_providers=_preferred,
+                force_provider=ab_force_provider or "",
             )
 
             response_text = (result or {}).get("text") or (result or {}).get("content")
@@ -8342,11 +9478,13 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
         conversation_history: Optional[list],
         enrichment_context: Optional[dict],
         is_complex: bool = False,
+        ab_force_provider: Optional[str] = None,
     ) -> Optional[dict]:
         """Try LLM providers WITH tool calling via OpenAI-compatible format.
 
         Multi-turn tool iteration loop (max 4 iterations) with parallel tool execution.
         Complex queries prefer paid models (Claude Haiku, GPT-4o) for quality.
+        If ab_force_provider is set by A/B testing, forces that provider.
         On any failure or poor quality, returns None to signal fallback to Claude.
 
         Flow:
@@ -8554,6 +9692,9 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
         except Exception:
             pass  # Memory is optional enhancement
 
+        # Inject user personalization profile (S18 -- free LLM tools path)
+        system_prompt += _inject_user_profile_context(conversation_history)
+
         # Get tool definitions -- essential 10 only for free LLMs (smaller context)
         tool_defs = self.get_tool_definitions()
         essential_tools = get_tools_for_provider(tool_defs, provider_name=None)
@@ -8644,6 +9785,7 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                 else:
                     # First call: let router pick best available provider
                     # (complex queries prefer paid models via _tool_preferred)
+                    # A/B test override: force a specific provider if assigned
                     result = call_llm(
                         messages=messages,
                         system_prompt=system_prompt,
@@ -8652,6 +9794,7 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                         tools=clean_tools,
                         query_text=user_message,
                         preferred_providers=_tool_preferred,
+                        force_provider=ab_force_provider or "",
                     )
                     active_provider = (result or {}).get("provider")
                     # Guard: if router fell through to expensive providers AND
@@ -8709,8 +9852,14 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                 # Execute tool calls in PARALLEL (v4.2) using ThreadPoolExecutor
                 _valid_tools = set(self._get_tool_handler_names())
 
+                # S18: Capture parent thread's tool status queue for worker threads
+                _parent_tool_q = _get_tool_status_queue()
+
                 def _exec_free_tool(tc_item: dict) -> Tuple[str, str, str, dict]:
                     """Execute one tool call; returns (tc_id, name, result, input)."""
+                    # Propagate tool status queue to worker thread
+                    if _parent_tool_q is not None:
+                        _set_tool_status_queue(_parent_tool_q)
                     _tid = tc_item.get("id") or ""
                     _tfn = tc_item.get("function", {})
                     _tname = _tfn.get("name") or ""
@@ -9194,6 +10343,11 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
         except Exception:
             pass  # Memory is optional enhancement
 
+        # Inject user personalization profile (S18 -- Claude API path)
+        _profile_ctx_claude = _inject_user_profile_context(conversation_history)
+        if _profile_ctx_claude:
+            dynamic_parts.append(f"## USER PERSONALIZATION\n{_profile_ctx_claude}")
+
         if dynamic_parts:
             system_content.append(
                 {
@@ -9266,8 +10420,13 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                     b for b in content_blocks if b.get("type") == "tool_use"
                 ]
 
+                # S18: Capture parent thread's tool status queue for worker threads
+                _parent_tool_q_claude = _get_tool_status_queue()
+
                 def _exec_claude_tool(block: dict) -> Tuple[str, str, str, dict]:
                     """Execute one Claude tool_use block; returns (tool_id, name, result, input)."""
+                    if _parent_tool_q_claude is not None:
+                        _set_tool_status_queue(_parent_tool_q_claude)
                     _cname = block["name"]
                     _cinp = block.get("input", {})
                     _cid = block.get("id") or ""
@@ -10986,6 +12145,51 @@ _REFUSAL_REPLACEMENTS = [
 ]
 
 
+def _record_ab_test_result(
+    variant: Optional[str],
+    experiment: str,
+    response: dict,
+    user_message: str,
+    response_time_ms: float,
+) -> None:
+    """Record an A/B test result if the session was in an experiment.
+
+    Args:
+        variant: The assigned variant provider ID, or None if not in experiment.
+        experiment: The experiment name.
+        response: The response dict from the LLM path.
+        user_message: The original user query.
+        response_time_ms: End-to-end response time in milliseconds.
+    """
+    if not variant or not experiment:
+        return
+    try:
+        from ab_testing import get_ab_manager
+
+        resp_text = response.get("response") or ""
+        tools_used = response.get("tools_used") or []
+        citations_count = len(re.findall(r"\[\d+\]", resp_text))
+        has_tables = "| " in resp_text and "---" in resp_text
+        query_type = _classify_query_type(user_message)
+
+        get_ab_manager().record_result(
+            experiment,
+            variant,
+            {
+                "quality_score": response.get("quality_score", 0.5),
+                "response_time_ms": round(response_time_ms, 1),
+                "tools_used": len(tools_used),
+                "citations_count": citations_count,
+                "query_type": query_type,
+                "word_count": len(resp_text.split()),
+                "has_tables": has_tables,
+                "provider": response.get("llm_provider") or variant,
+            },
+        )
+    except Exception as e:
+        logger.debug("AB Test: failed to record result: %s", e)
+
+
 def _enrich_response_quality(response: dict, user_message: str = "") -> dict:
     """Post-process LLM response to ensure quality formatting and data richness.
 
@@ -12506,6 +13710,13 @@ _TOOL_SOURCE_MAP: Dict[str, str] = {
     "query_ats_widget": "ATS Integration Widget",
     "query_competitive_landscape": "Competitive Landscape",
     "scrape_url": "Web Scraper",
+    "query_remote_jobs": "RemoteOK (Remote Job Market)",
+    "query_labor_market_indicators": "FRED (Labor Market Indicators)",
+    "query_skills_profile": "O*NET v2.0 (Skills Intelligence)",
+    "query_federal_jobs": "USAJobs.gov (Federal Job Listings)",
+    "query_h1b_salaries": "DOL H-1B/LCA Salary Data",
+    "query_occupation_projections": "CareerOneStop (Employment Projections)",
+    "query_workforce_demographics": "US Census Bureau (Workforce Demographics)",
 }
 
 _FOLLOW_UP_TEMPLATES: Dict[str, List[str]] = {
@@ -13069,11 +14280,13 @@ def handle_chat_request(
     iq = _get_iq()
 
     try:
+        _conv_id = (request_data.get("conversation_id") or "").strip() or None
         result = iq.chat(
             user_message=message,
             conversation_history=history,
             enrichment_context=context if isinstance(context, dict) else None,
             cancel_event=cancel_event,
+            session_id=_conv_id,
         )
 
         # C-01: Graceful fallback when all LLM providers fail (empty response)
@@ -13188,6 +14401,34 @@ def handle_chat_request(
         except Exception as e:
             logger.warning("Memory save failed: %s", e, exc_info=True)
 
+        # Update user profile for personalization (S18)
+        try:
+            from nova_memory import update_user_profile
+
+            _profile_sid = request_data.get("conversation_id") or "default"
+            _tools_used_list = (
+                result.get("tools_used") or [] if isinstance(result, dict) else []
+            )
+            _updated_profile = update_user_profile(
+                _profile_sid, message, _tools_used_list
+            )
+
+            # Restore profile from frontend localStorage if provided
+            _frontend_profile = request_data.get("user_profile")
+            if (
+                isinstance(_frontend_profile, dict)
+                and _updated_profile.query_count <= 1
+            ):
+                _updated_profile.from_dict(_frontend_profile)
+                # Re-update with current query to merge
+                _updated_profile.update(message, _tools_used_list)
+
+            # Attach profile to response for frontend localStorage persistence
+            if isinstance(result, dict):
+                result["user_profile"] = _updated_profile.to_dict()
+        except Exception as _prof_err:
+            logger.debug("User profile update failed (non-blocking): %s", _prof_err)
+
         return result
     except ChatCancelledException:
         logger.info("Chat request cancelled by stream timeout for: %s", message[:80])
@@ -13281,8 +14522,13 @@ def handle_chat_request_stream(
         cancel_event if cancel_event is not None else threading.Event()
     )
 
+    # S18: Tool status queue -- background thread pushes tool_start/tool_complete
+    # events here; the generator yields them to the SSE client in real time.
+    _tool_q: queue.Queue[Dict[str, Any]] = queue.Queue(maxsize=100)
+
     def _run_chat() -> None:
         """Execute handle_chat_request in a thread for timeout control."""
+        _set_tool_status_queue(_tool_q)
         try:
             _stream_result.update(
                 handle_chat_request(request_data, cancel_event=_cancel_event)
@@ -13292,14 +14538,37 @@ def handle_chat_request_stream(
         except Exception as exc:
             _stream_error.append(exc)
         finally:
+            _set_tool_status_queue(None)
             _unregister_chat_thread(_chat_thread)
+            try:
+                _tool_q.put_nowait({"type": "_done"})
+            except queue.Full:
+                pass
 
     _chat_thread = threading.Thread(
         target=_run_chat, name=f"nova-chat-{id(_cancel_event)}", daemon=True
     )
     _chat_thread.start()
     _register_chat_thread(_chat_thread, message)
-    _chat_thread.join(timeout=_STREAM_TIMEOUT)
+
+    # Poll tool status queue while thread runs, yielding events in real time.
+    _deadline = time.time() + _STREAM_TIMEOUT
+    while _chat_thread.is_alive() and time.time() < _deadline:
+        try:
+            evt = _tool_q.get(timeout=0.3)
+            if evt.get("type") == "_done":
+                break
+            if evt.get("type") in ("tool_start", "tool_complete"):
+                yield {
+                    "type": evt["type"],
+                    "tool": evt.get("tool", ""),
+                    "label": evt.get("label", ""),
+                    "done": False,
+                }
+        except queue.Empty:
+            continue
+    # Wait briefly for thread to finish if wrapping up
+    _chat_thread.join(timeout=max(0, _deadline - time.time()))
 
     if _chat_thread.is_alive():
         # Thread timed out -- signal cooperative cancellation so the thread

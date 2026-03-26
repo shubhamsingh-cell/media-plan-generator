@@ -1,0 +1,277 @@
+{
+  "_metadata": {
+    "source_urls": [
+      "https://www.levels.fyi/2025/",
+      "https://www.levels.fyi/t/software-engineer",
+      "https://www.levels.fyi/t/data-scientist",
+      "https://dev.to/_d7eb1c1703182e3ce1782/software-engineer-salary-by-city-2026-complete-guide-5g1m",
+      "https://hakia.com/careers/software-engineer-salary-guide/",
+      "https://motionrecruitment.com/it-salary/data-science",
+      "https://nurse.org/articles/highest-paying-states-for-registered-nurses/",
+      "https://worldpopulationreview.com/state-rankings/nurse-salary-by-state",
+      "https://salarylabs.site/seo/registered-nurse-salary/"
+    ],
+    "researched_date": "2026-03-26",
+    "data_quality": "high",
+    "category": "Salary Benchmarks by Role & City",
+    "notes": "Total compensation (TC) includes base salary, stock grants, and bonuses. All figures in USD."
+  },
+  "roles": [
+    {
+      "role": "Software Engineer",
+      "median_total_comp_usd": 190100,
+      "by_city": [
+        {"city": "San Francisco", "p25_usd": 165000, "median_usd": 220000, "p75_usd": 380000, "faang_l4_range": "380000-480000"},
+        {"city": "Seattle", "p25_usd": 155000, "median_usd": 200000, "p75_usd": 350000},
+        {"city": "New York", "p25_usd": 145000, "median_usd": 195000, "p75_usd": 340000},
+        {"city": "Austin", "p25_usd": 120000, "median_usd": 165000, "p75_usd": 250000},
+        {"city": "Boston", "p25_usd": 130000, "median_usd": 175000, "p75_usd": 280000},
+        {"city": "Los Angeles", "p25_usd": 125000, "median_usd": 170000, "p75_usd": 275000},
+        {"city": "Denver", "p25_usd": 115000, "median_usd": 155000, "p75_usd": 230000},
+        {"city": "Chicago", "p25_usd": 110000, "median_usd": 150000, "p75_usd": 225000},
+        {"city": "Washington DC", "p25_usd": 120000, "median_usd": 160000, "p75_usd": 240000},
+        {"city": "Atlanta", "p25_usd": 105000, "median_usd": 145000, "p75_usd": 215000},
+        {"city": "Dallas", "p25_usd": 105000, "median_usd": 142000, "p75_usd": 210000},
+        {"city": "Portland", "p25_usd": 110000, "median_usd": 150000, "p75_usd": 220000},
+        {"city": "Minneapolis", "p25_usd": 100000, "median_usd": 138000, "p75_usd": 200000},
+        {"city": "Phoenix", "p25_usd": 95000, "median_usd": 135000, "p75_usd": 195000},
+        {"city": "Raleigh", "p25_usd": 100000, "median_usd": 140000, "p75_usd": 205000}
+      ],
+      "ai_ml_premium_pct": "30-40%",
+      "new_jobs_projected_2022_2032": 410400,
+      "source": "levels.fyi, dev.to, hakia.com"
+    },
+    {
+      "role": "Data Scientist",
+      "median_total_comp_usd": 175000,
+      "by_city": [
+        {"city": "San Francisco", "p25_usd": 150000, "median_usd": 195000, "p75_usd": 300000},
+        {"city": "New York", "p25_usd": 132000, "median_usd": 180000, "p75_usd": 240000, "top_company_meta_usd": 373550},
+        {"city": "Seattle", "p25_usd": 140000, "median_usd": 188000, "p75_usd": 270000},
+        {"city": "Boston", "p25_usd": 125000, "median_usd": 170000, "p75_usd": 240000},
+        {"city": "Los Angeles", "p25_usd": 120000, "median_usd": 165000, "p75_usd": 225000},
+        {"city": "Austin", "p25_usd": 110000, "median_usd": 155000, "p75_usd": 210000},
+        {"city": "Chicago", "p25_usd": 105000, "median_usd": 148000, "p75_usd": 200000},
+        {"city": "Washington DC", "p25_usd": 115000, "median_usd": 158000, "p75_usd": 220000},
+        {"city": "Denver", "p25_usd": 105000, "median_usd": 150000, "p75_usd": 210000},
+        {"city": "Dallas", "p25_usd": 95000, "median_usd": 140000, "p75_usd": 195000},
+        {"city": "Atlanta", "p25_usd": 95000, "median_usd": 138000, "p75_usd": 190000},
+        {"city": "Minneapolis", "p25_usd": 90000, "median_usd": 132000, "p75_usd": 185000}
+      ],
+      "by_company": {
+        "google": {"range": "174000-895000", "median_usd": 330000},
+        "microsoft": {"range": "162000-559000", "median_usd": 240000},
+        "meta": {"nyc_avg_usd": 373550}
+      },
+      "source": "levels.fyi, motionrecruitment.com"
+    },
+    {
+      "role": "Registered Nurse",
+      "median_salary_usd": 93600,
+      "median_hourly_usd": 45.00,
+      "by_state": [
+        {"state": "California", "median_usd": 133340},
+        {"state": "Hawaii", "median_usd": 113220},
+        {"state": "Oregon", "median_usd": 106610},
+        {"state": "Massachusetts", "median_usd": 104150},
+        {"state": "Alaska", "median_usd": 103310},
+        {"state": "Washington", "median_usd": 103670},
+        {"state": "New York", "median_usd": 98850},
+        {"state": "New Jersey", "median_usd": 97760},
+        {"state": "Connecticut", "median_usd": 95370},
+        {"state": "Nevada", "median_usd": 93310},
+        {"state": "Colorado", "median_usd": 85980},
+        {"state": "Arizona", "median_usd": 86350},
+        {"state": "Texas", "median_usd": 85120},
+        {"state": "Florida", "median_usd": 77390},
+        {"state": "Pennsylvania", "median_usd": 80320},
+        {"state": "Georgia", "median_usd": 79000},
+        {"state": "Ohio", "median_usd": 75760},
+        {"state": "Illinois", "median_usd": 82410},
+        {"state": "Michigan", "median_usd": 78240},
+        {"state": "North Carolina", "median_usd": 76890}
+      ],
+      "specialties": {
+        "crna_median_usd": 223210,
+        "nurse_practitioner_range": "125000-145000",
+        "icu_er_range": "95000-115000",
+        "new_grad_range": "65000-75000",
+        "new_grad_california": "90000-100000"
+      },
+      "bsn_vs_adn_hourly_premium_usd": 3.89,
+      "experience_10_plus_years_premium_pct": "35-40",
+      "source": "BLS, nurse.org, worldpopulationreview.com"
+    },
+    {
+      "role": "Product Manager",
+      "median_total_comp_usd": 185000,
+      "by_city": [
+        {"city": "San Francisco", "p25_usd": 155000, "median_usd": 210000, "p75_usd": 350000},
+        {"city": "New York", "p25_usd": 140000, "median_usd": 190000, "p75_usd": 300000},
+        {"city": "Seattle", "p25_usd": 145000, "median_usd": 195000, "p75_usd": 310000},
+        {"city": "Austin", "p25_usd": 115000, "median_usd": 160000, "p75_usd": 230000},
+        {"city": "Boston", "p25_usd": 125000, "median_usd": 170000, "p75_usd": 260000},
+        {"city": "Chicago", "p25_usd": 110000, "median_usd": 150000, "p75_usd": 220000},
+        {"city": "Denver", "p25_usd": 108000, "median_usd": 148000, "p75_usd": 215000},
+        {"city": "Atlanta", "p25_usd": 100000, "median_usd": 142000, "p75_usd": 210000}
+      ],
+      "source": "levels.fyi, glassdoor"
+    },
+    {
+      "role": "DevOps / SRE Engineer",
+      "median_total_comp_usd": 180000,
+      "by_city": [
+        {"city": "San Francisco", "p25_usd": 150000, "median_usd": 205000, "p75_usd": 320000},
+        {"city": "Seattle", "p25_usd": 140000, "median_usd": 190000, "p75_usd": 290000},
+        {"city": "New York", "p25_usd": 135000, "median_usd": 185000, "p75_usd": 280000},
+        {"city": "Austin", "p25_usd": 115000, "median_usd": 158000, "p75_usd": 230000},
+        {"city": "Denver", "p25_usd": 110000, "median_usd": 152000, "p75_usd": 220000},
+        {"city": "Chicago", "p25_usd": 105000, "median_usd": 145000, "p75_usd": 210000}
+      ],
+      "source": "levels.fyi, glassdoor"
+    },
+    {
+      "role": "Cybersecurity Analyst",
+      "median_total_comp_usd": 120000,
+      "by_city": [
+        {"city": "Washington DC", "p25_usd": 105000, "median_usd": 140000, "p75_usd": 185000},
+        {"city": "San Francisco", "p25_usd": 110000, "median_usd": 145000, "p75_usd": 195000},
+        {"city": "New York", "p25_usd": 100000, "median_usd": 135000, "p75_usd": 180000},
+        {"city": "Dallas", "p25_usd": 85000, "median_usd": 115000, "p75_usd": 155000},
+        {"city": "Atlanta", "p25_usd": 82000, "median_usd": 112000, "p75_usd": 150000},
+        {"city": "Chicago", "p25_usd": 85000, "median_usd": 115000, "p75_usd": 155000}
+      ],
+      "source": "BLS, glassdoor"
+    },
+    {
+      "role": "Marketing Manager",
+      "median_total_comp_usd": 140000,
+      "by_city": [
+        {"city": "New York", "p25_usd": 105000, "median_usd": 145000, "p75_usd": 195000},
+        {"city": "San Francisco", "p25_usd": 110000, "median_usd": 150000, "p75_usd": 200000},
+        {"city": "Chicago", "p25_usd": 85000, "median_usd": 120000, "p75_usd": 165000},
+        {"city": "Los Angeles", "p25_usd": 90000, "median_usd": 130000, "p75_usd": 175000},
+        {"city": "Dallas", "p25_usd": 80000, "median_usd": 115000, "p75_usd": 155000},
+        {"city": "Atlanta", "p25_usd": 78000, "median_usd": 110000, "p75_usd": 150000}
+      ],
+      "source": "glassdoor, salary.com"
+    },
+    {
+      "role": "Financial Analyst",
+      "median_total_comp_usd": 95000,
+      "by_city": [
+        {"city": "New York", "p25_usd": 80000, "median_usd": 110000, "p75_usd": 155000},
+        {"city": "San Francisco", "p25_usd": 78000, "median_usd": 105000, "p75_usd": 145000},
+        {"city": "Chicago", "p25_usd": 65000, "median_usd": 88000, "p75_usd": 120000},
+        {"city": "Dallas", "p25_usd": 60000, "median_usd": 82000, "p75_usd": 112000},
+        {"city": "Charlotte", "p25_usd": 58000, "median_usd": 80000, "p75_usd": 108000},
+        {"city": "Atlanta", "p25_usd": 58000, "median_usd": 78000, "p75_usd": 106000}
+      ],
+      "source": "glassdoor, salary.com"
+    },
+    {
+      "role": "Mechanical Engineer",
+      "median_total_comp_usd": 98000,
+      "by_city": [
+        {"city": "San Francisco", "p25_usd": 90000, "median_usd": 115000, "p75_usd": 150000},
+        {"city": "Detroit", "p25_usd": 78000, "median_usd": 98000, "p75_usd": 125000},
+        {"city": "Houston", "p25_usd": 80000, "median_usd": 100000, "p75_usd": 130000},
+        {"city": "Seattle", "p25_usd": 85000, "median_usd": 108000, "p75_usd": 140000},
+        {"city": "Dallas", "p25_usd": 72000, "median_usd": 92000, "p75_usd": 118000},
+        {"city": "Chicago", "p25_usd": 72000, "median_usd": 93000, "p75_usd": 120000}
+      ],
+      "source": "BLS, glassdoor"
+    },
+    {
+      "role": "Truck Driver (CDL)",
+      "median_salary_usd": 55000,
+      "by_region": [
+        {"region": "Northeast", "median_usd": 62000},
+        {"region": "Southeast", "median_usd": 52000},
+        {"region": "Midwest", "median_usd": 55000},
+        {"region": "Southwest", "median_usd": 58000},
+        {"region": "West Coast", "median_usd": 65000}
+      ],
+      "owner_operator_range": "150000-300000",
+      "source": "BLS, industry reports"
+    },
+    {
+      "role": "Warehouse Associate",
+      "median_hourly_usd": 19.50,
+      "median_annual_usd": 40560,
+      "by_metro": [
+        {"metro": "San Francisco", "hourly_usd": 23.00},
+        {"metro": "New York", "hourly_usd": 22.00},
+        {"metro": "Seattle", "hourly_usd": 22.50},
+        {"metro": "Dallas", "hourly_usd": 18.50},
+        {"metro": "Atlanta", "hourly_usd": 18.00},
+        {"metro": "Chicago", "hourly_usd": 19.00},
+        {"metro": "Indianapolis", "hourly_usd": 17.50}
+      ],
+      "amazon_starting_hourly_usd": 21.00,
+      "source": "BLS, indeed.com"
+    },
+    {
+      "role": "Sales Representative (B2B)",
+      "median_base_usd": 65000,
+      "median_ote_usd": 120000,
+      "by_city": [
+        {"city": "San Francisco", "base_usd": 80000, "ote_usd": 160000},
+        {"city": "New York", "base_usd": 75000, "ote_usd": 150000},
+        {"city": "Boston", "base_usd": 70000, "ote_usd": 140000},
+        {"city": "Chicago", "base_usd": 62000, "ote_usd": 120000},
+        {"city": "Dallas", "base_usd": 58000, "ote_usd": 110000},
+        {"city": "Atlanta", "base_usd": 56000, "ote_usd": 108000}
+      ],
+      "source": "glassdoor, repvue"
+    },
+    {
+      "role": "Accountant / CPA",
+      "median_total_comp_usd": 82000,
+      "by_city": [
+        {"city": "New York", "p25_usd": 70000, "median_usd": 95000, "p75_usd": 130000},
+        {"city": "San Francisco", "p25_usd": 72000, "median_usd": 98000, "p75_usd": 135000},
+        {"city": "Chicago", "p25_usd": 58000, "median_usd": 78000, "p75_usd": 105000},
+        {"city": "Dallas", "p25_usd": 55000, "median_usd": 74000, "p75_usd": 100000},
+        {"city": "Atlanta", "p25_usd": 52000, "median_usd": 72000, "p75_usd": 98000}
+      ],
+      "source": "BLS, glassdoor"
+    },
+    {
+      "role": "Electrician",
+      "median_salary_usd": 65000,
+      "by_state": [
+        {"state": "California", "median_usd": 78000},
+        {"state": "New York", "median_usd": 82000},
+        {"state": "Illinois", "median_usd": 75000},
+        {"state": "Texas", "median_usd": 58000},
+        {"state": "Florida", "median_usd": 52000},
+        {"state": "Ohio", "median_usd": 55000}
+      ],
+      "union_premium_pct": "20-35",
+      "source": "BLS"
+    },
+    {
+      "role": "Teacher (K-12)",
+      "median_salary_usd": 62000,
+      "by_state": [
+        {"state": "New York", "median_usd": 92000},
+        {"state": "California", "median_usd": 87000},
+        {"state": "Massachusetts", "median_usd": 85000},
+        {"state": "Connecticut", "median_usd": 82000},
+        {"state": "New Jersey", "median_usd": 80000},
+        {"state": "Texas", "median_usd": 59000},
+        {"state": "Florida", "median_usd": 53000},
+        {"state": "Arizona", "median_usd": 50000},
+        {"state": "Mississippi", "median_usd": 47000}
+      ],
+      "source": "BLS, NEA"
+    }
+  ],
+  "compensation_structure_notes": {
+    "tech_companies": "Total compensation at senior levels: base salary is only 40-60% of total comp",
+    "faang_premium": "FAANG pays 50-100% more than traditional enterprises for equivalent experience",
+    "ai_ml_premium": "AI/ML engineers command 30-40% premium over general software engineers",
+    "stock_multiplier": "At major tech companies, total comp can be 2-3x base salary at senior levels"
+  }
+}

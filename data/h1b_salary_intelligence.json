@@ -1,0 +1,240 @@
+{
+  "_meta": {
+    "source": "DOL OFLC LCA Disclosure Data (FY2024-2025)",
+    "description": "H-1B/LCA salary intelligence aggregated from public DOL data. Median, P25, P75 wages by role and metro area with top H-1B employers and sample sizes.",
+    "last_updated": "2025-Q1",
+    "methodology": "Aggregated from certified LCA filings. Salaries are base wages (exclude stock/bonus). Sample = approximate LCA count for that role+metro.",
+    "data_sources": ["h1bdata.info", "h1bgrader.com", "DOL OFLC disclosure files", "levels.fyi/h1b"]
+  },
+  "roles": {
+    "software_engineer": {
+      "soc_code": "15-1252.00",
+      "title": "Software Developers / Engineers",
+      "national": {"median": 150000, "p25": 120000, "p75": 190000, "p10": 95000, "p90": 230000, "sample": 186000},
+      "metros": {
+        "san_francisco": {"median": 180000, "p25": 155000, "p75": 220000, "p10": 130000, "p90": 265000, "sample": 8500, "top_employers": ["Google", "Meta", "Apple", "Salesforce", "Uber"]},
+        "san_jose": {"median": 185000, "p25": 158000, "p75": 225000, "p10": 135000, "p90": 275000, "sample": 12000, "top_employers": ["Apple", "Google", "Cisco", "Intel", "Adobe"]},
+        "new_york": {"median": 170000, "p25": 145000, "p75": 205000, "p10": 118000, "p90": 250000, "sample": 6200, "top_employers": ["Google", "Bloomberg", "JPMorgan", "Amazon", "Meta"]},
+        "seattle": {"median": 175000, "p25": 150000, "p75": 215000, "p10": 125000, "p90": 260000, "sample": 5800, "top_employers": ["Amazon", "Microsoft", "Google", "Meta", "Boeing"]},
+        "austin": {"median": 155000, "p25": 130000, "p75": 190000, "p10": 105000, "p90": 225000, "sample": 3200, "top_employers": ["Apple", "Google", "Meta", "Dell", "Oracle"]},
+        "boston": {"median": 165000, "p25": 140000, "p75": 200000, "p10": 115000, "p90": 240000, "sample": 3800, "top_employers": ["Google", "Amazon", "HubSpot", "Wayfair", "Toast"]},
+        "los_angeles": {"median": 160000, "p25": 135000, "p75": 195000, "p10": 110000, "p90": 235000, "sample": 3500, "top_employers": ["Google", "Amazon", "Snap", "SpaceX", "Disney"]},
+        "chicago": {"median": 145000, "p25": 120000, "p75": 175000, "p10": 98000, "p90": 210000, "sample": 2800, "top_employers": ["Google", "Amazon", "Salesforce", "Motorola", "McDonald's"]},
+        "washington_dc": {"median": 155000, "p25": 130000, "p75": 185000, "p10": 105000, "p90": 225000, "sample": 3000, "top_employers": ["Amazon", "Google", "Capital One", "Booz Allen", "Deloitte"]},
+        "denver": {"median": 150000, "p25": 125000, "p75": 180000, "p10": 100000, "p90": 220000, "sample": 1800, "top_employers": ["Google", "Amazon", "Lockheed Martin", "Oracle", "Arrow"]},
+        "dallas": {"median": 140000, "p25": 115000, "p75": 170000, "p10": 92000, "p90": 205000, "sample": 2200, "top_employers": ["AT&T", "Toyota", "Capital One", "Salesforce", "JPMorgan"]},
+        "atlanta": {"median": 142000, "p25": 118000, "p75": 172000, "p10": 95000, "p90": 210000, "sample": 2000, "top_employers": ["Google", "Amazon", "NCR Voyix", "Home Depot", "Cox"]},
+        "detroit": {"median": 130000, "p25": 108000, "p75": 158000, "p10": 88000, "p90": 190000, "sample": 1500, "top_employers": ["Ford", "GM", "Amazon", "Stellantis", "Rocket"]},
+        "minneapolis": {"median": 138000, "p25": 115000, "p75": 168000, "p10": 92000, "p90": 200000, "sample": 1200, "top_employers": ["Target", "UnitedHealth", "Best Buy", "3M", "US Bank"]},
+        "phoenix": {"median": 135000, "p25": 112000, "p75": 165000, "p10": 90000, "p90": 198000, "sample": 1400, "top_employers": ["Intel", "Amazon", "PayPal", "American Express", "Microchip"]},
+        "san_diego": {"median": 155000, "p25": 130000, "p75": 188000, "p10": 105000, "p90": 228000, "sample": 1600, "top_employers": ["Qualcomm", "Intuit", "Amazon", "Google", "ServiceNow"]},
+        "raleigh": {"median": 145000, "p25": 120000, "p75": 175000, "p10": 98000, "p90": 210000, "sample": 1300, "top_employers": ["Cisco", "IBM", "Red Hat", "Epic Games", "MetLife"]},
+        "portland": {"median": 148000, "p25": 122000, "p75": 178000, "p10": 100000, "p90": 215000, "sample": 1100, "top_employers": ["Intel", "Nike", "Amazon", "Google", "Puppet"]},
+        "pittsburgh": {"median": 130000, "p25": 108000, "p75": 158000, "p10": 85000, "p90": 190000, "sample": 900, "top_employers": ["Google", "Apple", "Uber", "Carnegie Mellon", "PPG"]},
+        "charlotte": {"median": 135000, "p25": 112000, "p75": 162000, "p10": 88000, "p90": 195000, "sample": 1000, "top_employers": ["Bank of America", "Wells Fargo", "Lowe's", "Microsoft", "Red Hat"]}
+      }
+    },
+    "data_scientist": {
+      "soc_code": "15-2051.00",
+      "title": "Data Scientists",
+      "national": {"median": 140000, "p25": 115000, "p75": 175000, "p10": 90000, "p90": 210000, "sample": 42000},
+      "metros": {
+        "san_francisco": {"median": 175000, "p25": 148000, "p75": 210000, "p10": 120000, "p90": 255000, "sample": 4200, "top_employers": ["Google", "Meta", "Apple", "Uber", "Airbnb"]},
+        "san_jose": {"median": 178000, "p25": 152000, "p75": 215000, "p10": 125000, "p90": 260000, "sample": 3800, "top_employers": ["Apple", "Google", "Intel", "Nvidia", "LinkedIn"]},
+        "new_york": {"median": 165000, "p25": 138000, "p75": 200000, "p10": 112000, "p90": 240000, "sample": 3500, "top_employers": ["JPMorgan", "Google", "Bloomberg", "Meta", "Goldman Sachs"]},
+        "seattle": {"median": 168000, "p25": 142000, "p75": 205000, "p10": 115000, "p90": 248000, "sample": 3200, "top_employers": ["Amazon", "Microsoft", "Google", "Meta", "Tableau"]},
+        "austin": {"median": 148000, "p25": 122000, "p75": 180000, "p10": 98000, "p90": 218000, "sample": 1500, "top_employers": ["Apple", "Google", "Meta", "Dell", "Oracle"]},
+        "boston": {"median": 158000, "p25": 132000, "p75": 192000, "p10": 108000, "p90": 232000, "sample": 2500, "top_employers": ["Google", "Amazon", "Wayfair", "HubSpot", "Takeda"]},
+        "los_angeles": {"median": 152000, "p25": 128000, "p75": 185000, "p10": 102000, "p90": 225000, "sample": 1800, "top_employers": ["Google", "Amazon", "Snap", "SpaceX", "TikTok"]},
+        "chicago": {"median": 140000, "p25": 115000, "p75": 170000, "p10": 92000, "p90": 205000, "sample": 1600, "top_employers": ["Google", "Amazon", "McKinsey", "McDonald's", "Groupon"]},
+        "washington_dc": {"median": 148000, "p25": 125000, "p75": 178000, "p10": 100000, "p90": 218000, "sample": 1800, "top_employers": ["Amazon", "Google", "Capital One", "Booz Allen", "Deloitte"]},
+        "denver": {"median": 142000, "p25": 118000, "p75": 172000, "p10": 95000, "p90": 210000, "sample": 900, "top_employers": ["Google", "Amazon", "Lockheed Martin", "Arrow", "Ping Identity"]},
+        "dallas": {"median": 135000, "p25": 112000, "p75": 165000, "p10": 88000, "p90": 200000, "sample": 1100, "top_employers": ["AT&T", "Capital One", "Toyota", "JPMorgan", "Salesforce"]},
+        "atlanta": {"median": 138000, "p25": 115000, "p75": 168000, "p10": 90000, "p90": 205000, "sample": 1000, "top_employers": ["Google", "Amazon", "Home Depot", "NCR Voyix", "Cox"]}
+      }
+    },
+    "product_manager": {
+      "soc_code": "11-2021.01",
+      "title": "Product Managers",
+      "national": {"median": 155000, "p25": 125000, "p75": 195000, "p10": 100000, "p90": 235000, "sample": 28000},
+      "metros": {
+        "san_francisco": {"median": 195000, "p25": 165000, "p75": 240000, "p10": 135000, "p90": 285000, "sample": 3500, "top_employers": ["Google", "Meta", "Apple", "Salesforce", "Stripe"]},
+        "san_jose": {"median": 190000, "p25": 160000, "p75": 235000, "p10": 130000, "p90": 280000, "sample": 2800, "top_employers": ["Apple", "Google", "Cisco", "Nvidia", "Adobe"]},
+        "new_york": {"median": 178000, "p25": 150000, "p75": 220000, "p10": 120000, "p90": 265000, "sample": 2500, "top_employers": ["Google", "JPMorgan", "Bloomberg", "Meta", "Amazon"]},
+        "seattle": {"median": 185000, "p25": 155000, "p75": 228000, "p10": 128000, "p90": 275000, "sample": 2200, "top_employers": ["Amazon", "Microsoft", "Google", "Meta", "Tableau"]},
+        "austin": {"median": 158000, "p25": 130000, "p75": 195000, "p10": 105000, "p90": 230000, "sample": 1000, "top_employers": ["Apple", "Google", "Meta", "Dell", "Oracle"]},
+        "boston": {"median": 168000, "p25": 140000, "p75": 205000, "p10": 112000, "p90": 245000, "sample": 1200, "top_employers": ["Google", "Amazon", "HubSpot", "Wayfair", "Drift"]},
+        "los_angeles": {"median": 165000, "p25": 138000, "p75": 200000, "p10": 108000, "p90": 242000, "sample": 1100, "top_employers": ["Google", "Amazon", "Snap", "SpaceX", "Disney"]},
+        "chicago": {"median": 148000, "p25": 122000, "p75": 180000, "p10": 98000, "p90": 218000, "sample": 900, "top_employers": ["Google", "Amazon", "Salesforce", "Grubhub", "McDonald's"]},
+        "washington_dc": {"median": 155000, "p25": 130000, "p75": 190000, "p10": 105000, "p90": 228000, "sample": 850, "top_employers": ["Amazon", "Google", "Capital One", "Deloitte", "Palantir"]},
+        "denver": {"median": 152000, "p25": 125000, "p75": 185000, "p10": 100000, "p90": 222000, "sample": 600, "top_employers": ["Google", "Amazon", "Oracle", "Arrow", "Ping Identity"]},
+        "dallas": {"median": 142000, "p25": 118000, "p75": 175000, "p10": 92000, "p90": 212000, "sample": 700, "top_employers": ["AT&T", "Capital One", "Toyota", "Salesforce", "JPMorgan"]},
+        "atlanta": {"median": 145000, "p25": 120000, "p75": 178000, "p10": 95000, "p90": 215000, "sample": 650, "top_employers": ["Google", "Amazon", "Home Depot", "NCR Voyix", "Cox"]}
+      }
+    },
+    "data_analyst": {
+      "soc_code": "15-2041.00",
+      "title": "Data Analysts / Statisticians",
+      "national": {"median": 100000, "p25": 78000, "p75": 128000, "p10": 62000, "p90": 155000, "sample": 25000},
+      "metros": {
+        "san_francisco": {"median": 128000, "p25": 105000, "p75": 158000, "p10": 82000, "p90": 190000, "sample": 1800, "top_employers": ["Google", "Meta", "Apple", "Salesforce", "Uber"]},
+        "new_york": {"median": 118000, "p25": 95000, "p75": 148000, "p10": 75000, "p90": 178000, "sample": 2200, "top_employers": ["JPMorgan", "Google", "Goldman Sachs", "Deloitte", "McKinsey"]},
+        "seattle": {"median": 122000, "p25": 100000, "p75": 150000, "p10": 78000, "p90": 182000, "sample": 1500, "top_employers": ["Amazon", "Microsoft", "Google", "T-Mobile", "Expedia"]},
+        "austin": {"median": 105000, "p25": 82000, "p75": 132000, "p10": 65000, "p90": 160000, "sample": 800, "top_employers": ["Apple", "Dell", "Oracle", "Google", "Indeed"]},
+        "chicago": {"median": 98000, "p25": 78000, "p75": 125000, "p10": 60000, "p90": 152000, "sample": 1200, "top_employers": ["Google", "Deloitte", "Accenture", "McDonald's", "Abbott"]},
+        "boston": {"median": 112000, "p25": 90000, "p75": 140000, "p10": 70000, "p90": 168000, "sample": 1000, "top_employers": ["Google", "Amazon", "Wayfair", "State Street", "Fidelity"]},
+        "washington_dc": {"median": 108000, "p25": 85000, "p75": 135000, "p10": 68000, "p90": 162000, "sample": 1100, "top_employers": ["Amazon", "Deloitte", "Booz Allen", "Capital One", "Accenture"]},
+        "dallas": {"median": 95000, "p25": 75000, "p75": 120000, "p10": 58000, "p90": 148000, "sample": 900, "top_employers": ["AT&T", "Capital One", "Deloitte", "JPMorgan", "Toyota"]}
+      }
+    },
+    "financial_analyst": {
+      "soc_code": "13-2051.00",
+      "title": "Financial Analysts",
+      "national": {"median": 110000, "p25": 85000, "p75": 140000, "p10": 68000, "p90": 172000, "sample": 18000},
+      "metros": {
+        "new_york": {"median": 140000, "p25": 110000, "p75": 178000, "p10": 85000, "p90": 215000, "sample": 3500, "top_employers": ["JPMorgan", "Goldman Sachs", "Morgan Stanley", "Citi", "BNY Mellon"]},
+        "san_francisco": {"median": 138000, "p25": 108000, "p75": 172000, "p10": 82000, "p90": 210000, "sample": 1200, "top_employers": ["Wells Fargo", "Google", "Visa", "Salesforce", "Charles Schwab"]},
+        "chicago": {"median": 115000, "p25": 90000, "p75": 145000, "p10": 72000, "p90": 178000, "sample": 1500, "top_employers": ["JPMorgan", "BMO", "Northern Trust", "Morningstar", "CME Group"]},
+        "boston": {"median": 125000, "p25": 98000, "p75": 158000, "p10": 78000, "p90": 192000, "sample": 1100, "top_employers": ["Fidelity", "State Street", "Putnam", "Wellington", "MFS"]},
+        "charlotte": {"median": 108000, "p25": 85000, "p75": 138000, "p10": 68000, "p90": 168000, "sample": 800, "top_employers": ["Bank of America", "Wells Fargo", "Truist", "LPL Financial", "Ally"]},
+        "dallas": {"median": 105000, "p25": 82000, "p75": 135000, "p10": 65000, "p90": 165000, "sample": 900, "top_employers": ["JPMorgan", "Goldman Sachs", "Deloitte", "PwC", "AT&T"]},
+        "washington_dc": {"median": 118000, "p25": 92000, "p75": 148000, "p10": 75000, "p90": 182000, "sample": 700, "top_employers": ["Capital One", "Fannie Mae", "Freddie Mac", "World Bank", "Deloitte"]}
+      }
+    },
+    "mechanical_engineer": {
+      "soc_code": "17-2141.00",
+      "title": "Mechanical Engineers",
+      "national": {"median": 105000, "p25": 82000, "p75": 130000, "p10": 65000, "p90": 162000, "sample": 12000},
+      "metros": {
+        "detroit": {"median": 110000, "p25": 88000, "p75": 138000, "p10": 70000, "p90": 168000, "sample": 1800, "top_employers": ["Ford", "GM", "Stellantis", "BorgWarner", "Magna"]},
+        "san_jose": {"median": 135000, "p25": 108000, "p75": 165000, "p10": 85000, "p90": 200000, "sample": 800, "top_employers": ["Apple", "Tesla", "Lockheed Martin", "Lam Research", "Western Digital"]},
+        "seattle": {"median": 125000, "p25": 100000, "p75": 155000, "p10": 80000, "p90": 188000, "sample": 900, "top_employers": ["Boeing", "Blue Origin", "Amazon", "SpaceX", "Paccar"]},
+        "houston": {"median": 112000, "p25": 88000, "p75": 140000, "p10": 68000, "p90": 172000, "sample": 1200, "top_employers": ["ExxonMobil", "Chevron", "Baker Hughes", "Schlumberger", "NOV"]},
+        "los_angeles": {"median": 118000, "p25": 95000, "p75": 148000, "p10": 72000, "p90": 180000, "sample": 700, "top_employers": ["SpaceX", "Raytheon", "Northrop Grumman", "Boeing", "Honeywell"]},
+        "chicago": {"median": 105000, "p25": 82000, "p75": 132000, "p10": 65000, "p90": 162000, "sample": 600, "top_employers": ["Caterpillar", "Abbott", "John Deere", "Motorola", "Illinois Tool Works"]},
+        "dallas": {"median": 102000, "p25": 80000, "p75": 128000, "p10": 62000, "p90": 158000, "sample": 500, "top_employers": ["Lockheed Martin", "Raytheon", "Toyota", "Texas Instruments", "Bell"]},
+        "boston": {"median": 115000, "p25": 92000, "p75": 142000, "p10": 72000, "p90": 175000, "sample": 550, "top_employers": ["Raytheon", "General Dynamics", "Bose", "iRobot", "Draper"]}
+      }
+    },
+    "electrical_engineer": {
+      "soc_code": "17-2071.00",
+      "title": "Electrical Engineers",
+      "national": {"median": 115000, "p25": 90000, "p75": 140000, "p10": 72000, "p90": 175000, "sample": 10000},
+      "metros": {
+        "san_jose": {"median": 148000, "p25": 120000, "p75": 180000, "p10": 95000, "p90": 218000, "sample": 1500, "top_employers": ["Intel", "Qualcomm", "Apple", "Broadcom", "Nvidia"]},
+        "san_francisco": {"median": 142000, "p25": 115000, "p75": 175000, "p10": 90000, "p90": 210000, "sample": 800, "top_employers": ["Apple", "Google", "Tesla", "Lam Research", "Applied Materials"]},
+        "seattle": {"median": 135000, "p25": 110000, "p75": 165000, "p10": 85000, "p90": 200000, "sample": 700, "top_employers": ["Amazon", "Microsoft", "Boeing", "Blue Origin", "T-Mobile"]},
+        "austin": {"median": 125000, "p25": 100000, "p75": 155000, "p10": 78000, "p90": 188000, "sample": 600, "top_employers": ["Apple", "Tesla", "Samsung", "NXP", "Cirrus Logic"]},
+        "dallas": {"median": 112000, "p25": 88000, "p75": 140000, "p10": 68000, "p90": 170000, "sample": 500, "top_employers": ["Texas Instruments", "Raytheon", "Lockheed Martin", "L3Harris", "Collins Aerospace"]},
+        "phoenix": {"median": 108000, "p25": 85000, "p75": 135000, "p10": 65000, "p90": 165000, "sample": 450, "top_employers": ["Intel", "Microchip", "ON Semiconductor", "Honeywell", "Benchmark Electronics"]},
+        "detroit": {"median": 110000, "p25": 88000, "p75": 138000, "p10": 68000, "p90": 168000, "sample": 400, "top_employers": ["Ford", "GM", "Stellantis", "BorgWarner", "Aptiv"]}
+      }
+    },
+    "registered_nurse": {
+      "soc_code": "29-1141.00",
+      "title": "Registered Nurses",
+      "national": {"median": 78000, "p25": 62000, "p75": 95000, "p10": 50000, "p90": 118000, "sample": 8000},
+      "metros": {
+        "san_francisco": {"median": 105000, "p25": 85000, "p75": 128000, "p10": 68000, "p90": 150000, "sample": 600, "top_employers": ["Kaiser Permanente", "UCSF", "Stanford Health", "Sutter Health", "Dignity Health"]},
+        "san_jose": {"median": 102000, "p25": 82000, "p75": 125000, "p10": 65000, "p90": 148000, "sample": 400, "top_employers": ["Kaiser Permanente", "Stanford Health", "HCA Healthcare", "El Camino Health"]},
+        "new_york": {"median": 92000, "p25": 75000, "p75": 112000, "p10": 58000, "p90": 135000, "sample": 1200, "top_employers": ["NYU Langone", "Mount Sinai", "NewYork-Presbyterian", "Northwell Health"]},
+        "los_angeles": {"median": 95000, "p25": 78000, "p75": 115000, "p10": 60000, "p90": 138000, "sample": 800, "top_employers": ["Kaiser Permanente", "Cedars-Sinai", "UCLA Health", "Providence"]},
+        "boston": {"median": 90000, "p25": 72000, "p75": 110000, "p10": 56000, "p90": 132000, "sample": 500, "top_employers": ["Mass General Brigham", "Beth Israel", "Boston Children's", "Tufts Medical"]},
+        "chicago": {"median": 78000, "p25": 62000, "p75": 95000, "p10": 48000, "p90": 118000, "sample": 450, "top_employers": ["Northwestern Memorial", "Rush", "Advocate Aurora", "UChicago Medicine"]},
+        "houston": {"median": 75000, "p25": 60000, "p75": 92000, "p10": 45000, "p90": 115000, "sample": 600, "top_employers": ["HCA Healthcare", "Memorial Hermann", "Houston Methodist", "MD Anderson"]},
+        "dallas": {"median": 72000, "p25": 58000, "p75": 88000, "p10": 42000, "p90": 110000, "sample": 500, "top_employers": ["HCA Healthcare", "Baylor Scott & White", "UT Southwestern", "Texas Health"]}
+      }
+    },
+    "accountant": {
+      "soc_code": "13-2011.00",
+      "title": "Accountants and Auditors",
+      "national": {"median": 82000, "p25": 65000, "p75": 105000, "p10": 52000, "p90": 130000, "sample": 15000},
+      "metros": {
+        "new_york": {"median": 105000, "p25": 82000, "p75": 132000, "p10": 65000, "p90": 162000, "sample": 2500, "top_employers": ["Deloitte", "EY", "KPMG", "PwC", "BDO"]},
+        "san_francisco": {"median": 102000, "p25": 80000, "p75": 128000, "p10": 62000, "p90": 158000, "sample": 800, "top_employers": ["Deloitte", "EY", "PwC", "KPMG", "Grant Thornton"]},
+        "chicago": {"median": 85000, "p25": 68000, "p75": 108000, "p10": 52000, "p90": 135000, "sample": 1200, "top_employers": ["Deloitte", "EY", "KPMG", "PwC", "RSM"]},
+        "boston": {"median": 92000, "p25": 72000, "p75": 115000, "p10": 58000, "p90": 142000, "sample": 700, "top_employers": ["Deloitte", "EY", "PwC", "KPMG", "State Street"]},
+        "dallas": {"median": 80000, "p25": 62000, "p75": 102000, "p10": 48000, "p90": 128000, "sample": 900, "top_employers": ["Deloitte", "EY", "PwC", "KPMG", "Grant Thornton"]},
+        "washington_dc": {"median": 90000, "p25": 70000, "p75": 115000, "p10": 55000, "p90": 140000, "sample": 800, "top_employers": ["Deloitte", "EY", "KPMG", "PwC", "BDO"]}
+      }
+    },
+    "marketing_manager": {
+      "soc_code": "11-2021.00",
+      "title": "Marketing Managers",
+      "national": {"median": 145000, "p25": 115000, "p75": 180000, "p10": 88000, "p90": 218000, "sample": 8500},
+      "metros": {
+        "san_francisco": {"median": 185000, "p25": 150000, "p75": 225000, "p10": 115000, "p90": 270000, "sample": 800, "top_employers": ["Google", "Meta", "Salesforce", "Adobe", "Uber"]},
+        "new_york": {"median": 172000, "p25": 140000, "p75": 210000, "p10": 105000, "p90": 255000, "sample": 1200, "top_employers": ["Google", "Amazon", "JPMorgan", "Meta", "Bloomberg"]},
+        "seattle": {"median": 168000, "p25": 138000, "p75": 205000, "p10": 100000, "p90": 248000, "sample": 600, "top_employers": ["Amazon", "Microsoft", "Google", "T-Mobile", "Expedia"]},
+        "chicago": {"median": 135000, "p25": 108000, "p75": 168000, "p10": 82000, "p90": 202000, "sample": 500, "top_employers": ["Google", "Amazon", "McDonald's", "Kraft Heinz", "United Airlines"]},
+        "boston": {"median": 152000, "p25": 125000, "p75": 188000, "p10": 95000, "p90": 228000, "sample": 450, "top_employers": ["HubSpot", "Google", "Wayfair", "Toast", "Drift"]},
+        "austin": {"median": 145000, "p25": 118000, "p75": 178000, "p10": 88000, "p90": 215000, "sample": 350, "top_employers": ["Apple", "Google", "Indeed", "Dell", "Oracle"]},
+        "los_angeles": {"median": 155000, "p25": 128000, "p75": 192000, "p10": 92000, "p90": 232000, "sample": 550, "top_employers": ["Google", "Amazon", "Disney", "Snap", "TikTok"]}
+      }
+    },
+    "project_manager": {
+      "soc_code": "11-9199.00",
+      "title": "Project Managers",
+      "national": {"median": 120000, "p25": 95000, "p75": 155000, "p10": 75000, "p90": 188000, "sample": 12000},
+      "metros": {
+        "san_francisco": {"median": 158000, "p25": 130000, "p75": 195000, "p10": 100000, "p90": 235000, "sample": 900, "top_employers": ["Google", "Meta", "Salesforce", "Adobe", "Uber"]},
+        "new_york": {"median": 148000, "p25": 120000, "p75": 182000, "p10": 92000, "p90": 222000, "sample": 1100, "top_employers": ["JPMorgan", "Google", "Deloitte", "Amazon", "Meta"]},
+        "seattle": {"median": 152000, "p25": 125000, "p75": 188000, "p10": 95000, "p90": 228000, "sample": 800, "top_employers": ["Amazon", "Microsoft", "Google", "Boeing", "T-Mobile"]},
+        "chicago": {"median": 125000, "p25": 100000, "p75": 158000, "p10": 78000, "p90": 192000, "sample": 700, "top_employers": ["Deloitte", "Accenture", "Google", "Amazon", "McDonald's"]},
+        "washington_dc": {"median": 135000, "p25": 108000, "p75": 168000, "p10": 82000, "p90": 202000, "sample": 900, "top_employers": ["Deloitte", "Booz Allen", "Amazon", "Accenture", "SAIC"]},
+        "dallas": {"median": 118000, "p25": 95000, "p75": 148000, "p10": 72000, "p90": 180000, "sample": 600, "top_employers": ["AT&T", "Deloitte", "Capital One", "Toyota", "JPMorgan"]},
+        "atlanta": {"median": 120000, "p25": 96000, "p75": 150000, "p10": 75000, "p90": 182000, "sample": 550, "top_employers": ["Deloitte", "Accenture", "Home Depot", "Amazon", "NCR Voyix"]}
+      }
+    },
+    "civil_engineer": {
+      "soc_code": "17-2051.00",
+      "title": "Civil Engineers",
+      "national": {"median": 95000, "p25": 75000, "p75": 120000, "p10": 58000, "p90": 148000, "sample": 5000},
+      "metros": {
+        "san_francisco": {"median": 120000, "p25": 95000, "p75": 150000, "p10": 72000, "p90": 182000, "sample": 300, "top_employers": ["AECOM", "Jacobs", "WSP", "Bechtel", "Parsons"]},
+        "new_york": {"median": 108000, "p25": 85000, "p75": 135000, "p10": 65000, "p90": 165000, "sample": 400, "top_employers": ["AECOM", "WSP", "Jacobs", "Parsons", "STV"]},
+        "houston": {"median": 100000, "p25": 78000, "p75": 125000, "p10": 60000, "p90": 155000, "sample": 500, "top_employers": ["AECOM", "Jacobs", "Fluor", "KBR", "McDermott"]},
+        "dallas": {"median": 95000, "p25": 75000, "p75": 120000, "p10": 58000, "p90": 148000, "sample": 350, "top_employers": ["AECOM", "Jacobs", "Parsons", "WSP", "HDR"]},
+        "washington_dc": {"median": 105000, "p25": 82000, "p75": 132000, "p10": 62000, "p90": 160000, "sample": 350, "top_employers": ["AECOM", "Jacobs", "WSP", "Parsons", "SAIC"]}
+      }
+    },
+    "hr_manager": {
+      "soc_code": "11-3121.00",
+      "title": "Human Resources Managers",
+      "national": {"median": 130000, "p25": 105000, "p75": 160000, "p10": 82000, "p90": 195000, "sample": 4000},
+      "metros": {
+        "san_francisco": {"median": 168000, "p25": 138000, "p75": 205000, "p10": 108000, "p90": 248000, "sample": 350, "top_employers": ["Google", "Meta", "Salesforce", "Apple", "Uber"]},
+        "new_york": {"median": 158000, "p25": 128000, "p75": 195000, "p10": 98000, "p90": 235000, "sample": 500, "top_employers": ["JPMorgan", "Google", "Amazon", "Deloitte", "Goldman Sachs"]},
+        "seattle": {"median": 155000, "p25": 125000, "p75": 190000, "p10": 95000, "p90": 230000, "sample": 300, "top_employers": ["Amazon", "Microsoft", "Google", "T-Mobile", "Expedia"]},
+        "chicago": {"median": 132000, "p25": 108000, "p75": 162000, "p10": 82000, "p90": 198000, "sample": 280, "top_employers": ["Deloitte", "McDonald's", "Abbott", "Kraft Heinz", "Walgreens"]},
+        "dallas": {"median": 125000, "p25": 100000, "p75": 155000, "p10": 78000, "p90": 188000, "sample": 250, "top_employers": ["AT&T", "Capital One", "Toyota", "JPMorgan", "Deloitte"]}
+      }
+    },
+    "management_consultant": {
+      "soc_code": "13-1111.00",
+      "title": "Management Analysts / Consultants",
+      "national": {"median": 115000, "p25": 90000, "p75": 145000, "p10": 68000, "p90": 178000, "sample": 35000},
+      "metros": {
+        "new_york": {"median": 148000, "p25": 118000, "p75": 185000, "p10": 88000, "p90": 225000, "sample": 5000, "top_employers": ["Deloitte", "McKinsey", "BCG", "Bain", "Accenture"]},
+        "san_francisco": {"median": 145000, "p25": 115000, "p75": 180000, "p10": 85000, "p90": 220000, "sample": 2000, "top_employers": ["Deloitte", "McKinsey", "Accenture", "BCG", "Bain"]},
+        "chicago": {"median": 125000, "p25": 98000, "p75": 158000, "p10": 72000, "p90": 192000, "sample": 2500, "top_employers": ["Deloitte", "McKinsey", "BCG", "Accenture", "Bain"]},
+        "washington_dc": {"median": 135000, "p25": 105000, "p75": 168000, "p10": 78000, "p90": 205000, "sample": 3500, "top_employers": ["Deloitte", "Booz Allen", "Accenture", "McKinsey", "SAIC"]},
+        "boston": {"median": 138000, "p25": 108000, "p75": 172000, "p10": 80000, "p90": 210000, "sample": 1800, "top_employers": ["McKinsey", "BCG", "Bain", "Deloitte", "Accenture"]},
+        "dallas": {"median": 112000, "p25": 88000, "p75": 142000, "p10": 65000, "p90": 175000, "sample": 1200, "top_employers": ["Deloitte", "Accenture", "McKinsey", "AT&T", "PwC"]},
+        "atlanta": {"median": 115000, "p25": 90000, "p75": 145000, "p10": 68000, "p90": 178000, "sample": 1000, "top_employers": ["Deloitte", "Accenture", "McKinsey", "BCG", "EY"]}
+      }
+    },
+    "ux_designer": {
+      "soc_code": "15-1255.00",
+      "title": "UX / Web / Digital Interface Designers",
+      "national": {"median": 105000, "p25": 80000, "p75": 135000, "p10": 62000, "p90": 165000, "sample": 5000},
+      "metros": {
+        "san_francisco": {"median": 145000, "p25": 118000, "p75": 178000, "p10": 88000, "p90": 215000, "sample": 600, "top_employers": ["Google", "Apple", "Meta", "Salesforce", "Adobe"]},
+        "new_york": {"median": 135000, "p25": 108000, "p75": 168000, "p10": 82000, "p90": 202000, "sample": 500, "top_employers": ["Google", "JPMorgan", "Meta", "Amazon", "Bloomberg"]},
+        "seattle": {"median": 138000, "p25": 112000, "p75": 172000, "p10": 85000, "p90": 208000, "sample": 450, "top_employers": ["Amazon", "Microsoft", "Google", "Meta", "T-Mobile"]},
+        "austin": {"median": 115000, "p25": 92000, "p75": 142000, "p10": 70000, "p90": 175000, "sample": 250, "top_employers": ["Apple", "Google", "Indeed", "Dell", "Oracle"]},
+        "los_angeles": {"median": 125000, "p25": 100000, "p75": 155000, "p10": 75000, "p90": 190000, "sample": 350, "top_employers": ["Google", "Snap", "Disney", "TikTok", "Amazon"]}
+      }
+    }
+  }
+}

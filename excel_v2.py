@@ -1425,7 +1425,196 @@ def _build_sheet_executive_summary(
                             )
         row += 1
 
-    # ── 5. Key Recommendations ──
+    # ── 5. Executive Strategic Narrative (LLM-generated) ──
+    # Generate a C-suite quality narrative using Claude Haiku via the LLM router directly
+    # (avoids circular import with app.py)
+    exec_narrative = ""
+    try:
+        from llm_router import LLMRouter, TASK_CAMPAIGN_PLAN
+
+        _exec_router = LLMRouter()
+        _narrative_prompt = (
+            f"Write a 4-5 sentence executive summary for a recruitment media plan.\n\n"
+            f"Client: {client_name}\n"
+            f"Industry: {industry_label}\n"
+            f"Budget: {_fmt_currency(budget_num)}\n"
+            f"Locations: {', '.join(str(l) for l in locations[:5])}\n"
+            f"Roles: {', '.join(str(r) for r in roles[:5])}\n"
+            f"Hire Volume: {hire_volume}\n"
+            f"Duration: {duration}\n"
+            f"Projected Hires: {total_proj.get('hires') or 'TBD'}\n"
+            f"Cost/Hire: {_fmt_currency(total_proj.get('cost_per_hire') or 0)}\n"
+            f"Budget Grade: {sufficiency.get('grade') or 'N/A'}\n"
+            f"Top Channels: {', '.join(list(channel_allocs.keys())[:5])}\n\n"
+            f"Write as a senior recruitment strategist presenting to a VP of Talent Acquisition. "
+            f"Include: (1) market thesis -- why this plan will succeed, "
+            f"(2) ROI projection summary with specific numbers, "
+            f"(3) key risks to monitor, "
+            f"(4) recommended next steps with timeline. "
+            f"Be specific, cite data from above, no generic statements."
+        )
+        _exec_result = _exec_router.call_llm(
+            messages=[{"role": "user", "content": _narrative_prompt}],
+            system_prompt=(
+                "You are a senior recruitment marketing strategist presenting to "
+                "C-suite executives. Write with authority, cite specific data points, "
+                "and explain causal reasoning. Every sentence must contain a number "
+                "or specific insight. No fluff, no platitudes."
+            ),
+            task_type=TASK_CAMPAIGN_PLAN,
+            max_tokens=600,
+        )
+        exec_narrative = _exec_result.get("text") or ""
+    except ImportError:
+        logger.warning("LLM router not available for executive narrative")
+    except Exception as exc:
+        logger.warning("Executive narrative generation failed (non-fatal): %s", exc)
+
+    if exec_narrative:
+        row = _write_section_header(ws, row, "Executive Strategic Summary")
+        # Wrap the narrative in a merged cell
+        ws.merge_cells(
+            start_row=row, start_column=COL_START, end_row=row + 3, end_column=COL_END
+        )
+        cell = ws.cell(row=row, column=COL_START, value=exec_narrative)
+        cell.font = Font(name="Calibri", size=11, color=NAVY)
+        cell.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
+        cell.fill = _FILL_BLUE_PALE
+        for r in range(row, row + 4):
+            ws.row_dimensions[r].height = 20
+        row += 5
+
+    # ── 5b. Risk Analysis ──
+    row = _write_section_header(ws, row, "Risk Analysis")
+    risk_items: list[tuple[str, str, str]] = []  # (risk, impact, mitigation)
+
+    # Budget risk
+    proj_hires = total_proj.get("hires") or 0
+    cph = total_proj.get("cost_per_hire") or 0
+    if proj_hires > 0 and cph > 0:
+        hires_at_20_pct_increase = int(budget_num / (cph * 1.2)) if cph > 0 else 0
+        risk_items.append(
+            (
+                "Budget Risk: CPA Inflation",
+                f"If CPA rises 20%, projected hires drop from {proj_hires:,.0f} to {hires_at_20_pct_increase:,.0f} "
+                f"({proj_hires - hires_at_20_pct_increase:,.0f} fewer hires)",
+                "Build 10-15% budget contingency; diversify to lower-CPA channels",
+            )
+        )
+
+    # Market timing risk
+    import datetime as _dt_risk
+
+    current_month = _dt_risk.date.today().month
+    _q2_months = {4, 5, 6}
+    _q1_months = {1, 2, 3}
+    campaign_start = data.get("campaign_start_month") or current_month
+    if isinstance(campaign_start, int) and campaign_start in _q2_months:
+        risk_items.append(
+            (
+                "Market Timing: Q2 Competition",
+                "Q2 hiring is 15-20% more competitive than Q4 due to fiscal year budget cycles",
+                "Front-load spend in first 4 weeks; lock in niche channel inventory early",
+            )
+        )
+    elif isinstance(campaign_start, int) and campaign_start in _q1_months:
+        risk_items.append(
+            (
+                "Market Timing: New Year Surge",
+                "Q1 sees 25% increase in job seeker activity but also 20% more employer competition",
+                "Leverage higher candidate supply with aggressive apply-rate optimization",
+            )
+        )
+
+    # Channel dependency risk
+    if channel_allocs:
+        sorted_ch = sorted(
+            channel_allocs.items(),
+            key=lambda x: x[1].get("percentage", 0),
+            reverse=True,
+        )
+        top_2_pct = sum(ch[1].get("percentage", 0) for ch in sorted_ch[:2])
+        if top_2_pct > 55:
+            ch_names = ", ".join(ch[0] for ch in sorted_ch[:2])
+            risk_items.append(
+                (
+                    "Channel Dependency",
+                    f"{top_2_pct:.0f}% of budget concentrated on {ch_names} -- "
+                    f"single-channel disruption could impact {top_2_pct * proj_hires / 100:.0f} projected hires",
+                    "Diversify to 4+ channels; maintain 3 backup channels on standby",
+                )
+            )
+
+    # Competitive pressure risk
+    gold_standard_data = data.get("_gold_standard") or {}
+    competitor_map = gold_standard_data.get("competitor_mapping") or {}
+    n_competitive_cities = sum(
+        1
+        for city_key, info in competitor_map.items()
+        if not str(city_key).startswith("_")
+        and str(info.get("hiring_intensity") or "").lower() in ("high", "very_high")
+    )
+    if n_competitive_cities > 0:
+        risk_items.append(
+            (
+                "Competitive Pressure",
+                f"{n_competitive_cities} market(s) have high competitive intensity -- "
+                f"Fortune 500+ companies actively hiring similar roles",
+                "Differentiate with employer brand messaging; emphasize career growth, culture, flexibility",
+            )
+        )
+
+    if risk_items:
+        headers = ["Risk Factor", "Impact Assessment", "Mitigation Strategy"]
+        _risk_fill = PatternFill(start_color=RED, end_color=RED, fill_type="solid")
+        row_h = row
+        for i, h in enumerate(headers):
+            col_start = COL_START + i * 2
+            ws.merge_cells(
+                start_row=row_h,
+                start_column=col_start,
+                end_row=row_h,
+                end_column=col_start + 1,
+            )
+            cell = ws.cell(row=row_h, column=col_start, value=h)
+            cell.font = _FONT_TABLE_HEADER
+            cell.fill = _risk_fill
+            cell.alignment = _ALIGN_CENTER
+            cell.border = _BORDER_THIN
+        ws.row_dimensions[row_h].height = 22
+        row = row_h + 1
+
+        for idx, (risk, impact, mitigation) in enumerate(risk_items):
+            bg_fill = _FILL_RED_BG if idx % 2 == 0 else _FILL_WHITE
+            for col_idx, val in enumerate([risk, impact, mitigation]):
+                col_start = COL_START + col_idx * 2
+                ws.merge_cells(
+                    start_row=row,
+                    start_column=col_start,
+                    end_row=row,
+                    end_column=col_start + 1,
+                )
+                cell = ws.cell(row=row, column=col_start, value=val)
+                cell.font = _FONT_BODY if col_idx > 0 else _FONT_BODY_BOLD
+                cell.fill = bg_fill
+                cell.alignment = _ALIGN_WRAP
+                cell.border = _BORDER_THIN
+            ws.row_dimensions[row].height = 40
+            row += 1
+    else:
+        ws.merge_cells(
+            start_row=row, start_column=COL_START, end_row=row, end_column=COL_END
+        )
+        ws.cell(
+            row=row,
+            column=COL_START,
+            value="Insufficient data to generate risk analysis. Add locations and budget for detailed risk assessment.",
+        ).font = _FONT_FOOTNOTE
+        row += 1
+
+    row += 1
+
+    # ── 6. Key Recommendations ──
     all_recommendations = list(recommendations)
 
     # Add industry-specific recommendations from tier groups
@@ -1623,7 +1812,7 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
             "Fit",
             "CPC",
             "Budget %",
-            "Notes",
+            "Strategic Rationale",
             "Fit Score",
         ]
         row = _write_table_header(ws, row, headers)
@@ -1631,25 +1820,53 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
         for idx, ch in enumerate(vetted[:20]):  # cap at 20
             fit = ch.get("fit", "Fair")
             fit_score = ch.get("fit_score", 0.5)
+            ch_name = ch.get("name") or ""
+            ch_category = (ch.get("category") or "").replace("_", " ").title()
+            ch_cpc = ch.get("cpc") or 0
+            ch_pct = ch.get("budget_pct") or 0
             notes = ch.get("description", ch.get("notes") or "")
             if isinstance(notes, dict):
                 notes = _flatten_value(notes)
 
+            # Build strategic rationale with WHY reasoning
+            rationale_parts: list[str] = []
+            if fit == "Strong" and fit_score >= 0.7:
+                rationale_parts.append(
+                    f"High-fit ({fit_score:.0%}) for {industry_label}"
+                )
+            elif fit == "Good":
+                rationale_parts.append(f"Good industry alignment ({fit_score:.0%})")
+            if ch_cpc > 0:
+                rationale_parts.append(f"CPC ${ch_cpc:.2f}")
+            if ch_pct > 15:
+                rationale_parts.append(
+                    f"Primary channel -- {ch_pct:.0f}% of budget for volume"
+                )
+            elif ch_pct > 5:
+                rationale_parts.append(f"Supporting channel at {ch_pct:.0f}%")
+            # Add role/location context
+            if roles and len(roles) <= 3:
+                rationale_parts.append(f"targets {', '.join(roles[:2])}")
+            if locations and len(locations) <= 3:
+                rationale_parts.append(
+                    f"in {', '.join(str(l).split(',')[0] for l in locations[:2])}"
+                )
+            if notes and len(notes) > 10:
+                rationale_parts.append(notes[:60])
+
+            rationale = (
+                "; ".join(rationale_parts)
+                if rationale_parts
+                else (notes[:80] if notes else "")
+            )
+
             values = [
-                ch.get("name") or "",
-                (ch.get("category") or "").replace("_", " ").title(),
+                ch_name,
+                ch_category,
                 fit,
-                (
-                    _fmt_currency(ch.get("cpc") or 0, show_cents=True)
-                    if ch.get("cpc")
-                    else ""
-                ),
-                (
-                    f"{_safe_num(ch.get('budget_pct') or 0):.1f}%"
-                    if ch.get("budget_pct")
-                    else ""
-                ),
-                notes[:80] if notes else "",
+                (_fmt_currency(ch_cpc, show_cents=True) if ch_cpc else ""),
+                (f"{_safe_num(ch_pct):.1f}%" if ch_pct else ""),
+                rationale[:120],
                 f"{fit_score:.2f}",
             ]
 
@@ -3100,11 +3317,13 @@ def _build_sheet_quality_intelligence(
         )
         row += 1
 
-    # ── Section 3: Competitor Mapping ──
+    # ── Section 3: Competitor Mapping with Counter-Strategies ──
     competitor_map: dict = gold_standard.get("competitor_mapping") or {}
     try:
         if competitor_map:
-            row = _write_subsection_header(ws, row, "Competitor Mapping by City")
+            row = _write_subsection_header(
+                ws, row, "Competitive Landscape & Counter-Strategies"
+            )
             row = _write_table_header(
                 ws,
                 row,
@@ -3113,20 +3332,67 @@ def _build_sheet_quality_intelligence(
                     "Top Employers",
                     "Hiring Intensity",
                     "Est. Competing Postings",
+                    "Why They Matter",
+                    "Counter-Strategy",
                 ],
+            )
+            client_name_qs = data.get("client_name") or "Client"
+            industry_label_qs = data.get("industry_label") or (
+                (data.get("industry") or "").replace("_", " ").title()
             )
             for idx, (city_name, info) in enumerate(competitor_map.items()):
                 if city_name.startswith("_"):
                     continue  # skip internal keys like _national
                 employers = info.get("top_employers") or []
+                intensity = str(info.get("hiring_intensity") or "moderate").lower()
+                est_postings = info.get("estimated_competing_postings") or "N/A"
+
+                # Generate WHY each competitor group matters
+                if intensity in ("high", "very_high"):
+                    why_matter = (
+                        f"High hiring volume in {city_name} -- "
+                        f"these employers compete for the same {industry_label_qs} talent pool"
+                    )
+                elif intensity == "moderate":
+                    why_matter = (
+                        f"Active but not dominant -- opportunity to capture market share "
+                        f"with targeted positioning in {city_name}"
+                    )
+                else:
+                    why_matter = (
+                        f"Lower competition in {city_name} -- favorable market for "
+                        f"{client_name_qs}'s talent acquisition"
+                    )
+
+                # Generate counter-strategy
+                if intensity in ("high", "very_high") and employers:
+                    top_employer = employers[0] if employers else "competitors"
+                    counter = (
+                        f"Differentiate vs {top_employer}: emphasize career growth, "
+                        f"culture, and work-life balance. "
+                        f"Increase niche channel spend to find passive candidates."
+                    )
+                elif intensity == "moderate":
+                    counter = (
+                        f"Leverage speed-to-hire advantage. "
+                        f"Target candidates frustrated with slow processes at larger firms."
+                    )
+                else:
+                    counter = (
+                        f"Capitalize on low competition with aggressive employer brand "
+                        f"presence. Consider community events and local partnerships."
+                    )
+
                 row = _write_table_row(
                     ws,
                     row,
                     [
                         city_name,
-                        ", ".join(employers[:5]),
-                        str(info.get("hiring_intensity") or "moderate").title(),
-                        str(info.get("estimated_competing_postings") or "N/A"),
+                        ", ".join(employers[:4]),
+                        intensity.title(),
+                        str(est_postings),
+                        why_matter[:100],
+                        counter[:120],
                     ],
                     alternate=idx % 2 == 1,
                 )
@@ -3140,11 +3406,20 @@ def _build_sheet_quality_intelligence(
                     row,
                     [
                         "National (All Markets)",
-                        ", ".join(national_employers[:6]),
+                        ", ".join(national_employers[:5]),
                         str(national.get("hiring_intensity") or "moderate").title(),
                         "",
+                        "National competitors set salary and benefits benchmarks",
+                        "Match or exceed top benefits; lead with mission and impact",
                     ],
-                    fonts=[_FONT_BODY_BOLD, _FONT_BODY, _FONT_BODY, _FONT_BODY],
+                    fonts=[
+                        _FONT_BODY_BOLD,
+                        _FONT_BODY,
+                        _FONT_BODY,
+                        _FONT_BODY,
+                        _FONT_BODY,
+                        _FONT_BODY,
+                    ],
                 )
             row += 1
     except Exception as exc:

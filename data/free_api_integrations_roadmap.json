@@ -1,0 +1,53 @@
+{
+  "_metadata": {
+    "created": "2026-03-26",
+    "purpose": "Free API integration roadmap for Nova AI Suite",
+    "session": "S18"
+  },
+  "high_priority": [
+    {
+      "name": "CareerOneStop (U.S. DOL)",
+      "url": "https://www.careeronestop.org/Developers/WebAPI/web-api.aspx",
+      "auth": "Free API token",
+      "data": "Salary percentiles, occupation growth, skills gap, training programs",
+      "value": "Fills gold standard quality gates"
+    },
+    {
+      "name": "USAJobs",
+      "url": "https://developer.usajobs.gov/",
+      "auth": "Free API key",
+      "data": "Federal job listings, GS grades, security clearance, agencies",
+      "value": "Government/defense recruitment plans"
+    },
+    {
+      "name": "H-1B/LCA Bulk Data (DOL OFLC)",
+      "url": "https://www.dol.gov/agencies/eta/foreign-labor/performance",
+      "auth": "None (public download)",
+      "data": "Employer salary offers, wage levels I-IV, worksite geography",
+      "value": "Most accurate competitive salary intelligence"
+    },
+    {
+      "name": "Bureau of Economic Analysis (BEA)",
+      "url": "https://www.bea.gov/resources/for-developers",
+      "auth": "Free API key",
+      "data": "GDP by industry, regional income, employment by region",
+      "value": "Regional economic context for media plans"
+    },
+    {
+      "name": "Census Bureau",
+      "url": "https://www.census.gov/developers/",
+      "auth": "Free API key",
+      "data": "Labor force, demographics, income, education by geography",
+      "value": "Workforce demographics by city/county/metro"
+    },
+    {
+      "name": "RemoteOK",
+      "url": "https://remoteok.io/api",
+      "auth": "None",
+      "data": "30K+ remote job listings with salary, company, skills",
+      "value": "Remote job market intelligence"
+    }
+  ],
+  "already_integrated": ["O*NET", "BLS", "FRED", "Adzuna", "Jooble", "CareerOneStop (basic)"],
+  "deprecated": ["Indeed API", "Glassdoor API", "LinkedIn API", "GitHub Jobs API"]
+}

@@ -1,16 +1,20 @@
-"""Export and delivery POST route handlers.
+"""Export and delivery route handlers (GET + POST).
 
 Extracted from app.py to reduce its size.  Handles:
 - POST /api/export/sheets
 - POST /api/export/status (GET-like, via POST)
+- POST /api/export/pdf  -- generate PDF report from plan data
 - POST /api/deliver
 - POST /api/report/html
 - POST /api/nova/export
+- GET  /api/plan/export/pdf?plan_id=xxx  -- download PDF for stored plan
 """
 
 import json
 import logging
 import re
+import sys
+import time
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -19,6 +23,14 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Route dispatch
 # ---------------------------------------------------------------------------
+
+
+def handle_export_get_routes(handler: Any, path: str, parsed: Any) -> bool:
+    """Dispatch export-related GET routes.  Returns True if handled."""
+    if path == "/api/plan/export/pdf":
+        _handle_pdf_export_get(handler, path, parsed)
+        return True
+    return False
 
 
 def handle_export_post_routes(handler: Any, path: str, parsed: Any) -> bool:
@@ -290,12 +302,159 @@ def _handle_nova_export(handler: Any, path: str, parsed: Any) -> None:
 
 
 # ---------------------------------------------------------------------------
+# PDF Export handlers
+# ---------------------------------------------------------------------------
+
+
+def _handle_pdf_export_get(handler: Any, path: str, parsed: Any) -> None:
+    """GET /api/plan/export/pdf?plan_id=xxx -- download PDF for a stored plan.
+
+    Looks up plan data from _plan_results_store by plan_id, generates a
+    branded PDF report, and returns it as a file download.
+    """
+    try:
+        from urllib.parse import parse_qs
+
+        qs = parse_qs(parsed.query) if hasattr(parsed, "query") else {}
+        plan_id = (qs.get("plan_id") or [""])[0]
+
+        if not plan_id or not re.match(r"^[a-f0-9]{1,12}$", plan_id):
+            handler._send_json({"error": "Missing or invalid plan_id"}, status_code=400)
+            return
+
+        # Look up plan data from the in-memory store
+        _app = sys.modules.get("__main__") or sys.modules.get("app")
+        _plan_results_store = getattr(_app, "_plan_results_store", {})
+        _plan_results_lock = getattr(_app, "_plan_results_lock", None)
+
+        entry = None
+        if _plan_results_lock:
+            with _plan_results_lock:
+                entry = _plan_results_store.get(plan_id)
+                if entry and time.time() - entry.get("created", 0) > 86400:
+                    _plan_results_store.pop(plan_id, None)
+                    entry = None
+        else:
+            entry = _plan_results_store.get(plan_id)
+
+        if not entry:
+            handler._send_json({"error": "Plan not found or expired"}, status_code=404)
+            return
+
+        plan_json = entry.get("data") or {}
+        metadata = plan_json.get("metadata") or {}
+        summary = plan_json.get("summary") or {}
+        client_name = metadata.get("client_name") or "Client"
+        industry = (
+            metadata.get("industry_label") or metadata.get("industry") or "Technology"
+        )
+
+        # Build plan_data in the format pdf_report expects
+        plan_data = {
+            "budget": metadata.get("total_budget") or summary.get("total_budget") or 0,
+            "channels": summary.get("channels") or [],
+            "roles": metadata.get("roles") or [],
+            "locations": metadata.get("locations") or [],
+            "market_intelligence": plan_json.get("market_intelligence") or {},
+            "recommendations": summary.get("recommendations")
+            or plan_json.get("recommendations")
+            or [],
+            "timeline": plan_json.get("timeline") or [],
+            "risk_analysis": plan_json.get("risk_analysis") or [],
+            "competitive_landscape": plan_json.get("competitive_landscape") or [],
+        }
+
+        _generate_and_send_pdf(handler, plan_data, client_name, industry)
+
+    except Exception as e:
+        logger.error("PDF export GET error: %s", e, exc_info=True)
+        handler._send_json({"error": "PDF export failed"}, status_code=500)
+
+
+def _handle_pdf_export_post(handler: Any, path: str, parsed: Any) -> None:
+    """POST /api/export/pdf -- generate PDF from posted plan data."""
+    try:
+        content_len = int(handler.headers.get("Content-Length") or 0)
+        body = handler.rfile.read(content_len) if content_len > 0 else b"{}"
+        data = json.loads(body)
+
+        plan_data = data.get("plan_data") or data
+        client_name = (
+            data.get("client_name") or plan_data.get("client_name") or "Client"
+        )
+        industry = data.get("industry") or plan_data.get("industry") or "Technology"
+
+        # PostHog: track export event
+        _track_export_event(plan_data, "pdf")
+
+        _generate_and_send_pdf(handler, plan_data, client_name, industry)
+
+    except json.JSONDecodeError:
+        handler.send_response(400)
+        handler.send_header("Content-Type", "application/json")
+        handler.end_headers()
+        handler.wfile.write(json.dumps({"error": "Invalid JSON body"}).encode())
+    except ImportError:
+        handler.send_response(501)
+        handler.send_header("Content-Type", "application/json")
+        handler.end_headers()
+        handler.wfile.write(
+            json.dumps(
+                {"error": "PDF export unavailable -- reportlab not installed"}
+            ).encode()
+        )
+    except Exception as e:
+        logger.error("PDF export POST error: %s", e, exc_info=True)
+        handler.send_response(500)
+        handler.send_header("Content-Type", "application/json")
+        handler.end_headers()
+        handler.wfile.write(json.dumps({"error": "PDF generation failed"}).encode())
+
+
+def _generate_and_send_pdf(
+    handler: Any,
+    plan_data: dict,
+    client_name: str,
+    industry: str,
+) -> None:
+    """Generate PDF and send as download response.
+
+    Args:
+        handler: HTTP request handler instance.
+        plan_data: Plan data dict.
+        client_name: Client/company name.
+        industry: Industry vertical.
+    """
+    from pdf_report import generate_pdf_report
+
+    pdf_bytes = generate_pdf_report(
+        plan_data=plan_data,
+        client_name=client_name,
+        industry=industry,
+    )
+
+    safe_name = re.sub(r"[^a-zA-Z0-9_\-]", "_", client_name)
+    filename = f"{safe_name}_Media_Plan_Report.pdf"
+
+    handler.send_response(200)
+    handler.send_header("Content-Type", "application/pdf")
+    handler.send_header(
+        "Content-Disposition",
+        f'attachment; filename="{filename}"',
+    )
+    handler.send_header("Content-Length", str(len(pdf_bytes)))
+    handler.end_headers()
+    handler.wfile.write(pdf_bytes)
+
+
+# ---------------------------------------------------------------------------
 # Route map
 # ---------------------------------------------------------------------------
 
 _EXPORT_POST_ROUTE_MAP: dict[str, Any] = {
     "/api/export/sheets": _handle_export_sheets,
     "/api/export/status": _handle_export_status,
+    "/api/export/pdf": _handle_pdf_export_post,
     "/api/deliver": _handle_deliver,
     "/api/report/html": _handle_report_html,
     "/api/nova/export": _handle_nova_export,

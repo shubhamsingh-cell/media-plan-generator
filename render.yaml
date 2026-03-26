@@ -60,6 +60,9 @@ services:
         sync: false
       - key: GEONAMES_USERNAME
         sync: false
+      # --- Bureau of Economic Analysis (BEA) ---
+      - key: BEA_API_KEY
+        sync: false
       # --- Free LLM Providers (v3.1 LLM Router) ---
       - key: GEMINI_API_KEY
         sync: false
@@ -84,6 +87,14 @@ services:
       - key: GOOGLE_CALENDAR_CREDENTIALS
         sync: false
       - key: GOOGLE_CALENDAR_ID
+        sync: false
+      # --- USAJobs (Federal Job Listings) ---
+      - key: USAJOBS_API_KEY
+        sync: false
+      - key: USAJOBS_EMAIL
+        sync: false
+      # --- US Census Bureau (Workforce Demographics) ---
+      - key: CENSUS_API_KEY
         sync: false
       # --- TTS (ElevenLabs) ---
       - key: ELEVENLABS_API_KEY

@@ -1785,3 +1785,112 @@ a:hover {
     opacity: 1;
   }
 }
+
+/* ================================================================
+   TOOL STATUS INDICATOR (S18)
+   Real-time tool progress during streaming
+   ================================================================ */
+.nova-tool-status-container {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px 60px 4px 60px;
+  margin-bottom: 4px;
+}
+
+.nova-tool-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px;
+  border-radius: var(--radius-full);
+  font-size: 0.78rem;
+  line-height: 1.4;
+  width: fit-content;
+  transition:
+    opacity 0.3s ease,
+    background-color 0.2s ease;
+}
+
+.nova-tool-pill-active {
+  background: rgba(90, 84, 189, 0.12);
+  color: var(--accent-purple-light);
+  border: 1px solid rgba(90, 84, 189, 0.2);
+}
+
+.nova-tool-pill-done {
+  background: rgba(52, 211, 153, 0.08);
+  color: var(--accent-green);
+  border: 1px solid rgba(52, 211, 153, 0.15);
+}
+
+.nova-tool-spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--accent-purple);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: nova-tool-spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+.nova-tool-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  font-size: 10px;
+  flex-shrink: 0;
+  color: var(--accent-green);
+}
+
+.nova-tool-label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 280px;
+}
+
+@keyframes nova-tool-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nova-tool-spinner {
+    animation: none;
+    opacity: 0.7;
+  }
+}
+
+/* Light theme overrides */
+.light .nova-tool-pill-active {
+  background: rgba(90, 84, 189, 0.08);
+  border-color: rgba(90, 84, 189, 0.15);
+  color: var(--accent-purple);
+}
+.light .nova-tool-pill-done {
+  background: rgba(16, 185, 129, 0.06);
+  border-color: rgba(16, 185, 129, 0.12);
+  color: #059669;
+}
+.light .nova-tool-spinner {
+  border-color: var(--accent-purple);
+  border-top-color: transparent;
+}
+.light .nova-tool-check {
+  color: #059669;
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  .nova-tool-status-container {
+    padding: 4px 16px;
+  }
+  .nova-tool-label {
+    max-width: 200px;
+  }
+}

@@ -1,0 +1,164 @@
+{
+  "_metadata": {
+    "source_urls": [
+      "https://www.glassdoor.com/Award/Best-Places-to-Work-LST_KQ0,19.htm",
+      "https://www.visualcapitalist.com/the-best-places-to-work-in-america-in-2026-ranked/",
+      "https://topworkplaces.com/find-top-workplaces/",
+      "https://wallethub.com/edu/best-cities-for-jobs/2173",
+      "https://www.extraspace.com/blog/city-guides/best-cities-for-jobs/",
+      "https://www.50pros.com/fortune500",
+      "https://us500.com/fortune-500-companies",
+      "https://worldpopulationreview.com/state-rankings/largest-employer-by-state",
+      "https://www.cnbc.com/2025/08/03/the-top-10-us-cities-for-job-opportunities-and-earning-potential-according-to-new-report.html"
+    ],
+    "researched_date": "2026-03-26",
+    "data_quality": "high",
+    "category": "Competitive Intelligence - Top Employers"
+  },
+  "fortune_500_overview": {
+    "total_revenue_usd_trillions": 19.91,
+    "total_profit_usd_trillions": 1.87,
+    "total_employees_millions": 30.84,
+    "top_by_revenue": [
+      {"rank": 1, "company": "Walmart", "revenue_usd_billions": 681, "employees_millions": 2.1, "note": "Largest private employer in US"},
+      {"rank": 2, "company": "Amazon", "revenue_usd_billions": 716.9, "note": "Expected to top Fortune 500 by revenue in 2026"},
+      {"rank": 3, "company": "Apple", "revenue_usd_billions": 391},
+      {"rank": 4, "company": "UnitedHealth Group", "revenue_usd_billions": 372},
+      {"rank": 5, "company": "Berkshire Hathaway", "revenue_usd_billions": 365}
+    ]
+  },
+  "metros": [
+    {
+      "metro": "San Francisco / Bay Area",
+      "top_employers": [
+        {"company": "Google / Alphabet", "industry": "Technology", "estimated_local_headcount": 30000, "glassdoor_rating": 4.3},
+        {"company": "Apple", "industry": "Technology", "estimated_local_headcount": 25000, "glassdoor_rating": 4.2},
+        {"company": "Meta", "industry": "Technology", "estimated_local_headcount": 15000, "glassdoor_rating": 4.1},
+        {"company": "Salesforce", "industry": "Technology", "estimated_local_headcount": 12000, "glassdoor_rating": 4.2},
+        {"company": "UCSF Health", "industry": "Healthcare", "estimated_local_headcount": 35000, "glassdoor_rating": 4.0},
+        {"company": "Kaiser Permanente", "industry": "Healthcare", "estimated_local_headcount": 40000, "glassdoor_rating": 3.9},
+        {"company": "Wells Fargo", "industry": "Finance", "estimated_local_headcount": 12000, "glassdoor_rating": 3.7},
+        {"company": "NVIDIA", "industry": "Technology", "estimated_local_headcount": 8000, "glassdoor_rating": 4.5}
+      ],
+      "key_industries": ["Technology", "Healthcare", "Biotech", "Finance"],
+      "avg_salary_premium_vs_national_pct": 40
+    },
+    {
+      "metro": "New York City",
+      "top_employers": [
+        {"company": "JPMorgan Chase", "industry": "Finance", "estimated_local_headcount": 60000, "glassdoor_rating": 3.9},
+        {"company": "NYC Health + Hospitals", "industry": "Healthcare", "estimated_local_headcount": 42000, "glassdoor_rating": 3.6},
+        {"company": "Citigroup", "industry": "Finance", "estimated_local_headcount": 25000, "glassdoor_rating": 3.8},
+        {"company": "Goldman Sachs", "industry": "Finance", "estimated_local_headcount": 15000, "glassdoor_rating": 4.0},
+        {"company": "Google", "industry": "Technology", "estimated_local_headcount": 12000, "glassdoor_rating": 4.3},
+        {"company": "Amazon", "industry": "Technology/Logistics", "estimated_local_headcount": 20000, "glassdoor_rating": 3.6},
+        {"company": "Morgan Stanley", "industry": "Finance", "estimated_local_headcount": 14000, "glassdoor_rating": 3.9},
+        {"company": "Mount Sinai Health System", "industry": "Healthcare", "estimated_local_headcount": 43000, "glassdoor_rating": 3.7}
+      ],
+      "key_industries": ["Finance", "Healthcare", "Media", "Technology", "Legal"],
+      "avg_salary_premium_vs_national_pct": 35
+    },
+    {
+      "metro": "Seattle",
+      "top_employers": [
+        {"company": "Amazon", "industry": "Technology", "estimated_local_headcount": 75000, "glassdoor_rating": 3.6},
+        {"company": "Microsoft", "industry": "Technology", "estimated_local_headcount": 55000, "glassdoor_rating": 4.2},
+        {"company": "Boeing", "industry": "Aerospace", "estimated_local_headcount": 35000, "glassdoor_rating": 3.8},
+        {"company": "UW Medicine", "industry": "Healthcare", "estimated_local_headcount": 30000, "glassdoor_rating": 3.9},
+        {"company": "Starbucks", "industry": "Food & Beverage", "estimated_local_headcount": 8000, "glassdoor_rating": 3.8},
+        {"company": "T-Mobile", "industry": "Telecom", "estimated_local_headcount": 10000, "glassdoor_rating": 4.0}
+      ],
+      "key_industries": ["Technology", "Aerospace", "Healthcare", "Retail"],
+      "avg_salary_premium_vs_national_pct": 30
+    },
+    {
+      "metro": "Austin",
+      "top_employers": [
+        {"company": "Dell Technologies", "industry": "Technology", "estimated_local_headcount": 13000, "glassdoor_rating": 3.9},
+        {"company": "Tesla", "industry": "Automotive/Manufacturing", "estimated_local_headcount": 20000, "glassdoor_rating": 3.5},
+        {"company": "Oracle", "industry": "Technology", "estimated_local_headcount": 8000, "glassdoor_rating": 3.8},
+        {"company": "Apple", "industry": "Technology", "estimated_local_headcount": 7000, "glassdoor_rating": 4.2},
+        {"company": "Google", "industry": "Technology", "estimated_local_headcount": 5000, "glassdoor_rating": 4.3},
+        {"company": "Samsung Austin Semiconductor", "industry": "Semiconductor", "estimated_local_headcount": 3000, "glassdoor_rating": 3.9}
+      ],
+      "key_industries": ["Technology", "Semiconductor", "Automotive", "Government"],
+      "avg_salary_premium_vs_national_pct": 15
+    },
+    {
+      "metro": "Dallas-Fort Worth",
+      "top_employers": [
+        {"company": "AT&T", "industry": "Telecom", "estimated_local_headcount": 20000, "glassdoor_rating": 3.7},
+        {"company": "Texas Instruments", "industry": "Semiconductor", "estimated_local_headcount": 15000, "glassdoor_rating": 4.1},
+        {"company": "American Airlines", "industry": "Aviation", "estimated_local_headcount": 30000, "glassdoor_rating": 3.7},
+        {"company": "Baylor Scott & White", "industry": "Healthcare", "estimated_local_headcount": 45000, "glassdoor_rating": 3.8},
+        {"company": "Lockheed Martin", "industry": "Aerospace/Defense", "estimated_local_headcount": 12000, "glassdoor_rating": 4.0},
+        {"company": "CBRE Group", "industry": "Real Estate", "estimated_local_headcount": 5000, "glassdoor_rating": 3.8}
+      ],
+      "key_industries": ["Technology", "Healthcare", "Aviation", "Finance", "Defense"],
+      "avg_salary_premium_vs_national_pct": 5
+    },
+    {
+      "metro": "Charlotte",
+      "top_employers": [
+        {"company": "Bank of America", "industry": "Finance", "estimated_local_headcount": 15000, "glassdoor_rating": 3.8},
+        {"company": "Truist Financial", "industry": "Finance", "estimated_local_headcount": 8000, "glassdoor_rating": 3.7},
+        {"company": "Atrium Health", "industry": "Healthcare", "estimated_local_headcount": 35000, "glassdoor_rating": 3.8},
+        {"company": "Novant Health", "industry": "Healthcare", "estimated_local_headcount": 15000, "glassdoor_rating": 3.9},
+        {"company": "Lowe's", "industry": "Retail", "estimated_local_headcount": 5000, "glassdoor_rating": 3.6},
+        {"company": "Honeywell", "industry": "Manufacturing/Technology", "estimated_local_headcount": 4000, "glassdoor_rating": 3.8}
+      ],
+      "key_industries": ["Finance", "Healthcare", "Technology", "Logistics"],
+      "avg_salary_premium_vs_national_pct": 0
+    },
+    {
+      "metro": "Chicago",
+      "top_employers": [
+        {"company": "Abbott Laboratories", "industry": "Healthcare/Pharma", "estimated_local_headcount": 15000, "glassdoor_rating": 4.0},
+        {"company": "United Airlines", "industry": "Aviation", "estimated_local_headcount": 14000, "glassdoor_rating": 3.7},
+        {"company": "Allstate", "industry": "Insurance", "estimated_local_headcount": 12000, "glassdoor_rating": 3.8},
+        {"company": "Advocate Aurora Health", "industry": "Healthcare", "estimated_local_headcount": 40000, "glassdoor_rating": 3.7},
+        {"company": "McDonald's Corp", "industry": "Food Service", "estimated_local_headcount": 3000, "glassdoor_rating": 3.5},
+        {"company": "Deloitte", "industry": "Consulting", "estimated_local_headcount": 10000, "glassdoor_rating": 4.0}
+      ],
+      "key_industries": ["Finance", "Healthcare", "Manufacturing", "Consulting", "Aviation"],
+      "avg_salary_premium_vs_national_pct": 10
+    },
+    {
+      "metro": "Washington DC",
+      "top_employers": [
+        {"company": "US Federal Government", "industry": "Government", "estimated_local_headcount": 350000, "glassdoor_rating": 3.8},
+        {"company": "Booz Allen Hamilton", "industry": "Consulting/Defense", "estimated_local_headcount": 20000, "glassdoor_rating": 4.0},
+        {"company": "Leidos", "industry": "Defense/IT", "estimated_local_headcount": 15000, "glassdoor_rating": 3.9},
+        {"company": "SAIC", "industry": "Defense/IT", "estimated_local_headcount": 10000, "glassdoor_rating": 3.8},
+        {"company": "Amazon (HQ2)", "industry": "Technology", "estimated_local_headcount": 25000, "glassdoor_rating": 3.6},
+        {"company": "Capital One", "industry": "Finance", "estimated_local_headcount": 15000, "glassdoor_rating": 3.9}
+      ],
+      "key_industries": ["Government", "Defense", "Consulting", "Technology", "Cybersecurity"],
+      "avg_salary_premium_vs_national_pct": 20
+    }
+  ],
+  "best_cities_for_jobs_2026": [
+    {"rank": 1, "city": "Scottsdale, AZ", "median_household_income_usd": 101000, "unemployment_rate": "Low"},
+    {"rank": 2, "city": "Columbia, MD", "median_household_income_usd": 129000},
+    {"rank": 3, "city": "Portland, ME"},
+    {"city": "Pittsburgh, PA", "note": "Most per capita job openings; education/health employs ~280K"},
+    {"city": "Orlando, FL", "note": "Strong hospitality/tourism job market"},
+    {"city": "Richmond, VA", "note": "Growing diverse economy"}
+  ],
+  "glassdoor_best_places_to_work_2026": {
+    "notable_winners": ["NVIDIA", "Crew Carwash", "In-N-Out Burger"],
+    "categories": ["Tech", "Healthcare/Biotech/Pharma", "Manufacturing/Energy", "Consumer Services", "Consulting/Finance/Insurance"],
+    "methodology": "Employee-voted rankings for companies with 1000+ employees"
+  },
+  "forbes_best_employers_2026": {
+    "top_large": [
+      {"rank": 1, "company": "Trader Joe's", "score": 100, "note": "7% annual wage increases"},
+      {"rank": 2, "company": "Various tech companies", "note": "7 of top 20 are technology companies"},
+      {"rank": 3, "company": "Various healthcare companies", "note": "5 of top 20 are healthcare companies"}
+    ],
+    "top_midsize": [
+      {"rank": 1, "company": "Toll Brothers", "industry": "Homebuilding"},
+      {"rank": 2, "company": "Patagonia", "industry": "Retail", "perks": "Low turnover, 15 schedule options, on-site childcare, tuition reimbursement"}
+    ]
+  }
+}

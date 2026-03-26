@@ -1,0 +1,103 @@
+{
+  "_metadata": {
+    "source_urls": [
+      "https://www.bls.gov/emp/",
+      "https://www.bls.gov/opub/mlr/2026/article/industry-and-occupational-employment-projections-overview.htm",
+      "https://www.bls.gov/news.release/pdf/ecopro.pdf",
+      "https://www.roberthalf.com/us/en/insights/research/february-2026-labor-market-update-for-employers-and-job-seekers",
+      "https://www.roberthalf.com/us/en/insights/research/remote-work-statistics-and-trends",
+      "https://www.gallup.com/401384/indicator-hybrid-work.aspx",
+      "https://backlinko.com/remote-work-stats"
+    ],
+    "researched_date": "2026-03-26",
+    "data_quality": "high",
+    "category": "Labor Market Reports"
+  },
+  "bls_projections_2024_2034": {
+    "total_employment_projected_2034_millions": 175.2,
+    "total_employment_growth_pct": 3.1,
+    "new_jobs_projected_millions": 5.2,
+    "comparison_note": "Slower than 13.0% growth in 2014-2024 decade",
+    "fastest_growing_sector": "Healthcare and social assistance",
+    "healthcare_growth_rate_pct": 8.4,
+    "healthcare_new_jobs_millions": 2.0,
+    "ai_impact": {
+      "declining_occupations": ["Billing clerks", "Procurement clerks", "Customer service representatives", "Nonmedical secretaries"],
+      "growing_occupations": ["Computer occupations", "AI systems engineers", "Data scientists", "ML engineers"],
+      "note": "AI expected to limit demand for some office/admin roles while boosting computer occupations"
+    }
+  },
+  "current_labor_market_feb_2026": {
+    "unemployment_rate_pct": 4.4,
+    "jobs_lost_february_2026": 92000,
+    "job_openings_january_2026_millions": 6.9,
+    "growing_industries": ["Financial activities", "Wholesale trade"],
+    "talent_gap": {
+      "hiring_managers_with_needed_talent_pct": 6,
+      "finding_skilled_professionals_harder_than_year_ago_pct": 58,
+      "workers_planning_new_job_search_h1_2026_pct": 38,
+      "job_seekers_too_much_competition_pct": 59,
+      "expect_longer_search_pct": 68
+    }
+  },
+  "remote_work_2026": {
+    "workforce_breakdown": {
+      "hybrid_pct": 52,
+      "fully_remote_pct": 27,
+      "fully_onsite_pct": 21,
+      "note": "Among remote-capable U.S. employees (Gallup)"
+    },
+    "us_remote_workers_total_millions": 36.9,
+    "us_remote_partially_pct": 22.5,
+    "employer_policies": {
+      "employers_offering_hybrid_pct": 88,
+      "companies_requiring_full_rto_2026_pct": 30,
+      "companies_allowing_fully_remote_pct": 10,
+      "plan_to_maintain_or_increase_remote_pct": 90
+    },
+    "job_postings": {
+      "hybrid_postings_q4_2025_pct": 24,
+      "fully_remote_postings_q4_2025_pct": 11,
+      "fully_onsite_postings_pct": 65
+    },
+    "employee_preferences": {
+      "hybrid_top_choice_pct": 55,
+      "salary_most_important_factor_pct": 77,
+      "remote_work_second_most_important_pct": 70,
+      "hybrid_boosts_productivity_employers_agree_pct": 66,
+      "hybrid_improved_retention_pct": 69,
+      "would_job_search_if_remote_removed_pct": 60
+    },
+    "industry_remote_rates": {
+      "marketing_creative": {"hybrid_pct": 30, "remote_pct": 14},
+      "technology": {"hybrid_pct": 29, "remote_pct": 13},
+      "healthcare": {"onsite_pct": 80},
+      "administrative": {"onsite_pct": 80}
+    }
+  },
+  "sector_employment_outlook": [
+    {"sector": "Healthcare & Social Assistance", "growth_rate_pct": 8.4, "new_jobs_millions": 2.0, "trend": "Strong growth"},
+    {"sector": "Professional & Business Services", "growth_rate_pct": 4.2, "trend": "Moderate growth"},
+    {"sector": "Technology / Information", "growth_rate_pct": 5.8, "trend": "Strong growth, AI-driven"},
+    {"sector": "Construction", "growth_rate_pct": 3.5, "trend": "Moderate growth, infrastructure spending"},
+    {"sector": "Manufacturing", "growth_rate_pct": -0.5, "trend": "Slight decline, automation"},
+    {"sector": "Retail Trade", "growth_rate_pct": -1.2, "trend": "Decline, e-commerce shift"},
+    {"sector": "Government", "growth_rate_pct": 2.1, "trend": "Slow growth"},
+    {"sector": "Financial Activities", "growth_rate_pct": 2.8, "trend": "Moderate growth"},
+    {"sector": "Leisure & Hospitality", "growth_rate_pct": 4.0, "trend": "Recovery and growth"},
+    {"sector": "Transportation & Warehousing", "growth_rate_pct": 3.8, "trend": "E-commerce driven"}
+  ],
+  "labor_force_participation": {
+    "overall_rate_pct": 62.4,
+    "prime_age_25_54_pct": 83.5,
+    "women_participation_pct": 57.8,
+    "older_workers_55_plus_pct": 38.2,
+    "trend": "Gradual decline as Baby Boomers retire"
+  },
+  "wage_growth": {
+    "avg_hourly_earnings_growth_yoy_pct": 3.8,
+    "median_weekly_earnings_usd": 1195,
+    "real_wage_growth_inflation_adjusted_pct": 1.2,
+    "sectors_with_highest_wage_growth": ["Technology", "Healthcare", "Professional services"]
+  }
+}

@@ -1,0 +1,249 @@
+{
+  "_metadata": {
+    "source_urls": [
+      "https://lhra.io/blog/hr-tech-awards-2025-winners-announced/",
+      "https://www.adp.com/spark/articles/2025/12/key-hr-technology-trends-for-2026-and-how-to-plan.aspx",
+      "https://ossisto.com/blog/hr-tech-companies/",
+      "https://www.fastcompany.com/91497248/human-resources-most-innovative-companies-2026",
+      "https://hrexecutive.com/announcing-the-2025-top-hr-tech-products-of-the-year/",
+      "https://www.landbase.com/blog/fastest-growing-hr-tech-companies",
+      "https://builtin.com/companies/type/hr-tech-companies",
+      "https://www.peacetech.net/2026/03/19/top-5-companies-revolutionizing-talent-acquisition-through-ai-powered-solutions/"
+    ],
+    "researched_date": "2026-03-26",
+    "data_quality": "high",
+    "category": "HR Tech & TA Tech Company Landscape"
+  },
+  "market_overview": {
+    "total_providers_estimated": 5000,
+    "ai_adoption_rate_pct": 42,
+    "ai_adoption_yoy_change": "doubled from 2024",
+    "h1_2025_funding_total_usd": 3000000000,
+    "h1_2025_funding_yoy_increase_pct": 60,
+    "agentic_ai_adoption": {
+      "large_businesses_pct": 48,
+      "midsized_businesses_pct": 25,
+      "small_businesses_pct": 4,
+      "projected_growth_by_2027_pct": 327
+    },
+    "key_trend_2026": "Integration and operationalization of AI tools over technical breakthroughs"
+  },
+  "enterprise_hcm_platforms": [
+    {
+      "company": "Workday",
+      "category": "Enterprise HCM",
+      "market_position": "Leader",
+      "key_features": ["End-to-end HCM", "Finance integration", "AI-powered analytics", "Skills Cloud"],
+      "target_segment": "Medium to large enterprises",
+      "pricing_tier": "Enterprise (custom pricing)",
+      "source": "lhra.io"
+    },
+    {
+      "company": "ADP",
+      "category": "Enterprise HCM / Payroll",
+      "market_position": "Leader",
+      "key_features": ["ADP Lyric HCM", "AI-enhanced platform", "Global payroll", "Unified HR ecosystem"],
+      "target_segment": "All sizes, strong in enterprise",
+      "pricing_tier": "Tiered (Essential to Enterprise)",
+      "notable": "Released AI suite addressing 5 critical HR efficiency areas",
+      "source": "adp.com"
+    },
+    {
+      "company": "Dayforce (formerly Ceridian)",
+      "category": "Enterprise HCM",
+      "market_position": "Leader",
+      "key_features": ["Real-time workforce analytics", "Global payroll", "ML forecasting", "Compliance"],
+      "target_segment": "6000+ global enterprises",
+      "pricing_tier": "Enterprise (custom pricing)",
+      "source": "ossisto.com"
+    },
+    {
+      "company": "Rippling",
+      "category": "Unified HR Platform",
+      "market_position": "Fast-growing challenger",
+      "key_features": ["Unified HR/IT/Finance", "Payroll automation", "Device management", "90-second payroll for 100K+ employees"],
+      "target_segment": "SMB to mid-market",
+      "pricing_tier": "Per employee per month",
+      "source": "landbase.com"
+    },
+    {
+      "company": "HiBob",
+      "category": "Mid-market HRIS",
+      "market_position": "Fast-growing",
+      "key_features": ["Modern HRIS", "People analytics", "Onboarding", "Culture tools"],
+      "customer_count": 4000,
+      "growth": "Consecutive triple-digit YoY growth since 2015",
+      "target_segment": "Mid-size and multinational companies",
+      "pricing_tier": "Per employee per month",
+      "source": "ossisto.com"
+    },
+    {
+      "company": "Personio",
+      "category": "European HR & Payroll",
+      "market_position": "European leader",
+      "key_features": ["Core HR automation", "AI-supported recruiting", "Absence management", "Fast onboarding"],
+      "customer_count": 10000,
+      "target_segment": "European SMEs",
+      "pricing_tier": "Per employee per month (tiered)",
+      "source": "ossisto.com"
+    },
+    {
+      "company": "Gusto",
+      "category": "SMB HR Platform",
+      "market_position": "SMB leader",
+      "key_features": ["Payroll", "Benefits", "HR management", "Hiring tools"],
+      "target_segment": "Small businesses",
+      "pricing_tier": "Starting ~$40/month base + per employee",
+      "source": "ossisto.com"
+    }
+  ],
+  "talent_acquisition_platforms": [
+    {
+      "company": "Greenhouse",
+      "category": "ATS / Talent Acquisition",
+      "market_position": "Leader",
+      "key_features": ["AI-powered TA", "Structured hiring", "DEI tools", "Analytics"],
+      "customer_count": 7500,
+      "notable": "Average time-to-hire reduction of 23 days",
+      "pricing_tier": "Custom (based on employee count)",
+      "source": "ossisto.com"
+    },
+    {
+      "company": "Ashby",
+      "category": "Analytics-first ATS",
+      "market_position": "Fast-growing challenger",
+      "key_features": ["Analytics-focused ATS", "Scheduling", "CRM", "Reporting"],
+      "notable": "July 2025 Series D funding",
+      "pricing_tier": "Per employee per month",
+      "source": "lhra.io"
+    },
+    {
+      "company": "Eightfold AI",
+      "category": "AI Talent Intelligence",
+      "market_position": "AI-native leader",
+      "key_features": ["AI-native talent acquisition", "Deep recruiting insights", "Skills ontology", "Internal mobility"],
+      "pricing_tier": "Enterprise (custom)",
+      "source": "ossisto.com"
+    },
+    {
+      "company": "Beamery",
+      "category": "Talent CRM",
+      "market_position": "Enterprise leader",
+      "key_features": ["Relationship science", "Dynamic talent pipelines", "Skills intelligence", "CRM"],
+      "target_segment": "Fortune 500",
+      "pricing_tier": "Enterprise (custom)",
+      "source": "ossisto.com"
+    },
+    {
+      "company": "iCIMS",
+      "category": "Enterprise ATS",
+      "market_position": "Established leader",
+      "key_features": ["ATS", "CRM", "Career sites", "AI matching", "Video screening"],
+      "target_segment": "Enterprise",
+      "pricing_tier": "Custom",
+      "source": "lhra.io"
+    },
+    {
+      "company": "Lever (now Employ)",
+      "category": "ATS + CRM",
+      "market_position": "Mid-market leader",
+      "key_features": ["Combined ATS/CRM", "Nurture campaigns", "DEI analytics", "Automation"],
+      "target_segment": "Mid-market to enterprise",
+      "pricing_tier": "Custom",
+      "source": "lhra.io"
+    }
+  ],
+  "fast_growing_startups": [
+    {
+      "company": "Juicebox",
+      "category": "AI Recruiting",
+      "arr_usd": 10000000,
+      "monthly_growth_pct": 20,
+      "funding_usd": 36000000,
+      "lead_investor": "Sequoia Capital",
+      "customer_count": 3000,
+      "notable_customers": ["Ramp", "Perplexity"],
+      "source": "landbase.com"
+    },
+    {
+      "company": "Serra",
+      "category": "AI Recruiter",
+      "key_features": ["Automated sourcing", "Outreach automation", "LinkedIn/GitHub/Crunchbase sourcing"],
+      "value_prop": "Skip sourcing entirely, get qualified interviews on calendar",
+      "source": "landbase.com"
+    },
+    {
+      "company": "Checkr",
+      "category": "Background Checks",
+      "key_features": ["Language processing for background checks", "Transparency tools", "API-first"],
+      "source": "hrexecutive.com"
+    },
+    {
+      "company": "Wisq",
+      "category": "HR AI Assistant",
+      "key_features": ["AI assistants for HR admin", "Time-saving automation"],
+      "source": "hrexecutive.com"
+    },
+    {
+      "company": "Remote",
+      "category": "Global HR / EOR",
+      "key_features": ["AI performance review tool", "Global employment", "Payroll", "Compliance"],
+      "source": "hrexecutive.com"
+    }
+  ],
+  "programmatic_job_advertising_platforms": [
+    {
+      "company": "Joveo",
+      "category": "Programmatic Job Advertising",
+      "key_features": ["MOJO platform", "AI-driven optimization", "Multi-channel distribution", "Real-time bidding", "Analytics"],
+      "market_position": "Leader",
+      "source": "joveo.com"
+    },
+    {
+      "company": "Appcast",
+      "category": "Programmatic Job Advertising",
+      "key_features": ["Programmatic buying", "Cost-per-applicant optimization", "Analytics"],
+      "notable": "Clients see up to 50% reduction in cost-per-hire",
+      "market_position": "Leader",
+      "source": "appcast.io"
+    },
+    {
+      "company": "PandoLogic",
+      "category": "Programmatic Job Advertising",
+      "key_features": ["pandoIQ platform", "AI-driven budget allocation", "Predictive analytics"],
+      "market_position": "Leader",
+      "source": "selectsoftwarereviews.com"
+    },
+    {
+      "company": "Radancy",
+      "category": "Talent Acquisition Cloud",
+      "key_features": ["Career sites", "CRM", "Programmatic", "Analytics", "Employee referrals"],
+      "market_position": "Enterprise leader",
+      "source": "radancy.com"
+    },
+    {
+      "company": "Talroo",
+      "category": "Programmatic Job Advertising",
+      "key_features": ["Data-driven job advertising", "Frontline hiring focus", "Performance optimization"],
+      "market_position": "Niche leader (frontline/hourly)",
+      "source": "talroo.com"
+    },
+    {
+      "company": "Wonderkind",
+      "category": "Talent Attraction Technology",
+      "key_features": ["Social media job advertising", "Programmatic distribution", "Candidate targeting"],
+      "market_position": "European leader",
+      "source": "wonderkind.com"
+    }
+  ],
+  "key_trends_2026": [
+    "Agentic AI replacing generative AI as the primary HR tech innovation",
+    "Skills-based hiring overtaking degree-based requirements",
+    "Integration focus over new feature development",
+    "AI-native recruiting tools becoming mainstream",
+    "People analytics driving strategic workforce decisions",
+    "Personalized learning and development platforms",
+    "Bias reduction through AI-powered structured hiring",
+    "Global payroll consolidation accelerating"
+  ]
+}

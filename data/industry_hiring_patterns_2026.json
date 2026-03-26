@@ -1,0 +1,139 @@
+{
+  "_metadata": {
+    "source_urls": [
+      "https://www.roberthalf.com/us/en/insights/research/data-reveals-which-technology-roles-are-in-highest-demand",
+      "https://ravio.com/blog/tech-hiring-trends",
+      "https://insight.ieeeusa.org/articles/2026-tech-hiring-outlook/",
+      "https://www.beckershospitalreview.com/hospital-management-administration/10-healthcare-workforce-challenges-defining-2026/",
+      "https://staffdna.com/healthcare-staffing-trends-that-will-shape-2026/",
+      "https://www.advancedmanufacturing.org/news-desk/report-skilled-labor-shortage-remains-top-challenge-for-manufacturers/",
+      "https://www.madicorp.com/blog/manufacturing-labor-shortage-2026",
+      "https://blog.theinterviewguys.com/the-seasonal-hiring-patterns-analysis-report/",
+      "https://www.hiringlab.org/2026/02/19/february-2026-labor-market-update-new-year-same-resolutions/",
+      "https://americanstaffing.net/posts/2026/01/06/top-5-staffing-trends-to-watch-for-2026/"
+    ],
+    "researched_date": "2026-03-26",
+    "data_quality": "high",
+    "category": "Industry Hiring Patterns"
+  },
+  "technology": {
+    "overview": "AI adoption driving hiring; split market between surplus of generalists and shortage of AI specialists",
+    "hiring_rate_2025_pct": 29,
+    "decline_from_2023_pct": 15,
+    "new_grad_share_of_hires_pct": 7,
+    "new_grad_decline_from_2023_pct": 25,
+    "new_grad_decline_from_2019_pct": 50,
+    "ai_ml_salary_premium_pct": "15-25",
+    "in_demand_roles": [
+      "AI/ML Engineers",
+      "Cybersecurity Analysts",
+      "Cloud Infrastructure Engineers",
+      "Data Engineers",
+      "Full-Stack Developers (AI-enabled)",
+      "DevSecOps Engineers",
+      "Platform Engineers"
+    ],
+    "declining_roles": [
+      "Junior generalist developers",
+      "Manual QA testers",
+      "Basic IT support",
+      "Data entry operators"
+    ],
+    "hiring_pattern": "Continuous but deliberate; peaks in Q1 and Q3",
+    "key_trend": "Value-driven hiring replacing rapid expansion; AI specialization commanding premium"
+  },
+  "healthcare": {
+    "overview": "Critical staffing crisis with 3.2M worker shortfall projected",
+    "worker_shortfall_by_2026_millions": 3.2,
+    "physician_loss_2026": 96000,
+    "considering_leaving_pct": 55,
+    "baby_boomer_retirements": "Healthcare workers over 60 doubled 2000-2020",
+    "growth_sectors": [
+      {"sector": "Locum tenens", "trend": "Highest growth"},
+      {"sector": "International nurses", "trend": "Moderate growth"},
+      {"sector": "Allied health", "trend": "Slight decline then recovery"},
+      {"sector": "Per diem nursing", "trend": "Slight decline then recovery"}
+    ],
+    "in_demand_roles": [
+      "Registered Nurses",
+      "Nurse Practitioners",
+      "Physician Assistants",
+      "Medical Technologists",
+      "Home Health Aides",
+      "Mental Health Counselors",
+      "Physical Therapists"
+    ],
+    "hiring_pattern": "Year-round critical need; peaks in fall (academic year transitions)",
+    "key_trend": "AI moving from pilot to enterprise deployment; labor costs stabilizing as travel nurse reliance decreases"
+  },
+  "manufacturing": {
+    "overview": "Skilled-labor shortage is the top challenge; 2.1M jobs could go unfilled by 2030",
+    "executives_citing_labor_shortage_as_top_challenge_pct": 79,
+    "most_affected_departments": {
+      "manufacturing": 90,
+      "operations_pct": 48,
+      "design_engineering_pct": 40
+    },
+    "prioritizing_recruitment_pct": 62,
+    "investing_in_automation_pct": 69,
+    "automation_investment_yoy_increase_pct": 9,
+    "unfilled_jobs_by_2030_millions": 2.1,
+    "cost_of_unfilled_jobs_2030_usd_trillions": 1.0,
+    "workforce_retiring_by_2030_pct": 26,
+    "retiring_roles_vacant_millions": 1.5,
+    "factory_employment_december_2025_millions": 12.69,
+    "factory_employment_decline_since_april_2025": 70000,
+    "in_demand_roles": [
+      "CNC Machinists",
+      "Welders",
+      "Industrial Maintenance Technicians",
+      "Quality Control Inspectors",
+      "Robotics Technicians",
+      "Supply Chain Managers"
+    ],
+    "growth_drivers": ["Smart manufacturing", "AI-enabled operations", "Reshoring", "Semiconductor expansion", "Data center boom"],
+    "hiring_pattern": "Continuous need; slight dip in holiday season",
+    "key_trend": "Automation and robotics filling workforce gap; need for skilled operators increasing"
+  },
+  "seasonal_hiring_patterns": {
+    "general_cycle": {
+      "january_february": "Peak hiring -- new budgets activate, job searches up 31% vs December",
+      "march_april": "Strong hiring continues -- Q1 budget execution",
+      "may_june": "Moderate -- summer slowdown begins, internship hiring peaks",
+      "july_august": "Slowdown -- vacation season, decision-makers unavailable",
+      "september_october": "Rebound -- Q4 push, holiday season prep begins",
+      "november_december": "Mixed -- holiday hiring peaks for retail/logistics, professional hiring slows"
+    },
+    "by_industry": [
+      {"industry": "Retail", "peak_months": "August-October", "hiring_for": "Holiday season", "note": "Start recruiting in September, not November"},
+      {"industry": "Education", "peak_months": "March-June", "hiring_for": "Next academic year"},
+      {"industry": "Construction", "peak_months": "February-April", "hiring_for": "Spring/summer building season", "slow_months": "November-January"},
+      {"industry": "Healthcare", "peak_months": "Year-round", "hiring_for": "Continuous critical need"},
+      {"industry": "Technology", "peak_months": "January-March, September-October", "hiring_for": "New fiscal year, Q4 push"},
+      {"industry": "Hospitality/Tourism", "peak_months": "March-May", "hiring_for": "Summer season"},
+      {"industry": "Accounting/Finance", "peak_months": "January-March", "hiring_for": "Tax season, fiscal year"},
+      {"industry": "Logistics/Warehousing", "peak_months": "August-November", "hiring_for": "Holiday shipping season"}
+    ],
+    "2026_notes": [
+      "Holiday 2025 hiring plans were at lowest levels since tracking began in 2012",
+      "Automation reducing some seasonal peak needs but increasing demand for skilled operators",
+      "Job searches on Indeed up 31% in January 2026 vs early December 2025"
+    ]
+  },
+  "growth_sectors_2026": [
+    {"sector": "AI/ML", "growth_outlook": "Very High", "talent_availability": "Severe shortage"},
+    {"sector": "Healthcare", "growth_outlook": "Very High", "talent_availability": "Chronic shortage"},
+    {"sector": "Cybersecurity", "growth_outlook": "High", "talent_availability": "Moderate shortage"},
+    {"sector": "Renewable Energy", "growth_outlook": "High", "talent_availability": "Growing shortage"},
+    {"sector": "Data Center/Cloud", "growth_outlook": "High", "talent_availability": "Moderate shortage"},
+    {"sector": "EV/Battery Manufacturing", "growth_outlook": "High", "talent_availability": "Shortage"},
+    {"sector": "Semiconductor", "growth_outlook": "High", "talent_availability": "Severe shortage"},
+    {"sector": "Biotech/Pharma", "growth_outlook": "Moderate-High", "talent_availability": "Moderate shortage"}
+  ],
+  "declining_sectors_2026": [
+    {"sector": "Traditional Retail", "decline_outlook": "Moderate decline", "reason": "E-commerce shift"},
+    {"sector": "Print Media", "decline_outlook": "Continued decline", "reason": "Digital transformation"},
+    {"sector": "Coal/Fossil Fuels", "decline_outlook": "Decline", "reason": "Energy transition"},
+    {"sector": "Basic Admin/Data Entry", "decline_outlook": "Significant decline", "reason": "AI automation"}
+  ]
+}

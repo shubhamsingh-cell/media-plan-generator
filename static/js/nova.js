@@ -1206,6 +1206,73 @@
   }
 
   // ========================================================================
+  // TOOL STATUS INDICATOR (S18)
+  // ========================================================================
+  var _activeTools = {};
+
+  function showToolStatus(type, toolName, label) {
+    var container = document.getElementById("tool-status-container");
+    if (!container) {
+      container = document.createElement("div");
+      container.id = "tool-status-container";
+      container.className = "nova-tool-status-container";
+      // Insert before thinking wrapper or at end of chat
+      var thinkingEl = document.getElementById("thinking-wrapper");
+      if (thinkingEl) {
+        thinkingEl.parentNode.insertBefore(container, thinkingEl);
+      } else {
+        chatContainer.appendChild(container);
+      }
+    }
+
+    if (type === "tool_start") {
+      _activeTools[toolName] = true;
+      // Create or update the tool status pill
+      var pillId = "tool-pill-" + toolName.replace(/[^a-zA-Z0-9]/g, "_");
+      var pill = document.getElementById(pillId);
+      if (!pill) {
+        pill = document.createElement("div");
+        pill.id = pillId;
+        pill.className = "nova-tool-pill nova-tool-pill-active";
+        pill.innerHTML =
+          '<span class="nova-tool-spinner"></span>' +
+          '<span class="nova-tool-label">' +
+          escapeHtml(label) +
+          "</span>";
+        container.appendChild(pill);
+      }
+      scrollToBottom();
+    } else if (type === "tool_complete") {
+      delete _activeTools[toolName];
+      var pillId2 = "tool-pill-" + toolName.replace(/[^a-zA-Z0-9]/g, "_");
+      var pill2 = document.getElementById(pillId2);
+      if (pill2) {
+        pill2.className = "nova-tool-pill nova-tool-pill-done";
+        pill2.innerHTML =
+          '<span class="nova-tool-check">&#10003;</span>' +
+          '<span class="nova-tool-label">' +
+          escapeHtml(label) +
+          "</span>";
+        // Fade out completed pills after 1.5s
+        setTimeout(function () {
+          if (pill2 && pill2.parentNode) {
+            pill2.style.opacity = "0";
+            setTimeout(function () {
+              if (pill2 && pill2.parentNode) pill2.remove();
+            }, 300);
+          }
+        }, 1500);
+      }
+    }
+  }
+
+  function clearToolStatus() {
+    _activeTools = {};
+    var container = document.getElementById("tool-status-container");
+    if (container) container.remove();
+  }
+
+  // ========================================================================
   // FEEDBACK API
   // ========================================================================
   function sendFeedback(messageId, rating, conversationId, textFeedback) {
@@ -1313,6 +1380,7 @@
       sendBtn.disabled = !chatInput.value.trim();
       stopBtn.classList.remove("visible");
       hideThinking();
+      clearToolStatus();
       chatInput.focus();
       if (wasLoading) {
         console.log("[Nova] resetLoadingState: cleared stuck loading flag");
@@ -1430,6 +1498,13 @@
           if (_wsTimeout) clearTimeout(_wsTimeout);
           metadata = evt;
           callbacks.onComplete(metadata, fullText);
+          return;
+        }
+        // S18: Tool status events (real-time tool progress)
+        if (evt.type === "tool_start" || evt.type === "tool_complete") {
+          if (callbacks.onToolStatus) {
+            callbacks.onToolStatus(evt.type, evt.tool, evt.label);
+          }
           return;
         }
         // Status event
@@ -1713,7 +1788,11 @@
           onStatus: function (status) {
             // Could show status indicator -- for now just log
           },
+          onToolStatus: function (type, tool, label) {
+            showToolStatus(type, tool, label);
+          },
           onComplete: function (metadata, fullText) {
+            clearToolStatus();
             clearTimeout(hardTimeout);
             _finalizeStream(metadata, fullText);
           },
@@ -1782,11 +1861,23 @@
                   var jsonStr = line.substring(6);
                   try {
                     var evt = JSON.parse(jsonStr);
+                    if (evt.keepalive) return;
                     if (evt.done) {
                       metadata = evt;
+                      clearToolStatus();
+                      return;
+                    }
+                    // S18: Tool status events
+                    if (
+                      evt.type === "tool_start" ||
+                      evt.type === "tool_complete"
+                    ) {
+                      showToolStatus(evt.type, evt.tool, evt.label);
                       return;
                     }
                     if (evt.token) {
+                      // Clear tool status on first real token
+                      clearToolStatus();
                       fullText += evt.token;
                       try {
                         content.innerHTML = renderMarkdown(fullText);

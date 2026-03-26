@@ -75,7 +75,9 @@ def _handle_campaign_list(handler: Any, path: str, parsed: Any) -> None:
 
 
 def _handle_shared_plan_view(handler: Any, path: str, parsed: Any) -> None:
-    """GET /plan/shared/<id> -- read-only shared plan view with feedback."""
+    """GET /plan/shared/<id> -- read-only dashboard view with OG tags and feedback."""
+    import html as _html_mod
+
     _app = sys.modules.get("__main__") or sys.modules.get("app")
     _shared_plans = getattr(_app, "_shared_plans", {})
     _shared_plans_lock = getattr(_app, "_shared_plans_lock", None)
@@ -106,7 +108,7 @@ def _handle_shared_plan_view(handler: Any, path: str, parsed: Any) -> None:
         else "Unknown"
     )
 
-    # Build summary rows from plan data
+    # Extract plan metrics
     summary = plan_data.get("summary") or plan_data.get("plan_summary") or plan_data
     channels = (
         summary.get("channels")
@@ -115,61 +117,78 @@ def _handle_shared_plan_view(handler: Any, path: str, parsed: Any) -> None:
         or []
     )
     num_channels = len(channels) if isinstance(channels, list) else channels
+    budget_val = (
+        summary.get("total_budget")
+        or summary.get("budget_range")
+        or plan_data.get("budget_range")
+        or "--"
+    )
+    industry_val = (
+        summary.get("industry")
+        or plan_data.get("industry")
+        or plan_data.get("industry_label")
+        or "--"
+    )
+    est_applications = str(
+        summary.get("est_applications") or summary.get("estimated_applications") or "--"
+    )
+    est_hires = str(
+        summary.get("est_hires")
+        or summary.get("estimated_hires")
+        or plan_data.get("hire_volume")
+        or "--"
+    )
 
-    rows_html = ""
-    detail_fields = [
-        ("Client", client_name),
-        ("Created", created_str),
-        (
-            "Budget",
-            summary.get("total_budget")
-            or summary.get("budget_range")
-            or plan_data.get("budget_range")
-            or "--",
-        ),
-        (
-            "Industry",
-            summary.get("industry")
-            or plan_data.get("industry")
-            or plan_data.get("industry_label")
-            or "--",
-        ),
-        ("# Channels", str(num_channels)),
-        (
-            "Est. Applications",
-            str(
-                summary.get("est_applications")
-                or summary.get("estimated_applications")
-                or "--"
-            ),
-        ),
-        (
-            "Est. Hires",
-            str(
-                summary.get("est_hires")
-                or summary.get("estimated_hires")
-                or plan_data.get("hire_volume")
-                or "--"
-            ),
-        ),
-    ]
-    for label, val in detail_fields:
-        rows_html += f'<tr><td style="padding:10px 16px;color:rgba(255,255,255,0.5);font-size:13px;">{label}</td><td style="padding:10px 16px;color:rgba(255,255,255,0.85);font-size:13px;">{html.escape(str(val))}</td></tr>'
-
-    # Channel detail
+    # Build channel table rows
+    ch_table_html = ""
+    ch_bar_html = ""
     if isinstance(channels, list) and channels:
-        for ch in channels[:20]:
-            ch_name = (
-                ch.get("name") or ch.get("channel") or str(ch)
-                if isinstance(ch, dict)
-                else str(ch)
+        for i, ch in enumerate(channels[:15]):
+            if not isinstance(ch, dict):
+                continue
+            ch_name = _html_mod.escape(
+                str(ch.get("name") or ch.get("channel") or "N/A")
             )
-            ch_spend = (
-                ch.get("spend") or ch.get("budget") or ""
-                if isinstance(ch, dict)
-                else ""
-            )
-            rows_html += f'<tr><td style="padding:6px 16px 6px 32px;color:rgba(255,255,255,0.4);font-size:12px;">Channel</td><td style="padding:6px 16px;color:rgba(255,255,255,0.7);font-size:12px;">{html.escape(str(ch_name))}{(" -- " + html.escape(str(ch_spend))) if ch_spend else ""}</td></tr>'
+            ch_spend = ch.get("spend") or ch.get("budget") or 0
+            ch_alloc = ch.get("allocation_pct") or 0
+            ch_cpc = ch.get("cpc") or ch.get("cost_per_click") or "--"
+            ch_cpa = ch.get("cpa") or ch.get("cost_per_apply") or "--"
+            try:
+                spend_fmt = f"${float(ch_spend):,.0f}"
+            except (ValueError, TypeError):
+                spend_fmt = str(ch_spend)
+            try:
+                alloc_fmt = f"{float(ch_alloc):.1f}%"
+            except (ValueError, TypeError):
+                alloc_fmt = str(ch_alloc)
+            try:
+                cpc_fmt = f"${float(ch_cpc):,.2f}"
+            except (ValueError, TypeError):
+                cpc_fmt = str(ch_cpc)
+            try:
+                cpa_fmt = f"${float(ch_cpa):,.2f}"
+            except (ValueError, TypeError):
+                cpa_fmt = str(ch_cpa)
+
+            zebra = "background:rgba(255,255,255,0.02);" if i % 2 == 1 else ""
+            ch_table_html += f'<tr style="{zebra}"><td style="padding:10px 12px;font-weight:500;">{ch_name}</td><td style="padding:10px 12px;text-align:right;">{spend_fmt}</td><td style="padding:10px 12px;text-align:right;">{alloc_fmt}</td><td style="padding:10px 12px;text-align:right;">{cpc_fmt}</td><td style="padding:10px 12px;text-align:right;">{cpa_fmt}</td></tr>'
+
+            # Bar chart data
+            bar_colors = [
+                "#5A54BD",
+                "#6BB3CD",
+                "#B5669C",
+                "#CE9047",
+                "#202058",
+                "#7C6BC4",
+                "#4A9CB5",
+            ]
+            bar_color = bar_colors[i % len(bar_colors)]
+            try:
+                bar_w = float(ch_alloc)
+            except (ValueError, TypeError):
+                bar_w = 0
+            ch_bar_html += f'<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;"><span style="width:120px;font-size:12px;text-align:right;color:rgba(255,255,255,0.7);flex-shrink:0;">{ch_name}</span><div style="flex:1;height:20px;background:rgba(255,255,255,0.05);border-radius:4px;overflow:hidden;"><div style="height:100%;width:{bar_w}%;background:{bar_color};border-radius:4px;min-width:2px;"></div></div><span style="width:80px;font-size:11px;color:rgba(255,255,255,0.5);">{alloc_fmt}</span></div>'
 
     # Existing feedback
     if _plan_feedback_lock:
@@ -185,22 +204,43 @@ def _handle_shared_plan_view(handler: Any, path: str, parsed: Any) -> None:
         fb_time = time.strftime(
             "%b %d, %Y %H:%M", time.gmtime(fb.get("created_at") or 0)
         )
-        feedback_html += f'<div style="padding:12px;background:rgba(255,255,255,0.03);border-radius:8px;margin-bottom:8px;"><div style="font-size:12px;color:rgba(255,255,255,0.5);margin-bottom:4px;">{html.escape(str(fb_name))} -- {fb_time}</div><div style="font-size:13px;color:rgba(255,255,255,0.8);">{html.escape(str(fb_comment))}</div></div>'
+        feedback_html += f'<div style="padding:12px;background:rgba(255,255,255,0.03);border-radius:8px;margin-bottom:8px;"><div style="font-size:12px;color:rgba(255,255,255,0.5);margin-bottom:4px;">{_html_mod.escape(str(fb_name))} -- {fb_time}</div><div style="font-size:13px;color:rgba(255,255,255,0.8);">{_html_mod.escape(str(fb_comment))}</div></div>'
 
-    html = f"""<!DOCTYPE html>
+    # OG meta description
+    og_desc = f"Media plan for {_html_mod.escape(str(client_name))} - {_html_mod.escape(str(industry_val))} industry, {num_channels} channels, budget: {_html_mod.escape(str(budget_val))}"
+    og_title = f"Media Plan: {_html_mod.escape(str(client_name))} | Nova AI Suite"
+
+    page_html = f"""<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Shared Plan -- {html.escape(client_name)} | Nova</title>
+<title>{og_title}</title>
+<!-- Open Graph meta tags for Slack/LinkedIn previews -->
+<meta property="og:title" content="{og_title}">
+<meta property="og:description" content="{og_desc}">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Nova AI Suite">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="{og_title}">
+<meta name="twitter:description" content="{og_desc}">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *{{margin:0;padding:0;box-sizing:border-box}}
-body{{font-family:'Inter',system-ui,sans-serif;background:#0a0a1e;color:white;min-height:100vh;padding:40px 20px}}
-.container{{max-width:720px;margin:0 auto}}
-h1{{font-size:24px;margin-bottom:8px}}
-.subtitle{{color:rgba(255,255,255,0.5);font-size:14px;margin-bottom:32px}}
+body{{font-family:'Inter',system-ui,sans-serif;background:#0a0a1e;color:#e2e8f0;min-height:100vh;padding:0}}
+.hero{{background:linear-gradient(135deg,#202058 0%,#1a1a40 50%,#0f0f2e 100%);padding:48px 20px 32px;border-bottom:1px solid rgba(90,84,189,0.3)}}
+.hero-inner{{max-width:900px;margin:0 auto}}
+.hero h1{{font-size:28px;font-weight:700;color:#fff;margin-bottom:6px}}
+.hero .meta{{color:rgba(255,255,255,0.5);font-size:13px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}}
+.badge{{display:inline-block;padding:3px 10px;border-radius:4px;font-size:11px;font-weight:600;background:rgba(107,179,205,0.15);color:#6BB3CD}}
+.container{{max-width:900px;margin:0 auto;padding:24px 20px 48px}}
+.metrics-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:28px}}
+.metric-card{{background:rgba(20,20,45,0.8);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:20px;text-align:center}}
+.metric-value{{font-size:26px;font-weight:700;color:#fff;margin-bottom:4px}}
+.metric-label{{font-size:11px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1px}}
 .card{{background:rgba(20,20,45,0.8);border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:24px;margin-bottom:24px}}
-table{{width:100%;border-collapse:collapse}}
-tr:not(:last-child) td{{border-bottom:1px solid rgba(255,255,255,0.05)}}
-h2{{font-size:18px;margin-bottom:16px;color:white}}
-h3{{font-size:16px;margin-bottom:12px;color:white}}
+.card h2{{font-size:16px;font-weight:600;color:#fff;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid rgba(90,84,189,0.2)}}
+table{{width:100%;border-collapse:collapse;font-size:13px}}
+th{{text-align:left;padding:10px 12px;border-bottom:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.4);font-size:11px;text-transform:uppercase;letter-spacing:0.5px;font-weight:600}}
+th.r{{text-align:right}}
+td{{padding:10px 12px;border-bottom:1px solid rgba(255,255,255,0.04);color:rgba(255,255,255,0.8)}}
 .feedback-form{{display:flex;flex-direction:column;gap:12px}}
 input,textarea{{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px 14px;color:white;font-size:13px;font-family:inherit}}
 textarea{{resize:vertical;min-height:80px}}
@@ -212,16 +252,41 @@ input:focus,textarea:focus{{outline:none;border-color:rgba(90,84,189,0.5)}}
 .brand a{{color:rgba(90,84,189,0.7);text-decoration:none}}
 .toast{{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#4ade80;color:#0a0a1e;padding:10px 20px;border-radius:8px;font-size:13px;font-weight:500;opacity:0;transition:opacity 0.3s;z-index:999}}
 .toast.show{{opacity:1}}
+@media(max-width:600px){{.metrics-grid{{grid-template-columns:repeat(2,1fr)}}.hero h1{{font-size:22px}}}}
 </style></head><body>
-<div class="container">
-  <h1>Media Plan: {html.escape(client_name)}</h1>
-  <p class="subtitle">Shared on {created_str}</p>
-  <div class="card">
-    <h2>Plan Summary</h2>
-    <table>{rows_html}</table>
+<div class="hero"><div class="hero-inner">
+  <h1>Media Plan: {_html_mod.escape(str(client_name))}</h1>
+  <div class="meta">
+    <span>{_html_mod.escape(str(industry_val))}</span>
+    <span>Budget: {_html_mod.escape(str(budget_val))}</span>
+    <span>Shared on {created_str}</span>
+    <span class="badge">Read-only Dashboard</span>
   </div>
+</div></div>
+<div class="container">
+  <!-- Key Metrics Cards -->
+  <div class="metrics-grid">
+    <div class="metric-card"><div class="metric-value">{num_channels}</div><div class="metric-label">Channels</div></div>
+    <div class="metric-card"><div class="metric-value">{_html_mod.escape(str(budget_val))}</div><div class="metric-label">Total Budget</div></div>
+    <div class="metric-card"><div class="metric-value">{_html_mod.escape(est_applications)}</div><div class="metric-label">Est. Applications</div></div>
+    <div class="metric-card"><div class="metric-value">{_html_mod.escape(est_hires)}</div><div class="metric-label">Est. Hires</div></div>
+  </div>
+
+  <!-- Channel Allocation Chart -->
+  {f'<div class="card"><h2>Channel Allocation</h2>{ch_bar_html}</div>' if ch_bar_html else ''}
+
+  <!-- Channel Strategy Table -->
   <div class="card">
-    <h3>Feedback</h3>
+    <h2>Channel Strategy</h2>
+    <table>
+      <thead><tr><th>Channel</th><th class="r">Spend</th><th class="r">Allocation</th><th class="r">CPC</th><th class="r">CPA</th></tr></thead>
+      <tbody>{ch_table_html or '<tr><td colspan="5" style="text-align:center;color:rgba(255,255,255,0.4);">No channel data</td></tr>'}</tbody>
+    </table>
+  </div>
+
+  <!-- Feedback Section -->
+  <div class="card">
+    <h2>Feedback</h2>
     {feedback_html if feedback_html else '<p style="color:rgba(255,255,255,0.4);font-size:13px;margin-bottom:16px;">No feedback yet.</p>'}
     <div class="feedback-form">
       <input type="text" id="fbName" placeholder="Your name" maxlength="100">
@@ -229,6 +294,7 @@ input:focus,textarea:focus{{outline:none;border-color:rgba(90,84,189,0.5)}}
       <button class="submit-btn" id="fbSubmit" onclick="submitFeedback()">Submit Feedback</button>
     </div>
   </div>
+
   <div class="brand">Powered by <a href="https://www.linkedin.com/in/chandel13/" target="_blank">Nova AI Suite</a></div>
 </div>
 <div class="toast" id="fbToast"></div>
@@ -268,9 +334,10 @@ function showFbToast(msg) {{
 }}
 </script></body></html>"""
 
-    body_bytes = html.encode("utf-8")
+    body_bytes = page_html.encode("utf-8")
     handler.send_response(200)
     handler.send_header("Content-Type", "text/html; charset=utf-8")
+    handler.send_header("Cache-Control", "private, max-age=300")
     handler.send_header("Content-Length", str(len(body_bytes)))
     handler.end_headers()
     handler.wfile.write(body_bytes)

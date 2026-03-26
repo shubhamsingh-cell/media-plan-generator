@@ -1,0 +1,120 @@
+{
+  "_metadata": {
+    "source_urls": [
+      "https://www.uproas.io/blog/google-ads-benchmarks",
+      "https://www.webfx.com/blog/marketing/ppc-benchmarks-to-know/",
+      "https://agrowth.io/blogs/google-ads/google-ads-benchmarks",
+      "https://ppcchief.com/blog/average-cpc-by-ad-platform-2026",
+      "https://www.wordstream.com/blog/facebook-ads-benchmarks-2025",
+      "https://www.theedigital.com/blog/facebook-ads-benchmarks",
+      "https://www.enrichlabs.ai/blog/meta-ads-benchmarks-2025",
+      "https://basis.com/blog/7-programmatic-advertising-trends-shaping-2026"
+    ],
+    "researched_date": "2026-03-26",
+    "data_quality": "high",
+    "category": "Digital Advertising Benchmarks (Recruitment)"
+  },
+  "google_ads": {
+    "overall_avg_cpc_usd": 2.69,
+    "overall_avg_ctr_pct": 6.42,
+    "year_over_year_cpc_change_pct": "7-18% increase across industries",
+    "by_industry": [
+      {"industry": "Employment Services / Staffing", "cpc_usd": 3.20, "ctr_pct": 5.8, "cvr_pct": 4.5, "cpa_usd": 71.00},
+      {"industry": "Legal", "cpc_usd": 8.58, "ctr_pct": 4.2, "cvr_pct": 3.8},
+      {"industry": "Healthcare", "cpc_usd": 4.22, "ctr_pct": 5.1, "cvr_pct": 4.2, "yoy_increase_pct": 18},
+      {"industry": "Technology", "cpc_usd": 3.80, "ctr_pct": 6.1, "cvr_pct": 5.0},
+      {"industry": "Education", "cpc_usd": 5.50, "ctr_pct": 5.5, "cvr_pct": 4.0},
+      {"industry": "E-commerce", "cpc_usd": 1.16, "ctr_pct": 6.0, "cvr_pct": 3.5},
+      {"industry": "Real Estate", "cpc_usd": 2.10, "ctr_pct": 7.5, "cvr_pct": 3.2, "yoy_increase_pct": 7},
+      {"industry": "Finance / Insurance", "cpc_usd": 4.75, "ctr_pct": 5.0, "cvr_pct": 4.8},
+      {"industry": "Travel / Hospitality", "cpc_usd": 1.53, "ctr_pct": 7.8, "cvr_pct": 3.0},
+      {"industry": "Automotive", "cpc_usd": 2.46, "ctr_pct": 6.5, "cvr_pct": 4.0},
+      {"industry": "Industrial / Manufacturing", "cpc_usd": 2.80, "ctr_pct": 5.3, "cvr_pct": 3.8}
+    ],
+    "recruitment_specific": {
+      "avg_cpc_recruitment_usd": 3.20,
+      "avg_cpa_recruitment_usd": 71.00,
+      "recommended_daily_budget_usd": {"min": 50, "max": 500},
+      "best_ad_types": ["Responsive Search Ads", "Performance Max", "Dynamic Search Ads"]
+    },
+    "trends_2026": [
+      "Performance Max campaigns gaining share",
+      "AI-crafted creative becoming routine",
+      "First-party data reliance due to privacy rules",
+      "Click costs climbing across most sectors"
+    ]
+  },
+  "meta_ads": {
+    "overall_avg_cpc_traffic_usd": 0.70,
+    "overall_avg_cpc_lead_gen_usd": 1.92,
+    "overall_avg_cpc_all_campaigns_usd": 1.72,
+    "avg_cpm_range_usd": {"min": 8.00, "max": 15.00},
+    "avg_cvr_lead_ads_pct": 7.72,
+    "avg_cpl_lead_ads_usd": 27.66,
+    "cpm_yoy_increase_range_pct": "8-38%",
+    "by_campaign_type": {
+      "traffic_cpc_2026_range_usd": {"min": 0.70, "max": 0.80},
+      "lead_gen_cpc_2026_range_usd": {"min": 1.90, "max": 2.10}
+    },
+    "recruitment_specific": {
+      "job_ad_cpc_range_usd": {"min": 0.50, "max": 2.00},
+      "employer_branding_cpm_range_usd": {"min": 6.00, "max": 12.00},
+      "lead_gen_for_candidates_cpl_usd": {"min": 15.00, "max": 45.00},
+      "best_formats": ["Lead Ads", "Carousel Ads", "Video Ads", "Stories/Reels"],
+      "best_targeting": ["Job title targeting", "Interest-based", "Lookalike audiences", "Custom audiences from ATS"]
+    },
+    "trends_2026": [
+      "Advantage+ campaigns improving targeting automation",
+      "CPM increasing across all industries",
+      "Video and Reels formats outperforming static",
+      "AI optimization becoming standard"
+    ]
+  },
+  "linkedin_ads": {
+    "avg_cpc_usd": 5.26,
+    "staffing_recruiting_cpc_range_usd": {"min": 4.00, "max": 6.00},
+    "avg_cpm_usd": 33.80,
+    "avg_ctr_pct": 0.44,
+    "avg_lead_gen_cvr_pct": 13.0,
+    "recruitment_specific": {
+      "sponsored_content_cpc_usd": {"min": 5.00, "max": 8.00},
+      "message_ads_cost_per_send_usd": {"min": 0.25, "max": 0.80},
+      "dynamic_ads_cpc_usd": {"min": 3.50, "max": 6.50},
+      "best_for": "Senior roles, passive candidates, B2B hiring",
+      "avg_inmail_response_rate_pct": 18
+    }
+  },
+  "indeed_sponsored": {
+    "avg_cpc_range_usd": {"min": 0.25, "max": 1.50},
+    "avg_cpa_range_usd": {"min": 5.00, "max": 30.00},
+    "click_to_apply_rate_pct": 5,
+    "sponsored_visibility_multiplier": 4.5,
+    "model_note": "Shifting from CPC to pay-per-application model",
+    "best_for": "Volume hiring, hourly roles, broad reach"
+  },
+  "programmatic_display": {
+    "us_spend_2025_usd_billions": 180.4,
+    "us_spend_2026_projected_usd_billions": 203,
+    "yoy_growth_pct": 12.5,
+    "recruitment_display_benchmarks": {
+      "avg_cpm_usd": {"min": 3.00, "max": 12.00},
+      "avg_cpc_usd": {"min": 0.50, "max": 3.00},
+      "avg_ctr_pct": {"min": 0.08, "max": 0.35},
+      "retargeting_ctr_multiplier": "3-5x higher than cold display"
+    },
+    "programmatic_job_ad_benchmarks": {
+      "avg_cpa_usd": {"min": 8.00, "max": 35.00},
+      "cost_per_hire_reduction_pct": {"min": 20, "max": 50},
+      "projected_programmatic_share_2026_pct": 80
+    }
+  },
+  "channel_comparison_recruitment": [
+    {"channel": "Indeed Sponsored", "avg_cpc_usd": 0.75, "avg_cpa_usd": 15.00, "best_for": "Volume/hourly hiring", "reach": "Very High"},
+    {"channel": "LinkedIn Ads", "avg_cpc_usd": 5.26, "avg_cpa_usd": 50.00, "best_for": "Senior/professional roles", "reach": "High (professional)"},
+    {"channel": "Google Ads (Search)", "avg_cpc_usd": 3.20, "avg_cpa_usd": 71.00, "best_for": "Active job seekers", "reach": "Very High"},
+    {"channel": "Meta Ads", "avg_cpc_usd": 1.50, "avg_cpa_usd": 25.00, "best_for": "Employer branding, passive candidates", "reach": "Very High"},
+    {"channel": "Programmatic Display", "avg_cpc_usd": 1.50, "avg_cpa_usd": 20.00, "best_for": "Retargeting, awareness", "reach": "High"},
+    {"channel": "ZipRecruiter", "avg_cost_per_job_monthly_usd": 399, "avg_cpa_usd": 20.00, "best_for": "SMB hiring, AI matching", "reach": "Medium"},
+    {"channel": "Glassdoor", "model": "Branding subscription", "avg_cpa_usd": 30.00, "best_for": "Employer branding, reviews", "reach": "Medium-High"}
+  ]
+}

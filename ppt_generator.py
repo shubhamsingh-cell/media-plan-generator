@@ -1967,16 +1967,64 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
     tf4.paragraphs[0].space_before = Pt(0)
     tf4.paragraphs[0].space_after = Pt(0)
 
+    # Market Thesis -- the WHY this plan will work
     p0 = tf4.paragraphs[0]
     r0 = p0.add_run()
-    r0.text = "Nova AI Suite Programmatic Strategy"
-    _set_font(r0, size=10, bold=True, color=NAVY)
-    p0.space_after = Pt(6)
+    r0.text = "MARKET THESIS"
+    _set_font(r0, size=10, bold=True, color=GREEN)
+    p0.space_after = Pt(4)
 
-    for ch in list(channels.values())[:6]:
+    # Build thesis from data
+    _thesis_parts: list[str] = []
+    if ba_total_projected:
+        _proj_h = ba_total_projected.get("hires") or 0
+        _proj_cph = ba_total_projected.get("cost_per_hire") or 0
+        if _proj_h > 0:
+            _thesis_parts.append(f"This plan projects {int(_proj_h)} hires")
+        if _proj_cph > 0:
+            _thesis_parts.append(f"at ${_proj_cph:,.0f}/hire")
+    if market_temp_str:
+        temp_map = {
+            "hot": "high-demand",
+            "warm": "active",
+            "cool": "balanced",
+            "cold": "buyer's",
+        }
+        _thesis_parts.append(
+            f"in a {temp_map.get(market_temp_str, market_temp_str)} market"
+        )
+    if len(channels) > 0:
+        _thesis_parts.append(f"via {len(channels)}-channel programmatic strategy")
+
+    thesis_text = (
+        " ".join(_thesis_parts) + "."
+        if _thesis_parts
+        else (f"Programmatic multi-channel strategy optimized for {industry_label}.")
+    )
+    _add_paragraph(
+        tf4,
+        thesis_text,
+        font_size=9,
+        color=DARK_TEXT,
+        space_before=1,
+        space_after=6,
+    )
+
+    # Strategy resolution
+    _add_paragraph(
+        tf4,
+        "Nova AI Strategy:",
+        font_size=9,
+        bold=True,
+        color=NAVY,
+        space_before=2,
+        space_after=2,
+    )
+
+    for ch in list(channels.values())[:5]:
         p = tf4.add_paragraph()
         p.space_before = Pt(1)
-        p.space_after = Pt(4)
+        p.space_after = Pt(3)
         rb = p.add_run()
         rb.text = "\u2713  "
         _set_font(rb, size=9, bold=False, color=GREEN)
@@ -1990,32 +2038,23 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
     _add_paragraph(
         tf4,
         f"\u2713  ML-optimized bidding across {_total_pubs:,}+ publishers",
-        font_size=9,
+        font_size=8,
         color=DARK_TEXT,
         space_before=1,
-        space_after=4,
+        space_after=3,
     )
 
     if goals:
-        _add_paragraph(
-            tf4,
-            "Campaign Goals:",
-            font_size=9,
-            bold=True,
-            color=NAVY,
-            space_before=4,
-            space_after=2,
-        )
-        for g in goals[:3]:
+        for g in goals[:2]:
             p = tf4.add_paragraph()
             p.space_before = Pt(1)
-            p.space_after = Pt(3)
+            p.space_after = Pt(2)
             rb = p.add_run()
             rb.text = "\u25cf  "
             _set_font(rb, size=8, color=BLUE)
             rt = p.add_run()
             rt.text = g
-            _set_font(rt, size=9, color=DARK_TEXT)
+            _set_font(rt, size=8, color=DARK_TEXT)
 
     # ---- HERO STAT METRICS BAR ----
     bar_top = Inches(5.35)
@@ -2265,12 +2304,24 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
     # Top band
     _add_top_band(slide, "CHANNEL STRATEGY & INVESTMENT", today)
 
-    # Action title
+    # Action title -- insight-rich with WHY reasoning
     n_cats = len(channels)
-    action_text = (
-        f"Optimized channel mix across {n_cats} categories delivers targeted "
-        f"reach for {client}'s {industry_label} hiring priorities"
+    budget_alloc_meta = (
+        budget_alloc.get("metadata", {}) if isinstance(budget_alloc, dict) else {}
     )
+    total_budget_val = budget_alloc_meta.get("total_budget") or 0
+    proj_hires_ch = (budget_alloc.get("total_projected", {}) or {}).get("hires") or 0
+    if total_budget_val > 0 and proj_hires_ch > 0:
+        action_text = (
+            f"{n_cats}-channel strategy allocates {_fmt_currency(total_budget_val, compact=True)} "
+            f"to project {int(proj_hires_ch)} hires for {client} in {industry_label} -- "
+            f"each channel selected for cost-efficiency and audience reach"
+        )
+    else:
+        action_text = (
+            f"Optimized {n_cats}-channel mix delivers targeted reach for "
+            f"{client}'s {industry_label} hiring priorities with data-driven allocation"
+        )
     _add_textbox(
         slide,
         Inches(0.55),
@@ -5330,7 +5381,9 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
                 color=MUTED_TEXT,
             )
         else:
-            for ci, (comp_name, comp_data) in enumerate(list(competitors.items())[:5]):
+            comp_card_h = Inches(1.0)  # Taller cards for counter-strategy
+            comp_card_gap = Inches(0.1)
+            for ci, (comp_name, comp_data) in enumerate(list(competitors.items())[:4]):
                 if not isinstance(comp_data, dict):
                     continue
                 cy = comp_card_top + ci * (comp_card_h + comp_card_gap)
@@ -5347,34 +5400,52 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
                 _add_textbox(
                     slide,
                     right_left + Inches(0.2),
-                    cy + Inches(0.08),
+                    cy + Inches(0.05),
                     Inches(3.0),
-                    Inches(0.3),
+                    Inches(0.25),
                     text=str(comp_name),
-                    font_size=11,
+                    font_size=10,
                     bold=True,
                     color=DARK_TEXT,
                 )
 
-                # Competitor details
-                details = []
+                # Why they matter
                 comp_domain = comp_data.get("domain") or ""
-                if comp_domain:
-                    details.append(f"Domain: {comp_domain}")
-                comp_logo = comp_data.get("logo_url") or ""
-                if comp_logo:
-                    details.append("Logo available")
+                comp_desc = comp_data.get("description") or ""
+                why_text = ""
+                if comp_desc:
+                    why_text = str(comp_desc)[:80]
+                elif comp_domain:
+                    why_text = f"Competes for same talent pool ({comp_domain})"
+                else:
+                    why_text = "Active in same talent market"
 
-                detail_text = "  |  ".join(details) if details else "Basic profile"
                 _add_textbox(
                     slide,
                     right_left + Inches(0.2),
-                    cy + Inches(0.4),
+                    cy + Inches(0.3),
                     right_w - Inches(0.4),
-                    Inches(0.3),
-                    text=detail_text,
+                    Inches(0.25),
+                    text=f"Why: {why_text}",
                     font_size=8,
                     color=MUTED_TEXT,
+                )
+
+                # Counter-strategy
+                counter = (
+                    f"Counter: Differentiate with career growth narrative, "
+                    f"faster hiring process, and culture-first employer brand"
+                )
+                _add_textbox(
+                    slide,
+                    right_left + Inches(0.2),
+                    cy + Inches(0.58),
+                    right_w - Inches(0.4),
+                    Inches(0.35),
+                    text=counter,
+                    font_size=8,
+                    bold=False,
+                    color=GREEN,
                 )
 
         # Market positioning insight
@@ -6993,6 +7064,272 @@ def _build_slides_gold_standard(prs: Presentation, data: Dict) -> None:
 
 
 # ===================================================================
+# SLIDE: Risk Analysis
+# ===================================================================
+
+
+def _build_slide_risk_analysis(prs: Presentation, data: Dict) -> None:
+    """Build a Risk Analysis slide with budget, timing, channel, and competitive risks.
+
+    Presents 4 risk categories with impact assessment and mitigation strategies,
+    styled as a professional risk matrix for C-suite audiences.
+    """
+    try:
+        slide_layout = prs.slide_layouts[6]
+        slide = prs.slides.add_slide(slide_layout)
+        today = datetime.date.today().strftime("%B %d, %Y")
+
+        client = data.get("client_name", "Client")
+        budget_alloc = data.get("_budget_allocation", {})
+        if not isinstance(budget_alloc, dict):
+            budget_alloc = {}
+        total_proj = budget_alloc.get("total_projected", {})
+        if not isinstance(total_proj, dict):
+            total_proj = {}
+        channel_allocs = budget_alloc.get("channel_allocations", {})
+        if not isinstance(channel_allocs, dict):
+            channel_allocs = {}
+        gold = data.get("_gold_standard") or {}
+        competitor_map = gold.get("competitor_mapping") or {}
+        budget_meta = budget_alloc.get("metadata", {})
+        if not isinstance(budget_meta, dict):
+            budget_meta = {}
+        total_budget = budget_meta.get("total_budget") or 0
+
+        # Background
+        _add_filled_rect(
+            slide, Inches(0), Inches(0), SLIDE_WIDTH, SLIDE_HEIGHT, OFF_WHITE
+        )
+        _add_top_band(slide, "RISK ANALYSIS", today)
+
+        _add_textbox(
+            slide,
+            Inches(0.55),
+            Inches(0.92),
+            Inches(12.2),
+            Inches(0.45),
+            text=f"Strategic risk assessment for {client}'s recruitment campaign",
+            font_size=15,
+            bold=True,
+            color=NAVY,
+        )
+
+        # Build risk items
+        risks: list[tuple[str, str, str, str]] = (
+            []
+        )  # (category, risk, impact, mitigation)
+
+        proj_hires = total_proj.get("hires") or 0
+        cph = total_proj.get("cost_per_hire") or 0
+
+        # 1. Budget risk
+        if proj_hires > 0 and cph > 0 and total_budget > 0:
+            hires_if_cpa_up = int(total_budget / (cph * 1.2))
+            risks.append(
+                (
+                    "BUDGET",
+                    "CPA Inflation Risk",
+                    f"If CPA rises 20%, hires drop from {proj_hires:,.0f} to {hires_if_cpa_up:,.0f}",
+                    "Build 10-15% budget contingency; diversify channels",
+                )
+            )
+        else:
+            risks.append(
+                (
+                    "BUDGET",
+                    "Budget Uncertainty",
+                    "Insufficient data for precise projection -- actuals may vary 20-30%",
+                    "Start with 2-week pilot; adjust allocation based on early CPA data",
+                )
+            )
+
+        # 2. Market timing
+        campaign_start = data.get("campaign_start_month") or 0
+        if isinstance(campaign_start, int) and campaign_start in (4, 5, 6):
+            risks.append(
+                (
+                    "TIMING",
+                    "Q2 Competitive Peak",
+                    "Q2 hiring is 15-20% more competitive due to fiscal year budget cycles",
+                    "Front-load spend in weeks 1-4; lock niche channel inventory early",
+                )
+            )
+        elif isinstance(campaign_start, int) and campaign_start in (1, 2, 3):
+            risks.append(
+                (
+                    "TIMING",
+                    "Q1 New Year Surge",
+                    "25% more job seekers but 20% more employer competition in Q1",
+                    "Capitalize on high candidate supply with aggressive apply-rate optimization",
+                )
+            )
+        else:
+            risks.append(
+                (
+                    "TIMING",
+                    "Seasonal Variations",
+                    "Hiring demand and candidate supply fluctuate throughout the year",
+                    "Monitor weekly CPA trends; shift budget to high-performing periods",
+                )
+            )
+
+        # 3. Channel dependency
+        if channel_allocs:
+            sorted_ch = sorted(
+                channel_allocs.items(),
+                key=lambda x: (
+                    x[1].get("percentage", 0) if isinstance(x[1], dict) else 0
+                ),
+                reverse=True,
+            )
+            top_2_names = [ch[0] for ch in sorted_ch[:2]]
+            top_2_pct = sum(
+                ch[1].get("percentage", 0) if isinstance(ch[1], dict) else 0
+                for ch in sorted_ch[:2]
+            )
+            if top_2_pct > 55:
+                risks.append(
+                    (
+                        "CHANNELS",
+                        "Channel Concentration",
+                        f"{top_2_pct:.0f}% of budget on {', '.join(top_2_names)} -- "
+                        f"disruption could impact {top_2_pct * proj_hires / 100:.0f} hires",
+                        "Diversify to 4+ channels; maintain backup channels on standby",
+                    )
+                )
+            else:
+                risks.append(
+                    (
+                        "CHANNELS",
+                        "Channel Fragmentation",
+                        "Budget spread across many channels may dilute impact",
+                        "Consolidate on top 3-4 performers after 2-week pilot period",
+                    )
+                )
+        else:
+            risks.append(
+                (
+                    "CHANNELS",
+                    "Channel Selection",
+                    "Channel performance varies by role and location",
+                    "A/B test top 3 channels in first 2 weeks before full commitment",
+                )
+            )
+
+        # 4. Competitive pressure
+        n_high_comp = sum(
+            1
+            for k, v in competitor_map.items()
+            if not str(k).startswith("_")
+            and isinstance(v, dict)
+            and str(v.get("hiring_intensity") or "").lower() in ("high", "very_high")
+        )
+        if n_high_comp > 0:
+            risks.append(
+                (
+                    "COMPETITION",
+                    f"High Competition ({n_high_comp} markets)",
+                    f"Fortune 500+ companies hiring same roles in {n_high_comp} market(s)",
+                    "Differentiate with employer brand; emphasize career growth and culture",
+                )
+            )
+        else:
+            risks.append(
+                (
+                    "COMPETITION",
+                    "Competitive Landscape",
+                    "Competitors may increase hiring activity during campaign period",
+                    "Monitor competitor job posting volumes weekly; adjust messaging",
+                )
+            )
+
+        # Render risk cards in 2x2 grid
+        card_w = Inches(6.0)
+        card_h = Inches(2.2)
+        gap = Inches(0.25)
+        grid_top = Inches(1.5)
+        grid_left = Inches(0.55)
+
+        risk_colors = {
+            "BUDGET": RED_ACCENT,
+            "TIMING": AMBER,
+            "CHANNELS": BLUE,
+            "COMPETITION": TEAL,
+        }
+
+        for idx, (category, risk_title, impact, mitigation) in enumerate(risks[:4]):
+            col = idx % 2
+            row_idx = idx // 2
+            x = grid_left + col * (card_w + gap)
+            y = grid_top + row_idx * (card_h + gap)
+
+            # Card background
+            _add_rounded_rect(slide, x, y, card_w, card_h, WHITE)
+            accent_color = risk_colors.get(category, BLUE)
+            _add_filled_rect(slide, x, y, Inches(0.06), card_h, accent_color)
+
+            # Category badge
+            _add_textbox(
+                slide,
+                x + Inches(0.2),
+                y + Inches(0.08),
+                Inches(1.5),
+                Inches(0.25),
+                text=category,
+                font_size=8,
+                bold=True,
+                color=accent_color,
+            )
+
+            # Risk title
+            _add_textbox(
+                slide,
+                x + Inches(0.2),
+                y + Inches(0.32),
+                card_w - Inches(0.4),
+                Inches(0.28),
+                text=risk_title,
+                font_size=11,
+                bold=True,
+                color=NAVY,
+            )
+
+            # Impact
+            _add_textbox(
+                slide,
+                x + Inches(0.2),
+                y + Inches(0.65),
+                card_w - Inches(0.4),
+                Inches(0.6),
+                text=f"Impact: {impact}",
+                font_size=9,
+                color=DARK_TEXT,
+            )
+
+            # Mitigation
+            _add_textbox(
+                slide,
+                x + Inches(0.2),
+                y + Inches(1.4),
+                card_w - Inches(0.4),
+                Inches(0.6),
+                text=f"Mitigation: {mitigation}",
+                font_size=9,
+                bold=False,
+                color=MUTED_TEXT,
+            )
+
+        _add_footer(slide, today)
+
+    except Exception as exc:
+        import logging as _logging
+
+        _logging.getLogger(__name__).error(
+            "Risk Analysis slide failed: %s", exc, exc_info=True
+        )
+
+
+# ===================================================================
 # SLIDE N (Last) - Data Sources & Methodology
 # ===================================================================
 
@@ -7513,6 +7850,9 @@ def generate_pptx(data: Dict[str, Any]) -> bytes:
         # individually wrapped in try/except inside the builder.
         if data.get("_gold_standard"):
             _build_slides_gold_standard(prs, data)
+
+        # Risk Analysis slide -- always included for C-suite readiness
+        _build_slide_risk_analysis(prs, data)
 
         # Final Slide: Data Sources & Methodology
         _build_slide_data_sources(prs, data)

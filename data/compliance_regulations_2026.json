@@ -1,0 +1,125 @@
+{
+  "_metadata": {
+    "source_urls": [
+      "https://www.govdocs.com/pay-transparency-laws/",
+      "https://www.paycor.com/resource-center/articles/pay-transparency-laws-by-state/",
+      "https://www.postercompliance.com/blog/wage-transparency-laws/",
+      "https://lifthcm.com/article/pay-transparency-laws-by-state-2026",
+      "https://www.hunton.com/hunton-retail-law-resource/several-states-enact-pay-transparency-laws-what-employers-need-to-know-in-2026",
+      "https://www.eeoc.gov/prohibited-employment-policiespractices",
+      "https://www.constellationsearch.net/resources/blog/federal-state-labor-law-changes-2026-hiring-decisions/",
+      "https://ieatraining.org/eeoc-disparate-impact-2026-employer-compliance-changes",
+      "https://employerrecords.com/gdpr-and-data-privacy-in-global-hiring/",
+      "https://clarkslegal.com/insights/articles/ai-and-data-protection-key-legal-developments-in-2025-2026/"
+    ],
+    "researched_date": "2026-03-26",
+    "data_quality": "high",
+    "category": "Compliance & Regulations"
+  },
+  "pay_transparency_laws": {
+    "overview": {
+      "states_with_active_laws": 17,
+      "states_considering_legislation": 8,
+      "estimated_employers_affected_pct": 65,
+      "workers_covered_millions": 60,
+      "federal_law_status": "No federal law; Salary Transparency Act pending in House since 2023"
+    },
+    "state_laws": [
+      {"state": "Colorado", "effective_date": "2021-01-01", "requirement": "Pay range in all job postings", "applies_to": "All employers", "strictness": "Very strict", "penalties": "$500-$10,000 per violation"},
+      {"state": "California", "effective_date": "2023-01-01", "requirement": "Pay range in job postings; 2026 tightened to actual expected range", "applies_to": "Employers with 15+ employees", "strictness": "Very strict", "penalties": "Up to $10,000 per violation"},
+      {"state": "New York", "effective_date": "2023-09-17", "requirement": "Pay range in external AND internal postings", "applies_to": "Employers with 4+ employees", "strictness": "Very strict", "penalties": "Civil penalties up to $250,000"},
+      {"state": "Washington", "effective_date": "2023-01-01", "requirement": "Pay range in job postings; 2026 added temporary cure period", "applies_to": "Employers with 15+ employees", "strictness": "Strict", "penalties": "Up to $500 per violation"},
+      {"state": "Connecticut", "effective_date": "2021-10-01", "requirement": "Pay range upon request or upon offer", "applies_to": "All employers", "strictness": "Moderate"},
+      {"state": "Nevada", "effective_date": "2021-10-01", "requirement": "Pay range after initial interview", "applies_to": "All employers", "strictness": "Moderate"},
+      {"state": "Rhode Island", "effective_date": "2023-01-01", "requirement": "Pay range upon request, at offer, or in posting", "applies_to": "All employers", "strictness": "Moderate"},
+      {"state": "Maryland", "effective_date": "2024-10-01", "requirement": "Pay range upon request", "applies_to": "Employers with 15+ employees", "strictness": "Moderate"},
+      {"state": "Hawaii", "effective_date": "2024-01-01", "requirement": "Pay range in job postings", "applies_to": "Employers with 50+ employees", "strictness": "Moderate"},
+      {"state": "Illinois", "effective_date": "2025-01-01", "requirement": "Pay range in job postings, external AND internal", "applies_to": "Employers with 15+ employees", "strictness": "Strict"},
+      {"state": "Minnesota", "effective_date": "2025-01-01", "requirement": "Pay range in job postings", "applies_to": "Employers with 30+ employees", "strictness": "Moderate"},
+      {"state": "Massachusetts", "effective_date": "2025-10-29", "requirement": "Pay range in job postings; 2026 active enforcement with audits", "applies_to": "Employers with 25+ employees", "strictness": "Strict"},
+      {"state": "Vermont", "effective_date": "2025-07-01", "requirement": "Pay range in all job advertisements", "applies_to": "Employers with 5+ employees", "strictness": "Moderate"},
+      {"state": "Maine", "effective_date": "2026-01-01", "requirement": "Pay range in job postings", "applies_to": "All employers", "strictness": "Moderate"},
+      {"state": "Oregon", "effective_date": "2026-01-01", "requirement": "Detailed payroll explanations at hire", "applies_to": "All employers", "strictness": "Moderate", "note": "Focuses on earnings statements and deductions"},
+      {"state": "Delaware", "effective_date": "2027-09-26", "requirement": "Pay range in job postings", "applies_to": "TBD", "strictness": "Upcoming"},
+      {"state": "New Jersey", "effective_date": "2025-06-01", "requirement": "Pay range in job postings; 2026 active enforcement", "applies_to": "Employers with 10+ employees", "strictness": "Strict"}
+    ],
+    "categories_of_laws": [
+      "Job advertisement disclosures (must include pay range in posting)",
+      "Disclosures upon request (must provide range when candidate asks)",
+      "Salary history ban (cannot ask about previous compensation)"
+    ],
+    "remote_work_implications": "If a role can be performed from a pay-transparency state, disclosure requirements apply regardless of employer HQ location",
+    "compliance_recommendation": "Multi-state employers should adopt the most stringent requirement across all postings"
+  },
+  "eeoc_regulations": {
+    "job_advertising_rules": [
+      "Illegal to show preference based on race, color, religion, sex, national origin, age (40+), disability, or genetic information",
+      "Ads seeking 'females' or 'recent college graduates' may violate law",
+      "AI-based ad targeting subject to same anti-discrimination rules"
+    ],
+    "2026_enforcement_shift": {
+      "disparate_impact_change": "EEOC instructed field offices to close pending charges relying solely on disparate-impact theory (Oct 31, 2025)",
+      "implication": "Organizations must self-audit to ensure non-discriminatory practices",
+      "national_origin_focus": "Updated guidance on national origin discrimination in job advertisements"
+    },
+    "ai_in_hiring": {
+      "california_ai_regulations": "Final approval of regulations prohibiting discrimination in AI/automated decision systems",
+      "eu_ai_act_full_implementation": "2026-08-02",
+      "eu_ai_act_note": "Most AI tools used in employment classified as high-risk",
+      "requirements": ["Transparency in AI decisions", "Human intervention capability", "Bias auditing", "Documentation"]
+    }
+  },
+  "gdpr_recruitment": {
+    "scope": "Applies to any organization processing EU resident data, regardless of company location",
+    "max_fine_euros": 20000000,
+    "max_fine_revenue_pct": 4,
+    "key_requirements": [
+      "Privacy notice in job applications",
+      "Collect only necessary information (data minimization)",
+      "Explicit consent for talent pools / future roles",
+      "Delete or anonymize data 6-12 months after hiring process",
+      "Background checks require explicit consent",
+      "Criminal record checks only if legally required",
+      "Data breach reporting within 72 hours",
+      "Cross-border transfers require Standard Contractual Clauses or Binding Corporate Rules"
+    ],
+    "ai_recruitment_rules": {
+      "automated_decision_making": "Must be transparent and allow human intervention",
+      "uk_duaa_2025": "Eases restrictions on automated processing but requires safeguards and human oversight"
+    }
+  },
+  "other_key_regulations": [
+    {
+      "regulation": "Ban the Box",
+      "description": "Prohibits asking about criminal history on initial job application",
+      "states_with_laws": 37,
+      "cities_counties_with_laws": "150+",
+      "source": "NELP"
+    },
+    {
+      "regulation": "E-Verify Requirements",
+      "description": "Electronic verification of employment eligibility",
+      "states_requiring_for_all": ["Alabama", "Arizona", "Georgia", "Mississippi", "North Carolina", "South Carolina", "Tennessee", "Utah"],
+      "federal_status": "Voluntary for most private employers"
+    },
+    {
+      "regulation": "OFCCP Compliance",
+      "description": "Federal contractor affirmative action and non-discrimination requirements",
+      "applies_to": "Federal contractors with $50,000+ contracts and 50+ employees",
+      "requirements": ["Written AAP", "Outreach and recruitment", "Data collection and reporting"]
+    },
+    {
+      "regulation": "FLSA (Fair Labor Standards Act)",
+      "description": "Minimum wage, overtime, recordkeeping",
+      "federal_minimum_wage_usd": 7.25,
+      "states_with_higher_minimum": "30+",
+      "highest_state_minimum_usd": 16.28,
+      "highest_state": "Washington"
+    },
+    {
+      "regulation": "ADA Compliance in Hiring",
+      "description": "Reasonable accommodations for disabled applicants",
+      "key_rules": ["Cannot ask about disability before offer", "Must provide reasonable accommodations for application process", "Medical exams only post-offer"]
+    }
+  ]
+}

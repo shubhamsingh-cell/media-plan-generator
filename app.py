@@ -256,6 +256,17 @@ except ImportError:
     logger.warning("chroma_rag module not available; ChromaDB RAG disabled")
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# NOVA INTELLIGENT CACHE (Supabase-backed query caching for instant responses)
+# ═══════════════════════════════════════════════════════════════════════════════
+try:
+    from nova_cache import get_cache_stats as _nova_cache_stats
+
+    _nova_cache_available = True
+except ImportError:
+    _nova_cache_available = False
+    logger.warning("nova_cache module not available; intelligent caching disabled")
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # POSTHOG ANALYTICS (stdlib-only, fire-and-forget event tracking)
 # ═══════════════════════════════════════════════════════════════════════════════
 try:
@@ -307,10 +318,13 @@ def _generate_narrative(
 ) -> str:
     """Generate AI narrative for product output via LLM router.
 
+    Routes all plan synthesis calls through TASK_CAMPAIGN_PLAN (which maps to
+    Claude Haiku first) to ensure C-suite quality narrative output.
+
     Args:
         data: Product data dict to summarize.
         product_context: Brief description of what this product does.
-        task_type: LLM router task type (defaults to TASK_NARRATIVE).
+        task_type: LLM router task type (defaults to TASK_CAMPAIGN_PLAN for quality).
         max_tokens: Maximum tokens for the response.
 
     Returns:
@@ -319,16 +333,25 @@ def _generate_narrative(
     router = _lazy_llm_router()
     if not router:
         return ""
-    task = task_type or getattr(router, "TASK_NARRATIVE", "narrative")
+    # Force campaign_plan task type for all plan narratives -- routes to Claude Haiku
+    task = task_type or getattr(router, "TASK_CAMPAIGN_PLAN", "campaign_plan")
     try:
         prompt = (
-            f"Based on this data, write a 2-3 sentence strategic recommendation:\n"
-            f"{json.dumps(data, indent=2, default=str)[:2000]}\n"
-            f"Context: {product_context}"
+            f"Based on this data, write a strategic recommendation as if presenting "
+            f"to a VP of Talent Acquisition. Be specific with numbers, cite data points, "
+            f"and explain the WHY behind each recommendation.\n\n"
+            f"Data:\n{json.dumps(data, indent=2, default=str)[:2000]}\n\n"
+            f"Context: {product_context}\n\n"
+            f"Write 2-3 sentences. Include specific metrics. No generic filler."
         )
         result = router.call_llm(
             messages=[{"role": "user", "content": prompt}],
-            system_prompt="You are a senior recruitment marketing strategist. Write concise, actionable recommendations. No fluff.",
+            system_prompt=(
+                "You are a senior recruitment marketing strategist presenting to "
+                "C-suite executives. Write with authority, cite specific data points, "
+                "and explain causal reasoning. Every sentence must contain a number or "
+                "a specific insight. No fluff, no platitudes."
+            ),
             task_type=task,
             max_tokens=max_tokens,
         )
@@ -6895,17 +6918,19 @@ def _generate_post_campaign_summary(data: dict) -> dict:
             "llm_available": False,
         }
 
-    task_type = getattr(router, "TASK_NARRATIVE", "narrative")
+    task_type = getattr(router, "TASK_CAMPAIGN_PLAN", "campaign_plan")
     prompt = f"Generate an executive summary of this recruitment campaign.\n\n"
     if macro_context_str:
         prompt += macro_context_str
     prompt += (
         f"Campaign Data:\n{json.dumps(data, indent=2, default=str)[:2500]}\n\n"
+        f"Write as a senior recruitment strategist presenting to a VP of Talent Acquisition.\n\n"
         f"Analyze:\n"
-        f"1) What worked well (which channels outperformed)\n"
-        f"2) What underperformed (high CPA channels)\n"
-        f"3) Specific recommendations for next campaign\n\n"
-        f"Be data-driven -- cite specific numbers from the data.\n\n"
+        f"1) What worked well (which channels outperformed and WHY -- cite CPA, hires, conversion rates)\n"
+        f"2) What underperformed (high CPA channels -- quantify the gap vs benchmark)\n"
+        f"3) Specific recommendations for next campaign with projected impact\n"
+        f"4) Key risks if recommendations are not followed\n\n"
+        f"Every statement must include a specific number. No generic observations.\n\n"
         f"Return valid JSON with keys: executive_summary, channel_analysis, recommendations"
     )
 
@@ -6913,12 +6938,12 @@ def _generate_post_campaign_summary(data: dict) -> dict:
         result = router.call_llm(
             messages=[{"role": "user", "content": prompt}],
             system_prompt=(
-                "You are a senior recruitment marketing analyst. "
-                "Write data-driven executive summaries. Cite specific metrics. "
-                "Always return valid JSON."
+                "You are a senior recruitment marketing strategist presenting to C-suite executives. "
+                "Write with authority and precision. Every sentence must cite a specific metric. "
+                "Include market thesis, ROI impact, and risk analysis. Always return valid JSON."
             ),
             task_type=task_type,
-            max_tokens=500,
+            max_tokens=800,
         )
         response_text = result.get("text") or ""
 
@@ -8622,6 +8647,18 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                                 tools_used = chunk.get("tools_used") or tools_used
                                 model_used = chunk.get("llm_provider") or model_used
                                 _token_usage = chunk.get("token_usage") or {}
+                            elif chunk.get("type") in ("tool_start", "tool_complete"):
+                                # S18: Real-time tool status via WebSocket
+                                if not ws_conn.send_json(
+                                    {
+                                        "type": chunk["type"],
+                                        "tool": chunk.get("tool", ""),
+                                        "label": chunk.get("label", ""),
+                                        "done": False,
+                                    }
+                                ):
+                                    break
+                                _ws_last_event = time.time()
                             elif chunk.get("status"):
                                 if not ws_conn.send_json(
                                     {"status": chunk["status"], "done": False}
@@ -8859,6 +8896,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
         from routes.campaign import handle_campaign_get_routes
         from routes.pricing import handle_pricing_get_routes
         from routes.canvas import handle_canvas_get_routes
+        from routes.export import handle_export_get_routes
 
         if handle_health_routes(self, path, parsed):
             return
@@ -8873,6 +8911,8 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
         if handle_pricing_get_routes(self, path, parsed):
             return
         if handle_canvas_get_routes(self, path, parsed):
+            return
+        if handle_export_get_routes(self, path, parsed):
             return
         # NOTE: /plan/shared/<id>, page routes (platform, health-dashboard, etc.)
         # are now handled by routes/pages.py and routes/campaign.py above.
@@ -10341,6 +10381,25 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     status_code=500,
                 )
 
+        # ── Data Refresh Status (GET /api/data/refresh-status) ──
+        elif path == "/api/data/refresh-status":
+            try:
+                from data_refresh import get_refresh_status
+
+                status = get_refresh_status()
+                self._send_json(status)
+            except ImportError:
+                self._send_json(
+                    {"error": "data_refresh module not available", "running": False},
+                    status_code=503,
+                )
+            except Exception as e:
+                logger.error("Refresh status error: %s", e, exc_info=True)
+                self._send_json(
+                    {"error": f"Refresh status check failed: {e}"},
+                    status_code=500,
+                )
+
         # ── ATS Widget embed code (GET /api/widget/embed) ──
         elif path == "/api/widget/embed":
             try:
@@ -10490,6 +10549,23 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 self._send_json(stats)
             except Exception as exc:
                 logger.error("Chroma RAG stats error: %s", exc, exc_info=True)
+                self._send_json({"error": str(exc)}, status_code=500)
+
+        # ── Nova Intelligent Cache: GET /api/nova/cache/stats ──
+        elif path == "/api/nova/cache/stats":
+            if not _nova_cache_available:
+                self._send_json(
+                    {
+                        "available": False,
+                        "error": "Nova intelligent cache not available",
+                    }
+                )
+                return
+            try:
+                stats = _nova_cache_stats()
+                self._send_json(stats)
+            except Exception as exc:
+                logger.error("Nova cache stats error: %s", exc, exc_info=True)
                 self._send_json({"error": str(exc)}, status_code=500)
 
         # ── Slack Alerts MCP: GET /api/slack/alerts/status ──
@@ -13537,6 +13613,22 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                 tools_used = chunk.get("tools_used") or tools_used
                                 model_used = chunk.get("llm_provider") or model_used
                                 _token_usage = chunk.get("token_usage") or {}
+                            elif chunk.get("type") in ("tool_start", "tool_complete"):
+                                # S18: Real-time tool status -- forward to client
+                                _tool_evt = json.dumps(
+                                    {
+                                        "type": chunk["type"],
+                                        "tool": chunk.get("tool", ""),
+                                        "label": chunk.get("label", ""),
+                                        "done": False,
+                                    }
+                                )
+                                try:
+                                    self.wfile.write(f"data: {_tool_evt}\n\n".encode())
+                                    self.wfile.flush()
+                                    _last_event_time = time.time()
+                                except (BrokenPipeError, ConnectionResetError, OSError):
+                                    break
                             elif chunk.get("status"):
                                 # Status/progress event -- forward to client
                                 status_evt = json.dumps(
@@ -17160,6 +17252,23 @@ if __name__ == "__main__":
             _init_auth()
         except ImportError:
             pass
+
+        # Pre-compute salary + demand data (runs after 10-min warm-up, then every 24h)
+        try:
+            from precompute import start_precompute_thread
+
+            start_precompute_thread()
+            logger.info(
+                "[deferred_startup] Salary/demand pre-computation thread started"
+            )
+        except ImportError:
+            logger.debug("[deferred_startup] precompute module not available")
+        except Exception as _pc_err:
+            logger.error(
+                "[deferred_startup] Pre-compute thread start failed: %s",
+                _pc_err,
+                exc_info=True,
+            )
 
         # Mark deploy warmup as complete (blue-green readiness gate)
         global _DEPLOY_WARMUP_COMPLETE
