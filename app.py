@@ -11592,51 +11592,78 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                     "status_message"
                                 ] = "Synthesizing knowledge base..."
 
-                        # KB + Synthesis (Supabase-first, local fallback)
+                        # KB + Synthesis -- all wrapped in 45s timeout to prevent
+                        # Supabase or LLM calls from hanging indefinitely
                         kb = load_knowledge_base()
-                        # Enrich KB with Supabase channel benchmarks
-                        if _supabase_data_available:
-                            try:
-                                _sb_industry = gen_data.get("industry") or ""
-                                _sb_benchmarks = get_channel_benchmarks(
-                                    industry=_sb_industry
-                                )
-                                if _sb_benchmarks:
-                                    kb["_supabase_channel_benchmarks"] = _sb_benchmarks
-                                _sb_kb_insights = get_knowledge(
-                                    "industry_insights", _sb_industry
-                                )
-                                if _sb_kb_insights:
-                                    kb["_supabase_industry_insights"] = _sb_kb_insights
-                                # Vendor/publisher profiles for channel strategy
+
+                        def _supabase_and_synthesize():
+                            """Supabase enrichment + LLM synthesis in a single bounded call."""
+                            _kb = kb
+                            if _supabase_data_available:
                                 try:
-                                    _sb_vendors = get_vendor_profiles()
-                                    if _sb_vendors:
-                                        kb["_supabase_vendor_profiles"] = _sb_vendors
-                                        gen_data["_vendor_profiles"] = _sb_vendors
-                                except Exception as _vp_err:
-                                    logger.warning(
-                                        "Vendor profiles enrichment failed (non-fatal): %s",
-                                        _vp_err,
+                                    _sb_industry = gen_data.get("industry") or ""
+                                    _sb_benchmarks = get_channel_benchmarks(
+                                        industry=_sb_industry
                                     )
-                            except (
-                                urllib.error.URLError,
-                                OSError,
-                                ValueError,
-                            ) as sb_err:
-                                logger.error(
-                                    f"Supabase enrichment for generate failed: {sb_err}",
-                                    exc_info=True,
-                                )
-                        gen_data["_knowledge_base"] = kb
-                        if data_synthesize is not None:
-                            try:
-                                synthesized = data_synthesize(enriched, kb, gen_data)
-                                gen_data["_synthesized"] = synthesized
-                            except Exception:
-                                gen_data["_synthesized"] = {}
-                        else:
+                                    if _sb_benchmarks:
+                                        _kb["_supabase_channel_benchmarks"] = (
+                                            _sb_benchmarks
+                                        )
+                                    _sb_kb_insights = get_knowledge(
+                                        "industry_insights", _sb_industry
+                                    )
+                                    if _sb_kb_insights:
+                                        _kb["_supabase_industry_insights"] = (
+                                            _sb_kb_insights
+                                        )
+                                    try:
+                                        _sb_vendors = get_vendor_profiles()
+                                        if _sb_vendors:
+                                            _kb["_supabase_vendor_profiles"] = (
+                                                _sb_vendors
+                                            )
+                                            gen_data["_vendor_profiles"] = _sb_vendors
+                                    except Exception as _vp_err:
+                                        logger.warning(
+                                            "Vendor profiles failed (non-fatal): %s",
+                                            _vp_err,
+                                        )
+                                except (
+                                    urllib.error.URLError,
+                                    OSError,
+                                    ValueError,
+                                ) as sb_err:
+                                    logger.error(
+                                        "Supabase enrichment failed: %s",
+                                        sb_err,
+                                        exc_info=True,
+                                    )
+                            gen_data["_knowledge_base"] = _kb
+                            if data_synthesize is not None:
+                                return data_synthesize(enriched, _kb, gen_data)
+                            return {}
+
+                        _synth_pool = ThreadPoolExecutor(
+                            max_workers=1, thread_name_prefix="async-synth"
+                        )
+                        try:
+                            _synth_future = _synth_pool.submit(_supabase_and_synthesize)
+                            gen_data["_synthesized"] = (
+                                _synth_future.result(timeout=45) or {}
+                            )
+                        except TimeoutError:
+                            logger.warning(
+                                "KB synthesis timed out after 45s for job %s -- continuing with empty synthesis",
+                                jid,
+                            )
+                            _synth_future.cancel()
                             gen_data["_synthesized"] = {}
+                            gen_data["_knowledge_base"] = kb
+                        except Exception:
+                            gen_data["_synthesized"] = {}
+                            gen_data["_knowledge_base"] = kb
+                        finally:
+                            _synth_pool.shutdown(wait=False, cancel_futures=True)
 
                         # Copy geopolitical context from enriched to synthesized
                         # (PPT/Excel read from _synthesized; enrichment stores it in _enriched)
