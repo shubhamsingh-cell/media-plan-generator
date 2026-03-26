@@ -1756,12 +1756,13 @@
       resetLoadingState();
     }
 
-    // Hard timeout: forcibly reset after 60s no matter what
+    // Hard timeout: forcibly reset after 120s no matter what
+    // S21: was 60s, increased to match gunicorn --timeout 120
     var hardTimeout = setTimeout(function () {
       resetLoadingState();
       var streamEl = document.getElementById("streaming-msg");
       if (streamEl) streamEl.remove();
-    }, 60000);
+    }, 120000);
 
     // ── Try WebSocket first, fall back to SSE ──
     _getOrCreateWS(function (wsConn) {

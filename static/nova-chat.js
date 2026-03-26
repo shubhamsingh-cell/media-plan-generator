@@ -2821,7 +2821,7 @@
     // Timeout resets on every SSE event (keepalive, status, token)
     var abortCtrl = new AbortController();
     _activeAbortCtrl = abortCtrl;
-    var _streamTimeoutMs = 35000;
+    var _streamTimeoutMs = 120000; // S21: was 35s, increased to match gunicorn 120s timeout
     var _isUserCancel = false;
     var fetchTimeout = setTimeout(function () {
       abortCtrl.abort();
