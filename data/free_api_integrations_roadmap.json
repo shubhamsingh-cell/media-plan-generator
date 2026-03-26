@@ -1,53 +1,715 @@
 {
-  "_metadata": {
-    "created": "2026-03-26",
-    "purpose": "Free API integration roadmap for Nova AI Suite",
-    "session": "S18"
-  },
-  "high_priority": [
+  "roadmap_version": "1.0",
+  "last_updated": "2026-03-26",
+  "categories": [
     {
-      "name": "CareerOneStop (U.S. DOL)",
-      "url": "https://www.careeronestop.org/Developers/WebAPI/web-api.aspx",
-      "auth": "Free API token",
-      "data": "Salary percentiles, occupation growth, skills gap, training programs",
-      "value": "Fills gold standard quality gates"
+      "name": "Job Market Data",
+      "apis": [
+        {
+          "name": "Bureau of Labor Statistics (BLS)",
+          "url": "https://api.bls.gov/publicAPI/v2/",
+          "free_tier": "500 queries/day with API key, 25/day without. No credit card required.",
+          "data_provided": "Employment statistics, occupational employment, wages, CPI, unemployment rates, JOLTS data, industry employment projections",
+          "integration_priority": "high",
+          "status": "integrated",
+          "notes": "Core data source. Weekly refresh enabled. Provides JOLTS series via FRED bridge."
+        },
+        {
+          "name": "USAJobs",
+          "url": "https://developer.usajobs.gov/",
+          "free_tier": "Fully free with API key registration. No rate limit published but fair use applies.",
+          "data_provided": "Federal job postings, agency hiring data, GS pay scales, clearance requirements, location-based federal opportunities",
+          "integration_priority": "high",
+          "status": "integrated",
+          "notes": "Integrated in S18. Requires User-Agent header and API key."
+        },
+        {
+          "name": "Adzuna",
+          "url": "https://developer.adzuna.com/",
+          "free_tier": "Free tier: 250 requests/month. No credit card required for registration.",
+          "data_provided": "Job listings across 16 countries, salary estimates, job market trends, historical data, category breakdowns",
+          "integration_priority": "high",
+          "status": "integrated",
+          "notes": "Integrated in S18. Covers US, UK, AU, CA, DE, FR, and more."
+        },
+        {
+          "name": "RemoteOK",
+          "url": "https://remoteok.com/api",
+          "free_tier": "Fully free public JSON API. No authentication required.",
+          "data_provided": "Remote job listings, company names, tags, salary ranges, location requirements",
+          "integration_priority": "high",
+          "status": "integrated",
+          "notes": "Integrated in S18. Simple JSON endpoint, no auth needed."
+        },
+        {
+          "name": "Jooble",
+          "url": "https://jooble.org/api/about",
+          "free_tier": "Free API access with registration. Rate limits apply per partner agreement.",
+          "data_provided": "Aggregated job listings from 70+ countries, job counts by keyword and location",
+          "integration_priority": "medium",
+          "status": "integrated",
+          "notes": "Already integrated. Good for international job market coverage."
+        },
+        {
+          "name": "The Muse",
+          "url": "https://www.themuse.com/developers/api/v2",
+          "free_tier": "Free public API. No authentication required for basic endpoints.",
+          "data_provided": "Company profiles, job listings, company culture info, office photos, employee reviews",
+          "integration_priority": "medium",
+          "status": "not_started",
+          "notes": "Good for employer branding data. Returns company culture, benefits, and job listings. Useful for competitive intel tool."
+        },
+        {
+          "name": "Arbeitnow",
+          "url": "https://www.arbeitnow.com/api",
+          "free_tier": "Free public JSON feed. No authentication required.",
+          "data_provided": "European job listings, remote jobs, visa-sponsorship jobs, salary ranges",
+          "integration_priority": "low",
+          "status": "not_started",
+          "notes": "Niche European focus. Useful for international recruitment. Simple JSON endpoint."
+        },
+        {
+          "name": "Reed.co.uk",
+          "url": "https://www.reed.co.uk/developers/jobseeker",
+          "free_tier": "Free API access with registration. Basic auth with API key.",
+          "data_provided": "UK job listings, salary data, employer information, job details",
+          "integration_priority": "low",
+          "status": "not_started",
+          "notes": "UK-specific. Good for clients with UK hiring needs."
+        },
+        {
+          "name": "Jobicy",
+          "url": "https://jobicy.com/api/v2/remote-jobs",
+          "free_tier": "Free public RSS/JSON API. No authentication required.",
+          "data_provided": "Remote job listings, salary ranges, company info, job categories",
+          "integration_priority": "low",
+          "status": "not_started",
+          "notes": "Remote-first job board. Simple API, good supplement to RemoteOK."
+        },
+        {
+          "name": "Landing.jobs",
+          "url": "https://landing.jobs/api/v1",
+          "free_tier": "Free API with registration. Developer-focused.",
+          "data_provided": "European tech job listings, salary transparency data, relocation support info",
+          "integration_priority": "low",
+          "status": "not_started",
+          "notes": "European tech jobs with relocation data. Niche but useful for international tech hiring."
+        },
+        {
+          "name": "Himalayas (GitHub Jobs replacement)",
+          "url": "https://himalayas.app/api",
+          "free_tier": "Free public API. No authentication required.",
+          "data_provided": "Remote tech job listings, company profiles, salary data, tech stack requirements",
+          "integration_priority": "medium",
+          "status": "not_started",
+          "notes": "GitHub Jobs was deprecated. Himalayas is a strong replacement for tech/remote job data."
+        },
+        {
+          "name": "Findwork.dev",
+          "url": "https://findwork.dev/api/",
+          "free_tier": "Free tier: 50 requests/day. API key required.",
+          "data_provided": "Software engineering job listings aggregated from multiple sources, tech stack tags",
+          "integration_priority": "low",
+          "status": "not_started",
+          "notes": "Developer-focused aggregator. Good for tech role competitive analysis."
+        }
+      ]
     },
     {
-      "name": "USAJobs",
-      "url": "https://developer.usajobs.gov/",
-      "auth": "Free API key",
-      "data": "Federal job listings, GS grades, security clearance, agencies",
-      "value": "Government/defense recruitment plans"
+      "name": "Salary & Compensation",
+      "apis": [
+        {
+          "name": "O*NET Web Services",
+          "url": "https://services.onetcenter.org/",
+          "free_tier": "Free with registration. Rate limited to fair use.",
+          "data_provided": "Occupational data, skills, knowledge, abilities, wage estimates, job outlook, education requirements, related occupations",
+          "integration_priority": "high",
+          "status": "integrated",
+          "notes": "Integrated in S18 (v2.0). Core source for skills and occupational data. 1,000+ occupations."
+        },
+        {
+          "name": "CareerOneStop",
+          "url": "https://api.careeronestop.org/",
+          "free_tier": "Free with registration. US DOL sponsored. Token-based auth.",
+          "data_provided": "Salary data, occupation profiles, certifications, training programs, employer listings, job outlook",
+          "integration_priority": "high",
+          "status": "integrated",
+          "notes": "Integrated in S18 (v2). Complements O*NET with training and certification data."
+        },
+        {
+          "name": "Open Payments (CMS)",
+          "url": "https://openpaymentsdata.cms.gov/api/",
+          "free_tier": "Fully free government API. No authentication required.",
+          "data_provided": "Healthcare industry payment data, physician compensation from pharma/device companies",
+          "integration_priority": "low",
+          "status": "not_started",
+          "notes": "Niche healthcare compensation data. Useful for healthcare recruiting vertical."
+        },
+        {
+          "name": "Glassdoor (via Tavily/Firecrawl)",
+          "url": "https://www.glassdoor.com/",
+          "free_tier": "Official API deprecated in 2023. Accessible via existing Tavily/Firecrawl integrations.",
+          "data_provided": "Company reviews, salary reports, interview questions, CEO approval ratings",
+          "integration_priority": "medium",
+          "status": "not_started",
+          "notes": "Official API no longer available. Can get data via Tavily web search or Firecrawl scraping. Consider compliance implications."
+        },
+        {
+          "name": "Levels.fyi (via Firecrawl)",
+          "url": "https://www.levels.fyi/",
+          "free_tier": "No official API. Data accessible via Tavily/Firecrawl.",
+          "data_provided": "Tech industry compensation data, total comp breakdowns (base/stock/bonus), company comparisons",
+          "integration_priority": "medium",
+          "status": "not_started",
+          "notes": "No official API. Best tech salary data available. Consider Firecrawl integration for key data points."
+        },
+        {
+          "name": "PayScale (via Tavily)",
+          "url": "https://www.payscale.com/",
+          "free_tier": "No free API. Data accessible via Tavily web search integration.",
+          "data_provided": "Salary benchmarks, cost of living adjustments, compensation trends, job market reports",
+          "integration_priority": "medium",
+          "status": "not_started",
+          "notes": "No direct API. Leverage existing Tavily integration to pull PayScale salary data on demand."
+        },
+        {
+          "name": "Salary.com (via Tavily)",
+          "url": "https://www.salary.com/",
+          "free_tier": "No free API. Data accessible via Tavily web search integration.",
+          "data_provided": "Salary ranges by role/location, benefits data, compensation planning tools",
+          "integration_priority": "low",
+          "status": "not_started",
+          "notes": "No direct API. Can pull data via Tavily for specific salary queries."
+        }
+      ]
     },
     {
-      "name": "H-1B/LCA Bulk Data (DOL OFLC)",
-      "url": "https://www.dol.gov/agencies/eta/foreign-labor/performance",
-      "auth": "None (public download)",
-      "data": "Employer salary offers, wage levels I-IV, worksite geography",
-      "value": "Most accurate competitive salary intelligence"
+      "name": "Skills & Education",
+      "apis": [
+        {
+          "name": "O*NET (Skills/Knowledge)",
+          "url": "https://services.onetcenter.org/",
+          "free_tier": "Same as occupational data -- free with registration.",
+          "data_provided": "Skills taxonomy, knowledge areas, abilities, work activities, technology skills, emerging occupations",
+          "integration_priority": "high",
+          "status": "integrated",
+          "notes": "Skills data already integrated via O*NET v2.0. Covers 35 skills, 33 knowledge areas, 52 abilities."
+        },
+        {
+          "name": "ESCO (European Skills/Competences)",
+          "url": "https://esco.ec.europa.eu/en/use-esco/developer-resources",
+          "free_tier": "Fully free EU API. REST + SPARQL endpoints. No authentication required.",
+          "data_provided": "13,890 skills, 3,008 occupations, skills-to-occupation mappings, multilingual (27 languages), qualification frameworks",
+          "integration_priority": "high",
+          "status": "not_started",
+          "notes": "European equivalent of O*NET. Excellent for international skills taxonomy. Free, well-documented REST API. High value for multinational clients."
+        },
+        {
+          "name": "Open Skills API (DataAtWork)",
+          "url": "http://api.dataatwork.org/v1/",
+          "free_tier": "Fully free open-source API. No authentication required.",
+          "data_provided": "Skills normalization, job title normalization, skills-to-jobs mappings, autocomplete",
+          "integration_priority": "medium",
+          "status": "not_started",
+          "notes": "Built on O*NET data but provides useful normalization and mapping APIs. May have uptime issues -- verify before integrating."
+        },
+        {
+          "name": "Coursera Catalog API",
+          "url": "https://build.coursera.org/app-platform/catalog/",
+          "free_tier": "Free affiliate API with application. No credit card required.",
+          "data_provided": "Course catalog, specializations, professional certificates, skills covered, partner universities",
+          "integration_priority": "medium",
+          "status": "not_started",
+          "notes": "Useful for upskilling recommendations. Can map skill gaps to relevant courses."
+        },
+        {
+          "name": "edX Course Catalog",
+          "url": "https://www.edx.org/affiliate-api",
+          "free_tier": "Free affiliate API with registration.",
+          "data_provided": "Course catalog, professional certificates, MicroMasters programs, skill tags",
+          "integration_priority": "low",
+          "status": "not_started",
+          "notes": "Similar to Coursera API. Good for training/upskilling recommendations."
+        },
+        {
+          "name": "GitHub API (Developer Skills)",
+          "url": "https://api.github.com/",
+          "free_tier": "60 requests/hour unauthenticated, 5,000/hour with token. Free.",
+          "data_provided": "Developer profiles, contribution data, language proficiency, project portfolios, trending technologies",
+          "integration_priority": "medium",
+          "status": "not_started",
+          "notes": "Useful for tech recruiting. Can assess developer activity, language expertise, and open-source contributions."
+        },
+        {
+          "name": "Stack Overflow / Stack Exchange API",
+          "url": "https://api.stackexchange.com/2.3/",
+          "free_tier": "300 requests/day without key, 10,000/day with key. Free registration.",
+          "data_provided": "Technology trends, tag popularity, user expertise scores, trending questions by technology",
+          "integration_priority": "medium",
+          "status": "not_started",
+          "notes": "Great for tracking technology adoption trends. Tag popularity data useful for skills demand analysis."
+        },
+        {
+          "name": "IPEDS (Integrated Postsecondary Education Data)",
+          "url": "https://educationdata.urban.org/documentation/",
+          "free_tier": "Fully free. No authentication required. Urban Institute Education Data Portal.",
+          "data_provided": "College enrollment, graduation rates, degrees awarded by field, institutional characteristics, tuition data",
+          "integration_priority": "medium",
+          "status": "not_started",
+          "notes": "NCES data via Urban Institute API. Useful for talent pipeline analysis -- how many graduates in specific fields by metro area."
+        },
+        {
+          "name": "College Scorecard API",
+          "url": "https://collegescorecard.ed.gov/data/documentation/",
+          "free_tier": "Fully free government API. API key required (free).",
+          "data_provided": "Institution data, graduation rates, post-graduation earnings, student demographics, program-level data",
+          "integration_priority": "high",
+          "status": "not_started",
+          "notes": "US Dept of Education API. Post-graduation earnings data by institution and field is highly valuable for salary benchmarking."
+        }
+      ]
     },
     {
-      "name": "Bureau of Economic Analysis (BEA)",
-      "url": "https://www.bea.gov/resources/for-developers",
-      "auth": "Free API key",
-      "data": "GDP by industry, regional income, employment by region",
-      "value": "Regional economic context for media plans"
+      "name": "Economic Indicators",
+      "apis": [
+        {
+          "name": "FRED (Federal Reserve Economic Data)",
+          "url": "https://fred.stlouisfed.org/docs/api/fred/",
+          "free_tier": "Free with API key registration. 120 requests/minute.",
+          "data_provided": "800,000+ economic time series: GDP, unemployment, CPI, interest rates, JOLTS, housing, consumer confidence",
+          "integration_priority": "high",
+          "status": "integrated",
+          "notes": "Integrated in S18. Core economic data source. JOLTS data for labor market. Weekly refresh enabled."
+        },
+        {
+          "name": "Bureau of Economic Analysis (BEA)",
+          "url": "https://apps.bea.gov/api/",
+          "free_tier": "Free with API key registration. Fair use rate limits.",
+          "data_provided": "GDP by state/metro, personal income, industry accounts, international trade, regional price parities",
+          "integration_priority": "high",
+          "status": "integrated",
+          "notes": "Integrated in S18. Regional GDP and income data useful for salary benchmarking by metro."
+        },
+        {
+          "name": "World Bank Open Data",
+          "url": "https://datahelpdesk.worldbank.org/knowledgebase/topics/125589",
+          "free_tier": "Fully free. No authentication required. REST + bulk download.",
+          "data_provided": "Global development indicators: GDP, labor force participation, education, unemployment, population, FDI across 200+ countries",
+          "integration_priority": "high",
+          "status": "not_started",
+          "notes": "Essential for international recruitment intelligence. 16,000+ indicators across all countries. No auth needed."
+        },
+        {
+          "name": "IMF Data API",
+          "url": "https://datahelp.imf.org/knowledgebase/articles/667681",
+          "free_tier": "Fully free. No authentication required. JSON/XML responses.",
+          "data_provided": "International Financial Statistics, World Economic Outlook, Balance of Payments, labor market indicators by country",
+          "integration_priority": "medium",
+          "status": "not_started",
+          "notes": "Good for macroeconomic context in international hiring. Complements World Bank data."
+        },
+        {
+          "name": "OECD Data API",
+          "url": "https://data.oecd.org/api/",
+          "free_tier": "Fully free. No authentication required. SDMX REST API.",
+          "data_provided": "Labor force statistics, employment rates, earnings, education attainment, migration, hours worked across OECD countries",
+          "integration_priority": "high",
+          "status": "not_started",
+          "notes": "Best source for comparing labor markets across developed economies. Employment, wages, and productivity data across 38 OECD member countries."
+        },
+        {
+          "name": "Eurostat API",
+          "url": "https://ec.europa.eu/eurostat/web/main/data/web-services",
+          "free_tier": "Fully free EU API. No authentication required.",
+          "data_provided": "EU labor market statistics, earnings, job vacancies, migration, education, unemployment by region",
+          "integration_priority": "medium",
+          "status": "not_started",
+          "notes": "Granular European labor market data. Useful for EU-specific recruitment intelligence. NUTS region breakdowns."
+        },
+        {
+          "name": "Google Trends",
+          "url": "https://trends.google.com/",
+          "free_tier": "No official API. Accessible via pytrends library or Tavily/Firecrawl.",
+          "data_provided": "Search interest over time, geographic distribution, related queries, trending topics by industry",
+          "integration_priority": "medium",
+          "status": "integrated",
+          "notes": "Already integrated via hardcoded approach. Consider pytrends library for programmatic access."
+        },
+        {
+          "name": "UN Data API",
+          "url": "https://data.un.org/Host.aspx?Content=API",
+          "free_tier": "Fully free. No authentication required.",
+          "data_provided": "Global population, labor force, migration, education statistics across all UN member states",
+          "integration_priority": "low",
+          "status": "not_started",
+          "notes": "Broadest international coverage. Good for emerging market hiring data."
+        },
+        {
+          "name": "Trading Economics API",
+          "url": "https://tradingeconomics.com/api/",
+          "free_tier": "Free tier: 500 requests/month. Covers 196 countries.",
+          "data_provided": "Economic indicators, labor statistics, wages, unemployment rates, forecasts across countries",
+          "integration_priority": "medium",
+          "status": "not_started",
+          "notes": "Good aggregator of global economic data. Free tier limited but sufficient for supplementary data."
+        }
+      ]
     },
     {
-      "name": "Census Bureau",
-      "url": "https://www.census.gov/developers/",
-      "auth": "Free API key",
-      "data": "Labor force, demographics, income, education by geography",
-      "value": "Workforce demographics by city/county/metro"
+      "name": "Demographics & Census",
+      "apis": [
+        {
+          "name": "US Census Bureau API",
+          "url": "https://api.census.gov/data.html",
+          "free_tier": "Fully free government API. API key required (free registration).",
+          "data_provided": "ACS demographics, population, income, education, commuting, housing, industry employment by county/metro/state",
+          "integration_priority": "high",
+          "status": "integrated",
+          "notes": "Integrated in S18. ACS 5-year data for demographic profiling. 50+ metros covered."
+        },
+        {
+          "name": "GeoNames",
+          "url": "https://www.geonames.org/export/web-services.html",
+          "free_tier": "Free tier: 1,000 credits/hour per application. Registration required.",
+          "data_provided": "Geographic data, postal codes, city populations, timezone info, nearby cities, country subdivisions",
+          "integration_priority": "medium",
+          "status": "integrated",
+          "notes": "Hardcoded 50 metros. Could expand to dynamic lookup for international cities."
+        },
+        {
+          "name": "US Census Geocoder",
+          "url": "https://geocoding.geo.census.gov/geocoder/",
+          "free_tier": "Fully free. No authentication required.",
+          "data_provided": "Address geocoding, FIPS codes, census tract/block lookups, coordinate-to-geography mapping",
+          "integration_priority": "low",
+          "status": "not_started",
+          "notes": "Useful for mapping client locations to census geographies for demographic data pulls."
+        },
+        {
+          "name": "Data.gov CKAN API",
+          "url": "https://catalog.data.gov/api/3/",
+          "free_tier": "Fully free. No authentication required. 300,000+ datasets.",
+          "data_provided": "Federal datasets catalog across all agencies: labor, health, education, immigration, housing",
+          "integration_priority": "low",
+          "status": "not_started",
+          "notes": "Meta-API for discovering other government datasets. Useful for finding niche data sources."
+        },
+        {
+          "name": "Open Data Soft (Multiple Cities)",
+          "url": "https://public.opendatasoft.com/explore/",
+          "free_tier": "Free access to 30,000+ public datasets. No authentication for public data.",
+          "data_provided": "City-level demographics, business registrations, permits, economic indicators, transportation",
+          "integration_priority": "low",
+          "status": "not_started",
+          "notes": "Aggregates open data from cities worldwide. Useful for hyperlocal recruitment market analysis."
+        }
+      ]
     },
     {
-      "name": "RemoteOK",
-      "url": "https://remoteok.io/api",
-      "auth": "None",
-      "data": "30K+ remote job listings with salary, company, skills",
-      "value": "Remote job market intelligence"
+      "name": "Company & Employer Data",
+      "apis": [
+        {
+          "name": "OpenCorporates API",
+          "url": "https://api.opencorporates.com/",
+          "free_tier": "Free tier: limited requests. Covers 200M+ companies across 140+ jurisdictions.",
+          "data_provided": "Company registrations, officers, filing history, jurisdiction data, industry codes, incorporation dates",
+          "integration_priority": "medium",
+          "status": "not_started",
+          "notes": "Largest open database of companies. Useful for verifying employer data and building company profiles."
+        },
+        {
+          "name": "SEC EDGAR API",
+          "url": "https://efts.sec.gov/LATEST/search-index?q=",
+          "free_tier": "Fully free government API. 10 requests/second rate limit. No authentication.",
+          "data_provided": "SEC filings, company financials, 10-K/10-Q reports, insider trading, executive compensation",
+          "integration_priority": "medium",
+          "status": "not_started",
+          "notes": "Executive compensation data from proxy statements. Revenue and employee count from 10-K filings. Useful for public company intel."
+        },
+        {
+          "name": "Clearbit (free tier via HubSpot)",
+          "url": "https://clearbit.com/",
+          "free_tier": "Limited free tier available through HubSpot integration. Company enrichment basics.",
+          "data_provided": "Company enrichment: industry, size, tech stack, social profiles, funding, location",
+          "integration_priority": "medium",
+          "status": "not_started",
+          "notes": "HubSpot acquired Clearbit. Some company enrichment available free. Useful for employer profiling."
+        },
+        {
+          "name": "Crunchbase (Basic/Free)",
+          "url": "https://data.crunchbase.com/docs",
+          "free_tier": "Free tier: limited to basic company search and profiles. API key required.",
+          "data_provided": "Startup funding rounds, investors, company profiles, industry categories, employee counts",
+          "integration_priority": "medium",
+          "status": "not_started",
+          "notes": "Free tier is very limited. Better to use Tavily/Firecrawl to pull Crunchbase data on-demand for specific companies."
+        },
+        {
+          "name": "PredictLeads (Company Signals)",
+          "url": "https://predictleads.com/api",
+          "free_tier": "Free tier: 100 API calls/month. No credit card required.",
+          "data_provided": "Job posting signals, technology adoption, product launches, expansion signals, hiring velocity",
+          "integration_priority": "high",
+          "status": "not_started",
+          "notes": "Hiring velocity and expansion signals are extremely valuable for recruitment intelligence. High priority despite limited free tier."
+        },
+        {
+          "name": "Companies House (UK)",
+          "url": "https://developer.company-information.service.gov.uk/",
+          "free_tier": "Fully free UK government API. API key required (free).",
+          "data_provided": "UK company registrations, directors, filing history, accounts, SIC codes",
+          "integration_priority": "low",
+          "status": "not_started",
+          "notes": "UK-specific. Free and well-documented. Useful for UK client employer verification."
+        }
+      ]
+    },
+    {
+      "name": "Immigration & Visa",
+      "apis": [
+        {
+          "name": "H-1B / LCA Disclosure Data",
+          "url": "https://www.dol.gov/agencies/eta/foreign-labor/performance",
+          "free_tier": "Fully free government data. Bulk CSV downloads updated quarterly.",
+          "data_provided": "H-1B applications, prevailing wages, employer sponsors, job titles, approval rates, worksite locations",
+          "integration_priority": "high",
+          "status": "integrated",
+          "notes": "Integrated in S18. Core data for visa intelligence tool. Updated quarterly by DOL."
+        },
+        {
+          "name": "USCIS Case Status",
+          "url": "https://egov.uscis.gov/casestatus/",
+          "free_tier": "Free case-by-case lookup. No bulk API officially available.",
+          "data_provided": "Individual visa case status, processing times by form type and service center",
+          "integration_priority": "low",
+          "status": "not_started",
+          "notes": "Limited utility without bulk access. Processing times useful for timeline estimates."
+        },
+        {
+          "name": "OFLC PERM Data",
+          "url": "https://www.dol.gov/agencies/eta/foreign-labor/performance",
+          "free_tier": "Fully free government data. Bulk CSV downloads.",
+          "data_provided": "PERM labor certification data: employer, job title, prevailing wage, case status, processing times",
+          "integration_priority": "high",
+          "status": "not_started",
+          "notes": "PERM data complements H-1B data. Shows green card sponsorship patterns by employer. Same DOL source, different dataset."
+        },
+        {
+          "name": "State Department Visa Bulletin (via Firecrawl)",
+          "url": "https://travel.state.gov/content/travel/en/legal/visa-law0/visa-bulletin.html",
+          "free_tier": "Free public data. No API -- requires scraping via Firecrawl.",
+          "data_provided": "Visa bulletin dates, priority date movements, country-specific backlogs, employment-based category status",
+          "integration_priority": "medium",
+          "status": "not_started",
+          "notes": "Monthly updates. Can scrape via Firecrawl. Critical for immigration timeline planning."
+        },
+        {
+          "name": "Migration Policy Institute Data Hub",
+          "url": "https://www.migrationpolicy.org/programs/data-hub",
+          "free_tier": "Free public data and interactive tools. No formal API.",
+          "data_provided": "Immigration statistics, immigrant workforce data, state-level immigration profiles, DACA data",
+          "integration_priority": "low",
+          "status": "not_started",
+          "notes": "Useful reference data. Would need Tavily/Firecrawl for data extraction."
+        }
+      ]
+    },
+    {
+      "name": "Labor Market Intelligence",
+      "apis": [
+        {
+          "name": "OEWS (Occupational Employment & Wage Statistics)",
+          "url": "https://www.bls.gov/oes/",
+          "free_tier": "Free. Accessible via BLS API. Part of BLS integration.",
+          "data_provided": "Employment and wage estimates for 800+ occupations across all US metros and states",
+          "integration_priority": "high",
+          "status": "integrated",
+          "notes": "Already accessible via BLS API integration. Most granular occupation-level wage data available."
+        },
+        {
+          "name": "Lightcast Open Skills (formerly Emsi/Burning Glass)",
+          "url": "https://skills.emsidata.com/",
+          "free_tier": "Open Skills taxonomy is free. Full API requires paid subscription.",
+          "data_provided": "Skills taxonomy with 30,000+ skills, skill-to-occupation mappings, skill clusters",
+          "integration_priority": "high",
+          "status": "not_started",
+          "notes": "The open skills library is free and excellent. Full Lightcast API is paid. Skills taxonomy alone is high-value for skills gap analysis."
+        },
+        {
+          "name": "ILO (International Labour Organization) ILOSTAT",
+          "url": "https://ilostat.ilo.org/data/",
+          "free_tier": "Fully free. SDMX REST API. No authentication required.",
+          "data_provided": "Global labor statistics: employment, unemployment, wages, working conditions, child labor, gender gaps across 230+ countries",
+          "integration_priority": "medium",
+          "status": "not_started",
+          "notes": "Best source for international labor market comparisons. SDMX format may need wrapper. Covers all countries."
+        },
+        {
+          "name": "ETA (Employment & Training Administration)",
+          "url": "https://www.dol.gov/agencies/eta/open-data",
+          "free_tier": "Fully free government data. Multiple datasets and APIs.",
+          "data_provided": "Workforce development, apprenticeship data, unemployment insurance, trade adjustment, job corps",
+          "integration_priority": "medium",
+          "status": "not_started",
+          "notes": "DOL workforce development data. Apprenticeship data useful for skilled trades recruitment."
+        },
+        {
+          "name": "LinkedIn Economic Graph (reports only)",
+          "url": "https://economicgraph.linkedin.com/",
+          "free_tier": "Free reports and data downloads. No API access.",
+          "data_provided": "Workforce trends, hiring rates, skills migration, industry transitions, gender insights",
+          "integration_priority": "medium",
+          "status": "not_started",
+          "notes": "No API but published reports contain valuable data. Can index reports in knowledge base for Nova AI."
+        },
+        {
+          "name": "Google Jobs API (via SerpApi)",
+          "url": "https://serpapi.com/google-jobs-api",
+          "free_tier": "SerpApi free tier: 100 searches/month. Google Jobs data.",
+          "data_provided": "Google Jobs aggregated listings, salary estimates, company ratings, job highlights, apply links",
+          "integration_priority": "medium",
+          "status": "not_started",
+          "notes": "Google Jobs aggregates from many sources. 100 free searches/month may be sufficient for on-demand queries."
+        }
+      ]
+    },
+    {
+      "name": "Technology & Developer Ecosystem",
+      "apis": [
+        {
+          "name": "BuiltWith (Free Lookup)",
+          "url": "https://api.builtwith.com/",
+          "free_tier": "Free tier: limited lookups. Shows technology stack for any domain.",
+          "data_provided": "Website technology stacks, CMS, frameworks, analytics tools, hosting providers, tech adoption trends",
+          "integration_priority": "medium",
+          "status": "not_started",
+          "notes": "Useful for tech recruiting -- know what stack a company uses before pitching candidates. Limited free tier."
+        },
+        {
+          "name": "Wappalyzer (Free tier)",
+          "url": "https://www.wappalyzer.com/docs/api/",
+          "free_tier": "Free tier: 50 lookups/month. Identifies technologies on websites.",
+          "data_provided": "Technology identification: programming languages, frameworks, CMS, analytics, CDN, hosting",
+          "integration_priority": "low",
+          "status": "not_started",
+          "notes": "Alternative to BuiltWith. Useful for understanding employer tech stacks for targeted recruiting."
+        },
+        {
+          "name": "npm Registry API",
+          "url": "https://registry.npmjs.org/",
+          "free_tier": "Fully free. No authentication required.",
+          "data_provided": "Package popularity, download counts, dependency graphs, technology adoption trends",
+          "integration_priority": "low",
+          "status": "not_started",
+          "notes": "Track JavaScript/Node.js technology adoption trends. Download counts indicate demand for specific tech skills."
+        },
+        {
+          "name": "PyPI (Python Package Index) API",
+          "url": "https://warehouse.pypa.io/api-reference/",
+          "free_tier": "Fully free. No authentication required.",
+          "data_provided": "Python package statistics, download counts, project metadata, technology trends",
+          "integration_priority": "low",
+          "status": "not_started",
+          "notes": "Track Python technology adoption. Useful for data science and ML role demand analysis."
+        },
+        {
+          "name": "HackerNews API (Y Combinator)",
+          "url": "https://github.com/HackerNewsAPI/HackerNewsAPI",
+          "free_tier": "Fully free Firebase-based API. No authentication required.",
+          "data_provided": "Tech industry news, job postings (monthly Who's Hiring threads), startup hiring trends, technology discussions",
+          "integration_priority": "medium",
+          "status": "not_started",
+          "notes": "Monthly 'Who is Hiring?' threads are goldmines for startup job data. Can extract company, role, tech stack, location, salary info."
+        }
+      ]
+    },
+    {
+      "name": "Government & Regulatory",
+      "apis": [
+        {
+          "name": "Federal Register API",
+          "url": "https://www.federalregister.gov/developers/api/v1",
+          "free_tier": "Fully free government API. No authentication required.",
+          "data_provided": "Federal regulations, proposed rules, executive orders, agency notices affecting employment law",
+          "integration_priority": "medium",
+          "status": "not_started",
+          "notes": "Track regulatory changes affecting hiring: EEOC rules, OFCCP compliance, DOL wage rules, immigration policy changes."
+        },
+        {
+          "name": "OSHA Establishment Search",
+          "url": "https://www.osha.gov/data",
+          "free_tier": "Free public data. API available for inspection data.",
+          "data_provided": "Workplace safety inspections, violations, injury/illness rates by employer and industry",
+          "integration_priority": "low",
+          "status": "not_started",
+          "notes": "Employer safety records. Useful for employer due diligence in manufacturing/industrial recruiting."
+        },
+        {
+          "name": "EEOC Data",
+          "url": "https://www.eeoc.gov/data/",
+          "free_tier": "Free public data. Downloadable datasets.",
+          "data_provided": "Employment discrimination charges, industry breakdown, resolution data, demographic workforce data",
+          "integration_priority": "low",
+          "status": "not_started",
+          "notes": "Compliance intelligence. EEO-1 data useful for diversity recruiting benchmarks."
+        },
+        {
+          "name": "SAM.gov Entity/Exclusions API",
+          "url": "https://api.sam.gov/",
+          "free_tier": "Free government API. API key required (free registration).",
+          "data_provided": "Government contractor registrations, entity information, exclusion records, federal contract opportunities",
+          "integration_priority": "low",
+          "status": "not_started",
+          "notes": "Useful for government contracting recruitment. Identifies active federal contractors and their registration status."
+        }
+      ]
     }
   ],
-  "already_integrated": ["O*NET", "BLS", "FRED", "Adzuna", "Jooble", "CareerOneStop (basic)"],
-  "deprecated": ["Indeed API", "Glassdoor API", "LinkedIn API", "GitHub Jobs API"]
+  "integration_summary": {
+    "total_apis": 65,
+    "integrated": 12,
+    "not_started": 53,
+    "high_priority_not_started": [
+      "World Bank Open Data",
+      "OECD Data API",
+      "ESCO (European Skills/Competences)",
+      "Lightcast Open Skills",
+      "OFLC PERM Data",
+      "PredictLeads (Company Signals)",
+      "College Scorecard API"
+    ],
+    "quick_wins": [
+      {
+        "name": "World Bank Open Data",
+        "reason": "No auth required, comprehensive global data, REST API"
+      },
+      {
+        "name": "ESCO",
+        "reason": "No auth required, 13,890 skills taxonomy, REST API, multilingual"
+      },
+      {
+        "name": "OFLC PERM Data",
+        "reason": "Same DOL source as H-1B, CSV bulk download, complements existing integration"
+      },
+      {
+        "name": "College Scorecard",
+        "reason": "Free gov API, post-graduation earnings data invaluable for salary benchmarking"
+      },
+      {
+        "name": "SEC EDGAR",
+        "reason": "No auth required, executive compensation and company financials"
+      },
+      {
+        "name": "HackerNews Who's Hiring",
+        "reason": "No auth required, monthly startup job data with salary/tech stack info"
+      }
+    ],
+    "recommended_integration_order": [
+      "Phase 1 (Quick Wins -- No Auth): World Bank, ESCO, SEC EDGAR, HackerNews, OECD",
+      "Phase 2 (Free Registration): College Scorecard, OFLC PERM, Federal Register, Lightcast Open Skills",
+      "Phase 3 (Limited Free Tier): PredictLeads, The Muse, Stack Overflow, GitHub API",
+      "Phase 4 (Via Tavily/Firecrawl): Glassdoor, Levels.fyi, PayScale, LinkedIn Economic Graph, Visa Bulletin",
+      "Phase 5 (International): ILO ILOSTAT, Eurostat, IMF, UN Data, Arbeitnow, Companies House UK"
+    ]
+  }
 }
