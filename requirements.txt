@@ -32,3 +32,8 @@ cryptography>=42.0.0,<44.0.0
 
 # Production WSGI server (used on Render.com; local dev uses stdlib ThreadedHTTPServer)
 gunicorn>=22.0.0,<24.0.0
+
+# gevent async worker + WebSocket support for gunicorn
+# Enables persistent WebSocket connections alongside WSGI (SSE fallback still works)
+gevent>=24.0.0,<25.0.0
+gevent-websocket>=0.10.1,<1.0.0

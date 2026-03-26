@@ -23,7 +23,7 @@ from typing import Callable, Optional
 logger = logging.getLogger(__name__)
 
 # RFC 6455 magic GUID for WebSocket handshake
-_WS_MAGIC = b"258EAFA5-E914-47DA-95CA-5AB5CD7AB653"
+_WS_MAGIC = b"258EAFA5-E914-47DA-95CA-5AB5DC11E85B"
 
 # Opcodes
 WS_OPCODE_TEXT = 0x1

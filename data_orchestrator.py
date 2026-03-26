@@ -38,7 +38,6 @@ import urllib.error
 from concurrent.futures import (
     ThreadPoolExecutor,
     Future,
-    TimeoutError as FuturesTimeoutError,
 )
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, Tuple
@@ -699,7 +698,7 @@ class DataOrchestrator:
                     try:
                         fetch_result = fut.result(timeout=timeout_seconds)
                         result.merge(fetch_result)
-                    except FuturesTimeoutError:
+                    except TimeoutError:
                         source = futures[fut]
                         logger.warning(
                             f"DataOrchestrator: {source.value} timed out ({timeout_seconds}s)"

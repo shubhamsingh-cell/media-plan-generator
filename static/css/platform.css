@@ -162,6 +162,11 @@ body {
     "sidebar content";
   height: 100vh;
   width: 100vw;
+  /* Transition deferred: added via .transitions-ready class after DOMContentLoaded
+     to prevent CLS from grid-column animation on initial page load */
+}
+
+.platform-shell.transitions-ready {
   transition: grid-template-columns var(--transition-slow);
 }
 
@@ -535,8 +540,12 @@ body {
   border-right: 1px solid var(--border-subtle);
   overflow: hidden;
   z-index: 200;
-  transition: width var(--transition-slow);
   width: var(--sidebar-w);
+  contain: layout style paint;
+}
+
+.transitions-ready .sidebar {
+  transition: width var(--transition-slow);
 }
 
 .sidebar-collapsed .sidebar {
@@ -2070,13 +2079,12 @@ body {
    ═══════════════════════════════════════════════════════════════ */
 .aurora-bg {
   position: fixed;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
+  inset: 0;
   pointer-events: none;
   z-index: 0;
   opacity: 0.3;
+  contain: strict;
+  will-change: transform;
   background:
     radial-gradient(
       ellipse at 20% 20%,

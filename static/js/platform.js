@@ -2300,6 +2300,13 @@ document.addEventListener("DOMContentLoaded", () => {
       NovaSidebar.build();
     }
   }, 500);
+  /* Enable grid transitions after layout stabilizes (prevents CLS on load) */
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      const shell = document.getElementById("platform-shell");
+      if (shell) shell.classList.add("transitions-ready");
+    });
+  });
   /* Show onboarding on first visit (Phase 6) */
   setTimeout(() => NovaOnboarding.check(), 500);
   /* Fetch CSRF token for API calls */

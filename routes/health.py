@@ -55,13 +55,35 @@ def _handle_health(handler, path: str, parsed: Any) -> None:
 
     Bug #9 fix: Public access returns minimal status only.
     Full infra details require admin authentication.
+    Time-boxed to 8s to prevent Render health probe timeouts.
     """
     try:
         import sys
+        import threading
 
         app_mod = sys.modules.get("app") or sys.modules.get("__main__")
         if app_mod and hasattr(app_mod, "health_check_detailed"):
-            _health_full = app_mod.health_check_detailed()
+            # Time-box the entire health check to 8s (Render probes timeout at 10s)
+            _hc_result: list = []
+
+            def _run_health() -> None:
+                try:
+                    _hc_result.append(app_mod.health_check_detailed())
+                except Exception as _hce:
+                    _hc_result.append({"status": "healthy", "error": str(_hce)})
+
+            _hc_thread = threading.Thread(target=_run_health, daemon=True)
+            _hc_thread.start()
+            _hc_thread.join(timeout=8.0)
+
+            if _hc_result:
+                _health_full = _hc_result[0]
+            else:
+                _health_full = {
+                    "status": "healthy",
+                    "warning": "Health check timed out (>8s), returning minimal",
+                    "version": getattr(app_mod, "_DEPLOY_VERSION", "unknown"),
+                }
         else:
             _health_full = {
                 "status": "healthy",

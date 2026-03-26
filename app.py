@@ -368,7 +368,6 @@ def _generate_narrative(
 import hashlib
 from concurrent.futures import (
     ThreadPoolExecutor,
-    TimeoutError as FuturesTimeoutError,
     as_completed,
 )
 
@@ -1393,7 +1392,7 @@ def _generate_product_insights(
                         ]:
                             del _insights_cache[k]
         return text
-    except FuturesTimeoutError:
+    except TimeoutError:
         logger.warning(
             f"LLM insights timed out for {product_name} (>{_INSIGHTS_LLM_TIMEOUT}s)"
         )
@@ -4725,26 +4724,36 @@ def _build_health_response() -> dict:
         _modules["upstash_redis"] = "not_configured"
 
     # Check optional modules -- attempt import if not yet in sys.modules (self-healing)
-    # Each import is time-boxed to 3s to prevent a single stuck module
-    # from blocking the entire health response.
-    for _mod_name in ("resilience_router", "posthog_tracker", "nova", "eval_framework"):
-        if sys.modules.get(_mod_name):
-            _modules[_mod_name] = "ok"
-        else:
-            # Self-healing: try to import the module on-demand (with timeout)
-            def _try_import(_name: str = _mod_name) -> bool:
-                __import__(_name)
-                return True
+    # Parallelized: all imports run concurrently with a shared 3s deadline
+    # instead of sequential 3s x N = 12s+ worst case.
+    _check_modules = ("resilience_router", "posthog_tracker", "nova", "eval_framework")
+    _mod_already = {m: "ok" for m in _check_modules if sys.modules.get(m)}
+    _mod_missing = [m for m in _check_modules if m not in _mod_already]
+    _modules.update(_mod_already)
 
-            _imported = _run_with_timeout(_try_import, timeout_sec=3.0, default=False)
-            if _imported:
-                _modules[_mod_name] = "ok"
-                logger.info(
-                    f"Self-healed module '{_mod_name}' -- imported on health check"
-                )
-            else:
-                _modules[_mod_name] = "down"
-                _modules[_mod_name] = "down"
+    if _mod_missing:
+        from concurrent.futures import ThreadPoolExecutor as _HealthPool
+
+        def _try_import(name: str) -> tuple[str, bool]:
+            """Attempt to import a module, returning (name, success)."""
+            try:
+                __import__(name)
+                return (name, True)
+            except Exception:
+                return (name, False)
+
+        with _HealthPool(max_workers=len(_mod_missing)) as _hp:
+            _futs = {_hp.submit(_try_import, m): m for m in _mod_missing}
+            for _fut in _futs:
+                try:
+                    _name, _ok = _fut.result(timeout=3.0)
+                    _modules[_name] = "ok" if _ok else "down"
+                    if _ok:
+                        logger.info(
+                            f"Self-healed module '{_name}' -- imported on health check"
+                        )
+                except TimeoutError:
+                    _modules[_futs[_fut]] = "down"
 
     # ---- LLM provider info for dashboard ----
     _llm_info: dict = {}
@@ -5346,6 +5355,49 @@ def _sanitize_chat_input(text: Optional[str]) -> str:
     return text
 
 
+def _dedup_repetitive_input(text: str, max_repeats: int = 3) -> str:
+    """Collapse excessively repeated words/phrases to prevent LLM confusion.
+
+    Detects when a user query contains the same word or short phrase repeated
+    many times (e.g., "San Francisco " * 50) and deduplicates to unique words
+    while preserving order.  Short inputs (< 100 chars or < 10 words) are
+    returned unchanged.
+
+    Args:
+        text: Sanitized user input string.
+        max_repeats: Threshold above which repetition triggers dedup.
+
+    Returns:
+        Deduplicated string, or the original if no excessive repetition found.
+    """
+    if not text or len(text) < 100:
+        return text
+    words = text.split()
+    if len(words) < 10:
+        return text
+    # Check 1-3 word n-grams for excessive repetition
+    from collections import Counter
+
+    for ngram_size in (1, 2, 3):
+        ngrams = [
+            " ".join(words[i : i + ngram_size])
+            for i in range(len(words) - ngram_size + 1)
+        ]
+        counts = Counter(ngrams)
+        most_common_phrase, most_common_count = counts.most_common(1)[0]
+        if most_common_count > max_repeats and most_common_count > len(words) // 3:
+            # Extremely repetitive -- collapse to unique words preserving order
+            seen: set[str] = set()
+            unique_words: list[str] = []
+            for w in words:
+                key = w.lower().strip()
+                if key not in seen:
+                    seen.add(key)
+                    unique_words.append(w)
+            return " ".join(unique_words)
+    return text
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # ROUTE-AWARE SLIDING WINDOW RATE LIMITER
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -5781,10 +5833,7 @@ def _enrich_chat_context(data: dict, message: str) -> dict:
     Returns:
         The (possibly mutated) *data* dict for convenience.
     """
-    from concurrent.futures import (
-        ThreadPoolExecutor,
-        TimeoutError as FuturesTimeoutError,
-    )
+    from concurrent.futures import ThreadPoolExecutor
 
     # ── 1. File attachment parsing ──
     _file_att = data.get("file_attachment")
@@ -5977,7 +6026,7 @@ def _enrich_chat_context(data: dict, message: str) -> dict:
             for fut in futures:
                 try:
                     fut.result(timeout=8)
-                except FuturesTimeoutError:
+                except TimeoutError:
                     logger.warning("Chat enrichment task timed out (8s)")
                 except (ValueError, TypeError, OSError) as exc:
                     logger.error("Chat enrichment task error: %s", exc, exc_info=True)
@@ -8535,8 +8584,9 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                     )
                     continue
 
-                # Sanitize
+                # Sanitize and deduplicate repetitive input
                 data["message"] = _sanitize_chat_input(data.get("message"))
+                data["message"] = _dedup_repetitive_input(data["message"])
 
                 conversation_id = data.get("conversation_id") or str(uuid.uuid4())
                 ws_conn.conversation_id = conversation_id
@@ -11505,7 +11555,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                 )
                                 enriched = _enrich_future.result(timeout=25) or {}
                                 gen_data["_enriched"] = enriched
-                            except FuturesTimeoutError:
+                            except TimeoutError:
                                 logger.error(
                                     "Async enrichment timed out after 25s for job %s -- continuing with empty data",
                                     jid,
@@ -11789,10 +11839,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         # prevent hanging at 70% "Verifying plan data..."
                         try:
                             from gold_standard import apply_all_quality_gates
-                            from concurrent.futures import (
-                                ThreadPoolExecutor,
-                                TimeoutError as FuturesTimeoutError,
-                            )
+                            from concurrent.futures import ThreadPoolExecutor
 
                             _gs_pool = ThreadPoolExecutor(max_workers=1)
                             _gs_future = _gs_pool.submit(
@@ -11800,7 +11847,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                             )
                             try:
                                 _gs_future.result(timeout=30)
-                            except FuturesTimeoutError:
+                            except TimeoutError:
                                 logger.warning(
                                     "Async Gold Standard gates timed out after 30s -- continuing with partial data"
                                 )
@@ -11836,10 +11883,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                             # Gemini/LLM verification of key plan data points
                             # Also wrapped with 30s timeout to prevent hangs
                             try:
-                                from concurrent.futures import (
-                                    ThreadPoolExecutor,
-                                    TimeoutError as FuturesTimeoutError,
-                                )
+                                from concurrent.futures import ThreadPoolExecutor
 
                                 _vf_pool = ThreadPoolExecutor(max_workers=1)
                                 _vf_future = _vf_pool.submit(
@@ -11849,7 +11893,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                     gen_data["_verification"] = _vf_future.result(
                                         timeout=30
                                     )
-                                except FuturesTimeoutError:
+                                except TimeoutError:
                                     logger.warning(
                                         "Plan data verification timed out after 30s -- skipping"
                                     )
@@ -12543,7 +12587,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
 
             # CRITICAL: Do NOT use `with ThreadPoolExecutor() as pool:` context manager.
             # The context manager calls pool.shutdown(wait=True) on exit, which blocks
-            # until ALL threads complete -- even after FuturesTimeoutError is raised.
+            # until ALL threads complete -- even after TimeoutError is raised.
             # Threads stuck on semaphore.acquire() or slow API calls will block the
             # entire response. Use manual pool with shutdown(wait=False) instead.
             _enrich_pool = ThreadPoolExecutor(
@@ -12569,7 +12613,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                     _market_ctx[name] = result
                         except Exception as exc:
                             logger.warning("Generate enrichment task error: %s", exc)
-            except FuturesTimeoutError:
+            except TimeoutError:
                 elapsed_time: float = time.time() - _parallel_t0
                 logger.warning(
                     "Parallel enrichment hit 20s timeout after %.1fs -- "
@@ -12903,10 +12947,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             # Wrapped in ThreadPoolExecutor with 30s timeout to prevent hangs.
             try:
                 from gold_standard import apply_all_quality_gates
-                from concurrent.futures import (
-                    ThreadPoolExecutor,
-                    TimeoutError as FuturesTimeoutError,
-                )
+                from concurrent.futures import ThreadPoolExecutor
 
                 _gs_pool = ThreadPoolExecutor(max_workers=1)
                 _gs_future = _gs_pool.submit(apply_all_quality_gates, data)
@@ -12916,7 +12957,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         "Gold Standard gates complete: %d gates produced data",
                         len(_gs_result),
                     )
-                except FuturesTimeoutError:
+                except TimeoutError:
                     logger.warning(
                         "Gold Standard gates timed out after 30s -- continuing with partial data"
                     )
@@ -12938,16 +12979,13 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             # ── Gemini/LLM verification of plan data (same as async path) ──
             # Wrapped in ThreadPoolExecutor with 30s timeout to prevent hangs.
             try:
-                from concurrent.futures import (
-                    ThreadPoolExecutor,
-                    TimeoutError as FuturesTimeoutError,
-                )
+                from concurrent.futures import ThreadPoolExecutor
 
                 _vf_pool = ThreadPoolExecutor(max_workers=1)
                 _vf_future = _vf_pool.submit(_verify_plan_data, data)
                 try:
                     data["_verification"] = _vf_future.result(timeout=30)
-                except FuturesTimeoutError:
+                except TimeoutError:
                     logger.warning(
                         "Plan data verification timed out after 30s -- skipping"
                     )
@@ -13301,8 +13339,6 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 )
                 if _metrics:
                     _metrics.record_generation(generation_time)
-                # NOTE: Module usage tracking removed (nova_module_usage deprecated).
-                # Analytics now tracked via PostHog (_ph_track calls above).
         elif path == "/api/chat":
             # ── Nova Chat Endpoint ──
             if not self._check_rate_limit() or not self._check_global_chat_rate_limit():
@@ -13329,6 +13365,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             # ── Sanitize chat message to prevent XSS ──
             if "message" in data:
                 data["message"] = _sanitize_chat_input(data.get("message"))
+                data["message"] = _dedup_repetitive_input(data["message"])
             # ── API HARDENING: Input length limits for chat (Issue 2) ──
             _chat_msg = data.get("message") or ""
             if isinstance(_chat_msg, str) and len(_chat_msg) > 10_000:
@@ -13358,7 +13395,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 try:
                     with _chat_span_fn("nova.chat", "Nova chat LLM routing + response"):
                         response = _chat_future.result(timeout=_CHAT_REQUEST_TIMEOUT)
-                except FuturesTimeoutError:
+                except TimeoutError:
                     _chat_future.cancel()
                     logger.error(
                         f"Chat request timed out after {_CHAT_REQUEST_TIMEOUT}s",
@@ -13411,9 +13448,6 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 },
             )
 
-            # NOTE: Module usage tracking removed (nova_module_usage deprecated).
-            # Analytics now tracked via PostHog (_ph_track calls above).
-
             # ── Persist conversation turn to Supabase (async, non-blocking) ──
             try:
                 _conv_id = data.get("conversation_id") or ""
@@ -13464,6 +13498,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             # ── Sanitize chat message to prevent XSS ──
             if "message" in data:
                 data["message"] = _sanitize_chat_input(data.get("message"))
+                data["message"] = _dedup_repetitive_input(data["message"])
             # ── API HARDENING: Input length limits for chat/stream (Issue 2) ──
             _stream_msg = data.get("message") or ""
             if isinstance(_stream_msg, str) and len(_stream_msg) > 10_000:
@@ -14135,6 +14170,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             # ── Sanitize chat message to prevent XSS ──
             if "message" in data:
                 data["message"] = _sanitize_chat_input(data.get("message"))
+                data["message"] = _dedup_repetitive_input(data["message"])
             try:
                 from nova_slack import handle_chat_standalone
 
@@ -16062,8 +16098,6 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         "endpoint": "/api/compliance/analyze",
                     },
                 )
-                # NOTE: Module usage tracking removed (nova_module_usage deprecated).
-                # Analytics now tracked via PostHog (_ph_track calls above).
             except json.JSONDecodeError:
                 self._send_error("Invalid JSON", "VALIDATION_ERROR", 400)
             except Exception as e:

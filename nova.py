@@ -1096,7 +1096,8 @@ _TOOL_LABELS: Dict[str, str] = {
     "get_outcome_data": "Getting outcome data",
     "get_attribution_data": "Loading attribution data",
     "render_canvas": "Rendering canvas",
-    "get_ats_data": "Loading ATS data",
+    "edit_canvas": "Editing canvas allocation",
+    "get_ats_data": "Loading ATS integration data",
     "detect_anomalies": "Detecting anomalies",
     "query_federal_jobs": "Searching federal jobs",
     "query_remote_jobs": "Searching remote job market",
@@ -1902,6 +1903,24 @@ _QUERY_TYPE_CHANNEL_PATTERNS: list[str] = [
     "where to post",
     "best sites",
 ]
+_QUERY_TYPE_MORNING_BRIEF_PATTERNS: list[str] = [
+    "morning brief",
+    "daily brief",
+    "daily digest",
+    "daily summary",
+    "what should i know",
+    "overnight",
+    "today's brief",
+    "todays brief",
+    "morning update",
+    "morning report",
+    "start my day",
+    "daily update",
+    "what happened overnight",
+    "campaign pulse",
+    "what's new today",
+    "whats new today",
+]
 
 
 def _classify_query_type(query: str) -> str:
@@ -1915,7 +1934,7 @@ def _classify_query_type(query: str) -> str:
 
     Returns:
         One of: salary, media_plan, comparison, compliance,
-        competitive, channels, general.
+        competitive, channels, morning_brief, general.
     """
     if not query:
         return "general"
@@ -1923,6 +1942,8 @@ def _classify_query_type(query: str) -> str:
     q = query.lower().strip()
 
     # Order matters: more specific types first
+    if any(p in q for p in _QUERY_TYPE_MORNING_BRIEF_PATTERNS):
+        return "morning_brief"
     if any(p in q for p in _QUERY_TYPE_COMPARISON_PATTERNS):
         return "comparison"
     if any(p in q for p in _QUERY_TYPE_COMPLIANCE_PATTERNS):
@@ -2012,6 +2033,25 @@ _RESPONSE_TEMPLATES: Dict[str, str] = {
         "#### Penalties for Non-Compliance\n"
         "- [risks]\n\n"
         "*Sources: [list]*"
+    ),
+    "morning_brief": (
+        "Structure your response EXACTLY like this:\n"
+        "### Good Morning -- Your Daily Hiring Brief\n"
+        "**[Date] | [Day of Week]**\n\n"
+        "#### Platform Health\n"
+        "| Metric | Value | Trend |\n"
+        "|--------|-------|-------|\n"
+        "| Plans Generated | X | +/- Y |\n"
+        "| LLM Providers | X/25 healthy | -- |\n"
+        "| Uptime | X% | -- |\n"
+        "| Avg Response Time | Xms | -- |\n\n"
+        "#### Overnight Alerts\n"
+        "- [severity emoji] [alert message]\n\n"
+        "#### AI Recommendation\n"
+        "**[Title]** -- [description with actionable guidance]\n\n"
+        "#### Quick Actions\n"
+        "- [2-3 suggested next steps]\n\n"
+        "*Powered by Nova Morning Brief*"
     ),
 }
 
@@ -2117,6 +2157,11 @@ _FOLLOW_UP_MAP: Dict[str, list[str]] = {
         "What are the penalties?",
         "How does this differ in other states?",
         "What documentation do I need?",
+    ],
+    "morning_brief": [
+        "What are today's top hiring trends?",
+        "Show me the competitive landscape for my top role",
+        "Generate a media plan based on today's market data",
     ],
     "general": [
         "What are the salary benchmarks for this role?",
@@ -3123,6 +3168,9 @@ Before calling any tools, briefly plan which tools you need:
 - For channel/platform questions: call query_remote_jobs + query_channels + query_benchmarks
 - For vendor/publisher questions: call query_vendor_profiles for platform-specific data (Indeed, LinkedIn, etc.)
 - For any hiring question: ALWAYS also call query_h1b_salaries for competitive salary intelligence
+- For visualizing/rendering a plan as a canvas: call render_canvas with budget, channels, role, location, industry
+- For editing/adjusting a canvas (reallocate budget, add/remove channel): call edit_canvas with plan_id and edit details
+- After generating a media plan: ALWAYS also call render_canvas to provide a visual canvas breakdown
 - Always call at least 3 tools for substantive queries
 
 ## FORMATTING
@@ -3266,6 +3314,29 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
         ]
         if any(t in msg_lower for t in _role_triggers):
             core += self._ROLE_CLASSIFICATION
+
+        # Morning brief: when user asks for daily digest/summary/overnight
+        _brief_triggers = [
+            "morning brief",
+            "daily brief",
+            "daily digest",
+            "what should i know",
+            "overnight",
+            "start my day",
+            "morning update",
+            "morning report",
+            "campaign pulse",
+            "what's new today",
+            "whats new today",
+        ]
+        if any(t in msg_lower for t in _brief_triggers):
+            core += (
+                "\n\nIMPORTANT: The user is asking for a morning brief / daily digest. "
+                "You MUST call the get_morning_brief tool to fetch platform metrics, "
+                "overnight alerts, and AI recommendations. Also call get_labor_market_data "
+                "and query_workforce_trends to enrich the brief with live market context. "
+                "Present the data in a structured, executive-friendly format."
+            )
 
         # Inject query-type-specific response template for consistent formatting
         core += _get_response_template_injection(message)
@@ -4191,44 +4262,122 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
             },
             {
                 "name": "render_canvas",
-                "description": "Visual plan canvas: transforms a media plan into a visual layout with channel cards, budget allocations, and color-coded elements. Use when asked to visualize a plan.",
+                "description": "Visual plan canvas: transforms a media plan into an interactive visual layout with draggable channel cards, budget allocation percentages, color-coded elements, and AI optimization suggestions. Use when asked to visualize, display, or break down a media plan. Also call this AFTER generating any media plan to provide a visual canvas view.",
                 "input_schema": {
                     "type": "object",
                     "properties": {
                         "plan_id": {
                             "type": "string",
-                            "description": "Plan ID to render",
+                            "description": "Plan ID to render (from a previously generated plan)",
                         },
                         "budget": {
                             "type": "number",
-                            "description": "Total budget",
+                            "description": "Total budget in USD",
                         },
                         "channels": {
                             "type": "array",
-                            "items": {"type": "string"},
-                            "description": "Channel names",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "description": "Channel name (e.g., Indeed, LinkedIn)",
+                                    },
+                                    "spend": {
+                                        "type": "number",
+                                        "description": "Budget allocated to this channel",
+                                    },
+                                    "cpc": {
+                                        "type": "number",
+                                        "description": "Cost per click",
+                                    },
+                                    "cpa": {
+                                        "type": "number",
+                                        "description": "Cost per application",
+                                    },
+                                },
+                            },
+                            "description": "Channel allocations with spend and performance metrics",
+                        },
+                        "role": {
+                            "type": "string",
+                            "description": "Target job role (e.g., Software Engineer, Registered Nurse)",
+                        },
+                        "location": {
+                            "type": "string",
+                            "description": "Target location (e.g., San Francisco, CA)",
+                        },
+                        "industry": {
+                            "type": "string",
+                            "description": "Industry vertical (e.g., Technology, Healthcare)",
                         },
                     },
                     "required": [],
                 },
             },
             {
-                "name": "get_ats_data",
-                "description": "ATS widget integration: generates embed code and configuration for the Nova ATS widget. Use when asked about ATS integration or embedding Nova into an applicant tracking system.",
+                "name": "edit_canvas",
+                "description": "Edit a visual plan canvas: reallocate budget between channels, add/remove channels, rename channels, or change total budget. Use when the user wants to adjust, tweak, or modify a previously rendered canvas plan.",
                 "input_schema": {
                     "type": "object",
                     "properties": {
-                        "job_title": {
+                        "plan_id": {
                             "type": "string",
-                            "description": "Target job title for the widget",
+                            "description": "Plan ID of the canvas to edit",
                         },
-                        "location": {
+                        "edit_type": {
                             "type": "string",
-                            "description": "Job location",
+                            "enum": [
+                                "reallocate",
+                                "add_channel",
+                                "remove_channel",
+                                "rename_channel",
+                                "set_budget",
+                            ],
+                            "description": "Type of edit to apply",
+                        },
+                        "channel_id": {
+                            "type": "string",
+                            "description": "Channel ID to edit (e.g., ch_0, ch_1). Required for reallocate, remove, rename.",
+                        },
+                        "percentage": {
+                            "type": "number",
+                            "description": "New percentage allocation (0-100). For reallocate and add_channel.",
+                        },
+                        "name": {
+                            "type": "string",
+                            "description": "Channel name. For add_channel (new name) or rename_channel (new name).",
                         },
                         "budget": {
                             "type": "number",
-                            "description": "Monthly budget",
+                            "description": "New total budget in USD. For set_budget.",
+                        },
+                    },
+                    "required": ["plan_id", "edit_type"],
+                },
+            },
+            {
+                "name": "get_ats_data",
+                "description": "ATS integration intelligence: returns Joveo's 100+ ATS integrations (iCIMS, Workday, Greenhouse, Bullhorn, etc.), embeddable Nova widget code, and ATS ecosystem data. Use when asked about ATS integrations, applicant tracking systems, embedding Nova into an ATS, or which ATS platforms Joveo supports.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "action": {
+                            "type": "string",
+                            "enum": ["integrations", "embed_code", "full"],
+                            "description": "Action: 'integrations' for Joveo ATS partner list, 'embed_code' for widget snippet, 'full' for both. Default: 'full'.",
+                        },
+                        "job_title": {
+                            "type": "string",
+                            "description": "Target job title for the widget (only for embed_code/full)",
+                        },
+                        "location": {
+                            "type": "string",
+                            "description": "Job location (only for embed_code/full)",
+                        },
+                        "budget": {
+                            "type": "number",
+                            "description": "Monthly budget (only for embed_code/full)",
                         },
                         "theme": {
                             "type": "string",
@@ -4509,6 +4658,7 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
             "get_outcome_data": self._get_outcome_data,
             "get_attribution_data": self._get_attribution_data,
             "render_canvas": self._render_canvas,
+            "edit_canvas": self._edit_canvas,
             "get_ats_data": self._get_ats_data,
             "detect_anomalies": self._detect_anomalies,
             "query_remote_jobs": self._query_remote_jobs,
@@ -7787,12 +7937,51 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
             return {"error": f"Copilot suggestions failed: {e}", "nudges": []}
 
     def _get_morning_brief(self, params: dict) -> dict:
-        """Generate today's hiring market morning brief."""
-        try:
-            import morning_brief
+        """Generate today's hiring market morning brief with live enrichment.
 
-            brief = morning_brief.generate_morning_brief()
+        Fetches platform metrics from the morning_brief module and enriches
+        with live labor market context from FRED/BLS when available.
+        """
+        try:
+            import morning_brief as _mb
+
+            brief = _mb.generate_morning_brief()
             brief["source"] = "Nova Morning Brief"
+
+            # Enrich with live labor market snapshot (non-blocking)
+            labor_snapshot: dict = {}
+            try:
+                from api_integrations import fred as _fred
+
+                jolts = _fred.get_jolts_data()
+                if jolts and not jolts.get("error"):
+                    labor_snapshot["jolts_openings"] = jolts.get("job_openings") or ""
+                    labor_snapshot["jolts_hires"] = jolts.get("hires") or ""
+                    labor_snapshot["jolts_quits"] = jolts.get("quits") or ""
+            except ImportError:
+                pass
+            except Exception as e_fred:
+                logger.debug("Morning brief FRED enrichment skipped: %s", e_fred)
+
+            try:
+                from api_integrations import bls as _bls
+
+                unemployment = _bls.get_unemployment_rate()
+                if unemployment and not unemployment.get("error"):
+                    labor_snapshot["unemployment_rate"] = unemployment.get("rate") or ""
+                    labor_snapshot["unemployment_period"] = (
+                        unemployment.get("period") or ""
+                    )
+            except ImportError:
+                pass
+            except Exception as e_bls:
+                logger.debug("Morning brief BLS enrichment skipped: %s", e_bls)
+
+            if labor_snapshot:
+                sections = brief.get("sections") or {}
+                sections["labor_market_snapshot"] = labor_snapshot
+                brief["sections"] = sections
+
             return brief
         except ImportError:
             logger.warning("morning_brief module not available")
@@ -7892,7 +8081,19 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
             return {"error": f"Attribution analysis failed: {e}"}
 
     def _render_canvas(self, params: dict) -> dict:
-        """Transform a plan into visual canvas data."""
+        """Transform a plan into visual canvas data with channel cards and suggestions.
+
+        Accepts budget, channels (list of dicts or strings), role, location,
+        and industry. Returns a canvas-ready structure with color-coded cards,
+        allocation percentages, and AI optimization suggestions.
+
+        Args:
+            params: Dict with optional plan_id, budget, channels, role,
+                    location, and industry.
+
+        Returns:
+            Canvas state dict with channels, suggestions, and metadata.
+        """
         try:
             import canvas_engine
 
@@ -7902,10 +8103,31 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
             if params.get("budget"):
                 plan_data["total_budget"] = params["budget"]
             if params.get("channels"):
-                plan_data["channels"] = params["channels"]
+                raw_channels = params["channels"]
+                # Accept both list-of-strings and list-of-dicts
+                if raw_channels and isinstance(raw_channels[0], str):
+                    plan_data["channels"] = [
+                        {"name": ch, "spend": 0} for ch in raw_channels
+                    ]
+                else:
+                    plan_data["channels"] = raw_channels
+            if params.get("role"):
+                plan_data["job_title"] = params["role"]
+            if params.get("location"):
+                plan_data["location"] = params["location"]
+            if params.get("industry"):
+                plan_data["industry"] = params["industry"]
 
             result = canvas_engine.parse_plan_for_canvas(plan_data)
             result["source"] = "Nova Canvas Engine"
+
+            # Surface suggestions as a readable summary for the LLM
+            suggestions = result.get("suggestions") or []
+            if suggestions:
+                result["optimization_hints"] = [
+                    s.get("text") or "" for s in suggestions if s.get("text")
+                ]
+
             return result
         except ImportError:
             logger.warning("canvas_engine module not available")
@@ -7914,35 +8136,165 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
             logger.error("render_canvas failed: %s", e, exc_info=True)
             return {"error": f"Canvas rendering failed: {e}"}
 
-    def _get_ats_data(self, params: dict) -> dict:
-        """Get ATS widget embed code and stats."""
+    def _edit_canvas(self, params: dict) -> dict:
+        """Apply an edit to an existing canvas plan.
+
+        Supports reallocate, add_channel, remove_channel, rename_channel,
+        and set_budget operations. Returns the updated canvas state with
+        recalculated allocations and new suggestions.
+
+        Args:
+            params: Dict with plan_id, edit_type, and type-specific fields
+                    (channel_id, percentage, name, budget).
+
+        Returns:
+            Updated canvas state dict, or error dict.
+        """
         try:
-            import ats_widget
+            import canvas_engine
 
-            config: dict = {}
-            if params.get("job_title"):
-                config["jobTitle"] = params["job_title"]
-            if params.get("location"):
-                config["location"] = params["location"]
-            if params.get("budget"):
-                config["budget"] = params["budget"]
-            if params.get("theme"):
-                config["theme"] = params["theme"]
+            plan_id = params.get("plan_id") or ""
+            if not plan_id:
+                return {"error": "plan_id is required for canvas edits"}
 
-            embed_code = ats_widget.generate_embed_code(config)
-            stats = ats_widget.get_widget_stats()
-            return {
-                "embed_code": embed_code,
-                "widget_stats": stats,
-                "configuration": config,
-                "source": "Nova ATS Widget",
-            }
+            edit: dict = {"type": params.get("edit_type") or ""}
+            if params.get("channel_id"):
+                edit["channel_id"] = params["channel_id"]
+            if params.get("percentage") is not None:
+                edit["percentage"] = params["percentage"]
+            if params.get("name"):
+                edit["name"] = params["name"]
+            if params.get("budget") is not None:
+                edit["budget"] = params["budget"]
+
+            result = canvas_engine.apply_canvas_edit(plan_id, edit)
+            if result.get("status") == "error":
+                return result
+
+            result["source"] = "Nova Canvas Engine"
+
+            # Surface suggestions as a readable summary
+            suggestions = result.get("suggestions") or []
+            if suggestions:
+                result["optimization_hints"] = [
+                    s.get("text") or "" for s in suggestions if s.get("text")
+                ]
+
+            # Include the change log for the LLM to describe what changed
+            change_log = result.get("change_log")
+            if change_log:
+                result["edit_summary"] = (
+                    f"Applied {change_log.get('type', 'edit')}: "
+                    f"{json.dumps(change_log, default=str)}"
+                )
+
+            return result
         except ImportError:
-            logger.warning("ats_widget module not available")
-            return {"error": "ATS widget module is not available"}
+            logger.warning("canvas_engine module not available")
+            return {"error": "Canvas engine module is not available"}
         except Exception as e:
-            logger.error("get_ats_data failed: %s", e, exc_info=True)
-            return {"error": f"ATS widget data failed: {e}"}
+            logger.error("edit_canvas failed: %s", e, exc_info=True)
+            return {"error": f"Canvas edit failed: {e}"}
+
+    def _get_ats_data(self, params: dict) -> dict:
+        """Get ATS integration data, widget embed code, and Joveo ATS partner info.
+
+        Supports three actions via params['action']:
+        - 'integrations': Return Joveo ATS partner ecosystem data
+        - 'embed_code': Generate the Nova ATS widget embed snippet
+        - 'full' (default): Return both integrations and embed code
+        """
+        action = (params.get("action") or "full").strip().lower()
+        result: dict = {"source": "Nova ATS Widget"}
+
+        # -- ATS integration data (Joveo 100+ ATS partners) --
+        if action in ("integrations", "full"):
+            try:
+                ats_integrations: dict = {
+                    "total_integrations": "100+",
+                    "enterprise_ats": [
+                        "Workday (Design Approved partner, Jan 2026)",
+                        "SAP SuccessFactors",
+                        "Oracle Recruiting",
+                        "Cornerstone OnDemand",
+                    ],
+                    "mid_market_ats": [
+                        "iCIMS",
+                        "Greenhouse",
+                        "SmartRecruiters",
+                        "Lever",
+                        "BambooHR",
+                    ],
+                    "staffing_ats": [
+                        "Bullhorn",
+                        "Avionte",
+                        "JobDiva",
+                        "TempWorks",
+                    ],
+                    "crm_ats_hybrids": ["Salesforce", "Jobvite"],
+                    "others": [
+                        "Taleo",
+                        "PageUp",
+                        "JazzHR",
+                        "Breezy HR",
+                        "Recruitee",
+                    ],
+                    "capabilities": [
+                        "Automatic job feed ingestion",
+                        "Application routing",
+                        "Conversion tracking (impression-to-hire)",
+                        "Real-time analytics",
+                    ],
+                    "workday_clients": "35+ Workday clients on the platform",
+                }
+                # Enrich from data_synthesizer if available
+                try:
+                    from data_synthesizer import get_deep_benchmarks
+
+                    deep = get_deep_benchmarks() or {}
+                    extra_ats = deep.get("ats_integrations") or []
+                    if extra_ats:
+                        ats_integrations["additional_partners"] = extra_ats
+                except ImportError:
+                    pass  # Not critical -- hardcoded data is sufficient
+                except Exception as _enrich_err:
+                    logger.warning(
+                        f"ATS enrichment from data_synthesizer skipped: {_enrich_err}"
+                    )
+
+                result["integrations"] = ats_integrations
+            except Exception as e:
+                logger.error(f"get_ats_data integrations failed: {e}", exc_info=True)
+                result["integrations_error"] = f"Failed to load integrations: {e}"
+
+        # -- Widget embed code --
+        if action in ("embed_code", "full"):
+            try:
+                import ats_widget
+
+                config: dict = {}
+                if params.get("job_title"):
+                    config["jobTitle"] = params["job_title"]
+                if params.get("location"):
+                    config["location"] = params["location"]
+                if params.get("budget"):
+                    config["budget"] = params["budget"]
+                if params.get("theme"):
+                    config["theme"] = params["theme"]
+
+                embed_code = ats_widget.generate_embed_code(config)
+                stats = ats_widget.get_widget_stats()
+                result["embed_code"] = embed_code
+                result["widget_stats"] = stats
+                result["widget_configuration"] = config
+            except ImportError:
+                logger.warning("ats_widget module not available")
+                result["embed_error"] = "ATS widget module is not installed"
+            except Exception as e:
+                logger.error(f"get_ats_data embed failed: {e}", exc_info=True)
+                result["embed_error"] = f"Widget embed generation failed: {e}"
+
+        return result
 
     def _detect_anomalies(self, params: dict) -> dict:
         """Detect anomalies in hiring metrics using 3-sigma thresholds."""
@@ -9168,6 +9520,12 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
             "joveo",
             "source mix",
             "quality score",
+            # ATS / integration
+            "ats",
+            "applicant tracking",
+            "embed",
+            "widget",
+            "integration",
         ]
     )
 
@@ -9676,6 +10034,9 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
             "- For channel/platform questions: call query_remote_jobs + query_channels + query_benchmarks\n"
             "- For vendor/publisher questions: call query_vendor_profiles for platform-specific data (Indeed, LinkedIn, etc.)\n"
             "- For any hiring question: ALWAYS also call query_h1b_salaries for competitive salary intelligence\n"
+            "- For visualizing a plan as a canvas: call render_canvas with budget, channels, role, location, industry\n"
+            "- For editing a canvas (reallocate budget, add/remove channel): call edit_canvas with plan_id and edit details\n"
+            "- After generating a media plan: ALWAYS also call render_canvas for visual breakdown\n"
             "- Always call at least 3 tools for substantive queries\n\n"
             "## NEVER REFUSE\n"
             "You are a recruitment marketing expert. NEVER say 'I can't help'. "
@@ -13791,7 +14152,7 @@ _TOOL_SOURCE_MAP: Dict[str, str] = {
     "query_market_signals": "Market Signals",
     "knowledge_search": "Knowledge Base (Vector Search)",
     "query_collar_intel": "Blue/White Collar Intel",
-    "query_ats_widget": "ATS Integration Widget",
+    "get_ats_data": "ATS Integration Widget",
     "query_competitive_landscape": "Competitive Landscape",
     "scrape_url": "Web Scraper",
     "query_remote_jobs": "RemoteOK (Remote Job Market)",
