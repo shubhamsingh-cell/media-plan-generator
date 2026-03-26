@@ -13,7 +13,8 @@ Environment variables (all optional except Tier 7 which needs no config):
     PRESENTON_URL         - Self-hosted Presenton API base URL
     GAMMA_API_KEY         - Gamma REST API key (Pro plan required)
     MAGICSLIDES_API_KEY   - MagicSlides REST API key
-    GOOGLE_SLIDES_CREDENTIALS - Path to Google service account JSON
+    GOOGLE_SLIDES_CREDENTIALS - Path to Google service account JSON file
+    GOOGLE_SLIDES_CREDENTIALS_B64 - Base64-encoded Google service account JSON
     ALAI_API_KEY          - Alai REST API key
     FLASHDOCS_API_KEY     - FlashDocs REST API key
 """
@@ -614,21 +615,55 @@ class DeckGenerator:
     def _try_google_slides(self, data: dict[str, Any]) -> Optional[bytes]:
         """Generate via Google Slides API using a service account.
 
-        Requires GOOGLE_SLIDES_CREDENTIALS env var pointing to a JSON
-        credentials file. Creates a presentation via batch updates
-        and exports as PPTX.
-        """
-        creds_path = os.environ.get("GOOGLE_SLIDES_CREDENTIALS") or ""
-        if not creds_path:
-            logger.debug("Google Slides skipped: GOOGLE_SLIDES_CREDENTIALS not set")
-            return None
+        Supports two credential sources:
+        1. GOOGLE_SLIDES_CREDENTIALS: path to JSON credentials file
+        2. GOOGLE_SLIDES_CREDENTIALS_B64: base64-encoded JSON (for Render)
 
-        creds_file = Path(creds_path)
-        if not creds_file.is_file():
-            logger.warning(
-                "Google Slides skipped: credentials file not found at %s", creds_path
-            )
-            return None
+        Creates a presentation via batch updates and exports as PPTX.
+        """
+        import base64
+
+        # Try base64-encoded credentials first (Render deployment)
+        creds_b64 = os.environ.get("GOOGLE_SLIDES_CREDENTIALS_B64") or ""
+        creds_dict = None
+
+        if creds_b64:
+            try:
+                creds_json = base64.b64decode(creds_b64).decode("utf-8")
+                creds_dict = json.loads(creds_json)
+                logger.debug("Google Slides: using base64-encoded credentials")
+            except Exception as exc:
+                logger.warning("Google Slides: base64 decode failed: %s", exc)
+                creds_dict = None
+
+        # Fall back to file-based credentials (local development)
+        if not creds_dict:
+            creds_path = os.environ.get("GOOGLE_SLIDES_CREDENTIALS") or ""
+            if not creds_path:
+                logger.debug(
+                    "Google Slides skipped: neither GOOGLE_SLIDES_CREDENTIALS "
+                    "nor GOOGLE_SLIDES_CREDENTIALS_B64 set"
+                )
+                return None
+
+            creds_file = Path(creds_path)
+            if not creds_file.is_file():
+                logger.warning(
+                    "Google Slides skipped: credentials file not found at %s",
+                    creds_path,
+                )
+                return None
+
+            try:
+                with open(creds_file) as f:
+                    creds_dict = json.load(f)
+            except Exception as exc:
+                logger.error(
+                    "Google Slides: failed to read credentials file: %s",
+                    exc,
+                    exc_info=True,
+                )
+                return None
 
         try:
             from googleapiclient.discovery import build
@@ -646,9 +681,7 @@ class DeckGenerator:
         ]
 
         try:
-            creds = Credentials.from_service_account_file(
-                str(creds_file), scopes=scopes
-            )
+            creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
             slides_service = build("slides", "v1", credentials=creds)
             drive_service = build("drive", "v3", credentials=creds)
         except Exception as exc:
@@ -1072,10 +1105,15 @@ class DeckGenerator:
                     bool(key) and usage < _TIER_LIMITS["magicslides"]
                 )
             elif tier_key == "google_slides":
-                creds = os.environ.get("GOOGLE_SLIDES_CREDENTIALS") or ""
-                file_exists = Path(creds).is_file() if creds else False
-                tier_info["configured"] = file_exists
-                tier_info["available"] = file_exists
+                # Check both file-based and base64-encoded credentials
+                creds_path = os.environ.get("GOOGLE_SLIDES_CREDENTIALS") or ""
+                creds_b64 = os.environ.get("GOOGLE_SLIDES_CREDENTIALS_B64") or ""
+
+                file_exists = Path(creds_path).is_file() if creds_path else False
+                has_b64 = bool(creds_b64)
+
+                tier_info["configured"] = file_exists or has_b64
+                tier_info["available"] = file_exists or has_b64
             elif tier_key == "alai":
                 key = os.environ.get("ALAI_API_KEY") or ""
                 tier_info["configured"] = bool(key)

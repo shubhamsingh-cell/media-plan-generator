@@ -137,6 +137,35 @@ def _run_deferred_startup() -> None:
     except ImportError:
         pass
 
+    # Preload modules used in health checks to avoid lazy import delays
+    try:
+        import vector_search as _vs_preload
+
+        logger.info("[wsgi] Vector search preloaded")
+    except ImportError:
+        logger.debug("[wsgi] Vector search not available")
+
+    try:
+        import slack_alerts as _sa_preload
+
+        logger.info("[wsgi] Slack alerts preloaded")
+    except ImportError:
+        logger.debug("[wsgi] Slack alerts not available")
+
+    try:
+        import calendar_sync as _cs_preload
+
+        logger.info("[wsgi] Calendar sync preloaded")
+    except ImportError:
+        logger.debug("[wsgi] Calendar sync not available")
+
+    try:
+        import chroma_rag as _cr_preload
+
+        logger.info("[wsgi] Chroma RAG preloaded")
+    except ImportError:
+        logger.debug("[wsgi] Chroma RAG not available")
+
     # Mark deploy warmup as complete
     try:
         import app as _app_module
