@@ -1444,7 +1444,8 @@
         return r.json();
       })
       .then((data) => {
-        channelsDB = data;
+        // API wraps response in {success, data} -- unwrap if needed
+        channelsDB = data && data.success && data.data ? data.data : data;
         populateChannels();
       })
       .catch((err) => {
