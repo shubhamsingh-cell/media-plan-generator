@@ -12772,7 +12772,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
 
                 try:
                     with _chat_span_fn("nova.chat.stream", "Nova SSE streaming chat"):
-                        for chunk in handle_chat_request_stream(data):
+                        for chunk in handle_chat_request_stream(
+                            data, cancel_event=cancel_event
+                        ):
                             # Check cancellation on each chunk
                             if cancel_event.is_set():
                                 cancel_evt = json.dumps(

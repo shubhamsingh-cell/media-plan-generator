@@ -35,6 +35,7 @@ Usage:
 from __future__ import annotations
 
 import base64
+import http.client
 import json
 import logging
 import os
@@ -45,6 +46,14 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 from typing import Any
+
+# Persistent HTTPS connection pool -- reuses TCP+TLS across same-host calls
+try:
+    from http_pool import pooled_request as _pooled_request
+
+    _HAS_POOL = True
+except ImportError:
+    _HAS_POOL = False
 
 logger = logging.getLogger(__name__)
 
@@ -185,6 +194,9 @@ def _http_get(
 ) -> dict | list | None:
     """Perform an HTTP GET and return parsed JSON.
 
+    Uses pooled HTTPS connections when available (saves ~100-200ms per call
+    by reusing TCP + TLS handshakes for same-host requests).
+
     Args:
         url: Fully-qualified URL to fetch.
         headers: Optional HTTP headers dict.
@@ -193,6 +205,65 @@ def _http_get(
     Returns:
         Parsed JSON (dict or list) or None on any failure.
     """
+    if _HAS_POOL:
+        return _http_get_pooled(url, headers=headers, timeout=timeout)
+    return _http_get_urllib(url, headers=headers, timeout=timeout)
+
+
+def _http_get_pooled(
+    url: str,
+    headers: dict[str, str] | None = None,
+    timeout: int = _DEFAULT_TIMEOUT,
+) -> dict | list | None:
+    """HTTP GET via persistent connection pool."""
+    try:
+        resp = _pooled_request(
+            url, method="GET", headers=headers or {}, timeout=timeout, ssl_ctx=_ssl_ctx
+        )
+        if resp.status >= 400:
+            logger.error(f"HTTP {resp.status} for {url}")
+            return None
+        raw = resp.read().decode("utf-8")
+        return json.loads(raw)
+    except ssl.SSLError:
+        logger.warning(
+            f"SSL verification failed for {url}, retrying without verification"
+        )
+        try:
+            resp = _pooled_request(
+                url,
+                method="GET",
+                headers=headers or {},
+                timeout=timeout,
+                ssl_ctx=_ssl_ctx_unverified,
+            )
+            if resp.status >= 400:
+                logger.error(f"HTTP {resp.status} for {url} (unverified SSL)")
+                return None
+            raw = resp.read().decode("utf-8")
+            return json.loads(raw)
+        except (http.client.HTTPException, OSError, TimeoutError) as exc:
+            logger.error(
+                f"HTTP GET failed for {url} (unverified retry): {exc}", exc_info=True
+            )
+            return None
+    except json.JSONDecodeError:
+        logger.error(f"JSON decode error for {url}", exc_info=True)
+        return None
+    except TimeoutError:
+        logger.error(f"Timeout fetching {url}", exc_info=True)
+        return None
+    except (http.client.HTTPException, OSError) as exc:
+        logger.error(f"HTTP GET failed for {url}: {exc}", exc_info=True)
+        return None
+
+
+def _http_get_urllib(
+    url: str,
+    headers: dict[str, str] | None = None,
+    timeout: int = _DEFAULT_TIMEOUT,
+) -> dict | list | None:
+    """HTTP GET via urllib (fallback when pool unavailable)."""
     try:
         req = urllib.request.Request(url, headers=headers or {})
         try:
@@ -217,13 +288,13 @@ def _http_get(
     except urllib.error.URLError as exc:
         logger.error(f"URL error for {url}: {exc.reason}", exc_info=True)
         return None
-    except json.JSONDecodeError as exc:
+    except json.JSONDecodeError:
         logger.error(f"JSON decode error for {url}", exc_info=True)
         return None
-    except TimeoutError as exc:
+    except TimeoutError:
         logger.error(f"Timeout fetching {url}", exc_info=True)
         return None
-    except OSError as exc:
+    except OSError:
         logger.error(f"OS error fetching {url}", exc_info=True)
         return None
 
@@ -236,6 +307,8 @@ def _http_post(
 ) -> dict | list | None:
     """Perform an HTTP POST with JSON body and return parsed JSON.
 
+    Uses pooled HTTPS connections when available.
+
     Args:
         url: Fully-qualified URL to post to.
         data: Dict to JSON-encode as the request body.
@@ -245,12 +318,80 @@ def _http_post(
     Returns:
         Parsed JSON (dict or list) or None on any failure.
     """
+    body = json.dumps(data).encode("utf-8")
+    hdrs: dict[str, str] = {"Content-Type": "application/json"}
+    if headers:
+        hdrs.update(headers)
+
+    if _HAS_POOL:
+        return _http_post_pooled(url, body=body, headers=hdrs, timeout=timeout)
+    return _http_post_urllib(url, body=body, headers=hdrs, timeout=timeout)
+
+
+def _http_post_pooled(
+    url: str,
+    body: bytes,
+    headers: dict[str, str],
+    timeout: int = _DEFAULT_TIMEOUT,
+) -> dict | list | None:
+    """HTTP POST via persistent connection pool."""
     try:
-        body = json.dumps(data).encode("utf-8")
-        hdrs = {"Content-Type": "application/json"}
-        if headers:
-            hdrs.update(headers)
-        req = urllib.request.Request(url, data=body, headers=hdrs, method="POST")
+        resp = _pooled_request(
+            url,
+            method="POST",
+            body=body,
+            headers=headers,
+            timeout=timeout,
+            ssl_ctx=_ssl_ctx,
+        )
+        if resp.status >= 400:
+            logger.error(f"HTTP {resp.status} for POST {url}")
+            return None
+        raw = resp.read().decode("utf-8")
+        return json.loads(raw)
+    except ssl.SSLError:
+        logger.warning(
+            f"SSL verification failed for POST {url}, retrying without verification"
+        )
+        try:
+            resp = _pooled_request(
+                url,
+                method="POST",
+                body=body,
+                headers=headers,
+                timeout=timeout,
+                ssl_ctx=_ssl_ctx_unverified,
+            )
+            if resp.status >= 400:
+                logger.error(f"HTTP {resp.status} for POST {url} (unverified SSL)")
+                return None
+            raw = resp.read().decode("utf-8")
+            return json.loads(raw)
+        except (http.client.HTTPException, OSError, TimeoutError) as exc:
+            logger.error(
+                f"HTTP POST failed for {url} (unverified retry): {exc}", exc_info=True
+            )
+            return None
+    except json.JSONDecodeError:
+        logger.error(f"JSON decode error for POST {url}", exc_info=True)
+        return None
+    except TimeoutError:
+        logger.error(f"Timeout posting to {url}", exc_info=True)
+        return None
+    except (http.client.HTTPException, OSError) as exc:
+        logger.error(f"HTTP POST failed for {url}: {exc}", exc_info=True)
+        return None
+
+
+def _http_post_urllib(
+    url: str,
+    body: bytes,
+    headers: dict[str, str],
+    timeout: int = _DEFAULT_TIMEOUT,
+) -> dict | list | None:
+    """HTTP POST via urllib (fallback when pool unavailable)."""
+    try:
+        req = urllib.request.Request(url, data=body, headers=headers, method="POST")
         try:
             with urllib.request.urlopen(req, timeout=timeout, context=_ssl_ctx) as resp:
                 raw = resp.read().decode("utf-8")
@@ -261,7 +402,7 @@ def _http_post(
                     f"SSL verification failed for POST {url}, retrying without verification"
                 )
                 req = urllib.request.Request(
-                    url, data=body, headers=hdrs, method="POST"
+                    url, data=body, headers=headers, method="POST"
                 )
                 with urllib.request.urlopen(
                     req, timeout=timeout, context=_ssl_ctx_unverified
@@ -275,13 +416,13 @@ def _http_post(
     except urllib.error.URLError as exc:
         logger.error(f"URL error for POST {url}: {exc.reason}", exc_info=True)
         return None
-    except json.JSONDecodeError as exc:
+    except json.JSONDecodeError:
         logger.error(f"JSON decode error for POST {url}", exc_info=True)
         return None
-    except TimeoutError as exc:
+    except TimeoutError:
         logger.error(f"Timeout posting to {url}", exc_info=True)
         return None
-    except OSError as exc:
+    except OSError:
         logger.error(f"OS error posting to {url}", exc_info=True)
         return None
 

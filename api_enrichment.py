@@ -66,6 +66,7 @@ Usage:
 from __future__ import annotations
 
 import hashlib
+import http.client
 import json
 import os
 import re
@@ -80,6 +81,14 @@ import concurrent.futures
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+# Persistent HTTPS connection pool -- reuses TCP+TLS across same-host calls
+try:
+    from http_pool import pooled_request as _pooled_request
+
+    _HAS_POOL = True
+except ImportError:
+    _HAS_POOL = False
 
 # ── Canonical taxonomy standardizer ──
 # Used to normalize industry/location keys before API lookups.
@@ -962,11 +971,77 @@ def check_api_key_health() -> Dict[str, Any]:
 def _http_get_json(
     url: str, headers: Optional[Dict[str, str]] = None, timeout: int = API_TIMEOUT
 ) -> Optional[Any]:
+    """Perform an HTTP GET and return parsed JSON, or None on any failure.
+
+    Uses pooled HTTPS connections when available. Retries on 429/503 with
+    exponential backoff (1s, 2s, 4s). Tries verified SSL first, falls back
+    to unverified if ALLOW_UNVERIFIED_SSL=1.
     """
-    Perform an HTTP GET and return parsed JSON, or None on any failure.
-    Tries verified SSL first, falls back to unverified if needed.
-    Retries on 429/503 with exponential backoff (1s, 2s, 4s).
-    """
+    if _HAS_POOL:
+        return _http_get_json_pooled(url, headers=headers, timeout=timeout)
+    return _http_get_json_urllib(url, headers=headers, timeout=timeout)
+
+
+def _http_get_json_pooled(
+    url: str, headers: Optional[Dict[str, str]] = None, timeout: int = API_TIMEOUT
+) -> Optional[Any]:
+    """HTTP GET JSON via persistent connection pool with retry logic."""
+    all_headers: Dict[str, str] = {
+        "User-Agent": "MediaPlanGenerator/1.0 (media-plan-generator.onrender.com)",
+        "Accept": "application/json",
+    }
+    if headers:
+        all_headers.update(headers)
+
+    _allow_unverified = (os.environ.get("ALLOW_UNVERIFIED_SSL") or "").strip() == "1"
+    ssl_contexts: list[ssl.SSLContext] = [_DEFAULT_SSL_CTX]
+    if _allow_unverified:
+        ssl_contexts.append(_get_unverified_ssl_ctx())
+
+    max_retries = 3
+    for attempt in range(max_retries + 1):
+        for ctx_idx, ctx in enumerate(ssl_contexts):
+            try:
+                resp = _pooled_request(
+                    url,
+                    method="GET",
+                    headers=all_headers,
+                    timeout=timeout,
+                    ssl_ctx=ctx,
+                )
+                if ctx_idx > 0:
+                    _log_warn(
+                        f"SSL verification BYPASSED for {url} — consider fixing the certificate"
+                    )
+                if resp.status in (429, 503) and attempt < max_retries:
+                    wait = min(2**attempt, 8)
+                    _log_warn(
+                        f"HTTP {resp.status} for {url}, retry in {wait}s (attempt {attempt + 1}/{max_retries})"
+                    )
+                    time.sleep(wait)
+                    break  # break SSL loop to retry
+                if resp.status >= 400:
+                    _log_warn(f"HTTP GET failed for {url}: HTTP {resp.status}")
+                    return None
+                raw = resp.read().decode("utf-8")
+                return json.loads(raw)
+            except ssl.SSLError:
+                if ctx_idx == 0:
+                    _log_warn(f"SSL error for {url}, retrying without verification")
+                continue  # retry with unverified context
+            except Exception as exc:
+                _log_warn(f"HTTP GET failed for {url}: {exc}")
+                return None
+        else:
+            continue  # SSL loop completed without break, move to next attempt
+        continue  # broke out of SSL loop (429/503), retry
+    return None
+
+
+def _http_get_json_urllib(
+    url: str, headers: Optional[Dict[str, str]] = None, timeout: int = API_TIMEOUT
+) -> Optional[Any]:
+    """HTTP GET JSON via urllib (fallback when pool unavailable)."""
     req = urllib.request.Request(url, method="GET")
     req.add_header(
         "User-Agent", "MediaPlanGenerator/1.0 (media-plan-generator.onrender.com)"
@@ -977,10 +1052,8 @@ def _http_get_json(
         for k, v in headers.items():
             req.add_header(k, v)
 
-    # Determine whether to allow SSL fallback based on environment config.
-    # SSL verification is strict by default. Set ALLOW_UNVERIFIED_SSL=1 to enable fallback (not recommended).
     _allow_unverified = (os.environ.get("ALLOW_UNVERIFIED_SSL") or "").strip() == "1"
-    ssl_contexts = [_DEFAULT_SSL_CTX]
+    ssl_contexts: list[ssl.SSLContext] = [_DEFAULT_SSL_CTX]
     if _allow_unverified:
         ssl_contexts.append(_get_unverified_ssl_ctx())
 
@@ -998,7 +1071,7 @@ def _http_get_json(
             except ssl.SSLError:
                 if ctx_idx == 0:
                     _log_warn(f"SSL error for {url}, retrying without verification")
-                continue  # retry with unverified context
+                continue
             except urllib.error.HTTPError as exc:
                 if exc.code in (429, 503) and attempt < max_retries:
                     wait = min(2**attempt, 8)
@@ -1006,15 +1079,15 @@ def _http_get_json(
                         f"HTTP {exc.code} for {url}, retry in {wait}s (attempt {attempt + 1}/{max_retries})"
                     )
                     time.sleep(wait)
-                    break  # break SSL loop to retry
+                    break
                 _log_warn(f"HTTP GET failed for {url}: {exc}")
                 return None
             except Exception as exc:
                 _log_warn(f"HTTP GET failed for {url}: {exc}")
                 return None
         else:
-            continue  # SSL loop completed without break, move to next attempt
-        continue  # broke out of SSL loop (429/503), retry
+            continue
+        continue
     return None
 
 
@@ -1027,9 +1100,97 @@ def _http_post_json(
 ) -> Optional[Any]:
     """Perform an HTTP POST with a JSON body and return parsed JSON.
 
-    Retries on HTTP 429 (rate-limited) and 503 (service unavailable)
-    with exponential backoff, consistent with ``_http_get_json_with_retry``.
+    Uses pooled HTTPS connections when available. Retries on HTTP 429/503
+    with exponential backoff and Retry-After header support.
     """
+    if _HAS_POOL:
+        return _http_post_json_pooled(
+            url, payload, headers=headers, timeout=timeout, max_retries=max_retries
+        )
+    return _http_post_json_urllib(
+        url, payload, headers=headers, timeout=timeout, max_retries=max_retries
+    )
+
+
+def _http_post_json_pooled(
+    url: str,
+    payload: Any,
+    headers: Optional[Dict[str, str]] = None,
+    timeout: int = API_TIMEOUT,
+    max_retries: int = 2,
+) -> Optional[Any]:
+    """HTTP POST JSON via persistent connection pool with retry logic."""
+    body = json.dumps(payload).encode("utf-8")
+    backoff_delays = [1, 2, 4]
+
+    all_headers: Dict[str, str] = {
+        "User-Agent": "MediaPlanGenerator/1.0 (media-plan-generator.onrender.com)",
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+    }
+    if headers:
+        all_headers.update(headers)
+
+    _allow_unverified = (os.environ.get("ALLOW_UNVERIFIED_SSL") or "").strip() == "1"
+    ssl_contexts: list[ssl.SSLContext] = [_DEFAULT_SSL_CTX]
+    if _allow_unverified:
+        ssl_contexts.append(_get_unverified_ssl_ctx())
+
+    for attempt in range(max_retries + 1):
+        for ctx_idx, ctx in enumerate(ssl_contexts):
+            try:
+                resp = _pooled_request(
+                    url,
+                    method="POST",
+                    body=body,
+                    headers=all_headers,
+                    timeout=timeout,
+                    ssl_ctx=ctx,
+                )
+                if ctx_idx > 0:
+                    _log_warn(f"SSL verification BYPASSED for POST {url}")
+                if resp.status in (429, 503) and attempt < max_retries:
+                    retry_after = resp.getheader("Retry-After")
+                    if retry_after is not None:
+                        try:
+                            wait = max(float(retry_after), 0.5)
+                        except (ValueError, TypeError):
+                            wait = backoff_delays[min(attempt, len(backoff_delays) - 1)]
+                    else:
+                        wait = backoff_delays[min(attempt, len(backoff_delays) - 1)]
+                    _log_warn(
+                        f"HTTP {resp.status} for POST {url} -- retry {attempt + 1}/{max_retries} after {wait}s"
+                    )
+                    time.sleep(wait)
+                    break  # break SSL loop, continue retry loop
+                if resp.status >= 400:
+                    _log_warn(f"HTTP POST failed for {url}: HTTP {resp.status}")
+                    return None
+                raw = resp.read().decode("utf-8")
+                return json.loads(raw)
+            except ssl.SSLError:
+                if ctx_idx == 0:
+                    _log_warn(
+                        f"SSL error for POST {url}, retrying without verification"
+                    )
+                continue
+            except Exception as exc:
+                _log_warn(f"HTTP POST failed for {url}: {exc}")
+                return None
+        else:
+            return None
+    _log_warn(f"HTTP POST exhausted {max_retries} retries for {url}")
+    return None
+
+
+def _http_post_json_urllib(
+    url: str,
+    payload: Any,
+    headers: Optional[Dict[str, str]] = None,
+    timeout: int = API_TIMEOUT,
+    max_retries: int = 2,
+) -> Optional[Any]:
+    """HTTP POST JSON via urllib (fallback when pool unavailable)."""
     body = json.dumps(payload).encode("utf-8")
     backoff_delays = [1, 2, 4]
 
@@ -1048,7 +1209,7 @@ def _http_post_json(
         _allow_unverified = (
             os.environ.get("ALLOW_UNVERIFIED_SSL") or ""
         ).strip() == "1"
-        ssl_contexts = [_DEFAULT_SSL_CTX]
+        ssl_contexts: list[ssl.SSLContext] = [_DEFAULT_SSL_CTX]
         if _allow_unverified:
             ssl_contexts.append(_get_unverified_ssl_ctx())
 
@@ -1082,16 +1243,14 @@ def _http_post_json(
                         f"retry {attempt + 1}/{max_retries} after {wait}s"
                     )
                     time.sleep(wait)
-                    break  # break SSL loop, continue retry loop
+                    break
                 _log_warn(f"HTTP POST failed for {url}: {exc}")
                 return None
             except Exception as exc:
                 _log_warn(f"HTTP POST failed for {url}: {exc}")
                 return None
         else:
-            # Inner SSL loop exhausted without break -- both contexts failed
             return None
-    # All retries exhausted
     _log_warn(f"HTTP POST exhausted {max_retries} retries for {url}")
     return None
 
@@ -1108,12 +1267,11 @@ def _http_get_json_with_retry(
     timeout: int = API_TIMEOUT,
     max_retries: int = 3,
 ) -> Any:
-    """
-    Perform an HTTP GET with exponential backoff retry on transient errors.
+    """Perform an HTTP GET with exponential backoff retry on transient errors.
 
-    Retries on:
-        - HTTP 429 (rate limit) — honours Retry-After header if present
-        - HTTP 503 (service unavailable)
+    Uses pooled HTTPS connections when available. Retries on HTTP 429/503
+    with exponential backoff and Retry-After header support. Tracks auth
+    failures (401/403) for circuit-breaker logic.
 
     Args:
         url:         Target URL (query params may be appended from *params*)
@@ -1126,14 +1284,135 @@ def _http_get_json_with_retry(
         Parsed JSON response on success.
 
     Raises:
-        urllib.error.HTTPError / Exception on final failure after all retries.
+        http.client.HTTPException / OSError / Exception on final failure.
     """
     if params:
         qs = urllib.parse.urlencode(params, quote_via=urllib.parse.quote)
         separator = "&" if "?" in url else "?"
         url = f"{url}{separator}{qs}"
 
-    backoff_delays = [1, 2, 4, 8, 16]  # seconds — only first max_retries used
+    if _HAS_POOL:
+        return _http_get_json_with_retry_pooled(
+            url, headers=headers, timeout=timeout, max_retries=max_retries
+        )
+    return _http_get_json_with_retry_urllib(
+        url, headers=headers, timeout=timeout, max_retries=max_retries
+    )
+
+
+def _http_get_json_with_retry_pooled(
+    url: str,
+    headers: Optional[Dict[str, str]] = None,
+    timeout: int = API_TIMEOUT,
+    max_retries: int = 3,
+) -> Any:
+    """HTTP GET JSON with retry via persistent connection pool."""
+    backoff_delays = [1, 2, 4, 8, 16]
+    last_exc: Optional[Exception] = None
+
+    all_headers: Dict[str, str] = {
+        "User-Agent": "MediaPlanGenerator/1.0 (media-plan-generator.onrender.com)",
+        "Accept": "application/json",
+    }
+    if headers:
+        all_headers.update(headers)
+
+    _allow_unverified = (os.environ.get("ALLOW_UNVERIFIED_SSL") or "").strip() == "1"
+    ssl_contexts: list[ssl.SSLContext] = [_DEFAULT_SSL_CTX]
+    if _allow_unverified:
+        ssl_contexts.append(_get_unverified_ssl_ctx())
+
+    for attempt in range(max_retries + 1):
+        for ctx_idx, ctx in enumerate(ssl_contexts):
+            try:
+                resp = _pooled_request(
+                    url,
+                    method="GET",
+                    headers=all_headers,
+                    timeout=timeout,
+                    ssl_ctx=ctx,
+                )
+                if ctx_idx > 0:
+                    _log_warn(f"SSL verification BYPASSED for {url}")
+
+                status_code = resp.status
+
+                # Clear auth failure count on success (2xx)
+                if status_code < 300:
+                    try:
+                        _h = urllib.parse.urlparse(url).hostname or ""
+                        if _h:
+                            _clear_auth_failure(_h)
+                    except Exception:
+                        pass
+                    raw = resp.read().decode("utf-8")
+                    return json.loads(raw)
+
+                # Auth failure tracking
+                if status_code in (401, 403):
+                    try:
+                        _host = urllib.parse.urlparse(url).hostname or url
+                    except Exception:
+                        _host = url[:60]
+                    _record_auth_failure(_host)
+
+                # Retryable status codes
+                if status_code in (429, 503) and attempt < max_retries:
+                    retry_after = resp.getheader("Retry-After")
+                    if retry_after is not None:
+                        try:
+                            wait = max(float(retry_after), 0.5)
+                        except (ValueError, TypeError):
+                            wait = backoff_delays[min(attempt, len(backoff_delays) - 1)]
+                    else:
+                        wait = backoff_delays[min(attempt, len(backoff_delays) - 1)]
+                    _log_warn(
+                        f"HTTP {status_code} for {url} — retry {attempt + 1}/{max_retries} after {wait}s"
+                    )
+                    time.sleep(wait)
+                    last_exc = http.client.HTTPException(f"HTTP {status_code}")
+                    break  # break SSL loop, restart retry loop
+
+                # Non-retryable error
+                raise http.client.HTTPException(f"HTTP {status_code} for {url}")
+
+            except ssl.SSLError:
+                if ctx_idx == 0:
+                    _log_warn(f"SSL error for {url}, retrying without verification")
+                continue
+            except http.client.HTTPException as exc:
+                last_exc = exc
+                if attempt >= max_retries:
+                    raise
+                raise
+            except Exception as exc:
+                last_exc = exc
+                if attempt >= max_retries:
+                    raise
+                wait = backoff_delays[min(attempt, len(backoff_delays) - 1)]
+                _log_warn(
+                    f"HTTP GET error for {url}: {exc} — retry {attempt + 1}/{max_retries} after {wait}s"
+                )
+                time.sleep(wait)
+                break
+        else:
+            if last_exc is not None and attempt >= max_retries:
+                raise last_exc
+            continue
+
+    if last_exc is not None:
+        raise last_exc
+    return None
+
+
+def _http_get_json_with_retry_urllib(
+    url: str,
+    headers: Optional[Dict[str, str]] = None,
+    timeout: int = API_TIMEOUT,
+    max_retries: int = 3,
+) -> Any:
+    """HTTP GET JSON with retry via urllib (fallback when pool unavailable)."""
+    backoff_delays = [1, 2, 4, 8, 16]
     last_exc: Optional[Exception] = None
 
     for attempt in range(max_retries + 1):
@@ -1149,7 +1428,7 @@ def _http_get_json_with_retry(
         _allow_unverified = (
             os.environ.get("ALLOW_UNVERIFIED_SSL") or ""
         ).strip() == "1"
-        _ssl_ctxs = [_DEFAULT_SSL_CTX]
+        _ssl_ctxs: list[ssl.SSLContext] = [_DEFAULT_SSL_CTX]
         if _allow_unverified:
             _ssl_ctxs.append(_get_unverified_ssl_ctx())
         for _ctx_idx, ctx in enumerate(_ssl_ctxs):
@@ -1158,7 +1437,6 @@ def _http_get_json_with_retry(
                     if _ctx_idx > 0:
                         _log_warn(f"SSL verification BYPASSED for {url}")
                     raw = resp.read().decode("utf-8")
-                    # Clear auth failure count on success
                     try:
                         _h = urllib.parse.urlparse(url).hostname or ""
                         if _h:
@@ -1169,19 +1447,16 @@ def _http_get_json_with_retry(
             except ssl.SSLError:
                 if _ctx_idx == 0:
                     _log_warn(f"SSL error for {url}, retrying without verification")
-                continue  # retry with unverified context
+                continue
             except urllib.error.HTTPError as exc:
                 status_code = exc.code
-                # ── Auth failure detection (key rotation) ──
                 if status_code in (401, 403):
-                    # Extract API name from URL host for tracking
                     try:
                         _host = urllib.parse.urlparse(url).hostname or url
                     except Exception:
                         _host = url[:60]
                     _record_auth_failure(_host)
                 if status_code in (429, 503) and attempt < max_retries:
-                    # Determine wait time: prefer Retry-After header
                     retry_after = (
                         exc.headers.get("Retry-After") if exc.headers else None
                     )
@@ -1194,14 +1469,12 @@ def _http_get_json_with_retry(
                         wait = backoff_delays[min(attempt, len(backoff_delays) - 1)]
                     _log_warn(
                         f"HTTP {status_code} for {url} — "
-                        f"retry {attempt + 1}/{max_retries} "
-                        f"after {wait}s"
+                        f"retry {attempt + 1}/{max_retries} after {wait}s"
                     )
                     time.sleep(wait)
                     last_exc = exc
-                    break  # break inner SSL loop, restart outer retry loop
+                    break
                 else:
-                    # Non-retryable status or retries exhausted
                     last_exc = exc
                     if attempt >= max_retries:
                         raise
@@ -1212,18 +1485,15 @@ def _http_get_json_with_retry(
                     raise
                 wait = backoff_delays[min(attempt, len(backoff_delays) - 1)]
                 _log_warn(
-                    f"HTTP GET error for {url}: {exc} — "
-                    f"retry {attempt + 1}/{max_retries} after {wait}s"
+                    f"HTTP GET error for {url}: {exc} — retry {attempt + 1}/{max_retries} after {wait}s"
                 )
                 time.sleep(wait)
-                break  # break inner SSL loop, restart outer retry loop
+                break
         else:
-            # Inner loop exhausted without break — both SSL contexts failed
             if last_exc is not None and attempt >= max_retries:
                 raise last_exc
             continue
 
-    # Should not reach here, but just in case
     if last_exc is not None:
         raise last_exc
     return None
@@ -1649,13 +1919,53 @@ US_STATE_FIPS: Dict[str, str] = {
 
 
 def _http_get_text(url: str, timeout: int = API_TIMEOUT) -> Optional[str]:
-    """Perform HTTP GET and return raw text, or None on failure."""
+    """Perform HTTP GET and return raw text, or None on failure.
+
+    Uses pooled HTTPS connections when available.
+    """
+    if _HAS_POOL:
+        return _http_get_text_pooled(url, timeout=timeout)
+    return _http_get_text_urllib(url, timeout=timeout)
+
+
+def _http_get_text_pooled(url: str, timeout: int = API_TIMEOUT) -> Optional[str]:
+    """HTTP GET text via persistent connection pool."""
+    hdrs = {"User-Agent": "MediaPlanGenerator/1.0 (media-plan-generator.onrender.com)"}
+    _allow_unverified = (os.environ.get("ALLOW_UNVERIFIED_SSL") or "").strip() == "1"
+    ssl_contexts: list[ssl.SSLContext] = [_DEFAULT_SSL_CTX]
+    if _allow_unverified:
+        ssl_contexts.append(_get_unverified_ssl_ctx())
+    for ctx_idx, ctx in enumerate(ssl_contexts):
+        try:
+            resp = _pooled_request(
+                url, method="GET", headers=hdrs, timeout=timeout, ssl_ctx=ctx
+            )
+            if ctx_idx > 0:
+                _log_warn(f"SSL verification BYPASSED for text GET {url}")
+            if resp.status >= 400:
+                _log_warn(f"HTTP GET text failed for {url}: HTTP {resp.status}")
+                return None
+            return resp.read().decode("utf-8")
+        except ssl.SSLError:
+            if ctx_idx == 0:
+                _log_warn(
+                    f"SSL error for text GET {url}, retrying without verification"
+                )
+            continue
+        except Exception as exc:
+            _log_warn(f"HTTP GET text failed for {url}: {exc}")
+            return None
+    return None
+
+
+def _http_get_text_urllib(url: str, timeout: int = API_TIMEOUT) -> Optional[str]:
+    """HTTP GET text via urllib (fallback when pool unavailable)."""
     req = urllib.request.Request(url, method="GET")
     req.add_header(
         "User-Agent", "MediaPlanGenerator/1.0 (media-plan-generator.onrender.com)"
     )
     _allow_unverified = (os.environ.get("ALLOW_UNVERIFIED_SSL") or "").strip() == "1"
-    _ssl_ctxs = [_DEFAULT_SSL_CTX]
+    _ssl_ctxs: list[ssl.SSLContext] = [_DEFAULT_SSL_CTX]
     if _allow_unverified:
         _ssl_ctxs.append(_get_unverified_ssl_ctx())
     for _ctx_idx, ctx in enumerate(_ssl_ctxs):

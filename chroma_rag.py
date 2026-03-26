@@ -101,6 +101,14 @@ def _ensure_initialized() -> bool:
                 "chroma_rag: chromadb not installed; "
                 "install with 'pip install chromadb' to enable RAG"
             )
+        except Exception as exc:
+            _init_error = f"chromadb init failed: {exc}"
+            _available = False
+            _initialized = True
+            logger.warning(
+                "chroma_rag: initialization failed (graceful degradation): %s",
+                exc,
+            )
             return False
 
         except (OSError, RuntimeError, ValueError) as exc:
@@ -108,6 +116,16 @@ def _ensure_initialized() -> bool:
             _available = False
             _initialized = True
             logger.error("chroma_rag: initialization failed: %s", exc, exc_info=True)
+            return False
+
+        except Exception as exc:
+            # Catch-all for chromadb ConfigError and other unexpected errors
+            _init_error = f"{type(exc).__name__}: {exc}"
+            _available = False
+            _initialized = True
+            logger.warning(
+                "chroma_rag: disabled due to %s: %s", type(exc).__name__, exc
+            )
             return False
 
 

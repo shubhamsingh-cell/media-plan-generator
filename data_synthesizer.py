@@ -3382,10 +3382,17 @@ Respond with ONLY the JSON object, no markdown formatting or code blocks."""
         from llm_router import call_llm, TASK_NARRATIVE
         import json as _json
 
+        # Scale max_tokens for complex multi-city/multi-role plans
+        _roles_raw = input_data.get("target_roles") or input_data.get("roles") or []
+        _locs_raw = input_data.get("locations") or []
+        _n_roles = len(_roles_raw) if isinstance(_roles_raw, list) else 1
+        _n_locs = len(_locs_raw) if isinstance(_locs_raw, list) else 1
+        _narrative_max_tokens = 8192 if (_n_roles >= 3 or _n_locs >= 3) else 1024
+
         result = call_llm(
             messages=[{"role": "user", "content": prompt}],
             system_prompt="You are a senior recruitment marketing strategist. Return ONLY valid JSON.",
-            max_tokens=1024,
+            max_tokens=_narrative_max_tokens,
             task_type=TASK_NARRATIVE,
         )
 

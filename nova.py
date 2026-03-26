@@ -1545,8 +1545,7 @@ def _detect_all_countries(text: str) -> List[str]:
 # Indicators that a query requires stronger reasoning / analytical models.
 # These queries benefit from Claude/GPT-4o instead of free tier LLMs.
 _COMPLEX_QUERY_INDICATORS: list[str] = [
-    # Geopolitical / macro-economic
-    "war",
+    # Geopolitical / macro-economic (recruitment-relevant only)
     "geopolitical",
     "recession",
     "inflation",
@@ -1555,9 +1554,6 @@ _COMPLEX_QUERY_INDICATORS: list[str] = [
     "regulation",
     "policy",
     "legislation",
-    "political",
-    "election",
-    "immigration",
     "pandemic",
     "economic impact",
     "trade war",
@@ -1643,6 +1639,16 @@ def _detect_query_complexity(message: str) -> bool:
         return False
 
     query_lower = message.lower()
+
+    # Guard: off-topic queries should never be routed to paid LLMs
+    _OFF_TOPIC_QUICK = re.compile(
+        r"\b(war|politics|political|election|president|democrat|republican"
+        r"|abortion|gun\s*control|death\s*penalty"
+        r"|stock|crypto|bitcoin|dating|relationship"
+        r"|recipe|joke|poem|weather)\b"
+    )
+    if _OFF_TOPIC_QUICK.search(query_lower):
+        return False
 
     # Check keyword indicators
     indicator_count = sum(1 for ind in _COMPLEX_QUERY_INDICATORS if ind in query_lower)
@@ -11190,6 +11196,7 @@ def handle_chat_request(
 
 def handle_chat_request_stream(
     request_data: dict,
+    cancel_event: Optional[threading.Event] = None,
 ) -> Generator[Dict[str, Any], None, None]:
     """Handle a chat request with simulated streaming from pre-computed response.
 
@@ -11200,6 +11207,13 @@ def handle_chat_request_stream(
 
     For short/cached/rule-based responses (<= 100 chars), yields the full
     response as a single chunk immediately.
+
+    Args:
+        request_data: The chat request payload.
+        cancel_event: Optional event from the SSE handler (app.py
+            ``_register_stream``).  When provided, the same event is forwarded
+            to ``handle_chat_request`` so that a user-initiated "Stop" signal
+            propagates into the background thread immediately.
 
     Yields:
         Dicts with one of:
@@ -11243,7 +11257,9 @@ def handle_chat_request_stream(
     _STREAM_TIMEOUT = 55.0
     _stream_result: dict = {}
     _stream_error: list = []
-    _cancel_event = threading.Event()
+    _cancel_event: threading.Event = (
+        cancel_event if cancel_event is not None else threading.Event()
+    )
 
     def _run_chat() -> None:
         """Execute handle_chat_request in a thread for timeout control."""

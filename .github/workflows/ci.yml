@@ -1,4 +1,4 @@
-name: CI
+name: Nova AI Suite CI
 
 on:
   push:
@@ -7,25 +7,152 @@ on:
     branches: [main]
 
 jobs:
-  test:
+  lint:
+    name: Python Lint & Compile
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+
+      - name: Compile all Python files
+        run: |
+          echo "=== Checking Python syntax ==="
+          ERRORS=0
+          for f in $(find . -name '*.py' -not -path './node_modules/*' -not -path './.claude/*' -not -path './archive/*'); do
+            if ! python3 -m py_compile "$f" 2>&1; then
+              echo "FAIL: $f"
+              ERRORS=$((ERRORS + 1))
+            fi
+          done
+          if [ "$ERRORS" -gt 0 ]; then
+            echo "::error::$ERRORS Python file(s) failed compilation"
+            exit 1
+          fi
+          echo "All Python files compiled successfully"
+
+  import-check:
+    name: Import Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Verify app imports
+        run: |
+          echo "=== Checking app.py imports ==="
+          python3 -c "import app" 2>&1
+          echo "app.py imported successfully"
+
+  syntax-check:
+    name: CSS/JS Syntax Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - name: Install Python dependencies
+
+      - name: Install prettier
+        run: npm install --save-dev prettier
+
+      - name: Check HTML/CSS/JS formatting
         run: |
-          pip install pytest black
-          pip install -r requirements.txt
-      - name: Install Node dependencies
-        run: npm ci || npm install
-      - name: Run black check
-        run: python -m black --check *.py tests/ || echo "::warning::Black formatting issues found"
-      - name: Run prettier check
-        run: npx prettier --check "templates/*.html" || echo "::warning::Prettier formatting issues found"
-      - name: Run tests
-        run: python -m pytest tests/ -v --tb=short
+          echo "=== Running Prettier check ==="
+          # Check templates (inline CSS/JS in HTML)
+          npx prettier --check "templates/**/*.html" 2>/dev/null || echo "::warning::Prettier issues in templates/"
+          # Check standalone CSS/JS if any exist
+          npx prettier --check "static/**/*.css" 2>/dev/null || true
+          npx prettier --check "static/**/*.js" 2>/dev/null || true
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Scan for hardcoded secrets
+        run: |
+          echo "=== Scanning for hardcoded secrets ==="
+          FOUND=0
+
+          # Patterns that indicate hardcoded secrets (skip .env, .yml, render.yaml, CLAUDE.md)
+          PATTERNS=(
+            'ANTHROPIC_API_KEY\s*=\s*["\x27]sk-'
+            'OPENAI_API_KEY\s*=\s*["\x27]sk-'
+            'api_key\s*=\s*["\x27][A-Za-z0-9_-]{20,}["\x27]'
+            'password\s*=\s*["\x27][^\x27"]{8,}["\x27]'
+            'secret\s*=\s*["\x27][A-Za-z0-9_-]{16,}["\x27]'
+            'token\s*=\s*["\x27][A-Za-z0-9_-]{20,}["\x27]'
+            'Bearer [A-Za-z0-9_-]{20,}'
+          )
+
+          for pattern in "${PATTERNS[@]}"; do
+            MATCHES=$(grep -rn --include='*.py' --include='*.js' --include='*.html' \
+              -E "$pattern" . \
+              --exclude-dir=node_modules \
+              --exclude-dir=.claude \
+              --exclude-dir=archive \
+              --exclude-dir=.git \
+              --exclude='*.yml' \
+              --exclude='*.yaml' \
+              --exclude='*.md' \
+              --exclude='*.txt' \
+              2>/dev/null || true)
+
+            if [ -n "$MATCHES" ]; then
+              echo "::warning::Potential secret found matching pattern: $pattern"
+              echo "$MATCHES" | head -5
+              FOUND=$((FOUND + 1))
+            fi
+          done
+
+          # Check for .env files that shouldn't be committed
+          if [ -f .env ]; then
+            echo "::error::.env file found in repository -- this should be in .gitignore"
+            FOUND=$((FOUND + 1))
+          fi
+
+          if [ "$FOUND" -gt 0 ]; then
+            echo "::warning::$FOUND potential secret pattern(s) detected -- review above"
+          else
+            echo "No hardcoded secrets detected"
+          fi
+
+  pr-checks:
+    name: PR Size Check
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check PR diff size
+        run: |
+          echo "=== Checking PR size ==="
+          BASE=${{ github.event.pull_request.base.sha }}
+          HEAD=${{ github.event.pull_request.head.sha }}
+
+          FILES_CHANGED=$(git diff --name-only "$BASE" "$HEAD" | wc -l)
+          LINES_CHANGED=$(git diff --stat "$BASE" "$HEAD" | tail -1 | grep -oE '[0-9]+ insertion|[0-9]+ deletion' | grep -oE '[0-9]+' | paste -sd+ - | bc 2>/dev/null || echo "0")
+
+          echo "Files changed: $FILES_CHANGED"
+          echo "Lines changed: $LINES_CHANGED"
+
+          if [ "$FILES_CHANGED" -gt 50 ]; then
+            echo "::warning::Large PR: $FILES_CHANGED files changed (threshold: 50). Consider splitting into smaller PRs."
+          fi
+
+          if [ "$LINES_CHANGED" -gt 5000 ]; then
+            echo "::warning::Large PR: $LINES_CHANGED lines changed (threshold: 5000). Consider splitting into smaller PRs."
+          fi

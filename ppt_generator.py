@@ -6348,6 +6348,652 @@ def _build_slide_creative_testing(prs: Presentation, data: Dict) -> None:
 
 
 # ===================================================================
+# GOLD STANDARD SLIDES -- Market Intelligence, Strategy, Timeline
+# ===================================================================
+
+
+def _build_slides_gold_standard(prs: Presentation, data: Dict) -> None:
+    """Build 2-3 slides from Gold Standard quality gate outputs.
+
+    Adds the following slides (if data is available):
+      - Market Intelligence: city-level data + competitor mapping
+      - Strategy & Difficulty: channel strategy + role difficulty framework
+      - Activation Timeline: hiring calendar + budget phasing
+
+    Each slide is wrapped in its own try/except so a single failure
+    does not block the remaining slides.
+
+    Args:
+        prs: The python-pptx Presentation object.
+        data: The full enriched data dict containing ``_gold_standard``.
+    """
+    gold: dict = data.get("_gold_standard") or {}
+    if not gold:
+        return
+
+    today = datetime.date.today().strftime("%B %d, %Y")
+
+    # ── Slide A: Market Intelligence (city-level + competitors) ──
+    city_data: dict = gold.get("city_level_data") or {}
+    competitor_map: dict = gold.get("competitor_mapping") or {}
+    clearance: Optional[dict] = gold.get("clearance_segmentation")
+
+    if city_data or competitor_map:
+        try:
+            slide = prs.slides.add_slide(prs.slide_layouts[6])
+            _add_filled_rect(
+                slide, Inches(0), Inches(0), SLIDE_WIDTH, SLIDE_HEIGHT, OFF_WHITE
+            )
+            _add_top_band(slide, "MARKET INTELLIGENCE", today)
+
+            _add_textbox(
+                slide,
+                Inches(0.55),
+                Inches(0.92),
+                Inches(12.2),
+                Inches(0.4),
+                text="City-level supply-demand analysis and competitive landscape",
+                font_size=14,
+                bold=True,
+                color=NAVY,
+            )
+
+            content_top = Inches(1.45)
+
+            # ---- City-Level Data Table ----
+            if city_data:
+                _add_textbox(
+                    slide,
+                    Inches(0.55),
+                    content_top,
+                    Inches(5.5),
+                    Inches(0.3),
+                    text="CITY-LEVEL SUPPLY DATA",
+                    font_size=10,
+                    bold=True,
+                    color=NAVY,
+                )
+                _add_filled_rect(
+                    slide,
+                    Inches(0.55),
+                    content_top + Inches(0.3),
+                    Inches(1.5),
+                    Inches(0.025),
+                    TEAL,
+                )
+
+                # Table header
+                city_table_top = content_top + Inches(0.45)
+                col_labels = ["City", "Salary", "Difficulty", "Supply Tier"]
+                col_widths = [Inches(1.5), Inches(1.3), Inches(1.1), Inches(1.3)]
+                total_w = sum(w for w in col_widths)
+
+                _add_filled_rect(
+                    slide,
+                    Inches(0.55),
+                    city_table_top,
+                    total_w,
+                    Inches(0.3),
+                    NAVY,
+                )
+                x_pos = Inches(0.55)
+                for label, cw in zip(col_labels, col_widths):
+                    _add_textbox(
+                        slide,
+                        x_pos + Inches(0.05),
+                        city_table_top,
+                        cw - Inches(0.05),
+                        Inches(0.3),
+                        text=label,
+                        font_size=8,
+                        bold=True,
+                        color=WHITE,
+                        anchor=MSO_ANCHOR.MIDDLE,
+                    )
+                    x_pos += cw
+
+                # Table rows (limit to 8 cities to fit)
+                row_y = city_table_top + Inches(0.3)
+                row_h = Inches(0.28)
+                cities_shown = list(city_data.items())[:8]
+                for idx, (city_name, info) in enumerate(cities_shown):
+                    bg = LIGHT_BLUE if idx % 2 == 0 else WARM_WHITE
+                    _add_filled_rect(slide, Inches(0.55), row_y, total_w, row_h, bg)
+                    vals = [
+                        city_name,
+                        f"${info.get('estimated_salary', 0):,.0f}",
+                        f"{info.get('hiring_difficulty', 0):.1f}/10",
+                        str(info.get("supply_tier") or "balanced")
+                        .replace("_", " ")
+                        .title(),
+                    ]
+                    x_pos = Inches(0.55)
+                    for val, cw in zip(vals, col_widths):
+                        _add_textbox(
+                            slide,
+                            x_pos + Inches(0.05),
+                            row_y,
+                            cw - Inches(0.05),
+                            row_h,
+                            text=val,
+                            font_size=7,
+                            color=DARK_TEXT,
+                            anchor=MSO_ANCHOR.MIDDLE,
+                        )
+                        x_pos += cw
+                    row_y += row_h
+
+            # ---- Competitor Mapping (right side) ----
+            if competitor_map:
+                comp_left = Inches(6.2)
+                _add_textbox(
+                    slide,
+                    comp_left,
+                    content_top,
+                    Inches(6.5),
+                    Inches(0.3),
+                    text="COMPETITOR LANDSCAPE",
+                    font_size=10,
+                    bold=True,
+                    color=NAVY,
+                )
+                _add_filled_rect(
+                    slide,
+                    comp_left,
+                    content_top + Inches(0.3),
+                    Inches(1.5),
+                    Inches(0.025),
+                    TEAL,
+                )
+
+                comp_y = content_top + Inches(0.5)
+                comp_entries = [
+                    (city, info)
+                    for city, info in competitor_map.items()
+                    if not city.startswith("_")
+                ][:6]
+
+                for city_name, info in comp_entries:
+                    employers = info.get("top_employers") or []
+                    intensity = str(info.get("hiring_intensity") or "moderate").title()
+
+                    _add_textbox(
+                        slide,
+                        comp_left,
+                        comp_y,
+                        Inches(6.5),
+                        Inches(0.22),
+                        text=f"{city_name} ({intensity} intensity)",
+                        font_size=8,
+                        bold=True,
+                        color=NAVY,
+                    )
+                    _add_textbox(
+                        slide,
+                        comp_left + Inches(0.1),
+                        comp_y + Inches(0.22),
+                        Inches(6.4),
+                        Inches(0.22),
+                        text=", ".join(employers[:5]),
+                        font_size=7,
+                        color=MUTED_TEXT,
+                    )
+                    comp_y += Inches(0.5)
+
+            # Clearance badge (if applicable)
+            if clearance:
+                primary = clearance.get("primary_clearance") or {}
+                badge_text = f"Clearance: {primary.get('level', 'N/A')} | +{primary.get('salary_premium_pct', 0)}% premium"
+                _add_filled_rect(
+                    slide, Inches(0.55), Inches(6.4), Inches(4), Inches(0.35), NAVY
+                )
+                _add_textbox(
+                    slide,
+                    Inches(0.65),
+                    Inches(6.4),
+                    Inches(3.8),
+                    Inches(0.35),
+                    text=badge_text,
+                    font_size=8,
+                    bold=True,
+                    color=TEAL,
+                    anchor=MSO_ANCHOR.MIDDLE,
+                )
+
+            _add_footer(slide, today)
+
+        except Exception as exc:
+            logger.error(
+                "Gold Standard slide (Market Intelligence) failed: %s",
+                exc,
+                exc_info=True,
+            )
+
+    # ── Slide B: Strategy & Difficulty ──
+    channel_strategy: dict = gold.get("channel_strategy") or {}
+    difficulty_framework: list = gold.get("difficulty_framework") or []
+
+    if channel_strategy or difficulty_framework:
+        try:
+            slide = prs.slides.add_slide(prs.slide_layouts[6])
+            _add_filled_rect(
+                slide, Inches(0), Inches(0), SLIDE_WIDTH, SLIDE_HEIGHT, OFF_WHITE
+            )
+            _add_top_band(slide, "STRATEGY & DIFFICULTY FRAMEWORK", today)
+
+            _add_textbox(
+                slide,
+                Inches(0.55),
+                Inches(0.92),
+                Inches(12.2),
+                Inches(0.4),
+                text="Channel strategy split and role complexity classification",
+                font_size=14,
+                bold=True,
+                color=NAVY,
+            )
+
+            content_top = Inches(1.5)
+
+            # ---- Channel Strategy (left half) ----
+            if channel_strategy:
+                split = channel_strategy.get("recommended_split") or {}
+                trad_pct = split.get("traditional_pct", 65)
+                nontrad_pct = split.get("non_traditional_pct", 35)
+
+                _add_textbox(
+                    slide,
+                    Inches(0.55),
+                    content_top,
+                    Inches(5.5),
+                    Inches(0.3),
+                    text="CHANNEL MIX STRATEGY",
+                    font_size=10,
+                    bold=True,
+                    color=NAVY,
+                )
+                _add_filled_rect(
+                    slide,
+                    Inches(0.55),
+                    content_top + Inches(0.3),
+                    Inches(1.5),
+                    Inches(0.025),
+                    TEAL,
+                )
+
+                # Split visualization bar
+                bar_top = content_top + Inches(0.5)
+                bar_h = Inches(0.5)
+                bar_w = Inches(5.2)
+                trad_w = Inches(5.2 * trad_pct / 100)
+                nontrad_w = Inches(5.2 * nontrad_pct / 100)
+
+                _add_filled_rect(slide, Inches(0.55), bar_top, trad_w, bar_h, BLUE)
+                _add_textbox(
+                    slide,
+                    Inches(0.6),
+                    bar_top,
+                    trad_w - Inches(0.1),
+                    bar_h,
+                    text=f"Traditional {trad_pct}%",
+                    font_size=10,
+                    bold=True,
+                    color=WHITE,
+                    anchor=MSO_ANCHOR.MIDDLE,
+                )
+
+                _add_filled_rect(
+                    slide, Inches(0.55) + trad_w, bar_top, nontrad_w, bar_h, TEAL
+                )
+                _add_textbox(
+                    slide,
+                    Inches(0.6) + trad_w,
+                    bar_top,
+                    nontrad_w - Inches(0.1),
+                    bar_h,
+                    text=f"Non-Trad {nontrad_pct}%",
+                    font_size=10,
+                    bold=True,
+                    color=WHITE,
+                    anchor=MSO_ANCHOR.MIDDLE,
+                )
+
+                # Channel lists below bar
+                list_top = bar_top + Inches(0.65)
+                trad_channels = channel_strategy.get("traditional_channels") or []
+                nontrad_channels = (
+                    channel_strategy.get("non_traditional_channels") or []
+                )
+
+                for idx, ch in enumerate(trad_channels[:4]):
+                    _add_textbox(
+                        slide,
+                        Inches(0.7),
+                        list_top + Inches(idx * 0.22),
+                        Inches(2.5),
+                        Inches(0.22),
+                        text=f"  {ch.get('name', '')}",
+                        font_size=7,
+                        color=DARK_TEXT,
+                    )
+
+                for idx, ch in enumerate(nontrad_channels[:4]):
+                    _add_textbox(
+                        slide,
+                        Inches(3.2),
+                        list_top + Inches(idx * 0.22),
+                        Inches(2.8),
+                        Inches(0.22),
+                        text=f"  {ch.get('name', '')}",
+                        font_size=7,
+                        color=DARK_TEXT,
+                    )
+
+            # ---- Difficulty Framework (right half) ----
+            if difficulty_framework:
+                diff_left = Inches(6.5)
+                _add_textbox(
+                    slide,
+                    diff_left,
+                    content_top,
+                    Inches(6),
+                    Inches(0.3),
+                    text="ROLE DIFFICULTY CLASSIFICATION",
+                    font_size=10,
+                    bold=True,
+                    color=NAVY,
+                )
+                _add_filled_rect(
+                    slide,
+                    diff_left,
+                    content_top + Inches(0.3),
+                    Inches(1.5),
+                    Inches(0.025),
+                    TEAL,
+                )
+
+                # Difficulty cards
+                card_top = content_top + Inches(0.5)
+                card_h = Inches(0.7)
+                card_w = Inches(6.2)
+
+                for idx, role_info in enumerate(difficulty_framework[:6]):
+                    card_y = card_top + Inches(idx * (0.7 + 0.08))
+                    complexity = role_info.get("complexity_score", 0)
+                    seniority = str(role_info.get("seniority_level") or "mid").title()
+
+                    # Complexity-based color
+                    if complexity >= 7:
+                        card_color = LIGHT_AMBER
+                    elif complexity >= 4:
+                        card_color = LIGHT_BLUE
+                    else:
+                        card_color = LIGHT_GREEN
+
+                    _add_filled_rect(
+                        slide, diff_left, card_y, card_w, card_h, card_color
+                    )
+
+                    _add_textbox(
+                        slide,
+                        diff_left + Inches(0.1),
+                        card_y + Inches(0.05),
+                        Inches(3),
+                        Inches(0.25),
+                        text=str(role_info.get("role_title") or ""),
+                        font_size=9,
+                        bold=True,
+                        color=NAVY,
+                    )
+                    _add_textbox(
+                        slide,
+                        diff_left + Inches(0.1),
+                        card_y + Inches(0.3),
+                        Inches(5.8),
+                        Inches(0.35),
+                        text=(
+                            f"{seniority} | Complexity: {complexity}/10 | "
+                            f"TTF: {role_info.get('avg_time_to_fill_days', 0)} days | "
+                            f"Budget: {role_info.get('budget_weight', 1.0):.1f}x"
+                        ),
+                        font_size=7,
+                        color=MUTED_TEXT,
+                    )
+
+            _add_footer(slide, today)
+
+        except Exception as exc:
+            logger.error(
+                "Gold Standard slide (Strategy & Difficulty) failed: %s",
+                exc,
+                exc_info=True,
+            )
+
+    # ── Slide C: Activation Timeline ──
+    activation: dict = gold.get("activation_calendar") or {}
+    budget_tiers: dict = gold.get("budget_tiers") or {}
+
+    if activation:
+        try:
+            slide = prs.slides.add_slide(prs.slide_layouts[6])
+            _add_filled_rect(
+                slide, Inches(0), Inches(0), SLIDE_WIDTH, SLIDE_HEIGHT, OFF_WHITE
+            )
+            _add_top_band(slide, "ACTIVATION TIMELINE", today)
+
+            _add_textbox(
+                slide,
+                Inches(0.55),
+                Inches(0.92),
+                Inches(12.2),
+                Inches(0.4),
+                text="Hiring intensity calendar and budget phasing",
+                font_size=14,
+                bold=True,
+                color=NAVY,
+            )
+
+            content_top = Inches(1.5)
+            timeline: list = activation.get("timeline") or []
+
+            if timeline:
+                _add_textbox(
+                    slide,
+                    Inches(0.55),
+                    content_top,
+                    Inches(12),
+                    Inches(0.3),
+                    text="6-MONTH HIRING CALENDAR",
+                    font_size=10,
+                    bold=True,
+                    color=NAVY,
+                )
+                _add_filled_rect(
+                    slide,
+                    Inches(0.55),
+                    content_top + Inches(0.3),
+                    Inches(1.5),
+                    Inches(0.025),
+                    TEAL,
+                )
+
+                # Calendar cards (horizontal layout)
+                card_w = Inches(1.95)
+                card_h = Inches(3.5)
+                cards_left = Inches(0.55)
+                cards_top = content_top + Inches(0.5)
+                gap = Inches(0.1)
+
+                intensity_colors: dict[str, RGBColor] = {
+                    "very_high": RGBColor(0xB5, 0x66, 0x9C),  # Pink
+                    "high": RGBColor(0x5A, 0x54, 0xBD),  # Blue Violet
+                    "moderate": RGBColor(0x6B, 0xB3, 0xCD),  # Teal
+                    "low": RGBColor(0xEB, 0xE6, 0xE0),  # Warm gray
+                }
+
+                for idx, month_info in enumerate(timeline[:6]):
+                    card_x = cards_left + idx * (card_w + gap)
+                    intensity = str(month_info.get("hiring_intensity") or "moderate")
+                    bar_color = intensity_colors.get(intensity, TEAL)
+
+                    # Card background
+                    _add_filled_rect(
+                        slide, card_x, cards_top, card_w, card_h, WARM_WHITE
+                    )
+
+                    # Intensity color bar at top of card
+                    _add_filled_rect(
+                        slide, card_x, cards_top, card_w, Inches(0.08), bar_color
+                    )
+
+                    # Month name
+                    _add_textbox(
+                        slide,
+                        card_x + Inches(0.08),
+                        cards_top + Inches(0.15),
+                        card_w - Inches(0.16),
+                        Inches(0.25),
+                        text=str(month_info.get("month_name") or ""),
+                        font_size=11,
+                        bold=True,
+                        color=NAVY,
+                    )
+
+                    # Season + intensity
+                    _add_textbox(
+                        slide,
+                        card_x + Inches(0.08),
+                        cards_top + Inches(0.42),
+                        card_w - Inches(0.16),
+                        Inches(0.2),
+                        text=f"{month_info.get('season', '')} | {intensity.replace('_', ' ').upper()}",
+                        font_size=7,
+                        bold=True,
+                        color=bar_color if intensity != "low" else MUTED_TEXT,
+                    )
+
+                    # Budget weight
+                    weight = month_info.get("budget_weight", 1.0)
+                    _add_textbox(
+                        slide,
+                        card_x + Inches(0.08),
+                        cards_top + Inches(0.65),
+                        card_w - Inches(0.16),
+                        Inches(0.2),
+                        text=f"Budget weight: {weight:.1f}x",
+                        font_size=7,
+                        color=DARK_TEXT,
+                    )
+
+                    # Events list
+                    events = month_info.get("key_events") or []
+                    event_y = cards_top + Inches(0.9)
+                    for ev in events[:3]:
+                        _add_textbox(
+                            slide,
+                            card_x + Inches(0.08),
+                            event_y,
+                            card_w - Inches(0.16),
+                            Inches(0.18),
+                            text=f"- {ev}",
+                            font_size=6,
+                            color=MUTED_TEXT,
+                        )
+                        event_y += Inches(0.18)
+
+                    # Recommendation
+                    rec = str(month_info.get("recommendation") or "")
+                    if rec:
+                        _add_textbox(
+                            slide,
+                            card_x + Inches(0.08),
+                            cards_top + Inches(1.7),
+                            card_w - Inches(0.16),
+                            Inches(0.6),
+                            text=rec,
+                            font_size=6,
+                            italic=True,
+                            color=DARK_TEXT,
+                        )
+
+            # ---- Budget Tiers Summary (bottom section) ----
+            if budget_tiers and "error" not in budget_tiers:
+                tier_top = Inches(5.3)
+                _add_textbox(
+                    slide,
+                    Inches(0.55),
+                    tier_top,
+                    Inches(5),
+                    Inches(0.25),
+                    text="BUDGET TIER ALLOCATION",
+                    font_size=10,
+                    bold=True,
+                    color=NAVY,
+                )
+                _add_filled_rect(
+                    slide,
+                    Inches(0.55),
+                    tier_top + Inches(0.25),
+                    Inches(1.5),
+                    Inches(0.025),
+                    TEAL,
+                )
+
+                tier_breakdown: dict = budget_tiers.get("tier_breakdown") or {}
+                tier_x = Inches(0.55)
+                tier_card_w = Inches(4.0)
+                tier_card_h = Inches(1.0)
+
+                for idx, (tier_key, tier_info) in enumerate(tier_breakdown.items()):
+                    tx = tier_x + idx * (tier_card_w + Inches(0.1))
+                    _add_filled_rect(
+                        slide,
+                        tx,
+                        tier_top + Inches(0.4),
+                        tier_card_w,
+                        tier_card_h,
+                        NAVY,
+                    )
+
+                    tier_label = tier_key.replace("_", " ").title()
+                    amount = tier_info.get("amount", 0)
+                    pct = tier_info.get("pct", 0)
+
+                    _add_textbox(
+                        slide,
+                        tx + Inches(0.1),
+                        tier_top + Inches(0.45),
+                        tier_card_w - Inches(0.2),
+                        Inches(0.35),
+                        text=f"${amount:,.0f}",
+                        font_size=16,
+                        bold=True,
+                        color=TEAL,
+                        anchor=MSO_ANCHOR.MIDDLE,
+                    )
+                    _add_textbox(
+                        slide,
+                        tx + Inches(0.1),
+                        tier_top + Inches(0.82),
+                        tier_card_w - Inches(0.2),
+                        Inches(0.25),
+                        text=f"{tier_label} ({pct:.0f}%)",
+                        font_size=8,
+                        color=LIGHT_MUTED,
+                        alignment=PP_ALIGN.CENTER,
+                    )
+
+            _add_footer(slide, today)
+
+        except Exception as exc:
+            logger.error(
+                "Gold Standard slide (Activation Timeline) failed: %s",
+                exc,
+                exc_info=True,
+            )
+
+
+# ===================================================================
 # SLIDE N (Last) - Data Sources & Methodology
 # ===================================================================
 
@@ -6862,6 +7508,12 @@ def generate_pptx(data: Dict[str, Any]) -> bytes:
 
         # Slide 5: Implementation Timeline + Competitive Context
         _build_slide_comparison_timeline(prs, data)
+
+        # Gold Standard slides (Market Intelligence, Strategy, Timeline)
+        # Only added when _gold_standard data exists; each slide is
+        # individually wrapped in try/except inside the builder.
+        if data.get("_gold_standard"):
+            _build_slides_gold_standard(prs, data)
 
         # Final Slide: Data Sources & Methodology
         _build_slide_data_sources(prs, data)

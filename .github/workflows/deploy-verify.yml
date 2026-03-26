@@ -1,0 +1,103 @@
+name: Post-Deploy Verification
+
+on:
+  workflow_dispatch:
+    inputs:
+      deploy_url:
+        description: 'Render deployment URL'
+        required: false
+        default: 'https://media-plan-generator.onrender.com'
+      wait_seconds:
+        description: 'Seconds to wait for deploy to propagate'
+        required: false
+        default: '60'
+
+env:
+  DEPLOY_URL: ${{ github.event.inputs.deploy_url || 'https://media-plan-generator.onrender.com' }}
+
+jobs:
+  verify:
+    name: Post-Deploy Smoke Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for Render deploy
+        run: |
+          WAIT=${{ github.event.inputs.wait_seconds || '60' }}
+          echo "Waiting ${WAIT}s for Render deploy to propagate..."
+          sleep "$WAIT"
+
+      - name: Check /ready endpoint
+        run: |
+          echo "=== Hitting /ready endpoint ==="
+          RESPONSE=$(curl -sf --max-time 30 "${DEPLOY_URL}/ready" 2>&1) || {
+            echo "::error::/ready endpoint failed or timed out"
+            exit 1
+          }
+
+          echo "Response: $RESPONSE"
+
+          if echo "$RESPONSE" | grep -qi '"status".*"healthy"'; then
+            echo "/ready reports healthy"
+          else
+            echo "::error::/ready did not return status: healthy"
+            echo "$RESPONSE"
+            exit 1
+          fi
+
+      - name: Check /api/health endpoint
+        run: |
+          echo "=== Hitting /api/health endpoint ==="
+          HTTP_CODE=$(curl -s -o /tmp/health_response.json -w "%{http_code}" --max-time 30 "${DEPLOY_URL}/api/health")
+
+          echo "HTTP status: $HTTP_CODE"
+          cat /tmp/health_response.json | python3 -m json.tool 2>/dev/null || cat /tmp/health_response.json
+
+          if [ "$HTTP_CODE" -ne 200 ]; then
+            echo "::error::/api/health returned HTTP $HTTP_CODE"
+            exit 1
+          fi
+
+          echo "/api/health returned 200 OK"
+
+      - name: Smoke test - Nova chat
+        run: |
+          echo "=== Smoke test: POST /api/chat ==="
+          HTTP_CODE=$(curl -s -o /tmp/chat_response.json -w "%{http_code}" \
+            --max-time 60 \
+            -X POST \
+            -H "Content-Type: application/json" \
+            -d '{"message": "hello", "conversation_id": "ci-smoke-test"}' \
+            "${DEPLOY_URL}/api/chat")
+
+          echo "HTTP status: $HTTP_CODE"
+
+          if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 400 ]; then
+            echo "::error::/api/chat returned HTTP $HTTP_CODE"
+            cat /tmp/chat_response.json
+            exit 1
+          fi
+
+          # Check response has content
+          RESPONSE_SIZE=$(wc -c < /tmp/chat_response.json)
+          if [ "$RESPONSE_SIZE" -lt 5 ]; then
+            echo "::error::/api/chat returned empty or near-empty response"
+            cat /tmp/chat_response.json
+            exit 1
+          fi
+
+          echo "Nova chat responded (${RESPONSE_SIZE} bytes)"
+          echo "Smoke test passed"
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Deploy Verification Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **URL**: ${DEPLOY_URL}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Time**: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| /ready | ${{ steps.*.outcome == 'success' && 'Pass' || 'Check logs' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| /api/health | ${{ steps.*.outcome == 'success' && 'Pass' || 'Check logs' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| /api/chat smoke | ${{ steps.*.outcome == 'success' && 'Pass' || 'Check logs' }} |" >> $GITHUB_STEP_SUMMARY

@@ -2941,6 +2941,466 @@ def _build_sheet_roi_projections(ws, data: dict) -> None:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# SHEET 6: Quality Intelligence (Gold Standard Gates)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def _build_sheet_quality_intelligence(
+    ws, data: dict, gold_standard: dict[str, Any]
+) -> None:
+    """Build the Quality Intelligence worksheet from Gold Standard gate outputs.
+
+    Renders 7 sections corresponding to the quality gates:
+    1. City-level supply-demand data
+    2. Security clearance segmentation (if applicable)
+    3. Competitor mapping per city
+    4. Difficulty classification per role
+    5. Channel strategy (traditional vs non-traditional)
+    6. Budget tier breakdowns
+    7. Activation event calendar
+
+    Args:
+        ws: The openpyxl worksheet to populate.
+        data: The full enriched data dict.
+        gold_standard: The ``data["_gold_standard"]`` dict from apply_all_quality_gates.
+    """
+    ws.title = "Quality Intelligence"
+    ws.sheet_properties.tabColor = SAPPHIRE
+
+    # Column widths (B-H)
+    _set_column_widths(ws, {1: 2, 2: 22, 3: 18, 4: 18, 5: 18, 6: 18, 7: 18, 8: 18})
+
+    row = 2
+
+    # ── Title banner ──
+    row = _write_section_header(ws, row, "QUALITY INTELLIGENCE -- GOLD STANDARD GATES")
+    row += 1
+
+    client_name = data.get("client_name") or "Client"
+    industry_label = data.get("industry_label") or (
+        (data.get("industry") or "").replace("_", " ").title()
+    )
+    row = _write_footnote(
+        ws,
+        row,
+        f"Gold Standard quality gate analysis for {client_name} | "
+        f"Industry: {industry_label} | "
+        f"Generated {datetime.date.today().strftime('%B %d, %Y')}",
+    )
+    row += 1
+
+    # ── Section 1: City-Level Supply-Demand Data ──
+    city_data: dict = gold_standard.get("city_level_data") or {}
+    try:
+        if city_data:
+            row = _write_subsection_header(ws, row, "City-Level Supply-Demand Data")
+            row = _write_table_header(
+                ws,
+                row,
+                [
+                    "City",
+                    "Salary Multiplier",
+                    "Estimated Salary",
+                    "Hiring Difficulty",
+                    "Supply Tier",
+                    "COL Index",
+                    "Salary Range",
+                ],
+            )
+            for idx, (city_name, info) in enumerate(city_data.items()):
+                row = _write_table_row(
+                    ws,
+                    row,
+                    [
+                        city_name,
+                        f"{info.get('salary_multiplier', 1.0):.2f}x",
+                        f"${info.get('estimated_salary', 0):,.0f}",
+                        f"{info.get('hiring_difficulty', 0):.1f}/10",
+                        str(info.get("supply_tier") or "balanced")
+                        .replace("_", " ")
+                        .title(),
+                        f"{info.get('cost_of_living_index', 100):.1f}",
+                        str(info.get("salary_range") or "N/A"),
+                    ],
+                    alternate=idx % 2 == 1,
+                )
+            row = _write_footnote(
+                ws,
+                row,
+                "Salary multipliers relative to national average. "
+                "Hiring difficulty: 1 (easy) to 10 (hardest).",
+            )
+            row += 1
+    except Exception as exc:
+        logger.error(
+            "Quality Intelligence: city-level section failed: %s", exc, exc_info=True
+        )
+        row += 1
+
+    # ── Section 2: Security Clearance Segmentation ──
+    clearance: Optional[dict] = gold_standard.get("clearance_segmentation")
+    try:
+        if clearance:
+            row = _write_subsection_header(ws, row, "Security Clearance Segmentation")
+
+            primary = clearance.get("primary_clearance") or {}
+            row = _write_kv_row(
+                ws, row, "Defense Related", "Yes -- clearance requirements detected"
+            )
+            row = _write_kv_row(
+                ws, row, "Primary Clearance", str(primary.get("level") or "N/A")
+            )
+            row = _write_kv_row(
+                ws,
+                row,
+                "Detected Keywords",
+                ", ".join(clearance.get("detected_keywords") or []),
+            )
+            row += 1
+
+            # Clearance tiers table
+            all_tiers: list = clearance.get("all_clearance_tiers") or []
+            if all_tiers:
+                row = _write_table_header(
+                    ws,
+                    row,
+                    [
+                        "Clearance Level",
+                        "Salary Premium",
+                        "Time-to-Fill (wks)",
+                        "Pool Reduction",
+                        "Budget Multiplier",
+                        "Recommended Channels",
+                    ],
+                )
+                for idx, tier in enumerate(all_tiers):
+                    row = _write_table_row(
+                        ws,
+                        row,
+                        [
+                            str(tier.get("level") or ""),
+                            f"+{tier.get('salary_premium_pct', 0)}%",
+                            str(tier.get("time_to_fill_weeks") or ""),
+                            f"{tier.get('candidate_pool_reduction_pct', 0)}%",
+                            f"{tier.get('budget_multiplier', 1.0):.1f}x",
+                            ", ".join(tier.get("channels") or []),
+                        ],
+                        alternate=idx % 2 == 1,
+                    )
+
+            # Recommendations
+            recs: list = clearance.get("recommendations") or []
+            for rec in recs:
+                row = _write_kv_row(ws, row, "Recommendation", str(rec))
+            row += 1
+    except Exception as exc:
+        logger.error(
+            "Quality Intelligence: clearance section failed: %s", exc, exc_info=True
+        )
+        row += 1
+
+    # ── Section 3: Competitor Mapping ──
+    competitor_map: dict = gold_standard.get("competitor_mapping") or {}
+    try:
+        if competitor_map:
+            row = _write_subsection_header(ws, row, "Competitor Mapping by City")
+            row = _write_table_header(
+                ws,
+                row,
+                [
+                    "City",
+                    "Top Employers",
+                    "Hiring Intensity",
+                    "Est. Competing Postings",
+                ],
+            )
+            for idx, (city_name, info) in enumerate(competitor_map.items()):
+                if city_name.startswith("_"):
+                    continue  # skip internal keys like _national
+                employers = info.get("top_employers") or []
+                row = _write_table_row(
+                    ws,
+                    row,
+                    [
+                        city_name,
+                        ", ".join(employers[:5]),
+                        str(info.get("hiring_intensity") or "moderate").title(),
+                        str(info.get("estimated_competing_postings") or "N/A"),
+                    ],
+                    alternate=idx % 2 == 1,
+                )
+
+            # National competitors row
+            national: dict = competitor_map.get("_national") or {}
+            if national:
+                national_employers = national.get("top_employers") or []
+                row = _write_table_row(
+                    ws,
+                    row,
+                    [
+                        "National (All Markets)",
+                        ", ".join(national_employers[:6]),
+                        str(national.get("hiring_intensity") or "moderate").title(),
+                        "",
+                    ],
+                    fonts=[_FONT_BODY_BOLD, _FONT_BODY, _FONT_BODY, _FONT_BODY],
+                )
+            row += 1
+    except Exception as exc:
+        logger.error(
+            "Quality Intelligence: competitor section failed: %s", exc, exc_info=True
+        )
+        row += 1
+
+    # ── Section 4: Difficulty Classification ──
+    difficulty_framework: list = gold_standard.get("difficulty_framework") or []
+    try:
+        if difficulty_framework:
+            row = _write_subsection_header(ws, row, "Role Difficulty Classification")
+            row = _write_table_header(
+                ws,
+                row,
+                [
+                    "Role Title",
+                    "Seniority Level",
+                    "Complexity (1-10)",
+                    "Avg Time-to-Fill",
+                    "Budget Weight",
+                    "Channel Emphasis",
+                    "Description",
+                ],
+            )
+            for idx, role_info in enumerate(difficulty_framework):
+                row = _write_table_row(
+                    ws,
+                    row,
+                    [
+                        str(role_info.get("role_title") or ""),
+                        str(role_info.get("seniority_level") or "mid").title(),
+                        str(role_info.get("complexity_score") or ""),
+                        f"{role_info.get('avg_time_to_fill_days', 0)} days",
+                        f"{role_info.get('budget_weight', 1.0):.1f}x",
+                        str(role_info.get("channel_emphasis") or "")
+                        .replace("_", " ")
+                        .title(),
+                        str(role_info.get("description") or ""),
+                    ],
+                    alternate=idx % 2 == 1,
+                )
+            row += 1
+    except Exception as exc:
+        logger.error(
+            "Quality Intelligence: difficulty section failed: %s", exc, exc_info=True
+        )
+        row += 1
+
+    # ── Section 5: Channel Strategy ──
+    channel_strategy: dict = gold_standard.get("channel_strategy") or {}
+    try:
+        if channel_strategy:
+            row = _write_subsection_header(
+                ws, row, "Channel Strategy -- Traditional vs Non-Traditional"
+            )
+
+            split = channel_strategy.get("recommended_split") or {}
+            trad_pct = split.get("traditional_pct", 65)
+            nontrad_pct = split.get("non_traditional_pct", 35)
+            avg_complexity = channel_strategy.get("avg_role_complexity", 0)
+
+            row = _write_kv_row(
+                ws,
+                row,
+                "Recommended Split",
+                f"{trad_pct}% Traditional / {nontrad_pct}% Non-Traditional",
+            )
+            row = _write_kv_row(ws, row, "Avg Role Complexity", f"{avg_complexity}/10")
+            strategy_note = channel_strategy.get("strategy_note") or ""
+            if strategy_note:
+                row = _write_kv_row(ws, row, "Strategy Note", strategy_note)
+            row += 1
+
+            # Traditional channels
+            trad_channels: list = channel_strategy.get("traditional_channels") or []
+            if trad_channels:
+                row = _write_table_header(
+                    ws,
+                    row,
+                    ["Traditional Channel", "Type", "Reach", "Relevance Score"],
+                    fill=_FILL_BLUE_LIGHT,
+                )
+                for idx, ch in enumerate(trad_channels):
+                    row = _write_table_row(
+                        ws,
+                        row,
+                        [
+                            str(ch.get("name") or ""),
+                            str(ch.get("type") or "").replace("_", " ").title(),
+                            str(ch.get("reach") or "").title(),
+                            str(ch.get("relevance_score") or ""),
+                        ],
+                        alternate=idx % 2 == 1,
+                    )
+                row += 1
+
+            # Non-traditional channels
+            nontrad_channels: list = (
+                channel_strategy.get("non_traditional_channels") or []
+            )
+            if nontrad_channels:
+                row = _write_table_header(
+                    ws,
+                    row,
+                    ["Non-Traditional Channel", "Type", "Reach"],
+                    fill=_FILL_BLUE_LIGHT,
+                )
+                for idx, ch in enumerate(nontrad_channels):
+                    row = _write_table_row(
+                        ws,
+                        row,
+                        [
+                            str(ch.get("name") or ""),
+                            str(ch.get("type") or "").replace("_", " ").title(),
+                            str(ch.get("reach") or "").title(),
+                        ],
+                        alternate=idx % 2 == 1,
+                    )
+                row += 1
+    except Exception as exc:
+        logger.error(
+            "Quality Intelligence: channel strategy section failed: %s",
+            exc,
+            exc_info=True,
+        )
+        row += 1
+
+    # ── Section 6: Budget Tier Breakdowns ──
+    budget_tiers: dict = gold_standard.get("budget_tiers") or {}
+    try:
+        if budget_tiers and "error" not in budget_tiers:
+            row = _write_subsection_header(ws, row, "Multi-Tier Budget Breakdown")
+            total = budget_tiers.get("total_budget", 0)
+            row = _write_kv_row(ws, row, "Total Budget", f"${total:,.0f}")
+            row += 1
+
+            tier_breakdown: dict = budget_tiers.get("tier_breakdown") or {}
+            row = _write_table_header(
+                ws,
+                row,
+                ["Budget Tier", "Amount", "Percentage", "Description"],
+            )
+            for idx, (tier_key, tier_info) in enumerate(tier_breakdown.items()):
+                tier_label = tier_key.replace("_", " ").title()
+                row = _write_table_row(
+                    ws,
+                    row,
+                    [
+                        tier_label,
+                        f"${tier_info.get('amount', 0):,.0f}",
+                        f"{tier_info.get('pct', 0):.1f}%",
+                        str(tier_info.get("description") or ""),
+                    ],
+                    alternate=idx % 2 == 1,
+                )
+
+                # Sub-allocations
+                sub_alloc: dict = tier_info.get("sub_allocation") or {}
+                if sub_alloc:
+                    for sub_key, sub_amount in sub_alloc.items():
+                        sub_label = f"  -- {sub_key.replace('_', ' ').title()}"
+                        row = _write_table_row(
+                            ws,
+                            row,
+                            [sub_label, f"${sub_amount:,.0f}", "", ""],
+                            fonts=[_FONT_FOOTNOTE, _FONT_FOOTNOTE, None, None],
+                        )
+            row += 1
+
+            # Budget recommendations
+            recs: list = budget_tiers.get("recommendations") or []
+            for rec in recs:
+                row = _write_kv_row(ws, row, "Recommendation", str(rec))
+            row += 1
+    except Exception as exc:
+        logger.error(
+            "Quality Intelligence: budget tiers section failed: %s", exc, exc_info=True
+        )
+        row += 1
+
+    # ── Section 7: Activation Event Calendar ──
+    activation: dict = gold_standard.get("activation_calendar") or {}
+    try:
+        if activation:
+            row = _write_subsection_header(ws, row, "Activation Event Calendar")
+            start_month = activation.get("campaign_start_month", 0)
+            if start_month:
+                row = _write_kv_row(
+                    ws,
+                    row,
+                    "Campaign Start",
+                    datetime.date(2026, start_month, 1).strftime("%B %Y"),
+                )
+            phasing_note = activation.get("budget_phasing_note") or ""
+            if phasing_note:
+                row = _write_kv_row(ws, row, "Budget Phasing", phasing_note)
+            row += 1
+
+            timeline: list = activation.get("timeline") or []
+            if timeline:
+                row = _write_table_header(
+                    ws,
+                    row,
+                    [
+                        "Month",
+                        "Season",
+                        "Hiring Intensity",
+                        "Budget Weight",
+                        "Key Events",
+                        "Recommendation",
+                    ],
+                )
+                for idx, month_info in enumerate(timeline):
+                    events = month_info.get("key_events") or []
+                    row = _write_table_row(
+                        ws,
+                        row,
+                        [
+                            str(month_info.get("month_name") or ""),
+                            str(month_info.get("season") or ""),
+                            str(month_info.get("hiring_intensity") or "")
+                            .replace("_", " ")
+                            .title(),
+                            f"{month_info.get('budget_weight', 1.0):.1f}x",
+                            "; ".join(events),
+                            str(month_info.get("recommendation") or ""),
+                        ],
+                        alternate=idx % 2 == 1,
+                    )
+                row += 1
+
+            # Industry-specific events
+            industry_events: list = activation.get("industry_events") or []
+            if industry_events:
+                row = _write_kv_row(
+                    ws,
+                    row,
+                    "Industry Events",
+                    "; ".join(industry_events),
+                )
+                row += 1
+    except Exception as exc:
+        logger.error(
+            "Quality Intelligence: activation calendar section failed: %s",
+            exc,
+            exc_info=True,
+        )
+        row += 1
+
+    # ── Attribution footer ──
+    row += 1
+    _write_attribution_footer(ws, row)
+
+
 def generate_excel_v2(
     data: dict,
     research_mod=None,
@@ -3104,6 +3564,23 @@ def generate_excel_v2(
         ws5.cell(
             row=2, column=2, value=f"Error generating ROI Projections sheet: {exc}"
         ).font = _FONT_BODY
+
+    # ── Sheet 6: Quality Intelligence (Gold Standard gates) ──
+    gold_standard = data.get("_gold_standard") or {}
+    if gold_standard:
+        ws6 = wb.create_sheet()
+        try:
+            _build_sheet_quality_intelligence(ws6, data, gold_standard)
+        except Exception as exc:
+            logger.error(
+                "Sheet 6 (Quality Intelligence) failed: %s", exc, exc_info=True
+            )
+            ws6.title = "Quality Intelligence"
+            ws6.cell(
+                row=2,
+                column=2,
+                value=f"Error generating Quality Intelligence sheet: {exc}",
+            ).font = _FONT_BODY
 
     # ── Write to bytes ──
     output = io.BytesIO()
