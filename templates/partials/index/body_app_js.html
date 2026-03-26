@@ -1069,6 +1069,8 @@
       _genAbortController.abort();
       _genAbortController = null;
     }
+    hideGenerationOverlay(false);
+    showToast("Generation cancelled", "info");
   }
 
   function updateGenProgress(pct, statusMessage) {
