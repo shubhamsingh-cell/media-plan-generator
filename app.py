@@ -13384,7 +13384,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 )
                 return
             _CHAT_REQUEST_TIMEOUT: float = (
-                55.0  # seconds -- matches GLOBAL_TIMEOUT_BUDGET_TOOLS (tool queries need 55s)
+                90.0  # seconds -- enrichment(8s) + LLM tool loop(5 iters x 15s) needs headroom
             )
             try:
                 from nova import handle_chat_request
