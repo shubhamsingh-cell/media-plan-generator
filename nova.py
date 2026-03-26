@@ -10297,7 +10297,8 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
         tool_call_details = []
         tool_results_raw = []
         max_iterations = (
-            5  # v4.3: 5 iterations -- tools need 5-10s each, give enough rounds
+            3  # S21: 3 iterations max -- each iter = API call(15s) + tools(10s) = 25s
+            # 3 iters = 75s worst case. Was 5 (125s) which exceeded gunicorn 120s timeout.
         )
         active_provider = None  # Lock to same provider for multi-turn
 
@@ -10711,16 +10712,11 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                 response_text, tool_results_raw
             )
 
-            # Gemini verification
+            # Gemini verification -- DISABLED in S21: adds 10-30s to every request,
+            # causing 90s+ total latency. Grounding score is sufficient for quality.
+            # TODO: Re-enable as async post-response check (non-blocking).
             verification_status = "skipped"
             verification_score = 1.0
-            try:
-                response_text, verification_score, verification_status = (
-                    _llm_verify_response(response_text, tool_results_raw, user_message)
-                )
-            except Exception:
-                verification_status = "error"
-                verification_score = 0.5
 
             # Suppression gate (v3.5): reject responses that ignore tool data
             combined_score = min(grounding_score, verification_score)
