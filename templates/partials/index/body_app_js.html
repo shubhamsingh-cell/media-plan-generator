@@ -2209,50 +2209,87 @@
       }
 
       if (currentStep < totalSteps) {
-        const currentEl = document.getElementById(`step${currentStep}`);
+        const currentEl = document.getElementById("step" + currentStep);
+        if (!currentEl) {
+          // Fallback: skip animation, just advance
+          currentStep++;
+          var fallbackEl = document.getElementById("step" + currentStep);
+          if (fallbackEl) fallbackEl.classList.add("active");
+          updateProgress();
+          updateStepCheckmarks();
+          if (currentStep === 4) fetchLivePricing();
+          return;
+        }
         // Add exiting animation
         currentEl.style.animation = "fadeOutDown 0.3s ease-in forwards";
 
-        setTimeout(() => {
-          currentEl.classList.remove("active");
-          currentEl.style.animation = "";
-          currentStep++;
-          const nextEl = document.getElementById(`step${currentStep}`);
-          nextEl.classList.add("active");
-          nextEl.classList.add("step-animating");
-          setTimeout(() => nextEl.classList.remove("step-animating"), 400);
-          updateProgress();
-          updateStepCheckmarks();
-          window.scrollTo({ top: 0, behavior: "smooth" });
-          // Auto-fetch live pricing when entering step 4
-          if (currentStep === 4 && (roles.length > 0 || locations.length > 0)) {
-            fetchLivePricing();
+        setTimeout(function () {
+          try {
+            currentEl.classList.remove("active");
+            currentEl.style.animation = "";
+            currentStep++;
+            var nextEl = document.getElementById("step" + currentStep);
+            if (nextEl) {
+              nextEl.classList.add("active");
+              nextEl.classList.add("step-animating");
+              setTimeout(function () {
+                nextEl.classList.remove("step-animating");
+              }, 400);
+            }
+            updateProgress();
+            updateStepCheckmarks();
+            window.scrollTo({ top: 0, behavior: "smooth" });
+            // Auto-fetch live pricing when entering step 4
+            if (
+              currentStep === 4 &&
+              (roles.length > 0 || locations.length > 0)
+            ) {
+              fetchLivePricing();
+            }
+          } catch (innerErr) {
+            console.error("nextStep transition error:", innerErr);
           }
         }, 280);
       }
     } catch (err) {
       console.error("nextStep error:", err);
-      showToast("An error occurred. Please try again.", "error");
+      showToast(
+        "An error occurred: " +
+          (err.message || "Unknown") +
+          ". Please try again.",
+        "error",
+      );
     }
   }
 
   // 23. Step transition animations - enhanced prevStep
   function prevStep() {
     if (currentStep > 1) {
-      const currentEl = document.getElementById(`step${currentStep}`);
-      currentEl.style.animation = "fadeOutDown 0.3s ease-in forwards";
+      var currentEl = document.getElementById("step" + currentStep);
+      if (currentEl)
+        currentEl.style.animation = "fadeOutDown 0.3s ease-in forwards";
 
-      setTimeout(() => {
-        currentEl.classList.remove("active");
-        currentEl.style.animation = "";
-        currentStep--;
-        const prevEl = document.getElementById(`step${currentStep}`);
-        prevEl.classList.add("active");
-        prevEl.classList.add("step-animating");
-        setTimeout(() => prevEl.classList.remove("step-animating"), 400);
-        updateProgress();
-        updateStepCheckmarks();
-        window.scrollTo({ top: 0, behavior: "smooth" });
+      setTimeout(function () {
+        try {
+          if (currentEl) {
+            currentEl.classList.remove("active");
+            currentEl.style.animation = "";
+          }
+          currentStep--;
+          var prevEl = document.getElementById("step" + currentStep);
+          if (prevEl) {
+            prevEl.classList.add("active");
+            prevEl.classList.add("step-animating");
+            setTimeout(function () {
+              prevEl.classList.remove("step-animating");
+            }, 400);
+          }
+          updateProgress();
+          updateStepCheckmarks();
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        } catch (e) {
+          console.error("prevStep transition error:", e);
+        }
       }, 280);
     }
   }
