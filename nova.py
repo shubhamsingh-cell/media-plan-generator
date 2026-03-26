@@ -10258,10 +10258,19 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
         for pid in _COMPLEX_PREFERRED_PROVIDERS:
             config = PROVIDER_CONFIG.get(pid, {})
             env_key = config.get("env_key") or ""
-            # Free providers (gemini, groq, etc.) may not have env_key checks --
-            # include them if they're in PROVIDER_CONFIG regardless
-            if not env_key or (env_key and os.environ.get(env_key, "").strip()):
+            _has_key = bool(
+                not env_key or (env_key and os.environ.get(env_key, "").strip())
+            )
+            print(
+                f"[ROUTING DEBUG] provider={pid} env_key={env_key} has_key={_has_key}",
+                flush=True,
+            )
+            if _has_key:
                 _configured_preferred.append(pid)
+
+        print(
+            f"[ROUTING DEBUG] configured_preferred={_configured_preferred}", flush=True
+        )
 
         # Get tool definitions -- full set for paid providers (Haiku first),
         # essential only for free LLMs. Use first preferred provider to decide.

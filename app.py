@@ -13395,8 +13395,23 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 # Enrichment (~8s) runs inside the executor so it doesn't
                 # steal time from the LLM + tool loop.
                 def _enriched_chat(d: dict) -> dict:
+                    import time as _t
+
+                    _t0 = _t.time()
+                    print(f"[CHAT DEBUG] enrichment starting", flush=True)
                     _enrich_chat_context(d, d.get("message") or "")
-                    return handle_chat_request(d)
+                    _t1 = _t.time()
+                    print(
+                        f"[CHAT DEBUG] enrichment done in {_t1-_t0:.1f}s, calling handle_chat_request",
+                        flush=True,
+                    )
+                    result = handle_chat_request(d)
+                    _t2 = _t.time()
+                    print(
+                        f"[CHAT DEBUG] handle_chat_request done in {_t2-_t1:.1f}s, provider={result.get('llm_provider','?')}, tools={result.get('tools_used',[])}",
+                        flush=True,
+                    )
+                    return result
 
                 _chat_future = _background_executor.submit(_enriched_chat, data)
                 try:
