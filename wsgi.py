@@ -362,6 +362,9 @@ def application(
         Iterator of response body bytes.
     """
     # Fast-path for health ping -- skip full WSGI pipeline (~350ms saving)
+    # NOTE: This function is a generator (yield below), so we must use
+    # yield+return, not return [b'...']. In a generator, return [x] raises
+    # StopIteration(value=[x]) and the value is silently lost.
     if environ.get("PATH_INFO", "") == "/api/health/ping":
         start_response(
             "200 OK",
@@ -370,7 +373,8 @@ def application(
                 ("Cache-Control", "no-cache"),
             ],
         )
-        return [b'{"status":"ok","service":"nova-ai"}']
+        yield b'{"status":"ok","service":"nova-ai"}'
+        return
 
     handler = _WSGIHandlerAdapter()
 
@@ -428,7 +432,8 @@ def application(
     handler.raw_requestline = request_line.encode("latin-1")
     if not handler.parse_request():
         start_response("400 Bad Request", [("Content-Type", "text/plain")])
-        return [b"Bad Request"]
+        yield b"Bad Request"
+        return
 
     # -- Set client address from WSGI environ for logging --
     remote_addr = environ.get("REMOTE_ADDR", "127.0.0.1")
@@ -478,9 +483,10 @@ def application(
             start_response(
                 "500 Internal Server Error", [("Content-Type", "text/plain")]
             )
-            return [b"Internal Server Error"]
+            yield b"Internal Server Error"
+            return
         start_response("204 No Content", [])
-        return [b""]
+        return
 
     # Parse HTTP response headers from the first chunk
     status_line, headers, body_remainder = _parse_raw_headers(first_chunk)
