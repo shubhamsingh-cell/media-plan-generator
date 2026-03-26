@@ -1798,7 +1798,11 @@
     selectedIndustry = el.dataset.industry;
 
     // Update roles based on industry
-    if (channelsDB && channelsDB.industries[selectedIndustry]) {
+    if (
+      channelsDB &&
+      channelsDB.industries &&
+      channelsDB.industries[selectedIndustry]
+    ) {
       const ind = channelsDB.industries[selectedIndustry];
       roles = [...ind.typical_roles];
       renderTags("rolesContainer", "roleInput", roles);
@@ -2483,7 +2487,7 @@
     }
 
     const industryLabel =
-      channelsDB?.industries[selectedIndustry]?.label || selectedIndustry;
+      channelsDB?.industries?.[selectedIndustry]?.label || selectedIndustry;
     document.getElementById("reviewIndustry").textContent = industryLabel;
 
     // Job Categories
@@ -3012,7 +3016,7 @@
       use_case: document.getElementById("useCase").value,
       industry: selectedIndustry,
       industry_label:
-        channelsDB?.industries[selectedIndustry]?.label || selectedIndustry,
+        channelsDB?.industries?.[selectedIndustry]?.label || selectedIndustry,
       job_categories: selectedJobCategories,
       job_category_labels: selectedJobCategories.map(
         (k) => channelsDB?.job_categories?.[k]?.label || k,
@@ -3512,14 +3516,17 @@
         return res.json();
       })
       .then(function (data) {
-        _pricingCache[cacheKey] = { data: data, ts: Date.now() };
-        renderPricingGrid(data);
-        if (sourceEl && data.source) {
+        // API wraps response in {success, data} -- unwrap if needed
+        var pricingData = data && data.success && data.data ? data.data : data;
+        _pricingCache[cacheKey] = { data: pricingData, ts: Date.now() };
+        renderPricingGrid(pricingData);
+        if (sourceEl && pricingData.source) {
           sourceEl.textContent =
             "Source: " +
-            data.source +
-            (data.updated_at
-              ? " | Updated: " + new Date(data.updated_at).toLocaleTimeString()
+            pricingData.source +
+            (pricingData.updated_at
+              ? " | Updated: " +
+                new Date(pricingData.updated_at).toLocaleTimeString()
               : "");
         }
       })

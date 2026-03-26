@@ -1107,7 +1107,12 @@
   function loadHistory() {
     try {
       var stored = localStorage.getItem(CONFIG.storageKey);
-      return stored ? JSON.parse(stored) : [];
+      if (!stored) return [];
+      var msgs = JSON.parse(stored);
+      // Remove empty assistant messages from timed-out sessions
+      return msgs.filter(function (m) {
+        return !(m.role === "assistant" && !m.content);
+      });
     } catch (e) {
       return [];
     }

@@ -626,7 +626,20 @@
   function loadConversations() {
     try {
       var stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) state.conversations = JSON.parse(stored);
+      if (stored) {
+        var loaded = JSON.parse(stored);
+        // Clean up conversations corrupted by timed-out sessions:
+        // Remove empty assistant messages (content is null/undefined/"")
+        Object.keys(loaded).forEach(function (id) {
+          var conv = loaded[id];
+          if (conv && Array.isArray(conv.messages)) {
+            conv.messages = conv.messages.filter(function (m) {
+              return !(m.role === "assistant" && !m.content);
+            });
+          }
+        });
+        state.conversations = loaded;
+      }
       state.activeConvId = localStorage.getItem(ACTIVE_KEY) || null;
     } catch (e) {
       state.conversations = {};
