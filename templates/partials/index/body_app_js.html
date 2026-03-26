@@ -3033,7 +3033,8 @@
           : document.getElementById("budgetRange").value,
       campaign_duration: document.getElementById("campaignDuration").value,
       campaign_start_month:
-        parseInt(document.getElementById("campaignStartMonth").value) || 0,
+        parseInt(document.getElementById("campaignStartMonth").value) ||
+        new Date().getMonth() + 1,
       campaign_goals: getCheckboxGroupValues("campaignGoals"),
       hire_volume:
         document.getElementById("hireVolume").value === "__exact__"

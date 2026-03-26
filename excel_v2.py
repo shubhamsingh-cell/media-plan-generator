@@ -3892,6 +3892,13 @@ def generate_excel_v2(
         elif isinstance(val, str):
             data[key] = [val]
 
+    # Normalize work_environment: frontend sends array, we need a string
+    we = data.get("work_environment", "hybrid")
+    if isinstance(we, list):
+        data["work_environment"] = we[0] if we else "hybrid"
+    elif not isinstance(we, str):
+        data["work_environment"] = str(we) if we else "hybrid"
+
     # Normalize role titles
     roles = _get_roles(data)
     data["roles"] = roles

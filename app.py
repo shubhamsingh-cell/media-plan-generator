@@ -11373,9 +11373,13 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             )
             if _bval <= 0:
                 _bval = 100_000.0  # Default to $100K instead of blocking
-            if _bval > 100_000_000:  # $100M cap
+            if (
+                _bval > 1_000_000_000
+            ):  # $1B cap (raised from $100M to support large enterprise budgets)
                 self._send_error(
-                    "Budget exceeds maximum allowed value", "VALIDATION_ERROR", 400
+                    "Budget exceeds maximum allowed value ($1B). Please enter a value under $1,000,000,000.",
+                    "VALIDATION_ERROR",
+                    400,
                 )
                 return
 
@@ -11456,7 +11460,12 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             if _csm_raw is not None and str(_csm_raw).strip():
                 try:
                     _csm_val = int(str(_csm_raw).strip())
-                    if _csm_val < 1 or _csm_val > 12:
+                    if _csm_val == 0:
+                        # 0 means "use current month" -- auto-set
+                        import datetime as _dt_fix
+
+                        data["campaign_start_month"] = _dt_fix.datetime.now().month
+                    elif _csm_val < 1 or _csm_val > 12:
                         _gen_timer.cancel()
                         self._send_error(
                             f"Invalid campaign_start_month: {_csm_val}. Must be 1-12.",
@@ -11465,13 +11474,10 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         )
                         return
                 except (ValueError, TypeError):
-                    _gen_timer.cancel()
-                    self._send_error(
-                        "campaign_start_month must be a number between 1 and 12.",
-                        "VALIDATION_ERROR",
-                        400,
-                    )
-                    return
+                    # Non-numeric -- default to current month silently
+                    import datetime as _dt_fix
+
+                    data["campaign_start_month"] = _dt_fix.datetime.now().month
 
             # ── Gold Standard: Reject javascript:/file:// URLs in all string fields ──
             _DANGEROUS_URL_RE = re.compile(

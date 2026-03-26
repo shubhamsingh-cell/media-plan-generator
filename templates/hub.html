@@ -4332,6 +4332,7 @@
         var prefersReduced = window.matchMedia(
           "(prefers-reduced-motion: reduce)",
         ).matches;
+        var cards = document.querySelectorAll(".product-card");
         if (!prefersReduced) {
           cards.forEach(function (card) {
             var shine = document.createElement("div");
