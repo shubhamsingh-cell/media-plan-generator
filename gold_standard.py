@@ -1762,6 +1762,96 @@ _HIRING_EVENTS_CALENDAR: dict[int, dict[str, Any]] = {
 }
 
 
+_INDUSTRY_MONTHLY_EVENTS: dict[str, dict[int, list[str]]] = {
+    "healthcare": {
+        1: ["Healthcare staffing surge", "New insurance cycles begin"],
+        2: ["HIMSS prep", "Nursing recruitment drives"],
+        3: ["HIMSS Global Conference", "ANA policy summit"],
+        4: ["National Public Health Week", "AACN NTI prep"],
+        5: ["Nursing Week (May 6-12)", "AACN NTI Conference"],
+        6: ["Healthcare summer rotations", "AMA Annual Meeting"],
+        7: ["Travel nursing peak", "Medical residency transition"],
+        8: ["Fall clinical rotations begin", "Back-to-campus nursing"],
+        9: ["Healthcare compliance deadlines", "Fall hiring ramp"],
+        10: ["APHA Annual Meeting", "Open enrollment staffing"],
+        11: ["AHA Annual Meeting", "Year-end clinical hiring"],
+        12: ["Holiday coverage staffing", "New year credentialing"],
+    },
+    "tech": {
+        1: ["CES", "New year hiring surge"],
+        2: ["MWC Barcelona", "Spring career fairs"],
+        3: ["SXSW Interactive", "GDC"],
+        4: ["RSA Conference", "Q2 budget releases"],
+        5: ["Google I/O", "May graduations"],
+        6: ["WWDC", "Summer intern starts"],
+        7: ["AWS Summit season", "Mid-year reviews"],
+        8: ["Back to work wave", "Fall planning"],
+        9: ["Dreamforce", "Fall campus recruiting"],
+        10: ["Grace Hopper Celebration", "GitHub Universe"],
+        11: ["Web Summit", "Year-end budget spend"],
+        12: ["AWS re:Invent", "Year-end reviews"],
+    },
+    "finance": {
+        1: ["Tax season begins", "Banking conference season"],
+        2: ["Compliance deadline prep", "Spring career fairs"],
+        3: ["End of Q1 close", "SXSW fintech track"],
+        4: ["Tax filing deadline", "Q2 hiring budgets release"],
+        5: ["Annual shareholder meetings", "May graduations"],
+        6: ["Mid-year compliance reviews", "Summer associate starts"],
+        7: ["Mid-year reviews", "Q3 planning"],
+        8: ["Back to work wave", "Fall recruiting prep"],
+        9: ["Fall campus recruiting", "Sibos prep"],
+        10: ["Money 20/20", "Sibos"],
+        11: ["Year-end audit prep", "Budget finalization"],
+        12: ["Year-end close", "Bonus cycle planning"],
+    },
+    "retail": {
+        1: ["NRF Big Show", "Post-holiday analysis"],
+        2: ["Spring merchandise planning", "Career fairs"],
+        3: ["Spring hiring ramp", "Easter prep staffing"],
+        4: ["Spring season peak", "Summer hiring plans"],
+        5: ["Memorial Day prep", "Summer staffing begins"],
+        6: ["Summer season kicks off", "Back-to-school planning"],
+        7: ["Back-to-school hiring", "Prime Day staffing"],
+        8: ["Back-to-school peak", "Fall merchandise planning"],
+        9: ["Holiday hiring begins", "Fall season transition"],
+        10: ["Holiday staffing ramp", "Peak season prep"],
+        11: ["Black Friday/Cyber Monday", "Maximum seasonal hiring"],
+        12: ["Holiday peak staffing", "Post-holiday planning"],
+    },
+    "defense": {
+        1: ["SHOT Show", "DoD budget cycle begins"],
+        2: ["WEST Conference", "Defense career fairs"],
+        3: ["Satellite conference", "Spring hiring ramp"],
+        4: ["Sea-Air-Space Expo", "Q2 contract awards"],
+        5: ["Military spouse hiring month", "May graduations"],
+        6: ["Summer intern starts", "Mid-year reviews"],
+        7: ["Farnborough/Paris Air Show", "Q3 planning"],
+        8: ["DoD fiscal year-end prep", "Fall recruiting"],
+        9: ["DoD FY-end spending", "DSEI (London)"],
+        10: ["AUSA Annual Meeting", "New FY contracts"],
+        11: ["Veteran hiring month", "Year-end clearance hiring"],
+        12: ["Year-end reviews", "New year planning"],
+    },
+}
+
+
+def _get_industry_key(industry: str) -> str:
+    """Map industry string to a key in _INDUSTRY_MONTHLY_EVENTS."""
+    industry = industry.lower()
+    if "health" in industry or "nurs" in industry or "medical" in industry:
+        return "healthcare"
+    if "tech" in industry or "software" in industry or "it_" in industry:
+        return "tech"
+    if "financ" in industry or "bank" in industry or "insurance" in industry:
+        return "finance"
+    if "retail" in industry or "ecommerce" in industry or "consumer" in industry:
+        return "retail"
+    if "defense" in industry or "aerospace" in industry or "government" in industry:
+        return "defense"
+    return ""
+
+
 def build_activation_calendar(data: dict) -> dict[str, Any]:
     """Build activation event calendar based on campaign start month and industry.
 
@@ -1773,6 +1863,8 @@ def build_activation_calendar(data: dict) -> dict[str, Any]:
         campaign_month = datetime.datetime.now().month
 
     industry = str(data.get("industry") or "").lower()
+    ind_key = _get_industry_key(industry)
+    ind_monthly = _INDUSTRY_MONTHLY_EVENTS.get(ind_key, {})
 
     # Build 6-month forward calendar
     timeline: list[dict[str, Any]] = []
@@ -1790,6 +1882,9 @@ def build_activation_calendar(data: dict) -> dict[str, Any]:
         }
         budget_weight = intensity_weights.get(month_info["hiring_intensity"], 1.0)
 
+        # Use industry-specific events when available, fall back to generic
+        month_events = ind_monthly.get(month_num, month_info["events"])
+
         timeline.append(
             {
                 "month": month_num,
@@ -1798,12 +1893,12 @@ def build_activation_calendar(data: dict) -> dict[str, Any]:
                 "season": month_info["season"],
                 "hiring_intensity": month_info["hiring_intensity"],
                 "budget_weight": budget_weight,
-                "key_events": month_info["events"],
+                "key_events": month_events,
                 "recommendation": month_info["recommendation"],
             }
         )
 
-    # Industry-specific events
+    # Industry-specific events summary (for reference)
     industry_events: list[str] = []
     if "tech" in industry:
         industry_events = [
@@ -1815,9 +1910,9 @@ def build_activation_calendar(data: dict) -> dict[str, Any]:
     elif "health" in industry:
         industry_events = [
             "HIMSS (Mar)",
-            "AHA Annual (Nov)",
-            "APHA (Oct)",
-            "Nursing conferences (quarterly)",
+            "AACN NTI (May)",
+            "ANA Policy Summit (Mar)",
+            "Nursing Week (May)",
         ]
     elif "finance" in industry:
         industry_events = [

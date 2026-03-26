@@ -996,8 +996,12 @@ def compute_confidence_scores(synthesis_results: Dict[str, Any]) -> Dict[str, An
             continue
         per_section[section_key] = _score_section(section_data)
 
-    scores = list(per_section.values())
-    overall = round(statistics.mean(scores), 2) if scores else 0.0
+    # Only include sections that actually have data (score > 0) in the
+    # overall average.  Sections with score == 0.0 represent skipped or
+    # unavailable data sources and should NOT deflate the confidence
+    # grade -- they are "not applicable", not "failed".
+    active_scores = [s for s in per_section.values() if s > 0.0]
+    overall = round(statistics.mean(active_scores), 2) if active_scores else 0.0
 
     # Letter grade
     if overall >= 0.85:

@@ -745,7 +745,7 @@ def _fmt_pct(val, decimals=1):
         val = float(val)
     except (TypeError, ValueError):
         return str(val)
-    if val < 1:  # assume it's a decimal like 0.05
+    if val <= 1.0:  # assume it's a decimal like 0.05 or 1.0 (= 100%)
         val = val * 100
     return f"{val:.{decimals}f}%"
 
@@ -1234,12 +1234,117 @@ def _get_industry_comparison(
     return result
 
 
+def _is_us_only_campaign(data: Dict) -> bool:
+    """Check if all campaign locations are within the United States."""
+    locations = data.get("locations") or []
+    if not locations:
+        return True  # No locations specified -- assume domestic
+    us_indicators = {
+        "us",
+        "usa",
+        "united states",
+        "america",
+        # US state abbreviations
+        "al",
+        "ak",
+        "az",
+        "ar",
+        "ca",
+        "co",
+        "ct",
+        "de",
+        "fl",
+        "ga",
+        "hi",
+        "id",
+        "il",
+        "in",
+        "ia",
+        "ks",
+        "ky",
+        "la",
+        "me",
+        "md",
+        "ma",
+        "mi",
+        "mn",
+        "ms",
+        "mo",
+        "mt",
+        "ne",
+        "nv",
+        "nh",
+        "nj",
+        "nm",
+        "ny",
+        "nc",
+        "nd",
+        "oh",
+        "ok",
+        "or",
+        "pa",
+        "ri",
+        "sc",
+        "sd",
+        "tn",
+        "tx",
+        "ut",
+        "vt",
+        "va",
+        "wa",
+        "wv",
+        "wi",
+        "wy",
+        "dc",
+    }
+    # US city patterns (city, state format)
+    for loc in locations:
+        loc_lower = str(loc).lower().strip()
+        # Clearly international
+        if any(
+            intl in loc_lower
+            for intl in (
+                "uk",
+                "london",
+                "europe",
+                "apac",
+                "emea",
+                "asia",
+                "india",
+                "germany",
+                "france",
+                "japan",
+                "china",
+                "australia",
+                "canada",
+                "brazil",
+                "mexico",
+                "singapore",
+                "hong kong",
+            )
+        ):
+            return False
+        # Check if location matches US patterns
+        parts = [p.strip() for p in loc_lower.replace(",", " ").split()]
+        if not any(p in us_indicators for p in parts):
+            # Could be a US city without state qualifier -- allow it
+            pass
+    return True
+
+
 def _selected_channels(data: Dict) -> Dict[str, Dict[str, Any]]:
     """Return only the channels the user toggled on, with redistributed percentages.
-    Uses industry-aware allocation profiles for differentiated budget splits."""
+    Uses industry-aware allocation profiles for differentiated budget splits.
+    Automatically excludes APAC/EMEA channels for US-only campaigns."""
     cats = data.get("channel_categories", {})
     if isinstance(cats, list):
         cats = {k: True for k in cats}
+
+    # Skip international channels for US-only campaigns
+    us_only = _is_us_only_campaign(data)
+    if us_only:
+        cats["apac_regional"] = False
+        cats["emea_regional"] = False
 
     # Get industry-aware base allocation
     industry = data.get("industry", "general_entry_level")
@@ -3728,7 +3833,7 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
         {
             "metric": "Channel Diversity Score",
             "client_val": f"{min(10.0, n_channels * 1.5):.1f}/10",
-            "industry_val": f"{ind_benchmarks.get('avg_channels', 4) * 1.5:.1f}/10",
+            "industry_val": f"{min(10.0, ind_benchmarks.get('avg_channels', 4) * 1.5):.1f}/10",
             "is_better": n_channels >= ind_benchmarks.get("avg_channels", 4),
         },
         {
@@ -5584,23 +5689,26 @@ def _build_slide_geopolitical_risk(prs: Presentation, data: Dict):
             alignment=PP_ALIGN.CENTER,
         )
 
-        # Summary section
+        # Summary section -- size text to fit longer narratives
+        summary_display = summary_text[:500]
+        summary_font = 11 if len(summary_display) <= 200 else 9
+        summary_box_h = Inches(0.9) if len(summary_display) <= 200 else Inches(1.1)
         _add_rounded_rect(
-            slide, Inches(0.55), Inches(1.6), Inches(12.2), Inches(0.9), WHITE
+            slide, Inches(0.55), Inches(1.6), Inches(12.2), summary_box_h, WHITE
         )
         _add_textbox(
             slide,
             Inches(0.75),
             Inches(1.65),
             Inches(11.8),
-            Inches(0.8),
-            text=summary_text[:300],
-            font_size=11,
+            summary_box_h - Inches(0.1),
+            text=summary_display,
+            font_size=summary_font,
             color=DARK_TEXT,
         )
 
-        # Per-location cards
-        card_top = Inches(2.7)
+        # Per-location cards -- adjust top for variable summary height
+        card_top = Inches(1.6) + summary_box_h + Inches(0.2)
         max_locations = min(len(loc_data), 4)
         if max_locations > 0:
             card_w = Inches((12.0 / max_locations) - 0.15)
@@ -5708,15 +5816,42 @@ def _build_slide_geopolitical_risk(prs: Presentation, data: Dict):
                 color=DARK_TEXT,
             )
 
-        # Source attribution
-        source = geo.get("source", "LLM Analysis")
+        # Source attribution -- sanitize internal provider names
+        _llm_keywords = {
+            "claude",
+            "haiku",
+            "sonnet",
+            "opus",
+            "gpt",
+            "gemini",
+            "groq",
+            "llama",
+            "mistral",
+            "anthropic",
+            "openai",
+        }
+        raw_source = str(geo.get("source") or "")
+        # Strip provider names and confidence suffixes from source string
+        if any(kw in raw_source.lower() for kw in _llm_keywords) or not raw_source:
+            source_display = "AI Analysis"
+        else:
+            source_display = raw_source
+        # Format confidence as proper percentage
+        raw_conf = geo.get("confidence") or 0
+        try:
+            conf_val = float(raw_conf)
+        except (TypeError, ValueError):
+            conf_val = 0.0
+        if 0 < conf_val <= 1.0:
+            conf_val = conf_val * 100
+        conf_str = f"{conf_val:.0f}%" if conf_val > 0 else "N/A"
         _add_textbox(
             slide,
             Inches(0.55),
             Inches(6.8),
             Inches(12.2),
             Inches(0.3),
-            text=f"Source: {source} | Confidence: {geo.get('confidence') or 0:.0%}",
+            text=f"Source: {source_display} | Confidence: {conf_str}",
             font_size=7,
             italic=True,
             color=MUTED_TEXT,

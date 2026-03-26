@@ -6030,7 +6030,7 @@ def _enrich_chat_context(data: dict, message: str) -> dict:
 
     try:
         with ThreadPoolExecutor(
-            max_workers=6, thread_name_prefix="chat-enrich"
+            max_workers=4, thread_name_prefix="chat-enrich"
         ) as pool:
             futures = [pool.submit(fn) for fn in enrichment_fns]
             for fut in futures:
@@ -6038,9 +6038,9 @@ def _enrich_chat_context(data: dict, message: str) -> dict:
                     fut.result(timeout=8)
                 except TimeoutError:
                     logger.warning("Chat enrichment task timed out (8s)")
-                except (ValueError, TypeError, OSError) as exc:
+                except Exception as exc:
                     logger.error("Chat enrichment task error: %s", exc, exc_info=True)
-    except (RuntimeError, OSError) as exc:
+    except Exception as exc:
         logger.error(
             "ThreadPoolExecutor failed for chat enrichment: %s", exc, exc_info=True
         )
@@ -10695,6 +10695,18 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 self.send_error(500, "Internal Server Error")
             except Exception:
                 pass
+        except BaseException as _bexc:
+            # Catch SystemExit / GreenletExit / KeyboardInterrupt -- gevent worker
+            # timeout kills greenlets with SystemExit. Log and return a 503 so the
+            # worker process stays alive instead of crashing (502).
+            logger.error(
+                "BaseException in do_POST (worker timeout?): %s", _bexc, exc_info=True
+            )
+            self._response_status = 503
+            try:
+                self.send_error(503, "Service Unavailable")
+            except Exception:
+                pass
         finally:
             _latency = (time.time() - _req_start) * 1000
             if _metrics:
@@ -13431,14 +13443,14 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 )
                 return
             _CHAT_REQUEST_TIMEOUT: float = (
-                90.0  # seconds -- enrichment(8s) + LLM tool loop(5 iters x 15s) needs headroom
+                75.0  # seconds -- must finish well before gunicorn 120s kill
             )
             try:
                 from nova import handle_chat_request
 
                 _chat_span_fn = getattr(self, "_sentry_span", lambda o, n: _nullctx())
 
-                # ── Timeout wrapper: enrichment + LLM call share 55s budget ──
+                # ── Timeout wrapper: enrichment + LLM call share budget ──
                 # Enrichment (~8s) runs inside the executor so it doesn't
                 # steal time from the LLM + tool loop.
                 def _enriched_chat(d: dict) -> dict:
@@ -13446,7 +13458,14 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
 
                     _t0 = _t.time()
                     print(f"[CHAT DEBUG] enrichment starting", flush=True)
-                    _enrich_chat_context(d, d.get("message") or "")
+                    try:
+                        _enrich_chat_context(d, d.get("message") or "")
+                    except Exception as _enrich_err:
+                        logger.error(
+                            "Chat enrichment failed (non-fatal): %s",
+                            _enrich_err,
+                            exc_info=True,
+                        )
                     _t1 = _t.time()
                     print(
                         f"[CHAT DEBUG] enrichment done in {_t1-_t0:.1f}s, calling handle_chat_request",
@@ -13464,18 +13483,45 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 try:
                     with _chat_span_fn("nova.chat", "Nova chat LLM routing + response"):
                         response = _chat_future.result(timeout=_CHAT_REQUEST_TIMEOUT)
-                except TimeoutError:
+                except (TimeoutError, Exception) as _chat_timeout_err:
                     _chat_future.cancel()
+                    _is_timeout = isinstance(_chat_timeout_err, TimeoutError)
                     logger.error(
-                        f"Chat request timed out after {_CHAT_REQUEST_TIMEOUT}s",
+                        "Chat request %s after %.0fs: %s",
+                        "timed out" if _is_timeout else "failed",
+                        _CHAT_REQUEST_TIMEOUT,
+                        _chat_timeout_err,
                         exc_info=True,
                     )
                     response = {
-                        "response": "I took too long to respond. Please try again with a simpler question.",
+                        "response": (
+                            "I took too long to respond. Please try again with a simpler question."
+                            if _is_timeout
+                            else "An error occurred processing your request. Please try again."
+                        ),
                         "sources": [],
                         "confidence": 0.0,
                         "tools_used": [],
-                        "error": "Request timed out",
+                        "error": (
+                            "Request timed out"
+                            if _is_timeout
+                            else str(_chat_timeout_err)[:200]
+                        ),
+                    }
+                except BaseException as _chat_base_err:
+                    # Catch SystemExit / GreenletExit from gevent worker timeout
+                    _chat_future.cancel()
+                    logger.error(
+                        "Chat request killed (BaseException): %s",
+                        _chat_base_err,
+                        exc_info=True,
+                    )
+                    response = {
+                        "response": "The server was too busy to complete your request. Please try again.",
+                        "sources": [],
+                        "confidence": 0.0,
+                        "tools_used": [],
+                        "error": "Worker interrupted",
                     }
 
                 # ── Generate suggested follow-up questions ──
@@ -13647,7 +13693,14 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
 
             try:
                 # ── Shared enrichment: file parsing + parallel API calls ──
-                _enrich_chat_context(data, data.get("message") or "")
+                try:
+                    _enrich_chat_context(data, data.get("message") or "")
+                except Exception as _stream_enrich_err:
+                    logger.error(
+                        "Stream enrichment failed (non-fatal): %s",
+                        _stream_enrich_err,
+                        exc_info=True,
+                    )
 
                 # Check for cancellation before LLM call
                 if cancel_event.is_set():

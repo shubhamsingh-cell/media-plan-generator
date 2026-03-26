@@ -10489,7 +10489,7 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                 from concurrent.futures import as_completed as _as_done_free
 
                 _par_res: list[Tuple[str, str, str, dict]] = []
-                _tpool = _TPE_Free(max_workers=min(5, len(tool_calls)))
+                _tpool = _TPE_Free(max_workers=min(3, len(tool_calls)))
                 try:
                     _fmap = {
                         _tpool.submit(_exec_free_tool, tc): tc for tc in tool_calls
@@ -11033,7 +11033,7 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
 
                 _claude_par: list[Tuple[str, str, str, dict]] = []
                 if len(_tool_use_blocks) > 1:
-                    _cpool = _TPE_Claude(max_workers=min(5, len(_tool_use_blocks)))
+                    _cpool = _TPE_Claude(max_workers=min(3, len(_tool_use_blocks)))
                     try:
                         _cfmap = {
                             _cpool.submit(_exec_claude_tool, blk): blk
