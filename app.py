@@ -11530,7 +11530,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 def _async_generate(jid, gen_data, rid):
                     """Run the full sync generation pipeline in a background thread."""
                     try:
-                        _gen_deadline = time.time() + 120  # 2 minute hard limit
+                        _gen_deadline = time.time() + 180  # 3 minute hard limit
 
                         with _generation_jobs_lock:
                             if jid in _generation_jobs:
@@ -11922,37 +11922,43 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                 "Plan generation exceeded 2-minute time limit"
                             )
 
-                        # Excel generation (v2 consolidated 4-sheet or legacy fallback)
-                        if generate_excel_v2 is not None:
-                            try:
-                                excel_bytes = generate_excel_v2(
+                        # Excel generation -- wrapped in 60s timeout to prevent
+                        # indefinite hangs on LLM calls during cold starts
+                        _excel_pool = ThreadPoolExecutor(
+                            max_workers=1, thread_name_prefix="async-excel"
+                        )
+                        try:
+                            if generate_excel_v2 is not None:
+                                _excel_future = _excel_pool.submit(
+                                    generate_excel_v2,
                                     gen_data,
                                     research_mod=research,
                                     load_kb_fn=load_knowledge_base,
                                     classify_tier_fn=classify_role_tier,
                                     fetch_logo_fn=fetch_client_logo,
                                 )
-                                logger.info(
-                                    "Async Excel generated via excel_v2 (4-sheet)"
+                            elif generate_excel is not None:
+                                _excel_future = _excel_pool.submit(
+                                    generate_excel, gen_data
                                 )
-                            except Exception as v2_err:
-                                logger.warning(
-                                    "excel_v2 failed, falling back to legacy: %s",
-                                    v2_err,
-                                )
-                                if generate_excel is not None:
-                                    excel_bytes = generate_excel(gen_data)
-                                else:
-                                    raise RuntimeError(
-                                        "Both excel_v2 and legacy generator unavailable"
-                                    ) from v2_err
-                        else:
-                            if generate_excel is not None:
-                                excel_bytes = generate_excel(gen_data)
                             else:
-                                raise RuntimeError(
-                                    "No Excel generator available (excel_v2 and legacy both missing)"
-                                )
+                                raise RuntimeError("No Excel generator available")
+                            excel_bytes = _excel_future.result(timeout=60)
+                            logger.info(
+                                "Async Excel generated (%d bytes)",
+                                len(excel_bytes) if excel_bytes else 0,
+                            )
+                        except TimeoutError:
+                            logger.error(
+                                "Excel generation timed out after 60s for job %s",
+                                jid,
+                            )
+                            _excel_future.cancel()
+                            raise TimeoutError(
+                                "Excel generation exceeded 60-second limit"
+                            )
+                        finally:
+                            _excel_pool.shutdown(wait=False, cancel_futures=True)
 
                         with _generation_jobs_lock:
                             if jid in _generation_jobs:
@@ -11988,10 +11994,24 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                     _generation_jobs[jid][
                                         "status_message"
                                     ] = "Creating strategy deck..."
+                            # PPT wrapped in 45s timeout
+                            _ppt_pool = ThreadPoolExecutor(
+                                max_workers=1, thread_name_prefix="async-ppt"
+                            )
                             try:
-                                pptx_bytes = generate_pptx(gen_data)
+                                _ppt_future = _ppt_pool.submit(generate_pptx, gen_data)
+                                pptx_bytes = _ppt_future.result(timeout=45)
+                            except TimeoutError:
+                                logger.warning(
+                                    "PPT generation timed out after 45s for job %s -- skipping PPT",
+                                    jid,
+                                )
+                                _ppt_future.cancel()
+                                pptx_bytes = None
                             except Exception:
                                 pptx_bytes = None
+                            finally:
+                                _ppt_pool.shutdown(wait=False, cancel_futures=True)
                         elif _requested_format == "excel":
                             logger.info("Skipping PPT generation (output_format=excel)")
 
