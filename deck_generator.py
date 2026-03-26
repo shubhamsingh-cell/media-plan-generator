@@ -48,10 +48,10 @@ _TIER_LIMITS: dict[str, int] = {
 
 # Tier ordering and display names
 _TIERS: list[tuple[str, str]] = [
+    ("google_slides", "Google Slides API"),
     ("presenton", "Presenton (self-hosted)"),
     ("gamma", "Gamma API"),
     ("magicslides", "MagicSlides API"),
-    ("google_slides", "Google Slides API"),
     ("alai", "Alai API"),
     ("flashdocs", "FlashDocs SDK"),
     ("pptx", "python-pptx (offline)"),
