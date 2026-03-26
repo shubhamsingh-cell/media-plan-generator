@@ -15,15 +15,13 @@ Thread-safe, never crashes (all exceptions caught and degraded gracefully).
 from __future__ import annotations
 
 import io
-import json
 import logging
-import math
 import os
 import re
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Tuple
+from datetime import datetime
+from typing import Any, Dict, List
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +59,6 @@ try:
         INDUSTRY_LABEL_MAP,
         parse_budget,
         standardize_location,
-        parse_budget_display,
     )
 except ImportError:
     INDUSTRY_LABEL_MAP = {}
@@ -75,20 +72,11 @@ except ImportError:
     def standardize_location(s):
         return s
 
-    def parse_budget_display(v):
-        try:
-            return float(v)
-        except (TypeError, ValueError):
-            return None
-
 
 try:
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
     from openpyxl.utils import get_column_letter
-    from openpyxl.chart import PieChart, BarChart, Reference
-    from openpyxl.chart.label import DataLabelList
-    from openpyxl.chart.series import DataPoint
 
     _HAS_OPENPYXL = True
 except ImportError:
@@ -96,9 +84,9 @@ except ImportError:
 
 try:
     from pptx import Presentation
-    from pptx.util import Inches, Pt, Emu
+    from pptx.util import Inches, Pt
     from pptx.dml.color import RGBColor
-    from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
+    from pptx.enum.text import PP_ALIGN
     from pptx.enum.shapes import MSO_SHAPE
 
     _HAS_PPTX = True

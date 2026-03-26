@@ -182,15 +182,15 @@ def generate_brief_html(brief: Dict[str, Any]) -> str:
     alert_html = ""
     for a in alerts:
         color = "#f59e0b" if a.get("severity") == "warning" else "#22c55e"
-        alert_html += f'<div style="padding:12px 16px;background:rgba(255,255,255,0.03);border-left:3px solid {color};border-radius:0 8px 8px 0;margin-bottom:8px"><div style="font-size:0.85rem;color:#e5e5e5">{a.get("message","")}</div><div style="font-size:0.75rem;color:#888;margin-top:4px">{a.get("action","")}</div></div>'
+        alert_html += f'<div style="padding:12px 16px;background:rgba(255,255,255,0.03);border-left:3px solid {color};border-radius:0 8px 8px 0;margin-bottom:8px"><div style="font-size:0.85rem;color:#e5e5e5">{a.get("message") or ""}</div><div style="font-size:0.75rem;color:#888;margin-top:4px">{a.get("action") or ""}</div></div>'
 
     action_html = ""
     for act in actions:
-        action_html += f'<a href="{act.get("url","#")}" style="display:inline-block;padding:8px 16px;background:#5A54BD;color:#fff;border-radius:8px;text-decoration:none;font-size:0.82rem;font-weight:600;margin-right:8px;margin-bottom:8px">{act.get("label","")}</a>'
+        action_html += f'<a href="{act.get("url") or "#"}" style="display:inline-block;padding:8px 16px;background:#5A54BD;color:#fff;border-radius:8px;text-decoration:none;font-size:0.82rem;font-weight:600;margin-right:8px;margin-bottom:8px">{act.get("label") or ""}</a>'
 
     return f"""<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Morning Brief -- {brief.get("date_label","")}</title>
+<title>Morning Brief -- {brief.get("date_label") or ""}</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 *{{margin:0;padding:0;box-sizing:border-box}}
@@ -215,7 +215,7 @@ body{{font-family:'Inter',sans-serif;background:#0a0a0f;color:#e5e5e5;padding:24
 </style></head><body>
 <div class="brief">
 <div class="header"><div class="logo">N</div><div><div style="font-weight:600;color:#ccc">Nova AI Suite</div><div style="font-size:0.75rem;color:#666">Morning Brief</div></div></div>
-<div class="date">{brief.get("date_label","")}</div>
+<div class="date">{brief.get("date_label") or ""}</div>
 <div class="greeting">{brief.get("greeting","Good morning")}</div>
 <div class="stats">
 <div class="stat"><div class="stat-val purple">{metrics.get("total_plans_generated",0):,}</div><div class="stat-lbl">Plans Generated</div></div>
@@ -226,13 +226,13 @@ body{{font-family:'Inter',sans-serif;background:#0a0a0f;color:#e5e5e5;padding:24
 {alert_html}
 <div class="section-title">AI Recommendation</div>
 <div class="rec">
-<div class="rec-title">{rec.get("title","")}</div>
-<div class="rec-desc">{rec.get("description","")}</div>
-<a href="{rec.get("cta_url","#")}" class="rec-cta">{rec.get("cta_label","View")}</a>
+<div class="rec-title">{rec.get("title") or ""}</div>
+<div class="rec-desc">{rec.get("description") or ""}</div>
+<a href="{rec.get("cta_url") or "#"}" class="rec-cta">{rec.get("cta_label") or "View"}</a>
 </div>
 <div class="section-title">Quick Actions</div>
 <div style="margin-bottom:20px">{action_html}</div>
-<div class="footer">{brief.get("footer","")}</div>
+<div class="footer">{brief.get("footer") or ""}</div>
 </div></body></html>"""
 
 
@@ -274,7 +274,7 @@ def send_brief_email(recipient: str, brief: Dict[str, Any]) -> bool:
         )
         with urllib.request.urlopen(req, timeout=15) as resp:
             result = json.loads(resp.read().decode())
-            logger.info("Morning brief email sent: %s", result.get("id", ""))
+            logger.info("Morning brief email sent: %s", result.get("id") or "")
             return True
     except Exception as e:
         logger.error("Failed to send morning brief email: %s", e, exc_info=True)

@@ -41,7 +41,12 @@ except ImportError:
     send_alert = lambda *a, **kw: False
 
 _CHECK_INTERVAL = 12 * 3600  # 12 hours
-_INITIAL_DELAY = 60  # wait 60s after startup before first check
+_INITIAL_DELAY = (
+    300  # wait 5min after startup before first check (KB needs 5-10min to load)
+)
+_STARTUP_ALERT_SUPPRESSION_CHECKS = (
+    1  # suppress alerts for first N checks (startup failures expected)
+)
 _MAX_HEAL_LOG = 20  # keep last N heal actions
 _API_HEALTH_TIMEOUT = 5  # seconds for API health-check requests
 
@@ -224,7 +229,8 @@ class DataMatrixMonitor:
                     "status": "pending",
                     "message": (
                         "First check has not completed yet. "
-                        f"Initial check runs {_INITIAL_DELAY}s after startup."
+                        f"Initial check runs {_INITIAL_DELAY // 60}min after startup "
+                        f"to allow KB to load."
                     ),
                     "check_interval_hours": _CHECK_INTERVAL / 3600,
                 }
@@ -375,9 +381,17 @@ class DataMatrixMonitor:
             elapsed,
         )
 
-        # Alert on unhealed errors
+        # Alert on unhealed errors (suppress during startup -- KB takes 5-10min to load)
         error_count = counts.get("error") or 0
-        if error_count > 0:
+        is_startup_check = self._check_count <= _STARTUP_ALERT_SUPPRESSION_CHECKS
+        if error_count > 0 and is_startup_check:
+            logger.info(
+                "DataMatrixMonitor: suppressing alert for check #%d "
+                "(%d errors) -- startup grace period, KB still loading",
+                self._check_count,
+                error_count,
+            )
+        elif error_count > 0:
             # Collect error cells for the alert body
             error_cells: list[str] = []
             for product, layers in matrix_results.items():
@@ -673,7 +687,7 @@ class DataMatrixMonitor:
                 "providers": provider_status,
             }
         except Exception as e:
-            logger.error("extended_health: api_keys probe failed: %s", e, exc_info=True)
+            logger.warning("extended_health: api_keys probe failed: %s", e)
             results["api_keys"] = {"status": "error", "detail": str(e)}
 
         # 4. KB file freshness
@@ -774,7 +788,7 @@ class DataMatrixMonitor:
         try:
             if "nova" not in sys.modules:
                 try:
-                    import nova as _nova_import  # noqa: F811
+                    import nova as _nova_import  # noqa: F811,F401
                 except Exception:
                     pass
             if "nova" in sys.modules:
@@ -989,6 +1003,17 @@ class DataMatrixMonitor:
                     else:
                         api_results["onet"] = "degraded"
                         failed.append("onet")
+            except urllib.error.HTTPError as e:
+                if e.code in (401, 403):
+                    logger.warning(
+                        "API health: O*NET auth failed (HTTP %s) -- check ONET_API_KEY",
+                        e.code,
+                    )
+                    api_results["onet"] = "auth_error"
+                else:
+                    logger.warning("API health: O*NET check failed: HTTP %s", e.code)
+                    api_results["onet"] = "degraded"
+                    failed.append("onet")
             except (urllib.error.URLError, OSError, TimeoutError) as e:
                 logger.warning("API health: O*NET check failed: %s", e)
                 api_results["onet"] = "degraded"

@@ -1288,7 +1288,7 @@ def _classify_competition_level(
         # Check competition data
         competition = synthesized_data.get("competition_analysis", {})
         if isinstance(competition, dict):
-            level = competition.get("competition_level", "").lower()
+            level = (competition.get("competition_level") or "").lower()
             if "high" in level:
                 return "high_competition"
             if "low" in level:

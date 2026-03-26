@@ -1529,6 +1529,11 @@ const NovaDrawer = (() => {
       _isOpen = true;
       document.getElementById("nova-drawer").classList.add("open");
       document.getElementById("nova-fab").classList.add("hidden");
+      /* P1-7: Shrink content area to avoid clipping behind drawer */
+      const shell = document.getElementById("platform-shell");
+      if (shell && window.innerWidth > 1024) {
+        shell.classList.add("nova-drawer-open");
+      }
       if (window.innerWidth <= 1024) {
         document.getElementById("nova-overlay").classList.add("visible");
       }
@@ -1548,6 +1553,9 @@ const NovaDrawer = (() => {
       document.getElementById("nova-drawer").classList.remove("open");
       document.getElementById("nova-fab").classList.remove("hidden");
       document.getElementById("nova-overlay").classList.remove("visible");
+      /* P1-7: Restore content area width */
+      const shell = document.getElementById("platform-shell");
+      if (shell) shell.classList.remove("nova-drawer-open");
     },
     toggle() {
       _isOpen ? this.close() : this.open();
@@ -2285,6 +2293,13 @@ document.addEventListener("DOMContentLoaded", () => {
   NovaRouter.init();
   /* Start proactive insights polling */
   NovaInsights.start();
+  /* Safety net: rebuild sidebar if empty after 500ms (P1-6 fix) */
+  setTimeout(() => {
+    const nav = document.getElementById("sidebar-nav");
+    if (nav && !nav.children.length) {
+      NovaSidebar.build();
+    }
+  }, 500);
   /* Show onboarding on first visit (Phase 6) */
   setTimeout(() => NovaOnboarding.check(), 500);
   /* Fetch CSRF token for API calls */

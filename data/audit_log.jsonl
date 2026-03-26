@@ -720,3 +720,5 @@
 {"ts": 1774420087.489928, "iso": "2026-03-25T06:28:07Z", "action": "api.access", "actor": "system", "resource": "/api/health", "severity": "info", "ip_hash": "12ca17b49af2"}
 {"ts": 1774421327.312256, "iso": "2026-03-25T06:48:47Z", "action": "api.access", "actor": "system", "resource": "/api/health", "severity": "info", "ip_hash": "12ca17b49af2"}
 {"ts": 1774423226.710706, "iso": "2026-03-25T07:20:26Z", "action": "api.access", "actor": "system", "resource": "/api/health", "severity": "info", "ip_hash": "12ca17b49af2"}
+{"ts": 1774510949.1010938, "iso": "2026-03-26T07:42:29Z", "action": "test.event", "actor": "test", "resource": "/test", "severity": "info", "ip_hash": ""}
+{"ts": 1774510954.061377, "iso": "2026-03-26T07:42:34Z", "action": "test.event", "actor": "test", "resource": "/test", "severity": "info", "ip_hash": ""}

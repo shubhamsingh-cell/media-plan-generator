@@ -252,11 +252,30 @@ def handle_page_routes(handler: Any, path: str, parsed: Any) -> bool:
 def _serve_template(handler: Any, templates_dir: str, template: str) -> None:
     """Serve a template file from the templates directory.
 
+    Uses the template composer for templates that have partials (split templates).
+    Falls back to direct file read for monolithic templates.
+
     Args:
         handler: The MediaPlanHandler instance.
         templates_dir: Path to templates directory.
         template: Template filename.
     """
+    # Check if this template has been split into partials
+    page_name = template.rsplit(".", 1)[0]  # "index.html" -> "index"
+    try:
+        from template_composer import get_composed_template
+
+        composed = get_composed_template(page_name)
+        if composed is not None:
+            handler.send_response(200)
+            handler.send_header("Content-Type", "text/html; charset=utf-8")
+            handler.send_header("Content-Length", str(len(composed)))
+            handler.end_headers()
+            handler.wfile.write(composed)
+            return
+    except ImportError:
+        pass  # Composer not available, fall back to direct read
+
     html_path = os.path.join(templates_dir, template)
     if os.path.exists(html_path):
         with open(html_path, "r") as f:

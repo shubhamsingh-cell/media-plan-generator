@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import http.client
 import io
-import json
 import logging
 import ssl
 import threading

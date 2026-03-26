@@ -558,14 +558,7 @@
         </div>
       </div>
 
-      <!-- Dashboard Widgets -->
-      <div class="card wide" role="region" aria-label="Dashboard widget data">
-        <div class="card-title">Dashboard Widget Data</div>
-        <div id="widgetData" aria-live="polite">
-          <div class="skeleton skeleton-line"></div>
-          <div class="skeleton skeleton-line" style="width: 60%"></div>
-        </div>
-      </div>
+      <!-- Dashboard Widgets (admin-only debug section removed for P0-2) -->
     </div>
 
     <div class="footer">
@@ -602,13 +595,34 @@
           }
         }
 
+        function clearSkeletons() {
+          document.querySelectorAll(".skeleton").forEach(function (el) {
+            el.classList.remove(
+              "skeleton",
+              "skeleton-number",
+              "skeleton-line",
+              "skeleton-bar",
+            );
+          });
+        }
+
         async function pollHealth() {
           const d = await fetchJSON("/api/health");
           if (!d) {
+            clearSkeletons();
             $("sysStatus").textContent = "UNREACHABLE";
             $("sysStatus").className = "big-number red";
+            $("errorRate").textContent = "--";
+            $("latency").textContent = "--";
+            $("activeReqs").textContent = "--";
+            $("insightCount").textContent = "--";
+            $("moduleHealth").innerHTML =
+              '<div class="sub-text">Health endpoint unreachable. Retrying...</div>';
+            $("llmBody").innerHTML =
+              '<tr><td colspan="4" style="color:var(--text-dim)">Health endpoint unreachable</td></tr>';
             return;
           }
+          clearSkeletons();
           const status = d.status || "unknown";
           $("sysStatus").textContent = status.toUpperCase();
           $("sysStatus").className =
@@ -778,52 +792,16 @@
           $("insightList").innerHTML = html;
         }
 
-        async function pollWidgets() {
-          const d = await fetchJSON("/api/dashboard/widgets");
-          if (!d) {
-            $("widgetData").innerHTML =
-              '<div class="sub-text">Widget endpoint unavailable</div>';
-            return;
-          }
-          let html = "";
-          const widgets = d.widgets || d;
-          if (Array.isArray(widgets)) {
-            for (const w of widgets) {
-              const label = w.label || w.title || w.name || "Widget";
-              const value = w.value != null ? w.value : "--";
-              html +=
-                '<div class="bar-row"><span class="label">' +
-                label +
-                '</span><span class="val" style="width:auto;font-size:14px;color:var(--downy-teal)">' +
-                value +
-                "</span></div>";
-            }
-          } else if (typeof widgets === "object") {
-            for (const [k, v] of Object.entries(widgets)) {
-              const val = typeof v === "object" ? JSON.stringify(v) : v;
-              html +=
-                '<div class="bar-row"><span class="label">' +
-                k +
-                '</span><span class="val" style="width:auto;font-size:13px">' +
-                val +
-                "</span></div>";
-            }
-          }
-          $("widgetData").innerHTML =
-            html || '<div class="sub-text">No widget data</div>';
-        }
+        /* pollWidgets removed -- raw JSON debug section removed (P0-2) */
 
         // Initial load
         pollHealth();
         pollCosts();
         pollInsights();
-        pollWidgets();
-
         // Auto-refresh
         setInterval(pollHealth, 10000);
         setInterval(pollCosts, 30000);
         setInterval(pollInsights, 30000);
-        setInterval(pollWidgets, 30000);
       })();
     </script>
   </body>

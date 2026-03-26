@@ -29,11 +29,9 @@ import logging
 import math
 import re
 import time
-import traceback
-from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -1314,7 +1312,6 @@ def generate_heatmap_excel(analysis: Dict[str, Any]) -> bytes:
     """
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-    from openpyxl.utils import get_column_letter
 
     # Design tokens -- Sapphire Blue palette
     NAVY = "0F172A"
@@ -1680,7 +1677,7 @@ def generate_heatmap_ppt(analysis: Dict[str, Any]) -> bytes:
     """
     try:
         from pptx import Presentation
-        from pptx.util import Inches, Pt, Emu
+        from pptx.util import Inches, Pt
         from pptx.dml.color import RGBColor
         from pptx.enum.text import PP_ALIGN
     except ImportError:

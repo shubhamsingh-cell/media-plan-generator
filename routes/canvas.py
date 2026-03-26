@@ -5,7 +5,6 @@ Handles:
 - POST /api/canvas/edit            -- apply a canvas edit
 """
 
-import json
 import logging
 from typing import Any
 

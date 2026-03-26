@@ -7,7 +7,6 @@ parsed URL path string).  Returns ``True`` if the route was handled.
 
 import datetime
 import hashlib
-import json
 import sys
 import logging
 import os

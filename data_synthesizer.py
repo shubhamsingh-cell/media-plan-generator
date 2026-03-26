@@ -49,7 +49,6 @@ logger = logging.getLogger(__name__)
 try:
     from standardizer import (
         normalize_industry as _std_industry,
-        normalize_role as _std_role,
         normalize_platform as _std_platform,
         CANONICAL_INDUSTRIES as _CANON_IND,
     )

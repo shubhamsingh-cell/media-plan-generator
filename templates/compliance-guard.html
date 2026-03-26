@@ -57,7 +57,7 @@
         --glass-inset: 0 0 0 1px rgba(255, 255, 255, 0.04) inset;
         --text: #d4d4d8;
         --text-secondary: #a1a1a1;
-        --text-muted: #666666;
+        --text-muted: #9ca3af;
         --border: rgba(255, 255, 255, 0.08);
         --border-accent: rgba(90, 84, 189, 0.3);
         --shadow-md:
@@ -227,7 +227,7 @@
         background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.02'/%3E%3C/svg%3E");
         pointer-events: none;
         z-index: 0;
-        opacity: 0.4;
+        opacity: 0.08;
       }
 
       /* ── HEADER ─────────────────────────────────── */
@@ -1050,17 +1050,13 @@
 
       /* ── REVEAL ON SCROLL ───────────────────────── */
       .reveal-on-scroll {
-        opacity: 0;
-        transform: translateY(24px);
-        filter: hue-rotate(40deg) saturate(0.5) brightness(0.8);
-        transition:
-          opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1),
-          transform 0.6s cubic-bezier(0.4, 0, 0.2, 1),
-          filter 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        opacity: 1;
+        transform: none;
+        filter: none;
       }
       .reveal-on-scroll.visible {
         opacity: 1;
-        transform: translateY(0);
+        transform: none;
         filter: none;
       }
       .stagger-1 {

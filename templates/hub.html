@@ -105,7 +105,7 @@
         --accent-glow-strong: rgba(90, 84, 189, 0.25);
         --text-primary: #e4e4e7;
         --text-secondary: #b4b4b4;
-        --text-muted: #666666;
+        --text-muted: #9ca3af;
         --border: rgba(255, 255, 255, 0.08);
         --border-hover: rgba(255, 255, 255, 0.16);
         --success: #22c55e;
@@ -649,8 +649,16 @@
         -webkit-text-fill-color: transparent;
         background-clip: text;
         font-variant-numeric: tabular-nums;
+        /* Start invisible; JS sets opacity:1 when animation begins */
         opacity: 0;
         transition: opacity 0.3s ease;
+      }
+      /* Hide entire pill until counter animation activates */
+      .hero-stat-pill {
+        visibility: hidden;
+      }
+      .hero-stat-pill.counter-active {
+        visibility: visible;
       }
 
       .hero-stat-suffix {
@@ -1262,6 +1270,23 @@
           grid-template-columns: 1fr;
           gap: 16px;
         }
+      }
+
+      .start-here-badge {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        background: linear-gradient(135deg, #5a54bd, #6bb3cd);
+        color: #fff;
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        padding: 4px 10px;
+        border-radius: 20px;
+        text-transform: uppercase;
+        z-index: 2;
+        box-shadow: 0 2px 8px rgba(90, 84, 189, 0.35);
+        pointer-events: none;
       }
 
       .product-hero-card {
@@ -2470,6 +2495,10 @@
           stroke-dashoffset: 0;
           transition: none;
         }
+        .hero-stat-pill {
+          /* Show pills immediately -- no animation */
+          visibility: visible;
+        }
         .hero-stat-pill .hero-stat-num {
           /* Show final values immediately -- no animation */
           opacity: 1;
@@ -2665,7 +2694,9 @@
         font-size: 0.82rem;
         line-height: 1.7;
         color: #e4e4e7;
-        white-space: pre;
+        white-space: pre-wrap;
+        word-break: break-word;
+        overflow-x: auto;
       }
       .diff-code-body .ck {
         color: #7b75d4;
@@ -2893,9 +2924,12 @@
       <button
         class="nav-hamburger"
         onclick="
-          document
-            .querySelector('.nav-links')
-            .classList.toggle('nav-links--open')
+          var links = document.querySelector('.nav-links');
+          links.classList.toggle('nav-links--open');
+          this.setAttribute(
+            'aria-expanded',
+            links.classList.contains('nav-links--open'),
+          );
         "
         aria-label="Toggle navigation menu"
         aria-expanded="false"
@@ -2934,7 +2968,7 @@
       <!-- ========================================== -->
       <!-- SECTION 1: HERO (split layout)             -->
       <!-- ========================================== -->
-      <section class="hero" role="banner" aria-label="Hero">
+      <section class="hero" aria-label="Hero">
         <div class="ambient-glow ambient-glow--violet" aria-hidden="true"></div>
         <div class="ambient-glow ambient-glow--teal" aria-hidden="true"></div>
         <div class="ambient-glow ambient-glow--deep" aria-hidden="true"></div>
@@ -3349,7 +3383,7 @@
       <section
         class="usecases-section"
         aria-label="Use Cases"
-        style="padding: 64px 24px"
+        style="padding: 48px 24px 24px"
       >
         <div class="container">
           <div class="section-header reveal-on-scroll">
@@ -3462,7 +3496,7 @@
       <section
         class="differentiator-section"
         aria-label="Why Nova AI"
-        style="padding: 64px 24px"
+        style="padding: 24px 24px 48px"
       >
         <div class="container" style="max-width: 960px">
           <div
@@ -3584,8 +3618,10 @@
                 <span class="widget-label">Active Campaigns</span>
                 <span class="widget-badge widget-badge--blue">Live</span>
               </div>
-              <div class="widget-value" id="w-campaigns-value">--</div>
-              <div class="widget-sub" id="w-campaigns-sub">Loading...</div>
+              <div class="widget-value" id="w-campaigns-value">0</div>
+              <div class="widget-sub" id="w-campaigns-sub">
+                No active campaigns
+              </div>
             </div>
             <div class="widget-card reveal" id="w-budget">
               <div class="widget-header">
@@ -3596,8 +3632,8 @@
                   >Healthy</span
                 >
               </div>
-              <div class="widget-value" id="w-budget-value">--</div>
-              <div class="widget-sub" id="w-budget-sub">Loading...</div>
+              <div class="widget-value" id="w-budget-value">$0</div>
+              <div class="widget-sub" id="w-budget-sub">No budget set</div>
               <div class="widget-meter">
                 <div class="widget-meter-fill" id="w-budget-meter"></div>
               </div>
@@ -3616,7 +3652,7 @@
                 id="w-market-value"
                 style="font-size: 1.5rem"
               >
-                --
+                Stable
               </div>
               <div class="widget-sub" id="w-market-sub">
                 Labor market trends steady
@@ -3649,11 +3685,11 @@
                     />
                   </svg>
                   <span class="widget-ring-label" id="w-compliance-score"
-                    >--</span
+                    >0</span
                   >
                 </div>
               </div>
-              <div class="widget-sub" id="w-compliance-sub">Loading...</div>
+              <div class="widget-sub" id="w-compliance-sub">No audits run</div>
             </div>
           </div>
         </div>
@@ -3787,6 +3823,7 @@
           <div class="products-trio reveal">
             <!-- PLAN -->
             <a href="/platform/plan" class="product-hero-card product-plan">
+              <span class="start-here-badge">Start Here</span>
               <div class="product-hero-icon">
                 <svg
                   viewBox="0 0 24 24"
@@ -3833,6 +3870,7 @@
               href="/platform/intelligence"
               class="product-hero-card product-intelligence"
             >
+              <span class="start-here-badge">Most Popular</span>
               <div class="product-hero-icon">
                 <svg
                   viewBox="0 0 24 24"
@@ -3917,7 +3955,12 @@
           </div>
 
           <!-- Nova AI Banner -->
-          <div class="nova-banner reveal">
+          <div class="nova-banner reveal" style="position: relative">
+            <span
+              class="start-here-badge"
+              style="position: absolute; top: -10px; right: 16px"
+              >Try Me</span
+            >
             <div class="nova-banner-content">
               <div class="nova-banner-icon">
                 <svg
@@ -4208,6 +4251,9 @@
                   heroCounterObserver.unobserve(el);
                   return;
                 }
+                // Reveal the parent pill before animating
+                var pill = el.closest(".hero-stat-pill");
+                if (pill) pill.classList.add("counter-active");
                 el.style.opacity = "1";
                 var startTime = null;
                 var duration = 1600;
@@ -4237,6 +4283,12 @@
         );
         document.querySelectorAll("[data-hero-counter]").forEach(function (el) {
           heroCounterObserver.observe(el);
+        });
+        // Reveal the AI-Powered pill immediately (no counter)
+        document.querySelectorAll(".hero-stat-pill").forEach(function (pill) {
+          if (!pill.querySelector("[data-hero-counter]")) {
+            pill.classList.add("counter-active");
+          }
         });
 
         // ── Dashboard bar animation ──
@@ -4421,7 +4473,7 @@
                 bv.textContent =
                   d.budget && d.budget.total > 0
                     ? "$" + d.budget.total.toLocaleString()
-                    : "--";
+                    : "$0";
               if (bs)
                 bs.textContent = pct > 0 ? pct + "% spent" : "No budget set";
               if (bm)
@@ -4468,7 +4520,7 @@
               var cscoreEl = document.getElementById("w-compliance-score");
               var csub = document.getElementById("w-compliance-sub");
               var carc = document.getElementById("w-compliance-arc");
-              if (cscoreEl) cscoreEl.textContent = cscore || "--";
+              if (cscoreEl) cscoreEl.textContent = cscore || "0";
               if (csub)
                 csub.textContent =
                   cscore >= 80
@@ -4489,15 +4541,26 @@
               }
             })
             .catch(function () {
-              var els = [
-                "w-campaigns-sub",
-                "w-budget-sub",
-                "w-market-sub",
-                "w-compliance-sub",
-              ];
-              els.forEach(function (id) {
+              /* On API failure, show meaningful empty states instead of Loading */
+              var subs = {
+                "w-campaigns-sub": "No active campaigns",
+                "w-budget-sub": "No budget set",
+                "w-market-sub": "Labor market trends steady",
+                "w-compliance-sub": "No audits run",
+              };
+              Object.keys(subs).forEach(function (id) {
                 var e = document.getElementById(id);
-                if (e) e.textContent = "Unavailable";
+                if (e) e.textContent = subs[id];
+              });
+              var vals = {
+                "w-campaigns-value": "0",
+                "w-budget-value": "$0",
+                "w-market-value": "Stable",
+                "w-compliance-score": "0",
+              };
+              Object.keys(vals).forEach(function (id) {
+                var e = document.getElementById(id);
+                if (e) e.textContent = vals[id];
               });
             });
         })();

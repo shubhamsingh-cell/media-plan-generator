@@ -6,7 +6,6 @@ Admin endpoints require admin key. Public endpoints are unprotected.
 """
 
 import hashlib
-import hmac
 import logging
 import os
 import secrets

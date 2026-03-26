@@ -125,7 +125,20 @@ CREATE TABLE IF NOT EXISTS supply_repository (
 );
 
 -- =========================================================================
--- 8. Research Cache (web research results with timestamps)
+-- 8a. Cache (L3 persistent LLM response cache for supabase_cache.py)
+-- =========================================================================
+CREATE TABLE IF NOT EXISTS cache (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    key TEXT NOT NULL UNIQUE,
+    data JSONB NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    expires_at TIMESTAMPTZ,
+    category TEXT DEFAULT 'general',
+    hit_count INTEGER DEFAULT 0
+);
+
+-- =========================================================================
+-- 8b. Research Cache (web research results with timestamps)
 -- =========================================================================
 CREATE TABLE IF NOT EXISTS research_cache (
     id BIGSERIAL PRIMARY KEY,
@@ -166,6 +179,9 @@ CREATE INDEX IF NOT EXISTS idx_trends_category ON market_trends(category);
 CREATE INDEX IF NOT EXISTS idx_trends_date ON market_trends(published_date DESC);
 CREATE INDEX IF NOT EXISTS idx_enrichment_table ON enrichment_log(table_name);
 CREATE INDEX IF NOT EXISTS idx_enrichment_date ON enrichment_log(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_cache_key ON cache(key);
+CREATE INDEX IF NOT EXISTS idx_cache_expires_at ON cache(expires_at);
+CREATE INDEX IF NOT EXISTS idx_cache_category ON cache(category);
 CREATE INDEX IF NOT EXISTS idx_research_expires ON research_cache(expires_at);
 
 -- =========================================================================
@@ -179,6 +195,7 @@ ALTER TABLE compliance_rules ENABLE ROW LEVEL SECURITY;
 ALTER TABLE market_trends ENABLE ROW LEVEL SECURITY;
 ALTER TABLE vendor_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE supply_repository ENABLE ROW LEVEL SECURITY;
+ALTER TABLE cache ENABLE ROW LEVEL SECURITY;
 ALTER TABLE research_cache ENABLE ROW LEVEL SECURITY;
 ALTER TABLE enrichment_log ENABLE ROW LEVEL SECURITY;
 
@@ -190,6 +207,7 @@ CREATE POLICY "Allow all on compliance_rules" ON compliance_rules FOR ALL USING 
 CREATE POLICY "Allow all on market_trends" ON market_trends FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all on vendor_profiles" ON vendor_profiles FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all on supply_repository" ON supply_repository FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all on cache" ON cache FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all on research_cache" ON research_cache FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all on enrichment_log" ON enrichment_log FOR ALL USING (true) WITH CHECK (true);
 

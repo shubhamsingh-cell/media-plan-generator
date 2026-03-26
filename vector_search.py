@@ -56,9 +56,13 @@ _VOYAGE_API_URL = "https://api.voyageai.com/v1/embeddings"
 _VOYAGE_MODEL = "voyage-3-lite"  # Good balance of quality/speed/cost
 _VOYAGE_TIMEOUT = 20  # seconds
 _VOYAGE_API_KEY: str | None = None
-_VOYAGE_MAX_BATCH = 128  # Voyage API max batch size
+_VOYAGE_MAX_BATCH = 32  # Reduced from 128 to avoid 429s on startup bursts
+_VOYAGE_STARTUP_BATCH = 16  # Even smaller batches during initial indexing
 _VOYAGE_RPM_LIMIT = 10  # Voyage free tier: ~10 req/min
 _VOYAGE_MIN_DELAY = 6.5  # Seconds between requests (10 RPM = 6s + 0.5s buffer)
+_VOYAGE_MAX_RETRIES = 3  # Max retries on 429 errors
+_VOYAGE_BASE_BACKOFF = 2.0  # Base backoff in seconds for exponential retry
+_is_startup_indexing = True  # Flag to use smaller batches during startup
 _voyage_request_times: list[float] = []
 _voyage_rate_lock = threading.Lock()
 _voyage_last_request: float = 0.0  # monotonic timestamp of last API call
@@ -363,7 +367,7 @@ def _qdrant_search(
         payload = hit.get("payload") or {}
         results.append(
             {
-                "id": payload.get("doc_id") or str(hit.get("id", "")),
+                "id": payload.get("doc_id") or str(hit.get("id") or ""),
                 "text": (payload.get("text") or "")[:500],
                 "metadata": payload.get("metadata") or {},
                 "score": round(hit.get("score", 0.0), 4),
@@ -460,85 +464,124 @@ def embed_batch(texts: list[str]) -> list[list[float]] | None:
     uncached_texts = [truncated[i] for i in uncached_indices]
     new_embeddings: list[list[float]] = []
 
-    for batch_start in range(0, len(uncached_texts), _VOYAGE_MAX_BATCH):
-        batch = uncached_texts[batch_start : batch_start + _VOYAGE_MAX_BATCH]
+    # Use smaller batch size during startup to reduce 429 risk
+    effective_batch_size = (
+        _VOYAGE_STARTUP_BATCH if _is_startup_indexing else _VOYAGE_MAX_BATCH
+    )
+
+    for batch_start in range(0, len(uncached_texts), effective_batch_size):
+        batch = uncached_texts[batch_start : batch_start + effective_batch_size]
 
         payload = {
             "input": batch,
             "model": _VOYAGE_MODEL,
         }
 
-        try:
-            # Rate limiting: enforce BOTH minimum inter-request delay AND sliding window
-            now = time.monotonic()
-            with _voyage_rate_lock:
-                # Minimum delay between consecutive requests to prevent bursts
-                elapsed = now - _voyage_last_request
-                if elapsed < _VOYAGE_MIN_DELAY and _voyage_last_request > 0:
-                    wait_time = _VOYAGE_MIN_DELAY - elapsed
-                    logger.debug(
-                        "Voyage AI: spacing requests, waiting %.1fs", wait_time
-                    )
-                    time.sleep(wait_time)
-                    now = time.monotonic()
-
-                # Sliding window: prune requests older than 60s
-                _voyage_request_times[:] = [
-                    t for t in _voyage_request_times if now - t < 60
-                ]
-
-                # If we have 10+ requests in the last 60s, wait until oldest ages out
-                if len(_voyage_request_times) >= _VOYAGE_RPM_LIMIT:
-                    oldest_request = min(_voyage_request_times)
-                    wait_time = 60.0 - (now - oldest_request) + 0.5
-                    if wait_time > 0.001:
-                        logger.info(
-                            "Voyage AI rate limiting: waiting %.1fs for window to clear",
-                            wait_time,
+        # Retry loop with exponential backoff for 429 errors
+        for attempt in range(_VOYAGE_MAX_RETRIES + 1):
+            try:
+                # Rate limiting: enforce BOTH minimum inter-request delay AND sliding window
+                now = time.monotonic()
+                with _voyage_rate_lock:
+                    # Minimum delay between consecutive requests to prevent bursts
+                    elapsed = now - _voyage_last_request
+                    if elapsed < _VOYAGE_MIN_DELAY and _voyage_last_request > 0:
+                        wait_time = _VOYAGE_MIN_DELAY - elapsed
+                        logger.debug(
+                            "Voyage AI: spacing requests, waiting %.1fs", wait_time
                         )
                         time.sleep(wait_time)
+                        now = time.monotonic()
 
-            _record_voyage_request()
-            _voyage_last_request = time.monotonic()
+                    # Sliding window: prune requests older than 60s
+                    _voyage_request_times[:] = [
+                        t for t in _voyage_request_times if now - t < 60
+                    ]
 
-            data = json.dumps(payload).encode("utf-8")
-            req = urllib.request.Request(
-                _VOYAGE_API_URL,
-                data=data,
-                headers={
-                    "Content-Type": "application/json",
-                    "Authorization": f"Bearer {api_key}",
-                },
-                method="POST",
-            )
-            with urllib.request.urlopen(req, timeout=_VOYAGE_TIMEOUT) as resp:
-                body = resp.read().decode("utf-8")
-                api_result = json.loads(body)
+                    # If we have 10+ requests in the last 60s, wait until oldest ages out
+                    if len(_voyage_request_times) >= _VOYAGE_RPM_LIMIT:
+                        oldest_request = min(_voyage_request_times)
+                        wait_time = 60.0 - (now - oldest_request) + 0.5
+                        if wait_time > 0.001:
+                            logger.info(
+                                "Voyage AI rate limiting: waiting %.1fs for window to clear",
+                                wait_time,
+                            )
+                            time.sleep(wait_time)
 
-            embeddings_data = api_result.get("data") or []
-            # Sort by index to preserve order
-            embeddings_data.sort(key=lambda x: x.get("index", 0))
-            batch_embeddings = [e.get("embedding") or [] for e in embeddings_data]
-            new_embeddings.extend(batch_embeddings)
+                _record_voyage_request()
+                _voyage_last_request = time.monotonic()
 
-        except urllib.error.HTTPError as e:
-            logger.error(
-                "Voyage AI HTTP error %d: %s",
-                e.code,
-                e.reason,
-                exc_info=True,
-            )
-            return None
-        except urllib.error.URLError as e:
-            logger.error(
-                "Voyage AI URL error: %s",
-                e.reason,
-                exc_info=True,
-            )
-            return None
-        except (json.JSONDecodeError, OSError, ValueError, TypeError) as e:
-            logger.error("Voyage AI error: %s", e, exc_info=True)
-            return None
+                data = json.dumps(payload).encode("utf-8")
+                req = urllib.request.Request(
+                    _VOYAGE_API_URL,
+                    data=data,
+                    headers={
+                        "Content-Type": "application/json",
+                        "Authorization": f"Bearer {api_key}",
+                    },
+                    method="POST",
+                )
+                with urllib.request.urlopen(req, timeout=_VOYAGE_TIMEOUT) as resp:
+                    body = resp.read().decode("utf-8")
+                    api_result = json.loads(body)
+
+                embeddings_data = api_result.get("data") or []
+                # Sort by index to preserve order
+                embeddings_data.sort(key=lambda x: x.get("index", 0))
+                batch_embeddings = [e.get("embedding") or [] for e in embeddings_data]
+                new_embeddings.extend(batch_embeddings)
+                break  # Success -- exit retry loop
+
+            except urllib.error.HTTPError as e:
+                if e.code == 429 and attempt < _VOYAGE_MAX_RETRIES:
+                    # Parse Retry-After header if present
+                    retry_after_header = (
+                        e.headers.get("Retry-After") if e.headers else None
+                    )
+                    if retry_after_header:
+                        try:
+                            backoff_time = float(retry_after_header)
+                        except ValueError:
+                            backoff_time = _VOYAGE_BASE_BACKOFF * (2**attempt)
+                    else:
+                        backoff_time = _VOYAGE_BASE_BACKOFF * (2**attempt)
+
+                    logger.info(
+                        "Voyage AI 429 rate limited (attempt %d/%d), "
+                        "backing off %.1fs before retry",
+                        attempt + 1,
+                        _VOYAGE_MAX_RETRIES,
+                        backoff_time,
+                    )
+                    time.sleep(backoff_time)
+                    continue  # Retry this batch
+                elif e.code == 429:
+                    # Exhausted retries on 429 -- fall back to TF-IDF gracefully
+                    logger.warning(
+                        "Voyage AI 429 rate limit persists after %d retries, "
+                        "falling back to TF-IDF for remaining embeddings",
+                        _VOYAGE_MAX_RETRIES,
+                    )
+                    return None
+                else:
+                    logger.error(
+                        "Voyage AI HTTP error %d: %s",
+                        e.code,
+                        e.reason,
+                        exc_info=True,
+                    )
+                    return None
+            except urllib.error.URLError as e:
+                logger.error(
+                    "Voyage AI URL error: %s",
+                    e.reason,
+                    exc_info=True,
+                )
+                return None
+            except (json.JSONDecodeError, OSError, ValueError, TypeError) as e:
+                logger.error("Voyage AI error: %s", e, exc_info=True)
+                return None
 
     if len(new_embeddings) != len(uncached_indices):
         logger.warning(
@@ -630,11 +673,38 @@ def build_index(documents: list[dict]) -> None:
         return
 
     valid_texts = [t for _, t in valid_docs]
-    embeddings = embed_batch(valid_texts)
+
+    # Stagger embedding in smaller chunks to avoid overwhelming Voyage AI on startup
+    _STAGGER_CHUNK_SIZE = 64  # Process 64 docs at a time with delays between chunks
+    _STAGGER_DELAY = 2.0  # Seconds between staggered chunks
+
+    all_embeddings: list[list[float]] = []
+    embedding_failed = False
+
+    for chunk_start in range(0, len(valid_texts), _STAGGER_CHUNK_SIZE):
+        chunk_texts = valid_texts[chunk_start : chunk_start + _STAGGER_CHUNK_SIZE]
+
+        # Add delay between chunks (not before the first one)
+        if chunk_start > 0:
+            logger.debug(
+                "Staggering startup embedding: chunk %d/%d, waiting %.1fs",
+                chunk_start // _STAGGER_CHUNK_SIZE + 1,
+                (len(valid_texts) + _STAGGER_CHUNK_SIZE - 1) // _STAGGER_CHUNK_SIZE,
+                _STAGGER_DELAY,
+            )
+            time.sleep(_STAGGER_DELAY)
+
+        chunk_embeddings = embed_batch(chunk_texts)
+        if chunk_embeddings is None:
+            embedding_failed = True
+            break
+        all_embeddings.extend(chunk_embeddings)
+
+    embeddings = all_embeddings if not embedding_failed else None
 
     if embeddings is None:
-        logger.warning(
-            "build_index: Voyage AI embedding failed, building TF-IDF fallback index"
+        logger.info(
+            "build_index: Voyage AI embedding unavailable, building TF-IDF fallback index"
         )
         # Build TF-IDF fallback index from the valid documents
         _build_tfidf_index(
@@ -736,7 +806,7 @@ def _rerank_results(results: list[dict], query: str, top_k: int = 3) -> list[dic
     query_terms = set(query.lower().split())
 
     for result in results:
-        text = (result.get("text", "") or result.get("content", "")).lower()
+        text = (result.get("text") or result.get("content") or "").lower()
         text_terms = set(text.split())
 
         # Keyword overlap score (Jaccard-like)
@@ -867,6 +937,7 @@ def index_knowledge_base() -> int:
         "client_media_plans_kb.json",
         "channels_db.json",
         "joveo_publishers.json",
+        "international_sources.json",
     ]
 
     documents: list[dict] = []
@@ -908,6 +979,11 @@ def index_knowledge_base() -> int:
         len(kb_files),
     )
     build_index(documents)
+
+    # Clear startup flag so subsequent embed_batch calls use normal batch sizes
+    global _is_startup_indexing
+    _is_startup_indexing = False
+
     return len(documents)
 
 

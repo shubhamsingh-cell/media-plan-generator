@@ -334,10 +334,30 @@ def _build_error_html(
     error_message: str,
     context: Optional[Dict[str, Any]] = None,
 ) -> str:
-    """Build an error-themed (red) HTML email body."""
+    """Build a severity-themed HTML email body.
+
+    Uses red for critical alerts, amber for warnings, blue for info.
+    """
+    # Pick colors based on title keyword
+    if "Warning" in title:
+        banner_bg = "#f57c00"  # amber
+        msg_bg = "#fff8e1"
+        msg_border = "#f57c00"
+        msg_text = "#e65100"
+    elif "Info" in title:
+        banner_bg = "#1976d2"  # blue
+        msg_bg = "#e3f2fd"
+        msg_border = "#1976d2"
+        msg_text = "#0d47a1"
+    else:
+        banner_bg = "#d32f2f"  # red (critical)
+        msg_bg = "#fff3f3"
+        msg_border = "#d32f2f"
+        msg_text = "#b71c1c"
+
     # Header banner
     header = (
-        '<div style="background:#d32f2f; padding:20px 24px;">'
+        f'<div style="background:{banner_bg}; padding:20px 24px;">'
         f'<h1 style="margin:0; color:#ffffff; font-size:20px; font-weight:600;">'
         f"{_html_escape(title)}</h1>"
         "</div>"
@@ -350,10 +370,10 @@ def _build_error_html(
         f'<p style="margin:0 0 20px; font-size:16px; color:#333333; font-weight:600;">'
         f"{_html_escape(error_type)}</p>",
         f'<p style="margin:0 0 8px; font-size:14px; color:#666666;">Message</p>',
-        f'<div style="background:#fff3f3; border-left:4px solid #d32f2f;'
+        f'<div style="background:{msg_bg}; border-left:4px solid {msg_border};'
         f' padding:12px 16px; margin:0 0 20px; border-radius:0 4px 4px 0;">'
         f'<pre style="margin:0; white-space:pre-wrap; word-break:break-word;'
-        f' font-size:13px; color:#b71c1c; font-family:monospace;">'
+        f' font-size:13px; color:{msg_text}; font-family:monospace;">'
         f"{_html_escape(error_message)}</pre></div>",
     ]
 
@@ -505,9 +525,20 @@ def send_error_alert(
     if not _can_send(dedup_key):
         return
 
-    subject = f"[ALERT] {error_type}"
+    # Derive email title from severity context (fixes "Critical" title on WARNING alerts)
+    severity = "critical"
+    if isinstance(context, dict):
+        severity = context.get("severity", "critical") or "critical"
+    severity_titles = {
+        "critical": "Critical Error Alert",
+        "warning": "Warning Alert",
+        "info": "Info Alert",
+    }
+    title = severity_titles.get(severity, "Critical Error Alert")
+    subject_prefix = "CRITICAL" if severity == "critical" else severity.upper()
+    subject = f"[{subject_prefix}] {error_type}"
     html = _build_error_html(
-        title="Critical Error Alert",
+        title=title,
         error_type=error_type,
         error_message=error_message,
         context=context,

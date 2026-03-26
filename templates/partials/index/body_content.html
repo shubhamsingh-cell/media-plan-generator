@@ -1,0 +1,2061 @@
+<!-- Skip navigation for accessibility -->
+<a href="#main-content" class="skip-nav">Skip to main content</a>
+
+<!-- Page-level progress bar -->
+<div
+  id="pageProgress"
+  class="page-progress"
+  role="progressbar"
+  aria-valuenow="20"
+  aria-valuemin="0"
+  aria-valuemax="100"
+  aria-label="Form completion progress"
+>
+  <div class="page-progress-fill" style="width: 20%"></div>
+</div>
+
+<header class="app-header hero-scan standalone-header" role="banner">
+  <!-- Animated gradient orbs -->
+  <div class="header-orb header-orb-1" aria-hidden="true"></div>
+  <div class="header-orb header-orb-2" aria-hidden="true"></div>
+  <div class="header-orb header-orb-3" aria-hidden="true"></div>
+  <div class="header-orb header-orb-4" aria-hidden="true"></div>
+  <!-- Phase 4: Ambient glow spots -->
+  <div class="ambient-glow ambient-glow--violet" aria-hidden="true"></div>
+  <div class="ambient-glow ambient-glow--teal" aria-hidden="true"></div>
+  <div class="header-content">
+    <a href="/" class="logo-mark" aria-label="Back to Nova AI Suite">
+      <svg viewBox="0 0 36 36" fill="none" width="36" height="36">
+        <defs>
+          <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#6366F1" />
+            <stop offset="100%" stop-color="#818CF8" />
+          </linearGradient>
+        </defs>
+        <rect width="36" height="36" rx="10" fill="url(#logoGrad)" />
+        <text
+          x="18"
+          y="25"
+          text-anchor="middle"
+          fill="white"
+          font-family="Inter, sans-serif"
+          font-weight="800"
+          font-size="20"
+        >
+          N
+        </text>
+      </svg>
+    </a>
+    <div>
+      <div class="header-brand">
+        <span class="brand-primary">Nova AI Suite</span>
+        <span class="brand-separator">/</span>
+        <span class="brand-secondary">Media Plan Generator</span>
+      </div>
+      <h1 class="streaming-text hero-halo" data-streaming>
+        Nova AI Media Plan Generator
+      </h1>
+      <p class="hero-subtitle">Generate your media plan in 3 minutes</p>
+      <p>Enterprise AI-powered recruitment media planning platform</p>
+      <div class="ai-badge" aria-label="This tool is AI-powered">
+        AI-Powered
+      </div>
+    </div>
+  </div>
+</header>
+
+<nav
+  class="breadcrumb"
+  aria-label="Breadcrumb"
+  style="position: relative; z-index: 1"
+>
+  <a href="/platform">Home</a>
+  <span>&rsaquo;</span>
+  <a href="/platform/plan">Plan</a>
+  <span>&rsaquo;</span>
+  <span>Campaign Planner</span>
+</nav>
+
+<main id="main-content" class="container" role="main">
+  <!-- Progress Bar -->
+  <nav class="progress-bar" id="progressBar" aria-label="Form steps">
+    <div
+      class="progress-line-fill"
+      id="progressLineFill"
+      aria-hidden="true"
+    ></div>
+    <div
+      class="step-indicator active"
+      data-step="1"
+      aria-current="step"
+      onclick="handleStepClick(1)"
+      role="button"
+      tabindex="0"
+      aria-label="Step 1: Client Info"
+    >
+      <div class="step-circle" aria-hidden="true">1</div>
+      <div class="step-label">
+        <span class="full-label">Client Info</span
+        ><span class="short-label">Client</span>
+      </div>
+    </div>
+    <div
+      class="step-indicator"
+      data-step="2"
+      onclick="handleStepClick(2)"
+      role="button"
+      tabindex="0"
+      aria-label="Step 2: Industry and Targeting"
+    >
+      <div class="step-circle" aria-hidden="true">2</div>
+      <div class="step-label">
+        <span class="full-label">Industry & Targeting</span
+        ><span class="short-label">Target</span>
+      </div>
+    </div>
+    <div
+      class="step-indicator"
+      data-step="3"
+      onclick="handleStepClick(3)"
+      role="button"
+      tabindex="0"
+      aria-label="Step 3: Channels"
+    >
+      <div class="step-circle" aria-hidden="true">3</div>
+      <div class="step-label">
+        <span class="full-label">Channels</span
+        ><span class="short-label">Chans</span>
+      </div>
+    </div>
+    <div
+      class="step-indicator"
+      data-step="4"
+      onclick="handleStepClick(4)"
+      role="button"
+      tabindex="0"
+      aria-label="Step 4: Extra Sections"
+    >
+      <div class="step-circle" aria-hidden="true">4</div>
+      <div class="step-label">
+        <span class="full-label">Extra Sections</span
+        ><span class="short-label">Extra</span>
+      </div>
+    </div>
+    <div
+      class="step-indicator"
+      data-step="5"
+      onclick="handleStepClick(5)"
+      role="button"
+      tabindex="0"
+      aria-label="Step 5: Review and Export"
+    >
+      <div class="step-circle" aria-hidden="true">5</div>
+      <div class="step-label">
+        <span class="full-label">Review & Export</span
+        ><span class="short-label">Review</span>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Preset Prompt Chips -->
+  <div class="preset-row" id="presetRow">
+    <span class="preset-label">Try an example:</span>
+    <button
+      type="button"
+      class="preset-chip"
+      data-title="Software Engineer"
+      data-location="New York, NY"
+      data-industry="tech_engineering"
+      data-budget="$50,000 - $250,000"
+      data-client="TechCorp Inc"
+    >
+      Software Engineer in NYC
+    </button>
+    <button
+      type="button"
+      class="preset-chip"
+      data-title="Registered Nurse"
+      data-location="Los Angeles, CA"
+      data-industry="healthcare_medical"
+      data-budget="< $50,000"
+      data-client="CareFirst Health"
+    >
+      Nurse in LA
+    </button>
+    <button
+      type="button"
+      class="preset-chip"
+      data-title="Sales Manager"
+      data-location="Chicago, IL"
+      data-industry="retail_consumer"
+      data-budget="$50,000 - $250,000"
+      data-client="RetailMax Group"
+    >
+      Sales Manager in Chicago
+    </button>
+    <button
+      type="button"
+      class="preset-chip"
+      data-title="Data Analyst"
+      data-location="Remote"
+      data-industry="tech_engineering"
+      data-budget="$50,000 - $250,000"
+      data-client="DataFlow Analytics"
+    >
+      Remote Data Analyst
+    </button>
+    <button
+      type="button"
+      class="preset-chip"
+      data-title="Warehouse Associate"
+      data-location="Dallas, TX"
+      data-industry="blue_collar_trades"
+      data-budget="< $50,000"
+      data-client="SwiftShip Logistics"
+    >
+      Warehouse in Dallas
+    </button>
+  </div>
+
+  <!-- Step 1: Client Info -->
+  <div class="wizard-step active" id="step1">
+    <div class="card reveal-on-scroll">
+      <h2>Client Information</h2>
+      <p class="subtitle">
+        Enter the basic details about your client and campaign
+      </p>
+
+      <div class="form-group">
+        <label for="clientName">Client Name *</label>
+        <input
+          type="text"
+          id="clientName"
+          placeholder="Enter client name"
+          autocomplete="organization"
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="clientWebsite"
+          >Client Website
+          <span
+            style="
+              font-weight: 400;
+              color: var(--text-muted);
+              font-size: 10px;
+              letter-spacing: 0;
+            "
+            >(Used to fetch accurate logo and company details)</span
+          ></label
+        >
+        <input
+          type="url"
+          id="clientWebsite"
+          placeholder="Enter client website URL"
+          autocomplete="url"
+        />
+        <div class="form-hint">
+          Enter the client's website URL for accurate logo and company
+          identification in the media plan.
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="useCase">Client's Use Case / Brief *</label>
+        <textarea
+          id="useCase"
+          placeholder="Describe the client's recruitment goals, target roles, and any specific hiring challenges..."
+        ></textarea>
+        <div
+          class="copilot-suggestions"
+          id="copilot-brief"
+          aria-live="polite"
+          aria-label="Nova AI brief suggestions"
+        ></div>
+      </div>
+
+      <div class="form-group">
+        <label
+          >Upload Brief / Supporting Documents
+          <span class="section-optional-badge">Optional</span></label
+        >
+        <div class="file-upload-zone" id="briefUploadZone">
+          <input
+            type="file"
+            id="briefFileInput"
+            multiple
+            accept=".pdf,.docx,.doc,.txt"
+            style="display: none"
+          />
+          <div class="file-upload-icon">&#128206;</div>
+          <div class="file-upload-text">Drop files here or click to upload</div>
+          <div class="file-upload-hint">
+            PDF, DOCX, TXT -- max 10MB each. RFPs, briefs, or any context docs.
+          </div>
+        </div>
+        <div id="briefFileList" class="file-list"></div>
+      </div>
+
+      <div class="form-group">
+        <label for="callTranscript"
+          >Sales Call Transcript / Notes
+          <span class="section-optional-badge">Optional</span></label
+        >
+        <textarea
+          id="callTranscript"
+          rows="3"
+          placeholder="Paste Avoma / Gong transcript or key discussion notes from sales calls..."
+        ></textarea>
+        <div class="form-hint">
+          Paste call transcript or upload below. Key hiring signals, budget
+          cues, and pain points will be extracted to enrich the media plan.
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label
+          >Upload Call Transcript File
+          <span class="section-optional-badge">Optional</span></label
+        >
+        <div class="file-upload-zone file-upload-sm" id="transcriptUploadZone">
+          <input
+            type="file"
+            id="transcriptFileInput"
+            accept=".pdf,.docx,.doc,.txt,.vtt,.srt"
+            style="display: none"
+          />
+          <div class="file-upload-text">
+            Upload transcript file (PDF, DOCX, TXT, VTT, SRT)
+          </div>
+        </div>
+        <div id="transcriptFileList" class="file-list"></div>
+      </div>
+
+      <div class="form-row form-row-3">
+        <div class="form-group">
+          <label for="budgetRange">Budget Range *</label>
+          <select id="budgetRange">
+            <option value="">Select budget range</option>
+            <option value="< $50,000">Under $50,000</option>
+            <option value="$50,000 - $250,000">$50,000 - $250,000</option>
+            <option value="$250,000 - $500,000">$250,000 - $500,000</option>
+            <option value="$500,000 - $1,000,000">$500,000 - $1,000,000</option>
+            <option value="$1,000,000 - $3,000,000">
+              $1,000,000 - $3,000,000
+            </option>
+            <option value="$3,000,000+">$3,000,000+</option>
+            <option value="__exact__">Enter exact amount</option>
+          </select>
+          <div
+            id="exactBudgetWrap"
+            class="exact-input-wrap"
+            style="display: none"
+          >
+            <input
+              type="text"
+              id="exactBudget"
+              placeholder="e.g. $12,500,000 or 12.5M or 500K"
+            />
+            <div class="form-hint">
+              Accepts: $12,500,000 / 12.5M / 500K / 2B etc.
+            </div>
+          </div>
+          <div
+            class="copilot-nudge"
+            id="nudge-budget"
+            aria-live="polite"
+            aria-label="Budget insight"
+          ></div>
+          <div class="field-error-msg" id="budgetRange-error"></div>
+        </div>
+        <div class="form-group">
+          <label for="campaignDuration">Campaign Duration *</label>
+          <select id="campaignDuration">
+            <option value="">Select duration</option>
+            <option value="1-3 months">1-3 months</option>
+            <option value="3-6 months">3-6 months</option>
+            <option value="6-12 months">6-12 months</option>
+            <option value="1-2 years">1-2 years</option>
+            <option value="2-5 years (Long-term)">2-5 years (Long-term)</option>
+            <option value="Ongoing">Ongoing</option>
+          </select>
+          <div
+            class="copilot-nudge"
+            id="nudge-duration"
+            aria-live="polite"
+            aria-label="Duration insight"
+          ></div>
+        </div>
+        <div class="form-group">
+          <label for="campaignStartMonth"
+            >Campaign Start Month
+            <span
+              style="
+                font-weight: 400;
+                color: var(--text-muted);
+                font-size: 10px;
+              "
+              >(seasonal trends applied to this month)</span
+            ></label
+          >
+          <select id="campaignStartMonth">
+            <option value="">Current month (default)</option>
+            <option value="1">January</option>
+            <option value="2">February</option>
+            <option value="3">March</option>
+            <option value="4">April</option>
+            <option value="5">May</option>
+            <option value="6">June</option>
+            <option value="7">July</option>
+            <option value="8">August</option>
+            <option value="9">September</option>
+            <option value="10">October</option>
+            <option value="11">November</option>
+            <option value="12">December</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="li-section-divider">
+        <div class="section-number">2</div>
+        <span class="section-title">Campaign Details</span>
+        <div class="section-line"></div>
+      </div>
+
+      <div class="form-group">
+        <label>Campaign Goals</label>
+        <div class="checkbox-group" id="campaignGoalsGroup">
+          <label
+            ><input
+              type="checkbox"
+              name="campaignGoals"
+              value="Brand Awareness"
+            /><span>Brand Awareness</span></label
+          >
+          <label
+            ><input
+              type="checkbox"
+              name="campaignGoals"
+              value="Lead Generation"
+            /><span>Lead Generation</span></label
+          >
+          <label
+            ><input
+              type="checkbox"
+              name="campaignGoals"
+              value="Direct Hiring"
+            /><span>Direct Hiring</span></label
+          >
+          <label
+            ><input
+              type="checkbox"
+              name="campaignGoals"
+              value="Talent Pipeline"
+            /><span>Talent Pipeline</span></label
+          >
+          <label
+            ><input
+              type="checkbox"
+              name="campaignGoals"
+              value="Employer Branding"
+            /><span>Employer Branding</span></label
+          >
+          <label
+            ><input
+              type="checkbox"
+              name="campaignGoals"
+              value="Diversity Hiring"
+            /><span>Diversity Hiring</span></label
+          >
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="hireVolume">Target Hire Volume</label>
+          <select id="hireVolume">
+            <option value="">Select hire volume</option>
+            <option value="1-10 hires">1-10 hires</option>
+            <option value="10-50 hires">10-50 hires</option>
+            <option value="50-100 hires">50-100 hires</option>
+            <option value="100-500 hires">100-500 hires</option>
+            <option value="500+ hires">500+ hires</option>
+            <option value="__exact__">Enter exact number</option>
+          </select>
+          <div
+            id="exactHiresWrap"
+            class="exact-input-wrap"
+            style="display: none"
+          >
+            <input type="text" id="exactHires" placeholder="e.g. 4200" />
+            <div class="form-hint">Enter the exact number of hires needed</div>
+          </div>
+          <div class="field-error-msg" id="hireVolume-error"></div>
+        </div>
+        <div></div>
+      </div>
+
+      <div class="form-group">
+        <label
+          >Target Locations *
+          <span
+            style="
+              font-weight: 400;
+              color: var(--primary);
+              font-size: 11px;
+              letter-spacing: 0;
+            "
+            >(type city/country, press Enter to add each one)</span
+          ></label
+        >
+        <div class="tags-container" id="locationsContainer">
+          <input
+            type="text"
+            class="tags-input"
+            id="locationInput"
+            placeholder="e.g. San Francisco CA, London UK, Singapore... (press Enter or comma to add)"
+            autocomplete="off"
+          />
+        </div>
+        <div class="form-hint" style="opacity: 0.7">
+          Press Enter or comma to add &bull; Click outside to auto-add &bull;
+          Click &times; to remove
+        </div>
+        <div class="form-hint">
+          Supports 40+ countries worldwide. For international locations, include
+          the country name.
+        </div>
+        <div
+          class="copilot-suggestions"
+          id="copilot-locations"
+          aria-live="polite"
+          aria-label="Nova AI location suggestions"
+        ></div>
+        <div
+          class="copilot-nudge"
+          id="nudge-location"
+          aria-live="polite"
+          aria-label="Location insight"
+        ></div>
+        <div class="field-error-msg" id="locationInput-error"></div>
+      </div>
+
+      <div class="form-group">
+        <label>Work Environment</label>
+        <div class="checkbox-group" id="workEnvironmentGroup">
+          <label
+            ><input
+              type="checkbox"
+              name="workEnvironment"
+              value="Remote"
+            /><span>Remote</span></label
+          >
+          <label
+            ><input
+              type="checkbox"
+              name="workEnvironment"
+              value="Hybrid"
+            /><span>Hybrid</span></label
+          >
+          <label
+            ><input
+              type="checkbox"
+              name="workEnvironment"
+              value="On-site"
+            /><span>On-site</span></label
+          >
+        </div>
+      </div>
+
+      <div class="li-section-divider">
+        <div class="section-number">3</div>
+        <span class="section-title">Competitive Intelligence</span>
+        <div class="section-line"></div>
+      </div>
+
+      <div class="form-group">
+        <label
+          >Client's Key Competitors
+          <span
+            style="
+              font-weight: 400;
+              color: var(--text-muted);
+              font-size: 10px;
+              letter-spacing: 0;
+            "
+            >(Enter competitor company names to enhance competitive analysis in
+            the media plan)</span
+          ></label
+        >
+        <div class="tags-container" id="competitorsContainer">
+          <input
+            type="text"
+            class="tags-input"
+            id="competitorInput"
+            placeholder="Type a competitor name and press Enter..."
+            autocomplete="off"
+          />
+        </div>
+        <div class="form-hint" style="opacity: 0.7">
+          Press Enter to add &bull; Click &times; to remove
+        </div>
+        <div class="form-hint">
+          Adding competitors helps generate deeper competitive intelligence --
+          we'll research what they're doing and include insights in your media
+          plan.
+        </div>
+        <div class="field-error-msg" id="competitorInput-error"></div>
+        <button
+          type="button"
+          class="btn-analyze-competitors"
+          id="btn-analyze-competitors"
+          onclick="analyzeCompetitors()"
+          aria-label="Analyze competitor careers pages"
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          Analyze Careers Pages
+        </button>
+
+        <div
+          id="competitor-analysis-panel"
+          class="competitor-panel"
+          style="display: none"
+          role="region"
+          aria-label="Competitive intelligence results"
+        >
+          <div class="competitor-panel-header">
+            <span class="copilot-badge">Competitive Intelligence</span>
+            <button
+              onclick="
+                document.getElementById(
+                  'competitor-analysis-panel',
+                ).style.display = 'none'
+              "
+              class="btn-close-panel"
+              aria-label="Close panel"
+            >
+              &times;
+            </button>
+          </div>
+          <div id="competitor-results"></div>
+        </div>
+      </div>
+
+      <div class="li-section-divider">
+        <div class="section-number">4</div>
+        <span class="section-title">Historical Performance Data</span>
+        <div class="section-line"></div>
+      </div>
+
+      <div class="form-group">
+        <label
+          >Upload Past Campaign Data
+          <span class="section-optional-badge">Optional</span></label
+        >
+        <div class="file-upload-zone" id="historicalUploadZone">
+          <input
+            type="file"
+            id="historicalFileInput"
+            multiple
+            accept=".csv,.xlsx,.xls"
+            style="display: none"
+          />
+          <div class="file-upload-icon">&#128202;</div>
+          <div class="file-upload-text">
+            Upload historical campaign performance data
+          </div>
+          <div class="file-upload-hint">
+            CSV or Excel with columns: Platform/Channel, Spend, Applications,
+            Hires, CPA, CPC. We'll analyze what worked and recommend
+            improvements.
+          </div>
+        </div>
+        <div id="historicalFileList" class="file-list"></div>
+        <div class="form-hint">
+          When historical data is provided, the media plan will include a "What
+          You Did vs. What We Recommend" analysis with specific optimization
+          opportunities per platform.
+        </div>
+      </div>
+    </div>
+    <div class="btn-row">
+      <div></div>
+      <button class="btn btn-primary" onclick="nextStep()">
+        Continue &#8594;
+      </button>
+    </div>
+  </div>
+
+  <!-- Step 2: Industry & Targeting -->
+  <div class="wizard-step" id="step2">
+    <div class="card reveal-on-scroll">
+      <h2>Industry & Targeting</h2>
+      <p class="subtitle">
+        Select the industry and define your target audience
+      </p>
+
+      <div class="form-group">
+        <label>Industry *</label>
+        <div class="search-filter-wrap" style="margin-bottom: 16px">
+          <input
+            type="text"
+            id="industrySearch"
+            placeholder="Search industries..."
+            class="form-input"
+            autocomplete="off"
+            style="
+              width: 100%;
+              max-width: 400px;
+              margin: 0 auto;
+              display: block;
+              padding: 12px 16px;
+              border: 1px solid var(--border);
+              border-radius: var(--radius-sm);
+              font-size: 14px;
+              font-family: inherit;
+              background: rgba(255, 255, 255, 0.04);
+              color: var(--text-primary);
+              transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            "
+          />
+        </div>
+        <div class="industry-grid" id="industryGrid">
+          <div
+            class="industry-card"
+            data-industry="healthcare_medical"
+            onclick="selectIndustry(this)"
+          >
+            <div class="icon">&#9764;</div>
+            <div class="name">Healthcare & Medical</div>
+            <div class="desc">Physicians, Nurses, PAs</div>
+          </div>
+          <div
+            class="industry-card"
+            data-industry="blue_collar_trades"
+            onclick="selectIndustry(this)"
+          >
+            <div class="icon">&#9881;</div>
+            <div class="name">Blue Collar / Trades</div>
+            <div class="desc">Mechanics, Welders, Operators</div>
+          </div>
+          <div
+            class="industry-card"
+            data-industry="maritime_marine"
+            onclick="selectIndustry(this)"
+          >
+            <div class="icon">&#9875;</div>
+            <div class="name">Maritime & Marine</div>
+            <div class="desc">Marine Engineers, Technicians</div>
+          </div>
+          <div
+            class="industry-card"
+            data-industry="military_recruitment"
+            onclick="selectIndustry(this)"
+          >
+            <div class="icon">&#9733;</div>
+            <div class="name">Military Recruitment</div>
+            <div class="desc">All MOS categories</div>
+          </div>
+          <div
+            class="industry-card"
+            data-industry="tech_engineering"
+            onclick="selectIndustry(this)"
+          >
+            <div class="icon">&#128187;</div>
+            <div class="name">Tech & Engineering</div>
+            <div class="desc">Software, Data, DevOps</div>
+          </div>
+          <div
+            class="industry-card"
+            data-industry="general_entry_level"
+            onclick="selectIndustry(this)"
+          >
+            <div class="icon">&#128188;</div>
+            <div class="name">General / Entry-Level</div>
+            <div class="desc">Retail, Admin, Customer Service</div>
+          </div>
+          <div
+            class="industry-card"
+            data-industry="legal_services"
+            onclick="selectIndustry(this)"
+          >
+            <div class="icon">&#9878;</div>
+            <div class="name">Legal Services</div>
+            <div class="desc">Attorneys, Paralegals, Compliance</div>
+          </div>
+          <div
+            class="industry-card"
+            data-industry="finance_banking"
+            onclick="selectIndustry(this)"
+          >
+            <div class="icon">&#128176;</div>
+            <div class="name">Finance & Banking</div>
+            <div class="desc">Analysts, Bankers, Risk Managers</div>
+          </div>
+          <div
+            class="industry-card"
+            data-industry="mental_health"
+            onclick="selectIndustry(this)"
+          >
+            <div class="icon">&#129504;</div>
+            <div class="name">Mental Health</div>
+            <div class="desc">Psychologists, Therapists, Counselors</div>
+          </div>
+          <div
+            class="industry-card"
+            data-industry="retail_consumer"
+            onclick="selectIndustry(this)"
+          >
+            <div class="icon">&#128722;</div>
+            <div class="name">Retail & Consumer</div>
+            <div class="desc">Store Managers, Sales, Merchandising</div>
+          </div>
+          <div
+            class="industry-card"
+            data-industry="aerospace_defense"
+            onclick="selectIndustry(this)"
+          >
+            <div class="icon">&#128640;</div>
+            <div class="name">Aerospace & Defense</div>
+            <div class="desc">Engineers, Program Managers, Avionics</div>
+          </div>
+          <div
+            class="industry-card"
+            data-industry="pharma_biotech"
+            onclick="selectIndustry(this)"
+          >
+            <div class="icon">&#128300;</div>
+            <div class="name">Pharma & Biotech</div>
+            <div class="desc">Scientists, CRAs, Regulatory Affairs</div>
+          </div>
+          <div
+            class="industry-card"
+            data-industry="energy_utilities"
+            onclick="selectIndustry(this)"
+          >
+            <div class="icon">&#128267;</div>
+            <div class="name">Energy & Utilities</div>
+            <div class="desc">Oil/Gas, Renewables, Power</div>
+          </div>
+          <div
+            class="industry-card"
+            data-industry="insurance"
+            onclick="selectIndustry(this)"
+          >
+            <div class="icon">&#128737;</div>
+            <div class="name">Insurance</div>
+            <div class="desc">Life, Health, Property</div>
+          </div>
+          <div
+            class="industry-card"
+            data-industry="telecommunications"
+            onclick="selectIndustry(this)"
+          >
+            <div class="icon">&#128225;</div>
+            <div class="name">Telecommunications</div>
+            <div class="desc">5G, Fiber, Wireless</div>
+          </div>
+          <div
+            class="industry-card"
+            data-industry="automotive"
+            onclick="selectIndustry(this)"
+          >
+            <div class="icon">&#128663;</div>
+            <div class="name">Automotive & Manufacturing</div>
+            <div class="desc">OEMs, EV, Parts</div>
+          </div>
+          <div
+            class="industry-card"
+            data-industry="food_beverage"
+            onclick="selectIndustry(this)"
+          >
+            <div class="icon">&#127869;</div>
+            <div class="name">Food & Beverage</div>
+            <div class="desc">CPG, QSR, Agriculture</div>
+          </div>
+          <div
+            class="industry-card"
+            data-industry="logistics_supply_chain"
+            onclick="selectIndustry(this)"
+          >
+            <div class="icon">&#128230;</div>
+            <div class="name">Logistics & Supply Chain</div>
+            <div class="desc">Freight, Warehousing</div>
+          </div>
+          <div
+            class="industry-card"
+            data-industry="hospitality_travel"
+            onclick="selectIndustry(this)"
+          >
+            <div class="icon">&#127976;</div>
+            <div class="name">Hospitality & Travel</div>
+            <div class="desc">Hotels, Airlines, Tourism</div>
+          </div>
+          <div
+            class="industry-card"
+            data-industry="media_entertainment"
+            onclick="selectIndustry(this)"
+          >
+            <div class="icon">&#127916;</div>
+            <div class="name">Media & Entertainment</div>
+            <div class="desc">Streaming, Studios, Gaming</div>
+          </div>
+          <div
+            class="industry-card"
+            data-industry="construction_real_estate"
+            onclick="selectIndustry(this)"
+          >
+            <div class="icon">&#127959;</div>
+            <div class="name">Construction & Real Estate</div>
+            <div class="desc">Commercial, Residential</div>
+          </div>
+          <div
+            class="industry-card"
+            data-industry="education"
+            onclick="selectIndustry(this)"
+          >
+            <div class="icon">&#127891;</div>
+            <div class="name">Education</div>
+            <div class="desc">K-12, Higher Ed, EdTech</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="li-section-divider">
+        <div class="section-number">2</div>
+        <span class="section-title">Job Categories</span>
+        <div class="section-line"></div>
+      </div>
+
+      <div class="form-group">
+        <label
+          >Job Categories
+          <span
+            style="
+              font-weight: 400;
+              color: var(--text-muted);
+              font-size: 10px;
+              letter-spacing: 0;
+            "
+            >(Select one or more -- helps tailor channels, CPA targets, and
+            strategy from supply + competitor data)</span
+          ></label
+        >
+        <div class="job-category-grid" id="jobCategoryGrid"></div>
+        <div
+          id="jobCategoryInsight"
+          class="job-category-insight"
+          style="display: none"
+        ></div>
+      </div>
+
+      <div class="li-section-divider">
+        <div class="section-number">3</div>
+        <span class="section-title">Target Audience</span>
+        <div class="section-line"></div>
+      </div>
+
+      <div class="form-group">
+        <label>Target Roles</label>
+        <div class="tags-container" id="rolesContainer">
+          <input
+            type="text"
+            class="tags-input"
+            id="roleInput"
+            placeholder="Type a role and press Enter..."
+            autocomplete="off"
+          />
+        </div>
+        <div
+          style="
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 4px;
+            opacity: 0.7;
+          "
+        >
+          Press Enter to add &bull; Click &times; to remove
+        </div>
+        <div
+          class="copilot-suggestions"
+          id="copilot-roles"
+          aria-live="polite"
+          aria-label="Nova AI role suggestions"
+        ></div>
+        <div
+          class="copilot-nudge"
+          id="nudge-job_title"
+          aria-live="polite"
+          aria-label="Role insight"
+        ></div>
+      </div>
+
+      <div class="form-group">
+        <label>Target Demographic</label>
+        <input
+          type="text"
+          id="targetDemographic"
+          placeholder="e.g., Gen Z (18-26), Early-career professionals, Mid-level specialists"
+          autocomplete="off"
+        />
+      </div>
+
+      <div class="form-group">
+        <label>Experience Level</label>
+        <div class="checkbox-group" id="experienceLevelGroup">
+          <label
+            ><input
+              type="checkbox"
+              name="experienceLevel"
+              value="Entry Level (0-2 yrs)"
+            /><span>Entry Level (0-2 yrs)</span></label
+          >
+          <label
+            ><input
+              type="checkbox"
+              name="experienceLevel"
+              value="Mid Level (3-5 yrs)"
+            /><span>Mid Level (3-5 yrs)</span></label
+          >
+          <label
+            ><input
+              type="checkbox"
+              name="experienceLevel"
+              value="Senior (5-10 yrs)"
+            /><span>Senior (5-10 yrs)</span></label
+          >
+          <label
+            ><input
+              type="checkbox"
+              name="experienceLevel"
+              value="Executive (10+ yrs)"
+            /><span>Executive (10+ yrs)</span></label
+          >
+        </div>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="prevStep()">
+        &#8592; Back
+      </button>
+      <button class="btn btn-primary" onclick="nextStep()">
+        Continue &#8594;
+      </button>
+    </div>
+  </div>
+
+  <!-- Step 3: Channel Categories -->
+  <div class="wizard-step" id="step3">
+    <div class="card reveal-on-scroll">
+      <h2>Channel Categories</h2>
+      <p class="subtitle">
+        Select the types of recruitment channels to include in your media plan
+      </p>
+
+      <div class="channel-categories">
+        <div class="channel-category-card">
+          <div class="category-header">
+            <div class="category-info">
+              <div class="category-icon">📋</div>
+              <div>
+                <h3>Regional & Local Job Boards</h3>
+                <p>
+                  Indeed, Craigslist, local job sites, and regional
+                  platforms<span class="channel-info-tooltip"
+                    >&nbsp;&#9432;<span class="tooltip-content"
+                      ><strong>Example Platforms</strong>Craigslist, State job
+                      boards, Local newspapers online, City-specific job
+                      sites</span
+                    ></span
+                  >
+                </p>
+              </div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="chRegionalBoards" checked />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="channel-category-card">
+          <div class="category-header">
+            <div class="category-info">
+              <div class="category-icon">🌍</div>
+              <div>
+                <h3>Global Reach Job Boards</h3>
+                <p>
+                  ZipRecruiter, Monster, LinkedIn, and international
+                  platforms<span class="channel-info-tooltip"
+                    >&nbsp;&#9432;<span class="tooltip-content"
+                      ><strong>Example Platforms</strong>Indeed, ZipRecruiter,
+                      Glassdoor, CareerBuilder, Monster</span
+                    ></span
+                  >
+                </p>
+              </div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="chGlobalBoards" checked />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="channel-category-card">
+          <div class="category-header">
+            <div class="category-info">
+              <div class="category-icon">🎯</div>
+              <div>
+                <h3>Niche & Industry-Specific Boards</h3>
+                <p>
+                  Specialized job boards matching your industry (e.g., Dice for
+                  Tech, Health eCareers for Healthcare)<span
+                    class="channel-info-tooltip"
+                    >&nbsp;&#9432;<span class="tooltip-content"
+                      ><strong>Example Platforms</strong>Health eCareers, Dice,
+                      Built In, Rigzone, Poached</span
+                    ></span
+                  >
+                </p>
+              </div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="chNicheBoards" checked />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="channel-category-card">
+          <div class="category-header">
+            <div class="category-info">
+              <div class="category-icon">📱</div>
+              <div>
+                <h3>Social Media Channels</h3>
+                <p>
+                  LinkedIn Ads, Facebook Jobs, Instagram, TikTok recruitment,
+                  and social platforms<span class="channel-info-tooltip"
+                    >&nbsp;&#9432;<span class="tooltip-content"
+                      ><strong>Example Platforms</strong>Facebook Jobs,
+                      Instagram Careers, Twitter/X, TikTok Resumes, Reddit</span
+                    ></span
+                  >
+                </p>
+              </div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="chSocial" checked />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="channel-category-card">
+          <div class="category-header">
+            <div class="category-info">
+              <div class="category-icon">⚡</div>
+              <div>
+                <h3>Programmatic & DSP Channels</h3>
+                <p>
+                  Automated job ad distribution via programmatic platforms<span
+                    class="channel-info-tooltip"
+                    >&nbsp;&#9432;<span class="tooltip-content"
+                      ><strong>Example Platforms</strong>Programmatic job
+                      distribution, real-time bidding, ML-optimized publisher
+                      mix</span
+                    ></span
+                  >
+                </p>
+              </div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="chProgrammatic" checked />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="channel-category-card">
+          <div class="category-header">
+            <div class="category-info">
+              <div class="category-icon">🏢</div>
+              <div>
+                <h3>Employer Branding Platforms</h3>
+                <p>
+                  Glassdoor, Comparably, career site optimization, and
+                  brand-building channels<span class="channel-info-tooltip"
+                    >&nbsp;&#9432;<span class="tooltip-content"
+                      ><strong>Example Platforms</strong>Glassdoor profiles,
+                      Comparably, LinkedIn Career Pages, Great Place to
+                      Work</span
+                    ></span
+                  >
+                </p>
+              </div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="chEmployerBrand" />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div
+          class="channel-category-card"
+          id="apacChannelCard"
+          style="display: none"
+        >
+          <div class="category-header">
+            <div class="category-info">
+              <div class="category-icon">🌏</div>
+              <div>
+                <h3>APAC Regional Channels</h3>
+                <p>
+                  Local job platforms for Japan, Korea, India, Singapore,
+                  Australia, and more<span class="channel-info-tooltip"
+                    >&nbsp;&#9432;<span class="tooltip-content"
+                      ><strong>Example Platforms</strong>JobStreet, Naukri,
+                      Seek, JobsDB, Shine.com</span
+                    ></span
+                  >
+                </p>
+              </div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="chApac" checked />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div
+          class="channel-category-card"
+          id="emeaChannelCard"
+          style="display: none"
+        >
+          <div class="category-header">
+            <div class="category-info">
+              <div class="category-icon">🌍</div>
+              <div>
+                <h3>EMEA Regional Channels</h3>
+                <p>
+                  European and Middle East local job boards and recruitment
+                  platforms<span class="channel-info-tooltip"
+                    >&nbsp;&#9432;<span class="tooltip-content"
+                      ><strong>Example Platforms</strong>StepStone, Totaljobs,
+                      Reed, Adzuna, XING</span
+                    ></span
+                  >
+                </p>
+              </div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="chEmea" checked />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+      <div
+        class="copilot-suggestions"
+        id="copilot-channels"
+        aria-live="polite"
+        aria-label="Nova AI channel recommendations"
+      ></div>
+      <div
+        class="copilot-nudge"
+        id="nudge-channel"
+        aria-live="polite"
+        aria-label="Channel insight"
+      ></div>
+    </div>
+
+    <div class="nav-buttons">
+      <button class="btn btn-secondary" onclick="prevStep()">
+        &#8592; Back
+      </button>
+      <button class="btn btn-primary" onclick="nextStep()">
+        Continue &#8594;
+      </button>
+    </div>
+  </div>
+
+  <!-- Step 4: Optional Sections -->
+  <div class="wizard-step" id="step4">
+    <div class="card reveal-on-scroll">
+      <h2>Additional Sections</h2>
+      <p class="subtitle">
+        Choose which extra sections to include in the media plan
+      </p>
+
+      <div class="toggle-group">
+        <div>
+          <strong>Educational Partners & Training Programs</strong><br /><span
+            style="font-weight: 400; color: var(--text-muted); font-size: 12px"
+            >Universities, trade schools, community colleges near target
+            locations</span
+          >
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="includeEducational" checked />
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="toggle-group">
+        <div>
+          <strong>Events & Career Fairs</strong><br /><span
+            style="font-weight: 400; color: var(--text-muted); font-size: 12px"
+            >STEM events, career fairs, industry conferences, community
+            engagement</span
+          >
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="includeEvents" checked />
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="toggle-group">
+        <div>
+          <strong>Radio & Podcasts</strong><br /><span
+            style="font-weight: 400; color: var(--text-muted); font-size: 12px"
+            >Local radio stations and industry podcasts for awareness</span
+          >
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="includeRadioPodcasts" checked />
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="toggle-group">
+        <div>
+          <strong>Media / Print Platforms</strong><br /><span
+            style="font-weight: 400; color: var(--text-muted); font-size: 12px"
+            >Industry journals, digital platforms, hybrid publications</span
+          >
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="includeMediaPlatforms" />
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="toggle-group">
+        <div>
+          <strong>DEI & Diversity Channels</strong><br /><span
+            style="font-weight: 400; color: var(--text-muted); font-size: 12px"
+            >Diversity-focused job boards, women-specific platforms, inclusive
+            hiring channels</span
+          >
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="includeDEI" checked />
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="toggle-group">
+        <div>
+          <strong>Innovative Channels 2025+</strong><br /><span
+            style="font-weight: 400; color: var(--text-muted); font-size: 12px"
+            >CTV, DOOH, retail media, gaming/esports, podcast ads, messaging
+            apps</span
+          >
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="includeInnovative" checked />
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="toggle-group">
+        <div>
+          <strong>Global Supply Strategy</strong><br /><span
+            style="font-weight: 400; color: var(--text-muted); font-size: 12px"
+            >Country-specific job boards, billing models, push vs pull strategy
+            (for international campaigns)</span
+          >
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="includeGlobalSupply" checked />
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="toggle-group">
+        <div>
+          <strong>Budget & Pricing Guide</strong><br /><span
+            style="font-weight: 400; color: var(--text-muted); font-size: 12px"
+            >CPC/CPA benchmarks, commission tiers, billing model comparison,
+            regional spend recommendations</span
+          >
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="includeBudgetGuide" checked />
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <!-- Live CPC/CPA Pricing Section -->
+      <div
+        class="live-pricing-section"
+        id="live-pricing"
+        role="region"
+        aria-label="Live market pricing data"
+      >
+        <div class="live-pricing-label">Live Market Pricing</div>
+        <p class="pricing-subtitle">
+          Real-time CPC/CPA benchmarks based on your selected roles and
+          locations
+        </p>
+        <div id="pricing-grid" class="pricing-grid" aria-live="polite">
+          <div class="pricing-loading" id="pricing-placeholder">
+            Pricing data will load automatically when roles and locations are
+            set
+          </div>
+        </div>
+        <div class="pricing-source" id="pricing-source"></div>
+        <button
+          type="button"
+          class="btn-refresh-pricing"
+          onclick="fetchLivePricing()"
+          aria-label="Refresh live pricing data"
+        >
+          &#8635; Refresh Pricing Data
+        </button>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="prevStep()">
+        &#8592; Back
+      </button>
+      <button class="btn btn-primary" onclick="nextStep()">
+        Continue &#8594;
+      </button>
+    </div>
+  </div>
+
+  <!-- Step 5: Review & Export -->
+  <div class="wizard-step" id="step5">
+    <div class="card reveal-on-scroll">
+      <h2>Review & Export</h2>
+      <p class="subtitle">
+        Review your media plan configuration before generating the Excel file
+      </p>
+
+      <div
+        class="form-section"
+        style="
+          margin-bottom: 24px;
+          padding: 20px;
+          background: rgba(90, 84, 189, 0.04);
+          border-radius: 12px;
+          border: 1px solid rgba(90, 84, 189, 0.12);
+        "
+      >
+        <div
+          class="section-label"
+          style="
+            margin-bottom: 16px;
+            font-weight: 700;
+            color: var(--text-primary);
+          "
+        >
+          Your Information
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px">
+          <div class="form-group">
+            <label for="requesterName">Your Name *</label>
+            <input
+              type="text"
+              id="requesterName"
+              placeholder="e.g., John Smith"
+              required
+              autocomplete="name"
+            />
+            <div class="field-error-msg" id="requesterName-error"></div>
+          </div>
+          <div class="form-group">
+            <label for="requesterEmail">Your Email *</label>
+            <input
+              type="email"
+              id="requesterEmail"
+              placeholder="e.g., john@company.com"
+              required
+              autocomplete="email"
+            />
+            <div class="field-error-msg" id="requesterEmail-error"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="review-section">
+        <div class="review-section-header">
+          <h3>Client Details</h3>
+          <a class="review-edit-btn" onclick="goToStep(1)">Edit</a>
+        </div>
+        <div class="review-item">
+          <span class="label">Client Name</span
+          ><span class="value" id="reviewClient"></span>
+        </div>
+        <div class="review-item">
+          <span class="label">Website</span
+          ><span class="value" id="reviewWebsite"></span>
+        </div>
+        <div class="review-item">
+          <span class="label">Use Case</span
+          ><span class="value" id="reviewUseCase"></span>
+        </div>
+        <div class="review-item">
+          <span class="label">Budget</span
+          ><span class="value" id="reviewBudget"></span>
+        </div>
+        <div class="review-item">
+          <span class="label">Duration</span
+          ><span class="value" id="reviewDuration"></span>
+        </div>
+        <div class="review-item">
+          <span class="label">Campaign Goals</span
+          ><span class="value" id="reviewGoals"></span>
+        </div>
+        <div class="review-item">
+          <span class="label">Hire Volume</span
+          ><span class="value" id="reviewHireVolume"></span>
+        </div>
+        <div class="review-item">
+          <span class="label">Locations</span
+          ><span class="value" id="reviewLocations"></span>
+        </div>
+        <div class="review-item">
+          <span class="label">Work Environment</span
+          ><span class="value" id="reviewWorkEnv"></span>
+        </div>
+        <div class="review-item">
+          <span class="label">Competitors</span
+          ><span class="value" id="reviewCompetitors"></span>
+        </div>
+      </div>
+
+      <div class="review-section">
+        <div class="review-section-header">
+          <h3>Targeting</h3>
+          <a class="review-edit-btn" onclick="goToStep(2)">Edit</a>
+        </div>
+        <div class="review-item">
+          <span class="label">Industry</span
+          ><span class="value" id="reviewIndustry"></span>
+        </div>
+        <div class="review-item">
+          <span class="label">Job Categories</span
+          ><span class="value" id="reviewJobCategories"></span>
+        </div>
+        <div class="review-item">
+          <span class="label">Target Roles</span
+          ><span class="value" id="reviewRoles"></span>
+        </div>
+        <div class="review-item">
+          <span class="label">Demographic</span
+          ><span class="value" id="reviewDemographic"></span>
+        </div>
+        <div class="review-item">
+          <span class="label">Experience Level</span
+          ><span class="value" id="reviewExpLevel"></span>
+        </div>
+      </div>
+
+      <div class="review-section">
+        <div class="review-section-header">
+          <h3>Channel Categories</h3>
+          <a class="review-edit-btn" onclick="goToStep(3)">Edit</a>
+        </div>
+        <div class="chip-list" id="reviewChannelCategories"></div>
+      </div>
+
+      <div class="review-section">
+        <div class="review-section-header">
+          <h3>Included Sections</h3>
+          <a class="review-edit-btn" onclick="goToStep(4)">Edit</a>
+        </div>
+        <div class="chip-list" id="reviewSections"></div>
+      </div>
+    </div>
+
+    <div
+      class="plan-preview"
+      style="
+        background: linear-gradient(
+          135deg,
+          rgba(90, 84, 189, 0.06),
+          rgba(107, 179, 205, 0.04)
+        );
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 20px 24px;
+        margin-bottom: 24px;
+      "
+    >
+      <h4
+        style="
+          font-size: 14px;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+          color: var(--text-muted);
+          margin-bottom: 12px;
+        "
+      >
+        &#128203; Your Plan Will Include
+      </h4>
+      <div
+        id="planPreviewContent"
+        style="
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+          gap: 8px;
+        "
+      >
+        <!-- Populated by JS -->
+      </div>
+      <div
+        style="
+          margin-top: 16px;
+          padding-top: 12px;
+          border-top: 1px solid var(--border);
+          display: flex;
+          gap: 24px;
+          font-size: 13px;
+          color: var(--text-muted);
+          flex-wrap: wrap;
+        "
+      >
+        <span
+          >&#128196; Est. sections: <strong id="estSections">8</strong></span
+        >
+        <span>&#9201; Generation time: <strong>~15 seconds</strong></span>
+        <span
+          >&#128229; Format: <strong>Excel (.xlsx) + PPT (.pptx)</strong></span
+        >
+      </div>
+    </div>
+
+    <!-- Hero Stat Success Section -->
+    <div class="hero-stat-section" id="heroStatSection">
+      <div class="hero-stat-card">
+        <div class="hero-stat-number" id="heroStatNumber">2</div>
+        <div class="hero-stat-label" id="heroStatLabel">
+          Files Generated Successfully
+        </div>
+        <div class="hero-stat-files">
+          <div class="hero-file-card">
+            <div class="hero-file-icon excel">&#128202;</div>
+            <div class="hero-file-info">
+              <div class="hero-file-name">Excel Media Plan</div>
+              <div class="hero-file-status">
+                <span class="check">&#10003;</span> Ready
+              </div>
+            </div>
+          </div>
+          <div class="hero-file-card">
+            <div class="hero-file-icon ppt">&#127917;</div>
+            <div class="hero-file-info">
+              <div class="hero-file-name">Strategy Deck (PPT)</div>
+              <div class="hero-file-status">
+                <span class="check">&#10003;</span> Ready
+              </div>
+            </div>
+          </div>
+        </div>
+        <button
+          class="btn"
+          onclick="redownloadBundle()"
+          style="
+            background: linear-gradient(135deg, var(--primary), #4f46e5);
+            color: white;
+            padding: 14px 36px;
+            font-size: 15px;
+            box-shadow: 0 4px 16px rgba(90, 84, 189, 0.4);
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+          "
+        >
+          &#128229; Download Bundle Again
+        </button>
+        <div class="export-dropdown-wrap">
+          <button
+            class="btn-export"
+            onclick="toggleExportMenu(event)"
+            id="exportBtn"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8" />
+              <polyline points="16 6 12 2 8 6" />
+              <line x1="12" y1="2" x2="12" y2="15" />
+            </svg>
+            Export
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+              style="margin-left: -2px"
+            >
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+          <div class="export-dropdown-menu" id="exportDropdown">
+            <button
+              class="export-dropdown-item"
+              onclick="exportPlan('sheets')"
+              id="exportSheetsBtn"
+              style="display: none"
+            >
+              <span class="export-icon">&#128196;</span>
+              <span class="export-label">Google Sheets</span>
+              <span class="export-badge">Cloud</span>
+            </button>
+            <div
+              class="export-dropdown-divider"
+              id="exportSheetsDivider"
+              style="display: none"
+            ></div>
+            <button class="export-dropdown-item" onclick="exportPlan('xlsx')">
+              <span class="export-icon">&#128202;</span>
+              <span class="export-label">Download Excel (.xlsx)</span>
+            </button>
+            <button class="export-dropdown-item" onclick="exportPlan('csv')">
+              <span class="export-icon">&#128203;</span>
+              <span class="export-label">Download CSV</span>
+            </button>
+          </div>
+        </div>
+        <button class="btn-copy-plan" onclick="copyPlanToClipboard()">
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <rect x="9" y="9" width="13" height="13" rx="2" />
+            <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+          </svg>
+          Copy Plan
+        </button>
+        <button class="btn-export-pdf" onclick="exportPlanPDF()">
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+            <polyline points="14 2 14 8 20 8" />
+            <line x1="16" y1="13" x2="8" y2="13" />
+            <line x1="16" y1="17" x2="8" y2="17" />
+            <polyline points="10 9 9 9 8 9" />
+          </svg>
+          Export PDF
+        </button>
+        <button class="btn-save-plan" onclick="savePlanForComparison()">
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path
+              d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"
+            />
+            <polyline points="17 21 17 13 7 13 7 21" />
+            <polyline points="7 3 7 8 15 8" />
+          </svg>
+          Save Plan
+        </button>
+        <button class="btn-share-plan" onclick="sharePlan()">
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <circle cx="18" cy="5" r="3" />
+            <circle cx="6" cy="12" r="3" />
+            <circle cx="18" cy="19" r="3" />
+            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+          </svg>
+          Share Plan
+        </button>
+        <button class="btn-regenerate" onclick="generatePlan()">
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path d="M1 4v6h6" />
+            <path d="M23 20v-6h-6" />
+            <path
+              d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15"
+            />
+          </svg>
+          Regenerate
+        </button>
+      </div>
+    </div>
+
+    <!-- Plan Summary Dashboard (populated by JS after generation) -->
+    <div class="hero-stat-section" id="planDashboardSection">
+      <div id="planDashboardContent"></div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="prevStep()">
+        &#8592; Back
+      </button>
+      <button
+        class="btn btn-success"
+        id="generateBtn"
+        onclick="generatePlan()"
+        style="width: 100%"
+      >
+        <span
+          style="
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+          "
+        >
+          <span>&#128640;</span>
+          <span>Generate Media Plan</span>
+          <span style="font-size: 11px; opacity: 0.8; margin-left: 4px"
+            >(Excel + PPT)</span
+          >
+        </span>
+      </button>
+      <button
+        class="btn-compare-plans"
+        type="button"
+        onclick="openPlanComparison()"
+      >
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <line x1="18" y1="20" x2="18" y2="10" />
+          <line x1="12" y1="20" x2="12" y2="4" />
+          <line x1="6" y1="20" x2="6" y2="14" />
+        </svg>
+        Compare Plans
+      </button>
+    </div>
+    <p
+      id="cmdEnterHint"
+      style="
+        text-align: center;
+        font-size: 12px;
+        color: var(--text-muted);
+        margin: 6px 0 0;
+        display: none;
+      "
+    >
+      or press
+      <kbd
+        style="
+          background: var(--bg-input);
+          border: 1px solid var(--border);
+          border-radius: var(--radius-sm);
+          padding: 1px 6px;
+          font-family: inherit;
+          font-size: 11px;
+        "
+        >&#8984;Enter</kbd
+      >
+    </p>
+    <div class="confidence-signals">
+      <span>Takes &lt;30 seconds</span>
+      <span class="conf-dot"></span>
+      <span>Based on real campaign data</span>
+      <span class="conf-dot"></span>
+      <span>No signup required</span>
+      <span class="conf-dot"></span>
+      <button class="plan-clear-form" onclick="clearFormState()" type="button">
+        Clear Form
+      </button>
+    </div>
+  </div>
+</main>
+
+<!-- Plan Comparison Modal -->
+<div
+  class="plan-compare-overlay"
+  id="planCompareOverlay"
+  role="dialog"
+  aria-label="Compare saved plans"
+>
+  <div class="plan-compare-modal">
+    <button
+      class="plan-compare-close"
+      onclick="closePlanComparison()"
+      aria-label="Close"
+    >
+      &times;
+    </button>
+    <h3>Compare Saved Plans</h3>
+    <div id="planCompareBody"></div>
+  </div>
+</div>
+
+<!-- Footer / Branding -->
+<footer class="app-footer" role="contentinfo">
+  <span class="footer-brand">Nova</span>
+  <span class="footer-dot"></span>
+  <span>AI Media Planning Platform</span>
+  <span class="footer-dot"></span>
+  <span
+    >Powered by
+    <strong style="color: var(--primary-light)"
+      ><a
+        href="https://www.linkedin.com/in/chandel13/"
+        target="_blank"
+        rel="noopener"
+        style="color: inherit; text-decoration: none"
+        >Shubham Singh Chandel</a
+      ></strong
+    ></span
+  >
+</footer>
+
+<!-- Toast notification container -->
+<div id="toastContainer" class="toast-container"></div>
+
+<!-- Confetti container -->
+<div
+  id="confettiContainer"
+  class="confetti-container"
+  style="display: none"
+></div>
+
+<!-- Generation progress overlay -->
+<div
+  id="generationOverlay"
+  class="generation-overlay"
+  style="display: none"
+  role="alertdialog"
+  aria-label="Generating media plan"
+  aria-describedby="genSubtitle"
+>
+  <div class="generation-card">
+    <h3>Generating Your Media Plan</h3>
+    <p class="gen-subtitle" id="genSubtitle">
+      Querying 25 live APIs, synthesizing market data, and building your
+      comprehensive deliverable.
+    </p>
+    <div class="gen-steps">
+      <div class="gen-step" id="genStep1">
+        <div class="gen-step-icon"><span class="gen-spinner"></span></div>
+        <span>Understanding role requirements...</span>
+      </div>
+      <div class="gen-step" id="genStep2">
+        <div class="gen-step-icon"><span class="gen-spinner"></span></div>
+        <span>Analyzing 91+ job boards...</span>
+      </div>
+      <div class="gen-step" id="genStep3">
+        <div class="gen-step-icon"><span class="gen-spinner"></span></div>
+        <span>Optimizing budget allocation...</span>
+      </div>
+      <div class="gen-step" id="genStep4">
+        <div class="gen-step-icon"><span class="gen-spinner"></span></div>
+        <span>Generating your plan...</span>
+      </div>
+    </div>
+    <div class="gen-progress-bar">
+      <div class="gen-progress-fill" id="genProgressFill"></div>
+    </div>
+    <div class="gen-time-estimate">
+      <span>Elapsed:</span>
+      <span class="gen-elapsed" id="genElapsed">0:00</span>
+      <span style="margin-left: 8px; opacity: 0.6">|</span>
+      <span style="margin-left: 8px">Timeout in</span>
+      <span id="genCountdown" style="font-weight: 600; color: var(--primary)"
+        >5:00</span
+      >
+    </div>
+    <button
+      type="button"
+      id="genCancelBtn"
+      onclick="cancelGeneration()"
+      style="
+        margin-top: 18px;
+        padding: 10px 32px;
+        border: 1.5px solid rgba(255, 255, 255, 0.15);
+        border-radius: 8px;
+        background: transparent;
+        color: var(--text-secondary);
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        min-height: 44px;
+      "
+      onmouseover="
+        this.style.borderColor = '#E87461';
+        this.style.color = '#E87461';
+      "
+      onmouseout="
+        this.style.borderColor = 'rgba(255,255,255,0.15)';
+        this.style.color = 'var(--text-secondary)';
+      "
+    >
+      Cancel Generation
+    </button>
+    <p
+      class="gen-did-you-know"
+      id="genDidYouKnow"
+      style="
+        margin-top: 16px;
+        font-size: 13px;
+        color: var(--text-muted);
+        text-align: center;
+        font-style: italic;
+        min-height: 40px;
+      "
+    ></p>
+  </div>
+</div>

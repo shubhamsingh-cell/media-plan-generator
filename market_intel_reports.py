@@ -26,12 +26,11 @@ from __future__ import annotations
 import io
 import json
 import logging
-import math
 import statistics
 import threading
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +49,6 @@ _INDUSTRY_LABEL_MAP: Dict[str, str] = {}
 
 try:
     from benchmark_registry import (
-        get_channel_benchmark,
         CHANNEL_BENCHMARKS as _REGISTRY_BENCHMARKS,
     )
 
@@ -1375,7 +1373,6 @@ def generate_intel_excel(report_data: Dict[str, Any]) -> bytes:
     """Generate an Excel workbook from report data. Returns xlsx bytes."""
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-    from openpyxl.utils import get_column_letter
 
     wb = Workbook()
     dark_fill = PatternFill("solid", fgColor=_XL_DARK)

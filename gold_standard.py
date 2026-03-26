@@ -294,14 +294,44 @@ def detect_clearance_requirements(data: dict) -> dict[str, Any] | None:
 # ---------------------------------------------------------------------------
 
 # Industry-to-competitor mapping (top employers by sector + metro)
+# Each industry has city-level employer lists so competitor output varies by location.
 _INDUSTRY_TOP_EMPLOYERS: dict[str, dict[str, list[str]]] = {
     "technology": {
         "_national": ["Google", "Microsoft", "Amazon", "Meta", "Apple", "Netflix"],
-        "san francisco": ["Salesforce", "Uber", "Stripe", "Airbnb", "Slack"],
-        "seattle": ["Amazon", "Microsoft", "Boeing", "Expedia", "Zillow"],
-        "new york": ["Google", "JPMorgan", "Bloomberg", "Goldman Sachs", "Meta"],
-        "austin": ["Dell", "Tesla", "Oracle", "Samsung", "Indeed"],
-        "boston": ["HubSpot", "Wayfair", "Akamai", "Toast", "DraftKings"],
+        "san francisco": ["Salesforce", "Uber", "Stripe", "Airbnb", "Figma", "Slack"],
+        "seattle": ["Amazon", "Microsoft", "Boeing", "Expedia", "Zillow", "Tableau"],
+        "new york": [
+            "Google",
+            "JPMorgan",
+            "Bloomberg",
+            "Goldman Sachs",
+            "Meta",
+            "Datadog",
+        ],
+        "austin": ["Dell", "Tesla", "Oracle", "Samsung", "Indeed", "Bumble"],
+        "boston": ["HubSpot", "Wayfair", "Akamai", "Toast", "DraftKings", "Rapid7"],
+        "los angeles": ["Snap", "SpaceX", "Hulu", "TikTok", "Riot Games", "Scopely"],
+        "denver": ["Arrow Electronics", "Ping Identity", "Ibotta", "Guild Education"],
+        "chicago": ["Grubhub", "Groupon", "Braintree", "Avant", "ActiveCampaign"],
+        "atlanta": ["NCR", "Mailchimp", "Cardlytics", "OneTrust", "Calendly"],
+        "dallas": [
+            "AT&T",
+            "Texas Instruments",
+            "Sabre",
+            "Match Group",
+            "Tyler Technologies",
+        ],
+        "miami": ["Chewy", "CareCloud", "Kaseya", "Magic Leap"],
+        "phoenix": ["GoDaddy", "Axon", "Carvana", "InfusionSoft"],
+        "washington": ["Amazon (HQ2)", "Palantir", "MicroStrategy", "Appian"],
+        "minneapolis": [
+            "Target (tech)",
+            "UnitedHealth (tech)",
+            "Best Buy (tech)",
+            "C.H. Robinson",
+        ],
+        "philadelphia": ["Comcast", "Susquehanna", "SEI Investments", "Sidecar"],
+        "detroit": ["Rocket Companies", "StockX", "Duo Security", "Ford (tech)"],
     },
     "healthcare_medical": {
         "_national": [
@@ -309,19 +339,62 @@ _INDUSTRY_TOP_EMPLOYERS: dict[str, dict[str, list[str]]] = {
             "HCA Healthcare",
             "Kaiser Permanente",
             "CVS Health",
+            "Ascension",
         ],
         "boston": ["Mass General", "Boston Children's", "Dana-Farber", "Brigham"],
-        "houston": ["MD Anderson", "Memorial Hermann", "Houston Methodist"],
-        "chicago": ["Northwestern Medicine", "Advocate", "Rush"],
+        "houston": ["MD Anderson", "Memorial Hermann", "Houston Methodist", "Baylor"],
+        "chicago": ["Northwestern Medicine", "Advocate", "Rush", "Lurie Children's"],
+        "new york": ["NYU Langone", "Mount Sinai", "NewYork-Presbyterian", "Northwell"],
+        "los angeles": ["Cedars-Sinai", "UCLA Health", "Keck Medicine", "City of Hope"],
+        "atlanta": ["Emory Healthcare", "Piedmont", "Grady Health", "Wellstar"],
+        "dallas": [
+            "UT Southwestern",
+            "Baylor Scott & White",
+            "Parkland",
+            "Medical City",
+        ],
+        "denver": ["UCHealth", "SCL Health", "Children's Colorado", "National Jewish"],
+        "phoenix": ["Mayo Clinic AZ", "Banner Health", "HonorHealth", "Dignity Health"],
+        "seattle": ["UW Medicine", "Virginia Mason", "Swedish Health", "Providence"],
+        "san francisco": [
+            "UCSF Health",
+            "Stanford Health",
+            "Sutter Health",
+            "Dignity Health",
+        ],
+        "miami": [
+            "Baptist Health",
+            "Jackson Health",
+            "Mount Sinai Miami",
+            "Cleveland Clinic FL",
+        ],
+        "philadelphia": ["Penn Medicine", "Jefferson Health", "Temple Health", "CHOP"],
+        "minneapolis": ["Mayo Clinic", "Allina Health", "Fairview", "HealthPartners"],
     },
     "finance_banking": {
         "_national": ["JPMorgan", "Goldman Sachs", "Morgan Stanley", "Bank of America"],
-        "new york": ["Citadel", "Two Sigma", "BlackRock", "Citi"],
-        "charlotte": ["Bank of America", "Wells Fargo", "Truist"],
-        "chicago": ["Citadel", "CME Group", "Northern Trust"],
+        "new york": ["Citadel", "Two Sigma", "BlackRock", "Citi", "BNY Mellon"],
+        "charlotte": ["Bank of America", "Wells Fargo", "Truist", "Ally Financial"],
+        "chicago": ["Citadel", "CME Group", "Northern Trust", "Morningstar"],
+        "san francisco": ["Charles Schwab", "Visa", "Wells Fargo", "First Republic"],
+        "boston": ["Fidelity", "State Street", "Wellington", "Putnam"],
+        "dallas": ["CBRE", "Comerica", "Hilltop Holdings", "NexBank"],
+        "atlanta": [
+            "SunTrust",
+            "Intercontinental Exchange",
+            "Invesco",
+            "Global Payments",
+        ],
+        "denver": ["TIAA", "Janus Henderson", "Arrow Financial", "CoBank"],
     },
     "retail_consumer": {
         "_national": ["Walmart", "Amazon", "Target", "Costco", "Home Depot"],
+        "new york": ["Macy's", "Ralph Lauren", "Estee Lauder", "L'Oreal USA"],
+        "chicago": ["Walgreens", "McDonald's", "Kellogg's", "Kraft Heinz"],
+        "san francisco": ["Gap", "Levi's", "Williams-Sonoma", "Restoration Hardware"],
+        "dallas": ["7-Eleven", "Neiman Marcus", "JCPenney", "Tuesday Morning"],
+        "atlanta": ["Home Depot", "Coca-Cola", "Arby's", "Genuine Parts"],
+        "minneapolis": ["Target", "Best Buy", "General Mills", "3M"],
     },
     "aerospace_defense": {
         "_national": [
@@ -332,49 +405,702 @@ _INDUSTRY_TOP_EMPLOYERS: dict[str, dict[str, list[str]]] = {
             "General Dynamics",
         ],
         "washington": ["Booz Allen", "Leidos", "SAIC", "ManTech"],
-        "huntsville": ["Boeing", "Northrop Grumman", "Raytheon"],
+        "huntsville": ["Boeing", "Northrop Grumman", "Raytheon", "Dynetics"],
+        "dallas": ["Lockheed Martin", "L3Harris", "Bell Textron", "Elbit Systems"],
+        "san diego": ["General Atomics", "Northrop Grumman", "BAE Systems"],
+        "denver": ["Lockheed Martin (Space)", "Ball Aerospace", "Raytheon"],
+    },
+    "transportation": {
+        "_national": ["UPS", "FedEx", "XPO Logistics", "J.B. Hunt", "C.H. Robinson"],
+        "chicago": ["United Airlines", "Boeing", "Hub Group", "Echo Global"],
+        "dallas": ["Southwest Airlines", "American Airlines", "BNSF Railway"],
+        "atlanta": ["Delta Air Lines", "UPS", "Norfolk Southern", "Ryder"],
+        "seattle": ["Alaska Airlines", "Expeditors", "TOTE Maritime"],
+        "miami": ["Ryder", "World Fuel Services", "Brightline"],
+    },
+    "manufacturing": {
+        "_national": [
+            "General Electric",
+            "3M",
+            "Honeywell",
+            "Caterpillar",
+            "Deere & Co",
+        ],
+        "detroit": ["Ford", "GM", "Stellantis", "BorgWarner", "Lear"],
+        "chicago": ["Abbott", "Caterpillar", "Illinois Tool Works", "Baxter"],
+        "houston": ["Dow Chemical", "LyondellBasell", "Baker Hughes"],
+        "minneapolis": ["3M", "Medtronic", "General Mills", "Polaris"],
+        "pittsburgh": ["US Steel", "PPG Industries", "Alcoa", "Wabtec"],
+        "phoenix": [
+            "ON Semiconductor",
+            "Microchip Technology",
+            "Benchmark Electronics",
+        ],
+        "portland": ["Intel", "Daimler Trucks NA", "Precision Castparts", "FLIR"],
+        "san francisco": ["Tesla Fremont", "Lam Research", "Applied Materials", "KLA"],
+        "dallas": ["Toyota NA", "Celanese", "Jacobs Engineering", "Lennox"],
+    },
+    "energy": {
+        "_national": [
+            "ExxonMobil",
+            "Chevron",
+            "ConocoPhillips",
+            "NextEra Energy",
+            "Duke Energy",
+        ],
+        "houston": [
+            "ExxonMobil",
+            "Chevron",
+            "ConocoPhillips",
+            "Phillips 66",
+            "Halliburton",
+        ],
+        "dallas": [
+            "Energy Transfer",
+            "Pioneer Natural Resources",
+            "Vistra",
+            "Targa Resources",
+        ],
+        "denver": ["Xcel Energy", "Ovintiv", "SM Energy", "Antero Resources"],
+        "san francisco": ["PG&E", "Sunrun", "SunPower", "ChargePoint"],
+        "pittsburgh": ["EQT", "CNX Resources", "Westinghouse", "Consol Energy"],
+        "chicago": ["Exelon", "Invenergy", "NiSource", "Ameren"],
+    },
+    "education": {
+        "_national": ["Pearson", "McGraw-Hill", "Chegg", "Coursera", "2U"],
+        "boston": [
+            "Harvard",
+            "MIT",
+            "Northeastern",
+            "Houghton Mifflin",
+            "Boston University",
+        ],
+        "new york": ["Columbia", "NYU", "Scholastic", "Kaplan", "EdX"],
+        "san francisco": [
+            "Stanford",
+            "Udemy",
+            "Coursera",
+            "Khan Academy",
+            "Lambda School",
+        ],
+        "chicago": ["University of Chicago", "Northwestern", "Loyola", "DePaul"],
+        "austin": ["UT Austin", "Aceable", "A Cloud Guru", "Enroll.com"],
+        "los angeles": ["USC", "UCLA", "Caltech", "GoGuardian", "Age of Learning"],
+    },
+    "logistics": {
+        "_national": ["FedEx", "UPS", "XPO Logistics", "C.H. Robinson", "DHL Americas"],
+        "atlanta": ["UPS", "Delta Air Lines", "Manhattan Associates", "Veritiv"],
+        "dallas": [
+            "Southwest Airlines",
+            "American Airlines",
+            "BNSF Railway",
+            "Transplace",
+        ],
+        "chicago": ["United Airlines", "Hub Group", "Echo Global", "Coyote Logistics"],
+        "seattle": ["Amazon Logistics", "Expeditors", "Alaska Airlines", "Convoy"],
+        "houston": ["Sysco", "AIT Worldwide", "Enterprise Products Logistics"],
+        "minneapolis": [
+            "C.H. Robinson",
+            "Target Logistics",
+            "Penske MN",
+            "Digi International",
+        ],
     },
 }
 
+# Aliases for flexible industry matching (user input -> canonical key)
+_INDUSTRY_ALIASES: dict[str, str] = {
+    "tech": "technology",
+    "software": "technology",
+    "it": "technology",
+    "information technology": "technology",
+    "saas": "technology",
+    "health": "healthcare",
+    "healthcare_medical": "healthcare",
+    "medical": "healthcare",
+    "hospital": "healthcare",
+    "pharma": "healthcare",
+    "pharmaceutical": "healthcare",
+    "biotech": "healthcare",
+    "banking": "finance",
+    "finance_banking": "finance",
+    "financial": "finance",
+    "financial services": "finance",
+    "fintech": "finance",
+    "insurance": "finance",
+    "consumer": "retail",
+    "retail_consumer": "retail",
+    "ecommerce": "retail",
+    "e-commerce": "retail",
+    "cpg": "retail",
+    "food": "retail",
+    "defense": "aerospace_defense",
+    "aerospace": "aerospace_defense",
+    "military": "aerospace_defense",
+    "government": "aerospace_defense",
+    "industrial": "manufacturing",
+    "automotive": "manufacturing",
+    "oil": "energy",
+    "gas": "energy",
+    "oil and gas": "energy",
+    "renewables": "energy",
+    "utilities": "energy",
+    "supply chain": "logistics",
+    "transportation": "logistics",
+    "shipping": "logistics",
+    "freight": "logistics",
+    "edtech": "education",
+    "higher education": "education",
+}
+
+
+def _resolve_industry_key(raw_industry: str) -> str:
+    """Resolve a raw industry string to a canonical key in _INDUSTRY_TOP_EMPLOYERS.
+
+    Uses alias table first, then substring matching, then falls back to empty string.
+    """
+    industry = raw_industry.strip().lower()
+    # 1) Direct alias lookup
+    if industry in _INDUSTRY_ALIASES:
+        return _INDUSTRY_ALIASES[industry]
+    # 2) Direct key match
+    if industry in _INDUSTRY_TOP_EMPLOYERS:
+        return industry
+    # 3) Substring match (e.g. "healthcare" in "healthcare_medical")
+    for key in _INDUSTRY_TOP_EMPLOYERS:
+        if key in industry or industry in key:
+            return key
+    # 4) Alias substring match (e.g. "tech startup" contains "tech")
+    for alias, canonical in _INDUSTRY_ALIASES.items():
+        if alias in industry:
+            return canonical
+    return ""
+
+
+# ── Role-type difficulty profiles ──
+# Each role pattern maps to a full difficulty profile with base difficulty,
+# seniority override, time-to-fill, and supply level.  This replaces generic
+# seniority-only classification with role-specific intelligence.
+_ROLE_DIFFICULTY_MAP: dict[str, dict[str, Any]] = {
+    # -- Technology --
+    "software engineer": {
+        "seniority": "mid",
+        "base_difficulty": 7,
+        "avg_ttf_days": 42,
+        "supply_level": "moderate",
+    },
+    "senior software engineer": {
+        "seniority": "senior",
+        "base_difficulty": 8,
+        "avg_ttf_days": 55,
+        "supply_level": "scarce",
+    },
+    "staff engineer": {
+        "seniority": "staff",
+        "base_difficulty": 9,
+        "avg_ttf_days": 75,
+        "supply_level": "very_scarce",
+    },
+    "principal engineer": {
+        "seniority": "staff",
+        "base_difficulty": 9,
+        "avg_ttf_days": 75,
+        "supply_level": "very_scarce",
+    },
+    "data scientist": {
+        "seniority": "mid-senior",
+        "base_difficulty": 8,
+        "avg_ttf_days": 50,
+        "supply_level": "scarce",
+    },
+    "ml engineer": {
+        "seniority": "senior",
+        "base_difficulty": 9,
+        "avg_ttf_days": 60,
+        "supply_level": "very_scarce",
+    },
+    "machine learning engineer": {
+        "seniority": "senior",
+        "base_difficulty": 9,
+        "avg_ttf_days": 60,
+        "supply_level": "very_scarce",
+    },
+    "ai engineer": {
+        "seniority": "senior",
+        "base_difficulty": 9,
+        "avg_ttf_days": 60,
+        "supply_level": "very_scarce",
+    },
+    "devops engineer": {
+        "seniority": "mid-senior",
+        "base_difficulty": 7.5,
+        "avg_ttf_days": 45,
+        "supply_level": "moderate-scarce",
+    },
+    "sre": {
+        "seniority": "mid-senior",
+        "base_difficulty": 7.5,
+        "avg_ttf_days": 45,
+        "supply_level": "moderate-scarce",
+    },
+    "site reliability engineer": {
+        "seniority": "mid-senior",
+        "base_difficulty": 7.5,
+        "avg_ttf_days": 45,
+        "supply_level": "moderate-scarce",
+    },
+    "platform engineer": {
+        "seniority": "mid-senior",
+        "base_difficulty": 7.5,
+        "avg_ttf_days": 45,
+        "supply_level": "moderate-scarce",
+    },
+    "cloud engineer": {
+        "seniority": "mid-senior",
+        "base_difficulty": 7.5,
+        "avg_ttf_days": 45,
+        "supply_level": "moderate-scarce",
+    },
+    "security engineer": {
+        "seniority": "mid-senior",
+        "base_difficulty": 8,
+        "avg_ttf_days": 50,
+        "supply_level": "scarce",
+    },
+    "frontend developer": {
+        "seniority": "mid",
+        "base_difficulty": 6,
+        "avg_ttf_days": 35,
+        "supply_level": "moderate",
+    },
+    "frontend engineer": {
+        "seniority": "mid",
+        "base_difficulty": 6,
+        "avg_ttf_days": 35,
+        "supply_level": "moderate",
+    },
+    "backend developer": {
+        "seniority": "mid",
+        "base_difficulty": 7,
+        "avg_ttf_days": 40,
+        "supply_level": "moderate",
+    },
+    "backend engineer": {
+        "seniority": "mid",
+        "base_difficulty": 7,
+        "avg_ttf_days": 40,
+        "supply_level": "moderate",
+    },
+    "full stack developer": {
+        "seniority": "mid",
+        "base_difficulty": 6.5,
+        "avg_ttf_days": 38,
+        "supply_level": "moderate",
+    },
+    "fullstack developer": {
+        "seniority": "mid",
+        "base_difficulty": 6.5,
+        "avg_ttf_days": 38,
+        "supply_level": "moderate",
+    },
+    "data engineer": {
+        "seniority": "mid-senior",
+        "base_difficulty": 7.5,
+        "avg_ttf_days": 45,
+        "supply_level": "moderate-scarce",
+    },
+    "qa engineer": {
+        "seniority": "mid",
+        "base_difficulty": 5,
+        "avg_ttf_days": 30,
+        "supply_level": "moderate",
+    },
+    "product manager": {
+        "seniority": "mid-senior",
+        "base_difficulty": 6.5,
+        "avg_ttf_days": 40,
+        "supply_level": "moderate",
+    },
+    "ux designer": {
+        "seniority": "mid",
+        "base_difficulty": 6,
+        "avg_ttf_days": 35,
+        "supply_level": "moderate",
+    },
+    "solutions architect": {
+        "seniority": "senior",
+        "base_difficulty": 8,
+        "avg_ttf_days": 55,
+        "supply_level": "scarce",
+    },
+    # -- Healthcare --
+    "nurse": {
+        "seniority": "mid",
+        "base_difficulty": 6,
+        "avg_ttf_days": 30,
+        "supply_level": "moderate",
+    },
+    "registered nurse": {
+        "seniority": "mid",
+        "base_difficulty": 6,
+        "avg_ttf_days": 30,
+        "supply_level": "moderate",
+    },
+    "nurse practitioner": {
+        "seniority": "senior",
+        "base_difficulty": 7.5,
+        "avg_ttf_days": 45,
+        "supply_level": "moderate-scarce",
+    },
+    "physician": {
+        "seniority": "senior",
+        "base_difficulty": 9,
+        "avg_ttf_days": 90,
+        "supply_level": "very_scarce",
+    },
+    "surgeon": {
+        "seniority": "senior",
+        "base_difficulty": 9.5,
+        "avg_ttf_days": 120,
+        "supply_level": "extremely_scarce",
+    },
+    "pharmacist": {
+        "seniority": "mid",
+        "base_difficulty": 6,
+        "avg_ttf_days": 35,
+        "supply_level": "moderate",
+    },
+    "medical assistant": {
+        "seniority": "entry",
+        "base_difficulty": 3.5,
+        "avg_ttf_days": 18,
+        "supply_level": "abundant",
+    },
+    "physical therapist": {
+        "seniority": "mid",
+        "base_difficulty": 6.5,
+        "avg_ttf_days": 40,
+        "supply_level": "moderate",
+    },
+    # -- Sales --
+    "sdr": {
+        "seniority": "entry",
+        "base_difficulty": 4,
+        "avg_ttf_days": 20,
+        "supply_level": "abundant",
+    },
+    "bdr": {
+        "seniority": "entry",
+        "base_difficulty": 4,
+        "avg_ttf_days": 20,
+        "supply_level": "abundant",
+    },
+    "sales development": {
+        "seniority": "entry",
+        "base_difficulty": 4,
+        "avg_ttf_days": 20,
+        "supply_level": "abundant",
+    },
+    "account executive": {
+        "seniority": "mid",
+        "base_difficulty": 5.5,
+        "avg_ttf_days": 30,
+        "supply_level": "moderate",
+    },
+    "sales manager": {
+        "seniority": "mid-senior",
+        "base_difficulty": 6,
+        "avg_ttf_days": 35,
+        "supply_level": "moderate",
+    },
+    "sales director": {
+        "seniority": "senior",
+        "base_difficulty": 7.5,
+        "avg_ttf_days": 50,
+        "supply_level": "moderate-scarce",
+    },
+    # -- Marketing --
+    "marketing manager": {
+        "seniority": "mid",
+        "base_difficulty": 5,
+        "avg_ttf_days": 30,
+        "supply_level": "moderate",
+    },
+    "marketing coordinator": {
+        "seniority": "entry",
+        "base_difficulty": 3.5,
+        "avg_ttf_days": 18,
+        "supply_level": "abundant",
+    },
+    "content writer": {
+        "seniority": "mid",
+        "base_difficulty": 4.5,
+        "avg_ttf_days": 25,
+        "supply_level": "moderate",
+    },
+    "growth marketing": {
+        "seniority": "mid-senior",
+        "base_difficulty": 6.5,
+        "avg_ttf_days": 38,
+        "supply_level": "moderate",
+    },
+    # -- Finance --
+    "accountant": {
+        "seniority": "mid",
+        "base_difficulty": 5,
+        "avg_ttf_days": 28,
+        "supply_level": "moderate",
+    },
+    "financial analyst": {
+        "seniority": "mid",
+        "base_difficulty": 5.5,
+        "avg_ttf_days": 30,
+        "supply_level": "moderate",
+    },
+    "actuary": {
+        "seniority": "senior",
+        "base_difficulty": 8.5,
+        "avg_ttf_days": 65,
+        "supply_level": "very_scarce",
+    },
+    "investment banker": {
+        "seniority": "mid-senior",
+        "base_difficulty": 7,
+        "avg_ttf_days": 45,
+        "supply_level": "moderate-scarce",
+    },
+    # -- Operations / General --
+    "project manager": {
+        "seniority": "mid",
+        "base_difficulty": 5,
+        "avg_ttf_days": 28,
+        "supply_level": "moderate",
+    },
+    "operations manager": {
+        "seniority": "mid",
+        "base_difficulty": 5,
+        "avg_ttf_days": 28,
+        "supply_level": "moderate",
+    },
+    "hr manager": {
+        "seniority": "mid",
+        "base_difficulty": 5,
+        "avg_ttf_days": 28,
+        "supply_level": "moderate",
+    },
+    "recruiter": {
+        "seniority": "mid",
+        "base_difficulty": 5,
+        "avg_ttf_days": 25,
+        "supply_level": "moderate",
+    },
+    "customer success": {
+        "seniority": "mid",
+        "base_difficulty": 4.5,
+        "avg_ttf_days": 25,
+        "supply_level": "moderate",
+    },
+    # -- Hourly / Entry --
+    "cashier": {
+        "seniority": "entry",
+        "base_difficulty": 2.5,
+        "avg_ttf_days": 12,
+        "supply_level": "abundant",
+    },
+    "warehouse associate": {
+        "seniority": "entry",
+        "base_difficulty": 3,
+        "avg_ttf_days": 14,
+        "supply_level": "abundant",
+    },
+    "retail associate": {
+        "seniority": "entry",
+        "base_difficulty": 3,
+        "avg_ttf_days": 14,
+        "supply_level": "abundant",
+    },
+    "customer service": {
+        "seniority": "entry",
+        "base_difficulty": 3,
+        "avg_ttf_days": 15,
+        "supply_level": "abundant",
+    },
+    # -- Executive (VP+) --
+    "vp": {
+        "seniority": "executive",
+        "base_difficulty": 9.5,
+        "avg_ttf_days": 120,
+        "supply_level": "extremely_scarce",
+    },
+    "vice president": {
+        "seniority": "executive",
+        "base_difficulty": 9.5,
+        "avg_ttf_days": 120,
+        "supply_level": "extremely_scarce",
+    },
+    "cto": {
+        "seniority": "executive",
+        "base_difficulty": 10,
+        "avg_ttf_days": 150,
+        "supply_level": "extremely_scarce",
+    },
+    "cfo": {
+        "seniority": "executive",
+        "base_difficulty": 10,
+        "avg_ttf_days": 150,
+        "supply_level": "extremely_scarce",
+    },
+    "ceo": {
+        "seniority": "executive",
+        "base_difficulty": 10,
+        "avg_ttf_days": 180,
+        "supply_level": "extremely_scarce",
+    },
+}
+
+# Location-based difficulty modifiers (added to role base_difficulty)
+_LOCATION_DIFFICULTY_MODIFIERS: dict[str, float] = {
+    "san francisco": 1.5,
+    "new york": 1.5,
+    "nyc": 1.5,
+    "manhattan": 1.5,
+    "austin": 1.0,
+    "seattle": 1.0,
+    "boston": 1.0,
+    "los angeles": 0.5,
+    "washington": 0.5,
+    "denver": 0.5,
+    "chicago": 0.0,
+    "atlanta": 0.0,
+    "dallas": 0.0,
+    "houston": 0.0,
+    "miami": 0.0,
+    "phoenix": -0.5,
+    "detroit": -0.5,
+    "st louis": -0.5,
+    "kansas city": -0.5,
+    "indianapolis": -0.5,
+    "remote": -0.5,
+}
+
+
+def _lookup_role_difficulty(role_title: str) -> dict[str, Any] | None:
+    """Look up a role title against _ROLE_DIFFICULTY_MAP.
+
+    Uses longest-match-first to prefer "senior software engineer" over
+    "software engineer" when both could match.
+
+    Returns:
+        A copy of the matching profile dict, or None if no match.
+    """
+    title_lower = role_title.lower().strip()
+    # Sort keys by length descending so more specific patterns match first
+    for pattern in sorted(_ROLE_DIFFICULTY_MAP, key=len, reverse=True):
+        if pattern in title_lower:
+            return dict(_ROLE_DIFFICULTY_MAP[pattern])
+    return None
+
+
+def _get_location_modifier(locations: list[str]) -> tuple[float, str]:
+    """Return (modifier, matched_location) for the highest-modifier location.
+
+    If no known location matches, returns (0.0, "").
+    """
+    best_mod = 0.0
+    best_loc = ""
+    for loc in locations:
+        loc_lower = loc.lower().strip()
+        for city, mod in _LOCATION_DIFFICULTY_MODIFIERS.items():
+            if city in loc_lower:
+                if mod > best_mod or not best_loc:
+                    best_mod = mod
+                    best_loc = city
+    return best_mod, best_loc
+
+
+def _get_role_difficulty_modifier(role_title: str) -> tuple[float, int]:
+    """Return (difficulty_modifier, time_to_fill_modifier) for a role title.
+
+    Derives modifiers from _ROLE_DIFFICULTY_MAP relative to a mid-level
+    baseline (difficulty=5, ttf=35).
+    """
+    profile = _lookup_role_difficulty(role_title)
+    if profile:
+        return (profile["base_difficulty"] - 5.0, profile["avg_ttf_days"] - 35)
+    return (0.0, 0)
+
 
 def build_competitor_map(data: dict, city_data: dict) -> dict[str, Any]:
-    """Build per-city/role competitor mapping.
+    """Build per-city/role competitor mapping with role-based differentiation.
 
     Args:
         data: Plan generation data dict.
         city_data: Output from enrich_city_level_data().
 
     Returns:
-        Dict with per-city competitor lists and hiring intensity estimates.
+        Dict with per-city competitor lists, hiring intensity estimates,
+        and per-role difficulty scores within each city.
     """
-    industry = str(data.get("industry") or "general_entry_level").lower()
+    raw_industry = str(data.get("industry") or "general_entry_level")
     roles_raw = data.get("target_roles") or data.get("roles") or []
     enriched = data.get("_enriched") or {}
 
-    # Find the best industry match
-    industry_employers = {}
-    for ind_key, employers in _INDUSTRY_TOP_EMPLOYERS.items():
-        if ind_key in industry or industry in ind_key:
-            industry_employers = employers
-            break
+    # Resolve industry via alias table + substring matching
+    resolved_key = _resolve_industry_key(raw_industry)
+    industry_employers: dict[str, list[str]] = (
+        _INDUSTRY_TOP_EMPLOYERS.get(resolved_key, {}) if resolved_key else {}
+    )
 
     national_competitors = industry_employers.get("_national", [])
+
+    # ── Parse role titles for difficulty modifiers ──
+    role_titles: list[str] = []
+    for r in (roles_raw if isinstance(roles_raw, list) else [str(roles_raw)]):
+        if isinstance(r, str) and r.strip():
+            role_titles.append(r.strip())
+        elif isinstance(r, dict):
+            t = str(r.get("title") or "").strip()
+            if t:
+                role_titles.append(t)
 
     competitor_map: dict[str, Any] = {}
     for city_name in city_data:
         city_key = city_name.lower()
         local_competitors = industry_employers.get(city_key, [])
 
-        # Merge national + local, dedup
+        # Merge local-first + national, dedup -- local employers appear first
         all_competitors = list(dict.fromkeys(local_competitors + national_competitors))[
             :8
         ]
 
-        difficulty = city_data[city_name].get("hiring_difficulty", 5.5)
+        base_difficulty = city_data[city_name].get("hiring_difficulty", 5.5)
+
+        # ── Per-role difficulty within this city ──
+        role_difficulties: list[dict[str, Any]] = []
+        for role_title in role_titles:
+            diff_mod, ttf_mod = _get_role_difficulty_modifier(role_title)
+            adjusted = max(1.0, min(10.0, base_difficulty + diff_mod))
+            role_difficulties.append(
+                {
+                    "role": role_title,
+                    "difficulty": round(adjusted, 1),
+                    "difficulty_out_of_10": f"{round(adjusted, 1)}/10",
+                    "time_to_fill_modifier_days": ttf_mod,
+                }
+            )
+
+        # City-level aggregate difficulty = average of role difficulties (or base)
+        if role_difficulties:
+            avg_difficulty = sum(rd["difficulty"] for rd in role_difficulties) / len(
+                role_difficulties
+            )
+        else:
+            avg_difficulty = base_difficulty
+
         intensity = (
             "high"
-            if difficulty >= 7.0
-            else ("moderate" if difficulty >= 5.0 else "low")
+            if avg_difficulty >= 7.0
+            else ("moderate" if avg_difficulty >= 5.0 else "low")
         )
 
         competitor_map[city_name] = {
@@ -382,8 +1108,10 @@ def build_competitor_map(data: dict, city_data: dict) -> dict[str, Any]:
             "local_competitors": local_competitors,
             "national_competitors": national_competitors[:5],
             "hiring_intensity": intensity,
+            "avg_difficulty": round(avg_difficulty, 1),
+            "role_difficulties": role_difficulties,
             "estimated_competing_postings": _estimate_competing_postings(
-                difficulty, len(roles_raw)
+                avg_difficulty, len(roles_raw)
             ),
         }
 
@@ -463,12 +1191,29 @@ _DIFFICULTY_PROFILES: dict[str, dict[str, Any]] = {
 
 
 def classify_difficulty(data: dict) -> list[dict[str, Any]]:
-    """Classify each role by seniority/difficulty level.
+    """Classify each role by seniority and difficulty using role-type profiles.
+
+    Uses _ROLE_DIFFICULTY_MAP for role-type-specific base difficulty, then
+    applies location modifiers from _LOCATION_DIFFICULTY_MODIFIERS.  Falls
+    back to seniority-keyword detection when no role-type profile matches.
 
     Returns:
-        List of dicts with role title, detected seniority, and difficulty profile.
+        List of dicts with role title, seniority, complexity, time-to-fill,
+        supply level, and location modifier details.
     """
     roles_raw = data.get("target_roles") or data.get("roles") or []
+    # Gather locations for location modifier
+    locations: list[str] = []
+    for loc_key in ("locations", "location", "cities"):
+        loc_val = data.get(loc_key)
+        if loc_val:
+            if isinstance(loc_val, list):
+                locations.extend(str(v) for v in loc_val if v)
+            else:
+                locations.append(str(loc_val))
+
+    loc_modifier, loc_matched = _get_location_modifier(locations)
+
     results: list[dict[str, Any]] = []
 
     for r in (roles_raw if isinstance(roles_raw, list) else [str(roles_raw)]):
@@ -480,32 +1225,104 @@ def classify_difficulty(data: dict) -> list[dict[str, Any]]:
         if not title:
             continue
 
-        title_lower = f" {title.lower()} "
-        detected_level = "mid"  # Default
+        # 1) Try role-type-specific profile first
+        role_profile = _lookup_role_difficulty(title)
 
-        for level, keywords in _SENIORITY_KEYWORDS.items():
-            for kw in keywords:
-                if kw in title_lower:
-                    detected_level = level
-                    break
-            if detected_level != "mid" or level == "mid":
-                # Only break if we matched non-default or we're checking mid
-                if any(kw in title_lower for kw in keywords):
-                    detected_level = level
+        if role_profile:
+            # Role-type profile found -- use its values directly
+            base_diff = float(role_profile["base_difficulty"])
+            adjusted_difficulty = max(1.0, min(10.0, base_diff + loc_modifier))
+            seniority = str(role_profile["seniority"])
+            ttf = int(role_profile["avg_ttf_days"])
+            supply = str(role_profile["supply_level"])
+
+            # Derive budget weight and channel emphasis from difficulty
+            if adjusted_difficulty >= 9:
+                budget_weight = 3.0
+                channel_emphasis = "executive_search"
+            elif adjusted_difficulty >= 7:
+                budget_weight = 1.8
+                channel_emphasis = "niche_boards"
+            elif adjusted_difficulty >= 5:
+                budget_weight = 1.0
+                channel_emphasis = "balanced"
+            else:
+                budget_weight = 0.6
+                channel_emphasis = "job_boards"
+
+            # Upgrade supply level if location modifier pushes difficulty up
+            if loc_modifier >= 1.0 and supply == "moderate":
+                supply = "moderate-scarce"
+            elif loc_modifier >= 1.5 and supply in ("moderate-scarce", "scarce"):
+                supply = "very_scarce"
+
+            # Build description
+            description = (
+                f"{seniority.title()} level -- "
+                f"difficulty {adjusted_difficulty:.1f}/10, "
+                f"~{ttf} day fill time"
+            )
+
+            results.append(
+                {
+                    "role_title": title,
+                    "seniority_level": seniority,
+                    "complexity_score": round(adjusted_difficulty, 1),
+                    "avg_time_to_fill_days": ttf,
+                    "budget_weight": budget_weight,
+                    "channel_emphasis": channel_emphasis,
+                    "supply_level": supply,
+                    "location_modifier": loc_modifier,
+                    "location_matched": loc_matched,
+                    "description": description,
+                    "role_profile_matched": True,
+                }
+            )
+        else:
+            # 2) Fallback: seniority keyword detection + generic profiles
+            title_lower = f" {title.lower()} "
+            detected_level = "mid"
+
+            for level, keywords in _SENIORITY_KEYWORDS.items():
+                matched = False
+                for kw in keywords:
+                    if kw in title_lower:
+                        detected_level = level
+                        matched = True
+                        break
+                if matched:
                     break
 
-        profile = _DIFFICULTY_PROFILES[detected_level]
-        results.append(
-            {
-                "role_title": title,
-                "seniority_level": detected_level,
-                "complexity_score": profile["complexity_score"],
-                "avg_time_to_fill_days": profile["avg_time_to_fill_days"],
-                "budget_weight": profile["budget_weight"],
-                "channel_emphasis": profile["channel_emphasis"],
-                "description": profile["description"],
-            }
-        )
+            profile = _DIFFICULTY_PROFILES[detected_level]
+            base_complexity = float(profile["complexity_score"])
+            adjusted_complexity = max(1.0, min(10.0, base_complexity + loc_modifier))
+            ttf = int(profile["avg_time_to_fill_days"])
+
+            # Derive supply level from adjusted complexity
+            if adjusted_complexity >= 9:
+                supply = "very_scarce"
+            elif adjusted_complexity >= 7:
+                supply = "scarce"
+            elif adjusted_complexity >= 5:
+                supply = "moderate"
+            else:
+                supply = "abundant"
+
+            results.append(
+                {
+                    "role_title": title,
+                    "seniority_level": detected_level,
+                    "complexity_score": round(adjusted_complexity, 1),
+                    "avg_time_to_fill_days": ttf,
+                    "budget_weight": profile["budget_weight"],
+                    "channel_emphasis": profile["channel_emphasis"],
+                    "supply_level": supply,
+                    "location_modifier": loc_modifier,
+                    "location_matched": loc_matched,
+                    "description": profile["description"],
+                    "role_profile_matched": False,
+                }
+            )
 
     return results
 
@@ -652,7 +1469,20 @@ def build_channel_strategy(
         Dict with traditional_channels, non_traditional_channels, split_pct, recommendations.
     """
     industry = str(data.get("industry") or "").lower()
-    seniority_levels = [d["seniority_level"] for d in difficulty_results]
+    # Normalize seniority levels: expand "mid-senior" to both "mid" and "senior",
+    # map "staff" -> "senior", "entry" -> "junior" for channel best_for matching.
+    seniority_levels: list[str] = []
+    for d in difficulty_results:
+        raw = str(d.get("seniority_level") or "mid")
+        if "-" in raw:
+            seniority_levels.extend(raw.split("-"))
+        elif raw == "staff":
+            seniority_levels.append("senior")
+        elif raw == "entry":
+            seniority_levels.append("junior")
+        else:
+            seniority_levels.append(raw)
+    seniority_levels = list(set(seniority_levels))  # dedup
 
     # Pick relevant traditional channels
     trad_picks: list[dict[str, Any]] = []
@@ -665,7 +1495,7 @@ def build_channel_strategy(
     nontrad_picks: list[dict[str, Any]] = []
     for name, info in _NON_TRADITIONAL_CHANNELS.items():
         # Match by industry
-        ch_industry = info.get("industry", "")
+        ch_industry = info.get("industry") or ""
         industry_match = (
             ch_industry in industry or industry in ch_industry if ch_industry else True
         )

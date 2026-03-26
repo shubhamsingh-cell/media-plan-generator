@@ -1,0 +1,20 @@
+<script>
+  // ── CSRF token management (double-submit cookie pattern) ──
+  // Get CSRF token from cookie. Must be called after the cookie is set.
+  function getCsrfToken() {
+    try {
+      var cookie = document.cookie.split("; ").find(function (c) {
+        return c.startsWith("csrf_token=");
+      });
+      return cookie ? cookie.split("=")[1] : "";
+    } catch (_) {
+      return "";
+    }
+  }
+  // Fetch and set the CSRF token cookie on page load
+  fetch("/api/csrf-token")
+    .then(function (r) {
+      return r.json();
+    })
+    .catch(function () {});
+</script>

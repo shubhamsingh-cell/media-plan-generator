@@ -1,38 +1,36 @@
 """
-llm_router.py -- Smart LLM Provider Router for Nova Chat (v4.0)
+llm_router.py -- Smart LLM Provider Router for Nova Chat (v4.1)
 
 Routes LLM API calls to the optimal provider based on task type,
 with automatic fallback, circuit breaker, rate-aware routing,
 response caching, and provider health scoring.
 
-Provider priority (free-first, then paid by cost-efficiency):
-    FREE TIER:
-    1.  Gemini 2.0 Flash  -- free, structured data, JSON output, code
-    2.  Groq Llama 3.3 70B -- free, conversational, complex reasoning
-    3.  Zhipu AI (GLM-4-Flash) -- free unlimited, strong multilingual (Chinese + English)
-    4.  Cerebras Llama 3.3 70B -- free 1M tokens/day, hot spare (independent infra)
-    5.  Mistral Small -- free tier, strong JSON + multilingual
-    6.  NVIDIA NIM (Nemotron 30B) -- free dev program, NVIDIA-optimized inference
-    7.  SambaNova (Llama 3.1 405B) -- free, largest open model, fastest inference (RDU)
-    8.  SiliconFlow (Qwen2.5 7B) -- free $0.05/M tokens, OpenAI-compatible
-    9.  Cloudflare Workers AI (Llama 3.3 70B) -- free 10K neurons/day, edge-distributed
-    10. Together AI (Llama 3.3 70B Turbo) -- $25 free credit, fast inference
-    11. Moonshot Kimi (moonshot-v1-8k) -- limited free tier, strong Asian market coverage
-    12. OpenRouter (Llama 4 Maverick) -- free models via single gateway
-    13. OpenRouter (Qwen3 Coder) -- free, code generation specialist
-    14. OpenRouter (Arcee Trinity) -- free, complex reasoning
-    15. OpenRouter (Liquid LFM 2.5) -- free, novel architecture
-    16. OpenRouter (01.AI Yi Large) -- free, good general purpose
-    17. OpenRouter (DeepSeek R1 Reasoning) -- free, strong reasoning/research
-    18. OpenRouter (Google Gemma 3 27B) -- free, structured output + verification
-    19. xAI Grok (grok-3-mini-fast) -- free signup credits ($25), strong reasoning
-    20. HuggingFace Inference (Mistral 7B) -- free rate-limited, fallback
+v4.1 QUALITY-FIRST ROUTING: Claude Haiku is the PRIMARY provider for all
+substantive queries (chat, research, analysis, campaign plans, market analysis).
+Free providers are fallbacks. Haiku at $0.25/M input is cheap enough to justify
+the dramatic quality improvement over free-tier LLMs.
 
-    PAID TIER:
-    21. Claude Haiku 4.5 (Anthropic) -- paid, fast + cheap
-    22. GPT-4o (OpenAI) -- paid, strong at structured + conversational + reasoning
-    23. Claude Sonnet 4 (Anthropic) -- paid, high quality, strong tool_use
-    24. Claude Opus 4.6 (Anthropic) -- paid, last resort, highest quality
+Provider priority (quality-first for substantive, free for simple):
+    PRIMARY (quality-critical tasks):
+    1.  Claude Haiku 4.5 (Anthropic) -- paid, fast + cheap, Claude-level quality
+    2.  Gemini 2.0 Flash  -- free, strong reasoning, best free-tier option
+    3.  GPT-4o (OpenAI) -- paid fallback, strong structured + reasoning
+
+    FREE TIER (fallbacks + batch/summarize tasks):
+    4.  Groq Llama 3.3 70B -- free, conversational, complex reasoning
+    5.  Zhipu AI (GLM-4-Flash) -- free unlimited, strong multilingual
+    6.  Cerebras Llama 3.3 70B -- free 1M tokens/day, hot spare
+    7.  Mistral Small -- free tier, strong JSON + multilingual
+    8.  NVIDIA NIM (Nemotron 30B) -- free dev program
+    9.  SambaNova (Llama 3.3 70B) -- free, fast inference (RDU)
+    10. SiliconFlow (Qwen2.5 7B) -- free, OpenAI-compatible
+    11. Cloudflare Workers AI -- free 10K neurons/day
+    12. Together AI (Llama 3.3 70B Turbo) -- $25 free credit
+    13-20. OpenRouter variants, xAI, HuggingFace (various free)
+
+    EXPENSIVE TIER (deep analysis fallback):
+    21. Claude Sonnet 4 (Anthropic) -- paid, high quality, strong tool_use
+    22. Claude Opus 4.6 (Anthropic) -- paid, last resort, highest quality
 
 Task classification (8 types):
     - STRUCTURED:     benchmark lookups, CPC/CPA queries, JSON output
@@ -137,7 +135,6 @@ OPENROUTER_QWEN = "openrouter_qwen"
 OPENROUTER_ARCEE = "openrouter_arcee"
 OPENROUTER_LIQUID = "openrouter_liquid"
 TOGETHER = "together"
-MOONSHOT = "moonshot"
 OPENROUTER_YI = "openrouter_yi"
 OPENROUTER_DEEPSEEK_R1 = "openrouter_deepseek_r1"
 OPENROUTER_GEMMA = "openrouter_gemma"
@@ -231,7 +228,6 @@ _RATE_LIMITS: dict[str, dict[str, int]] = {
     "openrouter_deepseek_r1": {"rpm": 20, "window": 60},
     "openrouter_gemma": {"rpm": 20, "window": 60},
     "xiaomi_mimo": {"rpm": 30, "window": 60},
-    "moonshot": {"rpm": 15, "window": 60},
     "cloudflare": {"rpm": 300, "window": 60},
     # Paid tiers -- higher limits
     "claude_haiku": {"rpm": 50, "window": 60},
@@ -426,8 +422,8 @@ class _ResponseCache:
                         self._hits += 1
                     logger.debug("LLM cache L3 HIT (Upstash) for key=%s...", key[:12])
                     return l3_data
-            except Exception:
-                pass  # L3 failure is non-fatal
+            except Exception as e:
+                logger.debug("L3 cache read failed: %s", e)
 
         with self._lock:
             self._misses += 1
@@ -574,18 +570,6 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
             "X-Title": "Nova AI Suite",
         },
     },
-    # XAI disabled -- free credits expired, 403 error code 1010 (2026-03-26)
-    # XAI: {
-    #     "name": "xAI Grok",
-    #     "api_style": "openai",
-    #     "endpoint": "https://api.x.ai/v1/chat/completions",
-    #     "model": "grok-3-mini-fast",
-    #     "env_key": "XAI_API_KEY",
-    #     "rpm_limit": 30,
-    #     "rpd_limit": 14400,
-    #     "timeout": 30,
-    #     "max_tokens": 8192,
-    # },
     SAMBANOVA: {
         "name": "SambaNova (Llama 3.3 70B)",
         "api_style": "openai",  # OpenAI-compatible
@@ -717,17 +701,6 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         "env_key": "TOGETHER_API_KEY",
         "rpm_limit": 60,
         "rpd_limit": 10000,  # $25 free credit on signup
-        "timeout": 30,
-        "max_tokens": 4096,
-    },
-    MOONSHOT: {
-        "name": "Moonshot Kimi (moonshot-v1-8k)",
-        "api_style": "openai",  # OpenAI-compatible
-        "endpoint": "https://api.moonshot.cn/v1/chat/completions",
-        "model": "moonshot-v1-8k",
-        "env_key": "MOONSHOT_API_KEY",
-        "rpm_limit": 15,
-        "rpd_limit": 1000,  # Limited free tier
         "timeout": 30,
         "max_tokens": 4096,
     },
@@ -878,13 +851,15 @@ TASK_ROUTING: Dict[str, List[str]] = {
         CLAUDE_OPUS,
     ],
     TASK_CONVERSATIONAL: [
-        XIAOMI_MIMO,  # MiMo V2 Flash -- 309B MoE, best free-tier quality
+        CLAUDE_HAIKU,  # v4.1: Haiku first -- $0.25/M, dramatically better quality
+        GEMINI,  # #2 fallback -- free and good quality
+        GPT4O,  # #3 paid fallback
+        XIAOMI_MIMO,  # Free fallback tier starts here
         GROQ,
         ZHIPU,
         CEREBRAS,
-        GEMINI,
         MISTRAL,
-        OPENROUTER,  # Spaced: non-OR providers between OR variants
+        OPENROUTER,
         NVIDIA_NIM,
         SAMBANOVA,
         OPENROUTER_YI,
@@ -895,21 +870,22 @@ TASK_ROUTING: Dict[str, List[str]] = {
         OPENROUTER_GEMMA,
         HUGGINGFACE,
         OPENROUTER_LIQUID,
-        CLAUDE_HAIKU,
-        GPT4O,
         CLAUDE,
         CLAUDE_OPUS,
     ],
     TASK_COMPLEX: [
-        XIAOMI_MIMO,  # MiMo V2 Flash -- 309B MoE, best free-tier quality
-        OPENROUTER_DEEPSEEK_R1,  # DeepSeek R1 -- strong reasoning
+        CLAUDE_HAIKU,  # v4.1: Haiku first -- best reasoning per dollar
+        GEMINI,  # #2 fallback -- free, strong reasoning
+        GPT4O,  # #3 paid fallback
+        CLAUDE,  # #4 Sonnet for deep reasoning
+        OPENROUTER_DEEPSEEK_R1,  # Free fallback tier
+        XIAOMI_MIMO,
         SAMBANOVA,
         GROQ,
-        OPENROUTER,  # Spaced: non-OR providers between OR variants
+        OPENROUTER,
         ZHIPU,
         CEREBRAS,
         OPENROUTER_ARCEE,
-        GEMINI,
         MISTRAL,
         OPENROUTER_YI,
         TOGETHER,
@@ -919,9 +895,6 @@ TASK_ROUTING: Dict[str, List[str]] = {
         CLOUDFLARE,
         OPENROUTER_LIQUID,
         HUGGINGFACE,
-        CLAUDE_HAIKU,
-        CLAUDE,
-        GPT4O,
         CLAUDE_OPUS,
     ],
     TASK_CODE: [
@@ -969,10 +942,13 @@ TASK_ROUTING: Dict[str, List[str]] = {
         CLAUDE_OPUS,
     ],
     TASK_RESEARCH: [
-        OPENROUTER_DEEPSEEK_R1,  # DeepSeek R1 -- strong reasoning, HIGH priority
+        CLAUDE_HAIKU,  # v4.1: Haiku first -- best research quality per dollar
+        GEMINI,  # #2 free fallback -- strong reasoning
+        GPT4O,  # #3 paid fallback
+        CLAUDE,  # #4 Sonnet for deep research
+        OPENROUTER_DEEPSEEK_R1,  # Free fallback tier
         SAMBANOVA,
-        OPENROUTER,  # Spaced: non-OR providers between OR variants
-        GEMINI,
+        OPENROUTER,
         GROQ,
         OPENROUTER_ARCEE,
         ZHIPU,
@@ -986,9 +962,6 @@ TASK_ROUTING: Dict[str, List[str]] = {
         OPENROUTER_LIQUID,
         CLOUDFLARE,
         HUGGINGFACE,
-        CLAUDE_HAIKU,
-        GPT4O,
-        CLAUDE,
         CLAUDE_OPUS,
     ],
     TASK_NARRATIVE: [
@@ -1041,12 +1014,15 @@ TASK_ROUTING: Dict[str, List[str]] = {
     # ── v4.0 Platform Module Task Types ──────────────────────────────────
     # Command Center: fast for quick plans, Claude for full plans
     TASK_CAMPAIGN_PLAN: [
-        XIAOMI_MIMO,  # MiMo V2 Flash -- 309B MoE, best plan generation quality
+        CLAUDE_HAIKU,  # v4.1: Haiku first -- plans require structured reasoning
+        GEMINI,  # #2 free fallback -- good structured output
+        GPT4O,  # #3 paid fallback
+        CLAUDE,  # #4 Sonnet for complex multi-role plans
+        XIAOMI_MIMO,  # Free fallback tier
         GROQ,
         CEREBRAS,
-        GEMINI,
         ZHIPU,
-        OPENROUTER,  # Spaced: non-OR providers between OR variants
+        OPENROUTER,
         MISTRAL,
         SAMBANOVA,
         OPENROUTER_DEEPSEEK_R1,
@@ -1054,9 +1030,6 @@ TASK_ROUTING: Dict[str, List[str]] = {
         TOGETHER,
         SILICONFLOW,
         CLOUDFLARE,
-        CLAUDE_HAIKU,
-        GPT4O,
-        CLAUDE,
         CLAUDE_OPUS,
     ],
     TASK_BUDGET_OPTIMIZE: [
@@ -1091,12 +1064,15 @@ TASK_ROUTING: Dict[str, List[str]] = {
     ],
     # Intelligence Hub: prefer structured data / analysis providers
     TASK_MARKET_ANALYSIS: [
-        XIAOMI_MIMO,  # MiMo V2 Flash -- 309B MoE, best analysis quality
-        GEMINI,
-        OPENROUTER_DEEPSEEK_R1,
+        CLAUDE_HAIKU,  # v4.1: Haiku first -- market analysis needs strong reasoning
+        GEMINI,  # #2 free fallback -- good at structured data
+        GPT4O,  # #3 paid fallback
+        CLAUDE,  # #4 Sonnet for deep analysis
+        OPENROUTER_DEEPSEEK_R1,  # Free fallback tier
+        XIAOMI_MIMO,
         SAMBANOVA,
         GROQ,
-        OPENROUTER,  # Spaced: non-OR providers between OR variants
+        OPENROUTER,
         ZHIPU,
         MISTRAL,
         OPENROUTER_ARCEE,
@@ -1104,9 +1080,6 @@ TASK_ROUTING: Dict[str, List[str]] = {
         CEREBRAS,
         NVIDIA_NIM,
         SILICONFLOW,
-        CLAUDE_HAIKU,
-        GPT4O,
-        CLAUDE,
         CLAUDE_OPUS,
     ],
     TASK_COMPETITOR_SCAN: [
@@ -1138,23 +1111,23 @@ TASK_ROUTING: Dict[str, List[str]] = {
         CLAUDE,
         CLAUDE_OPUS,
     ],
-    # Nova AI chat: lowest latency first, streaming-capable
+    # Nova AI chat: quality first, then latency fallbacks
     TASK_CHAT_RESPONSE: [
-        XIAOMI_MIMO,  # MiMo V2 Flash -- 309B MoE, best chat quality
+        CLAUDE_HAIKU,  # v4.1: Haiku first -- $0.25/M, best chat quality
+        GEMINI,  # #2 free fallback -- good quality
+        GPT4O,  # #3 paid fallback
+        XIAOMI_MIMO,  # Free fallback tier
         GROQ,
         CEREBRAS,
-        GEMINI,
         ZHIPU,
         MISTRAL,
-        OPENROUTER,  # Spaced: non-OR providers between OR variants
+        OPENROUTER,
         NVIDIA_NIM,
         SAMBANOVA,
         OPENROUTER_YI,
         SILICONFLOW,
         TOGETHER,
         CLOUDFLARE,
-        CLAUDE_HAIKU,
-        GPT4O,
         CLAUDE,
         CLAUDE_OPUS,
     ],
@@ -1202,20 +1175,18 @@ MODULE_LLM_PREFERENCES: Dict[str, Dict[str, Any]] = {
     "command_center": {
         "default_task": TASK_CAMPAIGN_PLAN,
         "quick_task": TASK_CHAT_RESPONSE,
-        "preferred_providers": [GROQ, CEREBRAS, GEMINI],
-        # NOTE: full_plan_providers removed (unused by callers). Use
-        # preferred_providers override with task_type=TASK_CAMPAIGN_PLAN instead.
-        "description": "Fast providers for quick plans, Claude for full plans",
+        "preferred_providers": [CLAUDE_HAIKU, GEMINI, GPT4O],
+        "description": "v4.1: Quality-first -- Haiku for plans, Gemini fallback",
     },
     "intelligence_hub": {
         "default_task": TASK_MARKET_ANALYSIS,
-        "preferred_providers": [GEMINI, OPENROUTER_DEEPSEEK_R1, XAI],
-        "description": "Providers good at structured data and analysis",
+        "preferred_providers": [CLAUDE_HAIKU, GEMINI, GPT4O],
+        "description": "v4.1: Quality-first -- Haiku for analysis, Gemini fallback",
     },
     "nova_ai": {
         "default_task": TASK_CHAT_RESPONSE,
-        "preferred_providers": [GROQ, CEREBRAS, GEMINI],
-        "description": "Streaming-capable, lowest latency first",
+        "preferred_providers": [CLAUDE_HAIKU, GEMINI, GPT4O],
+        "description": "v4.1: Quality-first -- Haiku for chat, Gemini fallback",
     },
 }
 
@@ -1237,7 +1208,6 @@ _PROVIDER_COST_PER_M_TOKENS: Dict[str, Dict[str, float]] = {
     SILICONFLOW: {"input": 0.05, "output": 0.05},
     CLOUDFLARE: {"input": 0.0, "output": 0.0},
     TOGETHER: {"input": 0.0, "output": 0.0},
-    MOONSHOT: {"input": 0.0, "output": 0.0},
     XIAOMI_MIMO: {"input": 0.1, "output": 0.3},  # $0.1/M in, $0.3/M out
     HUGGINGFACE: {"input": 0.0, "output": 0.0},
     OPENROUTER: {"input": 0.0, "output": 0.0},
@@ -2916,265 +2886,6 @@ def _stream_single_provider(
             yield text
 
 
-def call_llm_stream(
-    messages: List[Dict],
-    system_prompt: str = "",
-    max_tokens: int = 2048,
-    task_type: str = "",
-    query_text: str = "",
-    preferred_providers: Optional[List[str]] = None,
-) -> Generator[str, None, None]:
-    """Stream LLM tokens from the best available provider.
-
-    Uses the same provider selection logic as call_llm (circuit breaker,
-    health scoring, rate limits) but returns a generator that yields
-    text chunks as they arrive from the provider's SSE stream.
-
-    If streaming fails mid-stream for a provider, catches the exception
-    and falls back to the next available provider using non-streaming
-    call_llm(), yielding the full response as a single chunk.
-
-    Args:
-        messages: Conversation messages [{role, content}, ...]
-        system_prompt: System prompt string
-        max_tokens: Max output tokens
-        task_type: Override task classification
-        query_text: User query for task classification
-        preferred_providers: Optional list of provider IDs to try first
-
-    Yields:
-        Text chunks (tokens) as they arrive from the LLM provider.
-    """
-    # --- Global concurrency limiter (streaming path) ---
-    global _llm_active_calls, _llm_waiting_calls, _llm_rejected_calls, _llm_total_calls
-    with _llm_concurrency_lock:
-        _llm_waiting_calls += 1
-    try:
-        acquired = _llm_concurrency_semaphore.acquire(timeout=_LLM_CONCURRENCY_TIMEOUT)
-    finally:
-        with _llm_concurrency_lock:
-            _llm_waiting_calls -= 1
-    if not acquired:
-        with _llm_concurrency_lock:
-            _llm_rejected_calls += 1
-        logger.warning(
-            "LLM Stream: concurrency limit reached (%d active), "
-            "request rejected after %.1fs wait",
-            _LLM_MAX_CONCURRENT,
-            _LLM_CONCURRENCY_TIMEOUT,
-        )
-        return  # yield nothing -- caller handles empty stream
-
-    with _llm_concurrency_lock:
-        _llm_active_calls += 1
-        _llm_total_calls += 1
-    try:
-        yield from _call_llm_stream_inner(
-            messages=messages,
-            system_prompt=system_prompt,
-            max_tokens=max_tokens,
-            task_type=task_type,
-            query_text=query_text,
-            preferred_providers=preferred_providers,
-        )
-    finally:
-        _llm_concurrency_semaphore.release()
-        with _llm_concurrency_lock:
-            _llm_active_calls -= 1
-
-
-def _call_llm_stream_inner(
-    messages: List[Dict],
-    system_prompt: str,
-    max_tokens: int,
-    task_type: str,
-    query_text: str,
-    preferred_providers: Optional[List[str]],
-) -> Generator[str, None, None]:
-    """Inner streaming logic, runs under the global concurrency semaphore."""
-    # Classify task if not provided
-    if not task_type and query_text:
-        task_type = classify_task(query_text)
-    task_type = task_type or TASK_CONVERSATIONAL
-
-    # Build routing order
-    if preferred_providers:
-        base_route = TASK_ROUTING.get(task_type, TASK_ROUTING[TASK_CONVERSATIONAL])
-        custom_route = list(preferred_providers)
-        for pid in base_route:
-            if pid not in custom_route:
-                custom_route.append(pid)
-    else:
-        custom_route = None
-
-    excluded: List[str] = []
-    max_attempts = len(PROVIDER_CONFIG)
-    _wall_start = time.time()
-
-    for attempt_num in range(max_attempts):
-        # Global timeout budget check
-        elapsed = time.time() - _wall_start
-        if elapsed > GLOBAL_TIMEOUT_BUDGET:
-            logger.warning(
-                "LLM Stream: global timeout budget (%.1fs) exceeded after %d attempts",
-                GLOBAL_TIMEOUT_BUDGET,
-                attempt_num,
-            )
-            break
-        remaining = GLOBAL_TIMEOUT_BUDGET - elapsed
-        if remaining < _MIN_REMAINING_BUDGET:
-            logger.warning(
-                "LLM Stream: only %.1fs remaining in budget, stopping early",
-                remaining,
-            )
-            break
-
-        # Select provider
-        if custom_route:
-            provider = None
-            for pid in custom_route:
-                if pid in excluded:
-                    continue
-                config = PROVIDER_CONFIG.get(pid, {})
-                env_key = config.get("env_key") or ""
-                if not os.environ.get(env_key, "").strip():
-                    continue
-                # Circuit breaker mesh check (streaming path)
-                if _circuit_mesh is not None and not _circuit_mesh.can_use(pid):
-                    logger.debug(
-                        "LLM Stream: %s blocked by circuit mesh, skipping", pid
-                    )
-                    continue
-                state = _provider_states.get(pid)
-                if state and state.is_available():
-                    provider = pid
-                    break
-        else:
-            provider = select_provider(task_type, exclude=excluded)
-
-        if provider is None:
-            break
-
-        state = _provider_states.get(provider)
-        if state:
-            state.record_call()
-        # Also record in the rate tracker
-        _rate_tracker.record_request(provider)
-
-        start_time = time.time()
-        any_tokens = False
-
-        try:
-            logger.info(
-                "LLM Stream: attempting %s (attempt %d)", provider, attempt_num + 1
-            )
-            for token in _stream_single_provider(
-                provider, messages, system_prompt, max_tokens
-            ):
-                any_tokens = True
-                yield token
-
-            if any_tokens:
-                latency_ms = round((time.time() - start_time) * 1000, 1)
-                if state:
-                    state.record_success(latency_ms)
-                # Circuit breaker mesh: record streaming success
-                if _circuit_mesh is not None:
-                    _circuit_mesh.record_success(provider, latency_ms)
-                logger.info(
-                    "LLM Stream: %s completed streaming in %.0fms",
-                    provider,
-                    latency_ms,
-                )
-                return  # Success -- done
-
-            # No tokens yielded -- treat as failure
-            if state:
-                state.record_failure()
-            # Circuit breaker mesh: record streaming failure
-            if _circuit_mesh is not None:
-                _circuit_mesh.record_failure(provider, "no tokens yielded")
-            excluded.append(provider)
-            logger.warning(
-                "LLM Stream: %s yielded no tokens (attempt %d), trying next",
-                provider,
-                attempt_num + 1,
-            )
-
-        except (urllib.error.HTTPError, urllib.error.URLError) as http_err:
-            if state:
-                state.record_failure()
-            # Circuit breaker mesh: record streaming HTTP failure
-            if _circuit_mesh is not None:
-                _circuit_mesh.record_failure(provider, f"stream HTTP error: {http_err}")
-            excluded.append(provider)
-            logger.error(
-                "LLM Stream: %s HTTP error: %s (attempt %d)",
-                provider,
-                http_err,
-                attempt_num + 1,
-                exc_info=True,
-            )
-
-            # If we already yielded some tokens, fall back to non-streaming
-            # for a COMPLETE response from the next provider
-            if any_tokens:
-                logger.warning(
-                    "LLM Stream: mid-stream failure on %s after partial tokens, "
-                    "falling back to non-streaming call_llm()",
-                    provider,
-                )
-                fallback_result = call_llm(
-                    messages=messages,
-                    system_prompt=system_prompt,
-                    max_tokens=max_tokens,
-                    task_type=task_type,
-                    query_text=query_text,
-                )
-                fallback_text = fallback_result.get("text") or ""
-                if fallback_text:
-                    yield fallback_text
-                return
-
-        except Exception as exc:
-            if state:
-                state.record_failure()
-            # Circuit breaker mesh: record streaming exception
-            if _circuit_mesh is not None:
-                _circuit_mesh.record_failure(
-                    provider, f"stream error: {str(exc)[:200]}"
-                )
-            excluded.append(provider)
-            logger.error(
-                "LLM Stream: %s error: %s (attempt %d)",
-                provider,
-                exc,
-                attempt_num + 1,
-                exc_info=True,
-            )
-
-            if any_tokens:
-                logger.warning(
-                    "LLM Stream: mid-stream failure on %s, "
-                    "falling back to non-streaming call_llm()",
-                    provider,
-                )
-                fallback_result = call_llm(
-                    messages=messages,
-                    system_prompt=system_prompt,
-                    max_tokens=max_tokens,
-                    task_type=task_type,
-                    query_text=query_text,
-                )
-                fallback_text = fallback_result.get("text") or ""
-                if fallback_text:
-                    yield fallback_text
-                return
-
-    # All providers failed -- yield nothing (caller should handle empty stream)
-    logger.error("LLM Stream: all providers failed, no tokens yielded")
-
-
 def _call_single_provider(
     provider_id: str,
     messages: List[Dict],
@@ -3299,9 +3010,22 @@ def _call_single_provider(
                 provider_id, f"HTTP {http_err.code}: {error_body[:100]}"
             )
 
-        logger.error(
-            "LLM Router: %s HTTP %d: %s", provider_id, http_err.code, error_body[:200]
-        )
+        # Rate-limit (429/403) already logged as warning above; other HTTP
+        # errors are genuine failures worth sending to Sentry.
+        if http_err.code in (429, 403):
+            logger.warning(
+                "LLM Router: %s HTTP %d: %s",
+                provider_id,
+                http_err.code,
+                error_body[:200],
+            )
+        else:
+            logger.error(
+                "LLM Router: %s HTTP %d: %s",
+                provider_id,
+                http_err.code,
+                error_body[:200],
+            )
         # ── PostHog: Track provider failure ──
         try:
             from posthog_integration import track_event as _ph_track_evt
@@ -3330,7 +3054,16 @@ def _call_single_provider(
         # Circuit breaker mesh: record failure
         if _circuit_mesh is not None:
             _circuit_mesh.record_failure(provider_id, str(exc)[:200])
-        logger.error("LLM Router: %s error: %s", provider_id, exc, exc_info=True)
+        # Transient errors (timeout, connection reset) are warnings, not errors
+        _exc_str = str(exc).lower()
+        if (
+            isinstance(exc, (TimeoutError, ConnectionError, OSError))
+            or "timed out" in _exc_str
+            or "connection reset" in _exc_str
+        ):
+            logger.warning("LLM Router: %s transient error: %s", provider_id, exc)
+        else:
+            logger.error("LLM Router: %s error: %s", provider_id, exc, exc_info=True)
         # ── PostHog: Track provider failure ──
         try:
             from posthog_integration import track_event as _ph_track_evt

@@ -14,7 +14,6 @@ and passes the enriched results into the PPT generation functions.
 """
 
 import io
-import math
 import os
 import re
 import datetime
@@ -26,7 +25,7 @@ from shared_utils import (
 )
 
 from pptx import Presentation
-from pptx.util import Inches, Pt, Emu
+from pptx.util import Inches, Pt
 from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
 from pptx.enum.shapes import MSO_SHAPE

@@ -13,7 +13,6 @@ import sys
 import urllib.error
 from typing import Any
 
-from routes.utils import read_json_body
 
 logger = logging.getLogger(__name__)
 

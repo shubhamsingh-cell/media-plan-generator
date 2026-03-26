@@ -30,7 +30,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -117,7 +117,6 @@ def _build_jwt(creds: Dict[str, Any]) -> str:
         ImportError: If no JWT signing library is available.
     """
     import base64
-    import hashlib
 
     now = int(time.time())
     header = {"alg": "RS256", "typ": "JWT"}

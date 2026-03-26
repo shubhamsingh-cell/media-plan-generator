@@ -1,0 +1,94 @@
+<!-- Keyboard accessibility for interactive cards -->
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    // Cmd+Enter (Mac) / Ctrl+Enter (Win) to trigger generate on final step
+    document.addEventListener("keydown", function (e) {
+      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+        var btn = document.getElementById("generateBtn");
+        if (btn && btn.offsetParent !== null && !btn.disabled) {
+          e.preventDefault();
+          generatePlan();
+        }
+      }
+    });
+    // Show Cmd+Enter hint when on the generate step
+    var hintEl = document.getElementById("cmdEnterHint");
+    if (hintEl) {
+      var isMac = navigator.platform.toUpperCase().indexOf("MAC") >= 0;
+      if (!isMac) {
+        hintEl.innerHTML =
+          'or press <kbd style="background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-sm);padding:1px 6px;font-family:inherit;font-size:11px;">Ctrl+Enter</kbd>';
+      }
+      hintEl.style.display = "block";
+    }
+
+    // Make industry cards keyboard-accessible
+    document.querySelectorAll(".industry-card").forEach(function (card) {
+      card.setAttribute("tabindex", "0");
+      card.setAttribute("role", "option");
+      card.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          selectIndustry(card);
+        }
+      });
+    });
+
+    // Make job category cards keyboard-accessible (dynamically populated)
+    var observer = new MutationObserver(function (mutations) {
+      mutations.forEach(function (mutation) {
+        mutation.addedNodes.forEach(function (node) {
+          if (node.classList && node.classList.contains("job-cat-card")) {
+            node.setAttribute("tabindex", "0");
+            node.setAttribute("role", "option");
+            node.addEventListener("keydown", function (e) {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                node.click();
+              }
+            });
+          }
+        });
+      });
+    });
+    var jobGrid = document.getElementById("jobCategoryGrid");
+    if (jobGrid) observer.observe(jobGrid, { childList: true });
+  });
+
+  // Scroll reveal observer
+  var revealObserver = new IntersectionObserver(
+    function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add("visible");
+          revealObserver.unobserve(entry.target);
+        }
+      });
+    },
+    { threshold: 0.1, rootMargin: "0px 0px -40px 0px" },
+  );
+  document.querySelectorAll(".reveal-on-scroll").forEach(function (el) {
+    revealObserver.observe(el);
+  });
+
+  // ── Phase 2/3: Streaming text effect ──
+  if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    document.querySelectorAll("[data-streaming]").forEach(function (el) {
+      var text = el.textContent.trim();
+      if (!text) return;
+      var words = text.split(/\s+/);
+      el.textContent = "";
+      words.forEach(function (word, i) {
+        if (i > 0) el.appendChild(document.createTextNode(" "));
+        var span = document.createElement("span");
+        span.className = "word";
+        span.style.animationDelay = 0.2 + i * 0.08 + "s";
+        span.textContent = word;
+        el.appendChild(span);
+      });
+    });
+  }
+
+  // ── Phase 2/3: Page enter transition ──
+  document.body.classList.add("page-enter");
+</script>

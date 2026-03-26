@@ -180,7 +180,6 @@ def _ensure_jobspy() -> bool:
         if _jobspy_checked:
             return _jobspy is not None
         try:
-            from jobspy import scrape_jobs as _scrape  # noqa: F401
             import jobspy as _mod
 
             _jobspy = _mod

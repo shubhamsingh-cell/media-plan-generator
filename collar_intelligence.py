@@ -32,10 +32,8 @@ logger = logging.getLogger(__name__)
 # ── Optional imports ──
 try:
     from standardizer import (
-        normalize_role as _std_normalize_role,
         get_role_tier as _std_get_role_tier,
         get_soc_code as _std_get_soc_code,
-        CANONICAL_ROLES as _CANON_ROLES,
     )
 
     _HAS_STANDARDIZER = True

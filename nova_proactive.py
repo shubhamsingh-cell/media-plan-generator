@@ -10,9 +10,7 @@ Instead of waiting for users to ask, Nova pushes insights:
 Runs as a background thread, checks every 5 minutes.
 """
 
-import json
 import logging
-import os
 import threading
 import time
 from typing import Optional

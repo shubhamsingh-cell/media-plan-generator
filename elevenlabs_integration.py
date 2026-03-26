@@ -149,12 +149,10 @@ def _make_request(
             )
         return None
     except urllib.error.URLError as e:
-        logger.error(
-            f"ElevenLabs API connection error for {endpoint}: {e}", exc_info=True
-        )
+        logger.warning(f"ElevenLabs API connection error for {endpoint}: {e}")
         return None
     except OSError as e:
-        logger.error(f"ElevenLabs API OS error for {endpoint}: {e}", exc_info=True)
+        logger.warning(f"ElevenLabs API OS error for {endpoint}: {e}")
         return None
     finally:
         _concurrency_semaphore.release()
@@ -395,11 +393,11 @@ def text_to_speech_stream(
                 "Check ELEVENLABS_API_KEY env var on Render.",
             )
         else:
-            logger.error(f"ElevenLabs stream HTTP {e.code}: {e}", exc_info=True)
+            logger.warning(f"ElevenLabs stream HTTP {e.code}: {e}")
     except urllib.error.URLError as e:
-        logger.error(f"ElevenLabs stream connection error: {e}", exc_info=True)
+        logger.warning(f"ElevenLabs stream connection error: {e}")
     except OSError as e:
-        logger.error(f"ElevenLabs stream OS error: {e}", exc_info=True)
+        logger.warning(f"ElevenLabs stream OS error: {e}")
     finally:
         _concurrency_semaphore.release()
 
@@ -455,7 +453,7 @@ def speech_to_text(
         )
         return transcript
     except (json.JSONDecodeError, UnicodeDecodeError) as e:
-        logger.error(f"Failed to parse STT response: {e}", exc_info=True)
+        logger.warning(f"Failed to parse STT response: {e}")
         return None
 
 
@@ -557,7 +555,7 @@ def design_voice(
         logger.info("Voice designed: description_len=%d", len(description))
         return result
     except (json.JSONDecodeError, UnicodeDecodeError) as e:
-        logger.error(f"Failed to parse voice design response: {e}", exc_info=True)
+        logger.warning(f"Failed to parse voice design response: {e}")
         return None
 
 
@@ -771,7 +769,7 @@ def check_elevenlabs_health() -> Dict[str, Any]:
 
     except (json.JSONDecodeError, UnicodeDecodeError) as e:
         result["error"] = f"Failed to parse health response: {e}"
-        logger.error(f"ElevenLabs health parse error: {e}", exc_info=True)
+        logger.warning(f"ElevenLabs health parse error: {e}")
 
     return result
 

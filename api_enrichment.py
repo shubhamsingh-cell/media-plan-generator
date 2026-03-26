@@ -97,8 +97,6 @@ try:
     from standardizer import (
         normalize_industry as _std_normalize_industry,
         normalize_location as _std_normalize_location,
-        normalize_role as _std_normalize_role,
-        normalize_platform as _std_normalize_platform,
         get_soc_code as _std_get_soc_code,
         CANONICAL_INDUSTRIES as _CANON_INDUSTRIES,
         COUNTRY_MAP as _STD_COUNTRY_MAP,
@@ -2970,6 +2968,9 @@ def fetch_fred_indicators() -> Dict[str, Any]:
     result: Dict[str, Any] = {"source": "FRED"}
 
     for label, series_id in _FRED_SERIES.items():
+        if not _validate_fred_series_id(series_id):
+            _log_warn(f"Invalid FRED series ID: {series_id}, skipping")
+            continue
         url = (
             f"https://api.stlouisfed.org/fred/series/observations"
             f"?series_id={series_id}&api_key={api_key}&file_type=json"
@@ -2985,7 +2986,7 @@ def fetch_fred_indicators() -> Dict[str, Any]:
                         "value": float(val),
                         "date": obs.get("date") or "",
                     }
-        except Exception as exc:
+        except (ValueError, KeyError, TypeError, OSError) as exc:
             _log_warn(f"FRED series {series_id} failed: {exc}")
 
     if len(result) > 1:  # more than just "source"
@@ -3731,6 +3732,14 @@ def fetch_onet_occupation_data(roles: List[str]) -> Dict[str, Any]:
 
                 result["occupations"][role] = occ_data
                 continue
+            except urllib.error.HTTPError as exc:
+                if exc.code in (401, 403):
+                    _log_warn(
+                        f"O*NET API auth failed (HTTP {exc.code}) -- check ONET_API_KEY; falling back to curated data"
+                    )
+                    use_live = False  # Stop trying live API for remaining roles
+                else:
+                    _log_warn(f"O*NET live API failed for {soc_code}: HTTP {exc.code}")
             except Exception as exc:
                 _log_warn(f"O*NET live API failed for {soc_code}: {exc}")
 
@@ -3776,14 +3785,18 @@ def fetch_onet_job_zone(soc_code: str) -> Optional[Dict[str, Any]]:
         import base64
 
         username = os.environ.get("ONET_USERNAME") or ""
-        if not username:
+        password = (
+            os.environ.get("ONET_API_KEY") or os.environ.get("ONET_PASSWORD") or ""
+        )
+        if not username or not password:
+            _log_warn("ONET_USERNAME or ONET_API_KEY not set, skipping O*NET Job Zone")
             return None
 
         # O*NET API endpoint
         url = f"https://services.onetcenter.org/ws/online/occupations/{soc_code}"
 
-        # Basic auth
-        auth_string = base64.b64encode(f"{username}:".encode()).decode()
+        # Basic auth -- username:password
+        auth_string = base64.b64encode(f"{username}:{password}".encode()).decode()
         resp = _http_get_json(
             url,
             headers={
@@ -4215,11 +4228,646 @@ def fetch_country_data(locations: List[str]) -> Dict[str, Any]:
 
 GEONAMES_BASE = "https://secure.geonames.org"
 
+# Hardcoded population data for top 50 US metro areas + major global cities.
+# Used as fallback when GEONAMES_USERNAME is not set, avoiding the rate-limited
+# "demo" account entirely.
+_HARDCODED_GEO: Dict[str, Dict[str, Any]] = {
+    "new york": {
+        "name": "New York",
+        "population": 8336817,
+        "latitude": "40.7128",
+        "longitude": "-74.0060",
+        "country_code": "US",
+        "country_name": "United States",
+        "admin_name": "New York",
+        "timezone": "America/New_York",
+    },
+    "los angeles": {
+        "name": "Los Angeles",
+        "population": 3979576,
+        "latitude": "34.0522",
+        "longitude": "-118.2437",
+        "country_code": "US",
+        "country_name": "United States",
+        "admin_name": "California",
+        "timezone": "America/Los_Angeles",
+    },
+    "chicago": {
+        "name": "Chicago",
+        "population": 2693976,
+        "latitude": "41.8781",
+        "longitude": "-87.6298",
+        "country_code": "US",
+        "country_name": "United States",
+        "admin_name": "Illinois",
+        "timezone": "America/Chicago",
+    },
+    "houston": {
+        "name": "Houston",
+        "population": 2320268,
+        "latitude": "29.7604",
+        "longitude": "-95.3698",
+        "country_code": "US",
+        "country_name": "United States",
+        "admin_name": "Texas",
+        "timezone": "America/Chicago",
+    },
+    "phoenix": {
+        "name": "Phoenix",
+        "population": 1680992,
+        "latitude": "33.4484",
+        "longitude": "-112.0740",
+        "country_code": "US",
+        "country_name": "United States",
+        "admin_name": "Arizona",
+        "timezone": "America/Phoenix",
+    },
+    "philadelphia": {
+        "name": "Philadelphia",
+        "population": 1603797,
+        "latitude": "39.9526",
+        "longitude": "-75.1652",
+        "country_code": "US",
+        "country_name": "United States",
+        "admin_name": "Pennsylvania",
+        "timezone": "America/New_York",
+    },
+    "san antonio": {
+        "name": "San Antonio",
+        "population": 1547253,
+        "latitude": "29.4241",
+        "longitude": "-98.4936",
+        "country_code": "US",
+        "country_name": "United States",
+        "admin_name": "Texas",
+        "timezone": "America/Chicago",
+    },
+    "san diego": {
+        "name": "San Diego",
+        "population": 1423851,
+        "latitude": "32.7157",
+        "longitude": "-117.1611",
+        "country_code": "US",
+        "country_name": "United States",
+        "admin_name": "California",
+        "timezone": "America/Los_Angeles",
+    },
+    "dallas": {
+        "name": "Dallas",
+        "population": 1343573,
+        "latitude": "32.7767",
+        "longitude": "-96.7970",
+        "country_code": "US",
+        "country_name": "United States",
+        "admin_name": "Texas",
+        "timezone": "America/Chicago",
+    },
+    "san jose": {
+        "name": "San Jose",
+        "population": 1021795,
+        "latitude": "37.3382",
+        "longitude": "-121.8863",
+        "country_code": "US",
+        "country_name": "United States",
+        "admin_name": "California",
+        "timezone": "America/Los_Angeles",
+    },
+    "austin": {
+        "name": "Austin",
+        "population": 978908,
+        "latitude": "30.2672",
+        "longitude": "-97.7431",
+        "country_code": "US",
+        "country_name": "United States",
+        "admin_name": "Texas",
+        "timezone": "America/Chicago",
+    },
+    "jacksonville": {
+        "name": "Jacksonville",
+        "population": 954614,
+        "latitude": "30.3322",
+        "longitude": "-81.6557",
+        "country_code": "US",
+        "country_name": "United States",
+        "admin_name": "Florida",
+        "timezone": "America/New_York",
+    },
+    "fort worth": {
+        "name": "Fort Worth",
+        "population": 918915,
+        "latitude": "32.7555",
+        "longitude": "-97.3308",
+        "country_code": "US",
+        "country_name": "United States",
+        "admin_name": "Texas",
+        "timezone": "America/Chicago",
+    },
+    "columbus": {
+        "name": "Columbus",
+        "population": 905748,
+        "latitude": "39.9612",
+        "longitude": "-82.9988",
+        "country_code": "US",
+        "country_name": "United States",
+        "admin_name": "Ohio",
+        "timezone": "America/New_York",
+    },
+    "charlotte": {
+        "name": "Charlotte",
+        "population": 874579,
+        "latitude": "35.2271",
+        "longitude": "-80.8431",
+        "country_code": "US",
+        "country_name": "United States",
+        "admin_name": "North Carolina",
+        "timezone": "America/New_York",
+    },
+    "san francisco": {
+        "name": "San Francisco",
+        "population": 873965,
+        "latitude": "37.7749",
+        "longitude": "-122.4194",
+        "country_code": "US",
+        "country_name": "United States",
+        "admin_name": "California",
+        "timezone": "America/Los_Angeles",
+    },
+    "indianapolis": {
+        "name": "Indianapolis",
+        "population": 876384,
+        "latitude": "39.7684",
+        "longitude": "-86.1581",
+        "country_code": "US",
+        "country_name": "United States",
+        "admin_name": "Indiana",
+        "timezone": "America/Indiana/Indianapolis",
+    },
+    "seattle": {
+        "name": "Seattle",
+        "population": 737015,
+        "latitude": "47.6062",
+        "longitude": "-122.3321",
+        "country_code": "US",
+        "country_name": "United States",
+        "admin_name": "Washington",
+        "timezone": "America/Los_Angeles",
+    },
+    "denver": {
+        "name": "Denver",
+        "population": 715522,
+        "latitude": "39.7392",
+        "longitude": "-104.9903",
+        "country_code": "US",
+        "country_name": "United States",
+        "admin_name": "Colorado",
+        "timezone": "America/Denver",
+    },
+    "washington": {
+        "name": "Washington",
+        "population": 689545,
+        "latitude": "38.9072",
+        "longitude": "-77.0369",
+        "country_code": "US",
+        "country_name": "United States",
+        "admin_name": "District of Columbia",
+        "timezone": "America/New_York",
+    },
+    "nashville": {
+        "name": "Nashville",
+        "population": 689447,
+        "latitude": "36.1627",
+        "longitude": "-86.7816",
+        "country_code": "US",
+        "country_name": "United States",
+        "admin_name": "Tennessee",
+        "timezone": "America/Chicago",
+    },
+    "oklahoma city": {
+        "name": "Oklahoma City",
+        "population": 681054,
+        "latitude": "35.4676",
+        "longitude": "-97.5164",
+        "country_code": "US",
+        "country_name": "United States",
+        "admin_name": "Oklahoma",
+        "timezone": "America/Chicago",
+    },
+    "el paso": {
+        "name": "El Paso",
+        "population": 678815,
+        "latitude": "31.7619",
+        "longitude": "-106.4850",
+        "country_code": "US",
+        "country_name": "United States",
+        "admin_name": "Texas",
+        "timezone": "America/Denver",
+    },
+    "boston": {
+        "name": "Boston",
+        "population": 675647,
+        "latitude": "42.3601",
+        "longitude": "-71.0589",
+        "country_code": "US",
+        "country_name": "United States",
+        "admin_name": "Massachusetts",
+        "timezone": "America/New_York",
+    },
+    "portland": {
+        "name": "Portland",
+        "population": 652503,
+        "latitude": "45.5152",
+        "longitude": "-122.6784",
+        "country_code": "US",
+        "country_name": "United States",
+        "admin_name": "Oregon",
+        "timezone": "America/Los_Angeles",
+    },
+    "las vegas": {
+        "name": "Las Vegas",
+        "population": 641903,
+        "latitude": "36.1699",
+        "longitude": "-115.1398",
+        "country_code": "US",
+        "country_name": "United States",
+        "admin_name": "Nevada",
+        "timezone": "America/Los_Angeles",
+    },
+    "memphis": {
+        "name": "Memphis",
+        "population": 633104,
+        "latitude": "35.1495",
+        "longitude": "-90.0490",
+        "country_code": "US",
+        "country_name": "United States",
+        "admin_name": "Tennessee",
+        "timezone": "America/Chicago",
+    },
+    "louisville": {
+        "name": "Louisville",
+        "population": 633045,
+        "latitude": "38.2527",
+        "longitude": "-85.7585",
+        "country_code": "US",
+        "country_name": "United States",
+        "admin_name": "Kentucky",
+        "timezone": "America/Kentucky/Louisville",
+    },
+    "baltimore": {
+        "name": "Baltimore",
+        "population": 585708,
+        "latitude": "39.2904",
+        "longitude": "-76.6122",
+        "country_code": "US",
+        "country_name": "United States",
+        "admin_name": "Maryland",
+        "timezone": "America/New_York",
+    },
+    "milwaukee": {
+        "name": "Milwaukee",
+        "population": 577222,
+        "latitude": "43.0389",
+        "longitude": "-87.9065",
+        "country_code": "US",
+        "country_name": "United States",
+        "admin_name": "Wisconsin",
+        "timezone": "America/Chicago",
+    },
+    "albuquerque": {
+        "name": "Albuquerque",
+        "population": 564559,
+        "latitude": "35.0844",
+        "longitude": "-106.6504",
+        "country_code": "US",
+        "country_name": "United States",
+        "admin_name": "New Mexico",
+        "timezone": "America/Denver",
+    },
+    "tucson": {
+        "name": "Tucson",
+        "population": 542629,
+        "latitude": "32.2226",
+        "longitude": "-110.9747",
+        "country_code": "US",
+        "country_name": "United States",
+        "admin_name": "Arizona",
+        "timezone": "America/Phoenix",
+    },
+    "fresno": {
+        "name": "Fresno",
+        "population": 542107,
+        "latitude": "36.7378",
+        "longitude": "-119.7871",
+        "country_code": "US",
+        "country_name": "United States",
+        "admin_name": "California",
+        "timezone": "America/Los_Angeles",
+    },
+    "sacramento": {
+        "name": "Sacramento",
+        "population": 524943,
+        "latitude": "38.5816",
+        "longitude": "-121.4944",
+        "country_code": "US",
+        "country_name": "United States",
+        "admin_name": "California",
+        "timezone": "America/Los_Angeles",
+    },
+    "mesa": {
+        "name": "Mesa",
+        "population": 508958,
+        "latitude": "33.4152",
+        "longitude": "-111.8315",
+        "country_code": "US",
+        "country_name": "United States",
+        "admin_name": "Arizona",
+        "timezone": "America/Phoenix",
+    },
+    "kansas city": {
+        "name": "Kansas City",
+        "population": 508090,
+        "latitude": "39.0997",
+        "longitude": "-94.5786",
+        "country_code": "US",
+        "country_name": "United States",
+        "admin_name": "Missouri",
+        "timezone": "America/Chicago",
+    },
+    "atlanta": {
+        "name": "Atlanta",
+        "population": 498715,
+        "latitude": "33.7490",
+        "longitude": "-84.3880",
+        "country_code": "US",
+        "country_name": "United States",
+        "admin_name": "Georgia",
+        "timezone": "America/New_York",
+    },
+    "omaha": {
+        "name": "Omaha",
+        "population": 486051,
+        "latitude": "41.2565",
+        "longitude": "-95.9345",
+        "country_code": "US",
+        "country_name": "United States",
+        "admin_name": "Nebraska",
+        "timezone": "America/Chicago",
+    },
+    "raleigh": {
+        "name": "Raleigh",
+        "population": 467665,
+        "latitude": "35.7796",
+        "longitude": "-78.6382",
+        "country_code": "US",
+        "country_name": "United States",
+        "admin_name": "North Carolina",
+        "timezone": "America/New_York",
+    },
+    "colorado springs": {
+        "name": "Colorado Springs",
+        "population": 478961,
+        "latitude": "38.8339",
+        "longitude": "-104.8214",
+        "country_code": "US",
+        "country_name": "United States",
+        "admin_name": "Colorado",
+        "timezone": "America/Denver",
+    },
+    "miami": {
+        "name": "Miami",
+        "population": 442241,
+        "latitude": "25.7617",
+        "longitude": "-80.1918",
+        "country_code": "US",
+        "country_name": "United States",
+        "admin_name": "Florida",
+        "timezone": "America/New_York",
+    },
+    "virginia beach": {
+        "name": "Virginia Beach",
+        "population": 459470,
+        "latitude": "36.8529",
+        "longitude": "-75.9780",
+        "country_code": "US",
+        "country_name": "United States",
+        "admin_name": "Virginia",
+        "timezone": "America/New_York",
+    },
+    "minneapolis": {
+        "name": "Minneapolis",
+        "population": 429954,
+        "latitude": "44.9778",
+        "longitude": "-93.2650",
+        "country_code": "US",
+        "country_name": "United States",
+        "admin_name": "Minnesota",
+        "timezone": "America/Chicago",
+    },
+    "tampa": {
+        "name": "Tampa",
+        "population": 384959,
+        "latitude": "27.9506",
+        "longitude": "-82.4572",
+        "country_code": "US",
+        "country_name": "United States",
+        "admin_name": "Florida",
+        "timezone": "America/New_York",
+    },
+    "detroit": {
+        "name": "Detroit",
+        "population": 639111,
+        "latitude": "42.3314",
+        "longitude": "-83.0458",
+        "country_code": "US",
+        "country_name": "United States",
+        "admin_name": "Michigan",
+        "timezone": "America/Detroit",
+    },
+    "pittsburgh": {
+        "name": "Pittsburgh",
+        "population": 302971,
+        "latitude": "40.4406",
+        "longitude": "-79.9959",
+        "country_code": "US",
+        "country_name": "United States",
+        "admin_name": "Pennsylvania",
+        "timezone": "America/New_York",
+    },
+    "st. louis": {
+        "name": "St. Louis",
+        "population": 301578,
+        "latitude": "38.6270",
+        "longitude": "-90.1994",
+        "country_code": "US",
+        "country_name": "United States",
+        "admin_name": "Missouri",
+        "timezone": "America/Chicago",
+    },
+    "salt lake city": {
+        "name": "Salt Lake City",
+        "population": 199723,
+        "latitude": "40.7608",
+        "longitude": "-111.8910",
+        "country_code": "US",
+        "country_name": "United States",
+        "admin_name": "Utah",
+        "timezone": "America/Denver",
+    },
+    "cincinnati": {
+        "name": "Cincinnati",
+        "population": 309317,
+        "latitude": "39.1031",
+        "longitude": "-84.5120",
+        "country_code": "US",
+        "country_name": "United States",
+        "admin_name": "Ohio",
+        "timezone": "America/New_York",
+    },
+    "cleveland": {
+        "name": "Cleveland",
+        "population": 372624,
+        "latitude": "41.4993",
+        "longitude": "-81.6944",
+        "country_code": "US",
+        "country_name": "United States",
+        "admin_name": "Ohio",
+        "timezone": "America/New_York",
+    },
+    # Major global cities
+    "london": {
+        "name": "London",
+        "population": 8982000,
+        "latitude": "51.5074",
+        "longitude": "-0.1278",
+        "country_code": "GB",
+        "country_name": "United Kingdom",
+        "admin_name": "England",
+        "timezone": "Europe/London",
+    },
+    "toronto": {
+        "name": "Toronto",
+        "population": 2731571,
+        "latitude": "43.6532",
+        "longitude": "-79.3832",
+        "country_code": "CA",
+        "country_name": "Canada",
+        "admin_name": "Ontario",
+        "timezone": "America/Toronto",
+    },
+    "sydney": {
+        "name": "Sydney",
+        "population": 5312000,
+        "latitude": "-33.8688",
+        "longitude": "151.2093",
+        "country_code": "AU",
+        "country_name": "Australia",
+        "admin_name": "New South Wales",
+        "timezone": "Australia/Sydney",
+    },
+    "mumbai": {
+        "name": "Mumbai",
+        "population": 12442373,
+        "latitude": "19.0760",
+        "longitude": "72.8777",
+        "country_code": "IN",
+        "country_name": "India",
+        "admin_name": "Maharashtra",
+        "timezone": "Asia/Kolkata",
+    },
+    "berlin": {
+        "name": "Berlin",
+        "population": 3644826,
+        "latitude": "52.5200",
+        "longitude": "13.4050",
+        "country_code": "DE",
+        "country_name": "Germany",
+        "admin_name": "Berlin",
+        "timezone": "Europe/Berlin",
+    },
+    "paris": {
+        "name": "Paris",
+        "population": 2161000,
+        "latitude": "48.8566",
+        "longitude": "2.3522",
+        "country_code": "FR",
+        "country_name": "France",
+        "admin_name": "Ile-de-France",
+        "timezone": "Europe/Paris",
+    },
+    "singapore": {
+        "name": "Singapore",
+        "population": 5850342,
+        "latitude": "1.3521",
+        "longitude": "103.8198",
+        "country_code": "SG",
+        "country_name": "Singapore",
+        "admin_name": "Singapore",
+        "timezone": "Asia/Singapore",
+    },
+    "tokyo": {
+        "name": "Tokyo",
+        "population": 13960000,
+        "latitude": "35.6762",
+        "longitude": "139.6503",
+        "country_code": "JP",
+        "country_name": "Japan",
+        "admin_name": "Tokyo",
+        "timezone": "Asia/Tokyo",
+    },
+    "dubai": {
+        "name": "Dubai",
+        "population": 3331420,
+        "latitude": "25.2048",
+        "longitude": "55.2708",
+        "country_code": "AE",
+        "country_name": "United Arab Emirates",
+        "admin_name": "Dubai",
+        "timezone": "Asia/Dubai",
+    },
+    "bangalore": {
+        "name": "Bangalore",
+        "population": 8443675,
+        "latitude": "12.9716",
+        "longitude": "77.5946",
+        "country_code": "IN",
+        "country_name": "India",
+        "admin_name": "Karnataka",
+        "timezone": "Asia/Kolkata",
+    },
+}
+
+
+def _geonames_hardcoded_lookup(locations: List[str]) -> Dict[str, Any]:
+    """Look up locations in the hardcoded metro area table.
+
+    Returns a GeoNames-compatible result dict for any matched locations.
+    Unmatched locations are silently skipped (caller should fall through
+    to live API if a username is configured).
+
+    Args:
+        locations: List of location strings to look up.
+
+    Returns:
+        Dict with 'source' and 'locations' keys, or empty dict.
+    """
+    result: Dict[str, Any] = {
+        "source": "GeoNames (hardcoded fallback)",
+        "locations": {},
+    }
+    for loc in locations[:10]:
+        city = loc.split(",")[0].strip().lower()
+        entry = _HARDCODED_GEO.get(city)
+        if entry:
+            result["locations"][loc] = dict(entry)  # shallow copy
+    return result if result["locations"] else {}
+
 
 def fetch_geonames_data(locations: List[str]) -> Dict[str, Any]:
-    """
-    Fetch geographic data from GeoNames API: coordinates, population,
+    """Fetch geographic data from GeoNames API: coordinates, population,
     timezone, elevation, nearby cities.
+
+    When GEONAMES_USERNAME is not set, uses hardcoded population data
+    for the top 50 US metro areas and major global cities instead of
+    the rate-limited 'demo' account.
     """
     if not locations:
         return {}
@@ -4231,9 +4879,17 @@ def fetch_geonames_data(locations: List[str]) -> Dict[str, Any]:
     if cached is not None:
         return cached
 
-    username = os.environ.get("GEONAMES_USERNAME", "demo")
-    if username == "demo":
-        _log_warn("GEONAMES_USERNAME not set; using 'demo' account (very limited rate)")
+    username = (os.environ.get("GEONAMES_USERNAME") or "").strip()
+    if not username:
+        # Use hardcoded data instead of rate-limited demo account
+        hardcoded = _geonames_hardcoded_lookup(locations)
+        if hardcoded:
+            _set_cached(cache_k, hardcoded)
+            return hardcoded
+        # No hardcoded match and no API credentials -- skip entirely
+        _log_warn("GEONAMES_USERNAME not set and no hardcoded match; skipping GeoNames")
+        return {}
+
     result: Dict[str, Any] = {"source": "GeoNames", "locations": {}}
 
     for loc in locations[:10]:
@@ -11938,6 +12594,25 @@ FRED_EMPLOYMENT_FALLBACK: Dict[str, Any] = {
 }
 
 
+def _validate_fred_series_id(series_id: str) -> bool:
+    """Validate a FRED series ID format before making API call.
+
+    Args:
+        series_id: FRED series identifier to validate.
+
+    Returns:
+        True if the series ID appears valid.
+    """
+    if not series_id or len(series_id) > 30:
+        return False
+    if not series_id.replace("_", "").replace("-", "").isalnum():
+        return False
+    # LAUS series must be exactly 20 chars: LAUST + 2-digit FIPS + 13 digits
+    if series_id.startswith("LAUST") and len(series_id) != 20:
+        return False
+    return True
+
+
 def fetch_fred_employment_series(
     series_id: str, observation_start: Optional[str] = None
 ) -> Optional[Dict[str, Any]]:
@@ -11945,6 +12620,12 @@ def fetch_fred_employment_series(
 
     Uses the existing FRED API key from environment (FRED_API_KEY).
     """
+    if not _validate_fred_series_id(series_id):
+        _log_warn(
+            f"Invalid FRED series ID format: {series_id} (len={len(series_id)}), skipping"
+        )
+        return None
+
     cache_k = _cache_key("fred_emp", f"{series_id}_{observation_start or 'default'}")
     cached = _get_cached(cache_k)
     if cached is not None:
@@ -14363,7 +15044,7 @@ def fetch_fred_state_data(state_abbrev: str) -> Dict[str, Any]:
 
     # Fetch unemployment rate (primary series)
     ur_series = series_map.get("unemployment") or ""
-    if ur_series:
+    if ur_series and _validate_fred_series_id(ur_series):
         try:
             url = (
                 f"https://api.stlouisfed.org/fred/series/observations"
@@ -14391,7 +15072,7 @@ def fetch_fred_state_data(state_abbrev: str) -> Dict[str, Any]:
 
     # Fetch per-capita income (secondary series)
     inc_series = series_map.get("income") or ""
-    if inc_series:
+    if inc_series and _validate_fred_series_id(inc_series):
         try:
             url = (
                 f"https://api.stlouisfed.org/fred/series/observations"

@@ -6,6 +6,12 @@ Runs every 60 seconds as a background thread:
 2. Verifies LLM router health
 3. Checks data source availability
 4. Triggers alerts via alert_manager on degradation
+
+Startup behavior:
+- Waits _STARTUP_GRACE_PERIOD (90s) before first check to let server warm up
+- First _WARMUP_GRACE_CHECKS (5) cycles use relaxed thresholds and suppress alerts
+- Reports "warming_up" state instead of "critical" during warmup
+- Only fires alerts after the warmup window has passed
 """
 
 import logging
@@ -13,20 +19,23 @@ import threading
 import time
 import urllib.request
 import urllib.error
-import json
 from collections import deque
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
 _CHECK_INTERVAL = 60  # seconds
 _DEGRADED_THRESHOLD = 0.7  # health score below this triggers alert
 _CRITICAL_THRESHOLD = 0.4
+_STARTUP_GRACE_PERIOD = 90  # seconds to wait before first check
+_WARMUP_GRACE_CHECKS = 5  # first N checks suppress alerts (server still loading KB)
 _running = False
 _thread: Optional[threading.Thread] = None
 _last_results: dict[str, Any] = {}
 _lock = threading.Lock()
 _check_history: deque = deque(maxlen=1440)  # 24h at 60s intervals
+_start_time: float = 0.0  # set when start() is called
+_check_count: int = 0  # number of completed check cycles
 
 # Configurable check definitions: list of (name, path) tuples
 _check_definitions: list[tuple[str, str]] = [
@@ -36,6 +45,16 @@ _check_definitions: list[tuple[str, str]] = [
     ("channels", "/api/channels"),
     ("dashboard_widgets", "/api/dashboard/widgets"),
 ]
+
+
+def _is_warming_up() -> bool:
+    """Check if the server is still in the warmup window."""
+    if _start_time == 0.0:
+        return True
+    elapsed = time.time() - _start_time
+    # Warmup = grace period + (grace_checks * interval)
+    warmup_window = _STARTUP_GRACE_PERIOD + (_WARMUP_GRACE_CHECKS * _CHECK_INTERVAL)
+    return elapsed < warmup_window or _check_count < _WARMUP_GRACE_CHECKS
 
 
 def _probe(path: str, timeout: int = 10) -> tuple[bool, float]:
@@ -66,6 +85,9 @@ def set_check_definitions(definitions: list[tuple[str, str]]) -> None:
 
 def _check_cycle() -> dict[str, Any]:
     """Run one full health check cycle."""
+    global _check_count
+    warming_up = _is_warming_up()
+
     results: dict[str, Any] = {"ts": time.time(), "checks": {}, "overall": "healthy"}
 
     # Product endpoints (configurable)
@@ -80,11 +102,19 @@ def _check_cycle() -> dict[str, Any]:
     total = len(_check_definitions)
     score = (total - failed) / total if total > 0 else 0
     results["health_score"] = round(score, 2)
+    results["warming_up"] = warming_up
+    results["check_number"] = _check_count + 1
 
-    if score < _CRITICAL_THRESHOLD:
-        results["overall"] = "critical"
-    elif score < _DEGRADED_THRESHOLD:
-        results["overall"] = "degraded"
+    if warming_up:
+        # During warmup, report "warming_up" instead of critical/degraded
+        if score < 1.0:
+            results["overall"] = "warming_up"
+        # else: leave as "healthy" if everything passes
+    else:
+        if score < _CRITICAL_THRESHOLD:
+            results["overall"] = "critical"
+        elif score < _DEGRADED_THRESHOLD:
+            results["overall"] = "degraded"
 
     # LLM Router health (if available)
     try:
@@ -128,11 +158,21 @@ def _check_cycle() -> dict[str, Any]:
     with _lock:
         _check_history.append(results)
 
+    _check_count += 1
+
     return results
 
 
 def _alert_if_needed(results: dict[str, Any]) -> None:
-    """Send alert if health is degraded or critical."""
+    """Send alert if health is degraded or critical.
+
+    Suppresses alerts during the warmup window -- startup failures are
+    expected and would generate noisy false-positive CRITICAL alerts.
+    """
+    # Never alert during warmup
+    if results.get("warming_up", False):
+        return
+
     if results["overall"] in ("degraded", "critical"):
         try:
             import sys as _sys
@@ -158,18 +198,43 @@ def _alert_if_needed(results: dict[str, Any]) -> None:
 
 
 def _run_loop() -> None:
-    """Background loop."""
+    """Background loop with startup grace period."""
     global _running, _last_results
     logger.info(
-        "[AutoQC] Background health monitor started (interval: %ds)", _CHECK_INTERVAL
+        "[AutoQC] Background health monitor started (grace: %ds, interval: %ds)",
+        _STARTUP_GRACE_PERIOD,
+        _CHECK_INTERVAL,
     )
+
+    # Wait for server to finish startup before probing endpoints
+    logger.info(
+        "[AutoQC] Waiting %ds for server startup before first health check...",
+        _STARTUP_GRACE_PERIOD,
+    )
+    grace_elapsed = 0
+    while _running and grace_elapsed < _STARTUP_GRACE_PERIOD:
+        time.sleep(5)
+        grace_elapsed += 5
+
+    if not _running:
+        return
+
+    logger.info("[AutoQC] Grace period complete, starting health checks")
+
     while _running:
         try:
             results = _check_cycle()
             with _lock:
                 _last_results = results
             _alert_if_needed(results)
-            if results["overall"] != "healthy":
+
+            if results["overall"] == "warming_up":
+                logger.info(
+                    "[AutoQC] Warming up (check #%d, score: %s) -- alerts suppressed",
+                    results.get("check_number", 0),
+                    results["health_score"],
+                )
+            elif results["overall"] != "healthy":
                 logger.warning(
                     "[AutoQC] Health: %s (score: %s)",
                     results["overall"],
@@ -182,10 +247,11 @@ def _run_loop() -> None:
 
 def start() -> None:
     """Start the background QC monitor."""
-    global _running, _thread
+    global _running, _thread, _start_time
     if _running:
         return
     _running = True
+    _start_time = time.time()
     _thread = threading.Thread(target=_run_loop, daemon=True, name="auto-qc")
     _thread.start()
 
@@ -197,18 +263,26 @@ def stop() -> None:
 
 
 def get_sla_report() -> dict[str, Any]:
-    """Compute rolling SLA from check history."""
+    """Compute rolling SLA from check history.
+
+    Excludes warming_up checks from SLA calculation since they represent
+    expected startup behavior, not real degradation.
+    """
     with _lock:
         if not _check_history:
             return {"uptime_24h": None, "uptime_7d": None}
         now = time.time()
         checks_24h = [c for c in _check_history if now - c.get("ts", 0) < 86400]
-        healthy_24h = sum(1 for c in checks_24h if c.get("overall") == "healthy")
-        uptime_24h = healthy_24h / len(checks_24h) if checks_24h else None
+        # Exclude warmup checks from SLA -- they are expected to fail
+        steady_checks = [c for c in checks_24h if not c.get("warming_up", False)]
+        healthy = sum(1 for c in steady_checks if c.get("overall") == "healthy")
+        uptime = healthy / len(steady_checks) if steady_checks else None
         return {
-            "uptime_24h": round(uptime_24h * 100, 2) if uptime_24h else None,
+            "uptime_24h": round(uptime * 100, 2) if uptime is not None else None,
             "total_checks_24h": len(checks_24h),
-            "healthy_checks_24h": healthy_24h,
+            "steady_checks_24h": len(steady_checks),
+            "healthy_checks_24h": healthy,
+            "warmup_checks_excluded": len(checks_24h) - len(steady_checks),
         }
 
 
@@ -216,17 +290,27 @@ def get_status() -> dict[str, Any]:
     """Get latest QC results, including history summary and SLA data."""
     with _lock:
         if not _last_results:
-            return {"status": "not_started"}
+            warming = _is_warming_up()
+            return {
+                "status": "warming_up" if warming else "not_started",
+                "warming_up": warming,
+                "message": (
+                    f"Server is warming up. First health check runs after "
+                    f"{_STARTUP_GRACE_PERIOD}s grace period."
+                    if warming
+                    else "QC monitor has not started."
+                ),
+            }
         result = dict(_last_results)
         result["history_size"] = len(_check_history)
         result["sla"] = get_sla_report()
         return result
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 # BACKWARD-COMPATIBLE CLASS WRAPPER
 # app.py uses: get_auto_qc() -> AutoQC with .start_background() and .get_status()
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 
 
 class AutoQC:

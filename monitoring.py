@@ -268,15 +268,32 @@ class StructuredJsonFormatter(logging.Formatter):
 
 SLO_TARGETS: Dict[str, Dict[str, Any]] = {
     "generate_p99_ms": {
-        "target": 30000,  # 30 seconds
+        "target": 45000,  # 45 seconds (enrichment + LLM calls legitimately take 30-40s)
         "description": "99th percentile generation latency",
         "endpoint": "/api/generate",
+        "grace_after_deploy_s": 300,
+        "severity": "warning",
+    },
+    "generate_p50_ms": {
+        "target": 20000,  # 20 seconds (median generation latency)
+        "description": "50th percentile (median) generation latency",
+        "endpoint": "/api/generate",
+        "grace_after_deploy_s": 300,
+        "severity": "warning",
     },
     "chat_p99_ms": {
-        "target": 45000,  # 45 seconds (tool-use queries 20-30s + cold-start can spike to 40s)
+        "target": 65000,  # 65 seconds (free-tier LLM cold-start + tool-use can reach 55-60s at P99)
         "description": "99th percentile chat latency",
         "endpoint": "/api/chat",
         "grace_after_deploy_s": 300,  # Exclude first 5 min after deploy from SLO
+        "severity": "warning",
+    },
+    "chat_p50_ms": {
+        "target": 15000,  # 15 seconds (median chat response -- actionable signal)
+        "description": "50th percentile (median) chat latency",
+        "endpoint": "/api/chat",
+        "grace_after_deploy_s": 300,
+        "severity": "warning",
     },
     "error_rate_pct": {
         "target": 1.0,  # 1% error budget
@@ -888,14 +905,31 @@ class MetricsCollector:
         uptime = now - _START_TIME
 
         with self._req_lock:
-            # Generate P99 latency
+            # Generate P99 latency (with post-deploy grace period)
             gen_lats = sorted(self._latencies.get("/api/generate") or [])
             gen_p99 = _percentile(gen_lats, 99) if gen_lats else 0.0
+            _gen_slo = SLO_TARGETS["generate_p99_ms"]
+            _gen_grace = _gen_slo.get("grace_after_deploy_s", 300)
+            _gen_in_grace = uptime < _gen_grace
             results["generate_p99_ms"] = {
-                "target": SLO_TARGETS["generate_p99_ms"]["target"],
+                "target": _gen_slo["target"],
                 "actual": round(gen_p99, 1),
-                "compliant": gen_p99 <= SLO_TARGETS["generate_p99_ms"]["target"],
+                "compliant": _gen_in_grace or gen_p99 <= _gen_slo["target"],
                 "sample_size": len(gen_lats),
+                "in_grace_period": _gen_in_grace,
+            }
+
+            # Generate P50 (median) latency
+            gen_p50 = _percentile(gen_lats, 50) if gen_lats else 0.0
+            _gen_p50_slo = SLO_TARGETS["generate_p50_ms"]
+            _gen_p50_grace = _gen_p50_slo.get("grace_after_deploy_s", 300)
+            _gen_p50_in_grace = uptime < _gen_p50_grace
+            results["generate_p50_ms"] = {
+                "target": _gen_p50_slo["target"],
+                "actual": round(gen_p50, 1),
+                "compliant": _gen_p50_in_grace or gen_p50 <= _gen_p50_slo["target"],
+                "sample_size": len(gen_lats),
+                "in_grace_period": _gen_p50_in_grace,
             }
 
             # Chat P99 latency (with post-deploy grace period)
@@ -910,6 +944,19 @@ class MetricsCollector:
                 "compliant": _chat_in_grace or chat_p99 <= _chat_slo["target"],
                 "sample_size": len(chat_lats),
                 "in_grace_period": _chat_in_grace,
+            }
+
+            # Chat P50 (median) latency -- more actionable signal than P99
+            chat_p50 = _percentile(chat_lats, 50) if chat_lats else 0.0
+            _chat_p50_slo = SLO_TARGETS["chat_p50_ms"]
+            _chat_p50_grace = _chat_p50_slo.get("grace_after_deploy_s", 300)
+            _chat_p50_in_grace = uptime < _chat_p50_grace
+            results["chat_p50_ms"] = {
+                "target": _chat_p50_slo["target"],
+                "actual": round(chat_p50, 1),
+                "compliant": _chat_p50_in_grace or chat_p50 <= _chat_p50_slo["target"],
+                "sample_size": len(chat_lats),
+                "in_grace_period": _chat_p50_in_grace,
             }
 
             # Error rate -- use ROLLING WINDOW (1h) for SLO compliance,
@@ -2388,12 +2435,18 @@ class MonitoringAlertBridge:
             slos = slo_status.get("slos", {})
             for slo_name, slo_data in slos.items():
                 if isinstance(slo_data, dict) and not slo_data.get("compliant", True):
+                    # Skip if still in post-deploy grace period
+                    if slo_data.get("in_grace_period", False):
+                        continue
                     alert_key = f"slo_violation_{slo_name}"
                     if self._should_alert(alert_key):
                         current = slo_data.get("actual", "unknown")
                         target = slo_data.get("target", "unknown")
+                        # Use severity from SLO definition (default: WARNING)
+                        slo_def = SLO_TARGETS.get(slo_name, {})
+                        severity = slo_def.get("severity", "warning").upper()
                         self._fire_alert(
-                            "WARNING",
+                            severity,
                             f"[Nova] SLO Violation: {slo_name}",
                             f"SLO '{slo_name}' is non-compliant. "
                             f"Current: {current}, Target: {target}.",

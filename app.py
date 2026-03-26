@@ -31,18 +31,20 @@ from typing import Any, Optional
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
-from openpyxl.chart import BarChart, PieChart, DoughnutChart, Reference
-from openpyxl.chart.label import DataLabelList
-from openpyxl.chart.series import DataPoint
-from openpyxl.drawing.image import Image as XlImage
+from openpyxl.chart import Reference
 
-from shared_utils import (
-    parse_budget,
-    INDUSTRY_LABEL_MAP as _SHARED_INDUSTRY_LABEL_MAP,
-    standardize_location as _shared_standardize_location,
-)
+from shared_utils import parse_budget
 
 import benchmark_registry
+import hashlib
+
+# Static asset minifier -- minify CSS/JS at import time for zero-latency serving
+try:
+    from static_minifier import minify_static_assets, get_minified
+
+    minify_static_assets()
+except ImportError:
+    get_minified = lambda _: None  # noqa: E731
 
 logger = logging.getLogger(__name__)
 
@@ -61,8 +63,6 @@ def _safe_str(val: object, default: str = "") -> str:
 # ═══════════════════════════════════════════════════════════════════════════════
 try:
     from firecrawl_enrichment import (
-        scrape_job_board_pricing,
-        analyze_competitor_careers,
         fetch_recruitment_news,
         get_firecrawl_status,
     )
@@ -118,7 +118,6 @@ try:
         speech_to_text as _elevenlabs_stt,
         generate_sound_effect as _elevenlabs_sfx,
         generate_ad_voiceover as _elevenlabs_voiceover,
-        generate_audio_summary as _elevenlabs_audio_summary,
         check_elevenlabs_health as _elevenlabs_health,
     )
 
@@ -139,7 +138,6 @@ try:
         get_salary_data,
         get_compliance_rules,
         get_market_trends,
-        get_vendor_profiles,
         get_supply_repository,
     )
 
@@ -155,7 +153,6 @@ try:
     from attribution_dashboard import (
         generate_attribution_report as _attribution_report,
         generate_dashboard_html as _attribution_html,
-        get_attribution_stats as _attribution_stats,
     )
 
     _attribution_available = True
@@ -220,9 +217,7 @@ except ImportError:
 try:
     from slack_alerts import (
         send_alert as _slack_send_alert,
-        send_deploy_notification as _slack_deploy_notify,
         send_error_alert as _slack_error_alert,
-        send_health_failure_alert as _slack_health_alert,
         get_status as _slack_alerts_status,
     )
 
@@ -252,10 +247,7 @@ except ImportError:
 try:
     from chroma_rag import (
         search_similar as _chroma_search,
-        index_document as _chroma_index_doc,
         get_collection_stats as _chroma_stats,
-        initialize as _chroma_init,
-        index_knowledge_base_chroma as _chroma_index_kb,
     )
 
     _chroma_rag_available = True
@@ -270,7 +262,6 @@ try:
     from posthog_integration import (
         track_event as _ph_track,
         track_page_view as _ph_page_view,
-        get_stats as _ph_get_stats,
         hash_ip as _ph_hash_ip,
         shutdown as _ph_shutdown,
     )
@@ -1396,22 +1387,119 @@ if _SENTRY_DSN:
     try:
         import sentry_sdk
 
+        def _sentry_before_send(event: dict, hint: dict) -> dict | None:
+            """Filter out noisy/expected errors from Sentry.
+
+            Drops events that are operational noise rather than real bugs:
+            - Auth/credential errors (401/403) for external APIs
+            - FRED HTTP 400 errors -- bad series IDs are data issues
+            - Rate limiting (429) -- transient, handled by retry logic
+            - Timeouts during startup/warmup -- expected on cold starts
+            - Missing API keys -- config issues, not bugs
+            - Transient network errors (connection reset, DNS)
+            - API integration test failures -- expected when keys missing
+            - Startup failures during warmup period
+            """
+            message = (event.get("message") or "").lower()
+            logentry = ((event.get("logentry") or {}).get("message") or "").lower()
+            combined = f"{message} {logentry}"
+
+            # 1. Drop 401/403 credential errors -- config issues, not bugs
+            if "http 401" in combined or "http 403" in combined:
+                if any(
+                    kw in combined
+                    for kw in (
+                        "onetcenter",
+                        "auth/credential",
+                        "rate-limited",
+                        "api key",
+                        "credential",
+                        "unauthorized",
+                    )
+                ):
+                    return None
+
+            # 2. Drop FRED HTTP 400 errors -- bad/unknown series IDs are data issues, not bugs
+            if "http 400" in combined and "stlouisfed" in combined:
+                return None
+
+            # 3. Drop 429 rate-limit errors -- transient, handled by retry
+            if (
+                "http 429" in combined
+                or "rate-limited" in combined
+                or "rate limit" in combined
+            ):
+                return None
+
+            # 4. Drop transient network errors -- not bugs
+            _transient_patterns = (
+                "timeout fetching",
+                "timeout posting",
+                "os error fetching",
+                "os error posting",
+                "connection reset",
+                "connection refused",
+                "name resolution",
+                "ssl verification failed",
+                "timed out",
+                "[errno 104]",
+                "[errno 111]",
+                "urlopen error",
+                "temporary failure",
+            )
+            if any(pat in combined for pat in _transient_patterns):
+                return None
+
+            # 5. Drop API integration test failures -- expected when keys missing
+            _api_test_patterns = (
+                "fred test failed",
+                "adzuna test failed",
+                "jooble test failed",
+                "o*net test failed",
+                "bea test failed",
+                "census test failed",
+                "usajobs test failed",
+                "bls test failed",
+            )
+            if any(pat in combined for pat in _api_test_patterns):
+                return None
+
+            # 6. Drop startup/warmup noise
+            _startup_patterns = (
+                "knowledge base pre-warm failed",
+                "vector index build failed",
+                "data refresh failed",
+                "feature store init failed",
+                "datamatrixmonitor: check failed",
+                "api_keys probe failed",
+                "enrichment cycle crashed",
+            )
+            if any(pat in combined for pat in _startup_patterns):
+                if not _DEPLOY_WARMUP_COMPLETE:
+                    return None
+
+            # 7. Drop missing API key warnings logged as errors
+            if "api key" in combined and (
+                "not set" in combined or "missing" in combined
+            ):
+                return None
+
+            return event
+
         sentry_sdk.init(
             dsn=_SENTRY_DSN,
             traces_sample_rate=0.1,  # 10% of requests get traces
             profiles_sample_rate=0.1,  # 10% get profiling
-            environment=os.environ.get("RENDER", "local"),
+            environment="production" if os.environ.get("RENDER") else "local",
             release="media-plan-generator@4.0.0",
             send_default_pii=False,  # Never send PII
             attach_stacktrace=True,
+            before_send=_sentry_before_send,
         )
         logger.info("Sentry error tracking initialized (SDK %s)", sentry_sdk.VERSION)
         _SENTRY_AVAILABLE = True
-        # Send a startup event so Sentry detects the project immediately
-        sentry_sdk.capture_message(
-            "media-plan-generator started (performance tracing enabled)",
-            level="info",
-        )
+        # NOTE: Removed startup capture_message -- it creates noise in Sentry
+        # Sentry will auto-detect the project on the first real error event
     except ImportError:
         logger.warning("sentry-sdk not installed -- error tracking disabled")
         _SENTRY_AVAILABLE = False
@@ -2189,7 +2277,111 @@ def classify_industry(
     if raw_lower in INDUSTRY_NAICS_MAP:
         return INDUSTRY_NAICS_MAP[raw_lower]
 
-    # Step 3: Fuzzy keyword matching against input + company name + roles
+    # Step 3: Role-title-based industry inference (when no explicit industry)
+    # This prevents defaulting to "Retail" / generic when roles clearly indicate
+    # a specific industry (e.g., "Software Engineer" -> Technology).
+    _ROLE_INDUSTRY_MAP: dict[str, str] = {
+        # Technology
+        "software engineer": "technology",
+        "developer": "technology",
+        "devops": "technology",
+        "sre": "technology",
+        "site reliability": "technology",
+        "frontend": "technology",
+        "backend": "technology",
+        "full stack": "technology",
+        "fullstack": "technology",
+        "platform engineer": "technology",
+        "cloud engineer": "technology",
+        "security engineer": "technology",
+        "qa engineer": "technology",
+        "test engineer": "technology",
+        "mobile developer": "technology",
+        "ios developer": "technology",
+        "android developer": "technology",
+        "solutions architect": "technology",
+        # Technology / Data
+        "data scientist": "technology",
+        "ml engineer": "technology",
+        "machine learning": "technology",
+        "data engineer": "technology",
+        "data analyst": "technology",
+        "analytics engineer": "technology",
+        "ai engineer": "technology",
+        "artificial intelligence": "technology",
+        # Healthcare
+        "nurse": "healthcare",
+        "registered nurse": "healthcare",
+        "doctor": "healthcare",
+        "physician": "healthcare",
+        "pharmacist": "healthcare",
+        "medical": "healthcare",
+        "therapist": "healthcare",
+        "clinical": "healthcare",
+        "radiologist": "healthcare",
+        "surgeon": "healthcare",
+        "dental": "healthcare",
+        "paramedic": "healthcare",
+        "emt": "healthcare",
+        "phlebotomist": "healthcare",
+        "medical assistant": "healthcare",
+        # Finance
+        "accountant": "finance",
+        "financial analyst": "finance",
+        "controller": "finance",
+        "auditor": "finance",
+        "actuary": "finance",
+        "underwriter": "finance",
+        "loan officer": "finance",
+        "investment analyst": "finance",
+        "portfolio manager": "finance",
+        "compliance officer": "finance",
+        "financial advisor": "finance",
+        # Marketing (maps to general but with marketing talent profile)
+        "marketing manager": "technology",
+        "content strategist": "technology",
+        "seo": "technology",
+        "growth": "technology",
+        "digital marketing": "technology",
+        # Sales (maps to general but role-aware)
+        "sales": "retail",
+        "account executive": "retail",
+        "bdr": "retail",
+        "sdr": "retail",
+        "business development": "retail",
+    }
+
+    if roles:
+        _role_industry_votes: dict[str, int] = {}
+        for _r in roles:
+            _role_str = str(_r).lower().strip() if _r else ""
+            for _role_kw, _ind_key in _ROLE_INDUSTRY_MAP.items():
+                if _role_kw in _role_str:
+                    _role_industry_votes[_ind_key] = _role_industry_votes.get(
+                        _ind_key, 0
+                    ) + len(_role_kw)
+                    break  # First match per role wins
+
+        if _role_industry_votes:
+            _best_role_ind = max(_role_industry_votes, key=_role_industry_votes.get)
+            if _best_role_ind in INDUSTRY_NAICS_MAP:
+                # Only use role-based inference when raw_industry is empty/generic
+                if not raw_stripped or raw_lower in (
+                    "",
+                    "general",
+                    "other",
+                    "n/a",
+                    "na",
+                    "none",
+                ):
+                    logger.info(
+                        "Industry inferred from role titles: %s (votes=%s)",
+                        _best_role_ind,
+                        _role_industry_votes,
+                    )
+                    return INDUSTRY_NAICS_MAP[_best_role_ind]
+
+    # Step 4: Fuzzy keyword matching against input + company name + roles
     search_text = f"{raw_industry} {company_name} {' '.join(roles or [])}".lower()
 
     best_match = None
@@ -2208,11 +2400,34 @@ def classify_industry(
     if best_match and best_score >= 3:
         return best_match
 
-    # Step 4: Fallback - try to match the raw industry string directly against sector names
+    # Step 5: Fallback - try to match the raw industry string directly against sector names
     if raw_lower:  # Only attempt if we have a non-empty industry string
         for key, profile in INDUSTRY_NAICS_MAP.items():
             if key in raw_lower or raw_lower in profile["sector"].lower():
                 return profile
+
+    # Step 6: Last resort - try role-based inference even when raw_industry is set
+    # (covers cases where user typed a non-matching industry string)
+    if roles:
+        _role_industry_votes_2: dict[str, int] = {}
+        for _r in roles:
+            _role_str = str(_r).lower().strip() if _r else ""
+            for _role_kw, _ind_key in _ROLE_INDUSTRY_MAP.items():
+                if _role_kw in _role_str:
+                    _role_industry_votes_2[_ind_key] = _role_industry_votes_2.get(
+                        _ind_key, 0
+                    ) + len(_role_kw)
+                    break
+        if _role_industry_votes_2:
+            _best_role_ind_2 = max(
+                _role_industry_votes_2, key=_role_industry_votes_2.get
+            )
+            if _best_role_ind_2 in INDUSTRY_NAICS_MAP:
+                logger.info(
+                    "Industry inferred from role titles (last resort): %s",
+                    _best_role_ind_2,
+                )
+                return INDUSTRY_NAICS_MAP[_best_role_ind_2]
 
     # Final fallback
     return {
@@ -2368,10 +2583,7 @@ try:
         normalize_industry as std_normalize_industry,
         normalize_role as std_normalize_role,
         normalize_location as std_normalize_location,
-        normalize_platform as std_normalize_platform,
-        normalize_metric as std_normalize_metric,
         CANONICAL_INDUSTRIES,
-        CANONICAL_ROLES,
         get_soc_code as std_get_soc_code,
         get_role_tier as std_get_role_tier,
     )
@@ -2427,7 +2639,6 @@ except ImportError as e:
 
 # v3: Trend engine and collar intelligence for new Excel worksheets
 try:
-    import trend_engine as _trend_engine_mod
 
     _HAS_TREND_ENGINE = True
     logger.info("trend_engine loaded for app.py Excel worksheets")
@@ -2435,7 +2646,6 @@ except ImportError:
     _HAS_TREND_ENGINE = False
 
 try:
-    import collar_intelligence as _collar_intel_mod
 
     _HAS_COLLAR_INTEL = True
     logger.info("collar_intelligence loaded for app.py Excel worksheets")
@@ -3542,6 +3752,20 @@ _OPENAPI_SPEC = {
                 },
             }
         },
+        "/ws/chat": {
+            "get": {
+                "summary": "WebSocket chat streaming",
+                "description": "WebSocket upgrade endpoint for real-time chat streaming. "
+                "Preferred over SSE for lower latency. Clients should fall back "
+                "to /api/chat/stream (SSE) if WebSocket is unavailable.",
+                "operationId": "novaChatWebSocket",
+                "tags": ["Chat"],
+                "responses": {
+                    "101": {"description": "Switching Protocols (WebSocket upgrade)"},
+                    "400": {"description": "Invalid WebSocket handshake"},
+                },
+            }
+        },
         "/api/chat/stop": {
             "post": {
                 "summary": "Cancel active streaming chat",
@@ -3623,6 +3847,33 @@ _OPENAPI_SPEC = {
                     }
                 ],
                 "responses": {"200": {"description": "List of conversations"}},
+            }
+        },
+        "/api/health/ping": {
+            "get": {
+                "summary": "Ultra-lightweight liveness ping",
+                "description": "Returns immediately with no deep checks. Ideal for monitoring tools, HEAD requests, and uptime services that need sub-second responses.",
+                "operationId": "healthPing",
+                "tags": ["Health"],
+                "responses": {
+                    "200": {
+                        "description": "Service is alive",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "status": {"type": "string", "example": "ok"},
+                                        "timestamp": {
+                                            "type": "string",
+                                            "format": "date-time",
+                                        },
+                                    },
+                                },
+                            }
+                        },
+                    }
+                },
             }
         },
         "/api/health": {
@@ -4238,12 +4489,10 @@ try:
         configure_logging,
         get_metrics,
         get_persistence,
-        get_platform_observability,
         health_check_liveness,
         health_check_readiness,
         init_metrics_persistence,
         GracefulShutdown,
-        get_system_info,
     )
 
     configure_logging(os.environ.get("LOG_LEVEL", "INFO"))
@@ -4277,6 +4526,39 @@ except ImportError as _mon_err:
         pass
 
 
+def _run_with_timeout(
+    fn: callable, timeout_sec: float = 3.0, default: Any = None
+) -> Any:
+    """Run a callable in a daemon thread with a timeout.
+
+    Returns the result of fn() if it completes within timeout_sec,
+    otherwise returns default. Used by health checks to prevent any
+    single external call from blocking the entire response.
+
+    Args:
+        fn: Zero-argument callable to execute.
+        timeout_sec: Maximum seconds to wait.
+        default: Value returned on timeout or error.
+
+    Returns:
+        Result of fn() or default.
+    """
+    result_container: list = []
+
+    def _target() -> None:
+        try:
+            result_container.append(fn())
+        except Exception:
+            pass
+
+    t = threading.Thread(target=_target, daemon=True)
+    t.start()
+    t.join(timeout=timeout_sec)
+    if result_container:
+        return result_container[0]
+    return default
+
+
 def _build_health_response() -> dict:
     """Build the detailed health check response with subsystem status.
 
@@ -4285,7 +4567,8 @@ def _build_health_response() -> dict:
 
     Includes a 5-second time guard: if the check takes longer than 5s,
     partial results are returned with a warning so Render health probes
-    never time out.
+    never time out.  Individual external checks (Upstash, vector search,
+    etc.) are time-boxed to 3 seconds each via _run_with_timeout.
     """
     _health_start = time.time()
     _HEALTH_TIMEOUT = 5.0  # seconds -- hard cap for the entire check
@@ -4403,33 +4686,40 @@ def _build_health_response() -> dict:
         "api_integrations": "ok" if _api_integ else "down",
         "metrics_collector": "ok" if (_metrics is not None) else "down",
     }
-    # Check Upstash Redis (L3 cache) connectivity
+    # Check Upstash Redis (L3 cache) connectivity -- time-boxed to 3s
     try:
         from upstash_cache import ping as _upstash_ping, _ENABLED as _upstash_on
 
         if _upstash_on:
-            _modules["upstash_redis"] = "ok" if _upstash_ping() else "down"
+            _ping_result = _run_with_timeout(
+                _upstash_ping, timeout_sec=3.0, default=False
+            )
+            _modules["upstash_redis"] = "ok" if _ping_result else "timeout"
         else:
             _modules["upstash_redis"] = "not_configured"
     except ImportError:
         _modules["upstash_redis"] = "not_configured"
 
     # Check optional modules -- attempt import if not yet in sys.modules (self-healing)
+    # Each import is time-boxed to 3s to prevent a single stuck module
+    # from blocking the entire health response.
     for _mod_name in ("resilience_router", "posthog_tracker", "nova", "eval_framework"):
         if sys.modules.get(_mod_name):
             _modules[_mod_name] = "ok"
         else:
-            # Self-healing: try to import the module on-demand
-            try:
-                __import__(_mod_name)
+            # Self-healing: try to import the module on-demand (with timeout)
+            def _try_import(_name: str = _mod_name) -> bool:
+                __import__(_name)
+                return True
+
+            _imported = _run_with_timeout(_try_import, timeout_sec=3.0, default=False)
+            if _imported:
                 _modules[_mod_name] = "ok"
                 logger.info(
                     f"Self-healed module '{_mod_name}' -- imported on health check"
                 )
-            except ImportError:
+            else:
                 _modules[_mod_name] = "down"
-            except Exception as _mod_err:
-                logger.warning(f"Module '{_mod_name}' failed to initialize: {_mod_err}")
                 _modules[_mod_name] = "down"
 
     # ---- LLM provider info for dashboard ----
@@ -4488,44 +4778,50 @@ def _build_health_response() -> dict:
         result["health_check_ms"] = round((time.time() - _health_start) * 1000, 1)
         return result
 
-    # Vector search diagnostics
+    # Vector search diagnostics (time-boxed to 3s)
     if _vector_search_available:
         try:
             from vector_search import get_status as _vs_status
 
-            result["vector_search"] = _vs_status()
+            _vs_result = _run_with_timeout(
+                _vs_status, timeout_sec=3.0, default={"status": "timeout"}
+            )
+            result["vector_search"] = _vs_result
         except ImportError:
             result["vector_search"] = {"status": "import_error"}
-        except (OSError, ValueError, RuntimeError) as _vs_err:
-            logger.warning("Vector search health check failed: %s", _vs_err)
-            result["vector_search"] = {"status": "error", "detail": str(_vs_err)}
     else:
         result["vector_search"] = {"status": "not_available"}
 
-    # Slack alerts MCP diagnostics
+    # Slack alerts MCP diagnostics (time-boxed to 3s)
     if _slack_alerts_available:
-        try:
-            result["slack_alerts"] = _slack_alerts_status()
-        except Exception as _sa_err:
-            result["slack_alerts"] = {"status": "error", "detail": str(_sa_err)}
+        _sa_result = _run_with_timeout(
+            _slack_alerts_status,
+            timeout_sec=3.0,
+            default={"status": "timeout"},
+        )
+        result["slack_alerts"] = _sa_result
     else:
         result["slack_alerts"] = {"status": "not_available"}
 
-    # Calendar sync MCP diagnostics
+    # Calendar sync MCP diagnostics (time-boxed to 3s)
     if _calendar_sync_available:
-        try:
-            result["calendar_sync"] = _cal_status()
-        except Exception as _cs_err:
-            result["calendar_sync"] = {"status": "error", "detail": str(_cs_err)}
+        _cs_result = _run_with_timeout(
+            _cal_status,
+            timeout_sec=3.0,
+            default={"status": "timeout"},
+        )
+        result["calendar_sync"] = _cs_result
     else:
         result["calendar_sync"] = {"status": "not_available"}
 
-    # Chroma RAG MCP diagnostics
+    # Chroma RAG MCP diagnostics (time-boxed to 3s)
     if _chroma_rag_available:
-        try:
-            result["chroma_rag"] = _chroma_stats()
-        except Exception as _cr_err:
-            result["chroma_rag"] = {"status": "error", "detail": str(_cr_err)}
+        _cr_result = _run_with_timeout(
+            _chroma_stats,
+            timeout_sec=3.0,
+            default={"status": "timeout"},
+        )
+        result["chroma_rag"] = _cr_result
     else:
         result["chroma_rag"] = {"status": "not_available"}
 
@@ -4877,7 +5173,7 @@ except ImportError:
 
 # Data enrichment engine (hourly freshness checks)
 try:
-    from data_enrichment import start_enrichment, get_enrichment_status
+    from data_enrichment import start_enrichment
 
     start_enrichment()
     _data_enrichment_available = True
@@ -4993,16 +5289,19 @@ _EMAIL_RE = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
 
 
 def _sanitize_chat_input(text: Optional[str]) -> str:
-    """Sanitize user chat input to prevent XSS and injection.
+    """Sanitize user chat input to prevent XSS while preserving intent.
 
-    Strips HTML tags, script/style blocks, and event handler attributes.
-    Truncates to 10000 characters.
+    HTML-encodes angle brackets so user questions about HTML/scripts are
+    preserved as readable text (e.g., '<script>' becomes '&lt;script&gt;')
+    rather than being silently stripped, which would lose the question context.
+    Also removes null bytes and event handler attributes, and truncates
+    to 10000 characters.
 
     Args:
         text: Raw user input string (may be None).
 
     Returns:
-        Sanitized plain-text string safe for rendering.
+        Sanitized string safe for rendering, with user intent preserved.
     """
     if not text:
         return ""
@@ -5011,13 +5310,12 @@ def _sanitize_chat_input(text: Optional[str]) -> str:
         text = str(text)
     # Strip null bytes and other control characters (prevent injection/log poisoning)
     text = text.replace("\x00", "")
-    # Remove script and style blocks first (before stripping tags)
-    text = _SCRIPT_BLOCK_RE.sub("", text)
-    text = _STYLE_BLOCK_RE.sub("", text)
-    # Remove event handlers (e.g. onerror="...")
+    # Remove event handlers (e.g. onerror="...") -- these are always malicious
     text = _EVENT_HANDLER_RE.sub("", text)
-    # Strip all remaining HTML tags
-    text = _HTML_TAG_RE.sub("", text)
+    # HTML-encode angle brackets to prevent XSS while preserving user intent.
+    # A user asking "What about <script> tags in job ads?" should still have
+    # their question understood, not silently stripped to "What about  tags in job ads?"
+    text = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     # Truncate to max length
     if len(text) > _MAX_CHAT_INPUT_LENGTH:
         text = text[:_MAX_CHAT_INPUT_LENGTH]
@@ -5518,8 +5816,16 @@ def _enrich_chat_context(data: dict, message: str) -> dict:
             _merge("onet_occupations", results[:5] if results else None)
             if results:
                 logger.info("Enriched chat with onet occupation data")
+        except urllib.error.HTTPError as exc:
+            if exc.code in (401, 403):
+                logger.warning(
+                    "O*NET enrichment auth failed (HTTP %s) -- check ONET_API_KEY",
+                    exc.code,
+                )
+            else:
+                logger.warning("O*NET enrichment failed: HTTP %s", exc.code)
         except (urllib.error.URLError, OSError, ValueError, TypeError) as exc:
-            logger.error("O*NET enrichment failed: %s", exc, exc_info=True)
+            logger.warning("O*NET enrichment failed: %s", exc)
 
     def _enrich_adzuna() -> None:
         if not (_api_integrations_available and _api_adzuna):
@@ -8120,6 +8426,287 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             _global_chat_timestamps.append(now)
         return True
 
+    # ══════════════════════════════════════════════════════════════════════════
+    # WEBSOCKET CHAT HANDLER
+    # ══════════════════════════════════════════════════════════════════════════
+    def _handle_ws_chat(self) -> None:
+        """Handle WebSocket upgrade for /ws/chat.
+
+        Performs the WebSocket handshake, then enters a read loop.
+        When the client sends a chat message (JSON), streams the Nova
+        response back as individual WebSocket text frames -- same JSON
+        event format as the SSE endpoint so the client parser is shared.
+        """
+        try:
+            from websocket_handler import ws_handshake
+        except ImportError:
+            logger.error("websocket_handler module not available", exc_info=True)
+            self.send_error(500, "WebSocket support unavailable")
+            return
+
+        ws_conn = ws_handshake(self)
+        if ws_conn is None:
+            return  # Handshake failed, error already sent
+
+        logger.info("WebSocket chat connection opened: %s", ws_conn.connection_id)
+
+        try:
+            while not ws_conn.closed:
+                raw_msg = ws_conn.recv(timeout=120.0)
+                if raw_msg is None:
+                    break  # Connection closed or timed out
+
+                # Parse the incoming message
+                try:
+                    data = json.loads(raw_msg)
+                except (json.JSONDecodeError, ValueError):
+                    ws_conn.send_json({"error": "Invalid JSON", "done": True})
+                    continue
+
+                msg_type = data.get("type", "chat")
+
+                if msg_type == "ping":
+                    ws_conn.send_json({"type": "pong"})
+                    continue
+
+                if msg_type == "stop":
+                    # Cancel active stream for this conversation
+                    conv_id = data.get("conversation_id") or ""
+                    if conv_id:
+                        _cancel_stream(conv_id)
+                    ws_conn.send_json({"type": "stop_ack", "conversation_id": conv_id})
+                    continue
+
+                if msg_type != "chat":
+                    ws_conn.send_json(
+                        {"error": f"Unknown message type: {msg_type}", "done": True}
+                    )
+                    continue
+
+                # ── Chat message processing ──
+                # Validate
+                chat_msg = data.get("message") or ""
+                if not chat_msg:
+                    ws_conn.send_json({"error": "Empty message", "done": True})
+                    continue
+
+                if isinstance(chat_msg, str) and len(chat_msg) > 10_000:
+                    ws_conn.send_json(
+                        {
+                            "error": "Message exceeds 10,000 character limit",
+                            "done": True,
+                        }
+                    )
+                    continue
+
+                chat_history = data.get("history") or []
+                if isinstance(chat_history, list) and len(chat_history) > 50:
+                    ws_conn.send_json(
+                        {
+                            "error": "Chat history exceeds 50 messages limit",
+                            "done": True,
+                        }
+                    )
+                    continue
+
+                # Sanitize
+                data["message"] = _sanitize_chat_input(data.get("message"))
+
+                conversation_id = data.get("conversation_id") or str(uuid.uuid4())
+                ws_conn.conversation_id = conversation_id
+
+                # Session token verification
+                _conv_session_token = ""
+                client_session_token = data.get("session_token") or ""
+                try:
+                    from nova_persistence import (
+                        get_or_create_conversation,
+                        verify_conversation_token,
+                    )
+
+                    conv_row = get_or_create_conversation(conversation_id)
+                    if conv_row:
+                        _conv_session_token = conv_row.get("session_token") or ""
+                        if (
+                            _conv_session_token
+                            and client_session_token
+                            and not verify_conversation_token(
+                                conversation_id, client_session_token
+                            )
+                        ):
+                            ws_conn.send_json(
+                                {
+                                    "error": "Unauthorized: invalid session token",
+                                    "done": True,
+                                }
+                            )
+                            continue
+                except ImportError:
+                    pass
+                except Exception as _auth_err:
+                    logger.error(
+                        "WS conversation auth check failed: %s",
+                        _auth_err,
+                        exc_info=True,
+                    )
+
+                cancel_event = _register_stream(conversation_id)
+
+                try:
+                    # Enrichment
+                    _enrich_chat_context(data, data.get("message") or "")
+
+                    # Check cancellation
+                    if cancel_event.is_set():
+                        ws_conn.send_json(
+                            {"token": "", "done": True, "cancelled": True}
+                        )
+                        continue
+
+                    # Stream Nova response
+                    from nova import handle_chat_request_stream
+
+                    full_response = ""
+                    sources: list = []
+                    confidence = 0.0
+                    tools_used: list = []
+                    model_used = ""
+                    message_id = str(uuid.uuid4())
+                    _token_usage: dict = {}
+
+                    # Send initial status
+                    ws_conn.send_json({"type": "status", "status": "Thinking..."})
+
+                    # Keepalive thread for WebSocket
+                    _ws_keepalive_stop = threading.Event()
+                    _ws_last_event = time.time()
+
+                    def _ws_keepalive() -> None:
+                        nonlocal _ws_last_event
+                        while not _ws_keepalive_stop.is_set():
+                            _ws_keepalive_stop.wait(15)
+                            if _ws_keepalive_stop.is_set():
+                                break
+                            if time.time() - _ws_last_event >= 15:
+                                if not ws_conn.send_json({"keepalive": True}):
+                                    break
+                                _ws_last_event = time.time()
+
+                    _ka_t = threading.Thread(
+                        target=_ws_keepalive, daemon=True, name="ws-keepalive"
+                    )
+                    _ka_t.start()
+
+                    try:
+                        for chunk in handle_chat_request_stream(
+                            data, cancel_event=cancel_event
+                        ):
+                            if cancel_event.is_set():
+                                ws_conn.send_json(
+                                    {
+                                        "token": "",
+                                        "done": True,
+                                        "cancelled": True,
+                                        "full_response": full_response,
+                                        "sources": sources,
+                                    }
+                                )
+                                break
+
+                            if chunk.get("done"):
+                                full_response = (
+                                    chunk.get("full_response") or full_response
+                                )
+                                sources = chunk.get("sources") or sources
+                                confidence = chunk.get("confidence") or confidence
+                                tools_used = chunk.get("tools_used") or tools_used
+                                model_used = chunk.get("llm_provider") or model_used
+                                _token_usage = chunk.get("token_usage") or {}
+                            elif chunk.get("status"):
+                                if not ws_conn.send_json(
+                                    {"status": chunk["status"], "done": False}
+                                ):
+                                    break
+                                _ws_last_event = time.time()
+                            else:
+                                token = chunk.get("token") or ""
+                                if token:
+                                    full_response += token
+                                    if not ws_conn.send_json(
+                                        {"token": token, "done": False}
+                                    ):
+                                        break
+                                    _ws_last_event = time.time()
+                    finally:
+                        _ws_keepalive_stop.set()
+
+                    # Follow-up suggestions
+                    _ws_followups: list[str] = []
+                    try:
+                        _ws_user_msg = data.get("message") or ""
+                        if full_response and _ws_user_msg:
+                            _ws_followups = _generate_followup_questions(
+                                full_response, _ws_user_msg
+                            )
+                    except Exception as _wsfq:
+                        logger.error(
+                            "WS follow-up gen failed: %s", _wsfq, exc_info=True
+                        )
+
+                    # Final event with metadata
+                    ws_conn.send_json(
+                        {
+                            "token": "",
+                            "done": True,
+                            "full_response": full_response,
+                            "sources": sources,
+                            "confidence": confidence,
+                            "tools_used": tools_used,
+                            "message_id": message_id,
+                            "conversation_id": conversation_id,
+                            "suggested_followups": _ws_followups,
+                            "session_token": _conv_session_token,
+                            "token_usage": _token_usage,
+                        }
+                    )
+
+                    # Persist to Supabase asynchronously
+                    _ws_user_msg = data.get("message") or ""
+                    if conversation_id and _ws_user_msg:
+                        threading.Thread(
+                            target=_save_conversation_turn,
+                            args=(
+                                conversation_id,
+                                _ws_user_msg,
+                                full_response,
+                                model_used,
+                                sources,
+                                confidence,
+                            ),
+                            daemon=True,
+                            name="supabase-ws-persist",
+                        ).start()
+
+                except Exception as ws_stream_err:
+                    logger.error(
+                        "WebSocket streaming error: %s", ws_stream_err, exc_info=True
+                    )
+                    ws_conn.send_json(
+                        {
+                            "token": "",
+                            "done": True,
+                            "error": "An error occurred processing your request.",
+                        }
+                    )
+                finally:
+                    _unregister_stream(conversation_id)
+
+        except Exception as ws_err:
+            logger.error("WebSocket handler error: %s", ws_err, exc_info=True)
+        finally:
+            ws_conn.close()
+            logger.info("WebSocket chat connection closed: %s", ws_conn.connection_id)
+
     def do_GET(self):
         # ── Request ID generation (Feature 6) ──
         try:
@@ -8226,6 +8813,12 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
         # ── API Versioning: strip /v1 prefix (Feature 4) ──
         if path.startswith("/v1/"):
             path = path[3:]
+
+        # ── WebSocket Upgrade: intercept before normal GET routing ──
+        upgrade_header = (self.headers.get("Upgrade") or "").lower()
+        if upgrade_header == "websocket" and path == "/ws/chat":
+            self._handle_ws_chat()
+            return
 
         # ── API Key Authentication (Phase 6) ──
         try:
@@ -8905,14 +9498,34 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             ctype = content_types.get(ext, "application/octet-stream")
             if os.path.isfile(filepath):
                 try:
-                    with open(filepath, "rb") as f:
-                        content = f.read()
+                    # Serve minified version if available (CSS/JS only)
+                    url_path = f"/{safe_path}"
+                    minified = get_minified(url_path)
+                    if minified is not None:
+                        content, etag = minified
+                    else:
+                        with open(filepath, "rb") as f:
+                            content = f.read()
+                        etag = hashlib.sha256(content).hexdigest()[:12]
+
+                    # ETag-based conditional response (304 Not Modified)
+                    client_etag = self.headers.get("If-None-Match", "")
+                    if client_etag and client_etag.strip('"') == etag:
+                        self.send_response(304)
+                        self.send_header("ETag", f'"{etag}"')
+                        self.send_header(
+                            "Cache-Control", "public, max-age=31536000, immutable"
+                        )
+                        self.end_headers()
+                        return
+
                     self.send_response(200)
                     self.send_header("Content-Type", f"{ctype}; charset=utf-8")
                     self.send_header("Content-Length", str(len(content)))
                     self.send_header(
-                        "Cache-Control", "public, max-age=604800"
-                    )  # 7 days
+                        "Cache-Control", "public, max-age=31536000, immutable"
+                    )  # 1 year -- cache-bust via query param
+                    self.send_header("ETag", f'"{etag}"')
                     self.end_headers()
                     self.wfile.write(content)
                 except FileNotFoundError:
@@ -9067,6 +9680,34 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     self._send_json({"error": "Plan expired"}, status_code=404)
                     return
                 self._send_json({"plan_id": _pr_id, **_pr_entry["data"]})
+        # ── Plan events list: GET /api/plan/events (no trailing plan_id) ──
+        elif path == "/api/plan/events":
+            try:
+                from plan_events import get_event_store as _get_pe_list_store
+
+                _pe_list = _get_pe_list_store()
+                _pe_stats = _pe_list.get_stats()
+                # Include recent events per plan (last 10 each)
+                _pe_recent: dict[str, list[dict]] = {}
+                for _pe_pid in list(_pe_stats.get("plans", {}).keys())[:50]:
+                    _pe_evts = _pe_list.get_events(_pe_pid)
+                    _pe_recent[_pe_pid] = [e.to_dict() for e in _pe_evts[-10:]]
+                self._send_json(
+                    {
+                        "total_plans": _pe_stats.get("total_plans", 0),
+                        "total_events": _pe_stats.get("total_events", 0),
+                        "created_at": _pe_stats.get("created_at") or "",
+                        "plans_summary": _pe_stats.get("plans", {}),
+                        "recent_events": _pe_recent,
+                    }
+                )
+            except ImportError:
+                self._send_json(
+                    {"error": "plan_events module not available"}, status_code=503
+                )
+            except Exception as e:
+                logger.error(f"Plan events list error: {e}", exc_info=True)
+                self._send_json({"error": str(e)}, status_code=500)
         # ── Event-sourced plan state (audit trail, time-travel) ──
         elif path.startswith("/api/plan/events/"):
             _es_plan_id = path.split("/")[-1]
@@ -9637,7 +10278,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
         # ── Edge Router: Suggest optimal provider ──
         elif path == "/api/routing/suggest":
             try:
-                from edge_router import get_optimal_route, classify_query
+                from edge_router import get_optimal_route
 
                 params = urllib.parse.parse_qs(parsed.query)
                 query_text = (params.get("query", [""])[0] or "").strip()
@@ -11056,10 +11697,36 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                 ] = "Verifying plan data..."
 
                         # ── Gold Standard Quality Gates (async path) ──
+                        # Wrapped in ThreadPoolExecutor with 30s timeout to
+                        # prevent hanging at 70% "Verifying plan data..."
                         try:
                             from gold_standard import apply_all_quality_gates
+                            from concurrent.futures import (
+                                ThreadPoolExecutor,
+                                TimeoutError as FuturesTimeoutError,
+                            )
 
-                            apply_all_quality_gates(gen_data)
+                            _gs_pool = ThreadPoolExecutor(max_workers=1)
+                            _gs_future = _gs_pool.submit(
+                                apply_all_quality_gates, gen_data
+                            )
+                            try:
+                                _gs_future.result(timeout=30)
+                            except FuturesTimeoutError:
+                                logger.warning(
+                                    "Async Gold Standard gates timed out after 30s -- continuing with partial data"
+                                )
+                                _gs_future.cancel()
+                                gen_data["_gold_standard"] = (
+                                    gen_data.get("_gold_standard") or {}
+                                )
+                            finally:
+                                _gs_pool.shutdown(wait=False)
+                        except ImportError:
+                            logger.warning(
+                                "gold_standard module not available -- skipping quality gates"
+                            )
+                            gen_data["_gold_standard"] = {}
                         except Exception as _gs_err:
                             logger.error(
                                 "Async Gold Standard gates failed: %s",
@@ -11068,14 +11735,48 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                             )
                             gen_data["_gold_standard"] = {}
 
-                        # Gemini/LLM verification of key plan data points
-                        try:
-                            gen_data["_verification"] = _verify_plan_data(gen_data)
-                        except Exception:
+                        # ── Deadline check BETWEEN quality gates and verification ──
+                        if time.time() > _gen_deadline:
+                            logger.warning(
+                                "Deadline exceeded after quality gates -- skipping verification"
+                            )
                             gen_data["_verification"] = {
                                 "status": "skipped",
-                                "reason": "verification_error",
+                                "reason": "deadline_exceeded_before_verification",
                             }
+                        else:
+                            # Gemini/LLM verification of key plan data points
+                            # Also wrapped with 30s timeout to prevent hangs
+                            try:
+                                from concurrent.futures import (
+                                    ThreadPoolExecutor,
+                                    TimeoutError as FuturesTimeoutError,
+                                )
+
+                                _vf_pool = ThreadPoolExecutor(max_workers=1)
+                                _vf_future = _vf_pool.submit(
+                                    _verify_plan_data, gen_data
+                                )
+                                try:
+                                    gen_data["_verification"] = _vf_future.result(
+                                        timeout=30
+                                    )
+                                except FuturesTimeoutError:
+                                    logger.warning(
+                                        "Plan data verification timed out after 30s -- skipping"
+                                    )
+                                    _vf_future.cancel()
+                                    gen_data["_verification"] = {
+                                        "status": "skipped",
+                                        "reason": "verification_timeout",
+                                    }
+                                finally:
+                                    _vf_pool.shutdown(wait=False)
+                            except Exception:
+                                gen_data["_verification"] = {
+                                    "status": "skipped",
+                                    "reason": "verification_error",
+                                }
 
                         if time.time() > _gen_deadline:
                             raise TimeoutError(
@@ -11380,7 +12081,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             # ── Normalize roles early: dict-of-dicts -> list-of-strings ──
             # API/form can send roles as [{"title":"...","location":"..."}] or ["string"]
             for _rkey in ("roles", "target_roles"):
-                _rlist = data.get(_rkey, [])
+                _rlist = data.get(_rkey) or []
                 if isinstance(_rlist, list) and _rlist and isinstance(_rlist[0], dict):
                     data[_rkey] = [
                         (r.get("title") or r.get("role") or str(r)) for r in _rlist
@@ -11464,7 +12165,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
 
                     # -- Normalize roles (attach SOC + tier metadata) --
                     for role_key in ("target_roles", "roles"):
-                        raw_roles = data.get(role_key, [])
+                        raw_roles = data.get(role_key) or []
                         if isinstance(raw_roles, list):
                             for r in raw_roles:
                                 if isinstance(r, dict):
@@ -12099,14 +12800,30 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             # Apply all 7 quality gates: city-level data, clearance segmentation,
             # competitor mapping, difficulty framework, channel strategy with splits,
             # multi-tier budget breakdowns, and activation event calendars.
+            # Wrapped in ThreadPoolExecutor with 30s timeout to prevent hangs.
             try:
                 from gold_standard import apply_all_quality_gates
-
-                _gs_result = apply_all_quality_gates(data)
-                logger.info(
-                    "Gold Standard gates complete: %d gates produced data",
-                    len(_gs_result),
+                from concurrent.futures import (
+                    ThreadPoolExecutor,
+                    TimeoutError as FuturesTimeoutError,
                 )
+
+                _gs_pool = ThreadPoolExecutor(max_workers=1)
+                _gs_future = _gs_pool.submit(apply_all_quality_gates, data)
+                try:
+                    _gs_result = _gs_future.result(timeout=30)
+                    logger.info(
+                        "Gold Standard gates complete: %d gates produced data",
+                        len(_gs_result),
+                    )
+                except FuturesTimeoutError:
+                    logger.warning(
+                        "Gold Standard gates timed out after 30s -- continuing with partial data"
+                    )
+                    _gs_future.cancel()
+                    data["_gold_standard"] = data.get("_gold_standard") or {}
+                finally:
+                    _gs_pool.shutdown(wait=False)
             except ImportError:
                 logger.warning(
                     "gold_standard module not available -- skipping quality gates"
@@ -12119,8 +12836,28 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 data["_gold_standard"] = {}
 
             # ── Gemini/LLM verification of plan data (same as async path) ──
+            # Wrapped in ThreadPoolExecutor with 30s timeout to prevent hangs.
             try:
-                data["_verification"] = _verify_plan_data(data)
+                from concurrent.futures import (
+                    ThreadPoolExecutor,
+                    TimeoutError as FuturesTimeoutError,
+                )
+
+                _vf_pool = ThreadPoolExecutor(max_workers=1)
+                _vf_future = _vf_pool.submit(_verify_plan_data, data)
+                try:
+                    data["_verification"] = _vf_future.result(timeout=30)
+                except FuturesTimeoutError:
+                    logger.warning(
+                        "Plan data verification timed out after 30s -- skipping"
+                    )
+                    _vf_future.cancel()
+                    data["_verification"] = {
+                        "status": "skipped",
+                        "reason": "verification_timeout",
+                    }
+                finally:
+                    _vf_pool.shutdown(wait=False)
             except Exception:
                 data["_verification"] = {
                     "status": "skipped",
@@ -15788,7 +16525,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     plan_id=plan_id,
                     stage=stage,
                     data=data.get("data"),
-                    role_family=data.get("role_family", ""),
+                    role_family=data.get("role_family") or "",
                     predicted=data.get("predicted"),
                 )
 
@@ -15929,6 +16666,14 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
         else:
             self.send_error(404)
 
+    def do_HEAD(self) -> None:
+        """Handle HEAD requests for monitoring tools and uptime checks.
+
+        Delegates to do_GET; BaseHTTPRequestHandler automatically suppresses
+        the response body for HEAD requests when the command attribute is 'HEAD'.
+        """
+        self.do_GET()
+
     def do_OPTIONS(self) -> None:
         """Handle CORS preflight requests."""
         self.send_response(204)
@@ -15936,7 +16681,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
         if cors_origin:
             self.send_header("Access-Control-Allow-Origin", cors_origin)
             self.send_header("Access-Control-Allow-Credentials", "true")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Methods", "GET, HEAD, POST, OPTIONS")
         self.send_header(
             "Access-Control-Allow-Headers",
             "Content-Type, Authorization, X-Async, X-CSRF-Token, X-Idempotency-Key",
@@ -16012,22 +16757,34 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             self.wfile.write(body)
             return
 
-        # Read template file
+        # Read template file (use composer for split templates)
         template_file = _FRAGMENT_MAP[fragment_name]
         template_path = os.path.join(TEMPLATES_DIR, template_file)
-        if not os.path.exists(template_path):
-            self.send_error(404, f"Template not found: {template_file}")
-            return
+        page_name = template_file.rsplit(".", 1)[0]  # "index.html" -> "index"
 
+        raw_html = None
         try:
-            with open(template_path, "r", encoding="utf-8") as f:
-                raw_html = f.read()
-        except OSError as e:
-            logger.error(
-                "Fragment read error for %s: %s", fragment_name, e, exc_info=True
-            )
-            self.send_error(500, "Failed to read template")
-            return
+            from template_composer import get_composed_template
+
+            composed = get_composed_template(page_name)
+            if composed is not None:
+                raw_html = composed.decode("utf-8")
+        except ImportError:
+            pass
+
+        if raw_html is None:
+            if not os.path.exists(template_path):
+                self.send_error(404, f"Template not found: {template_file}")
+                return
+            try:
+                with open(template_path, "r", encoding="utf-8") as f:
+                    raw_html = f.read()
+            except OSError as e:
+                logger.error(
+                    "Fragment read error for %s: %s", fragment_name, e, exc_info=True
+                )
+                self.send_error(500, "Failed to read template")
+                return
 
         # Strip outer HTML/head/body wrapper, keep inner content
         fragment_html = self._extract_fragment_content(raw_html)
@@ -16113,8 +16870,25 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
 
     def _serve_file(self, filepath, content_type):
         try:
-            with open(filepath, "rb") as f:
-                content = f.read()
+            # For HTML templates, check if a composed version exists (split partials)
+            if content_type == "text/html" and filepath.startswith(TEMPLATES_DIR):
+                basename = os.path.basename(filepath)
+                page_name = basename.rsplit(".", 1)[0]  # "index.html" -> "index"
+                try:
+                    from template_composer import get_composed_template
+
+                    composed = get_composed_template(page_name)
+                    if composed is not None:
+                        content = composed
+                    else:
+                        with open(filepath, "rb") as f:
+                            content = f.read()
+                except ImportError:
+                    with open(filepath, "rb") as f:
+                        content = f.read()
+            else:
+                with open(filepath, "rb") as f:
+                    content = f.read()
 
             # Auto-inject Nova chat widget into HTML template pages
             # (skip pages that already include it or shouldn't have it)
@@ -16255,6 +17029,14 @@ class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
 if __name__ == "__main__":
     import signal
 
+    # Production uses gunicorn via wsgi.py (see Procfile / render.yaml).
+    # This __main__ block runs only for local development.
+    if os.environ.get("RENDER"):
+        logger.warning(
+            "Running app.py directly in production is deprecated. "
+            "Use gunicorn via wsgi.py instead (see Procfile)."
+        )
+
     port = int(os.environ.get("PORT", sys.argv[1] if len(sys.argv) > 1 else 5001))
     server = ThreadedHTTPServer(("0.0.0.0", port), MediaPlanHandler)
 
@@ -16285,6 +17067,22 @@ if __name__ == "__main__":
 
         _t.sleep(2)  # Let server start accepting connections first
         logger.info("[deferred_startup] Beginning background initialization...")
+
+        # Pre-compose split templates (fast -- do early)
+        try:
+            from template_composer import precompose_all
+
+            composed = precompose_all()
+            if composed:
+                logger.info(
+                    "[deferred_startup] Pre-composed %d templates: %s",
+                    len(composed),
+                    {k: f"{v:,}B" for k, v in composed.items()},
+                )
+        except ImportError:
+            pass
+        except Exception as tc_err:
+            logger.error("[deferred_startup] Template pre-compose failed: %s", tc_err)
 
         # Pre-warm knowledge base
         try:

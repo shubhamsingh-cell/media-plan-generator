@@ -65,7 +65,7 @@ def _handle_campaign_list(handler: Any, path: str, parsed: Any) -> None:
         campaigns = getattr(handler.server, "_campaigns", {})
         campaign_list = sorted(
             campaigns.values(),
-            key=lambda c: c.get("_saved_at", ""),
+            key=lambda c: c.get("_saved_at") or "",
             reverse=True,
         )
         handler._send_json({"campaigns": campaign_list[:50]})

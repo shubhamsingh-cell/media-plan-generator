@@ -89,13 +89,33 @@ def _handle_health(handler, path: str, parsed: Any) -> None:
             _health = {
                 "status": _health_full.get("status", "healthy"),
                 "version": _health_full.get("version", "unknown"),
-                "timestamp": _health_full.get("timestamp", ""),
+                "timestamp": _health_full.get("timestamp") or "",
             }
     except Exception as e:
         _health = {"status": "healthy", "error": str(e)}
         status_code = 200  # Don't block deploy on health check errors
     body = json.dumps(_health).encode("utf-8")
     handler.send_response(status_code)
+    handler.send_header("Content-Type", "application/json")
+    handler.send_header("Content-Length", str(len(body)))
+    handler.end_headers()
+    handler.wfile.write(body)
+
+
+def _handle_health_ping(handler, path: str, parsed: Any) -> None:
+    """/api/health/ping -- ultra-lightweight liveness probe.
+
+    Returns immediately with no deep checks. Suitable for monitoring
+    tools, load balancers, and uptime services that need sub-second
+    responses.
+    """
+    body = json.dumps(
+        {
+            "status": "ok",
+            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        }
+    ).encode("utf-8")
+    handler.send_response(200)
     handler.send_header("Content-Type", "application/json")
     handler.send_header("Content-Length", str(len(body)))
     handler.end_headers()
@@ -1066,7 +1086,6 @@ def _handle_health_slos(handler, path: str, parsed: Any) -> None:
         handler.send_error(401, "Unauthorized")
         return
     try:
-        from monitoring import MetricsCollector as _MC
 
         _app = sys.modules.get("__main__") or sys.modules.get("app")
         _mc_inst = getattr(_app, "_metrics", None)
@@ -1488,7 +1507,7 @@ def _handle_health_anomalies(handler, path: str, parsed: Any) -> None:
                 "anomaly_count": len(active),
                 "active_anomalies": active,
                 "tracked_metrics": len(baselines.get("baselines", {})),
-                "checked_at": baselines.get("generated_at", ""),
+                "checked_at": baselines.get("generated_at") or "",
             }
 
         _send_json_response(handler, result)
@@ -1552,6 +1571,8 @@ _HEALTH_ROUTE_MAP: dict[str, Any] = {
     "/api/features": _handle_features,
     "/api/health": _handle_health,
     "/health": _handle_health,
+    "/api/health/ping": _handle_health_ping,
+    "/ping": _handle_health_ping,
     "/api/health/ready": _handle_health_ready,
     "/ready": _handle_health_ready,
     "/api/deck/status": _handle_deck_status,

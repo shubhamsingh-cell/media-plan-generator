@@ -5,12 +5,11 @@ to 'AI Research Scientist' than 'Software Engineer' in the talent market.
 Replaces keyword-based role matching with vector similarity.
 """
 
-import json
 import logging
 import math
 import os
 import threading
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Tuple
 
 logger = logging.getLogger(__name__)
 

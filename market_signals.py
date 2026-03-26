@@ -15,7 +15,6 @@ from __future__ import annotations
 import datetime
 import json
 import logging
-import math
 import os
 import statistics
 import threading
@@ -392,7 +391,8 @@ def _compute_channel_performance_signals(
                     "cpa_range": [cpa_min, cpa_max],
                     "free_option": has_free,
                     "model": board_data.get("model")
-                    or board_data.get("pricing_model", ""),
+                    or board_data.get("pricing_model")
+                    or "",
                 },
             )
         )
@@ -480,7 +480,7 @@ def _compute_competitor_signals(market_data: Dict[str, Any]) -> List[Signal]:
                 description=summary[:200] if len(summary) > 200 else summary,
                 metadata={
                     "source": source,
-                    "date": trend.get("date", ""),
+                    "date": trend.get("date") or "",
                 },
             )
         )
@@ -826,7 +826,7 @@ class MarketSignalEngine:
             return [
                 entry
                 for entry in self._signal_history
-                if entry.get("computed_at", "") >= cutoff_iso
+                if (entry.get("computed_at") or "") >= cutoff_iso
             ]
 
     def get_signal_stats(self) -> Dict[str, Any]:

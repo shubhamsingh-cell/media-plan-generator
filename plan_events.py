@@ -27,7 +27,7 @@ import datetime
 import logging
 import threading
 import uuid
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, asdict
 from enum import Enum
 from typing import Any, Optional
 
@@ -436,6 +436,11 @@ class EventStore:
     # ------------------------------------------------------------------
     # Supabase persistence (best-effort)
     # ------------------------------------------------------------------
+    # NOTE: Supabase `plan_events` table is intentionally write-only at the
+    # persistence layer.  Events are read back from the in-memory store for
+    # fast snapshot replay.  The Supabase copy serves as a durable audit log
+    # for compliance and disaster recovery.  A read API is exposed at
+    # GET /api/plan/events (list all) and GET /api/plans/<id>/history.
 
     def _persist_event(self, event: Event) -> None:
         """Write event to Supabase ``plan_events`` table (best-effort)."""

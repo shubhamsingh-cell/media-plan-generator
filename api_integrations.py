@@ -221,7 +221,12 @@ def _http_get_pooled(
             url, method="GET", headers=headers or {}, timeout=timeout, ssl_ctx=_ssl_ctx
         )
         if resp.status >= 400:
-            logger.error(f"HTTP {resp.status} for {url}")
+            if resp.status in (401, 403):
+                logger.warning(f"HTTP {resp.status} for {url} (auth/credential issue)")
+            elif resp.status == 429:
+                logger.warning(f"HTTP 429 for {url} (rate limited)")
+            else:
+                logger.warning(f"HTTP {resp.status} for {url}")
             return None
         raw = resp.read().decode("utf-8")
         return json.loads(raw)
@@ -238,23 +243,26 @@ def _http_get_pooled(
                 ssl_ctx=_ssl_ctx_unverified,
             )
             if resp.status >= 400:
-                logger.error(f"HTTP {resp.status} for {url} (unverified SSL)")
+                if resp.status in (401, 403):
+                    logger.warning(
+                        f"HTTP {resp.status} for {url} (auth/credential issue, unverified SSL)"
+                    )
+                else:
+                    logger.warning(f"HTTP {resp.status} for {url} (unverified SSL)")
                 return None
             raw = resp.read().decode("utf-8")
             return json.loads(raw)
         except (http.client.HTTPException, OSError, TimeoutError) as exc:
-            logger.error(
-                f"HTTP GET failed for {url} (unverified retry): {exc}", exc_info=True
-            )
+            logger.warning(f"HTTP GET failed for {url} (unverified retry): {exc}")
             return None
     except json.JSONDecodeError:
-        logger.error(f"JSON decode error for {url}", exc_info=True)
+        logger.warning(f"JSON decode error for {url}")
         return None
     except TimeoutError:
-        logger.error(f"Timeout fetching {url}", exc_info=True)
+        logger.warning(f"Timeout fetching {url}")
         return None
     except (http.client.HTTPException, OSError) as exc:
-        logger.error(f"HTTP GET failed for {url}: {exc}", exc_info=True)
+        logger.warning(f"HTTP GET failed for {url}: {exc}")
         return None
 
 
@@ -283,19 +291,24 @@ def _http_get_urllib(
                     return json.loads(raw)
             raise
     except urllib.error.HTTPError as exc:
-        logger.error(f"HTTP {exc.code} for {url}", exc_info=True)
+        if exc.code in (401, 403):
+            logger.warning(f"HTTP {exc.code} for {url} (auth/credential issue)")
+        elif exc.code == 429:
+            logger.warning(f"HTTP 429 for {url} (rate limited)")
+        else:
+            logger.warning(f"HTTP {exc.code} for {url}")
         return None
     except urllib.error.URLError as exc:
-        logger.error(f"URL error for {url}: {exc.reason}", exc_info=True)
+        logger.warning(f"URL error for {url}: {exc.reason}")
         return None
     except json.JSONDecodeError:
-        logger.error(f"JSON decode error for {url}", exc_info=True)
+        logger.warning(f"JSON decode error for {url}")
         return None
     except TimeoutError:
-        logger.error(f"Timeout fetching {url}", exc_info=True)
+        logger.warning(f"Timeout fetching {url}")
         return None
     except OSError:
-        logger.error(f"OS error fetching {url}", exc_info=True)
+        logger.warning(f"OS error fetching {url}")
         return None
 
 
@@ -345,7 +358,7 @@ def _http_post_pooled(
             ssl_ctx=_ssl_ctx,
         )
         if resp.status >= 400:
-            logger.error(f"HTTP {resp.status} for POST {url}")
+            logger.warning(f"HTTP {resp.status} for POST {url}")
             return None
         raw = resp.read().decode("utf-8")
         return json.loads(raw)
@@ -363,23 +376,21 @@ def _http_post_pooled(
                 ssl_ctx=_ssl_ctx_unverified,
             )
             if resp.status >= 400:
-                logger.error(f"HTTP {resp.status} for POST {url} (unverified SSL)")
+                logger.warning(f"HTTP {resp.status} for POST {url} (unverified SSL)")
                 return None
             raw = resp.read().decode("utf-8")
             return json.loads(raw)
         except (http.client.HTTPException, OSError, TimeoutError) as exc:
-            logger.error(
-                f"HTTP POST failed for {url} (unverified retry): {exc}", exc_info=True
-            )
+            logger.warning(f"HTTP POST failed for {url} (unverified retry): {exc}")
             return None
     except json.JSONDecodeError:
-        logger.error(f"JSON decode error for POST {url}", exc_info=True)
+        logger.warning(f"JSON decode error for POST {url}")
         return None
     except TimeoutError:
-        logger.error(f"Timeout posting to {url}", exc_info=True)
+        logger.warning(f"Timeout posting to {url}")
         return None
     except (http.client.HTTPException, OSError) as exc:
-        logger.error(f"HTTP POST failed for {url}: {exc}", exc_info=True)
+        logger.warning(f"HTTP POST failed for {url}: {exc}")
         return None
 
 
@@ -411,19 +422,22 @@ def _http_post_urllib(
                     return json.loads(raw)
             raise
     except urllib.error.HTTPError as exc:
-        logger.error(f"HTTP {exc.code} for POST {url}", exc_info=True)
+        if exc.code in (401, 403):
+            logger.warning(f"HTTP {exc.code} for POST {url} (auth/credential issue)")
+        else:
+            logger.warning(f"HTTP {exc.code} for POST {url}")
         return None
     except urllib.error.URLError as exc:
-        logger.error(f"URL error for POST {url}: {exc.reason}", exc_info=True)
+        logger.warning(f"URL error for POST {url}: {exc.reason}")
         return None
     except json.JSONDecodeError:
-        logger.error(f"JSON decode error for POST {url}", exc_info=True)
+        logger.warning(f"JSON decode error for POST {url}")
         return None
     except TimeoutError:
-        logger.error(f"Timeout posting to {url}", exc_info=True)
+        logger.warning(f"Timeout posting to {url}")
         return None
     except OSError:
-        logger.error(f"OS error posting to {url}", exc_info=True)
+        logger.warning(f"OS error posting to {url}")
         return None
 
 
@@ -505,6 +519,33 @@ class FREDClient:
         )
         return f"{self.BASE_URL}/series/observations?{params}"
 
+    @staticmethod
+    def _validate_series_id(series_id: str) -> bool:
+        """Validate a FRED series ID format before making API call.
+
+        Checks that the series ID contains only alphanumeric characters
+        and is a reasonable length (1-30 chars). For LAUS series, validates
+        the expected 20-character format.
+
+        Args:
+            series_id: FRED series identifier to validate.
+
+        Returns:
+            True if the series ID appears valid.
+        """
+        if not series_id or len(series_id) > 30:
+            return False
+        if not series_id.replace("_", "").isalnum():
+            return False
+        # LAUS series must be exactly 20 chars: LAUST + 2-digit FIPS + 13 digits
+        if series_id.startswith("LAUST"):
+            if len(series_id) != 20:
+                return False
+            # After LAUST, rest must be digits
+            if not series_id[5:].isdigit():
+                return False
+        return True
+
     def _fetch_series(self, series_id: str, limit: int = 12) -> dict | None:
         """Fetch a FRED series with caching.
 
@@ -517,6 +558,12 @@ class FREDClient:
         """
         if not self._is_configured():
             logger.warning("FRED_API_KEY not set, skipping FRED request")
+            return None
+
+        if not self._validate_series_id(series_id):
+            logger.warning(
+                f"Invalid FRED series ID format: {series_id} (len={len(series_id)}), skipping"
+            )
             return None
 
         cache_key = f"fred:{series_id}:{limit}"
@@ -963,7 +1010,7 @@ class ONetClient:
     Provides occupational data including skills, technology requirements,
     related occupations, and detailed occupation profiles.
 
-    Env vars: ONET_USERNAME (default 'joveo'), ONET_API_KEY (password)
+    Env vars: ONET_USERNAME (default 'joveo'), ONET_API_KEY or ONET_PASSWORD (password)
     Docs: https://services.onetcenter.org/reference/
     """
 
@@ -972,7 +1019,10 @@ class ONetClient:
     def __init__(self) -> None:
         """Initialize O*NET client with credentials from environment."""
         self.username = os.environ.get("ONET_USERNAME") or "joveo"
-        self.password = os.environ.get("ONET_API_KEY") or ""
+        self.password = (
+            os.environ.get("ONET_API_KEY") or os.environ.get("ONET_PASSWORD") or ""
+        )
+        self._auth_failed = False  # Track persistent auth failures
 
     def _is_configured(self) -> bool:
         """Check if API credentials are available."""
@@ -991,6 +1041,10 @@ class ONetClient:
             logger.warning("ONET_API_KEY not set, skipping O*NET request")
             return None
 
+        if self._auth_failed:
+            # Don't keep hitting a 401 -- skip until restart
+            return None
+
         cache_key = f"onet:{path}"
         cached = _get_cached(cache_key)
         if cached is not None:
@@ -999,8 +1053,21 @@ class ONetClient:
         url = f"{self.BASE_URL}{path}"
         headers = {"Accept": "application/json"}
         data = _http_get_basic_auth(url, self.username, self.password, headers=headers)
-        if data is not None:
-            _set_cached(cache_key, data)
+        if data is None:
+            # Track consecutive failures -- likely auth issue if first call fails
+            if not hasattr(self, "_consecutive_failures"):
+                self._consecutive_failures = 0
+            self._consecutive_failures += 1
+            if self._consecutive_failures >= 2:
+                logger.warning(
+                    "O*NET API returned None %d times -- disabling for this session. "
+                    "Check ONET_USERNAME and ONET_API_KEY env vars.",
+                    self._consecutive_failures,
+                )
+                self._auth_failed = True
+            return None
+        self._consecutive_failures = 0
+        _set_cached(cache_key, data)
         return data
 
     def search_occupations(self, keyword: str) -> list[dict] | None:
@@ -1893,7 +1960,7 @@ def test_all_apis() -> dict[str, bool]:
         r = fred.get_gdp_growth()
         results["fred"] = r is not None and bool(r.get("observations"))
     except Exception as exc:
-        logger.error("FRED test failed", exc_info=True)
+        logger.warning("FRED test failed: %s", exc)
         results["fred"] = False
 
     # 2. Adzuna
@@ -1901,7 +1968,7 @@ def test_all_apis() -> dict[str, bool]:
         r = adzuna.get_job_count("engineer", "us")
         results["adzuna"] = r is not None and (r.get("count") or 0) > 0
     except Exception as exc:
-        logger.error("Adzuna test failed", exc_info=True)
+        logger.warning("Adzuna test failed: %s", exc)
         results["adzuna"] = False
 
     # 3. Jooble
@@ -1909,7 +1976,7 @@ def test_all_apis() -> dict[str, bool]:
         r = jooble.search_jobs("developer", "New York")
         results["jooble"] = r is not None and (r.get("totalCount") or 0) > 0
     except Exception as exc:
-        logger.error("Jooble test failed", exc_info=True)
+        logger.warning("Jooble test failed: %s", exc)
         results["jooble"] = False
 
     # 4. O*NET
@@ -1917,7 +1984,7 @@ def test_all_apis() -> dict[str, bool]:
         r = onet.search_occupations("software")
         results["onet"] = r is not None and len(r) > 0
     except Exception as exc:
-        logger.error("O*NET test failed", exc_info=True)
+        logger.warning("O*NET test failed: %s", exc)
         results["onet"] = False
 
     # 5. BEA
@@ -1925,7 +1992,7 @@ def test_all_apis() -> dict[str, bool]:
         r = bea.get_gdp_by_state(year="2022")
         results["bea"] = r is not None
     except Exception as exc:
-        logger.error("BEA test failed", exc_info=True)
+        logger.warning("BEA test failed: %s", exc)
         results["bea"] = False
 
     # 6. Census
@@ -1933,7 +2000,7 @@ def test_all_apis() -> dict[str, bool]:
         r = census.get_population_by_state()
         results["census"] = r is not None and (r.get("count") or 0) > 0
     except Exception as exc:
-        logger.error("Census test failed", exc_info=True)
+        logger.warning("Census test failed: %s", exc)
         results["census"] = False
 
     # 7. USAJobs
@@ -1941,7 +2008,7 @@ def test_all_apis() -> dict[str, bool]:
         r = usajobs.search_jobs("engineer", results_per_page=1)
         results["usajobs"] = r is not None and (r.get("count") or 0) > 0
     except Exception as exc:
-        logger.error("USAJobs test failed", exc_info=True)
+        logger.warning("USAJobs test failed: %s", exc)
         results["usajobs"] = False
 
     # 8. BLS
@@ -1949,7 +2016,7 @@ def test_all_apis() -> dict[str, bool]:
         r = bls.get_cpi_series()
         results["bls"] = r is not None and bool(r.get("series"))
     except Exception as exc:
-        logger.error("BLS test failed", exc_info=True)
+        logger.warning("BLS test failed: %s", exc)
         results["bls"] = False
 
     passed = sum(1 for v in results.values() if v)
@@ -1985,7 +2052,7 @@ def get_api_status() -> dict[str, dict[str, Any]]:
         },
         "onet": {
             "configured": onet._is_configured(),
-            "env_vars": ["ONET_USERNAME", "ONET_API_KEY"],
+            "env_vars": ["ONET_USERNAME", "ONET_API_KEY", "ONET_PASSWORD"],
         },
         "bea": {
             "configured": bea._is_configured(),

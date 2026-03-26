@@ -1,0 +1,572 @@
+<!-- Sankey Flow Budget Visualizer -->
+<script src="/static/sankey-viz.js?v=1.0.0"></script>
+
+<!-- Nova AI Suite — AI Chat Widget (floating bottom-right) -->
+<script src="/static/nova-chat.js?v=3.5.3"></script>
+<script>
+  (function () {
+    // Init immediately -- script is at end of body so DOM is ready.
+    // DOMContentLoaded may have already fired; calling init() directly
+    // is the reliable path for bottom-of-body scripts.
+    if (typeof NovaChat !== "undefined") {
+      NovaChat.init({ containerId: null });
+    }
+  })();
+</script>
+<script>
+  // Nova Platform shell compatibility + fragment mode detection
+  (function () {
+    // Detect fragment mode: loaded inside platform shell
+    var isFragment =
+      window.__NOVA_PLATFORM ||
+      typeof NovaContext !== "undefined" ||
+      window.parent !== window ||
+      (document.referrer && document.referrer.indexOf("/platform") !== -1);
+
+    if (isFragment) {
+      document.body.classList.add("fragment-mode");
+    }
+
+    if (window.__NOVA_PLATFORM) {
+      document
+        .querySelectorAll(
+          'nav:not(.progress-bar):not(.breadcrumb), .nav, footer, .footer, .standalone-nav, .standalone-header, .standalone-footer, [class*="back-to"], .nova-chat-widget',
+        )
+        .forEach(function (el) {
+          el.style.display = "none";
+        });
+      document
+        .querySelectorAll('a[href="/"], a[href="/hub"]')
+        .forEach(function (a) {
+          if (
+            a.textContent.includes("Back") ||
+            a.textContent.includes("Hub") ||
+            a.textContent.includes("Suite")
+          ) {
+            a.style.display = "none";
+          }
+        });
+      document.dispatchEvent(new CustomEvent("nova:fragment-loaded"));
+    }
+
+    // Breadcrumb navigation via postMessage for fragment mode
+    document.querySelectorAll(".breadcrumb a").forEach(function (a) {
+      a.addEventListener("click", function (e) {
+        if (window !== window.parent) {
+          e.preventDefault();
+          window.parent.postMessage(
+            { type: "nova:navigate", path: a.getAttribute("href") },
+            "*",
+          );
+        }
+      });
+    });
+
+    // Pre-fill form from platform campaign context
+    var ctx =
+      typeof NovaContext !== "undefined" && NovaContext.campaign
+        ? NovaContext.campaign
+        : window.parent && window.parent.NovaContext
+          ? window.parent.NovaContext.campaign
+          : null;
+    if (ctx) {
+      var clientInput = document.getElementById("clientName");
+      var budgetSelect = document.getElementById("budgetRange");
+      if (clientInput && ctx.client) {
+        clientInput.value = ctx.client;
+        clientInput.dispatchEvent(new Event("input", { bubbles: true }));
+      } else if (clientInput && ctx.name && !ctx.client) {
+        clientInput.value = ctx.name;
+        clientInput.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+      if (budgetSelect && ctx.budget) {
+        // Try to match a budget range option
+        var opts = budgetSelect.options;
+        for (var i = 0; i < opts.length; i++) {
+          if (opts[i].value === ctx.budget) {
+            budgetSelect.value = ctx.budget;
+            budgetSelect.dispatchEvent(new Event("change", { bubbles: true }));
+            break;
+          }
+        }
+      }
+      if (ctx.industry) {
+        // Find and select the industry card
+        var cards = document.querySelectorAll(".industry-card");
+        cards.forEach(function (card) {
+          if (
+            card.dataset.industry === ctx.industry ||
+            card.textContent.toLowerCase().includes(ctx.industry.toLowerCase())
+          ) {
+            if (typeof selectIndustry === "function") selectIndustry(card);
+          }
+        });
+      }
+      if (ctx.roles && Array.isArray(ctx.roles)) {
+        ctx.roles.forEach(function (role) {
+          addTag("rolesContainer", "roleInput", roles, role);
+        });
+      }
+      if (ctx.locations && Array.isArray(ctx.locations)) {
+        ctx.locations.forEach(function (loc) {
+          addTag("locationsContainer", "locationInput", locations, loc);
+        });
+      }
+      if (typeof showToast === "function")
+        showToast("Pre-filled from campaign context");
+    }
+  })();
+
+  // ============================================
+  // PDF Export via window.print()
+  // ============================================
+  function exportPlanPDF() {
+    var dashboard = document.getElementById("planDashboardSection");
+    if (!dashboard || !dashboard.classList.contains("visible")) {
+      showToast("Generate a plan first to export as PDF.", "warning");
+      return;
+    }
+    showToast(
+      "Opening print dialog -- use 'Save as PDF' for best results.",
+      "info",
+    );
+    setTimeout(function () {
+      window.print();
+    }, 300);
+  }
+
+  // ============================================
+  // Item 4: Plan Comparison -- Save & Compare
+  // ============================================
+  function savePlanForComparison() {
+    var plans = JSON.parse(localStorage.getItem("nova_saved_plans") || "[]");
+    plans.push({
+      id: Date.now(),
+      name: document.getElementById("clientName")?.value || "Unnamed",
+      date: new Date().toISOString(),
+      data: _lastPlanPayload || {},
+      budget: document.getElementById("budgetRange")?.value || "",
+      industry:
+        (typeof selectedIndustry !== "undefined" && selectedIndustry) || "",
+    });
+    if (plans.length > 10) plans.shift();
+    localStorage.setItem("nova_saved_plans", JSON.stringify(plans));
+    showToast("Plan saved for comparison");
+  }
+
+  var _compareSelectedIds = [];
+
+  function openPlanComparison() {
+    var overlay = document.getElementById("planCompareOverlay");
+    var body = document.getElementById("planCompareBody");
+    var plans = JSON.parse(localStorage.getItem("nova_saved_plans") || "[]");
+
+    if (plans.length === 0) {
+      body.innerHTML =
+        '<div class="plan-compare-empty">No saved plans yet. Generate a plan and click "Save Plan" to start comparing.</div>';
+      overlay.classList.add("open");
+      return;
+    }
+
+    _compareSelectedIds = plans.slice(-3).map(function (p) {
+      return p.id;
+    });
+    renderComparisonView(plans);
+    overlay.classList.add("open");
+  }
+
+  function closePlanComparison() {
+    document.getElementById("planCompareOverlay").classList.remove("open");
+  }
+
+  // Close on overlay click
+  document
+    .getElementById("planCompareOverlay")
+    .addEventListener("click", function (e) {
+      if (e.target === this) closePlanComparison();
+    });
+
+  function toggleCompareSelection(id) {
+    var idx = _compareSelectedIds.indexOf(id);
+    if (idx > -1) {
+      _compareSelectedIds.splice(idx, 1);
+    } else {
+      if (_compareSelectedIds.length >= 3) {
+        showToast("Max 3 plans can be compared at once", "warning");
+        return;
+      }
+      _compareSelectedIds.push(id);
+    }
+    var plans = JSON.parse(localStorage.getItem("nova_saved_plans") || "[]");
+    renderComparisonView(plans);
+  }
+
+  function deleteSavedPlan(id) {
+    var plans = JSON.parse(localStorage.getItem("nova_saved_plans") || "[]");
+    plans = plans.filter(function (p) {
+      return p.id !== id;
+    });
+    localStorage.setItem("nova_saved_plans", JSON.stringify(plans));
+    _compareSelectedIds = _compareSelectedIds.filter(function (sid) {
+      return sid !== id;
+    });
+    if (plans.length === 0) {
+      document.getElementById("planCompareBody").innerHTML =
+        '<div class="plan-compare-empty">No saved plans remaining.</div>';
+    } else {
+      renderComparisonView(plans);
+    }
+    showToast("Plan deleted");
+  }
+
+  function extractPlanMetric(data, key) {
+    if (!data) return "--";
+    // Try common nested structures from the plan payload
+    var summary = data.summary || data.plan_summary || data;
+    if (key === "channels") {
+      var ch =
+        summary.channels || summary.recommended_channels || data.channels || [];
+      return Array.isArray(ch) ? ch.length : ch || "--";
+    }
+    if (key === "totalSpend") {
+      return (
+        summary.total_spend || summary.total_budget || data.budget_range || "--"
+      );
+    }
+    if (key === "applications") {
+      return summary.est_applications || summary.estimated_applications || "--";
+    }
+    if (key === "hires") {
+      return (
+        summary.est_hires || summary.estimated_hires || data.hire_volume || "--"
+      );
+    }
+    if (key === "avgCpc") {
+      var ch =
+        summary.channels || summary.recommended_channels || data.channels || [];
+      if (Array.isArray(ch) && ch.length > 0) {
+        var sum = 0,
+          cnt = 0;
+        ch.forEach(function (c) {
+          var cpc = parseFloat(
+            String(c.cpc_range || c.avg_cpc || c.cpc || "").replace(
+              /[^0-9.]/g,
+              "",
+            ),
+          );
+          if (!isNaN(cpc) && cpc > 0) {
+            sum += cpc;
+            cnt++;
+          }
+        });
+        return cnt > 0 ? "$" + (sum / cnt).toFixed(2) : "--";
+      }
+      return "--";
+    }
+    if (key === "avgCpa") {
+      var ch =
+        summary.channels || summary.recommended_channels || data.channels || [];
+      if (Array.isArray(ch) && ch.length > 0) {
+        var sum = 0,
+          cnt = 0;
+        ch.forEach(function (c) {
+          var cpa = parseFloat(
+            String(c.cpa_range || c.avg_cpa || c.cpa || "").replace(
+              /[^0-9.]/g,
+              "",
+            ),
+          );
+          if (!isNaN(cpa) && cpa > 0) {
+            sum += cpa;
+            cnt++;
+          }
+        });
+        return cnt > 0 ? "$" + (sum / cnt).toFixed(2) : "--";
+      }
+      return "--";
+    }
+    if (key === "costPerHire") {
+      var hires = parseFloat(
+        String(summary.est_hires || summary.estimated_hires || "").replace(
+          /[^0-9.]/g,
+          "",
+        ),
+      );
+      var spend = parseFloat(
+        String(
+          summary.total_spend ||
+            summary.total_budget ||
+            data.budget_range ||
+            "",
+        ).replace(/[^0-9.]/g, ""),
+      );
+      if (!isNaN(hires) && !isNaN(spend) && hires > 0) {
+        return "$" + Math.round(spend / hires).toLocaleString();
+      }
+      return "--";
+    }
+    return "--";
+  }
+
+  function compareClass(values, idx, higherIsBetter) {
+    if (values.length < 2) return "";
+    var nums = values.map(function (v) {
+      return parseFloat(String(v).replace(/[^0-9.-]/g, ""));
+    });
+    if (isNaN(nums[idx])) return "";
+    var max = Math.max.apply(
+      null,
+      nums.filter(function (n) {
+        return !isNaN(n);
+      }),
+    );
+    var min = Math.min.apply(
+      null,
+      nums.filter(function (n) {
+        return !isNaN(n);
+      }),
+    );
+    if (max === min) return "";
+    if (higherIsBetter) {
+      return nums[idx] === max
+        ? "compare-better"
+        : nums[idx] === min
+          ? "compare-worse"
+          : "";
+    } else {
+      return nums[idx] === min
+        ? "compare-better"
+        : nums[idx] === max
+          ? "compare-worse"
+          : "";
+    }
+  }
+
+  function renderComparisonView(plans) {
+    var body = document.getElementById("planCompareBody");
+    // Selector chips
+    var html = '<div class="plan-compare-selector">';
+    plans.forEach(function (p) {
+      var sel = _compareSelectedIds.indexOf(p.id) > -1 ? " selected" : "";
+      html +=
+        '<button class="plan-compare-chip' +
+        sel +
+        '" onclick="toggleCompareSelection(' +
+        p.id +
+        ')">' +
+        (p.name || "Unnamed") +
+        " (" +
+        new Date(p.date).toLocaleDateString() +
+        ")</button>";
+    });
+    html += "</div>";
+
+    var selected = plans.filter(function (p) {
+      return _compareSelectedIds.indexOf(p.id) > -1;
+    });
+    if (selected.length === 0) {
+      html +=
+        '<div class="plan-compare-empty">Select plans above to compare them.</div>';
+      body.innerHTML = html;
+      return;
+    }
+
+    // Table
+    html += '<table class="plan-compare-table"><thead><tr><th>Metric</th>';
+    selected.forEach(function (p) {
+      html += "<th>" + (p.name || "Unnamed") + "</th>";
+    });
+    html += "<th></th></tr></thead><tbody>";
+
+    // Date row
+    html += "<tr><td>Date</td>";
+    selected.forEach(function (p) {
+      html += "<td>" + new Date(p.date).toLocaleDateString() + "</td>";
+    });
+    html += "<td></td></tr>";
+
+    // Budget row
+    html += "<tr><td>Budget</td>";
+    selected.forEach(function (p) {
+      html += "<td>" + (p.budget || "--") + "</td>";
+    });
+    html += "<td></td></tr>";
+
+    // Industry row
+    html += "<tr><td>Industry</td>";
+    selected.forEach(function (p) {
+      html += "<td>" + (p.industry || "--") + "</td>";
+    });
+    html += "<td></td></tr>";
+
+    // Channels
+    var chVals = selected.map(function (p) {
+      return extractPlanMetric(p.data, "channels");
+    });
+    html += "<tr><td># Channels</td>";
+    selected.forEach(function (p, i) {
+      html +=
+        '<td class="' +
+        compareClass(chVals, i, true) +
+        '">' +
+        chVals[i] +
+        "</td>";
+    });
+    html += "<td></td></tr>";
+
+    // Total Spend
+    var spendVals = selected.map(function (p) {
+      return extractPlanMetric(p.data, "totalSpend");
+    });
+    html += "<tr><td>Total Spend</td>";
+    selected.forEach(function (p, i) {
+      html += "<td>" + spendVals[i] + "</td>";
+    });
+    html += "<td></td></tr>";
+
+    // Est. Applications
+    var appVals = selected.map(function (p) {
+      return extractPlanMetric(p.data, "applications");
+    });
+    html += "<tr><td>Est. Applications</td>";
+    selected.forEach(function (p, i) {
+      html +=
+        '<td class="' +
+        compareClass(appVals, i, true) +
+        '">' +
+        appVals[i] +
+        "</td>";
+    });
+    html += "<td></td></tr>";
+
+    // Est. Hires
+    var hireVals = selected.map(function (p) {
+      return extractPlanMetric(p.data, "hires");
+    });
+    html += "<tr><td>Est. Hires</td>";
+    selected.forEach(function (p, i) {
+      html +=
+        '<td class="' +
+        compareClass(hireVals, i, true) +
+        '">' +
+        hireVals[i] +
+        "</td>";
+    });
+    html += "<td></td></tr>";
+
+    // Avg CPC
+    var cpcVals = selected.map(function (p) {
+      return extractPlanMetric(p.data, "avgCpc");
+    });
+    html += "<tr><td>Avg CPC</td>";
+    selected.forEach(function (p, i) {
+      html +=
+        '<td class="' +
+        compareClass(cpcVals, i, false) +
+        '">' +
+        cpcVals[i] +
+        "</td>";
+    });
+    html += "<td></td></tr>";
+
+    // Avg CPA
+    var cpaVals = selected.map(function (p) {
+      return extractPlanMetric(p.data, "avgCpa");
+    });
+    html += "<tr><td>Avg CPA</td>";
+    selected.forEach(function (p, i) {
+      html +=
+        '<td class="' +
+        compareClass(cpaVals, i, false) +
+        '">' +
+        cpaVals[i] +
+        "</td>";
+    });
+    html += "<td></td></tr>";
+
+    // Cost Per Hire
+    var cphVals = selected.map(function (p) {
+      return extractPlanMetric(p.data, "costPerHire");
+    });
+    html += "<tr><td>Cost Per Hire</td>";
+    selected.forEach(function (p, i) {
+      html +=
+        '<td class="' +
+        compareClass(cphVals, i, false) +
+        '">' +
+        cphVals[i] +
+        "</td>";
+    });
+    html += "<td></td></tr>";
+
+    // Delete row
+    html += "<tr><td></td>";
+    selected.forEach(function (p) {
+      html +=
+        '<td><button class="compare-delete-btn" onclick="deleteSavedPlan(' +
+        p.id +
+        ')">Delete</button></td>';
+    });
+    html += "<td></td></tr>";
+
+    html += "</tbody></table>";
+    body.innerHTML = html;
+  }
+
+  // ============================================
+  // Item 5: Collaborative Editing -- Share Plan
+  // ============================================
+  var _lastPlanId = null; // Stored from X-Plan-Id header
+
+  async function sharePlan() {
+    if (!_lastPlanPayload) {
+      showToast("Generate a plan first before sharing.", "warning");
+      return;
+    }
+    try {
+      var resp = await fetch("/api/plan/share", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          plan_data: _lastPlanPayload,
+          client: document.getElementById("clientName")?.value || "",
+        }),
+      });
+      if (!resp.ok) {
+        var errData = await resp.json().catch(function () {
+          return {};
+        });
+        throw new Error(errData.error || "Share failed");
+      }
+      var result = await resp.json();
+      var shareUrl = window.location.origin + "/plan/shared/" + result.share_id;
+      try {
+        await navigator.clipboard.writeText(shareUrl);
+        showToast("Share link copied to clipboard! Link expires in 24 hours.");
+      } catch (clipErr) {
+        // Fallback: prompt user with URL
+        prompt("Copy this share link (expires in 24h):", shareUrl);
+      }
+    } catch (e) {
+      // Fallback: use the plan_id direct link if share API fails
+      if (_lastPlanId) {
+        var directUrl = window.location.origin + "/plan/" + _lastPlanId;
+        try {
+          await navigator.clipboard.writeText(directUrl);
+          showToast("Direct plan link copied (expires in 30 min).");
+        } catch (clipErr) {
+          prompt("Copy this plan link (expires in 30 min):", directUrl);
+        }
+      } else {
+        showToast("Share failed: " + (e.message || "Unknown error"), "error");
+      }
+    }
+  }
+
+  // ============================================
+  // Item 6: Export to Google Sheets (already wired via exportPlan('sheets'))
+  // The existing export dropdown already has Google Sheets support.
+  // exportPlan('sheets') calls /api/export/sheets with the correct payload.
+  // If sheets is not configured, it falls back to XLSX download.
+  // ============================================
+</script>

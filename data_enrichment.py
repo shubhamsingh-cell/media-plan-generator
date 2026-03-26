@@ -90,7 +90,7 @@ _ON_CONFLICT_MAP: dict[str, str] = {
     "salary_data": "role,location",
     "compliance_rules": "rule_type,jurisdiction",
     "market_trends": "category,title,source",
-    "enrichment_log": "source,started_at",
+    "enrichment_log": "source,action",
 }
 
 # -- Smart freshness thresholds (hours) per source -----------------------------
@@ -527,11 +527,13 @@ class DataEnrichmentEngine:
 
         base = SUPABASE_URL.rstrip("/")
         # Encode SELECT parameter to prevent HTTP 400 errors (commas must be %2C)
-        select_param = urllib.parse.quote("source,started_at,success,records", safe="")
+        select_param = urllib.parse.quote(
+            "source,records_affected,details,created_at", safe=""
+        )
         url = (
             f"{base}/rest/v1/enrichment_log"
             f"?select={select_param}"
-            "&order=started_at.desc"
+            "&order=created_at.desc"
             "&limit=50"
         )
         headers = _build_supabase_headers()
@@ -556,8 +558,15 @@ class DataEnrichmentEngine:
             for row in rows:
                 source = row.get("source") or ""
                 if source and source not in last_runs:
-                    last_runs[source] = row.get("started_at") or ""
-                if row.get("success"):
+                    last_runs[source] = row.get("created_at") or ""
+                # Parse success from details JSONB
+                details = row.get("details")
+                if isinstance(details, str):
+                    try:
+                        details = json.loads(details)
+                    except (json.JSONDecodeError, TypeError):
+                        details = {}
+                if isinstance(details, dict) and details.get("success"):
                     total_ok += 1
                 else:
                     total_fail += 1
@@ -598,13 +607,12 @@ class DataEnrichmentEngine:
             success: Whether the enrichment succeeded.
             records: Number of records processed.
         """
-        now_iso = datetime.now(timezone.utc).isoformat()
         row = {
+            "table_name": "data_enrichment",
+            "action": "refresh",
             "source": source,
-            "started_at": now_iso,
-            "success": success,
-            "records": records,
-            "metadata": {},
+            "records_affected": records,
+            "details": json.dumps({"success": success}),
         }
         _upsert_to_supabase("enrichment_log", [row])
 

@@ -5,7 +5,6 @@ accepts ``handler`` (a ``MediaPlanHandler`` instance) and ``path`` (the
 parsed URL path string).  Returns ``True`` if the route was handled.
 """
 
-import json
 import sys
 import logging
 import urllib.parse

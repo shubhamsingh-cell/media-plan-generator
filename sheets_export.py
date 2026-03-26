@@ -27,7 +27,7 @@ import urllib.request
 import urllib.error
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -95,7 +95,6 @@ def _build_jwt(creds: Dict[str, str]) -> str:
     """
     import base64
     import struct
-    import hashlib
     import subprocess
     import tempfile
 

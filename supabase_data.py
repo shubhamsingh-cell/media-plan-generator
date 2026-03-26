@@ -575,12 +575,122 @@ def get_vendor_profiles(category: str = "") -> list[dict[str, Any]]:
     return result
 
 
+def _fallback_supply_repository(
+    category: str = "", country: str = ""
+) -> list[dict[str, Any]]:
+    """Fall back to local JSON then hardcoded defaults for supply repository.
+
+    Tries loading local publisher JSON files first.  If none exist, returns
+    a small set of well-known programmatic job board publishers as defaults.
+
+    Args:
+        category: Optional publisher category filter.
+        country: Optional country filter.
+
+    Returns:
+        List of publisher dicts, or hardcoded defaults.
+    """
+    result: list[dict[str, Any]] = []
+    for filename in ("joveo_publishers.json", "global_supply.json", "channels_db.json"):
+        data = _load_local_json(filename)
+        if data and isinstance(data, dict):
+            result.append({"source_file": filename, "data": data})
+
+    if result:
+        return result
+
+    # Hardcoded defaults when no local files exist
+    _defaults = [
+        {
+            "name": "Indeed",
+            "category": "job_board",
+            "type": "CPC",
+            "countries": ["US", "UK", "CA", "AU", "IN"],
+            "avg_cpc_usd": 0.25,
+        },
+        {
+            "name": "ZipRecruiter",
+            "category": "job_board",
+            "type": "CPC",
+            "countries": ["US", "UK", "CA"],
+            "avg_cpc_usd": 0.30,
+        },
+        {
+            "name": "Glassdoor",
+            "category": "job_board",
+            "type": "CPC",
+            "countries": ["US", "UK", "CA", "AU"],
+            "avg_cpc_usd": 0.35,
+        },
+        {
+            "name": "LinkedIn",
+            "category": "professional_network",
+            "type": "CPC",
+            "countries": ["US", "UK", "CA", "AU", "IN", "DE", "FR"],
+            "avg_cpc_usd": 1.50,
+        },
+        {
+            "name": "CareerBuilder",
+            "category": "job_board",
+            "type": "CPC",
+            "countries": ["US"],
+            "avg_cpc_usd": 0.28,
+        },
+        {
+            "name": "Monster",
+            "category": "job_board",
+            "type": "CPC",
+            "countries": ["US", "UK", "CA", "DE", "FR"],
+            "avg_cpc_usd": 0.22,
+        },
+        {
+            "name": "SimplyHired",
+            "category": "aggregator",
+            "type": "CPC",
+            "countries": ["US", "UK", "CA", "AU", "IN"],
+            "avg_cpc_usd": 0.18,
+        },
+        {
+            "name": "Jooble",
+            "category": "aggregator",
+            "type": "CPC",
+            "countries": ["US", "UK", "CA", "AU", "DE", "FR", "IN", "BR", "MX"],
+            "avg_cpc_usd": 0.12,
+        },
+        {
+            "name": "Adzuna",
+            "category": "aggregator",
+            "type": "CPC",
+            "countries": ["US", "UK", "AU", "CA", "DE", "FR", "IN", "NL", "BR"],
+            "avg_cpc_usd": 0.15,
+        },
+        {
+            "name": "Talent.com",
+            "category": "aggregator",
+            "type": "CPC",
+            "countries": ["US", "CA", "UK", "AU", "FR", "DE"],
+            "avg_cpc_usd": 0.20,
+        },
+    ]
+
+    if category:
+        cat_lower = category.lower()
+        _defaults = [
+            d for d in _defaults if cat_lower in (d.get("category") or "").lower()
+        ]
+    if country:
+        country_upper = country.upper()
+        _defaults = [d for d in _defaults if country_upper in d.get("countries", [])]
+
+    return _defaults
+
+
 def get_supply_repository(
     category: str = "", country: str = ""
 ) -> list[dict[str, Any]]:
     """Get supply repository publishers, optionally filtered.
 
-    Tries Supabase first, falls back to local JSON.
+    Tries Supabase first, falls back to local JSON, then hardcoded defaults.
 
     Args:
         category: Optional publisher category filter.
@@ -608,13 +718,7 @@ def get_supply_repository(
         _cache_set(cache_key, rows)
         return rows
 
-    # Fallback: load from local files
-    result: list[dict[str, Any]] = []
-    for filename in ("joveo_publishers.json", "global_supply.json", "channels_db.json"):
-        data = _load_local_json(filename)
-        if data and isinstance(data, dict):
-            result.append({"source_file": filename, "data": data})
-
+    result = _fallback_supply_repository(category, country)
     if result:
         _cache_set(cache_key, result)
     return result

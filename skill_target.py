@@ -15,7 +15,7 @@ import io
 import logging
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -24,8 +24,6 @@ logger = logging.getLogger(__name__)
 try:
     from collar_intelligence import (
         classify_collar,
-        get_blended_allocation,
-        get_collar_comparison,
         analyze_skills_gap,
         COLLAR_STRATEGY,
         ROLE_SKILLS_MAP,
@@ -41,10 +39,7 @@ except ImportError:
 
 try:
     from research import (
-        get_market_trends,
         get_location_info,
-        get_location_boards,
-        get_media_platform_audiences,
     )
 
     _HAS_RESEARCH = True
@@ -52,14 +47,14 @@ except ImportError:
     _HAS_RESEARCH = False
 
 try:
-    from api_enrichment import fetch_salary_data, fetch_location_demographics
+    from api_enrichment import fetch_salary_data
 
     _HAS_API = True
 except ImportError:
     _HAS_API = False
 
 try:
-    from shared_utils import INDUSTRY_LABEL_MAP, parse_budget
+    from shared_utils import INDUSTRY_LABEL_MAP
 
     _HAS_UTILS = True
 except ImportError:
@@ -1146,8 +1141,9 @@ _SKILL_CATEGORY_CHANNELS: Dict[str, Dict[str, Any]] = {
             },
         ],
         "messaging": "Career growth, tech stack, remote flexibility, equity/compensation",
-        "avg_cpc_range": [1.80, 5.50],
-        "avg_cpa_range": [25, 80],
+        # Updated 2026-03-26. Source: WordStream/LOCALiQ 2025, Appcast 2026.
+        "avg_cpc_range": [2.00, 6.00],
+        "avg_cpa_range": [28, 85],
     },
     "healthcare": {
         "channels": [
@@ -1188,8 +1184,9 @@ _SKILL_CATEGORY_CHANNELS: Dict[str, Dict[str, Any]] = {
             },
         ],
         "messaging": "Sign-on bonus, shift flexibility, patient ratio, CE support",
-        "avg_cpc_range": [0.90, 3.50],
-        "avg_cpa_range": [18, 55],
+        # Updated 2026-03-26. Source: WordStream/LOCALiQ 2025, Appcast 2026.
+        "avg_cpc_range": [1.00, 3.80],
+        "avg_cpa_range": [20, 60],
     },
     "trades": {
         "channels": [
@@ -1226,8 +1223,9 @@ _SKILL_CATEGORY_CHANNELS: Dict[str, Dict[str, Any]] = {
             },
         ],
         "messaging": "Pay rate, sign-on bonus, tools provided, schedule, proximity",
-        "avg_cpc_range": [0.30, 1.50],
-        "avg_cpa_range": [8, 28],
+        # Updated 2026-03-26. Source: WordStream/LOCALiQ 2025, Appcast 2026.
+        "avg_cpc_range": [0.35, 1.70],
+        "avg_cpa_range": [9, 30],
     },
     "business": {
         "channels": [
@@ -1268,8 +1266,9 @@ _SKILL_CATEGORY_CHANNELS: Dict[str, Dict[str, Any]] = {
             },
         ],
         "messaging": "Career progression, compensation, culture, hybrid/remote, benefits",
-        "avg_cpc_range": [1.20, 4.00],
-        "avg_cpa_range": [20, 65],
+        # Updated 2026-03-26. Source: WordStream/LOCALiQ 2025, Appcast 2026.
+        "avg_cpc_range": [1.30, 4.50],
+        "avg_cpa_range": [22, 70],
     },
     "service": {
         "channels": [
@@ -1297,8 +1296,9 @@ _SKILL_CATEGORY_CHANNELS: Dict[str, Dict[str, Any]] = {
             {"name": "Craigslist", "weight": 0.07, "reason": "Local reach"},
         ],
         "messaging": "Flexible schedule, tips/hourly rate, team environment, benefits",
-        "avg_cpc_range": [0.25, 1.00],
-        "avg_cpa_range": [6, 22],
+        # Updated 2026-03-26. Source: WordStream/LOCALiQ 2025, Appcast 2026.
+        "avg_cpc_range": [0.30, 1.10],
+        "avg_cpa_range": [7, 24],
     },
     "education": {
         "channels": [
@@ -1331,8 +1331,9 @@ _SKILL_CATEGORY_CHANNELS: Dict[str, Dict[str, Any]] = {
             {"name": "Facebook", "weight": 0.05, "reason": "Community teacher groups"},
         ],
         "messaging": "Mission, impact, benefits, schedule, professional development",
-        "avg_cpc_range": [0.80, 2.50],
-        "avg_cpa_range": [15, 45],
+        # Updated 2026-03-26. Source: WordStream/LOCALiQ 2025, Appcast 2026.
+        "avg_cpc_range": [0.90, 2.80],
+        "avg_cpa_range": [16, 48],
     },
     "legal": {
         "channels": [
@@ -1365,8 +1366,9 @@ _SKILL_CATEGORY_CHANNELS: Dict[str, Dict[str, Any]] = {
             },
         ],
         "messaging": "Practice area, billable expectations, partnership track, pro bono",
-        "avg_cpc_range": [2.00, 6.00],
-        "avg_cpa_range": [30, 90],
+        # Updated 2026-03-26. Source: WordStream/LOCALiQ 2025 (Legal CPC $8.58 commercial).
+        "avg_cpc_range": [2.20, 6.50],
+        "avg_cpa_range": [32, 95],
     },
 }
 

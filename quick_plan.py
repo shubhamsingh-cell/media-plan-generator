@@ -15,11 +15,10 @@ Thread-safe, never crashes (all exceptions caught and degraded gracefully).
 from __future__ import annotations
 
 import logging
-import math
 import re
 import threading
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -1402,8 +1401,8 @@ def _generate_ab_testing_recommendations(
             "min_sample_size": 300,
             "priority": "high",
             "expected_lift_pct": 20,
-            "variant_a": msg_test.get("variant_a", ""),
-            "variant_b": msg_test.get("variant_b", ""),
+            "variant_a": msg_test.get("variant_a") or "",
+            "variant_b": msg_test.get("variant_b") or "",
         }
     )
 
@@ -1443,7 +1442,9 @@ def _generate_ab_testing_recommendations(
                     f"Test CPC-optimized bidding vs CPA-optimized bidding on programmatic channels. "
                     f"CPA bidding often delivers better ROI for established campaigns with conversion data."
                 ),
-                "channels": [c.get("channel_name", "") for c in programmatic_channels],
+                "channels": [
+                    (c.get("channel_name") or "") for c in programmatic_channels
+                ],
                 "duration_days": 21,
                 "min_sample_size": 500,
                 "priority": "medium",

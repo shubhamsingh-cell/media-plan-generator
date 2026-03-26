@@ -6,8 +6,8 @@ services:
     region: oregon
     autoDeploy: true
     buildCommand: pip install -r requirements.txt
-    preDeployCommand: python3 -c "import py_compile; py_compile.compile('app.py', doraise=True)"
-    startCommand: python app.py
+    preDeployCommand: python3 -c "import py_compile; py_compile.compile('app.py', doraise=True); py_compile.compile('wsgi.py', doraise=True)"
+    startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 4 --threads 2 --timeout 120 --preload --access-logfile - --error-logfile - wsgi:app
     healthCheckPath: /
     healthCheckGracePeriod: 300
     # Blue-green deploy gate: poll /api/deploy/ready in CI/CD scripts
@@ -21,6 +21,8 @@ services:
         value: 3.11.0
       - key: LOG_LEVEL
         value: INFO
+      - key: RENDER
+        value: "true"
       # --- Secrets (set via Render dashboard, not committed) ---
       - key: ADMIN_API_KEY
         sync: false  # Must be set in Render dashboard
@@ -54,6 +56,8 @@ services:
         sync: false
       - key: ONET_PASSWORD
         sync: false
+      - key: ONET_API_KEY
+        sync: false
       - key: GEONAMES_USERNAME
         sync: false
       # --- Free LLM Providers (v3.1 LLM Router) ---
@@ -72,6 +76,14 @@ services:
       - key: RESEND_API_KEY
         sync: false
       - key: ALERT_EMAIL_TO
+        sync: false
+      # --- Slack Alerts (slack_alerts.py, slack_alerter.py, sentry_integration.py) ---
+      - key: SLACK_WEBHOOK_URL
+        sync: false
+      # --- Google Calendar Sync (calendar_sync.py) ---
+      - key: GOOGLE_CALENDAR_CREDENTIALS
+        sync: false
+      - key: GOOGLE_CALENDAR_ID
         sync: false
       # --- TTS (ElevenLabs) ---
       - key: ELEVENLABS_API_KEY

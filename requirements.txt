@@ -28,3 +28,6 @@ chromadb>=0.5.0,<1.0.0
 
 # Google Calendar API JWT signing (optional: guarded with try/except in calendar_sync.py)
 cryptography>=42.0.0,<44.0.0
+
+# Production WSGI server (used on Render.com; local dev uses stdlib ThreadedHTTPServer)
+gunicorn>=22.0.0,<24.0.0

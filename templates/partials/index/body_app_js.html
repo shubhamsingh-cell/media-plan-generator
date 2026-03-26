@@ -1,0 +1,3604 @@
+<script>
+  let currentStep = 1;
+  const totalSteps = 5;
+  let channelsDB = null;
+  let selectedIndustry = null;
+  let selectedJobCategories = [];
+
+  // Module-level AbortController for generation cancellation
+  let _genAbortController = null;
+  let locations = [];
+  let roles = [];
+  let competitors = [];
+  let lastGeneratedBlob = null;
+  let lastGeneratedFilename = null;
+
+  // ============================================
+  // File upload state & handlers
+  // ============================================
+  let briefFiles = [];
+  let transcriptFiles = [];
+  let historicalFiles = [];
+
+  function initFileUploads() {
+    _wireUploadZone("briefUploadZone", "briefFileInput", handleBriefFiles);
+    _wireUploadZone(
+      "transcriptUploadZone",
+      "transcriptFileInput",
+      handleTranscriptFiles,
+    );
+    _wireUploadZone(
+      "historicalUploadZone",
+      "historicalFileInput",
+      handleHistoricalFiles,
+    );
+
+    // Exact input toggles
+    const budgetSel = document.getElementById("budgetRange");
+    const hireSel = document.getElementById("hireVolume");
+    if (budgetSel) budgetSel.addEventListener("change", toggleExactBudget);
+    if (hireSel) hireSel.addEventListener("change", toggleExactHires);
+
+    // Clear validation errors and add visual feedback on select change
+    [
+      "budgetRange",
+      "campaignDuration",
+      "campaignStartMonth",
+      "hireVolume",
+    ].forEach(function (id) {
+      var sel = document.getElementById(id);
+      if (sel) {
+        sel.addEventListener("change", function () {
+          // Clear any field-error state
+          if (typeof _clearFieldError === "function") _clearFieldError(sel);
+          // Toggle has-value class for visual feedback
+          if (sel.value) {
+            sel.classList.add("has-value");
+          } else {
+            sel.classList.remove("has-value");
+          }
+        });
+      }
+    });
+  }
+
+  function _wireUploadZone(zoneId, inputId, handler) {
+    const zone = document.getElementById(zoneId);
+    const input = document.getElementById(inputId);
+    if (!zone || !input) return;
+
+    zone.addEventListener("click", () => input.click());
+    input.addEventListener("change", () => handler(input.files));
+
+    zone.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      zone.classList.add("drag-over");
+    });
+    zone.addEventListener("dragleave", () =>
+      zone.classList.remove("drag-over"),
+    );
+    zone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      zone.classList.remove("drag-over");
+      handler(e.dataTransfer.files);
+      input.value = "";
+    });
+  }
+
+  function _readFileAsBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result.split(",")[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function handleBriefFiles(fileList) {
+    for (const f of fileList) {
+      if (f.size > 10 * 1024 * 1024) {
+        showToast(f.name + " exceeds 10MB limit", "warning");
+        continue;
+      }
+      const data = await _readFileAsBase64(f);
+      briefFiles.push({
+        name: f.name,
+        size: f.size,
+        type: f.type,
+        data: data,
+      });
+    }
+    _renderFileList("briefFileList", briefFiles, "brief");
+  }
+
+  async function handleTranscriptFiles(fileList) {
+    for (const f of fileList) {
+      if (f.size > 10 * 1024 * 1024) {
+        showToast(f.name + " exceeds 10MB limit", "warning");
+        continue;
+      }
+      const data = await _readFileAsBase64(f);
+      transcriptFiles.push({
+        name: f.name,
+        size: f.size,
+        type: f.type,
+        data: data,
+      });
+    }
+    _renderFileList("transcriptFileList", transcriptFiles, "transcript");
+  }
+
+  async function handleHistoricalFiles(fileList) {
+    for (const f of fileList) {
+      if (f.size > 10 * 1024 * 1024) {
+        showToast(f.name + " exceeds 10MB limit", "warning");
+        continue;
+      }
+      const data = await _readFileAsBase64(f);
+      historicalFiles.push({
+        name: f.name,
+        size: f.size,
+        type: f.type,
+        data: data,
+      });
+    }
+    _renderFileList("historicalFileList", historicalFiles, "historical");
+  }
+
+  function _renderFileList(containerId, files, type) {
+    const el = document.getElementById(containerId);
+    if (!el) return;
+    el.innerHTML = files
+      .map(
+        (f, i) =>
+          '<div class="file-item">' +
+          '<span><span class="file-item-name">' +
+          f.name +
+          "</span>" +
+          '<span class="file-item-size">(' +
+          (f.size / 1024).toFixed(0) +
+          " KB)</span></span>" +
+          '<span class="file-item-remove" onclick="removeFile(\'' +
+          type +
+          "'," +
+          i +
+          ')">&#10005;</span>' +
+          "</div>",
+      )
+      .join("");
+  }
+
+  function removeFile(type, index) {
+    if (type === "brief") {
+      briefFiles.splice(index, 1);
+      _renderFileList("briefFileList", briefFiles, "brief");
+    } else if (type === "transcript") {
+      transcriptFiles.splice(index, 1);
+      _renderFileList("transcriptFileList", transcriptFiles, "transcript");
+    } else if (type === "historical") {
+      historicalFiles.splice(index, 1);
+      _renderFileList("historicalFileList", historicalFiles, "historical");
+    }
+  }
+
+  function toggleExactBudget() {
+    const sel = document.getElementById("budgetRange");
+    const wrap = document.getElementById("exactBudgetWrap");
+    if (!sel || !wrap) return;
+    wrap.style.display = sel.value === "__exact__" ? "block" : "none";
+    if (sel.value !== "__exact__") {
+      const inp = document.getElementById("exactBudget");
+      if (inp) inp.value = "";
+    }
+  }
+
+  function toggleExactHires() {
+    const sel = document.getElementById("hireVolume");
+    const wrap = document.getElementById("exactHiresWrap");
+    if (!sel || !wrap) return;
+    wrap.style.display = sel.value === "__exact__" ? "block" : "none";
+    if (sel.value !== "__exact__") {
+      const inp = document.getElementById("exactHires");
+      if (inp) inp.value = "";
+    }
+  }
+
+  // ============================================
+  // Budget feasibility check - industry average CPH benchmarks
+  // ============================================
+  const INDUSTRY_CPH_BENCHMARKS = {
+    technology: 4000,
+    healthcare: 3500,
+    finance: 4500,
+    engineering: 5000,
+    retail: 1200,
+    hospitality: 800,
+    logistics: 1500,
+    manufacturing: 2500,
+    construction: 2000,
+    education: 2000,
+    aerospace: 5500,
+    pharmaceutical: 6000,
+    energy: 4000,
+    legal: 5000,
+    general: 2000,
+  };
+
+  // Map budget range strings to approximate midpoint values
+  const BUDGET_MIDPOINTS = {
+    "< $50,000": 25000,
+    "$50,000 - $250,000": 150000,
+    "$250,000 - $500,000": 375000,
+    "$500,000 - $1,000,000": 750000,
+    "$1,000,000 - $3,000,000": 2000000,
+    "$3,000,000+": 3000000,
+  };
+
+  // Map hire volume strings to approximate counts
+  const HIRE_VOLUME_MAP = {
+    "1-10 hires": 5,
+    "10-50 hires": 30,
+    "50-100 hires": 75,
+    "100-500 hires": 300,
+    "500+ hires": 600,
+  };
+
+  // Map data-industry attribute values to CPH benchmark keys
+  function getIndustryCphKey(industryAttr) {
+    if (!industryAttr) return "general";
+    var lower = industryAttr.toLowerCase();
+    var keys = Object.keys(INDUSTRY_CPH_BENCHMARKS);
+    for (var i = 0; i < keys.length; i++) {
+      if (lower.indexOf(keys[i]) !== -1) return keys[i];
+    }
+    return "general";
+  }
+
+  function checkBudgetFeasibility() {
+    var budgetEl = document.getElementById("budgetRange");
+    var hireEl = document.getElementById("hireVolume");
+    if (!budgetEl || !hireEl) return;
+
+    var budgetStr = budgetEl.value;
+    var hireStr = hireEl.value;
+    var industryStr = getIndustryCphKey(selectedIndustry);
+
+    if (!budgetStr || !hireStr) {
+      // Remove any existing warning if inputs are cleared
+      var existingWarning = document.getElementById("budgetFeasibilityWarning");
+      if (existingWarning) existingWarning.remove();
+      return;
+    }
+
+    var budgetMid = BUDGET_MIDPOINTS[budgetStr] || 100000;
+    var hireCount = HIRE_VOLUME_MAP[hireStr] || 10;
+    var industryCph =
+      INDUSTRY_CPH_BENCHMARKS[industryStr] ||
+      INDUSTRY_CPH_BENCHMARKS["general"];
+
+    var budgetPerHire = budgetMid / hireCount;
+    var minViableBudget = industryCph * hireCount;
+    var realisticHires = Math.max(1, Math.floor(budgetMid / industryCph));
+
+    // Remove any existing warning
+    var existingWarning = document.getElementById("budgetFeasibilityWarning");
+    if (existingWarning) existingWarning.remove();
+
+    if (budgetPerHire < industryCph * 0.3) {
+      // Create warning banner
+      var warningDiv = document.createElement("div");
+      warningDiv.id = "budgetFeasibilityWarning";
+      warningDiv.style.cssText =
+        "background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.25);border-radius:8px;padding:14px 18px;margin:12px 0;color:#FBBF24;font-size:14px;line-height:1.5;";
+
+      var severity =
+        budgetPerHire < industryCph * 0.1
+          ? "UNREALISTIC"
+          : "SEVERELY UNDERFUNDED";
+      var warningIcon = "\u26A0\uFE0F";
+
+      warningDiv.innerHTML =
+        "<strong>" +
+        warningIcon +
+        " Budget Reality Check (" +
+        severity +
+        "):</strong><br>" +
+        "A " +
+        budgetStr +
+        " budget for ~" +
+        hireCount +
+        " hires equals ~$" +
+        Math.round(budgetPerHire).toLocaleString() +
+        "/hire \u2014 " +
+        "well below the industry average of ~$" +
+        industryCph.toLocaleString() +
+        "/hire.<br>" +
+        "<strong>Realistic estimate:</strong> This budget could support ~" +
+        realisticHires +
+        " hire(s). " +
+        "To hire " +
+        hireCount +
+        "+, you would need ~$" +
+        minViableBudget.toLocaleString() +
+        "+.";
+
+      // Insert after the hire volume field's parent row
+      var targetEl = hireEl.closest(".form-group") || hireEl.parentElement;
+      var targetRow = targetEl.closest(".form-row") || targetEl;
+      if (targetRow && targetRow.parentElement) {
+        targetRow.parentElement.insertBefore(warningDiv, targetRow.nextSibling);
+      }
+    }
+  }
+
+  // ============================================
+  // HTML escaping helper to prevent XSS
+  // ============================================
+  function escapeHtml(str) {
+    if (str == null) return "";
+    const div = document.createElement("div");
+    div.textContent = String(str);
+    return div.innerHTML;
+  }
+
+  // ============================================
+  // 22. Toast notification system
+  // ============================================
+  function showToast(message, type = "info") {
+    const container = document.getElementById("toastContainer");
+    const toast = document.createElement("div");
+    toast.className = `toast-item toast-${type}`;
+    toast.setAttribute("role", "alert");
+    toast.setAttribute("aria-live", "polite");
+
+    const icons = {
+      success: "&#10004;",
+      error: "&#10008;",
+      warning: "&#9888;",
+      info: "&#8505;",
+    };
+
+    const iconSpan = document.createElement("span");
+    iconSpan.className = "toast-icon";
+    iconSpan.innerHTML = icons[type] || icons.info;
+    const msgSpan = document.createElement("span");
+    msgSpan.className = "toast-message";
+    msgSpan.textContent = message;
+
+    const closeSpan = document.createElement("span");
+    closeSpan.className = "toast-close";
+    closeSpan.textContent = "\u00d7";
+    closeSpan.setAttribute("aria-label", "Dismiss notification");
+    closeSpan.setAttribute("role", "button");
+    closeSpan.setAttribute("tabindex", "0");
+    closeSpan.onclick = function () {
+      toast.classList.add("toast-exiting");
+      setTimeout(() => toast.remove(), 300);
+    };
+    closeSpan.onkeydown = function (e) {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        closeSpan.onclick();
+      }
+    };
+
+    toast.appendChild(iconSpan);
+    toast.appendChild(msgSpan);
+    toast.appendChild(closeSpan);
+
+    container.appendChild(toast);
+
+    // Error toasts persist until manually dismissed; others auto-dismiss after 5s
+    if (type !== "error") {
+      setTimeout(() => {
+        if (toast.parentElement) {
+          toast.classList.add("toast-exiting");
+          setTimeout(() => {
+            if (toast.parentElement) toast.remove();
+          }, 300);
+        }
+      }, 5000);
+    }
+  }
+
+  // ============================================
+  // Plan Summary Dashboard Builder
+  // ============================================
+  function buildPlanDashboard(payload, serverData) {
+    const container = document.getElementById("planDashboardContent");
+    if (!container) return;
+    const sd = serverData || {};
+    const channels = sd.channels || [];
+    const bs = sd.budget_summary || {};
+    const mi = sd.market_insights || {};
+    const recs = sd.recommendations || [];
+    const meta = sd.metadata || {};
+
+    // Fallback values from payload when server data is unavailable
+    const budgetDisplay = bs.total
+      ? "$" + Number(bs.total).toLocaleString()
+      : payload.budget_range || "Not specified";
+    const rolesCount = (meta.roles || payload.target_roles || []).length;
+    const locationsCount = (meta.locations || payload.locations || []).length;
+    const channelCount =
+      channels.length ||
+      Object.keys(payload.channel_categories || {}).filter(
+        (k) => payload.channel_categories[k] !== false,
+      ).length;
+
+    // Compute avg CPC from server channels
+    let avgCpc = "N/A";
+    if (channels.length > 0) {
+      const cpcNums = channels
+        .map((c) => parseFloat(String(c.cpc_range).replace(/[^0-9.]/g, "")))
+        .filter((n) => n > 0);
+      if (cpcNums.length > 0)
+        avgCpc =
+          "$" +
+          (cpcNums.reduce((a, b) => a + b, 0) / cpcNums.length).toFixed(2);
+    }
+
+    const hiringDiff = mi.hiring_difficulty || "moderate";
+    const diffClass = /easy|low|favorable/i.test(hiringDiff)
+      ? "favorable"
+      : /hard|high|challenging|difficult/i.test(hiringDiff)
+        ? "challenging"
+        : "moderate";
+
+    let html = '<div class="plan-dashboard">';
+
+    // ── 1. Summary Cards Row ──
+    html += '<div class="plan-dashboard-title">Plan Results Dashboard</div>';
+    html += '<div class="plan-metrics-row">';
+    html +=
+      '<div class="plan-metric-card"><div class="plan-metric-label">Total Budget</div><div class="plan-metric-value accent">' +
+      escapeHtml(budgetDisplay) +
+      "</div></div>";
+    html +=
+      '<div class="plan-metric-card"><div class="plan-metric-label">Channels Selected</div><div class="plan-metric-value">' +
+      channelCount +
+      "</div></div>";
+    html +=
+      '<div class="plan-metric-card"><div class="plan-metric-label">Avg CPC</div><div class="plan-metric-value">' +
+      escapeHtml(avgCpc) +
+      "</div></div>";
+    html +=
+      '<div class="plan-metric-card"><div class="plan-metric-label">Hiring Difficulty</div><div class="plan-metric-value ' +
+      diffClass +
+      '">' +
+      escapeHtml(hiringDiff.charAt(0).toUpperCase() + hiringDiff.slice(1)) +
+      "</div></div>";
+    html += "</div>";
+
+    // ── 2. Channel Allocation Chart (inline SVG) ──
+    if (channels.length > 0) {
+      html += '<div class="plan-section-label">Channel Budget Allocation</div>';
+      html += '<div class="plan-svg-chart">';
+      const maxBudget = Math.max(...channels.map((c) => c.budget), 1);
+      const barH = 28,
+        gap = 8,
+        labelW = 150,
+        chartW = 500,
+        padR = 90;
+      const svgH = channels.length * (barH + gap) + 10;
+      const colors = [
+        "#5a54bd",
+        "#6bb3cd",
+        "#7b75d4",
+        "#f59e0b",
+        "#06b6d4",
+        "#f43f5e",
+        "#a78bfa",
+        "#34d399",
+      ];
+      html +=
+        '<svg width="100%" viewBox="0 0 ' +
+        (labelW + chartW + padR) +
+        " " +
+        svgH +
+        '" role="img" aria-label="Channel allocation chart">';
+      channels.forEach((ch, i) => {
+        const y = i * (barH + gap) + 5;
+        const w = Math.max((ch.budget / maxBudget) * chartW, 4);
+        const col = colors[i % colors.length];
+        html +=
+          '<text x="' +
+          (labelW - 8) +
+          '" y="' +
+          (y + barH / 2 + 4) +
+          '" fill="#a1a1a1" font-size="12" text-anchor="end" font-family="Inter,sans-serif">' +
+          escapeHtml(ch.name) +
+          "</text>";
+        html +=
+          '<rect x="' +
+          labelW +
+          '" y="' +
+          y +
+          '" width="0" height="' +
+          barH +
+          '" rx="4" fill="' +
+          col +
+          '" opacity="0.85"><animate attributeName="width" from="0" to="' +
+          w +
+          '" dur="0.8s" fill="freeze" begin="0.' +
+          i * 1 +
+          's"/></rect>';
+        html +=
+          '<text x="' +
+          (labelW + w + 8) +
+          '" y="' +
+          (y + barH / 2 + 4) +
+          '" fill="#d4d4d8" font-size="11" font-family="Inter,sans-serif" font-weight="600">$' +
+          Number(ch.budget).toLocaleString() +
+          " (" +
+          ch.allocation_pct +
+          "%)</text>";
+      });
+      html += "</svg></div>";
+    }
+
+    // ── 2b. Sankey Flow Budget Visualizer ──
+    if (channels.length > 1) {
+      html += '<div class="plan-section-label">Budget Flow</div>';
+      html +=
+        '<div id="sankeyFlowContainer" style="margin:0 0 16px;padding:12px;' +
+        "background:rgba(32,32,88,0.15);border-radius:12px;" +
+        'border:1px solid rgba(90,84,189,0.15);overflow:hidden;">' +
+        '<div style="color:#9ca3af;text-align:center;padding:30px;font-family:Inter,sans-serif;">' +
+        "Loading flow diagram...</div></div>";
+    }
+
+    // ── 3. Channel Details Table (sortable) ──
+    if (channels.length > 0) {
+      html += '<div class="plan-section-label">Channel Details</div>';
+      html +=
+        '<div class="plan-table-wrap"><table class="plan-table" id="planChannelTable">';
+      html += "<thead><tr>";
+      html +=
+        '<th data-col="name">Channel <span class="sort-arrow">&#9650;</span></th>';
+      html +=
+        '<th data-col="budget">Budget <span class="sort-arrow">&#9650;</span></th>';
+      html +=
+        '<th data-col="allocation_pct">% <span class="sort-arrow">&#9650;</span></th>';
+      html +=
+        '<th data-col="cpc_range">CPC Range <span class="sort-arrow">&#9650;</span></th>';
+      html +=
+        '<th data-col="cpa_range">CPA Range <span class="sort-arrow">&#9650;</span></th>';
+      html +=
+        '<th data-col="projected_clicks">Proj. Clicks <span class="sort-arrow">&#9650;</span></th>';
+      html += "</tr></thead><tbody>";
+      channels.forEach((ch) => {
+        html += "<tr>";
+        html +=
+          '<td style="color:white;font-weight:500">' +
+          escapeHtml(ch.name) +
+          "</td>";
+        html += "<td>$" + Number(ch.budget).toLocaleString() + "</td>";
+        html += "<td>" + ch.allocation_pct + "%</td>";
+        html += "<td>" + escapeHtml(ch.cpc_range) + "</td>";
+        html += "<td>" + escapeHtml(ch.cpa_range) + "</td>";
+        html += "<td>" + Number(ch.projected_clicks).toLocaleString() + "</td>";
+        html += "</tr>";
+      });
+      html += "</tbody></table></div>";
+    }
+
+    // ── 4. Market Insights Panel ──
+    html += '<div class="plan-section-label">Market Insights</div>';
+    html += '<div class="plan-market-insights">';
+    const insightItems = [
+      {
+        label: "Hiring Difficulty",
+        val: mi.hiring_difficulty || "moderate",
+      },
+      { label: "Competition Level", val: mi.competition_level || "medium" },
+      { label: "Salary Range", val: mi.salary_range || "N/A" },
+      { label: "Demand Trend", val: mi.demand_trend || "stable" },
+    ];
+    insightItems.forEach((item) => {
+      const cls = /easy|low|favorable|growing|high.demand/i.test(item.val)
+        ? "favorable"
+        : /hard|challenging|difficult|declining/i.test(item.val)
+          ? "challenging"
+          : "moderate";
+      html +=
+        '<div class="plan-insight-item"><div class="insight-label">' +
+        escapeHtml(item.label) +
+        '</div><div class="insight-val ' +
+        cls +
+        '">' +
+        escapeHtml(
+          String(item.val).charAt(0).toUpperCase() + String(item.val).slice(1),
+        ) +
+        "</div></div>";
+    });
+    html += "</div>";
+
+    // ── 4b. Seasonal Impact Card ──
+    var startMonth = payload.campaign_start_month || new Date().getMonth() + 1;
+    var seasonalData = {
+      quarter: "",
+      label: "",
+      impact: "",
+      color: "",
+      adjustment: 1.0,
+    };
+    if (startMonth >= 1 && startMonth <= 3) {
+      seasonalData = {
+        quarter: "Q1",
+        label: "Peak Hiring Season",
+        impact:
+          "Expect 15-20% higher costs due to New Year hiring surge and budget refreshes. Competition for talent is at its highest.",
+        color: "#f87171",
+        adjustment: 1.18,
+      };
+    } else if (startMonth >= 4 && startMonth <= 6) {
+      seasonalData = {
+        quarter: "Q2",
+        label: "Strong Hiring Period",
+        impact:
+          "Moderate competition with steady demand. Good balance of candidate availability and cost efficiency.",
+        color: "#fbbf24",
+        adjustment: 1.08,
+      };
+    } else if (startMonth >= 7 && startMonth <= 9) {
+      seasonalData = {
+        quarter: "Q3",
+        label: "Summer Slowdown",
+        impact:
+          "Potential cost savings as competition decreases. Candidate response rates may be lower due to vacations.",
+        color: "#4ade80",
+        adjustment: 0.92,
+      };
+    } else {
+      seasonalData = {
+        quarter: "Q4",
+        label: "Holiday Slowdown",
+        impact:
+          "Reduced activity as holiday season approaches. Plan ahead for Q1 ramp-up to secure budget and placements early.",
+        color: "#60a5fa",
+        adjustment: 0.88,
+      };
+    }
+    html += '<div class="plan-section-label">Seasonal Impact</div>';
+    html +=
+      '<div class="plan-insights-card" style="border-left:3px solid ' +
+      seasonalData.color +
+      '">';
+    html +=
+      '<div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">';
+    html +=
+      '<span style="font-size:24px;font-weight:700;color:' +
+      seasonalData.color +
+      '">' +
+      seasonalData.quarter +
+      "</span>";
+    html +=
+      '<div><div style="color:white;font-weight:600;font-size:14px">' +
+      escapeHtml(seasonalData.label) +
+      "</div>";
+    html +=
+      '<div style="color:var(--text-muted);font-size:12px">Month ' +
+      startMonth +
+      " start</div></div></div>";
+    html +=
+      '<div style="color:var(--text-secondary);font-size:13px;line-height:1.6">' +
+      escapeHtml(seasonalData.impact) +
+      "</div>";
+    html +=
+      '<div style="margin-top:10px;padding:8px 12px;background:rgba(255,255,255,0.04);border-radius:8px;font-size:12px;color:var(--text-muted)">';
+    html +=
+      'Budget adjustment factor: <strong style="color:' +
+      seasonalData.color +
+      '">' +
+      (seasonalData.adjustment >= 1 ? "+" : "") +
+      Math.round((seasonalData.adjustment - 1) * 100) +
+      "%</strong>";
+    html +=
+      " — Consider " +
+      (seasonalData.adjustment >= 1 ? "increasing" : "decreasing") +
+      " budget by this factor for optimal ROI.</div>";
+    html += "</div>";
+
+    // ── 5. AI Recommendations ──
+    const finalRecs =
+      recs.length > 0
+        ? recs
+        : [
+            "Targeting " +
+              rolesCount +
+              " role(s) across " +
+              locationsCount +
+              " location(s).",
+            "Full channel strategy included in downloaded files.",
+            "Review plan and reallocate underperforming channels after 2 weeks.",
+          ];
+    html += '<div class="plan-section-label">AI Recommendations</div>';
+    html += '<div class="plan-insights-card"><ul class="plan-recs-list">';
+    finalRecs.forEach((r, i) => {
+      html +=
+        '<li><span class="plan-rec-icon">' +
+        (i + 1) +
+        "</span><span>" +
+        escapeHtml(r) +
+        "</span></li>";
+    });
+    html += "</ul></div>";
+
+    // ── 6. Download Section ──
+    html += '<div class="plan-section-label">Downloads</div>';
+    html += '<div style="display:flex;gap:12px;flex-wrap:wrap">';
+    html +=
+      '<button onclick="redownloadBundle()" style="background:var(--primary);color:white;border:none;padding:10px 24px;border-radius:8px;cursor:pointer;font-family:inherit;font-weight:600;font-size:0.88rem;">Download Excel + PPT</button>';
+    html +=
+      '<button onclick="exportPlan(\'csv\')" style="background:rgba(255,255,255,0.08);color:var(--text-secondary);border:1px solid rgba(255,255,255,0.12);padding:10px 24px;border-radius:8px;cursor:pointer;font-family:inherit;font-weight:600;font-size:0.88rem;">Export CSV</button>';
+    html += "</div>";
+
+    html += "</div>"; // .plan-dashboard
+    container.innerHTML = html;
+
+    // ── Render Sankey Flow Diagram (if script loaded and container exists) ──
+    var sankeyContainer = document.getElementById("sankeyFlowContainer");
+    if (
+      sankeyContainer &&
+      typeof SankeyViz !== "undefined" &&
+      channels.length > 1
+    ) {
+      try {
+        var sankeyBudget =
+          Number(bs.total) ||
+          channels.reduce(function (s, c) {
+            return s + (Number(c.budget) || 0);
+          }, 0);
+        SankeyViz.render(
+          sankeyContainer,
+          {
+            budget: sankeyBudget,
+            channels: channels,
+          },
+          {
+            width: 900,
+            height: Math.max(320, channels.length * 60 + 80),
+            animate: true,
+            interactive: true,
+          },
+        );
+      } catch (sankeyErr) {
+        console.warn("[SankeyViz] Render error:", sankeyErr);
+        sankeyContainer.innerHTML =
+          '<div style="color:#9ca3af;text-align:center;padding:20px;font-size:12px;">' +
+          "Flow diagram unavailable</div>";
+      }
+    }
+
+    // Animate SVG bars (already handled by inline <animate>)
+
+    // Wire sortable table headers
+    const table = document.getElementById("planChannelTable");
+    if (table && channels.length > 0) {
+      let sortCol = null,
+        sortAsc = true;
+      table.querySelectorAll("th[data-col]").forEach((th) => {
+        th.addEventListener("click", function () {
+          const col = this.dataset.col;
+          if (sortCol === col) {
+            sortAsc = !sortAsc;
+          } else {
+            sortCol = col;
+            sortAsc = true;
+          }
+          table
+            .querySelectorAll("th")
+            .forEach((h) => h.classList.remove("sorted"));
+          this.classList.add("sorted");
+          this.querySelector(".sort-arrow").innerHTML = sortAsc
+            ? "&#9650;"
+            : "&#9660;";
+          const sorted = [...channels].sort((a, b) => {
+            let va = a[col],
+              vb = b[col];
+            if (typeof va === "number") return sortAsc ? va - vb : vb - va;
+            return sortAsc
+              ? String(va).localeCompare(String(vb))
+              : String(vb).localeCompare(String(va));
+          });
+          const tbody = table.querySelector("tbody");
+          tbody.innerHTML = "";
+          sorted.forEach((ch) => {
+            let row = "<tr>";
+            row +=
+              '<td style="color:white;font-weight:500">' +
+              escapeHtml(ch.name) +
+              "</td>";
+            row += "<td>$" + Number(ch.budget).toLocaleString() + "</td>";
+            row += "<td>" + ch.allocation_pct + "%</td>";
+            row += "<td>" + escapeHtml(ch.cpc_range) + "</td>";
+            row += "<td>" + escapeHtml(ch.cpa_range) + "</td>";
+            row +=
+              "<td>" + Number(ch.projected_clicks).toLocaleString() + "</td>";
+            row += "</tr>";
+            tbody.innerHTML += row;
+          });
+        });
+      });
+    }
+
+    // Show the dashboard section
+    const section = document.getElementById("planDashboardSection");
+    if (section) {
+      section.classList.add("visible");
+    }
+  }
+
+  // ============================================
+  // Copy Plan to Clipboard
+  // ============================================
+  function copyPlanToClipboard() {
+    var dashboard = document.getElementById("planDashboardSection");
+    if (!dashboard) return;
+    var text = dashboard.innerText;
+    navigator.clipboard
+      .writeText(text)
+      .then(function () {
+        var btn = document.querySelector(".btn-copy-plan");
+        if (!btn) return;
+        var orig = btn.innerHTML;
+        btn.innerHTML =
+          '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6BB3CD" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Copied!';
+        setTimeout(function () {
+          btn.innerHTML = orig;
+        }, 2000);
+      })
+      .catch(function (err) {
+        console.error("Copy failed:", err);
+      });
+  }
+
+  // ============================================
+  // Form State Persistence (sessionStorage)
+  // ============================================
+  const _FORM_STORAGE_KEY = "nova_plan_form";
+  function saveFormState() {
+    try {
+      const state = {
+        clientName: (document.getElementById("clientName") || {}).value || "",
+        clientWebsite:
+          (document.getElementById("clientWebsite") || {}).value || "",
+        useCase: (document.getElementById("useCase") || {}).value || "",
+        budgetRange: (document.getElementById("budgetRange") || {}).value || "",
+        exactBudget: (document.getElementById("exactBudget") || {}).value || "",
+        campaignDuration:
+          (document.getElementById("campaignDuration") || {}).value || "",
+        campaignStartMonth:
+          (document.getElementById("campaignStartMonth") || {}).value || "",
+        hireVolume: (document.getElementById("hireVolume") || {}).value || "",
+        exactHires: (document.getElementById("exactHires") || {}).value || "",
+        targetDemographic:
+          (document.getElementById("targetDemographic") || {}).value || "",
+        requesterName:
+          (document.getElementById("requesterName") || {}).value || "",
+        requesterEmail:
+          (document.getElementById("requesterEmail") || {}).value || "",
+        selectedIndustry: selectedIndustry || null,
+        locations: locations || [],
+        roles: roles || [],
+        competitors: competitors || [],
+        ts: Date.now(),
+      };
+      sessionStorage.setItem(_FORM_STORAGE_KEY, JSON.stringify(state));
+    } catch (_e) {
+      /* quota exceeded or private browsing */
+    }
+  }
+  function restoreFormState() {
+    try {
+      const raw = sessionStorage.getItem(_FORM_STORAGE_KEY);
+      if (!raw) return false;
+      const s = JSON.parse(raw);
+      if (!s || !s.ts) return false;
+      // Only restore if saved within last 2 hours
+      if (Date.now() - s.ts > 7200000) {
+        sessionStorage.removeItem(_FORM_STORAGE_KEY);
+        return false;
+      }
+      const setVal = (id, val) => {
+        const el = document.getElementById(id);
+        if (el && val) el.value = val;
+      };
+      setVal("clientName", s.clientName);
+      setVal("clientWebsite", s.clientWebsite);
+      setVal("useCase", s.useCase);
+      setVal("budgetRange", s.budgetRange);
+      setVal("exactBudget", s.exactBudget);
+      setVal("campaignDuration", s.campaignDuration);
+      setVal("campaignStartMonth", s.campaignStartMonth);
+      setVal("hireVolume", s.hireVolume);
+      setVal("exactHires", s.exactHires);
+      setVal("targetDemographic", s.targetDemographic);
+      setVal("requesterName", s.requesterName);
+      setVal("requesterEmail", s.requesterEmail);
+      if (s.selectedIndustry) {
+        selectedIndustry = s.selectedIndustry;
+      }
+      if (Array.isArray(s.locations) && s.locations.length > 0) {
+        s.locations.forEach((loc) => {
+          if (typeof addTag === "function")
+            addTag("locationsContainer", "locationInput", locations, loc);
+          else locations.push(loc);
+        });
+      }
+      if (Array.isArray(s.roles) && s.roles.length > 0) {
+        s.roles.forEach((r) => {
+          if (typeof addTag === "function")
+            addTag("rolesContainer", "roleInput", roles, r);
+          else roles.push(r);
+        });
+      }
+      if (Array.isArray(s.competitors) && s.competitors.length > 0) {
+        s.competitors.forEach((c) => {
+          if (typeof addTag === "function")
+            addTag("competitorsContainer", "competitorInput", competitors, c);
+          else competitors.push(c);
+        });
+      }
+      return true;
+    } catch (_e) {
+      return false;
+    }
+  }
+  function clearFormState() {
+    sessionStorage.removeItem(_FORM_STORAGE_KEY);
+    // Reset all fields
+    [
+      "clientName",
+      "clientWebsite",
+      "useCase",
+      "budgetRange",
+      "exactBudget",
+      "campaignDuration",
+      "campaignStartMonth",
+      "hireVolume",
+      "exactHires",
+      "targetDemographic",
+      "requesterName",
+      "requesterEmail",
+    ].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.value = "";
+    });
+    selectedIndustry = null;
+    locations = [];
+    roles = [];
+    competitors = [];
+    ["locationsContainer", "rolesContainer", "competitorsContainer"].forEach(
+      (id) => {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = "";
+      },
+    );
+    // Reset industry selection visual
+    document
+      .querySelectorAll(".industry-card")
+      .forEach((c) => c.classList.remove("selected"));
+    showToast("Form cleared", "success");
+  }
+  function _wireFormPersistence() {
+    // Save on every input/change event in the form area
+    const form =
+      document.querySelector(".form-container") ||
+      document.querySelector("main");
+    if (form) {
+      form.addEventListener("input", saveFormState);
+      form.addEventListener("change", saveFormState);
+    }
+  }
+
+  // ============================================
+  // 25. Confetti celebration function
+  // ============================================
+  function showConfetti() {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const container = document.getElementById("confettiContainer");
+    container.style.display = "block";
+    container.innerHTML = "";
+
+    const colors = [
+      "#FF6B6B",
+      "#6BB3CD",
+      "#45B7D1",
+      "#FFA07A",
+      "#5A54BD",
+      "#FFD93D",
+      "#6C5CE7",
+      "#818CF8",
+      "#FF8B94",
+      "#2E75B6",
+      "#202058",
+      "#ED7D31",
+    ];
+
+    for (let i = 0; i < 100; i++) {
+      const piece = document.createElement("div");
+      piece.className = "confetti-piece";
+      const color = colors[Math.floor(Math.random() * colors.length)];
+      const left = Math.random() * 100;
+      const delay = Math.random() * 2;
+      const duration = 2 + Math.random() * 2;
+      const size = 6 + Math.random() * 8;
+      const shapes = ["50%", "0%", "2px"];
+      const borderRadius = shapes[Math.floor(Math.random() * shapes.length)];
+
+      piece.style.cssText = `
+                    left: ${left}%;
+                    background: ${color};
+                    width: ${size}px;
+                    height: ${size}px;
+                    border-radius: ${borderRadius};
+                    animation-delay: ${delay}s;
+                    animation-duration: ${duration}s;
+                `;
+      container.appendChild(piece);
+    }
+
+    // Auto-cleanup after 4 seconds
+    setTimeout(() => {
+      container.style.display = "none";
+      container.innerHTML = "";
+    }, 4000);
+  }
+
+  // ============================================
+  // 26. Generation progress overlay
+  // ============================================
+  let genStepTimers = [];
+  let genElapsedInterval = null;
+  let genStartTime = null;
+  let genDidYouKnowInterval = null;
+  let genCountdownInterval = null;
+  let genPollInterval = null;
+  let genCurrentJobId = null;
+  const GEN_TIMEOUT_SECS = 300; // 5 minutes
+
+  function cancelGeneration() {
+    if (genPollInterval) {
+      clearInterval(genPollInterval);
+      genPollInterval = null;
+    }
+    genCurrentJobId = null;
+    if (_genAbortController) {
+      _genAbortController.abort();
+      _genAbortController = null;
+    }
+  }
+
+  function updateGenProgress(pct, statusMessage) {
+    const fill = document.getElementById("genProgressFill");
+    if (fill) fill.style.width = pct + "%";
+    const steps = [
+      { id: "genStep1", threshold: 10 },
+      { id: "genStep2", threshold: 40 },
+      { id: "genStep3", threshold: 60 },
+      { id: "genStep4", threshold: 80 },
+    ];
+    steps.forEach(function (s, idx) {
+      const el = document.getElementById(s.id);
+      if (!el) return;
+      if (pct >= s.threshold) {
+        const nextThreshold = steps[idx + 1] ? steps[idx + 1].threshold : 100;
+        if (pct >= nextThreshold) {
+          el.classList.remove("gen-active");
+          el.classList.add("gen-complete");
+          el.querySelector(".gen-step-icon").innerHTML = "&#10003;";
+        } else {
+          el.classList.add("gen-active");
+          el.classList.remove("gen-complete");
+        }
+      }
+    });
+    if (statusMessage) {
+      const subtitleEl = document.getElementById("genSubtitle");
+      if (subtitleEl) subtitleEl.textContent = statusMessage;
+    }
+  }
+
+  const GEN_FACTS = [
+    "Your plan queries up to 25 live APIs including BLS, Adzuna, SEC EDGAR, and Google Ads.",
+    "The budget engine computes channel-by-channel dollar allocations based on your industry and role mix.",
+    "Salary benchmarks are fused from multiple sources with confidence scoring for accuracy.",
+    "Each plan includes industry-specific CPA, CPC, and cost-per-hire benchmarks from 379M+ analyzed clicks.",
+    "The data synthesis engine cross-references up to 12 sources for each market insight.",
+    "Your Strategy PPT deck is auto-generated with LinkedIn-inspired design and real data visualizations.",
+    "Competitor intelligence is sourced from Wikipedia, Clearbit, and SEC EDGAR filings in real time.",
+    "Labour market data includes JOLTS-style job openings, quits rates, and wage growth metrics.",
+  ];
+
+  function showGenerationOverlay() {
+    const overlay = document.getElementById("generationOverlay");
+    overlay.style.display = "flex";
+    requestAnimationFrame(() => {
+      overlay.classList.add("visible");
+    });
+
+    // Reset all steps
+    for (let i = 1; i <= 4; i++) {
+      const step = document.getElementById(`genStep${i}`);
+      step.classList.remove("gen-active", "gen-complete");
+      step.querySelector(".gen-step-icon").innerHTML =
+        '<span class="gen-spinner"></span>';
+    }
+    document.getElementById("genProgressFill").style.width = "0%";
+
+    // Start elapsed timer
+    genStartTime = Date.now();
+    const elapsedEl = document.getElementById("genElapsed");
+    if (elapsedEl) elapsedEl.textContent = "0:00";
+    genElapsedInterval = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - genStartTime) / 1000);
+      const mins = Math.floor(elapsed / 60);
+      const secs = elapsed % 60;
+      if (elapsedEl)
+        elapsedEl.textContent = mins + ":" + (secs < 10 ? "0" : "") + secs;
+    }, 1000);
+
+    // Start countdown timer (5:00 -> 0:00)
+    const countdownEl = document.getElementById("genCountdown");
+    if (countdownEl) countdownEl.textContent = "5:00";
+    if (genCountdownInterval) clearInterval(genCountdownInterval);
+    genCountdownInterval = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - genStartTime) / 1000);
+      const remaining = Math.max(0, GEN_TIMEOUT_SECS - elapsed);
+      const rMins = Math.floor(remaining / 60);
+      const rSecs = remaining % 60;
+      if (countdownEl)
+        countdownEl.textContent = rMins + ":" + (rSecs < 10 ? "0" : "") + rSecs;
+      if (remaining <= 0 && genCountdownInterval) {
+        clearInterval(genCountdownInterval);
+        genCountdownInterval = null;
+      }
+    }, 1000);
+
+    // Rotating "Did you know" facts while user waits
+    const dykEl = document.getElementById("genDidYouKnow");
+    if (dykEl) {
+      let factIdx = Math.floor(Math.random() * GEN_FACTS.length);
+      dykEl.textContent = GEN_FACTS[factIdx];
+      dykEl.style.transition = "opacity 0.3s ease";
+      genDidYouKnowInterval = setInterval(() => {
+        factIdx = (factIdx + 1) % GEN_FACTS.length;
+        dykEl.style.opacity = "0";
+        setTimeout(() => {
+          dykEl.textContent = GEN_FACTS[factIdx];
+          dykEl.style.opacity = "1";
+        }, 300);
+      }, 6000);
+    }
+
+    // If using async polling, skip fake step timers -- server drives progress.
+    // Only show initial step active as visual feedback until first poll arrives.
+    if (!genCurrentJobId) {
+      // Sync mode fallback: animate steps with fake timers
+      const stepDelays = [0, 1000, 3000, 6000];
+      stepDelays.forEach((delay, idx) => {
+        const timer = setTimeout(() => {
+          if (idx > 0) {
+            const prevStep = document.getElementById(`genStep${idx}`);
+            prevStep.classList.remove("gen-active");
+            prevStep.classList.add("gen-complete");
+            prevStep.querySelector(".gen-step-icon").innerHTML = "&#10003;";
+          }
+          const curStep = document.getElementById(`genStep${idx + 1}`);
+          curStep.classList.add("gen-active");
+          document.getElementById("genProgressFill").style.width =
+            `${Math.min((idx + 1) * 22, 88)}%`;
+        }, delay);
+        genStepTimers.push(timer);
+      });
+    } else {
+      // Async mode: activate step 1 immediately, server polling drives the rest
+      const firstStep = document.getElementById("genStep1");
+      if (firstStep) firstStep.classList.add("gen-active");
+      document.getElementById("genProgressFill").style.width = "2%";
+    }
+  }
+
+  function hideGenerationOverlay(success) {
+    // Clear any pending timers
+    genStepTimers.forEach((t) => clearTimeout(t));
+    genStepTimers = [];
+
+    // Clear elapsed timer
+    if (genElapsedInterval) {
+      clearInterval(genElapsedInterval);
+      genElapsedInterval = null;
+    }
+
+    // Clear countdown timer
+    if (genCountdownInterval) {
+      clearInterval(genCountdownInterval);
+      genCountdownInterval = null;
+    }
+
+    // Clear did-you-know rotation
+    if (genDidYouKnowInterval) {
+      clearInterval(genDidYouKnowInterval);
+      genDidYouKnowInterval = null;
+    }
+
+    if (success) {
+      // Complete all steps visually
+      for (let i = 1; i <= 4; i++) {
+        const step = document.getElementById(`genStep${i}`);
+        step.classList.remove("gen-active");
+        step.classList.add("gen-complete");
+        step.querySelector(".gen-step-icon").innerHTML = "&#10003;";
+      }
+      document.getElementById("genProgressFill").style.width = "100%";
+
+      // Show final elapsed time
+      if (genStartTime) {
+        const total = Math.floor((Date.now() - genStartTime) / 1000);
+        const elapsedEl = document.getElementById("genElapsed");
+        const mins = Math.floor(total / 60);
+        const secs = total % 60;
+        if (elapsedEl)
+          elapsedEl.textContent = mins + ":" + (secs < 10 ? "0" : "") + secs;
+      }
+    }
+
+    setTimeout(
+      () => {
+        const overlay = document.getElementById("generationOverlay");
+        overlay.classList.remove("visible");
+        setTimeout(() => {
+          overlay.style.display = "none";
+        }, 300);
+      },
+      success ? 800 : 0,
+    );
+  }
+
+  // ============================================
+  // 27. Inline validation
+  // ============================================
+  function validateField(fieldId) {
+    const field = document.getElementById(fieldId);
+    if (!field) return true;
+    const formGroup = field.closest(".form-group");
+    if (!formGroup) return true;
+
+    const value = field.value.trim();
+    const errorMsg = formGroup.querySelector(".field-error-msg");
+
+    if (!value) {
+      formGroup.classList.add("field-error");
+      formGroup.classList.remove("field-valid");
+      if (errorMsg) errorMsg.style.display = "block";
+      return false;
+    } else {
+      formGroup.classList.remove("field-error");
+      formGroup.classList.add("field-valid");
+      if (errorMsg) errorMsg.style.display = "none";
+      return true;
+    }
+  }
+
+  // Wire validation to blur events for required fields
+  // Use immediate invocation if DOM is already loaded (e.g. fragment mode),
+  // otherwise wait for DOMContentLoaded (standalone page load).
+  (function _initOnReady() {
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", _doInit);
+    } else {
+      _doInit();
+    }
+  })();
+  function _doInit() {
+    // Initialize file upload zones and exact input toggles
+    initFileUploads();
+
+    const requiredFields = [
+      "requesterName",
+      "requesterEmail",
+      "clientName",
+      "useCase",
+    ];
+    requiredFields.forEach((fieldId) => {
+      const field = document.getElementById(fieldId);
+      if (field) {
+        field.addEventListener("blur", () => validateField(fieldId));
+        field.addEventListener("input", () => {
+          const formGroup = field.closest(".form-group");
+          if (formGroup && formGroup.classList.contains("field-error")) {
+            validateField(fieldId);
+          }
+        });
+      }
+    });
+
+    // Clear field errors on location/role inputs when typing
+    ["locationInput", "roleInput"].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.addEventListener("input", () => {
+          if (typeof _clearFieldError === "function") _clearFieldError(el);
+        });
+      }
+    });
+
+    // Add ready-pulse to generate button when on step 5
+    const generateBtn = document.getElementById("generateBtn");
+    if (generateBtn) {
+      generateBtn.classList.add("ready-pulse");
+    }
+
+    // Preset prompt chips -- auto-fill form fields on click
+    document.querySelectorAll(".preset-chip").forEach((chip) => {
+      chip.addEventListener("click", function () {
+        // Fill client name
+        const clientNameEl = document.getElementById("clientName");
+        if (clientNameEl && this.dataset.client) {
+          clientNameEl.value = this.dataset.client;
+          clientNameEl.dispatchEvent(new Event("input", { bubbles: true }));
+        }
+
+        // Fill use case
+        const useCaseEl = document.getElementById("useCase");
+        if (useCaseEl && this.dataset.title) {
+          useCaseEl.value =
+            "Hiring " +
+            this.dataset.title +
+            " roles in " +
+            (this.dataset.location || "multiple locations") +
+            ". Looking for a data-driven media plan to optimize recruitment spend and maximize qualified applicant volume.";
+          useCaseEl.dispatchEvent(new Event("input", { bubbles: true }));
+        }
+
+        // Fill budget range (select)
+        const budgetEl = document.getElementById("budgetRange");
+        if (budgetEl && this.dataset.budget) {
+          budgetEl.value = this.dataset.budget;
+          budgetEl.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+
+        // Add location as tag
+        if (this.dataset.location) {
+          // Clear existing locations and add the preset one
+          locations.length = 0;
+          addTag(
+            "locationsContainer",
+            "locationInput",
+            locations,
+            this.dataset.location,
+          );
+        }
+
+        // Select industry card
+        if (this.dataset.industry) {
+          const industryCard = document.querySelector(
+            '.industry-card[data-industry="' + this.dataset.industry + '"]',
+          );
+          if (industryCard) {
+            selectIndustry(industryCard);
+          }
+        }
+
+        // Add role as tag (deferred slightly so industry roles load first)
+        if (this.dataset.title) {
+          setTimeout(() => {
+            // Add the specific role if not already present from industry defaults
+            if (!roles.includes(this.dataset.title)) {
+              addTag("rolesContainer", "roleInput", roles, this.dataset.title);
+            }
+          }, 100);
+        }
+
+        // Visual feedback -- highlight active chip
+        document
+          .querySelectorAll(".preset-chip")
+          .forEach((c) => c.classList.remove("preset-active"));
+        this.classList.add("preset-active");
+        setTimeout(() => this.classList.remove("preset-active"), 600);
+
+        // Show toast
+        showToast(
+          'Example loaded: "' + this.textContent.trim() + '"',
+          "success",
+        );
+      });
+    });
+
+    // Form state persistence: restore + wire auto-save
+    _wireFormPersistence();
+    const wasRestored = restoreFormState();
+    if (wasRestored) {
+      const toast = document.createElement("div");
+      toast.className = "form-restored-toast";
+      toast.textContent = "Restored from previous session";
+      document.body.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = "0";
+        toast.style.transition = "opacity 0.5s";
+        setTimeout(() => toast.remove(), 600);
+      }, 3000);
+    }
+  }
+
+  // ============================================
+  // Helper: get checkbox group values
+  // ============================================
+  function getCheckboxGroupValues(name) {
+    return Array.from(
+      document.querySelectorAll(`input[name="${name}"]:checked`),
+    ).map((cb) => cb.value);
+  }
+
+  // Load channels database with retry logic
+  function loadChannelsDB(retries = 2) {
+    const channelController = new AbortController();
+    const channelTimeout = setTimeout(() => channelController.abort(), 15000);
+
+    fetch("/api/channels", { signal: channelController.signal })
+      .then((r) => {
+        clearTimeout(channelTimeout);
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      })
+      .then((data) => {
+        channelsDB = data;
+        populateChannels();
+      })
+      .catch((err) => {
+        clearTimeout(channelTimeout);
+        console.error("Failed to load channels:", err);
+        if (retries > 0 && err.name !== "AbortError") {
+          console.log(`Retrying channels load (${retries} attempts left)...`);
+          setTimeout(() => loadChannelsDB(retries - 1), 2000);
+        } else {
+          showToast(
+            "Failed to load channel data. Please refresh the page.",
+            "error",
+          );
+        }
+      });
+  }
+  loadChannelsDB();
+
+  // Tags input for locations (Enter, comma, or blur to add)
+  document
+    .getElementById("locationInput")
+    .addEventListener("keydown", function (e) {
+      if (
+        (e.key === "Enter" || e.key === ",") &&
+        this.value.replace(",", "").trim()
+      ) {
+        e.preventDefault();
+        addTag(
+          "locationsContainer",
+          "locationInput",
+          locations,
+          this.value.replace(",", "").trim(),
+        );
+      }
+    });
+  document
+    .getElementById("locationInput")
+    .addEventListener("blur", function () {
+      const val = this.value.replace(",", "").trim();
+      if (val) {
+        addTag("locationsContainer", "locationInput", locations, val);
+      }
+    });
+
+  // Tags input for roles
+  document
+    .getElementById("roleInput")
+    .addEventListener("keydown", function (e) {
+      if (e.key === "Enter" && this.value.trim()) {
+        e.preventDefault();
+        addTag("rolesContainer", "roleInput", roles, this.value.trim());
+      }
+    });
+
+  // Tags input for competitors
+  document
+    .getElementById("competitorInput")
+    .addEventListener("keydown", function (e) {
+      if (e.key === "Enter" && this.value.trim()) {
+        e.preventDefault();
+        addTag(
+          "competitorsContainer",
+          "competitorInput",
+          competitors,
+          this.value.trim(),
+        );
+      }
+    });
+
+  function addTag(containerId, inputId, arr, value) {
+    if (arr.includes(value)) return;
+    arr.push(value);
+    renderTags(containerId, inputId, arr);
+    document.getElementById(inputId).value = "";
+    if (containerId === "locationsContainer") updateRegionalSections();
+  }
+
+  function removeTag(containerId, inputId, arr, index) {
+    arr.splice(index, 1);
+    renderTags(containerId, inputId, arr);
+    if (containerId === "locationsContainer") updateRegionalSections();
+  }
+
+  function getArrayByContainerId(containerId) {
+    if (containerId === "locationsContainer") return locations;
+    if (containerId === "competitorsContainer") return competitors;
+    return roles;
+  }
+
+  function renderTags(containerId, inputId, arr) {
+    const container = document.getElementById(containerId);
+    const input = document.getElementById(inputId);
+    container.innerHTML = "";
+    arr.forEach((val, i) => {
+      const tag = document.createElement("span");
+      tag.className = "tag";
+      const textSpan = document.createElement("span");
+      textSpan.textContent = val;
+      const removeSpan = document.createElement("span");
+      removeSpan.className = "remove";
+      removeSpan.textContent = "\u00d7";
+      removeSpan.onclick = function () {
+        removeTag(containerId, inputId, getArrayByContainerId(containerId), i);
+      };
+      tag.appendChild(textSpan);
+      tag.appendChild(removeSpan);
+      container.appendChild(tag);
+    });
+    container.appendChild(input);
+    input.focus();
+  }
+
+  /* ── Competitor Analysis ── */
+  function analyzeCompetitors() {
+    if (competitors.length === 0) {
+      showToast("Add at least one competitor name first.", "error");
+      return;
+    }
+    const btn = document.getElementById("btn-analyze-competitors");
+    const panel = document.getElementById("competitor-analysis-panel");
+    const results = document.getElementById("competitor-results");
+    btn.disabled = true;
+    btn.textContent = "Analyzing...";
+    panel.style.display = "block";
+    results.innerHTML = competitors
+      .map(
+        (c) =>
+          `<div class="competitor-card competitor-skeleton" id="comp-card-${c.replace(/[^a-zA-Z0-9]/g, "_")}">
+                <h4>${_escHtml(c)}</h4>
+                <div class="competitor-skeleton-line long"></div>
+                <div class="competitor-skeleton-line medium"></div>
+                <div class="competitor-skeleton-line short"></div>
+              </div>`,
+      )
+      .join("");
+
+    const allResults = [];
+    const promises = competitors.map((comp) => {
+      const domain = comp.includes(".")
+        ? comp
+        : comp.replace(/\s+/g, "").toLowerCase() + ".com";
+      return fetch("/api/competitive/scrape", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ domain: domain, company: comp }),
+      })
+        .then((r) => r.json())
+        .then((data) => {
+          allResults.push({ competitor: comp, domain: domain, data: data });
+          _renderCompetitorCard(comp, domain, data);
+        })
+        .catch((err) => {
+          allResults.push({
+            competitor: comp,
+            domain: domain,
+            error: err.message,
+          });
+          const safeId = comp.replace(/[^a-zA-Z0-9]/g, "_");
+          const card = document.getElementById("comp-card-" + safeId);
+          if (card) {
+            card.classList.remove("competitor-skeleton");
+            card.innerHTML =
+              `<h4>${_escHtml(comp)}</h4>` +
+              `<div class="competitor-error">Analysis unavailable: ${_escHtml(err.message)}</div>`;
+          }
+        });
+    });
+
+    Promise.allSettled(promises).then(() => {
+      btn.disabled = false;
+      btn.innerHTML =
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Analyze Careers Pages';
+      const successful = allResults.filter(
+        (r) => !r.error && r.data && !r.data.error,
+      );
+      if (successful.length > 0) {
+        _renderCompetitorSuggestions(successful, results);
+      }
+    });
+  }
+
+  function _escHtml(str) {
+    const d = document.createElement("div");
+    d.textContent = str;
+    return d.innerHTML;
+  }
+
+  function _renderCompetitorCard(comp, domain, data) {
+    const safeId = comp.replace(/[^a-zA-Z0-9]/g, "_");
+    const card = document.getElementById("comp-card-" + safeId);
+    if (!card) return;
+    card.classList.remove("competitor-skeleton");
+
+    if (data.error) {
+      card.innerHTML =
+        `<h4>${_escHtml(comp)}</h4>` +
+        `<div class="competitor-error">${_escHtml(data.error)}</div>`;
+      return;
+    }
+
+    const openRoles = data.total_jobs || data.jobs_found || 0;
+    const categories = data.job_categories || data.categories || [];
+    const locations = data.locations || data.hiring_locations || [];
+    const jobspy = data.jobspy_hiring_data || {};
+    const jobspyCount = jobspy.postings_found || 0;
+
+    let statsHtml =
+      `<div class="competitor-card-stats">` +
+      `<span class="competitor-stat"><strong>${openRoles + jobspyCount}</strong> open roles</span>`;
+    if (categories.length > 0) {
+      statsHtml += `<span class="competitor-stat"><strong>${categories.length}</strong> job categories</span>`;
+    }
+    if (locations.length > 0) {
+      statsHtml += `<span class="competitor-stat"><strong>${locations.length}</strong> hiring locations</span>`;
+    }
+    statsHtml += "</div>";
+
+    let catsHtml = "";
+    if (categories.length > 0) {
+      const topCats = categories.slice(0, 8);
+      catsHtml =
+        '<div class="competitor-categories">' +
+        topCats
+          .map((c) => {
+            const label =
+              typeof c === "string" ? c : c.name || c.category || "";
+            return `<span class="competitor-cat-tag">${_escHtml(label)}</span>`;
+          })
+          .join("") +
+        "</div>";
+    }
+
+    let locsHtml = "";
+    if (locations.length > 0) {
+      const topLocs = locations.slice(0, 6);
+      locsHtml =
+        '<div class="competitor-categories" style="margin-top:4px">' +
+        topLocs
+          .map((l) => {
+            const label =
+              typeof l === "string" ? l : l.name || l.location || "";
+            return `<span class="competitor-loc-tag">${_escHtml(label)}</span>`;
+          })
+          .join("") +
+        "</div>";
+    }
+
+    card.innerHTML =
+      `<h4>${_escHtml(comp)} <span style="font-weight:400;color:#64748b;font-size:12px;">${_escHtml(domain)}</span></h4>` +
+      statsHtml +
+      catsHtml +
+      locsHtml;
+  }
+
+  function _renderCompetitorSuggestions(successfulResults, container) {
+    const allCategories = [];
+    const allLocations = [];
+    let totalRoles = 0;
+
+    successfulResults.forEach((r) => {
+      const d = r.data;
+      totalRoles +=
+        (d.total_jobs || d.jobs_found || 0) +
+        ((d.jobspy_hiring_data || {}).postings_found || 0);
+      (d.job_categories || d.categories || []).forEach((c) => {
+        const label = typeof c === "string" ? c : c.name || c.category || "";
+        if (label && !allCategories.includes(label)) allCategories.push(label);
+      });
+      (d.locations || d.hiring_locations || []).forEach((l) => {
+        const label = typeof l === "string" ? l : l.name || l.location || "";
+        if (label && !allLocations.includes(label)) allLocations.push(label);
+      });
+    });
+
+    const suggestions = [];
+    if (totalRoles > 50) {
+      suggestions.push(
+        "Competitors are hiring aggressively (" +
+          totalRoles +
+          " open roles). Consider increasing budget by 15-20% for competitive visibility.",
+      );
+    } else if (totalRoles > 20) {
+      suggestions.push(
+        "Moderate competitor hiring activity (" +
+          totalRoles +
+          " roles). Maintain current spend with targeted channel emphasis.",
+      );
+    }
+
+    const techCategories = allCategories.filter((c) =>
+      /engineer|developer|software|data|cloud|devops|sre|platform/i.test(c),
+    );
+    if (techCategories.length > 0) {
+      suggestions.push(
+        "Tech roles dominate competitor hiring. Prioritize channels: GitHub Jobs, Stack Overflow, LinkedIn Tech, HackerNews.",
+      );
+    }
+
+    if (allLocations.some((l) => /remote|distributed|anywhere/i.test(l))) {
+      suggestions.push(
+        "Competitors offer remote positions. Add remote-friendly job boards (WeWorkRemotely, FlexJobs, RemoteOK) to your mix.",
+      );
+    }
+
+    if (
+      allCategories.some((c) => /sales|business development|account/i.test(c))
+    ) {
+      suggestions.push(
+        "Sales hiring detected among competitors. Consider LinkedIn Sales Navigator ads and industry-specific boards.",
+      );
+    }
+
+    if (suggestions.length === 0) {
+      suggestions.push(
+        "Diversify your channel mix across job boards and social platforms to match competitor presence.",
+      );
+    }
+
+    const suggestionsHtml =
+      '<div class="competitor-suggestions">' +
+      "<h4>Channel & Budget Recommendations</h4>" +
+      suggestions
+        .map(
+          (s) =>
+            `<div class="competitor-suggestion-item">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6BB3CD" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                  <span>${_escHtml(s)}</span>
+                </div>`,
+        )
+        .join("") +
+      '<button type="button" class="btn-apply-suggestions" onclick="_applyCompetitorSuggestions()">Apply to Plan</button>' +
+      "</div>";
+
+    container.insertAdjacentHTML("beforeend", suggestionsHtml);
+  }
+
+  function _applyCompetitorSuggestions() {
+    showToast(
+      "Competitor insights will be factored into your generated plan.",
+      "success",
+    );
+    /* Store a flag so the plan generation payload includes competitor intel */
+    window._competitorAnalysisApplied = true;
+  }
+
+  function selectIndustry(el) {
+    document
+      .querySelectorAll(".industry-card")
+      .forEach((c) => c.classList.remove("selected"));
+    el.classList.add("selected");
+    selectedIndustry = el.dataset.industry;
+
+    // Update roles based on industry
+    if (channelsDB && channelsDB.industries[selectedIndustry]) {
+      const ind = channelsDB.industries[selectedIndustry];
+      roles = [...ind.typical_roles];
+      renderTags("rolesContainer", "roleInput", roles);
+    }
+
+    // Update niche channels
+    populateNicheChannels();
+
+    // Re-check budget feasibility with updated industry
+    checkBudgetFeasibility();
+  }
+
+  // ============================================
+  // Job Category Selection
+  // ============================================
+  function populateJobCategories() {
+    if (!channelsDB || !channelsDB.job_categories) return;
+    const grid = document.getElementById("jobCategoryGrid");
+    grid.innerHTML = "";
+
+    for (const [key, cat] of Object.entries(channelsDB.job_categories)) {
+      const card = document.createElement("div");
+      card.className = "job-cat-card";
+      card.dataset.category = key;
+      card.innerHTML = `
+                    <div class="cat-check">&#10003;</div>
+                    <span class="cat-icon">${escapeHtml(cat.icon)}</span>
+                    <div class="cat-name">${escapeHtml(cat.label)}</div>
+                `;
+      card.addEventListener("click", () => toggleJobCategory(card, key));
+      grid.appendChild(card);
+    }
+  }
+
+  function toggleJobCategory(card, key) {
+    card.classList.toggle("selected");
+    if (card.classList.contains("selected")) {
+      if (!selectedJobCategories.includes(key)) selectedJobCategories.push(key);
+    } else {
+      selectedJobCategories = selectedJobCategories.filter((c) => c !== key);
+    }
+    updateJobCategoryInsight();
+  }
+
+  function updateJobCategoryInsight() {
+    const panel = document.getElementById("jobCategoryInsight");
+    if (selectedJobCategories.length === 0) {
+      panel.style.display = "none";
+      return;
+    }
+
+    const cats = channelsDB.job_categories;
+    // Aggregate data from all selected categories
+    let allPrimary = [];
+    let allNiche = [];
+    let allJoveo = [];
+    let allCompetitor = [];
+    let strategies = [];
+    let cpaRanges = [];
+    let ttfRanges = [];
+    let bestPractices = [];
+
+    selectedJobCategories.forEach((key) => {
+      const cat = cats[key];
+      if (!cat) return;
+      allPrimary.push(...(cat.recommended_channels?.primary || []));
+      allNiche.push(...(cat.recommended_channels?.niche || []));
+      allJoveo.push(...(cat.joveo_supply_fit || []));
+      allCompetitor.push(...(cat.competitor_channels || []));
+      strategies.push(
+        `${cat.label}: ${cat.strategy_emphasis?.awareness}% awareness / ${cat.strategy_emphasis?.hiring}% hiring`,
+      );
+      cpaRanges.push(`${cat.label}: ${cat.avg_cpa_range}`);
+      ttfRanges.push(cat.avg_time_to_fill);
+      bestPractices.push(...(cat.best_practices || []).slice(0, 2));
+    });
+
+    // Deduplicate
+    allPrimary = [...new Set(allPrimary)];
+    allNiche = [...new Set(allNiche)];
+    allJoveo = [...new Set(allJoveo)];
+    allCompetitor = [...new Set(allCompetitor)];
+    bestPractices = [...new Set(bestPractices)].slice(0, 4);
+
+    const catLabels = selectedJobCategories
+      .map((k) => cats[k]?.label || k)
+      .join(", ");
+
+    panel.style.display = "block";
+    panel.innerHTML = `
+                <div class="insight-header">
+                    <span>&#128161; Smart Insights for ${escapeHtml(catLabels)}</span>
+                    <span class="insight-badge">Powered by Nova AI Suite</span>
+                </div>
+                <div class="insight-grid">
+                    <div class="insight-item">
+                        <div class="insight-label">Avg CPA Range</div>
+                        <div class="insight-value">${cpaRanges.map((r) => escapeHtml(r)).join(" | ")}</div>
+                    </div>
+                    <div class="insight-item">
+                        <div class="insight-label">Avg Time to Fill</div>
+                        <div class="insight-value">${[...new Set(ttfRanges)].map((r) => escapeHtml(r)).join(" | ")}</div>
+                    </div>
+                    <div class="insight-item">
+                        <div class="insight-label">Strategy Mix</div>
+                        <div class="insight-value">${strategies.map((s) => escapeHtml(s)).join("<br>")}</div>
+                    </div>
+                    <div class="insight-item">
+                        <div class="insight-label">Top Recommendations</div>
+                        <div class="insight-value">${bestPractices.map((p) => "&bull; " + escapeHtml(p)).join("<br>")}</div>
+                    </div>
+                </div>
+                <div style="margin-top:10px">
+                    <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-secondary);margin-bottom:6px">Recommended Channels (from Supply Network + Competitors)</div>
+                    <div class="insight-channels">
+                        ${allJoveo
+                          .slice(0, 8)
+                          .map(
+                            (ch) =>
+                              `<span class="insight-ch" style="background:rgba(107,179,205,0.1);border-color:rgba(107,179,205,0.2);color:#6BB3CD" title="Supply Network">&#9679; ${escapeHtml(ch)}</span>`,
+                          )
+                          .join("")}
+                        ${allCompetitor
+                          .slice(0, 5)
+                          .map(
+                            (ch) =>
+                              `<span class="insight-ch" style="background:rgba(251,146,60,0.1);border-color:rgba(251,146,60,0.2);color:#FB923C" title="Competitor Channel">&#9650; ${escapeHtml(ch)}</span>`,
+                          )
+                          .join("")}
+                        ${allNiche
+                          .slice(0, 5)
+                          .map(
+                            (ch) =>
+                              `<span class="insight-ch" title="Niche Channel">&#9733; ${escapeHtml(ch)}</span>`,
+                          )
+                          .join("")}
+                    </div>
+                    <div style="margin-top:6px;font-size:9px;color:var(--text-muted)">
+                        <span style="color:#6BB3CD">&#9679;</span> Supply Network &nbsp;
+                        <span style="color:#FB923C">&#9650;</span> Competitor &nbsp;
+                        <span style="color:var(--primary)">&#9733;</span> Niche
+                    </div>
+                </div>
+            `;
+  }
+
+  function populateChannels() {
+    if (!channelsDB) return;
+
+    // Update APAC/EMEA visibility based on locations
+    updateRegionalSections();
+
+    // Populate job categories
+    populateJobCategories();
+  }
+
+  function updateRegionalSections() {
+    // Check if locations contain APAC or EMEA countries
+    const apacCountries = [
+      "japan",
+      "south korea",
+      "korea",
+      "indonesia",
+      "malaysia",
+      "philippines",
+      "singapore",
+      "thailand",
+      "vietnam",
+      "taiwan",
+      "australia",
+      "india",
+      "china",
+      "hong kong",
+      "new zealand",
+    ];
+    const emeaCountries = [
+      "united kingdom",
+      "uk",
+      "germany",
+      "france",
+      "spain",
+      "portugal",
+      "poland",
+      "hungary",
+      "netherlands",
+      "belgium",
+      "austria",
+      "switzerland",
+      "ireland",
+      "italy",
+      "sweden",
+      "denmark",
+      "norway",
+      "finland",
+      "czech",
+      "uae",
+      "dubai",
+      "south africa",
+      "kenya",
+      "israel",
+    ];
+    const locsLower = locations.map((l) => l.toLowerCase());
+
+    const hasApac = locsLower.some((l) =>
+      apacCountries.some((c) => l.includes(c)),
+    );
+    const hasEmea = locsLower.some((l) =>
+      emeaCountries.some((c) => l.includes(c)),
+    );
+
+    // Show/hide APAC channel category card
+    const apacCard = document.getElementById("apacChannelCard");
+    if (apacCard) {
+      apacCard.style.display = hasApac ? "block" : "none";
+    }
+
+    // Show/hide EMEA channel category card
+    const emeaCard = document.getElementById("emeaChannelCard");
+    if (emeaCard) {
+      emeaCard.style.display = hasEmea ? "block" : "none";
+    }
+  }
+
+  function populateNicheChannels() {
+    // No longer populating individual niche channel checkboxes;
+    // category-level toggle (chNicheBoards) is used instead.
+  }
+
+  // 30. Stagger animations for channel loading
+  function populateChannelGrid(containerId, channels, group) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    container.innerHTML = "";
+    channels.forEach((ch, i) => {
+      const item = document.createElement("label");
+      item.className = "channel-item";
+      item.innerHTML = `<input type="checkbox" checked data-group="${escapeHtml(group)}" value="${escapeHtml(ch)}"> ${escapeHtml(ch)}`;
+      // Add staggered animation delay
+      const delay = Math.min(i * 0.03, 0.5);
+      item.style.animationDelay = `${delay}s`;
+      container.appendChild(item);
+    });
+  }
+
+  function toggleAll(group, checked) {
+    document.querySelectorAll(`input[data-group="${group}"]`).forEach((cb) => {
+      cb.checked = checked;
+    });
+  }
+
+  function getSelectedChannels(group) {
+    return Array.from(
+      document.querySelectorAll(`input[data-group="${group}"]:checked`),
+    ).map((cb) => cb.value);
+  }
+
+  // Helper: show inline validation error on a form group
+  function _showFieldError(el, message) {
+    if (!el) return;
+    var group = el.closest(".form-group");
+    if (!group) return;
+    group.classList.add("field-error");
+    var errEl = group.querySelector(".field-error-msg");
+    if (!errEl) {
+      errEl = document.createElement("div");
+      errEl.className = "field-error-msg";
+      group.appendChild(errEl);
+    }
+    errEl.textContent = message;
+    errEl.style.display = "block";
+  }
+
+  // Helper: clear inline validation error on a form group
+  function _clearFieldError(el) {
+    if (!el) return;
+    var group = el.closest(".form-group");
+    if (!group) return;
+    group.classList.remove("field-error");
+    var errEl = group.querySelector(".field-error-msg");
+    if (errEl) errEl.style.display = "none";
+  }
+
+  // 23. Step transition animations - enhanced nextStep
+  function nextStep() {
+    try {
+      if (currentStep === 1) {
+        // --- Client Name ---
+        var clientNameEl = document.getElementById("clientName");
+        if (!clientNameEl || !clientNameEl.value.trim()) {
+          showToast("Please enter a client name", "error");
+          _showFieldError(clientNameEl, "Client name is required");
+          if (clientNameEl) {
+            clientNameEl.focus();
+            clientNameEl.scrollIntoView({
+              behavior: "smooth",
+              block: "center",
+            });
+          }
+          return;
+        } else {
+          _clearFieldError(clientNameEl);
+        }
+        // --- Use Case ---
+        var useCaseEl = document.getElementById("useCase");
+        if (!useCaseEl || !useCaseEl.value.trim()) {
+          showToast("Please describe the client's use case", "error");
+          _showFieldError(useCaseEl, "Use case / brief is required");
+          if (useCaseEl) {
+            useCaseEl.focus();
+            useCaseEl.scrollIntoView({
+              behavior: "smooth",
+              block: "center",
+            });
+          }
+          return;
+        } else {
+          _clearFieldError(useCaseEl);
+        }
+        // --- Budget Range ---
+        var budgetRangeEl = document.getElementById("budgetRange");
+        if (!budgetRangeEl || !budgetRangeEl.value) {
+          showToast("Please select a budget range", "error");
+          _showFieldError(budgetRangeEl, "Please select a budget range");
+          if (budgetRangeEl) {
+            budgetRangeEl.focus();
+            budgetRangeEl.scrollIntoView({
+              behavior: "smooth",
+              block: "center",
+            });
+          }
+          return;
+        } else {
+          _clearFieldError(budgetRangeEl);
+        }
+        // --- Campaign Duration ---
+        var durationEl = document.getElementById("campaignDuration");
+        if (!durationEl || !durationEl.value) {
+          showToast("Please select a campaign duration", "error");
+          _showFieldError(durationEl, "Please select a campaign duration");
+          if (durationEl) {
+            durationEl.focus();
+            durationEl.scrollIntoView({
+              behavior: "smooth",
+              block: "center",
+            });
+          }
+          return;
+        } else {
+          _clearFieldError(durationEl);
+        }
+        // --- Locations ---
+        // Auto-add typed text the user forgot to press Enter on
+        var locInput = document.getElementById("locationInput");
+        if (locInput && locInput.value.trim() && locations.length === 0) {
+          if (typeof addTag === "function") {
+            addTag(
+              "locationsContainer",
+              "locationInput",
+              locations,
+              locInput.value.trim(),
+            );
+          }
+        }
+        if (locations.length === 0) {
+          showToast(
+            "Please add at least one target location (type and press Enter)",
+            "error",
+          );
+          _showFieldError(locInput, "At least one target location is required");
+          if (locInput) {
+            locInput.focus();
+            locInput.scrollIntoView({
+              behavior: "smooth",
+              block: "center",
+            });
+          }
+          return;
+        } else {
+          _clearFieldError(locInput);
+        }
+      }
+      if (currentStep === 2 && !selectedIndustry) {
+        showToast("Please select an industry", "error");
+        var indGrid = document.querySelector(".industry-grid");
+        if (indGrid)
+          indGrid.scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
+      }
+      if (currentStep === 2 && roles.length === 0) {
+        showToast(
+          "Please add at least one target role for a more relevant media plan",
+          "warning",
+        );
+        var roleInputEl = document.getElementById("roleInput");
+        if (roleInputEl) {
+          _showFieldError(roleInputEl, "At least one target role is required");
+          roleInputEl.focus();
+          roleInputEl.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+          });
+        }
+        return;
+      }
+
+      if (currentStep === 4) {
+        populateReview();
+      }
+
+      if (currentStep < totalSteps) {
+        const currentEl = document.getElementById(`step${currentStep}`);
+        // Add exiting animation
+        currentEl.style.animation = "fadeOutDown 0.3s ease-in forwards";
+
+        setTimeout(() => {
+          currentEl.classList.remove("active");
+          currentEl.style.animation = "";
+          currentStep++;
+          const nextEl = document.getElementById(`step${currentStep}`);
+          nextEl.classList.add("active");
+          nextEl.classList.add("step-animating");
+          setTimeout(() => nextEl.classList.remove("step-animating"), 400);
+          updateProgress();
+          updateStepCheckmarks();
+          window.scrollTo({ top: 0, behavior: "smooth" });
+          // Auto-fetch live pricing when entering step 4
+          if (currentStep === 4 && (roles.length > 0 || locations.length > 0)) {
+            fetchLivePricing();
+          }
+        }, 280);
+      }
+    } catch (err) {
+      console.error("nextStep error:", err);
+      showToast("An error occurred. Please try again.", "error");
+    }
+  }
+
+  // 23. Step transition animations - enhanced prevStep
+  function prevStep() {
+    if (currentStep > 1) {
+      const currentEl = document.getElementById(`step${currentStep}`);
+      currentEl.style.animation = "fadeOutDown 0.3s ease-in forwards";
+
+      setTimeout(() => {
+        currentEl.classList.remove("active");
+        currentEl.style.animation = "";
+        currentStep--;
+        const prevEl = document.getElementById(`step${currentStep}`);
+        prevEl.classList.add("active");
+        prevEl.classList.add("step-animating");
+        setTimeout(() => prevEl.classList.remove("step-animating"), 400);
+        updateProgress();
+        updateStepCheckmarks();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }, 280);
+    }
+  }
+
+  // handleStepClick - navigate to completed steps when clicked
+  function handleStepClick(step) {
+    if (step < currentStep) {
+      goToStep(step);
+    }
+  }
+
+  // goToStep function for review edit buttons
+  function goToStep(step) {
+    if (step >= 1 && step <= totalSteps && step !== currentStep) {
+      const currentEl = document.getElementById(`step${currentStep}`);
+      currentEl.classList.remove("active");
+      currentEl.style.animation = "";
+      currentStep = step;
+      const targetEl = document.getElementById(`step${currentStep}`);
+      targetEl.classList.add("active");
+      targetEl.classList.add("step-animating");
+      setTimeout(() => targetEl.classList.remove("step-animating"), 400);
+      updateProgress();
+      // Mark previous steps as completed with checkmarks
+      updateStepCheckmarks();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }
+
+  function updateStepCheckmarks() {
+    document.querySelectorAll(".step-circle").forEach((circle, idx) => {
+      if (idx < currentStep - 1) {
+        circle.classList.add("completed");
+      } else {
+        circle.classList.remove("completed");
+      }
+    });
+  }
+
+  // 24. Update page progress bar in updateProgress
+  function updateProgress() {
+    document.querySelectorAll(".step-indicator").forEach((el) => {
+      const step = parseInt(el.dataset.step);
+      el.classList.remove("active", "completed");
+      if (step === currentStep) el.classList.add("active");
+      else if (step < currentStep) el.classList.add("completed");
+    });
+
+    // Update page-level progress bar
+    const progressFill = document.querySelector(".page-progress-fill");
+    const progressBar = document.getElementById("pageProgress");
+    if (progressFill) {
+      const pct = currentStep * 20;
+      progressFill.style.width = pct + "%";
+      if (progressBar) progressBar.setAttribute("aria-valuenow", pct);
+    }
+
+    // Update the progress line fill between step circles
+    const lineFill = document.getElementById("progressLineFill");
+    if (lineFill) {
+      // Scale: 0 at step 1, 1 at the last step
+      const fillScale = (currentStep - 1) / (totalSteps - 1);
+      lineFill.style.transform = "scaleX(" + fillScale + ")";
+    }
+
+    // Update aria-current on step indicators
+    document.querySelectorAll(".step-indicator").forEach((el) => {
+      if (parseInt(el.dataset.step) === currentStep) {
+        el.setAttribute("aria-current", "step");
+      } else {
+        el.removeAttribute("aria-current");
+      }
+    });
+  }
+
+  // Goal label lookup for human-readable display
+  const GOAL_LABELS = {
+    brand_awareness: "Brand Awareness",
+    high_volume: "High-Volume Hiring",
+    diversity_hiring: "Diversity & Inclusion",
+    cost_efficiency: "Cost Efficiency",
+    quality_candidates: "Quality Candidates",
+    passive_talent: "Passive Talent Reach",
+    employer_branding: "Employer Branding",
+    retention: "Retention Focus",
+    speed_to_hire: "Speed to Hire",
+    geographic_expansion: "Geographic Expansion",
+  };
+
+  const WORK_ENV_LABELS = {
+    hybrid: "Hybrid",
+    remote: "Remote",
+    on_site: "On-Site",
+    "on-site": "On-Site",
+    flexible: "Flexible",
+  };
+
+  const EXP_LEVEL_LABELS = {
+    entry: "Entry Level",
+    mid: "Mid Level",
+    senior: "Senior Level",
+    executive: "Executive",
+    intern: "Intern / Apprentice",
+  };
+
+  // 29. Updated populateReview with new fields
+  function populateReview() {
+    document.getElementById("reviewClient").textContent =
+      document.getElementById("clientName").value;
+    document.getElementById("reviewUseCase").textContent =
+      document.getElementById("useCase").value || "Not specified";
+    document.getElementById("reviewBudget").textContent =
+      document.getElementById("budgetRange").value || "Not specified";
+    document.getElementById("reviewDuration").textContent =
+      document.getElementById("campaignDuration").value || "Not specified";
+    const reviewLocationsEl = document.getElementById("reviewLocations");
+    reviewLocationsEl.innerHTML = "";
+    locations.forEach((l) => {
+      const chip = document.createElement("span");
+      chip.className = "chip";
+      chip.textContent = l;
+      reviewLocationsEl.appendChild(chip);
+    });
+
+    // New fields
+    const campaignGoals = getCheckboxGroupValues("campaignGoals");
+    const reviewGoalsEl = document.getElementById("reviewGoals");
+    reviewGoalsEl.innerHTML = "";
+    if (campaignGoals.length > 0) {
+      campaignGoals.forEach((g) => {
+        const chip = document.createElement("span");
+        chip.className = "chip";
+        chip.textContent =
+          GOAL_LABELS[g] ||
+          g.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+        reviewGoalsEl.appendChild(chip);
+      });
+    } else {
+      reviewGoalsEl.textContent = "Not specified";
+    }
+
+    document.getElementById("reviewHireVolume").textContent =
+      document.getElementById("hireVolume").value || "Not specified";
+
+    const workEnv = getCheckboxGroupValues("workEnvironment");
+    const reviewWorkEnvEl = document.getElementById("reviewWorkEnv");
+    reviewWorkEnvEl.innerHTML = "";
+    if (workEnv.length > 0) {
+      workEnv.forEach((w) => {
+        const chip = document.createElement("span");
+        chip.className = "chip";
+        chip.textContent =
+          WORK_ENV_LABELS[w] ||
+          w.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+        reviewWorkEnvEl.appendChild(chip);
+      });
+    } else {
+      reviewWorkEnvEl.textContent = "Not specified";
+    }
+
+    document.getElementById("reviewWebsite").textContent =
+      document.getElementById("clientWebsite").value || "Not specified";
+
+    const reviewCompetitorsEl = document.getElementById("reviewCompetitors");
+    reviewCompetitorsEl.innerHTML = "";
+    if (competitors.length > 0) {
+      competitors.forEach((c) => {
+        const chip = document.createElement("span");
+        chip.className = "chip";
+        chip.textContent = c;
+        reviewCompetitorsEl.appendChild(chip);
+      });
+    } else {
+      reviewCompetitorsEl.textContent = "Not specified";
+    }
+
+    const expLevel = getCheckboxGroupValues("experienceLevel");
+    const reviewExpLevelEl = document.getElementById("reviewExpLevel");
+    reviewExpLevelEl.innerHTML = "";
+    if (expLevel.length > 0) {
+      expLevel.forEach((e) => {
+        const chip = document.createElement("span");
+        chip.className = "chip";
+        chip.textContent =
+          EXP_LEVEL_LABELS[e] ||
+          e.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+        reviewExpLevelEl.appendChild(chip);
+      });
+    } else {
+      reviewExpLevelEl.textContent = "Not specified";
+    }
+
+    const industryLabel =
+      channelsDB?.industries[selectedIndustry]?.label || selectedIndustry;
+    document.getElementById("reviewIndustry").textContent = industryLabel;
+
+    // Job Categories
+    const jobCatLabels = selectedJobCategories.map(
+      (k) => channelsDB?.job_categories?.[k]?.label || k,
+    );
+    const reviewJobCatsEl = document.getElementById("reviewJobCategories");
+    reviewJobCatsEl.innerHTML = "";
+    if (jobCatLabels.length > 0) {
+      jobCatLabels.forEach((c) => {
+        const chip = document.createElement("span");
+        chip.className = "chip";
+        chip.textContent = c;
+        reviewJobCatsEl.appendChild(chip);
+      });
+    } else {
+      reviewJobCatsEl.textContent = "Not specified";
+    }
+    const reviewRolesEl = document.getElementById("reviewRoles");
+    reviewRolesEl.innerHTML = "";
+    roles.forEach((r) => {
+      const chip = document.createElement("span");
+      chip.className = "chip";
+      chip.textContent = r;
+      reviewRolesEl.appendChild(chip);
+    });
+    document.getElementById("reviewDemographic").textContent =
+      document.getElementById("targetDemographic").value || "Not specified";
+
+    const channelCategoryMap = {
+      chRegionalBoards: "Regional & Local Job Boards",
+      chGlobalBoards: "Global Reach Job Boards",
+      chNicheBoards: "Niche & Industry-Specific Boards",
+      chSocial: "Social Media Channels",
+      chProgrammatic: "Programmatic & DSP Channels",
+      chEmployerBrand: "Employer Branding Platforms",
+      chApac: "APAC Regional Channels",
+      chEmea: "EMEA Regional Channels",
+    };
+    const selectedCategories = [];
+    for (const [id, label] of Object.entries(channelCategoryMap)) {
+      const el = document.getElementById(id);
+      if (el && el.checked) selectedCategories.push(label);
+    }
+    const reviewChCatsEl = document.getElementById("reviewChannelCategories");
+    reviewChCatsEl.innerHTML = "";
+    if (selectedCategories.length > 0) {
+      selectedCategories.forEach((c) => {
+        const chip = document.createElement("span");
+        chip.className = "chip";
+        chip.textContent = c;
+        reviewChCatsEl.appendChild(chip);
+      });
+    } else {
+      reviewChCatsEl.textContent = "No channel categories selected";
+    }
+
+    const sections = [];
+    sections.push(
+      "Overview",
+      "Market Trends",
+      "Competitor Analysis",
+      "Channel Strategy",
+      "Traditional Channels",
+      "Non-Traditional Channels",
+    );
+    if (document.getElementById("includeEducational").checked)
+      sections.push("Educational Partners");
+    if (document.getElementById("includeEvents").checked)
+      sections.push("Events & Career Fairs");
+    if (document.getElementById("includeRadioPodcasts").checked)
+      sections.push("Radio & Podcasts");
+    if (document.getElementById("includeMediaPlatforms").checked)
+      sections.push("Media/Print Platforms");
+    if (document.getElementById("includeDEI").checked)
+      sections.push("DEI & Diversity Channels");
+    if (document.getElementById("includeInnovative").checked)
+      sections.push("Innovative Channels 2025+");
+    if (document.getElementById("includeGlobalSupply").checked)
+      sections.push("Global Supply Strategy");
+    if (document.getElementById("includeBudgetGuide").checked)
+      sections.push("Budget & Pricing Guide");
+
+    const reviewSectionsEl = document.getElementById("reviewSections");
+    reviewSectionsEl.innerHTML = "";
+    sections.forEach((s) => {
+      const chip = document.createElement("span");
+      chip.className = "chip";
+      chip.textContent = s;
+      reviewSectionsEl.appendChild(chip);
+    });
+
+    // Populate plan preview
+    const previewEl = document.getElementById("planPreviewContent");
+    if (previewEl) {
+      const previewSections = [
+        { name: "Executive Summary", icon: "&#128202;", always: true },
+        { name: "Overview & Snapshot", icon: "&#128203;", always: true },
+        { name: "Market Trends", icon: "&#128200;", always: true },
+        { name: "Labour Market Intel", icon: "&#127963;", always: true },
+        { name: "Channel Strategy", icon: "&#127919;", always: true },
+        { name: "Traditional Channels", icon: "&#128240;", always: true },
+        {
+          name: "Non-Traditional Channels",
+          icon: "&#128640;",
+          always: true,
+        },
+        { name: "Hiring Funnel Forecast", icon: "&#128260;", always: true },
+        { name: "Campaign Timeline", icon: "&#128197;", always: true },
+        { name: "Strategy Deck (PPT)", icon: "&#127917;", always: true },
+      ];
+      const toggleSections = [
+        { id: "includeDEI", name: "DEI & Diversity", icon: "&#127757;" },
+        {
+          id: "includeInnovative",
+          name: "Innovative Channels",
+          icon: "&#128161;",
+        },
+        {
+          id: "includeBudgetGuide",
+          name: "Budget Guide",
+          icon: "&#128176;",
+        },
+        {
+          id: "includeGlobalSupply",
+          name: "Global Supply",
+          icon: "&#127760;",
+        },
+        {
+          id: "includeEducational",
+          name: "Educational Partners",
+          icon: "&#127891;",
+        },
+        {
+          id: "includeEvents",
+          name: "Events & Career Fairs",
+          icon: "&#127914;",
+        },
+        {
+          id: "includeRadioPodcasts",
+          name: "Radio & Podcasts",
+          icon: "&#127897;",
+        },
+        {
+          id: "includeMediaPlatforms",
+          name: "Media & Print",
+          icon: "&#128240;",
+        },
+      ];
+
+      let html = "";
+      let count = 0;
+      previewSections.forEach((s) => {
+        html += `<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:rgba(99,102,241,0.08);border-radius:8px;font-size:13px;color:var(--text-secondary);"><span>${s.icon}</span><span>${s.name}</span></div>`;
+        count++;
+      });
+      toggleSections.forEach((t) => {
+        const el = document.getElementById(t.id);
+        if (el && el.checked) {
+          html += `<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:rgba(99,102,241,0.06);border-radius:8px;font-size:13px;"><span>${t.icon}</span><span>${t.name}</span></div>`;
+          count++;
+        }
+      });
+      previewEl.innerHTML = html;
+      document.getElementById("estSections").textContent = count;
+    }
+  }
+
+  // ── CRITICAL FORM VALIDATION ──
+  // Valid US states + territories (for location validation)
+  const VALID_US_STATES = new Set([
+    "AL",
+    "AK",
+    "AZ",
+    "AR",
+    "CA",
+    "CO",
+    "CT",
+    "DE",
+    "FL",
+    "GA",
+    "HI",
+    "ID",
+    "IL",
+    "IN",
+    "IA",
+    "KS",
+    "KY",
+    "LA",
+    "ME",
+    "MD",
+    "MA",
+    "MI",
+    "MN",
+    "MS",
+    "MO",
+    "MT",
+    "NE",
+    "NV",
+    "NH",
+    "NJ",
+    "NM",
+    "NY",
+    "NC",
+    "ND",
+    "OH",
+    "OK",
+    "OR",
+    "PA",
+    "RI",
+    "SC",
+    "SD",
+    "TN",
+    "TX",
+    "UT",
+    "VT",
+    "VA",
+    "WA",
+    "WV",
+    "WI",
+    "WY",
+    "DC",
+    "PR",
+    "VI",
+    "GU",
+    "AS",
+    "MP",
+  ]);
+
+  // Valid countries (common recruitment markets)
+  const VALID_COUNTRIES = new Set([
+    "UNITED STATES",
+    "USA",
+    "US",
+    "CANADA",
+    "MEXICO",
+    "UNITED KINGDOM",
+    "UK",
+    "ENGLAND",
+    "IRELAND",
+    "FRANCE",
+    "GERMANY",
+    "NETHERLANDS",
+    "BELGIUM",
+    "ITALY",
+    "SPAIN",
+    "PORTUGAL",
+    "SWITZERLAND",
+    "AUSTRIA",
+    "SWEDEN",
+    "NORWAY",
+    "DENMARK",
+    "FINLAND",
+    "AUSTRALIA",
+    "NEW ZEALAND",
+    "SINGAPORE",
+    "MALAYSIA",
+    "INDIA",
+    "JAPAN",
+    "SOUTH KOREA",
+    "KOREA",
+    "CHINA",
+    "HONG KONG",
+    "PHILIPPINES",
+    "THAILAND",
+    "VIETNAM",
+    "BRAZIL",
+    "ARGENTINA",
+    "CHILE",
+    "COLOMBIA",
+    "PERU",
+    "SOUTH AFRICA",
+    "UAE",
+    "AUSTRALIA",
+    "INDIA",
+  ]);
+
+  function validateBudgetInput(budgetValue) {
+    if (!budgetValue) {
+      return { valid: false, error: "Budget is required" };
+    }
+
+    // Parse budget string (handles formats like $50,000, 50K, 50000, etc)
+    const budgetStr = budgetValue.replace(/[\$,]/g, "").trim();
+    let amount = 0;
+
+    // Handle K, M, B suffixes
+    if (/^\d+\.?\d*[KMB]$/.test(budgetStr.toUpperCase())) {
+      const num = parseFloat(budgetStr);
+      const suffix = budgetStr.charAt(budgetStr.length - 1).toUpperCase();
+      if (suffix === "K") amount = num * 1000;
+      else if (suffix === "M") amount = num * 1000000;
+      else if (suffix === "B") amount = num * 1000000000;
+    } else {
+      amount = parseFloat(budgetStr);
+    }
+
+    if (isNaN(amount) || amount <= 0) {
+      return { valid: false, error: "Budget must be greater than 0" };
+    }
+    if (amount > 1000000000) {
+      return {
+        valid: false,
+        error: "Budget exceeds maximum allowed value ($1B)",
+      };
+    }
+    return { valid: true, error: "" };
+  }
+
+  function validateLocations(locationList) {
+    const errors = [];
+
+    if (!locationList || locationList.length === 0) {
+      errors.push("At least one location is required");
+      return { valid: false, errors };
+    }
+
+    // Invalid location patterns
+    const invalidPatterns = [
+      /^hell$/i,
+      /^test$/i,
+      /^xxx$/i,
+      /^fake$/i,
+      /^placeholder$/i,
+      /^n\/a$/i,
+      /^\d+$/, // only numbers
+      /^[^a-z0-9\s,\-\.]*$/i, // no alphanumeric
+    ];
+
+    locationList.forEach((loc, idx) => {
+      const normalized = loc.trim().toUpperCase();
+
+      // Check against invalid patterns
+      if (invalidPatterns.some((p) => p.test(loc))) {
+        errors.push(`Location "${loc}" is not valid`);
+        return;
+      }
+
+      // Check if it looks like a real location (at least 2 characters, contains letters)
+      if (loc.length < 2 || !/[a-zA-Z]/.test(loc)) {
+        errors.push(`Location "${loc}" is too short or invalid`);
+        return;
+      }
+
+      // Try to match against known countries/states
+      const isValidLocation =
+        VALID_US_STATES.has(normalized.split(/[\s,]+/)[0]) ||
+        VALID_COUNTRIES.has(normalized.split(/[\s,]+/)[0]) ||
+        /^[a-zA-Z\s,\-\.]{2,}$/.test(loc); // Allow if contains valid city/region format
+
+      if (!isValidLocation && !/[a-z]{3,}/i.test(loc)) {
+        // Allow if at least 3 consecutive letters
+        errors.push(
+          `Location "${loc}" appears invalid (should be city/state/country)`,
+        );
+      }
+    });
+
+    return { valid: errors.length === 0, errors };
+  }
+
+  function validateHireVolume(hireVolumeStr) {
+    if (!hireVolumeStr) {
+      return { valid: true, error: "" }; // Optional field
+    }
+
+    // Parse hire volume (handles "100", "100 hires", "100-500", etc)
+    const match = hireVolumeStr.match(/(\d+)/);
+    if (!match) {
+      return {
+        valid: false,
+        error: "Hire volume must be a number greater than 0",
+      };
+    }
+
+    const num = parseInt(match[1], 10);
+    if (num <= 0) {
+      return { valid: false, error: "Hire volume must be greater than 0" };
+    }
+    if (num > 100000) {
+      return {
+        valid: false,
+        error: "Hire volume exceeds maximum (100,000)",
+      };
+    }
+
+    return { valid: true, error: "" };
+  }
+
+  function validateCompetitors(competitorList) {
+    const errors = [];
+
+    competitorList.forEach((comp) => {
+      const normalized = comp.trim();
+      if (normalized.length < 2) {
+        errors.push(`Competitor "${comp}" is too short`);
+      } else if (!/[a-zA-Z]/.test(normalized)) {
+        errors.push(`Competitor "${comp}" must contain letters`);
+      }
+    });
+
+    return { valid: errors.length === 0, errors };
+  }
+
+  function showFormError(fieldId, errorMsg) {
+    if (fieldId) {
+      const field = document.getElementById(fieldId);
+      if (field) {
+        const formGroup = field.closest(".form-group");
+        if (formGroup) {
+          formGroup.classList.add("field-error");
+          formGroup.classList.remove("field-valid");
+
+          // Find or create error message element
+          let errorEl = formGroup.querySelector(".field-error-msg");
+          if (!errorEl) {
+            errorEl = document.createElement("div");
+            errorEl.className = "field-error-msg";
+            formGroup.appendChild(errorEl);
+          }
+          errorEl.textContent = errorMsg;
+          errorEl.style.display = "block";
+
+          // Trigger shake animation
+          formGroup.style.animation = "none";
+          setTimeout(() => {
+            formGroup.style.animation = "shake 0.4s ease";
+          }, 10);
+        }
+      }
+    }
+    showToast(errorMsg, "error");
+  }
+
+  // 26 & 28. Enhanced generatePlan with overlay, new fields, confetti, and toasts
+  async function generatePlan() {
+    // Validate name and email before generating
+    const reqName = document.getElementById("requesterName").value.trim();
+    const reqEmail = document.getElementById("requesterEmail").value.trim();
+    if (!reqName) {
+      showToast("Please enter your name", "error");
+      validateField("requesterName");
+      return;
+    }
+    if (!reqEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(reqEmail)) {
+      showToast("Please enter a valid email address", "error");
+      validateField("requesterEmail");
+      return;
+    }
+
+    // ── CRITICAL: Validate budget ──
+    const budgetRangeSelect = document.getElementById("budgetRange");
+    const budgetValue =
+      budgetRangeSelect.value === "__exact__"
+        ? document.getElementById("exactBudget").value.trim()
+        : budgetRangeSelect.value;
+
+    const budgetValidation = validateBudgetInput(budgetValue);
+    if (!budgetValidation.valid) {
+      showFormError("budgetRange", budgetValidation.error);
+      return;
+    }
+
+    // ── CRITICAL: Validate locations ──
+    if (locations.length === 0) {
+      showFormError("locationInput", "At least one location is required");
+      const locContainer = document.getElementById("locationsContainer");
+      if (locContainer) {
+        locContainer.classList.add("field-error");
+        locContainer.style.animation = "shake 0.4s ease";
+      }
+      return;
+    }
+
+    const locValidation = validateLocations(locations);
+    if (!locValidation.valid) {
+      const errorMsg = locValidation.errors[0] || "Invalid location(s)";
+      showFormError("locationInput", errorMsg);
+      const locContainer = document.getElementById("locationsContainer");
+      if (locContainer) {
+        locContainer.classList.add("field-error");
+        locContainer.style.animation = "shake 0.4s ease";
+      }
+      return;
+    }
+
+    // ── CRITICAL: Validate hire volume if provided ──
+    const hireVolSelect = document.getElementById("hireVolume");
+    const hireVolValue =
+      hireVolSelect.value === "__exact__"
+        ? document.getElementById("exactHires").value.trim()
+        : hireVolSelect.value;
+
+    if (hireVolValue) {
+      const hireValidation = validateHireVolume(hireVolValue);
+      if (!hireValidation.valid) {
+        showFormError("hireVolume", hireValidation.error);
+        return;
+      }
+    }
+
+    // Validate competitors if provided
+    if (competitors.length > 0) {
+      const compValidation = validateCompetitors(competitors);
+      if (!compValidation.valid) {
+        const errorMsg = compValidation.errors[0] || "Invalid competitor(s)";
+        showFormError("competitorInput", errorMsg);
+        return;
+      }
+    }
+
+    const btn = document.getElementById("generateBtn");
+    btn.disabled = true;
+    btn.classList.remove("ready-pulse");
+    btn.innerHTML = '<span class="spinner"></span> Generating...';
+
+    // Show generation overlay
+    showGenerationOverlay();
+
+    // 28. Updated payload with new fields
+    const payload = {
+      requester_name: document.getElementById("requesterName").value.trim(),
+      requester_email: document.getElementById("requesterEmail").value.trim(),
+      client_name: document.getElementById("clientName").value,
+      client_website: document.getElementById("clientWebsite").value,
+      use_case: document.getElementById("useCase").value,
+      industry: selectedIndustry,
+      industry_label:
+        channelsDB?.industries[selectedIndustry]?.label || selectedIndustry,
+      job_categories: selectedJobCategories,
+      job_category_labels: selectedJobCategories.map(
+        (k) => channelsDB?.job_categories?.[k]?.label || k,
+      ),
+      locations: locations,
+      target_roles: roles,
+      target_demographic: document.getElementById("targetDemographic").value,
+      budget_range:
+        document.getElementById("budgetRange").value === "__exact__"
+          ? document.getElementById("exactBudget").value.trim() || ""
+          : document.getElementById("budgetRange").value,
+      campaign_duration: document.getElementById("campaignDuration").value,
+      campaign_start_month:
+        parseInt(document.getElementById("campaignStartMonth").value) || 0,
+      campaign_goals: getCheckboxGroupValues("campaignGoals"),
+      hire_volume:
+        document.getElementById("hireVolume").value === "__exact__"
+          ? document.getElementById("exactHires").value.trim() + " hires"
+          : document.getElementById("hireVolume").value,
+      call_transcript:
+        (document.getElementById("callTranscript") || {}).value || "",
+      uploaded_briefs: briefFiles.map((f) => ({
+        name: f.name,
+        type: f.type,
+        data: f.data,
+      })),
+      uploaded_transcripts: transcriptFiles.map((f) => ({
+        name: f.name,
+        type: f.type,
+        data: f.data,
+      })),
+      uploaded_historical: historicalFiles.map((f) => ({
+        name: f.name,
+        type: f.type,
+        data: f.data,
+      })),
+      work_environment: getCheckboxGroupValues("workEnvironment"),
+      competitors: competitors,
+      experience_level: getCheckboxGroupValues("experienceLevel"),
+      channel_categories: {
+        regional_boards: document.getElementById("chRegionalBoards").checked,
+        global_boards: document.getElementById("chGlobalBoards").checked,
+        niche_boards: document.getElementById("chNicheBoards").checked,
+        social_media: document.getElementById("chSocial").checked,
+        programmatic_dsp: document.getElementById("chProgrammatic").checked,
+        employer_branding: document.getElementById("chEmployerBrand").checked,
+        apac_regional: document.getElementById("chApac")?.checked || false,
+        emea_regional: document.getElementById("chEmea")?.checked || false,
+      },
+      include_educational:
+        document.getElementById("includeEducational").checked,
+      include_events: document.getElementById("includeEvents").checked,
+      include_radio_podcasts: document.getElementById("includeRadioPodcasts")
+        .checked,
+      include_media_platforms: document.getElementById("includeMediaPlatforms")
+        .checked,
+      include_dei: document.getElementById("includeDEI").checked,
+      include_innovative: document.getElementById("includeInnovative").checked,
+      include_global_supply: document.getElementById("includeGlobalSupply")
+        .checked,
+      include_budget_guide:
+        document.getElementById("includeBudgetGuide").checked,
+    };
+
+    // ── Async generation with progress polling ──
+    genCurrentJobId = null;
+    try {
+      // Step 1: Submit async generation request
+      const initResponse = await fetch("/api/generate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-Token": getCsrfToken(),
+          "X-Async": "true",
+        },
+        body: JSON.stringify(payload),
+      });
+      if (!initResponse.ok) {
+        const errData = await initResponse.json().catch(() => ({}));
+        const errMsg =
+          errData.error || `Server returned ${initResponse.status}`;
+        const serverErr = new Error(errMsg);
+        serverErr.httpStatus = initResponse.status;
+        throw serverErr;
+      }
+      const initData = await initResponse.json();
+      const jobId = initData.job_id;
+      if (!jobId) throw new Error("Server did not return a job_id");
+      genCurrentJobId = jobId;
+
+      // Step 2: Poll /api/jobs/{jobId} every 2s for real server progress
+      await new Promise(function (pollResolve, pollReject) {
+        var _pst = Date.now(),
+          _ptm = GEN_TIMEOUT_SECS * 1000;
+        genPollInterval = setInterval(async function () {
+          if (Date.now() - _pst > _ptm) {
+            clearInterval(genPollInterval);
+            genPollInterval = null;
+            genCurrentJobId = null;
+            pollReject(new Error("Generation timed out after 5 minutes."));
+            return;
+          }
+          try {
+            var pr = await fetch("/api/jobs/" + jobId, {
+              headers: { Accept: "application/json" },
+            });
+            if (!pr.ok) return;
+            var pd = await pr.json();
+            if (pd.status === "processing") {
+              updateGenProgress(
+                pd.progress_pct || 0,
+                pd.status_message || "Processing...",
+              );
+            } else if (pd.status === "completed") {
+              clearInterval(genPollInterval);
+              genPollInterval = null;
+              updateGenProgress(100, "Complete");
+              pollResolve(pd);
+            } else if (pd.status === "failed") {
+              clearInterval(genPollInterval);
+              genPollInterval = null;
+              genCurrentJobId = null;
+              pollReject(new Error(pd.error || "Generation failed."));
+            }
+          } catch (pe) {
+            console.warn("Poll error:", pe.message);
+          }
+        }, 2000);
+      });
+
+      // Step 3: Download the completed file
+      var _dlRes = await fetch("/api/jobs/" + jobId);
+      if (!_dlRes.ok) throw new Error("Failed to download generated file");
+      {
+        const contentType = _dlRes.headers.get("Content-Type") || "";
+        const blob = await _dlRes.blob();
+        genCurrentJobId = null;
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        const safeName = payload.client_name.replace(/[^\w\-]/g, "_");
+        let filename;
+        if (contentType.includes("zip")) {
+          filename = `${safeName}_Media_Plan_Bundle.zip`;
+        } else {
+          filename = `${safeName}_Media_Plan.xlsx`;
+        }
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+
+        // Cache blob for re-download
+        lastGeneratedBlob = blob;
+        lastGeneratedFilename = filename;
+
+        // Cache payload for export
+        _lastPlanPayload = payload;
+
+        // Try to capture plan_id from download response headers
+        var _dlPlanId = _dlRes.headers.get("X-Plan-Id");
+        if (_dlPlanId) _lastPlanId = _dlPlanId;
+
+        // Auto-save campaign context for platform shell
+        try {
+          fetch("/api/campaign/save", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              name:
+                (payload.client_name || "Unnamed") +
+                " - " +
+                new Date().toLocaleDateString(),
+              client: payload.client_name || "",
+              budget: payload.budget_range || "",
+              industry: payload.industry || "",
+              roles: payload.target_roles || [],
+              locations: payload.locations || [],
+              channels: payload.channels || [],
+              plan_result: _lastPlanPayload || {},
+              generated_at: new Date().toISOString(),
+            }),
+          })
+            .then(function (r) {
+              return r.json();
+            })
+            .then(function (data) {
+              if (data.ok) {
+                window._currentCampaignId = data.id;
+                // Dispatch event for platform shell
+                window.dispatchEvent(
+                  new CustomEvent("nova:campaign-saved", { detail: data }),
+                );
+              }
+            })
+            .catch(function () {});
+        } catch (e) {
+          console.warn("Auto-save failed:", e);
+        }
+
+        // Hide overlay with success
+        hideGenerationOverlay(true);
+
+        // Show hero stat section
+        const heroSection = document.getElementById("heroStatSection");
+        if (heroSection) {
+          const isZip = contentType.includes("zip");
+          document.getElementById("heroStatNumber").textContent = isZip
+            ? "2"
+            : "1";
+          document.getElementById("heroStatLabel").textContent = isZip
+            ? "Files Generated Successfully"
+            : "File Generated Successfully";
+          heroSection.classList.add("visible");
+        }
+
+        // Build plan dashboard (async mode has no X-Plan-Id header)
+        buildPlanDashboard(payload, null);
+
+        // Scroll to dashboard (or hero section)
+        const scrollTarget =
+          document.getElementById("planDashboardSection") || heroSection;
+        if (scrollTarget) {
+          scrollTarget.scrollIntoView({
+            behavior: "smooth",
+            block: "start",
+          });
+        }
+
+        // Show confetti and success toast
+        const successMsg = contentType.includes("zip")
+          ? "Media plan bundle (Excel + PPT) downloaded successfully!"
+          : "Media plan generated and downloaded successfully!";
+        setTimeout(() => {
+          showConfetti();
+          showToast(successMsg, "success");
+        }, 600);
+
+        btn.innerHTML = "&#10003; Downloaded!";
+        btn.style.background = "var(--secondary)";
+        setTimeout(() => {
+          btn.disabled = false;
+          btn.classList.add("ready-pulse");
+          btn.innerHTML =
+            '<span style="display:flex;align-items:center;justify-content:center;gap:8px;"><span>&#128640;</span><span>Generate Media Plan</span><span style="font-size:11px;opacity:0.8;margin-left:4px;">(Excel + PPT)</span></span>';
+          btn.style.background = "";
+        }, 3000);
+      }
+    } catch (err) {
+      if (genPollInterval) {
+        clearInterval(genPollInterval);
+        genPollInterval = null;
+      }
+      genCurrentJobId = null;
+      _genAbortController = null;
+      hideGenerationOverlay(false);
+      let userMsg;
+      if (err.name === "AbortError") {
+        userMsg = "Generation cancelled.";
+      } else if (!navigator.onLine) {
+        userMsg =
+          "You appear to be offline. Please check your internet connection and try again.";
+      } else if (err.httpStatus && err.httpStatus >= 500) {
+        userMsg = `Server error (${err.httpStatus}): ${err.message}. Please try again later.`;
+      } else if (err.httpStatus && err.httpStatus >= 400) {
+        userMsg = `Request error (${err.httpStatus}): ${err.message}. Please review your inputs.`;
+      } else if (
+        err.message === "Failed to fetch" ||
+        err.message === "NetworkError when attempting to fetch resource."
+      ) {
+        userMsg =
+          "Network error -- could not reach the server. Please check your connection and try again.";
+      } else if (err.message) {
+        userMsg = err.message;
+      } else {
+        userMsg =
+          "Failed to generate media plan. Please check your inputs and try again.";
+      }
+      showToast(userMsg, "error");
+      btn.disabled = false;
+      btn.classList.add("ready-pulse");
+      btn.innerHTML =
+        '<span style="display:flex;align-items:center;justify-content:center;gap:8px;"><span>&#128640;</span><span>Generate Media Plan</span><span style="font-size:11px;opacity:0.8;margin-left:4px;">(Excel + PPT)</span></span>';
+    }
+  }
+  // Re-download cached bundle without regenerating
+  function redownloadBundle() {
+    if (lastGeneratedBlob && lastGeneratedFilename) {
+      const url = URL.createObjectURL(lastGeneratedBlob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = lastGeneratedFilename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      showToast("Bundle re-downloaded successfully!", "success");
+    } else {
+      generatePlan();
+    }
+  }
+
+  // ============================================
+  // Export dropdown & Google Sheets / CSV / XLSX
+  // ============================================
+  var _lastPlanPayload = null; // cached from generatePlan
+
+  function toggleExportMenu(e) {
+    e.stopPropagation();
+    var menu = document.getElementById("exportDropdown");
+    menu.classList.toggle("open");
+  }
+  // Close dropdown when clicking outside
+  document.addEventListener("click", function () {
+    var menu = document.getElementById("exportDropdown");
+    if (menu) menu.classList.remove("open");
+  });
+
+  // Check if Google Sheets is configured (on page load)
+  (function checkExportStatus() {
+    fetch("/api/export/status", { method: "POST" })
+      .then(function (r) {
+        return r.json();
+      })
+      .then(function (data) {
+        if (data.configured) {
+          var btn = document.getElementById("exportSheetsBtn");
+          var div = document.getElementById("exportSheetsDivider");
+          if (btn) btn.style.display = "";
+          if (div) div.style.display = "";
+        }
+      })
+      .catch(function () {
+        /* ignore -- sheets just won't show */
+      });
+  })();
+
+  function exportPlan(format) {
+    var menu = document.getElementById("exportDropdown");
+    if (menu) menu.classList.remove("open");
+
+    if (!_lastPlanPayload) {
+      showToast("Generate a media plan first before exporting.", "warning");
+      return;
+    }
+
+    var exportBtn = document.getElementById("exportBtn");
+    var origHTML = exportBtn.innerHTML;
+    exportBtn.disabled = true;
+    exportBtn.innerHTML =
+      '<span style="display:flex;align-items:center;gap:6px;"><span class="spinner-sm"></span> Exporting...</span>';
+
+    var body = JSON.stringify({
+      plan_data: _lastPlanPayload,
+      format: format,
+    });
+
+    fetch("/api/export/sheets", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: body,
+    })
+      .then(function (response) {
+        var ct = response.headers.get("Content-Type") || "";
+        if (ct.includes("application/json")) {
+          return response.json().then(function (data) {
+            if (data.url) {
+              window.open(data.url, "_blank");
+              showToast("Media plan exported to Google Sheets!", "success");
+            } else if (data.error) {
+              showToast("Export error: " + data.error, "error");
+            }
+          });
+        } else {
+          // File download (XLSX or CSV)
+          return response.blob().then(function (blob) {
+            var disposition = response.headers.get("Content-Disposition") || "";
+            var filenameMatch = disposition.match(/filename="?([^"]+)"?/);
+            var filename = filenameMatch
+              ? filenameMatch[1]
+              : "Media_Plan_Export." + (format === "csv" ? "csv" : "xlsx");
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement("a");
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+            var label = format === "csv" ? "CSV" : "Excel";
+            showToast("Media plan downloaded as " + label + "!", "success");
+          });
+        }
+      })
+      .catch(function (err) {
+        showToast(
+          "Export failed: " + (err.message || "Unknown error"),
+          "error",
+        );
+      })
+      .finally(function () {
+        exportBtn.disabled = false;
+        exportBtn.innerHTML = origHTML;
+      });
+  }
+
+  // ============================================
+  // Attach budget feasibility check to form inputs
+  // ============================================
+  ["budgetRange", "hireVolume"].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (el) el.addEventListener("change", checkBudgetFeasibility);
+  });
+
+  // ============================================
+  // Industry search/filter
+  // ============================================
+  document
+    .getElementById("industrySearch")
+    .addEventListener("input", function (e) {
+      const query = e.target.value.toLowerCase();
+      document.querySelectorAll(".industry-card").forEach((card) => {
+        const name = card.querySelector(".name").textContent.toLowerCase();
+        const desc = card.querySelector(".desc").textContent.toLowerCase();
+        card.style.display =
+          name.includes(query) || desc.includes(query) ? "" : "none";
+      });
+    });
+  // Focus styles for industry search
+  document
+    .getElementById("industrySearch")
+    .addEventListener("focus", function () {
+      this.style.borderColor = "var(--primary)";
+      this.style.boxShadow = "0 0 0 3px rgba(99,102,241,0.1)";
+    });
+  document
+    .getElementById("industrySearch")
+    .addEventListener("blur", function () {
+      this.style.borderColor = "";
+      this.style.boxShadow = "";
+    });
+
+  // Header particles removed in UI redesign (header-particle is display:none)
+  // Kept as no-op stub for backward compatibility
+  function createHeaderParticles() {
+    /* stripped */
+  }
+
+  // ============================================
+  // Live CPC/CPA Pricing
+  // ============================================
+  let _pricingCache = {};
+  let _pricingFetching = false;
+
+  function fetchLivePricing() {
+    if (_pricingFetching) return;
+    const grid = document.getElementById("pricing-grid");
+    const sourceEl = document.getElementById("pricing-source");
+    if (!grid) return;
+
+    const currentRoles = typeof roles !== "undefined" ? roles : [];
+    const currentLocations = typeof locations !== "undefined" ? locations : [];
+    const industry = selectedIndustry || "";
+
+    if (currentRoles.length === 0 && currentLocations.length === 0) {
+      grid.innerHTML =
+        '<div class="pricing-loading">Add roles and locations in previous steps to see live pricing</div>';
+      return;
+    }
+
+    const role = currentRoles[0] || "";
+    const location = currentLocations[0] || "";
+    const cacheKey = `${role}|${location}|${industry}`;
+
+    // Check cache (5 min TTL)
+    if (
+      _pricingCache[cacheKey] &&
+      Date.now() - _pricingCache[cacheKey].ts < 300000
+    ) {
+      renderPricingGrid(_pricingCache[cacheKey].data);
+      return;
+    }
+
+    _pricingFetching = true;
+    grid.innerHTML =
+      '<div class="pricing-loading"><span class="spinner"></span> Fetching live pricing data...</div>';
+
+    const params = new URLSearchParams({
+      role: role,
+      location: location,
+      industry: industry,
+    });
+    fetch("/api/pricing/live?" + params.toString())
+      .then(function (res) {
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        return res.json();
+      })
+      .then(function (data) {
+        _pricingCache[cacheKey] = { data: data, ts: Date.now() };
+        renderPricingGrid(data);
+        if (sourceEl && data.source) {
+          sourceEl.textContent =
+            "Source: " +
+            data.source +
+            (data.updated_at
+              ? " | Updated: " + new Date(data.updated_at).toLocaleTimeString()
+              : "");
+        }
+      })
+      .catch(function (err) {
+        grid.innerHTML =
+          '<div class="pricing-error">Unable to fetch live pricing: ' +
+          escapeHtml(err.message) +
+          "</div>";
+      })
+      .finally(function () {
+        _pricingFetching = false;
+      });
+  }
+
+  function renderPricingGrid(data) {
+    const grid = document.getElementById("pricing-grid");
+    if (!grid || !data || !data.channels) {
+      if (grid)
+        grid.innerHTML =
+          '<div class="pricing-loading">No pricing data available</div>';
+      return;
+    }
+
+    const channels = data.channels;
+    if (channels.length === 0) {
+      grid.innerHTML =
+        '<div class="pricing-loading">No pricing data available for this role/location</div>';
+      return;
+    }
+
+    // Find best value (lowest CPA)
+    let bestCPA = Infinity;
+    let bestIdx = -1;
+    channels.forEach(function (ch, i) {
+      if (ch.cpa && ch.cpa < bestCPA) {
+        bestCPA = ch.cpa;
+        bestIdx = i;
+      }
+    });
+
+    let html = "";
+    channels.forEach(function (ch, i) {
+      const trendIcon =
+        ch.trend === "up"
+          ? "&#9650;"
+          : ch.trend === "down"
+            ? "&#9660;"
+            : "&#9644;";
+      const trendClass =
+        ch.trend === "up"
+          ? "trend-up"
+          : ch.trend === "down"
+            ? "trend-down"
+            : "trend-stable";
+      const isBest = i === bestIdx;
+
+      html += '<div class="pricing-card">';
+      html += '<div class="channel-name">' + escapeHtml(ch.name);
+      if (isBest) html += ' <span class="pricing-badge">Best Value</span>';
+      html += "</div>";
+      if (ch.cpc != null) {
+        html +=
+          '<div class="pricing-metric"><span>CPC</span><span class="value">$' +
+          Number(ch.cpc).toFixed(2) +
+          ' <span class="' +
+          trendClass +
+          '">' +
+          trendIcon +
+          "</span></span></div>";
+      }
+      if (ch.cpa != null) {
+        html +=
+          '<div class="pricing-metric"><span>CPA</span><span class="value">$' +
+          Number(ch.cpa).toFixed(2) +
+          "</span></div>";
+      }
+      if (ch.cph != null) {
+        html +=
+          '<div class="pricing-metric"><span>CPH</span><span class="value">$' +
+          Number(ch.cph).toLocaleString() +
+          "</span></div>";
+      }
+      if (ch.apply_rate) {
+        html +=
+          '<div class="pricing-metric"><span>Apply Rate</span><span class="value">' +
+          escapeHtml(ch.apply_rate) +
+          "</span></div>";
+      }
+      if (ch.notes) {
+        html +=
+          '<div style="font-size:10px;color:var(--text-muted);margin-top:6px">' +
+          escapeHtml(ch.notes) +
+          "</div>";
+      }
+      html += "</div>";
+    });
+
+    grid.innerHTML = html;
+  }
+
+  // ============================================
+  // Unsaved changes warning (beforeunload)
+  // ============================================
+  let formDirty = false;
+  document.querySelectorAll("input, textarea, select").forEach((el) => {
+    el.addEventListener("input", () => {
+      formDirty = true;
+    });
+    el.addEventListener("change", () => {
+      formDirty = true;
+    });
+  });
+  window.addEventListener("beforeunload", (e) => {
+    if (formDirty) {
+      e.preventDefault();
+      e.returnValue = "";
+    }
+  });
+</script>

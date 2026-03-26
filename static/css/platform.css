@@ -685,6 +685,9 @@ body {
 .sidebar-group.collapsed .group-caret {
   transform: rotate(-90deg);
 }
+.sidebar-group-items {
+  display: block;
+}
 .sidebar-group.collapsed .sidebar-group-items {
   display: none;
 }
@@ -1064,6 +1067,16 @@ body {
 }
 .nova-drawer.open {
   right: 0;
+}
+
+/* P1-7: Shrink content area when drawer is open to prevent text clipping */
+.platform-shell.nova-drawer-open .content-area {
+  margin-right: var(--drawer-w);
+  transition: margin-right var(--transition-slow);
+}
+.platform-shell.nova-drawer-open .topbar {
+  margin-right: var(--drawer-w);
+  transition: margin-right var(--transition-slow);
 }
 
 .nova-drawer-header {

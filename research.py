@@ -13,8 +13,6 @@ import os
 try:
     from standardizer import (
         normalize_location as _std_normalize_location,
-        COUNTRY_MAP as _STD_COUNTRY_MAP,
-        US_STATE_MAP as _STD_US_STATE_MAP,
     )
 
     _HAS_STANDARDIZER = True

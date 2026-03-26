@@ -138,7 +138,7 @@ def _cache_get(key: str) -> Any | None:
                 _cache_put(key, val, skip_redis=True)
                 return val
         except Exception as exc:
-            logger.error(f"Redis cache_get error for {key}: {exc}", exc_info=True)
+            logger.warning(f"Redis cache_get error for {key}: {exc}")
 
     return None
 
@@ -162,7 +162,7 @@ def _cache_put(key: str, value: Any, skip_redis: bool = False) -> None:
         try:
             _redis_set(f"wsr:{key}", value, ttl_seconds=3600, category="web_scraper")
         except Exception as exc:
-            logger.error(f"Redis cache_set error for {key}: {exc}", exc_info=True)
+            logger.warning(f"Redis cache_set error for {key}: {exc}")
 
 
 # =============================================================================
@@ -689,13 +689,10 @@ def _firecrawl_scrape(url: str) -> Optional[dict[str, Any]]:
             )
         else:
             _cb_firecrawl.record_failure(f"HTTP {exc.code}: {exc.reason}")
-            logger.error(
-                f"Firecrawl scrape HTTP {exc.code} for {url}: {exc.reason}",
-                exc_info=True,
-            )
+            logger.warning(f"Firecrawl scrape HTTP {exc.code} for {url}: {exc.reason}")
     except (urllib.error.URLError, json.JSONDecodeError, OSError) as exc:
         _cb_firecrawl.record_failure(str(exc))
-        logger.error(f"Firecrawl scrape error for {url}: {exc}", exc_info=True)
+        logger.warning(f"Firecrawl scrape error for {url}: {exc}")
     return None
 
 
@@ -749,7 +746,8 @@ def _firecrawl_search(
                 _search_result(
                     title=meta.get("title") or "",
                     url=item.get("url") or meta.get("sourceURL") or "",
-                    snippet=meta.get("description") or item.get("markdown", "")[:300],
+                    snippet=meta.get("description")
+                    or (item.get("markdown") or "")[:300],
                     provider="firecrawl",
                 )
             )
@@ -764,12 +762,10 @@ def _firecrawl_search(
             )
         else:
             _cb_firecrawl.record_failure(f"HTTP {exc.code}: {exc.reason}")
-            logger.error(
-                f"Firecrawl search HTTP {exc.code}: {exc.reason}", exc_info=True
-            )
+            logger.warning(f"Firecrawl search HTTP {exc.code}: {exc.reason}")
     except (urllib.error.URLError, json.JSONDecodeError, OSError) as exc:
         _cb_firecrawl.record_failure(str(exc))
-        logger.error(f"Firecrawl search error: {exc}", exc_info=True)
+        logger.warning(f"Firecrawl search error: {exc}")
     return None
 
 
@@ -867,7 +863,7 @@ def _apify_scrape(url: str) -> Optional[dict[str, Any]]:
         return None
     except (urllib.error.URLError, OSError, json.JSONDecodeError, ValueError) as exc:
         _cb_apify.record_failure(str(exc))
-        logger.error(f"Apify scrape error for {url}: {exc}", exc_info=True)
+        logger.warning(f"Apify scrape error for {url}: {exc}")
         return None
 
 
@@ -925,12 +921,10 @@ def _jina_scrape(url: str) -> Optional[dict[str, Any]]:
             _cb_jina.trip(f"HTTP {exc.code}: {exc.reason}")
         else:
             _cb_jina.record_failure(f"HTTP {exc.code}: {exc.reason}")
-        logger.error(
-            f"Jina scrape HTTP {exc.code} for {url}: {exc.reason}", exc_info=True
-        )
+        logger.warning(f"Jina scrape HTTP {exc.code} for {url}: {exc.reason}")
     except (urllib.error.URLError, OSError) as exc:
         _cb_jina.record_failure(str(exc))
-        logger.error(f"Jina scrape error for {url}: {exc}", exc_info=True)
+        logger.warning(f"Jina scrape error for {url}: {exc}")
     return None
 
 
@@ -974,7 +968,7 @@ def _jina_search(query: str, num_results: int = 5) -> Optional[list[dict[str, An
                             title=item.get("title") or "",
                             url=item.get("url") or "",
                             snippet=item.get("description")
-                            or item.get("content", "")[:300],
+                            or (item.get("content") or "")[:300],
                             provider="jina",
                         )
                     )
@@ -1008,10 +1002,10 @@ def _jina_search(query: str, num_results: int = 5) -> Optional[list[dict[str, An
             _cb_jina.trip(f"HTTP {exc.code}: {exc.reason}")
         else:
             _cb_jina.record_failure(f"HTTP {exc.code}: {exc.reason}")
-        logger.error(f"Jina search HTTP {exc.code}: {exc.reason}", exc_info=True)
+        logger.warning(f"Jina search HTTP {exc.code}: {exc.reason}")
     except (urllib.error.URLError, OSError) as exc:
         _cb_jina.record_failure(str(exc))
-        logger.error(f"Jina search error: {exc}", exc_info=True)
+        logger.warning(f"Jina search error: {exc}")
     return None
 
 
@@ -1073,12 +1067,10 @@ def _tavily_scrape(url: str) -> Optional[dict[str, Any]]:
             _cb_tavily.trip(f"HTTP {exc.code}: {exc.reason}")
         else:
             _cb_tavily.record_failure(f"HTTP {exc.code}: {exc.reason}")
-        logger.error(
-            f"Tavily scrape HTTP {exc.code} for {url}: {exc.reason}", exc_info=True
-        )
+        logger.warning(f"Tavily scrape HTTP {exc.code} for {url}: {exc.reason}")
     except (urllib.error.URLError, json.JSONDecodeError, OSError) as exc:
         _cb_tavily.record_failure(str(exc))
-        logger.error(f"Tavily scrape error for {url}: {exc}", exc_info=True)
+        logger.warning(f"Tavily scrape error for {url}: {exc}")
     return None
 
 
@@ -1142,10 +1134,10 @@ def _tavily_search(query: str, num_results: int = 5) -> Optional[list[dict[str, 
             _cb_tavily.trip(f"HTTP {exc.code}: {exc.reason}")
         else:
             _cb_tavily.record_failure(f"HTTP {exc.code}: {exc.reason}")
-        logger.error(f"Tavily search HTTP {exc.code}: {exc.reason}", exc_info=True)
+        logger.warning(f"Tavily search HTTP {exc.code}: {exc.reason}")
     except (urllib.error.URLError, json.JSONDecodeError, OSError) as exc:
         _cb_tavily.record_failure(str(exc))
-        logger.error(f"Tavily search error: {exc}", exc_info=True)
+        logger.warning(f"Tavily search error: {exc}")
     return None
 
 
@@ -1209,7 +1201,7 @@ def _fetch_raw_html(url: str, timeout: int = REQUEST_TIMEOUT) -> Optional[str]:
             return raw.decode(charset, errors="replace")
 
     except (urllib.error.HTTPError, urllib.error.URLError, OSError) as exc:
-        logger.error(f"Raw HTML fetch failed for {url}: {exc}", exc_info=True)
+        logger.warning(f"Raw HTML fetch failed for {url}: {exc}")
         return None
 
 
@@ -1316,13 +1308,11 @@ def _llm_assisted_scrape(url: str, topic_hint: str = "") -> Optional[dict[str, A
 
     except ImportError:
         _cb_llm_assist.record_failure("llm_router not available")
-        logger.error(
-            "LLM-assisted scraping failed: llm_router import error", exc_info=True
-        )
+        logger.warning("LLM-assisted scraping failed: llm_router import error")
         return None
     except Exception as exc:
         _cb_llm_assist.record_failure(str(exc))
-        logger.error(f"LLM-assisted scraping failed for {url}: {exc}", exc_info=True)
+        logger.warning(f"LLM-assisted scraping failed for {url}: {exc}")
         return None
 
 

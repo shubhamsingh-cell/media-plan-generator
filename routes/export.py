@@ -11,7 +11,6 @@ Extracted from app.py to reduce its size.  Handles:
 import json
 import logging
 import re
-import sys
 from typing import Any
 
 logger = logging.getLogger(__name__)

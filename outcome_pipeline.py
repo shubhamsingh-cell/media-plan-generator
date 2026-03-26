@@ -323,7 +323,7 @@ def get_plan_outcomes(plan_id: str) -> dict[str, Any]:
 
     return {
         "plan_id": plan_id,
-        "role_family": meta.get("role_family", ""),
+        "role_family": meta.get("role_family") or "",
         "stages": stages,
         "actual_conversions": actual_conversions,
         "events_count": len(events),
@@ -353,7 +353,7 @@ def get_outcome_trends(
         for pid, meta in _plan_meta.items():
             if meta.get("created_at", 0) < cutoff:
                 continue
-            if role_filter and meta.get("role_family", "") != role_filter:
+            if role_filter and (meta.get("role_family") or "") != role_filter:
                 continue
             matching_plans.append(pid)
 
@@ -457,7 +457,7 @@ def compute_accuracy_score(plan_id: str) -> dict[str, Any]:
 
     return {
         "plan_id": plan_id,
-        "role_family": meta.get("role_family", ""),
+        "role_family": meta.get("role_family") or "",
         "overall_accuracy": overall_accuracy,
         "stage_accuracy": stage_accuracy,
         "stages_compared": len(stage_accuracy),
@@ -580,7 +580,7 @@ def update_prediction_model(
     if outcomes:
         seen_pids: set[str] = set()
         for o in outcomes:
-            pid = o.get("plan_id", "")
+            pid = o.get("plan_id") or ""
             if pid:
                 seen_pids.add(pid)
         plan_ids = list(seen_pids)
@@ -696,7 +696,7 @@ def get_accuracy_report(
         for pid, meta in _plan_meta.items():
             if meta.get("created_at", 0) < cutoff:
                 continue
-            if role_filter and meta.get("role_family", "") != role_filter:
+            if role_filter and (meta.get("role_family") or "") != role_filter:
                 continue
             matching_plans.append(pid)
 

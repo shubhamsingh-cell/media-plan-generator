@@ -10,7 +10,7 @@ Functions:
     send_error_alert(error)                 -- Application error alert
 
 Configuration (env vars):
-    SLACK_WEBHOOK_URL    -- Incoming webhook URL (required)
+    SLACK_WEBHOOK_URL    -- Incoming webhook URL (optional, disables alerts if unset)
     SLACK_ALERT_CHANNEL  -- Default channel (optional, defaults to #nova-alerts)
     RENDER_DEPLOY_URL    -- Render deployment URL (optional, for deploy links)
 

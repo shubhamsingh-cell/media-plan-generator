@@ -3164,14 +3164,29 @@ def _build_sheet_quality_intelligence(
                 [
                     "Role Title",
                     "Seniority Level",
-                    "Complexity (1-10)",
+                    "Difficulty (1-10)",
+                    "Supply Level",
                     "Avg Time-to-Fill",
+                    "Location Modifier",
                     "Budget Weight",
                     "Channel Emphasis",
                     "Description",
                 ],
             )
             for idx, role_info in enumerate(difficulty_framework):
+                loc_mod = role_info.get("location_modifier", 0.0)
+                loc_name = role_info.get("location_matched") or ""
+                loc_display = (
+                    f"+{loc_mod:.1f} ({loc_name})"
+                    if loc_mod > 0 and loc_name
+                    else (
+                        f"{loc_mod:.1f} ({loc_name})"
+                        if loc_mod < 0 and loc_name
+                        else "0 (baseline)"
+                    )
+                )
+                supply_raw = str(role_info.get("supply_level") or "moderate")
+                supply_display = supply_raw.replace("_", " ").title()
                 row = _write_table_row(
                     ws,
                     row,
@@ -3179,7 +3194,9 @@ def _build_sheet_quality_intelligence(
                         str(role_info.get("role_title") or ""),
                         str(role_info.get("seniority_level") or "mid").title(),
                         str(role_info.get("complexity_score") or ""),
+                        supply_display,
                         f"{role_info.get('avg_time_to_fill_days', 0)} days",
+                        loc_display,
                         f"{role_info.get('budget_weight', 1.0):.1f}x",
                         str(role_info.get("channel_emphasis") or "")
                         .replace("_", " ")

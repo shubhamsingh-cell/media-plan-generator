@@ -14,7 +14,7 @@ import datetime
 import logging
 import threading
 import uuid
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from enum import Enum
 from typing import Any
 

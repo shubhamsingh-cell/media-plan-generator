@@ -5,10 +5,8 @@ Provides contextual AI nudges next to media plan form fields.
 The Grammarly model applied to media planning.
 """
 
-import json
 import logging
 import re
-from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
@@ -657,7 +655,7 @@ def _nudges_channel(value: str, context: Dict[str, Any]) -> List[Dict[str, str]]
             break
 
     if not family:
-        industry = context.get("industry", "") or ""
+        industry = context.get("industry") or ""
         if isinstance(industry, str) and industry.lower() in (
             "technology",
             "tech",

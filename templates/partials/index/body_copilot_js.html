@@ -1,0 +1,446 @@
+<!-- AI Co-Pilot: Inline suggestions engine -->
+<script>
+  (function () {
+    "use strict";
+
+    var COPILOT_DEBOUNCE_MS = 500;
+    var COPILOT_SPARKLE_SVG =
+      '<svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0l2 5h5l-4 3.5 1.5 5L8 10.5 3.5 13.5 5 8.5 1 5h5z"/></svg>';
+    var _copilotTimers = {};
+    var _copilotAbortControllers = {};
+
+    function copilotGetContext() {
+      return {
+        industry:
+          (typeof selectedIndustry !== "undefined" && selectedIndustry) || "",
+        budget: (document.getElementById("budgetRange") || {}).value || "",
+        roles: typeof roles !== "undefined" ? roles.slice() : [],
+        locations: typeof locations !== "undefined" ? locations.slice() : [],
+      };
+    }
+
+    function copilotFetchSuggestions(field, partialInput) {
+      // Cancel previous request for this field
+      if (_copilotAbortControllers[field]) {
+        _copilotAbortControllers[field].abort();
+      }
+      var controller = new AbortController();
+      _copilotAbortControllers[field] = controller;
+
+      var container = document.getElementById("copilot-" + field);
+      if (!container) return;
+      container.classList.add("loading");
+
+      var headers = { "Content-Type": "application/json" };
+      var csrfToken = getCsrfToken();
+      if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
+
+      fetch("/api/copilot/suggest", {
+        method: "POST",
+        headers: headers,
+        body: JSON.stringify({
+          field: field,
+          partial_input: partialInput || "",
+          context: copilotGetContext(),
+        }),
+        signal: controller.signal,
+      })
+        .then(function (r) {
+          if (!r.ok) throw new Error("HTTP " + r.status);
+          return r.json();
+        })
+        .then(function (data) {
+          container.classList.remove("loading");
+          copilotRenderSuggestions(field, data.suggestions || []);
+        })
+        .catch(function (err) {
+          container.classList.remove("loading");
+          if (err.name !== "AbortError") {
+            // Silently fail -- don't disrupt the user
+            container.innerHTML = "";
+          }
+        });
+    }
+
+    function copilotRenderSuggestions(field, suggestions) {
+      var container = document.getElementById("copilot-" + field);
+      if (!container) return;
+      container.innerHTML = "";
+
+      if (!suggestions || suggestions.length === 0) return;
+
+      // Label
+      var label = document.createElement("div");
+      label.className = "copilot-label";
+      label.innerHTML = COPILOT_SPARKLE_SVG + " Nova suggests";
+      container.appendChild(label);
+
+      // Chips
+      suggestions.forEach(function (s) {
+        var chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = "copilot-chip";
+        chip.textContent = s.text;
+        chip.title = s.reason || "";
+        chip.setAttribute(
+          "aria-label",
+          "Add suggestion: " + s.text + (s.reason ? ". " + s.reason : ""),
+        );
+
+        chip.addEventListener("click", function () {
+          copilotApplySuggestion(field, s.text, chip);
+        });
+
+        container.appendChild(chip);
+      });
+    }
+
+    function copilotApplySuggestion(field, text, chipEl) {
+      if (field === "brief") {
+        var useCase = document.getElementById("useCase");
+        if (useCase) {
+          var current = useCase.value.trim();
+          if (
+            current &&
+            !current.endsWith(".") &&
+            !current.endsWith("!") &&
+            !current.endsWith("?")
+          ) {
+            current += ". ";
+          } else if (current) {
+            current += " ";
+          }
+          useCase.value = current + text;
+          useCase.dispatchEvent(new Event("input", { bubbles: true }));
+          useCase.focus();
+        }
+      } else if (field === "roles") {
+        if (typeof addTag === "function" && typeof roles !== "undefined") {
+          addTag("rolesContainer", "roleInput", roles, text);
+        }
+      } else if (field === "locations") {
+        if (typeof addTag === "function" && typeof locations !== "undefined") {
+          addTag("locationsContainer", "locationInput", locations, text);
+        }
+      } else if (field === "channels") {
+        // Map suggestion text to checkbox IDs
+        var channelMap = {
+          "Regional & Local Job Boards": "chRegionalBoards",
+          "Global Reach Job Boards": "chGlobalBoards",
+          "Niche & Industry-Specific Boards": "chNicheBoards",
+          "Social Media Channels": "chSocial",
+          "Programmatic/DSP Advertising": "chProgrammatic",
+          "Programmatic/DSP": "chProgrammatic",
+          "Employer Branding": "chEmployerBrand",
+        };
+        var checkboxId = channelMap[text];
+        if (checkboxId) {
+          var cb = document.getElementById(checkboxId);
+          if (cb && !cb.checked) {
+            cb.checked = true;
+            cb.dispatchEvent(new Event("change", { bubbles: true }));
+          }
+        }
+      }
+
+      // Visual feedback
+      if (chipEl) {
+        chipEl.classList.add("applied");
+        chipEl.textContent = "\u2713 " + text;
+        setTimeout(function () {
+          chipEl.style.opacity = "0.5";
+          chipEl.style.pointerEvents = "none";
+        }, 600);
+      }
+    }
+
+    function copilotDebounce(field, partialInput) {
+      clearTimeout(_copilotTimers[field]);
+      _copilotTimers[field] = setTimeout(function () {
+        copilotFetchSuggestions(field, partialInput);
+      }, COPILOT_DEBOUNCE_MS);
+    }
+
+    // Wire up input listeners
+    document.addEventListener("DOMContentLoaded", function () {
+      // Brief / Use Case textarea
+      var useCaseEl = document.getElementById("useCase");
+      if (useCaseEl) {
+        useCaseEl.addEventListener("input", function () {
+          copilotDebounce("brief", this.value);
+        });
+        // Trigger initial suggestions on focus if empty
+        useCaseEl.addEventListener("focus", function () {
+          if (!this.value.trim()) {
+            copilotFetchSuggestions("brief", "");
+          }
+        });
+      }
+
+      // Role input
+      var roleInputEl = document.getElementById("roleInput");
+      if (roleInputEl) {
+        roleInputEl.addEventListener("input", function () {
+          copilotDebounce("roles", this.value);
+        });
+        roleInputEl.addEventListener("focus", function () {
+          copilotDebounce("roles", this.value);
+        });
+      }
+
+      // Location input
+      var locInputEl = document.getElementById("locationInput");
+      if (locInputEl) {
+        locInputEl.addEventListener("input", function () {
+          copilotDebounce("locations", this.value);
+        });
+        locInputEl.addEventListener("focus", function () {
+          copilotDebounce("locations", this.value);
+        });
+      }
+
+      // Channel suggestions: trigger when step 3 becomes visible
+      var origNextStep = window.nextStep;
+      if (typeof origNextStep === "function") {
+        window.nextStep = function () {
+          try {
+            origNextStep.apply(this, arguments);
+          } catch (e) {
+            console.error("nextStep wrapper error:", e);
+          }
+          // Check after the step transition animation completes (280ms + buffer)
+          setTimeout(function () {
+            var step3 = document.getElementById("step3");
+            if (step3 && step3.classList.contains("active")) {
+              copilotFetchSuggestions("channels", "");
+            }
+          }, 350);
+        };
+      }
+    });
+  })();
+</script>
+
+<!-- Inline Plan Copilot -- contextual AI nudges -->
+<script>
+  (function () {
+    "use strict";
+
+    var NUDGE_DEBOUNCE_MS = 700;
+    var _nudgeTimers = {};
+    var _nudgeAbortControllers = {};
+
+    var NUDGE_ICONS = {
+      info: '<svg viewBox="0 0 16 16" fill="currentColor" class="nudge-icon"><circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 7v4M8 5h.01"/></svg>',
+      suggestion:
+        '<svg viewBox="0 0 16 16" fill="currentColor" class="nudge-icon"><path d="M8 1l2 4h4l-3 3 1 4-4-2-4 2 1-4-3-3h4z"/></svg>',
+      warning:
+        '<svg viewBox="0 0 16 16" fill="currentColor" class="nudge-icon"><path d="M8 1L1 14h14L8 1zm0 4v5m0 2h.01"/></svg>',
+    };
+
+    function nudgeGetContext() {
+      var ctx = {
+        industry:
+          (typeof selectedIndustry !== "undefined" && selectedIndustry) || "",
+        budget: (document.getElementById("budgetRange") || {}).value || "",
+        roles: typeof roles !== "undefined" ? roles.slice() : [],
+        locations: typeof locations !== "undefined" ? locations.slice() : [],
+      };
+      var exactBudget = document.getElementById("exactBudget");
+      if (exactBudget && exactBudget.value) {
+        ctx.budget = exactBudget.value;
+      }
+      return ctx;
+    }
+
+    function nudgeFetch(field, value) {
+      if (!value || !value.trim()) {
+        nudgeClear(field);
+        return;
+      }
+      if (_nudgeAbortControllers[field]) {
+        _nudgeAbortControllers[field].abort();
+      }
+      var controller = new AbortController();
+      _nudgeAbortControllers[field] = controller;
+
+      var headers = { "Content-Type": "application/json" };
+      var csrfToken = getCsrfToken();
+      if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
+
+      fetch("/api/copilot/nudge", {
+        method: "POST",
+        headers: headers,
+        body: JSON.stringify({
+          field: field,
+          value: value,
+          context: nudgeGetContext(),
+        }),
+        signal: controller.signal,
+      })
+        .then(function (r) {
+          if (!r.ok) throw new Error("HTTP " + r.status);
+          return r.json();
+        })
+        .then(function (data) {
+          nudgeRender(field, data.nudges || []);
+        })
+        .catch(function (err) {
+          if (err.name !== "AbortError") {
+            nudgeClear(field);
+          }
+        });
+    }
+
+    function nudgeRender(field, nudges) {
+      var container = document.getElementById("nudge-" + field);
+      if (!container) return;
+
+      if (!nudges || nudges.length === 0) {
+        container.className = "copilot-nudge";
+        container.innerHTML = "";
+        return;
+      }
+
+      // Show the first (highest priority) nudge
+      var n = nudges[0];
+      var typeClass = "copilot-nudge--" + (n.type || "info");
+      container.className = "copilot-nudge visible " + typeClass;
+      container.innerHTML =
+        (NUDGE_ICONS[n.type] || NUDGE_ICONS.info) +
+        '<div class="nudge-text">' +
+        escapeHTML(n.message) +
+        '<span class="nudge-source">' +
+        escapeHTML(n.source || "") +
+        "</span></div>" +
+        '<button class="nudge-dismiss" aria-label="Dismiss nudge" title="Dismiss">&times;</button>';
+
+      container
+        .querySelector(".nudge-dismiss")
+        .addEventListener("click", function () {
+          nudgeClear(field);
+        });
+    }
+
+    function nudgeClear(field) {
+      var container = document.getElementById("nudge-" + field);
+      if (container) {
+        container.className = "copilot-nudge";
+        container.innerHTML = "";
+      }
+    }
+
+    function escapeHTML(str) {
+      var d = document.createElement("div");
+      d.textContent = str || "";
+      return d.innerHTML;
+    }
+
+    function nudgeDebounce(field, value) {
+      clearTimeout(_nudgeTimers[field]);
+      _nudgeTimers[field] = setTimeout(function () {
+        nudgeFetch(field, value);
+      }, NUDGE_DEBOUNCE_MS);
+    }
+
+    // Wire up listeners on DOMContentLoaded
+    document.addEventListener("DOMContentLoaded", function () {
+      // Budget field -- on change of select + blur of exact input
+      var budgetSelect = document.getElementById("budgetRange");
+      if (budgetSelect) {
+        budgetSelect.addEventListener("change", function () {
+          if (this.value && this.value !== "__exact__") {
+            nudgeDebounce("budget", this.value);
+          } else {
+            nudgeClear("budget");
+          }
+        });
+      }
+      var exactBudget = document.getElementById("exactBudget");
+      if (exactBudget) {
+        exactBudget.addEventListener("blur", function () {
+          if (this.value.trim()) {
+            nudgeFetch("budget", this.value.trim());
+          }
+        });
+      }
+
+      // Duration field
+      var durationSelect = document.getElementById("campaignDuration");
+      if (durationSelect) {
+        durationSelect.addEventListener("change", function () {
+          if (this.value) {
+            nudgeFetch("duration", this.value);
+          } else {
+            nudgeClear("duration");
+          }
+        });
+      }
+
+      // Role input -- fire nudge when a tag is added (blur of input or Enter)
+      var roleInput = document.getElementById("roleInput");
+      if (roleInput) {
+        roleInput.addEventListener("blur", function () {
+          var allRoles =
+            typeof roles !== "undefined" ? roles.join(", ") : this.value;
+          if (allRoles) nudgeDebounce("job_title", allRoles);
+        });
+        // Also listen for tag additions via MutationObserver on container
+        var rolesContainer = document.getElementById("rolesContainer");
+        if (rolesContainer) {
+          var rolesObserver = new MutationObserver(function () {
+            if (typeof roles !== "undefined" && roles.length > 0) {
+              nudgeDebounce("job_title", roles[roles.length - 1]);
+            }
+          });
+          rolesObserver.observe(rolesContainer, { childList: true });
+        }
+      }
+
+      // Location input -- fire nudge when a tag is added
+      var locInput = document.getElementById("locationInput");
+      if (locInput) {
+        locInput.addEventListener("blur", function () {
+          var allLocs =
+            typeof locations !== "undefined"
+              ? locations.join(", ")
+              : this.value;
+          if (allLocs) nudgeDebounce("location", allLocs);
+        });
+        var locsContainer = document.getElementById("locationsContainer");
+        if (locsContainer) {
+          var locsObserver = new MutationObserver(function () {
+            if (typeof locations !== "undefined" && locations.length > 0) {
+              nudgeFetch("location", locations[locations.length - 1]);
+            }
+          });
+          locsObserver.observe(locsContainer, { childList: true });
+        }
+      }
+
+      // Channel toggles -- fire nudge when any channel checkbox changes
+      var channelCheckboxes = document.querySelectorAll(
+        '[id^="ch"]:is(input[type="checkbox"])',
+      );
+      channelCheckboxes.forEach(function (cb) {
+        cb.addEventListener("change", function () {
+          var selected = [];
+          channelCheckboxes.forEach(function (c) {
+            if (c.checked) {
+              var label = c.closest(".channel-card");
+              if (label) {
+                var h4 = label.querySelector("h4");
+                if (h4) selected.push(h4.textContent.trim());
+              }
+            }
+          });
+          if (selected.length > 0) {
+            nudgeDebounce("channel", selected.join(", "));
+          } else {
+            nudgeClear("channel");
+          }
+        });
+      });
+    });
+  })();
+</script>

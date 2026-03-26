@@ -350,7 +350,7 @@ class DeckGenerator:
             )
             return None
 
-        content_type = headers.get("content-type", "")
+        content_type = headers.get("content-type") or ""
         if "application/json" in content_type:
             # Some Presenton versions return JSON with a download URL
             try:
@@ -714,7 +714,7 @@ class DeckGenerator:
         budget = data.get("budget") or data.get("budget_range") or "N/A"
 
         # Get the default slide ID from the blank presentation
-        slides = presentation.get("slides", [])
+        slides = presentation.get("slides") or []
         if slides:
             first_slide_id = slides[0]["objectId"]
             # Delete the default blank slide -- we'll create our own

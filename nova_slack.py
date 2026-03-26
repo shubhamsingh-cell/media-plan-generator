@@ -649,7 +649,7 @@ class NovaSlackBot:
             return {"challenge": event_data.get("challenge") or ""}
 
         if event_type == "event_callback":
-            event = event_data.get("event", {})
+            event = event_data.get("event") or {}
             return self._process_event(event)
 
         return {"ok": True}

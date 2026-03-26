@@ -64,8 +64,9 @@ def _health_check(client: Any) -> bool:
     Returns True if healthy, False otherwise.
     """
     try:
-        # A minimal query that should always succeed if the connection is alive
-        client.table("cache").select("key").limit(1).execute()
+        # A minimal query that should always succeed if the connection is alive.
+        # Use knowledge_base (always exists) instead of cache (may not exist yet).
+        client.table("knowledge_base").select("category").limit(1).execute()
         _increment_metric("health_check_pass")
         return True
     except Exception as exc:

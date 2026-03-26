@@ -121,6 +121,8 @@ ROUTE_MODULE_MAP: dict[str, str] = {
 METRICS_WINDOW_S: int = 3600  # 1 hour
 # Max data points per module (prevents unbounded memory)
 MAX_SAMPLES: int = 2000
+# Startup grace period -- suppress SLO violations for 5 min after deploy
+STARTUP_GRACE_SECONDS: float = 300.0
 
 
 def classify_endpoint_to_module(endpoint: str) -> str:
@@ -208,6 +210,7 @@ class SLOTracker:
         self._initialized = True
         self._lock = threading.Lock()
         self._modules: dict[str, _ModuleMetrics] = defaultdict(_ModuleMetrics)
+        self._startup_time: float = time.time()
 
     @classmethod
     def instance(cls) -> "SLOTracker":
@@ -280,6 +283,7 @@ class SLOTracker:
         """
         now = time.time()
         cutoff = now - METRICS_WINDOW_S
+        in_grace_period = (now - self._startup_time) < STARTUP_GRACE_SECONDS
         modules_report: dict[str, dict[str, Any]] = {}
         violations: list[str] = []
 
@@ -291,6 +295,11 @@ class SLOTracker:
                     category, CATEGORY_DEFAULTS[CATEGORY_DATA]
                 )
                 mod_report = self._evaluate_module(mod_name, metrics, category, targets)
+                # Suppress violations during startup grace period
+                if in_grace_period and not mod_report["compliant"]:
+                    mod_report["compliant"] = True
+                    mod_report["status"] = "grace_period"
+                    mod_report["in_grace_period"] = True
                 modules_report[mod_name] = mod_report
                 if not mod_report["compliant"]:
                     violations.append(mod_name)

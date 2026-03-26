@@ -13,8 +13,9 @@ Functions:
 
 Architecture:
     - Uses ChromaDB's built-in embedding function (default: all-MiniLM-L6-v2)
-    - Persistent storage at ./chroma_data/ for survival across restarts
-    - Falls back gracefully if chromadb is not installed
+    - On Render.com: EphemeralClient (in-memory) to avoid SQLite ulimit ConfigError
+    - Locally: PersistentClient at ./chroma_data/ for survival across restarts
+    - Falls back gracefully if chromadb is not installed or init fails
     - Thread-safe via ChromaDB's internal locking
 
 Configuration:
@@ -30,7 +31,6 @@ import json
 import logging
 import os
 import threading
-import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -58,10 +58,25 @@ _MAX_DOCUMENT_LENGTH: int = 8000  # characters per document chunk
 _MAX_BATCH_SIZE: int = 100  # max documents per bulk insert
 
 
+def _is_render_environment() -> bool:
+    """Detect if running on Render.com deployment.
+
+    Render sets the RENDER env var automatically in all services.
+
+    Returns:
+        True if running on Render.com, False otherwise.
+    """
+    return bool(os.environ.get("RENDER"))
+
+
 def _ensure_initialized() -> bool:
     """Ensure ChromaDB client and collection are initialized.
 
     Thread-safe lazy initialization. Called automatically by all public functions.
+
+    On Render.com (or other containerized environments), uses EphemeralClient
+    (in-memory) to avoid SQLite ulimit/nofile ConfigError issues.
+    Locally, uses PersistentClient for faster restarts.
 
     Returns:
         True if ChromaDB is available and initialized, False otherwise.
@@ -78,7 +93,19 @@ def _ensure_initialized() -> bool:
         try:
             import chromadb
 
-            _client = chromadb.PersistentClient(path=_PERSIST_DIR)
+            if _is_render_environment():
+                # Render.com containers restrict ulimit -n, causing
+                # chromadb's PersistentClient (SQLite) to throw
+                # ConfigError('chroma_server_nofile'). Use EphemeralClient
+                # instead -- data is re-indexed from KB files on each deploy.
+                _client = chromadb.EphemeralClient()
+                logger.info("chroma_rag: using EphemeralClient (Render environment)")
+            else:
+                _client = chromadb.PersistentClient(path=_PERSIST_DIR)
+                logger.info(
+                    "chroma_rag: using PersistentClient (persist_dir=%s)", _PERSIST_DIR
+                )
+
             _collection = _client.get_or_create_collection(
                 name=_COLLECTION_NAME,
                 metadata={"hnsw:space": "cosine"},
@@ -86,8 +113,7 @@ def _ensure_initialized() -> bool:
             _available = True
             _initialized = True
             logger.info(
-                "chroma_rag: initialized (persist_dir=%s, collection=%s, count=%d)",
-                _PERSIST_DIR,
+                "chroma_rag: initialized (collection=%s, count=%d)",
                 _COLLECTION_NAME,
                 _collection.count(),
             )
@@ -101,18 +127,10 @@ def _ensure_initialized() -> bool:
                 "chroma_rag: chromadb not installed; "
                 "install with 'pip install chromadb' to enable RAG"
             )
-        except Exception as exc:
-            _init_error = f"chromadb init failed: {exc}"
-            _available = False
-            _initialized = True
-            logger.warning(
-                "chroma_rag: initialization failed (graceful degradation): %s",
-                exc,
-            )
             return False
 
         except (OSError, RuntimeError, ValueError) as exc:
-            _init_error = str(exc)
+            _init_error = f"chromadb init failed: {exc}"
             _available = False
             _initialized = True
             logger.error("chroma_rag: initialization failed: %s", exc, exc_info=True)

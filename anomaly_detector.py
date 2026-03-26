@@ -27,6 +27,7 @@ MAX_SAMPLES: int = 5000  # Max data points per metric
 SIGMA_THRESHOLD: float = 3.0  # Alert when value > mean + 3*std
 MIN_SAMPLES_FOR_DETECTION: int = 30  # Need enough data for meaningful stats
 ALERT_COOLDOWN_SECONDS: float = 300.0  # 5-minute cooldown between duplicate alerts
+STARTUP_GRACE_SECONDS: float = 300.0  # Suppress anomaly alerts for 5 min after startup
 
 # Well-known metric names
 METRIC_REQUEST_LATENCY = "request_latency_ms"
@@ -106,6 +107,7 @@ class AnomalyDetector:
         self._lock = threading.Lock()
         self._metrics: dict[str, _MetricWindow] = defaultdict(_MetricWindow)
         self._active_anomalies: dict[str, dict[str, Any]] = {}
+        self._startup_time: float = time.time()
 
     @classmethod
     def instance(cls) -> "AnomalyDetector":
@@ -161,6 +163,19 @@ class AnomalyDetector:
                     "sample_count": count,
                     "min_required": MIN_SAMPLES_FOR_DETECTION,
                     "mean": round(mean, 2),
+                }
+
+            # Suppress anomaly detection during startup grace period
+            if now - self._startup_time < STARTUP_GRACE_SECONDS:
+                return {
+                    "metric": name,
+                    "is_anomaly": False,
+                    "reason": "startup_grace_period",
+                    "sample_count": count,
+                    "mean": round(mean, 2),
+                    "grace_remaining_s": round(
+                        STARTUP_GRACE_SECONDS - (now - self._startup_time), 1
+                    ),
                 }
 
             # Get most recent value

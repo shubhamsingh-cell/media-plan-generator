@@ -73,7 +73,6 @@ class TestProviderConfig:
             "gemini",
             "anthropic",
             "zhipu",
-            "moonshot",
             "cloudflare",
             "sambanova",
             "nvidia_nim",

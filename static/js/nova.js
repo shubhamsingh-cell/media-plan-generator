@@ -6,6 +6,10 @@
   // ========================================================================
   var API_URL = "/api/chat";
   var STREAM_URL = "/api/chat/stream";
+  var WS_URL =
+    (location.protocol === "https:" ? "wss://" : "ws://") +
+    location.host +
+    "/ws/chat";
   var FEEDBACK_URL = "/api/chat/feedback";
   var STOP_URL = "/api/chat/stop";
   var MAX_CHARS = 4000;
@@ -1323,6 +1327,178 @@
     }
   }
 
+  // ========================================================================
+  // WEBSOCKET TRANSPORT (preferred over SSE)
+  // ========================================================================
+  var _wsConn = null;
+  var _wsReady = false;
+  var _wsReconnectTimer = null;
+  var _wsFailCount = 0;
+  var _WS_MAX_FAILS = 3; // Fall back to SSE after N consecutive WS failures
+
+  function _getOrCreateWS(onReady) {
+    // If WebSocket is not supported or we've failed too many times, skip
+    if (!window.WebSocket || _wsFailCount >= _WS_MAX_FAILS) {
+      onReady(null);
+      return;
+    }
+    // If already connected and ready, reuse
+    if (_wsConn && _wsConn.readyState === WebSocket.OPEN) {
+      onReady(_wsConn);
+      return;
+    }
+    // If connecting, wait
+    if (_wsConn && _wsConn.readyState === WebSocket.CONNECTING) {
+      var _waitCount = 0;
+      var _waitInterval = setInterval(function () {
+        _waitCount++;
+        if (_wsConn && _wsConn.readyState === WebSocket.OPEN) {
+          clearInterval(_waitInterval);
+          onReady(_wsConn);
+        } else if (
+          _waitCount > 30 ||
+          !_wsConn ||
+          _wsConn.readyState > WebSocket.OPEN
+        ) {
+          clearInterval(_waitInterval);
+          onReady(null);
+        }
+      }, 100);
+      return;
+    }
+    // Create new connection
+    try {
+      _wsConn = new WebSocket(WS_URL);
+      _wsConn.onopen = function () {
+        _wsReady = true;
+        _wsFailCount = 0;
+        onReady(_wsConn);
+      };
+      _wsConn.onerror = function () {
+        _wsFailCount++;
+        _wsReady = false;
+        onReady(null);
+      };
+      _wsConn.onclose = function () {
+        _wsReady = false;
+        _wsConn = null;
+      };
+    } catch (e) {
+      _wsFailCount++;
+      onReady(null);
+    }
+  }
+
+  function _streamViaWebSocket(ws, payload, callbacks) {
+    var fullText = "";
+    var metadata = {};
+    var _done = false;
+    var _wsTimeout = null;
+
+    function resetWsTimeout() {
+      if (_wsTimeout) clearTimeout(_wsTimeout);
+      _wsTimeout = setTimeout(function () {
+        // No data for 25s -- treat as failure
+        if (!_done) {
+          _done = true;
+          callbacks.onError("WebSocket timeout -- no data received");
+        }
+      }, 25000);
+    }
+
+    resetWsTimeout();
+
+    ws.onmessage = function (event) {
+      if (_done) return;
+      resetWsTimeout();
+      try {
+        var evt = JSON.parse(event.data);
+        // Skip keepalive heartbeats
+        if (evt.keepalive) return;
+        // Pong responses
+        if (evt.type === "pong") return;
+        // Error
+        if (evt.error && evt.done) {
+          _done = true;
+          if (_wsTimeout) clearTimeout(_wsTimeout);
+          callbacks.onError(evt.error);
+          return;
+        }
+        // Done/final event
+        if (evt.done) {
+          _done = true;
+          if (_wsTimeout) clearTimeout(_wsTimeout);
+          metadata = evt;
+          callbacks.onComplete(metadata, fullText);
+          return;
+        }
+        // Status event
+        if (evt.status) {
+          callbacks.onStatus(evt.status);
+          return;
+        }
+        // Token event
+        if (evt.token) {
+          fullText += evt.token;
+          callbacks.onToken(evt.token, fullText);
+        }
+      } catch (e) {
+        console.warn("[Nova WS] Parse error:", e);
+      }
+    };
+
+    ws.onerror = function () {
+      if (!_done) {
+        _done = true;
+        if (_wsTimeout) clearTimeout(_wsTimeout);
+        callbacks.onError("WebSocket error");
+      }
+    };
+
+    ws.onclose = function () {
+      if (!_done) {
+        _done = true;
+        if (_wsTimeout) clearTimeout(_wsTimeout);
+        if (fullText) {
+          // Partial response -- still deliver it
+          callbacks.onComplete({}, fullText);
+        } else {
+          callbacks.onError("WebSocket closed unexpectedly");
+        }
+      }
+      _wsConn = null;
+      _wsReady = false;
+    };
+
+    // Send the chat message
+    ws.send(
+      JSON.stringify({
+        type: "chat",
+        message: payload.message,
+        conversation_id: payload.conversation_id,
+        history: payload.history,
+        session_token: payload.session_token || "",
+        file_attachment: payload.file_attachment || null,
+      }),
+    );
+
+    // Return a cancel function
+    return function cancelWS() {
+      if (!_done) {
+        _done = true;
+        if (_wsTimeout) clearTimeout(_wsTimeout);
+        try {
+          ws.send(
+            JSON.stringify({
+              type: "stop",
+              conversation_id: payload.conversation_id,
+            }),
+          );
+        } catch (_) {}
+      }
+    };
+  }
+
   function sendMessage() {
     var text = chatInput.value.trim();
     // Handle /clear command
@@ -1400,224 +1576,267 @@
       renderFileChip();
     }
 
-    // Use SSE streaming with AbortController + hard timeout
-    var ac = new AbortController();
-    state.abortController = ac;
+    // ── Create streaming message DOM (shared by WS and SSE) ──
+    function _createStreamingDOM() {
+      var welcomeScreen = document.getElementById("welcome-screen");
+      if (welcomeScreen) welcomeScreen.remove();
+      var wrapper = document.createElement("div");
+      wrapper.className = "message";
+      wrapper.id = "streaming-msg";
+      var avatar = document.createElement("div");
+      avatar.className = "message-avatar nova";
+      avatar.textContent = "N";
+      avatar.setAttribute("aria-hidden", "true");
+      var bodyEl = document.createElement("div");
+      bodyEl.className = "message-body";
+      var sender = document.createElement("div");
+      sender.className = "message-sender nova";
+      sender.textContent = "Nova";
+      var content = document.createElement("div");
+      content.className = "message-content";
+      content.id = "streaming-content";
+      var cursorEl = document.createElement("span");
+      cursorEl.className = "streaming-cursor";
+      cursorEl.id = "streaming-cursor";
+      content.appendChild(cursorEl);
+      bodyEl.appendChild(sender);
+      bodyEl.appendChild(content);
+      wrapper.appendChild(avatar);
+      wrapper.appendChild(bodyEl);
+      chatContainer.appendChild(wrapper);
+      scrollToBottom();
+      return content;
+    }
+
+    // ── Finalize stream response (shared by WS and SSE) ──
+    function _finalizeStream(metadata, fullText) {
+      var cur = document.getElementById("streaming-cursor");
+      if (cur) cur.remove();
+      state.queryCount++;
+      var msgId = metadata.message_id || "msg-" + Date.now();
+
+      var responseContent = metadata.full_response || fullText;
+      if (!responseContent || !responseContent.trim()) {
+        responseContent =
+          "I wasn't able to generate a response for that question. I'm best at *recruitment marketing* topics -- try asking about publishers, benchmarks, budgets, or salary data!";
+      }
+      var assistantMsg = {
+        role: "assistant",
+        content: responseContent,
+        sources: metadata.sources || [],
+        confidence: metadata.confidence || 0,
+        tools_used: metadata.tools_used || [],
+        message_id: msgId,
+        suggested_followups: metadata.suggested_followups || [],
+        timestamp: Date.now(),
+        token_usage: metadata.token_usage || null,
+      };
+      conv.messages.push(assistantMsg);
+      conv.updatedAt = Date.now();
+      saveConversations();
+
+      if (metadata.token_usage) {
+        updateTokenIndicator(metadata.token_usage);
+      }
+
+      var streamEl = document.getElementById("streaming-msg");
+      if (streamEl) streamEl.remove();
+      appendMessageDOM(assistantMsg, true);
+
+      autoPlayTTS(assistantMsg.content);
+
+      if (
+        assistantMsg.suggested_followups &&
+        assistantMsg.suggested_followups.length > 0
+      ) {
+        renderFollowups(assistantMsg.suggested_followups);
+      }
+
+      scrollToBottom();
+      resetLoadingState();
+    }
+
+    // ── Show error banner (shared) ──
+    function _showStreamError(errorMsg) {
+      hideThinking();
+      var streamEl = document.getElementById("streaming-msg");
+      if (streamEl) streamEl.remove();
+
+      var errBanner = document.createElement("div");
+      errBanner.className = "error-banner";
+      errBanner.innerHTML =
+        "<span>" +
+        escapeHtml(errorMsg) +
+        "</span>" +
+        '<button class="retry-btn-inline">Retry</button>';
+      chatContainer.appendChild(errBanner);
+      scrollToBottom();
+      errBanner
+        .querySelector(".retry-btn-inline")
+        .addEventListener("click", function () {
+          errBanner.remove();
+          chatInput.value = text;
+          sendMessage();
+        });
+      resetLoadingState();
+    }
 
     // Hard timeout: forcibly reset after 60s no matter what
     var hardTimeout = setTimeout(function () {
       resetLoadingState();
-      // Also clean up any lingering streaming DOM
       var streamEl = document.getElementById("streaming-msg");
       if (streamEl) streamEl.remove();
     }, 60000);
 
-    // Reader-level timeout: if no data for 25s, abort
-    // (must exceed server keepalive interval of 15s to avoid race)
-    var readerTimeout = null;
-    function resetReaderTimeout() {
-      if (readerTimeout) clearTimeout(readerTimeout);
-      readerTimeout = setTimeout(function () {
-        if (ac && !ac.signal.aborted) {
-          try {
-            ac.abort();
-          } catch (_) {}
-        }
-      }, 25000);
-    }
-
-    fetch(STREAM_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-CSRF-Token": window.__csrfToken,
-      },
-      body: JSON.stringify(payload),
-      signal: ac.signal,
-    })
-      .then(function (r) {
-        if (!r.ok) throw new Error("HTTP " + r.status);
+    // ── Try WebSocket first, fall back to SSE ──
+    _getOrCreateWS(function (wsConn) {
+      if (wsConn) {
+        // ── WebSocket transport ──
+        var content = _createStreamingDOM();
         hideThinking();
 
-        // Create streaming message DOM
-        var ws = document.getElementById("welcome-screen");
-        if (ws) ws.remove();
-        var wrapper = document.createElement("div");
-        wrapper.className = "message";
-        wrapper.id = "streaming-msg";
-        var avatar = document.createElement("div");
-        avatar.className = "message-avatar nova";
-        avatar.textContent = "N";
-        avatar.setAttribute("aria-hidden", "true");
-        var body = document.createElement("div");
-        body.className = "message-body";
-        var sender = document.createElement("div");
-        sender.className = "message-sender nova";
-        sender.textContent = "Nova";
-        var content = document.createElement("div");
-        content.className = "message-content";
-        content.id = "streaming-content";
-        var cursorEl = document.createElement("span");
-        cursorEl.className = "streaming-cursor";
-        cursorEl.id = "streaming-cursor";
-        content.appendChild(cursorEl);
-        body.appendChild(sender);
-        body.appendChild(content);
-        wrapper.appendChild(avatar);
-        wrapper.appendChild(body);
-        chatContainer.appendChild(wrapper);
-        scrollToBottom();
-
-        var reader = r.body.getReader();
-        var decoder = new TextDecoder();
-        var buffer = "";
-        var fullText = "";
-        var metadata = {};
-
-        // Start reader idle timer
-        resetReaderTimeout();
-
-        function processChunk() {
-          return reader.read().then(function (result) {
-            if (result.done) return;
-            // Reset reader idle timeout on each chunk received
-            resetReaderTimeout();
-            buffer += decoder.decode(result.value, { stream: true });
-            var lines = buffer.split("\n");
-            buffer = lines.pop() || "";
-            lines.forEach(function (line) {
-              if (line.indexOf("data: ") !== 0) return;
-              var jsonStr = line.substring(6);
-              try {
-                var evt = JSON.parse(jsonStr);
-                if (evt.done) {
-                  metadata = evt;
-                  return;
-                }
-                if (evt.token) {
-                  fullText += evt.token;
-                  try {
-                    content.innerHTML = renderMarkdown(fullText);
-                  } catch (_) {
-                    content.textContent = fullText;
-                  }
-                  // Re-append blinking cursor at end of streamed content
-                  var cur =
-                    document.getElementById("streaming-cursor") ||
-                    document.createElement("span");
-                  cur.className = "streaming-cursor";
-                  cur.id = "streaming-cursor";
-                  content.appendChild(cur);
-                  scrollToBottom();
-                }
-              } catch (e) {}
-            });
-            return processChunk();
-          });
-        }
-
-        return processChunk()
-          .catch(function (readErr) {
-            // Reader errors (network drops, AbortError) -- treat as stream end
-            if (fullText) {
-              // Partial response received -- save what we have
-              return;
+        var cancelFn = _streamViaWebSocket(wsConn, payload, {
+          onToken: function (token, fullText) {
+            try {
+              content.innerHTML = renderMarkdown(fullText);
+            } catch (_) {
+              content.textContent = fullText;
             }
-            throw readErr;
-          })
-          .then(function () {
-            if (readerTimeout) clearTimeout(readerTimeout);
-            // Remove blinking cursor when stream completes
-            var cur = document.getElementById("streaming-cursor");
-            if (cur) cur.remove();
-            state.queryCount++;
-            var msgId = metadata.message_id || "msg-" + Date.now();
-
-            var responseContent = metadata.full_response || fullText;
-            // Guard against empty LLM responses (content moderation, refusals)
-            if (!responseContent || !responseContent.trim()) {
-              responseContent =
-                "I wasn't able to generate a response for that question. I'm best at *recruitment marketing* topics -- try asking about publishers, benchmarks, budgets, or salary data!";
-            }
-            var assistantMsg = {
-              role: "assistant",
-              content: responseContent,
-              sources: metadata.sources || [],
-              confidence: metadata.confidence || 0,
-              tools_used: metadata.tools_used || [],
-              message_id: msgId,
-              suggested_followups: metadata.suggested_followups || [],
-              timestamp: Date.now(),
-              token_usage: metadata.token_usage || null,
-            };
-            conv.messages.push(assistantMsg);
-            conv.updatedAt = Date.now();
-            saveConversations();
-
-            // Update token usage indicator
-            if (metadata.token_usage) {
-              updateTokenIndicator(metadata.token_usage);
-            }
-
-            // Replace streaming DOM with proper message DOM
-            var streamEl = document.getElementById("streaming-msg");
-            if (streamEl) streamEl.remove();
-            appendMessageDOM(assistantMsg, true);
-
-            // Auto-TTS: read response aloud if enabled
-            autoPlayTTS(assistantMsg.content);
-
-            // Render follow-up suggestions
-            if (
-              assistantMsg.suggested_followups &&
-              assistantMsg.suggested_followups.length > 0
-            ) {
-              renderFollowups(assistantMsg.suggested_followups);
-            }
-
+            var cur =
+              document.getElementById("streaming-cursor") ||
+              document.createElement("span");
+            cur.className = "streaming-cursor";
+            cur.id = "streaming-cursor";
+            content.appendChild(cur);
             scrollToBottom();
-          });
-      })
-      .catch(function (err) {
-        if (readerTimeout) clearTimeout(readerTimeout);
-        hideThinking();
-        // Remove streaming message if it exists
-        var streamEl = document.getElementById("streaming-msg");
-        if (streamEl) streamEl.remove();
+          },
+          onStatus: function (status) {
+            // Could show status indicator -- for now just log
+          },
+          onComplete: function (metadata, fullText) {
+            clearTimeout(hardTimeout);
+            _finalizeStream(metadata, fullText);
+          },
+          onError: function (errMsg) {
+            clearTimeout(hardTimeout);
+            // On WS error, increment fail count
+            _wsFailCount++;
+            _showStreamError(errMsg || "Connection error. Please try again.");
+          },
+        });
 
-        var errorMsg;
-        if (err.name === "AbortError") {
-          errorMsg = "Response was stopped.";
-        } else if (err.message && err.message.indexOf("429") > -1) {
-          errorMsg = "Nova is busy. Please wait a moment and try again.";
-        } else if (err.message && err.message.indexOf("403") > -1) {
-          errorMsg = "Session expired. Please refresh the page.";
-        } else {
-          errorMsg = "Connection error. Please try again.";
+        // Store cancel function for stop button
+        state.abortController = {
+          abort: function () {
+            cancelFn();
+          },
+        };
+      } else {
+        // ── SSE fallback transport ──
+        var ac = new AbortController();
+        state.abortController = ac;
+
+        var readerTimeout = null;
+        function resetReaderTimeout() {
+          if (readerTimeout) clearTimeout(readerTimeout);
+          readerTimeout = setTimeout(function () {
+            if (ac && !ac.signal.aborted) {
+              try {
+                ac.abort();
+              } catch (_) {}
+            }
+          }, 25000);
         }
 
-        var errBanner = document.createElement("div");
-        errBanner.className = "error-banner";
-        errBanner.innerHTML =
-          "<span>" +
-          escapeHtml(errorMsg) +
-          "</span>" +
-          '<button class="retry-btn-inline">Retry</button>';
-        chatContainer.appendChild(errBanner);
-        scrollToBottom();
-        errBanner
-          .querySelector(".retry-btn-inline")
-          .addEventListener("click", function () {
-            errBanner.remove();
-            chatInput.value = text;
-            sendMessage();
+        fetch(STREAM_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRF-Token": window.__csrfToken,
+          },
+          body: JSON.stringify(payload),
+          signal: ac.signal,
+        })
+          .then(function (r) {
+            if (!r.ok) throw new Error("HTTP " + r.status);
+            hideThinking();
+
+            var content = _createStreamingDOM();
+            var reader = r.body.getReader();
+            var decoder = new TextDecoder();
+            var buffer = "";
+            var fullText = "";
+            var metadata = {};
+
+            resetReaderTimeout();
+
+            function processChunk() {
+              return reader.read().then(function (result) {
+                if (result.done) return;
+                resetReaderTimeout();
+                buffer += decoder.decode(result.value, { stream: true });
+                var lines = buffer.split("\n");
+                buffer = lines.pop() || "";
+                lines.forEach(function (line) {
+                  if (line.indexOf("data: ") !== 0) return;
+                  var jsonStr = line.substring(6);
+                  try {
+                    var evt = JSON.parse(jsonStr);
+                    if (evt.done) {
+                      metadata = evt;
+                      return;
+                    }
+                    if (evt.token) {
+                      fullText += evt.token;
+                      try {
+                        content.innerHTML = renderMarkdown(fullText);
+                      } catch (_) {
+                        content.textContent = fullText;
+                      }
+                      var cur =
+                        document.getElementById("streaming-cursor") ||
+                        document.createElement("span");
+                      cur.className = "streaming-cursor";
+                      cur.id = "streaming-cursor";
+                      content.appendChild(cur);
+                      scrollToBottom();
+                    }
+                  } catch (e) {}
+                });
+                return processChunk();
+              });
+            }
+
+            return processChunk()
+              .catch(function (readErr) {
+                if (fullText) return;
+                throw readErr;
+              })
+              .then(function () {
+                if (readerTimeout) clearTimeout(readerTimeout);
+                _finalizeStream(metadata, fullText);
+              });
+          })
+          .catch(function (err) {
+            if (readerTimeout) clearTimeout(readerTimeout);
+            var errorMsg;
+            if (err.name === "AbortError") {
+              errorMsg = "Response was stopped.";
+            } else if (err.message && err.message.indexOf("429") > -1) {
+              errorMsg = "Nova is busy. Please wait a moment and try again.";
+            } else if (err.message && err.message.indexOf("403") > -1) {
+              errorMsg = "Session expired. Please refresh the page.";
+            } else {
+              errorMsg = "Connection error. Please try again.";
+            }
+            _showStreamError(errorMsg);
+          })
+          .finally(function () {
+            clearTimeout(hardTimeout);
+            if (readerTimeout) clearTimeout(readerTimeout);
           });
-      })
-      .finally(function () {
-        clearTimeout(hardTimeout);
-        if (readerTimeout) clearTimeout(readerTimeout);
-        resetLoadingState();
-      });
+      }
+    });
   }
 
   // ========================================================================
@@ -2286,9 +2505,73 @@
   }
 
   // ========================================================================
+  // STALE ERROR CLEANUP
+  // ========================================================================
+  /**
+   * Remove stale error messages from conversations on load.
+   * Prevents showing previous session timeout/network errors.
+   * Also clears conversations older than 24 hours.
+   */
+  function _pruneStaleErrors() {
+    var STALE_MS = 24 * 60 * 60 * 1000; // 24 hours
+    var now = Date.now();
+    var errorPatterns = [
+      /timed?\s*out/i,
+      /error/i,
+      /something went wrong/i,
+      /failed to/i,
+      /network\s*(error|issue)/i,
+      /unavailable/i,
+      /try again/i,
+      /could not connect/i,
+      /rate limit/i,
+      /500|502|503|504/,
+    ];
+    var changed = false;
+
+    Object.keys(state.conversations).forEach(function (id) {
+      var conv = state.conversations[id];
+      // Remove entire conversation if older than 24h and has errors
+      var updatedAt = conv.updatedAt || conv.createdAt || 0;
+      if (updatedAt && now - updatedAt > STALE_MS) {
+        // Keep the conversation but clear trailing errors
+      }
+
+      // Remove trailing error messages
+      if (!conv.messages || !conv.messages.length) return;
+      while (conv.messages.length > 0) {
+        var last = conv.messages[conv.messages.length - 1];
+        if (last.role !== "assistant") break;
+        var content = (last.content || "").toLowerCase();
+        var isError = errorPatterns.some(function (pat) {
+          return pat.test(content);
+        });
+        if (isError) {
+          conv.messages.pop();
+          changed = true;
+          // Also remove the triggering user message
+          if (
+            conv.messages.length > 0 &&
+            conv.messages[conv.messages.length - 1].role === "user"
+          ) {
+            conv.messages.pop();
+          }
+        } else {
+          break;
+        }
+      }
+    });
+
+    if (changed) {
+      flushSaveConversations();
+    }
+  }
+
+  // ========================================================================
   // INIT
   // ========================================================================
   loadConversations();
+  _pruneStaleErrors();
 
   // Default: sidebar open on desktop, collapsed on mobile
   if (window.innerWidth <= 1024) {

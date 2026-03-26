@@ -22,11 +22,10 @@ from __future__ import annotations
 
 import io
 import logging
-import math
 import os
 import re
 import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +55,7 @@ except ImportError:
     _HAS_COLLAR_INTEL = False
 
 try:
-    from shared_utils import INDUSTRY_LABEL_MAP, parse_budget
+    from shared_utils import INDUSTRY_LABEL_MAP
 except ImportError:
     INDUSTRY_LABEL_MAP = {}
 
@@ -1285,7 +1284,6 @@ def generate_audit_excel(
     try:
         from openpyxl import Workbook
         from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-        from openpyxl.utils import get_column_letter
     except ImportError:
         logger.error("openpyxl not available for Excel generation")
         return b""
@@ -1819,9 +1817,9 @@ def generate_audit_ppt(
     """
     try:
         from pptx import Presentation
-        from pptx.util import Inches, Pt, Emu
+        from pptx.util import Inches, Pt
         from pptx.dml.color import RGBColor
-        from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
+        from pptx.enum.text import PP_ALIGN
         from pptx.enum.shapes import MSO_SHAPE
     except ImportError:
         logger.error("python-pptx not available for PPT generation")

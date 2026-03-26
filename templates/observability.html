@@ -23,7 +23,7 @@
         --border: rgba(255, 255, 255, 0.06);
         --text: #d4d4d8;
         --text-secondary: #a1a1a1;
-        --text-muted: #555555;
+        --text-muted: #9ca3af;
         --green: #34d399;
         --amber: #fbbf24;
         --red: #f87171;
@@ -1234,7 +1234,13 @@
             unit: "ms",
             fmt: (v) => fmtMs(v),
           },
+          generate_p50_ms: {
+            name: "Generate P50",
+            unit: "ms",
+            fmt: (v) => fmtMs(v),
+          },
           chat_p99_ms: { name: "Chat P99", unit: "ms", fmt: (v) => fmtMs(v) },
+          chat_p50_ms: { name: "Chat P50", unit: "ms", fmt: (v) => fmtMs(v) },
           error_rate_pct: {
             name: "Error Rate",
             unit: "%",

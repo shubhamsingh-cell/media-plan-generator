@@ -1,8 +1,8 @@
 {
-  "last_updated": "2026-03-14",
+  "last_updated": "2026-03-26",
   "data_source": "Joveo Google Ads 2025 Campaign Performance Data",
   "data_period": "2025",
-  "description": "Real Google Ads keyword performance data from Joveo's recruitment advertising campaigns in 2025. Contains CPC, CTR, CPM, and spend data across job categories. This is first-party data from actual campaigns run for clients.",
+  "description": "Real Google Ads keyword performance data from Joveo's recruitment advertising campaigns in 2025. Contains CPC, CTR, CPM, and spend data across job categories. This is first-party data from actual campaigns run for clients. Cross-referenced with WordStream/LOCALiQ 2025 Google Ads Benchmarks (general commercial avg CPC $5.26, recruitment-specific is lower). Q1 2026 note: CPC inflation ~8-10% YoY in recruitment per Appcast 2026 report.",
   "total_keywords_analyzed": 6338,
   "total_spend": 454452.66,
   "total_impressions": 3266533,

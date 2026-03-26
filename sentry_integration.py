@@ -1704,7 +1704,7 @@ def _verify_heal(action_type: str, fingerprint: str) -> None:
             # Filter to entries from the last 35 seconds by parsing ISO timestamp
             recurred = []
             for entry in recent_errors:
-                ts_str = entry.get("timestamp", "")
+                ts_str = entry.get("timestamp") or ""
                 if ts_str:
                     try:
                         entry_dt = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))

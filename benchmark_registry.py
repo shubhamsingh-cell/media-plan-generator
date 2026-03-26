@@ -22,7 +22,7 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -65,11 +65,17 @@ def _load_live_data() -> dict[str, Any]:
 # ═══════════════════════════════════════════════════════════════════════════════
 #
 # Values reconciled from 6 files + updated with 2025-2026 Firecrawl data.
+# Q1 2026 refresh: Updated Google Ads benchmarks using WordStream/LOCALiQ 2025
+#   report (Apr 2024 - Mar 2025 data, published 2025) and Appcast 2026 Recruitment
+#   Marketing Benchmark Report. Note: general commercial CPC avg is $5.26 per
+#   WordStream, but recruitment-specific CPC is lower (~$2.90 avg).
 # Conflict resolution methodology:
 #   - Indeed CPC: $0.50 (live Firecrawl data confirms $0.10-$5.00 range, typical $0.50)
-#   - Google Ads CPC: $2.69 (data_synthesizer median, closest to Appcast benchmark)
-#   - Meta/Facebook CPC: $1.72 (data_synthesizer median, reconciled with live data)
+#   - Google Ads CPC: $2.90 (updated Q1 2026; recruitment-specific, up from $2.69)
+#   - Meta/Facebook CPC: $1.86 (updated Q1 2026; recruitment-specific, up from $1.72)
 #   - All other values: cross-referenced with live_market_data.json where available
+# Sources: WordStream 2025 Google Ads Benchmarks, Appcast 2026 Benchmark Report,
+#   Joveo Google Ads 2025 first-party data. Updated 2026-03-26.
 
 CHANNEL_BENCHMARKS: dict[str, dict[str, Any]] = {
     "indeed": {
@@ -116,12 +122,17 @@ CHANNEL_BENCHMARKS: dict[str, dict[str, Any]] = {
         "pricing_model": "subscription + CPC",
         "category": "employer_brand",
     },
+    # Google Ads (recruitment-specific benchmarks, not general commercial $5.26 avg)
+    # Source: WordStream/LOCALiQ 2025 Benchmarks + Appcast 2026 Report + Joveo 2025 data
+    # General commercial CTR: 6.66%, CVR: 7.52%, CPL: $70.11 (WordStream 2025)
+    # Recruitment-specific values below are lower due to job advertising dynamics.
+    # Updated 2026-03-26.
     "google_ads": {
-        "cpc": 2.69,
-        "cpa": 45.0,
+        "cpc": 2.90,
+        "cpa": 48.0,
         "apply_rate": 0.04,
-        "ctr": 0.042,
-        "cpm": 10.00,
+        "ctr": 0.045,
+        "cpm": 11.00,
         "quality_score": 6.5,
         "monthly_reach": 8_500_000_000,
         "pricing_model": "CPC/CPM",
@@ -129,22 +140,23 @@ CHANNEL_BENCHMARKS: dict[str, dict[str, Any]] = {
     },
     # Alias: many files use "google_search" instead of "google_ads"
     "google_search": {
-        "cpc": 2.69,
-        "cpa": 45.0,
+        "cpc": 2.90,
+        "cpa": 48.0,
         "apply_rate": 0.04,
-        "ctr": 0.042,
-        "cpm": 10.00,
+        "ctr": 0.045,
+        "cpm": 11.00,
         "quality_score": 6.5,
         "monthly_reach": 8_500_000_000,
         "pricing_model": "CPC/CPM",
         "category": "search_engine",
     },
+    # Meta/Facebook -- Updated 2026-03-26. Source: WordStream 2025 Facebook Ads Benchmarks.
     "meta_facebook": {
-        "cpc": 1.72,
-        "cpa": 30.0,
+        "cpc": 1.86,
+        "cpa": 32.0,
         "apply_rate": 0.025,
-        "ctr": 0.012,
-        "cpm": 7.50,
+        "ctr": 0.013,
+        "cpm": 8.20,
         "quality_score": 5.5,
         "monthly_reach": 3_000_000_000,
         "pricing_model": "CPC/CPM",
@@ -152,11 +164,11 @@ CHANNEL_BENCHMARKS: dict[str, dict[str, Any]] = {
     },
     # Alias: some files use just "meta"
     "meta": {
-        "cpc": 1.72,
-        "cpa": 30.0,
+        "cpc": 1.86,
+        "cpa": 32.0,
         "apply_rate": 0.025,
-        "ctr": 0.012,
-        "cpm": 7.50,
+        "ctr": 0.013,
+        "cpm": 8.20,
         "quality_score": 5.5,
         "monthly_reach": 3_000_000_000,
         "pricing_model": "CPC/CPM",

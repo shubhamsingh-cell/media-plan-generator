@@ -76,7 +76,7 @@ def get_recent_events(limit: int = 100, action_filter: Optional[str] = None) -> 
         events = list(_AUDIT_LOG)
 
     if action_filter:
-        events = [e for e in events if action_filter in e.get("action", "")]
+        events = [e for e in events if action_filter in (e.get("action") or "")]
 
     return events[-limit:]
 
@@ -101,6 +101,6 @@ def get_audit_summary() -> dict:
         "total_events": len(events),
         "by_action": dict(sorted(action_counts.items(), key=lambda x: -x[1])[:10]),
         "by_severity": severity_counts,
-        "oldest_event": events[0].get("iso", ""),
-        "newest_event": events[-1].get("iso", ""),
+        "oldest_event": events[0].get("iso") or "",
+        "newest_event": events[-1].get("iso") or "",
     }

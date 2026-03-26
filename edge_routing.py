@@ -19,7 +19,7 @@ import logging
 import threading
 import time
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 from typing import Optional
 
@@ -60,7 +60,6 @@ PROVIDER_REGION_MAP: dict[str, Region] = {
     "huggingface": Region.EU,
     # Asia
     "zhipu": Region.ASIA,
-    "moonshot": Region.ASIA,
     "xiaomi_mimo": Region.ASIA,
     # Global (anycast / multi-region)
     "openrouter": Region.GLOBAL,

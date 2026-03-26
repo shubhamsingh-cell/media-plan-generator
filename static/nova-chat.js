@@ -22,9 +22,14 @@
   var CONFIG = {
     apiUrl: "/api/chat",
     streamUrl: "/api/chat/stream",
+    wsUrl:
+      (location.protocol === "https:" ? "wss://" : "ws://") +
+      location.host +
+      "/ws/chat",
     feedbackUrl: "/api/chat/feedback",
     stopUrl: "/api/chat/stop",
     useStreaming: true,
+    useWebSocket: true,
     primaryColor: "#6BB3CD",
     primaryDark: "#0f0f1a",
     primaryLight: "#8bc7db",
@@ -73,6 +78,156 @@
     chatOpenedAt: 0,
     messagesSentCount: 0,
   };
+
+  // ---------------------------------------------------------------------------
+  // WebSocket Transport (preferred over SSE for lower latency)
+  // ---------------------------------------------------------------------------
+  var _widgetWsConn = null;
+  var _widgetWsFailCount = 0;
+  var _WIDGET_WS_MAX_FAILS = 3;
+
+  function _widgetGetOrCreateWS(onReady) {
+    if (
+      !window.WebSocket ||
+      !CONFIG.useWebSocket ||
+      _widgetWsFailCount >= _WIDGET_WS_MAX_FAILS
+    ) {
+      onReady(null);
+      return;
+    }
+    if (_widgetWsConn && _widgetWsConn.readyState === WebSocket.OPEN) {
+      onReady(_widgetWsConn);
+      return;
+    }
+    if (_widgetWsConn && _widgetWsConn.readyState === WebSocket.CONNECTING) {
+      var _wc = 0;
+      var _wi = setInterval(function () {
+        _wc++;
+        if (_widgetWsConn && _widgetWsConn.readyState === WebSocket.OPEN) {
+          clearInterval(_wi);
+          onReady(_widgetWsConn);
+        } else if (
+          _wc > 30 ||
+          !_widgetWsConn ||
+          _widgetWsConn.readyState > WebSocket.OPEN
+        ) {
+          clearInterval(_wi);
+          onReady(null);
+        }
+      }, 100);
+      return;
+    }
+    try {
+      _widgetWsConn = new WebSocket(CONFIG.wsUrl);
+      _widgetWsConn.onopen = function () {
+        _widgetWsFailCount = 0;
+        onReady(_widgetWsConn);
+      };
+      _widgetWsConn.onerror = function () {
+        _widgetWsFailCount++;
+        onReady(null);
+      };
+      _widgetWsConn.onclose = function () {
+        _widgetWsConn = null;
+      };
+    } catch (e) {
+      _widgetWsFailCount++;
+      onReady(null);
+    }
+  }
+
+  function _widgetStreamViaWS(ws, payload, callbacks) {
+    var fullText = "";
+    var metadata = {};
+    var _done = false;
+    var _wsTo = null;
+
+    function resetTo() {
+      if (_wsTo) clearTimeout(_wsTo);
+      _wsTo = setTimeout(function () {
+        if (!_done) {
+          _done = true;
+          callbacks.onError("WebSocket timeout");
+        }
+      }, 35000);
+    }
+    resetTo();
+
+    ws.onmessage = function (event) {
+      if (_done) return;
+      resetTo();
+      try {
+        var evt = JSON.parse(event.data);
+        if (evt.keepalive || evt.type === "pong") return;
+        if (evt.error && evt.done) {
+          _done = true;
+          if (_wsTo) clearTimeout(_wsTo);
+          callbacks.onError(evt.error);
+          return;
+        }
+        if (evt.done) {
+          _done = true;
+          if (_wsTo) clearTimeout(_wsTo);
+          metadata = evt;
+          callbacks.onComplete(metadata, fullText);
+          return;
+        }
+        if (evt.status) {
+          callbacks.onStatus(evt.status);
+          return;
+        }
+        if (evt.token) {
+          fullText += evt.token;
+          callbacks.onToken(evt.token, fullText);
+        }
+      } catch (e) {
+        console.warn("[Nova Widget WS] Parse error:", e);
+      }
+    };
+    ws.onerror = function () {
+      if (!_done) {
+        _done = true;
+        if (_wsTo) clearTimeout(_wsTo);
+        callbacks.onError("WebSocket error");
+      }
+    };
+    ws.onclose = function () {
+      if (!_done) {
+        _done = true;
+        if (_wsTo) clearTimeout(_wsTo);
+        if (fullText) {
+          callbacks.onComplete({}, fullText);
+        } else {
+          callbacks.onError("WebSocket closed");
+        }
+      }
+      _widgetWsConn = null;
+    };
+    ws.send(
+      JSON.stringify({
+        type: "chat",
+        message: payload.message,
+        conversation_id: payload.conversation_id,
+        history: payload.history,
+        session_token: payload.session_token || "",
+        context: payload.context || null,
+      }),
+    );
+    return function cancelWS() {
+      if (!_done) {
+        _done = true;
+        if (_wsTo) clearTimeout(_wsTo);
+        try {
+          ws.send(
+            JSON.stringify({
+              type: "stop",
+              conversation_id: payload.conversation_id,
+            }),
+          );
+        } catch (_) {}
+      }
+    };
+  }
 
   // ---------------------------------------------------------------------------
   // Styles (injected once)
@@ -865,6 +1020,56 @@
     }
   }
 
+  /**
+   * Remove stale error messages and conversations older than 24 hours.
+   * Error patterns: timeout, network errors, "something went wrong", etc.
+   * This prevents the chat from showing previous session failures on load.
+   */
+  function _pruneStaleMessages(messages) {
+    if (!messages || !messages.length) return [];
+    var STALE_MS = 24 * 60 * 60 * 1000; // 24 hours
+    var now = Date.now();
+    var errorPatterns = [
+      /timed?\s*out/i,
+      /error/i,
+      /something went wrong/i,
+      /failed to/i,
+      /network\s*(error|issue)/i,
+      /unavailable/i,
+      /try again/i,
+      /could not connect/i,
+      /rate limit/i,
+      /500|502|503|504/,
+    ];
+
+    // If the last message is older than 24h, clear everything
+    var lastMsg = messages[messages.length - 1];
+    if (lastMsg && lastMsg.timestamp && now - lastMsg.timestamp > STALE_MS) {
+      return [];
+    }
+
+    // Remove trailing error messages (most recent errors that would show on load)
+    var cleaned = messages.slice();
+    while (cleaned.length > 0) {
+      var last = cleaned[cleaned.length - 1];
+      if (last.role !== "assistant") break;
+      var content = (last.content || "").toLowerCase();
+      var isError = errorPatterns.some(function (pat) {
+        return pat.test(content);
+      });
+      if (isError) {
+        cleaned.pop();
+        // Also remove the user message that triggered it
+        if (cleaned.length > 0 && cleaned[cleaned.length - 1].role === "user") {
+          cleaned.pop();
+        }
+      } else {
+        break;
+      }
+    }
+    return cleaned;
+  }
+
   function getSessionId() {
     try {
       var sid = localStorage.getItem(CONFIG.sessionKey);
@@ -1497,6 +1702,10 @@
     // Load history
     state.messages = loadHistory();
     state.sessionId = getSessionId();
+
+    // Clean stale error messages and old conversations (> 24h)
+    state.messages = _pruneStaleMessages(state.messages);
+    saveHistory(state.messages);
 
     // Render existing messages or show welcome
     if (state.messages.length > 0) {
@@ -2531,331 +2740,485 @@
     if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
 
     if (CONFIG.useStreaming) {
-      // ── SSE Streaming mode ──
       showStopButton();
-      fetch(CONFIG.streamUrl, {
-        method: "POST",
-        headers: headers,
-        body: JSON.stringify(payload),
-        signal: abortCtrl.signal,
-      })
-        .then(function (res) {
-          if (!res.ok) throw new Error("HTTP " + res.status);
+
+      // ── Try WebSocket first, fall back to SSE ──
+      _widgetGetOrCreateWS(function (_wsForWidget) {
+        if (_wsForWidget) {
+          // ── WebSocket streaming mode ──
           hideTyping();
-          // Create streaming message element with avatar row and blinking cursor
-          var streamRow = document.createElement("div");
-          streamRow.className = "nova-msg-row nova-msg-row-assistant";
-          streamRow.id = "nova-stream-row";
-          var streamAvatar = document.createElement("div");
-          streamAvatar.className = "nova-msg-avatar nova-msg-avatar-assistant";
-          streamAvatar.textContent = "N";
-          streamAvatar.setAttribute("aria-hidden", "true");
-          streamAvatar.setAttribute("data-tooltip", "Nova");
-          streamRow.appendChild(streamAvatar);
-          var streamCol = document.createElement("div");
-          streamCol.style.cssText =
+          // Create streaming message element
+          var wsStreamRow = document.createElement("div");
+          wsStreamRow.className = "nova-msg-row nova-msg-row-assistant";
+          wsStreamRow.id = "nova-stream-row";
+          var wsAvatar = document.createElement("div");
+          wsAvatar.className = "nova-msg-avatar nova-msg-avatar-assistant";
+          wsAvatar.textContent = "N";
+          wsAvatar.setAttribute("aria-hidden", "true");
+          wsStreamRow.appendChild(wsAvatar);
+          var wsCol = document.createElement("div");
+          wsCol.style.cssText =
             "display:flex;flex-direction:column;min-width:0;flex:1;";
-          var streamSender = document.createElement("div");
-          streamSender.className = "nova-msg-sender nova-msg-sender-assistant";
-          streamSender.textContent = "Nova";
-          streamCol.appendChild(streamSender);
-          var streamEl = document.createElement("div");
-          streamEl.className = "nova-msg nova-msg-assistant";
-          streamEl.id = "nova-stream-msg";
-          streamEl.innerHTML = '<span class="nova-streaming-cursor"></span>';
-          streamCol.appendChild(streamEl);
-          streamRow.appendChild(streamCol);
-          var messagesEl = state.chatPanel
+          var wsSender = document.createElement("div");
+          wsSender.className = "nova-msg-sender nova-msg-sender-assistant";
+          wsSender.textContent = "Nova";
+          wsCol.appendChild(wsSender);
+          var wsStreamEl = document.createElement("div");
+          wsStreamEl.className = "nova-msg nova-msg-assistant";
+          wsStreamEl.id = "nova-stream-msg";
+          wsStreamEl.innerHTML = '<span class="nova-streaming-cursor"></span>';
+          wsCol.appendChild(wsStreamEl);
+          wsStreamRow.appendChild(wsCol);
+          var wsMessagesEl = state.chatPanel
             ? state.chatPanel.querySelector(".nova-messages")
             : null;
-          if (messagesEl) {
-            messagesEl.appendChild(streamRow);
-            messagesEl.scrollTop = messagesEl.scrollHeight;
+          if (wsMessagesEl) {
+            wsMessagesEl.appendChild(wsStreamRow);
+            wsMessagesEl.scrollTop = wsMessagesEl.scrollHeight;
           }
-          var reader = res.body.getReader();
-          var decoder = new TextDecoder();
-          var buffer = "";
-          var fullText = "";
-          var metadata = {};
-          var streamDone = false;
-          var _statusRemoved = false;
-          var _chunkIterations = 0;
-          var _streamStartTime = Date.now();
-          function processChunk() {
-            if (++_chunkIterations > 50000) {
-              _removeTypingIndicator();
-              state.isLoading = false;
-              return;
-            }
-            if (Date.now() - _streamStartTime > 60000) {
-              abortCtrl.abort();
-              _removeTypingIndicator();
-              state.isLoading = false;
-              return;
-            }
-            return reader.read().then(function (result) {
-              if (result.done) return "stream_complete";
-              buffer += decoder.decode(result.value, { stream: true });
-              var lines = buffer.split("\n");
-              buffer = lines.pop() || "";
-              lines.forEach(function (line) {
-                if (line.indexOf("data: ") !== 0) return;
-                // Reset timeout on every SSE event (keepalive, status, token)
-                _resetStreamTimeout();
+
+          var wsCancelFn = _widgetStreamViaWS(_wsForWidget, payload, {
+            onToken: function (token, fullText) {
+              wsStreamEl.innerHTML = renderMarkdown(fullText);
+              var curEl = document.createElement("span");
+              curEl.className = "nova-streaming-cursor";
+              wsStreamEl.appendChild(curEl);
+              if (wsMessagesEl)
+                wsMessagesEl.scrollTop = wsMessagesEl.scrollHeight;
+            },
+            onStatus: function (statusText) {
+              var statusEl = document.getElementById("nova-status-indicator");
+              if (!statusEl) {
+                statusEl = document.createElement("div");
+                statusEl.className = "nova-status-indicator";
+                statusEl.id = "nova-status-indicator";
+                if (wsMessagesEl) wsMessagesEl.appendChild(statusEl);
+              }
+              statusEl.textContent = escapeHtml(statusText);
+            },
+            onComplete: function (metadata, fullText) {
+              clearTimeout(fetchTimeout);
+              // PostHog tracking
+              if (window.posthog) {
+                window.posthog.capture("nova_chat_response_received", {
+                  source: "widget",
+                  page: window.location.pathname,
+                  response_length: (metadata.full_response || fullText || "")
+                    .length,
+                  provider: metadata.provider || "",
+                  confidence: metadata.confidence || 0,
+                  streaming: true,
+                  transport: "websocket",
+                });
+              }
+              var finalContent = metadata.full_response || fullText;
+              var finalSources = metadata.sources || [];
+              var finalConfidence = metadata.confidence || 0;
+              var finalMsgId = metadata.message_id || "";
+              if (metadata.session_token) {
                 try {
-                  var evt = JSON.parse(line.substring(6));
-                  // Skip keepalive heartbeats (just reset timeout above)
-                  if (evt.keepalive) return;
-                  if (evt.done) {
-                    metadata = evt;
-                    streamDone = true;
-                    return;
-                  }
-                  // Handle status/progress events
-                  if (evt.status) {
-                    var statusEl = document.getElementById(
-                      "nova-status-indicator",
-                    );
-                    if (!statusEl) {
-                      statusEl = document.createElement("div");
-                      statusEl.className = "nova-status-indicator";
-                      statusEl.id = "nova-status-indicator";
-                      // Insert after typing indicator or at end of messages
-                      var typingEl = document.getElementById("nova-typing");
-                      if (typingEl && typingEl.parentNode) {
-                        typingEl.parentNode.insertBefore(
-                          statusEl,
-                          typingEl.nextSibling,
-                        );
-                      } else if (messagesEl) {
-                        messagesEl.appendChild(statusEl);
-                      }
+                  localStorage.setItem(
+                    CONFIG.sessionTokenKey,
+                    metadata.session_token,
+                  );
+                } catch (e) {}
+              }
+              var cursors = wsStreamEl.querySelectorAll(
+                ".nova-streaming-cursor",
+              );
+              cursors.forEach(function (c) {
+                c.remove();
+              });
+              var statusCleanup = document.getElementById(
+                "nova-status-indicator",
+              );
+              if (statusCleanup) statusCleanup.remove();
+              wsStreamEl.innerHTML = renderMarkdown(finalContent);
+              addActionButtonsToElement(wsStreamEl, finalContent);
+              addMetaToElement(wsStreamEl, finalSources, finalConfidence, null);
+              applyConfidencePulse(wsStreamEl, finalConfidence);
+              var wsColEl = wsStreamEl.parentNode;
+              if (wsColEl) {
+                var now = new Date();
+                var tsEl = document.createElement("div");
+                tsEl.className =
+                  "nova-msg-timestamp nova-msg-timestamp-assistant";
+                tsEl.textContent =
+                  String(now.getHours()).padStart(2, "0") +
+                  ":" +
+                  String(now.getMinutes()).padStart(2, "0");
+                wsColEl.appendChild(tsEl);
+              }
+              var wsRowCleanup = document.getElementById("nova-stream-row");
+              if (wsRowCleanup) wsRowCleanup.removeAttribute("id");
+              wsStreamEl.removeAttribute("id");
+              state.messages.push({
+                role: "assistant",
+                content: finalContent,
+                sources: finalSources,
+                confidence: finalConfidence,
+                message_id: finalMsgId,
+              });
+              saveHistory(state.messages);
+              state.isLoading = false;
+              _activeAbortCtrl = null;
+              hideStopButton();
+              if (sendBtn) sendBtn.disabled = false;
+              if (input) input.focus();
+            },
+            onError: function (errMsg) {
+              clearTimeout(fetchTimeout);
+              _widgetWsFailCount++;
+              var wsRowCleanup = document.getElementById("nova-stream-row");
+              if (wsRowCleanup) wsRowCleanup.remove();
+              showStreamError(
+                errMsg || "Connection error. Please try again.",
+                text,
+              );
+              state.isLoading = false;
+              _activeAbortCtrl = null;
+              hideStopButton();
+              if (sendBtn) sendBtn.disabled = false;
+              if (input) input.focus();
+            },
+          });
+
+          _activeAbortCtrl = {
+            abort: function () {
+              wsCancelFn();
+            },
+          };
+          return; // Skip SSE path
+        }
+
+        // ── SSE Streaming fallback ──
+        fetch(CONFIG.streamUrl, {
+          method: "POST",
+          headers: headers,
+          body: JSON.stringify(payload),
+          signal: abortCtrl.signal,
+        })
+          .then(function (res) {
+            if (!res.ok) throw new Error("HTTP " + res.status);
+            hideTyping();
+            // Create streaming message element with avatar row and blinking cursor
+            var streamRow = document.createElement("div");
+            streamRow.className = "nova-msg-row nova-msg-row-assistant";
+            streamRow.id = "nova-stream-row";
+            var streamAvatar = document.createElement("div");
+            streamAvatar.className =
+              "nova-msg-avatar nova-msg-avatar-assistant";
+            streamAvatar.textContent = "N";
+            streamAvatar.setAttribute("aria-hidden", "true");
+            streamAvatar.setAttribute("data-tooltip", "Nova");
+            streamRow.appendChild(streamAvatar);
+            var streamCol = document.createElement("div");
+            streamCol.style.cssText =
+              "display:flex;flex-direction:column;min-width:0;flex:1;";
+            var streamSender = document.createElement("div");
+            streamSender.className =
+              "nova-msg-sender nova-msg-sender-assistant";
+            streamSender.textContent = "Nova";
+            streamCol.appendChild(streamSender);
+            var streamEl = document.createElement("div");
+            streamEl.className = "nova-msg nova-msg-assistant";
+            streamEl.id = "nova-stream-msg";
+            streamEl.innerHTML = '<span class="nova-streaming-cursor"></span>';
+            streamCol.appendChild(streamEl);
+            streamRow.appendChild(streamCol);
+            var messagesEl = state.chatPanel
+              ? state.chatPanel.querySelector(".nova-messages")
+              : null;
+            if (messagesEl) {
+              messagesEl.appendChild(streamRow);
+              messagesEl.scrollTop = messagesEl.scrollHeight;
+            }
+            var reader = res.body.getReader();
+            var decoder = new TextDecoder();
+            var buffer = "";
+            var fullText = "";
+            var metadata = {};
+            var streamDone = false;
+            var _statusRemoved = false;
+            var _chunkIterations = 0;
+            var _streamStartTime = Date.now();
+            function processChunk() {
+              if (++_chunkIterations > 50000) {
+                _removeTypingIndicator();
+                state.isLoading = false;
+                return;
+              }
+              if (Date.now() - _streamStartTime > 60000) {
+                abortCtrl.abort();
+                _removeTypingIndicator();
+                state.isLoading = false;
+                return;
+              }
+              return reader.read().then(function (result) {
+                if (result.done) return "stream_complete";
+                buffer += decoder.decode(result.value, { stream: true });
+                var lines = buffer.split("\n");
+                buffer = lines.pop() || "";
+                lines.forEach(function (line) {
+                  if (line.indexOf("data: ") !== 0) return;
+                  // Reset timeout on every SSE event (keepalive, status, token)
+                  _resetStreamTimeout();
+                  try {
+                    var evt = JSON.parse(line.substring(6));
+                    // Skip keepalive heartbeats (just reset timeout above)
+                    if (evt.keepalive) return;
+                    if (evt.done) {
+                      metadata = evt;
+                      streamDone = true;
+                      return;
                     }
-                    statusEl.textContent = escapeHtml(evt.status);
-                    if (messagesEl)
-                      messagesEl.scrollTop = messagesEl.scrollHeight;
-                  }
-                  if (evt.token) {
-                    // Remove status indicator once real tokens arrive (guarded)
-                    if (!_statusRemoved) {
-                      var activeStatus = document.getElementById(
+                    // Handle status/progress events
+                    if (evt.status) {
+                      var statusEl = document.getElementById(
                         "nova-status-indicator",
                       );
-                      if (activeStatus) {
-                        activeStatus.remove();
-                        _statusRemoved = true;
+                      if (!statusEl) {
+                        statusEl = document.createElement("div");
+                        statusEl.className = "nova-status-indicator";
+                        statusEl.id = "nova-status-indicator";
+                        // Insert after typing indicator or at end of messages
+                        var typingEl = document.getElementById("nova-typing");
+                        if (typingEl && typingEl.parentNode) {
+                          typingEl.parentNode.insertBefore(
+                            statusEl,
+                            typingEl.nextSibling,
+                          );
+                        } else if (messagesEl) {
+                          messagesEl.appendChild(statusEl);
+                        }
                       }
+                      statusEl.textContent = escapeHtml(evt.status);
+                      if (messagesEl)
+                        messagesEl.scrollTop = messagesEl.scrollHeight;
                     }
-                    fullText += evt.token;
-                    streamEl.innerHTML = renderMarkdown(fullText);
-                    // Re-append blinking cursor at end of streamed content
-                    var curEl = document.createElement("span");
-                    curEl.className = "nova-streaming-cursor";
-                    streamEl.appendChild(curEl);
-                    if (messagesEl)
-                      messagesEl.scrollTop = messagesEl.scrollHeight;
+                    if (evt.token) {
+                      // Remove status indicator once real tokens arrive (guarded)
+                      if (!_statusRemoved) {
+                        var activeStatus = document.getElementById(
+                          "nova-status-indicator",
+                        );
+                        if (activeStatus) {
+                          activeStatus.remove();
+                          _statusRemoved = true;
+                        }
+                      }
+                      fullText += evt.token;
+                      streamEl.innerHTML = renderMarkdown(fullText);
+                      // Re-append blinking cursor at end of streamed content
+                      var curEl = document.createElement("span");
+                      curEl.className = "nova-streaming-cursor";
+                      streamEl.appendChild(curEl);
+                      if (messagesEl)
+                        messagesEl.scrollTop = messagesEl.scrollHeight;
+                    }
+                  } catch (e) {
+                    console.warn("SSE parse error:", e);
                   }
-                } catch (e) {
-                  console.warn("SSE parse error:", e);
-                }
+                });
+                // If server sent the done event, stop recursing
+                if (streamDone) return "stream_complete";
+                return processChunk();
               });
-              // If server sent the done event, stop recursing
-              if (streamDone) return "stream_complete";
-              return processChunk();
+            }
+            return processChunk().then(function () {
+              clearTimeout(fetchTimeout);
+              // PostHog: track response received
+              if (window.posthog) {
+                window.posthog.capture("nova_chat_response_received", {
+                  source: "widget",
+                  page: window.location.pathname,
+                  response_length: (metadata.full_response || fullText || "")
+                    .length,
+                  provider: metadata.provider || "",
+                  confidence: metadata.confidence || 0,
+                  streaming: true,
+                });
+                // PostHog: track each tool used during this response
+                var toolsUsed = metadata.tools_used || [];
+                toolsUsed.forEach(function (toolName) {
+                  window.posthog.capture("nova_chat_tool_used", {
+                    tool_name: toolName,
+                    page: window.location.pathname,
+                  });
+                });
+              }
+
+              // Fix: Update streaming element IN PLACE instead of remove+recreate (avoids flash)
+              var finalContent = metadata.full_response || fullText;
+              var finalSources = metadata.sources || [];
+              var finalConfidence = metadata.confidence || 0;
+              var finalBreakdown = null;
+              var finalMsgId = metadata.message_id || "";
+
+              // Store session token if returned by server (Issue 4)
+              if (metadata.session_token) {
+                try {
+                  localStorage.setItem(
+                    CONFIG.sessionTokenKey,
+                    metadata.session_token,
+                  );
+                } catch (e) {
+                  console.warn("localStorage write failed:", e.message);
+                }
+              }
+
+              // Remove blinking cursor
+              var cursors = streamEl.querySelectorAll(".nova-streaming-cursor");
+              cursors.forEach(function (c) {
+                c.remove();
+              });
+
+              // Re-render final markdown content into existing element
+              streamEl.innerHTML = renderMarkdown(finalContent);
+
+              // Remove the status indicator if any (guarded)
+              if (!_statusRemoved) {
+                var statusEl = document.getElementById("nova-status-indicator");
+                if (statusEl) {
+                  statusEl.remove();
+                  _statusRemoved = true;
+                }
+              }
+
+              // Add action buttons to existing stream element
+              addActionButtonsToElement(streamEl, finalContent);
+
+              // Add source badges and confidence to existing stream element
+              addMetaToElement(
+                streamEl,
+                finalSources,
+                finalConfidence,
+                finalBreakdown,
+              );
+
+              // Confidence Pulse: animate stat values with pulsing rings
+              applyConfidencePulse(streamEl, finalConfidence);
+
+              // Add timestamp to the stream column
+              var streamColEl = streamEl.parentNode;
+              if (streamColEl) {
+                var now = new Date();
+                var tsEl = document.createElement("div");
+                tsEl.className =
+                  "nova-msg-timestamp nova-msg-timestamp-assistant";
+                tsEl.textContent =
+                  String(now.getHours()).padStart(2, "0") +
+                  ":" +
+                  String(now.getMinutes()).padStart(2, "0");
+                streamColEl.appendChild(tsEl);
+              }
+
+              // Remove the temporary IDs so they don't conflict
+              var streamRowEl = document.getElementById("nova-stream-row");
+              if (streamRowEl) streamRowEl.removeAttribute("id");
+              streamEl.removeAttribute("id");
+
+              // Persist message to state + storage
+              var msgObj = {
+                role: "assistant",
+                content: finalContent,
+                sources: finalSources,
+                confidence: finalConfidence,
+                confidence_breakdown: finalBreakdown,
+                message_id: finalMsgId,
+              };
+              state.messages.push(msgObj);
+              saveHistory(state.messages);
             });
-          }
-          return processChunk().then(function () {
+          })
+          .catch(function (err) {
             clearTimeout(fetchTimeout);
-            // PostHog: track response received
+            hideTyping();
+            // PostHog: track chat error
             if (window.posthog) {
-              window.posthog.capture("nova_chat_response_received", {
+              window.posthog.capture("nova_chat_error", {
                 source: "widget",
                 page: window.location.pathname,
-                response_length: (metadata.full_response || fullText || "")
-                  .length,
-                provider: metadata.provider || "",
-                confidence: metadata.confidence || 0,
+                error_type: err.name || "Unknown",
+                error_message: (err.message || "").substring(0, 200),
                 streaming: true,
               });
-              // PostHog: track each tool used during this response
-              var toolsUsed = metadata.tools_used || [];
-              toolsUsed.forEach(function (toolName) {
-                window.posthog.capture("nova_chat_tool_used", {
-                  tool_name: toolName,
-                  page: window.location.pathname,
+            }
+            var streamRowCleanup = document.getElementById("nova-stream-row");
+            if (streamRowCleanup) streamRowCleanup.remove();
+            var streamEl = document.getElementById("nova-stream-msg");
+            if (streamEl) streamEl.remove();
+
+            // Fallback: if streaming failed (not abort), try non-streaming endpoint
+            if (err.name !== "AbortError") {
+              console.warn(
+                "Streaming failed, falling back to non-streaming endpoint:",
+                err.message,
+              );
+              return fetch(CONFIG.apiUrl, {
+                method: "POST",
+                headers: headers,
+                body: JSON.stringify(payload),
+              })
+                .then(function (res) {
+                  if (!res.ok) throw new Error("HTTP " + res.status);
+                  return res.json();
+                })
+                .then(function (data) {
+                  appendMessage({
+                    role: "assistant",
+                    content: data.response || "No response received.",
+                    sources: data.sources || [],
+                    confidence: data.confidence || 0,
+                    confidence_breakdown: data.confidence_breakdown || null,
+                  });
+                })
+                .catch(function (fallbackErr) {
+                  // Fallback also failed -- show error with retry
+                  showStreamError(
+                    fallbackErr.message ||
+                      "Connection error. Please try again.",
+                    text,
+                  );
+                })
+                .finally(function () {
+                  state.isLoading = false;
+                  if (sendBtn) sendBtn.disabled = false;
+                  _removeTypingIndicator();
                 });
-              });
             }
 
-            // Fix: Update streaming element IN PLACE instead of remove+recreate (avoids flash)
-            var finalContent = metadata.full_response || fullText;
-            var finalSources = metadata.sources || [];
-            var finalConfidence = metadata.confidence || 0;
-            var finalBreakdown = null;
-            var finalMsgId = metadata.message_id || "";
-
-            // Store session token if returned by server (Issue 4)
-            if (metadata.session_token) {
-              try {
-                localStorage.setItem(
-                  CONFIG.sessionTokenKey,
-                  metadata.session_token,
-                );
-              } catch (e) {
-                console.warn("localStorage write failed:", e.message);
-              }
+            // AbortError -- distinguish user cancel from timeout
+            if (abortCtrl._isUserCancel) {
+              showStreamError("Response was stopped.", text, true);
+            } else {
+              showStreamError(
+                "I'm having trouble connecting. Please try again.",
+                text,
+              );
             }
-
-            // Remove blinking cursor
-            var cursors = streamEl.querySelectorAll(".nova-streaming-cursor");
-            cursors.forEach(function (c) {
-              c.remove();
+          })
+          .finally(function () {
+            state.isLoading = false;
+            _activeAbortCtrl = null;
+            hideStopButton();
+            if (sendBtn) sendBtn.disabled = false;
+            if (input) input.focus();
+            // Defensive cleanup: remove any stray streaming cursors that
+            // may persist after errors or edge-case race conditions
+            var strayCursors = document.querySelectorAll(
+              ".nova-streaming-cursor",
+            );
+            strayCursors.forEach(function (el) {
+              el.remove();
             });
-
-            // Re-render final markdown content into existing element
-            streamEl.innerHTML = renderMarkdown(finalContent);
-
-            // Remove the status indicator if any (guarded)
-            if (!_statusRemoved) {
-              var statusEl = document.getElementById("nova-status-indicator");
-              if (statusEl) {
-                statusEl.remove();
-                _statusRemoved = true;
-              }
-            }
-
-            // Add action buttons to existing stream element
-            addActionButtonsToElement(streamEl, finalContent);
-
-            // Add source badges and confidence to existing stream element
-            addMetaToElement(
-              streamEl,
-              finalSources,
-              finalConfidence,
-              finalBreakdown,
-            );
-
-            // Confidence Pulse: animate stat values with pulsing rings
-            applyConfidencePulse(streamEl, finalConfidence);
-
-            // Add timestamp to the stream column
-            var streamColEl = streamEl.parentNode;
-            if (streamColEl) {
-              var now = new Date();
-              var tsEl = document.createElement("div");
-              tsEl.className =
-                "nova-msg-timestamp nova-msg-timestamp-assistant";
-              tsEl.textContent =
-                String(now.getHours()).padStart(2, "0") +
-                ":" +
-                String(now.getMinutes()).padStart(2, "0");
-              streamColEl.appendChild(tsEl);
-            }
-
-            // Remove the temporary IDs so they don't conflict
-            var streamRowEl = document.getElementById("nova-stream-row");
-            if (streamRowEl) streamRowEl.removeAttribute("id");
-            streamEl.removeAttribute("id");
-
-            // Persist message to state + storage
-            var msgObj = {
-              role: "assistant",
-              content: finalContent,
-              sources: finalSources,
-              confidence: finalConfidence,
-              confidence_breakdown: finalBreakdown,
-              message_id: finalMsgId,
-            };
-            state.messages.push(msgObj);
-            saveHistory(state.messages);
+            // Also remove any orphaned stream message elements
+            var orphanStreamRow = document.getElementById("nova-stream-row");
+            if (orphanStreamRow) orphanStreamRow.remove();
+            var orphanStream = document.getElementById("nova-stream-msg");
+            if (orphanStream) orphanStream.remove();
           });
-        })
-        .catch(function (err) {
-          clearTimeout(fetchTimeout);
-          hideTyping();
-          // PostHog: track chat error
-          if (window.posthog) {
-            window.posthog.capture("nova_chat_error", {
-              source: "widget",
-              page: window.location.pathname,
-              error_type: err.name || "Unknown",
-              error_message: (err.message || "").substring(0, 200),
-              streaming: true,
-            });
-          }
-          var streamRowCleanup = document.getElementById("nova-stream-row");
-          if (streamRowCleanup) streamRowCleanup.remove();
-          var streamEl = document.getElementById("nova-stream-msg");
-          if (streamEl) streamEl.remove();
-
-          // Fallback: if streaming failed (not abort), try non-streaming endpoint
-          if (err.name !== "AbortError") {
-            console.warn(
-              "Streaming failed, falling back to non-streaming endpoint:",
-              err.message,
-            );
-            return fetch(CONFIG.apiUrl, {
-              method: "POST",
-              headers: headers,
-              body: JSON.stringify(payload),
-            })
-              .then(function (res) {
-                if (!res.ok) throw new Error("HTTP " + res.status);
-                return res.json();
-              })
-              .then(function (data) {
-                appendMessage({
-                  role: "assistant",
-                  content: data.response || "No response received.",
-                  sources: data.sources || [],
-                  confidence: data.confidence || 0,
-                  confidence_breakdown: data.confidence_breakdown || null,
-                });
-              })
-              .catch(function (fallbackErr) {
-                // Fallback also failed -- show error with retry
-                showStreamError(
-                  fallbackErr.message || "Connection error. Please try again.",
-                  text,
-                );
-              })
-              .finally(function () {
-                state.isLoading = false;
-                if (sendBtn) sendBtn.disabled = false;
-                _removeTypingIndicator();
-              });
-          }
-
-          // AbortError -- distinguish user cancel from timeout
-          if (abortCtrl._isUserCancel) {
-            showStreamError("Response was stopped.", text, true);
-          } else {
-            showStreamError(
-              "I'm having trouble connecting. Please try again.",
-              text,
-            );
-          }
-        })
-        .finally(function () {
-          state.isLoading = false;
-          _activeAbortCtrl = null;
-          hideStopButton();
-          if (sendBtn) sendBtn.disabled = false;
-          if (input) input.focus();
-          // Defensive cleanup: remove any stray streaming cursors that
-          // may persist after errors or edge-case race conditions
-          var strayCursors = document.querySelectorAll(
-            ".nova-streaming-cursor",
-          );
-          strayCursors.forEach(function (el) {
-            el.remove();
-          });
-          // Also remove any orphaned stream message elements
-          var orphanStreamRow = document.getElementById("nova-stream-row");
-          if (orphanStreamRow) orphanStreamRow.remove();
-          var orphanStream = document.getElementById("nova-stream-msg");
-          if (orphanStream) orphanStream.remove();
-        });
+      }); // end _widgetGetOrCreateWS callback
     } else {
       // ── Non-streaming fallback ──
       fetch(CONFIG.apiUrl, {

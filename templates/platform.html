@@ -19,7 +19,18 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/static/css/tokens.css" />
-    <link rel="stylesheet" href="/static/css/platform.css" />
+    <link
+      rel="preload"
+      href="/static/css/platform.css"
+      as="style"
+      onload="
+        this.onload = null;
+        this.rel = 'stylesheet';
+      "
+    />
+    <noscript
+      ><link rel="stylesheet" href="/static/css/platform.css"
+    /></noscript>
     <meta name="csrf-token" content="" />
   </head>
   <body>
@@ -666,7 +677,7 @@
     <!-- ════════════════════════════════════════════════════════════════
      JAVASCRIPT
      ════════════════════════════════════════════════════════════════ -->
-    <script src="/static/js/platform.js"></script>
+    <script src="/static/js/platform.js" defer></script>
     <!-- platform.js contains the full platform IIFE; ConfidencePulse remains inline -->
     <script>
       window.ConfidencePulse = {

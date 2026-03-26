@@ -15,8 +15,6 @@ import logging
 import os
 import time
 import threading
-import hashlib
-from typing import Optional
 from collections import deque
 
 logger = logging.getLogger(__name__)
@@ -94,10 +92,10 @@ class NovaMemory:
             if os.path.exists(mem_file):
                 with open(mem_file, "r", encoding="utf-8") as f:
                     data = json.load(f)
-                for entry in data.get("short_term", []):
+                for entry in data.get("short_term") or []:
                     self._short_term.append(entry)
-                self._long_term = data.get("long_term", [])
-                self._preferences = data.get("preferences", {})
+                self._long_term = data.get("long_term") or []
+                self._preferences = data.get("preferences") or {}
                 logger.info("[NovaMemory] Loaded from local file")
         except Exception as e:
             logger.debug("[NovaMemory] Local load failed: %s", e)

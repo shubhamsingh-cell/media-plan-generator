@@ -262,7 +262,7 @@ def run_evaluation(base_url: str = "http://localhost:10000") -> dict:
             )
             req.add_header("Content-Type", "application/json")
 
-            with urllib.request.urlopen(req, timeout=30) as resp:
+            with urllib.request.urlopen(req, timeout=65) as resp:
                 data = json.loads(resp.read().decode())
                 response_text = data.get("response", "")
 

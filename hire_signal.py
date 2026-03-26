@@ -28,13 +28,11 @@ from __future__ import annotations
 
 import io
 import logging
-import math
 import re
 import random
 import datetime
-import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +46,7 @@ except ImportError:
     _HAS_TREND_ENGINE = False
 
 try:
-    from shared_utils import INDUSTRY_LABEL_MAP, parse_budget
+    from shared_utils import INDUSTRY_LABEL_MAP
 except ImportError:
     INDUSTRY_LABEL_MAP = {}
 
@@ -2200,9 +2198,9 @@ def generate_signal_ppt(report: Dict[str, Any], client_name: str = "Client") -> 
     """
     try:
         from pptx import Presentation
-        from pptx.util import Inches, Pt, Emu
+        from pptx.util import Inches, Pt
         from pptx.dml.color import RGBColor
-        from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
+        from pptx.enum.text import PP_ALIGN
         from pptx.enum.shapes import MSO_SHAPE
     except ImportError:
         logger.error("python-pptx not available for PPT generation")

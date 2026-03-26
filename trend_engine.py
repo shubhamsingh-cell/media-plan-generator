@@ -27,7 +27,6 @@ Thread-safe, no external dependencies.
 from __future__ import annotations
 
 import logging
-import math
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -38,8 +37,8 @@ logger = logging.getLogger(__name__)
 # Used by auto_qc.py to flag staleness (>12 months = alert)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-BENCHMARK_VINTAGE = "2026-03-09"
-BENCHMARK_VINTAGE_DATE = datetime(2026, 3, 9)
+BENCHMARK_VINTAGE = "2026-03-26"
+BENCHMARK_VINTAGE_DATE = datetime(2026, 3, 26)
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 1. HISTORICAL TREND DATA
@@ -49,221 +48,1238 @@ BENCHMARK_VINTAGE_DATE = datetime(2026, 3, 9)
 
 # Platform keys used throughout this module
 PLATFORMS = [
-    "google_search", "meta_facebook", "meta_instagram",
-    "linkedin", "indeed", "programmatic",
+    "google_search",
+    "meta_facebook",
+    "meta_instagram",
+    "linkedin",
+    "indeed",
+    "programmatic",
 ]
 
 # Industry keys aligned with shared_utils.INDUSTRY_LABEL_MAP
 INDUSTRIES = [
-    "healthcare_medical", "tech_engineering", "finance_banking",
-    "retail_consumer", "blue_collar_trades", "general_entry_level",
-    "logistics_supply_chain", "hospitality_travel", "construction_real_estate",
-    "pharma_biotech", "aerospace_defense", "legal_services",
-    "mental_health", "insurance", "telecommunications",
-    "automotive", "food_beverage", "energy_utilities",
-    "education", "media_entertainment", "maritime_marine",
+    "healthcare_medical",
+    "tech_engineering",
+    "finance_banking",
+    "retail_consumer",
+    "blue_collar_trades",
+    "general_entry_level",
+    "logistics_supply_chain",
+    "hospitality_travel",
+    "construction_real_estate",
+    "pharma_biotech",
+    "aerospace_defense",
+    "legal_services",
+    "mental_health",
+    "insurance",
+    "telecommunications",
+    "automotive",
+    "food_beverage",
+    "energy_utilities",
+    "education",
+    "media_entertainment",
+    "maritime_marine",
     "military_recruitment",
 ]
 
 # --- Google Search (recruitment-specific, not general search ads) ---
-# Sources: WordStream/LOCALiQ 2023-2025, Appcast 2024-2026
+# Sources: WordStream/LOCALiQ 2025 Google Ads Benchmarks (Apr 2024 - Mar 2025),
+#   Appcast 2026 Recruitment Marketing Benchmark Report (2025 data),
+#   Joveo Google Ads 2025 first-party campaign data (6,338 keywords, $454K spend).
+# 2026 row: Q1 2026 projections based on +8-10% YoY CPC trend (CPC rose 12.88% YoY
+#   in general search per WordStream; recruitment-specific inflation is ~8% per Appcast).
+# Updated 2026-03-26.
 
 _GOOGLE_SEARCH_TRENDS: Dict[str, Dict[int, Dict[str, float]]] = {
     "healthcare_medical": {
-        2022: {"avg_cpc": 2.35, "avg_cpm": 8.80, "avg_ctr": 0.028, "avg_cpa": 32.00, "avg_cvr": 0.073},
-        2023: {"avg_cpc": 2.55, "avg_cpm": 9.40, "avg_ctr": 0.029, "avg_cpa": 33.50, "avg_cvr": 0.076},
-        2024: {"avg_cpc": 2.80, "avg_cpm": 10.20, "avg_ctr": 0.030, "avg_cpa": 35.00, "avg_cvr": 0.080},
-        2025: {"avg_cpc": 3.05, "avg_cpm": 11.10, "avg_ctr": 0.031, "avg_cpa": 36.50, "avg_cvr": 0.084},
+        2022: {
+            "avg_cpc": 2.35,
+            "avg_cpm": 8.80,
+            "avg_ctr": 0.028,
+            "avg_cpa": 32.00,
+            "avg_cvr": 0.073,
+        },
+        2023: {
+            "avg_cpc": 2.55,
+            "avg_cpm": 9.40,
+            "avg_ctr": 0.029,
+            "avg_cpa": 33.50,
+            "avg_cvr": 0.076,
+        },
+        2024: {
+            "avg_cpc": 2.80,
+            "avg_cpm": 10.20,
+            "avg_ctr": 0.030,
+            "avg_cpa": 35.00,
+            "avg_cvr": 0.080,
+        },
+        2025: {
+            "avg_cpc": 3.05,
+            "avg_cpm": 11.10,
+            "avg_ctr": 0.031,
+            "avg_cpa": 36.50,
+            "avg_cvr": 0.084,
+        },
+        2026: {
+            "avg_cpc": 3.30,
+            "avg_cpm": 12.10,
+            "avg_ctr": 0.032,
+            "avg_cpa": 38.50,
+            "avg_cvr": 0.087,
+        },  # Q1 2026 est.
     },
     "tech_engineering": {
-        2022: {"avg_cpc": 2.90, "avg_cpm": 10.80, "avg_ctr": 0.027, "avg_cpa": 25.00, "avg_cvr": 0.116},
-        2023: {"avg_cpc": 3.15, "avg_cpm": 11.50, "avg_ctr": 0.028, "avg_cpa": 26.50, "avg_cvr": 0.119},
-        2024: {"avg_cpc": 3.50, "avg_cpm": 12.50, "avg_ctr": 0.030, "avg_cpa": 28.50, "avg_cvr": 0.123},
-        2025: {"avg_cpc": 3.85, "avg_cpm": 13.80, "avg_ctr": 0.031, "avg_cpa": 30.00, "avg_cvr": 0.128},
+        2022: {
+            "avg_cpc": 2.90,
+            "avg_cpm": 10.80,
+            "avg_ctr": 0.027,
+            "avg_cpa": 25.00,
+            "avg_cvr": 0.116,
+        },
+        2023: {
+            "avg_cpc": 3.15,
+            "avg_cpm": 11.50,
+            "avg_ctr": 0.028,
+            "avg_cpa": 26.50,
+            "avg_cvr": 0.119,
+        },
+        2024: {
+            "avg_cpc": 3.50,
+            "avg_cpm": 12.50,
+            "avg_ctr": 0.030,
+            "avg_cpa": 28.50,
+            "avg_cvr": 0.123,
+        },
+        2025: {
+            "avg_cpc": 3.85,
+            "avg_cpm": 13.80,
+            "avg_ctr": 0.031,
+            "avg_cpa": 30.00,
+            "avg_cvr": 0.128,
+        },
+        2026: {
+            "avg_cpc": 4.16,
+            "avg_cpm": 15.00,
+            "avg_ctr": 0.032,
+            "avg_cpa": 31.50,
+            "avg_cvr": 0.132,
+        },  # Q1 2026 est.
     },
     "finance_banking": {
-        2022: {"avg_cpc": 3.50, "avg_cpm": 12.20, "avg_ctr": 0.025, "avg_cpa": 38.00, "avg_cvr": 0.092},
-        2023: {"avg_cpc": 3.80, "avg_cpm": 13.10, "avg_ctr": 0.026, "avg_cpa": 40.50, "avg_cvr": 0.094},
-        2024: {"avg_cpc": 4.20, "avg_cpm": 14.80, "avg_ctr": 0.027, "avg_cpa": 42.00, "avg_cvr": 0.100},
-        2025: {"avg_cpc": 4.55, "avg_cpm": 16.00, "avg_ctr": 0.028, "avg_cpa": 44.00, "avg_cvr": 0.103},
+        2022: {
+            "avg_cpc": 3.50,
+            "avg_cpm": 12.20,
+            "avg_ctr": 0.025,
+            "avg_cpa": 38.00,
+            "avg_cvr": 0.092,
+        },
+        2023: {
+            "avg_cpc": 3.80,
+            "avg_cpm": 13.10,
+            "avg_ctr": 0.026,
+            "avg_cpa": 40.50,
+            "avg_cvr": 0.094,
+        },
+        2024: {
+            "avg_cpc": 4.20,
+            "avg_cpm": 14.80,
+            "avg_ctr": 0.027,
+            "avg_cpa": 42.00,
+            "avg_cvr": 0.100,
+        },
+        2025: {
+            "avg_cpc": 4.55,
+            "avg_cpm": 16.00,
+            "avg_ctr": 0.028,
+            "avg_cpa": 44.00,
+            "avg_cvr": 0.103,
+        },
+        2026: {
+            "avg_cpc": 4.92,
+            "avg_cpm": 17.40,
+            "avg_ctr": 0.029,
+            "avg_cpa": 46.50,
+            "avg_cvr": 0.106,
+        },  # Q1 2026 est.
     },
     "retail_consumer": {
-        2022: {"avg_cpc": 1.30, "avg_cpm": 4.80, "avg_ctr": 0.035, "avg_cpa": 10.50, "avg_cvr": 0.124},
-        2023: {"avg_cpc": 1.42, "avg_cpm": 5.20, "avg_ctr": 0.036, "avg_cpa": 11.00, "avg_cvr": 0.129},
-        2024: {"avg_cpc": 1.60, "avg_cpm": 6.00, "avg_ctr": 0.038, "avg_cpa": 11.50, "avg_cvr": 0.139},
-        2025: {"avg_cpc": 1.75, "avg_cpm": 6.50, "avg_ctr": 0.040, "avg_cpa": 12.00, "avg_cvr": 0.146},
+        2022: {
+            "avg_cpc": 1.30,
+            "avg_cpm": 4.80,
+            "avg_ctr": 0.035,
+            "avg_cpa": 10.50,
+            "avg_cvr": 0.124,
+        },
+        2023: {
+            "avg_cpc": 1.42,
+            "avg_cpm": 5.20,
+            "avg_ctr": 0.036,
+            "avg_cpa": 11.00,
+            "avg_cvr": 0.129,
+        },
+        2024: {
+            "avg_cpc": 1.60,
+            "avg_cpm": 6.00,
+            "avg_ctr": 0.038,
+            "avg_cpa": 11.50,
+            "avg_cvr": 0.139,
+        },
+        2025: {
+            "avg_cpc": 1.75,
+            "avg_cpm": 6.50,
+            "avg_ctr": 0.040,
+            "avg_cpa": 12.00,
+            "avg_cvr": 0.146,
+        },
+        2026: {
+            "avg_cpc": 1.89,
+            "avg_cpm": 7.10,
+            "avg_ctr": 0.041,
+            "avg_cpa": 12.80,
+            "avg_cvr": 0.148,
+        },  # Q1 2026 est.
     },
     "blue_collar_trades": {
-        2022: {"avg_cpc": 1.10, "avg_cpm": 4.20, "avg_ctr": 0.032, "avg_cpa": 14.00, "avg_cvr": 0.079},
-        2023: {"avg_cpc": 1.25, "avg_cpm": 4.60, "avg_ctr": 0.033, "avg_cpa": 15.00, "avg_cvr": 0.083},
-        2024: {"avg_cpc": 1.40, "avg_cpm": 5.20, "avg_ctr": 0.035, "avg_cpa": 16.00, "avg_cvr": 0.088},
-        2025: {"avg_cpc": 1.55, "avg_cpm": 5.70, "avg_ctr": 0.036, "avg_cpa": 17.00, "avg_cvr": 0.091},
+        2022: {
+            "avg_cpc": 1.10,
+            "avg_cpm": 4.20,
+            "avg_ctr": 0.032,
+            "avg_cpa": 14.00,
+            "avg_cvr": 0.079,
+        },
+        2023: {
+            "avg_cpc": 1.25,
+            "avg_cpm": 4.60,
+            "avg_ctr": 0.033,
+            "avg_cpa": 15.00,
+            "avg_cvr": 0.083,
+        },
+        2024: {
+            "avg_cpc": 1.40,
+            "avg_cpm": 5.20,
+            "avg_ctr": 0.035,
+            "avg_cpa": 16.00,
+            "avg_cvr": 0.088,
+        },
+        2025: {
+            "avg_cpc": 1.55,
+            "avg_cpm": 5.70,
+            "avg_ctr": 0.036,
+            "avg_cpa": 17.00,
+            "avg_cvr": 0.091,
+        },
+        2026: {
+            "avg_cpc": 1.67,
+            "avg_cpm": 6.20,
+            "avg_ctr": 0.037,
+            "avg_cpa": 18.00,
+            "avg_cvr": 0.093,
+        },  # Q1 2026 est.
     },
     "general_entry_level": {
-        2022: {"avg_cpc": 0.95, "avg_cpm": 3.80, "avg_ctr": 0.038, "avg_cpa": 10.00, "avg_cvr": 0.095},
-        2023: {"avg_cpc": 1.05, "avg_cpm": 4.10, "avg_ctr": 0.039, "avg_cpa": 10.50, "avg_cvr": 0.100},
-        2024: {"avg_cpc": 1.15, "avg_cpm": 4.50, "avg_ctr": 0.040, "avg_cpa": 11.00, "avg_cvr": 0.105},
-        2025: {"avg_cpc": 1.25, "avg_cpm": 4.90, "avg_ctr": 0.041, "avg_cpa": 11.50, "avg_cvr": 0.109},
+        2022: {
+            "avg_cpc": 0.95,
+            "avg_cpm": 3.80,
+            "avg_ctr": 0.038,
+            "avg_cpa": 10.00,
+            "avg_cvr": 0.095,
+        },
+        2023: {
+            "avg_cpc": 1.05,
+            "avg_cpm": 4.10,
+            "avg_ctr": 0.039,
+            "avg_cpa": 10.50,
+            "avg_cvr": 0.100,
+        },
+        2024: {
+            "avg_cpc": 1.15,
+            "avg_cpm": 4.50,
+            "avg_ctr": 0.040,
+            "avg_cpa": 11.00,
+            "avg_cvr": 0.105,
+        },
+        2025: {
+            "avg_cpc": 1.25,
+            "avg_cpm": 4.90,
+            "avg_ctr": 0.041,
+            "avg_cpa": 11.50,
+            "avg_cvr": 0.109,
+        },
+        2026: {
+            "avg_cpc": 1.35,
+            "avg_cpm": 5.30,
+            "avg_ctr": 0.042,
+            "avg_cpa": 12.20,
+            "avg_cvr": 0.111,
+        },  # Q1 2026 est.
     },
     "logistics_supply_chain": {
-        2022: {"avg_cpc": 1.20, "avg_cpm": 4.50, "avg_ctr": 0.030, "avg_cpa": 16.00, "avg_cvr": 0.075},
-        2023: {"avg_cpc": 1.35, "avg_cpm": 5.00, "avg_ctr": 0.031, "avg_cpa": 17.50, "avg_cvr": 0.077},
-        2024: {"avg_cpc": 1.55, "avg_cpm": 5.80, "avg_ctr": 0.033, "avg_cpa": 19.00, "avg_cvr": 0.082},
-        2025: {"avg_cpc": 1.70, "avg_cpm": 6.30, "avg_ctr": 0.034, "avg_cpa": 20.00, "avg_cvr": 0.085},
+        2022: {
+            "avg_cpc": 1.20,
+            "avg_cpm": 4.50,
+            "avg_ctr": 0.030,
+            "avg_cpa": 16.00,
+            "avg_cvr": 0.075,
+        },
+        2023: {
+            "avg_cpc": 1.35,
+            "avg_cpm": 5.00,
+            "avg_ctr": 0.031,
+            "avg_cpa": 17.50,
+            "avg_cvr": 0.077,
+        },
+        2024: {
+            "avg_cpc": 1.55,
+            "avg_cpm": 5.80,
+            "avg_ctr": 0.033,
+            "avg_cpa": 19.00,
+            "avg_cvr": 0.082,
+        },
+        2025: {
+            "avg_cpc": 1.70,
+            "avg_cpm": 6.30,
+            "avg_ctr": 0.034,
+            "avg_cpa": 20.00,
+            "avg_cvr": 0.085,
+        },
+        2026: {
+            "avg_cpc": 1.84,
+            "avg_cpm": 6.90,
+            "avg_ctr": 0.035,
+            "avg_cpa": 21.00,
+            "avg_cvr": 0.088,
+        },  # Q1 2026 est.
     },
     "hospitality_travel": {
-        2022: {"avg_cpc": 1.10, "avg_cpm": 4.20, "avg_ctr": 0.034, "avg_cpa": 9.50, "avg_cvr": 0.116},
-        2023: {"avg_cpc": 1.22, "avg_cpm": 4.60, "avg_ctr": 0.035, "avg_cpa": 10.00, "avg_cvr": 0.122},
-        2024: {"avg_cpc": 1.40, "avg_cpm": 5.50, "avg_ctr": 0.037, "avg_cpa": 10.50, "avg_cvr": 0.133},
-        2025: {"avg_cpc": 1.52, "avg_cpm": 5.90, "avg_ctr": 0.038, "avg_cpa": 11.00, "avg_cvr": 0.138},
+        2022: {
+            "avg_cpc": 1.10,
+            "avg_cpm": 4.20,
+            "avg_ctr": 0.034,
+            "avg_cpa": 9.50,
+            "avg_cvr": 0.116,
+        },
+        2023: {
+            "avg_cpc": 1.22,
+            "avg_cpm": 4.60,
+            "avg_ctr": 0.035,
+            "avg_cpa": 10.00,
+            "avg_cvr": 0.122,
+        },
+        2024: {
+            "avg_cpc": 1.40,
+            "avg_cpm": 5.50,
+            "avg_ctr": 0.037,
+            "avg_cpa": 10.50,
+            "avg_cvr": 0.133,
+        },
+        2025: {
+            "avg_cpc": 1.52,
+            "avg_cpm": 5.90,
+            "avg_ctr": 0.038,
+            "avg_cpa": 11.00,
+            "avg_cvr": 0.138,
+        },
+        2026: {
+            "avg_cpc": 1.64,
+            "avg_cpm": 6.40,
+            "avg_ctr": 0.039,
+            "avg_cpa": 11.80,
+            "avg_cvr": 0.139,
+        },  # Q1 2026 est.
     },
     "construction_real_estate": {
-        2022: {"avg_cpc": 1.40, "avg_cpm": 5.20, "avg_ctr": 0.029, "avg_cpa": 18.00, "avg_cvr": 0.078},
-        2023: {"avg_cpc": 1.55, "avg_cpm": 5.60, "avg_ctr": 0.030, "avg_cpa": 19.50, "avg_cvr": 0.079},
-        2024: {"avg_cpc": 1.75, "avg_cpm": 6.40, "avg_ctr": 0.031, "avg_cpa": 21.00, "avg_cvr": 0.083},
-        2025: {"avg_cpc": 1.90, "avg_cpm": 7.00, "avg_ctr": 0.032, "avg_cpa": 22.00, "avg_cvr": 0.086},
+        2022: {
+            "avg_cpc": 1.40,
+            "avg_cpm": 5.20,
+            "avg_ctr": 0.029,
+            "avg_cpa": 18.00,
+            "avg_cvr": 0.078,
+        },
+        2023: {
+            "avg_cpc": 1.55,
+            "avg_cpm": 5.60,
+            "avg_ctr": 0.030,
+            "avg_cpa": 19.50,
+            "avg_cvr": 0.079,
+        },
+        2024: {
+            "avg_cpc": 1.75,
+            "avg_cpm": 6.40,
+            "avg_ctr": 0.031,
+            "avg_cpa": 21.00,
+            "avg_cvr": 0.083,
+        },
+        2025: {
+            "avg_cpc": 1.90,
+            "avg_cpm": 7.00,
+            "avg_ctr": 0.032,
+            "avg_cpa": 22.00,
+            "avg_cvr": 0.086,
+        },
+        2026: {
+            "avg_cpc": 2.05,
+            "avg_cpm": 7.60,
+            "avg_ctr": 0.033,
+            "avg_cpa": 23.50,
+            "avg_cvr": 0.088,
+        },  # Q1 2026 est.
     },
     "pharma_biotech": {
-        2022: {"avg_cpc": 3.20, "avg_cpm": 11.50, "avg_ctr": 0.024, "avg_cpa": 42.00, "avg_cvr": 0.076},
-        2023: {"avg_cpc": 3.50, "avg_cpm": 12.50, "avg_ctr": 0.025, "avg_cpa": 45.00, "avg_cvr": 0.078},
-        2024: {"avg_cpc": 3.85, "avg_cpm": 14.00, "avg_ctr": 0.026, "avg_cpa": 48.00, "avg_cvr": 0.080},
-        2025: {"avg_cpc": 4.15, "avg_cpm": 15.20, "avg_ctr": 0.027, "avg_cpa": 50.00, "avg_cvr": 0.083},
+        2022: {
+            "avg_cpc": 3.20,
+            "avg_cpm": 11.50,
+            "avg_ctr": 0.024,
+            "avg_cpa": 42.00,
+            "avg_cvr": 0.076,
+        },
+        2023: {
+            "avg_cpc": 3.50,
+            "avg_cpm": 12.50,
+            "avg_ctr": 0.025,
+            "avg_cpa": 45.00,
+            "avg_cvr": 0.078,
+        },
+        2024: {
+            "avg_cpc": 3.85,
+            "avg_cpm": 14.00,
+            "avg_ctr": 0.026,
+            "avg_cpa": 48.00,
+            "avg_cvr": 0.080,
+        },
+        2025: {
+            "avg_cpc": 4.15,
+            "avg_cpm": 15.20,
+            "avg_ctr": 0.027,
+            "avg_cpa": 50.00,
+            "avg_cvr": 0.083,
+        },
+        2026: {
+            "avg_cpc": 4.48,
+            "avg_cpm": 16.50,
+            "avg_ctr": 0.028,
+            "avg_cpa": 53.00,
+            "avg_cvr": 0.085,
+        },  # Q1 2026 est.
     },
     "aerospace_defense": {
-        2022: {"avg_cpc": 3.00, "avg_cpm": 10.50, "avg_ctr": 0.023, "avg_cpa": 45.00, "avg_cvr": 0.067},
-        2023: {"avg_cpc": 3.30, "avg_cpm": 11.50, "avg_ctr": 0.024, "avg_cpa": 48.00, "avg_cvr": 0.069},
-        2024: {"avg_cpc": 3.65, "avg_cpm": 12.80, "avg_ctr": 0.025, "avg_cpa": 52.00, "avg_cvr": 0.070},
-        2025: {"avg_cpc": 3.95, "avg_cpm": 14.00, "avg_ctr": 0.026, "avg_cpa": 55.00, "avg_cvr": 0.072},
+        2022: {
+            "avg_cpc": 3.00,
+            "avg_cpm": 10.50,
+            "avg_ctr": 0.023,
+            "avg_cpa": 45.00,
+            "avg_cvr": 0.067,
+        },
+        2023: {
+            "avg_cpc": 3.30,
+            "avg_cpm": 11.50,
+            "avg_ctr": 0.024,
+            "avg_cpa": 48.00,
+            "avg_cvr": 0.069,
+        },
+        2024: {
+            "avg_cpc": 3.65,
+            "avg_cpm": 12.80,
+            "avg_ctr": 0.025,
+            "avg_cpa": 52.00,
+            "avg_cvr": 0.070,
+        },
+        2025: {
+            "avg_cpc": 3.95,
+            "avg_cpm": 14.00,
+            "avg_ctr": 0.026,
+            "avg_cpa": 55.00,
+            "avg_cvr": 0.072,
+        },
+        2026: {
+            "avg_cpc": 4.27,
+            "avg_cpm": 15.20,
+            "avg_ctr": 0.027,
+            "avg_cpa": 58.00,
+            "avg_cvr": 0.074,
+        },  # Q1 2026 est.
     },
     "legal_services": {
-        2022: {"avg_cpc": 3.80, "avg_cpm": 13.50, "avg_ctr": 0.022, "avg_cpa": 48.00, "avg_cvr": 0.079},
-        2023: {"avg_cpc": 4.10, "avg_cpm": 14.50, "avg_ctr": 0.023, "avg_cpa": 50.00, "avg_cvr": 0.082},
-        2024: {"avg_cpc": 4.50, "avg_cpm": 16.00, "avg_ctr": 0.024, "avg_cpa": 52.00, "avg_cvr": 0.087},
-        2025: {"avg_cpc": 4.85, "avg_cpm": 17.20, "avg_ctr": 0.025, "avg_cpa": 54.00, "avg_cvr": 0.090},
+        2022: {
+            "avg_cpc": 3.80,
+            "avg_cpm": 13.50,
+            "avg_ctr": 0.022,
+            "avg_cpa": 48.00,
+            "avg_cvr": 0.079,
+        },
+        2023: {
+            "avg_cpc": 4.10,
+            "avg_cpm": 14.50,
+            "avg_ctr": 0.023,
+            "avg_cpa": 50.00,
+            "avg_cvr": 0.082,
+        },
+        2024: {
+            "avg_cpc": 4.50,
+            "avg_cpm": 16.00,
+            "avg_ctr": 0.024,
+            "avg_cpa": 52.00,
+            "avg_cvr": 0.087,
+        },
+        2025: {
+            "avg_cpc": 4.85,
+            "avg_cpm": 17.20,
+            "avg_ctr": 0.025,
+            "avg_cpa": 54.00,
+            "avg_cvr": 0.090,
+        },
+        2026: {
+            "avg_cpc": 5.24,
+            "avg_cpm": 18.70,
+            "avg_ctr": 0.026,
+            "avg_cpa": 57.00,
+            "avg_cvr": 0.092,
+        },  # Q1 2026 est.
     },
     "mental_health": {
-        2022: {"avg_cpc": 2.10, "avg_cpm": 7.80, "avg_ctr": 0.026, "avg_cpa": 28.00, "avg_cvr": 0.075},
-        2023: {"avg_cpc": 2.30, "avg_cpm": 8.40, "avg_ctr": 0.027, "avg_cpa": 30.00, "avg_cvr": 0.077},
-        2024: {"avg_cpc": 2.55, "avg_cpm": 9.20, "avg_ctr": 0.028, "avg_cpa": 32.00, "avg_cvr": 0.080},
-        2025: {"avg_cpc": 2.80, "avg_cpm": 10.10, "avg_ctr": 0.029, "avg_cpa": 34.00, "avg_cvr": 0.082},
+        2022: {
+            "avg_cpc": 2.10,
+            "avg_cpm": 7.80,
+            "avg_ctr": 0.026,
+            "avg_cpa": 28.00,
+            "avg_cvr": 0.075,
+        },
+        2023: {
+            "avg_cpc": 2.30,
+            "avg_cpm": 8.40,
+            "avg_ctr": 0.027,
+            "avg_cpa": 30.00,
+            "avg_cvr": 0.077,
+        },
+        2024: {
+            "avg_cpc": 2.55,
+            "avg_cpm": 9.20,
+            "avg_ctr": 0.028,
+            "avg_cpa": 32.00,
+            "avg_cvr": 0.080,
+        },
+        2025: {
+            "avg_cpc": 2.80,
+            "avg_cpm": 10.10,
+            "avg_ctr": 0.029,
+            "avg_cpa": 34.00,
+            "avg_cvr": 0.082,
+        },
+        2026: {
+            "avg_cpc": 3.02,
+            "avg_cpm": 11.00,
+            "avg_ctr": 0.030,
+            "avg_cpa": 36.00,
+            "avg_cvr": 0.084,
+        },  # Q1 2026 est.
     },
     "insurance": {
-        2022: {"avg_cpc": 3.40, "avg_cpm": 12.00, "avg_ctr": 0.024, "avg_cpa": 36.00, "avg_cvr": 0.094},
-        2023: {"avg_cpc": 3.65, "avg_cpm": 12.80, "avg_ctr": 0.025, "avg_cpa": 38.00, "avg_cvr": 0.096},
-        2024: {"avg_cpc": 4.00, "avg_cpm": 14.20, "avg_ctr": 0.026, "avg_cpa": 40.00, "avg_cvr": 0.100},
-        2025: {"avg_cpc": 4.30, "avg_cpm": 15.30, "avg_ctr": 0.027, "avg_cpa": 42.00, "avg_cvr": 0.102},
+        2022: {
+            "avg_cpc": 3.40,
+            "avg_cpm": 12.00,
+            "avg_ctr": 0.024,
+            "avg_cpa": 36.00,
+            "avg_cvr": 0.094,
+        },
+        2023: {
+            "avg_cpc": 3.65,
+            "avg_cpm": 12.80,
+            "avg_ctr": 0.025,
+            "avg_cpa": 38.00,
+            "avg_cvr": 0.096,
+        },
+        2024: {
+            "avg_cpc": 4.00,
+            "avg_cpm": 14.20,
+            "avg_ctr": 0.026,
+            "avg_cpa": 40.00,
+            "avg_cvr": 0.100,
+        },
+        2025: {
+            "avg_cpc": 4.30,
+            "avg_cpm": 15.30,
+            "avg_ctr": 0.027,
+            "avg_cpa": 42.00,
+            "avg_cvr": 0.102,
+        },
+        2026: {
+            "avg_cpc": 4.64,
+            "avg_cpm": 16.60,
+            "avg_ctr": 0.028,
+            "avg_cpa": 44.50,
+            "avg_cvr": 0.104,
+        },  # Q1 2026 est.
     },
     "telecommunications": {
-        2022: {"avg_cpc": 2.50, "avg_cpm": 9.20, "avg_ctr": 0.026, "avg_cpa": 28.00, "avg_cvr": 0.089},
-        2023: {"avg_cpc": 2.70, "avg_cpm": 9.90, "avg_ctr": 0.027, "avg_cpa": 30.00, "avg_cvr": 0.090},
-        2024: {"avg_cpc": 3.00, "avg_cpm": 11.00, "avg_ctr": 0.028, "avg_cpa": 32.00, "avg_cvr": 0.094},
-        2025: {"avg_cpc": 3.25, "avg_cpm": 12.00, "avg_ctr": 0.029, "avg_cpa": 34.00, "avg_cvr": 0.096},
+        2022: {
+            "avg_cpc": 2.50,
+            "avg_cpm": 9.20,
+            "avg_ctr": 0.026,
+            "avg_cpa": 28.00,
+            "avg_cvr": 0.089,
+        },
+        2023: {
+            "avg_cpc": 2.70,
+            "avg_cpm": 9.90,
+            "avg_ctr": 0.027,
+            "avg_cpa": 30.00,
+            "avg_cvr": 0.090,
+        },
+        2024: {
+            "avg_cpc": 3.00,
+            "avg_cpm": 11.00,
+            "avg_ctr": 0.028,
+            "avg_cpa": 32.00,
+            "avg_cvr": 0.094,
+        },
+        2025: {
+            "avg_cpc": 3.25,
+            "avg_cpm": 12.00,
+            "avg_ctr": 0.029,
+            "avg_cpa": 34.00,
+            "avg_cvr": 0.096,
+        },
+        2026: {
+            "avg_cpc": 3.51,
+            "avg_cpm": 13.00,
+            "avg_ctr": 0.030,
+            "avg_cpa": 36.00,
+            "avg_cvr": 0.098,
+        },  # Q1 2026 est.
     },
     "automotive": {
-        2022: {"avg_cpc": 1.60, "avg_cpm": 5.80, "avg_ctr": 0.028, "avg_cpa": 20.00, "avg_cvr": 0.080},
-        2023: {"avg_cpc": 1.75, "avg_cpm": 6.30, "avg_ctr": 0.029, "avg_cpa": 21.50, "avg_cvr": 0.081},
-        2024: {"avg_cpc": 1.95, "avg_cpm": 7.10, "avg_ctr": 0.030, "avg_cpa": 23.00, "avg_cvr": 0.085},
-        2025: {"avg_cpc": 2.12, "avg_cpm": 7.80, "avg_ctr": 0.031, "avg_cpa": 24.00, "avg_cvr": 0.088},
+        2022: {
+            "avg_cpc": 1.60,
+            "avg_cpm": 5.80,
+            "avg_ctr": 0.028,
+            "avg_cpa": 20.00,
+            "avg_cvr": 0.080,
+        },
+        2023: {
+            "avg_cpc": 1.75,
+            "avg_cpm": 6.30,
+            "avg_ctr": 0.029,
+            "avg_cpa": 21.50,
+            "avg_cvr": 0.081,
+        },
+        2024: {
+            "avg_cpc": 1.95,
+            "avg_cpm": 7.10,
+            "avg_ctr": 0.030,
+            "avg_cpa": 23.00,
+            "avg_cvr": 0.085,
+        },
+        2025: {
+            "avg_cpc": 2.12,
+            "avg_cpm": 7.80,
+            "avg_ctr": 0.031,
+            "avg_cpa": 24.00,
+            "avg_cvr": 0.088,
+        },
+        2026: {
+            "avg_cpc": 2.29,
+            "avg_cpm": 8.50,
+            "avg_ctr": 0.032,
+            "avg_cpa": 25.50,
+            "avg_cvr": 0.090,
+        },  # Q1 2026 est.
     },
     "food_beverage": {
-        2022: {"avg_cpc": 1.00, "avg_cpm": 3.80, "avg_ctr": 0.036, "avg_cpa": 9.00, "avg_cvr": 0.111},
-        2023: {"avg_cpc": 1.10, "avg_cpm": 4.10, "avg_ctr": 0.037, "avg_cpa": 9.50, "avg_cvr": 0.116},
-        2024: {"avg_cpc": 1.25, "avg_cpm": 4.60, "avg_ctr": 0.038, "avg_cpa": 10.00, "avg_cvr": 0.125},
-        2025: {"avg_cpc": 1.38, "avg_cpm": 5.10, "avg_ctr": 0.039, "avg_cpa": 10.50, "avg_cvr": 0.131},
+        2022: {
+            "avg_cpc": 1.00,
+            "avg_cpm": 3.80,
+            "avg_ctr": 0.036,
+            "avg_cpa": 9.00,
+            "avg_cvr": 0.111,
+        },
+        2023: {
+            "avg_cpc": 1.10,
+            "avg_cpm": 4.10,
+            "avg_ctr": 0.037,
+            "avg_cpa": 9.50,
+            "avg_cvr": 0.116,
+        },
+        2024: {
+            "avg_cpc": 1.25,
+            "avg_cpm": 4.60,
+            "avg_ctr": 0.038,
+            "avg_cpa": 10.00,
+            "avg_cvr": 0.125,
+        },
+        2025: {
+            "avg_cpc": 1.38,
+            "avg_cpm": 5.10,
+            "avg_ctr": 0.039,
+            "avg_cpa": 10.50,
+            "avg_cvr": 0.131,
+        },
+        2026: {
+            "avg_cpc": 1.49,
+            "avg_cpm": 5.50,
+            "avg_ctr": 0.040,
+            "avg_cpa": 11.20,
+            "avg_cvr": 0.133,
+        },  # Q1 2026 est.
     },
     "energy_utilities": {
-        2022: {"avg_cpc": 2.20, "avg_cpm": 8.00, "avg_ctr": 0.025, "avg_cpa": 30.00, "avg_cvr": 0.073},
-        2023: {"avg_cpc": 2.40, "avg_cpm": 8.60, "avg_ctr": 0.026, "avg_cpa": 32.00, "avg_cvr": 0.075},
-        2024: {"avg_cpc": 2.65, "avg_cpm": 9.50, "avg_ctr": 0.027, "avg_cpa": 34.00, "avg_cvr": 0.078},
-        2025: {"avg_cpc": 2.88, "avg_cpm": 10.40, "avg_ctr": 0.028, "avg_cpa": 36.00, "avg_cvr": 0.080},
+        2022: {
+            "avg_cpc": 2.20,
+            "avg_cpm": 8.00,
+            "avg_ctr": 0.025,
+            "avg_cpa": 30.00,
+            "avg_cvr": 0.073,
+        },
+        2023: {
+            "avg_cpc": 2.40,
+            "avg_cpm": 8.60,
+            "avg_ctr": 0.026,
+            "avg_cpa": 32.00,
+            "avg_cvr": 0.075,
+        },
+        2024: {
+            "avg_cpc": 2.65,
+            "avg_cpm": 9.50,
+            "avg_ctr": 0.027,
+            "avg_cpa": 34.00,
+            "avg_cvr": 0.078,
+        },
+        2025: {
+            "avg_cpc": 2.88,
+            "avg_cpm": 10.40,
+            "avg_ctr": 0.028,
+            "avg_cpa": 36.00,
+            "avg_cvr": 0.080,
+        },
+        2026: {
+            "avg_cpc": 3.11,
+            "avg_cpm": 11.30,
+            "avg_ctr": 0.029,
+            "avg_cpa": 38.00,
+            "avg_cvr": 0.082,
+        },  # Q1 2026 est.
     },
     "education": {
-        2022: {"avg_cpc": 1.80, "avg_cpm": 6.50, "avg_ctr": 0.026, "avg_cpa": 22.00, "avg_cvr": 0.082},
-        2023: {"avg_cpc": 1.95, "avg_cpm": 7.00, "avg_ctr": 0.027, "avg_cpa": 24.00, "avg_cvr": 0.081},
-        2024: {"avg_cpc": 2.15, "avg_cpm": 7.80, "avg_ctr": 0.028, "avg_cpa": 25.00, "avg_cvr": 0.086},
-        2025: {"avg_cpc": 2.35, "avg_cpm": 8.50, "avg_ctr": 0.029, "avg_cpa": 26.00, "avg_cvr": 0.090},
+        2022: {
+            "avg_cpc": 1.80,
+            "avg_cpm": 6.50,
+            "avg_ctr": 0.026,
+            "avg_cpa": 22.00,
+            "avg_cvr": 0.082,
+        },
+        2023: {
+            "avg_cpc": 1.95,
+            "avg_cpm": 7.00,
+            "avg_ctr": 0.027,
+            "avg_cpa": 24.00,
+            "avg_cvr": 0.081,
+        },
+        2024: {
+            "avg_cpc": 2.15,
+            "avg_cpm": 7.80,
+            "avg_ctr": 0.028,
+            "avg_cpa": 25.00,
+            "avg_cvr": 0.086,
+        },
+        2025: {
+            "avg_cpc": 2.35,
+            "avg_cpm": 8.50,
+            "avg_ctr": 0.029,
+            "avg_cpa": 26.00,
+            "avg_cvr": 0.090,
+        },
+        2026: {
+            "avg_cpc": 2.54,
+            "avg_cpm": 9.20,
+            "avg_ctr": 0.030,
+            "avg_cpa": 27.50,
+            "avg_cvr": 0.092,
+        },  # Q1 2026 est.
     },
     "media_entertainment": {
-        2022: {"avg_cpc": 2.00, "avg_cpm": 7.50, "avg_ctr": 0.028, "avg_cpa": 24.00, "avg_cvr": 0.083},
-        2023: {"avg_cpc": 2.18, "avg_cpm": 8.00, "avg_ctr": 0.029, "avg_cpa": 26.00, "avg_cvr": 0.084},
-        2024: {"avg_cpc": 2.40, "avg_cpm": 8.80, "avg_ctr": 0.030, "avg_cpa": 28.00, "avg_cvr": 0.086},
-        2025: {"avg_cpc": 2.60, "avg_cpm": 9.60, "avg_ctr": 0.031, "avg_cpa": 29.00, "avg_cvr": 0.090},
+        2022: {
+            "avg_cpc": 2.00,
+            "avg_cpm": 7.50,
+            "avg_ctr": 0.028,
+            "avg_cpa": 24.00,
+            "avg_cvr": 0.083,
+        },
+        2023: {
+            "avg_cpc": 2.18,
+            "avg_cpm": 8.00,
+            "avg_ctr": 0.029,
+            "avg_cpa": 26.00,
+            "avg_cvr": 0.084,
+        },
+        2024: {
+            "avg_cpc": 2.40,
+            "avg_cpm": 8.80,
+            "avg_ctr": 0.030,
+            "avg_cpa": 28.00,
+            "avg_cvr": 0.086,
+        },
+        2025: {
+            "avg_cpc": 2.60,
+            "avg_cpm": 9.60,
+            "avg_ctr": 0.031,
+            "avg_cpa": 29.00,
+            "avg_cvr": 0.090,
+        },
+        2026: {
+            "avg_cpc": 2.81,
+            "avg_cpm": 10.40,
+            "avg_ctr": 0.032,
+            "avg_cpa": 30.50,
+            "avg_cvr": 0.092,
+        },  # Q1 2026 est.
     },
     "maritime_marine": {
-        2022: {"avg_cpc": 1.50, "avg_cpm": 5.50, "avg_ctr": 0.024, "avg_cpa": 25.00, "avg_cvr": 0.060},
-        2023: {"avg_cpc": 1.65, "avg_cpm": 6.00, "avg_ctr": 0.025, "avg_cpa": 27.00, "avg_cvr": 0.061},
-        2024: {"avg_cpc": 1.85, "avg_cpm": 6.80, "avg_ctr": 0.026, "avg_cpa": 29.00, "avg_cvr": 0.064},
-        2025: {"avg_cpc": 2.00, "avg_cpm": 7.40, "avg_ctr": 0.027, "avg_cpa": 30.00, "avg_cvr": 0.067},
+        2022: {
+            "avg_cpc": 1.50,
+            "avg_cpm": 5.50,
+            "avg_ctr": 0.024,
+            "avg_cpa": 25.00,
+            "avg_cvr": 0.060,
+        },
+        2023: {
+            "avg_cpc": 1.65,
+            "avg_cpm": 6.00,
+            "avg_ctr": 0.025,
+            "avg_cpa": 27.00,
+            "avg_cvr": 0.061,
+        },
+        2024: {
+            "avg_cpc": 1.85,
+            "avg_cpm": 6.80,
+            "avg_ctr": 0.026,
+            "avg_cpa": 29.00,
+            "avg_cvr": 0.064,
+        },
+        2025: {
+            "avg_cpc": 2.00,
+            "avg_cpm": 7.40,
+            "avg_ctr": 0.027,
+            "avg_cpa": 30.00,
+            "avg_cvr": 0.067,
+        },
+        2026: {
+            "avg_cpc": 2.16,
+            "avg_cpm": 8.00,
+            "avg_ctr": 0.028,
+            "avg_cpa": 32.00,
+            "avg_cvr": 0.069,
+        },  # Q1 2026 est.
     },
     "military_recruitment": {
-        2022: {"avg_cpc": 2.80, "avg_cpm": 10.00, "avg_ctr": 0.022, "avg_cpa": 55.00, "avg_cvr": 0.051},
-        2023: {"avg_cpc": 3.10, "avg_cpm": 11.00, "avg_ctr": 0.023, "avg_cpa": 58.00, "avg_cvr": 0.053},
-        2024: {"avg_cpc": 3.45, "avg_cpm": 12.20, "avg_ctr": 0.024, "avg_cpa": 62.00, "avg_cvr": 0.056},
-        2025: {"avg_cpc": 3.75, "avg_cpm": 13.50, "avg_ctr": 0.025, "avg_cpa": 65.00, "avg_cvr": 0.058},
+        2022: {
+            "avg_cpc": 2.80,
+            "avg_cpm": 10.00,
+            "avg_ctr": 0.022,
+            "avg_cpa": 55.00,
+            "avg_cvr": 0.051,
+        },
+        2023: {
+            "avg_cpc": 3.10,
+            "avg_cpm": 11.00,
+            "avg_ctr": 0.023,
+            "avg_cpa": 58.00,
+            "avg_cvr": 0.053,
+        },
+        2024: {
+            "avg_cpc": 3.45,
+            "avg_cpm": 12.20,
+            "avg_ctr": 0.024,
+            "avg_cpa": 62.00,
+            "avg_cvr": 0.056,
+        },
+        2025: {
+            "avg_cpc": 3.75,
+            "avg_cpm": 13.50,
+            "avg_ctr": 0.025,
+            "avg_cpa": 65.00,
+            "avg_cvr": 0.058,
+        },
+        2026: {
+            "avg_cpc": 4.05,
+            "avg_cpm": 14.60,
+            "avg_ctr": 0.026,
+            "avg_cpa": 68.50,
+            "avg_cvr": 0.059,
+        },  # Q1 2026 est.
     },
 }
 
 # --- Meta Facebook (recruitment ads) ---
+# Sources: WordStream 2025 Facebook Ads Benchmarks, Appcast 2026 Report.
+# 2026 row: Q1 2026 projections based on ~8% YoY CPC inflation. Updated 2026-03-26.
 _META_FB_TRENDS: Dict[str, Dict[int, Dict[str, float]]] = {
     "healthcare_medical": {
-        2022: {"avg_cpc": 1.40, "avg_cpm": 12.50, "avg_ctr": 0.012, "avg_cpa": 22.00, "avg_cvr": 0.064},
-        2023: {"avg_cpc": 1.52, "avg_cpm": 13.20, "avg_ctr": 0.012, "avg_cpa": 23.50, "avg_cvr": 0.065},
-        2024: {"avg_cpc": 1.68, "avg_cpm": 14.50, "avg_ctr": 0.013, "avg_cpa": 25.00, "avg_cvr": 0.067},
-        2025: {"avg_cpc": 1.82, "avg_cpm": 15.50, "avg_ctr": 0.013, "avg_cpa": 26.00, "avg_cvr": 0.070},
+        2022: {
+            "avg_cpc": 1.40,
+            "avg_cpm": 12.50,
+            "avg_ctr": 0.012,
+            "avg_cpa": 22.00,
+            "avg_cvr": 0.064,
+        },
+        2023: {
+            "avg_cpc": 1.52,
+            "avg_cpm": 13.20,
+            "avg_ctr": 0.012,
+            "avg_cpa": 23.50,
+            "avg_cvr": 0.065,
+        },
+        2024: {
+            "avg_cpc": 1.68,
+            "avg_cpm": 14.50,
+            "avg_ctr": 0.013,
+            "avg_cpa": 25.00,
+            "avg_cvr": 0.067,
+        },
+        2025: {
+            "avg_cpc": 1.82,
+            "avg_cpm": 15.50,
+            "avg_ctr": 0.013,
+            "avg_cpa": 26.00,
+            "avg_cvr": 0.070,
+        },
+        2026: {
+            "avg_cpc": 1.97,
+            "avg_cpm": 16.80,
+            "avg_ctr": 0.013,
+            "avg_cpa": 27.50,
+            "avg_cvr": 0.072,
+        },  # Q1 2026 est.
     },
     "tech_engineering": {
-        2022: {"avg_cpc": 1.55, "avg_cpm": 13.80, "avg_ctr": 0.011, "avg_cpa": 30.00, "avg_cvr": 0.052},
-        2023: {"avg_cpc": 1.65, "avg_cpm": 14.50, "avg_ctr": 0.011, "avg_cpa": 32.00, "avg_cvr": 0.052},
-        2024: {"avg_cpc": 1.80, "avg_cpm": 15.50, "avg_ctr": 0.012, "avg_cpa": 34.00, "avg_cvr": 0.053},
-        2025: {"avg_cpc": 1.95, "avg_cpm": 16.50, "avg_ctr": 0.012, "avg_cpa": 35.00, "avg_cvr": 0.056},
+        2022: {
+            "avg_cpc": 1.55,
+            "avg_cpm": 13.80,
+            "avg_ctr": 0.011,
+            "avg_cpa": 30.00,
+            "avg_cvr": 0.052,
+        },
+        2023: {
+            "avg_cpc": 1.65,
+            "avg_cpm": 14.50,
+            "avg_ctr": 0.011,
+            "avg_cpa": 32.00,
+            "avg_cvr": 0.052,
+        },
+        2024: {
+            "avg_cpc": 1.80,
+            "avg_cpm": 15.50,
+            "avg_ctr": 0.012,
+            "avg_cpa": 34.00,
+            "avg_cvr": 0.053,
+        },
+        2025: {
+            "avg_cpc": 1.95,
+            "avg_cpm": 16.50,
+            "avg_ctr": 0.012,
+            "avg_cpa": 35.00,
+            "avg_cvr": 0.056,
+        },
+        2026: {
+            "avg_cpc": 2.11,
+            "avg_cpm": 17.90,
+            "avg_ctr": 0.012,
+            "avg_cpa": 37.00,
+            "avg_cvr": 0.058,
+        },  # Q1 2026 est.
     },
     "finance_banking": {
-        2022: {"avg_cpc": 1.70, "avg_cpm": 15.00, "avg_ctr": 0.010, "avg_cpa": 35.00, "avg_cvr": 0.049},
-        2023: {"avg_cpc": 1.85, "avg_cpm": 15.80, "avg_ctr": 0.010, "avg_cpa": 37.00, "avg_cvr": 0.050},
-        2024: {"avg_cpc": 2.05, "avg_cpm": 17.00, "avg_ctr": 0.011, "avg_cpa": 39.00, "avg_cvr": 0.053},
-        2025: {"avg_cpc": 2.20, "avg_cpm": 18.00, "avg_ctr": 0.011, "avg_cpa": 41.00, "avg_cvr": 0.054},
+        2022: {
+            "avg_cpc": 1.70,
+            "avg_cpm": 15.00,
+            "avg_ctr": 0.010,
+            "avg_cpa": 35.00,
+            "avg_cvr": 0.049,
+        },
+        2023: {
+            "avg_cpc": 1.85,
+            "avg_cpm": 15.80,
+            "avg_ctr": 0.010,
+            "avg_cpa": 37.00,
+            "avg_cvr": 0.050,
+        },
+        2024: {
+            "avg_cpc": 2.05,
+            "avg_cpm": 17.00,
+            "avg_ctr": 0.011,
+            "avg_cpa": 39.00,
+            "avg_cvr": 0.053,
+        },
+        2025: {
+            "avg_cpc": 2.20,
+            "avg_cpm": 18.00,
+            "avg_ctr": 0.011,
+            "avg_cpa": 41.00,
+            "avg_cvr": 0.054,
+        },
+        2026: {
+            "avg_cpc": 2.38,
+            "avg_cpm": 19.50,
+            "avg_ctr": 0.011,
+            "avg_cpa": 43.00,
+            "avg_cvr": 0.055,
+        },  # Q1 2026 est.
     },
     "retail_consumer": {
-        2022: {"avg_cpc": 0.75, "avg_cpm": 7.80, "avg_ctr": 0.015, "avg_cpa": 8.50, "avg_cvr": 0.088},
-        2023: {"avg_cpc": 0.82, "avg_cpm": 8.30, "avg_ctr": 0.015, "avg_cpa": 9.00, "avg_cvr": 0.091},
-        2024: {"avg_cpc": 0.92, "avg_cpm": 9.20, "avg_ctr": 0.016, "avg_cpa": 9.50, "avg_cvr": 0.097},
-        2025: {"avg_cpc": 1.00, "avg_cpm": 9.80, "avg_ctr": 0.016, "avg_cpa": 10.00, "avg_cvr": 0.100},
+        2022: {
+            "avg_cpc": 0.75,
+            "avg_cpm": 7.80,
+            "avg_ctr": 0.015,
+            "avg_cpa": 8.50,
+            "avg_cvr": 0.088,
+        },
+        2023: {
+            "avg_cpc": 0.82,
+            "avg_cpm": 8.30,
+            "avg_ctr": 0.015,
+            "avg_cpa": 9.00,
+            "avg_cvr": 0.091,
+        },
+        2024: {
+            "avg_cpc": 0.92,
+            "avg_cpm": 9.20,
+            "avg_ctr": 0.016,
+            "avg_cpa": 9.50,
+            "avg_cvr": 0.097,
+        },
+        2025: {
+            "avg_cpc": 1.00,
+            "avg_cpm": 9.80,
+            "avg_ctr": 0.016,
+            "avg_cpa": 10.00,
+            "avg_cvr": 0.100,
+        },
+        2026: {
+            "avg_cpc": 1.08,
+            "avg_cpm": 10.60,
+            "avg_ctr": 0.016,
+            "avg_cpa": 10.60,
+            "avg_cvr": 0.102,
+        },  # Q1 2026 est.
     },
     "blue_collar_trades": {
-        2022: {"avg_cpc": 0.65, "avg_cpm": 6.80, "avg_ctr": 0.014, "avg_cpa": 11.00, "avg_cvr": 0.059},
-        2023: {"avg_cpc": 0.72, "avg_cpm": 7.30, "avg_ctr": 0.014, "avg_cpa": 12.00, "avg_cvr": 0.060},
-        2024: {"avg_cpc": 0.82, "avg_cpm": 8.20, "avg_ctr": 0.015, "avg_cpa": 13.00, "avg_cvr": 0.063},
-        2025: {"avg_cpc": 0.90, "avg_cpm": 8.80, "avg_ctr": 0.015, "avg_cpa": 14.00, "avg_cvr": 0.064},
+        2022: {
+            "avg_cpc": 0.65,
+            "avg_cpm": 6.80,
+            "avg_ctr": 0.014,
+            "avg_cpa": 11.00,
+            "avg_cvr": 0.059,
+        },
+        2023: {
+            "avg_cpc": 0.72,
+            "avg_cpm": 7.30,
+            "avg_ctr": 0.014,
+            "avg_cpa": 12.00,
+            "avg_cvr": 0.060,
+        },
+        2024: {
+            "avg_cpc": 0.82,
+            "avg_cpm": 8.20,
+            "avg_ctr": 0.015,
+            "avg_cpa": 13.00,
+            "avg_cvr": 0.063,
+        },
+        2025: {
+            "avg_cpc": 0.90,
+            "avg_cpm": 8.80,
+            "avg_ctr": 0.015,
+            "avg_cpa": 14.00,
+            "avg_cvr": 0.064,
+        },
+        2026: {
+            "avg_cpc": 0.97,
+            "avg_cpm": 9.50,
+            "avg_ctr": 0.015,
+            "avg_cpa": 14.80,
+            "avg_cvr": 0.066,
+        },  # Q1 2026 est.
     },
     "general_entry_level": {
-        2022: {"avg_cpc": 0.55, "avg_cpm": 6.00, "avg_ctr": 0.016, "avg_cpa": 7.50, "avg_cvr": 0.073},
-        2023: {"avg_cpc": 0.60, "avg_cpm": 6.40, "avg_ctr": 0.016, "avg_cpa": 8.00, "avg_cvr": 0.075},
-        2024: {"avg_cpc": 0.68, "avg_cpm": 7.10, "avg_ctr": 0.017, "avg_cpa": 8.50, "avg_cvr": 0.080},
-        2025: {"avg_cpc": 0.75, "avg_cpm": 7.60, "avg_ctr": 0.017, "avg_cpa": 9.00, "avg_cvr": 0.083},
+        2022: {
+            "avg_cpc": 0.55,
+            "avg_cpm": 6.00,
+            "avg_ctr": 0.016,
+            "avg_cpa": 7.50,
+            "avg_cvr": 0.073,
+        },
+        2023: {
+            "avg_cpc": 0.60,
+            "avg_cpm": 6.40,
+            "avg_ctr": 0.016,
+            "avg_cpa": 8.00,
+            "avg_cvr": 0.075,
+        },
+        2024: {
+            "avg_cpc": 0.68,
+            "avg_cpm": 7.10,
+            "avg_ctr": 0.017,
+            "avg_cpa": 8.50,
+            "avg_cvr": 0.080,
+        },
+        2025: {
+            "avg_cpc": 0.75,
+            "avg_cpm": 7.60,
+            "avg_ctr": 0.017,
+            "avg_cpa": 9.00,
+            "avg_cvr": 0.083,
+        },
+        2026: {
+            "avg_cpc": 0.81,
+            "avg_cpm": 8.20,
+            "avg_ctr": 0.017,
+            "avg_cpa": 9.50,
+            "avg_cvr": 0.085,
+        },  # Q1 2026 est.
     },
     "logistics_supply_chain": {
-        2022: {"avg_cpc": 0.70, "avg_cpm": 7.20, "avg_ctr": 0.014, "avg_cpa": 12.50, "avg_cvr": 0.056},
-        2023: {"avg_cpc": 0.78, "avg_cpm": 7.80, "avg_ctr": 0.014, "avg_cpa": 13.50, "avg_cvr": 0.058},
-        2024: {"avg_cpc": 0.88, "avg_cpm": 8.70, "avg_ctr": 0.015, "avg_cpa": 14.50, "avg_cvr": 0.061},
-        2025: {"avg_cpc": 0.96, "avg_cpm": 9.30, "avg_ctr": 0.015, "avg_cpa": 15.50, "avg_cvr": 0.062},
+        2022: {
+            "avg_cpc": 0.70,
+            "avg_cpm": 7.20,
+            "avg_ctr": 0.014,
+            "avg_cpa": 12.50,
+            "avg_cvr": 0.056,
+        },
+        2023: {
+            "avg_cpc": 0.78,
+            "avg_cpm": 7.80,
+            "avg_ctr": 0.014,
+            "avg_cpa": 13.50,
+            "avg_cvr": 0.058,
+        },
+        2024: {
+            "avg_cpc": 0.88,
+            "avg_cpm": 8.70,
+            "avg_ctr": 0.015,
+            "avg_cpa": 14.50,
+            "avg_cvr": 0.061,
+        },
+        2025: {
+            "avg_cpc": 0.96,
+            "avg_cpm": 9.30,
+            "avg_ctr": 0.015,
+            "avg_cpa": 15.50,
+            "avg_cvr": 0.062,
+        },
+        2026: {
+            "avg_cpc": 1.04,
+            "avg_cpm": 10.00,
+            "avg_ctr": 0.015,
+            "avg_cpa": 16.50,
+            "avg_cvr": 0.063,
+        },  # Q1 2026 est.
     },
     "hospitality_travel": {
-        2022: {"avg_cpc": 0.55, "avg_cpm": 5.80, "avg_ctr": 0.016, "avg_cpa": 7.50, "avg_cvr": 0.073},
-        2023: {"avg_cpc": 0.60, "avg_cpm": 6.20, "avg_ctr": 0.016, "avg_cpa": 8.00, "avg_cvr": 0.075},
-        2024: {"avg_cpc": 0.68, "avg_cpm": 6.80, "avg_ctr": 0.017, "avg_cpa": 8.50, "avg_cvr": 0.080},
-        2025: {"avg_cpc": 0.75, "avg_cpm": 7.30, "avg_ctr": 0.017, "avg_cpa": 9.00, "avg_cvr": 0.083},
+        2022: {
+            "avg_cpc": 0.55,
+            "avg_cpm": 5.80,
+            "avg_ctr": 0.016,
+            "avg_cpa": 7.50,
+            "avg_cvr": 0.073,
+        },
+        2023: {
+            "avg_cpc": 0.60,
+            "avg_cpm": 6.20,
+            "avg_ctr": 0.016,
+            "avg_cpa": 8.00,
+            "avg_cvr": 0.075,
+        },
+        2024: {
+            "avg_cpc": 0.68,
+            "avg_cpm": 6.80,
+            "avg_ctr": 0.017,
+            "avg_cpa": 8.50,
+            "avg_cvr": 0.080,
+        },
+        2025: {
+            "avg_cpc": 0.75,
+            "avg_cpm": 7.30,
+            "avg_ctr": 0.017,
+            "avg_cpa": 9.00,
+            "avg_cvr": 0.083,
+        },
+        2026: {
+            "avg_cpc": 0.81,
+            "avg_cpm": 7.90,
+            "avg_ctr": 0.017,
+            "avg_cpa": 9.50,
+            "avg_cvr": 0.085,
+        },  # Q1 2026 est.
     },
     "construction_real_estate": {
-        2022: {"avg_cpc": 0.80, "avg_cpm": 7.80, "avg_ctr": 0.013, "avg_cpa": 15.00, "avg_cvr": 0.053},
-        2023: {"avg_cpc": 0.88, "avg_cpm": 8.40, "avg_ctr": 0.013, "avg_cpa": 16.00, "avg_cvr": 0.055},
-        2024: {"avg_cpc": 1.00, "avg_cpm": 9.40, "avg_ctr": 0.014, "avg_cpa": 17.00, "avg_cvr": 0.059},
-        2025: {"avg_cpc": 1.10, "avg_cpm": 10.10, "avg_ctr": 0.014, "avg_cpa": 18.00, "avg_cvr": 0.061},
+        2022: {
+            "avg_cpc": 0.80,
+            "avg_cpm": 7.80,
+            "avg_ctr": 0.013,
+            "avg_cpa": 15.00,
+            "avg_cvr": 0.053,
+        },
+        2023: {
+            "avg_cpc": 0.88,
+            "avg_cpm": 8.40,
+            "avg_ctr": 0.013,
+            "avg_cpa": 16.00,
+            "avg_cvr": 0.055,
+        },
+        2024: {
+            "avg_cpc": 1.00,
+            "avg_cpm": 9.40,
+            "avg_ctr": 0.014,
+            "avg_cpa": 17.00,
+            "avg_cvr": 0.059,
+        },
+        2025: {
+            "avg_cpc": 1.10,
+            "avg_cpm": 10.10,
+            "avg_ctr": 0.014,
+            "avg_cpa": 18.00,
+            "avg_cvr": 0.061,
+        },
+        2026: {
+            "avg_cpc": 1.19,
+            "avg_cpm": 10.90,
+            "avg_ctr": 0.014,
+            "avg_cpa": 19.00,
+            "avg_cvr": 0.063,
+        },  # Q1 2026 est.
     },
     "pharma_biotech": {
-        2022: {"avg_cpc": 1.80, "avg_cpm": 15.00, "avg_ctr": 0.010, "avg_cpa": 38.00, "avg_cvr": 0.047},
-        2023: {"avg_cpc": 1.95, "avg_cpm": 15.80, "avg_ctr": 0.010, "avg_cpa": 40.00, "avg_cvr": 0.049},
-        2024: {"avg_cpc": 2.15, "avg_cpm": 17.20, "avg_ctr": 0.011, "avg_cpa": 42.00, "avg_cvr": 0.051},
-        2025: {"avg_cpc": 2.32, "avg_cpm": 18.50, "avg_ctr": 0.011, "avg_cpa": 44.00, "avg_cvr": 0.053},
+        2022: {
+            "avg_cpc": 1.80,
+            "avg_cpm": 15.00,
+            "avg_ctr": 0.010,
+            "avg_cpa": 38.00,
+            "avg_cvr": 0.047,
+        },
+        2023: {
+            "avg_cpc": 1.95,
+            "avg_cpm": 15.80,
+            "avg_ctr": 0.010,
+            "avg_cpa": 40.00,
+            "avg_cvr": 0.049,
+        },
+        2024: {
+            "avg_cpc": 2.15,
+            "avg_cpm": 17.20,
+            "avg_ctr": 0.011,
+            "avg_cpa": 42.00,
+            "avg_cvr": 0.051,
+        },
+        2025: {
+            "avg_cpc": 2.32,
+            "avg_cpm": 18.50,
+            "avg_ctr": 0.011,
+            "avg_cpa": 44.00,
+            "avg_cvr": 0.053,
+        },
+        2026: {
+            "avg_cpc": 2.51,
+            "avg_cpm": 20.00,
+            "avg_ctr": 0.011,
+            "avg_cpa": 46.50,
+            "avg_cvr": 0.054,
+        },  # Q1 2026 est.
     },
 }
 
@@ -283,56 +1299,250 @@ for _ind, _fb_years in _META_FB_TRENDS.items():
 # --- LinkedIn (professional/white-collar heavy, premium pricing) ---
 _LINKEDIN_TRENDS: Dict[str, Dict[int, Dict[str, float]]] = {
     "tech_engineering": {
-        2022: {"avg_cpc": 5.20, "avg_cpm": 28.00, "avg_ctr": 0.005, "avg_cpa": 42.00, "avg_cvr": 0.124},
-        2023: {"avg_cpc": 5.60, "avg_cpm": 30.00, "avg_ctr": 0.005, "avg_cpa": 44.00, "avg_cvr": 0.127},
-        2024: {"avg_cpc": 6.20, "avg_cpm": 33.00, "avg_ctr": 0.006, "avg_cpa": 46.00, "avg_cvr": 0.135},
-        2025: {"avg_cpc": 6.80, "avg_cpm": 36.00, "avg_ctr": 0.006, "avg_cpa": 48.00, "avg_cvr": 0.142},
+        2022: {
+            "avg_cpc": 5.20,
+            "avg_cpm": 28.00,
+            "avg_ctr": 0.005,
+            "avg_cpa": 42.00,
+            "avg_cvr": 0.124,
+        },
+        2023: {
+            "avg_cpc": 5.60,
+            "avg_cpm": 30.00,
+            "avg_ctr": 0.005,
+            "avg_cpa": 44.00,
+            "avg_cvr": 0.127,
+        },
+        2024: {
+            "avg_cpc": 6.20,
+            "avg_cpm": 33.00,
+            "avg_ctr": 0.006,
+            "avg_cpa": 46.00,
+            "avg_cvr": 0.135,
+        },
+        2025: {
+            "avg_cpc": 6.80,
+            "avg_cpm": 36.00,
+            "avg_ctr": 0.006,
+            "avg_cpa": 48.00,
+            "avg_cvr": 0.142,
+        },
     },
     "finance_banking": {
-        2022: {"avg_cpc": 5.80, "avg_cpm": 30.00, "avg_ctr": 0.005, "avg_cpa": 48.00, "avg_cvr": 0.121},
-        2023: {"avg_cpc": 6.20, "avg_cpm": 32.00, "avg_ctr": 0.005, "avg_cpa": 50.00, "avg_cvr": 0.124},
-        2024: {"avg_cpc": 6.80, "avg_cpm": 35.00, "avg_ctr": 0.005, "avg_cpa": 52.00, "avg_cvr": 0.131},
-        2025: {"avg_cpc": 7.40, "avg_cpm": 38.00, "avg_ctr": 0.006, "avg_cpa": 55.00, "avg_cvr": 0.135},
+        2022: {
+            "avg_cpc": 5.80,
+            "avg_cpm": 30.00,
+            "avg_ctr": 0.005,
+            "avg_cpa": 48.00,
+            "avg_cvr": 0.121,
+        },
+        2023: {
+            "avg_cpc": 6.20,
+            "avg_cpm": 32.00,
+            "avg_ctr": 0.005,
+            "avg_cpa": 50.00,
+            "avg_cvr": 0.124,
+        },
+        2024: {
+            "avg_cpc": 6.80,
+            "avg_cpm": 35.00,
+            "avg_ctr": 0.005,
+            "avg_cpa": 52.00,
+            "avg_cvr": 0.131,
+        },
+        2025: {
+            "avg_cpc": 7.40,
+            "avg_cpm": 38.00,
+            "avg_ctr": 0.006,
+            "avg_cpa": 55.00,
+            "avg_cvr": 0.135,
+        },
     },
     "healthcare_medical": {
-        2022: {"avg_cpc": 4.50, "avg_cpm": 24.00, "avg_ctr": 0.005, "avg_cpa": 38.00, "avg_cvr": 0.118},
-        2023: {"avg_cpc": 4.85, "avg_cpm": 25.50, "avg_ctr": 0.005, "avg_cpa": 40.00, "avg_cvr": 0.121},
-        2024: {"avg_cpc": 5.30, "avg_cpm": 28.00, "avg_ctr": 0.005, "avg_cpa": 42.00, "avg_cvr": 0.126},
-        2025: {"avg_cpc": 5.80, "avg_cpm": 30.50, "avg_ctr": 0.006, "avg_cpa": 44.00, "avg_cvr": 0.132},
+        2022: {
+            "avg_cpc": 4.50,
+            "avg_cpm": 24.00,
+            "avg_ctr": 0.005,
+            "avg_cpa": 38.00,
+            "avg_cvr": 0.118,
+        },
+        2023: {
+            "avg_cpc": 4.85,
+            "avg_cpm": 25.50,
+            "avg_ctr": 0.005,
+            "avg_cpa": 40.00,
+            "avg_cvr": 0.121,
+        },
+        2024: {
+            "avg_cpc": 5.30,
+            "avg_cpm": 28.00,
+            "avg_ctr": 0.005,
+            "avg_cpa": 42.00,
+            "avg_cvr": 0.126,
+        },
+        2025: {
+            "avg_cpc": 5.80,
+            "avg_cpm": 30.50,
+            "avg_ctr": 0.006,
+            "avg_cpa": 44.00,
+            "avg_cvr": 0.132,
+        },
     },
 }
 
 # Fill remaining LinkedIn industries with industry-appropriate multipliers
 _LINKEDIN_BASE_2025: Dict[str, Dict[str, float]] = {
-    "pharma_biotech":        {"avg_cpc": 6.50, "avg_cpm": 34.00, "avg_ctr": 0.005, "avg_cpa": 52.00, "avg_cvr": 0.125},
-    "legal_services":        {"avg_cpc": 7.00, "avg_cpm": 37.00, "avg_ctr": 0.005, "avg_cpa": 56.00, "avg_cvr": 0.125},
-    "insurance":             {"avg_cpc": 6.00, "avg_cpm": 32.00, "avg_ctr": 0.005, "avg_cpa": 48.00, "avg_cvr": 0.125},
-    "aerospace_defense":     {"avg_cpc": 6.80, "avg_cpm": 36.00, "avg_ctr": 0.005, "avg_cpa": 55.00, "avg_cvr": 0.124},
-    "telecommunications":    {"avg_cpc": 5.50, "avg_cpm": 29.00, "avg_ctr": 0.005, "avg_cpa": 44.00, "avg_cvr": 0.125},
-    "energy_utilities":      {"avg_cpc": 5.80, "avg_cpm": 31.00, "avg_ctr": 0.005, "avg_cpa": 46.00, "avg_cvr": 0.126},
-    "education":             {"avg_cpc": 4.20, "avg_cpm": 22.00, "avg_ctr": 0.005, "avg_cpa": 36.00, "avg_cvr": 0.117},
-    "retail_consumer":       {"avg_cpc": 3.50, "avg_cpm": 18.00, "avg_ctr": 0.005, "avg_cpa": 30.00, "avg_cvr": 0.117},
-    "blue_collar_trades":    {"avg_cpc": 4.80, "avg_cpm": 25.00, "avg_ctr": 0.004, "avg_cpa": 45.00, "avg_cvr": 0.107},
-    "general_entry_level":   {"avg_cpc": 3.80, "avg_cpm": 20.00, "avg_ctr": 0.005, "avg_cpa": 35.00, "avg_cvr": 0.109},
-    "logistics_supply_chain":{"avg_cpc": 4.50, "avg_cpm": 24.00, "avg_ctr": 0.005, "avg_cpa": 40.00, "avg_cvr": 0.113},
-    "hospitality_travel":    {"avg_cpc": 3.20, "avg_cpm": 17.00, "avg_ctr": 0.005, "avg_cpa": 28.00, "avg_cvr": 0.114},
-    "construction_real_estate":{"avg_cpc": 4.50, "avg_cpm": 24.00, "avg_ctr": 0.004, "avg_cpa": 42.00, "avg_cvr": 0.107},
-    "automotive":            {"avg_cpc": 4.80, "avg_cpm": 25.00, "avg_ctr": 0.005, "avg_cpa": 40.00, "avg_cvr": 0.120},
-    "food_beverage":         {"avg_cpc": 3.00, "avg_cpm": 16.00, "avg_ctr": 0.005, "avg_cpa": 26.00, "avg_cvr": 0.115},
-    "media_entertainment":   {"avg_cpc": 4.80, "avg_cpm": 25.00, "avg_ctr": 0.005, "avg_cpa": 38.00, "avg_cvr": 0.126},
-    "mental_health":         {"avg_cpc": 4.50, "avg_cpm": 24.00, "avg_ctr": 0.005, "avg_cpa": 38.00, "avg_cvr": 0.118},
-    "maritime_marine":       {"avg_cpc": 5.00, "avg_cpm": 26.00, "avg_ctr": 0.004, "avg_cpa": 48.00, "avg_cvr": 0.104},
-    "military_recruitment":  {"avg_cpc": 5.50, "avg_cpm": 28.00, "avg_ctr": 0.004, "avg_cpa": 55.00, "avg_cvr": 0.100},
+    "pharma_biotech": {
+        "avg_cpc": 6.50,
+        "avg_cpm": 34.00,
+        "avg_ctr": 0.005,
+        "avg_cpa": 52.00,
+        "avg_cvr": 0.125,
+    },
+    "legal_services": {
+        "avg_cpc": 7.00,
+        "avg_cpm": 37.00,
+        "avg_ctr": 0.005,
+        "avg_cpa": 56.00,
+        "avg_cvr": 0.125,
+    },
+    "insurance": {
+        "avg_cpc": 6.00,
+        "avg_cpm": 32.00,
+        "avg_ctr": 0.005,
+        "avg_cpa": 48.00,
+        "avg_cvr": 0.125,
+    },
+    "aerospace_defense": {
+        "avg_cpc": 6.80,
+        "avg_cpm": 36.00,
+        "avg_ctr": 0.005,
+        "avg_cpa": 55.00,
+        "avg_cvr": 0.124,
+    },
+    "telecommunications": {
+        "avg_cpc": 5.50,
+        "avg_cpm": 29.00,
+        "avg_ctr": 0.005,
+        "avg_cpa": 44.00,
+        "avg_cvr": 0.125,
+    },
+    "energy_utilities": {
+        "avg_cpc": 5.80,
+        "avg_cpm": 31.00,
+        "avg_ctr": 0.005,
+        "avg_cpa": 46.00,
+        "avg_cvr": 0.126,
+    },
+    "education": {
+        "avg_cpc": 4.20,
+        "avg_cpm": 22.00,
+        "avg_ctr": 0.005,
+        "avg_cpa": 36.00,
+        "avg_cvr": 0.117,
+    },
+    "retail_consumer": {
+        "avg_cpc": 3.50,
+        "avg_cpm": 18.00,
+        "avg_ctr": 0.005,
+        "avg_cpa": 30.00,
+        "avg_cvr": 0.117,
+    },
+    "blue_collar_trades": {
+        "avg_cpc": 4.80,
+        "avg_cpm": 25.00,
+        "avg_ctr": 0.004,
+        "avg_cpa": 45.00,
+        "avg_cvr": 0.107,
+    },
+    "general_entry_level": {
+        "avg_cpc": 3.80,
+        "avg_cpm": 20.00,
+        "avg_ctr": 0.005,
+        "avg_cpa": 35.00,
+        "avg_cvr": 0.109,
+    },
+    "logistics_supply_chain": {
+        "avg_cpc": 4.50,
+        "avg_cpm": 24.00,
+        "avg_ctr": 0.005,
+        "avg_cpa": 40.00,
+        "avg_cvr": 0.113,
+    },
+    "hospitality_travel": {
+        "avg_cpc": 3.20,
+        "avg_cpm": 17.00,
+        "avg_ctr": 0.005,
+        "avg_cpa": 28.00,
+        "avg_cvr": 0.114,
+    },
+    "construction_real_estate": {
+        "avg_cpc": 4.50,
+        "avg_cpm": 24.00,
+        "avg_ctr": 0.004,
+        "avg_cpa": 42.00,
+        "avg_cvr": 0.107,
+    },
+    "automotive": {
+        "avg_cpc": 4.80,
+        "avg_cpm": 25.00,
+        "avg_ctr": 0.005,
+        "avg_cpa": 40.00,
+        "avg_cvr": 0.120,
+    },
+    "food_beverage": {
+        "avg_cpc": 3.00,
+        "avg_cpm": 16.00,
+        "avg_ctr": 0.005,
+        "avg_cpa": 26.00,
+        "avg_cvr": 0.115,
+    },
+    "media_entertainment": {
+        "avg_cpc": 4.80,
+        "avg_cpm": 25.00,
+        "avg_ctr": 0.005,
+        "avg_cpa": 38.00,
+        "avg_cvr": 0.126,
+    },
+    "mental_health": {
+        "avg_cpc": 4.50,
+        "avg_cpm": 24.00,
+        "avg_ctr": 0.005,
+        "avg_cpa": 38.00,
+        "avg_cvr": 0.118,
+    },
+    "maritime_marine": {
+        "avg_cpc": 5.00,
+        "avg_cpm": 26.00,
+        "avg_ctr": 0.004,
+        "avg_cpa": 48.00,
+        "avg_cvr": 0.104,
+    },
+    "military_recruitment": {
+        "avg_cpc": 5.50,
+        "avg_cpm": 28.00,
+        "avg_ctr": 0.004,
+        "avg_cpa": 55.00,
+        "avg_cvr": 0.100,
+    },
 }
 
 # Back-fill LinkedIn history from 2025 base using YoY growth rates
 for _ind, _base in _LINKEDIN_BASE_2025.items():
     if _ind not in _LINKEDIN_TRENDS:
         _LINKEDIN_TRENDS[_ind] = {}
-        for _yr_offset, _factor in [(2025, 1.0), (2024, 0.92), (2023, 0.85), (2022, 0.78)]:
+        for _yr_offset, _factor in [
+            (2025, 1.0),
+            (2024, 0.92),
+            (2023, 0.85),
+            (2022, 0.78),
+        ]:
             _LINKEDIN_TRENDS[_ind][_yr_offset] = {
-                k: round(v * _factor, 2) if "ctr" not in k and "cvr" not in k
-                else round(v * (0.95 if _yr_offset < 2025 else 1.0), 4)
+                k: (
+                    round(v * _factor, 2)
+                    if "ctr" not in k and "cvr" not in k
+                    else round(v * (0.95 if _yr_offset < 2025 else 1.0), 4)
+                )
                 for k, v in _base.items()
             }
 
@@ -342,17 +1552,26 @@ _INDEED_TRENDS: Dict[str, Dict[int, Dict[str, float]]] = {}
 for _ind, _goog_years in _GOOGLE_SEARCH_TRENDS.items():
     _INDEED_TRENDS[_ind] = {}
     # Indeed multiplier varies by collar type
-    _indeed_mult = 0.38 if _ind in (
-        "blue_collar_trades", "general_entry_level", "food_beverage",
-        "hospitality_travel", "retail_consumer", "logistics_supply_chain",
-    ) else 0.48
+    _indeed_mult = (
+        0.38
+        if _ind
+        in (
+            "blue_collar_trades",
+            "general_entry_level",
+            "food_beverage",
+            "hospitality_travel",
+            "retail_consumer",
+            "logistics_supply_chain",
+        )
+        else 0.48
+    )
     for _yr, _gd in _goog_years.items():
         _INDEED_TRENDS[_ind][_yr] = {
             "avg_cpc": round(_gd["avg_cpc"] * _indeed_mult, 2),
             "avg_cpm": round(_gd["avg_cpm"] * _indeed_mult * 1.1, 2),
-            "avg_ctr": round(_gd["avg_ctr"] * 1.8, 4),   # Indeed has higher CTR
+            "avg_ctr": round(_gd["avg_ctr"] * 1.8, 4),  # Indeed has higher CTR
             "avg_cpa": round(_gd["avg_cpa"] * _indeed_mult * 0.9, 2),
-            "avg_cvr": round(_gd["avg_cvr"] * 1.5, 4),   # Higher conversion on Indeed
+            "avg_cvr": round(_gd["avg_cvr"] * 1.5, 4),  # Higher conversion on Indeed
         }
 
 # --- Programmatic Job Advertising (Appcast, PandoLogic, Joveo) ---
@@ -360,15 +1579,25 @@ _PROGRAMMATIC_TRENDS: Dict[str, Dict[int, Dict[str, float]]] = {}
 # Programmatic is the most cost-efficient channel -- ~25-40% of Google Search CPC
 for _ind, _goog_years in _GOOGLE_SEARCH_TRENDS.items():
     _PROGRAMMATIC_TRENDS[_ind] = {}
-    _prog_mult = 0.28 if _ind in (
-        "blue_collar_trades", "general_entry_level", "food_beverage",
-        "hospitality_travel", "retail_consumer",
-    ) else 0.35
+    _prog_mult = (
+        0.28
+        if _ind
+        in (
+            "blue_collar_trades",
+            "general_entry_level",
+            "food_beverage",
+            "hospitality_travel",
+            "retail_consumer",
+        )
+        else 0.35
+    )
     for _yr, _gd in _goog_years.items():
         _PROGRAMMATIC_TRENDS[_ind][_yr] = {
             "avg_cpc": round(_gd["avg_cpc"] * _prog_mult, 2),
             "avg_cpm": round(_gd["avg_cpm"] * _prog_mult * 0.9, 2),
-            "avg_ctr": round(_gd["avg_ctr"] * 2.2, 4),   # Programmatic optimizes for clicks
+            "avg_ctr": round(
+                _gd["avg_ctr"] * 2.2, 4
+            ),  # Programmatic optimizes for clicks
             "avg_cpa": round(_gd["avg_cpa"] * _prog_mult * 0.85, 2),
             "avg_cvr": round(_gd["avg_cvr"] * 1.4, 4),
         }
@@ -392,51 +1621,58 @@ _ALL_TRENDS: Dict[str, Dict[str, Dict[int, Dict[str, float]]]] = {
 
 SEASONAL_MULTIPLIERS: Dict[str, Dict[int, float]] = {
     "white_collar": {
-        1:  1.12,   # Jan: budget reset, Q1 hiring surge
-        2:  1.08,   # Feb: continued Q1 push
-        3:  1.05,   # Mar: Q1 tail
-        4:  0.98,   # Apr: pre-summer softening
-        5:  0.95,   # May: hiring slows
-        6:  0.88,   # Jun: summer slowdown begins
-        7:  0.85,   # Jul: lowest white-collar hiring activity
-        8:  0.95,   # Aug: fall ramp-up begins
-        9:  1.10,   # Sep: fall hiring surge
-        10: 1.15,   # Oct: Q4 budget push (PEAK)
-        11: 1.05,   # Nov: pre-holiday wind-down
-        12: 0.84,   # Dec: holiday freeze
+        1: 1.12,  # Jan: budget reset, Q1 hiring surge
+        2: 1.08,  # Feb: continued Q1 push
+        3: 1.05,  # Mar: Q1 tail
+        4: 0.98,  # Apr: pre-summer softening
+        5: 0.95,  # May: hiring slows
+        6: 0.88,  # Jun: summer slowdown begins
+        7: 0.85,  # Jul: lowest white-collar hiring activity
+        8: 0.95,  # Aug: fall ramp-up begins
+        9: 1.10,  # Sep: fall hiring surge
+        10: 1.15,  # Oct: Q4 budget push (PEAK)
+        11: 1.05,  # Nov: pre-holiday wind-down
+        12: 0.84,  # Dec: holiday freeze
     },
     "blue_collar": {
-        1:  1.05,   # Jan: post-holiday recovery
-        2:  0.98,   # Feb: winter slow
-        3:  1.08,   # Mar: construction/outdoor ramp-up
-        4:  1.12,   # Apr: spring peak for outdoor/construction
-        5:  1.10,   # May: summer prep for seasonal roles
-        6:  1.05,   # Jun: seasonal hourly hiring active
-        7:  1.02,   # Jul: steady
-        8:  1.15,   # Aug: holiday season logistics prep
-        9:  1.18,   # Sep: PEAK (logistics, retail, warehouse)
-        10: 1.20,   # Oct: holiday seasonal peak continues
-        11: 1.08,   # Nov: continuing holiday fulfillment
-        12: 0.82,   # Dec: sharp wind-down
+        1: 1.05,  # Jan: post-holiday recovery
+        2: 0.98,  # Feb: winter slow
+        3: 1.08,  # Mar: construction/outdoor ramp-up
+        4: 1.12,  # Apr: spring peak for outdoor/construction
+        5: 1.10,  # May: summer prep for seasonal roles
+        6: 1.05,  # Jun: seasonal hourly hiring active
+        7: 1.02,  # Jul: steady
+        8: 1.15,  # Aug: holiday season logistics prep
+        9: 1.18,  # Sep: PEAK (logistics, retail, warehouse)
+        10: 1.20,  # Oct: holiday seasonal peak continues
+        11: 1.08,  # Nov: continuing holiday fulfillment
+        12: 0.82,  # Dec: sharp wind-down
     },
     "grey_collar": {
-        1:  1.10,   # Jan: healthcare New Year surge (nurses, techs)
-        2:  1.06,   # Feb: continued clinical demand
-        3:  1.04,   # Mar: steady
-        4:  1.00,   # Apr: baseline
-        5:  0.96,   # May: slight softening
-        6:  0.92,   # Jun: summer coverage needs drop slightly
-        7:  0.90,   # Jul: vacation coverage season
-        8:  0.98,   # Aug: back-to-school healthcare ramp
-        9:  1.08,   # Sep: fall clinical hiring surge
-        10: 1.10,   # Oct: flu season staffing
-        11: 1.02,   # Nov: steady
-        12: 0.88,   # Dec: holiday slowdown
+        1: 1.10,  # Jan: healthcare New Year surge (nurses, techs)
+        2: 1.06,  # Feb: continued clinical demand
+        3: 1.04,  # Mar: steady
+        4: 1.00,  # Apr: baseline
+        5: 0.96,  # May: slight softening
+        6: 0.92,  # Jun: summer coverage needs drop slightly
+        7: 0.90,  # Jul: vacation coverage season
+        8: 0.98,  # Aug: back-to-school healthcare ramp
+        9: 1.08,  # Sep: fall clinical hiring surge
+        10: 1.10,  # Oct: flu season staffing
+        11: 1.02,  # Nov: steady
+        12: 0.88,  # Dec: holiday slowdown
     },
 }
 # Mixed collar defaults to average of blue + white
 SEASONAL_MULTIPLIERS["mixed"] = {
-    m: round((SEASONAL_MULTIPLIERS["white_collar"][m] + SEASONAL_MULTIPLIERS["blue_collar"][m]) / 2, 3)
+    m: round(
+        (
+            SEASONAL_MULTIPLIERS["white_collar"][m]
+            + SEASONAL_MULTIPLIERS["blue_collar"][m]
+        )
+        / 2,
+        3,
+    )
     for m in range(1, 13)
 }
 
@@ -568,32 +1804,36 @@ REGIONAL_CPC_MULTIPLIERS_INTL: Dict[str, float] = {
 
 COLLAR_CPC_DIFFERENTIALS: Dict[str, Dict[str, float]] = {
     "blue_collar": {
-        "google_search":   0.65,   # Blue collar roles have lower search CPC
-        "meta_facebook":   0.70,   # Mobile-first, strong blue collar reach
-        "meta_instagram":  0.75,   # Good for visual job ads (construction, etc.)
-        "linkedin":        2.50,   # LinkedIn is expensive and poor fit for blue collar
-        "indeed":          0.80,   # Indeed is the #1 platform for blue collar
-        "programmatic":    0.60,   # Programmatic is most efficient for blue collar
+        "google_search": 0.65,  # Blue collar roles have lower search CPC
+        "meta_facebook": 0.70,  # Mobile-first, strong blue collar reach
+        "meta_instagram": 0.75,  # Good for visual job ads (construction, etc.)
+        "linkedin": 2.50,  # LinkedIn is expensive and poor fit for blue collar
+        "indeed": 0.80,  # Indeed is the #1 platform for blue collar
+        "programmatic": 0.60,  # Programmatic is most efficient for blue collar
     },
     "white_collar": {
-        "google_search":   1.35,   # White collar searches are more competitive
-        "meta_facebook":   1.10,   # Moderate fit for white collar
-        "meta_instagram":  1.15,   # Less effective for professional roles
-        "linkedin":        0.85,   # LinkedIn is natural fit = relatively efficient
-        "indeed":          1.20,   # Indeed is more expensive for white collar
-        "programmatic":    1.00,   # Baseline
+        "google_search": 1.35,  # White collar searches are more competitive
+        "meta_facebook": 1.10,  # Moderate fit for white collar
+        "meta_instagram": 1.15,  # Less effective for professional roles
+        "linkedin": 0.85,  # LinkedIn is natural fit = relatively efficient
+        "indeed": 1.20,  # Indeed is more expensive for white collar
+        "programmatic": 1.00,  # Baseline
     },
     "grey_collar": {
-        "google_search":   0.90,   # Nurses, technicians -- moderate search CPC
-        "meta_facebook":   0.85,   # Good reach for clinical staff
-        "meta_instagram":  0.90,   # Decent for healthcare roles
-        "linkedin":        1.20,   # Some fit for clinical professionals
-        "indeed":          0.90,   # Good for clinical roles
-        "programmatic":    0.75,   # Efficient for healthcare volume
+        "google_search": 0.90,  # Nurses, technicians -- moderate search CPC
+        "meta_facebook": 0.85,  # Good reach for clinical staff
+        "meta_instagram": 0.90,  # Decent for healthcare roles
+        "linkedin": 1.20,  # Some fit for clinical professionals
+        "indeed": 0.90,  # Good for clinical roles
+        "programmatic": 0.75,  # Efficient for healthcare volume
     },
     "mixed": {
-        "google_search": 1.00, "meta_facebook": 1.00, "meta_instagram": 1.00,
-        "linkedin": 1.00, "indeed": 1.00, "programmatic": 1.00,
+        "google_search": 1.00,
+        "meta_facebook": 1.00,
+        "meta_instagram": 1.00,
+        "linkedin": 1.00,
+        "indeed": 1.00,
+        "programmatic": 1.00,
     },
 }
 
@@ -602,39 +1842,66 @@ COLLAR_CPC_DIFFERENTIALS: Dict[str, Dict[str, float]] = {
 # 5. PUBLIC API FUNCTIONS
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def _normalize_industry(industry: str) -> str:
     """Normalize industry key to match our canonical keys."""
     if not industry:
         return "general_entry_level"
-    ind = industry.strip().lower().replace(" ", "_").replace("-", "_").replace("&", "").replace("/", "_")
+    ind = (
+        industry.strip()
+        .lower()
+        .replace(" ", "_")
+        .replace("-", "_")
+        .replace("&", "")
+        .replace("/", "_")
+    )
     # Direct match
     if ind in _GOOGLE_SEARCH_TRENDS:
         return ind
     # Common aliases
     _INDUSTRY_ALIASES: Dict[str, str] = {
-        "healthcare": "healthcare_medical", "medical": "healthcare_medical",
-        "health_care": "healthcare_medical", "nursing": "healthcare_medical",
-        "technology": "tech_engineering", "tech": "tech_engineering",
-        "software": "tech_engineering", "it": "tech_engineering",
-        "finance": "finance_banking", "banking": "finance_banking",
-        "retail": "retail_consumer", "ecommerce": "retail_consumer",
-        "construction": "construction_real_estate", "real_estate": "construction_real_estate",
-        "logistics": "logistics_supply_chain", "supply_chain": "logistics_supply_chain",
-        "transportation": "logistics_supply_chain", "warehousing": "logistics_supply_chain",
-        "hospitality": "hospitality_travel", "travel": "hospitality_travel",
-        "restaurant": "food_beverage", "food": "food_beverage",
-        "pharma": "pharma_biotech", "biotech": "pharma_biotech",
+        "healthcare": "healthcare_medical",
+        "medical": "healthcare_medical",
+        "health_care": "healthcare_medical",
+        "nursing": "healthcare_medical",
+        "technology": "tech_engineering",
+        "tech": "tech_engineering",
+        "software": "tech_engineering",
+        "it": "tech_engineering",
+        "finance": "finance_banking",
+        "banking": "finance_banking",
+        "retail": "retail_consumer",
+        "ecommerce": "retail_consumer",
+        "construction": "construction_real_estate",
+        "real_estate": "construction_real_estate",
+        "logistics": "logistics_supply_chain",
+        "supply_chain": "logistics_supply_chain",
+        "transportation": "logistics_supply_chain",
+        "warehousing": "logistics_supply_chain",
+        "hospitality": "hospitality_travel",
+        "travel": "hospitality_travel",
+        "restaurant": "food_beverage",
+        "food": "food_beverage",
+        "pharma": "pharma_biotech",
+        "biotech": "pharma_biotech",
         "pharmaceutical": "pharma_biotech",
-        "aerospace": "aerospace_defense", "defense": "aerospace_defense",
-        "legal": "legal_services", "law": "legal_services",
-        "energy": "energy_utilities", "utilities": "energy_utilities",
+        "aerospace": "aerospace_defense",
+        "defense": "aerospace_defense",
+        "legal": "legal_services",
+        "law": "legal_services",
+        "energy": "energy_utilities",
+        "utilities": "energy_utilities",
         "oil_gas": "energy_utilities",
         "telecom": "telecommunications",
-        "auto": "automotive", "manufacturing": "automotive",
-        "maritime": "maritime_marine", "marine": "maritime_marine",
+        "auto": "automotive",
+        "manufacturing": "automotive",
+        "maritime": "maritime_marine",
+        "marine": "maritime_marine",
         "military": "military_recruitment",
-        "media": "media_entertainment", "entertainment": "media_entertainment",
-        "entry_level": "general_entry_level", "general": "general_entry_level",
+        "media": "media_entertainment",
+        "entertainment": "media_entertainment",
+        "entry_level": "general_entry_level",
+        "general": "general_entry_level",
         "hourly": "general_entry_level",
     }
     return _INDUSTRY_ALIASES.get(ind, "general_entry_level")
@@ -646,18 +1913,29 @@ def _normalize_platform(platform: str) -> str:
         return "google_search"
     p = platform.strip().lower().replace(" ", "_").replace("-", "_")
     _PLATFORM_ALIASES: Dict[str, str] = {
-        "google": "google_search", "google_ads": "google_search", "search": "google_search",
-        "facebook": "meta_facebook", "fb": "meta_facebook", "meta": "meta_facebook",
-        "instagram": "meta_instagram", "ig": "meta_instagram",
-        "linkedin": "linkedin", "li": "linkedin",
+        "google": "google_search",
+        "google_ads": "google_search",
+        "search": "google_search",
+        "facebook": "meta_facebook",
+        "fb": "meta_facebook",
+        "meta": "meta_facebook",
+        "instagram": "meta_instagram",
+        "ig": "meta_instagram",
+        "linkedin": "linkedin",
+        "li": "linkedin",
         "indeed": "indeed",
-        "programmatic": "programmatic", "dsp": "programmatic",
-        "appcast": "programmatic", "pandologic": "programmatic", "joveo": "programmatic",
+        "programmatic": "programmatic",
+        "dsp": "programmatic",
+        "appcast": "programmatic",
+        "pandologic": "programmatic",
+        "joveo": "programmatic",
     }
     return _PLATFORM_ALIASES.get(p, p if p in PLATFORMS else "google_search")
 
 
-def _compute_yoy_change(trend_data: Dict[int, Dict[str, float]], metric: str, year: int) -> float:
+def _compute_yoy_change(
+    trend_data: Dict[int, Dict[str, float]], metric: str, year: int
+) -> float:
     """Compute YoY % change for a metric."""
     if year in trend_data and (year - 1) in trend_data:
         current = trend_data[year].get(f"avg_{metric}", 0)
@@ -676,7 +1954,9 @@ def _compute_trend_direction(yoy_pct: float) -> str:
     return "stable"
 
 
-def _compute_confidence_interval(value: float, source_count: int, freshness: str) -> Tuple[float, float]:
+def _compute_confidence_interval(
+    value: float, source_count: int, freshness: str
+) -> Tuple[float, float]:
     """Compute 90% credible interval around a benchmark value.
 
     Wider intervals for fewer sources and older data.
@@ -732,13 +2012,20 @@ def get_benchmark(
 
     # Get base trend data
     platform_trends = _ALL_TRENDS.get(plat, _GOOGLE_SEARCH_TRENDS)
-    industry_trends = platform_trends.get(ind, platform_trends.get("general_entry_level", {}))
+    industry_trends = platform_trends.get(
+        ind, platform_trends.get("general_entry_level", {})
+    )
     year_data = industry_trends.get(year, industry_trends.get(2025, {}))
 
     if not year_data:
         # Ultimate fallback
-        base_value = {"avg_cpc": 1.50, "avg_cpm": 8.00, "avg_ctr": 0.030,
-                      "avg_cpa": 20.00, "avg_cvr": 0.080}.get(metric_key, 1.00)
+        base_value = {
+            "avg_cpc": 1.50,
+            "avg_cpm": 8.00,
+            "avg_ctr": 0.030,
+            "avg_cpa": 20.00,
+            "avg_cvr": 0.080,
+        }.get(metric_key, 1.00)
         freshness = "fallback"
         confidence = 0.25
         source_count = 0
@@ -750,7 +2037,9 @@ def get_benchmark(
 
     # Apply collar differential
     collar = collar_type.lower().replace("-", "_").replace(" ", "_")
-    collar_diffs = COLLAR_CPC_DIFFERENTIALS.get(collar, COLLAR_CPC_DIFFERENTIALS["mixed"])
+    collar_diffs = COLLAR_CPC_DIFFERENTIALS.get(
+        collar, COLLAR_CPC_DIFFERENTIALS["mixed"]
+    )
     collar_factor = collar_diffs.get(plat, 1.0)
     # Collar only affects price metrics, not rates
     if metric in ("cpc", "cpm", "cpa"):
@@ -765,13 +2054,19 @@ def get_benchmark(
         loc_clean = location.strip()
         # Check US metros first
         for metro_key, mult in REGIONAL_CPC_MULTIPLIERS_US.items():
-            if loc_clean.lower() in metro_key.lower() or metro_key.lower() in loc_clean.lower():
+            if (
+                loc_clean.lower() in metro_key.lower()
+                or metro_key.lower() in loc_clean.lower()
+            ):
                 regional_factor = mult
                 break
         else:
             # Check international
             for country, mult in REGIONAL_CPC_MULTIPLIERS_INTL.items():
-                if country.lower() in loc_clean.lower() or loc_clean.lower() in country.lower():
+                if (
+                    country.lower() in loc_clean.lower()
+                    or loc_clean.lower() in country.lower()
+                ):
                     regional_factor = mult
                     break
 
@@ -870,7 +2165,9 @@ def get_trend(
     metric_key = f"avg_{metric}" if not metric.startswith("avg_") else metric
 
     platform_trends = _ALL_TRENDS.get(plat, _GOOGLE_SEARCH_TRENDS)
-    industry_trends = platform_trends.get(ind, platform_trends.get("general_entry_level", {}))
+    industry_trends = platform_trends.get(
+        ind, platform_trends.get("general_entry_level", {})
+    )
 
     current_year = 2025
     history = []
@@ -903,7 +2200,11 @@ def get_trend(
         "trend_direction": trend_dir,
         "projected_next_year": {"year": current_year + 1, "value": projected},
         "data_confidence": 0.75 if len(history) >= 3 else 0.55,
-        "sources": ["Appcast 2023-2026", "WordStream/LOCALiQ 2023-2025", "SHRM 2023-2025"],
+        "sources": [
+            "Appcast 2023-2026",
+            "WordStream/LOCALiQ 2023-2025",
+            "SHRM 2023-2025",
+        ],
     }
 
 
@@ -929,8 +2230,19 @@ def get_seasonal_adjustment(
 
     # Month descriptions
     _MONTH_NAMES = [
-        "", "January", "February", "March", "April", "May", "June",
-        "July", "August", "September", "October", "November", "December"
+        "",
+        "January",
+        "February",
+        "March",
+        "April",
+        "May",
+        "June",
+        "July",
+        "August",
+        "September",
+        "October",
+        "November",
+        "December",
     ]
 
     # Characterize the month
@@ -1100,9 +2412,9 @@ def calculate_dynamic_cpc(
             platform=platform,
             industry=industry,
             metric="cpc",
-            collar_type="mixed",   # neutral collar
-            location="",           # no regional
-            month=None,            # no seasonal
+            collar_type="mixed",  # neutral collar
+            location="",  # no regional
+            month=None,  # no seasonal
         )
         raw_base: float = raw_benchmark.get("value", base_cpc)
 
@@ -1180,9 +2492,7 @@ def calculate_dynamic_cpc(
         # -----------------------------------------------------------------
         trend_momentum: float = 1.0
         try:
-            trend_data = get_trend(
-                platform=platform, industry=industry, metric="cpc"
-            )
+            trend_data = get_trend(platform=platform, industry=industry, metric="cpc")
             yoy_pct = trend_data.get("avg_yoy_change_pct", 0.0)
             trend_momentum = 1.0 + (yoy_pct / 100.0) * 0.3
             trend_momentum = max(0.85, min(trend_momentum, 1.25))
@@ -1212,8 +2522,14 @@ def calculate_dynamic_cpc(
         # non-trivial adjustments applied
         non_trivial_count = sum(
             1
-            for f in (seasonal_factor, regional_factor, collar_factor,
-                       tightness, wage_pressure, trend_momentum)
+            for f in (
+                seasonal_factor,
+                regional_factor,
+                collar_factor,
+                tightness,
+                wage_pressure,
+                trend_momentum,
+            )
             if abs(f - 1.0) > 0.005
         )
         ci_spread = 0.15 + non_trivial_count * 0.03
@@ -1228,17 +2544,25 @@ def calculate_dynamic_cpc(
         direction = "+" if pct_change >= 0 else ""
         reasons: List[str] = []
         if abs(tightness - 1.0) > 0.005:
-            reasons.append("tight labor market" if tightness > 1.0 else "loose labor market")
+            reasons.append(
+                "tight labor market" if tightness > 1.0 else "loose labor market"
+            )
         if abs(wage_pressure - 1.0) > 0.005:
-            reasons.append("wage growth pressure" if wage_pressure > 1.0 else "muted wage growth")
+            reasons.append(
+                "wage growth pressure" if wage_pressure > 1.0 else "muted wage growth"
+            )
         if abs(seasonal_factor - 1.0) > 0.005:
-            reasons.append("seasonal demand" if seasonal_factor > 1.0 else "seasonal lull")
+            reasons.append(
+                "seasonal demand" if seasonal_factor > 1.0 else "seasonal lull"
+            )
         if abs(regional_factor - 1.0) > 0.005:
             reasons.append("regional cost differential")
         if abs(collar_factor - 1.0) > 0.005:
             reasons.append(f"{collar.replace('_', ' ')} job type")
         if abs(trend_momentum - 1.0) > 0.005:
-            reasons.append("CPC trend momentum" if trend_momentum > 1.0 else "declining CPC trend")
+            reasons.append(
+                "CPC trend momentum" if trend_momentum > 1.0 else "declining CPC trend"
+            )
 
         if reasons:
             reason_str = ", ".join(reasons[:3])
@@ -1249,7 +2573,9 @@ def calculate_dynamic_cpc(
                 f"due to {reason_str}"
             )
         else:
-            explanation = "CPC unchanged from base -- no significant adjustments applied"
+            explanation = (
+                "CPC unchanged from base -- no significant adjustments applied"
+            )
 
         return {
             "base_cpc": raw_base,
@@ -1333,7 +2659,9 @@ def get_dynamic_cpc_summary(
             )
         except Exception as exc:
             logger.error(
-                "get_dynamic_cpc_summary failed for %s: %s", plat, exc,
+                "get_dynamic_cpc_summary failed for %s: %s",
+                plat,
+                exc,
                 exc_info=True,
             )
             results[plat] = {

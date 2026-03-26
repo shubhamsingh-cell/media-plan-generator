@@ -14,7 +14,6 @@ Candidate-facing evolution of the Nova chatbot architecture.
 
 from __future__ import annotations
 
-import json
 import logging
 import os
 import re

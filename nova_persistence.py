@@ -13,20 +13,17 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import threading
 import time
 import uuid
 from datetime import datetime, timedelta
-from pathlib import Path
 from secrets import token_hex
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
 # Supabase imports (graceful fallback)
 try:
-    from supabase import create_client
 
     SUPABASE_AVAILABLE = True
 except ImportError:
@@ -1122,26 +1119,3 @@ def health_check() -> bool:
     except Exception as e:
         logger.error("Supabase health check failed: %s", e, exc_info=True)
         return False
-
-
-# ---------------------------------------------------------------------------
-# Module Usage Tracking (DEPRECATED -- table nova_module_usage is dead/underutilized)
-# ---------------------------------------------------------------------------
-# Analytics are now tracked via PostHog. This stub is kept for backward
-# compatibility so existing callers do not raise ImportError.
-
-
-def track_module_usage(
-    module_name: str = "",
-    action: str = "",
-    user_id: str = "anonymous",
-    latency_ms: float = 0.0,
-    success: bool = True,
-    metadata: Optional[Dict[str, Any]] = None,
-) -> bool:
-    """No-op stub. Module usage tracking moved to PostHog.
-
-    Kept for backward compatibility -- callers can safely import and call
-    this function without side effects.
-    """
-    return False

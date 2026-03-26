@@ -26,14 +26,12 @@ from __future__ import annotations
 import io
 import json
 import logging
-import math
 import re
 import threading
 import time
-import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -120,7 +118,7 @@ _HAS_TRENDS = False
 _HAS_BENCHMARK_REGISTRY = False
 
 try:
-    from benchmark_registry import get_channel_benchmark, get_all_benchmarks
+    from benchmark_registry import get_channel_benchmark
 
     _HAS_BENCHMARK_REGISTRY = True
 except ImportError:
@@ -607,7 +605,7 @@ def _lookup_well_known_company(company_name: str) -> Optional[Dict[str, Any]]:
             return dict(_WELL_KNOWN_COMPANIES[stripped])
     # Substring match for names like "The Walt Disney Company" -> "disney"
     for known_key, known_data in _WELL_KNOWN_COMPANIES.items():
-        if known_key in key or key in known_data.get("name", "").lower():
+        if known_key in key or key in (known_data.get("name") or "").lower():
             return dict(known_data)
     return None
 
@@ -1714,9 +1712,9 @@ def generate_competitive_ppt(
     Uses brand identity: Port Gore navy, Blue Violet purple, Downy teal.
     """
     from pptx import Presentation
-    from pptx.util import Inches, Pt, Emu
+    from pptx.util import Inches, Pt
     from pptx.dml.color import RGBColor
-    from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
+    from pptx.enum.text import PP_ALIGN
     from pptx.enum.shapes import MSO_SHAPE
 
     # Brand colors

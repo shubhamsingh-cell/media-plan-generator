@@ -239,11 +239,13 @@ def list_templates(
 
     if category:
         cat_lower = category.lower()
-        results = [t for t in results if t.get("category", "").lower() == cat_lower]
+        results = [t for t in results if (t.get("category") or "").lower() == cat_lower]
 
     if role_family:
         rf_lower = role_family.lower()
-        results = [t for t in results if t.get("role_family", "").lower() == rf_lower]
+        results = [
+            t for t in results if (t.get("role_family") or "").lower() == rf_lower
+        ]
 
     return results
 

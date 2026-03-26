@@ -18,10 +18,9 @@ from __future__ import annotations
 
 import io
 import logging
-import math
 import datetime
 import threading
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +51,7 @@ except ImportError:
     _HAS_COLLAR_INTEL = False
 
 try:
-    from shared_utils import INDUSTRY_LABEL_MAP, parse_budget
+    from shared_utils import INDUSTRY_LABEL_MAP
 except ImportError:
     INDUSTRY_LABEL_MAP = {}
 

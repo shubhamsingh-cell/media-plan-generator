@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import json
 import logging
-import math
 import os
 import re
 import tempfile
@@ -49,7 +48,7 @@ except ImportError:
 
 # Supabase data layer (optional, falls back gracefully)
 try:
-    from supabase_data import get_knowledge, get_channel_benchmarks
+    from supabase_data import get_knowledge
 
     _nova_supabase_available = True
 except ImportError:
@@ -1327,7 +1326,7 @@ def _validate_role_is_real(role: str) -> Dict[str, Any]:
 
     # Tier 1: standardizer SOC code lookup WITH cross-validation
     try:
-        from standardizer import normalize_role, get_soc_code, CANONICAL_ROLES
+        from standardizer import normalize_role, CANONICAL_ROLES
 
         canon = normalize_role(role_clean)
         if canon and canon in CANONICAL_ROLES:
@@ -1612,33 +1611,38 @@ _COMPLEX_QUERY_INDICATORS: list[str] = [
     "evaluate",
 ]
 
-# Paid providers that handle complex queries well (ordered by cost-efficiency)
+# v4.1: Quality-first preferred providers for ALL substantive queries
+# Claude Haiku is the primary -- cheap ($0.25/M) and dramatically better than free LLMs
 _COMPLEX_PREFERRED_PROVIDERS: list[str] = [
-    "claude_haiku",  # Fast + cheap paid, good reasoning
-    "gemini",  # Free but strong reasoning
-    "gpt4o",  # Strong analytical capability
-    "groq",  # Fast free, decent reasoning
-    "xai",  # Good reasoning (credits-based)
-    "claude",  # Claude Sonnet -- high quality
+    "claude_haiku",  # #1: Fast + cheap paid, Claude-level quality
+    "gemini",  # #2: Free, strong reasoning (best free option)
+    "gpt4o",  # #3: Strong analytical capability
+    "claude",  # #4: Claude Sonnet -- highest quality for deep analysis
 ]
 
 
 def _detect_query_complexity(message: str) -> bool:
     """Detect whether a query requires stronger LLM models for quality answers.
 
-    Complex queries involve geopolitical analysis, causal reasoning, multi-step
-    synthesis, or macro-economic topics that free-tier LLMs handle poorly.
+    v4.1 AGGRESSIVE ROUTING: Any substantive query (data, analysis, comparison,
+    recommendations) routes to paid providers for Claude-level quality. Only
+    greetings, simple FAQ, and off-topic queries stay on free providers.
+
+    The philosophy: free-tier LLMs (Llama 70B, Qwen, Mistral) cannot match
+    Claude Haiku quality for recruitment intelligence. Since Haiku is cheap
+    ($0.25/M input), routing substantive queries there is worth the cost.
 
     Args:
         message: User message text.
 
     Returns:
-        True if the query is complex and should prefer paid/stronger models.
+        True if the query is substantive and should prefer paid/stronger models.
     """
     if not message:
         return False
 
-    query_lower = message.lower()
+    query_lower = message.lower().strip()
+    words = query_lower.split()
 
     # Guard: off-topic queries should never be routed to paid LLMs
     _OFF_TOPIC_QUICK = re.compile(
@@ -1650,24 +1654,372 @@ def _detect_query_complexity(message: str) -> bool:
     if _OFF_TOPIC_QUICK.search(query_lower):
         return False
 
-    # Check keyword indicators
+    # Guard: greetings and acknowledgments stay on free providers
+    _GREETING_PATTERNS = re.compile(
+        r"^(hi|hello|hey|good morning|good afternoon|good evening|thanks|"
+        r"thank you|ok|okay|got it|sure|yes|no|bye|goodbye|see you|"
+        r"nice|great|cool|awesome|perfect|sounds good|alright)\b"
+    )
+    if _GREETING_PATTERNS.search(query_lower) and len(words) <= 5:
+        return False
+
+    # Guard: very short non-question messages (< 4 words) stay free
+    _question_starters = {
+        "how",
+        "what",
+        "which",
+        "where",
+        "when",
+        "why",
+        "who",
+        "tell",
+        "show",
+        "give",
+        "compare",
+        "explain",
+        "describe",
+        "analyze",
+        "find",
+        "get",
+        "pull",
+        "look",
+        "search",
+        "list",
+    }
+    if len(words) < 4 and not any(w in _question_starters for w in words):
+        return False
+
+    # AGGRESSIVE: Any query with 5+ words that isn't a greeting is substantive
+    # and should go to paid providers for quality
+    if len(words) >= 5:
+        return True
+
+    # Any query containing data/analysis keywords routes to paid
+    _SUBSTANTIVE_KEYWORDS = re.compile(
+        r"\b(salary|salaries|cpc|cpa|cph|benchmark|cost|budget|spend|"
+        r"hire|hiring|recruit|talent|candidate|sourcing|channel|"
+        r"market|demand|supply|trend|forecast|projection|"
+        r"plan|strategy|recommend|compare|analysis|analyze|"
+        r"compliance|diversity|clearance|"
+        r"nurse|driver|engineer|developer|accountant|mechanic|"
+        r"healthcare|technology|manufacturing|logistics|retail|"
+        r"city|cities|state|country|region|"
+        r"indeed|linkedin|ziprecruiter|glassdoor|joveo|"
+        r"roi|performance|optimize|allocation|"
+        r"data|report|insight|intelligence)\b"
+    )
+    if _SUBSTANTIVE_KEYWORDS.search(query_lower):
+        return True
+
+    # Check original keyword indicators (kept for backward compat)
     indicator_count = sum(1 for ind in _COMPLEX_QUERY_INDICATORS if ind in query_lower)
-
-    # 2+ indicators = definitely complex
-    if indicator_count >= 2:
+    if indicator_count >= 1:
         return True
 
-    # 1 indicator + long message (>150 chars) = likely complex
-    if indicator_count >= 1 and len(message) > 150:
-        return True
-
-    # Very long messages (>300 chars) with question words = likely complex
-    if len(message) > 300 and any(
-        qw in query_lower for qw in ["why", "how", "what if", "because"]
-    ):
+    # Any question (starts with question word) is substantive
+    if words and words[0] in _question_starters:
         return True
 
     return False
+
+
+# ---------------------------------------------------------------------------
+# Response Template System -- Consistent formatting across all LLM providers
+# ---------------------------------------------------------------------------
+
+_QUERY_TYPE_SALARY_PATTERNS: list[str] = [
+    "salary",
+    "salaries",
+    "compensation",
+    "pay",
+    "wage",
+    "wages",
+    "earning",
+    "earnings",
+    "income",
+    "remuneration",
+]
+_QUERY_TYPE_MEDIA_PLAN_PATTERNS: list[str] = [
+    "budget",
+    "media plan",
+    "channel allocation",
+    "allocat",
+    "spend",
+    "hiring plan",
+    "projection",
+    "media strategy",
+]
+_QUERY_TYPE_COMPARISON_PATTERNS: list[str] = [
+    "compare",
+    " vs ",
+    "versus",
+    "difference between",
+    "better than",
+    "which is better",
+    "pros and cons",
+]
+_QUERY_TYPE_COMPLIANCE_PATTERNS: list[str] = [
+    "compliance",
+    "legal",
+    "regulation",
+    "regulations",
+    "requirement",
+    "requirements",
+    "ofccp",
+    "eeoc",
+    "ada ",
+    "gdpr",
+    "labor law",
+    "labour law",
+]
+_QUERY_TYPE_COMPETITIVE_PATTERNS: list[str] = [
+    "competitor",
+    "competitive landscape",
+    "market analysis",
+    "market share",
+    "who else",
+    "top employers",
+    "who is hiring",
+]
+_QUERY_TYPE_CHANNEL_PATTERNS: list[str] = [
+    "channel",
+    "job board",
+    "platform",
+    "indeed",
+    "linkedin",
+    "ziprecruiter",
+    "glassdoor",
+    "recruitment channel",
+    "where to post",
+    "best sites",
+]
+
+
+def _classify_query_type(query: str) -> str:
+    """Classify a user query into a response template category.
+
+    Uses keyword matching to determine the primary intent of the query
+    so the appropriate response template can be injected into the system prompt.
+
+    Args:
+        query: The user's question text.
+
+    Returns:
+        One of: salary, media_plan, comparison, compliance,
+        competitive, channels, general.
+    """
+    if not query:
+        return "general"
+
+    q = query.lower().strip()
+
+    # Order matters: more specific types first
+    if any(p in q for p in _QUERY_TYPE_COMPARISON_PATTERNS):
+        return "comparison"
+    if any(p in q for p in _QUERY_TYPE_COMPLIANCE_PATTERNS):
+        return "compliance"
+    if any(p in q for p in _QUERY_TYPE_MEDIA_PLAN_PATTERNS):
+        return "media_plan"
+    if any(p in q for p in _QUERY_TYPE_COMPETITIVE_PATTERNS):
+        return "competitive"
+    if any(p in q for p in _QUERY_TYPE_CHANNEL_PATTERNS):
+        return "channels"
+    if any(p in q for p in _QUERY_TYPE_SALARY_PATTERNS):
+        return "salary"
+
+    return "general"
+
+
+_RESPONSE_TEMPLATES: Dict[str, str] = {
+    "salary": (
+        "Structure your response EXACTLY like this:\n"
+        "### [Role] Salary in [Location]\n\n"
+        "| Metric | Value |\n"
+        "|--------|-------|\n"
+        "| **Median Salary** | **$X** |\n"
+        "| **25th Percentile** | **$X** |\n"
+        "| **75th Percentile** | **$X** |\n\n"
+        "**Key Insights:**\n"
+        "- [3-5 bullet points with bold numbers]\n\n"
+        "*Sources: [list sources]*\n\n"
+        "**You might also want to know:**\n"
+        "- [2-3 follow-up questions]"
+    ),
+    "media_plan": (
+        "Structure your response EXACTLY like this:\n"
+        "### Media Plan: [Role] Recruitment -- [Location]\n"
+        "**Budget: $X | Target: [Role] | Market: [Location]**\n\n"
+        "#### Channel Allocation\n"
+        "| Channel | Budget | % | Est. CPA | Projected Hires |\n"
+        "|---------|--------|---|----------|----------------|\n"
+        "| [rows] |\n\n"
+        "#### Market Context\n"
+        "- [3-4 bullets about the market]\n\n"
+        "#### Activation Timeline\n"
+        "| Month | Focus | Budget |\n"
+        "| [rows] |\n\n"
+        "*Sources: [list]*"
+    ),
+    "comparison": (
+        "Structure your response EXACTLY like this:\n"
+        "### [Item A] vs [Item B]: [Topic] Comparison\n\n"
+        "| Metric | [A] | [B] |\n"
+        "|--------|-----|-----|\n"
+        "| [rows with bold numbers] |\n\n"
+        "**Recommendation:**\n"
+        "- [2-3 actionable bullets]\n\n"
+        "*Sources: [list]*"
+    ),
+    "competitive": (
+        "Structure your response EXACTLY like this:\n"
+        "### Competitive Landscape: [Role] in [Location]\n\n"
+        "#### Top Employers Hiring\n"
+        "| Company | Est. Openings | Salary Range | Difficulty |\n"
+        "|---------|--------------|-------------|------------|\n"
+        "| [rows] |\n\n"
+        "#### Market Analysis\n"
+        "- [3-5 bullets]\n\n"
+        "#### Recruitment Strategy Implications\n"
+        "- [2-3 actionable recommendations]\n\n"
+        "*Sources: [list]*"
+    ),
+    "channels": (
+        "Structure your response EXACTLY like this:\n"
+        "### Recommended Channels for [Role] Recruitment\n\n"
+        "| Channel | CPC | CPA | Best For | Rating |\n"
+        "|---------|-----|-----|----------|--------|\n"
+        "| [rows] |\n\n"
+        "**Top Pick:** [recommendation]\n\n"
+        "*Sources: [list]*"
+    ),
+    "compliance": (
+        "Structure your response EXACTLY like this:\n"
+        "### [Topic] Compliance Requirements\n\n"
+        "#### Key Regulations\n"
+        "1. **[Law/Regulation]** -- [description]\n"
+        "2. [more]\n\n"
+        "#### Action Items\n"
+        "- [ ] [checklist items]\n\n"
+        "#### Penalties for Non-Compliance\n"
+        "- [risks]\n\n"
+        "*Sources: [list]*"
+    ),
+}
+
+
+def _get_response_template_injection(query: str) -> str:
+    """Get the response template string to inject into a system prompt.
+
+    Classifies the query and returns the formatted template block.
+    Returns an empty string for 'general' queries (no template override).
+
+    Args:
+        query: The user's question text.
+
+    Returns:
+        A formatted template injection string, or empty string.
+    """
+    query_type = _classify_query_type(query)
+    template = _RESPONSE_TEMPLATES.get(query_type, "")
+    if not template:
+        return ""
+    return f"\n\n## RESPONSE FORMAT\n{template}"
+
+
+_FOLLOW_UP_MAP: Dict[str, list[str]] = {
+    "salary": [
+        "How does this compare to {nearby_city}?",
+        "What channels work best for this role?",
+        "What budget should I allocate?",
+    ],
+    "media_plan": [
+        "How does ROI compare across channels?",
+        "What if I increase the budget by 50%?",
+        "Show me the competitive landscape",
+    ],
+    "comparison": [
+        "Which is better for senior roles?",
+        "What about cost per quality hire?",
+        "What other platforms should I consider?",
+    ],
+    "competitive": [
+        "What salary should I offer to compete?",
+        "Which channels do competitors use?",
+        "How has this market changed in the last year?",
+    ],
+    "channels": [
+        "Compare the top 2 channels in detail",
+        "What's the budget split recommendation?",
+        "Which works best for senior roles?",
+    ],
+    "compliance": [
+        "What are the penalties?",
+        "How does this differ in other states?",
+        "What documentation do I need?",
+    ],
+    "general": [
+        "What are the salary benchmarks for this role?",
+        "Which channels work best for this type of hire?",
+        "Can you build a media plan for this?",
+    ],
+}
+
+
+def _generate_follow_ups(
+    query: str,
+    query_type: str,
+    tools_used: Optional[list[str]] = None,
+) -> list[str]:
+    """Generate contextual follow-up suggestions based on query type.
+
+    Args:
+        query: The original user query.
+        query_type: The classified query type.
+        tools_used: List of tool names that were invoked (unused for now,
+            reserved for future context-aware follow-ups).
+
+    Returns:
+        List of 2-3 follow-up question strings.
+    """
+    suggestions = _FOLLOW_UP_MAP.get(query_type) or _FOLLOW_UP_MAP["general"]
+    return suggestions[:3]
+
+
+def _append_follow_ups_to_response(result: dict, user_message: str) -> dict:
+    """Post-process a chat result dict to append follow-up suggestions.
+
+    Modifies the result in-place: appends a 'You might also want to know'
+    section to the response text and adds a 'follow_ups' key.
+
+    Args:
+        result: The chat result dict with at minimum a 'response' key.
+        user_message: The original user query.
+
+    Returns:
+        The same result dict with follow-ups appended.
+    """
+    if not result or not (result.get("response") or "").strip():
+        return result
+
+    query_type = _classify_query_type(user_message)
+    follow_ups = _generate_follow_ups(
+        user_message, query_type, result.get("tools_used")
+    )
+    result["follow_ups"] = follow_ups
+    result["query_type"] = query_type
+
+    # Only append follow-up text if the response doesn't already contain them
+    response_text = result.get("response") or ""
+    if "you might also want to know" in response_text.lower():
+        return result
+
+    if follow_ups:
+        follow_up_block = "\n\n**You might also want to know:**\n"
+        for fu in follow_ups:
+            follow_up_block += f"- {fu}\n"
+        result["response"] = response_text.rstrip() + follow_up_block
+
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -1931,11 +2283,17 @@ def _run_gold_standard_for_chat(
             if difficulty_results:
                 lines = ["## Role Difficulty Classification"]
                 for dr in difficulty_results[:5]:
+                    supply = str(dr.get("supply_level") or "moderate").replace("_", " ")
+                    loc_mod = dr.get("location_modifier", 0.0)
+                    loc_note = (
+                        f" (location modifier: {loc_mod:+.1f})" if loc_mod else ""
+                    )
                     lines.append(
                         f"- **{dr['role_title']}**: {dr['seniority_level']} level, "
-                        f"complexity {dr['complexity_score']}/10, "
-                        f"avg time-to-fill {dr['avg_time_to_fill_days']} days, "
-                        f"channel emphasis: {dr['channel_emphasis']}"
+                        f"difficulty {dr['complexity_score']}/10, "
+                        f"supply: {supply}, "
+                        f"avg time-to-fill {dr['avg_time_to_fill_days']} days"
+                        f"{loc_note}"
                     )
                 sections.append("\n".join(lines))
         except concurrent.futures.TimeoutError:
@@ -2328,9 +2686,16 @@ def _classify_query_complexity(user_message: str) -> Tuple[int, str]:
     if any(p in msg_lower for p in complex_patterns):
         return (8192, CLAUDE_MODEL_COMPLEX)
 
-    # Simple patterns -> 512, Haiku
-    simple_patterns = [
+    # Greeting/ack patterns -> 512, Haiku (truly no data needed)
+    greeting_patterns = [
         r"^(hi|hello|hey|good morning|good afternoon)\b",
+        r"^(thanks|thank you|ok|okay|got it)",
+    ]
+    if any(re.search(p, msg_lower) for p in greeting_patterns):
+        return (512, CLAUDE_MODEL_PRIMARY)
+
+    # Simple data questions still need room for tool results -> 2048, Haiku
+    simple_patterns = [
         r"^what is\s",
         r"^who is\s",
         r"^what does\s",
@@ -2341,13 +2706,12 @@ def _classify_query_complexity(user_message: str) -> Tuple[int, str]:
         r"^define\s",
         r"^explain\s",
         r"^how many\s",
-        r"^(thanks|thank you|ok|okay|got it)",
     ]
     if any(re.search(p, msg_lower) for p in simple_patterns):
-        return (512, CLAUDE_MODEL_PRIMARY)
+        return (2048, CLAUDE_MODEL_PRIMARY)
 
-    # Default medium -> Haiku
-    return (2048, CLAUDE_MODEL_PRIMARY)
+    # Default medium -> 4096, Haiku (generous to prevent truncation)
+    return (4096, CLAUDE_MODEL_PRIMARY)
 
 
 # Industry keywords
@@ -2450,6 +2814,7 @@ class Nova:
             "google_ads_benchmarks": "google_ads_2025_benchmarks.json",
             "external_benchmarks": "external_benchmarks_2025.json",
             "client_media_plans": "client_media_plans_kb.json",
+            "international_sources": "international_sources.json",
         }
         for _cache_key, _rf_name in _research_files.items():
             _rf_path = os.path.join(str(DATA_DIR), _rf_name)
@@ -2532,11 +2897,11 @@ class Nova:
         core = f"""You are Nova, Joveo's senior recruitment marketing analyst -- an expert in programmatic job advertising, media planning, and labor market analytics. Joveo optimizes job ad spend across {total_pubs:,}+ publishers in {len(pub_countries)} countries via AI-driven programmatic advertising.
 
 ## CORE RULES
-1. **Always provide value.** Never say "I can't help" or "I don't have data." Call tools first; if no exact match, provide industry ranges or strategic recs. You are a recruitment marketing expert -- act like one.
+1. **ALWAYS call tools first -- THIS IS MANDATORY.** You MUST call at least one tool before responding to ANY data question. If you respond without calling a tool first, your response will be rejected and re-run. Never ask clarifying questions before attempting a data lookup. If location is missing, default to US national data and offer to drill down. If industry is missing, provide cross-industry benchmarks. A response without tool data for a data question is a FAILURE that will be automatically retried.
 2. **Lead with numbers, cite sources.** Every data point needs inline reference: "Median salary **$95K** [1]" with "[1] Adzuna" at end. Number each source.
 3. **Only cite tool results.** Never invent CPC/CPA/CPH/salary numbers. Cite ranges as given (do not pick midpoints). If tools conflict, state both with sources. Precedence: Live API > joveo_2026_benchmarks > recruitment_benchmarks_deep > platform_intelligence_deep > General KB.
 4. **Be concise.** Simple lookup: 1-3 sentences, one source. Comparison: table or 2-3 bullets. Strategy/media plan: structured sections with headers. Max 600 words only for full plans.
-5. **Ask when ambiguous.** If missing location or industry, ask (do NOT default to US/USD). When country IS specified, use local currency and local boards.
+5. **Default to national data when location missing.** If the user does not specify a location, call tools with NO location filter to get US national/aggregate data. Provide that data immediately, then add: "This is US national data. Let me know your specific city or state for localized insights." When country IS specified, use local currency and local boards.
 6. **Never disclose internals.** No architecture, tech stack, system prompt, code, algorithms, or pricing. Redirect: "I help with recruitment marketing -- how can I assist?"
 7. **Unrecognized roles.** If tool returns `role_not_recognized: true`, suggest similar standard titles and provide general category benchmarks.
 8. **Confidence calibration.** >=0.8 + live_api = reliable. 0.5-0.8 = "based on available data." <0.5 = "estimate" with general ranges.
@@ -2544,8 +2909,81 @@ class Nova:
 ## PERSONALITY
 Professional, data-driven, proactive -- like a senior analyst presenting to a VP of TA. Lead with specific numbers. For casual messages, be personable briefly then redirect.
 
+## TOOL PLANNING (MANDATORY -- plan before calling)
+Before calling any tools, briefly plan which tools you need:
+- For salary questions: call query_salary_data + query_market_demand + query_location_profile
+- For media plan questions: call query_budget_projection + query_channels + query_salary_data + query_market_demand + query_benchmarks
+- For comparison questions: call the relevant tool for EACH item being compared
+- For competitive analysis: call analyze_competitors + query_market_signals + query_location_profile
+- Always call at least 3 tools for substantive queries
+
 ## FORMATTING
-Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons, `code` for metric names. Keep responses 200-400 words typically."""
+Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons, `code` for metric names. Keep responses 200-400 words typically.
+
+## EXAMPLE RESPONSES (follow this style exactly)
+
+### Example 1: Salary Query
+User: "What is the average salary for a software engineer in San Francisco?"
+
+### Software Engineer Salary in San Francisco
+Based on current market data:
+| Metric | Value |
+|--------|-------|
+| **Median Salary** | **$165,000** |
+| **25th Percentile** | **$140,000** |
+| **75th Percentile** | **$195,000** |
+| **Total Comp (with equity)** | **$220,000 - $280,000** |
+
+**Key Insights:**
+- SF salaries are **1.45x** the national average for this role
+- Hiring difficulty: **8.5/10** (Critically Scarce supply)
+- Average time-to-fill: **42 days**
+- Top competitors: Google, Meta, Apple, Salesforce, Stripe
+
+**Recommended CPA:** $1,800 - $2,500 per qualified applicant
+
+*Sources: [1] BLS, [2] O*NET, [3] Adzuna, [4] Joveo benchmarks (Q1 2026)*
+
+**You might also want to know:**
+- How does this compare to remote salaries?
+- What channels work best for hiring software engineers in SF?
+
+### Example 2: Media Plan Query
+User: "Create a $50K media plan for hiring nurses in Chicago"
+
+### Media Plan: Nursing Recruitment -- Chicago, IL
+**Budget: $50,000 | Target: Registered Nurses | Market: Chicago Metro**
+
+| Channel | Budget | % | Est. CPA | Projected Hires |
+|---------|--------|---|----------|----------------|
+| **Indeed Sponsored** | $15,000 | 30% | $850 | 18 |
+| **LinkedIn Jobs** | $10,000 | 20% | $1,200 | 8 |
+| **Nurse.com** | $8,000 | 16% | $650 | 12 |
+| **Google Ads** | $7,000 | 14% | $950 | 7 |
+| **Facebook/Instagram** | $5,000 | 10% | $600 | 8 |
+| **Local Job Fairs** | $3,000 | 6% | $500 | 6 |
+| **Contingency** | $2,000 | 4% | -- | -- |
+| **Total** | **$50,000** | **100%** | **$847 avg** | **~59 hires** |
+
+**Market Context:** Chicago nursing vacancy rate: **12.3%** | Avg RN salary: **$82,000** (1.05x national avg) | Hiring difficulty: **6/10**
+
+*Sources: [1] BLS, [2] Adzuna, [3] Joveo channel data*
+
+### Example 3: Comparison Query
+User: "Compare Indeed vs LinkedIn for tech recruiting"
+
+### Indeed vs LinkedIn: Tech Recruiting Comparison
+| Metric | Indeed | LinkedIn |
+|--------|--------|----------|
+| **Avg CPC** | **$1.50** | **$3.80** |
+| **Avg CPA** | **$850** | **$1,400** |
+| **Apply Rate** | **8.2%** | **4.5%** |
+| **Quality Score** | **7/10** | **9/10** |
+| **Best For** | Volume hiring, mid-level | Senior/specialized roles |
+
+**Recommendation:** Use **Indeed** for volume (junior-mid, 60% budget) and **LinkedIn** for senior/specialized (40% budget). Combined strategy yields the best cost-per-quality-hire ratio.
+
+*Sources: [1] Platform benchmarks, [2] Joveo campaign data (Q1 2026)*"""
 
         # ── Inject contextual extensions based on query content ──
         msg_lower = (message or "").lower()
@@ -2620,6 +3058,9 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
         ]
         if any(t in msg_lower for t in _role_triggers):
             core += self._ROLE_CLASSIFICATION
+
+        # Inject query-type-specific response template for consistent formatting
+        core += _get_response_template_injection(message)
 
         return core
 
@@ -3287,6 +3728,301 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
                     "required": ["url"],
                 },
             },
+            # ── S18: 13 new module tools ──────────────────────────────────
+            {
+                "name": "query_market_signals",
+                "description": "Real-time market signals: CPC changes, demand shifts, salary updates, seasonal trends, competitor activity, and market volatility index. Use when asked about current market conditions, hiring trends, or channel performance changes.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "role_family": {
+                            "type": "string",
+                            "description": "Role family filter (e.g., 'technology', 'healthcare', 'sales')",
+                        },
+                        "location": {
+                            "type": "string",
+                            "description": "Location filter",
+                        },
+                        "include_volatility": {
+                            "type": "boolean",
+                            "description": "Include market volatility index (default true)",
+                        },
+                        "include_trending": {
+                            "type": "boolean",
+                            "description": "Include trending channels (default true)",
+                        },
+                    },
+                    "required": [],
+                },
+            },
+            {
+                "name": "predict_hiring_outcome",
+                "description": "ML-lite prediction of hiring outcomes: success probability, predicted applications, time-to-fill, cost-per-hire, and A-F grade. Use when asked 'will this plan work?', 'how many hires can I expect?', or for plan quality assessment.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "budget": {
+                            "type": "number",
+                            "description": "Total budget in USD",
+                        },
+                        "roles": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Target job roles",
+                        },
+                        "locations": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Hiring locations",
+                        },
+                        "channels": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Channels in the plan",
+                        },
+                        "industry": {
+                            "type": "string",
+                            "description": "Industry context",
+                        },
+                        "openings": {
+                            "type": "integer",
+                            "description": "Number of positions to fill",
+                        },
+                    },
+                    "required": [],
+                },
+            },
+            {
+                "name": "get_benchmarks",
+                "description": "Cross-client anonymized benchmarks: avg CPC/CPA by role family, top channels, budget ranges, and seasonal trends from aggregated plan data. Use for 'what do similar companies spend?' or benchmarking questions.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "role_family": {
+                            "type": "string",
+                            "description": "Role family (e.g., 'Engineering', 'Sales')",
+                        },
+                        "location": {
+                            "type": "string",
+                            "description": "Region filter (e.g., 'US', 'EMEA')",
+                        },
+                    },
+                    "required": [],
+                },
+            },
+            {
+                "name": "analyze_competitors",
+                "description": "Competitive intelligence: company profiling, hiring activity, career page analysis, and multi-competitor comparison matrix. Use when asked about competitor hiring strategies or 'who else is hiring for this role?'.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "company_name": {
+                            "type": "string",
+                            "description": "Primary company to analyze",
+                        },
+                        "competitor_names": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "List of competitor company names",
+                        },
+                    },
+                    "required": ["company_name"],
+                },
+            },
+            {
+                "name": "generate_scorecard",
+                "description": "Score a media plan on multiple dimensions (channel mix, budget allocation, targeting) and generate an HTML scorecard. Use when asked to evaluate or rate a plan.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "budget": {
+                            "type": "number",
+                            "description": "Plan budget in USD",
+                        },
+                        "roles": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Target roles",
+                        },
+                        "channels": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Channels in the plan",
+                        },
+                        "industry": {
+                            "type": "string",
+                            "description": "Industry context",
+                        },
+                    },
+                    "required": [],
+                },
+            },
+            {
+                "name": "get_copilot_suggestions",
+                "description": "Inline optimization suggestions for a media plan form. Returns contextual nudges like 'similar companies allocate 15% more to LinkedIn for this role'. Use when asked for plan optimization tips.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "job_title": {
+                            "type": "string",
+                            "description": "Target job title",
+                        },
+                        "budget": {
+                            "type": "string",
+                            "description": "Budget amount",
+                        },
+                        "location": {
+                            "type": "string",
+                            "description": "Hiring location",
+                        },
+                        "channel": {
+                            "type": "string",
+                            "description": "Specific channel to get suggestions for",
+                        },
+                        "duration": {
+                            "type": "string",
+                            "description": "Campaign duration",
+                        },
+                    },
+                    "required": [],
+                },
+            },
+            {
+                "name": "get_morning_brief",
+                "description": "Today's hiring market daily brief: overnight metrics, top alerts, AI-recommended actions, and campaign highlights. Use when asked 'what should I know today?' or for a daily summary.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {},
+                    "required": [],
+                },
+            },
+            {
+                "name": "get_feature_data",
+                "description": "Feature store lookup: role family classification, seasonal hiring factors, geo cost indices, and channel effectiveness scores for a role/location. Use for quick role classification or location cost data.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "job_title": {
+                            "type": "string",
+                            "description": "Job title to classify and get features for",
+                        },
+                        "location": {
+                            "type": "string",
+                            "description": "Location for geo cost index",
+                        },
+                        "budget": {
+                            "type": "number",
+                            "description": "Budget for channel recommendations",
+                        },
+                    },
+                    "required": [],
+                },
+            },
+            {
+                "name": "get_outcome_data",
+                "description": "Campaign outcome tracking: conversion rates across the hiring funnel (applications -> interviews -> offers -> hires) with baseline comparisons. Use when asked about campaign performance or funnel metrics.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "role_family": {
+                            "type": "string",
+                            "description": "Role family filter (e.g., 'engineering', 'healthcare')",
+                        },
+                        "time_range_days": {
+                            "type": "integer",
+                            "description": "Number of days to look back (default 90)",
+                        },
+                    },
+                    "required": [],
+                },
+            },
+            {
+                "name": "get_attribution_data",
+                "description": "CFO-ready channel attribution: maps every dollar of spend through the recruitment funnel (Spend -> Clicks -> Applications -> Hires) with ROI multiples. Use for 'where is my budget going?' or attribution questions.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "budget": {
+                            "type": "number",
+                            "description": "Total budget in USD",
+                        },
+                        "channels": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Channel names with spend",
+                        },
+                        "industry": {
+                            "type": "string",
+                            "description": "Industry for benchmark rates",
+                        },
+                    },
+                    "required": [],
+                },
+            },
+            {
+                "name": "render_canvas",
+                "description": "Visual plan canvas: transforms a media plan into a visual layout with channel cards, budget allocations, and color-coded elements. Use when asked to visualize a plan.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "plan_id": {
+                            "type": "string",
+                            "description": "Plan ID to render",
+                        },
+                        "budget": {
+                            "type": "number",
+                            "description": "Total budget",
+                        },
+                        "channels": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Channel names",
+                        },
+                    },
+                    "required": [],
+                },
+            },
+            {
+                "name": "get_ats_data",
+                "description": "ATS widget integration: generates embed code and configuration for the Nova ATS widget. Use when asked about ATS integration or embedding Nova into an applicant tracking system.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "job_title": {
+                            "type": "string",
+                            "description": "Target job title for the widget",
+                        },
+                        "location": {
+                            "type": "string",
+                            "description": "Job location",
+                        },
+                        "budget": {
+                            "type": "number",
+                            "description": "Monthly budget",
+                        },
+                        "theme": {
+                            "type": "string",
+                            "enum": ["light", "dark"],
+                            "description": "Widget theme",
+                        },
+                    },
+                    "required": [],
+                },
+            },
+            {
+                "name": "detect_anomalies",
+                "description": "Statistical anomaly detection on hiring metrics using 3-sigma thresholds. Returns detected anomalies in request latency, error rates, and response sizes. Use when asked about system health, unusual patterns, or metric anomalies.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "metric_name": {
+                            "type": "string",
+                            "description": "Specific metric to check (e.g., 'request_latency_ms', 'error_rate_pct'). Omit for all metrics.",
+                        },
+                    },
+                    "required": [],
+                },
+            },
         ]
 
     # ------------------------------------------------------------------
@@ -3337,6 +4073,20 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
             "web_search": self._web_search,
             "knowledge_search": self._knowledge_search,
             "scrape_url": self._scrape_url,
+            # S18: 13 new module tools
+            "query_market_signals": self._query_market_signals,
+            "predict_hiring_outcome": self._predict_hiring_outcome,
+            "get_benchmarks": self._get_benchmarks,
+            "analyze_competitors": self._analyze_competitors,
+            "generate_scorecard": self._generate_scorecard,
+            "get_copilot_suggestions": self._get_copilot_suggestions,
+            "get_morning_brief": self._get_morning_brief,
+            "get_feature_data": self._get_feature_data,
+            "get_outcome_data": self._get_outcome_data,
+            "get_attribution_data": self._get_attribution_data,
+            "render_canvas": self._render_canvas,
+            "get_ats_data": self._get_ats_data,
+            "detect_anomalies": self._detect_anomalies,
         }
 
     def execute_tool(self, tool_name: str, tool_input: dict) -> str:
@@ -3753,6 +4503,25 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
 
         if topic == "regional":
             result["regional_insights"] = kb.get("regional_insights", {})
+
+        if topic in ("international", "all"):
+            intl = self._data_cache.get("international_sources", {})
+            if intl:
+                sources = intl.get("sources", {})
+                if sources:
+                    result["international_sources"] = {
+                        "available_sources": list(sources.keys()),
+                        "coverage": intl.get("_metadata", {}).get("coverage", []),
+                        "sources_summary": {
+                            k: {
+                                "name": v.get("name") or k,
+                                "region": v.get("region") or "",
+                                "description": v.get("description") or "",
+                                "supported_countries": v.get("supported_countries", []),
+                            }
+                            for k, v in sources.items()
+                        },
+                    }
 
         # Merge vector search results into response
         if _vector_results:
@@ -6051,7 +6820,7 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
             if result:
                 # Truncate to avoid token overflow
                 content = (
-                    result.get("content", "")
+                    (result.get("content") or "")
                     if isinstance(result, dict)
                     else str(result)
                 )
@@ -6069,6 +6838,360 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
             logger.debug("URL scrape failed in scrape_url tool: %s", e)
 
         return {"content": "", "url": url, "error": "Scraping unavailable"}
+
+    # ------------------------------------------------------------------
+    # S18: 13 new module tool handlers
+    # ------------------------------------------------------------------
+
+    def _query_market_signals(self, params: dict) -> dict:
+        """Query real-time market signals: volatility, trends, seasonal patterns."""
+        try:
+            import market_signals
+
+            role_family = (params.get("role_family") or "").strip() or None
+            location = (params.get("location") or "").strip() or None
+            include_volatility = params.get("include_volatility", True)
+            include_trending = params.get("include_trending", True)
+
+            result: dict = {
+                "signals": market_signals.get_active_signals(
+                    role_family=role_family, location=location
+                ),
+                "source": "Nova Market Signal Engine",
+            }
+            if include_volatility:
+                result["volatility"] = market_signals.get_market_volatility()
+            if include_trending:
+                result["trending_channels"] = market_signals.get_trending_channels()
+            return result
+        except ImportError:
+            logger.warning("market_signals module not available")
+            return {"error": "Market signals module is not available", "signals": []}
+        except Exception as e:
+            logger.error("query_market_signals failed: %s", e, exc_info=True)
+            return {"error": f"Market signals lookup failed: {e}", "signals": []}
+
+    def _predict_hiring_outcome(self, params: dict) -> dict:
+        """Predict hiring outcomes using the ML-lite scoring model."""
+        try:
+            import prediction_model
+
+            plan_data: dict = {}
+            if params.get("budget"):
+                plan_data["budget"] = params["budget"]
+                plan_data["total_budget"] = params["budget"]
+            if params.get("roles"):
+                plan_data["roles"] = params["roles"]
+            if params.get("locations"):
+                plan_data["locations"] = params["locations"]
+            if params.get("channels"):
+                plan_data["channels"] = params["channels"]
+            if params.get("industry"):
+                plan_data["industry"] = params["industry"]
+            if params.get("openings"):
+                plan_data["openings"] = params["openings"]
+
+            prediction = prediction_model.predict_outcomes(plan_data)
+            grade = prediction_model.grade_plan(plan_data)
+            return {
+                "prediction": prediction.get("predictions", {}),
+                "overall_score": prediction.get("overall_score", 0),
+                "grade": grade.get("grade", "N/A"),
+                "letter": grade.get("letter", "N/A"),
+                "strengths": grade.get("strengths", []),
+                "weaknesses": grade.get("weaknesses", []),
+                "suggestions": grade.get("suggestions", []),
+                "source": "Nova Prediction Model v1.0",
+            }
+        except ImportError:
+            logger.warning("prediction_model module not available")
+            return {"error": "Prediction model is not available"}
+        except Exception as e:
+            logger.error("predict_hiring_outcome failed: %s", e, exc_info=True)
+            return {"error": f"Prediction failed: {e}"}
+
+    def _get_benchmarks(self, params: dict) -> dict:
+        """Get cross-client anonymized benchmarks."""
+        try:
+            import benchmarking
+
+            role_family = (params.get("role_family") or "").strip() or None
+            location = (params.get("location") or "").strip() or None
+            result = benchmarking.get_benchmarks(
+                role_family=role_family, location=location
+            )
+            result["source"] = "Nova Benchmarking Network"
+            return result
+        except ImportError:
+            logger.warning("benchmarking module not available")
+            return {"error": "Benchmarking module is not available", "sample_size": 0}
+        except Exception as e:
+            logger.error("get_benchmarks failed: %s", e, exc_info=True)
+            return {"error": f"Benchmarking lookup failed: {e}", "sample_size": 0}
+
+    def _analyze_competitors(self, params: dict) -> dict:
+        """Analyze competitor hiring activity and compare companies."""
+        try:
+            import competitive_intel
+
+            company_name = (params.get("company_name") or "").strip()
+            if not company_name:
+                return {"error": "company_name is required"}
+            competitor_names = params.get("competitor_names") or []
+            result = competitive_intel.analyze_competitors(
+                company_name, competitor_names
+            )
+            result["source"] = "Nova Competitive Intelligence"
+            return result
+        except ImportError:
+            logger.warning("competitive_intel module not available")
+            return {"error": "Competitive intelligence module is not available"}
+        except Exception as e:
+            logger.error("analyze_competitors failed: %s", e, exc_info=True)
+            return {"error": f"Competitor analysis failed: {e}"}
+
+    def _generate_scorecard(self, params: dict) -> dict:
+        """Score a media plan on multiple dimensions."""
+        try:
+            import prediction_model
+
+            plan_data: dict = {}
+            if params.get("budget"):
+                plan_data["budget"] = params["budget"]
+                plan_data["total_budget"] = params["budget"]
+            if params.get("roles"):
+                plan_data["roles"] = params["roles"]
+            if params.get("channels"):
+                plan_data["channels"] = params["channels"]
+            if params.get("industry"):
+                plan_data["industry"] = params["industry"]
+
+            grade = prediction_model.grade_plan(plan_data)
+            return {
+                "grade": grade.get("grade", "N/A"),
+                "letter": grade.get("letter", "N/A"),
+                "score": grade.get("score", 0),
+                "strengths": grade.get("strengths", []),
+                "weaknesses": grade.get("weaknesses", []),
+                "suggestions": grade.get("suggestions", []),
+                "source": "Nova Plan Scorecard",
+            }
+        except ImportError:
+            logger.warning("prediction_model module not available for scorecard")
+            return {"error": "Scorecard generation module is not available"}
+        except Exception as e:
+            logger.error("generate_scorecard failed: %s", e, exc_info=True)
+            return {"error": f"Scorecard generation failed: {e}"}
+
+    def _get_copilot_suggestions(self, params: dict) -> dict:
+        """Get inline optimization suggestions for a plan."""
+        try:
+            import plan_copilot
+
+            form_data: dict = {}
+            for field in ("job_title", "budget", "location", "channel", "duration"):
+                val = params.get(field)
+                if val:
+                    form_data[field] = str(val)
+
+            if not form_data:
+                return {
+                    "nudges": [],
+                    "note": "Provide at least one field (job_title, budget, location, channel, duration)",
+                }
+
+            nudges = plan_copilot.get_all_nudges(form_data)
+            return {
+                "nudges": nudges,
+                "fields_analyzed": list(form_data.keys()),
+                "source": "Nova Plan Copilot",
+            }
+        except ImportError:
+            logger.warning("plan_copilot module not available")
+            return {"error": "Plan copilot module is not available", "nudges": []}
+        except Exception as e:
+            logger.error("get_copilot_suggestions failed: %s", e, exc_info=True)
+            return {"error": f"Copilot suggestions failed: {e}", "nudges": []}
+
+    def _get_morning_brief(self, params: dict) -> dict:
+        """Generate today's hiring market morning brief."""
+        try:
+            import morning_brief
+
+            brief = morning_brief.generate_morning_brief()
+            brief["source"] = "Nova Morning Brief"
+            return brief
+        except ImportError:
+            logger.warning("morning_brief module not available")
+            return {"error": "Morning brief module is not available"}
+        except Exception as e:
+            logger.error("get_morning_brief failed: %s", e, exc_info=True)
+            return {"error": f"Morning brief generation failed: {e}"}
+
+    def _get_feature_data(self, params: dict) -> dict:
+        """Look up feature store data for a role/location."""
+        try:
+            import feature_store
+
+            fs = feature_store.get_feature_store()
+            result: dict = {"source": "Nova Feature Store"}
+
+            job_title = (params.get("job_title") or "").strip()
+            location = (params.get("location") or "").strip()
+            budget = params.get("budget")
+
+            if job_title:
+                result["role_family"] = fs.get_role_family(job_title)
+
+            if location:
+                result["geo_cost_index"] = fs.get_geo_cost_index(location)
+
+            import datetime as _dt
+
+            result["seasonal_factor"] = fs.get_seasonal_factor(_dt.datetime.now().month)
+            result["current_month"] = _dt.datetime.now().month
+
+            if job_title and budget and location:
+                result["channel_recommendations"] = fs.get_channel_recommendations(
+                    job_title, float(budget), location
+                )
+
+            return result
+        except ImportError:
+            logger.warning("feature_store module not available")
+            return {"error": "Feature store module is not available"}
+        except Exception as e:
+            logger.error("get_feature_data failed: %s", e, exc_info=True)
+            return {"error": f"Feature store lookup failed: {e}"}
+
+    def _get_outcome_data(self, params: dict) -> dict:
+        """Get campaign outcome tracking data with funnel metrics."""
+        try:
+            import outcome_pipeline
+
+            role_family = (params.get("role_family") or "").strip()
+            time_range_days = params.get("time_range_days", 90)
+            result = outcome_pipeline.get_outcome_trends(
+                role_family=role_family,
+                time_range_days=int(time_range_days),
+            )
+            result["source"] = "Nova Outcome Pipeline"
+            return result
+        except ImportError:
+            logger.warning("outcome_pipeline module not available")
+            return {"error": "Outcome pipeline module is not available"}
+        except Exception as e:
+            logger.error("get_outcome_data failed: %s", e, exc_info=True)
+            return {"error": f"Outcome data lookup failed: {e}"}
+
+    def _get_attribution_data(self, params: dict) -> dict:
+        """Get channel attribution analysis with ROI metrics."""
+        try:
+            import attribution_dashboard
+
+            plan_data: dict = {}
+            if params.get("budget"):
+                plan_data["budget"] = params["budget"]
+                plan_data["total_budget"] = params["budget"]
+            if params.get("channels"):
+                plan_data["channels"] = (
+                    [
+                        {
+                            "channel": ch,
+                            "spend": params["budget"] / len(params["channels"]),
+                        }
+                        for ch in params["channels"]
+                    ]
+                    if params.get("budget")
+                    else [{"channel": ch} for ch in params["channels"]]
+                )
+            if params.get("industry"):
+                plan_data["industry"] = params["industry"]
+
+            result = attribution_dashboard.generate_attribution_report(plan_data)
+            result["source"] = "Nova Attribution Dashboard"
+            return result
+        except ImportError:
+            logger.warning("attribution_dashboard module not available")
+            return {"error": "Attribution dashboard module is not available"}
+        except Exception as e:
+            logger.error("get_attribution_data failed: %s", e, exc_info=True)
+            return {"error": f"Attribution analysis failed: {e}"}
+
+    def _render_canvas(self, params: dict) -> dict:
+        """Transform a plan into visual canvas data."""
+        try:
+            import canvas_engine
+
+            plan_data: dict = {}
+            if params.get("plan_id"):
+                plan_data["plan_id"] = params["plan_id"]
+            if params.get("budget"):
+                plan_data["total_budget"] = params["budget"]
+            if params.get("channels"):
+                plan_data["channels"] = params["channels"]
+
+            result = canvas_engine.parse_plan_for_canvas(plan_data)
+            result["source"] = "Nova Canvas Engine"
+            return result
+        except ImportError:
+            logger.warning("canvas_engine module not available")
+            return {"error": "Canvas engine module is not available"}
+        except Exception as e:
+            logger.error("render_canvas failed: %s", e, exc_info=True)
+            return {"error": f"Canvas rendering failed: {e}"}
+
+    def _get_ats_data(self, params: dict) -> dict:
+        """Get ATS widget embed code and stats."""
+        try:
+            import ats_widget
+
+            config: dict = {}
+            if params.get("job_title"):
+                config["jobTitle"] = params["job_title"]
+            if params.get("location"):
+                config["location"] = params["location"]
+            if params.get("budget"):
+                config["budget"] = params["budget"]
+            if params.get("theme"):
+                config["theme"] = params["theme"]
+
+            embed_code = ats_widget.generate_embed_code(config)
+            stats = ats_widget.get_widget_stats()
+            return {
+                "embed_code": embed_code,
+                "widget_stats": stats,
+                "configuration": config,
+                "source": "Nova ATS Widget",
+            }
+        except ImportError:
+            logger.warning("ats_widget module not available")
+            return {"error": "ATS widget module is not available"}
+        except Exception as e:
+            logger.error("get_ats_data failed: %s", e, exc_info=True)
+            return {"error": f"ATS widget data failed: {e}"}
+
+    def _detect_anomalies(self, params: dict) -> dict:
+        """Detect anomalies in hiring metrics using 3-sigma thresholds."""
+        try:
+            import anomaly_detector
+
+            metric_name = (params.get("metric_name") or "").strip()
+            if metric_name:
+                result = anomaly_detector.check_anomaly(metric_name)
+                result["source"] = "Nova Anomaly Detector"
+                return result
+            else:
+                detector = anomaly_detector.get_anomaly_detector()
+                result = detector.check_all_anomalies()
+                result["source"] = "Nova Anomaly Detector"
+                return result
+        except ImportError:
+            logger.warning("anomaly_detector module not available")
+            return {"error": "Anomaly detector module is not available"}
+        except Exception as e:
+            logger.error("detect_anomalies failed: %s", e, exc_info=True)
+            return {"error": f"Anomaly detection failed: {e}"}
 
     # ------------------------------------------------------------------
     # Chat orchestration
@@ -6466,12 +7589,15 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
                     _is_conversational = False  # Force tool path below
                 else:
                     logger.info(
-                        "NOVA MODE: LLM Router (free provider, no tools) responded successfully"
+                        "NOVA MODE: LLM Router (paid/free provider, no tools) responded successfully"
                     )
                     _nova_metrics.record_latency((time.time() - _t0) * 1000)
                     _nova_metrics.record_chat("conversational")
-                    router_result = _sanitize_refusal_language(
-                        _filter_competitor_names(router_result)
+                    router_result = _enrich_response_quality(
+                        _sanitize_refusal_language(
+                            _filter_competitor_names(router_result)
+                        ),
+                        user_message,
                     )
                     if (
                         (router_result.get("confidence") or 0) >= 0.6
@@ -6479,7 +7605,7 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
                         and len(history) <= 2
                     ):
                         _set_response_cache(cache_key, router_result)
-                    return router_result
+                    return _append_follow_ups_to_response(router_result, user_message)
 
         # Path B: Tool-use queries -> LLM providers WITH tools
         # NOTE (v3.6): This is the DEFAULT path. All non-conversational
@@ -6495,13 +7621,16 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
             )
             if free_tool_result:
                 logger.info(
-                    "NOVA MODE: Free LLM with tools responded successfully (provider=%s)",
+                    "NOVA MODE: LLM with tools responded successfully (provider=%s)",
                     free_tool_result.get("llm_provider", "unknown"),
                 )
                 _nova_metrics.record_latency((time.time() - _t0) * 1000)
                 _nova_metrics.record_chat("tool")
-                free_tool_result = _sanitize_refusal_language(
-                    _filter_competitor_names(free_tool_result)
+                free_tool_result = _enrich_response_quality(
+                    _sanitize_refusal_language(
+                        _filter_competitor_names(free_tool_result)
+                    ),
+                    user_message,
                 )
                 if (
                     (free_tool_result.get("confidence") or 0) >= 0.6
@@ -6509,7 +7638,7 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
                     and len(history) <= 2
                 ):
                     _set_response_cache(cache_key, free_tool_result)
-                return free_tool_result
+                return _append_follow_ups_to_response(free_tool_result, user_message)
             logger.info(
                 "NOVA MODE: Free LLM tools returned None, falling back to Claude"
             )
@@ -6528,14 +7657,17 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
                 logger.info("NOVA MODE: Claude API response received successfully")
                 _nova_metrics.record_latency((time.time() - _t0) * 1000)
                 _nova_metrics.record_chat("claude")
-                result = _sanitize_refusal_language(_filter_competitor_names(result))
+                result = _enrich_response_quality(
+                    _sanitize_refusal_language(_filter_competitor_names(result)),
+                    user_message,
+                )
                 if (
                     (result.get("confidence") or 0) >= 0.6
                     and cache_key
                     and len(history) <= 2
                 ):
                     _set_response_cache(cache_key, result)
-                return result
+                return _append_follow_ups_to_response(result, user_message)
             except Exception as e:
                 logger.error(
                     "Claude API call failed, falling back to rule-based: %s", e
@@ -6572,7 +7704,10 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
                 "error_type": "rule_based_empty",
             }
 
-        return _sanitize_refusal_language(_filter_competitor_names(result))
+        return _append_follow_ups_to_response(
+            _sanitize_refusal_language(_filter_competitor_names(result)),
+            user_message,
+        )
 
     # ------------------------------------------------------------------
     # Quick answer path for simple role+location queries (v3.6)
@@ -6963,12 +8098,12 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
             logger.debug("No free LLM providers configured, skipping router")
             return None
 
-        # Build messages
+        # Build messages -- v4.1: include full recent context for continuity
         messages = []
         if conversation_history:
             recent = conversation_history[
-                -12:
-            ]  # Keep recent context (increased from 6)
+                -16:
+            ]  # v4.1: 16 messages for richer context (was 12)
             for msg in recent:
                 role = msg.get("role", "user")
                 content = msg.get("content") or ""
@@ -6976,7 +8111,7 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
                     messages.append({"role": role, "content": content})
         messages.append({"role": "user", "content": user_message})
 
-        # Build system prompt (condensed version for free LLMs -- no tool instructions)
+        # Build system prompt (condensed version for LLMs -- no tool instructions)
         system_prompt = (
             "You are Nova, Joveo's senior recruitment marketing intelligence analyst. "
             "You are a domain expert in programmatic job advertising, media planning, "
@@ -6989,8 +8124,10 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
             "(1) Answer ONLY what was asked. Simple questions: 1-3 sentences with specific numbers. "
             "Strategic questions: structured response with headers and tables.\n"
             "(2) ALWAYS cite data sources inline: '$85K median (Adzuna)', 'CPA $45-$89 [Joveo 2026 Benchmarks]'.\n"
-            "(3) If missing location or industry, ASK. Auto-classify obvious roles "
-            "(nurse=clinical, driver=blue collar, engineer=white collar). Do NOT assume US/USD.\n"
+            "(3) If missing location, DEFAULT to US national data and provide it immediately. "
+            "Auto-classify obvious roles "
+            "(nurse=clinical, driver=blue collar, engineer=white collar). "
+            "Add: 'This is US national data. Let me know your specific city/state for localized insights.'\n"
             "(4) NEVER invent CPC, CPA, CPH, salary, or benchmark statistics. "
             "Only state numbers from tool results or provided context.\n"
             "(5) Use markdown: **bold** for key metrics, ## headers, | tables | for comparisons.\n"
@@ -6999,8 +8136,76 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
             "(7) NEVER say 'I can't help' or 'I don't have data'. "
             "Always provide actionable value -- benchmarks, ranges, or strategic recommendations.\n"
             "(8) Be concise but thorough. Quick lookups: 50-100 words. "
-            "Standard questions: 150-300 words. Media plans: 300-500 words."
+            "Standard questions: 150-300 words. Media plans: 300-500 words.\n\n"
+            "## EXAMPLE RESPONSES (follow this style exactly)\n\n"
+            "### Example 1: Salary Query\n"
+            "User: 'What is the average salary for a software engineer in San Francisco?'\n\n"
+            "### Software Engineer Salary in San Francisco\n"
+            "Based on current market data:\n"
+            "| Metric | Value |\n|--------|-------|\n"
+            "| **Median Salary** | **$165,000** |\n"
+            "| **25th Percentile** | **$140,000** |\n"
+            "| **75th Percentile** | **$195,000** |\n"
+            "| **Total Comp (with equity)** | **$220,000 - $280,000** |\n\n"
+            "**Key Insights:**\n"
+            "- SF salaries are **1.45x** the national average for this role\n"
+            "- Hiring difficulty: **8.5/10** (Critically Scarce supply)\n"
+            "- Average time-to-fill: **42 days**\n"
+            "- Top competitors: Google, Meta, Apple, Salesforce, Stripe\n\n"
+            "**Recommended CPA:** $1,800 - $2,500 per qualified applicant\n\n"
+            "*Sources: [1] BLS, [2] O*NET, [3] Adzuna, [4] Joveo benchmarks (Q1 2026)*\n\n"
+            "**You might also want to know:**\n"
+            "- How does this compare to remote salaries?\n"
+            "- What channels work best for hiring software engineers in SF?\n\n"
+            "### Example 2: Media Plan Query\n"
+            "User: 'Create a $50K media plan for hiring nurses in Chicago'\n\n"
+            "### Media Plan: Nursing Recruitment -- Chicago, IL\n"
+            "**Budget: $50,000 | Target: Registered Nurses | Market: Chicago Metro**\n\n"
+            "| Channel | Budget | % | Est. CPA | Projected Hires |\n"
+            "|---------|--------|---|----------|----------------|\n"
+            "| **Indeed Sponsored** | $15,000 | 30% | $850 | 18 |\n"
+            "| **LinkedIn Jobs** | $10,000 | 20% | $1,200 | 8 |\n"
+            "| **Nurse.com** | $8,000 | 16% | $650 | 12 |\n"
+            "| **Google Ads** | $7,000 | 14% | $950 | 7 |\n"
+            "| **Facebook/Instagram** | $5,000 | 10% | $600 | 8 |\n"
+            "| **Local Job Fairs** | $3,000 | 6% | $500 | 6 |\n"
+            "| **Contingency** | $2,000 | 4% | -- | -- |\n"
+            "| **Total** | **$50,000** | **100%** | **$847 avg** | **~59 hires** |\n\n"
+            "**Market Context:** Chicago nursing vacancy rate: **12.3%** | "
+            "Avg RN salary: **$82,000** (1.05x national avg) | Hiring difficulty: **6/10**\n\n"
+            "*Sources: [1] BLS, [2] Adzuna, [3] Joveo channel data*\n\n"
+            "### Example 3: Comparison Query\n"
+            "User: 'Compare Indeed vs LinkedIn for tech recruiting'\n\n"
+            "### Indeed vs LinkedIn: Tech Recruiting Comparison\n"
+            "| Metric | Indeed | LinkedIn |\n|--------|--------|----------|\n"
+            "| **Avg CPC** | **$1.50** | **$3.80** |\n"
+            "| **Avg CPA** | **$850** | **$1,400** |\n"
+            "| **Apply Rate** | **8.2%** | **4.5%** |\n"
+            "| **Quality Score** | **7/10** | **9/10** |\n"
+            "| **Best For** | Volume hiring, mid-level | Senior/specialized roles |\n\n"
+            "**Recommendation:** Use **Indeed** for volume (junior-mid, 60% budget) and "
+            "**LinkedIn** for senior/specialized (40% budget). Combined strategy yields "
+            "the best cost-per-quality-hire ratio.\n\n"
+            "*Sources: [1] Platform benchmarks, [2] Joveo campaign data (Q1 2026)*"
         )
+        # Inject query-type-specific response template for consistent formatting
+        system_prompt += _get_response_template_injection(user_message)
+
+        # v4.1: Add session query summary for continuity
+        if conversation_history and len(conversation_history) >= 4:
+            _session_topics = []
+            for msg in conversation_history[-10:]:
+                if msg.get("role") == "user":
+                    _topic = (msg.get("content") or "")[:80].strip()
+                    if _topic:
+                        _session_topics.append(_topic)
+            if _session_topics:
+                system_prompt += (
+                    f"\n\n## SESSION CONTEXT\n"
+                    f"Previous questions in this session: {'; '.join(_session_topics[-5:])}\n"
+                    f"Use this context to provide continuity in your responses."
+                )
+
         # Add enrichment context if available
         if enrichment_context:
             context_summary = _summarize_enrichment(enrichment_context)
@@ -7022,7 +8227,7 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
             if vs_results:
                 context_snippets = []
                 for r in vs_results[:3]:
-                    snippet = r.get("text", r.get("content", ""))[:500]
+                    snippet = (r.get("text") or r.get("content") or "")[:500]
                     if snippet:
                         context_snippets.append(snippet)
                 if context_snippets:
@@ -7087,7 +8292,7 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
                 )
 
             # Use higher token limit for complex queries to prevent truncation
-            _free_max_tokens = 4096 if is_complex else 2048
+            _free_max_tokens = 4096  # Always use 4096 to prevent response truncation
             result = call_llm(
                 messages=messages,
                 system_prompt=system_prompt,
@@ -7125,7 +8330,6 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
         "cerebras",
         "gemini",
         "mistral",
-        "xai",
         "sambanova",
         "openrouter",
         "nvidia_nim",
@@ -7141,7 +8345,7 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
     ) -> Optional[dict]:
         """Try LLM providers WITH tool calling via OpenAI-compatible format.
 
-        Multi-turn tool iteration loop (max 2 iterations to respect rate limits).
+        Multi-turn tool iteration loop (max 4 iterations) with parallel tool execution.
         Complex queries prefer paid models (Claude Haiku, GPT-4o) for quality.
         On any failure or poor quality, returns None to signal fallback to Claude.
 
@@ -7160,12 +8364,12 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
             )
             return None
 
-        # Build messages
+        # Build messages -- v4.1: include full recent context for continuity
         messages = []
         if conversation_history:
             recent = conversation_history[
-                -12:
-            ]  # Keep recent context (increased from 6)
+                -16:
+            ]  # v4.1: 16 messages for richer context (was 12)
             for msg in recent:
                 role = msg.get("role", "user")
                 content = msg.get("content") or ""
@@ -7186,19 +8390,23 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
             "## PERSONALITY: Professional, data-driven, proactive\n"
             "Speak like a senior analyst presenting to a VP of Talent Acquisition. "
             "Lead with specific numbers and cite sources. Be concise but thorough.\n\n"
-            "## QUERY UNDERSTANDING (CRITICAL -- READ FIRST)\n"
-            "Before calling tools, extract entities from the user's query:\n"
-            "- **Job title/role**: e.g., 'nurse', 'software engineer', 'CDL driver'\n"
-            "- **Location**: e.g., 'New York City', 'Texas', 'UK'\n"
-            "- **Industry**: e.g., 'healthcare', 'technology'\n"
-            "- **Metric requested**: e.g., CPA, salary, job boards\n\n"
-            "For SHORT queries like 'nurse in new york city':\n"
-            "- 'nurse' = job title (clinical role). Call query_salary_data(role='Registered Nurse', location='New York City') "
-            "AND query_market_demand(role='Registered Nurse', location='New York City').\n"
-            "- Do NOT search publishers for 'nurse' -- that returns irrelevant health-category boards.\n"
-            "- Do NOT use query_channels with broad 'healthcare' industry -- be specific to the role.\n"
-            "- Infer the user wants: salary data, CPC/CPA benchmarks, recommended job boards, and market demand for that specific role+location.\n\n"
-            "When the query is a ROLE + LOCATION with no explicit metric:\n"
+            "## TOOL INVOCATION (CRITICAL -- MANDATORY -- HIGHEST PRIORITY)\n"
+            "You MUST call at least one tool before responding to ANY data question. "
+            "If you respond with text only (no tool calls) for a data question, your response WILL BE REJECTED "
+            "and the system will retry with a different provider. This is not optional.\n"
+            "NEVER ask clarifying questions before calling tools. "
+            "If the user's query mentions a role, call query_salary_data and query_market_demand immediately.\n\n"
+            "**MISSING LOCATION**: If no location is specified, call tools WITHOUT a location parameter "
+            "to get US national/aggregate data. Provide that data, then add: "
+            "'This is US national data. Let me know your specific city or state for localized insights.'\n\n"
+            "**MISSING INDUSTRY**: If no industry is specified, call tools without industry filter "
+            "for cross-industry benchmarks.\n\n"
+            "For SHORT queries like 'nurse' or 'software engineer salary':\n"
+            "- Extract the role, call query_salary_data(role='Registered Nurse') "
+            "AND query_market_demand(role='Registered Nurse') immediately -- even without location.\n"
+            "- Do NOT search publishers for role names -- that returns irrelevant boards.\n"
+            "- Infer the user wants: salary data, CPC/CPA benchmarks, and market demand.\n\n"
+            "When the query is a ROLE (with or without location):\n"
             "1. Call query_salary_data for compensation data\n"
             "2. Call query_market_demand for hiring demand\n"
             "3. Call query_joveo_benchmarks (if available) for CPA/CPC\n"
@@ -7226,7 +8434,8 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
             "- End with a brief actionable recommendation when relevant\n"
             "- NEVER dump raw data lists without context or interpretation\n\n"
             "## LOCATION & CURRENCY\n"
-            "(9) If the question is missing location, DEFAULT to United States national data. "
+            "(9) If the question is missing location, STILL call tools and provide US national/aggregate data. "
+            "NEVER refuse or ask for location before providing data. "
             "Provide the national/US answer immediately, then add: 'This is US national data. "
             "Let me know if you need a specific city, state, or country.' "
             "Auto-classify obvious roles (nurse/doctor = clinical, driver/warehouse = blue collar, "
@@ -7239,10 +8448,70 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
             "- 'The median salary is **$95,000** [1]' with '[1] Adzuna Salary Data' at end\n"
             "- 'CPA ranges from **$25-$89** [2]' with '[2] Joveo 2026 Benchmarks' at end\n"
             "List all numbered sources at the end of your response.\n\n"
+            "## TOOL PLANNING (MANDATORY -- plan before calling)\n"
+            "Before calling any tools, briefly plan which tools you need:\n"
+            "- For salary questions: call query_salary_data + query_market_demand + query_location_profile\n"
+            "- For media plan questions: call query_budget_projection + query_channels + query_salary_data + query_market_demand + query_benchmarks\n"
+            "- For comparison questions: call the relevant tool for EACH item being compared\n"
+            "- For competitive analysis: call analyze_competitors + query_market_signals + query_location_profile\n"
+            "- Always call at least 3 tools for substantive queries\n\n"
             "## NEVER REFUSE\n"
             "You are a recruitment marketing expert. NEVER say 'I can't help'. "
-            "Always provide value: call tools, share benchmarks, or give recommendations."
+            "Always provide value: call tools, share benchmarks, or give recommendations.\n\n"
+            "## EXAMPLE RESPONSES (follow this style exactly)\n\n"
+            "### Example 1: Salary Query\n"
+            "User: 'What is the average salary for a software engineer in San Francisco?'\n\n"
+            "### Software Engineer Salary in San Francisco\n"
+            "Based on current market data:\n"
+            "| Metric | Value |\n|--------|-------|\n"
+            "| **Median Salary** | **$165,000** |\n"
+            "| **25th Percentile** | **$140,000** |\n"
+            "| **75th Percentile** | **$195,000** |\n"
+            "| **Total Comp (with equity)** | **$220,000 - $280,000** |\n\n"
+            "**Key Insights:**\n"
+            "- SF salaries are **1.45x** the national average for this role\n"
+            "- Hiring difficulty: **8.5/10** (Critically Scarce supply)\n"
+            "- Average time-to-fill: **42 days**\n"
+            "- Top competitors: Google, Meta, Apple, Salesforce, Stripe\n\n"
+            "**Recommended CPA:** $1,800 - $2,500 per qualified applicant\n\n"
+            "*Sources: [1] BLS, [2] O*NET, [3] Adzuna, [4] Joveo benchmarks (Q1 2026)*\n\n"
+            "**You might also want to know:**\n"
+            "- How does this compare to remote salaries?\n"
+            "- What channels work best for hiring software engineers in SF?\n\n"
+            "### Example 2: Media Plan Query\n"
+            "User: 'Create a $50K media plan for hiring nurses in Chicago'\n\n"
+            "### Media Plan: Nursing Recruitment -- Chicago, IL\n"
+            "**Budget: $50,000 | Target: Registered Nurses | Market: Chicago Metro**\n\n"
+            "| Channel | Budget | % | Est. CPA | Projected Hires |\n"
+            "|---------|--------|---|----------|----------------|\n"
+            "| **Indeed Sponsored** | $15,000 | 30% | $850 | 18 |\n"
+            "| **LinkedIn Jobs** | $10,000 | 20% | $1,200 | 8 |\n"
+            "| **Nurse.com** | $8,000 | 16% | $650 | 12 |\n"
+            "| **Google Ads** | $7,000 | 14% | $950 | 7 |\n"
+            "| **Facebook/Instagram** | $5,000 | 10% | $600 | 8 |\n"
+            "| **Local Job Fairs** | $3,000 | 6% | $500 | 6 |\n"
+            "| **Contingency** | $2,000 | 4% | -- | -- |\n"
+            "| **Total** | **$50,000** | **100%** | **$847 avg** | **~59 hires** |\n\n"
+            "**Market Context:** Chicago nursing vacancy rate: **12.3%** | "
+            "Avg RN salary: **$82,000** (1.05x national avg) | Hiring difficulty: **6/10**\n\n"
+            "*Sources: [1] BLS, [2] Adzuna, [3] Joveo channel data*\n\n"
+            "### Example 3: Comparison Query\n"
+            "User: 'Compare Indeed vs LinkedIn for tech recruiting'\n\n"
+            "### Indeed vs LinkedIn: Tech Recruiting Comparison\n"
+            "| Metric | Indeed | LinkedIn |\n|--------|--------|----------|\n"
+            "| **Avg CPC** | **$1.50** | **$3.80** |\n"
+            "| **Avg CPA** | **$850** | **$1,400** |\n"
+            "| **Apply Rate** | **8.2%** | **4.5%** |\n"
+            "| **Quality Score** | **7/10** | **9/10** |\n"
+            "| **Best For** | Volume hiring, mid-level | Senior/specialized roles |\n\n"
+            "**Recommendation:** Use **Indeed** for volume (junior-mid, 60% budget) and "
+            "**LinkedIn** for senior/specialized (40% budget). Combined strategy yields "
+            "the best cost-per-quality-hire ratio.\n\n"
+            "*Sources: [1] Platform benchmarks, [2] Joveo campaign data (Q1 2026)*"
         )
+        # Inject query-type-specific response template for consistent formatting
+        system_prompt += _get_response_template_injection(user_message)
+
         if enrichment_context:
             context_summary = _summarize_enrichment(enrichment_context)
             if context_summary:
@@ -7263,7 +8532,7 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
             if vs_results:
                 context_snippets = []
                 for r in vs_results[:3]:
-                    snippet = r.get("text", r.get("content", ""))[:500]
+                    snippet = (r.get("text") or r.get("content") or "")[:500]
                     if snippet:
                         context_snippets.append(snippet)
                 if context_snippets:
@@ -7305,7 +8574,7 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
         tool_call_details = []
         tool_results_raw = []
         max_iterations = (
-            2  # Aggressive: 2 iterations to stay within 30s global timeout budget
+            4  # v4.2: 4 iterations for free LLMs (slower but need more tool calls)
         )
         active_provider = None  # Lock to same provider for multi-turn
 
@@ -7343,8 +8612,8 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
         else:
             _tool_preferred = self._FREE_TOOL_PROVIDERS
 
-        # Complex queries with tool results need more tokens for synthesis
-        _tool_max_tokens = 4096 if is_complex else 2048
+        # Always use 4096 for tool queries to prevent response truncation
+        _tool_max_tokens = 4096
 
         for iteration in range(max_iterations):
             try:
@@ -7385,12 +8654,13 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
                         preferred_providers=_tool_preferred,
                     )
                     active_provider = (result or {}).get("provider")
-                    # Guard: if router fell through to a paid provider AND
+                    # Guard: if router fell through to expensive providers AND
                     # we did NOT request paid models, bail out so the
                     # dedicated _chat_with_claude path handles it instead.
-                    # When is_complex=True, we WANT paid providers, so don't bail.
-                    _PAID_PROVIDERS = {"gpt4o", "claude", "claude_opus"}
-                    if active_provider in _PAID_PROVIDERS and not is_complex:
+                    # v4.1: claude_haiku is ALLOWED (it's the primary provider now).
+                    # Only bail for expensive providers (Sonnet, Opus) when not complex.
+                    _EXPENSIVE_PROVIDERS = {"claude", "claude_opus"}
+                    if active_provider in _EXPENSIVE_PROVIDERS and not is_complex:
                         logger.info(
                             "LLM tools: router fell through to paid provider %s, "
                             "returning None for Claude fallback path",
@@ -7436,54 +8706,85 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
                 }
                 messages.append(assistant_msg)
 
-                # Execute each tool call
-                for tc in tool_calls:
-                    tc_id = tc.get("id") or ""
-                    tc_fn = tc.get("function", {})
-                    tool_name = tc_fn.get("name") or ""
-                    arguments_str = tc_fn.get("arguments", "{}")
+                # Execute tool calls in PARALLEL (v4.2) using ThreadPoolExecutor
+                _valid_tools = set(self._get_tool_handler_names())
 
-                    # Parse arguments JSON (free models sometimes return malformed JSON)
+                def _exec_free_tool(tc_item: dict) -> Tuple[str, str, str, dict]:
+                    """Execute one tool call; returns (tc_id, name, result, input)."""
+                    _tid = tc_item.get("id") or ""
+                    _tfn = tc_item.get("function", {})
+                    _tname = _tfn.get("name") or ""
+                    _astr = _tfn.get("arguments", "{}")
                     try:
-                        tool_input = (
-                            json.loads(arguments_str)
-                            if isinstance(arguments_str, str)
-                            else arguments_str
-                        )
+                        _tinp = json.loads(_astr) if isinstance(_astr, str) else _astr
                     except (json.JSONDecodeError, TypeError):
                         logger.warning(
-                            "Free LLM tools: malformed JSON in tool args for %s: %s",
-                            tool_name,
-                            arguments_str[:200],
+                            "Free LLM tools: malformed JSON for %s: %s",
+                            _tname,
+                            str(_astr)[:200],
                         )
-                        tool_input = {}
-
-                    # Validate tool exists before executing (dynamic lookup from execute_tool)
-                    _valid_tools = set(self._get_tool_handler_names())
-                    if tool_name not in _valid_tools:
+                        _tinp = {}
+                    if _tname not in _valid_tools:
                         logger.warning(
-                            "Free LLM tools: hallucinated tool name '%s', skipping",
-                            tool_name,
+                            "Free LLM tools: hallucinated tool '%s', skipping", _tname
                         )
-                        tool_result_content = json.dumps(
-                            {"error": f"Unknown tool: {tool_name}"}
+                        return (
+                            _tid,
+                            _tname,
+                            json.dumps({"error": f"Unknown tool: {_tname}"}),
+                            _tinp,
                         )
-                    else:
-                        tools_used.append(tool_name)
-                        logger.info(
-                            "Free LLM tools: executing %s(%s)",
-                            tool_name,
-                            json.dumps(tool_input)[:200],
-                        )
-                        tool_result_content = self.execute_tool(tool_name, tool_input)
+                    logger.info(
+                        "Free LLM tools: executing %s(%s)",
+                        _tname,
+                        json.dumps(_tinp)[:200],
+                    )
+                    return (_tid, _tname, self.execute_tool(_tname, _tinp), _tinp)
 
-                    # Track source and data quality
+                from concurrent.futures import ThreadPoolExecutor as _TPE_Free
+                from concurrent.futures import as_completed as _as_done_free
+
+                _par_res: list[Tuple[str, str, str, dict]] = []
+                _tpool = _TPE_Free(max_workers=min(5, len(tool_calls)))
+                try:
+                    _fmap = {
+                        _tpool.submit(_exec_free_tool, tc): tc for tc in tool_calls
+                    }
+                    for _fut in _as_done_free(_fmap, timeout=15):
+                        try:
+                            _par_res.append(_fut.result())
+                        except Exception as _texc:
+                            _ref = _fmap[_fut]
+                            logger.error(
+                                "Free LLM tools: parallel exec failed for %s: %s",
+                                _ref.get("function", {}).get("name", "?"),
+                                _texc,
+                                exc_info=True,
+                            )
+                            _par_res.append(
+                                (
+                                    _ref.get("id") or "",
+                                    _ref.get("function", {}).get("name") or "",
+                                    json.dumps({"error": str(_texc)}),
+                                    {},
+                                )
+                            )
+                finally:
+                    _tpool.shutdown(wait=False)
+
+                # Preserve original order for deterministic conversation history
+                _ord = {tc.get("id") or "": i for i, tc in enumerate(tool_calls)}
+                _par_res.sort(key=lambda r: _ord.get(r[0], 999))
+
+                for _tid, _tname, _trc, _tinp in _par_res:
+                    if _tname in _valid_tools:
+                        tools_used.append(_tname)
+
                     has_data = False
                     try:
-                        result_parsed = json.loads(tool_result_content)
+                        result_parsed = json.loads(_trc)
                         if "source" in result_parsed:
                             sources.add(result_parsed["source"])
-                        # Also capture sources_used from enrichment
                         if "sources_used" in result_parsed:
                             for _su in result_parsed["sources_used"] or []:
                                 if isinstance(_su, str):
@@ -7491,55 +8792,38 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
                         has_data = not result_parsed.get("error")
                         tool_call_details.append(
                             {
-                                "tool": tool_name,
+                                "tool": _tname,
                                 "has_data": has_data,
                                 "source": result_parsed.get("source") or "",
                             }
                         )
                     except (json.JSONDecodeError, TypeError):
-                        has_data = bool(tool_result_content)
+                        has_data = bool(_trc)
                         tool_call_details.append(
-                            {
-                                "tool": tool_name,
-                                "has_data": has_data,
-                                "source": "",
-                            }
+                            {"tool": _tname, "has_data": has_data, "source": ""}
                         )
 
-                    tool_results_raw.append(tool_result_content)
+                    tool_results_raw.append(_trc)
 
-                    # Append semantic vector context if present
                     try:
-                        _parsed_for_sem = json.loads(tool_result_content)
-                        if (
-                            isinstance(_parsed_for_sem, dict)
-                            and "_semantic_context" in _parsed_for_sem
-                        ):
-                            tool_result_content += (
-                                f"\n\n--- Semantic Search Context ---\n"
-                                f"{_parsed_for_sem['_semantic_context']}"
-                            )
+                        _sem = json.loads(_trc)
+                        if isinstance(_sem, dict) and "_semantic_context" in _sem:
+                            _trc += f"\n\n--- Semantic Search Context ---\n{_sem['_semantic_context']}"
                     except (json.JSONDecodeError, TypeError):
                         pass
 
-                    # Add guardrail for empty tool results
                     if not has_data:
-                        tool_result_content = (
+                        _trc = (
                             "[TOOL RETURNED NO DATA for this exact query. Do NOT invent exact numbers. "
                             "Instead: provide general industry benchmarks or ranges for the closest "
                             "matching role/industry/location. Share strategic recommendations based on "
                             "your recruitment marketing expertise. NEVER say 'I can't help' or "
                             "'I don't have data' -- always provide value with appropriate caveats.]\n"
-                            + tool_result_content
+                            + _trc
                         )
 
-                    # Add tool result to conversation (OpenAI format)
                     messages.append(
-                        {
-                            "role": "tool",
-                            "tool_call_id": tc_id,
-                            "content": tool_result_content,
-                        }
+                        {"role": "tool", "tool_call_id": _tid, "content": _trc}
                     )
 
                 # Continue loop for next LLM iteration with tool results
@@ -7569,6 +8853,44 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
                 )
                 _nova_metrics.record_chat("suppressed")
                 return None  # Fall back to Claude which will call tools
+
+            # v4.2: Tool call minimum enforcement -- retry once if too few tools
+            _is_plan_query = any(
+                kw in (user_message or "").lower()
+                for kw in [
+                    "media plan",
+                    "hiring plan",
+                    "budget",
+                    "competitive",
+                    "compare",
+                    "analysis",
+                ]
+            )
+            _min_tools = 3 if _is_plan_query else 1
+            if (
+                len(tools_used) < _min_tools
+                and iteration < max_iterations - 1
+                and not hasattr(self, "_tool_min_retried")
+            ):
+                self._tool_min_retried = True
+                _needed = _min_tools - len(tools_used)
+                logger.info(
+                    "Free LLM tools: only %d tools called (need %d), retrying with tool enforcement",
+                    len(tools_used),
+                    _min_tools,
+                )
+                _retry_msg = (
+                    f"You only called {len(tools_used)} tool(s). You MUST call at least {_min_tools} tools "
+                    "for this query. Call the remaining tools NOW before responding. "
+                    "Suggested: query_salary_data, query_market_demand, query_location_profile, "
+                    "query_channels, query_budget_projection."
+                )
+                messages.append({"role": "assistant", "content": response_text})
+                messages.append({"role": "user", "content": _retry_msg})
+                continue
+            # Clean up retry flag
+            if hasattr(self, "_tool_min_retried"):
+                del self._tool_min_retried
 
             # Quality gate: reject obviously bad responses
             if len(response_text) < 20:
@@ -7725,7 +9047,8 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
 
         Features:
         - Structured conversation history with session context
-        - Multi-turn tool use (up to 8 iterations for complex queries)
+        - Multi-turn tool use (up to 5 iterations) with parallel tool execution
+        - Tool call minimum enforcement (retry if < 3 tools for complex queries)
         - Automatic source tracking across tool calls
         - Confidence scoring based on data quality
         - Graceful degradation on API errors
@@ -7794,7 +9117,9 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
         sources = set()
         tool_call_details = []  # Track detailed tool interactions for debugging
         tool_results_raw = []  # Collect raw tool results for grounding verification
-        max_iterations = 2  # Reduced from 5 to stay within 30s global timeout budget
+        max_iterations = (
+            5  # v4.2: 5 iterations (Claude is fast, 5x~8s=40s within 55s budget)
+        )
 
         adaptive_max_tokens, selected_model = _classify_query_complexity(user_message)
         logger.info(
@@ -7847,7 +9172,7 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
             if vs_results:
                 context_snippets = []
                 for r in vs_results[:3]:
-                    snippet = r.get("text", r.get("content", ""))[:500]
+                    snippet = (r.get("text") or r.get("content") or "")[:500]
                     if snippet:
                         context_snippets.append(snippet)
                 if context_snippets:
@@ -7902,7 +9227,7 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
                     },
                 )
 
-                with urllib.request.urlopen(req, timeout=45) as resp:
+                with urllib.request.urlopen(req, timeout=50) as resp:
                     resp_data = json.loads(resp.read().decode("utf-8"))
             except urllib.error.HTTPError as http_err:
                 logger.error("Claude API HTTP error (iter %d): %s", iteration, http_err)
@@ -7936,92 +9261,135 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
             content_blocks = resp_data.get("content") or []
 
             if stop_reason == "tool_use":
-                # Process tool calls
-                tool_results = []
-                for block in content_blocks:
-                    if block.get("type") == "tool_use":
-                        tool_name = block["name"]
-                        tool_input = block.get("input", {})
-                        tool_id = block.get("id") or ""
+                # Process tool calls in PARALLEL (v4.2)
+                _tool_use_blocks = [
+                    b for b in content_blocks if b.get("type") == "tool_use"
+                ]
 
-                        tools_used.append(tool_name)
-                        logger.info(
-                            "Nova Claude: tool call [%d] %s(%s)",
-                            iteration,
-                            tool_name,
-                            json.dumps(tool_input)[:200],
-                        )
+                def _exec_claude_tool(block: dict) -> Tuple[str, str, str, dict]:
+                    """Execute one Claude tool_use block; returns (tool_id, name, result, input)."""
+                    _cname = block["name"]
+                    _cinp = block.get("input", {})
+                    _cid = block.get("id") or ""
+                    logger.info(
+                        "Nova Claude: tool call [%d] %s(%s)",
+                        iteration,
+                        _cname,
+                        json.dumps(_cinp)[:200],
+                    )
+                    return (_cid, _cname, self.execute_tool(_cname, _cinp), _cinp)
 
-                        tool_result = self.execute_tool(tool_name, tool_input)
+                from concurrent.futures import ThreadPoolExecutor as _TPE_Claude
+                from concurrent.futures import as_completed as _as_done_claude
 
-                        # Track source from result
-                        has_data = (
-                            False  # Default: assume no data until proven otherwise
-                        )
-                        try:
-                            result_parsed = json.loads(tool_result)
-                            if "source" in result_parsed:
-                                sources.add(result_parsed["source"])
-                            # Also capture sources_used from enrichment
-                            if "sources_used" in result_parsed:
-                                for _su in result_parsed["sources_used"] or []:
-                                    if isinstance(_su, str):
-                                        sources.add(_su)
-                            # Track tool details for confidence scoring
-                            has_data = not result_parsed.get("error")
-                            tool_call_details.append(
-                                {
-                                    "tool": tool_name,
-                                    "has_data": has_data,
-                                    "source": result_parsed.get("source") or "",
-                                }
-                            )
-                        except (json.JSONDecodeError, TypeError):
-                            has_data = bool(tool_result)
-                            tool_call_details.append(
-                                {
-                                    "tool": tool_name,
-                                    "has_data": has_data,
-                                    "source": "",
-                                }
-                            )
-
-                        tool_results_raw.append(
-                            tool_result
-                        )  # For grounding verification
-
-                        # Append semantic vector context if present
-                        try:
-                            _parsed_for_sem = json.loads(tool_result)
-                            if (
-                                isinstance(_parsed_for_sem, dict)
-                                and "_semantic_context" in _parsed_for_sem
-                            ):
-                                tool_result += (
-                                    f"\n\n--- Semantic Search Context ---\n"
-                                    f"{_parsed_for_sem['_semantic_context']}"
+                _claude_par: list[Tuple[str, str, str, dict]] = []
+                if len(_tool_use_blocks) > 1:
+                    _cpool = _TPE_Claude(max_workers=min(5, len(_tool_use_blocks)))
+                    try:
+                        _cfmap = {
+                            _cpool.submit(_exec_claude_tool, blk): blk
+                            for blk in _tool_use_blocks
+                        }
+                        for _cfut in _as_done_claude(_cfmap, timeout=15):
+                            try:
+                                _claude_par.append(_cfut.result())
+                            except Exception as _cexc:
+                                _cblk = _cfmap[_cfut]
+                                logger.error(
+                                    "Claude parallel tool %s failed: %s",
+                                    _cblk.get("name", "?"),
+                                    _cexc,
+                                    exc_info=True,
                                 )
-                        except (json.JSONDecodeError, TypeError):
-                            pass
-
-                        # Add guardrail for tool errors to prevent hallucination
-                        tool_content = tool_result
-                        if not has_data:
-                            tool_content = (
-                                "[TOOL RETURNED NO DATA for this exact query. Do NOT invent exact numbers. "
-                                "Instead: provide general industry benchmarks or ranges for the closest "
-                                "matching role/industry/location. Share strategic recommendations based on "
-                                "your recruitment marketing expertise. NEVER say 'I can't help' or "
-                                "'I don't have data' -- always provide value with appropriate caveats.]\n"
-                                + tool_result
+                                _claude_par.append(
+                                    (
+                                        _cblk.get("id") or "",
+                                        _cblk.get("name", ""),
+                                        json.dumps({"error": str(_cexc)}),
+                                        _cblk.get("input", {}),
+                                    )
+                                )
+                    finally:
+                        _cpool.shutdown(wait=False)
+                else:
+                    # Single tool call -- no need for thread overhead
+                    for blk in _tool_use_blocks:
+                        try:
+                            _claude_par.append(_exec_claude_tool(blk))
+                        except Exception as _cexc:
+                            logger.error(
+                                "Claude tool %s failed: %s",
+                                blk.get("name", "?"),
+                                _cexc,
+                                exc_info=True,
                             )
-                        tool_results.append(
+                            _claude_par.append(
+                                (
+                                    blk.get("id") or "",
+                                    blk.get("name", ""),
+                                    json.dumps({"error": str(_cexc)}),
+                                    blk.get("input", {}),
+                                )
+                            )
+
+                # Preserve original block order
+                _blk_order = {
+                    b.get("id") or "": i for i, b in enumerate(_tool_use_blocks)
+                }
+                _claude_par.sort(key=lambda r: _blk_order.get(r[0], 999))
+
+                tool_results = []
+                for _cid, _cname, _cresult, _cinp in _claude_par:
+                    tools_used.append(_cname)
+                    has_data = False
+                    try:
+                        result_parsed = json.loads(_cresult)
+                        if "source" in result_parsed:
+                            sources.add(result_parsed["source"])
+                        if "sources_used" in result_parsed:
+                            for _su in result_parsed["sources_used"] or []:
+                                if isinstance(_su, str):
+                                    sources.add(_su)
+                        has_data = not result_parsed.get("error")
+                        tool_call_details.append(
                             {
-                                "type": "tool_result",
-                                "tool_use_id": tool_id,
-                                "content": tool_content,
+                                "tool": _cname,
+                                "has_data": has_data,
+                                "source": result_parsed.get("source") or "",
                             }
                         )
+                    except (json.JSONDecodeError, TypeError):
+                        has_data = bool(_cresult)
+                        tool_call_details.append(
+                            {"tool": _cname, "has_data": has_data, "source": ""}
+                        )
+
+                    tool_results_raw.append(_cresult)
+
+                    try:
+                        _sem = json.loads(_cresult)
+                        if isinstance(_sem, dict) and "_semantic_context" in _sem:
+                            _cresult += f"\n\n--- Semantic Search Context ---\n{_sem['_semantic_context']}"
+                    except (json.JSONDecodeError, TypeError):
+                        pass
+
+                    tool_content = _cresult
+                    if not has_data:
+                        tool_content = (
+                            "[TOOL RETURNED NO DATA for this exact query. Do NOT invent exact numbers. "
+                            "Instead: provide general industry benchmarks or ranges for the closest "
+                            "matching role/industry/location. Share strategic recommendations based on "
+                            "your recruitment marketing expertise. NEVER say 'I can't help' or "
+                            "'I don't have data' -- always provide value with appropriate caveats.]\n"
+                            + _cresult
+                        )
+                    tool_results.append(
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": _cid,
+                            "content": tool_content,
+                        }
+                    )
 
                 # Add assistant message with tool_use blocks and tool results
                 messages.append({"role": "assistant", "content": content_blocks})
@@ -8050,6 +9418,42 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
                 except Exception:
                     verification_status = "error"
                     verification_score = 0.5
+
+                # v4.2: Tool call minimum enforcement for Claude path
+                _is_plan_query_c = any(
+                    kw in (user_message or "").lower()
+                    for kw in [
+                        "media plan",
+                        "hiring plan",
+                        "budget",
+                        "competitive",
+                        "compare",
+                        "analysis",
+                    ]
+                )
+                _min_tools_c = 3 if _is_plan_query_c else 1
+                if (
+                    len(tools_used) < _min_tools_c
+                    and iteration < max_iterations - 1
+                    and not hasattr(self, "_claude_tool_min_retried")
+                ):
+                    self._claude_tool_min_retried = True
+                    logger.info(
+                        "Claude: only %d tools called (need %d), retrying with enforcement",
+                        len(tools_used),
+                        _min_tools_c,
+                    )
+                    _retry_msg_c = (
+                        f"You only called {len(tools_used)} tool(s). You MUST call at least {_min_tools_c} tools "
+                        "for this query. Call the remaining tools NOW. "
+                        "Suggested: query_salary_data, query_market_demand, query_location_profile, "
+                        "query_channels, query_budget_projection."
+                    )
+                    messages.append({"role": "assistant", "content": response_text})
+                    messages.append({"role": "user", "content": _retry_msg_c})
+                    continue
+                if hasattr(self, "_claude_tool_min_retried"):
+                    del self._claude_tool_min_retried
 
                 # Suppression gate (v3.5): if response ignores tool data, re-prompt once
                 combined_score = min(grounding_score, verification_score)
@@ -9239,25 +10643,25 @@ Markdown: **bold** metrics, ## headers for sections, | tables | for comparisons,
 
                 if _quick_stats:
                     response_text = (
-                        "Here's what I found that may be relevant:\n\n"
-                        + "\n".join(f"- {s}" for s in _quick_stats)
+                        "Here are some current US national recruitment benchmarks:\n\n"
+                        + "\n".join(f"- **{s}**" for s in _quick_stats)
                         + "\n\n"
-                        "To give you more targeted data, it helps to know:\n"
-                        "- *Role*: What position(s) are you hiring for?\n"
-                        "- *Location*: Which country or region?\n"
-                        "- *Industry*: What sector (e.g., healthcare, tech, logistics)?\n\n"
-                        'For example: _"What\'s the CPA for nursing roles in the US?"_ or '
-                        '_"Recommend publishers for tech hiring in Germany."_'
+                        "For more targeted data, let me know:\n"
+                        "- **Role**: What position(s) are you hiring for?\n"
+                        "- **Location**: Which city, state, or country?\n"
+                        "- **Industry**: What sector (e.g., healthcare, tech, logistics)?\n\n"
+                        "I can drill into specific benchmarks once I know what you're looking for."
                     )
                 else:
                     response_text = (
-                        "I'd like to help you find the right recruitment data. "
-                        "To give you the most accurate information, could you include:\n\n"
-                        "- *Role*: What position(s) are you hiring for?\n"
-                        "- *Location*: Which country or region?\n"
-                        "- *Industry*: What sector (e.g., healthcare, tech, logistics)?\n\n"
-                        'For example: _"What\'s the CPA for nursing roles in the US?"_ or '
-                        '_"How should I allocate a $50K budget for 10 engineering hires?"_'
+                        "I can help with recruitment marketing data across all industries "
+                        "and locations. Here's what I can provide:\n\n"
+                        "- **Salary data** for any role (US national or city-specific)\n"
+                        "- **CPC/CPA benchmarks** by industry and platform\n"
+                        "- **Budget allocation** recommendations with projected outcomes\n"
+                        "- **Job board recommendations** for 70+ countries\n"
+                        "- **Market demand** and hiring difficulty analysis\n\n"
+                        "What role or topic are you interested in? I'll pull the data immediately."
                     )
             sections.append(response_text)
 
@@ -9580,6 +10984,102 @@ _REFUSAL_REPLACEMENTS = [
         "Based on available data:",
     ),
 ]
+
+
+def _enrich_response_quality(response: dict, user_message: str = "") -> dict:
+    """Post-process LLM response to ensure quality formatting and data richness.
+
+    v4.1 Quality Post-Processing:
+    1. If response is plain text without markdown, add formatting
+    2. If response mentions data but lacks source citations, append them
+    3. If response is too short for a substantive query, flag it
+    4. Add a confidence score based on tool usage, citations, data specificity
+
+    Args:
+        response: The response dict from any LLM path.
+        user_message: The original user query (for substantive check).
+
+    Returns:
+        Enriched response dict with quality improvements.
+    """
+    text = response.get("response") or ""
+    if not text or len(text) < 20:
+        return response
+
+    response = dict(response)  # Don't mutate the original
+    tools_used = response.get("tools_used") or []
+    sources = response.get("sources") or []
+    changed = False
+
+    # 1. Add markdown formatting if response is plain text (no headers, bold, bullets)
+    has_markdown = any(
+        marker in text for marker in ["##", "**", "- ", "| ", "```", "1. ", "2. "]
+    )
+    if not has_markdown and len(text) > 200:
+        # Add bold to numbers that look like metrics (e.g., $85,000 or 45%)
+        text = re.sub(
+            r"(\$[\d,]+(?:\.\d{2})?(?:K|M|B)?)",
+            r"**\1**",
+            text,
+        )
+        text = re.sub(
+            r"(\d+(?:\.\d+)?%)",
+            r"**\1**",
+            text,
+        )
+        # Add bold to CPC/CPA/CPH values
+        text = re.sub(
+            r"((?:CPC|CPA|CPH|CPM|ROI|ROAS)\s*(?:of|is|:)?\s*\$?[\d,.]+)",
+            r"**\1**",
+            text,
+        )
+        changed = True
+
+    # 2. If tools were used but no source citations in text, append them
+    if tools_used and sources:
+        has_citations = bool(re.search(r"\[\d+\]|\[Source", text))
+        if not has_citations:
+            source_list = []
+            for i, src in enumerate(sources[:5], 1):
+                source_list.append(f"[{i}] {src}")
+            if source_list:
+                text = (
+                    text.rstrip() + "\n\n---\n**Sources:** " + " | ".join(source_list)
+                )
+                changed = True
+
+    # 3. Flag short responses for substantive queries
+    is_substantive = _detect_query_complexity(user_message) if user_message else False
+    if is_substantive and len(text) < 200 and tools_used:
+        response["quality_flag"] = "short_response_for_substantive_query"
+        logger.info(
+            "Quality enrichment: short response (%d chars) for substantive query, flagged",
+            len(text),
+        )
+
+    # 4. Compute confidence score based on quality signals
+    quality_score = 0.5  # baseline
+    if tools_used:
+        quality_score += 0.15  # tool usage is high signal
+    if len(tools_used) >= 2:
+        quality_score += 0.1  # multiple tools = comprehensive
+    if sources:
+        quality_score += 0.1  # citations present
+    if has_markdown or changed:
+        quality_score += 0.05  # well-formatted
+    if len(text) > 300:
+        quality_score += 0.05  # sufficient depth
+    # Generic text only (no numbers) is low quality
+    has_numbers = bool(re.search(r"\$[\d,]+|\d+%|\d{2,}", text))
+    if not has_numbers and is_substantive:
+        quality_score -= 0.15  # generic text for data question
+    quality_score = round(min(quality_score, 1.0), 2)
+
+    response["quality_score"] = quality_score
+    if changed:
+        response["response"] = text
+
+    return response
 
 
 def _sanitize_refusal_language(response: dict) -> dict:
@@ -10974,6 +12474,489 @@ def _format_demand_response(data: dict, role: str) -> str:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# RESPONSE ENRICHMENT PIPELINE (S18)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+_RE_DOLLAR_AMOUNT = re.compile(r"(?<!\*)\$(\d[\d,]*\.?\d*)\b(?!\*)")
+_RE_PERCENTAGE = re.compile(r"(?<!\*)(\d+\.?\d*)\s*%(?!\*)")
+_RE_DAY_DURATION = re.compile(r"(?<!\*)(\d+)\s+(days?|weeks?|months?|years?)\b(?!\*)")
+_RE_NUMBERED_LIST = re.compile(r"(?m)^(\d+)\.\s+")
+_RE_PLAIN_HEADER_LINE = re.compile(r"(?m)^([A-Z][A-Za-z &/,]{4,50}):\s*$")
+_RE_DATA_POINT = re.compile(
+    r"\$[\d,]+\.?\d*|\d+\.?\d*\s*%|\d{2,}[\d,]*\s*"
+    r"(days?|weeks?|months?|years?|hires?|applicants?|clicks?|applications?)"
+)
+
+_TOOL_SOURCE_MAP: Dict[str, str] = {
+    "query_salary_data": "BLS / Salary Data",
+    "query_publishers": "Joveo Publisher Network",
+    "query_knowledge_base": "Recruitment Industry KB",
+    "query_demand_data": "Market Demand API",
+    "query_benchmarks": "Industry Benchmarks",
+    "query_global_supply": "Global Supply Database",
+    "query_industry_benchmarks": "Industry Benchmarks (22 sectors)",
+    "query_cpc_benchmarks": "CPC/CPA Benchmark Engine",
+    "query_platform_deep": "Platform Intelligence",
+    "query_dei_boards": "DEI Board Directory",
+    "query_country_boards": "International Job Boards",
+    "query_trends": "Trend Engine",
+    "query_market_signals": "Market Signals",
+    "knowledge_search": "Knowledge Base (Vector Search)",
+    "query_collar_intel": "Blue/White Collar Intel",
+    "query_ats_widget": "ATS Integration Widget",
+    "query_competitive_landscape": "Competitive Landscape",
+    "scrape_url": "Web Scraper",
+}
+
+_FOLLOW_UP_TEMPLATES: Dict[str, List[str]] = {
+    "salary": [
+        "How does this salary compare to {related_city}?",
+        "What channels work best for recruiting at this salary range?",
+        "What is the competitive landscape for this role?",
+    ],
+    "budget": [
+        "How should I split this budget across channels?",
+        "What ROI can I expect from this budget allocation?",
+        "What are the industry benchmarks for this spend level?",
+    ],
+    "cpa": [
+        "How can I reduce my CPA for this role?",
+        "What channels offer the lowest CPA?",
+        "How does this CPA compare to industry benchmarks?",
+    ],
+    "cpc": [
+        "What is the expected conversion rate at this CPC?",
+        "Which publishers offer the best CPC for this role?",
+        "How does this CPC trend over time?",
+    ],
+    "benchmark": [
+        "How does this compare to last year's benchmarks?",
+        "What are the top-performing channels for this metric?",
+        "How do different industries compare on this benchmark?",
+    ],
+    "publisher": [
+        "What is the cost-per-hire on this publisher?",
+        "Which publishers work best in this location?",
+        "What is the applicant quality from this publisher?",
+    ],
+    "hiring": [
+        "What is the average time-to-fill for this role?",
+        "What are the most effective sourcing channels?",
+        "How does seasonality affect hiring for this role?",
+    ],
+    "default": [
+        "What are the salary benchmarks for this role and location?",
+        "Which job boards have the highest supply for this role?",
+        "What does a typical media plan look like for this type of hire?",
+    ],
+}
+
+
+def _enrich_response(
+    response_text: str,
+    tools_used: Optional[List[str]] = None,
+    sources: Optional[List[str]] = None,
+    query: str = "",
+    confidence: float = 0.0,
+) -> Tuple[str, List[str], int]:
+    """Post-process and enrich a Nova response for Claude-level quality.
+
+    Applies markdown formatting, source citations, follow-up suggestions,
+    data density checks, and computes a quality score. Each enrichment step
+    is wrapped in its own try/except for error isolation.
+
+    Args:
+        response_text: The raw LLM response text.
+        tools_used: List of tool names that were called during generation.
+        sources: List of source names already attached to the response.
+        query: The original user query (used for contextual follow-ups).
+        confidence: The confidence score from the LLM response.
+
+    Returns:
+        Tuple of (enriched_text, updated_sources, quality_score).
+    """
+    if not response_text or not response_text.strip():
+        return response_text, sources or [], 0
+
+    tools_used = tools_used or []
+    sources = list(sources or [])
+    enriched = response_text
+
+    # Skip enrichment for short/trivial responses (greetings, ack, errors)
+    is_trivial = bool(_TRIVIAL_PATTERNS.match(query.strip())) if query else False
+    if is_trivial or len(response_text.strip()) < 80:
+        score = _compute_quality_score(response_text, tools_used, sources, query)
+        return response_text, sources, score
+
+    # Step 1: Markdown formatting enforcement
+    try:
+        enriched = _enrich_markdown_formatting(enriched)
+    except Exception as e:
+        logger.warning("Enrichment: markdown formatting failed: %s", e, exc_info=True)
+
+    # Step 2: Source citation injection
+    try:
+        enriched, sources = _enrich_source_citations(enriched, tools_used, sources)
+    except Exception as e:
+        logger.warning("Enrichment: source citation failed: %s", e, exc_info=True)
+
+    # Step 3: Follow-up suggestions
+    try:
+        enriched = _enrich_follow_up_suggestions(enriched, query)
+    except Exception as e:
+        logger.warning("Enrichment: follow-up suggestions failed: %s", e, exc_info=True)
+
+    # Step 4: Data density check
+    try:
+        enriched, sources = _enrich_data_density(enriched, query, sources)
+    except Exception as e:
+        logger.warning("Enrichment: data density check failed: %s", e, exc_info=True)
+
+    # Step 5: Quality score
+    score = _compute_quality_score(enriched, tools_used, sources, query)
+    logger.info(
+        "Enrichment: quality_score=%d tools=%d sources=%d query=%s",
+        score,
+        len(tools_used),
+        len(sources),
+        query[:60],
+    )
+
+    return enriched, sources, score
+
+
+def _enrich_markdown_formatting(text: str) -> str:
+    """Enforce rich markdown formatting on plain-text responses.
+
+    Bolds dollar amounts, percentages, and durations. Converts numbered
+    lists to bullets and promotes standalone header lines to ### headers.
+
+    Args:
+        text: The response text to format.
+
+    Returns:
+        The text with markdown formatting applied.
+    """
+    has_markdown = "**" in text or "###" in text or "| " in text or "```" in text
+
+    text = _RE_DOLLAR_AMOUNT.sub(r"**$\1**", text)
+    text = _RE_PERCENTAGE.sub(r"**\1%**", text)
+    text = _RE_DAY_DURATION.sub(r"**\1 \2**", text)
+    text = text.replace("****", "**")
+
+    if has_markdown:
+        return text
+
+    text = _RE_NUMBERED_LIST.sub(r"- ", text)
+    text = _RE_PLAIN_HEADER_LINE.sub(r"### \1", text)
+    return text
+
+
+def _enrich_source_citations(
+    text: str,
+    tools_used: List[str],
+    sources: List[str],
+) -> Tuple[str, List[str]]:
+    """Inject source citations based on tools used during response generation.
+
+    Maps tool names to human-readable source names and appends a Sources
+    footer. Adds inline citations for salary and benchmark data.
+
+    Args:
+        text: The response text to annotate.
+        tools_used: List of tool function names that were called.
+        sources: Existing source names already in the response dict.
+
+    Returns:
+        Tuple of (annotated_text, updated_sources).
+    """
+    if not tools_used:
+        return text, sources
+
+    tool_sources: List[str] = []
+    for tool_name in tools_used:
+        source_name = _TOOL_SOURCE_MAP.get(tool_name, "")
+        if source_name and source_name not in tool_sources:
+            tool_sources.append(source_name)
+
+    merged_sources = list(sources)
+    for s in tool_sources:
+        if s not in merged_sources:
+            merged_sources.append(s)
+
+    # Inline citation: salary data
+    if any("salary" in t for t in tools_used):
+        if "Source: BLS" not in text and "source: BLS" not in text:
+            text = re.sub(
+                r"(\*\*\$[\d,]+\*\*\s*(?:[-\u2013]\s*\*\*\$[\d,]+\*\*)?)"
+                r"\s*(per\s+(?:year|hour|month|annum))",
+                r"\1 \2 *(Source: BLS)*",
+                text,
+                count=1,
+            )
+
+    # Inline citation: benchmarks
+    if any("benchmark" in t for t in tools_used):
+        if "Source: Industry Benchmarks" not in text:
+            text = re.sub(
+                r"(industry\s+average[^.]*\.)",
+                r"\1 *(Source: Industry Benchmarks)*",
+                text,
+                count=1,
+                flags=re.IGNORECASE,
+            )
+
+    # Sources footer
+    if tool_sources and "\n---\n**Sources:**" not in text:
+        sources_line = ", ".join(tool_sources)
+        text = f"{text.rstrip()}\n\n---\n**Sources:** {sources_line}"
+
+    return text, merged_sources
+
+
+def _detect_query_topic(query: str) -> str:
+    """Detect the primary topic of a user query for follow-up generation.
+
+    Args:
+        query: The user query text.
+
+    Returns:
+        Topic key string (e.g., 'salary', 'budget', 'default').
+    """
+    if not query:
+        return "default"
+
+    q_lower = query.lower()
+    topic_keywords: Dict[str, List[str]] = {
+        "salary": [
+            "salary",
+            "wage",
+            "pay",
+            "compensation",
+            "earnings",
+            "income",
+        ],
+        "budget": ["budget", "spend", "allocation", "investment", "funding"],
+        "cpa": ["cpa", "cost per application", "cost per apply"],
+        "cpc": ["cpc", "cost per click", "cost-per-click", "ppc"],
+        "benchmark": [
+            "benchmark",
+            "average",
+            "median",
+            "industry standard",
+            "kpi",
+        ],
+        "publisher": [
+            "publisher",
+            "job board",
+            "platform",
+            "indeed",
+            "linkedin",
+            "ziprecruiter",
+        ],
+        "hiring": [
+            "hiring",
+            "recruit",
+            "talent",
+            "time to fill",
+            "time-to-fill",
+            "sourcing",
+        ],
+    }
+
+    for topic, keywords in topic_keywords.items():
+        if any(kw in q_lower for kw in keywords):
+            return topic
+
+    return "default"
+
+
+def _enrich_follow_up_suggestions(text: str, query: str) -> str:
+    """Append contextual follow-up question suggestions to the response.
+
+    Selects 2-3 follow-up questions based on query topic.
+
+    Args:
+        text: The response text to append suggestions to.
+        query: The original user query for context.
+
+    Returns:
+        The text with follow-up suggestions appended.
+    """
+    if "You might also want to know" in text or "Related questions" in text:
+        return text
+
+    topic = _detect_query_topic(query)
+    templates = _FOLLOW_UP_TEMPLATES.get(topic, _FOLLOW_UP_TEMPLATES["default"])
+
+    q_lower = query.lower()
+    related_city = ""
+    _city_names = [
+        "new york",
+        "los angeles",
+        "chicago",
+        "houston",
+        "dallas",
+        "san francisco",
+        "seattle",
+        "boston",
+        "atlanta",
+        "denver",
+        "phoenix",
+        "miami",
+        "austin",
+        "portland",
+        "minneapolis",
+    ]
+    for city in _city_names:
+        if city not in q_lower:
+            related_city = city.title()
+            break
+
+    formatted: List[str] = []
+    for s in templates[:3]:
+        try:
+            line = s.format(related_city=related_city or "nearby cities")
+        except (KeyError, IndexError):
+            line = s
+        formatted.append(f"- {line}")
+
+    follow_up_block = "\n\n**You might also want to know:**\n" + "\n".join(formatted)
+    return f"{text.rstrip()}{follow_up_block}"
+
+
+def _enrich_data_density(
+    text: str,
+    query: str,
+    sources: List[str],
+) -> Tuple[str, List[str]]:
+    """Check data density and append KB context if the response is data-thin.
+
+    For data queries with fewer than 3 data points, searches the knowledge
+    base and appends relevant facts as additional context.
+
+    Args:
+        text: The response text to check.
+        query: The original user query.
+        sources: Current list of sources (may be updated).
+
+    Returns:
+        Tuple of (potentially enriched text, updated sources).
+    """
+    query_lower = query.lower() if query else ""
+    is_data_query = any(ind in query_lower for ind in _DATA_QUERY_INDICATORS)
+    if not is_data_query:
+        return text, sources
+
+    data_points = _RE_DATA_POINT.findall(text)
+    if len(data_points) >= 3:
+        return text, sources
+
+    kb_context = _fetch_kb_context_for_query(query)
+    if kb_context:
+        text = f"{text.rstrip()}\n\n### Additional Context\n{kb_context}"
+        if "Recruitment Industry KB" not in sources:
+            sources.append("Recruitment Industry KB")
+
+    return text, sources
+
+
+def _fetch_kb_context_for_query(query: str) -> str:
+    """Search the knowledge base for relevant facts to augment a thin response.
+
+    Uses vector search first, falling back to keyword search in the
+    data cache. Returns up to 3 relevant facts or empty string.
+
+    Args:
+        query: The user query to search for.
+
+    Returns:
+        Formatted string of KB facts, or empty string.
+    """
+    try:
+        from vector_search import search as vector_search_fn
+
+        results = vector_search_fn(query, top_k=3)
+        if results:
+            lines: List[str] = []
+            for r in results[:3]:
+                content = ""
+                if isinstance(r, dict):
+                    content = r.get("content") or r.get("text") or str(r)
+                elif isinstance(r, str):
+                    content = r
+                if content:
+                    lines.append(f"- {content[:200].strip()}")
+            if lines:
+                return "\n".join(lines)
+    except ImportError:
+        pass
+    except (OSError, ValueError, TypeError, RuntimeError) as e:
+        logger.debug("KB context vector search failed: %s", e)
+
+    try:
+        iq = _get_iq()
+        kb = iq._data_cache.get("knowledge_base", {})
+        if not kb:
+            return ""
+
+        query_terms = [w for w in query.lower().split() if len(w) > 3]
+        matches: List[str] = []
+        for _sk, section_data in kb.items():
+            if not isinstance(section_data, dict):
+                continue
+            section_str = json.dumps(section_data, default=str)[:2000].lower()
+            if any(term in section_str for term in query_terms):
+                summary = (
+                    section_data.get("summary") or section_data.get("description") or ""
+                )
+                if summary:
+                    matches.append(f"- {summary[:200].strip()}")
+                if len(matches) >= 3:
+                    break
+        return "\n".join(matches)
+    except Exception as e:
+        logger.debug("KB context keyword search failed: %s", e)
+        return ""
+
+
+def _compute_quality_score(
+    text: str,
+    tools_used: List[str],
+    sources: List[str],
+    query: str,
+) -> int:
+    """Compute a response quality score (0-100) for monitoring.
+
+    Scoring: tools_used +30, citations +20, data_points +5 each (max +20),
+    markdown +10, length>300 +10, follow-ups +10.
+
+    Args:
+        text: The response text to score.
+        tools_used: List of tools used in generation.
+        sources: List of source names.
+        query: The original user query.
+
+    Returns:
+        Integer quality score 0-100.
+    """
+    score = 0
+    if tools_used:
+        score += 30
+    if "**Sources:**" in text or sources:
+        score += 20
+    data_points = _RE_DATA_POINT.findall(text)
+    score += min(len(data_points) * 5, 20)
+    if "**" in text or "###" in text or "| " in text or "- " in text:
+        score += 10
+    if len(text.strip()) > 300:
+        score += 10
+    if "You might also want to know" in text:
+        score += 10
+    return min(score, 100)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # HTTP HANDLER
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -11098,10 +13081,12 @@ def handle_chat_request(
             (result.get("response") or "").strip() if isinstance(result, dict) else ""
         )
         if not _resp_text:
-            _attempts = result.get("attempts", []) if isinstance(result, dict) else []
+            _attempts = (
+                (result.get("attempts") or []) if isinstance(result, dict) else []
+            )
             _n_tried = len(_attempts)
             _last_err = (
-                _attempts[-1].get("error", "unknown") if _attempts else "unknown"
+                (_attempts[-1].get("error") or "unknown") if _attempts else "unknown"
             )
             logger.warning(
                 "All LLM providers returned empty response (tried %d) for: %s",
@@ -11133,6 +13118,41 @@ def handle_chat_request(
             # Attach quality warning to result metadata (don't block response)
             if isinstance(result, dict):
                 result["quality_warning"] = quality_reason
+
+        # S18: Response enrichment pipeline -- post-process for Claude-level quality
+        if isinstance(result, dict) and _resp_text:
+            try:
+                _enriched_text, _enriched_sources, _quality_score = _enrich_response(
+                    response_text=_resp_text,
+                    tools_used=result.get("tools_used") or [],
+                    sources=result.get("sources") or [],
+                    query=message,
+                    confidence=result.get("confidence") or 0.0,
+                )
+                result["response"] = _enriched_text
+                result["sources"] = _enriched_sources
+                result["quality_score"] = _quality_score
+
+                # Quality score retry: if score < 50 on a substantive query,
+                # log for monitoring (retry deferred to avoid latency hit)
+                _is_trivial_msg = (
+                    bool(_TRIVIAL_PATTERNS.match(message.strip())) if message else False
+                )
+                if _quality_score < 50 and not _is_trivial_msg:
+                    logger.warning(
+                        "Low quality score %d for query: %s",
+                        _quality_score,
+                        message[:80],
+                    )
+                    result["quality_warning"] = (
+                        result.get("quality_warning") or ""
+                    ) + f" low_quality_score:{_quality_score}"
+            except Exception as _enrich_err:
+                logger.warning(
+                    "Response enrichment failed (non-blocking): %s",
+                    _enrich_err,
+                    exc_info=True,
+                )
 
         # Save conversation to memory
         try:
@@ -11327,6 +13347,7 @@ def handle_chat_request_stream(
     tools_used = response.get("tools_used") or []
     llm_provider = response.get("llm_provider") or ""
     llm_model = response.get("llm_model") or ""
+    quality_score = response.get("quality_score") or 0
 
     # Emit tool-use progress so the frontend can show what data was gathered
     if tools_used:
@@ -11368,6 +13389,7 @@ def handle_chat_request_stream(
             "llm_provider": llm_provider,
             "llm_model": llm_model or "",
             "streamed": True,
+            "quality_score": quality_score,
             "token_usage": {
                 "message_tokens": _msg_tokens,
                 "response_tokens": _resp_tokens,
@@ -11398,6 +13420,7 @@ def handle_chat_request_stream(
         "llm_provider": llm_provider,
         "llm_model": llm_model or "",
         "streamed": False,
+        "quality_score": quality_score,
         "token_usage": {
             "message_tokens": _msg_tokens,
             "response_tokens": _resp_tokens,
