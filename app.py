@@ -13387,10 +13387,13 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 55.0  # seconds -- matches GLOBAL_TIMEOUT_BUDGET_TOOLS (tool queries need 55s)
             )
             try:
-                # ── Shared enrichment: file parsing + parallel API calls ──
-                _enrich_chat_context(data, data.get("message") or "")
-
                 from nova import handle_chat_request
+
+                # ── Shared enrichment moved INSIDE timeout wrapper ──
+                # Previously ran outside the 55s budget, consuming ~8s
+                # before the clock even started. Now the enrichment +
+                # LLM call share the same 55s budget.
+                _enrich_chat_context(data, data.get("message") or "")
 
                 _chat_span_fn = getattr(self, "_sentry_span", lambda o, n: _nullctx())
 
@@ -17183,16 +17186,8 @@ class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
 if __name__ == "__main__":
     import signal
 
-    # Production uses gunicorn via wsgi.py (see Procfile / render.yaml).
-    # This __main__ block runs only for local development.
-    # The RENDER env var may also be set locally (e.g. in ~/.zshrc), so
-    # additionally verify we are NOT running inside a gunicorn worker.
-    _is_gunicorn = "gunicorn" in os.environ.get("SERVER_SOFTWARE", "")
-    if os.environ.get("RENDER") and not _is_gunicorn:
-        logger.warning(
-            "Running app.py directly in production is deprecated. "
-            "Use gunicorn via wsgi.py instead (see Procfile)."
-        )
+    # Production uses gunicorn via wsgi.py (see Procfile).
+    # This __main__ block is for local development only.
 
     port = int(os.environ.get("PORT", sys.argv[1] if len(sys.argv) > 1 else 5001))
     server = ThreadedHTTPServer(("0.0.0.0", port), MediaPlanHandler)
