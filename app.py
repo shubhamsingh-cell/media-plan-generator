@@ -17140,19 +17140,16 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
         super().send_response(code, message)
 
     def _send_json(self, data: Any, status_code: int = 200) -> None:
-        """Send a JSON response wrapped in a consistent API envelope.
+        """Send a JSON response.
 
-        Success responses (2xx) are wrapped as:
-            {success: true, data: <original_data>, error: null, code: null}
-
+        Success responses (2xx) are sent as-is (no envelope wrapping).
         Error responses (4xx/5xx) passed through _send_json (legacy callers
         that pass {"error": ...} instead of using _send_error) are wrapped as:
             {success: false, data: null, error: <message>, code: "ERROR"}
 
         Already-enveloped responses (containing a top-level "success" key)
-        are passed through unchanged to avoid double-wrapping.
+        are passed through unchanged.
         """
-        # Avoid double-wrapping if caller already built the envelope
         if isinstance(data, dict) and "success" in data:
             body = json.dumps(data).encode("utf-8")
         elif status_code >= 400:
@@ -17170,13 +17167,8 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             }
             body = json.dumps(envelope).encode("utf-8")
         else:
-            envelope = {
-                "success": True,
-                "error": None,
-                "code": None,
-                "data": data,
-            }
-            body = json.dumps(envelope).encode("utf-8")
+            # S21: Send raw data -- all frontend code expects unwrapped responses
+            body = json.dumps(data).encode("utf-8")
         self._send_compressed_response(body, "application/json", status=status_code)
         # Store in idempotency cache if applicable
         try:
