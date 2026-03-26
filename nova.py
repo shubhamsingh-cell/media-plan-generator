@@ -1021,6 +1021,7 @@ TOOLS_ESSENTIAL: set[str] = {
 
 # Providers that get the full 33-tool set
 _PAID_TOOL_PROVIDERS: set[str] = {
+    "claude_haiku",
     "claude",
     "claude_opus",
     "gpt4o",
@@ -10236,9 +10237,13 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
         # Inject user personalization profile (S18 -- free LLM tools path)
         system_prompt += _inject_user_profile_context(conversation_history)
 
-        # Get tool definitions -- essential 10 only for free LLMs (smaller context)
+        # Get tool definitions -- full set for paid providers (Haiku first),
+        # essential only for free LLMs. Use first preferred provider to decide.
         tool_defs = self.get_tool_definitions()
-        essential_tools = get_tools_for_provider(tool_defs, provider_name=None)
+        _first_preferred = _configured_preferred[0] if _configured_preferred else None
+        essential_tools = get_tools_for_provider(
+            tool_defs, provider_name=_first_preferred
+        )
         # Strip cache_control from tool defs (Anthropic-only, would cause errors)
         clean_tools = []
         for td in essential_tools:

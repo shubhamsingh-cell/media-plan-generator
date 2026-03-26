@@ -13389,16 +13389,16 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             try:
                 from nova import handle_chat_request
 
-                # ── Shared enrichment moved INSIDE timeout wrapper ──
-                # Previously ran outside the 55s budget, consuming ~8s
-                # before the clock even started. Now the enrichment +
-                # LLM call share the same 55s budget.
-                _enrich_chat_context(data, data.get("message") or "")
-
                 _chat_span_fn = getattr(self, "_sentry_span", lambda o, n: _nullctx())
 
-                # ── Timeout wrapper: prevent hanging if LLM router stalls ──
-                _chat_future = _background_executor.submit(handle_chat_request, data)
+                # ── Timeout wrapper: enrichment + LLM call share 55s budget ──
+                # Enrichment (~8s) runs inside the executor so it doesn't
+                # steal time from the LLM + tool loop.
+                def _enriched_chat(d: dict) -> dict:
+                    _enrich_chat_context(d, d.get("message") or "")
+                    return handle_chat_request(d)
+
+                _chat_future = _background_executor.submit(_enriched_chat, data)
                 try:
                     with _chat_span_fn("nova.chat", "Nova chat LLM routing + response"):
                         response = _chat_future.result(timeout=_CHAT_REQUEST_TIMEOUT)
