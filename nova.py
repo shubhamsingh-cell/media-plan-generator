@@ -10334,6 +10334,15 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                     # First call: let router pick best available provider
                     # (complex queries prefer paid models via _tool_preferred)
                     # A/B test override: force a specific provider if assigned
+                    logger.info(
+                        "LLM tools iter %d: calling call_llm with preferred=%s, "
+                        "force='%s', tools=%d, task=%s",
+                        iteration,
+                        (_tool_preferred or [])[:3],
+                        ab_force_provider or "",
+                        len(clean_tools),
+                        task_type,
+                    )
                     result = call_llm(
                         messages=messages,
                         system_prompt=system_prompt,
@@ -10346,6 +10355,19 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                         timeout_budget=55.0,  # v4.3: tools need more time (5-10s each)
                     )
                     active_provider = (result or {}).get("provider")
+                    logger.info(
+                        "LLM tools iter %d: provider=%s, has_text=%s, "
+                        "has_tool_calls=%s, fallback=%s, attempts=%s",
+                        iteration,
+                        active_provider,
+                        bool((result or {}).get("text")),
+                        bool((result or {}).get("tool_calls")),
+                        (result or {}).get("fallback_used"),
+                        [
+                            (a.get("provider"), a.get("status"))
+                            for a in (result or {}).get("attempts", [])
+                        ],
+                    )
                     # Guard: if router fell through to expensive providers AND
                     # we did NOT request paid models, bail out so the
                     # dedicated _chat_with_claude path handles it instead.
