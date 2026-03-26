@@ -1,0 +1,33 @@
+{
+  "source": "LinkedIn Hiring Value Review",
+  "last_updated": "2026-03-26",
+  "case_studies": [
+    {
+      "company": "Guidewire Software",
+      "industry": "Insurance Technology",
+      "campaign_type": "Employer Branding + Talent Acquisition",
+      "platform": "LinkedIn",
+      "results": {
+        "qualified_applicants_increase": "3x",
+        "cost_per_hire_reduction": "40%",
+        "time_to_fill_reduction": "25%",
+        "employer_brand_lift": "52%"
+      },
+      "targeting": {
+        "audience_size": "2.4M",
+        "segments": ["Software Engineers", "Product Managers", "Data Scientists"],
+        "geo": "United States, India, Canada"
+      },
+      "budget_range": "$50K-$200K quarterly",
+      "channels_used": ["LinkedIn Jobs", "Sponsored Content", "InMail", "Career Pages"],
+      "key_takeaway": "Integrated employer brand + job advertising on LinkedIn drove 3x more qualified applicants at 40% lower cost per hire vs traditional job boards"
+    }
+  ],
+  "linkedin_benchmarks": {
+    "avg_cpc_jobs": "$3.50-$8.00",
+    "avg_cpm_sponsored": "$25-$45",
+    "avg_inmail_open_rate": "52%",
+    "avg_inmail_response_rate": "18%",
+    "avg_apply_rate": "1.8%"
+  }
+}

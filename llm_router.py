@@ -1918,13 +1918,16 @@ def select_provider(
     exclude_set = set(exclude or [])
     priority = TASK_ROUTING.get(task_type, TASK_ROUTING[TASK_CONVERSATIONAL])
 
-    # Determine paid provider set (last 4 in the routing list are paid)
-    paid_providers = {CLAUDE_HAIKU, GPT4O, CLAUDE, CLAUDE_OPUS}
-
-    # Build candidate list with (tier, negative_health, index, pid)
-    # so sorting gives: free first, then paid; within tier, highest health first;
-    # ties broken by original routing order index.
-    candidates: list[tuple[int, float, int, str]] = []
+    # v4.4 FIX: Respect the explicit routing order in TASK_ROUTING.
+    # The routing lists already encode the correct priority (e.g., claude_haiku
+    # first for TASK_CONVERSATIONAL and TASK_COMPLEX). Previously, the sort
+    # grouped free providers (tier=0) before paid (tier=1), which overrode the
+    # routing order and caused ALL queries to route to Gemini instead of Haiku.
+    #
+    # New approach: iterate in routing order, use health score only as a
+    # tiebreaker within a 3-position window (providers at similar positions
+    # compete on health, but the overall order is preserved).
+    candidates: list[tuple[int, float, str]] = []
     for idx, pid in enumerate(priority):
         if pid in exclude_set:
             continue
@@ -1935,13 +1938,15 @@ def select_provider(
         state = _provider_states.get(pid)
         if not state:
             continue
-        tier = 1 if pid in paid_providers else 0
         health = state.get_health_score()
-        candidates.append((tier, -health, idx, pid))
+        # Group by position bucket (every 3 providers) so nearby providers
+        # compete on health, but the routing order dominates overall.
+        bucket = idx // 3
+        candidates.append((bucket, -health, pid))
 
     candidates.sort()
 
-    for _tier, _neg_health, _idx, pid in candidates:
+    for _bucket, _neg_health, pid in candidates:
         # Rate-aware check: skip if we've hit the sliding window limit
         if _rate_tracker.is_rate_limited(pid):
             logger.debug(
@@ -1983,19 +1988,110 @@ def _build_gemini_request(
 ) -> Tuple[str, Dict[str, str], bytes]:
     """Build a Gemini API request.
 
-    Supports both gemini-2.0-flash and gemini-2.0-flash-lite via provider_id.
+    Supports both gemini-2.5-flash and gemini-2.5-flash-lite via provider_id.
+    Handles tool definitions (converted from Anthropic format) and multi-turn
+    tool conversations with functionCall/functionResponse parts.
     """
     api_key = (os.environ.get("GEMINI_API_KEY") or "").strip()
     config = PROVIDER_CONFIG.get(provider_id) or PROVIDER_CONFIG[GEMINI]
     url = f"{config['endpoint']}?key={api_key}"
 
-    # Convert messages to Gemini format
-    contents = []
+    # Convert messages to Gemini format, handling tool-use conversations.
+    # Gemini uses:
+    #   - model functionCall parts for tool invocations
+    #   - user functionResponse parts for tool results
+    contents: list[Dict[str, Any]] = []
+    pending_fn_responses: list[Dict[str, Any]] = []
+
     for msg in messages:
-        role = "model" if msg["role"] == "assistant" else "user"
-        text = msg.get("content") or ""
-        if isinstance(text, str):
-            contents.append({"role": role, "parts": [{"text": text}]})
+        role_raw = msg.get("role", "user")
+        content = msg.get("content")
+        tool_calls = msg.get("tool_calls")
+
+        # Assistant message with tool_calls -> Gemini functionCall parts
+        if role_raw == "assistant" and tool_calls:
+            # Flush pending function responses first
+            if pending_fn_responses:
+                contents.append({"role": "user", "parts": pending_fn_responses})
+                pending_fn_responses = []
+
+            parts: list[Dict[str, Any]] = []
+            if isinstance(content, str) and content.strip():
+                parts.append({"text": content})
+            for tc in tool_calls:
+                fn = tc.get("function", {})
+                args_str = fn.get("arguments") or "{}"
+                try:
+                    args_obj = (
+                        json.loads(args_str) if isinstance(args_str, str) else args_str
+                    )
+                except (json.JSONDecodeError, TypeError):
+                    args_obj = {}
+                parts.append(
+                    {
+                        "functionCall": {
+                            "name": fn.get("name") or "",
+                            "args": args_obj,
+                        }
+                    }
+                )
+            contents.append({"role": "model", "parts": parts})
+            continue
+
+        # Tool result message -> Gemini functionResponse
+        if role_raw == "tool":
+            result_content = (
+                content if isinstance(content, str) else json.dumps(content or "")
+            )
+            # Parse JSON result if possible for structured response
+            try:
+                result_obj = (
+                    json.loads(result_content)
+                    if isinstance(result_content, str)
+                    else result_content
+                )
+            except (json.JSONDecodeError, TypeError):
+                result_obj = {"result": result_content}
+            # Use tool_call_id to find the original function name
+            # (Gemini requires the function name in functionResponse)
+            tc_id = msg.get("tool_call_id") or ""
+            # Look back for the function name from the tool_calls in previous messages
+            fn_name = ""
+            for prev_msg in reversed(messages):
+                if prev_msg.get("tool_calls"):
+                    for tc in prev_msg["tool_calls"]:
+                        if tc.get("id") == tc_id:
+                            fn_name = tc.get("function", {}).get("name") or ""
+                            break
+                    if fn_name:
+                        break
+            pending_fn_responses.append(
+                {
+                    "functionResponse": {
+                        "name": fn_name or "unknown_tool",
+                        "response": (
+                            result_obj
+                            if isinstance(result_obj, dict)
+                            else {"result": str(result_obj)}
+                        ),
+                    }
+                }
+            )
+            continue
+
+        # Regular text message
+        gemini_role = "model" if role_raw == "assistant" else "user"
+        text = content if isinstance(content, str) else ""
+        if text.strip():
+            # Flush pending function responses before a new user message
+            if pending_fn_responses:
+                contents.append({"role": "user", "parts": pending_fn_responses})
+                pending_fn_responses = []
+            contents.append({"role": gemini_role, "parts": [{"text": text}]})
+
+    # Flush any remaining function responses
+    if pending_fn_responses:
+        contents.append({"role": "user", "parts": pending_fn_responses})
 
     payload: Dict[str, Any] = {
         "contents": contents,
@@ -2008,6 +2104,25 @@ def _build_gemini_request(
     # System instruction
     if system_prompt:
         payload["systemInstruction"] = {"parts": [{"text": system_prompt}]}
+
+    # Convert Anthropic tool definitions to Gemini function declarations
+    if tools:
+        gemini_functions: list[Dict[str, Any]] = []
+        for tool in tools:
+            name = tool.get("name") or ""
+            if not name:
+                continue
+            fn_decl: Dict[str, Any] = {
+                "name": name,
+                "description": tool.get("description") or "",
+            }
+            schema = tool.get("input_schema") or tool.get("parameters")
+            if schema:
+                # Gemini uses 'parameters' with OpenAPI schema format
+                fn_decl["parameters"] = schema
+            gemini_functions.append(fn_decl)
+        if gemini_functions:
+            payload["tools"] = [{"functionDeclarations": gemini_functions}]
 
     headers = {"Content-Type": "application/json"}
     return url, headers, json.dumps(payload).encode("utf-8")
@@ -2128,17 +2243,89 @@ def _build_anthropic_request(
     tools: Optional[List[Dict]] = None,
     provider_id: str = CLAUDE,
 ) -> Tuple[str, Dict[str, str], bytes]:
-    """Build an Anthropic API request (works for both Sonnet and Opus)."""
+    """Build an Anthropic API request (works for Haiku, Sonnet, and Opus).
+
+    Handles three message types for multi-turn tool conversations:
+    1. Regular user/assistant messages (string content)
+    2. Assistant messages with tool_calls (OpenAI format -> Anthropic tool_use)
+    3. Tool result messages (OpenAI role="tool" -> Anthropic tool_result in user msg)
+    """
     config = PROVIDER_CONFIG[provider_id]
     api_key = os.environ.get(config["env_key"], "").strip()
 
-    # Filter messages to only user/assistant with string content
-    api_messages = []
+    # Convert messages to Anthropic format, handling tool-use conversations.
+    # Anthropic requires:
+    #   - Assistant tool calls: content = [{"type": "tool_use", ...}]
+    #   - Tool results: merged into a user message with content = [{"type": "tool_result", ...}]
+    api_messages: list[Dict[str, Any]] = []
+    pending_tool_results: list[Dict[str, Any]] = []
+
     for msg in messages:
         role = msg.get("role", "user")
-        content = msg.get("content") or ""
-        if role in ("user", "assistant") and isinstance(content, str) and content:
-            api_messages.append({"role": role, "content": content})
+        content = msg.get("content")
+        tool_calls = msg.get("tool_calls")
+
+        # Assistant message with tool_calls -> Anthropic tool_use content blocks
+        if role == "assistant" and tool_calls:
+            # Flush any pending tool results first (shouldn't happen, but be safe)
+            if pending_tool_results:
+                api_messages.append({"role": "user", "content": pending_tool_results})
+                pending_tool_results = []
+
+            anthropic_content: list[Dict[str, Any]] = []
+            # Include text content if present alongside tool calls
+            if isinstance(content, str) and content.strip():
+                anthropic_content.append({"type": "text", "text": content})
+            # Convert OpenAI tool_calls to Anthropic tool_use blocks
+            for tc in tool_calls:
+                fn = tc.get("function", {})
+                args_str = fn.get("arguments") or "{}"
+                try:
+                    args_obj = (
+                        json.loads(args_str) if isinstance(args_str, str) else args_str
+                    )
+                except (json.JSONDecodeError, TypeError):
+                    args_obj = {}
+                anthropic_content.append(
+                    {
+                        "type": "tool_use",
+                        "id": tc.get("id") or "",
+                        "name": fn.get("name") or "",
+                        "input": args_obj,
+                    }
+                )
+            api_messages.append({"role": "assistant", "content": anthropic_content})
+            continue
+
+        # Tool result message -> Anthropic tool_result (batched into user message)
+        if role == "tool":
+            tool_call_id = msg.get("tool_call_id") or ""
+            result_content = (
+                content if isinstance(content, str) else json.dumps(content or "")
+            )
+            pending_tool_results.append(
+                {
+                    "type": "tool_result",
+                    "tool_use_id": tool_call_id,
+                    "content": result_content,
+                }
+            )
+            continue
+
+        # Regular user/assistant message with string content
+        if role in ("user", "assistant"):
+            # Flush pending tool results before a new user message
+            if pending_tool_results:
+                api_messages.append({"role": "user", "content": pending_tool_results})
+                pending_tool_results = []
+
+            content_str = content if isinstance(content, str) else ""
+            if content_str.strip():
+                api_messages.append({"role": role, "content": content_str})
+
+    # Flush any remaining tool results
+    if pending_tool_results:
+        api_messages.append({"role": "user", "content": pending_tool_results})
 
     payload: Dict[str, Any] = {
         "model": config["model"],
@@ -2231,25 +2418,62 @@ def _parse_huggingface_response(resp_data: Any) -> Dict[str, Any]:
 
 
 def _parse_gemini_response(resp_data: Dict) -> Dict[str, Any]:
-    """Parse Gemini API response to normalized format."""
+    """Parse Gemini API response to normalized format.
+
+    Handles both regular text responses and functionCall responses.
+    When functionCall parts are present, they are normalized to OpenAI's
+    tool_calls format so the upstream tool-execution loop in nova.py
+    can process them identically to OpenAI/Anthropic tool calls.
+    """
     try:
         candidates = resp_data.get("candidates") or []
         if not candidates:
             return {"text": "", "error": "No candidates in response"}
         content = candidates[0].get("content", {})
         parts = content.get("parts") or []
-        text = " ".join(p.get("text") or "" for p in parts if "text" in p)
+
+        text_parts: list[str] = []
+        tool_calls: list[Dict[str, Any]] = []
+
+        for part in parts:
+            if "text" in part:
+                text_parts.append(part["text"] or "")
+            elif "functionCall" in part:
+                fc = part["functionCall"]
+                # Normalize Gemini functionCall to OpenAI tool_calls format
+                tool_calls.append(
+                    {
+                        "id": f"gemini_{fc.get('name', '')}_{len(tool_calls)}",
+                        "type": "function",
+                        "function": {
+                            "name": fc.get("name") or "",
+                            "arguments": json.dumps(fc.get("args") or {}),
+                        },
+                    }
+                )
+
         usage = resp_data.get("usageMetadata", {})
-        # Use modelVersion from response if available, fallback to generic name
         model_name = resp_data.get("modelVersion") or "gemini-2.5-flash"
-        return {
-            "text": text.strip(),
+
+        result: Dict[str, Any] = {
+            "text": " ".join(text_parts).strip(),
             "input_tokens": usage.get("promptTokenCount") or 0,
             "output_tokens": usage.get("candidatesTokenCount") or 0,
             "model": model_name,
             "stop_reason": candidates[0].get("finishReason", "STOP"),
         }
+
+        if tool_calls:
+            result["tool_calls"] = tool_calls
+            result["raw_message"] = {
+                "role": "assistant",
+                "content": result["text"] or None,
+                "tool_calls": tool_calls,
+            }
+
+        return result
     except Exception as e:
+        logger.error("Failed to parse Gemini response: %s", e, exc_info=True)
         return {"text": "", "error": str(e)}
 
 
@@ -2291,25 +2515,68 @@ def _parse_openai_response(resp_data: Dict) -> Dict[str, Any]:
 
 
 def _parse_anthropic_response(resp_data: Dict) -> Dict[str, Any]:
-    """Parse Anthropic API response to normalized format."""
+    """Parse Anthropic API response to normalized format.
+
+    Handles both regular text responses and tool_use responses.
+    When tool_use blocks are present, they are normalized to OpenAI's
+    tool_calls format so the upstream tool-execution loop in nova.py
+    can process them identically to OpenAI/Gemini tool calls.
+
+    Anthropic tool_use block format:
+        {"type": "tool_use", "id": "toolu_...", "name": "fn", "input": {...}}
+    Normalized to OpenAI tool_calls format:
+        {"id": "toolu_...", "type": "function",
+         "function": {"name": "fn", "arguments": "{...}"}}
+    """
     try:
         content_blocks = resp_data.get("content") or []
-        text_parts = []
+        text_parts: list[str] = []
+        tool_calls: list[Dict[str, Any]] = []
+
         for block in content_blocks:
-            if block.get("type") == "text":
+            block_type = block.get("type") or ""
+            if block_type == "text":
                 text_parts.append(block.get("text") or "")
+            elif block_type == "tool_use":
+                # Normalize Anthropic tool_use to OpenAI tool_calls format
+                tool_input = block.get("input") or {}
+                tool_calls.append(
+                    {
+                        "id": block.get("id") or "",
+                        "type": "function",
+                        "function": {
+                            "name": block.get("name") or "",
+                            "arguments": json.dumps(tool_input),
+                        },
+                    }
+                )
+
         usage = resp_data.get("usage", {})
-        return {
+        result: Dict[str, Any] = {
             "text": " ".join(text_parts).strip(),
             "input_tokens": usage.get("input_tokens") or 0,
             "output_tokens": usage.get("output_tokens") or 0,
             "model": resp_data.get("model") or "",
             "stop_reason": resp_data.get("stop_reason", "end_turn"),
-            # Preserve raw for tool_use compatibility
+            # Preserve raw for backward compatibility
             "raw_content": content_blocks,
             "raw_stop_reason": resp_data.get("stop_reason") or "",
         }
+
+        # Expose tool_calls in the same format as _parse_openai_response
+        if tool_calls:
+            result["tool_calls"] = tool_calls
+            # Build a synthetic raw_message for conversation threading
+            # (mirrors what _parse_openai_response provides)
+            result["raw_message"] = {
+                "role": "assistant",
+                "content": result["text"] or None,
+                "tool_calls": tool_calls,
+            }
+
+        return result
     except Exception as e:
+        logger.error("Failed to parse Anthropic response: %s", e, exc_info=True)
         return {"text": "", "error": str(e)}
 
 

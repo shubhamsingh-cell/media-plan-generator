@@ -2408,8 +2408,9 @@ def _run_gold_standard_for_chat(
 ) -> str:
     """Run relevant gold standard quality gates and return formatted context for LLM prompt.
 
-    Only runs for plan-related queries. Each gate is wrapped in a 2-second timeout
-    and individual try/except so failures are isolated and non-blocking.
+    Only runs for plan-related queries. Gates 1, 2, 4, 7 run in parallel (independent),
+    then Gates 3, 5 run sequentially (depend on 1 and 4 respectively). All gates share
+    a single ThreadPoolExecutor with a 5s aggregate timeout.
 
     Args:
         message: The user's chat message.
@@ -2423,69 +2424,154 @@ def _run_gold_standard_for_chat(
         return ""
 
     import concurrent.futures
+    import time
 
     data = _extract_entities_from_query(message, enrichment_context)
     sections: list[str] = []
-    gate_timeout_s: float = 2.0
+    aggregate_timeout_s: float = 5.0
+    deadline: float = time.monotonic() + aggregate_timeout_s
 
-    # Gate 1: City-level supply-demand data (only if locations detected)
-    if data.get("locations"):
+    # Import all gate functions upfront to avoid import overhead inside threads
+    try:
+        from gold_standard import (
+            enrich_city_level_data,
+            detect_clearance_requirements,
+            build_competitor_map,
+            classify_difficulty,
+            build_channel_strategy,
+            build_activation_calendar,
+        )
+    except ImportError as e:
+        logger.error(f"Gold Standard import failed: {e}", exc_info=True)
+        return ""
+
+    # --- Phase 1: Run independent gates (1, 2, 4, 7) in parallel ---
+    city_data: dict = {}
+    difficulty_results: list[dict] = []
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+        # Submit independent gates
+        future_city = (
+            pool.submit(enrich_city_level_data, data) if data.get("locations") else None
+        )
+        future_clearance = pool.submit(detect_clearance_requirements, data)
+        future_difficulty = (
+            pool.submit(classify_difficulty, data) if data.get("target_roles") else None
+        )
+        future_calendar = pool.submit(build_activation_calendar, data)
+
+        # Collect Gate 1 result (city-level)
+        if future_city is not None:
+            try:
+                remaining = max(0.1, deadline - time.monotonic())
+                city_data = future_city.result(timeout=remaining) or {}
+                if city_data:
+                    lines = ["## City-Level Supply-Demand Data"]
+                    for city, info in list(city_data.items())[:5]:
+                        lines.append(
+                            f"- **{city}**: Salary ~{info.get('salary_range') or 'N/A'}, "
+                            f"hiring difficulty {info.get('hiring_difficulty') or 'N/A'}/10, "
+                            f"supply tier: {info.get('supply_tier') or 'N/A'}"
+                        )
+                    sections.append("\n".join(lines))
+            except concurrent.futures.TimeoutError:
+                logger.warning(
+                    "Gold Standard chat Gate 1 (city-level) timed out within %.1fs aggregate",
+                    aggregate_timeout_s,
+                )
+            except Exception as e:
+                logger.error(
+                    f"Gold Standard chat Gate 1 (city-level) failed: {e}", exc_info=True
+                )
+
+        # Collect Gate 2 result (clearance)
         try:
-            from gold_standard import enrich_city_level_data
+            remaining = max(0.1, deadline - time.monotonic())
+            clearance = future_clearance.result(timeout=remaining)
+            if clearance:
+                lines = ["## Security Clearance Segmentation"]
+                for rec in clearance.get("recommendations", []):
+                    lines.append(f"- {rec}")
+                sections.append("\n".join(lines))
+        except concurrent.futures.TimeoutError:
+            logger.warning(
+                "Gold Standard chat Gate 2 (clearance) timed out within %.1fs aggregate",
+                aggregate_timeout_s,
+            )
+        except Exception as e:
+            logger.error(
+                f"Gold Standard chat Gate 2 (clearance) failed: {e}", exc_info=True
+            )
 
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-                future = pool.submit(enrich_city_level_data, data)
-                city_data = future.result(timeout=gate_timeout_s)
-            if city_data:
-                lines = ["## City-Level Supply-Demand Data"]
-                for city, info in list(city_data.items())[:5]:
+        # Collect Gate 4 result (difficulty)
+        if future_difficulty is not None:
+            try:
+                remaining = max(0.1, deadline - time.monotonic())
+                difficulty_results = future_difficulty.result(timeout=remaining) or []
+                if difficulty_results:
+                    lines = ["## Role Difficulty Classification"]
+                    for dr in difficulty_results[:5]:
+                        supply = str(dr.get("supply_level") or "moderate").replace(
+                            "_", " "
+                        )
+                        loc_mod = dr.get("location_modifier", 0.0)
+                        loc_note = (
+                            f" (location modifier: {loc_mod:+.1f})" if loc_mod else ""
+                        )
+                        lines.append(
+                            f"- **{dr['role_title']}**: {dr['seniority_level']} level, "
+                            f"difficulty {dr['complexity_score']}/10, "
+                            f"supply: {supply}, "
+                            f"avg time-to-fill {dr['avg_time_to_fill_days']} days"
+                            f"{loc_note}"
+                        )
+                    sections.append("\n".join(lines))
+            except concurrent.futures.TimeoutError:
+                logger.warning(
+                    "Gold Standard chat Gate 4 (difficulty) timed out within %.1fs aggregate",
+                    aggregate_timeout_s,
+                )
+            except Exception as e:
+                logger.error(
+                    f"Gold Standard chat Gate 4 (difficulty) failed: {e}", exc_info=True
+                )
+
+        # Collect Gate 7 result (calendar)
+        try:
+            remaining = max(0.1, deadline - time.monotonic())
+            calendar = future_calendar.result(timeout=remaining)
+            if calendar and calendar.get("timeline"):
+                lines = ["## Activation Calendar (next 6 months)"]
+                for month in calendar["timeline"][:3]:
+                    events = ", ".join(month.get("key_events", [])[:2])
                     lines.append(
-                        f"- **{city}**: Salary ~{info.get('salary_range', 'N/A')}, "
-                        f"hiring difficulty {info.get('hiring_difficulty', 'N/A')}/10, "
-                        f"supply tier: {info.get('supply_tier', 'N/A')}"
+                        f"- **{month['month_name']}**: {month['hiring_intensity']} intensity"
+                        f"{f' -- {events}' if events else ''}"
+                    )
+                if calendar.get("industry_events"):
+                    lines.append(
+                        f"- **Industry events**: {', '.join(calendar['industry_events'][:3])}"
                     )
                 sections.append("\n".join(lines))
         except concurrent.futures.TimeoutError:
             logger.warning(
-                "Gold Standard chat Gate 1 (city-level) timed out at %.1fs",
-                gate_timeout_s,
+                "Gold Standard chat Gate 7 (calendar) timed out within %.1fs aggregate",
+                aggregate_timeout_s,
             )
         except Exception as e:
             logger.error(
-                "Gold Standard chat Gate 1 (city-level) failed: %s", e, exc_info=True
+                f"Gold Standard chat Gate 7 (calendar) failed: {e}", exc_info=True
             )
-    else:
-        city_data = {}
 
-    # Gate 2: Security clearance (only if defense/gov keywords present)
-    try:
-        from gold_standard import detect_clearance_requirements
+    # --- Phase 2: Run dependent gates (3, 5) within remaining time budget ---
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-            future = pool.submit(detect_clearance_requirements, data)
-            clearance = future.result(timeout=gate_timeout_s)
-        if clearance:
-            lines = ["## Security Clearance Segmentation"]
-            for rec in clearance.get("recommendations", []):
-                lines.append(f"- {rec}")
-            sections.append("\n".join(lines))
-    except concurrent.futures.TimeoutError:
-        logger.warning(
-            "Gold Standard chat Gate 2 (clearance) timed out at %.1fs", gate_timeout_s
-        )
-    except Exception as e:
-        logger.error(
-            "Gold Standard chat Gate 2 (clearance) failed: %s", e, exc_info=True
-        )
-
-    # Gate 3: Competitor mapping (only if locations available)
-    if city_data:
+    # Gate 3: Competitor mapping (depends on Gate 1 city_data)
+    if city_data and time.monotonic() < deadline:
         try:
-            from gold_standard import build_competitor_map
-
+            remaining = max(0.1, deadline - time.monotonic())
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
                 future = pool.submit(build_competitor_map, data, city_data)
-                competitor_map = future.result(timeout=gate_timeout_s)
+                competitor_map = future.result(timeout=remaining)
             if competitor_map:
                 lines = ["## Competitor Mapping"]
                 for city, info in list(competitor_map.items())[:5]:
@@ -2496,7 +2582,7 @@ def _run_gold_standard_for_chat(
                         )
                     else:
                         employers = info.get("top_employers", [])
-                        intensity = info.get("hiring_intensity", "moderate")
+                        intensity = info.get("hiring_intensity") or "moderate"
                         lines.append(
                             f"- **{city}**: {', '.join(employers[:4])} "
                             f"(hiring intensity: {intensity})"
@@ -2504,116 +2590,55 @@ def _run_gold_standard_for_chat(
                 sections.append("\n".join(lines))
         except concurrent.futures.TimeoutError:
             logger.warning(
-                "Gold Standard chat Gate 3 (competitors) timed out at %.1fs",
-                gate_timeout_s,
+                "Gold Standard chat Gate 3 (competitors) timed out within %.1fs aggregate",
+                aggregate_timeout_s,
             )
         except Exception as e:
             logger.error(
-                "Gold Standard chat Gate 3 (competitors) failed: %s", e, exc_info=True
+                f"Gold Standard chat Gate 3 (competitors) failed: {e}", exc_info=True
             )
 
-    # Gate 4: Difficulty level framework (only if roles available)
-    difficulty_results: list[dict] = []
-    if data.get("target_roles"):
+    # Gate 5: Channel strategy (depends on Gate 4 difficulty_results)
+    if time.monotonic() < deadline:
         try:
-            from gold_standard import classify_difficulty
-
+            remaining = max(0.1, deadline - time.monotonic())
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-                future = pool.submit(classify_difficulty, data)
-                difficulty_results = future.result(timeout=gate_timeout_s)
-            if difficulty_results:
-                lines = ["## Role Difficulty Classification"]
-                for dr in difficulty_results[:5]:
-                    supply = str(dr.get("supply_level") or "moderate").replace("_", " ")
-                    loc_mod = dr.get("location_modifier", 0.0)
-                    loc_note = (
-                        f" (location modifier: {loc_mod:+.1f})" if loc_mod else ""
-                    )
-                    lines.append(
-                        f"- **{dr['role_title']}**: {dr['seniority_level']} level, "
-                        f"difficulty {dr['complexity_score']}/10, "
-                        f"supply: {supply}, "
-                        f"avg time-to-fill {dr['avg_time_to_fill_days']} days"
-                        f"{loc_note}"
-                    )
+                future = pool.submit(build_channel_strategy, data, difficulty_results)
+                channel_strategy = future.result(timeout=remaining)
+            if channel_strategy:
+                split = channel_strategy.get("recommended_split", {})
+                trad = [
+                    c["name"]
+                    for c in channel_strategy.get("traditional_channels", [])[:4]
+                ]
+                nontrad = [
+                    c["name"]
+                    for c in channel_strategy.get("non_traditional_channels", [])[:4]
+                ]
+                lines = [
+                    "## Channel Strategy",
+                    f"- **Recommended split**: {split.get('traditional_pct', 65)}% traditional / "
+                    f"{split.get('non_traditional_pct', 35)}% non-traditional",
+                ]
+                if trad:
+                    lines.append(f"- **Traditional**: {', '.join(trad)}")
+                if nontrad:
+                    lines.append(f"- **Non-traditional**: {', '.join(nontrad)}")
+                if channel_strategy.get("strategy_note"):
+                    lines.append(f"- {channel_strategy['strategy_note']}")
                 sections.append("\n".join(lines))
         except concurrent.futures.TimeoutError:
             logger.warning(
-                "Gold Standard chat Gate 4 (difficulty) timed out at %.1fs",
-                gate_timeout_s,
+                "Gold Standard chat Gate 5 (channel strategy) timed out within %.1fs aggregate",
+                aggregate_timeout_s,
             )
         except Exception as e:
             logger.error(
-                "Gold Standard chat Gate 4 (difficulty) failed: %s", e, exc_info=True
+                f"Gold Standard chat Gate 5 (channel strategy) failed: {e}",
+                exc_info=True,
             )
 
-    # Gate 5: Channel strategy (depends on difficulty results)
-    try:
-        from gold_standard import build_channel_strategy
-
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-            future = pool.submit(build_channel_strategy, data, difficulty_results)
-            channel_strategy = future.result(timeout=gate_timeout_s)
-        if channel_strategy:
-            split = channel_strategy.get("recommended_split", {})
-            trad = [
-                c["name"] for c in channel_strategy.get("traditional_channels", [])[:4]
-            ]
-            nontrad = [
-                c["name"]
-                for c in channel_strategy.get("non_traditional_channels", [])[:4]
-            ]
-            lines = [
-                "## Channel Strategy",
-                f"- **Recommended split**: {split.get('traditional_pct', 65)}% traditional / "
-                f"{split.get('non_traditional_pct', 35)}% non-traditional",
-            ]
-            if trad:
-                lines.append(f"- **Traditional**: {', '.join(trad)}")
-            if nontrad:
-                lines.append(f"- **Non-traditional**: {', '.join(nontrad)}")
-            if channel_strategy.get("strategy_note"):
-                lines.append(f"- {channel_strategy['strategy_note']}")
-            sections.append("\n".join(lines))
-    except concurrent.futures.TimeoutError:
-        logger.warning(
-            "Gold Standard chat Gate 5 (channel strategy) timed out at %.1fs",
-            gate_timeout_s,
-        )
-    except Exception as e:
-        logger.error(
-            "Gold Standard chat Gate 5 (channel strategy) failed: %s", e, exc_info=True
-        )
-
     # Gate 6: Budget tiers -- skip for chat (requires concrete budget number)
-    # Gate 7: Activation calendar
-    try:
-        from gold_standard import build_activation_calendar
-
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-            future = pool.submit(build_activation_calendar, data)
-            calendar = future.result(timeout=gate_timeout_s)
-        if calendar and calendar.get("timeline"):
-            lines = ["## Activation Calendar (next 6 months)"]
-            for month in calendar["timeline"][:3]:
-                events = ", ".join(month.get("key_events", [])[:2])
-                lines.append(
-                    f"- **{month['month_name']}**: {month['hiring_intensity']} intensity"
-                    f"{f' -- {events}' if events else ''}"
-                )
-            if calendar.get("industry_events"):
-                lines.append(
-                    f"- **Industry events**: {', '.join(calendar['industry_events'][:3])}"
-                )
-            sections.append("\n".join(lines))
-    except concurrent.futures.TimeoutError:
-        logger.warning(
-            "Gold Standard chat Gate 7 (calendar) timed out at %.1fs", gate_timeout_s
-        )
-    except Exception as e:
-        logger.error(
-            "Gold Standard chat Gate 7 (calendar) failed: %s", e, exc_info=True
-        )
 
     if not sections:
         return ""
@@ -4703,7 +4728,42 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                 pass  # Non-critical, skip if queue is full
 
         try:
-            result = handler(tool_input)
+            # Per-tool timeout: 10s max to prevent a single stuck tool
+            # from blocking the entire parallel batch (which has 15s aggregate).
+            from concurrent.futures import ThreadPoolExecutor as _TPE_Tool
+            from concurrent.futures import TimeoutError as _ToolTimeout
+
+            _PER_TOOL_TIMEOUT: int = 10
+
+            with _TPE_Tool(max_workers=1) as _tool_pool:
+                _tool_fut = _tool_pool.submit(handler, tool_input)
+                try:
+                    result = _tool_fut.result(timeout=_PER_TOOL_TIMEOUT)
+                except _ToolTimeout:
+                    _tool_fut.cancel()
+                    logger.error(
+                        "Tool %s timed out after %ds",
+                        tool_name,
+                        _PER_TOOL_TIMEOUT,
+                        exc_info=True,
+                    )
+                    if _sq is not None:
+                        try:
+                            _sq.put_nowait(
+                                {
+                                    "type": "tool_complete",
+                                    "tool": tool_name,
+                                    "label": f"{_label} (timeout)",
+                                }
+                            )
+                        except queue.Full:
+                            pass
+                    return json.dumps(
+                        {
+                            "error": f"Tool '{tool_name}' timed out after {_PER_TOOL_TIMEOUT}s"
+                        }
+                    )
+
             result_json = json.dumps(result, default=str)
 
             # Emit tool_complete event with brief summary

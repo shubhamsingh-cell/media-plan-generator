@@ -4811,52 +4811,62 @@ def _build_health_response() -> dict:
         result["health_check_ms"] = round((time.time() - _health_start) * 1000, 1)
         return result
 
-    # Vector search diagnostics (time-boxed to 3s)
+    # Parallel external status checks (was sequential 4x3s = 12s worst case)
+    _status_checks: dict[str, tuple] = {}
     if _vector_search_available:
         try:
             from vector_search import get_status as _vs_status
 
-            _vs_result = _run_with_timeout(
-                _vs_status, timeout_sec=3.0, default={"status": "timeout"}
-            )
-            result["vector_search"] = _vs_result
+            _status_checks["vector_search"] = (_vs_status, {"status": "timeout"})
         except ImportError:
             result["vector_search"] = {"status": "import_error"}
     else:
         result["vector_search"] = {"status": "not_available"}
 
-    # Slack alerts MCP diagnostics (time-boxed to 3s)
     if _slack_alerts_available:
-        _sa_result = _run_with_timeout(
-            _slack_alerts_status,
-            timeout_sec=3.0,
-            default={"status": "timeout"},
-        )
-        result["slack_alerts"] = _sa_result
+        _status_checks["slack_alerts"] = (_slack_alerts_status, {"status": "timeout"})
     else:
         result["slack_alerts"] = {"status": "not_available"}
 
-    # Calendar sync MCP diagnostics (time-boxed to 3s)
     if _calendar_sync_available:
-        _cs_result = _run_with_timeout(
-            _cal_status,
-            timeout_sec=3.0,
-            default={"status": "timeout"},
-        )
-        result["calendar_sync"] = _cs_result
+        _status_checks["calendar_sync"] = (_cal_status, {"status": "timeout"})
     else:
         result["calendar_sync"] = {"status": "not_available"}
 
-    # Chroma RAG MCP diagnostics (time-boxed to 3s)
     if _chroma_rag_available:
-        _cr_result = _run_with_timeout(
-            _chroma_stats,
-            timeout_sec=3.0,
-            default={"status": "timeout"},
-        )
-        result["chroma_rag"] = _cr_result
+        _status_checks["chroma_rag"] = (_chroma_stats, {"status": "timeout"})
     else:
         result["chroma_rag"] = {"status": "not_available"}
+
+    if _status_checks:
+        from concurrent.futures import (
+            ThreadPoolExecutor as _StatusPool,
+            as_completed as _as_done,
+        )
+
+        with _StatusPool(max_workers=len(_status_checks)) as _sp:
+            _sfuts = {
+                _sp.submit(fn): (name, default)
+                for name, (fn, default) in _status_checks.items()
+            }
+            for _sfut in _as_done(_sfuts, timeout=3.5):
+                _sname, _sdefault = _sfuts[_sfut]
+                try:
+                    result[_sname] = _sfut.result(timeout=0.1)
+                except TimeoutError:
+                    result[_sname] = _sdefault
+                except Exception as _status_err:
+                    logger.warning(
+                        f"Health status check '{_sname}' failed: {_status_err}"
+                    )
+                    result[_sname] = _sdefault
+
+    if _health_expired():
+        result["warning"] = (
+            "Health check truncated (>5s) -- skipped module stats after parallel checks"
+        )
+        result["health_check_ms"] = round((time.time() - _health_start) * 1000, 1)
+        return result
 
     # Request coalescing stats
     try:
@@ -11839,7 +11849,6 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         # prevent hanging at 70% "Verifying plan data..."
                         try:
                             from gold_standard import apply_all_quality_gates
-                            from concurrent.futures import ThreadPoolExecutor
 
                             _gs_pool = ThreadPoolExecutor(max_workers=1)
                             _gs_future = _gs_pool.submit(
@@ -11883,8 +11892,6 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                             # Gemini/LLM verification of key plan data points
                             # Also wrapped with 30s timeout to prevent hangs
                             try:
-                                from concurrent.futures import ThreadPoolExecutor
-
                                 _vf_pool = ThreadPoolExecutor(max_workers=1)
                                 _vf_future = _vf_pool.submit(
                                     _verify_plan_data, gen_data
@@ -12947,7 +12954,6 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             # Wrapped in ThreadPoolExecutor with 30s timeout to prevent hangs.
             try:
                 from gold_standard import apply_all_quality_gates
-                from concurrent.futures import ThreadPoolExecutor
 
                 _gs_pool = ThreadPoolExecutor(max_workers=1)
                 _gs_future = _gs_pool.submit(apply_all_quality_gates, data)
@@ -12979,8 +12985,6 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             # ── Gemini/LLM verification of plan data (same as async path) ──
             # Wrapped in ThreadPoolExecutor with 30s timeout to prevent hangs.
             try:
-                from concurrent.futures import ThreadPoolExecutor
-
                 _vf_pool = ThreadPoolExecutor(max_workers=1)
                 _vf_future = _vf_pool.submit(_verify_plan_data, data)
                 try:
@@ -13380,7 +13384,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 )
                 return
             _CHAT_REQUEST_TIMEOUT: float = (
-                35.0  # seconds -- matches GLOBAL_TIMEOUT_BUDGET
+                55.0  # seconds -- matches GLOBAL_TIMEOUT_BUDGET_TOOLS (tool queries need 55s)
             )
             try:
                 # ── Shared enrichment: file parsing + parallel API calls ──
@@ -17181,7 +17185,10 @@ if __name__ == "__main__":
 
     # Production uses gunicorn via wsgi.py (see Procfile / render.yaml).
     # This __main__ block runs only for local development.
-    if os.environ.get("RENDER"):
+    # The RENDER env var may also be set locally (e.g. in ~/.zshrc), so
+    # additionally verify we are NOT running inside a gunicorn worker.
+    _is_gunicorn = "gunicorn" in os.environ.get("SERVER_SOFTWARE", "")
+    if os.environ.get("RENDER") and not _is_gunicorn:
         logger.warning(
             "Running app.py directly in production is deprecated. "
             "Use gunicorn via wsgi.py instead (see Procfile)."
