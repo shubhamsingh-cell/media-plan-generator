@@ -1918,17 +1918,14 @@ def select_provider(
     exclude_set = set(exclude or [])
     priority = TASK_ROUTING.get(task_type, TASK_ROUTING[TASK_CONVERSATIONAL])
 
-    # v4.4 FIX: Respect the explicit routing order in TASK_ROUTING.
-    # The routing lists already encode the correct priority (e.g., claude_haiku
-    # first for TASK_CONVERSATIONAL and TASK_COMPLEX). Previously, the sort
-    # grouped free providers (tier=0) before paid (tier=1), which overrode the
-    # routing order and caused ALL queries to route to Gemini instead of Haiku.
-    #
-    # New approach: iterate in routing order, use health score only as a
-    # tiebreaker within a 3-position window (providers at similar positions
-    # compete on health, but the overall order is preserved).
-    candidates: list[tuple[int, float, str]] = []
-    for idx, pid in enumerate(priority):
+    # v4.5 FIX: Strict priority order -- no sorting, no bucketing.
+    # TASK_ROUTING lists already encode the correct priority (claude_haiku
+    # first for all task types). Previous attempts to sort by health score
+    # or bucket caused Gemini to consistently outrank Haiku because free
+    # providers maintain perfect health (never fail) while paid providers
+    # accumulate occasional failures. The correct behavior is: iterate in
+    # routing order, skip unavailable/rate-limited providers, return first hit.
+    for pid in priority:
         if pid in exclude_set:
             continue
         config = PROVIDER_CONFIG.get(pid, {})
@@ -1938,15 +1935,6 @@ def select_provider(
         state = _provider_states.get(pid)
         if not state:
             continue
-        health = state.get_health_score()
-        # Group by position bucket (every 3 providers) so nearby providers
-        # compete on health, but the routing order dominates overall.
-        bucket = idx // 3
-        candidates.append((bucket, -health, pid))
-
-    candidates.sort()
-
-    for _bucket, _neg_health, pid in candidates:
         # Rate-aware check: skip if we've hit the sliding window limit
         if _rate_tracker.is_rate_limited(pid):
             logger.debug(
