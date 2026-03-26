@@ -9128,6 +9128,14 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
         # Cancellation check before LLM routing (Path A/B/C)
         _check_cancellation(cancel_event)
 
+        logger.warning(
+            "ROUTING DEBUG: words=%d, is_conv=%s, is_complex=%s, ab_variant=%s",
+            len(user_message.strip().split()),
+            _is_conversational,
+            _is_complex,
+            _ab_variant,
+        )
+
         # Path A: TRUE greetings/chitchat ONLY -> LLM providers (no tools)
         # v4.3: Tightened -- only <4 word greetings with zero data keywords.
         # ALL data queries go to Path B (tool path) for quality.
@@ -10334,7 +10342,7 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                     # First call: let router pick best available provider
                     # (complex queries prefer paid models via _tool_preferred)
                     # A/B test override: force a specific provider if assigned
-                    logger.info(
+                    logger.warning(
                         "LLM tools iter %d: calling call_llm with preferred=%s, "
                         "force='%s', tools=%d, task=%s",
                         iteration,
@@ -10355,7 +10363,7 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                         timeout_budget=55.0,  # v4.3: tools need more time (5-10s each)
                     )
                     active_provider = (result or {}).get("provider")
-                    logger.info(
+                    logger.warning(
                         "LLM tools iter %d: provider=%s, has_text=%s, "
                         "has_tool_calls=%s, fallback=%s, attempts=%s",
                         iteration,
