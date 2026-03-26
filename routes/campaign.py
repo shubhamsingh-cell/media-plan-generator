@@ -78,7 +78,7 @@ def _handle_shared_plan_view(handler: Any, path: str, parsed: Any) -> None:
     """GET /plan/shared/<id> -- read-only dashboard view with OG tags and feedback."""
     import html as _html_mod
 
-    _app = sys.modules.get("__main__") or sys.modules.get("app")
+    _app = sys.modules.get("app") or sys.modules.get("__main__")
     _shared_plans = getattr(_app, "_shared_plans", {})
     _shared_plans_lock = getattr(_app, "_shared_plans_lock", None)
     _plan_feedback = getattr(_app, "_plan_feedback", {})
@@ -348,7 +348,7 @@ def _handle_plan_direct_view(handler: Any, path: str, parsed: Any) -> None:
     import html as _html_m
     import re as _re_m
 
-    _app = sys.modules.get("__main__") or sys.modules.get("app")
+    _app = sys.modules.get("app") or sys.modules.get("__main__")
     _plan_results_store = getattr(_app, "_plan_results_store", {})
     _plan_results_lock = getattr(_app, "_plan_results_lock", None)
 
@@ -457,7 +457,7 @@ def _handle_campaign_save(handler: Any, path: str, parsed: Any) -> None:
 
 def _handle_plan_share(handler: Any, path: str, parsed: Any) -> None:
     """POST /api/plan/share -- create a shareable plan link."""
-    _app = sys.modules.get("__main__") or sys.modules.get("app")
+    _app = sys.modules.get("app") or sys.modules.get("__main__")
     _shared_plans = getattr(_app, "_shared_plans", {})
     _shared_plans_lock = getattr(_app, "_shared_plans_lock", None)
 
@@ -510,7 +510,7 @@ def _handle_plan_share(handler: Any, path: str, parsed: Any) -> None:
 
 def _handle_plan_feedback(handler: Any, path: str, parsed: Any) -> None:
     """POST /api/plan/feedback -- submit feedback on a shared plan."""
-    _app = sys.modules.get("__main__") or sys.modules.get("app")
+    _app = sys.modules.get("app") or sys.modules.get("__main__")
     _shared_plans = getattr(_app, "_shared_plans", {})
     _plan_feedback = getattr(_app, "_plan_feedback", {})
     _plan_feedback_lock = getattr(_app, "_plan_feedback_lock", None)
@@ -565,7 +565,7 @@ def _handle_plan_feedback(handler: Any, path: str, parsed: Any) -> None:
 
 def _handle_plan_scorecard(handler: Any, path: str, parsed: Any) -> None:
     """POST /api/plan/scorecard -- generate a shareable plan scorecard."""
-    _app = sys.modules.get("__main__") or sys.modules.get("app")
+    _app = sys.modules.get("app") or sys.modules.get("__main__")
     _scorecards = getattr(_app, "_scorecards", {})
     _scorecards_lock = getattr(_app, "_scorecards_lock", None)
 
@@ -627,7 +627,7 @@ def _handle_plan_scorecard(handler: Any, path: str, parsed: Any) -> None:
 
 def _handle_scorecard_view(handler: Any, path: str, parsed: Any) -> None:
     """GET /scorecard/<share_id> -- serve a shareable plan scorecard."""
-    _app = sys.modules.get("__main__") or sys.modules.get("app")
+    _app = sys.modules.get("app") or sys.modules.get("__main__")
     _scorecards = getattr(_app, "_scorecards", {})
     _scorecards_lock = getattr(_app, "_scorecards_lock", None)
 

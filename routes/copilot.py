@@ -44,7 +44,7 @@ def handle_copilot_post_routes(handler: Any, path: str, parsed: Any) -> bool:
 
 def _handle_copilot_suggest(handler: Any, path: str, parsed: Any) -> None:
     """POST /api/copilot/suggest -- inline co-pilot suggestions."""
-    _app = sys.modules.get("__main__") or sys.modules.get("app")
+    _app = sys.modules.get("app") or sys.modules.get("__main__")
     _rl_copilot = getattr(_app, "_rl_copilot", None)
 
     # Rate limiting
@@ -144,7 +144,7 @@ def _handle_copilot_nudge(handler: Any, path: str, parsed: Any) -> None:
     Accepts {field, value, context} and returns inline nudges such as
     budget warnings, channel recommendations, and geo cost insights.
     """
-    _app = sys.modules.get("__main__") or sys.modules.get("app")
+    _app = sys.modules.get("app") or sys.modules.get("__main__")
     _rl_copilot = getattr(_app, "_rl_copilot", None)
 
     # Rate limiting (reuse copilot limiter)

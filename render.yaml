@@ -7,7 +7,7 @@ services:
     autoDeploy: true
     buildCommand: pip install -r requirements.txt
     preDeployCommand: python3 -c "import py_compile; py_compile.compile('app.py', doraise=True); py_compile.compile('wsgi.py', doraise=True)"
-    startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 4 --threads 2 --timeout 120 --preload --access-logfile - --error-logfile - wsgi:app
+    startCommand: gunicorn --bind 0.0.0.0:$PORT --worker-class gevent --workers 4 --worker-connections 1000 --timeout 120 --preload --access-logfile - --error-logfile - wsgi:app
     healthCheckPath: /
     healthCheckGracePeriod: 300
     # Blue-green deploy gate: poll /api/deploy/ready in CI/CD scripts

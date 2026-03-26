@@ -47,7 +47,7 @@ def _handle_competitive_scrape(handler: Any, path: str, parsed: Any) -> None:
             handler._send_json({"error": "Missing 'domain' field", "status": "error"})
             return
 
-        _app = sys.modules.get("__main__") or sys.modules.get("app")
+        _app = sys.modules.get("app") or sys.modules.get("__main__")
         _firecrawl_available = getattr(_app, "_firecrawl_available", False)
 
         if not _firecrawl_available:

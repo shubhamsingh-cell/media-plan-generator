@@ -49,7 +49,7 @@ def handle_pricing_post_routes(handler: Any, path: str, parsed: Any) -> bool:
 
 def _handle_pricing_live(handler: Any, path: str, parsed: Any) -> None:
     """GET /api/pricing/live -- live CPC/CPA pricing for media plan wizard."""
-    _app = sys.modules.get("__main__") or sys.modules.get("app")
+    _app = sys.modules.get("app") or sys.modules.get("__main__")
     import urllib.parse
 
     try:
@@ -488,7 +488,7 @@ def _handle_pricing_estimate(handler: Any, path: str, parsed: Any) -> None:
 
 def _handle_vendor_iq_pricing(handler: Any, path: str, parsed: Any) -> None:
     """POST /api/vendor-iq/live-pricing -- VendorIQ live pricing."""
-    _app = sys.modules.get("__main__") or sys.modules.get("app")
+    _app = sys.modules.get("app") or sys.modules.get("__main__")
     try:
         content_len = int(handler.headers.get("Content-Length") or 0)
         body = handler.rfile.read(content_len) if content_len > 0 else b"{}"
@@ -570,7 +570,7 @@ def _handle_vendor_iq_pricing(handler: Any, path: str, parsed: Any) -> None:
 
 def _handle_payscale_salary(handler: Any, path: str, parsed: Any) -> None:
     """POST /api/payscale-sync/salary -- PayScale salary data."""
-    _app = sys.modules.get("__main__") or sys.modules.get("app")
+    _app = sys.modules.get("app") or sys.modules.get("__main__")
     try:
         content_len = int(handler.headers.get("Content-Length") or 0)
         body = handler.rfile.read(content_len) if content_len > 0 else b"{}"

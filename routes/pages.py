@@ -45,8 +45,12 @@ _PLATFORM_SUB_ROUTES: dict[str, dict[str, str]] = {
 
 def _get_dirs() -> tuple[str, str]:
     """Return (BASE_DIR, TEMPLATES_DIR) from app module."""
-    _app = sys.modules.get("__main__") or sys.modules.get("app")
-    base_dir = getattr(_app, "BASE_DIR", os.path.dirname(os.path.abspath(__file__)))
+    # Prefer 'app' module: under gunicorn, __main__ is gunicorn itself
+    _app = sys.modules.get("app") or sys.modules.get("__main__")
+    # Fallback: this file lives in routes/, so parent dir is the project root
+    base_dir = getattr(
+        _app, "BASE_DIR", os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    )
     templates_dir = getattr(_app, "TEMPLATES_DIR", os.path.join(base_dir, "templates"))
     return base_dir, templates_dir
 

@@ -47,7 +47,7 @@ def _handle_admin_usage(handler, path: str, parsed: Any) -> None:
         handler.send_error(401, "Unauthorized")
         return
 
-    _app = sys.modules.get("__main__") or sys.modules.get("app")
+    _app = sys.modules.get("app") or sys.modules.get("__main__")
     _api_keys_lock = getattr(_app, "_api_keys_lock", None)
     _api_keys_store = getattr(_app, "_api_keys_store", None)
     API_KEY_TIERS = getattr(_app, "API_KEY_TIERS", None)
@@ -107,7 +107,7 @@ def _handle_admin_stats(handler, path: str, parsed: Any) -> None:
         handler.send_error(401, "Unauthorized")
         return
 
-    _app = sys.modules.get("__main__") or sys.modules.get("app")
+    _app = sys.modules.get("app") or sys.modules.get("__main__")
     load_request_log = getattr(_app, "load_request_log", None)
 
     log_entries = load_request_log()
@@ -175,13 +175,13 @@ def _handle_admin_posthog_stats(handler, path: str, parsed: Any) -> None:
         handler.send_error(401, "Unauthorized")
         return
 
-    _app = sys.modules.get("__main__") or sys.modules.get("app")
+    _app = sys.modules.get("app") or sys.modules.get("__main__")
     _posthog_available = getattr(_app, "_posthog_available", None)
 
     _ph_stats: dict[str, Any] = {}
     if _posthog_available:
         try:
-            _app = sys.modules.get("__main__") or sys.modules.get("app")
+            _app = sys.modules.get("app") or sys.modules.get("__main__")
             _ph_get_stats = getattr(_app, "_ph_get_stats", None)
 
             _ph_stats["posthog_integration"] = _ph_get_stats()
@@ -207,7 +207,7 @@ def _handle_admin_plans(handler, path: str, parsed: Any) -> None:
         handler._send_json({"error": "Unauthorized"}, status_code=401)
         return
 
-    _app = sys.modules.get("__main__") or sys.modules.get("app")
+    _app = sys.modules.get("app") or sys.modules.get("__main__")
     load_request_log = getattr(_app, "load_request_log", None)
 
     plans: list[dict[str, Any]] = []
@@ -303,7 +303,7 @@ def _handle_admin_sessions(handler, path: str, parsed: Any) -> None:
         handler._send_json({"error": "Unauthorized"}, status_code=401)
         return
 
-    _app = sys.modules.get("__main__") or sys.modules.get("app")
+    _app = sys.modules.get("app") or sys.modules.get("__main__")
     sessions: list[dict[str, Any]] = []
     now = time.time()
 
@@ -410,7 +410,7 @@ def _handle_admin_slow_endpoints(handler: Any, path: str, parsed: Any) -> None:
         handler.send_error(401, "Unauthorized")
         return
 
-    _app = sys.modules.get("__main__") or sys.modules.get("app")
+    _app = sys.modules.get("app") or sys.modules.get("__main__")
     get_slow = getattr(_app, "get_slow_endpoints", None)
 
     if get_slow is None:

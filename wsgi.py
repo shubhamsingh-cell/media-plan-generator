@@ -414,9 +414,11 @@ def application(
         else:
             body_data = wsgi_input.read()
 
-    # rfile = request head + body (parse_request reads the head, handler reads body)
-    rfile_bytes = raw_request_head.encode("latin-1") + body_data
-    handler.rfile = io.BytesIO(rfile_bytes)
+    # rfile = headers + body (parse_request reads headers, handler reads body)
+    # NOTE: Do NOT include the request line -- parse_request() already has it
+    # from raw_requestline and reads headers starting at rfile position 0.
+    headers_and_body = f"{raw_headers}\r\n\r\n".encode("latin-1") + body_data
+    handler.rfile = io.BytesIO(headers_and_body)
 
     # -- Set up wfile (streaming response capture) --
     streaming_wfile = _StreamingWfile()

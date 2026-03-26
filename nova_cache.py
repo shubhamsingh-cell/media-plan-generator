@@ -84,7 +84,8 @@ except ImportError:
 # Constants
 # ---------------------------------------------------------------------------
 
-_CACHE_PREFIX = "nova_chat:"
+# S21: Bump version on routing/quality changes to invalidate stale cached responses
+_CACHE_PREFIX = "nova_chat:v3:"
 _DEFAULT_TTL_HOURS = 24
 _REALTIME_TTL_HOURS = 1
 _MAX_MEMORY_CACHE = 500

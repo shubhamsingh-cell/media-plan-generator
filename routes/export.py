@@ -323,7 +323,7 @@ def _handle_pdf_export_get(handler: Any, path: str, parsed: Any) -> None:
             return
 
         # Look up plan data from the in-memory store
-        _app = sys.modules.get("__main__") or sys.modules.get("app")
+        _app = sys.modules.get("app") or sys.modules.get("__main__")
         _plan_results_store = getattr(_app, "_plan_results_store", {})
         _plan_results_lock = getattr(_app, "_plan_results_lock", None)
 

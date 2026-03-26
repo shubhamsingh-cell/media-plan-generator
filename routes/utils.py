@@ -79,7 +79,12 @@ def get_app_module() -> Any:
     Returns:
         The app module (either __main__ or 'app').
     """
-    return sys.modules.get("__main__") or sys.modules.get("app")
+    # Prefer 'app' module: under gunicorn, __main__ is gunicorn itself and
+    # doesn't carry BASE_DIR / TEMPLATES_DIR / other app globals.
+    app_mod = sys.modules.get("app")
+    if app_mod and hasattr(app_mod, "BASE_DIR"):
+        return app_mod
+    return sys.modules.get("__main__") or app_mod
 
 
 def get_app_attr(name: str, default: Any = None) -> Any:

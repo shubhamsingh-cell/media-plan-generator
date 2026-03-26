@@ -146,7 +146,7 @@ def _handle_health_ping(handler, path: str, parsed: Any) -> None:
 
 def _handle_health_ready(handler, path: str, parsed: Any) -> None:
     """/api/health/ready, /ready -- deep readiness probe."""
-    _app = sys.modules.get("__main__") or sys.modules.get("app")
+    _app = sys.modules.get("app") or sys.modules.get("__main__")
     health_check_readiness = getattr(_app, "health_check_readiness", None)
 
     if health_check_readiness is None:
@@ -164,7 +164,7 @@ def _handle_health_ready(handler, path: str, parsed: Any) -> None:
 
 def _handle_deck_status(handler, path: str, parsed: Any) -> None:
     """/api/deck/status -- deck generator tier availability."""
-    _app = sys.modules.get("__main__") or sys.modules.get("app")
+    _app = sys.modules.get("app") or sys.modules.get("__main__")
     _deck_generator = getattr(_app, "_deck_generator", None)
 
     if _deck_generator is not None:
@@ -244,7 +244,7 @@ def _handle_dashboard_widgets(handler, path: str, parsed: Any) -> None:
     try:
         import random
 
-        _app = sys.modules.get("__main__") or sys.modules.get("app")
+        _app = sys.modules.get("app") or sys.modules.get("__main__")
         _supabase_data_available = getattr(_app, "_supabase_data_available", None)
 
         widgets = {
@@ -276,7 +276,7 @@ def _handle_dashboard_widgets(handler, path: str, parsed: Any) -> None:
         # Pull real data from Supabase if available
         if _supabase_data_available:
             try:
-                _app = sys.modules.get("__main__") or sys.modules.get("app")
+                _app = sys.modules.get("app") or sys.modules.get("__main__")
                 get_market_trends = getattr(_app, "get_market_trends", None)
 
                 trends = get_market_trends()
@@ -299,7 +299,7 @@ def _handle_health_data_matrix(handler, path: str, parsed: Any) -> None:
     if not handler._check_admin_auth():
         handler.send_error(401, "Unauthorized")
         return
-    _app = sys.modules.get("__main__") or sys.modules.get("app")
+    _app = sys.modules.get("app") or sys.modules.get("__main__")
     _data_matrix = getattr(_app, "_data_matrix", None)
 
     if _data_matrix:
@@ -327,7 +327,7 @@ def _handle_health_auto_qc(handler, path: str, parsed: Any) -> None:
     if not handler._check_admin_auth():
         handler.send_error(401, "Unauthorized")
         return
-    _app = sys.modules.get("__main__") or sys.modules.get("app")
+    _app = sys.modules.get("app") or sys.modules.get("__main__")
     _auto_qc = getattr(_app, "_auto_qc", None)
 
     if _auto_qc:
@@ -355,11 +355,11 @@ def _handle_health_enrichment(handler, path: str, parsed: Any) -> None:
     if not handler._check_admin_auth():
         handler.send_error(401, "Unauthorized")
         return
-    _app = sys.modules.get("__main__") or sys.modules.get("app")
+    _app = sys.modules.get("app") or sys.modules.get("__main__")
     _data_enrichment_available = getattr(_app, "_data_enrichment_available", None)
 
     if _data_enrichment_available:
-        _app = sys.modules.get("__main__") or sys.modules.get("app")
+        _app = sys.modules.get("app") or sys.modules.get("__main__")
         get_enrichment_status = getattr(_app, "get_enrichment_status", None)
 
         de_result = get_enrichment_status()
@@ -1079,7 +1079,7 @@ def _handle_metrics(handler, path: str, parsed: Any) -> None:
     if not handler._check_admin_auth():
         handler.send_error(401, "Unauthorized")
         return
-    _app = sys.modules.get("__main__") or sys.modules.get("app")
+    _app = sys.modules.get("app") or sys.modules.get("__main__")
     _metrics = getattr(_app, "_metrics", None)
 
     metrics_data = (
@@ -1109,7 +1109,7 @@ def _handle_health_slos(handler, path: str, parsed: Any) -> None:
         return
     try:
 
-        _app = sys.modules.get("__main__") or sys.modules.get("app")
+        _app = sys.modules.get("app") or sys.modules.get("__main__")
         _mc_inst = getattr(_app, "_metrics", None)
 
         if _mc_inst and hasattr(_mc_inst, "check_slo_compliance"):
@@ -1135,7 +1135,7 @@ def _handle_observability_platform(handler, path: str, parsed: Any) -> None:
         handler.send_error(401, "Unauthorized")
         return
     try:
-        _app = sys.modules.get("__main__") or sys.modules.get("app")
+        _app = sys.modules.get("app") or sys.modules.get("__main__")
         get_platform_observability = getattr(_app, "get_platform_observability", None)
 
         obs_data = get_platform_observability()
@@ -1160,7 +1160,7 @@ def _handle_health_eval(handler, path: str, parsed: Any) -> None:
     try:
         from eval_framework import EvalSuite
 
-        _app = sys.modules.get("__main__") or sys.modules.get("app")
+        _app = sys.modules.get("app") or sys.modules.get("__main__")
         _generate_product_insights = getattr(_app, "_generate_product_insights", None)
 
         _ef = EvalSuite()
@@ -1559,7 +1559,7 @@ def _handle_deploy_ready(handler, path: str, parsed: Any) -> None:
     Returns 503 while still warming up. This is the endpoint to poll
     in CI/CD after a deploy to confirm the new instance is ready.
     """
-    _app = sys.modules.get("__main__") or sys.modules.get("app")
+    _app = sys.modules.get("app") or sys.modules.get("__main__")
 
     warmup_complete = getattr(_app, "_DEPLOY_WARMUP_COMPLETE", False)
     kb = getattr(_app, "_knowledge_base", None)

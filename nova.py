@@ -260,6 +260,9 @@ CLAUDE_MODEL_COMPLEX = (
 )
 
 # Response cache settings
+# S21: Bump version on routing/quality changes to invalidate stale cached responses.
+# Cached responses from broken routing (zero tools) must not be served.
+_CACHE_VERSION = "v3"  # S21: invalidate all pre-fix cached responses
 RESPONSE_CACHE_TTL = 7 * 86400  # 7 days
 RESPONSE_CACHE_FILE = DATA_DIR / "nova_response_cache.json"
 MAX_RESPONSE_CACHE_SIZE = 200
@@ -2678,7 +2681,8 @@ def _normalize_cache_key(question: str) -> str:
     filtered = [w for w in words if w not in _CACHE_STOP_WORDS]
     # Sort alphabetically for order-invariant key
     filtered.sort()
-    return " ".join(filtered)
+    # Prefix with cache version to invalidate on routing/quality changes
+    return f"{_CACHE_VERSION}:{' '.join(filtered)}"
 
 
 def _extract_keywords(text: str) -> set:
@@ -2792,7 +2796,7 @@ def _get_response_cache(key: str) -> Optional[Dict[str, Any]]:
     Returns cached result dict or None on miss.
     """
     now = time.time()
-    _redis_key = f"nova_resp:{key}"
+    _redis_key = f"nova_resp:{_CACHE_VERSION}:{key}"
 
     # 1) Memory check (fastest)
     with _response_cache_lock:
@@ -2851,7 +2855,7 @@ def _set_response_cache(
     """
     now = time.time()
     entry = {"data": data, "expires": now + ttl, "created": now}
-    _redis_key = f"nova_resp:{key}"
+    _redis_key = f"nova_resp:{_CACHE_VERSION}:{key}"
 
     with _response_cache_lock:
         # 1) Memory write with LRU eviction
@@ -10245,6 +10249,20 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
         # Inject user personalization profile (S18 -- free LLM tools path)
         system_prompt += _inject_user_profile_context(conversation_history)
 
+        # v4.3 QUALITY-FIRST routing: ALL tool queries prefer paid providers.
+        # Haiku at $0.25/M is cheap enough to use for every data query.
+        # Free providers are fallbacks only (when paid keys are missing/exhausted).
+        from llm_router import PROVIDER_CONFIG
+
+        _configured_preferred = []
+        for pid in _COMPLEX_PREFERRED_PROVIDERS:
+            config = PROVIDER_CONFIG.get(pid, {})
+            env_key = config.get("env_key") or ""
+            # Free providers (gemini, groq, etc.) may not have env_key checks --
+            # include them if they're in PROVIDER_CONFIG regardless
+            if not env_key or (env_key and os.environ.get(env_key, "").strip()):
+                _configured_preferred.append(pid)
+
         # Get tool definitions -- full set for paid providers (Haiku first),
         # essential only for free LLMs. Use first preferred provider to decide.
         tool_defs = self.get_tool_definitions()
@@ -10259,9 +10277,10 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
             clean_tools.append(clean)
 
         logger.info(
-            "Free LLM tools: using %d/%d essential tools",
+            "Free LLM tools: using %d/%d essential tools (preferred: %s)",
             len(clean_tools),
             len(tool_defs),
+            _configured_preferred[:3],
         )
 
         tools_used = []
@@ -10277,20 +10296,6 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
         # Use COMPLEX routing for tool queries (best providers first)
         if task_type not in (TASK_COMPLEX,):
             task_type = TASK_COMPLEX
-
-        # v4.3 QUALITY-FIRST routing: ALL tool queries prefer paid providers.
-        # Haiku at $0.25/M is cheap enough to use for every data query.
-        # Free providers are fallbacks only (when paid keys are missing/exhausted).
-        from llm_router import PROVIDER_CONFIG
-
-        _configured_preferred = []
-        for pid in _COMPLEX_PREFERRED_PROVIDERS:
-            config = PROVIDER_CONFIG.get(pid, {})
-            env_key = config.get("env_key") or ""
-            # Free providers (gemini, groq, etc.) may not have env_key checks --
-            # include them if they're in PROVIDER_CONFIG regardless
-            if not env_key or (env_key and os.environ.get(env_key, "").strip()):
-                _configured_preferred.append(pid)
 
         if _configured_preferred:
             # Paid providers available: use them first, free as fallback

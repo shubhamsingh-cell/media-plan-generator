@@ -41,7 +41,7 @@ def _handle_chat_history(handler, path: str, parsed: Any) -> None:
             {"error": "conversation_id parameter required"}, status_code=400
         )
         return
-    _app = sys.modules.get("__main__") or sys.modules.get("app")
+    _app = sys.modules.get("app") or sys.modules.get("__main__")
     _load_conversation_history = getattr(_app, "_load_conversation_history", None)
 
     history = _load_conversation_history(conv_id)
@@ -56,7 +56,7 @@ def _handle_chat_conversations(handler, path: str, parsed: Any) -> None:
         limit_val = min(int(limit_str), 200)
     except (ValueError, TypeError):
         limit_val = 50
-    _app = sys.modules.get("__main__") or sys.modules.get("app")
+    _app = sys.modules.get("app") or sys.modules.get("__main__")
     _list_conversations = getattr(_app, "_list_conversations", None)
 
     conversations = _list_conversations(limit_val)
@@ -78,7 +78,7 @@ def _handle_chat_conversations_search(handler, path: str, parsed: Any) -> None:
         limit_val = 20
 
     try:
-        _app = sys.modules.get("__main__") or sys.modules.get("app")
+        _app = sys.modules.get("app") or sys.modules.get("__main__")
         _supabase_rest = getattr(_app, "_supabase_rest", None)
         if not _supabase_rest:
             handler._send_json({"conversations": [], "count": 0, "query": query})
