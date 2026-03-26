@@ -15,8 +15,9 @@ Architecture:
 
 Key design decisions:
   - SSE/streaming: gunicorn --timeout 120 handles long-running SSE streams.
-  - Thread safety: gunicorn --threads 2 per worker keeps the same threading model
-    as ThreadedHTTPServer. All locks in app.py remain effective.
+  - Concurrency: gunicorn --worker-class gevent uses greenlets for cooperative
+    multitasking. monkey.patch_all() replaces stdlib threading/socket/select with
+    gevent-compatible equivalents so all locks and threads work transparently.
   - Multipart uploads: self.rfile is set to a BytesIO with the request body,
     so cgi.FieldStorage works unchanged.
   - --preload: gunicorn preloads the app module, sharing the knowledge base data
@@ -24,6 +25,12 @@ Key design decisions:
 """
 
 from __future__ import annotations
+
+# ---- gevent monkey-patching MUST happen before other stdlib imports ----
+from gevent import monkey  # noqa: E402  isort:skip
+
+monkey.patch_all()  # noqa: E402  isort:skip
+# ---------------------------------------------------------------------
 
 import io
 import logging
@@ -325,6 +332,17 @@ def application(
     Returns:
         Iterator of response body bytes.
     """
+    # Fast-path for health ping -- skip full WSGI pipeline (~350ms saving)
+    if environ.get("PATH_INFO", "") == "/api/health/ping":
+        start_response(
+            "200 OK",
+            [
+                ("Content-Type", "application/json"),
+                ("Cache-Control", "no-cache"),
+            ],
+        )
+        return [b'{"status":"ok","service":"nova-ai"}']
+
     handler = _WSGIHandlerAdapter()
 
     # -- Build the HTTP request line + headers for parse_request() --

@@ -115,6 +115,7 @@ html {
 body {
   font-family:
     "Inter",
+    "Inter Fallback",
     -apple-system,
     BlinkMacSystemFont,
     "Segoe UI",
@@ -162,6 +163,7 @@ body {
     "sidebar content";
   height: 100vh;
   width: 100vw;
+  contain: layout style;
   /* Transition deferred: added via .transitions-ready class after DOMContentLoaded
      to prevent CLS from grid-column animation on initial page load */
 }
@@ -188,11 +190,16 @@ body {
   gap: 12px;
   padding: 0 20px;
   background: var(--bg-topbar);
-  backdrop-filter: blur(16px) saturate(1.5);
-  -webkit-backdrop-filter: blur(16px) saturate(1.5);
   border-bottom: 1px solid var(--border-subtle);
   z-index: 100;
   height: var(--topbar-h);
+  min-height: var(--topbar-h);
+  contain: layout style;
+}
+/* Defer expensive backdrop-filter until layout is stable to improve LCP */
+.transitions-ready .topbar {
+  backdrop-filter: blur(16px) saturate(1.5);
+  -webkit-backdrop-filter: blur(16px) saturate(1.5);
 }
 
 .topbar-hamburger {
@@ -650,12 +657,14 @@ body {
   display: none;
 }
 
-/* Nav */
+/* Nav: min-height prevents CLS when JS populates nav items */
 .sidebar-nav {
   flex: 1;
+  min-height: 320px;
   overflow-y: auto;
   overflow-x: hidden;
   padding: 8px 0;
+  contain: layout style;
 }
 
 .sidebar-group {
@@ -907,6 +916,8 @@ body {
   overflow: hidden;
   position: relative;
   background: var(--bg-content);
+  contain: layout style;
+  min-height: 0; /* prevent grid blowout */
 }
 
 #module-frame {
@@ -916,12 +927,15 @@ body {
   overflow-x: hidden;
   padding: 0;
   position: relative;
+  contain: layout style;
 }
 
-/* Fragment loading state */
+/* Fragment loading state -- opacity only, no layout impact */
 #module-frame.loading {
   opacity: 0.4;
   pointer-events: none;
+}
+.transitions-ready #module-frame.loading {
   transition: opacity var(--transition-fast);
 }
 
@@ -1000,6 +1014,8 @@ body {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  min-height: calc(100vh - 56px);
+  contain: layout;
 }
 .skeleton-row {
   display: flex;
@@ -1010,9 +1026,23 @@ body {
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: 16px;
 }
-/* Hide skeleton when content loaded */
-#module-frame:not(:empty) .skeleton-container {
-  display: none;
+/* Hide skeleton when content loaded -- use opacity+position to avoid CLS */
+.skeleton-container.hidden {
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+}
+/* Fallback for CSS-only: if JS adds actual children beyond the skeleton, hide it */
+#module-frame:not(:empty) .skeleton-container:not(:only-child) {
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
 }
 @media (prefers-reduced-motion: reduce) {
   .skeleton {
@@ -2084,7 +2114,7 @@ body {
   z-index: 0;
   opacity: 0.3;
   contain: strict;
-  will-change: transform;
+  /* Use will-change only after layout is stable to prevent compositor CLS */
   background:
     radial-gradient(
       ellipse at 20% 20%,
@@ -2101,7 +2131,14 @@ body {
       rgba(32, 32, 88, 0.05) 0%,
       transparent 70%
     );
+  /* Delay aurora animation start to avoid CLS during initial layout */
   animation: aurora-drift 30s ease-in-out infinite alternate;
+  animation-delay: 1s;
+  animation-fill-mode: backwards;
+}
+/* Only promote to compositor layer after body transitions are enabled */
+body:not(.no-transitions) .aurora-bg {
+  will-change: transform;
 }
 
 @keyframes aurora-drift {
@@ -2164,6 +2201,9 @@ body {
     width: var(--sidebar-w) !important;
     height: 100vh;
     z-index: 700;
+  }
+  /* Defer transition until layout is stable */
+  .transitions-ready .sidebar {
     transition: left var(--transition-slow);
   }
   .sidebar.mobile-open {

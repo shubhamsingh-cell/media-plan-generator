@@ -549,7 +549,7 @@ const NovaFavorites = (() => {
     _favorites.forEach((route) => {
       const mod = MODULES.find((m) => m.route === route);
       if (!mod) return;
-      html += `<a class="sidebar-item sidebar-sub-item" data-route="${mod.route}" data-tooltip="${mod.label}" onclick="NovaRouter.navigate('${mod.route}')">
+      html += `<a class="sidebar-item sidebar-sub-item" data-route="${mod.route}" data-tooltip="${mod.label}" href="/platform/${mod.route}" onclick="event.preventDefault(); NovaRouter.navigate('${mod.route}')">
               <span class="sidebar-item-icon">${ICONS[mod.icon] || ""}</span>
               <span class="sidebar-item-label">${mod.label}</span>
             </a>`;
@@ -591,7 +591,7 @@ const NovaSidebar = (() => {
 
     /* Home link */
     html += `<div style="padding:2px 0 4px">
-            <a class="sidebar-item" data-route="" data-tooltip="Home" onclick="NovaRouter.navigate('')">
+            <a class="sidebar-item" data-route="" data-tooltip="Home" href="/platform" onclick="event.preventDefault(); NovaRouter.navigate('')">
               <span class="sidebar-item-icon">${ICONS.home}</span>
               <span class="sidebar-item-label">Home</span>
             </a>
@@ -609,7 +609,7 @@ const NovaSidebar = (() => {
       groupModules.forEach((mod) => {
         const hasTabs = mod.tabs && mod.tabs.length > 1;
         const isFav = NovaFavorites.isFavorited(mod.route);
-        html += `<a class="sidebar-item" data-route="${mod.route}" data-tooltip="${mod.label}" onclick="NovaRouter.navigate('${mod.route}')">`;
+        html += `<a class="sidebar-item" data-route="${mod.route}" data-tooltip="${mod.label}" href="/platform/${mod.route}" onclick="event.preventDefault(); NovaRouter.navigate('${mod.route}')">`;
         html += `<span class="sidebar-item-icon">${ICONS[mod.icon] || ""}</span>`;
         html += `<span class="sidebar-item-label">${mod.label}</span>`;
         html += `<span class="sidebar-item-star ${isFav ? "favorited" : ""}" onclick="event.stopPropagation(); event.preventDefault(); NovaFavorites.toggle('${mod.route}');" title="Toggle favorite">${isFav ? ICONS.starFilled : ICONS.star}</span>`;
@@ -2300,11 +2300,14 @@ document.addEventListener("DOMContentLoaded", () => {
       NovaSidebar.build();
     }
   }, 500);
-  /* Enable grid transitions after layout stabilizes (prevents CLS on load) */
+  /* Enable grid transitions after layout fully stabilizes (prevents CLS on load).
+     Triple-rAF ensures layout → paint → composite are all done before transitions fire. */
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
-      const shell = document.getElementById("platform-shell");
-      if (shell) shell.classList.add("transitions-ready");
+      requestAnimationFrame(() => {
+        const shell = document.getElementById("platform-shell");
+        if (shell) shell.classList.add("transitions-ready");
+      });
     });
   });
   /* Show onboarding on first visit (Phase 6) */

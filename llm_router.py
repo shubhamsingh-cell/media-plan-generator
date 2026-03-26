@@ -146,7 +146,9 @@ CLAUDE_OPUS = "claude_opus"
 # Global timeout budget: max total wall-clock seconds for the entire call_llm()
 # fallback loop.  Individual per-provider timeouts are dynamically capped to the
 # remaining budget so the caller never waits longer than this.
-GLOBAL_TIMEOUT_BUDGET = 35.0  # seconds -- allows retry logic to complete
+GLOBAL_TIMEOUT_BUDGET = 35.0  # seconds -- default for non-tool queries
+# v4.3: Tool queries need more time (tools themselves take 5-10s each)
+GLOBAL_TIMEOUT_BUDGET_TOOLS = 55.0  # seconds -- for tool-calling queries
 _MIN_REMAINING_BUDGET = 5.0  # don't start a new attempt with < 5s left
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -2327,6 +2329,7 @@ def call_llm(
     preferred_providers: Optional[List[str]] = None,
     use_cache: bool = True,
     priority: str = RequestPriority.MEDIUM,
+    timeout_budget: Optional[float] = None,
 ) -> Dict[str, Any]:
     """Route an LLM call to the best available provider.
 
@@ -2349,6 +2352,8 @@ def call_llm(
             tasks that need fresh data (e.g., real-time queries).
         priority: Request priority level (RequestPriority.HIGH, MEDIUM, LOW).
             HIGH priority requests skip providers near their rate limits.
+        timeout_budget: Override the global timeout budget (seconds). Use
+            GLOBAL_TIMEOUT_BUDGET_TOOLS (55s) for tool-calling queries.
 
     Returns:
         {
@@ -2446,6 +2451,7 @@ def call_llm(
             use_cache=use_cache,
             priority=priority,
             _user_msg_for_cache=_user_msg_for_cache,
+            timeout_budget=timeout_budget,
         )
     finally:
         _llm_concurrency_semaphore.release()
@@ -2465,6 +2471,7 @@ def _call_llm_inner(
     use_cache: bool,
     priority: str,
     _user_msg_for_cache: str,
+    timeout_budget: Optional[float] = None,
 ) -> Dict[str, Any]:
     """Inner LLM call logic, runs under the global concurrency semaphore."""
     attempts: List[Dict[str, Any]] = []
@@ -2503,19 +2510,23 @@ def _call_llm_inner(
         custom_route = None
 
     # Smart routing with fallback
+    # v4.3: Use caller-provided timeout budget (55s for tool queries) or default (35s)
+    _effective_budget = (
+        timeout_budget if timeout_budget is not None else GLOBAL_TIMEOUT_BUDGET
+    )
     max_attempts = len(PROVIDER_CONFIG)
     _wall_start = time.time()
     for attempt_num in range(max_attempts):
         # --- Global timeout budget check ---
         elapsed = time.time() - _wall_start
-        if elapsed > GLOBAL_TIMEOUT_BUDGET:
+        if elapsed > _effective_budget:
             logger.warning(
                 "LLM Router: global timeout budget (%.1fs) exceeded after %d attempts",
-                GLOBAL_TIMEOUT_BUDGET,
+                _effective_budget,
                 attempt_num,
             )
             break
-        remaining = GLOBAL_TIMEOUT_BUDGET - elapsed
+        remaining = _effective_budget - elapsed
         if remaining < _MIN_REMAINING_BUDGET:
             logger.warning(
                 "LLM Router: only %.1fs remaining in budget, stopping early",

@@ -19,10 +19,11 @@
     <!-- Preconnect to font origins (non-blocking) -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <!-- Load fonts non-blocking via preload to eliminate render-blocking + CLS -->
+    <!-- Load fonts non-blocking: display=optional prevents FOUT layout shift entirely.
+         The font is used if cached, otherwise the fallback renders with zero CLS. -->
     <link
       rel="preload"
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=optional"
       as="style"
       onload="
         this.onload = null;
@@ -32,27 +33,53 @@
     <noscript
       ><link
         rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=optional"
     /></noscript>
     <!-- Critical CSS inlined: reserve exact layout dimensions to prevent CLS -->
     <style>
+      /* ── Metric-matched fallback font to prevent text reflow when Inter loads ── */
+      @font-face {
+        font-family: "Inter Fallback";
+        src:
+          local("BlinkMacSystemFont"), local("-apple-system"),
+          local("Segoe UI"), local("Roboto"), local("Helvetica Neue"),
+          local("Arial"), local("sans-serif");
+        size-adjust: 107%;
+        ascent-override: 90%;
+        descent-override: 22%;
+        line-gap-override: 0%;
+      }
       *,
       *::before,
       *::after {
         box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      /* ── Kill ALL transitions/animations until layout is stable ── */
+      .no-transitions,
+      .no-transitions *,
+      .no-transitions *::before,
+      .no-transitions *::after {
+        transition: none !important;
+        animation-duration: 0.01ms !important;
+        animation-delay: 0s !important;
       }
       body {
         margin: 0;
         font-family:
           "Inter",
+          "Inter Fallback",
           -apple-system,
           BlinkMacSystemFont,
           "Segoe UI",
           Roboto,
           sans-serif;
-        background: #0a0a1a;
-        color: #e0e0e0;
-        overflow-x: hidden;
+        background: #09090b;
+        color: #e4e4e7;
+        overflow: hidden;
+        height: 100vh;
+        width: 100vw;
         -webkit-font-smoothing: antialiased;
       }
       /* Grid shell: exact dims from platform.css tokens */
@@ -63,28 +90,40 @@
         grid-template-areas: "sidebar topbar" "sidebar content";
         height: 100vh;
         width: 100vw;
+        contain: layout style;
       }
       .sidebar {
         grid-area: sidebar;
         width: 252px;
-        background: rgba(15, 15, 35, 0.95);
+        display: flex;
+        flex-direction: column;
+        background: #0c0c14;
         border-right: 1px solid rgba(255, 255, 255, 0.06);
-        overflow-y: auto;
-        overflow-x: hidden;
+        overflow: hidden;
         contain: layout style paint;
       }
       .topbar {
         grid-area: topbar;
         height: 56px;
-        background: rgba(15, 15, 35, 0.8);
+        min-height: 56px;
+        background: rgba(12, 12, 20, 0.82);
         border-bottom: 1px solid rgba(255, 255, 255, 0.06);
         display: flex;
         align-items: center;
         contain: layout style;
       }
-      .module-frame {
+      .content-area {
         grid-area: content;
+        overflow: hidden;
+        position: relative;
+        background: #09090b;
+        contain: layout style;
+      }
+      #module-frame {
+        width: 100%;
+        height: 100%;
         overflow-y: auto;
+        overflow-x: hidden;
         contain: layout style;
       }
       /* Aurora BG: fixed, no layout impact */
@@ -105,24 +144,34 @@
         left: 8px;
         top: 8px;
       }
-      /* Reserve stable heights for sidebar sections */
+      /* Reserve stable heights for sidebar sections to prevent CLS from JS nav build */
       .sidebar-logo {
         height: 56px;
+        min-height: 56px;
         display: flex;
         align-items: center;
         padding: 0 16px;
+        flex-shrink: 0;
         contain: layout;
       }
       .sidebar-nav {
-        min-height: 200px;
+        min-height: 320px;
+        flex: 1;
+        overflow-y: auto;
+        overflow-x: hidden;
+        contain: layout style;
+      }
+      .sidebar-favorites {
+        min-height: 0;
         contain: layout;
       }
       .sidebar-footer {
         height: 56px;
+        min-height: 56px;
         display: flex;
         align-items: center;
         padding: 0 16px;
-        margin-top: auto;
+        flex-shrink: 0;
         contain: layout;
       }
       .sidebar-footer-avatar {
@@ -138,14 +187,50 @@
         flex-shrink: 0;
         color: #fff;
       }
-      /* Prevent grid-column transition from causing CLS on initial load */
-      .platform-shell {
-        transition: none;
+      /* Skeleton placeholder: reserve exact content area space */
+      .skeleton-container {
+        padding: 32px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        min-height: calc(100vh - 56px);
+        contain: layout;
+      }
+      /* Onboarding overlay: fixed, no layout impact */
+      .onboarding-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 950;
+        display: none;
+        contain: strict;
+      }
+      /* Laptop: collapse sidebar at smaller viewports */
+      @media (max-width: 1280px) {
+        .platform-shell:not(.sidebar-expanded) {
+          grid-template-columns: 64px 1fr;
+        }
+        .platform-shell:not(.sidebar-expanded) .sidebar {
+          width: 64px;
+        }
+      }
+      /* Tablet: hide sidebar */
+      @media (max-width: 1024px) {
+        .platform-shell {
+          grid-template-columns: 0 1fr !important;
+        }
+        .sidebar {
+          position: fixed;
+          top: 0;
+          left: -260px;
+          width: 252px !important;
+          height: 100vh;
+          z-index: 700;
+        }
       }
       /* Mobile */
       @media (max-width: 768px) {
         .platform-shell {
-          grid-template-columns: 1fr;
+          grid-template-columns: 1fr !important;
           grid-template-areas: "topbar" "content";
         }
         .sidebar {
@@ -175,7 +260,7 @@
     /></noscript>
     <meta name="csrf-token" content="" />
   </head>
-  <body>
+  <body class="no-transitions">
     <a href="#module-frame" class="skip-nav">Skip to main content</a>
     <div class="aurora-bg" aria-hidden="true"></div>
 
@@ -820,6 +905,19 @@
      JAVASCRIPT
      ════════════════════════════════════════════════════════════════ -->
     <script src="/static/js/platform.js" defer></script>
+    <!-- Remove no-transitions guard after layout is stable (prevents CLS from initial animations) -->
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        /* Triple-rAF: wait for layout → paint → composite before enabling transitions */
+        requestAnimationFrame(function () {
+          requestAnimationFrame(function () {
+            requestAnimationFrame(function () {
+              document.body.classList.remove("no-transitions");
+            });
+          });
+        });
+      });
+    </script>
     <!-- platform.js contains the full platform IIFE; ConfidencePulse remains inline -->
     <script>
       window.ConfidencePulse = {

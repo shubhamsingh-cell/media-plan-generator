@@ -1724,10 +1724,10 @@ _COMPLEX_QUERY_INDICATORS: list[str] = [
 # v4.1: Quality-first preferred providers for ALL substantive queries
 # Claude Haiku is the primary -- cheap ($0.25/M) and dramatically better than free LLMs
 _COMPLEX_PREFERRED_PROVIDERS: list[str] = [
-    "claude_haiku",  # #1: Fast + cheap paid, Claude-level quality
-    "gemini",  # #2: Free, strong reasoning (best free option)
-    "gpt4o",  # #3: Strong analytical capability
-    "claude",  # #4: Claude Sonnet -- highest quality for deep analysis
+    "claude_haiku",  # #1: BEST quality for data queries (9.0/10 tool calling, 9.5 instruction following)
+    "gpt4o",  # #2: Strong analytical capability, reliable tool calling
+    "gemini",  # #3: Best FREE fallback (8.4/10 avg) -- only if paid providers unavailable
+    "claude",  # #4: Claude Sonnet for deep analysis (most expensive)
 ]
 
 
@@ -1774,6 +1774,7 @@ def _detect_query_complexity(message: str) -> bool:
         return False
 
     # Guard: very short non-question messages (< 4 words) stay free
+    # UNLESS they contain data keywords (e.g., "nurse salary" = 2 words but complex)
     _question_starters = {
         "how",
         "what",
@@ -1796,16 +1797,9 @@ def _detect_query_complexity(message: str) -> bool:
         "search",
         "list",
     }
-    if len(words) < 4 and not any(w in _question_starters for w in words):
-        return False
 
-    # AGGRESSIVE: Any query with 5+ words that isn't a greeting is substantive
-    # and should go to paid providers for quality
-    if len(words) >= 5:
-        return True
-
-    # Any query containing data/analysis keywords routes to paid
-    _SUBSTANTIVE_KEYWORDS = re.compile(
+    # v4.3: Data keywords ALWAYS mark as complex, regardless of word count
+    _DATA_KEYWORDS = re.compile(
         r"\b(salary|salaries|cpc|cpa|cph|benchmark|cost|budget|spend|"
         r"hire|hiring|recruit|talent|candidate|sourcing|channel|"
         r"market|demand|supply|trend|forecast|projection|"
@@ -1813,12 +1807,22 @@ def _detect_query_complexity(message: str) -> bool:
         r"compliance|diversity|clearance|"
         r"nurse|driver|engineer|developer|accountant|mechanic|"
         r"healthcare|technology|manufacturing|logistics|retail|"
-        r"city|cities|state|country|region|"
+        r"city|cities|state|country|region|remote|federal|"
         r"indeed|linkedin|ziprecruiter|glassdoor|joveo|"
         r"roi|performance|optimize|allocation|"
-        r"data|report|insight|intelligence)\b"
+        r"data|report|insight|intelligence|"
+        r"h-?1b|visa|labor|labour|jobs?|posting|vacancy|"
+        r"median|average|percentile|range|competitive)\b"
     )
-    if _SUBSTANTIVE_KEYWORDS.search(query_lower):
+    if _DATA_KEYWORDS.search(query_lower):
+        return True
+
+    if len(words) < 4 and not any(w in _question_starters for w in words):
+        return False
+
+    # AGGRESSIVE: Any query with 5+ words that isn't a greeting is substantive
+    # and should go to paid providers for quality
+    if len(words) >= 5:
         return True
 
     # Check original keyword indicators (kept for backward compat)
@@ -9063,9 +9067,11 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
         # Cancellation check before LLM routing (Path A/B/C)
         _check_cancellation(cancel_event)
 
-        # Path A: Conversational queries only -> LLM providers (no tools)
-        # Complex queries get routed to paid models for better quality.
-        if _is_conversational:
+        # Path A: TRUE greetings/chitchat ONLY -> LLM providers (no tools)
+        # v4.3: Tightened -- only <4 word greetings with zero data keywords.
+        # ALL data queries go to Path B (tool path) for quality.
+        _words_count = len(user_message.strip().split())
+        if _is_conversational and _words_count < 4:
             router_result = self._chat_with_llm_router(
                 user_message,
                 conversation_history,
@@ -9141,11 +9147,13 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                     )
 
         # Path B: Tool-use queries -> LLM providers WITH tools
-        # NOTE (v3.6): This is the DEFAULT path. All non-conversational
-        # queries come here, ensuring data lookups happen before responding.
+        # NOTE (v4.3): This is the DEFAULT path. ALL queries >= 4 words or
+        # with data keywords come here, ensuring data lookups happen before responding.
         # Complex queries prefer paid models for better tool-calling quality.
         _check_cancellation(cancel_event)
-        if not _is_conversational:
+        # v4.3: Path B runs for ALL non-short-greeting queries (not just non-conversational)
+        _use_tool_path = not _is_conversational or _words_count >= 4
+        if _use_tool_path:
             free_tool_result = self._chat_with_free_llm_tools(
                 user_message,
                 conversation_history,
@@ -9153,10 +9161,37 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                 is_complex=_is_complex,
                 ab_force_provider=_ab_variant,
             )
+            # v4.3 QUALITY GATE: If response has zero tools_used, retry with Gemini forced
+            if free_tool_result and not free_tool_result.get("tools_used"):
+                logger.warning(
+                    "NOVA QUALITY GATE: Response has zero tools (provider=%s), "
+                    "retrying with gemini forced",
+                    free_tool_result.get("llm_provider", "unknown"),
+                )
+                try:
+                    _retry_result = self._chat_with_free_llm_tools(
+                        user_message,
+                        conversation_history,
+                        enrichment_context,
+                        is_complex=True,
+                        ab_force_provider="gemini",
+                    )
+                    if _retry_result and _retry_result.get("tools_used"):
+                        free_tool_result = _retry_result
+                        logger.info(
+                            "NOVA QUALITY GATE: Gemini retry succeeded with %d tools",
+                            len(_retry_result.get("tools_used") or []),
+                        )
+                except Exception as _qg_err:
+                    logger.warning(
+                        "NOVA QUALITY GATE: Gemini retry failed: %s", _qg_err
+                    )
+
             if free_tool_result:
                 logger.info(
-                    "NOVA MODE: LLM with tools responded successfully (provider=%s)",
+                    "NOVA MODE: LLM with tools responded successfully (provider=%s, tools=%d)",
                     free_tool_result.get("llm_provider", "unknown"),
+                    len(free_tool_result.get("tools_used") or []),
                 )
                 _nova_metrics.record_latency((time.time() - _t0) * 1000)
                 _nova_metrics.record_chat("tool")
@@ -9893,14 +9928,15 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
 
     # Provider IDs that support OpenAI-compatible tool calling (free tier)
     _FREE_TOOL_PROVIDERS = [
-        "groq",
-        "cerebras",
-        "gemini",
-        "mistral",
-        "sambanova",
-        "openrouter",
-        "nvidia_nim",
-        "cloudflare",
+        "gemini",  # #1: Best free provider for tool calling (8/10), native function calling
+        "groq",  # #2: Fastest inference, decent tool calling (7/10)
+        "cerebras",  # #3: Fast inference, same Llama 3.3 as Groq
+        "mistral",  # #4: Good structured output, multilingual
+        "together",  # #5: Llama 3.3 70B Turbo, reliable
+        "sambanova",  # #6: Fast RDU hardware
+        "openrouter",  # #7: Llama 4 Maverick
+        "nvidia_nim",  # #8: Nemotron, lower quality but fast
+        "cloudflare",  # #9: Edge-distributed, high RPM
     ]
 
     def _chat_with_free_llm_tools(
@@ -10160,7 +10196,7 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
         tool_call_details = []
         tool_results_raw = []
         max_iterations = (
-            4  # v4.2: 4 iterations for free LLMs (slower but need more tool calls)
+            5  # v4.3: 5 iterations -- tools need 5-10s each, give enough rounds
         )
         active_provider = None  # Lock to same provider for multi-turn
 
@@ -10169,34 +10205,35 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
         if task_type not in (TASK_COMPLEX,):
             task_type = TASK_COMPLEX
 
-        # Smart routing: complex queries prefer paid models for tool-calling quality
-        # BUT: filter preferred_providers to only those with configured API keys
-        if is_complex:
-            # Filter preferred providers to only those with API keys configured
-            from llm_router import PROVIDER_CONFIG
+        # v4.3 QUALITY-FIRST routing: ALL tool queries prefer paid providers.
+        # Haiku at $0.25/M is cheap enough to use for every data query.
+        # Free providers are fallbacks only (when paid keys are missing/exhausted).
+        from llm_router import PROVIDER_CONFIG
 
-            _configured_preferred = []
-            for pid in _COMPLEX_PREFERRED_PROVIDERS:
-                config = PROVIDER_CONFIG.get(pid, {})
-                env_key = config.get("env_key") or ""
-                if env_key and os.environ.get(env_key, "").strip():
-                    _configured_preferred.append(pid)
+        _configured_preferred = []
+        for pid in _COMPLEX_PREFERRED_PROVIDERS:
+            config = PROVIDER_CONFIG.get(pid, {})
+            env_key = config.get("env_key") or ""
+            # Free providers (gemini, groq, etc.) may not have env_key checks --
+            # include them if they're in PROVIDER_CONFIG regardless
+            if not env_key or (env_key and os.environ.get(env_key, "").strip()):
+                _configured_preferred.append(pid)
 
-            # Use configured paid providers if available, otherwise use free tool providers
-            if _configured_preferred:
-                _tool_preferred = _configured_preferred
-                logger.info(
-                    "LLM tools: COMPLEX query detected, preferring paid models: %s",
-                    _tool_preferred,
-                )
-            else:
-                _tool_preferred = self._FREE_TOOL_PROVIDERS
-                logger.info(
-                    "LLM tools: COMPLEX query detected but no paid providers configured, "
-                    "using free tool providers"
-                )
+        if _configured_preferred:
+            # Paid providers available: use them first, free as fallback
+            _tool_preferred = _configured_preferred + [
+                p for p in self._FREE_TOOL_PROVIDERS if p not in _configured_preferred
+            ]
+            logger.info(
+                "LLM tools: quality-first routing, providers: %s (complex=%s)",
+                _tool_preferred[:4],
+                is_complex,
+            )
         else:
             _tool_preferred = self._FREE_TOOL_PROVIDERS
+            logger.info(
+                "LLM tools: no paid providers configured, using free providers only"
+            )
 
         # Always use 4096 for tool queries to prevent response truncation
         _tool_max_tokens = 4096
@@ -10214,6 +10251,7 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                         tools=clean_tools,
                         force_provider=active_provider,
                         query_text=user_message,
+                        timeout_budget=55.0,  # v4.3: tools need more time (5-10s each)
                     )
                     if (
                         not result
@@ -10240,6 +10278,7 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                         query_text=user_message,
                         preferred_providers=_tool_preferred,
                         force_provider=ab_force_provider or "",
+                        timeout_budget=55.0,  # v4.3: tools need more time (5-10s each)
                     )
                     active_provider = (result or {}).get("provider")
                     # Guard: if router fell through to expensive providers AND
