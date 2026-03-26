@@ -574,17 +574,18 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
             "X-Title": "Nova AI Suite",
         },
     },
-    XAI: {
-        "name": "xAI Grok",
-        "api_style": "openai",  # OpenAI-compatible
-        "endpoint": "https://api.x.ai/v1/chat/completions",
-        "model": "grok-3-mini-fast",
-        "env_key": "XAI_API_KEY",
-        "rpm_limit": 30,
-        "rpd_limit": 14400,
-        "timeout": 30,
-        "max_tokens": 8192,
-    },
+    # XAI disabled -- free credits expired, 403 error code 1010 (2026-03-26)
+    # XAI: {
+    #     "name": "xAI Grok",
+    #     "api_style": "openai",
+    #     "endpoint": "https://api.x.ai/v1/chat/completions",
+    #     "model": "grok-3-mini-fast",
+    #     "env_key": "XAI_API_KEY",
+    #     "rpm_limit": 30,
+    #     "rpd_limit": 14400,
+    #     "timeout": 30,
+    #     "max_tokens": 8192,
+    # },
     SAMBANOVA: {
         "name": "SambaNova (Llama 3.3 70B)",
         "api_style": "openai",  # OpenAI-compatible
@@ -868,7 +869,6 @@ TASK_ROUTING: Dict[str, List[str]] = {
         TOGETHER,
         CLOUDFLARE,
         OPENROUTER_ARCEE,
-        XAI,
         OPENROUTER_DEEPSEEK_R1,
         HUGGINGFACE,
         OPENROUTER_LIQUID,
@@ -892,7 +892,6 @@ TASK_ROUTING: Dict[str, List[str]] = {
         TOGETHER,
         OPENROUTER_ARCEE,
         CLOUDFLARE,
-        XAI,
         OPENROUTER_GEMMA,
         HUGGINGFACE,
         OPENROUTER_LIQUID,
@@ -919,7 +918,6 @@ TASK_ROUTING: Dict[str, List[str]] = {
         SILICONFLOW,
         CLOUDFLARE,
         OPENROUTER_LIQUID,
-        XAI,
         HUGGINGFACE,
         CLAUDE_HAIKU,
         CLAUDE,
@@ -942,7 +940,6 @@ TASK_ROUTING: Dict[str, List[str]] = {
         SILICONFLOW,
         OPENROUTER_GEMMA,
         CLOUDFLARE,
-        XAI,
         HUGGINGFACE,
         CLAUDE_HAIKU,
         GPT4O,
@@ -965,7 +962,6 @@ TASK_ROUTING: Dict[str, List[str]] = {
         SILICONFLOW,
         CLOUDFLARE,
         OPENROUTER_ARCEE,
-        XAI,
         HUGGINGFACE,
         CLAUDE_HAIKU,
         GPT4O,
@@ -974,7 +970,6 @@ TASK_ROUTING: Dict[str, List[str]] = {
     ],
     TASK_RESEARCH: [
         OPENROUTER_DEEPSEEK_R1,  # DeepSeek R1 -- strong reasoning, HIGH priority
-        XAI,
         SAMBANOVA,
         OPENROUTER,  # Spaced: non-OR providers between OR variants
         GEMINI,
@@ -1012,7 +1007,6 @@ TASK_ROUTING: Dict[str, List[str]] = {
         SILICONFLOW,
         CLOUDFLARE,
         OPENROUTER_LIQUID,
-        XAI,
         HUGGINGFACE,
         CLAUDE_HAIKU,
         GPT4O,
@@ -1032,7 +1026,6 @@ TASK_ROUTING: Dict[str, List[str]] = {
         SAMBANOVA,
         SILICONFLOW,
         OPENROUTER,  # Spaced: non-OR providers between OR variants
-        XAI,
         OPENROUTER_QWEN,
         HUGGINGFACE,
         OPENROUTER_YI,
@@ -1059,7 +1052,6 @@ TASK_ROUTING: Dict[str, List[str]] = {
         OPENROUTER_DEEPSEEK_R1,
         NVIDIA_NIM,
         TOGETHER,
-        XAI,
         SILICONFLOW,
         CLOUDFLARE,
         CLAUDE_HAIKU,
@@ -1102,7 +1094,6 @@ TASK_ROUTING: Dict[str, List[str]] = {
         XIAOMI_MIMO,  # MiMo V2 Flash -- 309B MoE, best analysis quality
         GEMINI,
         OPENROUTER_DEEPSEEK_R1,
-        XAI,
         SAMBANOVA,
         GROQ,
         OPENROUTER,  # Spaced: non-OR providers between OR variants
@@ -1120,7 +1111,6 @@ TASK_ROUTING: Dict[str, List[str]] = {
     ],
     TASK_COMPETITOR_SCAN: [
         OPENROUTER_DEEPSEEK_R1,
-        XAI,
         GEMINI,
         OPENROUTER,
         GROQ,
@@ -1163,7 +1153,6 @@ TASK_ROUTING: Dict[str, List[str]] = {
         SILICONFLOW,
         TOGETHER,
         CLOUDFLARE,
-        XAI,
         CLAUDE_HAIKU,
         GPT4O,
         CLAUDE,
