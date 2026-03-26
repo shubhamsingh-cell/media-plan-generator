@@ -1280,20 +1280,20 @@ a:hover {
          LIGHT MODE
          ================================================================ */
 [data-theme="light"] {
-  --bg-primary: #f8f9fa;
+  --bg-primary: #f7f7f8;
   --bg-secondary: #ffffff;
-  --bg-tertiary: #f0f1f3;
+  --bg-tertiary: #ececf1;
   --bg-input: #ffffff;
-  --text-primary: #1a1a2e;
-  --text-secondary: #555;
-  --text-muted: #717179;
+  --text-primary: #1a1a1a;
+  --text-secondary: #4a4a4a;
+  --text-muted: #6b6b6b;
   --accent-purple: #5a54bd;
   --accent-purple-light: #7b75d4;
-  --accent-teal: #4a9db5;
-  --accent-teal-dim: rgba(74, 157, 181, 0.12);
-  --accent-teal-glow: rgba(74, 157, 181, 0.25);
-  --border-color: rgba(0, 0, 0, 0.08);
-  --border-hover: rgba(0, 0, 0, 0.15);
+  --accent-teal: #2d7a8a;
+  --accent-teal-dim: rgba(45, 122, 138, 0.1);
+  --accent-teal-glow: rgba(45, 122, 138, 0.2);
+  --border-color: rgba(0, 0, 0, 0.1);
+  --border-hover: rgba(0, 0, 0, 0.2);
   --msg-user-bg: #5a54bd;
   --msg-assistant-bg: #ffffff;
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
@@ -1337,8 +1337,27 @@ a:hover {
 [data-theme="light"] .message-sender.user {
   color: var(--accent-purple);
 }
+[data-theme="light"] .message-content {
+  color: #1a1a1a;
+}
 [data-theme="light"] .message-content strong {
   color: #111;
+}
+[data-theme="light"] .message-content p,
+[data-theme="light"] .message-content li,
+[data-theme="light"] .message-content span {
+  color: #2d2d2d;
+}
+[data-theme="light"] .message-content h3 {
+  color: #111;
+}
+[data-theme="light"] .message-content a {
+  color: #2d7a8a;
+}
+[data-theme="light"] .message-meta .meta-badge {
+  color: #4a4a4a;
+  background: rgba(0, 0, 0, 0.06);
+  border-color: rgba(0, 0, 0, 0.1);
 }
 [data-theme="light"] .sidebar-brand-text {
   color: #1a1a2e;
