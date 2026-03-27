@@ -10296,11 +10296,23 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
         sources = set()
         tool_call_details = []
         tool_results_raw = []
-        max_iterations = (
-            4  # S23: raised from 3 to 4. Complex queries need 6+ tool calls + synthesis.
-            # 4 iters = 100s worst case. Fits within gunicorn 120s timeout.
-            # S21 reduced from 5 to 3 but that caused synthesis failures on media plan queries.
+        # S23-R5: Dynamic iterations based on query complexity.
+        # Simple queries (salary, single data point): 3 iterations is enough.
+        # Complex queries (media plans, multi-location, comparisons): need 5-6 for tools + synthesis.
+        _is_media_plan = any(
+            kw in user_message.lower()
+            for kw in (
+                "media plan",
+                "recruitment plan",
+                "hiring plan",
+                "budget allocation",
+                "channel strategy",
+                "multiple cities",
+                "campaign for",
+                "create a plan",
+            )
         )
+        max_iterations = 6 if (_is_media_plan or is_complex) else 4
         active_provider = None  # Lock to same provider for multi-turn
 
         task_type = classify_task(user_message)
@@ -10769,12 +10781,80 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                 "llm_model": model,
             }
 
-        # Exhausted iterations without final text
+        # Exhausted iterations without final text.
+        # S23-R5: Try synthesis-force HERE instead of falling through to Path C
+        # (which wastes another 5 iterations of Claude API calls).
+        if tools_used and tool_call_details:
+            try:
+                _tool_summary_parts = []
+                for _tcd in tool_call_details:
+                    _tname = _tcd.get("tool") or "unknown"
+                    _tresult = str(_tcd.get("result") or "")[:2000]
+                    _tool_summary_parts.append(f"[{_tname}]: {_tresult}")
+                _tool_summary = "\n\n".join(_tool_summary_parts)
+
+                _synth_msgs_b = [
+                    {
+                        "role": "user",
+                        "content": f"Original question: {user_message}\n\n"
+                        f"Data from {len(tools_used)} tools:\n\n{_tool_summary}\n\n"
+                        "Synthesize a complete, well-structured response with markdown "
+                        "tables, bullet points, and specific numbers. Include actionable "
+                        "recommendations.",
+                    }
+                ]
+                # Use Claude Haiku directly for synthesis
+                _api_key = os.environ.get("ANTHROPIC_API_KEY") or ""
+                if _api_key:
+                    _synth_payload_b = {
+                        "model": "claude-haiku-4-5-20251001",
+                        "max_tokens": 4096,
+                        "messages": _synth_msgs_b,
+                    }
+                    _synth_req_b = urllib.request.Request(
+                        "https://api.anthropic.com/v1/messages",
+                        data=json.dumps(_synth_payload_b).encode("utf-8"),
+                        headers={
+                            "Content-Type": "application/json",
+                            "x-api-key": _api_key,
+                            "anthropic-version": "2023-06-01",
+                        },
+                    )
+                    with urllib.request.urlopen(_synth_req_b, timeout=30) as _sr:
+                        _synth_data = json.loads(_sr.read().decode("utf-8"))
+                    _synth_text_b = ""
+                    for _sb in (_synth_data or {}).get("content", []):
+                        if _sb.get("type") == "text":
+                            _synth_text_b += _sb.get("text") or ""
+                    if _synth_text_b and len(_synth_text_b) > 50:
+                        logger.info(
+                            "S23 Path B synthesis-force succeeded: %d chars",
+                            len(_synth_text_b),
+                        )
+                        return {
+                            "response": _synth_text_b,
+                            "sources": list(sources),
+                            "confidence": max(
+                                0.6,
+                                _estimate_confidence_v2(
+                                    tools_used, sources, tool_call_details
+                                ),
+                            ),
+                            "tools_used": tools_used,
+                            "llm_provider": "claude_haiku",
+                            "llm_model": "claude-haiku-4-5-20251001",
+                            "tool_iterations": max_iterations + 1,
+                        }
+            except Exception as _synth_b_err:
+                logger.error(
+                    "S23 Path B synthesis-force failed: %s", _synth_b_err, exc_info=True
+                )
+
         logger.warning(
             "Free LLM tools: exhausted %d iterations without final response",
             max_iterations,
         )
-        return None  # Fall back to Claude
+        return None  # Fall back to Claude Path C
 
     def _chat_with_claude(
         self,
