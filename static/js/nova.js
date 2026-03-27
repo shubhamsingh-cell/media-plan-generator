@@ -1840,13 +1840,16 @@
         var readerTimeout = null;
         function resetReaderTimeout() {
           if (readerTimeout) clearTimeout(readerTimeout);
+          // S24: Was 25s — far too short for complex queries (media plans,
+          // multi-tool iterations take 40-70s). Increased to 90s to match
+          // server-side 75s chat timeout + margin.  Resets on each SSE event.
           readerTimeout = setTimeout(function () {
             if (ac && !ac.signal.aborted) {
               try {
                 ac.abort();
               } catch (_) {}
             }
-          }, 25000);
+          }, 90000);
         }
 
         fetch(STREAM_URL, {
