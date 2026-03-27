@@ -55,7 +55,30 @@ def _handle_competitive_scrape(handler: Any, path: str, parsed: Any) -> None:
             return
 
         analyze_competitor_careers = getattr(_app, "analyze_competitor_careers", None)
-        result = analyze_competitor_careers(company_domain=domain)
+        if not analyze_competitor_careers:
+            handler._send_json(
+                {"error": "Career page analysis not available", "status": "error"},
+                status_code=503,
+            )
+            return
+        try:
+            result = analyze_competitor_careers(company_domain=domain)
+        except Exception as _scrape_err:
+            logger.error(
+                "Career page scrape failed for %s: %s",
+                domain,
+                _scrape_err,
+                exc_info=True,
+            )
+            handler._send_json(
+                {
+                    "error": f"Could not analyze {domain}. The site may be blocking automated access.",
+                    "status": "error",
+                    "domain": domain,
+                },
+                status_code=200,  # 200 with error status so frontend handles gracefully
+            )
+            return
 
         # Enrich with Jooble market data
         _api_integrations_available = getattr(

@@ -10297,8 +10297,9 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
         tool_call_details = []
         tool_results_raw = []
         max_iterations = (
-            3  # S21: 3 iterations max -- each iter = API call(15s) + tools(10s) = 25s
-            # 3 iters = 75s worst case. Was 5 (125s) which exceeded gunicorn 120s timeout.
+            4  # S23: raised from 3 to 4. Complex queries need 6+ tool calls + synthesis.
+            # 4 iters = 100s worst case. Fits within gunicorn 120s timeout.
+            # S21 reduced from 5 to 3 but that caused synthesis failures on media plan queries.
         )
         active_provider = None  # Lock to same provider for multi-turn
 
@@ -11304,6 +11305,57 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
             except Exception as _coal_err:
                 logger.debug("Coalescing complete skipped: %s", _coal_err)
             return _result
+
+        # S23: Force one final synthesis call with tools disabled.
+        # When all iterations were consumed by tool calls, the LLM never got
+        # a chance to produce a text response. Make ONE more API call with
+        # tools=[] to force synthesis from the accumulated tool results.
+        try:
+            _synth_messages = messages.copy()
+            _synth_messages.append(
+                {
+                    "role": "user",
+                    "content": "You have gathered all the data above from your tool calls. "
+                    "Now synthesize a complete, well-structured response for the user. "
+                    "Do NOT call any more tools. Present the data in tables and bullet points.",
+                }
+            )
+            _synth_resp = _call_llm_api(
+                provider="claude_haiku",
+                messages=_synth_messages,
+                system_prompt=system_prompt,
+                tools=[],  # No tools -- force text synthesis
+                max_tokens=4096,
+                temperature=0.3,
+            )
+            _synth_text = ""
+            for _sb in (_synth_resp or {}).get("content", []):
+                if _sb.get("type") == "text":
+                    _synth_text += _sb.get("text") or ""
+            if _synth_text and len(_synth_text) > 50:
+                logger.info(
+                    "S23 synthesis-force succeeded: %d chars from %d tool results",
+                    len(_synth_text),
+                    len(tools_used),
+                )
+                _result = {
+                    "response": _synth_text,
+                    "sources": list(sources),
+                    "confidence": max(
+                        0.5,
+                        _estimate_confidence_v2(tools_used, sources, tool_call_details),
+                    ),
+                    "tools_used": tools_used,
+                    "tool_iterations": max_iterations + 1,
+                }
+                try:
+                    if _coalescer and _is_leader and _qhash:
+                        _coalescer.complete(_qhash, _result)
+                except Exception as _coal_err:
+                    logger.debug("Coalescing complete skipped: %s", _coal_err)
+                return _result
+        except Exception as _synth_err:
+            logger.error("S23 synthesis-force failed: %s", _synth_err, exc_info=True)
 
         _result = {
             "response": "I gathered data but could not finalize a response. Please try rephrasing your question.",
@@ -12804,6 +12856,30 @@ def _enrich_response_quality(response: dict, user_message: str = "") -> dict:
     tools_used = response.get("tools_used") or []
     sources = response.get("sources") or []
     changed = False
+
+    # S23: Sanitize raw JSON/data paths that leak from tool results into responses.
+    # Patterns like "[channels_db.json] key.subkey" or "data.field.nested" should never
+    # appear in user-facing responses.
+    import re as _re_qual
+
+    _json_path_patterns = [
+        _re_qual.compile(
+            r"\[[\w_]+\.json\]\s*[\w_.]+(?:\.[\w_.]+)*", _re_qual.IGNORECASE
+        ),  # [file.json] key.path
+        _re_qual.compile(
+            r"^\s*\w+:\s+[\w_.]+(?:\.[\w_.]+){2,}\s*$", _re_qual.MULTILINE
+        ),  # standalone: key.path.deep
+    ]
+    _cleaned_text = text
+    for _pat in _json_path_patterns:
+        _cleaned_text = _pat.sub("", _cleaned_text)
+    # Clean up extra blank lines from removals
+    _cleaned_text = _re_qual.sub(r"\n{3,}", "\n\n", _cleaned_text).strip()
+    if _cleaned_text != text:
+        text = _cleaned_text
+        response["response"] = text
+        changed = True
+        logger.info("S23: sanitized raw JSON paths from response")
 
     # 1. Add markdown formatting if response is plain text (no headers, bold, bullets)
     has_markdown = any(
