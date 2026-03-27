@@ -11309,7 +11309,7 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
         # S23: Force one final synthesis call with tools disabled.
         # When all iterations were consumed by tool calls, the LLM never got
         # a chance to produce a text response. Make ONE more API call with
-        # tools=[] to force synthesis from the accumulated tool results.
+        # no tools to force synthesis from the accumulated tool results.
         try:
             _synth_messages = messages.copy()
             _synth_messages.append(
@@ -11317,17 +11317,29 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                     "role": "user",
                     "content": "You have gathered all the data above from your tool calls. "
                     "Now synthesize a complete, well-structured response for the user. "
-                    "Do NOT call any more tools. Present the data in tables and bullet points.",
+                    "Do NOT call any more tools. Present the data clearly with markdown "
+                    "tables, bullet points, and specific numbers from the tool results.",
                 }
             )
-            _synth_resp = _call_llm_api(
-                provider="claude_haiku",
-                messages=_synth_messages,
-                system_prompt=system_prompt,
-                tools=[],  # No tools -- force text synthesis
-                max_tokens=4096,
-                temperature=0.3,
+            _synth_payload = {
+                "model": selected_model,
+                "max_tokens": 4096,
+                "system": system_content,
+                "messages": _synth_messages,
+                # No tools key -- forces text-only response
+            }
+            _synth_req = urllib.request.Request(
+                "https://api.anthropic.com/v1/messages",
+                data=json.dumps(_synth_payload).encode("utf-8"),
+                headers={
+                    "Content-Type": "application/json",
+                    "x-api-key": api_key,
+                    "anthropic-version": "2023-06-01",
+                },
             )
+            with urllib.request.urlopen(_synth_req, timeout=30) as _synth_resp_raw:
+                _synth_resp = json.loads(_synth_resp_raw.read().decode("utf-8"))
+
             _synth_text = ""
             for _sb in (_synth_resp or {}).get("content", []):
                 if _sb.get("type") == "text":

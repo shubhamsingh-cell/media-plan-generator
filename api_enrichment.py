@@ -14369,12 +14369,16 @@ def fetch_geopolitical_context(
     roles_str = ", ".join((roles or [])[:5]) or "various roles"
     locations_str = ", ".join(locations[:10])
 
+    import datetime as _dt_geo
+
+    _current_date_str = _dt_geo.date.today().strftime("%B %Y")
     prompt = f"""Analyze geopolitical, political, economic, and macro events that could impact
 recruitment advertising in these locations: {locations_str}
 
+Current date: {_current_date_str}
 Industry: {industry or 'general'}
 Target roles: {roles_str}
-Campaign timing: {month_str}
+Campaign timing: {month_str} {_dt_geo.date.today().year}
 
 For EACH location, provide:
 1. Risk score (1-10, where 1=stable, 10=severe disruption)
@@ -14979,14 +14983,18 @@ def enrich_data(data: Dict[str, Any], request_id: str = "") -> Dict[str, Any]:
     # --- Build enhanced summary ---
     elapsed = round(time.time() - start_time, 2)
 
-    # Confidence score: ratio of successful (live + cached) calls to total
-    total_calls = len(apis_called) if apis_called else 1  # avoid division by zero
+    # S23: Confidence score -- exclude skipped/circuit-broken APIs from denominator.
+    # Previously, skipped APIs inflated total_calls, dragging confidence to ~50%
+    # even when 0 APIs actually failed.
+    _skipped_set = set(apis_skipped) | set(apis_circuit_broken)
+    _effective_calls = [a for a in apis_called if a not in _skipped_set]
+    total_calls = len(_effective_calls) if _effective_calls else 1
     successful_calls = sum(
         1
         for d in api_details.values()
         if d.get("success", False) and d.get("source") in ("live", "cached")
     )
-    confidence_score = round(successful_calls / total_calls, 3)
+    confidence_score = round(min(1.0, successful_calls / total_calls), 3)
 
     enriched["geopolitical_context"] = geo_context
 

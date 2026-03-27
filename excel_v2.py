@@ -1304,8 +1304,9 @@ def _build_sheet_executive_summary(
             reverse=True,
         )
         for idx, (ch_name, ch_data) in enumerate(sorted_channels[:15]):
+            _display_name = ch_name.replace("_", " ").title()
             values = [
-                ch_name,
+                _display_name,
                 f"{_safe_num(ch_data.get('percentage') or 0):.1f}%",
                 _fmt_currency(
                     ch_data.get("dollar_amount", ch_data.get("dollars") or 0)
@@ -3097,12 +3098,28 @@ def _build_sheet_roi_projections(ws, data: dict) -> None:
 
             category = _roi_category_for_channel(ch_name)
 
-            # CPA estimate: use existing data or derive from budget engine benchmarks
+            # S23: CPA estimate with industry-aware fallback.
+            # Previous fallback (max(dollars*0.1, $25)) produced unrealistically low CPAs
+            # for professional roles ($25/app for SWE in NYC = $732/hire, real is $5K-15K).
             existing_cpa = ch_data.get("cpa") or 0
             if existing_cpa and existing_cpa > 0:
                 cpa_estimate = existing_cpa
             else:
-                cpa_estimate = max(dollars * 0.1, 25.0)  # fallback heuristic
+                # Industry-aware CPA floors by channel category
+                _CPA_FLOORS = {
+                    "programmatic": 45.0,
+                    "job_board": 35.0,
+                    "social": 65.0,
+                    "niche_board": 50.0,
+                    "search": 55.0,
+                    "display": 40.0,
+                    "employer_branding": 75.0,
+                    "career_site": 30.0,
+                    "referral": 20.0,
+                    "regional": 40.0,
+                }
+                _cpa_floor = _CPA_FLOORS.get(category, 40.0)
+                cpa_estimate = max(_cpa_floor, 40.0)
 
             projected_apps = (
                 max(1, int(dollars / cpa_estimate)) if cpa_estimate > 0 else 0
