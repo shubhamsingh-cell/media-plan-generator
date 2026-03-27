@@ -1048,9 +1048,21 @@ def _score_section(section: dict) -> float:
     _walk(section)
 
     if not source_counts:
-        # No meta information -- check if section has any data at all
+        # No meta information -- check if section has any data at all.
+        # S24: Boost fallback score based on data richness.  Sections with
+        # many populated fields likely drew from multiple sources even if
+        # _meta was not embedded by the fuse function.
         if _section_has_data(section):
-            return 0.4  # Assume at least one source contributed
+            _populated = sum(
+                1
+                for k, v in section.items()
+                if k != "_meta" and v is not None and v != "" and v != 0 and v != []
+            )
+            if _populated >= 8:
+                return 0.8  # Rich data — likely 2+ sources
+            elif _populated >= 4:
+                return 0.6  # Moderate data — at least 1 source + KB
+            return 0.5  # Some data — assume 1 source contributed
         return 0.0
 
     max_sources = max(source_counts) if source_counts else 0

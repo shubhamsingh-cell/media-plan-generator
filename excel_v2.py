@@ -3098,14 +3098,14 @@ def _build_sheet_roi_projections(ws, data: dict) -> None:
 
             category = _roi_category_for_channel(ch_name)
 
-            # S23: CPA estimate with industry-aware fallback.
-            # Previous fallback (max(dollars*0.1, $25)) produced unrealistically low CPAs
-            # for professional roles ($25/app for SWE in NYC = $732/hire, real is $5K-15K).
+            # S24: CPA estimate with role + location difficulty multipliers.
+            # S23 CPA floors ($35-75) produced unrealistically low cost/hire
+            # for professional roles ($732/hire for SWE in NYC, real is $5K-15K).
             existing_cpa = ch_data.get("cpa") or 0
             if existing_cpa and existing_cpa > 0:
                 cpa_estimate = existing_cpa
             else:
-                # Industry-aware CPA floors by channel category
+                # Base CPA floors by channel category
                 _CPA_FLOORS = {
                     "programmatic": 45.0,
                     "job_board": 35.0,
@@ -3119,7 +3119,92 @@ def _build_sheet_roi_projections(ws, data: dict) -> None:
                     "regional": 40.0,
                 }
                 _cpa_floor = _CPA_FLOORS.get(category, 40.0)
-                cpa_estimate = max(_cpa_floor, 40.0)
+
+                # Role difficulty multiplier -- professional roles have much higher CPAs
+                _role_lower = str(
+                    data.get("role") or data.get("job_title") or ""
+                ).lower()
+                _ROLE_CPA_MULTIPLIER = 1.0
+                if any(
+                    k in _role_lower
+                    for k in (
+                        "engineer",
+                        "developer",
+                        "architect",
+                        "devops",
+                        "sre",
+                        "data scientist",
+                        "machine learning",
+                    )
+                ):
+                    _ROLE_CPA_MULTIPLIER = 3.0
+                elif any(
+                    k in _role_lower
+                    for k in (
+                        "director",
+                        "vp",
+                        "vice president",
+                        "head of",
+                        "chief",
+                        "executive",
+                        "cto",
+                        "cfo",
+                        "cio",
+                    )
+                ):
+                    _ROLE_CPA_MULTIPLIER = 4.0
+                elif any(
+                    k in _role_lower
+                    for k in ("manager", "lead", "senior", "principal", "staff")
+                ):
+                    _ROLE_CPA_MULTIPLIER = 2.0
+                elif any(
+                    k in _role_lower
+                    for k in (
+                        "nurse",
+                        "physician",
+                        "pharmacist",
+                        "therapist",
+                        "surgeon",
+                    )
+                ):
+                    _ROLE_CPA_MULTIPLIER = 2.5
+
+                # Location cost multiplier -- high-cost metros
+                _loc_lower = str(data.get("location") or "").lower()
+                _LOC_CPA_MULTIPLIER = 1.0
+                if any(
+                    c in _loc_lower
+                    for c in (
+                        "new york",
+                        "nyc",
+                        "san francisco",
+                        "sf",
+                        "silicon valley",
+                        "seattle",
+                        "boston",
+                        "washington dc",
+                        "los angeles",
+                    )
+                ):
+                    _LOC_CPA_MULTIPLIER = 1.5
+                elif any(
+                    c in _loc_lower
+                    for c in (
+                        "chicago",
+                        "denver",
+                        "dallas",
+                        "atlanta",
+                        "austin",
+                        "miami",
+                        "portland",
+                    )
+                ):
+                    _LOC_CPA_MULTIPLIER = 1.2
+
+                cpa_estimate = max(
+                    _cpa_floor * _ROLE_CPA_MULTIPLIER * _LOC_CPA_MULTIPLIER, 40.0
+                )
 
             projected_apps = (
                 max(1, int(dollars / cpa_estimate)) if cpa_estimate > 0 else 0

@@ -9235,11 +9235,18 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                 ab_force_provider=_ab_variant,
             )
             # v4.3 QUALITY GATE: If response has zero tools_used, retry with Gemini forced
-            if free_tool_result and not free_tool_result.get("tools_used"):
+            # S24: Skip retry if already past 50s to avoid timeout
+            _elapsed_total = time.time() - _t0
+            if (
+                free_tool_result
+                and not free_tool_result.get("tools_used")
+                and _elapsed_total < 50.0
+            ):
                 logger.warning(
-                    "NOVA QUALITY GATE: Response has zero tools (provider=%s), "
+                    "NOVA QUALITY GATE: Response has zero tools (provider=%s, %.1fs elapsed), "
                     "retrying with gemini forced",
                     free_tool_result.get("llm_provider", "unknown"),
+                    _elapsed_total,
                 )
                 try:
                     _retry_result = self._chat_with_free_llm_tools(
@@ -10339,7 +10346,25 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
         # Always use 4096 for tool queries to prevent response truncation
         _tool_max_tokens = 4096
 
+        # S24: Deadline-aware tool loop -- force synthesis before the outer
+        # 75s request timeout kills us with "I took too long to respond".
+        # Reserve 18s for synthesis-forcing + response formatting.
+        _loop_start = time.monotonic()
+        _LOOP_BUDGET_S = 55.0  # seconds before we must force synthesis
+
         for iteration in range(max_iterations):
+            # S24: Check deadline before starting a new iteration
+            _elapsed = time.monotonic() - _loop_start
+            if _elapsed > _LOOP_BUDGET_S and tools_used:
+                logger.warning(
+                    "Free LLM tools: deadline reached (%.1fs elapsed) at iter %d "
+                    "with %d tools used — forcing synthesis",
+                    _elapsed,
+                    iteration,
+                    len(tools_used),
+                )
+                break  # fall through to synthesis-forcing below
+
             try:
                 if active_provider:
                     # Continue with same provider for multi-turn tool conversation.
@@ -11031,7 +11056,63 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
         if tool_defs:
             tool_defs[-1]["cache_control"] = {"type": "ephemeral"}
 
+        # S24: Deadline-aware tool loop for Path C (Claude API)
+        _loop_start_c = time.monotonic()
+        _LOOP_BUDGET_C = 50.0  # seconds before forcing synthesis
+
         for iteration in range(max_iterations):
+            # S24: Check deadline before starting a new iteration
+            _elapsed_c = time.monotonic() - _loop_start_c
+            if _elapsed_c > _LOOP_BUDGET_C and tools_used:
+                logger.warning(
+                    "Claude tools: deadline reached (%.1fs elapsed) at iter %d "
+                    "with %d tools — forcing text response",
+                    _elapsed_c,
+                    iteration,
+                    len(tools_used),
+                )
+                # Force a final call with tools=[] to get text synthesis
+                payload = {
+                    "model": selected_model,
+                    "max_tokens": adaptive_max_tokens,
+                    "system": system_content,
+                    "messages": messages,
+                }
+                try:
+                    req = urllib.request.Request(
+                        "https://api.anthropic.com/v1/messages",
+                        data=json.dumps(payload).encode("utf-8"),
+                        headers={
+                            "Content-Type": "application/json",
+                            "x-api-key": api_key,
+                            "anthropic-version": "2023-06-01",
+                        },
+                    )
+                    with urllib.request.urlopen(req, timeout=20) as resp:
+                        _forced = json.loads(resp.read().decode("utf-8"))
+                    _forced_text = ""
+                    for _fb in (_forced or {}).get("content", []):
+                        if _fb.get("type") == "text":
+                            _forced_text += _fb.get("text") or ""
+                    if _forced_text and len(_forced_text) > 50:
+                        return {
+                            "response": _forced_text,
+                            "sources": list(sources),
+                            "confidence": max(
+                                0.6,
+                                _estimate_confidence_v2(
+                                    tools_used, sources, tool_call_details
+                                ),
+                            ),
+                            "tools_used": tools_used,
+                            "llm_provider": "claude_haiku",
+                            "llm_model": selected_model,
+                            "tool_iterations": iteration + 1,
+                        }
+                except Exception as _deadline_err:
+                    logger.error("Claude deadline synthesis failed: %s", _deadline_err)
+                break
+
             payload = {
                 "model": selected_model,
                 "max_tokens": adaptive_max_tokens,
