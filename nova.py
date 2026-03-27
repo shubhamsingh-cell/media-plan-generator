@@ -11311,16 +11311,32 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
         # a chance to produce a text response. Make ONE more API call with
         # no tools to force synthesis from the accumulated tool results.
         try:
-            _synth_messages = messages.copy()
-            _synth_messages.append(
+            # Build a clean summary of tool results for the synthesis prompt.
+            # Can't reuse `messages` directly because it may end with an
+            # assistant tool_use block without a matching tool_result, which
+            # the Anthropic API would reject.
+            _tool_summary_parts = []
+            for _tcd in tool_call_details:
+                _tname = _tcd.get("tool") or "unknown"
+                _tresult = str(_tcd.get("result") or "")[:2000]
+                _tool_summary_parts.append(f"[{_tname}]: {_tresult}")
+            _tool_summary = (
+                "\n\n".join(_tool_summary_parts)
+                if _tool_summary_parts
+                else "No tool results available."
+            )
+
+            _synth_messages = [
                 {
                     "role": "user",
-                    "content": "You have gathered all the data above from your tool calls. "
-                    "Now synthesize a complete, well-structured response for the user. "
-                    "Do NOT call any more tools. Present the data clearly with markdown "
-                    "tables, bullet points, and specific numbers from the tool results.",
+                    "content": f"Original question: {user_message}\n\n"
+                    f"Here is the data gathered from {len(tools_used)} tools:\n\n"
+                    f"{_tool_summary}\n\n"
+                    "Now synthesize a complete, well-structured response. "
+                    "Present the data clearly with markdown tables, bullet points, "
+                    "and specific numbers. Include actionable recommendations.",
                 }
-            )
+            ]
             _synth_payload = {
                 "model": selected_model,
                 "max_tokens": 4096,
