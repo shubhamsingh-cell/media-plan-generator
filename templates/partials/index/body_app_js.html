@@ -1454,7 +1454,7 @@
         clearTimeout(channelTimeout);
         console.error("Failed to load channels:", err);
         if (retries > 0 && err.name !== "AbortError") {
-          console.log(`Retrying channels load (${retries} attempts left)...`);
+          /* S23: removed debug console.log */
           setTimeout(() => loadChannelsDB(retries - 1), 2000);
         } else {
           showToast(
@@ -1591,10 +1591,16 @@
         : comp.replace(/\s+/g, "").toLowerCase() + ".com";
       return fetch("/api/competitive/scrape", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-Token": getCsrfToken(),
+        },
         body: JSON.stringify({ domain: domain, company: comp }),
       })
-        .then((r) => r.json())
+        .then((r) => {
+          if (!r.ok) throw new Error("HTTP " + r.status);
+          return r.json();
+        })
         .then((data) => {
           allResults.push({ competitor: comp, domain: domain, data: data });
           _renderCompetitorCard(comp, domain, data);
@@ -3189,7 +3195,10 @@
         try {
           fetch("/api/campaign/save", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              "X-CSRF-Token": getCsrfToken(),
+            },
             body: JSON.stringify({
               name:
                 (payload.client_name || "Unnamed") +
@@ -3342,7 +3351,10 @@
 
   // Check if Google Sheets is configured (on page load)
   (function checkExportStatus() {
-    fetch("/api/export/status", { method: "POST" })
+    fetch("/api/export/status", {
+      method: "POST",
+      headers: { "X-CSRF-Token": getCsrfToken() },
+    })
       .then(function (r) {
         return r.json();
       })
@@ -3381,7 +3393,10 @@
 
     fetch("/api/export/sheets", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRF-Token": getCsrfToken(),
+      },
       body: body,
     })
       .then(function (response) {

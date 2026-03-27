@@ -4095,6 +4095,33 @@
     border: 1px solid rgba(251, 191, 36, 0.25);
     color: #fcd34d;
   }
+  /* S23: Clickable nudge cards */
+  .copilot-nudge--clickable {
+    cursor: pointer;
+    transition:
+      border-color 0.2s,
+      background 0.2s,
+      transform 0.15s;
+  }
+  .copilot-nudge--clickable:hover {
+    border-color: rgba(90, 84, 189, 0.5);
+    background: rgba(90, 84, 189, 0.15);
+    transform: translateY(-1px);
+  }
+  .copilot-nudge--clickable:active {
+    transform: translateY(0);
+  }
+  .nudge-apply-hint {
+    display: inline-block;
+    font-size: 10px;
+    color: var(--accent, #5a54bd);
+    margin-left: 6px;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .copilot-nudge--clickable:hover .nudge-apply-hint {
+    opacity: 1;
+  }
   @keyframes nudge-slide-in {
     from {
       opacity: 0;

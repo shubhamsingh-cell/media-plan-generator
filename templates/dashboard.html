@@ -4395,9 +4395,7 @@
             );
           }
         } catch (err) {
-          console.log(
-            "Admin stats endpoint not available, using client-side data",
-          );
+          /* fallback to client-side data silently */
         }
       }
 

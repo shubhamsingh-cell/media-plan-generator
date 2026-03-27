@@ -305,11 +305,19 @@
       // Show the first (highest priority) nudge
       var n = nudges[0];
       var typeClass = "copilot-nudge--" + (n.type || "info");
-      container.className = "copilot-nudge visible " + typeClass;
+      // S23: Check if nudge has a recommended_value to make it clickable
+      var isClickable = !!(n.recommended_value || n.suggested_value);
+      container.className =
+        "copilot-nudge visible " +
+        typeClass +
+        (isClickable ? " copilot-nudge--clickable" : "");
       container.innerHTML =
         (NUDGE_ICONS[n.type] || NUDGE_ICONS.info) +
         '<div class="nudge-text">' +
         escapeHTML(n.message) +
+        (isClickable
+          ? '<span class="nudge-apply-hint">Click to apply</span>'
+          : "") +
         '<span class="nudge-source">' +
         escapeHTML(n.source || "") +
         "</span></div>" +
@@ -317,9 +325,104 @@
 
       container
         .querySelector(".nudge-dismiss")
-        .addEventListener("click", function () {
+        .addEventListener("click", function (e) {
+          e.stopPropagation();
           nudgeClear(field);
         });
+
+      // S23: Make the entire nudge card clickable to auto-apply recommended value
+      if (isClickable) {
+        container.style.cursor = "pointer";
+        container.addEventListener("click", function (e) {
+          if (e.target.closest(".nudge-dismiss")) return;
+          nudgeApplyValue(field, n.recommended_value || n.suggested_value);
+        });
+      } else {
+        // Even without a specific value, make budget/duration nudges clickable
+        // by extracting the recommended value from the message text
+        var extractedValue = nudgeExtractValue(field, n.message);
+        if (extractedValue) {
+          container.style.cursor = "pointer";
+          container.className += " copilot-nudge--clickable";
+          container
+            .querySelector(".nudge-text")
+            .insertAdjacentHTML(
+              "beforeend",
+              '<span class="nudge-apply-hint">Click to apply</span>',
+            );
+          container.addEventListener("click", function (e) {
+            if (e.target.closest(".nudge-dismiss")) return;
+            nudgeApplyValue(field, extractedValue);
+          });
+        }
+      }
+    }
+
+    // S23: Extract recommended value from nudge message text
+    function nudgeExtractValue(field, message) {
+      if (!message) return null;
+      if (field === "duration") {
+        // Extract "1-3 months" pattern
+        var dMatch = message.match(/(\d+[-–]\d+)\s*months?/i);
+        if (dMatch) return dMatch[1].replace("–", "-") + " months";
+      }
+      if (field === "budget") {
+        // Extract "$X,XXX" or "$X,XXX-$Y,YYY" pattern
+        var bMatch = message.match(/\$[\d,]+(?:\s*[-–]\s*\$[\d,]+)?/);
+        if (bMatch) return bMatch[0];
+      }
+      return null;
+    }
+
+    // S23: Apply nudge recommendation to the corresponding form field
+    function nudgeApplyValue(field, value) {
+      if (!value) return;
+      if (field === "budget") {
+        var budgetSelect = document.getElementById("budgetRange");
+        if (budgetSelect) {
+          // Try to match a budget range option
+          var opts = budgetSelect.querySelectorAll("option");
+          for (var i = 0; i < opts.length; i++) {
+            if (
+              opts[i].text.indexOf(
+                value.replace(/\$/g, "").split("-")[0].trim().replace(/,/g, ""),
+              ) > -1 ||
+              opts[i].value.indexOf(
+                value.replace(/\$/g, "").split("-")[0].trim().replace(/,/g, ""),
+              ) > -1
+            ) {
+              budgetSelect.value = opts[i].value;
+              budgetSelect.dispatchEvent(
+                new Event("change", { bubbles: true }),
+              );
+              showToast("Budget updated to " + opts[i].text, "success");
+              return;
+            }
+          }
+          // If no exact match, show the value as feedback
+          showToast("Recommended budget: " + value, "info");
+        }
+      } else if (field === "duration") {
+        var durationSelect = document.getElementById("campaignDuration");
+        if (durationSelect) {
+          var opts = durationSelect.querySelectorAll("option");
+          for (var i = 0; i < opts.length; i++) {
+            if (
+              opts[i].text
+                .toLowerCase()
+                .indexOf(value.toLowerCase().split(" ")[0]) > -1
+            ) {
+              durationSelect.value = opts[i].value;
+              durationSelect.dispatchEvent(
+                new Event("change", { bubbles: true }),
+              );
+              showToast("Duration updated to " + opts[i].text, "success");
+              return;
+            }
+          }
+          showToast("Recommended duration: " + value, "info");
+        }
+      }
     }
 
     function nudgeClear(field) {

@@ -3059,7 +3059,7 @@
                 state.isLoading = false;
                 return;
               }
-              if (Date.now() - _streamStartTime > 60000) {
+              if (Date.now() - _streamStartTime > 120000) {
                 abortCtrl.abort();
                 _removeTypingIndicator();
                 state.isLoading = false;

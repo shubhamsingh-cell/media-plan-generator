@@ -9733,9 +9733,18 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     self.send_header("Content-Length", str(len(result_bytes)))
                     self.end_headers()
                     self.wfile.write(result_bytes)
-                    # Clean up completed job after download
+                    # S23 fix: Do NOT delete job on download -- let TTL expiry
+                    # handle cleanup. Previous code deleted here, causing a race
+                    # where a stray poll (without Accept: application/json) could
+                    # consume and delete the job before the real download request.
+                    # Mark as downloaded so we can skip result_bytes on next poll
+                    # (save memory) but keep the job entry alive for status queries.
                     with _generation_jobs_lock:
-                        _generation_jobs.pop(job_id, None)
+                        if job_id in _generation_jobs:
+                            _generation_jobs[job_id]["_downloaded"] = True
+                            _generation_jobs[job_id][
+                                "result_bytes"
+                            ] = b""  # free memory
             elif job_status == "failed":
                 err_msg = job.get("error", "Generation failed")
                 self._send_json(

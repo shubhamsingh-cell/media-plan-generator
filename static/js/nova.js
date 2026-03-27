@@ -13,7 +13,7 @@
   var FEEDBACK_URL = "/api/chat/feedback";
   var STOP_URL = "/api/chat/stop";
   var MAX_CHARS = 4000;
-  var MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+  var MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
   var STORAGE_KEY = "nova_conversations";
   var ACTIVE_KEY = "nova_active_conv";
   var THEME_KEY = "nova_theme";
@@ -1403,7 +1403,7 @@
       clearToolStatus();
       chatInput.focus();
       if (wasLoading) {
-        console.log("[Nova] resetLoadingState: cleared stuck loading flag");
+        /* S23: removed debug console.log */
       }
     } catch (e) {
       // Nuclear option: if DOM ops fail, at least clear the state flags
@@ -1641,6 +1641,7 @@
     state.isLoading = true;
     state.isStreaming = true;
     state._loadStart = Date.now();
+    state._userCancelled = false;
     sendBtn.disabled = true;
     sendBtn.style.display = "none";
     stopBtn.classList.add("visible");
@@ -1933,7 +1934,9 @@
             if (readerTimeout) clearTimeout(readerTimeout);
             var errorMsg;
             if (err.name === "AbortError") {
-              errorMsg = "Response was stopped.";
+              errorMsg = state._userCancelled
+                ? "Response was stopped."
+                : "Request timed out. Please try again.";
             } else if (err.message && err.message.indexOf("429") > -1) {
               errorMsg = "Nova is busy. Please wait a moment and try again.";
             } else if (err.message && err.message.indexOf("403") > -1) {
@@ -1955,6 +1958,7 @@
   // STOP GENERATION
   // ========================================================================
   stopBtn.addEventListener("click", function () {
+    state._userCancelled = true;
     resetLoadingState();
     // Remove streaming message if present
     var streamEl = document.getElementById("streaming-msg");
@@ -2020,11 +2024,9 @@
   });
 
   // Centralized "user wants to send" handler -- forces loading reset
-  // when the chat appears stuck, with a VERY short tolerance (3s).
-  // Root-cause: the previous 20s threshold meant the chat felt dead for
-  // up to 20s when isLoading got stuck.  Now any user-initiated send
-  // attempt force-resets after just 3s, and ANY send attempt when
-  // _loadStart is 0 (orphaned flag) resets immediately.
+  // when the chat appears stuck, with a generous tolerance (60s).
+  // S23 fix: 3s threshold caused duplicate sends on every complex query.
+  // Complex queries take 15-55s for tool execution. Only reset if truly stuck.
   function forceResetIfStuck() {
     if (!state.isLoading) return;
     // Orphaned loading flag (no timestamp) -- reset immediately
@@ -2034,14 +2036,15 @@
       if (s1) s1.remove();
       return;
     }
-    // Loading for more than 3s -- user clearly wants to send, so reset
-    if (Date.now() - state._loadStart > 3000) {
+    var elapsed = Date.now() - state._loadStart;
+    // Loading for more than 60s -- likely genuinely stuck, allow reset
+    if (elapsed > 60000) {
       resetLoadingState();
       var s2 = document.getElementById("streaming-msg");
       if (s2) s2.remove();
       return;
     }
-    // Loading for <3s -- genuinely in-flight, show feedback
+    // Loading for <60s -- genuinely in-flight, show feedback
     showToast("Nova is still responding... please wait a moment", "info");
   }
 
@@ -2134,6 +2137,10 @@
 
   // ========================================================================
   // GLOBAL SAFETY: auto-reset stuck isLoading state every 2s
+  // S23 fix: Check for tool status pills before killing stream.
+  // During tool execution (15-55s), streamContent is empty but tool pills
+  // are actively rendering. Only kill if NO activity at all for 90s,
+  // or absolute hard limit of 120s.
   // ========================================================================
   setInterval(function () {
     if (!state.isLoading) return;
@@ -2142,22 +2149,26 @@
       resetLoadingState();
       return;
     }
-    // If loading for more than 10s with no active streaming content,
-    // or more than 45s unconditionally -- force reset
     var elapsed = Date.now() - state._loadStart;
     var streamEl = document.getElementById("streaming-msg");
     var streamContent = document.getElementById("streaming-content");
     var hasVisibleStream =
       streamEl && streamContent && streamContent.textContent.length > 0;
-    if (elapsed > 45000) {
-      // Absolute hard limit -- always reset
+    // S23: Check for tool status pills (rendered as siblings of streaming-msg, not children)
+    var hasToolPills = document.querySelector(
+      ".nova-tool-pill-active, #tool-status-container, .nova-tool-status-container",
+    );
+    var hasAnyActivity = hasVisibleStream || hasToolPills;
+    if (elapsed > 120000) {
+      // Absolute hard limit 120s -- always reset
       resetLoadingState();
       if (streamEl) streamEl.remove();
-    } else if (elapsed > 10000 && !hasVisibleStream) {
-      // 10s with no visible streaming content -- likely stuck
+    } else if (elapsed > 90000 && !hasAnyActivity) {
+      // 90s with zero activity (no stream text AND no tool pills) -- stuck
       resetLoadingState();
       if (streamEl) streamEl.remove();
     }
+    // Otherwise: let the stream continue, tools are working
   }, 2000);
 
   // ========================================================================
