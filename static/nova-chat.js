@@ -3448,6 +3448,14 @@
           });
       }
 
+      // S25: Skip widget init when running inside the platform shell.
+      // The platform already has its own Nova AI drawer/tab. Loading the
+      // floating widget inside a fragment creates a position:fixed element
+      // that overlaps the main content area.
+      if (document.querySelector(".platform-shell") || window.__NOVA_PLATFORM) {
+        return;
+      }
+
       // Build widget when DOM is ready.  Covers three cases:
       // 1. Script in <head> (readyState === "loading"): wait for DOMContentLoaded
       // 2. Script at end of <body> (readyState "interactive"/"complete"): build now
