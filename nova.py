@@ -10169,7 +10169,11 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                 return {
                     "response": response_text,
                     "sources": [f"LLM: {provider}/{model}"],
-                    "confidence": 0.75,  # LLM expertise without tool verification
+                    # S27: Dynamic confidence based on response quality, not hard-coded
+                    "confidence": min(
+                        0.75,
+                        max(0.40, 0.50 + (0.01 * min(len(response_text), 500) / 20)),
+                    ),
                     "tools_used": [],
                     "llm_provider": provider,
                     "llm_model": model,
@@ -14997,8 +15001,10 @@ def _enrich_response(
     enriched = response_text
 
     # Skip enrichment for short/trivial responses (greetings, ack, errors)
+    # S27: Relaxed from 80 to 40 chars; also skip only if no numbers present
     is_trivial = bool(_TRIVIAL_PATTERNS.match(query.strip())) if query else False
-    if is_trivial or len(response_text.strip()) < 80:
+    _has_data = bool(re.search(r"\$[\d,]+|\d+%|\d{2,}", response_text))
+    if is_trivial or (len(response_text.strip()) < 40 and not _has_data):
         score = _compute_quality_score(response_text, tools_used, sources, query)
         return response_text, sources, score
 
@@ -15019,6 +15025,17 @@ def _enrich_response(
         enriched = _enrich_follow_up_suggestions(enriched, query)
     except Exception as e:
         logger.warning("Enrichment: follow-up suggestions failed: %s", e, exc_info=True)
+        # S27: Fallback -- append generic follow-ups if enrichment fails
+        if (
+            "You might also want to know" not in enriched
+            and "also want to" not in enriched
+        ):
+            enriched += (
+                "\n\n**You might also want to know:**\n"
+                "- How does this compare to national averages?\n"
+                "- What are the salary trends for the past year?\n"
+                "- How can I optimize this budget allocation?"
+            )
 
     # Step 4: Data density check
     try:
