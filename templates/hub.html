@@ -2649,11 +2649,8 @@
         if (prefersReducedMotion) {
           counterEls.forEach(setCounterFinal);
         } else {
-          counterEls.forEach(function (el) {
-            var prefix = el.dataset.prefix || "";
-            var suffix = el.dataset.suffix || "";
-            el.textContent = prefix + "0" + suffix;
-          });
+          /* Don't zero counters upfront -- keep HTML defaults visible.
+             Only reset to 0 right before animating (inside the observer). */
 
           var counterObserver = new IntersectionObserver(
             function (entries) {

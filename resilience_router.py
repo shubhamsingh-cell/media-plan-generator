@@ -2253,7 +2253,7 @@ h2 {{ color:#6BB3CD; font-size:18px; margin-top:32px; }}
 table {{ border-collapse:collapse; width:100%; margin-top:16px; background:#111827; border-radius:8px; overflow:hidden; }}
 th {{ padding:10px 12px; text-align:left; background:#1f2937; color:#9ca3af; font-size:12px; text-transform:uppercase; border:1px solid #333; }}
 td {{ font-size:13px; }}
-pre {{ background:#111827; padding:16px; border-radius:8px; overflow-x:auto; font-size:12px; color:#d4d4d8; }}
+pre {{ background:#111827; padding:16px; border-radius:8px; overflow-x:auto; font-size:12px; color:#e4e4e7; }}
 .meta {{ color:#6b7280; font-size:12px; margin-top:24px; }}
 </style>
 </head>

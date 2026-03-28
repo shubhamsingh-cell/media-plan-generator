@@ -9537,7 +9537,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
 <title>Nova AI - {escaped_title}</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
 <style>
-:root {{--bg-primary:#0f0f1a;--bg-secondary:#1a1a2e;--text-primary:#d4d4d8;--text-secondary:#888;
+:root {{--bg-primary:#0f0f1a;--bg-secondary:#1a1a2e;--text-primary:#e4e4e7;--text-secondary:#888;
 --accent-teal:#6bb3cd;--accent-purple:#5a54bd;--accent-purple-light:#7b75d4;--border-color:rgba(107,179,205,0.1);}}
 *,*::before,*::after {{margin:0;padding:0;box-sizing:border-box;}}
 body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter',sans-serif;font-size:15px;line-height:1.6;}}

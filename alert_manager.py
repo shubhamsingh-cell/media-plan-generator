@@ -174,7 +174,7 @@ def _send_alert_impl(subject: str, body: str, severity: str) -> bool:
         f'<div style="background:{color};color:#fff;padding:12px 16px;'
         f'border-radius:6px 6px 0 0;font-size:14px;font-weight:600;">'
         f"[{severity_label}] {subject or 'Alert'}</div>"
-        f'<div style="background:#1e1e2e;color:#d4d4d8;padding:16px;'
+        f'<div style="background:#1e1e2e;color:#e4e4e7;padding:16px;'
         f'border-radius:0 0 6px 6px;font-size:13px;line-height:1.5;">'
         f"{body or 'No details provided.'}</div></div>"
     )

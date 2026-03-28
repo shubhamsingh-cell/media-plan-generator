@@ -10483,14 +10483,15 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
 
         # S25: Dynamic loop budget -- compute from outer deadline to ensure
         # enrichment + tool loop + synthesis all fit within the outer timeout.
-        # S26: Raised synthesis reserve 18s -> 25s. Complex multi-tool queries
-        # generate 10-24K chars of tool results; Haiku needs 15-20s to synthesize.
-        _SYNTHESIS_RESERVE_S = 25.0
+        # S27: Reduced synthesis reserve 25s -> 20s (Haiku consistently synthesizes
+        # in 15-18s). Raised max loop cap 50 -> 55 to give complex 8-tool queries
+        # more room. This fixes Test B (50-nurse Phoenix) first-run timeout.
+        _SYNTHESIS_RESERVE_S = 20.0
         _loop_start = time.monotonic()
         if outer_deadline:
             # Dynamic: use remaining time minus synthesis reserve
             _remaining = outer_deadline - time.time()
-            _LOOP_BUDGET_S = max(20.0, min(50.0, _remaining - _SYNTHESIS_RESERVE_S))
+            _LOOP_BUDGET_S = max(20.0, min(55.0, _remaining - _SYNTHESIS_RESERVE_S))
             logger.info(
                 "Tool loop: dynamic budget=%.1fs (remaining=%.1fs, reserve=%.0fs)",
                 _LOOP_BUDGET_S,

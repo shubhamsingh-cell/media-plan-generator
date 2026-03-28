@@ -1,4 +1,4 @@
-/* Z-INDEX SCALE: 5=content, 10=sticky, 20=dropdown, 100=modal-backdrop, 200=modal, 9999=toast */
+/* Z-INDEX SCALE (matches platform.css): 1=base, 10=sticky, 50=dropdown, 100=overlay, 200=modal, 300=drawer, 500=cmdK, 700=toast, 1000=critical */
 
 /* ================================================================
    CSS CUSTOM PROPERTIES
@@ -142,7 +142,7 @@ a:hover {
   flex-shrink: 0;
 }
 .sidebar-brand-text {
-  font-family: "Space Grotesk", sans-serif;
+  font-family: var(--font-display, "Space Grotesk", sans-serif);
   font-size: 16px;
   font-weight: 700;
   color: #fff;
@@ -810,7 +810,7 @@ a:hover {
   background: rgba(107, 179, 205, 0.1);
   padding: 2px 6px;
   border-radius: 4px;
-  font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+  font-family: var(--font-mono, "JetBrains Mono", "Fira Code", monospace);
   font-size: 13px;
   color: var(--accent-teal);
 }
@@ -1983,7 +1983,7 @@ a:hover {
   border-radius: 4px;
   background: rgba(107, 179, 205, 0.08);
   border: 1px solid var(--border-color);
-  font-family: "SF Mono", monospace;
+  font-family: var(--font-mono, "JetBrains Mono", "Fira Code", monospace);
   font-size: 12px;
   color: var(--accent-teal);
 }

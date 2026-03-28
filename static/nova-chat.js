@@ -36,7 +36,7 @@
     accentColor: "#6BB3CD",
     accentLight: "#8bc7db",
     accentPurple: "#5A54BD",
-    textColor: "#d4d4d8",
+    textColor: "#e4e4e7",
     textLight: "#888",
     bgColor: "#0f0f1a",
     bgLight: "rgba(26,26,46,0.95)",
@@ -369,7 +369,7 @@
       ".nova-msg-user {" +
       "  align-self: flex-end;" +
       "  background: rgba(90,84,189,0.15);" +
-      "  color: #d4d4d8;" +
+      "  color: #e4e4e7;" +
       "  border: 1px solid rgba(90,84,189,0.2);" +
       "  border-bottom-right-radius: 4px;" +
       "  box-shadow: 0 2px 12px rgba(0,0,0,0.08);" +
@@ -377,7 +377,7 @@
       ".nova-msg-assistant {" +
       "  align-self: flex-start;" +
       "  background: rgba(26,26,46,0.8);" +
-      "  color: #d4d4d8;" +
+      "  color: #e4e4e7;" +
       "  border: 1px solid rgba(107,179,205,0.08);" +
       "  border-bottom-left-radius: 4px;" +
       "  box-shadow: 0 2px 8px rgba(0,0,0,0.15);" +
@@ -412,7 +412,7 @@
       "  padding: 12px; margin: 8px 0; overflow-x: auto;" +
       "}" +
       ".nova-msg-assistant pre code {" +
-      "  background: none; padding: 0; border-radius: 0; color: #d4d4d8; line-height: 1.6;" +
+      "  background: none; padding: 0; border-radius: 0; color: #e4e4e7; line-height: 1.6;" +
       "}" +
       ".nova-msg-assistant p { margin: 4px 0; }" +
       ".nova-msg-assistant a { color: #6BB3CD; text-decoration: underline; }" +
@@ -508,7 +508,7 @@
       ".nova-suggestion-btn:hover {" +
       "  border-color: rgba(107,179,205,0.35);" +
       "  background: rgba(107,179,205,0.06);" +
-      "  color: #d4d4d8;" +
+      "  color: #e4e4e7;" +
       "  transform: translateY(-1px);" +
       "  box-shadow: 0 4px 12px rgba(0,0,0,0.15);" +
       "}" +
@@ -545,7 +545,7 @@
       "  font-size: 13px; font-family: inherit;" +
       "  resize: none; outline: none; min-height: 20px; max-height: 100px;" +
       "  line-height: 1.5; background: rgba(20,20,37,0.8);" +
-      "  color: #d4d4d8;" +
+      "  color: #e4e4e7;" +
       "  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;" +
       "}" +
       ".nova-input:focus {" +
@@ -673,7 +673,7 @@
       "  font-size: 13px; font-family: inherit;" +
       "  resize: none; outline: none; min-height: 40px; max-height: 120px;" +
       "  line-height: 1.5; background: rgba(20,20,37,0.9);" +
-      "  color: #d4d4d8; margin-top: 4px;" +
+      "  color: #e4e4e7; margin-top: 4px;" +
       "}" +
       ".nova-edit-actions {" +
       "  display: flex; gap: 6px; margin-top: 6px; justify-content: flex-end;" +
@@ -763,7 +763,7 @@
       ".nova-settings-panel { position: absolute; top: 56px; right: 8px; z-index: 10; background: rgba(15,15,26,0.98); border: 1px solid rgba(107,179,205,0.15); border-radius: 12px; padding: 14px 16px; min-width: 220px; box-shadow: 0 8px 32px rgba(0,0,0,0.5); backdrop-filter: blur(16px); display: none; }" +
       ".nova-settings-panel.nova-settings-open { display: block; }" +
       ".nova-settings-panel label { display: block; font-size: 11px; color: #888; margin-bottom: 4px; letter-spacing: 0.3px; }" +
-      ".nova-settings-panel input[type='text'] { width: 100%; box-sizing: border-box; padding: 6px 10px; background: rgba(20,20,37,0.9); border: 1px solid rgba(107,179,205,0.15); border-radius: 8px; color: #d4d4d8; font-size: 13px; font-family: inherit; outline: none; }" +
+      ".nova-settings-panel input[type='text'] { width: 100%; box-sizing: border-box; padding: 6px 10px; background: rgba(20,20,37,0.9); border: 1px solid rgba(107,179,205,0.15); border-radius: 8px; color: #e4e4e7; font-size: 13px; font-family: inherit; outline: none; }" +
       ".nova-settings-panel input[type='text']:focus { border-color: rgba(107,179,205,0.4); }" +
       ".nova-settings-save-btn { margin-top: 8px; width: 100%; padding: 6px; border-radius: 8px; background: rgba(90,84,189,0.2); color: #8b85e0; border: 1px solid rgba(90,84,189,0.3); font-size: 11px; font-family: inherit; cursor: pointer; transition: all 0.15s; }" +
       ".nova-settings-save-btn:hover { background: rgba(90,84,189,0.35); color: #a5a0f0; }" +
@@ -771,10 +771,10 @@
       ".nova-export-dropdown { position: absolute; top: 56px; right: 44px; z-index: 10; background: rgba(15,15,26,0.98); border: 1px solid rgba(107,179,205,0.15); border-radius: 10px; min-width: 180px; overflow: hidden; box-shadow: 0 8px 32px rgba(0,0,0,0.5); backdrop-filter: blur(16px); display: none; }" +
       ".nova-export-dropdown.nova-export-open { display: block; }" +
       ".nova-export-option { display: flex; align-items: center; gap: 8px; padding: 10px 14px; font-size: 12px; color: #a1a1a1; cursor: pointer; transition: all 0.15s; border: none; background: none; width: 100%; text-align: left; font-family: inherit; }" +
-      ".nova-export-option:hover { background: rgba(107,179,205,0.08); color: #d4d4d8; }" +
+      ".nova-export-option:hover { background: rgba(107,179,205,0.08); color: #e4e4e7; }" +
       ".nova-export-option svg { width: 14px; height: 14px; flex-shrink: 0; }" +
       // ── Avatar tooltip ──
-      ".nova-msg-avatar[data-tooltip]:hover::after { content: attr(data-tooltip); position: absolute; bottom: -22px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.9); color: #d4d4d8; padding: 2px 8px; border-radius: 4px; font-size: 9px; font-weight: 400; white-space: nowrap; pointer-events: none; z-index: 10; }" +
+      ".nova-msg-avatar[data-tooltip]:hover::after { content: attr(data-tooltip); position: absolute; bottom: -22px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.9); color: #e4e4e7; padding: 2px 8px; border-radius: 4px; font-size: 9px; font-weight: 400; white-space: nowrap; pointer-events: none; z-index: 10; }" +
       // ── Branch indicator ──
       ".nova-branch-indicator { display: inline-flex; align-items: center; gap: 4px; font-size: 9px; color: #5A54BD; margin-bottom: 2px; letter-spacing: 0.3px; opacity: 0.8; }" +
       ".nova-branch-indicator svg { width: 10px; height: 10px; }" +
@@ -857,7 +857,7 @@
           "</div>" +
           '<pre style="margin:0;padding:12px;background:#0d0d18;overflow-x:auto;"><code id="' +
           codeId +
-          '" style="background:none;padding:0;color:#d4d4d8;font-size:11.5px;font-family:\'SF Mono\',Monaco,Menlo,monospace;line-height:1.6;">' +
+          '" style="background:none;padding:0;color:#e4e4e7;font-size:11.5px;font-family:\'SF Mono\',Monaco,Menlo,monospace;line-height:1.6;">' +
           highlighted +
           "</code></pre></div>"
         );

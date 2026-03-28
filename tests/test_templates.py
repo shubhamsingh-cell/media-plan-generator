@@ -128,10 +128,10 @@ class TestBranding:
 
     @pytest.mark.parametrize("filename", EXPECTED_TEMPLATES)
     def test_text_color(self, filename: str) -> None:
-        """Each template should use the standard text color #d4d4d8 or #e4e4e7."""
+        """Each template should use the standard text color #e4e4e7 or #e4e4e7."""
         content = (TEMPLATES_DIR / filename).read_text(encoding="utf-8").lower()
-        has_color = "#d4d4d8" in content or "#e4e4e7" in content
-        assert has_color, f"{filename} missing standard text color (#d4d4d8 or #e4e4e7)"
+        has_color = "#e4e4e7" in content or "#e4e4e7" in content
+        assert has_color, f"{filename} missing standard text color (#e4e4e7 or #e4e4e7)"
 
 
 class TestSecurityInTemplates:

@@ -350,7 +350,7 @@ body {
   border-radius: 4px;
   padding: 1px 6px;
   margin-left: auto;
-  font-family: "Inter", monospace;
+  font-family: var(--font-mono, "JetBrains Mono", monospace);
 }
 
 .topbar-actions {
@@ -1302,7 +1302,7 @@ body {
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
   color: var(--text-primary);
-  font-family: "Inter", sans-serif;
+  font-family: var(--font-sans, "Inter", sans-serif);
   font-size: 13px;
   padding: 10px 14px;
   resize: none;
@@ -1399,7 +1399,7 @@ body {
   background: none;
   border: none;
   color: var(--text-primary);
-  font-family: "Inter", sans-serif;
+  font-family: var(--font-sans, "Inter", sans-serif);
   font-size: 15px;
   outline: none;
 }
@@ -1476,7 +1476,7 @@ body {
   color: var(--text-tertiary);
 }
 .cmd-palette-footer kbd {
-  font-family: "Inter", monospace;
+  font-family: var(--font-mono, "JetBrains Mono", monospace);
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid var(--border-subtle);
   border-radius: 3px;
@@ -2387,4 +2387,228 @@ body:not(.no-transitions) .aurora-bg {
 }
 .conf-pulse:hover::before {
   opacity: 1;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   LIGHT MODE
+   ═══════════════════════════════════════════════════════════════ */
+[data-theme="light"] {
+  /* Surfaces */
+  --bg-root: #f7f7f8;
+  --bg-sidebar: #ffffff;
+  --bg-topbar: rgba(255, 255, 255, 0.92);
+  --bg-content: #f7f7f8;
+  --bg-card: rgba(255, 255, 255, 0.9);
+  --bg-card-hover: rgba(255, 255, 255, 1);
+  --bg-drawer: rgba(255, 255, 255, 0.97);
+  --bg-input: rgba(0, 0, 0, 0.03);
+  --bg-input-focus: rgba(0, 0, 0, 0.05);
+
+  /* Borders */
+  --border-subtle: rgba(0, 0, 0, 0.08);
+  --border-active: rgba(90, 84, 189, 0.4);
+  --border-card: rgba(0, 0, 0, 0.1);
+
+  /* Text */
+  --text-primary: #1a1a1a;
+  --text-secondary: #4a4a4a;
+  --text-tertiary: #6b6b6b;
+  --text-accent: #5a54bd;
+  --text-teal: #2d7a8a;
+
+  /* Accent (unchanged but glow adjusted for light bg) */
+  --accent-glow: rgba(90, 84, 189, 0.08);
+  --teal-glow: rgba(107, 179, 205, 0.08);
+
+  /* Shadows */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.1);
+  --shadow-glow: 0 0 30px rgba(90, 84, 189, 0.08);
+}
+
+/* Scrollbar */
+[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.12);
+}
+[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+/* Topbar */
+[data-theme="light"] .topbar {
+  border-bottom-color: rgba(0, 0, 0, 0.08);
+}
+[data-theme="light"] .topbar-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+[data-theme="light"] .topbar-search-kbd {
+  background: rgba(0, 0, 0, 0.05);
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+/* Sidebar */
+[data-theme="light"] .sidebar {
+  border-right-color: rgba(0, 0, 0, 0.08);
+}
+[data-theme="light"] .sidebar-toggle:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+[data-theme="light"] .sidebar-item:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+[data-theme="light"] .sidebar-collapsed .sidebar-item::after {
+  background: #fff;
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+/* Insights panel */
+[data-theme="light"] .insights-panel {
+  background: rgba(255, 255, 255, 0.97);
+  border-color: rgba(90, 84, 189, 0.2);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+}
+[data-theme="light"] .insights-header {
+  background: rgba(255, 255, 255, 0.98);
+}
+[data-theme="light"] .insights-close:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+[data-theme="light"] .insight-card {
+  border-bottom-color: rgba(0, 0, 0, 0.06);
+}
+[data-theme="light"] .insight-card:hover {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+/* Content area + skeleton */
+[data-theme="light"] .skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.04) 0%,
+    rgba(0, 0, 0, 0.07) 40%,
+    rgba(0, 0, 0, 0.04) 80%
+  );
+  background-size: 800px 100%;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-theme="light"] .skeleton {
+    background: rgba(0, 0, 0, 0.05);
+  }
+}
+
+/* Module loading bar stays brand gradient -- no change needed */
+
+/* Nova drawer */
+[data-theme="light"] .nova-drawer {
+  box-shadow: -8px 0 40px rgba(0, 0, 0, 0.1);
+}
+[data-theme="light"] .nova-drawer-close:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+[data-theme="light"] .nova-overlay {
+  background: rgba(0, 0, 0, 0.25);
+}
+
+/* Cmd+K palette */
+[data-theme="light"] .cmd-palette-overlay {
+  background: rgba(0, 0, 0, 0.3);
+}
+[data-theme="light"] .cmd-palette {
+  background: #fff;
+  box-shadow:
+    var(--shadow-lg),
+    0 0 60px rgba(90, 84, 189, 0.08);
+}
+[data-theme="light"] .cmd-palette-item:hover,
+[data-theme="light"] .cmd-palette-item.selected {
+  background: rgba(0, 0, 0, 0.03);
+}
+[data-theme="light"] .cmd-palette-item.selected {
+  background: rgba(90, 84, 189, 0.06);
+}
+[data-theme="light"] .cmd-palette-item-kbd {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.1);
+}
+[data-theme="light"] .cmd-palette-footer kbd {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+/* Dashboard hero gradient text */
+[data-theme="light"] .dashboard-hero h1 {
+  background: linear-gradient(135deg, #1a1a1a 0%, #4a4a4a 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Budget meter */
+[data-theme="light"] .budget-meter {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+/* Module tab bar */
+[data-theme="light"] .module-tab-bar {
+  background: rgba(255, 255, 255, 0.7);
+}
+[data-theme="light"] .module-tab:hover {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+/* Activity feed */
+[data-theme="light"] .activity-feed-item:hover {
+  background: rgba(0, 0, 0, 0.02);
+}
+[data-theme="light"] .activity-feed-item {
+  border-bottom-color: rgba(0, 0, 0, 0.06);
+}
+
+/* Share dropdown */
+[data-theme="light"] .share-dropdown {
+  background: #fff;
+}
+[data-theme="light"] .share-dropdown-item:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+/* Onboarding modal */
+[data-theme="light"] .onboarding-overlay {
+  background: rgba(0, 0, 0, 0.4);
+}
+[data-theme="light"] .onboarding-modal {
+  background: #fff;
+  box-shadow:
+    var(--shadow-lg),
+    0 0 60px rgba(90, 84, 189, 0.1);
+}
+[data-theme="light"] .onboarding-modal h2 {
+  background: linear-gradient(135deg, #1a1a1a, #5a54bd);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Tour tooltip */
+[data-theme="light"] .tour-tooltip {
+  background: #fff;
+  box-shadow:
+    var(--shadow-lg),
+    0 0 20px rgba(90, 84, 189, 0.1);
+}
+
+/* Aurora -- reduce for light mode */
+[data-theme="light"] .aurora-bg {
+  opacity: 0.12;
+}
+
+/* Sidebar mobile overlay */
+[data-theme="light"] .sidebar-mobile-overlay {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+/* Confidence pulse tooltip */
+[data-theme="light"] .conf-pulse[data-confidence]::before {
+  background: rgba(0, 0, 0, 0.75);
 }

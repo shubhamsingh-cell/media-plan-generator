@@ -32,7 +32,7 @@
         --accent: #5a54bd;
         --accent-light: #7b75d4;
         --accent-glow: rgba(90, 84, 189, 0.25);
-        --text: #d4d4d8;
+        --text: #e4e4e7;
         --text-muted: #a1a1a1;
         --text-dim: #666666;
         --success: #22c55e;
@@ -2025,7 +2025,7 @@
                     ? fmt.character_limit || fmt.max_chars || ""
                     : "";
                 html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;border-bottom:1px solid var(--border,rgba(255,255,255,0.05));font-size:0.825rem;">`;
-                html += `<span style="color:var(--text,#d4d4d8);font-weight:500;">${escapeHtml(fmtName)}</span>`;
+                html += `<span style="color:var(--text,#e4e4e7);font-weight:500;">${escapeHtml(fmtName)}</span>`;
                 const details = [];
                 if (fmtSize) details.push(escapeHtml(String(fmtSize)));
                 if (fmtChars)
