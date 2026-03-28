@@ -518,8 +518,8 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         "name": "Gemini 3.1 Flash Lite",
         "api_style": "gemini",
         # S25: Upgraded from 2.5 Flash Lite to 3.1 Flash Lite (4x cheaper, 1.9x faster)
-        "endpoint": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent",
-        "model": "gemini-3.1-flash-lite",
+        "endpoint": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent",
+        "model": "gemini-3.1-flash-lite-preview",
         "env_key": "GEMINI_API_KEY",
         "rpm_limit": 30,
         "rpd_limit": 1500,
@@ -2947,7 +2947,12 @@ def _stream_openai_compatible(
     payload["stream"] = True
     data = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(url, data=data, headers=headers, method="POST")
-    resp = urllib.request.urlopen(req, timeout=_STREAM_TIMEOUT)
+    try:
+        resp = urllib.request.urlopen(req, timeout=_STREAM_TIMEOUT)
+    except (urllib.error.URLError, OSError, TimeoutError) as exc:
+        logger.error(f"_stream_openai_compatible urlopen failed: {exc}", exc_info=True)
+        yield json.dumps({"error": str(exc), "done": True})
+        return
     try:
         for raw_line in resp:
             line = raw_line.decode("utf-8", errors="replace").strip()
@@ -3016,7 +3021,12 @@ def _stream_gemini(
     headers = {"Content-Type": "application/json"}
     data = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(url, data=data, headers=headers, method="POST")
-    resp = urllib.request.urlopen(req, timeout=_STREAM_TIMEOUT)
+    try:
+        resp = urllib.request.urlopen(req, timeout=_STREAM_TIMEOUT)
+    except (urllib.error.URLError, OSError, TimeoutError) as exc:
+        logger.error(f"_stream_gemini urlopen failed: {exc}", exc_info=True)
+        yield json.dumps({"error": str(exc), "done": True})
+        return
     try:
         for raw_line in resp:
             line = raw_line.decode("utf-8", errors="replace").strip()
@@ -3083,7 +3093,12 @@ def _stream_anthropic(
     req = urllib.request.Request(
         config["endpoint"], data=data, headers=headers, method="POST"
     )
-    resp = urllib.request.urlopen(req, timeout=_STREAM_TIMEOUT)
+    try:
+        resp = urllib.request.urlopen(req, timeout=_STREAM_TIMEOUT)
+    except (urllib.error.URLError, OSError, TimeoutError) as exc:
+        logger.error(f"_stream_anthropic_sse urlopen failed: {exc}", exc_info=True)
+        yield json.dumps({"error": str(exc), "done": True})
+        return
     try:
         for raw_line in resp:
             line = raw_line.decode("utf-8", errors="replace").strip()

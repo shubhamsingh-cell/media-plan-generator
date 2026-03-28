@@ -237,10 +237,41 @@ _CLEARANCE_TYPES: list[dict[str, Any]] = [
 ]
 
 
+_CLEARANCE_ELIGIBLE_INDUSTRIES: set[str] = {
+    "defense",
+    "aerospace",
+    "government",
+    "intelligence",
+    "federal",
+    "military",
+    "aerospace_defense",
+    "government_federal",
+    "defense_aerospace",
+    "national_security",
+}
+
+
+def _is_clearance_eligible_industry(industry: str) -> bool:
+    """Check if the industry qualifies for security clearance segmentation.
+
+    Only defense, aerospace, government, intelligence, federal, and military
+    industries should show clearance data. Healthcare, retail, tech, etc.
+    must never show clearance sections.
+    """
+    industry_lower = industry.lower().strip()
+    # Direct match
+    if any(eligible in industry_lower for eligible in _CLEARANCE_ELIGIBLE_INDUSTRIES):
+        return True
+    return False
+
+
 def detect_clearance_requirements(data: dict) -> dict[str, Any] | None:
     """Detect if the plan involves defense/government roles needing clearance.
 
-    Scans industry, roles, and brief text for defense keywords.
+    Only returns clearance segmentation when the industry is defense-related
+    (defense, aerospace, government, intelligence, federal, military).
+    Non-defense industries (healthcare, retail, tech, etc.) are skipped
+    even if keywords like 'secret' or 'classified' appear in the brief.
 
     Returns:
         Clearance segmentation dict if defense-related, else None.
@@ -250,6 +281,11 @@ def detect_clearance_requirements(data: dict) -> dict[str, Any] | None:
     client = str(data.get("client_name") or "").lower()
     roles_raw = data.get("target_roles") or data.get("roles") or []
 
+    # Gate 1: Industry must be clearance-eligible
+    # This prevents healthcare, retail, tech, etc. from showing clearance data
+    if not _is_clearance_eligible_industry(industry):
+        return None
+
     # Collect all text to scan
     all_text = f"{industry} {brief} {client}"
     for r in (roles_raw if isinstance(roles_raw, list) else []):
@@ -258,7 +294,7 @@ def detect_clearance_requirements(data: dict) -> dict[str, Any] | None:
         elif isinstance(r, dict):
             all_text += f" {str(r.get('title') or '').lower()}"
 
-    # Check for defense keywords
+    # Gate 2: Check for defense keywords in the combined text
     matches = [kw for kw in _DEFENSE_KEYWORDS if kw in all_text]
     if not matches:
         return None

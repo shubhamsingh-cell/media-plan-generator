@@ -5683,9 +5683,106 @@ def _cancel_stream(conversation_id: str) -> bool:
 # FILE ATTACHMENT PARSING FOR CHAT
 # ═══════════════════════════════════════════════════════════════════════════════
 
+# ---------------------------------------------------------------------------
+# File upload validation constants
+# ---------------------------------------------------------------------------
+_ALLOWED_FILE_EXTENSIONS: set[str] = {
+    "pdf",
+    "csv",
+    "xlsx",
+    "xls",
+    "txt",
+    "json",
+    "png",
+    "jpg",
+    "jpeg",
+    "gif",
+    "doc",
+    "docx",
+}
+
+_BLOCKED_FILE_EXTENSIONS: set[str] = {
+    "exe",
+    "bat",
+    "sh",
+    "py",
+    "js",
+    "cmd",
+    "com",
+    "msi",
+    "scr",
+    "vbs",
+    "vbe",
+    "wsf",
+    "wsh",
+    "ps1",
+    "jar",
+    "php",
+    "rb",
+    "pl",
+}
+
+
+def _sanitize_filename(raw_name: str) -> str:
+    """Sanitize a filename by stripping path traversal and HTML-encoding.
+
+    Removes directory separators, parent directory references (../),
+    null bytes, and HTML-encodes special characters to prevent XSS.
+
+    Args:
+        raw_name: Raw filename from upload.
+
+    Returns:
+        Sanitized filename safe for logging and display.
+    """
+    import html
+    from pathlib import PurePosixPath
+
+    if not raw_name:
+        return "unnamed_file"
+
+    # Strip path components (handles Unix / and Windows \\)
+    clean = PurePosixPath(raw_name.replace("\\", "/")).name
+
+    # Remove null bytes and control characters
+    clean = "".join(c for c in clean if c.isprintable() and c != "\x00")
+
+    # HTML-encode to prevent XSS via filenames
+    clean = html.escape(clean, quote=True)
+
+    return clean or "unnamed_file"
+
+
+def _validate_file_extension(filename: str) -> tuple[bool, str]:
+    """Validate file extension against whitelist and blocklist.
+
+    Args:
+        filename: Sanitized filename.
+
+    Returns:
+        Tuple of (is_valid, error_message). error_message is empty if valid.
+    """
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+
+    if not ext:
+        return False, "File has no extension"
+
+    if ext in _BLOCKED_FILE_EXTENSIONS:
+        return False, f"Executable file type .{ext} is not allowed"
+
+    if ext not in _ALLOWED_FILE_EXTENSIONS:
+        return False, (
+            f"File type .{ext} is not supported. "
+            f"Allowed: {', '.join(sorted(_ALLOWED_FILE_EXTENSIONS))}"
+        )
+
+    return True, ""
+
 
 def _parse_file_attachment(file_attachment: dict) -> str:
     """Parse a base64-encoded file attachment and extract text content.
+
+    Validates filename (sanitization, extension whitelist, size) before processing.
 
     Args:
         file_attachment: Dict with 'name', 'type', 'data' (base64).
@@ -5698,10 +5795,17 @@ def _parse_file_attachment(file_attachment: dict) -> str:
 
     # io is imported at module level (line 6)
 
-    name = file_attachment.get("name") or ""
+    raw_name = file_attachment.get("name") or ""
+    name = _sanitize_filename(raw_name)
     data_b64 = file_attachment.get("data") or ""
     if not data_b64:
         return ""
+
+    # Validate file extension before any processing
+    is_valid, err_msg = _validate_file_extension(name)
+    if not is_valid:
+        logger.warning("File attachment rejected (%s): %s", name, err_msg)
+        return f"[Rejected: {err_msg}]"
 
     try:
         raw = base64.b64decode(data_b64)
@@ -13440,19 +13544,43 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             except (json.JSONDecodeError, RecursionError, ValueError):
                 self._send_error("Invalid JSON", "VALIDATION_ERROR", 400)
                 return
+            # ── Type validation: reject non-string message, non-list history ──
+            _raw_msg = data.get("message")
+            if _raw_msg is not None and not isinstance(_raw_msg, str):
+                self._send_error(
+                    "Field 'message' must be a string", "VALIDATION_ERROR", 400
+                )
+                return
+            _raw_hist = data.get("history")
+            if _raw_hist is not None and not isinstance(_raw_hist, list):
+                self._send_error(
+                    "Field 'history' must be a list", "VALIDATION_ERROR", 400
+                )
+                return
             # ── Sanitize chat message to prevent XSS ──
             if "message" in data:
                 data["message"] = _sanitize_chat_input(data.get("message"))
                 data["message"] = _dedup_repetitive_input(data["message"])
             # ── API HARDENING: Input length limits for chat (Issue 2) ──
             _chat_msg = data.get("message") or ""
-            if isinstance(_chat_msg, str) and len(_chat_msg) > 10_000:
+            if len(_chat_msg) > 10_000:
                 self._send_error(
                     "Message exceeds 10,000 character limit", "VALIDATION_ERROR", 400
                 )
                 return
             _chat_history = data.get("history") or []
-            if isinstance(_chat_history, list) and len(_chat_history) > 50:
+            # Coerce non-list history to empty list (don't crash on bad input)
+            if not isinstance(_chat_history, list):
+                _chat_history = []
+                data["history"] = _chat_history
+            # Filter out messages with null/empty content
+            _chat_history = [
+                m
+                for m in _chat_history
+                if isinstance(m, dict) and (m.get("content") or "").strip()
+            ]
+            data["history"] = _chat_history
+            if len(_chat_history) > 50:
                 self._send_error(
                     "Chat history exceeds 50 messages limit", "VALIDATION_ERROR", 400
                 )
@@ -13632,19 +13760,43 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             except (json.JSONDecodeError, RecursionError, ValueError):
                 self._send_error("Invalid JSON", "VALIDATION_ERROR", 400)
                 return
+            # ── Type validation: reject non-string message, non-list history ──
+            _raw_msg = data.get("message")
+            if _raw_msg is not None and not isinstance(_raw_msg, str):
+                self._send_error(
+                    "Field 'message' must be a string", "VALIDATION_ERROR", 400
+                )
+                return
+            _raw_hist = data.get("history")
+            if _raw_hist is not None and not isinstance(_raw_hist, list):
+                self._send_error(
+                    "Field 'history' must be a list", "VALIDATION_ERROR", 400
+                )
+                return
             # ── Sanitize chat message to prevent XSS ──
             if "message" in data:
                 data["message"] = _sanitize_chat_input(data.get("message"))
                 data["message"] = _dedup_repetitive_input(data["message"])
             # ── API HARDENING: Input length limits for chat/stream (Issue 2) ──
             _stream_msg = data.get("message") or ""
-            if isinstance(_stream_msg, str) and len(_stream_msg) > 10_000:
+            if len(_stream_msg) > 10_000:
                 self._send_error(
                     "Message exceeds 10,000 character limit", "VALIDATION_ERROR", 400
                 )
                 return
             _stream_history = data.get("history") or []
-            if isinstance(_stream_history, list) and len(_stream_history) > 50:
+            # Coerce non-list history to empty list (don't crash on bad input)
+            if not isinstance(_stream_history, list):
+                _stream_history = []
+                data["history"] = _stream_history
+            # Filter out messages with null/empty content
+            _stream_history = [
+                m
+                for m in _stream_history
+                if isinstance(m, dict) and (m.get("content") or "").strip()
+            ]
+            data["history"] = _stream_history
+            if len(_stream_history) > 50:
                 self._send_error(
                     "Chat history exceeds 50 messages limit", "VALIDATION_ERROR", 400
                 )
@@ -14033,6 +14185,14 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             rating = data.get("rating") or ""
             conv_id = data.get("conversation_id") or ""
             feedback_text = data.get("feedback_text") or ""
+            # ── API HARDENING: feedback_text length limit ──
+            if len(feedback_text) > 5_000:
+                self._send_error(
+                    "feedback_text exceeds 5,000 character limit",
+                    "VALIDATION_ERROR",
+                    400,
+                )
+                return
             if not msg_id or rating not in ("up", "down"):
                 resp_body = json.dumps(
                     {
@@ -14071,11 +14231,58 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 content_len = int(self.headers.get("Content-Length") or 0)
             except (ValueError, TypeError):
                 content_len = 0
-            body = self.rfile.read(content_len) if content_len > 0 else b""
+            if content_len <= 0:
+                self._send_error("Empty request body", "VALIDATION_ERROR", 400)
+                return
+            if content_len > 200 * 1024:  # 200KB limit for share payloads
+                self._send_error("Request too large", "VALIDATION_ERROR", 413)
+                return
+            body = self.rfile.read(content_len)
             try:
                 data = json.loads(body) if body else {}
-            except json.JSONDecodeError:
-                data = {}
+            except (json.JSONDecodeError, RecursionError, ValueError):
+                self._send_error("Invalid JSON", "VALIDATION_ERROR", 400)
+                return
+            # ── Validate messages array ──
+            _share_messages = data.get("messages")
+            if not isinstance(_share_messages, list) or len(_share_messages) < 1:
+                self._send_error(
+                    "Payload must include 'messages' array with at least 1 message",
+                    "VALIDATION_ERROR",
+                    400,
+                )
+                return
+            if len(_share_messages) > 100:
+                self._send_error(
+                    "Share payload exceeds 100 messages limit",
+                    "VALIDATION_ERROR",
+                    400,
+                )
+                return
+            # ── Sanitize message content for XSS ──
+            _has_content = False
+            for _smsg in _share_messages:
+                if not isinstance(_smsg, dict):
+                    continue
+                _smsg_content = _smsg.get("content")
+                if isinstance(_smsg_content, str) and _smsg_content.strip():
+                    _has_content = True
+                    _smsg["content"] = _sanitize_chat_input(_smsg_content)
+                # Sanitize role field too (should only be user/assistant/system)
+                _smsg_role = _smsg.get("role") or ""
+                if _smsg_role not in ("user", "assistant", "system"):
+                    _smsg["role"] = "user"
+            if not _has_content:
+                self._send_error(
+                    "Messages must contain at least one message with non-empty content",
+                    "VALIDATION_ERROR",
+                    400,
+                )
+                return
+            # Sanitize title
+            _share_title: str = _sanitize_chat_input(
+                data.get("title") or "Shared Conversation"
+            )
             conv_id = data.get("conversation_id") or str(uuid.uuid4())
             share_id = str(uuid.uuid4())[:8]
             # Store to Supabase (table may not exist -- graceful degrade)
@@ -14087,8 +14294,8 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     payload={
                         "share_id": share_id,
                         "conversation_id": conv_id,
-                        "title": data.get("title") or "Shared Conversation",
-                        "messages": json.dumps(data.get("messages") or []),
+                        "title": _share_title,
+                        "messages": json.dumps(_share_messages),
                         "created_at": datetime.datetime.utcnow().isoformat() + "Z",
                     },
                 )

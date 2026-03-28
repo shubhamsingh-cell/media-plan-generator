@@ -207,7 +207,7 @@ const MODULES = [
     group: "nova",
     label: "Nova AI",
     icon: "nova",
-    desc: "AI-powered recruitment assistant with 33 tools",
+    desc: "AI-powered recruitment assistant with 56 tools",
   },
 
   /* ─── UTILITY ─── */

@@ -3,7 +3,7 @@ Nova -- AI-powered recruitment marketing intelligence chatbot.
 
 Provides conversational access to:
 - Joveo's proprietary supply data (publishers, channels, global supply)
-- 25 live API enrichment sources (salary, demand, location, ad platforms)
+- 15 live API enrichment sources (salary, demand, location, ad platforms)
 - Recruitment industry knowledge base (42 sources)
 - Data synthesis engine (fused intelligence with confidence scores)
 - Budget allocation engine ($ projections)
@@ -1116,7 +1116,7 @@ _PARTIAL_MATCH_THRESHOLD = 0.35
 # Two-tier tool system: essential tools for free LLMs, full set for paid LLMs
 # ---------------------------------------------------------------------------
 # Free LLMs (Gemini, Groq, Mistral, etc.) have smaller context windows and
-# struggle with 33 tool definitions. Paid LLMs (Claude, GPT-4o) handle them fine.
+# struggle with 56 tool definitions. Paid LLMs (Claude, GPT-4o) handle them fine.
 TOOLS_ESSENTIAL: set[str] = {
     "query_knowledge_base",
     "query_salary_data",
@@ -1147,7 +1147,7 @@ def get_tools_for_provider(
 ) -> list[dict]:
     """Return the appropriate tool set based on provider tier.
 
-    Paid providers (Claude, GPT-4o) get all 33 tools.
+    Paid providers (Claude, GPT-4o) get all 56 tools.
     Free providers get the essential 10 to fit smaller context windows.
     """
     if provider_name and provider_name.lower() in _PAID_TOOL_PROVIDERS:
@@ -11887,7 +11887,14 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
             r"^help\s*me$",
             r"^help\s*$",
             r"what can you do",
+            r"what do you do",
+            r"what are you good at",
+            r"what('?s| is) your (purpose|specialty|speciality)",
             r"who are you",
+            r"how can you help",
+            r"tell me about yourself",
+            r"what('?s| is) this",
+            r"introduce yourself",
         ]
         is_greeting = any(_re.search(pat, msg_lower) for pat in _greeting_patterns)
         # Prevent false positives: if "help" appears but message is longer and contains
@@ -12766,9 +12773,18 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                 )
             else:
                 # Try multiple data sources to build a useful response
-                kb_data = self._query_knowledge_base({"topic": "all"})
-                tools_used.append("query_knowledge_base")
-                sources.add("Recruitment Industry Knowledge Base")
+                try:
+                    kb_data = self._query_knowledge_base({"topic": "all"})
+                except Exception as _kb_err:
+                    logger.error(
+                        "KB query failed in rule-based fallback: %s",
+                        _kb_err,
+                        exc_info=True,
+                    )
+                    kb_data = {}
+                if kb_data:
+                    tools_used.append("query_knowledge_base")
+                    sources.add("Recruitment Industry Knowledge Base")
 
                 # Try to extract something useful from the query and provide actual data
                 _bench = kb_data.get("benchmarks", {})
@@ -12798,15 +12814,18 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                         "I can drill into specific benchmarks once I know what you're looking for."
                     )
                 else:
+                    # Catch-all: always return a helpful redirect, never crash
                     response_text = (
-                        "I can help with recruitment marketing data across all industries "
-                        "and locations. Here's what I can provide:\n\n"
+                        "I specialize in recruitment marketing intelligence. "
+                        "I can help with salary data, media plans, channel benchmarks, "
+                        "and hiring market analysis.\n\n"
+                        "Here's what I can provide:\n\n"
                         "- **Salary data** for any role (US national or city-specific)\n"
                         "- **CPC/CPA benchmarks** by industry and platform\n"
                         "- **Budget allocation** recommendations with projected outcomes\n"
                         "- **Job board recommendations** for 70+ countries\n"
                         "- **Market demand** and hiring difficulty analysis\n\n"
-                        "What role or topic are you interested in? I'll pull the data immediately."
+                        "Try asking about a specific role or location!"
                     )
             sections.append(response_text)
 

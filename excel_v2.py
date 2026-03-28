@@ -3037,6 +3037,107 @@ def _roi_category_for_channel(channel_name: str) -> str:
     return "job_board"
 
 
+# ---------------------------------------------------------------------------
+# Role difficulty -> base time-to-fill adjustments (days)
+# ---------------------------------------------------------------------------
+_ROLE_DIFFICULTY_TTF: dict[str, tuple[int, int]] = {
+    "executive": (60, 90),
+    "c-suite": (60, 90),
+    "vp": (60, 90),
+    "director": (45, 75),
+    "tech": (45, 60),
+    "engineering": (45, 60),
+    "software": (45, 60),
+    "data_science": (45, 60),
+    "cybersecurity": (45, 60),
+    "nursing": (30, 45),
+    "healthcare": (30, 45),
+    "medical": (30, 45),
+    "rn": (30, 45),
+    "lpn": (30, 45),
+    "cna": (25, 35),
+    "hourly": (14, 21),
+    "entry": (14, 21),
+    "retail": (14, 21),
+    "warehouse": (14, 21),
+    "food_service": (14, 21),
+    "cdl": (21, 30),
+    "trucking": (21, 30),
+    "driver": (21, 30),
+    "logistics": (21, 30),
+}
+
+
+def _compute_dynamic_ttf(channel_base_ttf: int, data: dict) -> int:
+    """Compute dynamic time-to-fill by adjusting channel base with role/volume/market factors.
+
+    Factors applied:
+    - Role difficulty: executive (60-90d), tech (45-60d), nursing (30-45d),
+      hourly (14-21d), CDL/trucking (21-30d)
+    - Volume: >50 hires adds 15-30 days proportionally
+    - Market conditions: 'drought' adds 10 days, 'surplus' subtracts 5
+
+    Args:
+        channel_base_ttf: Midpoint time-to-fill for the channel type (days).
+        data: Full plan data dict with industry, roles, hire_volume, etc.
+
+    Returns:
+        Adjusted time-to-fill in days (minimum 10).
+    """
+    industry = str(data.get("industry") or "").lower()
+    roles_raw = data.get("target_roles") or data.get("roles") or []
+
+    # ── Role difficulty adjustment ──
+    role_adjustment: float = 1.0
+    role_texts: list[str] = []
+    for r in (roles_raw if isinstance(roles_raw, list) else []):
+        if isinstance(r, str):
+            role_texts.append(r.lower())
+        elif isinstance(r, dict):
+            role_texts.append(str(r.get("title") or "").lower())
+
+    combined_role_text = " ".join(role_texts) + f" {industry}"
+
+    # Find best matching role difficulty
+    matched_range: tuple[int, int] | None = None
+    for keyword, ttf_range in _ROLE_DIFFICULTY_TTF.items():
+        if keyword in combined_role_text:
+            matched_range = ttf_range
+            break
+
+    if matched_range:
+        role_midpoint = (matched_range[0] + matched_range[1]) / 2.0
+        # Scale channel TTF toward the role-appropriate range
+        # Blend: 60% role-driven, 40% channel-driven
+        adjusted_ttf = int(role_midpoint * 0.6 + channel_base_ttf * 0.4)
+    else:
+        adjusted_ttf = channel_base_ttf
+
+    # ── Volume adjustment: >50 hires extends timeline ──
+    try:
+        hire_vol_str = str(data.get("hire_volume") or "0")
+        hire_vol = int(hire_vol_str.replace(",", "").replace("+", "").strip() or "0")
+    except (ValueError, TypeError):
+        hire_vol = 0
+
+    if hire_vol > 200:
+        adjusted_ttf += 30
+    elif hire_vol > 100:
+        adjusted_ttf += 22
+    elif hire_vol > 50:
+        adjusted_ttf += 15
+
+    # ── Market condition adjustment ──
+    synthesized = data.get("_synthesized", {})
+    market_condition = str(synthesized.get("market_condition") or "").lower()
+    if "drought" in market_condition or "tight" in market_condition:
+        adjusted_ttf += 10
+    elif "surplus" in market_condition or "favorable" in market_condition:
+        adjusted_ttf -= 5
+
+    return max(10, adjusted_ttf)
+
+
 def _build_sheet_roi_projections(ws, data: dict) -> None:
     """Build Sheet 5: ROI Projections with per-channel hire projections and efficiency scores.
 
@@ -3234,9 +3335,10 @@ def _build_sheet_roi_projections(ws, data: dict) -> None:
 
             cost_per_hire = round(dollars / max(projected_hires, 1), 2)
 
-            # Time to fill: midpoint of channel-type range
+            # Time to fill: channel midpoint adjusted for role/volume/market
             ttf_lo, ttf_hi = _ROI_TIME_TO_FILL.get(category, (30, 45))
-            est_time_to_fill = (ttf_lo + ttf_hi) // 2
+            base_ttf = (ttf_lo + ttf_hi) // 2
+            est_time_to_fill = _compute_dynamic_ttf(base_ttf, data)
 
             # ROI Score (1-10): based on cost efficiency
             # Lower cost per hire = higher score
