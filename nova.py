@@ -2163,7 +2163,7 @@ _RESPONSE_TEMPLATES: Dict[str, str] = {
         "| Uptime | X% | -- |\n"
         "| Avg Response Time | Xms | -- |\n\n"
         "#### Overnight Alerts\n"
-        "- [severity emoji] [alert message]\n\n"
+        "- [HIGH/MEDIUM/LOW] [alert message]\n\n"
         "#### AI Recommendation\n"
         "**[Title]** -- [description with actionable guidance]\n\n"
         "#### Quick Actions\n"
@@ -4851,7 +4851,8 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
             from concurrent.futures import ThreadPoolExecutor as _TPE_Tool
             from concurrent.futures import TimeoutError as _ToolTimeout
 
-            _PER_TOOL_TIMEOUT: int = 10
+            # S27: Dynamic per-tool timeout -- share global budget instead of fixed 10s
+            _PER_TOOL_TIMEOUT: int = 10  # default fallback
 
             with _TPE_Tool(max_workers=1) as _tool_pool:
                 _tool_fut = _tool_pool.submit(handler, tool_input)
@@ -4878,7 +4879,8 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                             pass
                     return json.dumps(
                         {
-                            "error": f"Tool '{tool_name}' timed out after {_PER_TOOL_TIMEOUT}s"
+                            "error": f"Tool '{tool_name}' timed out after {_PER_TOOL_TIMEOUT}s",
+                            "partial": True,
                         }
                     )
 
@@ -9129,7 +9131,11 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                             "and hiring market analysis. What are you working on?"
                         ),
                     ]
-                    _greeting_resp = _greet_rng.choice(_greetings)
+                    # S27: Deterministic per-session greeting (not random each time)
+                    _g_idx = hash((_session_id or "") + user_message[:5]) % len(
+                        _greetings
+                    )
+                    _greeting_resp = _greetings[_g_idx]
                 logger.info("NOVA MODE: Greeting early-exit -- 0 tokens")
                 return {
                     "response": _greeting_resp,
@@ -10789,8 +10795,6 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                             }
                         )
 
-                    tool_results_raw.append(_trc)
-
                     try:
                         _sem = json.loads(_trc)
                         if isinstance(_sem, dict) and "_semantic_context" in _sem:
@@ -10807,6 +10811,8 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                             "'I don't have data' -- always provide value with appropriate caveats.]\n"
                             + _trc
                         )
+                    # S27: Append AFTER annotation so raw results match messages array
+                    tool_results_raw.append(_trc)
 
                     messages.append(
                         {"role": "tool", "tool_call_id": _tid, "content": _trc}
@@ -13926,12 +13932,14 @@ def _build_confidence_breakdown(
     """
     if not tools_used:
         # No tools called -- LLM answered from training knowledge.
-        # This is common for strategy/planning questions where tools aren't needed.
-        # 0.70 is appropriate: the LLM's recruitment marketing knowledge is
-        # reasonably accurate, even without live data verification.
+        # S27: Differentiate data vs guidance queries (audit P2)
+        _no_tool_score = 0.70
+        if tool_details:
+            # Tools were available but none returned data
+            _no_tool_score = 0.55
         return {
-            "overall": 0.70,
-            "grade": "B",
+            "overall": _no_tool_score,
+            "grade": "B" if _no_tool_score >= 0.65 else "C",
             "sources_count": 0,
             "data_freshness": "curated",
             "grounding_score": grounding_score,
