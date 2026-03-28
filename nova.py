@@ -15063,6 +15063,17 @@ def _enrich_markdown_formatting(text: str) -> str:
     text = _RE_PERCENTAGE.sub(r"**\1%**", text)
     text = _RE_DAY_DURATION.sub(r"**\1 \2**", text)
     text = text.replace("****", "**")
+    # S27: Fix broken bold around comma-separated numbers
+    # e.g. **$200,**000** -> **$200,000**
+    text = re.sub(r"\*\*(\$[\d,]+),\*\*([\d,]+)\*\*", r"**\1,\2**", text)
+    # Fix triple-bold artifacts: ***$X*** -> **$X**
+    text = re.sub(r"\*{3,}(\$[\d,]+(?:\.\d+)?)\*{3,}", r"**\1**", text)
+    # Fix bold inside bold: **text **$X** more** -> **text $X more**
+    text = re.sub(
+        r"\*\*(\$[\d,]+(?:\.\d+)?)\*\*(\s*[-–])\s*\*\*(\$[\d,]+(?:\.\d+)?)\*\*",
+        r"**\1\2 \3**",
+        text,
+    )
 
     if has_markdown:
         return text
