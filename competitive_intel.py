@@ -80,7 +80,8 @@ def _generate_competitive_narrative(competitor_data: Dict[str, Any]) -> str:
         return ""
     task_type = getattr(router, "TASK_RESEARCH", "research")
     try:
-        data_snapshot = json.dumps(competitor_data, indent=2, default=str)[:2000]
+        # S27: Increased from 2000 to 5000 chars to preserve competitor data integrity
+        data_snapshot = json.dumps(competitor_data, indent=2, default=str)[:5000]
         prompt = (
             f"Synthesize this competitive hiring landscape:\n{data_snapshot}\n\n"
             f"Write a 3-sentence strategic assessment: who's hiring most aggressively, "

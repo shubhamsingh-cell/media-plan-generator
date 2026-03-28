@@ -1351,7 +1351,9 @@ def fuse_salary_intelligence(
                     kb_median = _safe_float(kb_median_str)
                     if kb_median > 0:
                         kb_validation = validate_with_knowledge_base(
-                            w_median, kb_median, tolerance=0.50
+                            w_median,
+                            kb_median,
+                            tolerance=0.30,  # S27: tightened from 0.50
                         )
 
         result[role] = {
