@@ -13458,7 +13458,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 )
                 return
             _CHAT_REQUEST_TIMEOUT: float = (
-                75.0  # seconds -- must finish well before gunicorn 120s kill
+                90.0  # seconds -- must finish well before gunicorn 120s kill
+                # S25: raised from 75→90. Complex media-plan queries need
+                # enrichment(15s) + tool loop(~45s) + synthesis(20s) = 80s.
             )
             try:
                 from nova import handle_chat_request
@@ -13472,6 +13474,11 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     import time as _t
 
                     _t0 = _t.time()
+                    # S25: Thread outer deadline so tool loop can compute
+                    # a dynamic budget that accounts for enrichment time.
+                    _outer_deadline = (
+                        _t0 + _CHAT_REQUEST_TIMEOUT - 5
+                    )  # 5s safety margin
                     print(f"[CHAT DEBUG] enrichment starting", flush=True)
                     try:
                         _enrich_chat_context(d, d.get("message") or "")
@@ -13486,7 +13493,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         f"[CHAT DEBUG] enrichment done in {_t1-_t0:.1f}s, calling handle_chat_request",
                         flush=True,
                     )
-                    result = handle_chat_request(d)
+                    result = handle_chat_request(d, outer_deadline=_outer_deadline)
                     _t2 = _t.time()
                     print(
                         f"[CHAT DEBUG] handle_chat_request done in {_t2-_t1:.1f}s, provider={result.get('llm_provider','?')}, tools={result.get('tools_used',[])}",

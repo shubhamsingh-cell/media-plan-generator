@@ -8759,6 +8759,7 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
         enrichment_context: Optional[dict] = None,
         cancel_event: Optional[threading.Event] = None,
         session_id: Optional[str] = None,
+        outer_deadline: Optional[float] = None,
     ) -> dict:
         """Process a chat message and return a response.
 
@@ -8769,6 +8770,8 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
             cancel_event: Optional event set by the stream handler on timeout;
                 checked before expensive operations for cooperative cancellation.
             session_id: Optional session identifier for A/B test variant assignment.
+            outer_deadline: Wall-clock time.time() deadline from the outer
+                timeout wrapper. Used to compute dynamic loop budgets.
 
         Returns:
             Dict with response, sources, confidence, tools_used.
@@ -9233,6 +9236,7 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                 enrichment_context,
                 is_complex=_is_complex,
                 ab_force_provider=_ab_variant,
+                outer_deadline=outer_deadline,
             )
             # v4.3 QUALITY GATE: If response has zero tools_used, retry with Gemini forced
             # S24: Skip retry if already past 50s to avoid timeout
@@ -10026,6 +10030,7 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
         enrichment_context: Optional[dict],
         is_complex: bool = False,
         ab_force_provider: Optional[str] = None,
+        outer_deadline: Optional[float] = None,
     ) -> Optional[dict]:
         """Try LLM providers WITH tool calling via OpenAI-compatible format.
 
@@ -10346,11 +10351,23 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
         # Always use 4096 for tool queries to prevent response truncation
         _tool_max_tokens = 4096
 
-        # S24: Deadline-aware tool loop -- force synthesis before the outer
-        # 75s request timeout kills us with "I took too long to respond".
+        # S25: Dynamic loop budget -- compute from outer deadline to ensure
+        # enrichment + tool loop + synthesis all fit within the outer timeout.
         # Reserve 18s for synthesis-forcing + response formatting.
         _loop_start = time.monotonic()
-        _LOOP_BUDGET_S = 55.0  # seconds before we must force synthesis
+        if outer_deadline:
+            # Dynamic: use remaining time minus synthesis reserve
+            _remaining = outer_deadline - time.time()
+            _LOOP_BUDGET_S = max(25.0, min(55.0, _remaining - 18.0))
+            logger.info(
+                "Tool loop: dynamic budget=%.1fs (remaining=%.1fs, reserve=18s)",
+                _LOOP_BUDGET_S,
+                _remaining,
+            )
+        else:
+            _LOOP_BUDGET_S = 55.0  # static fallback
+        # S24: Deadline-aware tool loop -- force synthesis before the outer
+        # request timeout kills us with "I took too long to respond".
 
         for iteration in range(max_iterations):
             # S24: Check deadline before starting a new iteration
@@ -10845,7 +10862,15 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                             "anthropic-version": "2023-06-01",
                         },
                     )
-                    with urllib.request.urlopen(_synth_req_b, timeout=30) as _sr:
+                    # S25: Dynamic synthesis timeout based on remaining budget
+                    _synth_timeout = 30
+                    if outer_deadline:
+                        _synth_timeout = max(
+                            10, min(30, outer_deadline - time.time() - 3)
+                        )
+                    with urllib.request.urlopen(
+                        _synth_req_b, timeout=_synth_timeout
+                    ) as _sr:
                         _synth_data = json.loads(_sr.read().decode("utf-8"))
                     _synth_text_b = ""
                     for _sb in (_synth_data or {}).get("content", []):
@@ -15079,6 +15104,7 @@ def _sanitize_history(raw_history) -> list:
 def handle_chat_request(
     request_data: dict,
     cancel_event: Optional[threading.Event] = None,
+    outer_deadline: Optional[float] = None,
 ) -> dict:
     """Handle an incoming chat API request.
 
@@ -15101,6 +15127,9 @@ def handle_chat_request(
         request_data: The incoming chat request dict.
         cancel_event: Optional event set by stream handler on timeout;
             propagated to Nova.chat() for cooperative cancellation.
+        outer_deadline: Wall-clock monotonic deadline from the outer timeout
+            wrapper.  Passed through to ``Nova.chat()`` so the tool loop
+            can compute a dynamic budget that accounts for enrichment time.
 
     Returns::
 
@@ -15143,6 +15172,7 @@ def handle_chat_request(
             enrichment_context=context if isinstance(context, dict) else None,
             cancel_event=cancel_event,
             session_id=_conv_id,
+            outer_deadline=outer_deadline,
         )
 
         # C-01: Graceful fallback when all LLM providers fail (empty response)
@@ -15371,7 +15401,7 @@ def handle_chat_request_stream(
     # for tool-use heavy queries (ProAmpac, US Army, Electrolux use cases).
     yield {"status": "Analyzing your question...", "done": False}
 
-    _STREAM_TIMEOUT = 55.0
+    _STREAM_TIMEOUT = 80.0  # S25: raised from 55→80 to match new 90s outer budget
     _stream_result: dict = {}
     _stream_error: list = []
     _cancel_event: threading.Event = (
@@ -15381,13 +15411,19 @@ def handle_chat_request_stream(
     # S18: Tool status queue -- background thread pushes tool_start/tool_complete
     # events here; the generator yields them to the SSE client in real time.
     _tool_q: queue.Queue[Dict[str, Any]] = queue.Queue(maxsize=100)
+    # S25: Compute outer deadline for dynamic tool loop budgets
+    _stream_outer_deadline = time.time() + _STREAM_TIMEOUT - 5  # 5s safety
 
     def _run_chat() -> None:
         """Execute handle_chat_request in a thread for timeout control."""
         _set_tool_status_queue(_tool_q)
         try:
             _stream_result.update(
-                handle_chat_request(request_data, cancel_event=_cancel_event)
+                handle_chat_request(
+                    request_data,
+                    cancel_event=_cancel_event,
+                    outer_deadline=_stream_outer_deadline,
+                )
             )
         except ChatCancelledException:
             logger.info("Stream chat thread exiting cleanly after cancellation")
