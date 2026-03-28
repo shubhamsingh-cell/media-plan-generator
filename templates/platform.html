@@ -23,7 +23,7 @@
          The font is used if cached, otherwise the fallback renders with zero CLS. -->
     <link
       rel="preload"
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=optional"
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=optional"
       as="style"
       onload="
         this.onload = null;
@@ -33,7 +33,7 @@
     <noscript
       ><link
         rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=optional"
+        href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=optional"
     /></noscript>
     <!-- Critical CSS inlined: reserve exact layout dimensions to prevent CLS -->
     <style>
@@ -945,5 +945,15 @@
         ? document.addEventListener("DOMContentLoaded", ConfidencePulse.init)
         : ConfidencePulse.init();
     </script>
+    <!-- GSAP Animation Library (CDN) -->
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.7/gsap.min.js"
+      defer
+    ></script>
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.7/ScrollTrigger.min.js"
+      defer
+    ></script>
+    <script src="/static/js/animations.js?v=2.0.0" defer></script>
   </body>
 </html>

@@ -15,7 +15,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=optional"
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=optional"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/static/css/tokens.css" />
@@ -433,7 +433,35 @@
           aria-live="polite"
           aria-label="Chat messages"
         >
-          <div class="chat-container" id="chat-container"></div>
+          <div class="chat-container" id="chat-container">
+            <!-- Inline welcome suggestion chips (hidden once messages appear) -->
+            <div class="nova-suggestions" id="nova-suggestion-chips">
+              <button
+                class="suggestion-chip"
+                data-prompt="What is the average CPC for nursing roles in major metros?"
+              >
+                Average CPC for nursing roles
+              </button>
+              <button
+                class="suggestion-chip"
+                data-prompt="Compare Indeed vs LinkedIn for tech hiring -- which performs better?"
+              >
+                Indeed vs LinkedIn for tech
+              </button>
+              <button
+                class="suggestion-chip"
+                data-prompt="Create a quick plan: 20 software engineers in Austin, TX with a $150K budget"
+              >
+                Quick plan: 20 engineers Austin
+              </button>
+              <button
+                class="suggestion-chip"
+                data-prompt="What are the key compliance requirements for job postings in California?"
+              >
+                California compliance
+              </button>
+            </div>
+          </div>
         </div>
 
         <!-- Input -->
@@ -612,5 +640,69 @@
         }
       })();
     </script>
+    <!-- Suggestion chip click handler (Phase 4 polish) -->
+    <script>
+      (function () {
+        function initSuggestionChips() {
+          document
+            .querySelectorAll(".suggestion-chip")
+            .forEach(function (chip) {
+              chip.addEventListener("click", function () {
+                var input =
+                  document.getElementById("chat-input") ||
+                  document.getElementById("novaInput") ||
+                  document.querySelector(
+                    ".nova-input textarea, .nova-input input",
+                  );
+                if (input) {
+                  input.value = this.dataset.prompt;
+                  input.dispatchEvent(new Event("input", { bubbles: true }));
+                  // Try to find and click the send button
+                  var sendBtn =
+                    document.getElementById("send-btn") ||
+                    document.querySelector(
+                      '.nova-send-btn, .send-btn, button[type="submit"]',
+                    );
+                  if (sendBtn) sendBtn.click();
+                }
+                // Hide the chip container after use
+                var chipContainer = document.getElementById(
+                  "nova-suggestion-chips",
+                );
+                if (chipContainer) chipContainer.style.display = "none";
+              });
+            });
+        }
+        // Run after nova.js has loaded
+        if (document.readyState === "loading") {
+          document.addEventListener("DOMContentLoaded", initSuggestionChips);
+        } else {
+          initSuggestionChips();
+        }
+
+        // Hide chips when any message is added to chat
+        var observer = new MutationObserver(function (mutations) {
+          var container = document.getElementById("chat-container");
+          if (container && container.querySelector(".message")) {
+            var chips = document.getElementById("nova-suggestion-chips");
+            if (chips) chips.style.display = "none";
+          }
+        });
+        var chatContainer = document.getElementById("chat-container");
+        if (chatContainer) {
+          observer.observe(chatContainer, { childList: true, subtree: true });
+        }
+      })();
+    </script>
+    <!-- GSAP Animation Library (CDN) -->
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.7/gsap.min.js"
+      defer
+    ></script>
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.7/ScrollTrigger.min.js"
+      defer
+    ></script>
+    <script src="/static/js/animations.js?v=2.0.0" defer></script>
   </body>
 </html>

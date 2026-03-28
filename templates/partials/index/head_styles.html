@@ -55,6 +55,16 @@
     --shadow-accent:
       0 0 30px rgba(90, 84, 189, 0.08), 0 0 60px rgba(90, 84, 189, 0.04);
 
+    /* Typography – display font */
+    --font-display: "Space Grotesk", sans-serif;
+    --tracking-tight: -0.025em;
+
+    /* Accent aliases (spec tokens) */
+    --accent: #5a54bd;
+    --accent-glow: rgba(90, 84, 189, 0.15);
+    --text-base: 0.9375rem;
+    --duration-base: 200ms;
+
     /* Radius */
     --radius-sm: 8px;
     --radius-md: 12px;
@@ -427,6 +437,13 @@
     font-size: 1.15rem;
     color: #6bb3cd;
     font-weight: 500;
+    margin-bottom: 2px;
+    letter-spacing: -0.01em;
+  }
+  .hero-subline {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    font-weight: 400;
     margin-bottom: 4px;
     letter-spacing: -0.01em;
   }
@@ -521,20 +538,25 @@
   }
 
   .step-indicator.active .step-circle {
-    background: var(--primary);
+    background: linear-gradient(
+      90deg,
+      var(--primary) 0%,
+      var(--primary-light) 100%
+    );
     border: none;
     color: transparent;
     box-shadow:
-      0 0 12px rgba(90, 84, 189, 0.4),
-      0 0 4px rgba(90, 84, 189, 0.2);
+      0 0 12px rgba(90, 84, 189, 0.5),
+      0 0 4px rgba(90, 84, 189, 0.3),
+      0 1px 6px rgba(90, 84, 189, 0.25);
   }
 
   .step-indicator.completed .step-circle {
-    background: var(--primary-light);
+    background: linear-gradient(90deg, var(--primary-light) 0%, #6bb3cd 100%);
     border: none;
     color: transparent;
-    box-shadow: none;
-    opacity: 0.7;
+    box-shadow: 0 0 8px rgba(107, 179, 205, 0.2);
+    opacity: 0.85;
   }
 
   .step-indicator.completed {
@@ -630,18 +652,18 @@
   .form-group textarea,
   .form-group select {
     width: 100%;
-    padding: 10px 12px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: var(--radius-sm);
-    font-size: 14px;
+    padding: 14px 16px;
+    border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+    border-radius: var(--radius-md);
+    font-size: var(--text-base, 14px);
     font-family: inherit;
     transition:
-      border-color var(--duration-fast) var(--ease-standard),
-      box-shadow var(--duration-fast) var(--ease-standard),
-      background var(--duration-fast) var(--ease-standard);
-    background: rgba(255, 255, 255, 0.04);
+      border-color var(--duration-base, 200ms) var(--ease-standard),
+      box-shadow var(--duration-base, 200ms) var(--ease-standard),
+      background var(--duration-base, 200ms) var(--ease-standard);
+    background: rgba(15, 15, 25, 0.6);
     color: var(--text-primary);
-    height: 40px;
+    height: auto;
   }
 
   .form-group input::placeholder,
@@ -653,11 +675,11 @@
   .form-group textarea:focus,
   .form-group select:focus {
     outline: none;
-    border-color: rgba(90, 84, 189, 0.5);
+    border-color: var(--accent, rgba(90, 84, 189, 0.5));
     box-shadow:
-      0 0 0 3px rgba(90, 84, 189, 0.1),
-      0 0 20px rgba(90, 84, 189, 0.05);
-    background: rgba(90, 84, 189, 0.04);
+      0 0 0 3px var(--accent-glow, rgba(90, 84, 189, 0.15)),
+      0 0 20px rgba(90, 84, 189, 0.08);
+    background: rgba(15, 15, 25, 0.7);
   }
 
   .form-group input:focus-visible,
@@ -1333,17 +1355,31 @@
   }
 
   /* ============================================
-           WIZARD STEP VISIBILITY
+           WIZARD STEP VISIBILITY + Transition polish
            ============================================ */
   .wizard-step {
     display: none;
+    opacity: 0;
+    transform: translateX(20px);
+    transition:
+      opacity var(--duration-slow) var(--ease-standard),
+      transform var(--duration-slow) var(--ease-standard);
   }
   .wizard-step.active {
     display: block;
+    opacity: 1;
+    transform: translateX(0);
   }
 
   .wizard-step.step-animating {
     animation: fadeInUp 0.4s ease-out;
+  }
+
+  /* Space Grotesk for step headings */
+  .wizard-step h2,
+  .card h2 {
+    font-family: var(--font-display);
+    letter-spacing: var(--tracking-tight);
   }
 
   /* ============================================

@@ -10483,16 +10483,19 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
 
         # S25: Dynamic loop budget -- compute from outer deadline to ensure
         # enrichment + tool loop + synthesis all fit within the outer timeout.
-        # Reserve 18s for synthesis-forcing + response formatting.
+        # S26: Raised synthesis reserve 18s -> 25s. Complex multi-tool queries
+        # generate 10-24K chars of tool results; Haiku needs 15-20s to synthesize.
+        _SYNTHESIS_RESERVE_S = 25.0
         _loop_start = time.monotonic()
         if outer_deadline:
             # Dynamic: use remaining time minus synthesis reserve
             _remaining = outer_deadline - time.time()
-            _LOOP_BUDGET_S = max(25.0, min(55.0, _remaining - 18.0))
+            _LOOP_BUDGET_S = max(20.0, min(50.0, _remaining - _SYNTHESIS_RESERVE_S))
             logger.info(
-                "Tool loop: dynamic budget=%.1fs (remaining=%.1fs, reserve=18s)",
+                "Tool loop: dynamic budget=%.1fs (remaining=%.1fs, reserve=%.0fs)",
                 _LOOP_BUDGET_S,
                 _remaining,
+                _SYNTHESIS_RESERVE_S,
             )
         else:
             _LOOP_BUDGET_S = 55.0  # static fallback
@@ -10724,12 +10727,18 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                                 "tool": _tname,
                                 "has_data": has_data,
                                 "source": result_parsed.get("source") or "",
+                                "result": _trc,
                             }
                         )
                     except (json.JSONDecodeError, TypeError):
                         has_data = bool(_trc)
                         tool_call_details.append(
-                            {"tool": _tname, "has_data": has_data, "source": ""}
+                            {
+                                "tool": _tname,
+                                "has_data": has_data,
+                                "source": "",
+                                "result": _trc,
+                            }
                         )
 
                     tool_results_raw.append(_trc)
@@ -10956,79 +10965,118 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
         # Exhausted iterations without final text.
         # S23-R5: Try synthesis-force HERE instead of falling through to Path C
         # (which wastes another 5 iterations of Claude API calls).
+        # S26: Aggressively truncate tool results to keep synthesis prompt small
+        # and fast.  Two attempts: normal (1200 chars/tool) then compact (600).
         if tools_used and tool_call_details:
-            try:
-                _tool_summary_parts = []
-                for _tcd in tool_call_details:
-                    _tname = _tcd.get("tool") or "unknown"
-                    _tresult = str(_tcd.get("result") or "")[:2000]
-                    _tool_summary_parts.append(f"[{_tname}]: {_tresult}")
-                _tool_summary = "\n\n".join(_tool_summary_parts)
+            _api_key = os.environ.get("ANTHROPIC_API_KEY") or ""
+            if _api_key:
+                for _synth_attempt, _char_limit in enumerate([1200, 600], start=1):
+                    try:
+                        _tool_summary_parts = []
+                        # S26: Cap total summary at 12K chars to bound Haiku input
+                        # Sort by has_data=True first so empty/error tools are truncated first
+                        _total_chars = 0
+                        _MAX_SUMMARY_CHARS = 12000
+                        _sorted_details = sorted(
+                            tool_call_details,
+                            key=lambda d: not d.get("has_data", False),
+                        )
+                        for _tcd in _sorted_details:
+                            if _total_chars >= _MAX_SUMMARY_CHARS:
+                                _tool_summary_parts.append(
+                                    f"[...{len(tool_call_details) - len(_tool_summary_parts)} more tools truncated for speed]"
+                                )
+                                break
+                            _tname = _tcd.get("tool") or "unknown"
+                            _tresult = str(_tcd.get("result") or "")[:_char_limit]
+                            _part = f"[{_tname}]: {_tresult}"
+                            _tool_summary_parts.append(_part)
+                            _total_chars += len(_part)
+                        _tool_summary = "\n\n".join(_tool_summary_parts)
 
-                _synth_msgs_b = [
-                    {
-                        "role": "user",
-                        "content": f"Original question: {user_message}\n\n"
-                        f"Data from {len(tools_used)} tools:\n\n{_tool_summary}\n\n"
-                        "Synthesize a complete, well-structured response with markdown "
-                        "tables, bullet points, and specific numbers. Include actionable "
-                        "recommendations.",
-                    }
-                ]
-                # Use Claude Haiku directly for synthesis
-                _api_key = os.environ.get("ANTHROPIC_API_KEY") or ""
-                if _api_key:
-                    _synth_payload_b = {
-                        "model": "claude-haiku-4-5-20251001",
-                        "max_tokens": 4096,
-                        "messages": _synth_msgs_b,
-                    }
-                    _synth_req_b = urllib.request.Request(
-                        "https://api.anthropic.com/v1/messages",
-                        data=json.dumps(_synth_payload_b).encode("utf-8"),
-                        headers={
-                            "Content-Type": "application/json",
-                            "x-api-key": _api_key,
-                            "anthropic-version": "2023-06-01",
-                        },
-                    )
-                    # S25: Dynamic synthesis timeout based on remaining budget
-                    _synth_timeout = 30
-                    if outer_deadline:
-                        _synth_timeout = max(
-                            10, min(30, outer_deadline - time.time() - 3)
-                        )
-                    with urllib.request.urlopen(
-                        _synth_req_b, timeout=_synth_timeout
-                    ) as _sr:
-                        _synth_data = json.loads(_sr.read().decode("utf-8"))
-                    _synth_text_b = ""
-                    for _sb in (_synth_data or {}).get("content", []):
-                        if _sb.get("type") == "text":
-                            _synth_text_b += _sb.get("text") or ""
-                    if _synth_text_b and len(_synth_text_b) > 50:
-                        logger.info(
-                            "S23 Path B synthesis-force succeeded: %d chars",
-                            len(_synth_text_b),
-                        )
-                        return {
-                            "response": _synth_text_b,
-                            "sources": list(sources),
-                            "confidence": max(
-                                0.6,
-                                _estimate_confidence_v2(
-                                    tools_used, sources, tool_call_details
-                                ),
-                            ),
-                            "tools_used": tools_used,
-                            "llm_provider": "claude_haiku",
-                            "llm_model": "claude-haiku-4-5-20251001",
-                            "tool_iterations": max_iterations + 1,
+                        _synth_msgs_b = [
+                            {
+                                "role": "user",
+                                "content": f"Original question: {user_message}\n\n"
+                                f"Data from {len(tools_used)} tools:\n\n{_tool_summary}\n\n"
+                                "Synthesize a complete, well-structured response with markdown "
+                                "tables, bullet points, and specific numbers. Include actionable "
+                                "recommendations.",
+                            }
+                        ]
+                        _synth_payload_b = {
+                            "model": "claude-haiku-4-5-20251001",
+                            "max_tokens": 4096,
+                            "messages": _synth_msgs_b,
                         }
-            except Exception as _synth_b_err:
-                logger.error(
-                    "S23 Path B synthesis-force failed: %s", _synth_b_err, exc_info=True
-                )
+                        _synth_req_b = urllib.request.Request(
+                            "https://api.anthropic.com/v1/messages",
+                            data=json.dumps(_synth_payload_b).encode("utf-8"),
+                            headers={
+                                "Content-Type": "application/json",
+                                "x-api-key": _api_key,
+                                "anthropic-version": "2023-06-01",
+                            },
+                        )
+                        # S26: Use full remaining budget (no extra 3s safety -- the
+                        # synthesis reserve already accounts for margin).
+                        _synth_timeout = 25
+                        if outer_deadline:
+                            _synth_timeout = max(
+                                10, min(30, outer_deadline - time.time())
+                            )
+                        logger.info(
+                            "Path B synthesis attempt %d: %d chars summary, %.1fs timeout",
+                            _synth_attempt,
+                            len(_tool_summary),
+                            _synth_timeout,
+                        )
+                        with urllib.request.urlopen(
+                            _synth_req_b, timeout=_synth_timeout
+                        ) as _sr:
+                            _synth_data = json.loads(_sr.read().decode("utf-8"))
+                        _synth_text_b = ""
+                        for _sb in (_synth_data or {}).get("content", []):
+                            if _sb.get("type") == "text":
+                                _synth_text_b += _sb.get("text") or ""
+                        if _synth_text_b and len(_synth_text_b) > 50:
+                            logger.info(
+                                "S23 Path B synthesis-force succeeded (attempt %d): %d chars",
+                                _synth_attempt,
+                                len(_synth_text_b),
+                            )
+                            return {
+                                "response": _synth_text_b,
+                                "sources": list(sources),
+                                "confidence": max(
+                                    0.6,
+                                    _estimate_confidence_v2(
+                                        tools_used, sources, tool_call_details
+                                    ),
+                                ),
+                                "tools_used": tools_used,
+                                "llm_provider": "claude_haiku",
+                                "llm_model": "claude-haiku-4-5-20251001",
+                                "tool_iterations": max_iterations + 1,
+                            }
+                    except Exception as _synth_b_err:
+                        logger.error(
+                            "S23 Path B synthesis-force attempt %d failed: %s",
+                            _synth_attempt,
+                            _synth_b_err,
+                            exc_info=True,
+                        )
+                        # If first attempt timed out, try again with smaller payload
+                        if (
+                            _synth_attempt < 2
+                            and outer_deadline
+                            and (outer_deadline - time.time()) > 8
+                        ):
+                            logger.info(
+                                "Retrying synthesis with more aggressive truncation"
+                            )
+                            continue
+                        break
 
         logger.warning(
             "Free LLM tools: exhausted %d iterations without final response",
@@ -11422,12 +11470,18 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                                 "tool": _cname,
                                 "has_data": has_data,
                                 "source": result_parsed.get("source") or "",
+                                "result": _cresult,
                             }
                         )
                     except (json.JSONDecodeError, TypeError):
                         has_data = bool(_cresult)
                         tool_call_details.append(
-                            {"tool": _cname, "has_data": has_data, "source": ""}
+                            {
+                                "tool": _cname,
+                                "has_data": has_data,
+                                "source": "",
+                                "result": _cresult,
+                            }
                         )
 
                     tool_results_raw.append(_cresult)
@@ -11626,16 +11680,31 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
         # When all iterations were consumed by tool calls, the LLM never got
         # a chance to produce a text response. Make ONE more API call with
         # no tools to force synthesis from the accumulated tool results.
+        # S26: Truncate tool results aggressively (1200 chars/tool, 12K total)
+        # to keep synthesis fast and prevent timeouts.
         try:
             # Build a clean summary of tool results for the synthesis prompt.
             # Can't reuse `messages` directly because it may end with an
             # assistant tool_use block without a matching tool_result, which
             # the Anthropic API would reject.
             _tool_summary_parts = []
-            for _tcd in tool_call_details:
+            _total_chars_c = 0
+            _MAX_SUMMARY_CHARS_C = 12000
+            # Sort by has_data=True first so data-bearing tools get priority
+            _sorted_details_c = sorted(
+                tool_call_details, key=lambda d: not d.get("has_data", False)
+            )
+            for _tcd in _sorted_details_c:
+                if _total_chars_c >= _MAX_SUMMARY_CHARS_C:
+                    _tool_summary_parts.append(
+                        f"[...{len(tool_call_details) - len(_tool_summary_parts)} more tools truncated]"
+                    )
+                    break
                 _tname = _tcd.get("tool") or "unknown"
-                _tresult = str(_tcd.get("result") or "")[:2000]
-                _tool_summary_parts.append(f"[{_tname}]: {_tresult}")
+                _tresult = str(_tcd.get("result") or "")[:1200]
+                _part = f"[{_tname}]: {_tresult}"
+                _tool_summary_parts.append(_part)
+                _total_chars_c += len(_part)
             _tool_summary = (
                 "\n\n".join(_tool_summary_parts)
                 if _tool_summary_parts

@@ -1,3 +1,15 @@
+<!-- GSAP Animation Library (CDN) -->
+<script
+  src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.7/gsap.min.js"
+  defer
+></script>
+<script
+  src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.7/ScrollTrigger.min.js"
+  defer
+></script>
+<!-- Nova Shared Animations -->
+<script src="/static/js/animations.js?v=2.0.0" defer></script>
+
 <!-- Sankey Flow Budget Visualizer -->
 <script src="/static/sankey-viz.js?v=1.0.0"></script>
 
@@ -631,4 +643,38 @@
   // exportPlan('sheets') calls /api/export/sheets with the correct payload.
   // If sheets is not configured, it falls back to XLSX download.
   // ============================================
+
+  // ============================================
+  // Phase 3: Result build animation (GSAP)
+  // ============================================
+  function animatePlanResult() {
+    if (
+      typeof gsap === "undefined" ||
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    )
+      return;
+    gsap.from(".result-section", { opacity: 0, y: 30, duration: 0.6 });
+    gsap.from(".result-metric", {
+      opacity: 0,
+      y: 15,
+      stagger: 0.08,
+      duration: 0.4,
+      delay: 0.3,
+    });
+    gsap.from(".result-chart-bar", {
+      scaleX: 0,
+      transformOrigin: "left",
+      stagger: 0.05,
+      duration: 0.8,
+      delay: 0.5,
+      ease: "power2.out",
+    });
+    gsap.from(".result-table-row", {
+      opacity: 0,
+      x: -10,
+      stagger: 0.04,
+      duration: 0.3,
+      delay: 0.8,
+    });
+  }
 </script>
