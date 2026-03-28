@@ -11705,16 +11705,19 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                     logger.debug("Coalescing complete skipped: %s", _coal_err)
                 return _result
 
-        # If we exhausted iterations, extract any partial text
+        # S27: When iterations are exhausted and tools were used, ALWAYS fall
+        # through to the forced synthesis below. The partial_text at this point
+        # is often the LLM's planning statement ("I'll pull data...") not the
+        # actual answer. Only return partial_text if NO tools were used (pure text).
         partial_text = ""
         for block in content_blocks:
             if block.get("type") == "text":
                 partial_text += block.get("text") or ""
 
-        if partial_text:
+        if partial_text and not tools_used:
+            # No tools were called -- this is a genuine text response
             _result = {
-                "response": partial_text
-                + "\n\n_Note: I used all available tool iterations. Some data may be incomplete._",
+                "response": partial_text,
                 "sources": list(sources),
                 "confidence": max(
                     0.3,
@@ -11724,13 +11727,13 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                 "tools_used": tools_used,
                 "tool_iterations": max_iterations,
             }
-            # Store result for request coalescing
             try:
                 if _coalescer and _is_leader and _qhash:
                     _coalescer.complete(_qhash, _result)
             except Exception as _coal_err:
                 logger.debug("Coalescing complete skipped: %s", _coal_err)
             return _result
+        # When tools WERE used, fall through to forced synthesis below
 
         # S23: Force one final synthesis call with tools disabled.
         # When all iterations were consumed by tool calls, the LLM never got
@@ -11773,9 +11776,11 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                     "content": f"Original question: {user_message}\n\n"
                     f"Here is the data gathered from {len(tools_used)} tools:\n\n"
                     f"{_tool_summary}\n\n"
-                    "Now synthesize a complete, well-structured response. "
-                    "Present the data clearly with markdown tables, bullet points, "
-                    "and specific numbers. Include actionable recommendations.",
+                    "IMPORTANT: Synthesize a COMPLETE answer using the data above. "
+                    "Do NOT say 'I will pull data' or 'Let me analyze' -- the data "
+                    "is already gathered. Present findings directly with markdown "
+                    "tables, bullet points, and specific numbers. Include actionable "
+                    "recommendations. Start with the answer, not a preamble.",
                 }
             ]
             _synth_payload = {
