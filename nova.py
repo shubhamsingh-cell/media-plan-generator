@@ -10764,6 +10764,30 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                         {"role": "tool", "tool_call_id": _tid, "content": _trc}
                     )
 
+                # S26: Break early if total tool calls exceeded or time budget exhausted
+                _total_tools_free = len(tools_used)
+                _elapsed_after_free = time.monotonic() - _loop_start
+                _time_left_free = _LOOP_BUDGET_S - _elapsed_after_free
+                if _total_tools_free >= 20:
+                    logger.warning(
+                        "Free LLM tools: total tool cap reached (%d >= 20) at iter %d "
+                        "after %.1fs — breaking for synthesis",
+                        _total_tools_free,
+                        iteration,
+                        _elapsed_after_free,
+                    )
+                    break
+                if _time_left_free < _SYNTHESIS_RESERVE_S and _total_tools_free > 0:
+                    logger.warning(
+                        "Free LLM tools: insufficient time for synthesis "
+                        "(%.1fs left, need %.1fs) at iter %d with %d tools — breaking",
+                        _time_left_free,
+                        _SYNTHESIS_RESERVE_S,
+                        iteration,
+                        _total_tools_free,
+                    )
+                    break
+
                 # Continue loop for next LLM iteration with tool results
                 continue
 
@@ -11168,6 +11192,10 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
         max_iterations = (
             5  # v4.2: 5 iterations (Claude is fast, 5x~8s=40s within 55s budget)
         )
+        _MAX_TOTAL_TOOL_CALLS = (
+            20  # S26: Hard cap on total tool calls across all iterations
+        )
+        _SYNTHESIS_RESERVE_C = 25.0  # seconds reserved for final synthesis call
 
         adaptive_max_tokens, selected_model = _classify_query_complexity(user_message)
         logger.info(
@@ -11514,6 +11542,33 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                 # Add assistant message with tool_use blocks and tool results
                 messages.append({"role": "assistant", "content": content_blocks})
                 messages.append({"role": "user", "content": tool_results})
+
+                # S26: Break early if total tool calls exceeded or time budget exhausted
+                _total_tools_now = len(tools_used)
+                _elapsed_after_tools = time.monotonic() - _loop_start_c
+                _time_left = (
+                    _LOOP_BUDGET_C + _SYNTHESIS_RESERVE_C - _elapsed_after_tools
+                )
+                if _total_tools_now >= _MAX_TOTAL_TOOL_CALLS:
+                    logger.warning(
+                        "Claude tools: total tool cap reached (%d >= %d) at iter %d "
+                        "after %.1fs — breaking for synthesis",
+                        _total_tools_now,
+                        _MAX_TOTAL_TOOL_CALLS,
+                        iteration,
+                        _elapsed_after_tools,
+                    )
+                    break
+                if _time_left < _SYNTHESIS_RESERVE_C and _total_tools_now > 0:
+                    logger.warning(
+                        "Claude tools: insufficient time for synthesis "
+                        "(%.1fs left, need %.1fs) at iter %d with %d tools — breaking",
+                        _time_left,
+                        _SYNTHESIS_RESERVE_C,
+                        iteration,
+                        _total_tools_now,
+                    )
+                    break
             else:
                 # Extract text response
                 response_text = ""
