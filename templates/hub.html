@@ -203,6 +203,66 @@
         outline-offset: 2px;
       }
 
+      /* ── Premium micro-interactions (S27) ── */
+      html {
+        scroll-behavior: smooth;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        html {
+          scroll-behavior: auto;
+        }
+      }
+
+      /* CTA buttons: pulsing glow ring */
+      .btn-primary::after,
+      .cta-btn::after {
+        content: "";
+        position: absolute;
+        inset: -2px;
+        border-radius: inherit;
+        background: linear-gradient(135deg, var(--accent), var(--teal));
+        opacity: 0;
+        z-index: -1;
+        transition: opacity 0.3s;
+        filter: blur(12px);
+      }
+      .btn-primary:hover::after,
+      .cta-btn:hover::after {
+        opacity: 0.5;
+      }
+
+      /* Product cards: glass glow on hover */
+      .product-hero-card:hover {
+        box-shadow:
+          0 20px 60px rgba(0, 0, 0, 0.4),
+          0 0 40px rgba(90, 84, 189, 0.12) !important;
+      }
+      .product-plan:hover {
+        border-color: rgba(90, 84, 189, 0.5) !important;
+      }
+      .product-nova:hover {
+        border-color: rgba(107, 179, 205, 0.5) !important;
+      }
+
+      /* Demo card glow */
+      .demo-card:hover {
+        border-color: rgba(90, 84, 189, 0.3);
+        box-shadow:
+          0 20px 60px rgba(0, 0, 0, 0.3),
+          0 0 30px rgba(90, 84, 189, 0.08);
+      }
+
+      /* Proof stats: number glow */
+      .proof-stat-value {
+        text-shadow: 0 0 40px rgba(90, 84, 189, 0.3);
+      }
+
+      /* Hero entrance animation targets (GSAP drives these) */
+      .hero-anim {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+
       /* ── Global Typography ── */
       h1,
       h2,
@@ -1793,20 +1853,20 @@
         </div>
 
         <div class="hero-content">
-          <span class="hero-eyebrow reveal"
+          <span class="hero-eyebrow hero-anim"
             >AI-powered recruitment media planning</span
           >
 
-          <h1 class="hero-headline reveal">
+          <h1 class="hero-headline hero-anim">
             Turn recruitment budgets<br />into hires, not clicks.
           </h1>
 
-          <p class="hero-subline reveal">
+          <p class="hero-subline hero-anim">
             Plan smarter with AI that analyzes 91+ job boards, predicts costs,
             and builds optimized media plans in under 30 seconds.
           </p>
 
-          <div class="hero-actions reveal">
+          <div class="hero-actions hero-anim">
             <a href="/media-plan" class="btn-primary btn-lg">
               Generate Your First Plan
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -2880,5 +2940,33 @@
     ></script>
     <script src="/static/js/animations.js?v=2.0.0" defer></script>
     <script src="/static/js/story-scroll.js?v=1.0.0" defer></script>
+    <!-- S27: Premium hero entrance animation -->
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+          document.querySelectorAll(".hero-anim").forEach(function (el) {
+            el.style.opacity = "1";
+            el.style.transform = "none";
+          });
+          return;
+        }
+        // Wait for GSAP to load (deferred)
+        function runHeroAnim() {
+          if (typeof gsap === "undefined") {
+            setTimeout(runHeroAnim, 100);
+            return;
+          }
+          gsap.to(".hero-anim", {
+            opacity: 1,
+            y: 0,
+            duration: 0.8,
+            ease: "power3.out",
+            stagger: 0.15,
+            delay: 0.2,
+          });
+        }
+        runHeroAnim();
+      });
+    </script>
   </body>
 </html>
