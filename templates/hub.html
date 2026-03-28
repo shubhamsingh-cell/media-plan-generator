@@ -257,11 +257,8 @@
         text-shadow: 0 0 40px rgba(90, 84, 189, 0.3);
       }
 
-      /* Hero entrance animation targets (GSAP drives these) */
-      .hero-anim {
-        opacity: 0;
-        transform: translateY(30px);
-      }
+      /* Hero entrance animation targets -- NO opacity:0 default!
+         GSAP animates FROM hidden TO visible. If GSAP fails, content shows. */
 
       /* ── Global Typography ── */
       h1,
@@ -2943,22 +2940,17 @@
     <!-- S27: Premium hero entrance animation -->
     <script>
       document.addEventListener("DOMContentLoaded", function () {
-        if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-          document.querySelectorAll(".hero-anim").forEach(function (el) {
-            el.style.opacity = "1";
-            el.style.transform = "none";
-          });
+        if (window.matchMedia("(prefers-reduced-motion: reduce)").matches)
           return;
-        }
-        // Wait for GSAP to load (deferred)
+        // Wait for GSAP to load (deferred), then animate FROM hidden
         function runHeroAnim() {
           if (typeof gsap === "undefined") {
             setTimeout(runHeroAnim, 100);
             return;
           }
-          gsap.to(".hero-anim", {
-            opacity: 1,
-            y: 0,
+          gsap.from(".hero-anim", {
+            opacity: 0,
+            y: 30,
             duration: 0.8,
             ease: "power3.out",
             stagger: 0.15,
