@@ -503,10 +503,11 @@ _response_cache = _ResponseCache()
 # Provider configs: endpoint, model, auth header, rate limits
 PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
     GEMINI: {
-        "name": "Gemini 2.5 Flash",
+        "name": "Gemini 3 Flash",
         "api_style": "gemini",  # Google-specific format
-        "endpoint": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
-        "model": "gemini-2.5-flash",
+        # S25: Upgraded from 2.5 Flash to 3 Flash (latest Flash model, same key)
+        "endpoint": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent",
+        "model": "gemini-3-flash-preview",
         "env_key": "GEMINI_API_KEY",
         "rpm_limit": 30,
         "rpd_limit": 1500,
@@ -514,10 +515,11 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         "max_tokens": 8192,
     },
     GEMINI_FLASH_LITE: {
-        "name": "Gemini 2.5 Flash Lite",
+        "name": "Gemini 3.1 Flash Lite",
         "api_style": "gemini",
-        "endpoint": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent",
-        "model": "gemini-2.5-flash-lite",
+        # S25: Upgraded from 2.5 Flash Lite to 3.1 Flash Lite (4x cheaper, 1.9x faster)
+        "endpoint": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent",
+        "model": "gemini-3.1-flash-lite",
         "env_key": "GEMINI_API_KEY",
         "rpm_limit": 30,
         "rpd_limit": 1500,
@@ -1199,8 +1201,11 @@ MODULE_LLM_PREFERENCES: Dict[str, Dict[str, Any]] = {
 
 # Estimated cost per 1M tokens (USD) -- input/output
 _PROVIDER_COST_PER_M_TOKENS: Dict[str, Dict[str, float]] = {
-    GEMINI: {"input": 0.0, "output": 0.0},
-    GEMINI_FLASH_LITE: {"input": 0.0, "output": 0.0},
+    GEMINI: {"input": 0.10, "output": 0.40},  # Gemini 3 Flash pricing
+    GEMINI_FLASH_LITE: {
+        "input": 0.025,
+        "output": 0.15,
+    },  # Gemini 3.1 Flash Lite pricing
     GROQ: {"input": 0.0, "output": 0.0},
     CEREBRAS: {"input": 0.0, "output": 0.0},
     ZHIPU: {"input": 0.0, "output": 0.0},

@@ -1943,6 +1943,20 @@
             } else if (err.message && err.message.indexOf("429") > -1) {
               errorMsg = "Nova is busy. Please wait a moment and try again.";
             } else if (err.message && err.message.indexOf("403") > -1) {
+              // S25: Auto-refresh CSRF token and silently retry instead of showing error
+              if (
+                typeof __refreshCsrfToken === "function" &&
+                !state._csrfRetried
+              ) {
+                state._csrfRetried = true;
+                __refreshCsrfToken().then(function () {
+                  // Retry the send after refreshing token
+                  if (typeof _doSendMessage === "function") {
+                    _doSendMessage(state._lastUserMessage || "");
+                  }
+                });
+                return; // Don't show error -- retry will handle it
+              }
               errorMsg = "Session expired. Please refresh the page.";
             } else {
               errorMsg = "Connection error. Please try again.";

@@ -9005,8 +9005,9 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                 return {
                     "response": _greeting_resp,
                     "sources": [],
-                    "confidence": 1.0,
+                    "confidence": None,  # S25: No confidence badge on greetings
                     "tools_used": [],
+                    "is_greeting": True,
                 }
 
         # --- Feedback / acknowledgment early-exit (0 tokens, 100% confidence) ---
@@ -9066,7 +9067,7 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                     "salary data, or hiring strategies across 70+ countries."
                 ),
                 "sources": [],
-                "confidence": 1.0,
+                "confidence": None,  # S25: No badge on feedback acknowledgments
                 "tools_used": [],
             }
         elif _has_negative and not _has_positive:
@@ -9079,7 +9080,7 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                     "right direction and I will get you better results."
                 ),
                 "sources": [],
-                "confidence": 1.0,
+                "confidence": None,  # S25: No badge on feedback acknowledgments
                 "tools_used": [],
             }
 

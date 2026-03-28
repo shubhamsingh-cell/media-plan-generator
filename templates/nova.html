@@ -107,14 +107,21 @@
   <body>
     <script>
       window.__csrfToken = "";
-      window.__csrfReady = fetch("/api/csrf-token")
-        .then(function (r) {
-          return r.json();
-        })
-        .then(function (d) {
-          window.__csrfToken = d.token || "";
-        })
-        .catch(function () {});
+      window.__csrfTokenFetchedAt = 0;
+      function __refreshCsrfToken() {
+        return fetch("/api/csrf-token")
+          .then(function (r) {
+            return r.json();
+          })
+          .then(function (d) {
+            window.__csrfToken = d.token || "";
+            window.__csrfTokenFetchedAt = Date.now();
+          })
+          .catch(function () {});
+      }
+      window.__csrfReady = __refreshCsrfToken();
+      // S25: Auto-refresh CSRF token every 45 minutes to prevent "Session expired"
+      setInterval(__refreshCsrfToken, 45 * 60 * 1000);
     </script>
 
     <!-- Toast container -->
