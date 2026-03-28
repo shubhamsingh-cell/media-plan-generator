@@ -310,6 +310,115 @@ _DATA_QUERY_INDICATORS = [
     "number of",
 ]
 
+# ── Source name display mapping ──────────────────────────────────────────────
+# Maps internal/KB source identifiers to clean, professional display names.
+_SOURCE_DISPLAY_NAMES: dict[str, str] = {
+    # Knowledge-base file identifiers
+    "recruitment_benchmarks_deep": "Joveo 2026 Recruitment Benchmarks",
+    "recruitment_benchmarks_deep (22 industries)": "Joveo 2026 Recruitment Benchmarks (22 Industries)",
+    "channels_db": "Joveo Channel Intelligence",
+    "client_media_plans_kb": "Joveo Client Portfolio",
+    "client_media_plans_kb (6 reference plans, 532 channels)": "Joveo Client Portfolio (6 Plans, 532 Channels)",
+    "client_media_plans_kb (6 reference plans)": "Joveo Client Portfolio (6 Reference Plans)",
+    "platform_intelligence": "Platform Intelligence Database",
+    "recruitment_industry_knowledge": "Recruitment Industry Knowledge Base",
+    "recruitment_strategy_intelligence": "Recruitment Strategy Intelligence",
+    "recruitment_strategy_intelligence (34 sources)": "Recruitment Strategy Intelligence (34 Sources)",
+    "regional_hiring_intelligence": "Regional Hiring Intelligence",
+    "regional_hiring_intelligence (16 sources)": "Regional Hiring Intelligence (16 Sources)",
+    "bea_regional_economics": "Bureau of Economic Analysis Regional Data",
+    "supply_ecosystem_intelligence": "Supply Ecosystem Intelligence",
+    "supply_ecosystem_intelligence (24 sources)": "Supply Ecosystem Intelligence (24 Sources)",
+    "workforce_trends_intelligence": "Workforce Trends Intelligence",
+    "workforce_trends_intelligence (44 sources)": "Workforce Trends Intelligence (44 Sources)",
+    "industry_white_papers": "Industry White Papers & Reports",
+    "industry_white_papers (47 reports)": "Industry White Papers (47 Reports)",
+    "google_ads_2025_benchmarks": "Google Ads 2025 Benchmarks",
+    "external_benchmarks_2025": "2025 Industry Analyst Reports",
+    "external_benchmarks_2025 (24 analyst reports aggregated)": "2025 Industry Analyst Reports (24 Sources)",
+    "external_benchmarks_2025 (24 analyst reports)": "2025 Industry Analyst Reports (24 Sources)",
+    "external_benchmarks_2025 (24 reports)": "2025 Industry Analyst Reports (24 Sources)",
+    "linkedin_guidewire": "LinkedIn Hiring Intelligence",
+    "employer_brand": "Employer Brand Intelligence",
+    # Tool/engine source labels
+    "Joveo Salary Intelligence (KB)": "Bureau of Labor Statistics & Joveo Salary Data",
+    "Joveo Market Demand Intelligence": "Market Demand Intelligence",
+    "Joveo Budget Allocation Engine": "Budget Allocation Engine",
+    "Joveo Budget Engine": "Budget Allocation Engine",
+    "Joveo Channel Database": "Channel Intelligence Database",
+    "Joveo Global Supply Intelligence": "Global Supply Intelligence",
+    "Joveo Publisher Network": "Publisher Network Intelligence",
+    "Joveo Location Intelligence": "Location Intelligence",
+    "Joveo Ad Platform Intelligence": "Ad Platform Intelligence",
+    "Joveo Ad Platform Benchmarks": "Ad Platform Benchmarks",
+    "Joveo Employer Brand Intelligence": "Employer Brand Intelligence",
+    "Joveo Computed Hiring Insights": "Computed Hiring Insights",
+    "Joveo Collar Intelligence Engine": "Job Classification Intelligence",
+    "Joveo Collar Intelligence": "Job Classification Intelligence",
+    "Joveo Trend Intelligence Engine": "Trend Intelligence Engine",
+    "Joveo Budget Simulation Engine": "Budget Simulation Engine",
+    "Joveo Skills Gap Analyzer": "Skills Gap Analyzer",
+    "Joveo Smart Defaults Engine": "Smart Defaults Engine",
+    "Nova Market Signal Engine": "Market Signal Engine",
+    "Nova Prediction Model v1.0": "Predictive Analytics Engine",
+    "Nova Plan Scorecard": "Plan Scorecard Engine",
+    "Nova Plan Copilot": "Plan Copilot",
+    "Nova Feature Store": "Feature Store",
+    "Nova ATS Widget": "ATS Integration Engine",
+    "Joveo Knowledge Base (learned answers)": "Joveo Knowledge Base",
+    "Recruitment Industry Knowledge Base": "Recruitment Industry Knowledge Base",
+    # API sources (keep clean already)
+    "O*NET v2.0": "O*NET v2.0",
+    "O*NET v2.0 Skills Intelligence": "O*NET Skills Intelligence",
+    "USAJobs.gov": "USAJobs.gov",
+    "RemoteOK": "RemoteOK",
+    "FRED": "Federal Reserve Economic Data",
+    "Census-ACS": "U.S. Census Bureau (ACS)",
+    "Supabase vendor_profiles": "Vendor Intelligence Database",
+    "Geopolitical Risk": "Geopolitical Risk Intelligence",
+    "LinkedIn Hiring Value Review for Guidewire Software": "LinkedIn Hiring Intelligence",
+}
+
+
+def _clean_source_name(raw_source: str) -> str:
+    """Transform an internal source identifier into a clean, professional display name.
+
+    Uses a lookup table for known sources. For unknown sources, strips underscores
+    and applies title-casing as a fallback.
+
+    Args:
+        raw_source: The raw internal source name (e.g. 'channels_db').
+
+    Returns:
+        A clean, user-facing display name.
+    """
+    if not raw_source:
+        return raw_source
+
+    # Exact match in the mapping table
+    cleaned = _SOURCE_DISPLAY_NAMES.get(raw_source)
+    if cleaned:
+        return cleaned
+
+    # Check for partial matches where the raw source starts with a known key
+    # (handles dynamic suffixes like "Joveo Salary Intelligence (pre-computed, BLS)")
+    for key, display in _SOURCE_DISPLAY_NAMES.items():
+        if raw_source.startswith(key) and raw_source != key:
+            # Preserve the parenthetical suffix
+            suffix = raw_source[len(key) :].strip()
+            return f"{display} {suffix}" if suffix else display
+
+    # Strip "Joveo " prefix if present (generic cleanup)
+    fallback = raw_source
+    if fallback.startswith("Joveo "):
+        fallback = fallback[6:]
+
+    # Fallback: replace underscores with spaces and title-case
+    if "_" in fallback:
+        fallback = fallback.replace("_", " ").strip().title()
+
+    return fallback
+
 
 def validate_response_quality(response: str, query: str = "") -> tuple[bool, str]:
     """Validate that a Nova response meets minimum quality standards.
@@ -2244,6 +2353,10 @@ def _append_follow_ups_to_response(
         The same result dict with follow-ups appended.
     """
     if not result or not (result.get("response") or "").strip():
+        return result
+
+    # S25: Skip follow-ups on greetings/feedback (no data context to follow up on)
+    if result.get("is_greeting"):
         return result
 
     query_type = _classify_query_type(user_message)
@@ -8996,11 +9109,27 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                         "What can I assist you with today?"
                     )
                 else:
-                    _greeting_resp = (
-                        "Hey there! I'm Nova, your recruitment marketing intelligence assistant "
-                        "at Joveo. I can pull real data on publishers, benchmarks, budgets, salary "
-                        "trends, and more across 70+ countries. What would you like to explore?"
-                    )
+                    # S25: Vary greeting to avoid identical responses on repeated "Hi"
+                    import random as _greet_rng
+
+                    _greetings = [
+                        (
+                            "Hey there! I'm Nova, your recruitment marketing intelligence assistant "
+                            "at Joveo. I can pull real data on publishers, benchmarks, budgets, salary "
+                            "trends, and more across 70+ countries. What would you like to explore?"
+                        ),
+                        (
+                            "Hi! I'm Nova, Joveo's recruitment intelligence analyst. I have access to "
+                            "live salary data, publisher benchmarks, market demand signals, and channel "
+                            "strategies across 200+ occupations. How can I help today?"
+                        ),
+                        (
+                            "Welcome! I'm Nova -- your AI-powered recruitment marketing analyst. "
+                            "I can help with media plans, salary benchmarks, channel comparisons, "
+                            "and hiring market analysis. What are you working on?"
+                        ),
+                    ]
+                    _greeting_resp = _greet_rng.choice(_greetings)
                 logger.info("NOVA MODE: Greeting early-exit -- 0 tokens")
                 return {
                     "response": _greeting_resp,
@@ -14705,7 +14834,13 @@ def _enrich_response(
     except Exception as e:
         logger.warning("Enrichment: data density check failed: %s", e, exc_info=True)
 
-    # Step 5: Quality score
+    # Step 5: Clean source display names (internal IDs -> professional names)
+    try:
+        sources = list({_clean_source_name(s) for s in sources if s})
+    except Exception as e:
+        logger.warning("Enrichment: source name cleaning failed: %s", e, exc_info=True)
+
+    # Step 6: Quality score
     score = _compute_quality_score(enriched, tools_used, sources, query)
     logger.info(
         "Enrichment: quality_score=%d tools=%d sources=%d query=%s",

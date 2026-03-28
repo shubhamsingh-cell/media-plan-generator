@@ -1638,15 +1638,6 @@
     updateCharCount();
     updateSendBtn();
 
-    state.isLoading = true;
-    state.isStreaming = true;
-    state._loadStart = Date.now();
-    state._userCancelled = false;
-    sendBtn.disabled = true;
-    sendBtn.style.display = "none";
-    stopBtn.classList.add("visible");
-    showThinking();
-
     // Build history
     var history = [];
     conv.messages.forEach(function (m) {
@@ -1771,204 +1762,217 @@
         .querySelector(".retry-btn-inline")
         .addEventListener("click", function () {
           errBanner.remove();
-          chatInput.value = text;
-          sendMessage();
+          _startStreaming();
         });
       resetLoadingState();
     }
 
-    // Hard timeout: forcibly reset after 120s no matter what
-    // S21: was 60s, increased to match gunicorn --timeout 120
-    var hardTimeout = setTimeout(function () {
-      resetLoadingState();
-      var streamEl = document.getElementById("streaming-msg");
-      if (streamEl) streamEl.remove();
-    }, 120000);
+    // ── Start streaming (extracted so retry can re-invoke without duplicating user msg) ──
+    function _startStreaming() {
+      state.isLoading = true;
+      state.isStreaming = true;
+      state._loadStart = Date.now();
+      state._userCancelled = false;
+      sendBtn.disabled = true;
+      sendBtn.style.display = "none";
+      stopBtn.classList.add("visible");
+      showThinking();
 
-    // ── Try WebSocket first, fall back to SSE ──
-    _getOrCreateWS(function (wsConn) {
-      if (wsConn) {
-        // ── WebSocket transport ──
-        var content = _createStreamingDOM();
-        hideThinking();
+      // Hard timeout: forcibly reset after 120s no matter what
+      // S21: was 60s, increased to match gunicorn --timeout 120
+      var hardTimeout = setTimeout(function () {
+        resetLoadingState();
+        var streamEl = document.getElementById("streaming-msg");
+        if (streamEl) streamEl.remove();
+      }, 120000);
 
-        var cancelFn = _streamViaWebSocket(wsConn, payload, {
-          onToken: function (token, fullText) {
-            try {
-              content.innerHTML = renderMarkdown(fullText);
-            } catch (_) {
-              content.textContent = fullText;
-            }
-            var cur =
-              document.getElementById("streaming-cursor") ||
-              document.createElement("span");
-            cur.className = "streaming-cursor";
-            cur.id = "streaming-cursor";
-            content.appendChild(cur);
-            scrollToBottom();
-          },
-          onStatus: function (status) {
-            // Could show status indicator -- for now just log
-          },
-          onToolStatus: function (type, tool, label) {
-            showToolStatus(type, tool, label);
-          },
-          onComplete: function (metadata, fullText) {
-            clearToolStatus();
-            clearTimeout(hardTimeout);
-            _finalizeStream(metadata, fullText);
-          },
-          onError: function (errMsg) {
-            clearTimeout(hardTimeout);
-            // On WS error, increment fail count
-            _wsFailCount++;
-            _showStreamError(errMsg || "Connection error. Please try again.");
-          },
-        });
+      // ── Try WebSocket first, fall back to SSE ──
+      _getOrCreateWS(function (wsConn) {
+        if (wsConn) {
+          // ── WebSocket transport ──
+          var content = _createStreamingDOM();
+          hideThinking();
 
-        // Store cancel function for stop button
-        state.abortController = {
-          abort: function () {
-            cancelFn();
-          },
-        };
-      } else {
-        // ── SSE fallback transport ──
-        var ac = new AbortController();
-        state.abortController = ac;
-
-        var readerTimeout = null;
-        function resetReaderTimeout() {
-          if (readerTimeout) clearTimeout(readerTimeout);
-          // S24: Was 25s — far too short for complex queries (media plans,
-          // multi-tool iterations take 40-70s). Increased to 90s to match
-          // server-side 75s chat timeout + margin.  Resets on each SSE event.
-          readerTimeout = setTimeout(function () {
-            if (ac && !ac.signal.aborted) {
+          var cancelFn = _streamViaWebSocket(wsConn, payload, {
+            onToken: function (token, fullText) {
               try {
-                ac.abort();
-              } catch (_) {}
-            }
-          }, 90000);
-        }
-
-        fetch(STREAM_URL, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-CSRF-Token": window.__csrfToken,
-          },
-          body: JSON.stringify(payload),
-          signal: ac.signal,
-        })
-          .then(function (r) {
-            if (!r.ok) throw new Error("HTTP " + r.status);
-            hideThinking();
-
-            var content = _createStreamingDOM();
-            var reader = r.body.getReader();
-            var decoder = new TextDecoder();
-            var buffer = "";
-            var fullText = "";
-            var metadata = {};
-
-            resetReaderTimeout();
-
-            function processChunk() {
-              return reader.read().then(function (result) {
-                if (result.done) return;
-                resetReaderTimeout();
-                buffer += decoder.decode(result.value, { stream: true });
-                var lines = buffer.split("\n");
-                buffer = lines.pop() || "";
-                lines.forEach(function (line) {
-                  if (line.indexOf("data: ") !== 0) return;
-                  var jsonStr = line.substring(6);
-                  try {
-                    var evt = JSON.parse(jsonStr);
-                    if (evt.keepalive) return;
-                    if (evt.done) {
-                      metadata = evt;
-                      clearToolStatus();
-                      return;
-                    }
-                    // S18: Tool status events
-                    if (
-                      evt.type === "tool_start" ||
-                      evt.type === "tool_complete"
-                    ) {
-                      showToolStatus(evt.type, evt.tool, evt.label);
-                      return;
-                    }
-                    if (evt.token) {
-                      // Clear tool status on first real token
-                      clearToolStatus();
-                      fullText += evt.token;
-                      try {
-                        content.innerHTML = renderMarkdown(fullText);
-                      } catch (_) {
-                        content.textContent = fullText;
-                      }
-                      var cur =
-                        document.getElementById("streaming-cursor") ||
-                        document.createElement("span");
-                      cur.className = "streaming-cursor";
-                      cur.id = "streaming-cursor";
-                      content.appendChild(cur);
-                      scrollToBottom();
-                    }
-                  } catch (e) {}
-                });
-                return processChunk();
-              });
-            }
-
-            return processChunk()
-              .catch(function (readErr) {
-                if (fullText) return;
-                throw readErr;
-              })
-              .then(function () {
-                if (readerTimeout) clearTimeout(readerTimeout);
-                _finalizeStream(metadata, fullText);
-              });
-          })
-          .catch(function (err) {
-            if (readerTimeout) clearTimeout(readerTimeout);
-            var errorMsg;
-            if (err.name === "AbortError") {
-              errorMsg = state._userCancelled
-                ? "Response was stopped."
-                : "Request timed out. Please try again.";
-            } else if (err.message && err.message.indexOf("429") > -1) {
-              errorMsg = "Nova is busy. Please wait a moment and try again.";
-            } else if (err.message && err.message.indexOf("403") > -1) {
-              // S25: Auto-refresh CSRF token and silently retry instead of showing error
-              if (
-                typeof __refreshCsrfToken === "function" &&
-                !state._csrfRetried
-              ) {
-                state._csrfRetried = true;
-                __refreshCsrfToken().then(function () {
-                  // Retry the send after refreshing token
-                  if (typeof _doSendMessage === "function") {
-                    _doSendMessage(state._lastUserMessage || "");
-                  }
-                });
-                return; // Don't show error -- retry will handle it
+                content.innerHTML = renderMarkdown(fullText);
+              } catch (_) {
+                content.textContent = fullText;
               }
-              errorMsg = "Session expired. Please refresh the page.";
-            } else {
-              errorMsg = "Connection error. Please try again.";
-            }
-            _showStreamError(errorMsg);
-          })
-          .finally(function () {
-            clearTimeout(hardTimeout);
-            if (readerTimeout) clearTimeout(readerTimeout);
+              var cur =
+                document.getElementById("streaming-cursor") ||
+                document.createElement("span");
+              cur.className = "streaming-cursor";
+              cur.id = "streaming-cursor";
+              content.appendChild(cur);
+              scrollToBottom();
+            },
+            onStatus: function (status) {
+              // Could show status indicator -- for now just log
+            },
+            onToolStatus: function (type, tool, label) {
+              showToolStatus(type, tool, label);
+            },
+            onComplete: function (metadata, fullText) {
+              clearToolStatus();
+              clearTimeout(hardTimeout);
+              _finalizeStream(metadata, fullText);
+            },
+            onError: function (errMsg) {
+              clearTimeout(hardTimeout);
+              // On WS error, increment fail count
+              _wsFailCount++;
+              _showStreamError(errMsg || "Connection error. Please try again.");
+            },
           });
-      }
-    });
+
+          // Store cancel function for stop button
+          state.abortController = {
+            abort: function () {
+              cancelFn();
+            },
+          };
+        } else {
+          // ── SSE fallback transport ──
+          var ac = new AbortController();
+          state.abortController = ac;
+
+          var readerTimeout = null;
+          function resetReaderTimeout() {
+            if (readerTimeout) clearTimeout(readerTimeout);
+            // S24: Was 25s — far too short for complex queries (media plans,
+            // multi-tool iterations take 40-70s). Increased to 90s to match
+            // server-side 75s chat timeout + margin.  Resets on each SSE event.
+            readerTimeout = setTimeout(function () {
+              if (ac && !ac.signal.aborted) {
+                try {
+                  ac.abort();
+                } catch (_) {}
+              }
+            }, 90000);
+          }
+
+          fetch(STREAM_URL, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-CSRF-Token": window.__csrfToken,
+            },
+            body: JSON.stringify(payload),
+            signal: ac.signal,
+          })
+            .then(function (r) {
+              if (!r.ok) throw new Error("HTTP " + r.status);
+              hideThinking();
+
+              var content = _createStreamingDOM();
+              var reader = r.body.getReader();
+              var decoder = new TextDecoder();
+              var buffer = "";
+              var fullText = "";
+              var metadata = {};
+
+              resetReaderTimeout();
+
+              function processChunk() {
+                return reader.read().then(function (result) {
+                  if (result.done) return;
+                  resetReaderTimeout();
+                  buffer += decoder.decode(result.value, { stream: true });
+                  var lines = buffer.split("\n");
+                  buffer = lines.pop() || "";
+                  lines.forEach(function (line) {
+                    if (line.indexOf("data: ") !== 0) return;
+                    var jsonStr = line.substring(6);
+                    try {
+                      var evt = JSON.parse(jsonStr);
+                      if (evt.keepalive) return;
+                      if (evt.done) {
+                        metadata = evt;
+                        clearToolStatus();
+                        return;
+                      }
+                      // S18: Tool status events
+                      if (
+                        evt.type === "tool_start" ||
+                        evt.type === "tool_complete"
+                      ) {
+                        showToolStatus(evt.type, evt.tool, evt.label);
+                        return;
+                      }
+                      if (evt.token) {
+                        // Clear tool status on first real token
+                        clearToolStatus();
+                        fullText += evt.token;
+                        try {
+                          content.innerHTML = renderMarkdown(fullText);
+                        } catch (_) {
+                          content.textContent = fullText;
+                        }
+                        var cur =
+                          document.getElementById("streaming-cursor") ||
+                          document.createElement("span");
+                        cur.className = "streaming-cursor";
+                        cur.id = "streaming-cursor";
+                        content.appendChild(cur);
+                        scrollToBottom();
+                      }
+                    } catch (e) {}
+                  });
+                  return processChunk();
+                });
+              }
+
+              return processChunk()
+                .catch(function (readErr) {
+                  if (fullText) return;
+                  throw readErr;
+                })
+                .then(function () {
+                  if (readerTimeout) clearTimeout(readerTimeout);
+                  _finalizeStream(metadata, fullText);
+                });
+            })
+            .catch(function (err) {
+              if (readerTimeout) clearTimeout(readerTimeout);
+              var errorMsg;
+              if (err.name === "AbortError") {
+                errorMsg = state._userCancelled
+                  ? "Response was stopped."
+                  : "Request timed out. Please try again.";
+              } else if (err.message && err.message.indexOf("429") > -1) {
+                errorMsg = "Nova is busy. Please wait a moment and try again.";
+              } else if (err.message && err.message.indexOf("403") > -1) {
+                // S25: Auto-refresh CSRF token and silently retry instead of showing error
+                if (
+                  typeof __refreshCsrfToken === "function" &&
+                  !state._csrfRetried
+                ) {
+                  state._csrfRetried = true;
+                  __refreshCsrfToken().then(function () {
+                    // Retry the send after refreshing token
+                    if (typeof _doSendMessage === "function") {
+                      _doSendMessage(state._lastUserMessage || "");
+                    }
+                  });
+                  return; // Don't show error -- retry will handle it
+                }
+                errorMsg = "Session expired. Please refresh the page.";
+              } else {
+                errorMsg = "Connection error. Please try again.";
+              }
+              _showStreamError(errorMsg);
+            })
+            .finally(function () {
+              clearTimeout(hardTimeout);
+              if (readerTimeout) clearTimeout(readerTimeout);
+            });
+        }
+      });
+    } // end _startStreaming
+
+    _startStreaming();
   }
 
   // ========================================================================
