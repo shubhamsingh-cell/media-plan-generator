@@ -28,7 +28,7 @@
     />
     <meta
       property="og:description"
-      content="AI-powered recruitment intelligence. 25 AI models, 33 tools, 8 live APIs, and 17 data sources for media planning, competitive intel, and compliance."
+      content="AI-powered recruitment intelligence. 25 AI models, 56 tools, 15 live APIs, and 25+ data sources for media planning, competitive intel, and compliance."
     />
     <meta property="og:site_name" content="Nova AI Suite" />
     <meta
@@ -51,7 +51,7 @@
     />
     <meta
       name="twitter:description"
-      content="AI-powered recruitment intelligence. 25 AI models, 33 tools, 8 live APIs for media planning and talent acquisition."
+      content="AI-powered recruitment intelligence. 25 AI models, 56 tools, 15 live APIs for media planning and talent acquisition."
     />
     <meta
       name="twitter:image"
@@ -3235,19 +3235,19 @@
       >
         <div class="stats-bar-inner">
           <div class="stats-bar-item">
-            <span class="stats-bar-num" data-counter data-target="25">0</span>
+            <span class="stats-bar-num" data-counter data-target="25">25</span>
             <span class="stats-bar-label">AI Models</span>
           </div>
           <div class="stats-bar-item">
-            <span class="stats-bar-num" data-counter data-target="33">0</span>
+            <span class="stats-bar-num" data-counter data-target="56">56</span>
             <span class="stats-bar-label">Tools</span>
           </div>
           <div class="stats-bar-item">
-            <span class="stats-bar-num" data-counter data-target="8">0</span>
+            <span class="stats-bar-num" data-counter data-target="15">15</span>
             <span class="stats-bar-label">Live APIs</span>
           </div>
           <div class="stats-bar-item">
-            <span class="stats-bar-num" data-counter data-target="17">0</span>
+            <span class="stats-bar-num" data-counter data-target="25">25</span>
             <span class="stats-bar-label">Data Sources</span>
           </div>
         </div>
@@ -3894,7 +3894,7 @@
               <h3>Intelligence</h3>
               <p>
                 Competitive monitoring, market pulse, vendor analysis, and
-                talent intelligence. Real-time data from 8 live APIs.
+                talent intelligence. Real-time data from 15 live APIs.
               </p>
               <div class="product-hero-tools">
                 <span>Competitive Intel</span>
@@ -3984,7 +3984,7 @@
               <div>
                 <h3>Nova AI runs across everything</h3>
                 <p>
-                  33 tools, 24 LLM providers, 8 live data APIs. Ask anything
+                  56 tools, 25 LLM providers, 15 live data APIs. Ask anything
                   about recruitment advertising.
                 </p>
               </div>
@@ -4189,62 +4189,103 @@
         });
 
         // ── Animated number counters ──
-        var counterObserver = new IntersectionObserver(
-          function (entries) {
-            entries.forEach(function (entry) {
-              if (entry.isIntersecting) {
-                var el = entry.target;
-                var target = parseFloat(el.dataset.target);
-                if (isNaN(target)) {
-                  counterObserver.unobserve(el);
-                  return;
-                }
-                el.style.opacity = "1";
-                var suffix = el.dataset.suffix || "";
-                var prefix = el.dataset.prefix || "";
-                var decimals = parseInt(el.dataset.decimals, 10) || 0;
-                var startTime = null;
-                var duration = 1200;
-                var startVal = 0;
+        var prefersReducedMotion = window.matchMedia(
+          "(prefers-reduced-motion: reduce)",
+        ).matches;
+        var counterEls = document.querySelectorAll("[data-counter]");
 
-                function animateCount(timestamp) {
-                  if (!startTime) startTime = timestamp;
-                  var progress = Math.min(
-                    (timestamp - startTime) / duration,
-                    1,
-                  );
-                  var eased = 1 - Math.pow(1 - progress, 3);
-                  var current = startVal + eased * (target - startVal);
-                  if (decimals > 0) {
-                    el.textContent =
-                      prefix + current.toFixed(decimals) + suffix;
-                  } else {
-                    el.textContent =
-                      prefix + Math.floor(current).toLocaleString() + suffix;
+        // Helper: set counter to its final value immediately
+        function setCounterFinal(el) {
+          var target = parseFloat(el.dataset.target);
+          if (isNaN(target)) return;
+          var suffix = el.dataset.suffix || "";
+          var prefix = el.dataset.prefix || "";
+          var decimals = parseInt(el.dataset.decimals, 10) || 0;
+          el.textContent =
+            decimals > 0
+              ? prefix + target.toFixed(decimals) + suffix
+              : prefix + target.toLocaleString() + suffix;
+          el.style.opacity = "1";
+          el.dataset.animated = "1";
+        }
+
+        if (prefersReducedMotion) {
+          // Skip animation entirely -- show final values now
+          counterEls.forEach(setCounterFinal);
+        } else {
+          // Reset to 0 for animation (HTML has final values as fallback)
+          counterEls.forEach(function (el) {
+            var prefix = el.dataset.prefix || "";
+            var suffix = el.dataset.suffix || "";
+            el.textContent = prefix + "0" + suffix;
+          });
+
+          var counterObserver = new IntersectionObserver(
+            function (entries) {
+              entries.forEach(function (entry) {
+                if (entry.isIntersecting) {
+                  var el = entry.target;
+                  if (el.dataset.animated === "1") return;
+                  var target = parseFloat(el.dataset.target);
+                  if (isNaN(target)) {
+                    counterObserver.unobserve(el);
+                    return;
                   }
-                  if (progress < 1) {
-                    requestAnimationFrame(animateCount);
-                  } else {
+                  el.style.opacity = "1";
+                  el.dataset.animated = "1";
+                  var suffix = el.dataset.suffix || "";
+                  var prefix = el.dataset.prefix || "";
+                  var decimals = parseInt(el.dataset.decimals, 10) || 0;
+                  var startTime = null;
+                  var duration = 1200;
+                  var startVal = 0;
+
+                  function animateCount(timestamp) {
+                    if (!startTime) startTime = timestamp;
+                    var progress = Math.min(
+                      (timestamp - startTime) / duration,
+                      1,
+                    );
+                    var eased = 1 - Math.pow(1 - progress, 3);
+                    var current = startVal + eased * (target - startVal);
                     if (decimals > 0) {
                       el.textContent =
-                        prefix + target.toFixed(decimals) + suffix;
+                        prefix + current.toFixed(decimals) + suffix;
                     } else {
                       el.textContent =
-                        prefix + target.toLocaleString() + suffix;
+                        prefix + Math.floor(current).toLocaleString() + suffix;
+                    }
+                    if (progress < 1) {
+                      requestAnimationFrame(animateCount);
+                    } else {
+                      if (decimals > 0) {
+                        el.textContent =
+                          prefix + target.toFixed(decimals) + suffix;
+                      } else {
+                        el.textContent =
+                          prefix + target.toLocaleString() + suffix;
+                      }
                     }
                   }
+                  requestAnimationFrame(animateCount);
+                  counterObserver.unobserve(el);
                 }
-                requestAnimationFrame(animateCount);
-                counterObserver.unobserve(el);
-              }
-            });
-          },
-          { threshold: 0.5 },
-        );
+              });
+            },
+            { threshold: 0.15 },
+          );
 
-        document.querySelectorAll("[data-counter]").forEach(function (el) {
-          counterObserver.observe(el);
-        });
+          counterEls.forEach(function (el) {
+            counterObserver.observe(el);
+          });
+
+          // Fallback: if any counter still shows 0 after 4s, force final values
+          setTimeout(function () {
+            counterEls.forEach(function (el) {
+              if (el.dataset.animated !== "1") setCounterFinal(el);
+            });
+          }, 4000);
+        }
 
         // ── Hero stat counters ──
         var heroCounterObserver = new IntersectionObserver(

@@ -777,16 +777,93 @@
     renderChat();
   }
 
-  // Auto-title from first user message
+  // Auto-title from first user message (smart title generation)
+  function generateSmartTitle(text) {
+    if (!text) return "New Chat";
+    var s = text.replace(/\s+/g, " ").trim();
+    // Strip common prefixes
+    var prefixes = [
+      "create a media plan for",
+      "create a plan for",
+      "create a",
+      "generate a media plan for",
+      "generate a plan for",
+      "generate a",
+      "what is the",
+      "what are the",
+      "what is",
+      "what are",
+      "can you tell me about",
+      "can you tell me",
+      "can you help me with",
+      "can you help me",
+      "can you",
+      "tell me about",
+      "tell me",
+      "show me",
+      "help me with",
+      "help me",
+      "i want to",
+      "i need to",
+      "i need a",
+      "i want a",
+      "please",
+    ];
+    var lower = s.toLowerCase();
+    for (var i = 0; i < prefixes.length; i++) {
+      if (lower.indexOf(prefixes[i]) === 0) {
+        s = s.substring(prefixes[i].length).trim();
+        lower = s.toLowerCase();
+        break;
+      }
+    }
+    if (!s) return "New Chat";
+    // Try to extract "X in Y" or "X for Y" pattern for dash format
+    var roleLocMatch = s.match(
+      /^(\d+\s+)?(.+?)\s+(?:in|for|at|near)\s+(.+?)[\.\?!]?$/i,
+    );
+    if (roleLocMatch) {
+      var rolePart = roleLocMatch[2].trim();
+      var locPart = roleLocMatch[3].trim().split(/[,\.]/)[0].trim();
+      // Shorten known role words
+      rolePart = rolePart
+        .replace(/software engineers?/i, "SWE")
+        .replace(/registered nurses?/i, "RN")
+        .replace(/data scientists?/i, "Data Sci")
+        .replace(/project managers?/i, "PM")
+        .replace(/product managers?/i, "PM")
+        .replace(/account executives?/i, "AE")
+        .replace(/customer success/i, "CS")
+        .replace(/media plan/i, "Media Plan")
+        .replace(/salary data/i, "Salary")
+        .replace(/salary/i, "Salary")
+        .replace(/market demand/i, "Demand")
+        .replace(/hiring trends?/i, "Hiring Trends");
+      var num = roleLocMatch[1] ? roleLocMatch[1].trim() + " " : "";
+      var title = num + rolePart + " - " + locPart;
+      if (title.length > 40) {
+        title = title.substring(0, 37) + "...";
+      }
+      // Capitalize first letter
+      return title.charAt(0).toUpperCase() + title.slice(1);
+    }
+    // Fallback: capitalize first letter, truncate
+    s = s.charAt(0).toUpperCase() + s.slice(1);
+    // Remove trailing punctuation
+    s = s.replace(/[\.\?!]+$/, "");
+    if (s.length > 40) {
+      s = s.substring(0, 37) + "...";
+    }
+    return s;
+  }
+
   function updateConvTitle(conv) {
     if (!conv || conv.title !== "New Chat") return;
     var firstUser = conv.messages.find(function (m) {
       return m.role === "user";
     });
     if (firstUser) {
-      var title = firstUser.content.substring(0, 50);
-      if (firstUser.content.length > 50) title += "...";
-      conv.title = title;
+      conv.title = generateSmartTitle(firstUser.content);
       saveConversations();
       renderSidebar();
     }
@@ -821,6 +898,29 @@
         return false;
       });
     }
+    // Hide single-message greeting-only conversations
+    var greetingWords = [
+      "hi",
+      "hello",
+      "hey",
+      "howdy",
+      "sup",
+      "yo",
+      "hola",
+      "greetings",
+    ];
+    keys = keys.filter(function (id) {
+      var conv = state.conversations[id];
+      var msgs = conv.messages || [];
+      if (msgs.length > 1) return true;
+      if (msgs.length === 0) return false;
+      var firstMsg = (msgs[0].content || "")
+        .trim()
+        .toLowerCase()
+        .replace(/[!.,?]+$/, "")
+        .trim();
+      return greetingWords.indexOf(firstMsg) === -1;
+    });
     if (keys.length === 0) {
       var empty = document.createElement("div");
       empty.style.cssText =
@@ -1940,7 +2040,7 @@
               if (err.name === "AbortError") {
                 errorMsg = state._userCancelled
                   ? "Response was stopped."
-                  : "Request timed out. Please try again.";
+                  : "This query needed more time than expected. Try a simpler version or click Retry.";
               } else if (err.message && err.message.indexOf("429") > -1) {
                 errorMsg = "Nova is busy. Please wait a moment and try again.";
               } else if (err.message && err.message.indexOf("403") > -1) {
@@ -1960,7 +2060,8 @@
                 }
                 errorMsg = "Session expired. Please refresh the page.";
               } else {
-                errorMsg = "Connection error. Please try again.";
+                errorMsg =
+                  "Something went wrong on our end. Click Retry or start a new chat.";
               }
               _showStreamError(errorMsg);
             })
