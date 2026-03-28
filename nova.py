@@ -15222,26 +15222,27 @@ def _enrich_follow_up_suggestions(text: str, query: str) -> str:
 
     q_lower = query.lower()
     related_city = ""
-    _city_names = [
-        "new york",
-        "los angeles",
-        "chicago",
-        "houston",
-        "dallas",
-        "san francisco",
-        "seattle",
-        "boston",
-        "atlanta",
-        "denver",
-        "phoenix",
-        "miami",
-        "austin",
-        "portland",
-        "minneapolis",
-    ]
-    for city in _city_names:
-        if city not in q_lower:
-            related_city = city.title()
+    # S27: City pairs -- suggest a comparable/nearby city, not always "New York"
+    _city_alternatives: dict[str, str] = {
+        "new york": "Boston",
+        "los angeles": "San Diego",
+        "chicago": "Minneapolis",
+        "houston": "Dallas",
+        "dallas": "Houston",
+        "san francisco": "Seattle",
+        "seattle": "San Francisco",
+        "boston": "New York",
+        "atlanta": "Charlotte",
+        "denver": "Salt Lake City",
+        "phoenix": "Las Vegas",
+        "miami": "Tampa",
+        "austin": "Dallas",
+        "portland": "Seattle",
+        "minneapolis": "Chicago",
+    }
+    for city, alt in _city_alternatives.items():
+        if city in q_lower:
+            related_city = alt
             break
 
     _city_val = related_city or "nearby cities"
