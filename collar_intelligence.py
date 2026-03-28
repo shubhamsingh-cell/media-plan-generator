@@ -327,6 +327,27 @@ def classify_collar(
             collar, kw_confidence, "keyword_match", sub_type, indicators
         )
 
+    # Method 3b: S27 -- keyword fallback for unclassified roles
+    # When full keyword match fails, check for common trade/role indicator words
+    _TRADE_INDICATORS: dict[str, str] = {
+        "technician": "blue_collar",
+        "operator": "blue_collar",
+        "assembler": "blue_collar",
+        "inspector": "blue_collar",
+        "dispatcher": "blue_collar",
+        "coordinator": "pink_collar",
+        "specialist": "white_collar",
+        "assistant": "pink_collar",
+        "aide": "pink_collar",
+    }
+    for indicator_kw, indicator_collar in _TRADE_INDICATORS.items():
+        if indicator_kw in role_lower:
+            indicators.append(f"trade_indicator: {indicator_kw}")
+            sub_type = _get_sub_type(role_lower, indicator_collar)
+            return _build_result(
+                indicator_collar, 0.55, "trade_indicator_fallback", sub_type, indicators
+            )
+
     # Method 4: Industry-based fallback
     if industry:
         ind_lower = industry.strip().lower().replace(" ", "_").replace("-", "_")

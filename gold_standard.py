@@ -1034,6 +1034,12 @@ def _lookup_role_difficulty(role_title: str) -> dict[str, Any] | None:
     for pattern in sorted(_ROLE_DIFFICULTY_MAP, key=len, reverse=True):
         if pattern in title_lower:
             return dict(_ROLE_DIFFICULTY_MAP[pattern])
+    # S27: Fuzzy fallback -- partial word match for unmatched roles
+    title_words = set(title_lower.split())
+    for pattern in sorted(_ROLE_DIFFICULTY_MAP, key=len, reverse=True):
+        pattern_words = set(pattern.split())
+        if pattern_words & title_words:  # any overlapping words
+            return dict(_ROLE_DIFFICULTY_MAP[pattern])
     return None
 
 
@@ -1105,9 +1111,13 @@ def build_competitor_map(data: dict, city_data: dict) -> dict[str, Any]:
         local_competitors = industry_employers.get(city_key, [])
 
         # Merge local-first + national, dedup -- local employers appear first
-        all_competitors = list(dict.fromkeys(local_competitors + national_competitors))[
-            :8
-        ]
+        # S27: Prepend "(National)" when competitors are industry-level only (no city-specific data)
+        if not local_competitors and national_competitors:
+            all_competitors = [f"(National) {c}" for c in national_competitors[:8]]
+        else:
+            all_competitors = list(
+                dict.fromkeys(local_competitors + national_competitors)
+            )[:8]
 
         base_difficulty = city_data[city_name].get("hiring_difficulty", 5.5)
 
@@ -1610,11 +1620,18 @@ def compute_budget_tiers(data: dict) -> dict[str, Any]:
         return {"error": "No budget available for tier breakdown"}
 
     # Determine difficulty to adjust splits
-    difficulty_str = str(
-        synthesized.get("hiring_difficulty")
-        or enriched.get("hiring_difficulty")
-        or "moderate"
-    ).lower()
+    difficulty_str = (
+        (
+            str(
+                synthesized.get("hiring_difficulty")
+                or enriched.get("hiring_difficulty")
+                or "moderate"
+            )
+            or "moderate"
+        )
+        .lower()
+        .strip()
+    )
 
     if (
         "high" in difficulty_str
@@ -1965,6 +1982,9 @@ def build_activation_calendar(data: dict) -> dict[str, Any]:
     elif "defense" in industry or "aerospace" in industry:
         industry_events = ["AUSA (Oct)", "Sea-Air-Space (Apr)", "SHOT Show (Jan)"]
 
+    # NOTE: Activation calendar uses hardcoded industry events above.
+    # These are curated conference/event dates that rarely change year-to-year.
+    # If dynamic event data becomes available, replace the hardcoded lists.
     return {
         "campaign_start_month": campaign_month,
         "timeline": timeline,

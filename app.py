@@ -11699,11 +11699,11 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                     if rid
                                     else _enrich_pool.submit(enrich_data, gen_data)
                                 )
-                                enriched = _enrich_future.result(timeout=25) or {}
+                                enriched = _enrich_future.result(timeout=35) or {}
                                 gen_data["_enriched"] = enriched
                             except TimeoutError:
                                 logger.error(
-                                    "Async enrichment timed out after 25s for job %s -- continuing with empty data",
+                                    "Async enrichment timed out after 35s for job %s -- continuing with empty data",
                                     jid,
                                 )
                                 _enrich_future.cancel()
@@ -12081,8 +12081,11 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                 }
 
                         if time.time() > _gen_deadline:
-                            raise TimeoutError(
-                                "Plan generation exceeded 2-minute time limit"
+                            # S27: Instead of raising, set flag and continue with truncated output
+                            gen_data["_deadline_exceeded"] = True
+                            logger.warning(
+                                "Deadline exceeded before Excel for job %s -- continuing with truncated output",
+                                jid,
                             )
 
                         # Excel generation -- wrapped in 60s timeout to prevent
@@ -12141,10 +12144,14 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                             (gen_data.get("output_format") or "all").lower().strip()
                         )
                         client_name = re.sub(
-                            r"[^a-zA-Z0-9_\-]",
-                            "_",
-                            gen_data.get("client_name") or "Client",
-                        )
+                            r"_+",
+                            "_",  # S27: Collapse multiple underscores
+                            re.sub(
+                                r"[^a-zA-Z0-9_\-]",
+                                "_",
+                                gen_data.get("client_name") or "Client",
+                            ),
+                        ).strip("_")
                         pptx_bytes = None
                         if generate_pptx is not None and _requested_format in (
                             "all",
@@ -13318,8 +13325,10 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
 
             # Sanitize client_name to ASCII-safe characters (prevents CJK/Unicode crashes in filenames/headers)
             client_name = re.sub(
-                r"[^a-zA-Z0-9_\-]", "_", data.get("client_name") or "Client"
-            )
+                r"_+",
+                "_",  # S27: Collapse multiple underscores
+                re.sub(r"[^a-zA-Z0-9_\-]", "_", data.get("client_name") or "Client"),
+            ).strip("_")
 
             # Store plan results JSON for on-screen dashboard
             _plan_id = uuid.uuid4().hex[:12]

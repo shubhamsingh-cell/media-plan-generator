@@ -79,6 +79,7 @@ ROLE_TIER_MULTIPLIERS: Dict[str, float] = {
 # seasonal, regional, and collar-type adjustments.
 # Base benchmarks (USD) -- overridden by live data when available.
 # Keys map to *ad-platform categories* used in compute_channel_dollar_amounts.
+# last_updated: 2026-Q1 (review quarterly -- see trend_engine.py for live benchmarks)
 BASE_BENCHMARKS: Dict[str, Any] = {
     "cpc": {
         "job_board": 0.85,

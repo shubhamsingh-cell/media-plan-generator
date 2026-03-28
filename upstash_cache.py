@@ -124,7 +124,22 @@ def _execute(command: list) -> Any:
                 _consecutive_failures = 0
             return body.get("result")
     except urllib.error.HTTPError as e:
-        logger.debug("Upstash HTTP error %d for %s", e.code, command[0])
+        # S27: Distinguish error types for circuit breaker
+        if e.code == 429:
+            # Rate limited -- longer cooldown
+            with _failure_lock:
+                _consecutive_failures += (
+                    _MAX_CONSECUTIVE_FAILURES  # trip breaker immediately
+                )
+                _circuit_open_until = (
+                    time.time() + 300.0
+                )  # 5 minute cooldown for rate limits
+            logger.warning(
+                "Upstash rate limited (429) for %s -- circuit breaker OPEN (cooldown 300s)",
+                command[0],
+            )
+        else:
+            logger.debug("Upstash HTTP error %d for %s", e.code, command[0])
         return None
     except (urllib.error.URLError, OSError, ConnectionError) as e:
         # DNS/network failures -- increment circuit breaker

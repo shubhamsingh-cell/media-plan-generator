@@ -139,6 +139,7 @@ _INDUSTRY_TO_KB_KEY: Dict[str, str] = {
     "real_estate": "construction_infrastructure",
     # Transportation & Logistics (C5 fix: blue_collar → transportation, not manufacturing)
     "transportation": "transportation_logistics",
+    "logistics": "transportation_logistics",
     "logistics_supply_chain": "transportation_logistics",
     "maritime": "transportation_logistics",
     "maritime_marine": "transportation_logistics",
@@ -1373,6 +1374,8 @@ def fuse_salary_intelligence(
                 "kb_validated": kb_validation.get("validated", False),
             },
         }
+        if flagged_sources:
+            logger.warning("Salary outliers detected for %s: %s", role, flagged_sources)
 
     # --- Enrich from recruitment benchmarks KB ---
     _rb = _kb_recruitment_benchmarks(kb, industry)

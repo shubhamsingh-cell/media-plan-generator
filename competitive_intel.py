@@ -81,7 +81,18 @@ def _generate_competitive_narrative(competitor_data: Dict[str, Any]) -> str:
     task_type = getattr(router, "TASK_RESEARCH", "research")
     try:
         # S27: Increased from 2000 to 5000 chars to preserve competitor data integrity
-        data_snapshot = json.dumps(competitor_data, indent=2, default=str)[:5000]
+        data_snapshot_raw = json.dumps(competitor_data, indent=2, default=str)
+        # S27: Smart truncation -- find last complete JSON boundary instead of hard cut
+        if len(data_snapshot_raw) > 5000:
+            # Find the last closing brace/bracket before the 5000 char limit
+            _trunc = data_snapshot_raw[:5000]
+            _last_brace = max(_trunc.rfind("}"), _trunc.rfind("]"))
+            if _last_brace > 100:
+                data_snapshot = _trunc[: _last_brace + 1]
+            else:
+                data_snapshot = _trunc
+        else:
+            data_snapshot = data_snapshot_raw
         prompt = (
             f"Synthesize this competitive hiring landscape:\n{data_snapshot}\n\n"
             f"Write a 3-sentence strategic assessment: who's hiring most aggressively, "

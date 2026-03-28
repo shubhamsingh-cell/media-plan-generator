@@ -200,6 +200,8 @@ def _retry_with_backoff(
     Returns:
         The return value of fn on success, or None after all retries exhausted.
     """
+    import random as _random_mod
+
     last_exc: BaseException | None = None
     for attempt in range(max_retries + 1):
         try:
@@ -207,7 +209,8 @@ def _retry_with_backoff(
         except _RETRYABLE_EXCEPTIONS as exc:
             last_exc = exc
             if attempt < max_retries:
-                delay = base_delay * (2**attempt)
+                # S27: Add jitter to prevent thundering herd on retries
+                delay = base_delay * (2**attempt) + _random_mod.uniform(0, 1.0)
                 logger.warning(
                     f"Retry {attempt + 1}/{max_retries} after "
                     f"{delay:.1f}s for {fn.__name__ if hasattr(fn, '__name__') else 'callable'}: {exc}"
