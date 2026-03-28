@@ -32,6 +32,7 @@ from gevent import monkey  # noqa: E402  isort:skip
 monkey.patch_all()  # noqa: E402  isort:skip
 # ---------------------------------------------------------------------
 
+import collections
 import io
 import logging
 import os
@@ -212,7 +213,7 @@ class _StreamingWfile:
 
     def __init__(self) -> None:
         self._buffer = io.BytesIO()
-        self._chunks: list[bytes] = []
+        self._chunks: collections.deque[bytes] = collections.deque()
         self._chunk_event = threading.Event()
         self._done = False
         self._lock = threading.Lock()
@@ -249,14 +250,14 @@ class _StreamingWfile:
         while True:
             with self._lock:
                 if self._chunks:
-                    return self._chunks.pop(0)
+                    return self._chunks.popleft()
                 if self._done:
                     return None
                 self._chunk_event.clear()
             self._chunk_event.wait(timeout=timeout)
             with self._lock:
                 if self._chunks:
-                    return self._chunks.pop(0)
+                    return self._chunks.popleft()
                 if self._done:
                     return None
 
@@ -475,7 +476,9 @@ def application(
     handler_thread.start()
 
     # -- Read the first chunk to extract HTTP status + headers --
-    first_chunk = streaming_wfile.get_chunk(timeout=130.0)  # 130s for slow LLM calls
+    first_chunk = streaming_wfile.get_chunk(
+        timeout=115.0
+    )  # 115s -- safely under gunicorn 120s timeout
 
     if first_chunk is None:
         # Handler produced no output

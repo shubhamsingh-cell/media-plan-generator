@@ -1,5 +1,5 @@
 {
-  "scraped_at": "2026-03-27T05:04:38.252042+00:00",
+  "scraped_at": "2026-03-28T05:42:31.933844+00:00",
   "data_freshness": "2025-2026 pricing data scraped from 14 sources",
   "sources": [
     "https://jobtoday.com/us/blog/indeed-pricing/",
@@ -36,7 +36,7 @@
       },
       "model": "CPC (Sponsored Jobs)",
       "source": "router_live",
-      "last_updated": "2026-03-27T05:04:18Z"
+      "last_updated": "2026-03-28T05:25:23Z"
     },
     "linkedin": {
       "board_name": "LinkedIn",
@@ -56,7 +56,7 @@
       },
       "model": "CPC (Promoted Jobs)",
       "source": "router_live",
-      "last_updated": "2026-03-27T05:04:22Z"
+      "last_updated": "2026-03-28T05:32:08Z"
     },
     "ziprecruiter": {
       "board_name": "ZipRecruiter",
@@ -76,7 +76,7 @@
       },
       "model": "Performance-based (CPC + CPA)",
       "source": "router_live",
-      "last_updated": "2026-03-27T05:04:26Z"
+      "last_updated": "2026-03-28T05:32:10Z"
     },
     "glassdoor": {
       "board_name": "Glassdoor",
@@ -96,7 +96,7 @@
       },
       "model": "CPC (Sponsored Listings)",
       "source": "router_live",
-      "last_updated": "2026-03-27T05:04:32Z"
+      "last_updated": "2026-03-28T05:42:26Z"
     },
     "monster": {
       "board_name": "Monster",
@@ -116,7 +116,7 @@
       },
       "model": "CPC + Subscription",
       "source": "router_live",
-      "last_updated": "2026-03-27T05:04:38Z"
+      "last_updated": "2026-03-28T05:42:31Z"
     },
     "careerbuilder": {
       "avg_cpc_min": 0.5,

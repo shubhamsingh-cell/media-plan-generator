@@ -80,8 +80,11 @@ _voyage_last_request: float = 0.0  # monotonic timestamp of last API call
 # ── Embedding disk cache ─────────────────────────────────────────────────────
 # Caches Voyage AI embeddings to disk so server restarts don't re-compute them.
 # Cache is keyed by a hash of the text content, stored as JSON.
+_PERSISTENT_DISK = Path("/data/persistent")
 _EMBEDDING_CACHE_FILE = (
-    Path(__file__).resolve().parent / "data" / ".embedding_cache.json"
+    _PERSISTENT_DISK / ".embedding_cache.json"
+    if _PERSISTENT_DISK.exists()
+    else Path(__file__).resolve().parent / "data" / ".embedding_cache.json"
 )
 _embedding_cache: dict[str, list[float]] = {}
 _embedding_cache_lock = threading.Lock()

@@ -1,3 +1,5 @@
+/* Z-INDEX SCALE: 5=content, 10=sticky, 20=dropdown, 100=modal-backdrop, 200=modal, 9999=toast */
+
 /* ================================================================
    CSS CUSTOM PROPERTIES
    (page-specific overrides; base tokens in tokens.css)
@@ -24,7 +26,7 @@
   --msg-assistant-bg: #1a1a2e;
   --sidebar-width: 280px;
   --topbar-height: 56px;
-  --radius-sm: 8px;
+  --radius-sm: 8px; /* intentional override of tokens.css 6px for Nova chat UI */
   --radius-md: 12px;
   --radius-lg: 18px;
   --radius-full: 9999px;
@@ -309,6 +311,15 @@ a:hover {
   height: 16px;
   flex-shrink: 0;
 }
+.sidebar-footer-brand {
+  cursor: default;
+  opacity: 0.6;
+  font-size: 11px;
+}
+.sidebar-footer-brand:hover {
+  background: none;
+  color: var(--text-secondary);
+}
 
 /* ================================================================
          MAIN CONTENT AREA
@@ -463,9 +474,38 @@ a:hover {
 .welcome-orb {
   width: 80px;
   height: 80px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--accent-purple), var(--accent-teal));
+  border-radius: 20px;
+  background: linear-gradient(135deg, #202058 0%, #5a54bd 50%, #6bb3cd 100%);
   animation: welcome-pulse 3s ease-in-out infinite;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: -2px;
+  font-family: "Inter", sans-serif;
+  box-shadow: 0 8px 32px rgba(90, 84, 189, 0.35);
+  position: relative;
+  overflow: hidden;
+}
+.welcome-orb::before {
+  content: "N";
+  z-index: 1;
+}
+.welcome-orb::after {
+  content: "";
+  position: absolute;
+  top: -40%;
+  left: -40%;
+  width: 180%;
+  height: 180%;
+  background: radial-gradient(
+    circle at 35% 35%,
+    rgba(107, 179, 205, 0.35) 0%,
+    transparent 55%
+  );
+  pointer-events: none;
 }
 @keyframes welcome-pulse {
   0%,
@@ -477,6 +517,14 @@ a:hover {
     transform: scale(1.05);
     box-shadow: 0 0 50px rgba(107, 179, 205, 0.4);
   }
+}
+.welcome-orb-label {
+  margin-top: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  letter-spacing: 0.5px;
+  text-align: center;
 }
 .welcome-title {
   font-size: 28px;
@@ -554,8 +602,28 @@ a:hover {
   margin-top: 2px;
 }
 .message-avatar.nova {
-  background: linear-gradient(135deg, var(--accent-teal), #4a9db5);
+  background: linear-gradient(135deg, #202058 0%, #5a54bd 50%, #6bb3cd 100%);
   color: #fff;
+  font-family: "Inter", sans-serif;
+  letter-spacing: -0.5px;
+  font-size: 14px;
+  box-shadow: 0 2px 8px rgba(90, 84, 189, 0.3);
+  position: relative;
+  overflow: hidden;
+}
+.message-avatar.nova::after {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(
+    circle at 30% 30%,
+    rgba(107, 179, 205, 0.3) 0%,
+    transparent 60%
+  );
+  pointer-events: none;
 }
 .message-avatar.user {
   background: var(--accent-purple);
@@ -757,6 +825,40 @@ a:hover {
   flex-wrap: wrap;
   gap: 6px;
   align-items: center;
+}
+.sources-collapsible {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+.sources-toggle {
+  background: none;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-full);
+  color: var(--text-secondary);
+  font-size: 11px;
+  padding: 3px 10px;
+  cursor: pointer;
+  transition:
+    color var(--transition-fast),
+    border-color var(--transition-fast);
+  width: fit-content;
+}
+.sources-toggle:hover {
+  color: var(--accent-teal);
+  border-color: var(--accent-teal);
+}
+.sources-toggle::after {
+  content: " \25B8";
+}
+.sources-toggle.expanded::after {
+  content: " \25BE";
+}
+.sources-list {
+  display: none;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 .meta-badge {
   font-size: 11px;
@@ -1366,6 +1468,14 @@ a:hover {
   background: rgba(0, 0, 0, 0.06);
   border-color: rgba(0, 0, 0, 0.1);
 }
+[data-theme="light"] .sources-toggle {
+  color: #666;
+  border-color: rgba(0, 0, 0, 0.15);
+}
+[data-theme="light"] .sources-toggle:hover {
+  color: #2d7a8a;
+  border-color: #2d7a8a;
+}
 [data-theme="light"] .sidebar-brand-text {
   color: #1a1a2e;
 }
@@ -1893,21 +2003,21 @@ a:hover {
 }
 
 /* Light theme overrides */
-.light .nova-tool-pill-active {
+[data-theme="light"] .nova-tool-pill-active {
   background: rgba(90, 84, 189, 0.08);
   border-color: rgba(90, 84, 189, 0.15);
   color: var(--accent-purple);
 }
-.light .nova-tool-pill-done {
+[data-theme="light"] .nova-tool-pill-done {
   background: rgba(16, 185, 129, 0.06);
   border-color: rgba(16, 185, 129, 0.12);
   color: #059669;
 }
-.light .nova-tool-spinner {
+[data-theme="light"] .nova-tool-spinner {
   border-color: var(--accent-purple);
   border-top-color: transparent;
 }
-.light .nova-tool-check {
+[data-theme="light"] .nova-tool-check {
   color: #059669;
 }
 
@@ -1918,5 +2028,22 @@ a:hover {
   }
   .nova-tool-label {
     max-width: 200px;
+  }
+}
+
+/* ── Small mobile (480px) ── */
+@media (max-width: 480px) {
+  .chat-input,
+  .chat-input textarea {
+    font-size: 14px; /* prevent iOS auto-zoom on focus */
+  }
+  .message-actions {
+    flex-wrap: wrap;
+  }
+  .topbar {
+    padding: 0 12px;
+  }
+  .sidebar:not(.collapsed) {
+    width: 100vw;
   }
 }

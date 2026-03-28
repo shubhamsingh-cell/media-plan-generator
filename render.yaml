@@ -2,7 +2,7 @@ services:
   - type: web
     name: media-plan-generator
     runtime: python
-    plan: starter  # Explicit plan declaration
+    plan: standard  # Explicit plan declaration
     region: oregon
     autoDeploy: true
     buildCommand: pip install -r requirements.txt

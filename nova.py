@@ -1147,7 +1147,7 @@ def get_tools_for_provider(
 ) -> list[dict]:
     """Return the appropriate tool set based on provider tier.
 
-    Paid providers (Claude, GPT-4o) get all 56 tools.
+    Paid providers (Claude, GPT-4o) get all 57 tools.
     Free providers get the essential 10 to fit smaller context windows.
     """
     if provider_name and provider_name.lower() in _PAID_TOOL_PROVIDERS:
@@ -10899,7 +10899,7 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
 
             # Gemini verification -- DISABLED in S21: adds 10-30s to every request,
             # causing 90s+ total latency. Grounding score is sufficient for quality.
-            # TODO: Re-enable as async post-response check (non-blocking).
+            # Not implemented: async post-response verification deferred to future sprint.
             verification_status = "skipped"
             verification_score = 1.0
 
@@ -15060,11 +15060,12 @@ def _enrich_follow_up_suggestions(text: str, query: str) -> str:
             related_city = city.title()
             break
 
+    _city_val = related_city or "nearby cities"
     formatted: List[str] = []
     for s in templates[:3]:
         try:
-            line = s.format(related_city=related_city or "nearby cities")
-        except (KeyError, IndexError):
+            line = s.replace("{related_city}", _city_val)
+        except (TypeError, AttributeError):
             line = s
         formatted.append(f"- {line}")
 

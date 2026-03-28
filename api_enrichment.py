@@ -13887,11 +13887,8 @@ def fetch_ons_uk_data(occupation: str) -> Optional[Dict[str, Any]]:
     Returns:
         Dict with UK labour stats, or None if not yet implemented.
     """
-    # TODO: Wire up when EMEA plans are prioritised
-    # Planned endpoints:
-    #   - /datasets/ashe-tables-7-and-8  (earnings by occupation)
-    #   - /datasets/lms    (labour market statistics)
-    #   - /datasets/vacancies-and-jobs   (vacancy data)
+    # Not implemented: EMEA/APAC enrichment deferred to future sprint.
+    # Planned endpoints: /datasets/ashe-tables-7-and-8, /datasets/lms, /datasets/vacancies-and-jobs
     _log_info(f"ONS UK enrichment not yet implemented for occupation={occupation}")
     return None
 
@@ -13909,11 +13906,8 @@ def fetch_abs_australia_data(occupation: str) -> Optional[Dict[str, Any]]:
     Returns:
         Dict with Australian labour stats, or None if not yet implemented.
     """
-    # TODO: Wire up when APAC plans are prioritised
-    # Planned dataflows:
-    #   - ABS,LF,1.0.0     (Labour Force survey)
-    #   - ABS,EE,1.0.0     (Employee Earnings)
-    #   - ABS,JV,1.0.0     (Job Vacancies)
+    # Not implemented: EMEA/APAC enrichment deferred to future sprint.
+    # Planned dataflows: ABS,LF,1.0.0, ABS,EE,1.0.0, ABS,JV,1.0.0
     _log_info(
         f"ABS Australia enrichment not yet implemented for occupation={occupation}"
     )
@@ -13940,11 +13934,8 @@ def fetch_eurostat_detailed_data(
     Returns:
         Dict with Eurostat occupation-level stats, or None if not yet implemented.
     """
-    # TODO: Wire up when EMEA plans are prioritised
-    # Planned datasets:
-    #   - earn_ses_annual   (Structure of Earnings Survey)
-    #   - lfsa_egised       (Employment by NACE sector)
-    #   - jvs_q_nace2       (Job vacancy statistics)
+    # Not implemented: EMEA/APAC enrichment deferred to future sprint.
+    # Planned datasets: earn_ses_annual, lfsa_egised, jvs_q_nace2
     _log_info(
         f"Eurostat detailed enrichment not yet implemented for country={country}, "
         f"occupation={occupation}"

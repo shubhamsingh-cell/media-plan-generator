@@ -63,6 +63,7 @@ def _safe_str(val: object, default: str = "") -> str:
 # ═══════════════════════════════════════════════════════════════════════════════
 try:
     from firecrawl_enrichment import (
+        analyze_competitor_careers,
         fetch_recruitment_news,
         get_firecrawl_status,
     )
@@ -3533,9 +3534,13 @@ except ImportError:
     generate_excel = None  # type: ignore[assignment]
 
 
-ADMIN_API_KEY = os.environ.get("ADMIN_API_KEY") or ""
+ADMIN_API_KEY = (
+    os.environ.get("ADMIN_API_KEY") or os.environ.get("NOVA_ADMIN_KEY") or ""
+)
 if not ADMIN_API_KEY:
-    logger.warning("ADMIN_API_KEY not set -- admin endpoints will reject all requests")
+    logger.warning(
+        "ADMIN_API_KEY/NOVA_ADMIN_KEY not set -- admin endpoints will reject all requests"
+    )
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # OPENAPI 3.0 SPECIFICATION
@@ -13899,6 +13904,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 _token_usage: dict = {}
                 _last_event_time = time.time()
                 _KEEPALIVE_INTERVAL = 15  # seconds between keepalive heartbeats
+                _event_time_lock = (
+                    threading.Lock()
+                )  # protects _last_event_time across threads
 
                 # Background keepalive sender: emits {"keepalive": true} every 15s
                 # while no tokens are flowing (prevents client timeout during tool-use)
@@ -13911,12 +13919,15 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         _keepalive_stop.wait(_KEEPALIVE_INTERVAL)
                         if _keepalive_stop.is_set():
                             break
-                        if time.time() - _last_event_time >= _KEEPALIVE_INTERVAL:
+                        with _event_time_lock:
+                            _elapsed = time.time() - _last_event_time
+                        if _elapsed >= _KEEPALIVE_INTERVAL:
                             try:
                                 ka_evt = json.dumps({"keepalive": True})
                                 self.wfile.write(f"data: {ka_evt}\n\n".encode())
                                 self.wfile.flush()
-                                _last_event_time = time.time()
+                                with _event_time_lock:
+                                    _last_event_time = time.time()
                             except (BrokenPipeError, ConnectionResetError, OSError):
                                 logger.debug("SSE keepalive: client disconnected")
                                 break
@@ -13933,7 +13944,8 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     )
                     self.wfile.write(f"data: {_status_evt}\n\n".encode())
                     self.wfile.flush()
-                    _last_event_time = time.time()
+                    with _event_time_lock:
+                        _last_event_time = time.time()
                 except (BrokenPipeError, ConnectionResetError, OSError):
                     _keepalive_stop.set()
                     return
@@ -13981,7 +13993,8 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                 try:
                                     self.wfile.write(f"data: {_tool_evt}\n\n".encode())
                                     self.wfile.flush()
-                                    _last_event_time = time.time()
+                                    with _event_time_lock:
+                                        _last_event_time = time.time()
                                 except (BrokenPipeError, ConnectionResetError, OSError):
                                     break
                             elif chunk.get("status"):
@@ -13992,7 +14005,8 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                 try:
                                     self.wfile.write(f"data: {status_evt}\n\n".encode())
                                     self.wfile.flush()
-                                    _last_event_time = time.time()
+                                    with _event_time_lock:
+                                        _last_event_time = time.time()
                                 except (BrokenPipeError, ConnectionResetError, OSError):
                                     break
                             else:
@@ -14003,7 +14017,8 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                     event = json.dumps({"token": token, "done": False})
                                     self.wfile.write(f"data: {event}\n\n".encode())
                                     self.wfile.flush()
-                                    _last_event_time = time.time()
+                                    with _event_time_lock:
+                                        _last_event_time = time.time()
                 finally:
                     _keepalive_stop.set()
 

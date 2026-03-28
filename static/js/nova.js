@@ -1041,7 +1041,7 @@
     welcome.className = "welcome-screen";
     welcome.id = "welcome-screen";
     welcome.innerHTML =
-      '<div class="welcome-orb-container"><div class="welcome-orb" aria-hidden="true"></div></div>' +
+      '<div class="welcome-orb-container"><div class="welcome-orb" aria-hidden="true"></div><div class="welcome-orb-label">Nova AI</div></div>' +
       '<div class="welcome-title">Good ' +
       getGreeting() +
       ". How can I help?</div>" +
@@ -1127,12 +1127,34 @@
       ) {
         var meta = document.createElement("div");
         meta.className = "message-meta";
-        sources.forEach(function (src) {
-          var b = document.createElement("span");
-          b.className = "meta-badge";
-          b.textContent = src;
-          meta.appendChild(b);
-        });
+        if (sources.length > 0) {
+          var sourcesWrap = document.createElement("div");
+          sourcesWrap.className = "sources-collapsible";
+          var sourcesToggle = document.createElement("button");
+          sourcesToggle.className = "sources-toggle";
+          sourcesToggle.type = "button";
+          sourcesToggle.textContent = "Sources (" + sources.length + ")";
+          sourcesToggle.setAttribute("aria-expanded", "false");
+          var sourcesList = document.createElement("div");
+          sourcesList.className = "sources-list";
+          sourcesList.style.display = "none";
+          sources.forEach(function (src) {
+            var b = document.createElement("span");
+            b.className = "meta-badge";
+            b.textContent = src;
+            sourcesList.appendChild(b);
+          });
+          sourcesToggle.addEventListener("click", function () {
+            var expanded =
+              sourcesToggle.getAttribute("aria-expanded") === "true";
+            sourcesToggle.setAttribute("aria-expanded", String(!expanded));
+            sourcesList.style.display = expanded ? "none" : "flex";
+            sourcesToggle.classList.toggle("expanded", !expanded);
+          });
+          sourcesWrap.appendChild(sourcesToggle);
+          sourcesWrap.appendChild(sourcesList);
+          meta.appendChild(sourcesWrap);
+        }
         if (typeof confidence === "number" && confidence > 0) {
           var pct = Math.round(confidence * 100);
           var cls = pct >= 75 ? "high" : pct >= 50 ? "medium" : "low";
@@ -1411,8 +1433,12 @@
           "X-CSRF-Token": window.__csrfToken,
         },
         body: JSON.stringify(payload),
-      }).catch(function () {});
-    } catch (e) {}
+      }).catch(function (err) {
+        console.warn("[Nova] Feedback send failed:", err);
+      });
+    } catch (e) {
+      console.warn("[Nova] Feedback error:", e);
+    }
   }
 
   // ========================================================================
@@ -1638,7 +1664,7 @@
           callbacks.onToken(evt.token, fullText);
         }
       } catch (e) {
-        console.warn("[Nova WS] Parse error:", e);
+        /* console.warn("[Nova WS] Parse error:", e); */
       }
     };
 
@@ -2094,7 +2120,9 @@
           "X-CSRF-Token": window.__csrfToken,
         },
         body: JSON.stringify({ conversation_id: conv.id }),
-      }).catch(function () {});
+      }).catch(function (err) {
+        console.warn("[Nova] Stop generation failed:", err);
+      });
     }
   });
 
@@ -2211,7 +2239,8 @@
     voiceBtn.classList.add("recording");
 
     _recognition.onresult = function (e) {
-      var transcript = Array.from(e.results)
+      var transcript = Array.prototype.slice
+        .call(e.results)
         .map(function (r) {
           return r[0].transcript;
         })
@@ -2636,6 +2665,7 @@
       CY = H / 2;
     var orbR = 40;
     var t = 0;
+    var _orbFrameId = null;
     var dots = [];
     for (var i = 0; i < 60; i++) {
       var phi = Math.acos(1 - 2 * Math.random());
@@ -2671,9 +2701,23 @@
       });
 
       t += 0.016;
-      requestAnimationFrame(draw);
+      _orbFrameId = requestAnimationFrame(draw);
     }
-    draw();
+    _orbFrameId = requestAnimationFrame(draw);
+
+    // Pause/resume orb animation on tab visibility change to prevent rAF leak
+    document.addEventListener("visibilitychange", function () {
+      if (document.hidden) {
+        if (_orbFrameId) {
+          cancelAnimationFrame(_orbFrameId);
+          _orbFrameId = null;
+        }
+      } else {
+        if (!_orbFrameId) {
+          _orbFrameId = requestAnimationFrame(draw);
+        }
+      }
+    });
   })();
 
   // ========================================================================
@@ -2693,23 +2737,8 @@
   // TOKEN USAGE INDICATOR (context window tracking)
   // ========================================================================
   function createTokenIndicator() {
-    var charCountEl = document.getElementById("char-count");
-    if (!charCountEl) return null;
-    var indicator = document.getElementById("token-indicator");
-    if (indicator) return indicator;
-    indicator = document.createElement("div");
-    indicator.id = "token-indicator";
-    indicator.style.cssText =
-      "font-size:11px;color:var(--text-muted);display:inline-flex;" +
-      "align-items:center;gap:4px;margin-left:8px;opacity:0;transition:opacity 0.3s;";
-    indicator.title = "Approximate token usage for this conversation";
-    indicator.innerHTML =
-      '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0">' +
-      '<path d="M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5z"/>' +
-      '<line x1="16" y1="8" x2="2" y2="22"/><line x1="17.5" y1="15" x2="9" y2="15"/>' +
-      '</svg><span class="token-text">0 tokens</span>';
-    charCountEl.parentNode.insertBefore(indicator, charCountEl.nextSibling);
-    return indicator;
+    // Token indicator DOM already exists in nova.html -- just return the element.
+    return document.getElementById("token-indicator");
   }
 
   function updateTokenIndicator(tokenUsage) {

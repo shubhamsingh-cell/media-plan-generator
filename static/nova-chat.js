@@ -130,6 +130,7 @@
       _widgetWsConn.onclose = function () {
         _widgetWsConn = null;
       };
+      _widgetWsConn._novaManaged = true;
     } catch (e) {
       _widgetWsFailCount++;
       onReady(null);
@@ -149,7 +150,7 @@
           _done = true;
           callbacks.onError("WebSocket timeout");
         }
-      }, 35000);
+      }, 90000);
     }
     resetTo();
 
@@ -188,7 +189,7 @@
           callbacks.onToken(evt.token, fullText);
         }
       } catch (e) {
-        console.warn("[Nova Widget WS] Parse error:", e);
+        /* console.warn("[Nova Widget WS] Parse error:", e); */
       }
     };
     ws.onerror = function () {
@@ -1123,7 +1124,7 @@
       var trimmed = messages.slice(-CONFIG.maxHistoryStorage);
       localStorage.setItem(CONFIG.storageKey, JSON.stringify(trimmed));
     } catch (e) {
-      console.warn("localStorage write failed:", e.message);
+      /* localStorage write failed */
     }
   }
 
@@ -1199,7 +1200,7 @@
       var name = localStorage.getItem("nova_user_name");
       if (name && name.trim()) return name.trim().charAt(0).toUpperCase();
     } catch (e) {
-      console.warn("localStorage read failed:", e.message);
+      /* localStorage read failed */
     }
     return "Y";
   }
@@ -1209,7 +1210,7 @@
       var name = localStorage.getItem("nova_user_name");
       if (name && name.trim()) return name.trim();
     } catch (e) {
-      console.warn("localStorage read failed:", e.message);
+      /* localStorage read failed */
     }
     return "You";
   }
@@ -1605,7 +1606,7 @@
               try {
                 ni.value = localStorage.getItem("nova_user_name") || "";
               } catch (e) {
-                console.warn("localStorage read failed:", e.message);
+                /* localStorage read failed */
               }
               ni.focus();
             }
@@ -1620,7 +1621,7 @@
         try {
           localStorage.setItem("nova_user_name", name);
         } catch (e) {
-          console.warn("localStorage write failed:", e.message);
+          /* localStorage write failed */
         }
         var sp = document.getElementById("nova-settings-panel");
         if (sp) sp.classList.remove("nova-settings-open");
@@ -1679,7 +1680,7 @@
       try {
         _savedTheme = localStorage.getItem("nova_theme");
       } catch (e) {
-        console.warn("localStorage read failed:", e.message);
+        /* localStorage read failed */
       }
       if (_savedTheme === "light") {
         panel.classList.add("nova-light");
@@ -1696,7 +1697,7 @@
           try {
             localStorage.setItem("nova_theme", "light");
           } catch (e) {
-            console.warn("localStorage write failed:", e.message);
+            /* localStorage write failed */
           }
           if (moonIcon) moonIcon.style.display = "none";
           if (sunIcon) sunIcon.style.display = "";
@@ -1704,7 +1705,7 @@
           try {
             localStorage.setItem("nova_theme", "dark");
           } catch (e) {
-            console.warn("localStorage write failed:", e.message);
+            /* localStorage write failed */
           }
           if (moonIcon) moonIcon.style.display = "";
           if (sunIcon) sunIcon.style.display = "none";
@@ -1898,6 +1899,10 @@
         });
       }
       state.chatOpenedAt = 0;
+      // Close WebSocket connection when panel is closed
+      if (_widgetWsConn && _widgetWsConn.readyState === WebSocket.OPEN) {
+        _widgetWsConn.close();
+      }
       panel.classList.remove("nova-visible");
       panel.classList.add("nova-hidden");
       // Remove close icon, restore orb
@@ -2393,6 +2398,7 @@
           })
           .then(function (blob) {
             var url = URL.createObjectURL(blob);
+            btn._ttsBlobUrl = url;
             audio = new Audio(url);
             audio.play();
             btn.innerHTML =
@@ -2403,9 +2409,15 @@
               btn.style.color = "#666";
               delete btn.dataset.playing;
               URL.revokeObjectURL(url);
+              btn._ttsBlobUrl = null;
             });
           })
           .catch(function () {
+            // Revoke blob URL on error to prevent memory leak
+            if (btn._ttsBlobUrl) {
+              URL.revokeObjectURL(btn._ttsBlobUrl);
+              btn._ttsBlobUrl = null;
+            }
             btn.innerHTML =
               '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg> Listen';
             btn.style.color = "#F87171";
@@ -2801,7 +2813,7 @@
     try {
       sessionToken = localStorage.getItem(CONFIG.sessionTokenKey) || "";
     } catch (e) {
-      console.warn("localStorage read failed:", e.message);
+      /* localStorage read failed */
     }
     var payload = {
       message: text,
@@ -3184,7 +3196,7 @@
                     metadata.session_token,
                   );
                 } catch (e) {
-                  console.warn("localStorage write failed:", e.message);
+                  /* localStorage write failed */
                 }
               }
 

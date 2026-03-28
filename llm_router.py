@@ -49,7 +49,7 @@ Features (v4.0):
     - Response cache: LRU with task-aware TTL (5-min default, 15-min for verification/compliance)
 
 Each provider has independent circuit breaker (5 failures -> 60s cooldown)
-and per-minute rate tracking.  24 total providers, 20 free + 4 paid.
+and per-minute rate tracking.  24 total providers (20 free + 4 paid).
 
 Stdlib-only, thread-safe.
 """
@@ -123,7 +123,6 @@ GROQ = "groq"
 CEREBRAS = "cerebras"
 MISTRAL = "mistral"
 OPENROUTER = "openrouter"
-XAI = "xai"
 SAMBANOVA = "sambanova"
 NVIDIA_NIM = "nvidia_nim"
 CLOUDFLARE = "cloudflare"
@@ -236,7 +235,6 @@ _RATE_LIMITS: dict[str, dict[str, int]] = {
     "claude": {"rpm": 50, "window": 60},
     "claude_opus": {"rpm": 40, "window": 60},
     "gpt4o": {"rpm": 60, "window": 60},
-    "xai": {"rpm": 60, "window": 60},
 }
 
 
@@ -1224,8 +1222,6 @@ _PROVIDER_COST_PER_M_TOKENS: Dict[str, Dict[str, float]] = {
     OPENROUTER_YI: {"input": 0.0, "output": 0.0},
     OPENROUTER_DEEPSEEK_R1: {"input": 0.0, "output": 0.0},
     OPENROUTER_GEMMA: {"input": 0.0, "output": 0.0},
-    # xAI: credits-based ($25 free signup), NOT truly free -- track actual costs
-    XAI: {"input": 2.0, "output": 10.0},
     CLAUDE_HAIKU: {"input": 1.0, "output": 5.0},
     GPT4O: {"input": 2.5, "output": 10.0},
     CLAUDE: {"input": 3.0, "output": 15.0},
@@ -1981,7 +1977,7 @@ def _build_gemini_request(
 ) -> Tuple[str, Dict[str, str], bytes]:
     """Build a Gemini API request.
 
-    Supports both gemini-2.5-flash and gemini-2.5-flash-lite via provider_id.
+    Supports both gemini-3-flash-preview and gemini-3.1-flash-lite-preview via provider_id.
     Handles tool definitions (converted from Anthropic format) and multi-turn
     tool conversations with functionCall/functionResponse parts.
     """
@@ -2619,8 +2615,8 @@ def call_llm(
         {
             "text": "response text",
             "provider": "gemini|groq|cerebras|claude|claude_opus",
-            "provider_name": "Gemini 2.5 Flash",
-            "model": "gemini-2.5-flash",
+            "provider_name": "Gemini 3 Flash",
+            "model": "gemini-3-flash-preview",
             "task_type": "conversational",
             "input_tokens": 100,
             "output_tokens": 200,

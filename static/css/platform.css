@@ -1,9 +1,12 @@
-PAGE-SPECIFIC
+/* Z-INDEX SCALE: 1=base, 10=sticky, 50=dropdown, 100=overlay, 200=modal, 300=drawer, 500=cmdK, 700=toast, 1000=critical */
+
+/* ═══════════════════════════════════════════════════════════════
+  PAGE-SPECIFIC
   TOKENS
   (base design tokens in tokens.css)
   ═══════════════════════════════════════════════════════════════
   */
-  :root {
+:root {
   /* Brand -- inherited from tokens.css, kept here for page-specific surfaces */
   --port-gore: #202058;
   --blue-violet: #5a54bd;

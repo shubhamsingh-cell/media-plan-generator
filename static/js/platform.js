@@ -663,6 +663,7 @@ const NovaSidebar = (() => {
    ───────────────────────────────────────────────────────────── */
 const NovaRouter = (() => {
   const _fragmentCache = {};
+  const _FRAGMENT_TTL_MS = 30 * 60 * 1000; /* 30 minutes */
   let _currentRoute = null;
   let _currentTabId = null;
 
@@ -720,11 +721,14 @@ const NovaRouter = (() => {
   }
 
   async function _loadFragment(fragmentName) {
-    if (_fragmentCache[fragmentName]) return _fragmentCache[fragmentName];
+    const cached = _fragmentCache[fragmentName];
+    if (cached && Date.now() - cached.timestamp < _FRAGMENT_TTL_MS) {
+      return cached.html;
+    }
     const resp = await fetch(`/fragment/${fragmentName}`);
     if (!resp.ok) throw new Error(`Fragment load failed: ${resp.status}`);
     const html = await resp.text();
-    _fragmentCache[fragmentName] = html;
+    _fragmentCache[fragmentName] = { html: html, timestamp: Date.now() };
     return html;
   }
 
