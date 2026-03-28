@@ -9432,9 +9432,52 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                 return _append_follow_ups_to_response(
                     free_tool_result, user_message, session_id=_session_id
                 )
-            logger.info(
-                "NOVA MODE: Free LLM tools returned None, falling back to Claude"
-            )
+            # S27: Auto-retry with different provider before falling to Claude
+            _elapsed_retry = time.time() - _t0
+            if _elapsed_retry < 50.0:
+                _retry_providers = ["gemini", "gpt4o", "claude_haiku"]
+                _used_provider = _ab_variant or ""
+                for _rp in _retry_providers:
+                    if _rp == _used_provider:
+                        continue
+                    logger.warning(
+                        "NOVA MODE: Auto-retry with %s (%.1fs elapsed)",
+                        _rp,
+                        _elapsed_retry,
+                    )
+                    try:
+                        free_tool_result = self._chat_with_free_llm_tools(
+                            user_message,
+                            conversation_history,
+                            enrichment_context,
+                            is_complex=_is_complex,
+                            ab_force_provider=_rp,
+                            outer_deadline=outer_deadline,
+                        )
+                        if (
+                            free_tool_result
+                            and (free_tool_result.get("response") or "").strip()
+                        ):
+                            logger.info("NOVA MODE: Auto-retry with %s succeeded", _rp)
+                            free_tool_result = _enrich_response_quality(
+                                _sanitize_refusal_language(
+                                    _filter_competitor_names(free_tool_result)
+                                ),
+                                user_message,
+                            )
+                            return _append_follow_ups_to_response(
+                                free_tool_result,
+                                user_message,
+                                session_id=_session_id,
+                            )
+                    except Exception as _ar_err:
+                        logger.warning(
+                            "NOVA MODE: Auto-retry with %s failed: %s",
+                            _rp,
+                            _ar_err,
+                        )
+                        continue
+            logger.info("NOVA MODE: All auto-retries exhausted, falling back to Claude")
 
         # Path C: Claude API -- LAST RESORT paid fallback
         _check_cancellation(cancel_event)
