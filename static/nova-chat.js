@@ -1727,7 +1727,11 @@
     // PostHog: delegated listener for link clicks inside Nova responses
     messagesDiv.addEventListener("click", function (e) {
       var link = e.target.closest("a[href]");
-      if (link && window.posthog) {
+      if (
+        link &&
+        window.posthog &&
+        typeof window.posthog.capture === "function"
+      ) {
         window.posthog.capture("nova_chat_action_taken", {
           action_type: "link_click",
           page: window.location.pathname,
@@ -1856,7 +1860,7 @@
       // PostHog: track panel open + record session start time
       state.chatOpenedAt = Date.now();
       state.messagesSentCount = 0;
-      if (window.posthog) {
+      if (window.posthog && typeof window.posthog.capture === "function") {
         window.posthog.capture("nova_chat_opened", {
           source: "widget",
           page: window.location.pathname,
@@ -1961,7 +1965,7 @@
       btn.textContent = q;
       btn.addEventListener("click", function () {
         // PostHog: track suggestion chip click
-        if (window.posthog) {
+        if (window.posthog && typeof window.posthog.capture === "function") {
           window.posthog.capture("nova_chat_suggestion_clicked", {
             source: "widget",
             page: window.location.pathname,
@@ -2448,7 +2452,7 @@
     thumbDownBtn.style.cssText = ratingBtnStyle;
     (function (upBtn, downBtn, idx) {
       function handleRating(rating) {
-        if (window.posthog) {
+        if (window.posthog && typeof window.posthog.capture === "function") {
           window.posthog.capture("nova_chat_response_rated", {
             rating: rating,
             message_index: idx,
@@ -2739,7 +2743,7 @@
       messagesDiv.innerHTML = "";
       showWelcome();
     }
-    if (window.posthog) {
+    if (window.posthog && typeof window.posthog.capture === "function") {
       window.posthog.capture("nova_chat_history_cleared", {
         source: "keyboard_shortcut",
         page: window.location.pathname,
@@ -2775,12 +2779,16 @@
 
     // PostHog: track message sent
     state.messagesSentCount++;
-    if (window.posthog) {
-      window.posthog.capture("nova_chat_message_sent", {
-        source: "widget",
-        page: window.location.pathname,
-        message_length: text.length,
-      });
+    if (window.posthog && typeof window.posthog.capture === "function") {
+      try {
+        window.posthog.capture("nova_chat_message_sent", {
+          source: "widget",
+          page: window.location.pathname,
+          message_length: text.length,
+        });
+      } catch (_e) {
+        /* PostHog not ready */
+      }
     }
 
     // W-02: Set loading state BEFORE appending message to prevent race condition
@@ -2922,7 +2930,10 @@
               clearWidgetToolStatus();
               clearTimeout(fetchTimeout);
               // PostHog tracking
-              if (window.posthog) {
+              if (
+                window.posthog &&
+                typeof window.posthog.capture === "function"
+              ) {
                 window.posthog.capture("nova_chat_response_received", {
                   source: "widget",
                   page: window.location.pathname,
@@ -3161,7 +3172,10 @@
             return processChunk().then(function () {
               clearTimeout(fetchTimeout);
               // PostHog: track response received
-              if (window.posthog) {
+              if (
+                window.posthog &&
+                typeof window.posthog.capture === "function"
+              ) {
                 window.posthog.capture("nova_chat_response_received", {
                   source: "widget",
                   page: window.location.pathname,
@@ -3268,7 +3282,10 @@
             clearTimeout(fetchTimeout);
             hideTyping();
             // PostHog: track chat error
-            if (window.posthog) {
+            if (
+              window.posthog &&
+              typeof window.posthog.capture === "function"
+            ) {
               window.posthog.capture("nova_chat_error", {
                 source: "widget",
                 page: window.location.pathname,
@@ -3370,7 +3387,7 @@
           // Unwrap API envelope: _send_json wraps as {success, data, error}
           var result = data && data.data ? data.data : data;
           // PostHog: track non-streaming response received
-          if (window.posthog) {
+          if (window.posthog && typeof window.posthog.capture === "function") {
             window.posthog.capture("nova_chat_response_received", {
               source: "widget",
               page: window.location.pathname,
@@ -3400,7 +3417,7 @@
           clearTimeout(fetchTimeout);
           hideTyping();
           // PostHog: track non-streaming error
-          if (window.posthog) {
+          if (window.posthog && typeof window.posthog.capture === "function") {
             window.posthog.capture("nova_chat_error", {
               source: "widget",
               page: window.location.pathname,
@@ -3533,7 +3550,7 @@
      * Track voice input usage (call from voice feature when implemented).
      */
     trackVoiceUsed: function () {
-      if (window.posthog) {
+      if (window.posthog && typeof window.posthog.capture === "function") {
         window.posthog.capture("nova_chat_voice_used", {
           source: "widget",
           page: window.location.pathname,
@@ -3547,7 +3564,7 @@
      * @param {number} fileSize - Size in bytes
      */
     trackFileUploaded: function (fileType, fileSize) {
-      if (window.posthog) {
+      if (window.posthog && typeof window.posthog.capture === "function") {
         window.posthog.capture("nova_chat_file_uploaded", {
           source: "widget",
           page: window.location.pathname,
