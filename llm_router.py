@@ -982,7 +982,8 @@ TASK_ROUTING: Dict[str, List[str]] = {
     ],
     TASK_BATCH: [
         GEMINI,  # S29: Gemini #1 for batch -- free, good quality, low-stakes
-        GEMINI_FLASH_LITE,  # S29: Flash Lite #2 -- even cheaper
+        CLAUDE_HAIKU,  # S29: Haiku #2 -- reliable fallback
+        GEMINI_FLASH_LITE,
         GROQ,
         CEREBRAS,
         CLOUDFLARE,
@@ -1027,8 +1028,8 @@ TASK_ROUTING: Dict[str, List[str]] = {
         CLAUDE_OPUS,
     ],
     TASK_BUDGET_OPTIMIZE: [
-        GEMINI,
-        MISTRAL,
+        GEMINI,  # S29: Gemini #1 -- strong at math
+        CLAUDE_HAIKU,  # S29: Haiku #2 -- reliable fallback
         OPENROUTER_GEMMA,
         GROQ,
         CEREBRAS,
@@ -1142,7 +1143,8 @@ TASK_ROUTING: Dict[str, List[str]] = {
     ],
     TASK_CONTEXT_SUMMARIZE: [
         GEMINI,  # S29: Gemini #1 for summarization -- free, excellent compression
-        GEMINI_FLASH_LITE,  # S29: Flash Lite #2
+        CLAUDE_HAIKU,  # S29: Haiku #2 -- reliable fallback
+        GEMINI_FLASH_LITE,
         GROQ,
         CEREBRAS,
         ZHIPU,
