@@ -3343,11 +3343,11 @@
     <!-- Lenis smooth scroll -->
     <script src="https://unpkg.com/lenis@1.1.13/dist/lenis.min.js"></script>
 
-    <!-- GSAP + ScrollTrigger (cdnjs primary) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+    <!-- GSAP + ScrollTrigger (jsdelivr primary -- cdnjs has 503 outages) -->
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
 
-    <!-- Nova animation modules -->
+    <!-- Nova animation modules (loaded after GSAP) -->
     <script src="/static/js/animations.js?v=3.0.0"></script>
     <script src="/static/js/story-scroll.js?v=3.0.0"></script>
     <script src="/static/js/custom-cursor.js?v=2.0.0"></script>
