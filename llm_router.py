@@ -922,10 +922,10 @@ TASK_ROUTING: Dict[str, List[str]] = {
         CLAUDE_OPUS,
     ],
     TASK_VERIFICATION: [
-        GEMINI,  # S29: #1 free -- fast verification
-        CLAUDE_HAIKU,  # S29: #2 paid -- MOVED FROM #17! Verification in plan pipeline must be fast
-        GROQ,  # #3 free fallback
-        GPT4O,  # #4 paid fallback
+        CLAUDE_HAIKU,  # S29 v2: Haiku #1 -- quality-first for plan verification
+        GEMINI,  # #2 free fallback
+        GPT4O,  # #3 paid fallback
+        GROQ,  # #4 free fallback
         MISTRAL,
         CEREBRAS,
         ZHIPU,
@@ -963,10 +963,10 @@ TASK_ROUTING: Dict[str, List[str]] = {
         CLAUDE_OPUS,
     ],
     TASK_NARRATIVE: [
-        GEMINI,  # S29: #1 free -- fast and good quality
-        CLAUDE_HAIKU,  # S29: #2 paid -- MOVED FROM #17! Plan narratives must not cascade through 16 free providers
-        GROQ,  # #3 free fallback
-        GPT4O,  # #4 paid fallback
+        CLAUDE_HAIKU,  # S29 v2: Haiku #1 -- quality-first for plan narratives (exec summary, risk, competitive)
+        GEMINI,  # #2 free fallback
+        GPT4O,  # #3 paid fallback
+        GROQ,  # #4 free fallback
         CEREBRAS,
         OPENROUTER,
         ZHIPU,
