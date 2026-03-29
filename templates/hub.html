@@ -3237,46 +3237,79 @@
       })();
     </script>
 
-    <!-- Three.js for hero particle mesh (jsdelivr primary, cdnjs fallback) -->
-    <script
-      src="https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.min.js"
-      defer
-      onerror="
-        var s = document.createElement('script');
-        s.src = 'https://unpkg.com/three@0.170.0/build/three.min.js';
-        s.defer = true;
-        document.head.appendChild(s);
-      "
-    ></script>
+    <!-- CDN Loader: Three.js + GSAP with fallback, then Nova modules -->
+    <script>
+      (function () {
+        var loaded = { three: false, gsap: false, st: false };
+        var appScripts = [
+          "/static/js/animations.js?v=2.1.0",
+          "/static/js/story-scroll.js?v=2.0.0",
+          "/static/js/three-hero.js?v=1.0.0",
+          "/static/js/custom-cursor.js?v=1.0.0",
+        ];
 
-    <!-- GSAP Animation Library with CDN fallback -->
-    <script
-      src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.7/gsap.min.js"
-      defer
-      onerror="
-        var s = document.createElement('script');
-        s.src = 'https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/gsap.min.js';
-        s.defer = true;
-        document.head.appendChild(s);
-      "
-    ></script>
-    <script
-      src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.7/ScrollTrigger.min.js"
-      defer
-      onerror="
-        var s = document.createElement('script');
-        s.src =
-          'https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/ScrollTrigger.min.js';
-        s.defer = true;
-        document.head.appendChild(s);
-      "
-    ></script>
+        function loadScript(primary, fallback, key, cb) {
+          var s = document.createElement("script");
+          s.src = primary;
+          s.onload = function () {
+            loaded[key] = true;
+            if (cb) cb();
+          };
+          s.onerror = function () {
+            if (fallback) {
+              var s2 = document.createElement("script");
+              s2.src = fallback;
+              s2.onload = function () {
+                loaded[key] = true;
+                if (cb) cb();
+              };
+              s2.onerror = function () {
+                loaded[key] = true;
+                if (cb) cb();
+              };
+              document.head.appendChild(s2);
+            } else {
+              loaded[key] = true;
+              if (cb) cb();
+            }
+          };
+          document.head.appendChild(s);
+        }
 
-    <!-- Nova animation modules -->
-    <script src="/static/js/animations.js?v=2.1.0" defer></script>
-    <script src="/static/js/story-scroll.js?v=2.0.0" defer></script>
-    <script src="/static/js/three-hero.js?v=1.0.0" defer></script>
-    <script src="/static/js/custom-cursor.js?v=1.0.0" defer></script>
+        function loadAppScripts() {
+          if (!loaded.three || !loaded.gsap || !loaded.st) return;
+          appScripts.forEach(function (src) {
+            var s = document.createElement("script");
+            s.src = src;
+            document.body.appendChild(s);
+          });
+        }
+
+        /* Three.js r159 (last version with UMD three.min.js) */
+        loadScript(
+          "https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js",
+          "https://cdn.jsdelivr.net/npm/three@0.134.0/build/three.min.js",
+          "three",
+          loadAppScripts,
+        );
+
+        /* GSAP */
+        loadScript(
+          "https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.7/gsap.min.js",
+          "https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/gsap.min.js",
+          "gsap",
+          loadAppScripts,
+        );
+
+        /* GSAP ScrollTrigger */
+        loadScript(
+          "https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.7/ScrollTrigger.min.js",
+          "https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/ScrollTrigger.min.js",
+          "st",
+          loadAppScripts,
+        );
+      })();
+    </script>
     <script>
       document.addEventListener("DOMContentLoaded", function () {
         if (window.matchMedia("(prefers-reduced-motion: reduce)").matches)
