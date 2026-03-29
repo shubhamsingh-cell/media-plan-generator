@@ -29,7 +29,7 @@ body {
 }
 
 .moment-1 .moment-visual {
-  min-height: 320px !important;
+  min-height: 280px !important;
   max-width: 700px !important;
 }
 
@@ -280,11 +280,25 @@ body {
   font-size: 17px !important;
 }
 
+/* ── Section overlap transitions ── */
+.products-section,
+.plan-showcase,
+.cta-section {
+  position: relative;
+  z-index: 1;
+}
+
+/* Sections slightly overlap the previous */
+.products-section {
+  margin-top: -40px;
+}
+.cta-section {
+  margin-top: -20px;
+}
+
 /* ── Scroll-triggered section entrances (CSS-only, no GSAP) ── */
 .demo-section,
-.products-section,
-.proof-section,
-.cta-section {
+.proof-section {
   position: relative;
 }
 

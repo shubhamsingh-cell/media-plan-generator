@@ -393,4 +393,41 @@
       { passive: true },
     );
   })();
+
+  /* ═══════════════════════════════════════════
+     9. SCROLL COLOR JOURNEY — background shifts per section
+     ═══════════════════════════════════════════ */
+  (function initColorJourney() {
+    var colors = [
+      { r: 8, g: 8, b: 15 } /* Hero: deep space #08080f */,
+      { r: 10, g: 8, b: 20 } /* Trust: hint of violet */,
+      { r: 12, g: 10, b: 28 } /* Story: deeper violet */,
+      { r: 8, g: 12, b: 20 } /* Products: hint of teal */,
+      { r: 8, g: 8, b: 15 } /* CTA: back to deep */,
+    ];
+
+    var sections = document.querySelectorAll("section");
+    if (sections.length < 2) return;
+
+    window.addEventListener(
+      "scroll",
+      function () {
+        var scrollY = window.scrollY;
+        var docHeight =
+          document.documentElement.scrollHeight - window.innerHeight;
+        var progress = Math.min(scrollY / (docHeight || 1), 1);
+        var idx = progress * (colors.length - 1);
+        var i = Math.floor(idx);
+        var t = idx - i;
+        var from = colors[Math.min(i, colors.length - 1)];
+        var to = colors[Math.min(i + 1, colors.length - 1)];
+        var r = Math.round(from.r + (to.r - from.r) * t);
+        var g = Math.round(from.g + (to.g - from.g) * t);
+        var b = Math.round(from.b + (to.b - from.b) * t);
+        document.body.style.backgroundColor =
+          "rgb(" + r + "," + g + "," + b + ")";
+      },
+      { passive: true },
+    );
+  })();
 })();

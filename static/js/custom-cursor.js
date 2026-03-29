@@ -10,6 +10,9 @@
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   if (window.innerWidth < 768) return;
 
+  /* Custom cursor disabled — distracting, use native cursor */
+  return;
+
   /* ── Create cursor elements ── */
   var dot = document.createElement("div");
   dot.className = "nova-cursor-dot";

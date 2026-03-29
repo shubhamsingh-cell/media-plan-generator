@@ -1016,6 +1016,49 @@
         }
       }
 
+      /* Hero staggered entrance with blur */
+      .hero-anim {
+        opacity: 0;
+        filter: blur(8px);
+        transform: translateY(20px);
+        animation: hero-entrance 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      }
+      .hero-anim:nth-child(1) {
+        animation-delay: 0.1s;
+      }
+      .hero-anim:nth-child(2) {
+        animation-delay: 0.25s;
+      }
+      .hero-anim:nth-child(3) {
+        animation-delay: 0.4s;
+      }
+      .hero-anim:nth-child(4) {
+        animation-delay: 0.55s;
+      }
+      /* The artifact should fade in last */
+      .hero-artifact {
+        opacity: 0;
+        filter: blur(8px);
+        transform: translateY(30px);
+        animation: hero-entrance 1s cubic-bezier(0.16, 1, 0.3, 1) 0.7s forwards;
+      }
+      @keyframes hero-entrance {
+        to {
+          opacity: 1;
+          filter: blur(0);
+          transform: translateY(0);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .hero-anim,
+        .hero-artifact {
+          opacity: 1;
+          filter: none;
+          transform: none;
+          animation: none;
+        }
+      }
+
       /* Scroll to discover prompt */
       .scroll-prompt {
         position: absolute;
@@ -1151,6 +1194,17 @@
           transform: translateX(-50%);
         }
       }
+      .marquee-reverse {
+        animation: marquee-reverse 35s linear infinite;
+      }
+      @keyframes marquee-reverse {
+        0% {
+          transform: translateX(-50%);
+        }
+        100% {
+          transform: translateX(0);
+        }
+      }
 
       /* ── SECTION 3: STORY SCROLL ── */
       .story-scroll {
@@ -1205,7 +1259,7 @@
       }
       .moment-visual {
         width: 100%;
-        max-width: 600px;
+        max-width: 700px;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -2096,11 +2150,12 @@
       }
       .footer-grid {
         display: grid;
-        grid-template-columns: 2fr 1fr 1fr 1fr;
+        grid-template-columns: 1fr 1fr;
         gap: 48px;
         margin-bottom: 48px;
       }
       .footer-brand {
+        grid-column: 1 / -1;
         display: flex;
         flex-direction: column;
         gap: 16px;
@@ -2232,6 +2287,19 @@
         }
       }
       @media (max-width: 640px) {
+        .hero-headline {
+          font-size: clamp(1.8rem, 5vw, 2.5rem);
+        }
+        .ha-phase {
+          padding: 20px 16px;
+        }
+        .ha-out-val {
+          font-size: 16px;
+        }
+        .ha-bar-name {
+          width: 65px;
+          font-size: 10px;
+        }
         .hero-actions {
           width: 100%;
         }
@@ -2296,7 +2364,8 @@
           opacity: 1;
           transform: none;
         }
-        .marquee {
+        .marquee,
+        .marquee-reverse {
           animation: none;
         }
         .btn-primary:hover,
@@ -2676,6 +2745,63 @@
               >Johnson &amp; Johnson</span
             >
             <span class="marquee-item" aria-hidden="true">HealthTrust</span>
+          </div>
+        </div>
+        <div class="marquee-wrap" style="margin-top: 12px">
+          <div class="marquee marquee-reverse">
+            <span class="marquee-item" style="opacity: 0.3">Barclays</span>
+            <span class="marquee-item" style="opacity: 0.3">Wells Fargo</span>
+            <span class="marquee-item" style="opacity: 0.3">Philips</span>
+            <span class="marquee-item" style="opacity: 0.3">Randstad</span>
+            <span class="marquee-item" style="opacity: 0.3">ING</span>
+            <span class="marquee-item" style="opacity: 0.3">Adecco Group</span>
+            <span class="marquee-item" style="opacity: 0.3"
+              >HCA Healthcare</span
+            >
+            <span class="marquee-item" style="opacity: 0.3">Korn Ferry</span>
+            <span class="marquee-item" style="opacity: 0.3">Pizza Hut</span>
+            <span class="marquee-item" style="opacity: 0.3">Circle K</span>
+            <span class="marquee-item" style="opacity: 0.3"
+              >Johnson &amp; Johnson</span
+            >
+            <span class="marquee-item" style="opacity: 0.3">HealthTrust</span>
+            <!-- Duplicate for seamless loop -->
+            <span class="marquee-item" aria-hidden="true" style="opacity: 0.3"
+              >Barclays</span
+            >
+            <span class="marquee-item" aria-hidden="true" style="opacity: 0.3"
+              >Wells Fargo</span
+            >
+            <span class="marquee-item" aria-hidden="true" style="opacity: 0.3"
+              >Philips</span
+            >
+            <span class="marquee-item" aria-hidden="true" style="opacity: 0.3"
+              >Randstad</span
+            >
+            <span class="marquee-item" aria-hidden="true" style="opacity: 0.3"
+              >ING</span
+            >
+            <span class="marquee-item" aria-hidden="true" style="opacity: 0.3"
+              >Adecco Group</span
+            >
+            <span class="marquee-item" aria-hidden="true" style="opacity: 0.3"
+              >HCA Healthcare</span
+            >
+            <span class="marquee-item" aria-hidden="true" style="opacity: 0.3"
+              >Korn Ferry</span
+            >
+            <span class="marquee-item" aria-hidden="true" style="opacity: 0.3"
+              >Pizza Hut</span
+            >
+            <span class="marquee-item" aria-hidden="true" style="opacity: 0.3"
+              >Circle K</span
+            >
+            <span class="marquee-item" aria-hidden="true" style="opacity: 0.3"
+              >Johnson &amp; Johnson</span
+            >
+            <span class="marquee-item" aria-hidden="true" style="opacity: 0.3"
+              >HealthTrust</span
+            >
           </div>
         </div>
       </section>
@@ -3533,11 +3659,6 @@
             <li><a href="/nova">Nova AI</a></li>
             <li><a href="/quick-plan">Quick Plan</a></li>
             <li><a href="/api-portal">API Portal</a></li>
-          </ul>
-        </div>
-        <div>
-          <div class="footer-col-title">Resources</div>
-          <ul class="footer-links">
             <li><a href="/quick-brief">Quick Brief</a></li>
             <li><a href="/creative-ai">Creative AI</a></li>
             <li><a href="/simulator">Simulator</a></li>
