@@ -1,226 +1,218 @@
 /**
- * three-hero.js — Interactive 3D particle mesh for Nova AI Suite hero
- * Creates a flowing particle network that responds to mouse movement.
- * Inspired by cornrevolution.resn.global and Codrops particle tutorials.
- * Requires: Three.js r170+ loaded via CDN before this script.
+ * three-hero.js v2.0 — Cinematic GLSL shader hero for Nova AI Suite
+ *
+ * Creates a full-screen organic flowing mesh background using vertex/fragment
+ * shaders. Inspired by Awwwards-winning sites (cornrevolution.resn.global).
+ *
+ * Effect: A luminous neural-network-like mesh that breathes, flows, and
+ * responds to mouse position with volumetric glow in brand colors.
+ *
+ * Requires: Three.js (r134 UMD) loaded before this script.
  */
 (function () {
   "use strict";
 
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   if (typeof THREE === "undefined") {
-    console.warn("[Nova] Three.js not loaded — skipping hero particles");
+    console.warn("[Nova] Three.js not loaded — skipping hero shader");
     return;
   }
 
   var canvas = document.getElementById("hero-canvas");
   if (!canvas) return;
 
-  /* ── Constants ── */
-  var PARTICLE_COUNT = 4000;
-  var MOUSE_RADIUS = 2.5;
-  var MOUSE_STRENGTH = 0.8;
-  var WAVE_SPEED = 0.4;
-  var WAVE_AMP = 0.3;
-  var CONNECTION_DIST = 1.8;
-  var MAX_CONNECTIONS = 800;
-
-  /* ── Brand colors ── */
-  var VIOLET = new THREE.Color(0x5a54bd);
-  var TEAL = new THREE.Color(0x6bb3cd);
-  var PORT_GORE = new THREE.Color(0x202058);
-
-  /* ── Scene ── */
-  var scene = new THREE.Scene();
-  var camera = new THREE.PerspectiveCamera(
-    60,
-    window.innerWidth / window.innerHeight,
-    0.1,
-    100,
-  );
-  camera.position.z = 18;
-
+  /* ── Scene setup ── */
   var renderer = new THREE.WebGLRenderer({
     canvas: canvas,
     alpha: true,
-    antialias: false,
+    antialias: true,
     powerPreference: "high-performance",
   });
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
-  /* ── Particles ── */
-  var positions = new Float32Array(PARTICLE_COUNT * 3);
-  var originalPositions = new Float32Array(PARTICLE_COUNT * 3);
-  var colors = new Float32Array(PARTICLE_COUNT * 3);
-  var sizes = new Float32Array(PARTICLE_COUNT);
-  var velocities = new Float32Array(PARTICLE_COUNT * 3);
+  var scene = new THREE.Scene();
+  var camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10);
+  camera.position.z = 1;
 
-  var spread = 28;
-  var depthSpread = 6;
-
-  for (var i = 0; i < PARTICLE_COUNT; i++) {
-    var i3 = i * 3;
-
-    /* Distribute in a wide elliptical field */
-    var angle = Math.random() * Math.PI * 2;
-    var radius = Math.sqrt(Math.random()) * spread * 0.5;
-    var x = Math.cos(angle) * radius * 1.4; /* wider horizontally */
-    var y = Math.sin(angle) * radius * 0.7; /* shorter vertically */
-    var z = (Math.random() - 0.5) * depthSpread;
-
-    positions[i3] = x;
-    positions[i3 + 1] = y;
-    positions[i3 + 2] = z;
-    originalPositions[i3] = x;
-    originalPositions[i3 + 1] = y;
-    originalPositions[i3 + 2] = z;
-
-    velocities[i3] = 0;
-    velocities[i3 + 1] = 0;
-    velocities[i3 + 2] = 0;
-
-    /* Color gradient: center = violet, edges = teal, with random variation */
-    var distFromCenter = Math.sqrt(x * x + y * y) / (spread * 0.4);
-    var t = Math.min(distFromCenter + (Math.random() - 0.5) * 0.3, 1);
-    var color = VIOLET.clone().lerp(TEAL, t);
-    colors[i3] = color.r;
-    colors[i3 + 1] = color.g;
-    colors[i3 + 2] = color.b;
-
-    sizes[i] = Math.random() * 1.5 + 0.5;
-  }
-
-  var geometry = new THREE.BufferGeometry();
-  geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-  geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
-  geometry.setAttribute("aSize", new THREE.BufferAttribute(sizes, 1));
-
-  /* ── Vertex Shader ── */
+  /* ── Full-screen quad with shader material ── */
   var vertexShader = [
-    "attribute float aSize;",
-    "uniform float uTime;",
-    "uniform float uPixelRatio;",
-    "uniform float uScroll;",
-    "varying vec3 vColor;",
-    "varying float vAlpha;",
-    "",
+    "varying vec2 vUv;",
     "void main() {",
-    "  vColor = color;",
-    "  vec3 pos = position;",
-    "",
-    "  /* Gentle floating wave */",
-    "  float wave = sin(pos.x * 0.3 + uTime * " +
-      WAVE_SPEED.toFixed(1) +
-      ") * " +
-      WAVE_AMP.toFixed(1) +
-      ";",
-    "  wave += cos(pos.y * 0.4 + uTime * 0.3) * 0.15;",
-    "  pos.z += wave;",
-    "",
-    "  /* Depth-based alpha */",
-    "  float depth = (pos.z + 3.0) / 6.0;",
-    "  vAlpha = clamp(depth * 0.6 + 0.4, 0.15, 0.9);",
-    "",
-    "  /* Scroll fade */",
-    "  vAlpha *= clamp(1.0 - uScroll * 1.5, 0.0, 1.0);",
-    "",
-    "  vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);",
-    "  gl_PointSize = aSize * uPixelRatio * (8.0 / -mvPosition.z);",
-    "  gl_Position = projectionMatrix * mvPosition;",
+    "  vUv = uv;",
+    "  gl_Position = vec4(position, 1.0);",
     "}",
   ].join("\n");
 
-  /* ── Fragment Shader ── */
   var fragmentShader = [
-    "varying vec3 vColor;",
-    "varying float vAlpha;",
+    "precision highp float;",
+    "",
+    "uniform float uTime;",
+    "uniform vec2 uResolution;",
+    "uniform vec2 uMouse;",
+    "uniform float uScroll;",
+    "",
+    "varying vec2 vUv;",
+    "",
+    "/* Simplex-style noise */",
+    "vec3 mod289(vec3 x) { return x - floor(x * (1.0/289.0)) * 289.0; }",
+    "vec4 mod289(vec4 x) { return x - floor(x * (1.0/289.0)) * 289.0; }",
+    "vec4 permute(vec4 x) { return mod289(((x*34.0)+1.0)*x); }",
+    "vec4 taylorInvSqrt(vec4 r) { return 1.79284291400159 - 0.85373472095314 * r; }",
+    "",
+    "float snoise(vec3 v) {",
+    "  const vec2 C = vec2(1.0/6.0, 1.0/3.0);",
+    "  const vec4 D = vec4(0.0, 0.5, 1.0, 2.0);",
+    "  vec3 i = floor(v + dot(v, C.yyy));",
+    "  vec3 x0 = v - i + dot(i, C.xxx);",
+    "  vec3 g = step(x0.yzx, x0.xyz);",
+    "  vec3 l = 1.0 - g;",
+    "  vec3 i1 = min(g.xyz, l.zxy);",
+    "  vec3 i2 = max(g.xyz, l.zxy);",
+    "  vec3 x1 = x0 - i1 + C.xxx;",
+    "  vec3 x2 = x0 - i2 + C.yyy;",
+    "  vec3 x3 = x0 - D.yyy;",
+    "  i = mod289(i);",
+    "  vec4 p = permute(permute(permute(",
+    "    i.z + vec4(0.0, i1.z, i2.z, 1.0))",
+    "    + i.y + vec4(0.0, i1.y, i2.y, 1.0))",
+    "    + i.x + vec4(0.0, i1.x, i2.x, 1.0));",
+    "  float n_ = 0.142857142857;",
+    "  vec3 ns = n_ * D.wyz - D.xzx;",
+    "  vec4 j = p - 49.0 * floor(p * ns.z * ns.z);",
+    "  vec4 x_ = floor(j * ns.z);",
+    "  vec4 y_ = floor(j - 7.0 * x_);",
+    "  vec4 x = x_ * ns.x + ns.yyyy;",
+    "  vec4 y = y_ * ns.x + ns.yyyy;",
+    "  vec4 h = 1.0 - abs(x) - abs(y);",
+    "  vec4 b0 = vec4(x.xy, y.xy);",
+    "  vec4 b1 = vec4(x.zw, y.zw);",
+    "  vec4 s0 = floor(b0)*2.0 + 1.0;",
+    "  vec4 s1 = floor(b1)*2.0 + 1.0;",
+    "  vec4 sh = -step(h, vec4(0.0));",
+    "  vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy;",
+    "  vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww;",
+    "  vec3 p0 = vec3(a0.xy,h.x);",
+    "  vec3 p1 = vec3(a0.zw,h.y);",
+    "  vec3 p2 = vec3(a1.xy,h.z);",
+    "  vec3 p3 = vec3(a1.zw,h.w);",
+    "  vec4 norm = taylorInvSqrt(vec4(dot(p0,p0),dot(p1,p1),dot(p2,p2),dot(p3,p3)));",
+    "  p0 *= norm.x; p1 *= norm.y; p2 *= norm.z; p3 *= norm.w;",
+    "  vec4 m = max(0.6 - vec4(dot(x0,x0),dot(x1,x1),dot(x2,x2),dot(x3,x3)), 0.0);",
+    "  m = m * m;",
+    "  return 42.0 * dot(m*m, vec4(dot(p0,x0),dot(p1,x1),dot(p2,x2),dot(p3,x3)));",
+    "}",
     "",
     "void main() {",
-    "  /* Soft circle with glow */",
-    "  float dist = length(gl_PointCoord - vec2(0.5));",
-    "  if (dist > 0.5) discard;",
+    "  vec2 uv = vUv;",
+    "  vec2 aspect = vec2(uResolution.x / uResolution.y, 1.0);",
+    "  vec2 p = (uv - 0.5) * aspect;",
     "",
-    "  float glow = 1.0 - smoothstep(0.0, 0.5, dist);",
-    "  glow = pow(glow, 1.5);",
+    "  /* Mouse influence */",
+    "  vec2 mouseOffset = (uMouse - 0.5) * aspect;",
+    "  float mouseDist = length(p - mouseOffset);",
+    "  float mouseInfluence = smoothstep(0.8, 0.0, mouseDist) * 0.3;",
     "",
-    "  gl_FragColor = vec4(vColor, glow * vAlpha);",
+    "  /* Layered noise for organic flow */",
+    "  float t = uTime * 0.15;",
+    "  float n1 = snoise(vec3(p * 1.5 + t, t * 0.5)) * 0.5 + 0.5;",
+    "  float n2 = snoise(vec3(p * 3.0 - t * 0.7, t * 0.3 + 10.0)) * 0.5 + 0.5;",
+    "  float n3 = snoise(vec3(p * 6.0 + t * 0.4, t * 0.2 + 20.0)) * 0.5 + 0.5;",
+    "",
+    "  /* Combine noise layers */",
+    "  float noise = n1 * 0.6 + n2 * 0.3 + n3 * 0.1;",
+    "  noise += mouseInfluence;",
+    "",
+    "  /* Neural network lines effect */",
+    "  float lines = abs(sin(noise * 12.0 + t * 2.0));",
+    "  lines = pow(lines, 8.0);",
+    "  float lineGlow = smoothstep(0.3, 1.0, lines) * 0.4;",
+    "",
+    "  /* Brand color palette */",
+    "  vec3 violet = vec3(0.353, 0.329, 0.741);  /* #5A54BD */",
+    "  vec3 teal = vec3(0.420, 0.702, 0.804);    /* #6BB3CD */",
+    "  vec3 portGore = vec3(0.125, 0.125, 0.345); /* #202058 */",
+    "  vec3 deep = vec3(0.02, 0.02, 0.06);",
+    "",
+    "  /* Color mixing based on noise */",
+    "  vec3 col = mix(deep, portGore, noise * 0.6);",
+    "  col = mix(col, violet, smoothstep(0.4, 0.8, noise) * 0.35);",
+    "  col = mix(col, teal, smoothstep(0.6, 0.9, n2) * 0.2);",
+    "",
+    "  /* Add line glow */",
+    "  col += violet * lineGlow * 0.5;",
+    "  col += teal * lineGlow * 0.3 * n2;",
+    "",
+    "  /* Volumetric center glow */",
+    "  float centerDist = length(p * vec2(0.8, 1.2));",
+    "  float glow = exp(-centerDist * 1.8) * 0.25;",
+    "  col += violet * glow;",
+    "",
+    "  /* Mouse glow */",
+    "  float mGlow = exp(-mouseDist * 3.0) * 0.15;",
+    "  col += teal * mGlow;",
+    "",
+    "  /* Vignette */",
+    "  float vignette = 1.0 - smoothstep(0.3, 1.2, centerDist);",
+    "  col *= vignette * 0.8 + 0.2;",
+    "",
+    "  /* Scroll fade to black */",
+    "  float scrollFade = clamp(1.0 - uScroll * 1.2, 0.0, 1.0);",
+    "  col *= scrollFade;",
+    "",
+    "  /* Subtle film grain */",
+    "  float grain = fract(sin(dot(uv * uTime, vec2(12.9898, 78.233))) * 43758.5453);",
+    "  col += (grain - 0.5) * 0.015;",
+    "",
+    "  gl_FragColor = vec4(col, 1.0);",
     "}",
   ].join("\n");
 
-  var pointsMaterial = new THREE.ShaderMaterial({
-    uniforms: {
-      uTime: { value: 0 },
-      uPixelRatio: { value: renderer.getPixelRatio() },
-      uScroll: { value: 0 },
+  var uniforms = {
+    uTime: { value: 0 },
+    uResolution: {
+      value: new THREE.Vector2(window.innerWidth, window.innerHeight),
     },
+    uMouse: { value: new THREE.Vector2(0.5, 0.5) },
+    uScroll: { value: 0 },
+  };
+
+  var material = new THREE.ShaderMaterial({
+    uniforms: uniforms,
     vertexShader: vertexShader,
     fragmentShader: fragmentShader,
-    transparent: true,
-    depthWrite: false,
-    blending: THREE.AdditiveBlending,
-    vertexColors: true,
-  });
-
-  var points = new THREE.Points(geometry, pointsMaterial);
-  scene.add(points);
-
-  /* ── Connection Lines ── */
-  var linePositions = new Float32Array(MAX_CONNECTIONS * 6);
-  var lineColors = new Float32Array(MAX_CONNECTIONS * 6);
-  var lineGeometry = new THREE.BufferGeometry();
-  lineGeometry.setAttribute(
-    "position",
-    new THREE.BufferAttribute(linePositions, 3),
-  );
-  lineGeometry.setAttribute("color", new THREE.BufferAttribute(lineColors, 3));
-  lineGeometry.setDrawRange(0, 0);
-
-  var lineMaterial = new THREE.LineBasicMaterial({
-    vertexColors: true,
-    transparent: true,
-    opacity: 0.12,
-    blending: THREE.AdditiveBlending,
+    depthTest: false,
     depthWrite: false,
   });
 
-  var lines = new THREE.LineSegments(lineGeometry, lineMaterial);
-  scene.add(lines);
+  var geometry = new THREE.PlaneGeometry(2, 2);
+  var mesh = new THREE.Mesh(geometry, material);
+  scene.add(mesh);
 
   /* ── Mouse tracking ── */
-  var mouse = { x: 0, y: 0, worldX: 0, worldY: 0 };
-  var mouseTarget = { x: 0, y: 0 };
-  var isMouseInHero = false;
+  var mouseTarget = { x: 0.5, y: 0.5 };
+  var mouseCurrent = { x: 0.5, y: 0.5 };
 
-  function onMouseMove(e) {
-    var rect = canvas.getBoundingClientRect();
-    mouseTarget.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-    mouseTarget.y = -(((e.clientY - rect.top) / rect.height) * 2 - 1);
-    isMouseInHero = true;
-  }
+  document.addEventListener(
+    "mousemove",
+    function (e) {
+      mouseTarget.x = e.clientX / window.innerWidth;
+      mouseTarget.y = 1.0 - e.clientY / window.innerHeight;
+    },
+    { passive: true },
+  );
 
-  function onMouseLeave() {
-    isMouseInHero = false;
-  }
-
-  canvas.addEventListener("mousemove", onMouseMove, { passive: true });
-  canvas.addEventListener("mouseleave", onMouseLeave, { passive: true });
-
-  /* ── Touch support ── */
-  canvas.addEventListener(
+  /* Touch */
+  document.addEventListener(
     "touchmove",
     function (e) {
       if (e.touches.length > 0) {
-        var touch = e.touches[0];
-        var rect = canvas.getBoundingClientRect();
-        mouseTarget.x = ((touch.clientX - rect.left) / rect.width) * 2 - 1;
-        mouseTarget.y = -(((touch.clientY - rect.top) / rect.height) * 2 - 1);
-        isMouseInHero = true;
+        mouseTarget.x = e.touches[0].clientX / window.innerWidth;
+        mouseTarget.y = 1.0 - e.touches[0].clientY / window.innerHeight;
       }
     },
     { passive: true },
   );
-  canvas.addEventListener("touchend", onMouseLeave, { passive: true });
 
   /* ── Scroll tracking ── */
   var scrollY = 0;
@@ -235,179 +227,46 @@
     { passive: true },
   );
 
-  /* ── Update connections between nearby particles ── */
-  function updateConnections() {
-    var connectionCount = 0;
-    var posAttr = geometry.attributes.position.array;
-    var colAttr = geometry.attributes.color.array;
-    var step = Math.max(1, Math.floor(PARTICLE_COUNT / 600));
-
-    for (
-      var i = 0;
-      i < PARTICLE_COUNT && connectionCount < MAX_CONNECTIONS;
-      i += step
-    ) {
-      var i3 = i * 3;
-      var ax = posAttr[i3];
-      var ay = posAttr[i3 + 1];
-      var az = posAttr[i3 + 2];
-
-      for (
-        var j = i + step;
-        j < PARTICLE_COUNT && connectionCount < MAX_CONNECTIONS;
-        j += step
-      ) {
-        var j3 = j * 3;
-        var dx = posAttr[j3] - ax;
-        var dy = posAttr[j3 + 1] - ay;
-        var dz = posAttr[j3 + 2] - az;
-        var dist = dx * dx + dy * dy + dz * dz;
-
-        if (dist < CONNECTION_DIST * CONNECTION_DIST) {
-          var ci = connectionCount * 6;
-          linePositions[ci] = ax;
-          linePositions[ci + 1] = ay;
-          linePositions[ci + 2] = az;
-          linePositions[ci + 3] = posAttr[j3];
-          linePositions[ci + 4] = posAttr[j3 + 1];
-          linePositions[ci + 5] = posAttr[j3 + 2];
-
-          /* Color: average of connected particles */
-          var alpha = 1 - Math.sqrt(dist) / CONNECTION_DIST;
-          lineColors[ci] = colAttr[i3] * alpha;
-          lineColors[ci + 1] = colAttr[i3 + 1] * alpha;
-          lineColors[ci + 2] = colAttr[i3 + 2] * alpha;
-          lineColors[ci + 3] = colAttr[j3] * alpha;
-          lineColors[ci + 4] = colAttr[j3 + 1] * alpha;
-          lineColors[ci + 5] = colAttr[j3 + 2] * alpha;
-
-          connectionCount++;
-        }
-      }
-    }
-
-    lineGeometry.setDrawRange(0, connectionCount * 2);
-    lineGeometry.attributes.position.needsUpdate = true;
-    lineGeometry.attributes.color.needsUpdate = true;
-  }
-
   /* ── Animation loop ── */
   var clock = new THREE.Clock();
-  var frameCount = 0;
 
   function animate() {
     requestAnimationFrame(animate);
 
-    /* Skip rendering when scrolled past hero */
-    if (scrollY > 1.2) return;
+    /* Skip when scrolled past hero */
+    if (scrollY > 1.5) return;
 
     var time = clock.getElapsedTime();
-    frameCount++;
 
     /* Smooth mouse interpolation */
-    mouse.x += (mouseTarget.x - mouse.x) * 0.08;
-    mouse.y += (mouseTarget.y - mouse.y) * 0.08;
+    mouseCurrent.x += (mouseTarget.x - mouseCurrent.x) * 0.05;
+    mouseCurrent.y += (mouseTarget.y - mouseCurrent.y) * 0.05;
 
-    /* Convert mouse to world coordinates */
-    var vector = new THREE.Vector3(mouse.x, mouse.y, 0.5);
-    vector.unproject(camera);
-    var dir = vector.sub(camera.position).normalize();
-    var distance = -camera.position.z / dir.z;
-    var worldPos = camera.position.clone().add(dir.multiplyScalar(distance));
-    mouse.worldX = worldPos.x;
-    mouse.worldY = worldPos.y;
-
-    /* Update particle positions */
-    var posAttr = geometry.attributes.position;
-    var posArray = posAttr.array;
-
-    for (var i = 0; i < PARTICLE_COUNT; i++) {
-      var i3 = i * 3;
-
-      /* Mouse repulsion */
-      if (isMouseInHero) {
-        var dx = posArray[i3] - mouse.worldX;
-        var dy = posArray[i3 + 1] - mouse.worldY;
-        var dist = Math.sqrt(dx * dx + dy * dy);
-
-        if (dist < MOUSE_RADIUS && dist > 0.01) {
-          var force = (1 - dist / MOUSE_RADIUS) * MOUSE_STRENGTH;
-          velocities[i3] += (dx / dist) * force;
-          velocities[i3 + 1] += (dy / dist) * force;
-        }
-      }
-
-      /* Spring back to original position */
-      velocities[i3] += (originalPositions[i3] - posArray[i3]) * 0.02;
-      velocities[i3 + 1] +=
-        (originalPositions[i3 + 1] - posArray[i3 + 1]) * 0.02;
-      velocities[i3 + 2] +=
-        (originalPositions[i3 + 2] - posArray[i3 + 2]) * 0.01;
-
-      /* Apply velocity with damping */
-      velocities[i3] *= 0.92;
-      velocities[i3 + 1] *= 0.92;
-      velocities[i3 + 2] *= 0.95;
-
-      posArray[i3] += velocities[i3];
-      posArray[i3 + 1] += velocities[i3 + 1];
-      posArray[i3 + 2] += velocities[i3 + 2];
-    }
-
-    posAttr.needsUpdate = true;
-
-    /* Update connections every 3rd frame for performance */
-    if (frameCount % 3 === 0) {
-      updateConnections();
-    }
-
-    /* Update uniforms */
-    pointsMaterial.uniforms.uTime.value = time;
-    pointsMaterial.uniforms.uScroll.value = scrollY;
-    lineMaterial.opacity = 0.12 * Math.max(0, 1 - scrollY * 1.5);
-
-    /* Subtle camera sway */
-    camera.position.x = Math.sin(time * 0.15) * 0.3;
-    camera.position.y = Math.cos(time * 0.12) * 0.2;
-    camera.lookAt(0, 0, 0);
-
-    /* Gentle rotation of entire particle system */
-    points.rotation.z = time * 0.02;
-    lines.rotation.z = time * 0.02;
+    uniforms.uTime.value = time;
+    uniforms.uMouse.value.set(mouseCurrent.x, mouseCurrent.y);
+    uniforms.uScroll.value = scrollY;
 
     renderer.render(scene, camera);
   }
 
   animate();
 
-  /* ── Resize handler ── */
+  /* ── Resize ── */
   var resizeTimeout;
   window.addEventListener("resize", function () {
     clearTimeout(resizeTimeout);
     resizeTimeout = setTimeout(function () {
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
       renderer.setSize(window.innerWidth, window.innerHeight);
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-      pointsMaterial.uniforms.uPixelRatio.value = renderer.getPixelRatio();
+      uniforms.uResolution.value.set(window.innerWidth, window.innerHeight);
       heroHeight = heroSection ? heroSection.offsetHeight : window.innerHeight;
     }, 150);
   });
 
-  /* ── Cleanup on page unload ── */
+  /* ── Cleanup ── */
   window.addEventListener("beforeunload", function () {
     geometry.dispose();
-    pointsMaterial.dispose();
-    lineGeometry.dispose();
-    lineMaterial.dispose();
+    material.dispose();
     renderer.dispose();
   });
-
-  /* ── Expose for debugging ── */
-  window._novaHero = {
-    scene: scene,
-    camera: camera,
-    renderer: renderer,
-    particleCount: PARTICLE_COUNT,
-  };
 })();

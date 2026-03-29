@@ -98,8 +98,8 @@
       }
 
       :root {
-        --bg-primary: #000000;
-        --bg-secondary: #0a0a0a;
+        --bg-primary: #08080f;
+        --bg-secondary: #0d0d1a;
         --bg-card: rgba(17, 17, 17, 0.8);
         --bg-card-hover: rgba(26, 26, 26, 0.9);
         --surface-1: #111111;
@@ -298,6 +298,16 @@
         line-height: 1.6;
         overflow-x: hidden;
         -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        text-rendering: optimizeLegibility;
+      }
+      /* Lenis smooth scroll */
+      html.lenis,
+      html.lenis body {
+        height: auto;
+      }
+      .lenis.lenis-smooth {
+        scroll-behavior: auto !important;
       }
 
       /* ── Aurora animated background (slowed to 30s cycle) ── */
@@ -605,48 +615,29 @@
         overflow: hidden;
         z-index: 1;
       }
-      /* Three.js hero canvas */
-      #hero-canvas {
+      /* Hero top-center glow (Linear pattern -- CSS only, no Three.js) */
+      .hero::before {
+        content: "";
         position: absolute;
-        inset: 0;
-        z-index: 0;
-        pointer-events: auto;
-        width: 100%;
-        height: 100%;
-      }
-      .hero-bg {
-        position: absolute;
-        inset: 0;
-        z-index: 0;
+        top: -40%;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 120%;
+        height: 80%;
+        background: radial-gradient(
+          50% 50% at 50% 50%,
+          rgba(90, 84, 189, 0.2) 0%,
+          rgba(107, 179, 205, 0.08) 40%,
+          transparent 70%
+        );
+        filter: blur(60px);
         pointer-events: none;
-      }
-      .hero-bg .aurora-layer {
-        position: absolute;
-        width: 200%;
-        height: 200%;
-        top: -50%;
-        left: -50%;
-      }
-      .hero-bg .aurora-1 {
-        background: radial-gradient(
-          ellipse at 30% 50%,
-          rgba(90, 84, 189, 0.14) 0%,
-          transparent 50%
-        );
-        animation: aurora-drift-1 30s ease-in-out infinite alternate;
-      }
-      .hero-bg .aurora-2 {
-        background: radial-gradient(
-          ellipse at 70% 30%,
-          rgba(107, 179, 205, 0.1) 0%,
-          transparent 50%
-        );
-        animation: aurora-drift-2 36s ease-in-out infinite alternate;
+        z-index: 0;
       }
       .hero-content {
         position: relative;
         z-index: 2;
-        max-width: 720px;
+        max-width: 800px;
       }
       .hero-eyebrow {
         display: inline-block;
@@ -663,21 +654,20 @@
       }
       .hero-headline {
         font-family: var(--font-display);
-        font-size: clamp(2.4rem, 5.5vw, 3.75rem);
+        font-size: clamp(2.5rem, 6vw, 4.5rem);
         font-weight: 700;
-        letter-spacing: var(--tracking-tight);
-        line-height: var(--leading-tight);
+        letter-spacing: -0.04em;
+        line-height: 1.05;
         background: linear-gradient(
-          135deg,
+          180deg,
           #ffffff 0%,
-          #c7d2fe 40%,
-          #7b75d4 80%,
-          #6bb3cd 100%
+          rgba(255, 255, 255, 0.5) 100%
         );
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
         margin-bottom: var(--space-6);
+        text-shadow: 0 0 80px rgba(90, 84, 189, 0.15);
       }
       .hero-subline {
         font-size: var(--text-lg);
@@ -713,6 +703,92 @@
         font-size: var(--text-xs);
         color: var(--text-muted);
         letter-spacing: 0.02em;
+      }
+
+      /* Scroll to discover prompt */
+      .scroll-prompt {
+        position: absolute;
+        bottom: 32px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        z-index: 2;
+      }
+      .scroll-prompt-text {
+        font-size: 0.7rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        color: var(--text-muted);
+      }
+      .scroll-prompt-arrow {
+        width: 1px;
+        height: 24px;
+        background: linear-gradient(180deg, var(--text-muted), transparent);
+        animation: scroll-bounce 2s ease-in-out infinite;
+      }
+      @keyframes scroll-bounce {
+        0%,
+        100% {
+          transform: translateY(0);
+          opacity: 0.6;
+        }
+        50% {
+          transform: translateY(8px);
+          opacity: 1;
+        }
+      }
+
+      /* Glow divider between sections */
+      .glow-divider {
+        height: 1px;
+        background: linear-gradient(
+          90deg,
+          transparent,
+          rgba(90, 84, 189, 0.5) 30%,
+          rgba(107, 179, 205, 0.35) 70%,
+          transparent
+        );
+        box-shadow: 0 0 20px rgba(90, 84, 189, 0.2);
+        margin: 0;
+      }
+
+      /* Nav link underline animation */
+      .nav-links a {
+        position: relative;
+      }
+      .nav-links a::after {
+        content: "";
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: 1px;
+        background: currentColor;
+        transform: scaleX(0);
+        transform-origin: right;
+        transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+      .nav-links a:not(.nav-cta):hover::after {
+        transform: scaleX(1);
+        transform-origin: left;
+      }
+
+      /* Word reveal animation */
+      .word-reveal {
+        display: inline-block;
+        opacity: 0;
+        transform: translateY(20px);
+        transition:
+          opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+          transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+      .word-reveal.visible {
+        opacity: 1;
+        transform: translateY(0);
       }
 
       /* ── SECTION 2: TRUST BAR ── */
@@ -1211,20 +1287,42 @@
       }
       .product-hero-card {
         background: var(--bg-card);
-        border: 1px solid var(--border);
+        border: 1px solid rgba(255, 255, 255, 0.08);
         border-radius: var(--radius-xl);
         padding: var(--space-8);
         text-decoration: none;
         color: var(--text-primary);
-        transition: all 0.3s var(--ease-standard);
+        transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         position: relative;
         overflow: hidden;
         display: flex;
         flex-direction: column;
         cursor: pointer;
+        isolation: isolate;
+        --mouse-x: 50%;
+        --mouse-y: 50%;
+      }
+      /* Mouse-tracking glow on hover */
+      .product-hero-card::after {
+        content: "";
+        position: absolute;
+        inset: -1px;
+        border-radius: var(--radius-xl);
+        background: radial-gradient(
+          400px circle at var(--mouse-x) var(--mouse-y),
+          rgba(90, 84, 189, 0.15),
+          transparent 60%
+        );
+        opacity: 0;
+        transition: opacity 0.4s ease;
+        z-index: -1;
+        pointer-events: none;
+      }
+      .product-hero-card:hover::after {
+        opacity: 1;
       }
       .product-hero-card:hover {
-        border-color: rgba(90, 84, 189, 0.4);
+        border-color: rgba(255, 255, 255, 0.15);
         transform: translateY(-4px);
         box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
       }
@@ -2014,7 +2112,7 @@
       </button>
       <div class="nav-links">
         <a href="/nova">Nova AI</a>
-        <a href="/quick-plan">Quick Plan</a>
+        <a href="/platform">Platform</a>
         <a href="/media-plan" class="nav-cta">Generate Plan</a>
       </div>
     </nav>
@@ -2024,12 +2122,7 @@
       <!-- SECTION 1: HERO (centered, simplified)     -->
       <!-- ========================================== -->
       <section class="hero" aria-label="Hero" id="hero">
-        <!-- Three.js interactive particle mesh background -->
-        <canvas id="hero-canvas" aria-hidden="true"></canvas>
-        <div class="hero-bg" aria-hidden="true">
-          <div class="aurora-layer aurora-1"></div>
-          <div class="aurora-layer aurora-2"></div>
-        </div>
+        <!-- CSS radial glow via ::before pseudo-element (no Three.js needed) -->
 
         <div class="hero-content">
           <span class="hero-eyebrow hero-anim"
@@ -2069,7 +2162,15 @@
             data
           </p>
         </div>
+
+        <!-- Scroll to discover prompt -->
+        <div class="scroll-prompt" aria-hidden="true">
+          <span class="scroll-prompt-text">Scroll to discover</span>
+          <div class="scroll-prompt-arrow"></div>
+        </div>
       </section>
+
+      <div class="glow-divider" aria-hidden="true"></div>
 
       <!-- ========================================== -->
       <!-- SECTION 2: TRUST BAR                       -->
@@ -2112,6 +2213,8 @@
           </div>
         </div>
       </section>
+
+      <div class="glow-divider" aria-hidden="true"></div>
 
       <!-- ========================================== -->
       <!-- SECTION 3: STORY SCROLL                    -->
@@ -3237,79 +3340,121 @@
       })();
     </script>
 
-    <!-- CDN Loader: Three.js + GSAP with fallback, then Nova modules -->
+    <!-- Lenis smooth scroll -->
+    <script src="https://unpkg.com/lenis@1.1.13/dist/lenis.min.js"></script>
+
+    <!-- GSAP + ScrollTrigger (cdnjs primary) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+
+    <!-- Nova animation modules -->
+    <script src="/static/js/animations.js?v=3.0.0"></script>
+    <script src="/static/js/story-scroll.js?v=3.0.0"></script>
+    <script src="/static/js/custom-cursor.js?v=2.0.0"></script>
+
+    <!-- Lenis + GSAP sync + scroll reveals -->
     <script>
       (function () {
-        var loaded = { three: false, gsap: false, st: false };
-        var appScripts = [
-          "/static/js/animations.js?v=2.1.0",
-          "/static/js/story-scroll.js?v=2.0.0",
-          "/static/js/three-hero.js?v=1.0.0",
-          "/static/js/custom-cursor.js?v=1.0.0",
-        ];
+        /* ── Lenis smooth scroll ── */
+        if (
+          typeof Lenis !== "undefined" &&
+          typeof gsap !== "undefined" &&
+          typeof ScrollTrigger !== "undefined"
+        ) {
+          gsap.registerPlugin(ScrollTrigger);
 
-        function loadScript(primary, fallback, key, cb) {
-          var s = document.createElement("script");
-          s.src = primary;
-          s.onload = function () {
-            loaded[key] = true;
-            if (cb) cb();
-          };
-          s.onerror = function () {
-            if (fallback) {
-              var s2 = document.createElement("script");
-              s2.src = fallback;
-              s2.onload = function () {
-                loaded[key] = true;
-                if (cb) cb();
-              };
-              s2.onerror = function () {
-                loaded[key] = true;
-                if (cb) cb();
-              };
-              document.head.appendChild(s2);
-            } else {
-              loaded[key] = true;
-              if (cb) cb();
-            }
-          };
-          document.head.appendChild(s);
-        }
-
-        function loadAppScripts() {
-          if (!loaded.three || !loaded.gsap || !loaded.st) return;
-          appScripts.forEach(function (src) {
-            var s = document.createElement("script");
-            s.src = src;
-            document.body.appendChild(s);
+          var lenis = new Lenis({
+            duration: 1.2,
+            easing: function (t) {
+              return Math.min(1, 1.001 - Math.pow(2, -10 * t));
+            },
+            smoothWheel: true,
+            wheelMultiplier: 1,
+            touchMultiplier: 2,
           });
+
+          lenis.on("scroll", ScrollTrigger.update);
+          gsap.ticker.add(function (time) {
+            lenis.raf(time * 1000);
+          });
+          gsap.ticker.lagSmoothing(0);
+
+          /* Tab visibility: pause when hidden */
+          document.addEventListener("visibilitychange", function () {
+            if (document.hidden) {
+              lenis.stop();
+            } else {
+              lenis.start();
+            }
+          });
+
+          /* ── Word-by-word reveal for section titles ── */
+          document.querySelectorAll(".section-title").forEach(function (el) {
+            var words = el.textContent.trim().split(/\s+/);
+            el.innerHTML = words
+              .map(function (w, i) {
+                return (
+                  '<span class="word-reveal" style="transition-delay:' +
+                  i * 80 +
+                  'ms">' +
+                  w +
+                  "</span>"
+                );
+              })
+              .join(" ");
+          });
+
+          /* ── Scroll-triggered reveals with stagger ── */
+          var revealObserver = new IntersectionObserver(
+            function (entries) {
+              entries.forEach(function (entry) {
+                if (entry.isIntersecting) {
+                  /* Reveal the element */
+                  entry.target.classList.add("visible");
+                  /* Also reveal any word-reveal children */
+                  entry.target
+                    .querySelectorAll(".word-reveal")
+                    .forEach(function (w) {
+                      w.classList.add("visible");
+                    });
+                  revealObserver.unobserve(entry.target);
+                }
+              });
+            },
+            { threshold: 0.05, rootMargin: "0px 0px -40px 0px" },
+          );
+
+          document
+            .querySelectorAll(".reveal, .reveal-on-scroll")
+            .forEach(function (el) {
+              revealObserver.observe(el);
+            });
+
+          /* ── Product card mouse-tracking glow ── */
+          document
+            .querySelectorAll(".product-hero-card")
+            .forEach(function (card) {
+              card.addEventListener(
+                "mousemove",
+                function (e) {
+                  var rect = card.getBoundingClientRect();
+                  card.style.setProperty(
+                    "--mouse-x",
+                    e.clientX - rect.left + "px",
+                  );
+                  card.style.setProperty(
+                    "--mouse-y",
+                    e.clientY - rect.top + "px",
+                  );
+                },
+                { passive: true },
+              );
+            });
         }
-
-        /* Three.js r159 (last version with UMD three.min.js) */
-        loadScript(
-          "https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js",
-          "https://cdn.jsdelivr.net/npm/three@0.134.0/build/three.min.js",
-          "three",
-          loadAppScripts,
-        );
-
-        /* GSAP */
-        loadScript(
-          "https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.7/gsap.min.js",
-          "https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/gsap.min.js",
-          "gsap",
-          loadAppScripts,
-        );
-
-        /* GSAP ScrollTrigger */
-        loadScript(
-          "https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.7/ScrollTrigger.min.js",
-          "https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/ScrollTrigger.min.js",
-          "st",
-          loadAppScripts,
-        );
       })();
     </script>
+
+    <!-- S28: Three.js removed, CSS radial glow replaces WebGL shader -->
     <script>
       document.addEventListener("DOMContentLoaded", function () {
         if (window.matchMedia("(prefers-reduced-motion: reduce)").matches)
