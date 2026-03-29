@@ -14857,9 +14857,9 @@ def enrich_data(data: Dict[str, Any], request_id: str = "") -> Dict[str, Any]:
                     exc,
                 )
 
-        # Parallel execution with per-task timeout of 8s and overall 25s hard limit
-        _ENRICHMENT_HARD_TIMEOUT = 25  # seconds
-        _PER_TASK_TIMEOUT = 8  # seconds
+        # S29 v2: Generous timeouts -- let ALL 15+ APIs respond for quality data
+        _ENRICHMENT_HARD_TIMEOUT = 50  # seconds (was 25s -- too tight)
+        _PER_TASK_TIMEOUT = 15  # seconds (was 8s -- some APIs are slow)
         _enrichment_start = time.time()
 
         # Manual pool creation to avoid context manager hang.

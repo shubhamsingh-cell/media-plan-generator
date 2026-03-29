@@ -1057,7 +1057,7 @@
   let genCountdownInterval = null;
   let genPollInterval = null;
   let genCurrentJobId = null;
-  const GEN_TIMEOUT_SECS = 210; // 3.5 minutes (server deadline is 2-3 min, don't overshoot)
+  const GEN_TIMEOUT_SECS = 510; // 8.5 minutes -- quality-first: let the pipeline use ALL data sources
 
   function cancelGeneration() {
     if (genPollInterval) {
@@ -1144,7 +1144,7 @@
 
     // Start countdown timer (5:00 -> 0:00)
     const countdownEl = document.getElementById("genCountdown");
-    if (countdownEl) countdownEl.textContent = "3:30";
+    if (countdownEl) countdownEl.textContent = "8:30";
     if (genCountdownInterval) clearInterval(genCountdownInterval);
     genCountdownInterval = setInterval(() => {
       const elapsed = Math.floor((Date.now() - genStartTime) / 1000);
@@ -3128,7 +3128,7 @@
             genCurrentJobId = null;
             pollReject(
               new Error(
-                "Generation timed out. Please try again -- simpler requests (fewer roles/locations) are faster.",
+                "Generation timed out after 8 minutes. This is unusual -- please try again or contact support.",
               ),
             );
             return;

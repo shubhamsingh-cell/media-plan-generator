@@ -4460,17 +4460,18 @@ def _cleanup_generation_jobs():
             time.sleep(300)  # Every 5 minutes
             now = time.time()
             with _generation_jobs_lock:
-                # Mark stale "processing" jobs as failed (stuck > 3 minutes)
+                # Mark stale "processing" jobs as failed (stuck > 10 minutes)
+                # S29 v2: raised from 3min to 10min for quality-first pipeline
                 for jid, jdata in _generation_jobs.items():
                     if (
                         jdata.get("status") == "processing"
-                        and (now - jdata.get("created", 0)) > 180
+                        and (now - jdata.get("created", 0)) > 600
                     ):
                         jdata["status"] = "failed"
-                        jdata["error"] = "Generation timed out after 3 minutes"
+                        jdata["error"] = "Generation timed out after 10 minutes"
                         jdata["result_bytes"] = None
                         logger.warning(
-                            "Marked stale job %s as failed (stuck in processing > 3min)",
+                            "Marked stale job %s as failed (stuck in processing > 10min)",
                             jid,
                         )
 
@@ -11666,21 +11667,23 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 def _async_generate(jid, gen_data, rid):
                     """Run the full sync generation pipeline in a background thread."""
                     try:
-                        # S29: Adaptive deadline based on request complexity
-                        # Simple requests (1 role, 1 location) get tighter deadlines
+                        # S29 v2: Quality-first -- give the pipeline enough time
+                        # to use ALL data sources (15+ APIs, 25+ KB files, Supabase,
+                        # vector search, LLM synthesis). Reliability > speed.
                         _roles_count = len(
                             gen_data.get("target_roles") or gen_data.get("roles") or []
                         )
                         _locs_count = len(gen_data.get("locations") or [])
-                        _is_simple = _roles_count <= 2 and _locs_count <= 2
-                        _gen_deadline_secs = 120 if _is_simple else 180
+                        _is_complex = _roles_count >= 5 or _locs_count >= 5
+                        _gen_deadline_secs = 480 if _is_complex else 420  # 7-8 min
                         _gen_deadline = time.time() + _gen_deadline_secs
-                        # Adaptive stage timeouts: simple requests get tighter limits
-                        _enrich_timeout = 20 if _is_simple else 35
-                        _synth_timeout = 25 if _is_simple else 45
-                        _gs_timeout = 20 if _is_simple else 30
-                        _verify_timeout = 15 if _is_simple else 30
-                        _excel_timeout = 45 if _is_simple else 60
+                        # Generous stage timeouts -- let each stage use all data
+                        _enrich_timeout = 60  # 15+ parallel API calls need time
+                        _synth_timeout = 90  # KB + vector search + LLM narrative
+                        _gs_timeout = 45  # Gold standard quality gates
+                        _verify_timeout = 45  # LLM verification of data points
+                        _excel_timeout = 90  # Excel with LLM executive narrative
+                        _is_simple = False  # deprecated -- always use full pipeline
                         logger.info(
                             "Async generate job %s: roles=%d, locs=%d, simple=%s, deadline=%ds",
                             jid,
@@ -12193,7 +12196,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                         "status_message"
                                     ] = "Creating strategy deck..."
                             # PPT wrapped in adaptive timeout
-                            _ppt_timeout = 30 if _is_simple else 45
+                            _ppt_timeout = 90  # S29 v2: generous -- quality PPT
                             _ppt_pool = ThreadPoolExecutor(
                                 max_workers=1, thread_name_prefix="async-ppt"
                             )
