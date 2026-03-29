@@ -853,8 +853,8 @@ TASK_ROUTING: Dict[str, List[str]] = {
         CLAUDE_OPUS,
     ],
     TASK_CONVERSATIONAL: [
-        CLAUDE_HAIKU,  # v4.1: Haiku first -- $0.25/M, dramatically better quality
-        GEMINI,  # #2 fallback -- free and good quality
+        GEMINI,  # S29: Gemini #1 for simple/greeting queries -- free, fast, good enough
+        CLAUDE_HAIKU,  # #2 paid fallback -- quality when Gemini is down
         GPT4O,  # #3 paid fallback
         XIAOMI_MIMO,  # Free fallback tier starts here
         GROQ,
