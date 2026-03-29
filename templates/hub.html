@@ -1541,18 +1541,16 @@
         transform: translateY(0);
       }
 
-      /* Page enter */
+      /* Page enter -- opacity only, NO transform on body (breaks position:fixed children) */
       .page-enter {
         animation: page-fade-in 0.6s var(--ease-reveal) both;
       }
       @keyframes page-fade-in {
         from {
           opacity: 0;
-          transform: translateY(12px);
         }
         to {
           opacity: 1;
-          transform: translateY(0);
         }
       }
 
