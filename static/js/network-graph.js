@@ -47,6 +47,7 @@
   svg.setAttribute("viewBox", "0 0 600 420");
   svg.setAttribute("class", "network-graph");
   svg.setAttribute("aria-hidden", "true");
+  svg.setAttribute("aria-hidden", "true");
   svg.style.cssText = "width:100%;max-width:600px;overflow:visible;";
 
   /* ── Orbit rings (subtle dashed) ── */

@@ -153,7 +153,7 @@
         --space-12: 48px;
         --space-16: 64px;
         --space-20: 80px;
-        --space-section: 120px;
+        --space-section: 140px;
 
         /* Radius */
         --radius-sm: 6px;
@@ -330,7 +330,7 @@
       .bg-mesh .aurora-1 {
         background: radial-gradient(
           ellipse at 30% 50%,
-          rgba(90, 84, 189, 0.12) 0%,
+          rgba(90, 84, 189, 0.06) 0%,
           transparent 50%
         );
         animation: aurora-drift-1 30s ease-in-out infinite alternate;
@@ -342,6 +342,7 @@
           transparent 50%
         );
         animation: aurora-drift-2 36s ease-in-out infinite alternate;
+        opacity: 0;
       }
       .bg-mesh .aurora-3 {
         background: radial-gradient(
@@ -350,6 +351,7 @@
           transparent 45%
         );
         animation: aurora-drift-3 40s ease-in-out infinite alternate;
+        opacity: 0;
       }
       @keyframes aurora-drift-1 {
         0% {
@@ -607,12 +609,13 @@
       /* ── SECTION 1: HERO (centered, simplified) ── */
       .hero {
         position: relative;
-        min-height: 100vh;
+        min-height: auto;
         display: flex;
+        flex-direction: column;
         align-items: center;
-        justify-content: center;
+        justify-content: flex-start;
         text-align: center;
-        padding: 80px 2rem 60px;
+        padding: 120px 2rem 60px;
         overflow: hidden;
         z-index: 1;
       }
@@ -675,7 +678,7 @@
         color: var(--text-secondary);
         line-height: var(--leading-normal);
         max-width: 560px;
-        margin: 0 auto var(--space-10);
+        margin: 0 auto var(--space-6);
       }
       .hero-actions {
         display: flex;
@@ -704,6 +707,313 @@
         font-size: var(--text-xs);
         color: var(--text-muted);
         letter-spacing: 0.02em;
+      }
+
+      /* ── Hero Plan Artifact (THE visual center of gravity) ── */
+      .hero-artifact {
+        position: relative;
+        z-index: 2;
+        width: 100%;
+        max-width: 960px;
+        margin: 36px auto 0;
+        perspective: 1200px;
+      }
+      .ha-glow {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 120%;
+        height: 120%;
+        background: radial-gradient(
+          ellipse,
+          rgba(90, 84, 189, 0.08) 0%,
+          transparent 60%
+        );
+        pointer-events: none;
+        z-index: -1;
+      }
+      .ha-frame {
+        display: grid;
+        grid-template-columns: 220px 1fr 320px;
+        gap: 2px;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 20px;
+        overflow: hidden;
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        box-shadow:
+          0 0 0 1px rgba(255, 255, 255, 0.05),
+          0 30px 80px -10px rgba(0, 0, 0, 0.5),
+          0 0 100px -20px rgba(90, 84, 189, 0.12);
+        transform: rotateX(2deg);
+        transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+      .ha-frame:hover {
+        transform: rotateX(0deg) scale(1.005);
+      }
+      .ha-phase {
+        padding: 28px 24px;
+        background: rgba(8, 8, 15, 0.9);
+      }
+
+      /* Input column */
+      .ha-input-label,
+      .ha-output-label {
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        color: var(--text-muted);
+        margin-bottom: 20px;
+      }
+      .ha-input-field {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        padding: 12px 14px;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 10px;
+        margin-bottom: 10px;
+      }
+      .ha-field-icon {
+        display: none;
+      }
+      .ha-field-key {
+        font-size: 10px;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        font-weight: 600;
+      }
+      .ha-field-val {
+        font-size: 15px;
+        color: var(--text-primary);
+        font-weight: 600;
+      }
+      .ha-typing::after {
+        content: "|";
+        color: var(--accent-light);
+        animation: cursor-blink 1s step-end infinite;
+        margin-left: 1px;
+        font-weight: 300;
+      }
+      @keyframes cursor-blink {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0;
+        }
+      }
+      .ha-pulse-line {
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-top: 12px;
+      }
+      .ha-pulse-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--accent);
+        box-shadow: 0 0 12px rgba(90, 84, 189, 0.5);
+        animation: ha-pulse 2s ease-in-out infinite;
+      }
+      @keyframes ha-pulse {
+        0%,
+        100% {
+          transform: scale(1);
+          opacity: 0.6;
+        }
+        50% {
+          transform: scale(1.4);
+          opacity: 1;
+        }
+      }
+
+      /* Intelligence column (center) */
+      .ha-intel {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        border-left: 1px solid rgba(90, 84, 189, 0.15);
+        border-right: 1px solid rgba(90, 84, 189, 0.15);
+      }
+      .ha-intel-orb {
+        position: relative;
+        width: 80px;
+        height: 80px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 20px;
+      }
+      .ha-orb-ring {
+        position: absolute;
+        inset: 0;
+        border-radius: 50%;
+        border: 2px solid rgba(90, 84, 189, 0.3);
+        animation: ha-ring-spin 8s linear infinite;
+        background: radial-gradient(
+          circle,
+          rgba(90, 84, 189, 0.15) 0%,
+          transparent 70%
+        );
+      }
+      @keyframes ha-ring-spin {
+        from {
+          transform: rotate(0deg);
+          border-color: rgba(90, 84, 189, 0.3);
+        }
+        50% {
+          border-color: rgba(107, 179, 205, 0.4);
+        }
+        to {
+          transform: rotate(360deg);
+          border-color: rgba(90, 84, 189, 0.3);
+        }
+      }
+      .ha-orb-core {
+        position: relative;
+        z-index: 1;
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--accent-light);
+        font-family: var(--font-display);
+      }
+      .ha-intel-signals {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        justify-content: center;
+        max-width: 200px;
+      }
+      .ha-signal {
+        font-size: 10px;
+        font-weight: 600;
+        color: var(--text-muted);
+        padding: 4px 10px;
+        border-radius: 20px;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        background: rgba(255, 255, 255, 0.02);
+      }
+
+      /* Output column */
+      .ha-output-metrics {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+        margin-bottom: 20px;
+      }
+      .ha-out-metric {
+        text-align: center;
+        padding: 10px 6px;
+        background: rgba(255, 255, 255, 0.02);
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+      }
+      .ha-out-val {
+        display: block;
+        font-size: 20px;
+        font-weight: 700;
+        color: white;
+        font-family: var(--font-display);
+        font-variant-numeric: tabular-nums;
+      }
+      .ha-accent {
+        color: var(--green) !important;
+      }
+      .ha-out-key {
+        font-size: 9px;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+      .ha-bars {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .ha-bar-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .ha-bar-name {
+        font-size: 11px;
+        color: var(--text-muted);
+        width: 80px;
+        flex-shrink: 0;
+        text-align: right;
+        font-weight: 500;
+      }
+      .ha-bar-track {
+        flex: 1;
+        height: 6px;
+        background: rgba(255, 255, 255, 0.04);
+        border-radius: 3px;
+        overflow: hidden;
+      }
+      .hp-bar-fill {
+        height: 100%;
+        border-radius: 3px;
+        background: var(--bar-c, var(--accent));
+        width: 0%;
+        transition: width 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+      .hp-bar-fill.animated {
+        width: var(--target-w);
+      }
+      .ha-bar-pct {
+        font-size: 11px;
+        color: var(--text-secondary);
+        width: 30px;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+      }
+
+      /* Entrance animations */
+      .hp-anim {
+        opacity: 0;
+        transform: translateY(8px);
+        transition:
+          opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1),
+          transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+      .hp-anim.visible {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      @media (max-width: 900px) {
+        .ha-frame {
+          grid-template-columns: 1fr;
+        }
+        .ha-intel {
+          border-left: none;
+          border-right: none;
+          border-top: 1px solid rgba(90, 84, 189, 0.15);
+          border-bottom: 1px solid rgba(90, 84, 189, 0.15);
+          padding: 20px;
+        }
+      }
+      @media (max-width: 480px) {
+        .ha-output-metrics {
+          grid-template-columns: repeat(3, 1fr);
+        }
+        .ha-bar-name {
+          width: 60px;
+          font-size: 10px;
+        }
+        .hero-artifact {
+          margin-top: 32px;
+        }
       }
 
       /* Scroll to discover prompt */
@@ -2167,9 +2477,7 @@
         <!-- CSS radial glow via ::before pseudo-element (no Three.js needed) -->
 
         <div class="hero-content">
-          <span class="hero-eyebrow hero-anim"
-            >AI-powered recruitment media planning</span
-          >
+          <span class="hero-eyebrow hero-anim">RECRUITMENT INTELLIGENCE</span>
 
           <h1 class="hero-headline hero-anim">
             Turn recruitment budgets<br />into hires, not clicks.
@@ -2193,26 +2501,142 @@
                 />
               </svg>
             </a>
-            <a href="/nova" class="hero-secondary-link">
-              or ask Nova anything about recruitment
-              <span class="arrow">&#8599;</span>
-            </a>
           </div>
-
-          <p class="hero-confidence reveal">
-            Free &middot; No signup required &middot; Based on real campaign
-            data
-          </p>
         </div>
 
-        <!-- Scroll to discover prompt -->
-        <div class="scroll-prompt" aria-hidden="true">
-          <span class="scroll-prompt-text">Scroll to discover</span>
-          <div class="scroll-prompt-arrow"></div>
+        <!-- Hero plan artifact: THE visual center of gravity -->
+        <div class="hero-artifact" aria-label="Nova AI media plan preview">
+          <div class="ha-glow" aria-hidden="true"></div>
+          <div class="ha-frame">
+            <!-- Input phase (left) -->
+            <div class="ha-input ha-phase" data-phase="1">
+              <div class="ha-input-label">INPUT</div>
+              <div class="ha-input-field hp-anim" data-delay="200">
+                <span class="ha-field-icon">&#9673;</span>
+                <span class="ha-field-key">Role</span>
+                <span class="ha-field-val ha-typing">Registered Nurse</span>
+              </div>
+              <div class="ha-input-field hp-anim" data-delay="400">
+                <span class="ha-field-icon">&#9906;</span>
+                <span class="ha-field-key">Location</span>
+                <span class="ha-field-val ha-typing">Houston, TX</span>
+              </div>
+              <div class="ha-input-field hp-anim" data-delay="600">
+                <span class="ha-field-icon">&#9830;</span>
+                <span class="ha-field-key">Budget</span>
+                <span class="ha-field-val ha-typing">$40,000</span>
+              </div>
+              <div
+                class="ha-pulse-line hp-anim"
+                data-delay="900"
+                aria-hidden="true"
+              >
+                <div class="ha-pulse-dot"></div>
+              </div>
+            </div>
+
+            <!-- Intelligence phase (center) -->
+            <div class="ha-intel ha-phase" data-phase="2">
+              <div class="ha-intel-orb hp-anim" data-delay="1000">
+                <div class="ha-orb-ring"></div>
+                <div class="ha-orb-core">Nova</div>
+              </div>
+              <div class="ha-intel-signals">
+                <span class="ha-signal hp-anim" data-delay="1100"
+                  >91+ boards</span
+                >
+                <span class="ha-signal hp-anim" data-delay="1200"
+                  >25 AI models</span
+                >
+                <span class="ha-signal hp-anim" data-delay="1300"
+                  >Real-time CPC</span
+                >
+                <span class="ha-signal hp-anim" data-delay="1400"
+                  >Market data</span
+                >
+              </div>
+            </div>
+
+            <!-- Output phase (right) -->
+            <div class="ha-output ha-phase" data-phase="3">
+              <div class="ha-output-label">OPTIMIZED PLAN</div>
+              <div class="ha-output-metrics">
+                <div class="ha-out-metric hp-anim" data-delay="1600">
+                  <span class="ha-out-val">847</span>
+                  <span class="ha-out-key">Applications</span>
+                </div>
+                <div class="ha-out-metric hp-anim" data-delay="1700">
+                  <span class="ha-out-val">$24</span>
+                  <span class="ha-out-key">CPA</span>
+                </div>
+                <div class="ha-out-metric hp-anim" data-delay="1800">
+                  <span class="ha-out-val ha-accent">95%</span>
+                  <span class="ha-out-key">Confidence</span>
+                </div>
+              </div>
+              <div class="ha-bars">
+                <div class="ha-bar-row hp-anim" data-delay="1900">
+                  <span class="ha-bar-name">Indeed</span>
+                  <div class="ha-bar-track">
+                    <div
+                      class="hp-bar-fill hp-anim-bar"
+                      style="--target-w: 72%; --bar-c: #5a54bd"
+                      data-delay="2000"
+                    ></div>
+                  </div>
+                  <span class="ha-bar-pct">36%</span>
+                </div>
+                <div class="ha-bar-row hp-anim" data-delay="2000">
+                  <span class="ha-bar-name">LinkedIn</span>
+                  <div class="ha-bar-track">
+                    <div
+                      class="hp-bar-fill hp-anim-bar"
+                      style="--target-w: 55%; --bar-c: #06b6d4"
+                      data-delay="2100"
+                    ></div>
+                  </div>
+                  <span class="ha-bar-pct">28%</span>
+                </div>
+                <div class="ha-bar-row hp-anim" data-delay="2100">
+                  <span class="ha-bar-name">ZipRecruiter</span>
+                  <div class="ha-bar-track">
+                    <div
+                      class="hp-bar-fill hp-anim-bar"
+                      style="--target-w: 38%; --bar-c: #22c55e"
+                      data-delay="2200"
+                    ></div>
+                  </div>
+                  <span class="ha-bar-pct">19%</span>
+                </div>
+                <div class="ha-bar-row hp-anim" data-delay="2200">
+                  <span class="ha-bar-name">Glassdoor</span>
+                  <div class="ha-bar-track">
+                    <div
+                      class="hp-bar-fill hp-anim-bar"
+                      style="--target-w: 25%; --bar-c: #f59e0b"
+                      data-delay="2300"
+                    ></div>
+                  </div>
+                  <span class="ha-bar-pct">13%</span>
+                </div>
+                <div class="ha-bar-row hp-anim" data-delay="2300">
+                  <span class="ha-bar-name">Programmatic</span>
+                  <div class="ha-bar-track">
+                    <div
+                      class="hp-bar-fill hp-anim-bar"
+                      style="--target-w: 10%; --bar-c: #8b5cf6"
+                      data-delay="2400"
+                    ></div>
+                  </div>
+                  <span class="ha-bar-pct">5%</span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
+
+        <!-- Scroll prompt removed: hero is no longer full-viewport -->
       </section>
-
-      <div class="glow-divider" aria-hidden="true"></div>
 
       <!-- ========================================== -->
       <!-- SECTION 2: TRUST BAR                       -->
@@ -2697,9 +3121,8 @@
         </div>
       </section>
 
-      <!-- ========================================== -->
-      <!-- SECTION 4: INLINE DEMO                     -->
-      <!-- ========================================== -->
+      <!-- HIDDEN: reducing to 5 screens -->
+      <!--
       <section class="demo-section" aria-label="Live demo">
         <div class="container" style="max-width: 720px">
           <div class="section-label reveal">Try it now</div>
@@ -2781,6 +3204,8 @@
           </div>
         </div>
       </section>
+      -->
+      <!--/HIDDEN-->
 
       <!-- ========================================== -->
       <!-- SECTION 5: TWO PRODUCTS                    -->
@@ -2895,9 +3320,8 @@
         </div>
       </section>
 
-      <!-- ========================================== -->
-      <!-- SECTION 6: PROOF                           -->
-      <!-- ========================================== -->
+      <!-- HIDDEN: proof-section stats merged into CTA -->
+      <!--
       <section class="proof-section" aria-label="Results">
         <div class="container">
           <div class="section-label reveal">Results</div>
@@ -2928,8 +3352,20 @@
             A healthcare staffing firm reduced cost-per-hire by 34% across 120
             nursing roles using Nova's AI-recommended channel mix.
           </div>
+        </div>
+      </section>
+      -->
+      <!--/HIDDEN-->
 
-          <!-- Elevated sample plan showcase -->
+      <!-- ========================================== -->
+      <!-- PLAN SHOWCASE (standalone, moved from proof) -->
+      <!-- ========================================== -->
+      <section
+        class="plan-showcase-standalone"
+        aria-label="Sample plan"
+        style="padding: var(--space-section) 0 var(--space-16)"
+      >
+        <div class="container" style="max-width: 720px">
           <div class="plan-showcase reveal" id="plan-showcase">
             <div class="plan-showcase-glow" aria-hidden="true"></div>
             <div class="plan-showcase-frame">
@@ -3031,6 +3467,17 @@
           <p>
             Generate your first AI-powered media plan in under 30 seconds. Free,
             no signup.
+          </p>
+          <p
+            class="cta-proof-stats"
+            style="
+              font-size: var(--text-sm);
+              color: var(--text-muted);
+              margin-top: var(--space-2);
+            "
+          >
+            5,400+ plans generated &middot; &lt;30s average &middot; 91+ job
+            boards analyzed
           </p>
           <a href="/media-plan" class="cta-btn">
             Generate Plan
@@ -3389,6 +3836,22 @@
             });
           });
 
+        // ── Hero preview: animate bars + metrics on load ──
+        setTimeout(function () {
+          document.querySelectorAll(".hp-anim").forEach(function (el) {
+            var delay = parseInt(el.dataset.delay) || 0;
+            setTimeout(function () {
+              el.classList.add("visible");
+            }, delay);
+          });
+          document.querySelectorAll(".hp-anim-bar").forEach(function (el) {
+            var delay = parseInt(el.dataset.delay) || 0;
+            setTimeout(function () {
+              el.classList.add("animated");
+            }, delay);
+          });
+        }, 800);
+
         // ── Page enter transition ──
         document.body.classList.add("page-enter");
 
@@ -3474,10 +3937,10 @@
           "/static/js/animations.js?v=3.0.0",
           "/static/js/story-scroll.js?v=3.0.0",
           "/static/js/custom-cursor.js?v=2.0.0",
-          "/static/js/hero-evolution.js?v=1.0.0",
-          "/static/js/network-graph.js?v=1.0.0",
-          "/static/js/role-cycling.js?v=1.0.0",
-          "/static/js/motion-engine.js?v=1.0.0",
+          "/static/js/hero-evolution.js?v=2.0.0",
+          "/static/js/network-graph.js?v=2.0.0",
+          "/static/js/role-cycling.js?v=2.0.0",
+          "/static/js/motion-engine.js?v=2.0.0",
         ];
 
         function loadScript(url) {

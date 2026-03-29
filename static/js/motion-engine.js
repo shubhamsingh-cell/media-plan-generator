@@ -21,6 +21,8 @@
      1. ANIMATED GRADIENT MESH (hero background)
      ═══════════════════════════════════════════ */
   (function initGradientMesh() {
+    // Disabled: gradient mesh orbs add noise behind the hero
+    return;
     var hero = document.querySelector(".hero");
     if (!hero) return;
 
@@ -209,29 +211,20 @@
   })();
 
   /* ═══════════════════════════════════════════
-     5. FLOATING PARTICLES (Corn Revolution style)
-     Large, multi-colored, glowing orbs with trails
+     5. FLOATING PARTICLES (subtle ambient dust)
+     Barely-visible tiny dots that add depth without
+     distracting from content. No glowing orbs.
      ═══════════════════════════════════════════ */
   (function initParticles() {
     var canvas = document.createElement("canvas");
     canvas.setAttribute("aria-hidden", "true");
     canvas.style.cssText =
-      "position:fixed;inset:0;z-index:0;pointer-events:none;";
+      "position:fixed;inset:0;z-index:0;pointer-events:none;opacity:0.4;";
     document.body.appendChild(canvas);
 
     var ctx = canvas.getContext("2d");
     var particles = [];
-    var PARTICLE_COUNT = 50;
-
-    /* Corn Revolution color palette */
-    var colors = [
-      { r: 90, g: 84, b: 189 } /* violet */,
-      { r: 107, g: 179, b: 205 } /* teal */,
-      { r: 34, g: 197, b: 94 } /* green */,
-      { r: 139, g: 92, b: 246 } /* purple */,
-      { r: 59, g: 130, b: 246 } /* blue */,
-      { r: 245, g: 158, b: 11 } /* amber (rare) */,
-    ];
+    var PARTICLE_COUNT = 25;
 
     function resize() {
       canvas.width = window.innerWidth;
@@ -241,121 +234,43 @@
     window.addEventListener("resize", resize, { passive: true });
 
     for (var i = 0; i < PARTICLE_COUNT; i++) {
-      var color = colors[Math.floor(Math.random() * colors.length)];
-      /* Most particles small, a few large (like Corn Revolution) */
-      var isLarge = Math.random() < 0.15;
       particles.push({
         x: Math.random() * (canvas.width || 1400),
         y: Math.random() * (canvas.height || 900),
-        r: isLarge ? Math.random() * 4 + 3 : Math.random() * 2 + 0.5,
-        vx: (Math.random() - 0.5) * 0.4,
-        vy: (Math.random() - 0.5) * 0.3 - 0.05,
-        color: color,
-        alpha: isLarge ? Math.random() * 0.5 + 0.3 : Math.random() * 0.3 + 0.05,
+        r: Math.random() * 1.2 + 0.3,
+        vx: (Math.random() - 0.5) * 0.15,
+        vy: -Math.random() * 0.1 - 0.02,
+        alpha: Math.random() * 0.15 + 0.03,
         pulse: Math.random() * Math.PI * 2,
-        pulseSpeed: Math.random() * 0.02 + 0.005,
+        pulseSpeed: Math.random() * 0.01 + 0.003,
       });
     }
 
     var running = true;
-    /* Scroll-responsive: particles react to scroll velocity */
-    var scrollY = 0;
-    var scrollVelocity = 0;
-    var lastScrollY = 0;
-    window.addEventListener(
-      "scroll",
-      function () {
-        scrollY = window.scrollY;
-        scrollVelocity = scrollY - lastScrollY;
-        lastScrollY = scrollY;
-      },
-      { passive: true },
-    );
 
     function animate() {
       if (!running) return;
       requestAnimationFrame(animate);
 
-      /* Decay scroll velocity smoothly */
-      scrollVelocity *= 0.92;
-
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       for (var i = 0; i < particles.length; i++) {
         var p = particles[i];
-        /* Scroll velocity pushes particles (Corn Revolution effect) */
-        p.x += p.vx + scrollVelocity * 0.02 * (Math.random() - 0.3);
-        p.y += p.vy - scrollVelocity * 0.08;
+        p.x += p.vx;
+        p.y += p.vy;
         p.pulse += p.pulseSpeed;
 
-        /* Wrap around */
-        if (p.x < -20) p.x = canvas.width + 20;
-        if (p.x > canvas.width + 20) p.x = -20;
-        if (p.y < -20) p.y = canvas.height + 20;
-        if (p.y > canvas.height + 20) p.y = -20;
+        if (p.x < -10) p.x = canvas.width + 10;
+        if (p.x > canvas.width + 10) p.x = -10;
+        if (p.y < -10) p.y = canvas.height + 10;
+        if (p.y > canvas.height + 10) p.y = -10;
 
-        /* Pulsing alpha */
-        var alpha = p.alpha * (0.6 + 0.4 * Math.sin(p.pulse));
+        var alpha = p.alpha * (0.5 + 0.5 * Math.sin(p.pulse));
 
-        /* Glow effect for larger particles */
-        if (p.r > 2) {
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, p.r * 3, 0, Math.PI * 2);
-          ctx.fillStyle =
-            "rgba(" +
-            p.color.r +
-            "," +
-            p.color.g +
-            "," +
-            p.color.b +
-            "," +
-            alpha * 0.15 +
-            ")";
-          ctx.fill();
-        }
-
-        /* Core particle */
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        ctx.fillStyle =
-          "rgba(" +
-          p.color.r +
-          "," +
-          p.color.g +
-          "," +
-          p.color.b +
-          "," +
-          alpha +
-          ")";
+        ctx.fillStyle = "rgba(255, 255, 255, " + alpha + ")";
         ctx.fill();
-
-        /* Draw connection lines between nearby large particles */
-        if (p.r > 2) {
-          for (var j = i + 1; j < particles.length; j++) {
-            var q = particles[j];
-            if (q.r < 2) continue;
-            var dx = p.x - q.x;
-            var dy = p.y - q.y;
-            var dist = Math.sqrt(dx * dx + dy * dy);
-            if (dist < 200) {
-              ctx.beginPath();
-              ctx.moveTo(p.x, p.y);
-              ctx.lineTo(q.x, q.y);
-              ctx.strokeStyle =
-                "rgba(" +
-                p.color.r +
-                "," +
-                p.color.g +
-                "," +
-                p.color.b +
-                "," +
-                (1 - dist / 200) * 0.08 +
-                ")";
-              ctx.lineWidth = 0.5;
-              ctx.stroke();
-            }
-          }
-        }
       }
     }
     animate();

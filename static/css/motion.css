@@ -139,17 +139,12 @@ body {
   }
 }
 
-/* ── Dashboard (Moment 4): 3D perspective, bigger ── */
+/* ── Dashboard (Moment 4): subtle depth ── */
 .dash-window {
-  transform: perspective(1000px) rotateX(4deg) rotateY(-2deg);
   transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
   box-shadow:
     0 20px 60px rgba(0, 0, 0, 0.5),
     0 0 80px rgba(90, 84, 189, 0.08) !important;
-}
-
-.dash-window:hover {
-  transform: perspective(1000px) rotateX(0deg) rotateY(0deg) scale(1.02);
 }
 
 .dash-metric-value {
@@ -180,9 +175,8 @@ body {
   line-height: 1.6 !important;
 }
 
-/* ── Demo card: bigger, 3D feel ── */
+/* ── Demo card: flat, no 3D ── */
 .demo-card {
-  transform: perspective(800px) rotateX(2deg);
   transition: transform 0.4s ease;
   box-shadow:
     0 16px 48px rgba(0, 0, 0, 0.4),
@@ -190,7 +184,7 @@ body {
 }
 
 .demo-card:hover {
-  transform: perspective(800px) rotateX(0deg) scale(1.01);
+  transform: scale(1.01);
 }
 
 .demo-section .container {
@@ -232,14 +226,13 @@ body {
   margin: 0 auto;
 }
 
-/* ── Plan showcase: 3D depth ── */
+/* ── Plan showcase: flat, no 3D ── */
 .plan-showcase-frame {
-  transform: perspective(1000px) rotateX(3deg);
   transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .plan-showcase-frame:hover {
-  transform: perspective(1000px) rotateX(0deg) scale(1.01);
+  transform: scale(1.01);
 }
 
 .plan-showcase-metric-value {
@@ -251,14 +244,13 @@ body {
   font-size: clamp(2rem, 5vw, 3rem) !important;
 }
 
-/* ── CTA section: more dramatic ── */
+/* ── CTA section: flat, no 3D ── */
 .cta-card {
-  transform: perspective(800px) rotateX(2deg);
   transition: transform 0.5s ease;
 }
 
 .cta-card:hover {
-  transform: perspective(800px) rotateX(0deg) translateY(-4px);
+  transform: translateY(-4px);
 }
 
 /* ── Section titles: bigger ── */
@@ -277,11 +269,7 @@ body {
   }
 }
 
-.product-hero-card,
-.demo-card,
-.plan-showcase-frame {
-  animation: breathe-glow 4s ease-in-out infinite;
-}
+/* breathe-glow removed from product cards, demo card, plan-showcase-frame — visual noise */
 
 /* ── Moment text headings: bigger across all moments ── */
 .moment-text h2 {

@@ -1,24 +1,17 @@
 /**
- * hero-evolution.js — "Data to Plan" animated hero visualization
+ * hero-evolution.js — DISABLED in S29
  *
- * A looping animation that shows Nova's value proposition visually:
- *   Phase 1 (Chaos):        Scattered floating elements — job boards, costs, cities
- *   Phase 2 (Intelligence): Elements flow toward center, connections appear
- *   Phase 3 (Plan):         Elements snap into an organized dashboard layout
- *   Phase 4 (Hold + Reset): Hold the plan, then fade and restart
+ * The floating channel/metric nodes overlap the hero headline and create
+ * visual noise. The hero should be clean: big headline + subtle glow.
+ * Motion lives in the story scroll sections instead.
  *
- * Pure CSS + SVG + requestAnimationFrame. No Three.js. No GSAP dependency
- * (uses its own animation system so it works even if GSAP CDN fails).
- *
- * Respects prefers-reduced-motion. Falls back to static layout.
+ * Keeping the file so it can be repurposed later (e.g., as a standalone
+ * visualization on the /platform page).
  */
 (function () {
   "use strict";
-
-  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-
-  var hero = document.querySelector(".hero");
-  if (!hero) return;
+  /* Disabled: overlapping nodes distract from hero headline */
+  return;
 
   /* ── Create container ── */
   var container = document.createElement("div");
