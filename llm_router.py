@@ -922,24 +922,20 @@ TASK_ROUTING: Dict[str, List[str]] = {
         CLAUDE_OPUS,
     ],
     TASK_VERIFICATION: [
-        GEMINI,
+        GEMINI,  # S29: #1 free -- fast verification
+        CLAUDE_HAIKU,  # S29: #2 paid -- MOVED FROM #17! Verification in plan pipeline must be fast
+        GROQ,  # #3 free fallback
+        GPT4O,  # #4 paid fallback
         MISTRAL,
-        OPENROUTER_GEMMA,  # Gemma 3 -- good for verification tasks
-        GROQ,
-        ZHIPU,
-        OPENROUTER_DEEPSEEK_R1,  # Spaced: non-OR providers between OR variants
         CEREBRAS,
+        ZHIPU,
         NVIDIA_NIM,
         OPENROUTER,
         TOGETHER,
         SAMBANOVA,
-        OPENROUTER_YI,
         SILICONFLOW,
         CLOUDFLARE,
-        OPENROUTER_ARCEE,
         HUGGINGFACE,
-        CLAUDE_HAIKU,
-        GPT4O,
         CLAUDE,
         CLAUDE_OPUS,
     ],
@@ -967,24 +963,20 @@ TASK_ROUTING: Dict[str, List[str]] = {
         CLAUDE_OPUS,
     ],
     TASK_NARRATIVE: [
-        GROQ,
-        GEMINI,
-        OPENROUTER,  # Spaced: non-OR providers between OR variants
-        ZHIPU,
+        GEMINI,  # S29: #1 free -- fast and good quality
+        CLAUDE_HAIKU,  # S29: #2 paid -- MOVED FROM #17! Plan narratives must not cascade through 16 free providers
+        GROQ,  # #3 free fallback
+        GPT4O,  # #4 paid fallback
         CEREBRAS,
-        OPENROUTER_YI,
+        OPENROUTER,
+        ZHIPU,
         MISTRAL,
         TOGETHER,
-        OPENROUTER_GEMMA,
         SAMBANOVA,
         NVIDIA_NIM,
-        OPENROUTER_DEEPSEEK_R1,
         SILICONFLOW,
         CLOUDFLARE,
-        OPENROUTER_LIQUID,
         HUGGINGFACE,
-        CLAUDE_HAIKU,
-        GPT4O,
         CLAUDE,
         CLAUDE_OPUS,
     ],
