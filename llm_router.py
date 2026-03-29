@@ -981,12 +981,12 @@ TASK_ROUTING: Dict[str, List[str]] = {
         CLAUDE_OPUS,
     ],
     TASK_BATCH: [
-        CLOUDFLARE,
-        CEREBRAS,
+        GEMINI,  # S29: Gemini #1 for batch -- free, good quality, low-stakes
+        GEMINI_FLASH_LITE,  # S29: Flash Lite #2 -- even cheaper
         GROQ,
+        CEREBRAS,
+        CLOUDFLARE,
         ZHIPU,
-        GEMINI,
-        GEMINI_FLASH_LITE,
         MISTRAL,
         TOGETHER,
         NVIDIA_NIM,
@@ -1141,10 +1141,10 @@ TASK_ROUTING: Dict[str, List[str]] = {
         CLAUDE_OPUS,
     ],
     TASK_CONTEXT_SUMMARIZE: [
+        GEMINI,  # S29: Gemini #1 for summarization -- free, excellent compression
+        GEMINI_FLASH_LITE,  # S29: Flash Lite #2
         GROQ,
         CEREBRAS,
-        GEMINI,
-        GEMINI_FLASH_LITE,
         ZHIPU,
         MISTRAL,
         NVIDIA_NIM,
