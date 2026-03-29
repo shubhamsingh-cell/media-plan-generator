@@ -3556,4 +3556,56 @@ def _build_narrative_context(
         if top_platforms:
             parts.append(f"Top platforms: {', '.join(top_platforms)}")
 
+    # S29: Include vector search results in narrative context
+    _vs_results = (
+        input_data.get("_knowledge_base", {}).get("_vector_search_results") or []
+    )
+    if _vs_results:
+        _vs_texts = [
+            r.get("text", "")[:200] for r in _vs_results[:5] if isinstance(r, dict)
+        ]
+        if _vs_texts:
+            parts.append(
+                "Relevant KB insights:\n" + "\n".join(f"- {t}" for t in _vs_texts)
+            )
+
+    # S29: Include supply repository data
+    _supply = (
+        input_data.get("_supply_repository")
+        or input_data.get("_knowledge_base", {}).get("_supabase_supply_repository")
+        or []
+    )
+    if _supply and isinstance(_supply, list):
+        _pub_names = [
+            p.get("name", "")
+            for p in _supply[:10]
+            if isinstance(p, dict) and p.get("name")
+        ]
+        if _pub_names:
+            parts.append(f"Supply publishers: {', '.join(_pub_names)}")
+
+    # S29: Include market trends
+    _trends = input_data.get("_knowledge_base", {}).get("_supabase_market_trends") or []
+    if _trends and isinstance(_trends, list):
+        _trend_summaries = [
+            t.get("title", t.get("category", ""))
+            for t in _trends[:5]
+            if isinstance(t, dict)
+        ]
+        if _trend_summaries:
+            parts.append(f"Market trends: {', '.join(filter(None, _trend_summaries))}")
+
+    # S29: Include compliance context
+    _compliance = (
+        input_data.get("_knowledge_base", {}).get("_supabase_compliance_rules") or []
+    )
+    if _compliance and isinstance(_compliance, list):
+        _rule_names = [
+            r.get("rule_name", r.get("title", ""))
+            for r in _compliance[:5]
+            if isinstance(r, dict)
+        ]
+        if _rule_names:
+            parts.append(f"Compliance rules: {', '.join(filter(None, _rule_names))}")
+
     return "\n".join(parts) if parts else ""

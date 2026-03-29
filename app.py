@@ -11761,11 +11761,41 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         kb = load_knowledge_base()
 
                         def _supabase_and_synthesize():
-                            """Supabase enrichment + LLM synthesis in a single bounded call."""
+                            """Supabase enrichment + vector search + LLM synthesis.
+
+                            S29 v2: Now queries ALL Supabase tables and runs vector
+                            search for quality-first plan generation.
+                            """
                             _kb = kb
+                            _sb_industry = gen_data.get("industry") or ""
+                            _roles_raw = (
+                                gen_data.get("target_roles")
+                                or gen_data.get("roles")
+                                or []
+                            )
+                            _roles_list = [
+                                r.get("title") if isinstance(r, dict) else r
+                                for r in (
+                                    _roles_raw if isinstance(_roles_raw, list) else []
+                                )
+                            ]
+                            _locs_raw = gen_data.get("locations") or []
+                            _locs_list = [
+                                (
+                                    (l.get("city", "") + ", " + l.get("state", ""))
+                                    if isinstance(l, dict)
+                                    else l
+                                )
+                                for l in (
+                                    _locs_raw if isinstance(_locs_raw, list) else []
+                                )
+                            ]
+                            _first_role = _roles_list[0] if _roles_list else ""
+                            _first_loc = _locs_list[0] if _locs_list else ""
+
                             if _supabase_data_available:
                                 try:
-                                    _sb_industry = gen_data.get("industry") or ""
+                                    # ── Channel benchmarks ──
                                     _sb_benchmarks = get_channel_benchmarks(
                                         industry=_sb_industry
                                     )
@@ -11773,6 +11803,8 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                         _kb["_supabase_channel_benchmarks"] = (
                                             _sb_benchmarks
                                         )
+
+                                    # ── Industry insights ──
                                     _sb_kb_insights = get_knowledge(
                                         "industry_insights", _sb_industry
                                     )
@@ -11780,6 +11812,8 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                         _kb["_supabase_industry_insights"] = (
                                             _sb_kb_insights
                                         )
+
+                                    # ── Vendor profiles ──
                                     try:
                                         _sb_vendors = get_vendor_profiles()
                                         if _sb_vendors:
@@ -11792,6 +11826,79 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                             "Vendor profiles failed (non-fatal): %s",
                                             _vp_err,
                                         )
+
+                                    # ── S29: Supply repository (20 publishers) ──
+                                    try:
+                                        _sb_supply = get_supply_repository()
+                                        if _sb_supply:
+                                            _kb["_supabase_supply_repository"] = (
+                                                _sb_supply
+                                            )
+                                            gen_data["_supply_repository"] = _sb_supply
+                                            logger.info(
+                                                "Supabase supply_repository: %d publishers loaded",
+                                                len(_sb_supply),
+                                            )
+                                    except Exception as _sr_err:
+                                        logger.warning(
+                                            "Supply repository failed (non-fatal): %s",
+                                            _sr_err,
+                                        )
+
+                                    # ── S29: Salary data (48 rows) ──
+                                    try:
+                                        _sb_salaries = get_salary_data(
+                                            role=_first_role, location=_first_loc
+                                        )
+                                        if _sb_salaries:
+                                            _kb["_supabase_salary_data"] = _sb_salaries
+                                            logger.info(
+                                                "Supabase salary_data: %d rows for %s/%s",
+                                                len(_sb_salaries),
+                                                _first_role,
+                                                _first_loc,
+                                            )
+                                    except Exception as _sal_err:
+                                        logger.warning(
+                                            "Salary data failed (non-fatal): %s",
+                                            _sal_err,
+                                        )
+
+                                    # ── S29: Market trends (8 rows) ──
+                                    try:
+                                        _sb_trends = get_market_trends(limit=20)
+                                        if _sb_trends:
+                                            _kb["_supabase_market_trends"] = _sb_trends
+                                            logger.info(
+                                                "Supabase market_trends: %d trends loaded",
+                                                len(_sb_trends),
+                                            )
+                                    except Exception as _mt_err:
+                                        logger.warning(
+                                            "Market trends failed (non-fatal): %s",
+                                            _mt_err,
+                                        )
+
+                                    # ── S29: Compliance rules (8 rules) ──
+                                    try:
+                                        _sb_compliance = get_compliance_rules(
+                                            jurisdiction=_first_loc
+                                        )
+                                        if _sb_compliance:
+                                            _kb["_supabase_compliance_rules"] = (
+                                                _sb_compliance
+                                            )
+                                            logger.info(
+                                                "Supabase compliance_rules: %d rules for %s",
+                                                len(_sb_compliance),
+                                                _first_loc,
+                                            )
+                                    except Exception as _cr_err:
+                                        logger.warning(
+                                            "Compliance rules failed (non-fatal): %s",
+                                            _cr_err,
+                                        )
+
                                 except (
                                     urllib.error.URLError,
                                     OSError,
@@ -11802,6 +11909,52 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                         sb_err,
                                         exc_info=True,
                                     )
+
+                            # ── S29: Vector search for relevant KB passages ──
+                            if _vector_search_available and _vector_search:
+                                try:
+                                    _vs_query = f"{_first_role} {_first_loc} {_sb_industry} recruitment media plan"
+                                    _vs_results = _vector_search(_vs_query, top_k=10)
+                                    if _vs_results:
+                                        _kb["_vector_search_results"] = _vs_results
+                                        logger.info(
+                                            "Vector search: %d relevant passages for '%s'",
+                                            len(_vs_results),
+                                            _vs_query[:60],
+                                        )
+                                except Exception as _vs_err:
+                                    logger.warning(
+                                        "Vector search failed (non-fatal): %s", _vs_err
+                                    )
+
+                            # ── S29: Load competitor careers data if available ──
+                            try:
+                                import pathlib as _pathlib
+
+                                _cc_path = (
+                                    _pathlib.Path(__file__).parent
+                                    / "data"
+                                    / "competitor_careers.json"
+                                )
+                                if _cc_path.exists():
+                                    with open(_cc_path, "r") as _cc_f:
+                                        _cc_data = json.loads(_cc_f.read())
+                                    if _cc_data:
+                                        _kb["_competitor_careers"] = _cc_data
+                                        logger.info(
+                                            "Loaded competitor_careers.json (%d entries)",
+                                            (
+                                                len(_cc_data)
+                                                if isinstance(_cc_data, list)
+                                                else 1
+                                            ),
+                                        )
+                            except Exception as _cc_err:
+                                logger.warning(
+                                    "competitor_careers.json failed (non-fatal): %s",
+                                    _cc_err,
+                                )
+
                             gen_data["_knowledge_base"] = _kb
                             if data_synthesize is not None:
                                 return data_synthesize(enriched, _kb, gen_data)
