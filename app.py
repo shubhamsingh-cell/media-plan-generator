@@ -13621,15 +13621,32 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     _outer_deadline = (
                         _t0 + _CHAT_REQUEST_TIMEOUT - 5
                     )  # 5s safety margin
-                    print(f"[CHAT DEBUG] enrichment starting", flush=True)
-                    try:
-                        _enrich_chat_context(d, d.get("message") or "")
-                    except Exception as _enrich_err:
-                        logger.error(
-                            "Chat enrichment failed (non-fatal): %s",
-                            _enrich_err,
-                            exc_info=True,
+
+                    # S28: Early greeting exit -- skip enrichment for trivial queries
+                    _msg_lower = (d.get("message") or "").strip().lower()
+                    _msg_words = _msg_lower.split()
+                    _is_trivial = len(_msg_words) <= 3 and re.match(
+                        r"^(hi|hello|hey|hola|howdy|sup|yo|good morning|good afternoon|"
+                        r"good evening|thanks|thank you|ok|okay|got it|sure|yes|no|"
+                        r"bye|goodbye|see you|nice|great|cool|awesome|perfect|"
+                        r"sounds good|alright|how are you|what'?s up)\b",
+                        _msg_lower,
+                    )
+                    if _is_trivial:
+                        print(
+                            f"[CHAT DEBUG] greeting detected -- skipping enrichment",
+                            flush=True,
                         )
+                    else:
+                        print(f"[CHAT DEBUG] enrichment starting", flush=True)
+                        try:
+                            _enrich_chat_context(d, d.get("message") or "")
+                        except Exception as _enrich_err:
+                            logger.error(
+                                "Chat enrichment failed (non-fatal): %s",
+                                _enrich_err,
+                                exc_info=True,
+                            )
                     _t1 = _t.time()
                     print(
                         f"[CHAT DEBUG] enrichment done in {_t1-_t0:.1f}s, calling handle_chat_request",
