@@ -501,11 +501,11 @@ _response_cache = _ResponseCache()
 # Provider configs: endpoint, model, auth header, rate limits
 PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
     GEMINI: {
-        "name": "Gemini 3 Flash",
+        "name": "Gemini 3.1 Flash",
         "api_style": "gemini",  # Google-specific format
-        # S25: Upgraded from 2.5 Flash to 3 Flash (latest Flash model, same key)
-        "endpoint": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent",
-        "model": "gemini-3-flash-preview",
+        # S29: Upgraded from 3 Flash to 3.1 Flash (latest, best quality)
+        "endpoint": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-preview:generateContent",
+        "model": "gemini-3.1-flash-preview",
         "env_key": "GEMINI_API_KEY",
         "rpm_limit": 30,
         "rpd_limit": 1500,
@@ -1969,7 +1969,7 @@ def _build_gemini_request(
 ) -> Tuple[str, Dict[str, str], bytes]:
     """Build a Gemini API request.
 
-    Supports both gemini-3-flash-preview and gemini-3.1-flash-lite-preview via provider_id.
+    Supports both gemini-3.1-flash-preview and gemini-3.1-flash-lite-preview via provider_id.
     Handles tool definitions (converted from Anthropic format) and multi-turn
     tool conversations with functionCall/functionResponse parts.
     """
@@ -2608,7 +2608,7 @@ def call_llm(
             "text": "response text",
             "provider": "gemini|groq|cerebras|claude|claude_opus",
             "provider_name": "Gemini 3 Flash",
-            "model": "gemini-3-flash-preview",
+            "model": "gemini-3.1-flash-preview",
             "task_type": "conversational",
             "input_tokens": 100,
             "output_tokens": 200,
