@@ -11666,7 +11666,29 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 def _async_generate(jid, gen_data, rid):
                     """Run the full sync generation pipeline in a background thread."""
                     try:
-                        _gen_deadline = time.time() + 180  # 3 minute hard limit
+                        # S29: Adaptive deadline based on request complexity
+                        # Simple requests (1 role, 1 location) get tighter deadlines
+                        _roles_count = len(
+                            gen_data.get("target_roles") or gen_data.get("roles") or []
+                        )
+                        _locs_count = len(gen_data.get("locations") or [])
+                        _is_simple = _roles_count <= 2 and _locs_count <= 2
+                        _gen_deadline_secs = 120 if _is_simple else 180
+                        _gen_deadline = time.time() + _gen_deadline_secs
+                        # Adaptive stage timeouts: simple requests get tighter limits
+                        _enrich_timeout = 20 if _is_simple else 35
+                        _synth_timeout = 25 if _is_simple else 45
+                        _gs_timeout = 20 if _is_simple else 30
+                        _verify_timeout = 15 if _is_simple else 30
+                        _excel_timeout = 45 if _is_simple else 60
+                        logger.info(
+                            "Async generate job %s: roles=%d, locs=%d, simple=%s, deadline=%ds",
+                            jid,
+                            _roles_count,
+                            _locs_count,
+                            _is_simple,
+                            _gen_deadline_secs,
+                        )
 
                         with _generation_jobs_lock:
                             if jid in _generation_jobs:
@@ -11699,11 +11721,14 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                     if rid
                                     else _enrich_pool.submit(enrich_data, gen_data)
                                 )
-                                enriched = _enrich_future.result(timeout=35) or {}
+                                enriched = (
+                                    _enrich_future.result(timeout=_enrich_timeout) or {}
+                                )
                                 gen_data["_enriched"] = enriched
                             except TimeoutError:
                                 logger.error(
-                                    "Async enrichment timed out after 35s for job %s -- continuing with empty data",
+                                    "Async enrichment timed out after %ds for job %s -- continuing with empty data",
+                                    _enrich_timeout,
                                     jid,
                                 )
                                 _enrich_future.cancel()
@@ -11785,11 +11810,12 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         try:
                             _synth_future = _synth_pool.submit(_supabase_and_synthesize)
                             gen_data["_synthesized"] = (
-                                _synth_future.result(timeout=45) or {}
+                                _synth_future.result(timeout=_synth_timeout) or {}
                             )
                         except TimeoutError:
                             logger.warning(
-                                "KB synthesis timed out after 45s for job %s -- continuing with empty synthesis",
+                                "KB synthesis timed out after %ds for job %s -- continuing with empty synthesis",
+                                _synth_timeout,
                                 jid,
                             )
                             _synth_future.cancel()
@@ -12018,10 +12044,11 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                 apply_all_quality_gates, gen_data
                             )
                             try:
-                                _gs_future.result(timeout=30)
+                                _gs_future.result(timeout=_gs_timeout)
                             except TimeoutError:
                                 logger.warning(
-                                    "Async Gold Standard gates timed out after 30s -- continuing with partial data"
+                                    "Async Gold Standard gates timed out after %ds -- continuing with partial data",
+                                    _gs_timeout,
                                 )
                                 _gs_future.cancel()
                                 gen_data["_gold_standard"] = (
@@ -12061,7 +12088,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                 )
                                 try:
                                     gen_data["_verification"] = _vf_future.result(
-                                        timeout=30
+                                        timeout=_verify_timeout
                                     )
                                 except TimeoutError:
                                     logger.warning(
@@ -12109,14 +12136,15 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                 )
                             else:
                                 raise RuntimeError("No Excel generator available")
-                            excel_bytes = _excel_future.result(timeout=60)
+                            excel_bytes = _excel_future.result(timeout=_excel_timeout)
                             logger.info(
                                 "Async Excel generated (%d bytes)",
                                 len(excel_bytes) if excel_bytes else 0,
                             )
                         except TimeoutError:
                             logger.error(
-                                "Excel generation timed out after 60s for job %s",
+                                "Excel generation timed out after %ds for job %s",
+                                _excel_timeout,
                                 jid,
                             )
                             _excel_future.cancel()
@@ -12164,16 +12192,18 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                     _generation_jobs[jid][
                                         "status_message"
                                     ] = "Creating strategy deck..."
-                            # PPT wrapped in 45s timeout
+                            # PPT wrapped in adaptive timeout
+                            _ppt_timeout = 30 if _is_simple else 45
                             _ppt_pool = ThreadPoolExecutor(
                                 max_workers=1, thread_name_prefix="async-ppt"
                             )
                             try:
                                 _ppt_future = _ppt_pool.submit(generate_pptx, gen_data)
-                                pptx_bytes = _ppt_future.result(timeout=45)
+                                pptx_bytes = _ppt_future.result(timeout=_ppt_timeout)
                             except TimeoutError:
                                 logger.warning(
-                                    "PPT generation timed out after 45s for job %s -- skipping PPT",
+                                    "PPT generation timed out after %ds for job %s -- skipping PPT",
+                                    _ppt_timeout,
                                     jid,
                                 )
                                 _ppt_future.cancel()
