@@ -88,6 +88,7 @@
         rel="stylesheet"
     /></noscript>
     <link rel="stylesheet" href="/static/css/tokens.css" />
+    <link rel="stylesheet" href="/static/css/motion.css" />
     <style>
       *,
       *::before,
@@ -901,7 +902,7 @@
         position: relative;
         min-height: 200px;
       }
-      /* Chaos cards for Moment 1 */
+      /* Chaos cards for Moment 1 — floating animation */
       .chaos-card {
         position: absolute;
         padding: 10px 20px;
@@ -913,6 +914,59 @@
         color: var(--text-secondary);
         transform: translate(var(--x), var(--y)) rotate(var(--r));
         white-space: nowrap;
+        animation: chaos-float var(--float-dur, 6s) var(--float-delay, 0s)
+          ease-in-out infinite;
+      }
+      .chaos-card:nth-child(1) {
+        --float-dur: 5.5s;
+        --float-delay: 0s;
+      }
+      .chaos-card:nth-child(2) {
+        --float-dur: 6.2s;
+        --float-delay: 0.8s;
+      }
+      .chaos-card:nth-child(3) {
+        --float-dur: 7s;
+        --float-delay: 1.6s;
+      }
+      .chaos-card:nth-child(4) {
+        --float-dur: 5.8s;
+        --float-delay: 0.4s;
+      }
+      .chaos-card:nth-child(5) {
+        --float-dur: 6.5s;
+        --float-delay: 1.2s;
+      }
+      .chaos-card:nth-child(6) {
+        --float-dur: 7.2s;
+        --float-delay: 2s;
+      }
+      .chaos-card:nth-child(7) {
+        --float-dur: 5.2s;
+        --float-delay: 0.6s;
+      }
+      @keyframes chaos-float {
+        0%,
+        100% {
+          transform: translate(var(--x), var(--y)) rotate(var(--r));
+        }
+        25% {
+          transform: translate(calc(var(--x) + 12px), calc(var(--y) - 8px))
+            rotate(calc(var(--r) + 2deg));
+        }
+        50% {
+          transform: translate(calc(var(--x) - 6px), calc(var(--y) + 10px))
+            rotate(calc(var(--r) - 1.5deg));
+        }
+        75% {
+          transform: translate(calc(var(--x) + 8px), calc(var(--y) + 4px))
+            rotate(calc(var(--r) + 1deg));
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .chaos-card {
+          animation: none;
+        }
       }
       /* Mini form for Moment 2 */
       .mini-form {
@@ -1596,7 +1650,9 @@
         height: 100%;
         border-radius: 3px;
         width: 0%;
-        transition: width 1.5s cubic-bezier(0.16, 1, 0.3, 1);
+        transition:
+          width 1.2s cubic-bezier(0.16, 1, 0.3, 1),
+          background 0.5s ease;
       }
       .plan-showcase-bar-fill.animated {
         width: var(--bar-w);
@@ -1798,25 +1854,11 @@
       }
 
       /* ── Animations ── */
-      .reveal-on-scroll {
-        opacity: 0;
-        transform: translateY(24px);
-        transition:
-          opacity 0.6s var(--ease-standard),
-          transform 0.6s var(--ease-standard);
-      }
-      .reveal-on-scroll.visible {
-        opacity: 1;
-        transform: translateY(0);
-      }
+      /* S29: Reveals are always visible. GSAP gsap.from() conflicts with async
+         CDN loading, causing sections to go invisible. CSS transitions handle
+         any reveal polish when .visible is added by IntersectionObserver. */
+      .reveal-on-scroll,
       .reveal {
-        opacity: 0;
-        transform: translateY(24px);
-        transition:
-          opacity 0.6s var(--ease-standard),
-          transform 0.6s var(--ease-standard);
-      }
-      .reveal.visible {
         opacity: 1;
         transform: translateY(0);
       }
@@ -2552,12 +2594,12 @@
           <div class="story-moment moment-5">
             <div class="moment-visual">
               <div class="outcome-badge">
-                <svg width="48" height="48" viewBox="0 0 48 48">
+                <svg width="64" height="64" viewBox="0 0 48 48">
                   <circle
                     cx="24"
                     cy="24"
                     r="22"
-                    fill="none"
+                    fill="rgba(34, 197, 94, 0.08)"
                     stroke="var(--green)"
                     stroke-width="2"
                   />
@@ -2572,10 +2614,78 @@
                 </svg>
                 <span>Plan optimized</span>
               </div>
+              <div
+                class="outcome-stats"
+                style="display: flex; gap: 32px; margin-top: 24px"
+              >
+                <div style="text-align: center">
+                  <div
+                    style="
+                      font-size: 24px;
+                      font-weight: 700;
+                      color: var(--green);
+                    "
+                  >
+                    34%
+                  </div>
+                  <div
+                    style="
+                      font-size: 12px;
+                      color: var(--text-muted);
+                      margin-top: 4px;
+                    "
+                  >
+                    Lower cost-per-hire
+                  </div>
+                </div>
+                <div style="text-align: center">
+                  <div
+                    style="
+                      font-size: 24px;
+                      font-weight: 700;
+                      color: var(--accent-light);
+                    "
+                  >
+                    2.3x
+                  </div>
+                  <div
+                    style="
+                      font-size: 12px;
+                      color: var(--text-muted);
+                      margin-top: 4px;
+                    "
+                  >
+                    More applications
+                  </div>
+                </div>
+                <div style="text-align: center">
+                  <div
+                    style="
+                      font-size: 24px;
+                      font-weight: 700;
+                      color: var(--teal);
+                    "
+                  >
+                    30s
+                  </div>
+                  <div
+                    style="
+                      font-size: 12px;
+                      color: var(--text-muted);
+                      margin-top: 4px;
+                    "
+                  >
+                    Plan generation
+                  </div>
+                </div>
+              </div>
             </div>
             <div class="moment-text">
               <h2>Plan smarter. Spend less. Hire faster.</h2>
-              <p>And if you want to go deeper -- ask Nova.</p>
+              <p>
+                Nova optimizes every dollar across channels, predicts CPA before
+                you spend, and builds plans that outperform manual media buying.
+              </p>
               <div class="moment-ctas">
                 <a href="/media-plan" class="btn-primary"
                   >Generate Your Plan &rarr;</a
@@ -3343,14 +3453,78 @@
     <!-- Lenis smooth scroll -->
     <script src="https://unpkg.com/lenis@1.1.13/dist/lenis.min.js"></script>
 
-    <!-- GSAP + ScrollTrigger (jsdelivr primary -- cdnjs has 503 outages) -->
-    <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+    <!-- GSAP + ScrollTrigger (multi-CDN fallback: unpkg -> jsdelivr -> cdnjs) -->
+    <script>
+      (function () {
+        var cdns = [
+          {
+            gsap: "https://unpkg.com/gsap@3.12.5/dist/gsap.min.js",
+            st: "https://unpkg.com/gsap@3.12.5/dist/ScrollTrigger.min.js",
+          },
+          {
+            gsap: "https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js",
+            st: "https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js",
+          },
+          {
+            gsap: "https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js",
+            st: "https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js",
+          },
+        ];
+        var modules = [
+          "/static/js/animations.js?v=3.0.0",
+          "/static/js/story-scroll.js?v=3.0.0",
+          "/static/js/custom-cursor.js?v=2.0.0",
+          "/static/js/hero-evolution.js?v=1.0.0",
+          "/static/js/network-graph.js?v=1.0.0",
+          "/static/js/role-cycling.js?v=1.0.0",
+          "/static/js/motion-engine.js?v=1.0.0",
+        ];
 
-    <!-- Nova animation modules (loaded after GSAP) -->
-    <script src="/static/js/animations.js?v=3.0.0"></script>
-    <script src="/static/js/story-scroll.js?v=3.0.0"></script>
-    <script src="/static/js/custom-cursor.js?v=2.0.0"></script>
+        function loadScript(url) {
+          return new Promise(function (resolve, reject) {
+            var s = document.createElement("script");
+            s.src = url;
+            s.onload = resolve;
+            s.onerror = reject;
+            document.body.appendChild(s);
+          });
+        }
+
+        function loadModules() {
+          modules.reduce(function (chain, src) {
+            return chain.then(function () {
+              return loadScript(src);
+            });
+          }, Promise.resolve());
+        }
+
+        function tryLoadGSAP(idx) {
+          if (idx >= cdns.length) {
+            console.warn(
+              "[Nova] All GSAP CDNs failed — loading modules without GSAP",
+            );
+            loadModules();
+            return;
+          }
+          loadScript(cdns[idx].gsap)
+            .then(function () {
+              return loadScript(cdns[idx].st);
+            })
+            .then(function () {
+              console.log("[Nova] GSAP loaded from CDN #" + (idx + 1));
+              loadModules();
+            })
+            .catch(function () {
+              console.warn(
+                "[Nova] GSAP CDN #" + (idx + 1) + " failed, trying next...",
+              );
+              tryLoadGSAP(idx + 1);
+            });
+        }
+
+        tryLoadGSAP(0);
+      })();
+    </script>
 
     <!-- Lenis + GSAP sync + scroll reveals -->
     <script>
@@ -3454,28 +3628,6 @@
       })();
     </script>
 
-    <!-- S28: Three.js removed, CSS radial glow replaces WebGL shader -->
-    <script>
-      document.addEventListener("DOMContentLoaded", function () {
-        if (window.matchMedia("(prefers-reduced-motion: reduce)").matches)
-          return;
-        // Wait for GSAP to load (deferred), then animate FROM hidden
-        function runHeroAnim() {
-          if (typeof gsap === "undefined") {
-            setTimeout(runHeroAnim, 100);
-            return;
-          }
-          gsap.from(".hero-anim", {
-            opacity: 0,
-            y: 30,
-            duration: 0.8,
-            ease: "power3.out",
-            stagger: 0.15,
-            delay: 0.2,
-          });
-        }
-        runHeroAnim();
-      });
-    </script>
+    <!-- Hero is always visible -- motion comes from hero-evolution.js background -->
   </body>
 </html>

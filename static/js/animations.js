@@ -24,26 +24,13 @@
   ).matches;
 
   /**
-   * Initialize all scroll-triggered reveal animations.
-   * Add class="reveal" to any element that should fade-in on scroll.
+   * S29: Removed GSAP-based reveal animations. gsap.from() sets inline
+   * opacity:0 styles that permanently override the CSS .reveal.visible system
+   * when GSAP loads asynchronously via CDN fallback chain.
+   * Scroll reveals now handled by CSS IntersectionObserver in hub.html.
    */
   function initRevealAnimations() {
-    if (prefersReducedMotion) return;
-    if (typeof ScrollTrigger === "undefined") return;
-
-    gsap.utils.toArray(".reveal").forEach(function (el) {
-      gsap.from(el, {
-        opacity: 0,
-        y: 24,
-        duration: 0.6,
-        ease: "power2.out",
-        scrollTrigger: {
-          trigger: el,
-          start: "top 88%",
-          once: true,
-        },
-      });
-    });
+    /* No-op: CSS handles .reveal + .visible */
   }
 
   /**

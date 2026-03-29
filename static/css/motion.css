@@ -1,0 +1,364 @@
+/* ═══════════════════════════════════════════════════════════════
+   motion.css — Comprehensive motion & depth overhaul for hub.html
+   Inspired by Corn Revolution (cornrevolution.resn.global)
+   Makes every section feel alive, bigger, and more dramatic.
+   Respects prefers-reduced-motion.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Rich background: not flat black, dark with subtle depth ── */
+body {
+  background: linear-gradient(
+    180deg,
+    #08080f 0%,
+    #0a0a18 30%,
+    #080d14 60%,
+    #08080f 100%
+  ) !important;
+}
+
+/* ── Chaos cards: bigger, wider spread, dramatic floating ── */
+.chaos-card {
+  padding: 14px 28px !important;
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  border-radius: 12px !important;
+  backdrop-filter: blur(8px);
+  background: rgba(20, 18, 50, 0.7) !important;
+  border: 1px solid rgba(90, 84, 189, 0.25) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.moment-1 .moment-visual {
+  min-height: 320px !important;
+  max-width: 700px !important;
+}
+
+/* Spread cards wider */
+.moment-1 .chaos-card:nth-child(1) {
+  --x: -35%;
+  --y: -25%;
+  --r: -8deg;
+}
+.moment-1 .chaos-card:nth-child(2) {
+  --x: 30%;
+  --y: -30%;
+  --r: 5deg;
+}
+.moment-1 .chaos-card:nth-child(3) {
+  --x: -25%;
+  --y: 15%;
+  --r: -4deg;
+}
+.moment-1 .chaos-card:nth-child(4) {
+  --x: 35%;
+  --y: 10%;
+  --r: 8deg;
+}
+.moment-1 .chaos-card:nth-child(5) {
+  --x: -40%;
+  --y: -5%;
+  --r: 3deg;
+}
+.moment-1 .chaos-card:nth-child(6) {
+  --x: 15%;
+  --y: 30%;
+  --r: -6deg;
+}
+.moment-1 .chaos-card:nth-child(7) {
+  --x: -10%;
+  --y: -35%;
+  --r: 10deg;
+}
+
+/* More dramatic floating */
+@keyframes chaos-float {
+  0%,
+  100% {
+    transform: translate(var(--x), var(--y)) rotate(var(--r));
+  }
+  25% {
+    transform: translate(calc(var(--x) + 20px), calc(var(--y) - 15px))
+      rotate(calc(var(--r) + 3deg));
+  }
+  50% {
+    transform: translate(calc(var(--x) - 12px), calc(var(--y) + 18px))
+      rotate(calc(var(--r) - 2deg));
+  }
+  75% {
+    transform: translate(calc(var(--x) + 15px), calc(var(--y) + 8px))
+      rotate(calc(var(--r) + 1.5deg));
+  }
+}
+
+/* ── Mini-form (Moment 2): bigger, more visual ── */
+.mini-form {
+  max-width: 480px !important;
+  padding: 32px !important;
+  border-radius: 20px !important;
+  background: rgba(15, 15, 30, 0.9) !important;
+  border: 1px solid rgba(90, 84, 189, 0.3) !important;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    0 0 60px rgba(90, 84, 189, 0.08);
+  transform: perspective(800px) rotateX(2deg);
+}
+
+.mini-field {
+  padding: 16px 20px !important;
+  border-radius: 10px !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.mini-label {
+  font-size: 11px !important;
+  letter-spacing: 0.1em !important;
+}
+
+.mini-value {
+  font-size: 17px !important;
+  font-weight: 600 !important;
+}
+
+/* Blinking cursor after mini-value */
+.mini-value::after {
+  content: "|";
+  animation: cursor-blink 1s step-end infinite;
+  color: var(--accent-light, #7b75d4);
+  margin-left: 2px;
+  font-weight: 300;
+}
+
+@keyframes cursor-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+/* ── Dashboard (Moment 4): 3D perspective, bigger ── */
+.dash-window {
+  transform: perspective(1000px) rotateX(4deg) rotateY(-2deg);
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.5),
+    0 0 80px rgba(90, 84, 189, 0.08) !important;
+}
+
+.dash-window:hover {
+  transform: perspective(1000px) rotateX(0deg) rotateY(0deg) scale(1.02);
+}
+
+.dash-metric-value {
+  font-size: 28px !important;
+}
+
+/* ── Product cards: 3D tilt perspective ── */
+.product-hero-card {
+  transform-style: preserve-3d;
+  transition:
+    transform 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.4s ease;
+}
+
+.product-hero-card:hover {
+  transform: perspective(800px) rotateX(-3deg) rotateY(3deg) translateY(-8px);
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.4),
+    0 0 40px rgba(90, 84, 189, 0.1);
+}
+
+.product-hero-card h3 {
+  font-size: 28px !important;
+}
+
+.product-hero-card p {
+  font-size: 16px !important;
+  line-height: 1.6 !important;
+}
+
+/* ── Demo card: bigger, 3D feel ── */
+.demo-card {
+  transform: perspective(800px) rotateX(2deg);
+  transition: transform 0.4s ease;
+  box-shadow:
+    0 16px 48px rgba(0, 0, 0, 0.4),
+    0 0 60px rgba(90, 84, 189, 0.06) !important;
+}
+
+.demo-card:hover {
+  transform: perspective(800px) rotateX(0deg) scale(1.01);
+}
+
+.demo-section .container {
+  max-width: 800px !important;
+}
+
+.demo-field input {
+  font-size: 16px !important;
+}
+
+.demo-btn {
+  font-size: 17px !important;
+  padding: 16px 32px !important;
+}
+
+/* ── Outcome badge (Moment 5): bigger, more dramatic ── */
+.outcome-badge {
+  transform: scale(1.3);
+}
+
+.outcome-badge svg {
+  width: 64px !important;
+  height: 64px !important;
+}
+
+.outcome-badge span {
+  font-size: 18px !important;
+  font-weight: 600 !important;
+}
+
+/* ── Moment 5 text: bigger, more value content ── */
+.moment-5 .moment-text h2 {
+  font-size: clamp(1.8rem, 4vw, 2.5rem) !important;
+}
+
+.moment-5 .moment-text p {
+  font-size: 18px !important;
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+/* ── Plan showcase: 3D depth ── */
+.plan-showcase-frame {
+  transform: perspective(1000px) rotateX(3deg);
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.plan-showcase-frame:hover {
+  transform: perspective(1000px) rotateX(0deg) scale(1.01);
+}
+
+.plan-showcase-metric-value {
+  font-size: 28px !important;
+}
+
+/* ── Proof stats: bigger numbers ── */
+.proof-stat-value {
+  font-size: clamp(2rem, 5vw, 3rem) !important;
+}
+
+/* ── CTA section: more dramatic ── */
+.cta-card {
+  transform: perspective(800px) rotateX(2deg);
+  transition: transform 0.5s ease;
+}
+
+.cta-card:hover {
+  transform: perspective(800px) rotateX(0deg) translateY(-4px);
+}
+
+/* ── Section titles: bigger ── */
+.section-title {
+  font-size: clamp(2rem, 4.5vw, 3rem) !important;
+}
+
+/* ── Global: subtle breathing glow on accented elements ── */
+@keyframes breathe-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 20px rgba(90, 84, 189, 0.05);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(90, 84, 189, 0.12);
+  }
+}
+
+.product-hero-card,
+.demo-card,
+.plan-showcase-frame {
+  animation: breathe-glow 4s ease-in-out infinite;
+}
+
+/* ── Moment text headings: bigger across all moments ── */
+.moment-text h2 {
+  font-size: clamp(1.8rem, 4vw, 2.5rem) !important;
+}
+
+.moment-text p {
+  font-size: 17px !important;
+}
+
+/* ── Scroll-triggered section entrances (CSS-only, no GSAP) ── */
+.demo-section,
+.products-section,
+.proof-section,
+.cta-section {
+  position: relative;
+}
+
+/* Section titles get a subtle scale entrance */
+.section-title {
+  transition:
+    transform 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.6s ease;
+}
+
+/* ── Richer glow dividers ── */
+.glow-divider {
+  height: 2px !important;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(90, 84, 189, 0.4),
+    rgba(107, 179, 205, 0.3),
+    transparent
+  ) !important;
+  box-shadow:
+    0 0 20px rgba(90, 84, 189, 0.15),
+    0 0 40px rgba(107, 179, 205, 0.08) !important;
+}
+
+/* ── Disable all motion for reduced motion preference ── */
+@media (prefers-reduced-motion: reduce) {
+  .chaos-card,
+  .product-hero-card,
+  .demo-card,
+  .plan-showcase-frame,
+  .cta-card,
+  .dash-window,
+  .mini-form {
+    animation: none !important;
+    transform: none !important;
+    transition: none !important;
+  }
+
+  .mini-value::after {
+    animation: none;
+    display: none;
+  }
+}
+
+/* ── Mobile adjustments ── */
+@media (max-width: 768px) {
+  .chaos-card {
+    padding: 10px 18px !important;
+    font-size: 13px !important;
+  }
+
+  .mini-form {
+    transform: none;
+    padding: 24px !important;
+  }
+
+  .dash-window {
+    transform: none;
+  }
+
+  .product-hero-card:hover {
+    transform: none;
+  }
+}

@@ -430,110 +430,13 @@ function initStoryScroll() {
   });
 }
 
-/* ── Section reveal animations for non-story sections ── */
+/* ── Section reveals ── */
+/* S29: Removed GSAP gsap.from() section reveals. They set inline opacity:0
+   that permanently overrides the CSS .reveal.visible system when GSAP loads
+   asynchronously. The CSS IntersectionObserver in hub.html handles all
+   scroll-triggered reveals via .reveal + .visible classes. */
 function initSectionReveals() {
-  "use strict";
-
-  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-  if (typeof gsap === "undefined" || typeof ScrollTrigger === "undefined")
-    return;
-
-  gsap.registerPlugin(ScrollTrigger);
-
-  /* Demo section: staggered card entrance */
-  var demoSection = document.querySelector(".demo-section");
-  if (demoSection) {
-    gsap.from(".demo-card", {
-      scrollTrigger: {
-        trigger: demoSection,
-        start: "top 80%",
-        once: true,
-      },
-      y: 60,
-      opacity: 0,
-      duration: 0.8,
-      ease: "power3.out",
-    });
-  }
-
-  /* Products section: cards slide in from sides */
-  var productsSection = document.querySelector(".products-section");
-  if (productsSection) {
-    gsap.from(".product-plan", {
-      scrollTrigger: {
-        trigger: productsSection,
-        start: "top 75%",
-        once: true,
-      },
-      x: -60,
-      opacity: 0,
-      duration: 0.7,
-      ease: "power3.out",
-    });
-
-    gsap.from(".product-nova", {
-      scrollTrigger: {
-        trigger: productsSection,
-        start: "top 75%",
-        once: true,
-      },
-      x: 60,
-      opacity: 0,
-      duration: 0.7,
-      ease: "power3.out",
-      delay: 0.15,
-    });
-  }
-
-  /* Proof section: stats scale up */
-  var proofSection = document.querySelector(".proof-section");
-  if (proofSection) {
-    gsap.from(".proof-stats > div", {
-      scrollTrigger: {
-        trigger: proofSection,
-        start: "top 80%",
-        once: true,
-      },
-      scale: 0.8,
-      opacity: 0,
-      stagger: 0.12,
-      duration: 0.5,
-      ease: "back.out(1.4)",
-    });
-  }
-
-  /* CTA section: dramatic entrance */
-  var ctaSection = document.querySelector(".cta-section");
-  if (ctaSection) {
-    gsap.from(".cta-card", {
-      scrollTrigger: {
-        trigger: ctaSection,
-        start: "top 85%",
-        once: true,
-      },
-      y: 80,
-      scale: 0.95,
-      opacity: 0,
-      duration: 0.8,
-      ease: "power3.out",
-    });
-  }
-
-  /* Trust bar: slide in */
-  var trustBar = document.querySelector(".trust-bar");
-  if (trustBar) {
-    gsap.from(trustBar, {
-      scrollTrigger: {
-        trigger: trustBar,
-        start: "top 90%",
-        once: true,
-      },
-      y: 20,
-      opacity: 0,
-      duration: 0.5,
-      ease: "power2.out",
-    });
-  }
+  /* No-op: CSS handles reveals now */
 }
 
 /* Initialize when DOM is ready */
