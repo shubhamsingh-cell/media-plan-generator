@@ -605,6 +605,15 @@
         overflow: hidden;
         z-index: 1;
       }
+      /* Three.js hero canvas */
+      #hero-canvas {
+        position: absolute;
+        inset: 0;
+        z-index: 0;
+        pointer-events: auto;
+        width: 100%;
+        height: 100%;
+      }
       .hero-bg {
         position: absolute;
         inset: 0;
@@ -654,11 +663,20 @@
       }
       .hero-headline {
         font-family: var(--font-display);
-        font-size: clamp(2.2rem, 5vw, var(--text-4xl));
+        font-size: clamp(2.4rem, 5.5vw, 3.75rem);
         font-weight: 700;
         letter-spacing: var(--tracking-tight);
         line-height: var(--leading-tight);
-        color: var(--text-primary);
+        background: linear-gradient(
+          135deg,
+          #ffffff 0%,
+          #c7d2fe 40%,
+          #7b75d4 80%,
+          #6bb3cd 100%
+        );
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
         margin-bottom: var(--space-6);
       }
       .hero-subline {
@@ -1355,6 +1373,170 @@
         font-style: italic;
       }
 
+      /* ── Sample plan showcase (elevated centerpiece) ── */
+      .plan-showcase {
+        max-width: 900px;
+        margin: var(--space-16) auto 0;
+        position: relative;
+      }
+      .plan-showcase-frame {
+        background: linear-gradient(
+          135deg,
+          rgba(90, 84, 189, 0.06),
+          rgba(107, 179, 205, 0.04)
+        );
+        border: 1px solid rgba(90, 84, 189, 0.2);
+        border-radius: 20px;
+        padding: 3px;
+        position: relative;
+        overflow: hidden;
+      }
+      .plan-showcase-frame::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: 20px;
+        padding: 1px;
+        background: linear-gradient(
+          135deg,
+          rgba(90, 84, 189, 0.4),
+          rgba(107, 179, 205, 0.3),
+          rgba(90, 84, 189, 0.1)
+        );
+        -webkit-mask:
+          linear-gradient(#fff 0 0) content-box,
+          linear-gradient(#fff 0 0);
+        mask:
+          linear-gradient(#fff 0 0) content-box,
+          linear-gradient(#fff 0 0);
+        -webkit-mask-composite: xor;
+        mask-composite: exclude;
+        pointer-events: none;
+      }
+      .plan-showcase-inner {
+        background: rgba(10, 10, 10, 0.95);
+        border-radius: 18px;
+        padding: var(--space-8);
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: var(--space-6);
+      }
+      .plan-showcase-header {
+        grid-column: 1 / -1;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding-bottom: var(--space-4);
+        border-bottom: 1px solid var(--border);
+      }
+      .plan-showcase-title {
+        font-family: var(--font-display);
+        font-size: var(--text-lg);
+        font-weight: 600;
+        color: var(--text-primary);
+      }
+      .plan-showcase-badge {
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--green);
+        background: var(--green-glow);
+        padding: 4px 12px;
+        border-radius: var(--radius-full);
+        border: 1px solid rgba(34, 197, 94, 0.2);
+      }
+      .plan-showcase-metric {
+        padding: var(--space-4);
+        background: rgba(255, 255, 255, 0.02);
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border);
+      }
+      .plan-showcase-metric-label {
+        font-size: var(--text-xs);
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin-bottom: var(--space-2);
+      }
+      .plan-showcase-metric-value {
+        font-family: var(--font-display);
+        font-size: var(--text-xl);
+        font-weight: 700;
+        background: linear-gradient(135deg, var(--accent-light), var(--teal));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+      .plan-showcase-channels {
+        grid-column: 1 / -1;
+      }
+      .plan-showcase-channel {
+        display: flex;
+        align-items: center;
+        gap: var(--space-4);
+        padding: var(--space-3) 0;
+        border-bottom: 1px solid var(--border);
+      }
+      .plan-showcase-channel:last-child {
+        border-bottom: none;
+      }
+      .plan-showcase-channel-name {
+        width: 100px;
+        font-size: var(--text-sm);
+        color: var(--text-secondary);
+        font-weight: 500;
+      }
+      .plan-showcase-bar {
+        flex: 1;
+        height: 6px;
+        background: rgba(255, 255, 255, 0.04);
+        border-radius: 3px;
+        overflow: hidden;
+      }
+      .plan-showcase-bar-fill {
+        height: 100%;
+        border-radius: 3px;
+        width: 0%;
+        transition: width 1.5s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+      .plan-showcase-bar-fill.animated {
+        width: var(--bar-w);
+      }
+      .plan-showcase-channel-amount {
+        width: 80px;
+        text-align: right;
+        font-size: var(--text-sm);
+        font-weight: 600;
+        color: var(--text-primary);
+        font-family: var(--font-mono);
+      }
+      .plan-showcase-cta {
+        grid-column: 1 / -1;
+        text-align: center;
+        padding-top: var(--space-4);
+      }
+      .plan-showcase-glow {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 500px;
+        height: 300px;
+        background: radial-gradient(
+          ellipse,
+          rgba(90, 84, 189, 0.08) 0%,
+          transparent 70%
+        );
+        pointer-events: none;
+        z-index: -1;
+      }
+      @media (max-width: 640px) {
+        .plan-showcase-inner {
+          grid-template-columns: 1fr;
+        }
+      }
+
       /* ── SECTION 7: CTA ── */
       .cta-section {
         position: relative;
@@ -1841,7 +2023,9 @@
       <!-- ========================================== -->
       <!-- SECTION 1: HERO (centered, simplified)     -->
       <!-- ========================================== -->
-      <section class="hero" aria-label="Hero">
+      <section class="hero" aria-label="Hero" id="hero">
+        <!-- Three.js interactive particle mesh background -->
+        <canvas id="hero-canvas" aria-hidden="true"></canvas>
         <div class="hero-bg" aria-hidden="true">
           <div class="aurora-layer aurora-1"></div>
           <div class="aurora-layer aurora-2"></div>
@@ -2531,6 +2715,96 @@
             A healthcare staffing firm reduced cost-per-hire by 34% across 120
             nursing roles using Nova's AI-recommended channel mix.
           </div>
+
+          <!-- Elevated sample plan showcase -->
+          <div class="plan-showcase reveal" id="plan-showcase">
+            <div class="plan-showcase-glow" aria-hidden="true"></div>
+            <div class="plan-showcase-frame">
+              <div class="plan-showcase-inner">
+                <div class="plan-showcase-header">
+                  <span class="plan-showcase-title"
+                    >Registered Nurse &mdash; Houston, TX</span
+                  >
+                  <span class="plan-showcase-badge">AI-Optimized</span>
+                </div>
+                <div class="plan-showcase-metric">
+                  <div class="plan-showcase-metric-label">Total Budget</div>
+                  <div class="plan-showcase-metric-value">$50,000</div>
+                </div>
+                <div class="plan-showcase-metric">
+                  <div class="plan-showcase-metric-label">Predicted CPA</div>
+                  <div class="plan-showcase-metric-value">$24.30</div>
+                </div>
+                <div class="plan-showcase-metric">
+                  <div class="plan-showcase-metric-label">
+                    Est. Applications
+                  </div>
+                  <div class="plan-showcase-metric-value">847</div>
+                </div>
+                <div class="plan-showcase-metric">
+                  <div class="plan-showcase-metric-label">Confidence</div>
+                  <div class="plan-showcase-metric-value">95%</div>
+                </div>
+                <div class="plan-showcase-channels">
+                  <div class="plan-showcase-channel">
+                    <span class="plan-showcase-channel-name">Indeed</span>
+                    <div class="plan-showcase-bar">
+                      <div
+                        class="plan-showcase-bar-fill"
+                        style="--bar-w: 72%; background: var(--accent)"
+                      ></div>
+                    </div>
+                    <span class="plan-showcase-channel-amount">$18,000</span>
+                  </div>
+                  <div class="plan-showcase-channel">
+                    <span class="plan-showcase-channel-name">LinkedIn</span>
+                    <div class="plan-showcase-bar">
+                      <div
+                        class="plan-showcase-bar-fill"
+                        style="--bar-w: 55%; background: #06b6d4"
+                      ></div>
+                    </div>
+                    <span class="plan-showcase-channel-amount">$13,750</span>
+                  </div>
+                  <div class="plan-showcase-channel">
+                    <span class="plan-showcase-channel-name">ZipRecruiter</span>
+                    <div class="plan-showcase-bar">
+                      <div
+                        class="plan-showcase-bar-fill"
+                        style="--bar-w: 38%; background: var(--green)"
+                      ></div>
+                    </div>
+                    <span class="plan-showcase-channel-amount">$9,500</span>
+                  </div>
+                  <div class="plan-showcase-channel">
+                    <span class="plan-showcase-channel-name">Glassdoor</span>
+                    <div class="plan-showcase-bar">
+                      <div
+                        class="plan-showcase-bar-fill"
+                        style="--bar-w: 25%; background: var(--amber, #f59e0b)"
+                      ></div>
+                    </div>
+                    <span class="plan-showcase-channel-amount">$6,250</span>
+                  </div>
+                  <div class="plan-showcase-channel">
+                    <span class="plan-showcase-channel-name">Programmatic</span>
+                    <div class="plan-showcase-bar">
+                      <div
+                        class="plan-showcase-bar-fill"
+                        style="--bar-w: 10%; background: #8b5cf6"
+                      ></div>
+                    </div>
+                    <span class="plan-showcase-channel-amount">$2,500</span>
+                  </div>
+                </div>
+                <div class="plan-showcase-cta">
+                  <a href="/media-plan" class="btn-primary"
+                    >Generate Your Own Plan &rarr;</a
+                  >
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -2845,6 +3119,30 @@
           });
         }
 
+        // ── Plan showcase bar animation ──
+        var planShowcase = document.getElementById("plan-showcase");
+        if (planShowcase) {
+          var showcaseObserver = new IntersectionObserver(
+            function (entries) {
+              entries.forEach(function (entry) {
+                if (entry.isIntersecting) {
+                  var fills = entry.target.querySelectorAll(
+                    ".plan-showcase-bar-fill",
+                  );
+                  fills.forEach(function (fill, i) {
+                    setTimeout(function () {
+                      fill.classList.add("animated");
+                    }, i * 150);
+                  });
+                  showcaseObserver.unobserve(entry.target);
+                }
+              });
+            },
+            { threshold: 0.3 },
+          );
+          showcaseObserver.observe(planShowcase);
+        }
+
         // ── Header shrink on scroll ──
         var nav = document.querySelector(".nav");
         window.addEventListener(
@@ -2880,6 +3178,21 @@
 
         // ── Page enter transition ──
         document.body.classList.add("page-enter");
+
+        // ── GSAP hero entrance (staggered reveal) ──
+        if (typeof gsap !== "undefined") {
+          var heroAnims = document.querySelectorAll(".hero-anim");
+          if (heroAnims.length) {
+            gsap.from(heroAnims, {
+              y: 30,
+              opacity: 0,
+              duration: 0.8,
+              stagger: 0.15,
+              ease: "power3.out",
+              delay: 0.3,
+            });
+          }
+        }
 
         // ── Parallax scroll on aurora background layers ──
         if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
@@ -2924,18 +3237,46 @@
       })();
     </script>
 
-    <!-- GSAP Animation Library + Story Scroll -->
+    <!-- Three.js for hero particle mesh (jsdelivr primary, cdnjs fallback) -->
+    <script
+      src="https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.min.js"
+      defer
+      onerror="
+        var s = document.createElement('script');
+        s.src = 'https://unpkg.com/three@0.170.0/build/three.min.js';
+        s.defer = true;
+        document.head.appendChild(s);
+      "
+    ></script>
+
+    <!-- GSAP Animation Library with CDN fallback -->
     <script
       src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.7/gsap.min.js"
       defer
+      onerror="
+        var s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/gsap.min.js';
+        s.defer = true;
+        document.head.appendChild(s);
+      "
     ></script>
     <script
       src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.7/ScrollTrigger.min.js"
       defer
+      onerror="
+        var s = document.createElement('script');
+        s.src =
+          'https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/ScrollTrigger.min.js';
+        s.defer = true;
+        document.head.appendChild(s);
+      "
     ></script>
-    <script src="/static/js/animations.js?v=2.0.0" defer></script>
-    <script src="/static/js/story-scroll.js?v=1.0.0" defer></script>
-    <!-- S27: Premium hero entrance animation -->
+
+    <!-- Nova animation modules -->
+    <script src="/static/js/animations.js?v=2.1.0" defer></script>
+    <script src="/static/js/story-scroll.js?v=2.0.0" defer></script>
+    <script src="/static/js/three-hero.js?v=1.0.0" defer></script>
+    <script src="/static/js/custom-cursor.js?v=1.0.0" defer></script>
     <script>
       document.addEventListener("DOMContentLoaded", function () {
         if (window.matchMedia("(prefers-reduced-motion: reduce)").matches)

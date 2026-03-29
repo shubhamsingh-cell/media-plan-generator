@@ -354,7 +354,7 @@
       .int-chip-host {
         font-size: 10px;
         color: var(--text-muted);
-        font-family: monospace;
+        font-family: var(--font-mono);
       }
       .int-chip-value {
         font-size: 11px;
@@ -1132,7 +1132,7 @@
             : '<span class="badge-sm badge-amber">Paid</span>';
           rows += `<tr>
             <td><span class="dot ${dotCls}"></span><strong>${esc(p.name || k)}</strong> ${tierBadge}</td>
-            <td style="font-size:11px;color:var(--text-muted);font-family:monospace;">${esc(p.model || "--")}</td>
+            <td style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono);">${esc(p.model || "--")}</td>
             <td>${avail ? '<span class="badge-sm badge-green">Ready</span>' : '<span class="badge-sm badge-red">Down</span>'}</td>
             <td>${p.total_calls !== "--" ? fmt(p.total_calls) : "--"}</td>
             <td>${p.total_failures !== "--" ? fmt(p.total_failures) : "--"}</td>

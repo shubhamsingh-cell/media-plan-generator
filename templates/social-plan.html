@@ -42,7 +42,7 @@
         --surface-2: #1a1a1a;
       }
       body {
-        font-family: "Inter", sans-serif;
+        font-family: var(--font-sans);
         background: var(--bg);
         color: var(--text);
         min-height: 100vh;
@@ -164,7 +164,7 @@
         border-radius: 8px;
         padding: 0.7rem 1rem;
         color: var(--text);
-        font-family: "Inter", sans-serif;
+        font-family: var(--font-sans);
         font-size: 0.95rem;
         transition: border-color 0.2s;
       }
@@ -274,7 +274,7 @@
         font-weight: 600;
         font-size: 0.95rem;
         text-align: right;
-        font-family: "Inter", sans-serif;
+        font-family: var(--font-sans);
       }
       .budget-input:focus {
         outline: none;
@@ -295,7 +295,7 @@
         font-weight: 600;
         cursor: pointer;
         transition: all 0.3s;
-        font-family: "Inter", sans-serif;
+        font-family: var(--font-sans);
         margin-top: 1.5rem;
       }
       .btn-generate:hover {
@@ -825,7 +825,7 @@
         font-weight: 500;
         cursor: pointer;
         transition: all 0.2s;
-        font-family: "Inter", sans-serif;
+        font-family: var(--font-sans);
       }
       .btn-download:hover {
         border-color: var(--accent);
@@ -2047,7 +2047,7 @@
               Object.entries(imageSizes).forEach(([key, val]) => {
                 html += `<div style="display:flex;justify-content:space-between;padding:4px 8px;font-size:0.8rem;">`;
                 html += `<span style="color:var(--text);">${escapeHtml(key)}</span>`;
-                html += `<span style="color:var(--cyan-accent,#6bb3cd);font-family:monospace;">${escapeHtml(String(val))}</span>`;
+                html += `<span style="color:var(--cyan-accent,#6bb3cd);font-family:var(--font-mono);">${escapeHtml(String(val))}</span>`;
                 html += "</div>";
               });
             }

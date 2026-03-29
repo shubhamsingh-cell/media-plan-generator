@@ -675,6 +675,19 @@ class DataEnrichmentEngine:
                     self._state["stats"].get("total_failures") or 0
                 ) + 1
 
+            # Append to in-memory log so run_cycle can track results
+            self._enrichment_log.append(
+                {
+                    "source": source,
+                    "success": success,
+                    "records": records,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }
+            )
+            # Cap log size to prevent memory growth
+            if len(self._enrichment_log) > 200:
+                self._enrichment_log = self._enrichment_log[-100:]
+
             self._save_state()
 
             # Write log to Supabase (best-effort)
@@ -1792,6 +1805,8 @@ class DataEnrichmentEngine:
             "failed": 0,
         }
 
+        failed_source_names: list[str] = []
+
         for source, task_fn in tasks:
             results["checked"] += 1
             if not self._is_stale(source):
@@ -1799,13 +1814,23 @@ class DataEnrichmentEngine:
                 continue
             try:
                 task_fn()
-                # Task internally calls _mark_refreshed; check last log entry
-                if self._enrichment_log and self._enrichment_log[-1].get("success"):
-                    results["refreshed"] += 1
+                # Check the latest log entry (now populated by _mark_refreshed)
+                if (
+                    self._enrichment_log
+                    and self._enrichment_log[-1].get("source") == source
+                ):
+                    if self._enrichment_log[-1].get("success"):
+                        results["refreshed"] += 1
+                    else:
+                        results["failed"] += 1
+                        failed_source_names.append(source)
                 else:
-                    results["failed"] += 1
+                    # Task didn't call _mark_refreshed -- assume success
+                    results["refreshed"] += 1
             except (ValueError, KeyError, TypeError, OSError, RuntimeError) as e:
                 results["failed"] += 1
+                failed_source_names.append(source)
+                self._mark_refreshed(source, success=False)
                 logger.error(
                     "Enrichment task '%s' failed: %s", source, e, exc_info=True
                 )
@@ -1827,17 +1852,15 @@ class DataEnrichmentEngine:
         # Alert on enrichment failures
         failed_count = results.get("failed") or 0
         if failed_count > 0:
-            # Collect names of failed sources from the enrichment log
-            recent_failures = [
-                entry.get("source") or "unknown"
-                for entry in self._enrichment_log[-failed_count:]
-                if not entry.get("success")
-            ]
+            # Use the tracked failed source names from this cycle
+            recent_failures = (
+                failed_source_names if failed_source_names else ["unknown"]
+            )
             send_alert(
                 subject=f"Data Enrichment: {failed_count} source(s) failed",
                 body=(
                     f"<p><b>{failed_count}</b> enrichment source(s) failed after retries.</p>"
-                    f"<p>Failed sources: {', '.join(recent_failures) or 'unknown'}</p>"
+                    f"<p>Failed sources: {', '.join(recent_failures)}</p>"
                     f"<p>Checked: {results.get('checked') or 0} | "
                     f"Refreshed: {results.get('refreshed') or 0} | "
                     f"Skipped: {results.get('skipped') or 0}</p>"
