@@ -13852,10 +13852,12 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     _msg_lower = (d.get("message") or "").strip().lower()
                     _msg_words = _msg_lower.split()
                     _is_trivial = len(_msg_words) <= 3 and re.match(
-                        r"^(hi|hello|hey|hola|howdy|sup|yo|good morning|good afternoon|"
-                        r"good evening|thanks|thank you|ok|okay|got it|sure|yes|no|"
-                        r"bye|goodbye|see you|nice|great|cool|awesome|perfect|"
-                        r"sounds good|alright|how are you|what'?s up)\b",
+                        r"^(hi|hello|hey|hola|howdy|sup|yo|wassup|wazzup|whaddup|"
+                        r"good morning|good afternoon|good evening|"
+                        r"thanks|thank you|thx|ty|ok|okay|got it|sure|yes|no|yep|nope|"
+                        r"bye|goodbye|see you|later|nice|great|cool|awesome|perfect|"
+                        r"sounds good|alright|how are you|what'?s up|whats up|"
+                        r"how'?s it going|how do you do|greetings|namaste)\b",
                         _msg_lower,
                     )
                     if _is_trivial:
