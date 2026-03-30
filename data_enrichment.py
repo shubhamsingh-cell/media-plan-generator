@@ -74,12 +74,16 @@ _HTTP_TIMEOUT = 15
 _SSL_CTX = ssl.create_default_context()
 _BATCH_SIZE = 100
 
-# -- Supabase auth circuit breaker ---------------------------------------------
-# After a 401 Unauthorized, stop all Supabase upserts for 1 hour so we don't
-# hammer a misconfigured endpoint with retries every enrichment cycle.
-_SUPABASE_AUTH_COOLDOWN = 3600  # 1 hour in seconds
-_supabase_auth_fail_time: float = 0.0
+# -- Supabase auth circuit breaker (per-table, 5-min cooldown) -----------------
+# After a 401 Unauthorized on a specific table, only block upserts to THAT table
+# for 5 minutes (not all tables for 1 hour). This prevents one bad table from
+# killing all 13 enrichment sources.
+_SUPABASE_AUTH_COOLDOWN = 300  # 5 minutes (was 3600 = 1 hour)
+_supabase_table_fail_times: dict[str, float] = {}  # per-table circuit breakers
 _supabase_auth_lock = threading.Lock()
+# Legacy global fallback (only used if ALL tables fail within 60s)
+_supabase_global_fail_time: float = 0.0
+_SUPABASE_GLOBAL_COOLDOWN = 600  # 10 min global cooldown if ALL tables fail
 
 # -- On-conflict columns for each Supabase table --------------------------------
 _ON_CONFLICT_MAP: dict[str, str] = {
@@ -275,21 +279,37 @@ def _upsert_to_supabase(
         logger.debug("Supabase not configured, skipping upsert to %s", table)
         return 0
 
-    # Circuit breaker: skip upserts for 1 hour after a 401 Unauthorized
-    global _supabase_auth_fail_time
+    # Circuit breaker: per-table 5-min cooldown after 401 Unauthorized
+    global _supabase_global_fail_time
     with _supabase_auth_lock:
-        if _supabase_auth_fail_time:
-            elapsed = time.monotonic() - _supabase_auth_fail_time
-            if elapsed < _SUPABASE_AUTH_COOLDOWN:
-                remaining = int(_SUPABASE_AUTH_COOLDOWN - elapsed)
+        # Check global circuit breaker (all tables failed within 60s)
+        if _supabase_global_fail_time:
+            elapsed = time.monotonic() - _supabase_global_fail_time
+            if elapsed < _SUPABASE_GLOBAL_COOLDOWN:
+                remaining = int(_SUPABASE_GLOBAL_COOLDOWN - elapsed)
                 logger.debug(
-                    f"Supabase auth circuit breaker open -- skipping upsert to {table} "
+                    f"Supabase GLOBAL circuit breaker open -- skipping {table} "
                     f"({remaining}s remaining)"
                 )
                 return 0
-            # Cooldown expired, reset and allow retry
-            logger.info("Supabase auth circuit breaker reset -- retrying upserts")
-            _supabase_auth_fail_time = 0.0
+            logger.info("Supabase global circuit breaker reset -- retrying")
+            _supabase_global_fail_time = 0.0
+            _supabase_table_fail_times.clear()
+
+        # Check per-table circuit breaker
+        table_fail_time = _supabase_table_fail_times.get(table, 0.0)
+        if table_fail_time:
+            elapsed = time.monotonic() - table_fail_time
+            if elapsed < _SUPABASE_AUTH_COOLDOWN:
+                remaining = int(_SUPABASE_AUTH_COOLDOWN - elapsed)
+                logger.debug(
+                    f"Supabase circuit breaker open for '{table}' "
+                    f"({remaining}s remaining) -- other tables unaffected"
+                )
+                return 0
+            # Per-table cooldown expired, reset and retry this table
+            logger.info(f"Supabase circuit breaker reset for '{table}' -- retrying")
+            del _supabase_table_fail_times[table]
 
     base = SUPABASE_URL.rstrip("/")
     on_conflict = _ON_CONFLICT_MAP.get(table) or ""
@@ -337,19 +357,34 @@ def _upsert_to_supabase(
             except OSError:
                 pass
             if exc.code == 401:
-                # Trip the circuit breaker -- no Supabase upserts for 1 hour
+                # Trip PER-TABLE circuit breaker (not global)
+                now = time.monotonic()
                 with _supabase_auth_lock:
-                    _supabase_auth_fail_time = time.monotonic()
+                    _supabase_table_fail_times[table] = now
+                    # If 3+ tables failed within 60s, trip the global breaker
+                    recent_fails = sum(
+                        1 for t in _supabase_table_fail_times.values() if now - t < 60
+                    )
+                    if recent_fails >= 3:
+                        _supabase_global_fail_time = now
+                        logger.error(
+                            f"Supabase 401 on {recent_fails} tables within 60s -- "
+                            f"GLOBAL circuit breaker tripped for "
+                            f"{_SUPABASE_GLOBAL_COOLDOWN}s. "
+                            f"Check SUPABASE_SERVICE_ROLE_KEY.",
+                        )
                 logger.error(
-                    f"Supabase 401 Unauthorized upserting to {table} -- check "
-                    f"SUPABASE_SERVICE_ROLE_KEY. Circuit breaker tripped: disabling "
-                    f"all Supabase upserts for {_SUPABASE_AUTH_COOLDOWN}s. Body: {error_body}",
+                    f"Supabase 401 Unauthorized upserting to '{table}' -- "
+                    f"per-table circuit breaker tripped for {_SUPABASE_AUTH_COOLDOWN}s. "
+                    f"Other tables unaffected. Body: {error_body}",
                 )
                 try:
                     send_alert(
-                        "Supabase Auth Failure",
-                        f"401 Unauthorized on table '{table}'. "
-                        f"Upserts disabled for 1 hour. Check SUPABASE_SERVICE_ROLE_KEY.",
+                        f"Supabase 401 on '{table}'",
+                        f"401 Unauthorized upserting to '{table}'. "
+                        f"This table blocked for {_SUPABASE_AUTH_COOLDOWN // 60} min. "
+                        f"Other enrichment sources continue normally. "
+                        f"Check SUPABASE_SERVICE_ROLE_KEY on Render.",
                         severity="critical",
                     )
                 except Exception:

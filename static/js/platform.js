@@ -40,6 +40,8 @@ const ICONS = {
   share:
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>',
   nova: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a7 7 0 0 1 7 7c0 3-2 5.5-4 7l-1 4h-4l-1-4c-2-1.5-4-4-4-7a7 7 0 0 1 7-7z"/><line x1="10" y1="22" x2="14" y2="22"/></svg>',
+  geoviz:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="7" opacity="0.4"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/></svg>',
 };
 
 /* ─────────────────────────────────────────────────────────────
@@ -208,6 +210,19 @@ const MODULES = [
     label: "Nova AI",
     icon: "nova",
     desc: "AI-powered recruitment assistant with 56 tools",
+  },
+
+  /* ─── GEOVIZ 3D ─── */
+  {
+    id: "geoviz",
+    route: "intelligence/geoviz",
+    fragment: "geoviz",
+    group: "intelligence",
+    label: "GeoViz 3D",
+    icon: "geoviz",
+    desc: "3D geospatial labour market & competitive intelligence map",
+    external: true,
+    externalUrl: null /* Set after Vercel deploy */,
   },
 
   /* ─── UTILITY ─── */
