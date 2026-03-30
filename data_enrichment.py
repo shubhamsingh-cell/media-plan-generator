@@ -1061,12 +1061,13 @@ class DataEnrichmentEngine:
         for category in categories:
             data = None
 
-            # Fallback 1: Adzuna API
+            # Fallback 1: Adzuna API (correct function: fetch_job_market)
             try:
-                from api_enrichment import fetch_adzuna_data
+                from api_enrichment import fetch_job_market
 
-                data = fetch_adzuna_data(category)
-                if data:
+                result = fetch_job_market(roles=[category], locations=["USA"])
+                if result and isinstance(result, dict):
+                    data = result
                     total_records += 1
                     adzuna_results[category] = data
                     continue
@@ -1080,15 +1081,15 @@ class DataEnrichmentEngine:
             ) as e:
                 logger.debug(f"Adzuna failed for '{category}': {e}")
 
-            # Fallback 2: Jooble API
+            # Fallback 2: Jooble API (correct sig: roles=[], locations=[])
             try:
                 from api_enrichment import fetch_jooble_data
 
-                data = fetch_jooble_data(category)
-                if data:
+                jooble_result = fetch_jooble_data(roles=[category], locations=["USA"])
+                if jooble_result and isinstance(jooble_result, dict):
+                    jooble_result["_source"] = "jooble_fallback"
+                    data = jooble_result
                     total_records += 1
-                    if isinstance(data, dict):
-                        data["_source"] = "jooble_fallback"
                     adzuna_results[category] = data
                     logger.info(f"Jooble fallback succeeded for '{category}'")
                     continue
@@ -1101,28 +1102,6 @@ class DataEnrichmentEngine:
                 OSError,
             ) as e:
                 logger.debug(f"Jooble fallback failed for '{category}': {e}")
-
-            # Fallback 3: RemoteOK (works for engineering/marketing)
-            try:
-                from api_enrichment import fetch_remoteok_data
-
-                data = fetch_remoteok_data(category)
-                if data:
-                    total_records += 1
-                    if isinstance(data, dict):
-                        data["_source"] = "remoteok_fallback"
-                    adzuna_results[category] = data
-                    logger.info(f"RemoteOK fallback succeeded for '{category}'")
-                    continue
-            except (
-                ImportError,
-                AttributeError,
-                ValueError,
-                KeyError,
-                TypeError,
-                OSError,
-            ) as e:
-                logger.debug(f"RemoteOK fallback failed for '{category}': {e}")
 
             logger.warning(f"All job data sources failed for '{category}'")
 
@@ -1168,11 +1147,11 @@ class DataEnrichmentEngine:
         data: Any = None
         source = "census"
 
-        # Fallback 1: Census Bureau API
+        # Fallback 1: Census Bureau API (correct function: fetch_census_workforce_data)
         try:
-            from api_enrichment import fetch_census_data
+            from api_enrichment import fetch_census_workforce_data
 
-            data = fetch_census_data()
+            data = fetch_census_workforce_data("USA")
             if data:
                 source = "census"
         except (
@@ -1185,16 +1164,16 @@ class DataEnrichmentEngine:
         ) as e:
             logger.debug(f"Census API failed: {e}")
 
-        # Fallback 2: BEA API
+        # Fallback 2: Try different Census endpoint or FRED demographics
         if not data:
             try:
-                from api_enrichment import fetch_bea_data
+                from api_enrichment import fetch_fred_indicators
 
-                bea_result = fetch_bea_data()
-                if bea_result:
-                    data = bea_result
-                    source = "bea_fallback"
-                    logger.info("Census fallback: using BEA data")
+                fred_result = fetch_fred_indicators()
+                if fred_result and isinstance(fred_result, dict):
+                    data = fred_result
+                    source = "fred_fallback"
+                    logger.info("Census fallback: using FRED labour data")
             except (
                 ImportError,
                 AttributeError,
@@ -1203,7 +1182,7 @@ class DataEnrichmentEngine:
                 TypeError,
                 OSError,
             ) as e:
-                logger.debug(f"BEA fallback failed: {e}")
+                logger.debug(f"FRED fallback failed: {e}")
 
         # Fallback 3: Keep stale data (just log, don't mark as refreshed)
         if not data:
@@ -1447,12 +1426,13 @@ class DataEnrichmentEngine:
 
                 # Fallback 1: Adzuna (fast, free, per-role)
                 try:
-                    from api_enrichment import fetch_adzuna_data
+                    from api_enrichment import fetch_job_market
 
-                    adzuna_result = fetch_adzuna_data(role)
+                    adzuna_result = fetch_job_market(roles=[role], locations=["USA"])
                     if adzuna_result and isinstance(adzuna_result, dict):
                         count = (
-                            adzuna_result.get("count")
+                            adzuna_result.get("posting_count")
+                            or adzuna_result.get("count")
                             or adzuna_result.get("total")
                             or 0
                         )
