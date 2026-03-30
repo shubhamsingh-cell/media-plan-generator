@@ -1693,23 +1693,23 @@ def scrape_url(
             _cache_put(_cache_key(url, "scrape"), result)
         return result
 
-    # -- Tier 1: Firecrawl --
-    accepted = _accept_result(_firecrawl_scrape(url), "firecrawl", "Tier 1 (Firecrawl)")
+    # -- Tier 1: Apify Website Content Crawler (was Tier 1.5) --
+    accepted = _accept_result(_apify_scrape(url), "apify", "Tier 1 (Apify)")
     if accepted:
         return accepted
 
-    # -- Tier 1.5: Apify Website Content Crawler --
-    accepted = _accept_result(_apify_scrape(url), "apify", "Tier 1.5 (Apify)")
-    if accepted:
-        return accepted
-
-    # -- Tier 2: Jina AI Reader --
+    # -- Tier 2: Jina AI Reader (free, fast) --
     accepted = _accept_result(_jina_scrape(url), "jina", "Tier 2 (Jina)")
     if accepted:
         return accepted
 
-    # -- Tier 3: Tavily Extract --
-    accepted = _accept_result(_tavily_scrape(url), "tavily", "Tier 3 (Tavily)")
+    # -- Tier 3: Firecrawl (demoted -- no credits, use as backup) --
+    accepted = _accept_result(_firecrawl_scrape(url), "firecrawl", "Tier 3 (Firecrawl)")
+    if accepted:
+        return accepted
+
+    # -- Tier 4: Tavily Extract --
+    accepted = _accept_result(_tavily_scrape(url), "tavily", "Tier 4 (Tavily)")
     if accepted:
         return accepted
 

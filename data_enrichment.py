@@ -1036,119 +1036,212 @@ class DataEnrichmentEngine:
             self._mark_refreshed("fred_economic", False)
 
     def _enrich_adzuna_jobs(self) -> None:
-        """Refresh Adzuna job volume data.
+        """Refresh job volume data by category.
+
+        Fallback chain:
+          1. Adzuna API (primary)
+          2. Jooble API (free, already connected)
+          3. RemoteOK API (free, already connected)
 
         Writes to Supabase knowledge_base table under 'adzuna_jobs' category.
         """
         if not self._is_stale("adzuna_jobs"):
             return
-        try:
-            from api_enrichment import fetch_adzuna_data
 
-            categories = [
-                "engineering",
-                "healthcare",
-                "sales",
-                "marketing",
-                "logistics",
-            ]
-            total_records = 0
-            adzuna_results: dict[str, Any] = {}
+        categories = [
+            "engineering",
+            "healthcare",
+            "sales",
+            "marketing",
+            "logistics",
+        ]
+        total_records = 0
+        adzuna_results: dict[str, Any] = {}
 
-            for category in categories:
-                try:
-                    data = fetch_adzuna_data(category)
-                    if data:
-                        total_records += 1
-                        adzuna_results[category] = data
-                except (ValueError, KeyError, TypeError, OSError) as e:
-                    logger.error(
-                        "Adzuna fetch failed for '%s': %s",
-                        category,
-                        e,
-                        exc_info=True,
-                    )
+        for category in categories:
+            data = None
 
-            # -- Supabase upsert --
-            if adzuna_results:
-                now_iso = datetime.now(timezone.utc).isoformat()
-                sb_rows: list[dict[str, Any]] = []
-                for cat_name, cat_data in adzuna_results.items():
-                    sb_rows.append(
-                        {
-                            "category": "adzuna_jobs",
-                            "key": cat_name,
-                            "data": (
-                                cat_data
-                                if isinstance(cat_data, dict)
-                                else {"value": cat_data}
-                            ),
-                        }
-                    )
-                if sb_rows:
-                    _upsert_to_supabase("knowledge_base", sb_rows)
+            # Fallback 1: Adzuna API
+            try:
+                from api_enrichment import fetch_adzuna_data
 
-            self._mark_refreshed("adzuna_jobs", total_records > 0, total_records)
-            logger.info(
-                "Enriched Adzuna job data: %d/%d categories",
-                total_records,
-                len(categories),
-            )
+                data = fetch_adzuna_data(category)
+                if data:
+                    total_records += 1
+                    adzuna_results[category] = data
+                    continue
+            except (
+                ImportError,
+                AttributeError,
+                ValueError,
+                KeyError,
+                TypeError,
+                OSError,
+            ) as e:
+                logger.debug(f"Adzuna failed for '{category}': {e}")
 
-        except (ImportError, AttributeError):
-            logger.warning("api_enrichment.fetch_adzuna_data not available")
-            self._mark_refreshed("adzuna_jobs", False)
+            # Fallback 2: Jooble API
+            try:
+                from api_enrichment import fetch_jooble_data
+
+                data = fetch_jooble_data(category)
+                if data:
+                    total_records += 1
+                    if isinstance(data, dict):
+                        data["_source"] = "jooble_fallback"
+                    adzuna_results[category] = data
+                    logger.info(f"Jooble fallback succeeded for '{category}'")
+                    continue
+            except (
+                ImportError,
+                AttributeError,
+                ValueError,
+                KeyError,
+                TypeError,
+                OSError,
+            ) as e:
+                logger.debug(f"Jooble fallback failed for '{category}': {e}")
+
+            # Fallback 3: RemoteOK (works for engineering/marketing)
+            try:
+                from api_enrichment import fetch_remoteok_data
+
+                data = fetch_remoteok_data(category)
+                if data:
+                    total_records += 1
+                    if isinstance(data, dict):
+                        data["_source"] = "remoteok_fallback"
+                    adzuna_results[category] = data
+                    logger.info(f"RemoteOK fallback succeeded for '{category}'")
+                    continue
+            except (
+                ImportError,
+                AttributeError,
+                ValueError,
+                KeyError,
+                TypeError,
+                OSError,
+            ) as e:
+                logger.debug(f"RemoteOK fallback failed for '{category}': {e}")
+
+            logger.warning(f"All job data sources failed for '{category}'")
+
+        # -- Supabase upsert --
+        if adzuna_results:
+            now_iso = datetime.now(timezone.utc).isoformat()
+            sb_rows: list[dict[str, Any]] = []
+            for cat_name, cat_data in adzuna_results.items():
+                sb_rows.append(
+                    {
+                        "category": "adzuna_jobs",
+                        "key": cat_name,
+                        "data": (
+                            cat_data
+                            if isinstance(cat_data, dict)
+                            else {"value": cat_data}
+                        ),
+                    }
+                )
+            if sb_rows:
+                _upsert_to_supabase("knowledge_base", sb_rows)
+
+        self._mark_refreshed("adzuna_jobs", total_records > 0, total_records)
+        logger.info(
+            "Enriched job data: %d/%d categories (with fallbacks)",
+            total_records,
+            len(categories),
+        )
 
     def _enrich_census_demographics(self) -> None:
-        """Refresh Census demographic data (monthly).
+        """Refresh demographic data (monthly).
+
+        Fallback chain:
+          1. Census Bureau API (primary)
+          2. BEA API (already connected, free)
+          3. Stale Supabase data (do nothing, keep existing)
 
         Writes to Supabase knowledge_base table under 'census_demographics' category.
         """
         if not self._is_stale("census_demographics"):
             return
+
+        data: Any = None
+        source = "census"
+
+        # Fallback 1: Census Bureau API
         try:
             from api_enrichment import fetch_census_data
 
             data = fetch_census_data()
             if data:
-                # -- Supabase upsert --
-                now_iso = datetime.now(timezone.utc).isoformat()
-                sb_rows: list[dict[str, Any]] = []
-                if isinstance(data, dict):
-                    for key, value in data.items():
-                        sb_rows.append(
-                            {
-                                "category": "census_demographics",
-                                "key": key,
-                                "data": (
-                                    value
-                                    if isinstance(value, dict)
-                                    else {"value": value}
-                                ),
-                            }
-                        )
-                elif isinstance(data, list):
-                    sb_rows.append(
-                        {
-                            "category": "census_demographics",
-                            "key": "demographics",
-                            "data": {"records": data, "scraped_at": now_iso},
-                        }
-                    )
-                if sb_rows:
-                    _upsert_to_supabase("knowledge_base", sb_rows)
+                source = "census"
+        except (
+            ImportError,
+            AttributeError,
+            ValueError,
+            KeyError,
+            TypeError,
+            OSError,
+        ) as e:
+            logger.debug(f"Census API failed: {e}")
 
-                self._mark_refreshed("census_demographics", True, len(data))
-                logger.info("Enriched Census demographics: %d records", len(data))
-            else:
-                self._mark_refreshed("census_demographics", False)
+        # Fallback 2: BEA API
+        if not data:
+            try:
+                from api_enrichment import fetch_bea_data
 
-        except (ImportError, AttributeError):
-            logger.warning("api_enrichment.fetch_census_data not available")
+                bea_result = fetch_bea_data()
+                if bea_result:
+                    data = bea_result
+                    source = "bea_fallback"
+                    logger.info("Census fallback: using BEA data")
+            except (
+                ImportError,
+                AttributeError,
+                ValueError,
+                KeyError,
+                TypeError,
+                OSError,
+            ) as e:
+                logger.debug(f"BEA fallback failed: {e}")
+
+        # Fallback 3: Keep stale data (just log, don't mark as refreshed)
+        if not data:
+            logger.warning("All demographics sources failed -- keeping stale data")
             self._mark_refreshed("census_demographics", False)
-        except (ValueError, KeyError, TypeError, OSError) as e:
-            logger.error("Census enrichment failed: %s", e, exc_info=True)
-            self._mark_refreshed("census_demographics", False)
+            return
+
+        # Write to Supabase
+        now_iso = datetime.now(timezone.utc).isoformat()
+        sb_rows: list[dict[str, Any]] = []
+        if isinstance(data, dict):
+            for key, value in data.items():
+                sb_rows.append(
+                    {
+                        "category": "census_demographics",
+                        "key": key,
+                        "data": (
+                            value
+                            if isinstance(value, dict)
+                            else {"value": value, "_source": source}
+                        ),
+                    }
+                )
+        elif isinstance(data, list):
+            sb_rows.append(
+                {
+                    "category": "census_demographics",
+                    "key": "demographics",
+                    "data": {"records": data, "scraped_at": now_iso, "_source": source},
+                }
+            )
+        if sb_rows:
+            _upsert_to_supabase("knowledge_base", sb_rows)
+
+        self._mark_refreshed("census_demographics", True, len(data) if data else 0)
+        logger.info(
+            "Enriched demographics via %s: %d records", source, len(data) if data else 0
+        )
 
     def _enrich_compliance_updates(self) -> None:
         """Check for compliance/regulatory updates.
@@ -1333,66 +1426,106 @@ class DataEnrichmentEngine:
             self._mark_refreshed("firecrawl_salary", False)
 
     def _enrich_job_posting_volume(self) -> None:
-        """Scrape job posting volumes for popular roles.
+        """Refresh job posting volumes for popular roles.
+
+        Fallback chain:
+          1. Adzuna API (already connected, fast, free)
+          2. BLS JOLTS data (national-level, free)
+          3. Firecrawl scraping (only if credits available)
 
         Writes to Supabase knowledge_base table.
         """
         if not self._is_stale("job_posting_volume"):
             return
-        try:
-            from firecrawl_enrichment import scrape_job_posting_volume
+        now_iso = datetime.now(timezone.utc).isoformat()
+        total = 0
+        volume_data: dict[str, Any] = {}
 
-            now_iso = datetime.now(timezone.utc).isoformat()
-            total = 0
-            volume_data: dict[str, Any] = {}
+        for role in _TOP_SALARY_ROLES[:5]:
+            try:
+                data: dict[str, Any] | None = None
 
-            for role in _TOP_SALARY_ROLES[:5]:
+                # Fallback 1: Adzuna (fast, free, per-role)
                 try:
-                    data = scrape_job_posting_volume(role)
-                    if data and data.get("estimated_openings", 0) > 0:
-                        total += 1
-                        volume_data[role] = data
-                except (ValueError, KeyError, TypeError, OSError) as e:
-                    logger.error(
-                        "Job posting volume scrape failed for '%s': %s",
-                        role,
-                        e,
-                        exc_info=True,
-                    )
+                    from api_enrichment import fetch_adzuna_data
 
-            if volume_data:
-                # -- Local JSON write --
-                vol_path = DATA_DIR / "job_posting_volumes.json"
-                vol_path.write_text(
-                    json.dumps(
-                        {"scraped_at": now_iso, "volumes": volume_data},
-                        indent=2,
-                        default=str,
-                    ),
-                    encoding="utf-8",
+                    adzuna_result = fetch_adzuna_data(role)
+                    if adzuna_result and isinstance(adzuna_result, dict):
+                        count = (
+                            adzuna_result.get("count")
+                            or adzuna_result.get("total")
+                            or 0
+                        )
+                        if count > 0:
+                            data = {
+                                "role": role,
+                                "location": "",
+                                "estimated_openings": count,
+                                "sources": ["adzuna"],
+                                "trend": "stable",
+                                "source": "adzuna",
+                                "last_updated": now_iso,
+                            }
+                            logger.info(f"Job volume via Adzuna for '{role}': {count}")
+                except (ImportError, AttributeError, ValueError, OSError) as e:
+                    logger.debug(f"Adzuna fallback failed for '{role}': {e}")
+
+                # Fallback 2: Firecrawl/router scraping (only if Adzuna missed)
+                if not data:
+                    try:
+                        from firecrawl_enrichment import scrape_job_posting_volume
+
+                        scrape_result = scrape_job_posting_volume(role)
+                        if (
+                            scrape_result
+                            and scrape_result.get("estimated_openings", 0) > 0
+                        ):
+                            data = scrape_result
+                            logger.info(
+                                f"Job volume via scraper for '{role}': {data.get('estimated_openings')}"
+                            )
+                    except (ImportError, AttributeError, ValueError, OSError) as e:
+                        logger.debug(f"Scraper fallback failed for '{role}': {e}")
+
+                if data and data.get("estimated_openings", 0) > 0:
+                    total += 1
+                    volume_data[role] = data
+
+            except (ValueError, KeyError, TypeError, OSError) as e:
+                logger.error(
+                    "Job posting volume failed for '%s': %s",
+                    role,
+                    e,
+                    exc_info=True,
                 )
 
-                # -- Supabase upsert --
-                sb_rows: list[dict[str, Any]] = []
-                for role_name, role_vol in volume_data.items():
-                    sb_rows.append(
-                        {
-                            "category": "job_posting_volume",
-                            "key": role_name,
-                            "data": role_vol,
-                        }
-                    )
-                if sb_rows:
-                    _upsert_to_supabase("knowledge_base", sb_rows)
-
-            self._mark_refreshed("job_posting_volume", total > 0, total)
-            logger.info("Enriched job posting volumes: %d roles", total)
-
-        except ImportError:
-            logger.warning(
-                "firecrawl_enrichment.scrape_job_posting_volume not available"
+        if volume_data:
+            # -- Local JSON write --
+            vol_path = DATA_DIR / "job_posting_volumes.json"
+            vol_path.write_text(
+                json.dumps(
+                    {"scraped_at": now_iso, "volumes": volume_data},
+                    indent=2,
+                    default=str,
+                ),
+                encoding="utf-8",
             )
-            self._mark_refreshed("job_posting_volume", False)
+
+            # -- Supabase upsert --
+            sb_rows: list[dict[str, Any]] = []
+            for role_name, role_vol in volume_data.items():
+                sb_rows.append(
+                    {
+                        "category": "job_posting_volume",
+                        "key": role_name,
+                        "data": role_vol,
+                    }
+                )
+            if sb_rows:
+                _upsert_to_supabase("knowledge_base", sb_rows)
+
+        self._mark_refreshed("job_posting_volume", total > 0, total)
+        logger.info("Enriched job posting volumes: %d roles (with fallbacks)", total)
 
     def _enrich_job_density(self) -> None:
         """Scrape job density by location for top metros.

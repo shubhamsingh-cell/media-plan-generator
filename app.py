@@ -11675,14 +11675,20 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         )
                         _locs_count = len(gen_data.get("locations") or [])
                         _is_complex = _roles_count >= 5 or _locs_count >= 5
-                        _gen_deadline_secs = 480 if _is_complex else 420  # 7-8 min
+                        _gen_deadline_secs = (
+                            120 if _is_complex else 90
+                        )  # 1.5-2 min (was 7-8 min)
                         _gen_deadline = time.time() + _gen_deadline_secs
-                        # Generous stage timeouts -- let each stage use all data
-                        _enrich_timeout = 60  # 15+ parallel API calls need time
-                        _synth_timeout = 90  # KB + vector search + LLM narrative
-                        _gs_timeout = 45  # Gold standard quality gates
-                        _verify_timeout = 45  # LLM verification of data points
-                        _excel_timeout = 90  # Excel with LLM executive narrative
+                        # Tight stage timeouts -- fail fast, serve partial data
+                        _enrich_timeout = 20  # Parallel APIs -- 20s is plenty (was 60)
+                        _synth_timeout = (
+                            45  # KB + vector search + LLM narrative (was 90)
+                        )
+                        _gs_timeout = 20  # Gold standard quality gates (was 45)
+                        _verify_timeout = 15  # LLM verification (was 45)
+                        _excel_timeout = (
+                            45  # Excel with LLM executive narrative (was 90)
+                        )
                         _is_simple = False  # deprecated -- always use full pipeline
                         logger.info(
                             "Async generate job %s: roles=%d, locs=%d, simple=%s, deadline=%ds",
