@@ -8957,7 +8957,7 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
         _msg_lower = user_message.lower().strip()
         # Greeting patterns: ^-anchored for hello/hi, unanchored for casual chat
         _greeting_pats_start = [
-            r"^(hi|hello|hey|hola|howdy|sup|yo)\b",
+            r"^(hi|hello|hey|hola|howdy|sup|yo|wassup|wazzup|whaddup|namaste|greetings)\b",
             r"^good (morning|afternoon|evening|day)\b",
             r"^(bye|goodbye|see you|later|take care|thanks|thank you|thx|ty)\b",
         ]
@@ -8984,6 +8984,9 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
             r"\bwhat\'s good\b",
             r"\bwhat\'s new\b",
             r"\bwhats up\b",
+            r"\bwassup\b",
+            r"\bwazzup\b",
+            r"\bwhaddup\b",
             r"\bwhats new\b",
             r"\bwhats good\b",
             r"\bare you (a |an )?(real|human|person|bot|ai|robot|machine|program|computer)\b",
@@ -9002,7 +9005,7 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
         if _is_pure_greeting:
             # Strip greeting prefix and check remaining content length
             _stripped = re.sub(
-                r"^(hi|hello|hey|hola|howdy|sup|yo|good\s+(morning|afternoon|evening|day))\b"
+                r"^(hi|hello|hey|hola|howdy|sup|yo|wassup|wazzup|whaddup|namaste|greetings|good\s+(morning|afternoon|evening|day))\b"
                 r"[\s,!.]*"  # trailing punctuation/space
                 r"(nova|there|buddy|friend|team|guys)?\b"  # optional addressee
                 r"[\s,!.]*",  # more trailing punctuation
@@ -9100,6 +9103,9 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                         "what's good",
                         "what's new",
                         "whats up",
+                        "wassup",
+                        "wazzup",
+                        "whaddup",
                         "whats new",
                         "whats good",
                         "how r u",
