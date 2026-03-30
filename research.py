@@ -4703,6 +4703,18 @@ def get_competitors(industry, locations, company_name=None):
         for loc in (locations or [])
     )
 
+    # Blocklist: recruitment marketing vendors that should never appear as
+    # hiring competitors in the competitive landscape table.
+    _VENDOR_BLOCKLIST = {
+        "appcast",
+        "pandologic",
+        "radancy",
+        "joveo",
+        "recruitics",
+        "talroo",
+        "programmatic",
+    }
+
     comp_data = INDUSTRY_COMPETITORS.get(
         industry, INDUSTRY_COMPETITORS.get("general_entry_level", {})
     )
@@ -4712,6 +4724,13 @@ def get_competitors(industry, locations, company_name=None):
         filtered_competitors = _filter_self_from_competitors(
             data["competitors"], company_name
         )
+        # Filter out recruitment marketing vendors from competitor list
+        if filtered_competitors:
+            parts = [p.strip() for p in filtered_competitors.split(",")]
+            parts = [
+                p for p in parts if not any(v in p.lower() for v in _VENDOR_BLOCKLIST)
+            ]
+            filtered_competitors = ", ".join(parts) if parts else filtered_competitors
         result.append(
             {
                 "category": category,

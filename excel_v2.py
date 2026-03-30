@@ -2772,13 +2772,35 @@ def _build_sheet_sources(ws, data: dict):
     # Collect all sources mentioned in the data
     all_sources = set()
 
+    # Internal metadata keys that should never appear as data sources
+    _METADATA_BLOCKLIST = {
+        "api_details",
+        "apis_called",
+        "apis_circuit_broken",
+        "apis_failed",
+        "apis_skipped",
+        "apis_succeeded",
+        "cached",
+        "confidence_score",
+        "total_time_seconds",
+        "request_id",
+        "plan_id",
+        "metadata",
+        "source",
+    }
+
     # From enrichment summary
     if isinstance(enrichment_summary, dict):
         for api_name, api_status in enrichment_summary.items():
+            if api_name in _METADATA_BLOCKLIST:
+                continue
             if isinstance(api_status, dict):
-                all_sources.add(api_status.get("source_name", api_name))
+                source_name = api_status.get("source_name", api_name)
+                if source_name not in _METADATA_BLOCKLIST:
+                    all_sources.add(source_name)
             else:
-                all_sources.add(str(api_name))
+                if str(api_name) not in _METADATA_BLOCKLIST:
+                    all_sources.add(str(api_name))
 
     # From known API sources used in the pipeline
     known_sources = [
@@ -3322,16 +3344,12 @@ def _build_sheet_roi_projections(ws, data: dict) -> None:
 
             projected_hires = max(0, int(projected_apps * conversion_rate))
 
-            # Use existing projected hires only if they imply a reasonable
-            # conversion rate (within 0.5x-3x of the channel benchmark).
-            # This prevents upstream flat-rate estimates from overriding
-            # channel-specific conversion benchmarks.
+            # CRITICAL: Use upstream projected_hires when available to stay
+            # consistent with the Executive Summary sheet (which reads the
+            # same ch_data.get("projected_hires") value directly).
             existing_hires = ch_data.get("projected_hires") or 0
-            if existing_hires > 0 and projected_apps > 0:
-                implied_rate = existing_hires / projected_apps
-                benchmark_mid = conversion_rate  # midpoint of channel range
-                if 0.5 * benchmark_mid <= implied_rate <= 3.0 * benchmark_mid:
-                    projected_hires = existing_hires
+            if existing_hires > 0:
+                projected_hires = existing_hires
 
             cost_per_hire = round(dollars / max(projected_hires, 1), 2)
 
