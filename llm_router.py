@@ -2920,8 +2920,9 @@ def _call_llm_inner(
 # Providers that do NOT support streaming -- fall back to non-streaming
 _NO_STREAM_PROVIDERS = frozenset({HUGGINGFACE, CLOUDFLARE})
 
-# Streaming timeout for the HTTP connection (longer than normal to keep alive)
-_STREAM_TIMEOUT = 90
+# Streaming timeout for the HTTP connection
+# Was 90s -- exceeded 55s global budget by 1.6x, causing hangs
+_STREAM_TIMEOUT = 55
 
 
 def _stream_openai_compatible(

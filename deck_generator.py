@@ -47,14 +47,17 @@ _TIER_LIMITS: dict[str, int] = {
 }
 
 # Tier ordering and display names
+# Tier order: Google Slides #1 (fast, reliable), python-pptx #2 (offline, guaranteed).
+# External APIs demoted to #3+ -- too slow (180s/120s timeouts),
+# caused 7-min cascading failures when down.
 _TIERS: list[tuple[str, str]] = [
     ("google_slides", "Google Slides API"),
+    ("pptx", "python-pptx (offline)"),
     ("presenton", "Presenton (self-hosted)"),
     ("gamma", "Gamma API"),
     ("magicslides", "MagicSlides API"),
     ("alai", "Alai API"),
     ("flashdocs", "FlashDocs SDK"),
-    ("pptx", "python-pptx (offline)"),
 ]
 
 
@@ -337,7 +340,7 @@ class DeckGenerator:
                 method="POST",
                 data=payload,
                 headers={"Content-Type": "application/json"},
-                timeout=180,
+                timeout=30,  # was 180s -- exceeded 55s global budget by 3.3x
             )
         except urllib.error.URLError as exc:
             logger.error("Presenton network error: %s", exc, exc_info=True)
