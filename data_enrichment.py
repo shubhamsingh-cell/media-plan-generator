@@ -1103,6 +1103,29 @@ class DataEnrichmentEngine:
             ) as e:
                 logger.debug(f"Jooble fallback failed for '{category}': {e}")
 
+            # Fallback 4: CareerJet (free, 60+ countries)
+            try:
+                from api_enrichment import fetch_careerjet_data
+
+                data = fetch_careerjet_data(role=category)
+                if data and data.get("job_count", 0) > 0:
+                    total_records += 1
+                    adzuna_results[category] = {
+                        "count": data["job_count"],
+                        "_source": "careerjet_fallback",
+                    }
+                    logger.info(f"CareerJet fallback succeeded for '{category}'")
+                    continue
+            except (
+                ImportError,
+                AttributeError,
+                ValueError,
+                KeyError,
+                TypeError,
+                OSError,
+            ) as e:
+                logger.debug(f"CareerJet fallback failed for '{category}': {e}")
+
             logger.warning(f"All job data sources failed for '{category}'")
 
         # -- Supabase upsert --

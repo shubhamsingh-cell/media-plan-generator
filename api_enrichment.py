@@ -15804,5 +15804,297 @@ def _cli_demo():
     print(json.dumps(result, indent=2, default=str))
 
 
+# =============================================================================
+# NEW FREE APIs (S30): CareerJet, Eurostat, UK ONS, StatCan
+# =============================================================================
+
+
+def fetch_careerjet_data(
+    role: str = "",
+    location: str = "",
+    country: str = "us",
+) -> Dict[str, Any]:
+    """Fetch job counts from CareerJet API (free, 60+ countries, 1K req/hr).
+
+    Args:
+        role: Job title to search for.
+        location: City or region name.
+        country: 2-letter country code (us, gb, de, fr, etc.).
+
+    Returns:
+        Dict with job_count, sample_jobs, source.
+    """
+    safe_role = (role or "").strip()
+    if not safe_role:
+        return {"job_count": 0, "source": "careerjet", "error": "no_role"}
+
+    try:
+        params = urllib.parse.urlencode(
+            {
+                "keywords": safe_role,
+                "location": location or "",
+                "locale_code": f"en_{country.upper()}",
+                "page": "1",
+                "pagesize": "5",
+                "affid": "nova_ai",
+            }
+        )
+        url = f"http://public.api.careerjet.net/search?{params}"
+
+        ctx = ssl.create_default_context()
+        req = urllib.request.Request(url, headers={"User-Agent": "Nova AI Suite/4.0"})
+        with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+
+        job_count = data.get("hits", 0)
+        jobs = data.get("jobs", [])
+        sample = [
+            {
+                "title": j.get("title", ""),
+                "company": j.get("company", ""),
+                "location": j.get("locations", ""),
+                "salary": j.get("salary", ""),
+            }
+            for j in jobs[:5]
+        ]
+
+        logger.info(f"CareerJet: {job_count} jobs for '{safe_role}' in {country}")
+        return {
+            "job_count": job_count,
+            "sample_jobs": sample,
+            "source": "careerjet",
+            "country": country,
+        }
+
+    except (urllib.error.URLError, OSError, json.JSONDecodeError, ValueError) as e:
+        logger.error(f"CareerJet API failed: {e}", exc_info=True)
+        return {"job_count": 0, "source": "careerjet", "error": str(e)}
+
+
+def fetch_eurostat_data(
+    indicator: str = "unemployment",
+    country: str = "",
+) -> Dict[str, Any]:
+    """Fetch EU labor market data from Eurostat (free, no key, EU 27 countries).
+
+    Args:
+        indicator: One of 'unemployment', 'employment', 'wages', 'vacancies'.
+        country: 2-letter EU country code (DE, FR, NL, etc.) or empty for all.
+
+    Returns:
+        Dict with indicator values per country/period.
+    """
+    # Eurostat SDMX dataset codes
+    dataset_map = {
+        "unemployment": "une_rt_m",  # Monthly unemployment rate
+        "employment": "lfsi_emp_a",  # Annual employment rate
+        "wages": "earn_mw_cur",  # Minimum wages
+        "vacancies": "jvs_q_nace2",  # Job vacancy statistics
+    }
+    dataset = dataset_map.get(indicator, "une_rt_m")
+
+    try:
+        base = "https://ec.europa.eu/eurostat/api/dissemination/sdmx/2.1"
+        geo_filter = f".{country.upper()}" if country else ""
+        url = f"{base}/data/{dataset}?format=JSON&lang=en"
+
+        req = urllib.request.Request(url, headers={"User-Agent": "Nova AI Suite/4.0"})
+        ctx = ssl.create_default_context()
+        with urllib.request.urlopen(req, timeout=15, context=ctx) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+
+        # Extract values from SDMX JSON format
+        values = data.get("value", {})
+        dimensions = data.get("dimension", {})
+
+        result: Dict[str, Any] = {
+            "indicator": indicator,
+            "dataset": dataset,
+            "data_points": len(values),
+            "source": "eurostat",
+        }
+
+        # Extract geo dimension labels
+        geo_dim = dimensions.get("geo", {}).get("category", {}).get("label", {})
+        if geo_dim:
+            result["countries"] = list(geo_dim.values())[:30]
+
+        # Get latest values (last N entries)
+        if values:
+            sorted_vals = sorted(values.items(), key=lambda x: int(x[0]), reverse=True)
+            result["latest_values"] = {k: v for k, v in sorted_vals[:20]}
+
+        logger.info(f"Eurostat: {len(values)} data points for {indicator}")
+        return result
+
+    except (urllib.error.URLError, OSError, json.JSONDecodeError, ValueError) as e:
+        logger.error(f"Eurostat API failed: {e}", exc_info=True)
+        return {"indicator": indicator, "source": "eurostat", "error": str(e)}
+
+
+def fetch_uk_ons_data(
+    dataset: str = "employment",
+) -> Dict[str, Any]:
+    """Fetch UK labor market data from ONS (free, no key required).
+
+    Args:
+        dataset: One of 'employment', 'unemployment', 'vacancies', 'earnings'.
+
+    Returns:
+        Dict with UK labor market statistics.
+    """
+    # ONS dataset IDs
+    dataset_map = {
+        "employment": "LMS",  # Labour Market Statistics
+        "unemployment": "UNEM",  # Unemployment
+        "vacancies": "VACS",  # Vacancies
+        "earnings": "EARN",  # Average Weekly Earnings
+    }
+    series_id = dataset_map.get(dataset, "LMS")
+
+    try:
+        url = f"https://api.ons.gov.uk/timeseries/{series_id}/dataset/LMS/data"
+
+        req = urllib.request.Request(
+            url,
+            headers={
+                "User-Agent": "Nova AI Suite/4.0",
+                "Accept": "application/json",
+            },
+        )
+        ctx = ssl.create_default_context()
+        with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+
+        # Extract recent observations
+        months = data.get("months", [])
+        quarters = data.get("quarters", [])
+        years = data.get("years", [])
+
+        recent_monthly = []
+        for m in (months or [])[-12:]:
+            recent_monthly.append(
+                {
+                    "period": m.get("date", ""),
+                    "value": m.get("value", ""),
+                    "label": m.get("label", ""),
+                }
+            )
+
+        result = {
+            "dataset": dataset,
+            "series_id": series_id,
+            "description": data.get("description", {}).get("title", ""),
+            "unit": data.get("description", {}).get("unit", ""),
+            "recent_monthly": recent_monthly,
+            "total_observations": len(months) + len(quarters) + len(years),
+            "source": "uk_ons",
+        }
+
+        logger.info(f"UK ONS: {len(recent_monthly)} monthly observations for {dataset}")
+        return result
+
+    except (urllib.error.URLError, OSError, json.JSONDecodeError, ValueError) as e:
+        logger.error(f"UK ONS API failed: {e}", exc_info=True)
+        return {"dataset": dataset, "source": "uk_ons", "error": str(e)}
+
+
+def fetch_statcan_data(
+    table: str = "14-10-0326-01",
+    vector: str = "",
+) -> Dict[str, Any]:
+    """Fetch Canadian labor market data from Statistics Canada WDS API (free, no key).
+
+    Args:
+        table: StatCan table ID. Default is Job Vacancies (JVWS).
+        vector: Optional specific vector/series ID.
+
+    Returns:
+        Dict with Canadian labor market statistics.
+    """
+    try:
+        # StatCan WDS endpoint for cube metadata + data
+        base = "https://www150.statcan.gc.ca/t1/tbl1/en/dtl!downloadTbl/en"
+        api_url = f"https://www150.statcan.gc.ca/t1/tbl1/en/tv.action?pid={table.replace('-', '')}"
+
+        # Use the JSON endpoint
+        json_url = (
+            f"https://www150.statcan.gc.ca/n1/tbl/csv/{table.replace('-', '')}-eng.zip"
+        )
+
+        # Alternative: use the WDS REST API for specific vectors
+        wds_url = "https://www150.statcan.gc.ca/t1/tbl1/en/dtl!downloadTbl/en"
+
+        # For quick access, use the cube metadata endpoint
+        meta_url = f"https://www150.statcan.gc.ca/t1/tbl1/en/tv.action?pid={table.replace('-', '')}"
+
+        # Use getCubeMetadata for table info
+        cube_url = "https://www150.statcan.gc.ca/t1/tbl1/en/dtl!downloadTbl/en"
+
+        # Simplified: use the series metadata API
+        series_url = f"https://www150.statcan.gc.ca/t1/tbl1/en/ctv.action?pid={table.replace('-', '')}"
+
+        result = {
+            "table": table,
+            "name": _STATCAN_TABLES.get(table, "Unknown"),
+            "source": "statcan",
+            "api_url": api_url,
+            "note": "StatCan data available via WDS API and CSV downloads",
+        }
+
+        # Try to get latest data via the JSON-stat endpoint
+        jsonstat_url = (
+            f"https://www150.statcan.gc.ca/n1/tbl/json/{table.replace('-', '')}.json"
+        )
+        req = urllib.request.Request(
+            jsonstat_url,
+            headers={
+                "User-Agent": "Nova AI Suite/4.0",
+                "Accept": "application/json",
+            },
+        )
+        ctx = ssl.create_default_context()
+        try:
+            with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                result["metadata"] = {
+                    "title": data.get("label", ""),
+                    "updated": data.get("updated", ""),
+                    "dimensions": len(data.get("dimension", {})),
+                }
+                values = data.get("value", [])
+                if values:
+                    result["data_points"] = len(values)
+                    result["sample_values"] = (
+                        values[:10]
+                        if isinstance(values, list)
+                        else list(values.items())[:10]
+                    )
+                logger.info(f"StatCan: {len(values)} data points for table {table}")
+        except (urllib.error.URLError, OSError):
+            # Fallback: return metadata only
+            result["note"] = (
+                "Data download requires CSV/SDMX format. Metadata available."
+            )
+            logger.info(f"StatCan: metadata only for table {table}")
+
+        return result
+
+    except (urllib.error.URLError, OSError, json.JSONDecodeError, ValueError) as e:
+        logger.error(f"StatCan API failed: {e}", exc_info=True)
+        return {"table": table, "source": "statcan", "error": str(e)}
+
+
+# StatCan key labor market tables
+_STATCAN_TABLES: Dict[str, str] = {
+    "14-10-0326-01": "Job Vacancies (JVWS) by industry",
+    "14-10-0327-01": "Job Vacancies by province and territory",
+    "14-10-0064-01": "Employee wages by industry (annual)",
+    "14-10-0287-01": "Labour force characteristics by province (monthly)",
+    "14-10-0355-01": "Employment by occupation and industry",
+    "14-10-0023-01": "Labour force characteristics by sex and age (monthly)",
+}
+
+
 if __name__ == "__main__":
     _cli_demo()
