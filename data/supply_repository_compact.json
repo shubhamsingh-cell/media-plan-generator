@@ -1,0 +1,1723 @@
+{
+  "source": "Joveo Global Supply Repository - Master List",
+  "last_updated": "2026-03-31",
+  "total_publishers": 7053,
+  "active_publishers": 6700,
+  "summary": {
+    "by_priority": {
+      "P3": 5464,
+      "P2": 1164,
+      "P1": 184,
+      "P0": 27
+    },
+    "by_status": {
+      "Via Redwood": 2931,
+      "VONQ Only": 2533,
+      "In Joveo Network": 1236,
+      "Deactivated": 253,
+      "Churned": 58,
+      "Paused / Pending Revival": 42
+    },
+    "by_region": {
+      "AMER": 4085,
+      "Europe": 1319,
+      "Global": 1123,
+      "APAC": 222,
+      "LATAM": 75,
+      "Africa": 29,
+      "MEA": 25
+    },
+    "by_job_type": {
+      "General": 4911,
+      "White Collar": 1478,
+      "Blue Collar": 60,
+      "White Collar Collar": 41,
+      "Blue Collar Collar": 4
+    }
+  },
+  "top_publishers_p0_p1": [
+    {
+      "name": "employers.io",
+      "priority": "P0",
+      "region": "Global",
+      "countries": "United States, United Kingdom",
+      "job_type": "Blue Collar",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "JobSwipe",
+      "priority": "P1",
+      "region": "Global",
+      "countries": "United States, United Kingdom, Canada, Germany",
+      "job_type": "General",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Joblift",
+      "priority": "P0",
+      "region": "Europe",
+      "countries": "Belgium, France, Germany, United Kingdom, Netherlands",
+      "job_type": "General",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "JobGet",
+      "priority": "P0",
+      "region": "Global",
+      "countries": "United States, Canada, Netherlands, France, Germany",
+      "job_type": "General",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Jobbird.de",
+      "priority": "P1",
+      "region": "Europe",
+      "countries": "Germany, Netherlands",
+      "job_type": "General",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Tideri OHG",
+      "priority": "P1",
+      "region": "Europe",
+      "countries": "Germany, Austria, Switzerland, Italy, Spain, France, United Kingdom, Netherlands, Belgium, Canada, United States",
+      "job_type": "General",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Manymore.jobs",
+      "priority": "P1",
+      "region": "Europe",
+      "countries": "Germany, Austria, Slovakia, Hungary",
+      "job_type": "General",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "ClickaJobs",
+      "priority": "P1",
+      "region": "Global",
+      "countries": "United States, United Kingdom, Canada, Germany, France, Spain, Ireland, Netherlands, Italy, Argentina, Brazil, Portugal, Poland, India, Hungary, Norway, South Korea, Finland, China, Ukraine, Czech Republic",
+      "job_type": "General",
+      "pricing": "CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "MyJobScanner",
+      "priority": "P1",
+      "region": "Global",
+      "countries": "United States, United Kingdom, Germany, France, Netherlands, Canada, Belgium, Poland, Italy",
+      "job_type": "General",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Job Traffic",
+      "priority": "P1",
+      "region": "AMER",
+      "countries": "United States, United Kingdom, Germany",
+      "job_type": "General",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Snagajob",
+      "priority": "P0",
+      "region": "AMER",
+      "countries": "United States",
+      "job_type": "Blue Collar",
+      "pricing": "CPA + CPC + tCPA",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Jobtome",
+      "priority": "P1",
+      "region": "Global",
+      "countries": "United States, Argentina, Austria, Australia, Belgium, Brazil, Canada, Switzerland, Colombia, Chile, Germany, Spain, France, India, Italy, Mexico, Netherlands, Poland, Portugal, Sweden, United Kingdom, South Africa",
+      "job_type": "General",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Jobcase Inc",
+      "priority": "P0",
+      "region": "AMER",
+      "countries": "United States",
+      "job_type": "General",
+      "pricing": "CPA + CPC + tCPA",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Propel",
+      "priority": "P1",
+      "region": "AMER",
+      "countries": "United States",
+      "job_type": "General",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "AllJobs",
+      "priority": "P1",
+      "region": "AMER",
+      "countries": "United States, Canada",
+      "job_type": "General",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Monster",
+      "priority": "P0",
+      "region": "Global",
+      "countries": "Belgium, Canada, Germany, Spain, France, Ireland, Italy, Luxembourg, Netherlands, Austria, Switzerland, Sweden, United Kingdom, United States",
+      "job_type": "General",
+      "pricing": "CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Jora",
+      "priority": "P1",
+      "region": "Global",
+      "countries": "Argentina, Australia, Bangladesh, Brazil, Canada, Chile, Colombia, Ecuador, Spain, France, United Kingdom, Hong Kong, Indonesia, Ireland, India, Mexico, Malaysia, New Zealand, Peru, Philippines, Portugal, Singapore, Thailand, United States",
+      "job_type": "General",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "EarnBetter",
+      "priority": "P1",
+      "region": "AMER",
+      "countries": "United States",
+      "job_type": "General",
+      "pricing": "CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "WhatJobs",
+      "priority": "P1",
+      "region": "Global",
+      "countries": "Algeria, Argentina, Australia, Austria, Bahrain, Bangladesh, Belgium, Bolivia, Brazil, Canada, Chile, Colombia, Costa Rica, Denmark, Ecuador, Egypt, El Salvador, France, Germany, Ghana, Greece, Guatemala, Hong Kong, India, Indonesia, Ireland, Italy, Japan, Kenya, Kuwait, Luxembourg, Madagascar, Malaysia, Mexico, Morocco, New Zealand, Netherlands, Nigeria, Oman, Pakistan, Panama, Paraguay, Peru, Philippines, Poland, Portugal, Puerto Rico, Qatar, Dominican Republic, Saudi Arabia, Senegal, Singapore, South Africa, Spain, Sri Lanka, Sweden, Switzerland, Tanzania, Thailand, Tunisia, Turkey, Uganda, United Arab Emirates, United Kingdom, United States, Uruguay, Venezuela, Vietnam",
+      "job_type": "General",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "J-Vers",
+      "priority": "P1",
+      "region": "Global",
+      "countries": "Germany, United Kingdom, United States, Italy, Canada, Poland, Ireland, Netherlands, Belgium, Australia, Switzerland, Austria, Brazil, Mexico",
+      "job_type": "General",
+      "pricing": "CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Adzuna",
+      "priority": "P1",
+      "region": "Global",
+      "countries": "Australia, Austria, Belgium, Brazil, Canada, France, Germany, India, Italy, Mexico, Netherlands, New Zealand, Poland, Singapore, South Africa, Spain, Switzerland, United Kingdom, United States",
+      "job_type": "General",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Allthetopbananas",
+      "priority": "P0",
+      "region": "Global",
+      "countries": "Belgium, Czech Republic, Germany, Denmark, Spain, France, Ireland, Italy, Hungary, Netherlands, Austria, Poland, Portugal, Romania, Russia, Switzerland, Slovakia, Sweden, Turkey, Ukraine, United Kingdom, Angola, Algeria, Kenya, Morocco, Nigeria, South Africa, Argentina, Brazil, Canada, Chile, Colombia, Ecuador, Guatemala, Mexico, Peru, Dominican Republic, United States, Uruguay, Venezuela, Australia, China, Hong Kong, Indonesia, India, Japan, South Korea, Kuwait, Malaysia, New Zealand, Philippines, Pakistan, Qatar, Saudi Arabia, Singapore, Thailand, Taiwan, United Arab Emirates",
+      "job_type": "General",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Galois",
+      "priority": "P1",
+      "region": "APAC",
+      "countries": "Japan",
+      "job_type": "General",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "JobRapido",
+      "priority": "P0",
+      "region": "Global",
+      "countries": "Argentina, Belgium, Brazil, Canada, Switzerland, Chile, Colombia, Costa Rica, Czech Republic, Germany, Spain, France, Hong Kong, Croatia, India, Italy, Japan, Kuwait, Mexico, Netherlands, Philippines, Poland, Puerto Rico, Portugal, Romania, South Africa, Sweden, Singapore, United States, United Kingdom",
+      "job_type": "General",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Mindmatch.ai",
+      "priority": "P1",
+      "region": "Global",
+      "countries": "United States, Germany, United Kingdom",
+      "job_type": "General",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Myjobhelper",
+      "priority": "P1",
+      "region": "AMER",
+      "countries": "United States",
+      "job_type": "General",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Talent.com",
+      "priority": "P0",
+      "region": "Global",
+      "countries": "Algeria, Angola, Argentina, Australia, Austria, Bahrain, Belgium, Brazil, Cameroon, Canada, Chile, China, Colombia, Costa Rica, Czech Republic, Denmark, Ecuador, Egypt, Finland, France, Germany, Ghana, Greece, Guatemala, Hong Kong, Hungary, India, Indonesia, Ireland, Israel, Italy, Ivory Coast, Japan, Kazakhstan, Kenya, Kuwait, Lebanon, Luxembourg, Malaysia, Mexico, Morocco, Mozambique, Netherlands, New Zealand, Nigeria, Norway, Oman, Pakistan, Panama, Peru, Philippines, Poland, Portugal, Puerto Rico, Qatar, Romania, Saudi Arabia, Senegal, Singapore, South Africa, South Korea, Spain, Sweden, Switzerland, Taiwan, Thailand, Tunisia, Turkey, Uganda, Ukraine, United Arab Emirates, United Kingdom, United States, Uruguay, Venezuela, Vietnam, Zambia",
+      "job_type": "General",
+      "pricing": "CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Talroo",
+      "priority": "P0",
+      "region": "AMER",
+      "countries": "United States",
+      "job_type": "General",
+      "pricing": "CPC + tCPA",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "TransForce",
+      "priority": "P1",
+      "region": "AMER",
+      "countries": "United States",
+      "job_type": "Blue Collar",
+      "pricing": "CPA",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "ZipRecruiter",
+      "priority": "P0",
+      "region": "Global",
+      "countries": "United States, Canada, United Kingdom",
+      "job_type": "General",
+      "pricing": "CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "OnTimeHire",
+      "priority": "P0",
+      "region": "AMER",
+      "countries": "United States",
+      "job_type": "General",
+      "pricing": "CPA",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "CV Library",
+      "priority": "P1",
+      "region": "Global",
+      "countries": "United Kingdom, United States, Germany, Italy, Spain, France, Netherlands",
+      "job_type": "General",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "CDLlife",
+      "priority": "P1",
+      "region": "AMER",
+      "countries": "United States",
+      "job_type": "Blue Collar",
+      "pricing": "CPA",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Indeed, Inc",
+      "priority": "P0",
+      "region": "Global",
+      "countries": "Global",
+      "job_type": "General",
+      "pricing": "tCPA",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "PlacedApp",
+      "priority": "P1",
+      "region": "Europe",
+      "countries": "United Kingdom, United States, Germany",
+      "job_type": "General",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "IrishJobs",
+      "priority": "P1",
+      "region": "Europe",
+      "countries": "Ireland",
+      "job_type": "General",
+      "pricing": "Posting",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Praca.pl",
+      "priority": "P1",
+      "region": "Europe",
+      "countries": "Poland",
+      "job_type": "General",
+      "pricing": "Posting",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Sercanto",
+      "priority": "P0",
+      "region": "Global",
+      "countries": "United Arab Emirates, Argentina, Austria, Australia, Belgium, Brazil, Canada, Switzerland, Chile, Colombia, Costa Rica, Germany, Dominican Republic, Ecuador, Spain, France, Indonesia, Ireland, India, Italy, Japan, Mexico, Netherlands, Panama, Poland, Peru, Puerto Rico, Portugal, Russia, Turkey, United Kingdom, United States, Uruguay, Venezuela, South Africa",
+      "job_type": "General",
+      "pricing": "CPA",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "AppJobs",
+      "priority": "P1",
+      "region": "Global",
+      "countries": "United States, United Kingdom, Austria, Germany, Italy, France, Canada , Netherlands, Belgium, Poland, Portugal, Brazil, Sweden, Denmark, Finland, Norway, Turkey",
+      "job_type": "General",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "OfferUp",
+      "priority": "P1",
+      "region": "AMER",
+      "countries": "United States",
+      "job_type": "General",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Jobsora",
+      "priority": "P1",
+      "region": "Global",
+      "countries": "Ukraine, Poland, United Kingdom, Germany, Austria, Spain, France, Netherlands, Belgium, Turkey, Italy, Portugal, Hungary, Sweden, Finland, Switzerland, Czech Republic, Romania, Bulgaria, Kazakhstan, India, United Arab Emirates, Malaysia, Philippines, Taiwan, Singapore, Japan, United States, Argentina, Mexico, Chile, Peru, Brazil, Canada, Australia, New Zealand, South Africa, Nigeria",
+      "job_type": "General",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "StellenSMS",
+      "priority": "P1",
+      "region": "Global",
+      "countries": "United States, Canada, United Kingdom, France, Germany, Switzerland, India, Spain, South Africa, Netherlands",
+      "job_type": "General",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Dice",
+      "priority": "P1",
+      "region": "AMER",
+      "countries": "United States",
+      "job_type": "White Collar",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "SonicJobs",
+      "priority": "P1",
+      "region": "AMER",
+      "countries": "United Kingdom, United States",
+      "job_type": "General",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Botson.ai",
+      "priority": "P1",
+      "region": "AMER",
+      "countries": "United States",
+      "job_type": "General",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "CMP Jobs",
+      "priority": "P1",
+      "region": "AMER",
+      "countries": "United States",
+      "job_type": "General",
+      "pricing": "CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Health Ecareers",
+      "priority": "P1",
+      "region": "AMER",
+      "countries": "United States",
+      "job_type": "White Collar",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Hokify",
+      "priority": "P0",
+      "region": "Europe",
+      "countries": "Austria, Germany",
+      "job_type": "General",
+      "pricing": "CPA",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "BoostPoint",
+      "priority": "P1",
+      "region": "Global",
+      "countries": "United States, Canada, United Kingdom",
+      "job_type": "General",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Jobs In Japan",
+      "priority": "P1",
+      "region": "APAC",
+      "countries": "Japan",
+      "job_type": "General",
+      "pricing": "Posting",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Daijob.com",
+      "priority": "P1",
+      "region": "APAC",
+      "countries": "Japan",
+      "job_type": "General",
+      "pricing": "Posting",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "GaijinPot",
+      "priority": "P1",
+      "region": "APAC",
+      "countries": "Japan",
+      "job_type": "General",
+      "pricing": "Posting",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "GoWork.pl",
+      "priority": "P1",
+      "region": "Europe",
+      "countries": "Poland",
+      "job_type": "General",
+      "pricing": "Posting",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "deBanenSite.nl",
+      "priority": "P1",
+      "region": "Europe",
+      "countries": "Netherlands",
+      "job_type": "General",
+      "pricing": "Posting",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Pracuj.pl",
+      "priority": "P1",
+      "region": "Europe",
+      "countries": "Poland",
+      "job_type": "General",
+      "pricing": "Posting",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Xing",
+      "priority": "P1",
+      "region": "Europe",
+      "countries": "Germany, Austria, Switzerland",
+      "job_type": "General",
+      "pricing": "CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Upward.net",
+      "priority": "P0",
+      "region": "AMER",
+      "countries": "United States",
+      "job_type": "General",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "PostJobFree",
+      "priority": "P1",
+      "region": "AMER",
+      "countries": "United States, Canada",
+      "job_type": "General",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Jobsdb",
+      "priority": "P1",
+      "region": "APAC",
+      "countries": "Hong Kong, Singapore, Thailand",
+      "job_type": "General",
+      "pricing": "Subscription",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Stellenanzeigen.de",
+      "priority": "P1",
+      "region": "Europe",
+      "countries": "Germany",
+      "job_type": "General",
+      "pricing": "Posting",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "JobCloud",
+      "priority": "P0",
+      "region": "Europe",
+      "countries": "Germany, Austria, Switzerland",
+      "job_type": "General",
+      "pricing": "CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Jobs.ch",
+      "priority": "P1",
+      "region": "Europe",
+      "countries": "Switzerland",
+      "job_type": "General",
+      "pricing": "CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "JobUp",
+      "priority": "P1",
+      "region": "Europe",
+      "countries": "Switzerland",
+      "job_type": "General",
+      "pricing": "CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Jobwinner",
+      "priority": "P1",
+      "region": "Europe",
+      "countries": "Switzerland",
+      "job_type": "General",
+      "pricing": "CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Topjobs.ch",
+      "priority": "P1",
+      "region": "Europe",
+      "countries": "Switzerland",
+      "job_type": "General",
+      "pricing": "CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Jooble",
+      "priority": "P0",
+      "region": "Global",
+      "countries": "Argentina, Belgium, Brazil, Canada, Switzerland, Chile, Colombia, Costa Rica, Czech Republic, Germany, Spain, France, Hong Kong, Croatia, India, Italy, Japan, Kuwait, Mexico, Netherlands, Philippines, Poland, Puerto Rico, Portugal, Romania, South Africa, Sweden, Taiwan, Ukraine, United Kingdom, United States, United Arab Emirates",
+      "job_type": "General",
+      "pricing": "CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Welcome to the Jungle",
+      "priority": "P1",
+      "region": "Europe",
+      "countries": "France",
+      "job_type": "General",
+      "pricing": "Posting",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "JobMESH",
+      "priority": "P1",
+      "region": "Europe",
+      "countries": "Germany",
+      "job_type": "General",
+      "pricing": "CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Bakeca.it",
+      "priority": "P1",
+      "region": "Europe",
+      "countries": "Italy",
+      "job_type": "General",
+      "pricing": "CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Stack Over Flow",
+      "priority": "P1",
+      "region": "AMER",
+      "countries": "United States",
+      "job_type": "White Collar",
+      "pricing": "CPM",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Diversity Jobs",
+      "priority": "P1",
+      "region": "AMER",
+      "countries": "United States",
+      "job_type": "General",
+      "pricing": "Posting",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Laborum",
+      "priority": "P1",
+      "region": "LATAM",
+      "countries": "Chile",
+      "job_type": "General",
+      "pricing": "Slot",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Curriculum",
+      "priority": "P1",
+      "region": "LATAM",
+      "countries": "Brazil",
+      "job_type": "General",
+      "pricing": "Subscription",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "American Nurses Association",
+      "priority": "P1",
+      "region": "AMER",
+      "countries": "United States",
+      "job_type": "White Collar",
+      "pricing": "Posting",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Profesia",
+      "priority": "P1",
+      "region": "Europe",
+      "countries": "Slovakia",
+      "job_type": "General",
+      "pricing": "Posting",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "CareerCross",
+      "priority": "P1",
+      "region": "APAC",
+      "countries": "Japan",
+      "job_type": "General",
+      "pricing": "Slot",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Jobs.ie",
+      "priority": "P1",
+      "region": "Europe",
+      "countries": "Ireland",
+      "job_type": "General",
+      "pricing": "Posting",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Nexxt",
+      "priority": "P1",
+      "region": "AMER",
+      "countries": "United States",
+      "job_type": "General",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Resume-Library.com",
+      "priority": "P1",
+      "region": "AMER",
+      "countries": "United States",
+      "job_type": "General",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Women for Hire",
+      "priority": "P1",
+      "region": "Global",
+      "countries": "United States, United Kingdom, Canada",
+      "job_type": "General",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Professional Diversity Network",
+      "priority": "P1",
+      "region": "AMER",
+      "countries": "United States",
+      "job_type": "General",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Geographic Solutions",
+      "priority": "P0",
+      "region": "AMER",
+      "countries": "United States",
+      "job_type": "General",
+      "pricing": "CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Rabota.bg",
+      "priority": "P1",
+      "region": "Europe",
+      "countries": "Bulgaria",
+      "job_type": "General",
+      "pricing": "Slot",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Zaplata.bg",
+      "priority": "P1",
+      "region": "Europe",
+      "countries": "Bulgaria",
+      "job_type": "General",
+      "pricing": "Slot",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Jobnet",
+      "priority": "P1",
+      "region": "MEA",
+      "countries": "Israel",
+      "job_type": "General",
+      "pricing": "Slot",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "New Zealand Jobs",
+      "priority": "P1",
+      "region": "APAC",
+      "countries": "New Zealand",
+      "job_type": "General",
+      "pricing": "Subscription",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Nationale Vacaturebank",
+      "priority": "P1",
+      "region": "Europe",
+      "countries": "Netherlands",
+      "job_type": "General",
+      "pricing": "Posting",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Intermediair",
+      "priority": "P1",
+      "region": "Europe",
+      "countries": "Netherlands",
+      "job_type": "White Collar",
+      "pricing": "Posting",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "eFinancialCareers",
+      "priority": "P1",
+      "region": "Global",
+      "countries": "Egypt, Senegal, South Africa, Afghanistan, Bangladesh, China, Hong Kong, India, Indonesia, Israel, Japan, Macao, Malaysia, Philippines, Singapore, South Korea, Sri Lanka, Taiwan, Thailand, Uzbekistan, Vietnam, Australia, Fiji, New Zealand, Papua New Guinea, Austria, Belgium, Bulgaria, Cyprus, Czech Republic, Denmark, France, Germany, Greece, Guernsey, Hungary, Ireland, Isle of Man, Italy, Liechtenstein, Luxembourg, Monaco, Netherlands, Norway, Poland, Portugal, Romania, Russia, Serbia, Slovakia, Spain, Sweden, Switzerland, Ukraine, United Kingdom, Bahrain, Kuwait, Oman, Qatar, Saudi Arabia, United Arab Emirates, Bermuda, Canada, Cayman Islands, Costa Rica, El Salvador, Mexico, United States, Brazil, Chile, Colombia, Uruguay",
+      "job_type": "White Collar",
+      "pricing": "Posting",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "References.be",
+      "priority": "P1",
+      "region": "Europe",
+      "countries": "France, Netherlands, Germany",
+      "job_type": "General",
+      "pricing": "Posting",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Profession.hu",
+      "priority": "P1",
+      "region": "Europe",
+      "countries": "Hungary, Germany, Austria, Switzerland, United Kingdom",
+      "job_type": "General",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Job Bank",
+      "priority": "P1",
+      "region": "AMER",
+      "countries": "Canada",
+      "job_type": "General",
+      "pricing": "Organic",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Personalwerk",
+      "priority": "P1",
+      "region": "Europe",
+      "countries": "Germany",
+      "job_type": "Blue Collar",
+      "pricing": "Posting",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Yapo",
+      "priority": "P1",
+      "region": "LATAM",
+      "countries": "Chile",
+      "job_type": "General",
+      "pricing": "Slot",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "New Zealand Jobs - jobspace.co.nz",
+      "priority": "P1",
+      "region": "APAC",
+      "countries": "New Zealand",
+      "job_type": "General",
+      "pricing": "Subscription",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "SAPO Emprego",
+      "priority": "P1",
+      "region": "Europe",
+      "countries": "Portugal",
+      "job_type": "General",
+      "pricing": "Posting",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "JobsIreland.ie",
+      "priority": "P1",
+      "region": "Europe",
+      "countries": "Republic of Ireland",
+      "job_type": "General",
+      "pricing": "Organic",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "ictjob.lu",
+      "priority": "P1",
+      "region": "Europe",
+      "countries": "Luxembourg",
+      "job_type": "General",
+      "pricing": "Posting",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "ticjob",
+      "priority": "P1",
+      "region": "Europe",
+      "countries": "Spain, Colombia, Luxembourg",
+      "job_type": "General",
+      "pricing": "Slot",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Chiletrabajos",
+      "priority": "P1",
+      "region": "LATAM",
+      "countries": "Chile",
+      "job_type": "General",
+      "pricing": "Subscription",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Trabajando",
+      "priority": "P1",
+      "region": "LATAM",
+      "countries": "Chile",
+      "job_type": "General",
+      "pricing": "Subscription",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Dwp.gov.uk",
+      "priority": "P1",
+      "region": "Europe",
+      "countries": "United Kingdom",
+      "job_type": "General",
+      "pricing": "Organic",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "JOBS.BG",
+      "priority": "P1",
+      "region": "Europe",
+      "countries": "Bulgaria",
+      "job_type": "General",
+      "pricing": "Posting",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "AAHA (American Animal Hospital Assocoiation)",
+      "priority": "P1",
+      "region": "AMER",
+      "countries": "United States",
+      "job_type": "White Collar",
+      "pricing": "Posting",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Foh and Boh",
+      "priority": "P1",
+      "region": "AMER",
+      "countries": "United States",
+      "job_type": "Blue Collar",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "CollabWORK",
+      "priority": "P1",
+      "region": "AMER",
+      "countries": "United States",
+      "job_type": "General",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "turijobs",
+      "priority": "P1",
+      "region": "Europe",
+      "countries": "Spain",
+      "job_type": "General",
+      "pricing": "Subscription",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Arbeitnow",
+      "priority": "P1",
+      "region": "Europe",
+      "countries": "Germany",
+      "job_type": "General",
+      "pricing": "Posting",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "HeyTempo",
+      "priority": "P1",
+      "region": "Europe",
+      "countries": "United Kingdom",
+      "job_type": "White Collar",
+      "pricing": "Subscription",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Info Jobs",
+      "priority": "P1",
+      "region": "Europe",
+      "countries": "Spain, Italy",
+      "job_type": "General",
+      "pricing": "Slot",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Jobs.lu",
+      "priority": "P1",
+      "region": "Europe",
+      "countries": "Luxembourg",
+      "job_type": "General",
+      "pricing": "Slot",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Linkedin",
+      "priority": "P1",
+      "region": "Global",
+      "countries": "Global",
+      "job_type": "White Collar",
+      "pricing": "Slot",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "tablondeanuncios",
+      "priority": "P1",
+      "region": "Europe",
+      "countries": "Spain",
+      "job_type": "General",
+      "pricing": "Subscription",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Vagas",
+      "priority": "P1",
+      "region": "LATAM",
+      "countries": "Brazil",
+      "job_type": "General",
+      "pricing": "Subscription",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "CDL Jobs",
+      "priority": "P1",
+      "region": "AMER",
+      "countries": "United States",
+      "job_type": "Blue Collar",
+      "pricing": "Posting",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "1840",
+      "priority": "P0",
+      "region": "Global",
+      "countries": "Global",
+      "job_type": "General",
+      "pricing": "CPA",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Visage Jobs",
+      "priority": "P1",
+      "region": "Global",
+      "countries": "Global",
+      "job_type": "General",
+      "pricing": "CPA",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Q2HRS",
+      "priority": "P1",
+      "region": "APAC",
+      "countries": "Philippines",
+      "job_type": "White Collar",
+      "pricing": "CPA",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "SwitchNinjas",
+      "priority": "P1",
+      "region": "APAC",
+      "countries": "India",
+      "job_type": "White Collar",
+      "pricing": "CPA",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Hunar.ai",
+      "priority": "P1",
+      "region": "APAC",
+      "countries": "India",
+      "job_type": "White Collar",
+      "pricing": "CPA",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Truck Driver Jobs 411",
+      "priority": "P1",
+      "region": "AMER",
+      "countries": "United States",
+      "job_type": "Blue Collar",
+      "pricing": "Organic",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "RecOps",
+      "priority": "P1",
+      "region": "Europe",
+      "countries": "United Kingdom",
+      "job_type": "White Collar",
+      "pricing": "CPH",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Facebook",
+      "priority": "P1",
+      "region": "Global",
+      "countries": "Global",
+      "job_type": "General",
+      "pricing": "CPA",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Instagram",
+      "priority": "P1",
+      "region": "Global",
+      "countries": "Global",
+      "job_type": "General",
+      "pricing": "CPA",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Linkedin Ads",
+      "priority": "P1",
+      "region": "Global",
+      "countries": "Global",
+      "job_type": "White Collar",
+      "pricing": "CPA",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Google Ads",
+      "priority": "P1",
+      "region": "Global",
+      "countries": "Global",
+      "job_type": "General",
+      "pricing": "CPA",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Craigslist",
+      "priority": "P1",
+      "region": "AMER",
+      "countries": "United States",
+      "job_type": "Blue Collar",
+      "pricing": "CPA",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Study Smarter",
+      "priority": "P1",
+      "region": "Global",
+      "countries": "Germany, Austria, Switzerland, United Kingdom, United States, Spain, France, Italy, Poland, Ireland, Finland, Romania, Ukraine, Belgium, Australia, Hungary, Sweden, Netherlands, Czech Republic, Denmark, Slovakia, Norway, Bulgaria",
+      "job_type": "General",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Totaljobs",
+      "priority": "P1",
+      "region": "Europe",
+      "countries": "Ireland",
+      "job_type": "General",
+      "pricing": "Posting",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Handshake",
+      "priority": "P0",
+      "region": "Global",
+      "countries": "United States, United Kingdom, Germany",
+      "job_type": "White Collar",
+      "pricing": "Organic",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Ladders.com",
+      "priority": "P1",
+      "region": "AMER",
+      "countries": "United States, Canada",
+      "job_type": "General",
+      "pricing": "Posting",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "AllJobs Israel",
+      "priority": "P1",
+      "region": "MEA",
+      "countries": "Israel",
+      "job_type": "General",
+      "pricing": "Subscription",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Talent Portugal",
+      "priority": "P1",
+      "region": "Europe",
+      "countries": "Portugal",
+      "job_type": "General",
+      "pricing": "Subscription",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "FATj (Gotoro)",
+      "priority": "P1",
+      "region": "AMER",
+      "countries": "United States",
+      "job_type": "General",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Gumtree",
+      "priority": "P1",
+      "region": "Europe",
+      "countries": "United Kingdom, Australia",
+      "job_type": "General",
+      "pricing": "Posting",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Expresso Emprego",
+      "priority": "P1",
+      "region": "Europe",
+      "countries": "Portugal",
+      "job_type": "White Collar",
+      "pricing": "Subscription",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Reddit- Side Hustle",
+      "priority": "P1",
+      "region": "Global",
+      "countries": "Global",
+      "job_type": "General",
+      "pricing": "CPA",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "JOBmen\u00fc",
+      "priority": "P1",
+      "region": "Europe",
+      "countries": "Germany",
+      "job_type": "General",
+      "pricing": "Posting",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Bravado",
+      "priority": "P1",
+      "region": "Global",
+      "countries": "United States, Canada, Australia",
+      "job_type": "White Collar",
+      "pricing": "CPH",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Youtube",
+      "priority": "P1",
+      "region": "Global",
+      "countries": "Global",
+      "job_type": "General",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Spotify",
+      "priority": "P1",
+      "region": "Global",
+      "countries": "Global",
+      "job_type": "General",
+      "pricing": "CPM",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Arbeitsagentur Germany",
+      "priority": "P1",
+      "region": "Europe",
+      "countries": "Germany",
+      "job_type": "General",
+      "pricing": "Organic",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Catho",
+      "priority": "P1",
+      "region": "LATAM",
+      "countries": "Brazil",
+      "job_type": "General",
+      "pricing": "Organic",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "AdministrativeJobs",
+      "priority": "P1",
+      "region": "AMER",
+      "countries": "United States",
+      "job_type": "White Collar",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Business Workforce",
+      "priority": "P1",
+      "region": "AMER",
+      "countries": "United States",
+      "job_type": "White Collar",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "ConstructionJobForce",
+      "priority": "P1",
+      "region": "AMER",
+      "countries": "United States",
+      "job_type": "General",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "HospitalityJobSite",
+      "priority": "P1",
+      "region": "AMER",
+      "countries": "United States",
+      "job_type": "General",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "EducationJobSite",
+      "priority": "P1",
+      "region": "AMER",
+      "countries": "United States",
+      "job_type": "White Collar",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "CustomerServiceJobs",
+      "priority": "P1",
+      "region": "AMER",
+      "countries": "United States",
+      "job_type": "White Collar",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "EntertainmentWorkers",
+      "priority": "P1",
+      "region": "AMER",
+      "countries": "United States",
+      "job_type": "White Collar",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "FinancialJobBank",
+      "priority": "P1",
+      "region": "AMER",
+      "countries": "United States",
+      "job_type": "White Collar",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "HealthcareJobSite",
+      "priority": "P1",
+      "region": "AMER",
+      "countries": "United States",
+      "job_type": "General",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Human Resources Jobs",
+      "priority": "P1",
+      "region": "AMER",
+      "countries": "United States",
+      "job_type": "White Collar",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "LogisticsJobSite",
+      "priority": "P1",
+      "region": "AMER",
+      "countries": "United States",
+      "job_type": "General",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "MarketingJobForce",
+      "priority": "P1",
+      "region": "AMER",
+      "countries": "United States",
+      "job_type": "General",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "ManufacturingWorkers",
+      "priority": "P1",
+      "region": "AMER",
+      "countries": "United States",
+      "job_type": "General",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "RealEstateJobSite",
+      "priority": "P1",
+      "region": "AMER",
+      "countries": "United States",
+      "job_type": "General",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "RetailGigs",
+      "priority": "P1",
+      "region": "AMER",
+      "countries": "United States",
+      "job_type": "General",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "SalesHeads",
+      "priority": "P1",
+      "region": "AMER",
+      "countries": "United States",
+      "job_type": "White Collar",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "TechCareers",
+      "priority": "P1",
+      "region": "AMER",
+      "countries": "United States",
+      "job_type": "White Collar",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Le Forem",
+      "priority": "P1",
+      "region": "Europe",
+      "countries": "Belgium",
+      "job_type": "General",
+      "pricing": "Organic",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Job-Room",
+      "priority": "P1",
+      "region": "Europe",
+      "countries": "Switzerland",
+      "job_type": "General",
+      "pricing": "Organic",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Job Market Finland",
+      "priority": "P1",
+      "region": "Europe",
+      "countries": "Finland",
+      "job_type": "General",
+      "pricing": "Organic",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Jobnet,dk",
+      "priority": "P1",
+      "region": "Europe",
+      "countries": "Finland",
+      "job_type": "General",
+      "pricing": "Organic",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Arbeidsplassen",
+      "priority": "P1",
+      "region": "Europe",
+      "countries": "Norway",
+      "job_type": "General",
+      "pricing": "Organic",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Arbetsf\u00f6rmedlingen",
+      "priority": "P1",
+      "region": "Europe",
+      "countries": "Sweden",
+      "job_type": "General",
+      "pricing": "Organic",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Actiris",
+      "priority": "P1",
+      "region": "Europe",
+      "countries": "Belgium",
+      "job_type": "General",
+      "pricing": "Organic",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Raven51",
+      "priority": "P1",
+      "region": "Europe",
+      "countries": "Germany",
+      "job_type": "General",
+      "pricing": "Posting",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Apptness",
+      "priority": "P1",
+      "region": "AMER",
+      "countries": "United States, Canada",
+      "job_type": "General",
+      "pricing": "CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Grocer Jobs",
+      "priority": "P1",
+      "region": "Europe",
+      "countries": "United Kingdom",
+      "job_type": "White Collar",
+      "pricing": "Posting",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Reed",
+      "priority": "P0",
+      "region": "Europe",
+      "countries": "United Kingdom",
+      "job_type": "General",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Doximity",
+      "priority": "P1",
+      "region": "AMER",
+      "countries": "United States",
+      "job_type": "White Collar",
+      "pricing": "Slot",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Jobs.at",
+      "priority": "P1",
+      "region": "Europe",
+      "countries": "Austria",
+      "job_type": "General",
+      "pricing": "Posting",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Pnet",
+      "priority": "P1",
+      "region": "Africa",
+      "countries": "South Africa",
+      "job_type": "General",
+      "pricing": "Posting",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "VietnamWorks",
+      "priority": "P1",
+      "region": "APAC",
+      "countries": "Vietnam",
+      "job_type": "General",
+      "pricing": "Subscription",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "JobKorea",
+      "priority": "P1",
+      "region": "APAC",
+      "countries": "South Korea",
+      "job_type": "General",
+      "pricing": "Organic",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "JobIndex",
+      "priority": "P1",
+      "region": "Europe",
+      "countries": "Denmark",
+      "job_type": "White Collar",
+      "pricing": "Posting",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "IT JobBank",
+      "priority": "P1",
+      "region": "Europe",
+      "countries": "Denmark",
+      "job_type": "White Collar",
+      "pricing": "Posting",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Remote",
+      "priority": "P1",
+      "region": "Global",
+      "countries": "Global",
+      "job_type": "White Collar",
+      "pricing": "Posting",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Posao.hr",
+      "priority": "P1",
+      "region": "Europe",
+      "countries": "Croatia",
+      "job_type": "White Collar",
+      "pricing": "Subscription",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "HH.ru",
+      "priority": "P1",
+      "region": "Europe",
+      "countries": "Russia",
+      "job_type": "General",
+      "pricing": "Posting",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Jobbsafari.se",
+      "priority": "P0",
+      "region": "Europe",
+      "countries": "Sweden",
+      "job_type": "General",
+      "pricing": "Posting",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Jobbland",
+      "priority": "P0",
+      "region": "Europe",
+      "countries": "Sweden",
+      "job_type": "General",
+      "pricing": "Posting",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Consultants 500",
+      "priority": "P1",
+      "region": "Global",
+      "countries": "United States, Canada, Netherlands, Switzerland, Luxembourg",
+      "job_type": "White Collar",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Dental Post",
+      "priority": "P1",
+      "region": "AMER",
+      "countries": "United States",
+      "job_type": "White Collar",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "YM Careers",
+      "priority": "P1",
+      "region": "Global",
+      "countries": "Multiple countries",
+      "job_type": "General",
+      "pricing": "Posting",
+      "status": "In Joveo Network"
+    },
+    {
+      "name": "Instawork",
+      "priority": "P1",
+      "region": "AMER",
+      "countries": "United States, Canada",
+      "job_type": "General",
+      "pricing": "CPA + CPC",
+      "status": "In Joveo Network"
+    }
+  ]
+}
