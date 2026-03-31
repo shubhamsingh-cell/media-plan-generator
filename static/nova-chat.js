@@ -1714,7 +1714,15 @@
     }
     header
       .querySelector(".nova-close-btn")
-      .addEventListener("click", togglePanel);
+      .addEventListener("click", function (e) {
+        e.stopPropagation();
+        // Force close (not toggle) -- fixes state.isOpen desync bug
+        // If panel is visible, always close. Never re-open from close button.
+        if (panel.classList.contains("nova-visible")) {
+          state.isOpen = true; // Ensure togglePanel takes the close branch
+        }
+        togglePanel();
+      });
     panel.appendChild(header);
 
     // Messages container
@@ -3520,7 +3528,14 @@
      * Programmatically close the chat panel.
      */
     close: function () {
-      if (state.isOpen && state.chatPanel) togglePanel();
+      // Force close regardless of state.isOpen (fixes desync bug)
+      if (
+        state.chatPanel &&
+        state.chatPanel.classList.contains("nova-visible")
+      ) {
+        state.isOpen = true; // Ensure togglePanel takes the close branch
+        togglePanel();
+      }
     },
 
     /**
