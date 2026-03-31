@@ -1,0 +1,713 @@
+{
+  "client": "RTX (Raytheon Technologies)",
+  "industry": "Aerospace & Defense",
+  "location": "Tucson, AZ (HQ) + relocation cities",
+  "relocation_cities": [
+    "San Jose",
+    "Dallas",
+    "Houston",
+    "Miami",
+    "Los Angeles"
+  ],
+  "expansion_cities": [
+    "Huntsville",
+    "Washington DC"
+  ],
+  "total_budget_tier2": 1000000,
+  "total_budget_tier3": 2000000,
+  "budget_allocation": {
+    "tier2": {
+      "digital": {
+        "amount": 600000,
+        "pct": 0.6
+      },
+      "offline": {
+        "amount": 400000,
+        "pct": 0.4
+      }
+    },
+    "tier3": {
+      "digital": {
+        "amount": 1000000,
+        "pct": 0.5
+      },
+      "offline": {
+        "amount": 1000000,
+        "pct": 0.5
+      }
+    }
+  },
+  "personas": [
+    {
+      "name": "Persona 1: The Creator (Software Engineer)",
+      "details": {
+        "Profile": "P2\u2013P4  \u2022  Software / AI / Security  \u2022  3\u20138 yrs  \u2022  Currently at FAANG or growth-stage tech",
+        "Background": "Technically strong. Well-compensated. Privately wrestling with the question: does any of this matter? Writes ML ranking models, ad systems, or payments infrastructure \u2014 but does not feel it.",
+        "What Motivates Them": "Consequence. Work that is classified because it is that important. Systems where failure has real stakes. Code that runs in a hostile environment and must not fail.",
+        "What Concerns Them": "That RTX is bureaucratic and slow. That their skills will stagnate. That the comp gap cannot be closed. That they will lose the craft culture they have built.",
+        "RTX Proof Point": "Concept to first test flight in under 6 months (Raytheon). AI system reduced inspection defects by 50% (Collins). ASTARTE delivering real-time decision intelligence in congested airspace.",
+        "Primary Message": "\"The engineers who built the software protecting the airspace over [city] work at RTX. Come find out what they actually built.\"",
+        "Acquisition Trigger": "A compelling technical blog post on Hacker News. A DEF CON talk by an RTX security engineer. A Reddit comment from an RTX engineer that mentions where they work."
+      }
+    },
+    {
+      "name": "Persona 2: The Builder (Hardware Engineer)",
+      "details": {
+        "Profile": "P2\u2013P4  \u2022  Hardware / Embedded / EE / RF / EO/ Signal Processing  \u2022  3\u20139 yrs  \u2022  Currently at semiconductor, defense startup, or research lab",
+        "Background": "Writes C, C++, VHDL, or assembly. Deeply comfortable with real-time constraints, hardware-software interfaces, and physical limits. Finds web services fundamentally uninteresting.",
+        "What Motivates Them": "Hard constraints. Physical limits. The 1% of engineering problems that cannot be solved from a MacBook in a coffee shop. Systems requiring simultaneous depth in CS, EE, and domain physics.",
+        "What Concerns Them": "That RTX's scale means they become a small part of a large system with no visibility into the whole. That clearance requirements are opaque. That the toolchain is decades old.",
+        "RTX Proof Point": "Hypersonic vehicle G&C running in microseconds. Radar signal processing at tens of millions of returns per second. Directed energy beam control. These problems don't exist at any commercial company.",
+        "Primary Message": "\"If you've spent your career optimizing for speed and wondering what 'really fast' looks like, the answer is hypersonics.\"",
+        "Acquisition Trigger": "An RTX talk at Embedded World, Hot Chips, or EE Live. A GitHub repo with real embedded code and quality documentation. A technical blog post on Embedded.fm by an RTX engineer."
+      }
+    },
+    {
+      "name": "Persona 3: The Maker (Mechanical & Manufacturing Engineer)",
+      "details": {
+        "Profile": "P2\u2013P4  \u2022  Mechanical / Aerospace / Propulsion / Structural / Manufacturing Engineering  \u2022  3\u20139 yrs  \u2022  Currently at aerospace OEMs, defense primes, propulsion labs, or precision manufacturing companies",
+        "Background": "Trained in thermodynamics, fluid mechanics, stress analysis, and materials science. Comfortable with CAD, FEA, and CFD. Manufacturing engineers in this group bridge design and production \u2014 owning DFM/DFA, tooling, yield, and production ramp at defense quality standards.",
+        "What Motivates Them": "Engineering at physical limits. Turbine blades operating beyond their own melting point. Hypersonic structures surviving Mach 5+ reentry. For manufacturing engineers: building those components to micron tolerance, 500 times a year, with zero field failures.",
+        "What Concerns Them": "That at RTX's scale they'll own a single component with no visibility into the full system. That design and manufacturing iteration cycles are slow. That CAD/CAM toolchains lag aerospace startups. That manufacturing engineering is treated as a support function rather than a primary discipline.",
+        "RTX Proof Point": "Pratt & Whitney's GTF engine delivers 20%+ fuel efficiency gains through advanced mechanical design and materials innovation. RTX hypersonic programs demand thermal protection, propulsion integration, and structural design at limits no commercial program matches. RTX production facilities in Tucson, Andover, and McKinney build these systems at defense scale under AS9100.",
+        "Primary Message": "\"The GTF engine is 25 years of mechanical engineering compounded into one system. RTX is one of the only places where that depth of physical and manufacturing mastery is possible \u2014 and expected.\"",
+        "Acquisition Trigger": "An ASME IMECE or AIAA propulsion talk by a Pratt & Whitney engineer on turbine cooling or hypersonic thermal protection. An SME or AeroDef talk on defense manufacturing process innovation. A LinkedIn post by an RTX mechanical or manufacturing engineer describing the physical problem they solved."
+      }
+    },
+    {
+      "name": "Persona 4:  The Architect (Systems Thinker)",
+      "details": {
+        "Profile": "P2\u2013P4  \u2022  Systems Engineering / MBSE / Program Architecture  \u2022  4\u201310 yrs  \u2022  Currently in aerospace, defense, or complex infrastructure",
+        "Background": "Thinks in interfaces, trade-spaces, and failure modes before they think in code. Holds the architecture of complex systems in their head. Often holds or is pursuing a security clearance.",
+        "What Motivates Them": "Systems of systems. MBSE as a real discipline, not a PowerPoint exercise. Work that matters at national or global scale. Problems requiring thinking across mechanical, SW, EE, and operational domains.",
+        "What Concerns Them": "That RTX's scale creates bureaucratic fragmentation making holistic systems thinking impossible. That MBSE at RTX is more documentation than design. That career paths are less defined.",
+        "RTX Proof Point": "Next-gen interceptor from concept to first test flight in under 6 months using MBSE. DISCOVER software evaluating thousands of design options faster than any manual analysis.",
+        "Primary Message": "\"RTX is one of the few places where systems engineering is a primary discipline, not a coordination function. Here is what that looks like in practice.\"",
+        "Acquisition Trigger": "An INCOSE talk by an RTX systems engineer on a real MBSE deployment. A LinkedIn article from an RTX Principal Systems Engineer. A transparent Glassdoor review describing career growth."
+      }
+    },
+    {
+      "name": "Persona 5: The Guardian (Test & Verification)",
+      "details": {
+        "Profile": "P2\u2013P4  \u2022  Test / Verification / Quality Engineering  \u2022  3\u20138 yrs  \u2022  Currently in semiconductor, defense, or complex SW development",
+        "Background": "Often underestimated and self-aware of it. Combines systematic thinking with deep domain knowledge to verify that complex systems actually do what they claim.",
+        "What Motivates Them": "The weight of their work. At RTX, a verification failure is not a bad sprint \u2014 it is a national security risk. Test engineers who want genuine consequence will find no better environment.",
+        "What Concerns Them": "That test engineering at RTX is underfunded relative to development. That the tools are outdated. That their path to Principal Engineer is unclear compared to SW engineering tracks.",
+        "RTX Proof Point": "Certifying SW for airborne and missile systems under DO-178C and MIL-STD-882. Automated test for radar/sensor systems that must function under EMI, extreme temp, and combat conditions.",
+        "Primary Message": "\"At RTX, test engineers are not the last line of defense. They are one of the most important engineering disciplines in the building.\"",
+        "Acquisition Trigger": "An AUTOTESTCON talk on automated test architecture. A LinkedIn post about the career path of a Test Principal Engineer at RTX. An IEEE ITC paper from the Raytheon verification team."
+      }
+    },
+    {
+      "name": "Persona 6:  The Defender (Returning Veteran)",
+      "details": {
+        "Profile": "P2\u2013P4  \u2022  All disciplines (SW, HW, Systems, Test)  \u2022  3\u201315 yrs  \u2022  Transitioning or recently transitioned from active duty or reserve service",
+        "Background": "Served in a role that intersected with the systems RTX builds \u2014 avionics, radar, signals intelligence, cyber operations, test and evaluation, or weapons integration.",
+        "What Motivates Them": "Continuity of mission. The knowledge that their clearance and domain expertise will be fully utilized \u2014 not just listed on a form. Peer culture and clear mission.",
+        "What Concerns Them": "That civilian culture won't match service intensity. That they'll be hired for clearance and under-utilized for engineering depth. That comp doesn't offset the loss of service benefits.",
+        "RTX Proof Point": "RTX is an ESGR founding member and actively re-recruits veterans. DoD SkillBridge places transitioning service members in RTX engineering teams \u2014 paid by DoD, hired by RTX.",
+        "Primary Message": "\"You already know why this work matters. RTX is where that knowledge gets applied to what comes next. You are not starting over here \u2014 you are accelerating.\"",
+        "Acquisition Trigger": "An RTX veteran engineer sharing their transition story on LinkedIn. An RTX presence at Hiring Our Heroes or RecruitMilitary. A SkillBridge listing placing a service member in an engineering team."
+      }
+    },
+    {
+      "name": "Persona 7:  The Explorer (Campus Engineer)",
+      "details": {
+        "Profile": "Undergrad & grad students  \u2022  CS, EE, Systems, Aerospace  \u2022  1\u20133 yrs from graduation  \u2022  Enrolled at top engineering programs (MIT, CMU, Georgia Tech, Purdue, UIUC)  \u2022  Employer brand awareness only \u2014 not active hiring",
+        "Background": "Curious and still forming their engineering identity. At the stage where aspirational companies and problems shape career direction. Highly influenced by peers, professors, and social proof from students one year ahead of them.",
+        "What Motivates Them": "Purpose-driven work at scale. The idea that their career could intersect with aviation, space, or defense on real systems \u2014 not demos. Recognition and mentorship from senior engineers who've done it.",
+        "What Concerns Them": "That defense companies are slow and bureaucratic. That they won't get real engineering work as an intern. That RTX isn't 'cool' compared to FAANG or space startups. That early-career growth is limited.",
+        "RTX Proof Point": "RTX's internship and co-op programs place students in real engineering teams on live programs. The Employee Scholar Program and college ambassador network provide mentorship pathways before graduation.",
+        "Primary Message": "\"RTX builds the systems your textbooks use as case studies. We offer internships where you work on the real thing \u2014 not a demo.\"",
+        "Acquisition Trigger": "An RTX engineer giving a guest lecture on campus. A current RTX intern posting real work on LinkedIn. RTX presence at SHPE, SWE, or NSBE national conference. A professor mentioning RTX in a systems design course."
+      }
+    }
+  ],
+  "offline_events": [
+    {
+      "name": "AfroTech 2026",
+      "cost": 35000.0,
+      "city": "Houston, TX"
+    },
+    {
+      "name": "Black Is Tech Conference 2026",
+      "cost": 15000.0,
+      "city": "Houston, TX"
+    },
+    {
+      "name": "eMerge Americas 2026",
+      "cost": 25000.0,
+      "city": "Miami, FL"
+    },
+    {
+      "name": "AI Engineer World's Fair 2026",
+      "cost": 40000.0,
+      "city": "San Francisco, CA"
+    },
+    {
+      "name": "Grace Hopper Celebration 2026",
+      "cost": 45000.0,
+      "city": "Anaheim, CA"
+    },
+    {
+      "name": "Tech Week Bay Area 2026",
+      "cost": 15000.0,
+      "city": "San Jose, CA"
+    },
+    {
+      "name": "Tech Week Los Angeles 2026",
+      "cost": 12000.0,
+      "city": "Los Angeles, CA"
+    },
+    {
+      "name": "KubeCon + CloudNativeCon NA 2026",
+      "cost": 30000.0,
+      "city": "Salt Lake City, UT"
+    },
+    {
+      "name": "Future Tech DC / DC Tech Week 2026",
+      "cost": 13000.0,
+      "city": "Washington, DC"
+    },
+    {
+      "name": "Space & Missile Defense Symposium 2026",
+      "cost": 25000.0,
+      "city": "Huntsville, AL"
+    },
+    {
+      "name": "React Miami 2026",
+      "cost": 20000.0,
+      "city": "Miami, FL"
+    },
+    {
+      "name": "SME WESTEC",
+      "cost": 15000.0,
+      "city": "Los Angeles, CA"
+    },
+    {
+      "name": "QCon San Francisco 2026",
+      "cost": 30000.0,
+      "city": "San Francisco, CA"
+    },
+    {
+      "name": "Silicon Valley Code Camp 2026",
+      "cost": 10000.0,
+      "city": "San Jose, CA"
+    },
+    {
+      "name": "AfroTech 2026",
+      "cost": 60000.0,
+      "city": "Houston, TX"
+    },
+    {
+      "name": "Black Is Tech Conference 2026",
+      "cost": 25000.0,
+      "city": "Houston, TX"
+    },
+    {
+      "name": "eMerge Americas 2026",
+      "cost": 40000.0,
+      "city": "Miami, FL"
+    },
+    {
+      "name": "AI Engineer World's Fair 2026",
+      "cost": 40000.0,
+      "city": "San Francisco, CA"
+    },
+    {
+      "name": "Grace Hopper Celebration 2026",
+      "cost": 45000.0,
+      "city": "Anaheim, CA"
+    },
+    {
+      "name": "Tech Week Bay Area 2026",
+      "cost": 25000.0,
+      "city": "San Jose, CA"
+    },
+    {
+      "name": "Tech Week Los Angeles 2026",
+      "cost": 20000.0,
+      "city": "Los Angeles, CA"
+    },
+    {
+      "name": "KubeCon + CloudNativeCon NA 2026",
+      "cost": 30000.0,
+      "city": "Salt Lake City, UT"
+    },
+    {
+      "name": "Future Tech DC / DC Tech Week 2026",
+      "cost": 25000.0,
+      "city": "Washington, DC"
+    },
+    {
+      "name": "Space & Missile Defense Symposium 2026",
+      "cost": 25000.0,
+      "city": "Huntsville, AL"
+    },
+    {
+      "name": "React Miami 2026",
+      "cost": 20000.0,
+      "city": "Miami, FL"
+    },
+    {
+      "name": "SME WESTEC",
+      "cost": 15000.0,
+      "city": "Los Angeles, CA"
+    },
+    {
+      "name": "QCon San Francisco 2026",
+      "cost": 30000.0,
+      "city": "San Francisco, CA"
+    },
+    {
+      "name": "Silicon Valley Code Camp 2026",
+      "cost": 10000.0,
+      "city": "San Jose, CA"
+    }
+  ],
+  "online_channels": [
+    {
+      "name": "Stackoverflow",
+      "cost": 55000.0
+    },
+    {
+      "name": "Stackadapt",
+      "cost": 90000.0
+    },
+    {
+      "name": "Reddit Ads",
+      "cost": 75000.0
+    },
+    {
+      "name": "Github",
+      "cost": 30000.0
+    },
+    {
+      "name": "X Ads",
+      "cost": 40000.0
+    },
+    {
+      "name": "Glassdoor",
+      "cost": 20000.0
+    },
+    {
+      "name": "Blind",
+      "cost": 18000.0
+    },
+    {
+      "name": "Vault",
+      "cost": 12000.0
+    },
+    {
+      "name": "DOOH",
+      "cost": 40000.0
+    },
+    {
+      "name": "Video Based",
+      "cost": 30000.0
+    },
+    {
+      "name": "Niche comminity influencers",
+      "cost": 10000.0
+    },
+    {
+      "name": "Text-based (X / Substack / Dev.to)",
+      "cost": 25000.0
+    },
+    {
+      "name": "LinkedIn Influencers",
+      "cost": 20000.0
+    },
+    {
+      "name": "College Professors / Academic Ambassadors",
+      "cost": 15000.0
+    },
+    {
+      "name": "Reddit",
+      "cost": 12000.0
+    },
+    {
+      "name": "Quora",
+      "cost": 8000.0
+    },
+    {
+      "name": "Server sponsorships + community seeding",
+      "cost": 10000.0
+    },
+    {
+      "name": "Blog-based content",
+      "cost": 15000.0
+    },
+    {
+      "name": "Optimised Job Postings",
+      "cost": 10000.0
+    },
+    {
+      "name": "Text-based social media content",
+      "cost": 10000.0
+    },
+    {
+      "name": "Stackoverflow",
+      "cost": 80000.0
+    },
+    {
+      "name": "Stackadapt",
+      "cost": 130000.0
+    },
+    {
+      "name": "Reddit Ads",
+      "cost": 100000.0
+    },
+    {
+      "name": "Github",
+      "cost": 45000.0
+    },
+    {
+      "name": "X Ads",
+      "cost": 60000.0
+    },
+    {
+      "name": "Glassdoor",
+      "cost": 30000.0
+    },
+    {
+      "name": "Blind",
+      "cost": 30000.0
+    },
+    {
+      "name": "Vault",
+      "cost": 15000.0
+    },
+    {
+      "name": "DOOH",
+      "cost": 50000.0
+    },
+    {
+      "name": "DSPs",
+      "cost": 40000.0
+    },
+    {
+      "name": "Video Based",
+      "cost": 80000.0
+    },
+    {
+      "name": "Niche comminity influencers",
+      "cost": 35000.0
+    },
+    {
+      "name": "Text-based (X / Substack / Dev.to)",
+      "cost": 50000.0
+    },
+    {
+      "name": "LinkedIn Influencers",
+      "cost": 35000.0
+    },
+    {
+      "name": "College Professors / Academic Ambassadors",
+      "cost": 30000.0
+    },
+    {
+      "name": "Reddit",
+      "cost": 25000.0
+    },
+    {
+      "name": "Quora",
+      "cost": 15000.0
+    },
+    {
+      "name": "Server sponsorships + community seeding",
+      "cost": 20000.0
+    },
+    {
+      "name": "Blog-based content",
+      "cost": 35000.0
+    },
+    {
+      "name": "Optimised Job Postings",
+      "cost": 20000.0
+    },
+    {
+      "name": "Text-based social media content",
+      "cost": 25000.0
+    }
+  ],
+  "influencers": [
+    {
+      "name": "(Examples for reference \u2014 final selection based on availability, negotiation, and campaign fit)",
+      "followers": "",
+      "est_cost": ""
+    },
+    {
+      "name": "Fireship (Jeff Delaney)",
+      "followers": "3.9M subs",
+      "est_cost": "$25K\u2013$40K"
+    },
+    {
+      "name": "Traversy Media (Brad Traversy)",
+      "followers": "2.3M subs",
+      "est_cost": "$15K\u2013$30K"
+    },
+    {
+      "name": "@tom.developer (Tom Shaw)",
+      "followers": "Instagram",
+      "est_cost": "$2.5K\u2013$5K/post"
+    },
+    {
+      "name": "@herhelloworld (Holly Boothroyd)",
+      "followers": "Instagram",
+      "est_cost": "$800\u2013$1.5K/post"
+    },
+    {
+      "name": "@codergirl_ (Laura Medalia)",
+      "followers": "Instagram",
+      "est_cost": "$500\u2013$1.2K/post"
+    },
+    {
+      "name": "@hey.aanchall (Anchal)",
+      "followers": "Instagram",
+      "est_cost": "$1.2K\u2013$2.5K/post"
+    },
+    {
+      "name": "@sasha.codes (Sasha Tran)",
+      "followers": "Instagram",
+      "est_cost": "$400\u2013$1K/post"
+    },
+    {
+      "name": "TEXT-BASED (X / Substack / Dev.to)",
+      "followers": "",
+      "est_cost": ""
+    },
+    {
+      "name": "Alex Xu (ByteByteGo)",
+      "followers": "Substack + LinkedIn",
+      "est_cost": "$2K\u2013$5K/placement"
+    },
+    {
+      "name": "Gergely Orosz (Pragmatic Engineer)",
+      "followers": "Substack + X",
+      "est_cost": "Podcast slots only"
+    },
+    {
+      "name": "Dan Shipper (Every)",
+      "followers": "Substack",
+      "est_cost": "$1.5K\u2013$3.5K/post"
+    },
+    {
+      "name": "Clement Mihailescu (AlgoExpert)",
+      "followers": "LinkedIn + YouTube",
+      "est_cost": "$3K\u2013$8K"
+    },
+    {
+      "name": "Irina Stanescu (The Caring Techie)",
+      "followers": "LinkedIn + Newsletter",
+      "est_cost": "$1.5K\u2013$4K"
+    }
+  ],
+  "channel_reach_matrix": [
+    {
+      "persona": "P1 \u2014 The Creator",
+      "channel": "Engineering Blog + Hacker News",
+      "priority": "P0"
+    },
+    {
+      "persona": "P1 \u2014 The Creator",
+      "channel": "DEF CON / Black Hat",
+      "priority": "P0"
+    },
+    {
+      "persona": "P1 \u2014 The Creator",
+      "channel": "LinkedIn",
+      "priority": "P0"
+    },
+    {
+      "persona": "P1 \u2014 The Creator",
+      "channel": "Reddit (r/ExperiencedDevs, r/cscareerquestions, r/netsec)",
+      "priority": "P1"
+    },
+    {
+      "persona": "P1 \u2014 The Creator",
+      "channel": "Discord (Embedded.fm, Security.txt, GPU Mode)",
+      "priority": "P1"
+    },
+    {
+      "persona": "P1 \u2014 The Creator",
+      "channel": "QCon San Francisco",
+      "priority": "P1"
+    },
+    {
+      "persona": "P1 \u2014 The Creator",
+      "channel": "HackerRank / HackerEarth",
+      "priority": "P2"
+    },
+    {
+      "persona": "P2 \u2014 The Builder",
+      "channel": "EE Live! / Embedded Systems Conf (San Jose)",
+      "priority": "P0"
+    },
+    {
+      "persona": "P2 \u2014 The Builder",
+      "channel": "Hot Chips Symposium (Stanford, CA)",
+      "priority": "P0"
+    },
+    {
+      "persona": "P2 \u2014 The Builder",
+      "channel": "GitHub",
+      "priority": "P0"
+    },
+    {
+      "persona": "P2 \u2014 The Builder",
+      "channel": "Embedded.fm Podcast + Discord",
+      "priority": "P1"
+    },
+    {
+      "persona": "P2 \u2014 The Builder",
+      "channel": "Reddit (r/embedded, r/cpp, r/hardware)",
+      "priority": "P1"
+    },
+    {
+      "persona": "P2 \u2014 The Builder",
+      "channel": "Design Automation Conference (DAC, SF)",
+      "priority": "P1"
+    },
+    {
+      "persona": "P2 \u2014 The Builder",
+      "channel": "Dev.to / Content Syndication",
+      "priority": "P2"
+    },
+    {
+      "persona": "P3 \u2014 The Architect",
+      "channel": "INCOSE International Symposium",
+      "priority": "P0"
+    },
+    {
+      "persona": "P3 \u2014 The Architect",
+      "channel": "AIAA SciTech Forum",
+      "priority": "P0"
+    },
+    {
+      "persona": "P3 \u2014 The Architect",
+      "channel": "LinkedIn (long-form articles)",
+      "priority": "P0"
+    },
+    {
+      "persona": "P3 \u2014 The Architect",
+      "channel": "IEEE Systems Conference",
+      "priority": "P1"
+    },
+    {
+      "persona": "P3 \u2014 The Architect",
+      "channel": "Glassdoor (Systems Engineer reviews)",
+      "priority": "P1"
+    },
+    {
+      "persona": "P3 \u2014 The Architect",
+      "channel": "IEEE Spectrum / ACM Queue (Stretch)",
+      "priority": "P2"
+    },
+    {
+      "persona": "P3 \u2014 The Architect",
+      "channel": "NDIA Events",
+      "priority": "P2"
+    },
+    {
+      "persona": "P4 \u2014 The Guardian",
+      "channel": "IEEE AUTOTESTCON (National Harbor, MD)",
+      "priority": "P0"
+    },
+    {
+      "persona": "P4 \u2014 The Guardian",
+      "channel": "International Test Conference (ITC)",
+      "priority": "P0"
+    },
+    {
+      "persona": "P4 \u2014 The Guardian",
+      "channel": "LinkedIn",
+      "priority": "P1"
+    },
+    {
+      "persona": "P4 \u2014 The Guardian",
+      "channel": "STAR Conference (SW Test)",
+      "priority": "P1"
+    },
+    {
+      "persona": "P4 \u2014 The Guardian",
+      "channel": "Stack Overflow (testing tags)",
+      "priority": "P1"
+    },
+    {
+      "persona": "P4 \u2014 The Guardian",
+      "channel": "Glassdoor (Test Engineer reviews)",
+      "priority": "P2"
+    },
+    {
+      "persona": "P5 \u2014 The Defender",
+      "channel": "DoD SkillBridge Program",
+      "priority": "P0"
+    },
+    {
+      "persona": "P5 \u2014 The Defender",
+      "channel": "Hiring Our Heroes (US Chamber)",
+      "priority": "P0"
+    },
+    {
+      "persona": "P5 \u2014 The Defender",
+      "channel": "RecruitMilitary Career Fairs",
+      "priority": "P0"
+    },
+    {
+      "persona": "P5 \u2014 The Defender",
+      "channel": "LinkedIn (Veteran Groups)",
+      "priority": "P1"
+    },
+    {
+      "persona": "P5 \u2014 The Defender",
+      "channel": "RallyPoint",
+      "priority": "P1"
+    },
+    {
+      "persona": "P5 \u2014 The Defender",
+      "channel": "American Corporate Partners (ACP)",
+      "priority": "P1"
+    },
+    {
+      "persona": "P5 \u2014 The Defender",
+      "channel": "ESGR / Guard & Reserve Events",
+      "priority": "P2"
+    },
+    {
+      "persona": "P6 \u2014 The Explorer",
+      "channel": "University Career Fairs (target campuses)",
+      "priority": "P0"
+    },
+    {
+      "persona": "P6 \u2014 The Explorer",
+      "channel": "Campus Guest Lectures & Tech Talks",
+      "priority": "P0"
+    },
+    {
+      "persona": "P6 \u2014 The Explorer",
+      "channel": "LinkedIn (student-focused content)",
+      "priority": "P0"
+    },
+    {
+      "persona": "P6 \u2014 The Explorer",
+      "channel": "SHPE / SWE / NSBE National Conferences",
+      "priority": "P1"
+    },
+    {
+      "persona": "P6 \u2014 The Explorer",
+      "channel": "Instagram / TikTok (Intern Content)",
+      "priority": "P1"
+    },
+    {
+      "persona": "P6 \u2014 The Explorer",
+      "channel": "College Ambassador Program",
+      "priority": "P1"
+    },
+    {
+      "persona": "P6 \u2014 The Explorer",
+      "channel": "Handshake / Intern Recruiting Platforms",
+      "priority": "P2"
+    }
+  ]
+}

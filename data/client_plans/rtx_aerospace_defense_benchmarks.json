@@ -1,0 +1,61 @@
+{
+  "industry": "Aerospace & Defense",
+  "source": "RTX USA Media Plan (Joveo internal, 2026)",
+  "last_updated": "2026-03-31",
+  "companies": {
+    "RTX": {
+      "full_name": "RTX Corporation (formerly Raytheon Technologies)",
+      "hq": "Arlington, VA",
+      "employees": 185000,
+      "ticker": "RTX",
+      "divisions": ["Raytheon", "Collins Aerospace", "Pratt & Whitney"],
+      "engineering_hubs": ["Tucson, AZ", "San Jose, CA", "Dallas, TX", "Houston, TX", "Miami, FL", "Los Angeles, CA", "Huntsville, AL", "Washington, DC"]
+    }
+  },
+  "competitors_aerospace_defense": [
+    "Lockheed Martin", "Boeing", "Northrop Grumman", "General Dynamics",
+    "L3Harris Technologies", "BAE Systems", "Leidos", "SAIC",
+    "Honeywell Aerospace", "GE Aerospace", "Textron", "Huntington Ingalls"
+  ],
+  "target_roles": {
+    "software_engineer": {"level": "P2-P4", "yoe": "3-8", "specializations": ["AI/ML", "Security", "Embedded", "Cloud"]},
+    "hardware_engineer": {"level": "P2-P4", "yoe": "5-12", "specializations": ["Embedded", "EE", "RF", "EO", "FPGA", "ASIC"]},
+    "mechanical_engineer": {"level": "P2-P4", "yoe": "5-15", "specializations": ["Additive Mfg", "Tooling", "Production", "CNC"]},
+    "systems_engineer": {"level": "P3-P5", "yoe": "8-20", "specializations": ["MBSE", "Integration", "Digital Engineering"]},
+    "cybersecurity_engineer": {"level": "P2-P5", "yoe": "3-15", "specializations": ["Offensive", "Zero Trust", "Threat Intel"]},
+    "test_engineer": {"level": "P2-P4", "yoe": "3-10", "specializations": ["Flight Test", "Environmental", "Systems Validation"]},
+    "early_career": {"level": "P1", "yoe": "0-2", "specializations": ["Intern-to-FTE pipeline"]}
+  },
+  "channel_costs_2026": {
+    "online": {
+      "stackoverflow_ads": {"annual_cost": 55000, "cpc_range": "$1.50-$3.00", "audience": "High-intent engineers"},
+      "stackadapt_dsp": {"annual_cost": 90000, "fee_pct": 0.15, "audience": "Programmatic display/native"},
+      "reddit_ads": {"annual_cost": 75000, "cpc": "$1.00-$2.50", "subreddits": ["r/programming", "r/devops", "r/cscareerquestions"]},
+      "github_sponsorship": {"annual_cost": 30000, "type": "Repo/newsletter/README placement"},
+      "x_ads": {"annual_cost": 40000, "cpc": "$1.75", "audience": "Real-time tech conversation"},
+      "glassdoor": {"annual_cost": 20000, "type": "Employer reviews + ads"},
+      "blind": {"annual_cost": 18000, "users": "12M+ verified tech pros"},
+      "dooh": {"annual_cost": 40000, "cities": ["SF", "Austin", "Houston", "DC"]},
+      "linkedin_influencers": {"annual_cost": 20000, "posts": "4-6 sponsored posts"},
+      "newsletter_sponsorships": {"annual_cost": 25000, "targets": ["Pragmatic Engineer", "ByteByteGo", "TLDR"]}
+    },
+    "offline": {
+      "afrotech": {"cost": 35000, "attendees": "40K+", "city": "Houston, TX"},
+      "emerge_americas": {"cost": 25000, "attendees": "20K+", "city": "Miami, FL"},
+      "ai_engineer_worlds_fair": {"cost": 40000, "attendees": "6K+", "city": "San Francisco, CA"},
+      "grace_hopper": {"cost": 45000, "attendees": "25K+", "city": "Anaheim, CA"},
+      "kubecon_na": {"cost": 30000, "attendees": "5-10K", "city": "Salt Lake City, UT"},
+      "qcon_sf": {"cost": 30000, "audience": "Senior SWE", "city": "San Francisco, CA"},
+      "space_missile_defense_symposium": {"cost": 25000, "attendees": "9250+", "city": "Huntsville, AL"},
+      "hackathon_series": {"cost": 70000, "cities": ["Dallas", "Miami", "San Jose"]},
+      "tech_talk_series": {"cost": 80000, "cities": ["San Jose", "Houston", "DC", "LA"]}
+    }
+  },
+  "influencer_benchmarks": {
+    "youtube_mid_tier": {"cost_per_video": "$5K-$15K", "examples": ["Hussein Nasser (250K)", "Kevin Powell (980K)"]},
+    "youtube_top_tier": {"cost_per_video": "$25K-$40K", "examples": ["Fireship (3.9M)", "Traversy Media (2.3M)"]},
+    "instagram_micro": {"cost_per_post": "$350-$1.5K", "examples": ["@morgan.codes (52K)", "@codergirl_ (62K)"]},
+    "instagram_mid": {"cost_per_post": "$2.5K-$5K", "examples": ["@tom.developer (390K)"]},
+    "newsletter_sponsorship": {"cost_per_placement": "$2K-$5K", "examples": ["ByteByteGo (800K)", "TLDR (1.25M)"]}
+  }
+}
