@@ -51,6 +51,48 @@ except ImportError:
 
 
 # ---------------------------------------------------------------------------
+# Brand name casing -- preserves known brand names when title-casing client
+# ---------------------------------------------------------------------------
+_BRAND_CASING: dict[str, str] = {
+    "fedex": "FedEx",
+    "linkedin": "LinkedIn",
+    "youtube": "YouTube",
+    "ibm": "IBM",
+    "ups": "UPS",
+    "jpmorgan": "JPMorgan",
+    "walmart": "Walmart",
+    "mcdonalds": "McDonald's",
+    "at&t": "AT&T",
+    "bmw": "BMW",
+    "dhl": "DHL",
+    "usps": "USPS",
+    "xpo": "XPO",
+    "jb hunt": "J.B. Hunt",
+    "j.b. hunt": "J.B. Hunt",
+    "hca": "HCA",
+    "cvs": "CVS",
+    "ge": "GE",
+    "3m": "3M",
+    "bp": "BP",
+    "ihg": "IHG",
+}
+
+
+def _proper_client_name(name: str) -> str:
+    """Title-case a client name, preserving known brand casing."""
+    if not name or name == "Client":
+        return name
+    lower = name.strip().lower()
+    if lower in _BRAND_CASING:
+        return _BRAND_CASING[lower]
+    return (
+        name.strip().title()
+        if name == name.lower() or name == name.upper()
+        else name.strip()
+    )
+
+
+# ---------------------------------------------------------------------------
 # Constants & Color Palette (Nova AI Suite brand identity)
 # Primary: Port Gore navy #202058  |  Secondary: Blue Violet #5A54BD
 # Accents: Teal #6BB3CD  |  Pink #B5669C  |  Bronze #CE9047
@@ -3131,7 +3173,8 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
             continue
         ch_display_list.append(
             {
-                "label": ch_key.replace("_", " ").title(),
+                "label": CHANNEL_ALLOC.get(ch_key, {}).get("label")
+                or ch_key.replace("_", " ").title(),
                 "budget": ch_data.get("dollar_amount", ch_data.get("dollars") or 0),
                 "clicks": ch_data.get("projected_clicks") or 0,
                 "apps": ch_data.get("projected_applications") or 0,
@@ -7513,7 +7556,13 @@ def _build_slide_data_sources(prs: Presentation, data: Dict):
     api_details = summary.get("api_details", {})
     if not isinstance(api_details, dict):
         api_details = {}
-    confidence_score = summary.get("confidence_score") or 0
+    # Prefer the computed confidence from Excel's Sources sheet for consistency
+    confidence_score = (
+        data.get("_computed_confidence_pct") or summary.get("confidence_score") or 0
+    )
+    # Normalize: if stored as 0-100 integer, convert to 0-1 for _fmt_pct
+    if isinstance(confidence_score, (int, float)) and confidence_score > 1:
+        confidence_score = confidence_score / 100.0
     total_time = summary.get("total_time_seconds") or 0
 
     # ---- HERO STATS BAR ----
@@ -7852,6 +7901,8 @@ def generate_pptx(data: Dict[str, Any]) -> bytes:
 
     # Ensure minimum required fields have sensible defaults
     data.setdefault("client_name", "Client")
+    # Normalize client name casing (preserves known brands)
+    data["client_name"] = _proper_client_name(data["client_name"] or "Client")
     data.setdefault("industry", "general_entry_level")
     data.setdefault("locations", [])
     # Frontend sends "target_roles" but PPT uses "roles" -- normalize

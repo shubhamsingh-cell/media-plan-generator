@@ -13263,6 +13263,35 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                             _ind_key_ba, _DEFAULT_ALLOC_BA
                         )
 
+                    # Strip APAC/EMEA channels for US-only plans
+                    _locs_raw = data.get("locations") or []
+                    _all_us = True
+                    if _locs_raw:
+                        for _loc in (
+                            _locs_raw if isinstance(_locs_raw, list) else [_locs_raw]
+                        ):
+                            _loc_str = str(
+                                _loc.get("country") if isinstance(_loc, dict) else _loc
+                            ).lower()
+                            if _loc_str and _loc_str not in (
+                                "us",
+                                "usa",
+                                "united states",
+                                "",
+                            ):
+                                _all_us = False
+                                break
+                    if _all_us and isinstance(channel_pcts, dict):
+                        _intl_pct = channel_pcts.pop(
+                            "apac_regional", 0
+                        ) + channel_pcts.pop("emea_regional", 0)
+                        if _intl_pct > 0:
+                            _top_ch = max(channel_pcts, key=lambda k: channel_pcts[k])
+                            channel_pcts[_top_ch] = channel_pcts[_top_ch] + _intl_pct
+                            logger.info(
+                                f"US-only plan: redistributed {_intl_pct}% from APAC/EMEA to {_top_ch}"
+                            )
+
                     # Parse budget to float — uses shared_utils.parse_budget (single source of truth)
                     _bstr_ba = str(
                         data.get("budget") or "" or data.get("budget_range") or "" or ""

@@ -992,6 +992,98 @@ _ROLE_DIFFICULTY_MAP: dict[str, dict[str, Any]] = {
         "avg_ttf_days": 180,
         "supply_level": "extremely_scarce",
     },
+    # -- Blue-collar / Skilled Trades --
+    "diesel mechanic": {
+        "seniority": "mid",
+        "base_difficulty": 7,
+        "avg_ttf_days": 48,
+        "supply_level": "scarce",
+        "channel_emphasis": "niche_heavy",
+    },
+    "welder": {
+        "seniority": "mid",
+        "base_difficulty": 6,
+        "avg_ttf_days": 40,
+        "supply_level": "moderate",
+        "channel_emphasis": "niche_heavy",
+    },
+    "electrician": {
+        "seniority": "mid",
+        "base_difficulty": 8,
+        "avg_ttf_days": 55,
+        "supply_level": "scarce",
+        "channel_emphasis": "niche_heavy",
+    },
+    "hvac": {
+        "seniority": "mid",
+        "base_difficulty": 7,
+        "avg_ttf_days": 50,
+        "supply_level": "scarce",
+        "channel_emphasis": "niche_heavy",
+    },
+    "heavy equipment operator": {
+        "seniority": "mid",
+        "base_difficulty": 5,
+        "avg_ttf_days": 35,
+        "supply_level": "moderate",
+        "channel_emphasis": "balanced",
+    },
+    "construction worker": {
+        "seniority": "entry",
+        "base_difficulty": 3,
+        "avg_ttf_days": 21,
+        "supply_level": "abundant",
+        "channel_emphasis": "volume",
+    },
+    "manufacturing technician": {
+        "seniority": "mid",
+        "base_difficulty": 5,
+        "avg_ttf_days": 38,
+        "supply_level": "moderate",
+        "channel_emphasis": "balanced",
+    },
+    "plumber": {
+        "seniority": "mid",
+        "base_difficulty": 7,
+        "avg_ttf_days": 45,
+        "supply_level": "scarce",
+        "channel_emphasis": "niche_heavy",
+    },
+    "truck driver": {
+        "seniority": "entry",
+        "base_difficulty": 4,
+        "avg_ttf_days": 28,
+        "supply_level": "moderate",
+        "channel_emphasis": "volume",
+    },
+    "warehouse": {
+        "seniority": "entry",
+        "base_difficulty": 2,
+        "avg_ttf_days": 14,
+        "supply_level": "abundant",
+        "channel_emphasis": "volume",
+    },
+    "forklift": {
+        "seniority": "entry",
+        "base_difficulty": 3,
+        "avg_ttf_days": 18,
+        "supply_level": "abundant",
+        "channel_emphasis": "volume",
+    },
+    "mechanic": {
+        "seniority": "mid",
+        "base_difficulty": 6,
+        "avg_ttf_days": 42,
+        "supply_level": "moderate",
+        "channel_emphasis": "niche_heavy",
+    },
+    "technician": {
+        "seniority": "mid",
+        "base_difficulty": 5,
+        "avg_ttf_days": 35,
+        "supply_level": "moderate",
+        "channel_emphasis": "balanced",
+    },
 }
 
 # Location-based difficulty modifiers (added to role base_difficulty)
@@ -1886,6 +1978,20 @@ _INDUSTRY_MONTHLY_EVENTS: dict[str, dict[int, list[str]]] = {
         11: ["Veteran hiring month", "Year-end clearance hiring"],
         12: ["Year-end reviews", "New year planning"],
     },
+    "blue_collar_trades": {
+        1: ["New Year project launches", "Construction season planning"],
+        2: ["Pre-spring hiring ramp", "Apprenticeship program starts"],
+        3: ["Spring construction season begins", "Trade school graduations"],
+        4: ["Peak construction hiring", "Infrastructure project starts"],
+        5: ["Summer hiring surge", "Skilled trades job fairs"],
+        6: ["Peak seasonal demand", "Union apprenticeship deadlines"],
+        7: ["Mid-year project staffing", "Summer shutdown maintenance"],
+        8: ["Fall project planning", "Vocational school recruitment"],
+        9: ["Pre-winter project rush", "Trade certification exams"],
+        10: ["Winter prep maintenance hiring", "Year-end project completions"],
+        11: ["Indoor project season", "Holiday shutdown planning"],
+        12: ["Year-end maintenance", "Next year project staffing"],
+    },
 }
 
 
@@ -1902,6 +2008,26 @@ def _get_industry_key(industry: str) -> str:
         return "retail"
     if "defense" in industry or "aerospace" in industry or "government" in industry:
         return "defense"
+    # Blue-collar / skilled trades / construction / manufacturing
+    if any(
+        kw in industry
+        for kw in (
+            "construct",
+            "manufactur",
+            "skilled_trade",
+            "blue_collar",
+            "trade",
+            "warehouse",
+            "logistics",
+            "transport",
+            "plumb",
+            "electric",
+            "hvac",
+            "mechanic",
+            "weld",
+        )
+    ):
+        return "blue_collar_trades"
     return ""
 
 
@@ -1981,6 +2107,31 @@ def build_activation_calendar(data: dict) -> dict[str, Any]:
         ]
     elif "defense" in industry or "aerospace" in industry:
         industry_events = ["AUSA (Oct)", "Sea-Air-Space (Apr)", "SHOT Show (Jan)"]
+    elif any(
+        kw in industry
+        for kw in (
+            "construct",
+            "manufactur",
+            "trade",
+            "warehouse",
+            "logistics",
+            "transport",
+            "plumb",
+            "electric",
+            "hvac",
+            "mechanic",
+            "weld",
+            "blue_collar",
+            "skilled_trade",
+        )
+    ):
+        industry_events = [
+            "Skilled trades job fairs (May)",
+            "Construction season peak (Apr-Sep)",
+            "Apprenticeship program starts (Feb)",
+            "Trade certification exams (Sep)",
+            "Union apprenticeship deadlines (Jun)",
+        ]
 
     # NOTE: Activation calendar uses hardcoded industry events above.
     # These are curated conference/event dates that rarely change year-to-year.

@@ -52,6 +52,48 @@ STONE = "1C1917"
 MUTED = "78716C"
 WARM_GRAY = "E7E5E4"
 OFF_WHITE = "F5F5F4"
+# ---------------------------------------------------------------------------
+# Brand name casing -- preserves known brand names when title-casing client
+# ---------------------------------------------------------------------------
+_BRAND_CASING: dict[str, str] = {
+    "fedex": "FedEx",
+    "linkedin": "LinkedIn",
+    "youtube": "YouTube",
+    "ibm": "IBM",
+    "ups": "UPS",
+    "jpmorgan": "JPMorgan",
+    "walmart": "Walmart",
+    "mcdonalds": "McDonald's",
+    "at&t": "AT&T",
+    "bmw": "BMW",
+    "dhl": "DHL",
+    "usps": "USPS",
+    "xpo": "XPO",
+    "jb hunt": "J.B. Hunt",
+    "j.b. hunt": "J.B. Hunt",
+    "hca": "HCA",
+    "cvs": "CVS",
+    "ge": "GE",
+    "3m": "3M",
+    "bp": "BP",
+    "ihg": "IHG",
+}
+
+
+def _proper_client_name(name: str) -> str:
+    """Title-case a client name, preserving known brand casing."""
+    if not name or name == "Client":
+        return name
+    lower = name.strip().lower()
+    if lower in _BRAND_CASING:
+        return _BRAND_CASING[lower]
+    return (
+        name.strip().title()
+        if name == name.lower() or name == name.upper()
+        else name.strip()
+    )
+
+
 GREEN = "16A34A"
 GREEN_BG = "DCFCE7"
 AMBER = "D97706"
@@ -1303,20 +1345,29 @@ def _build_sheet_executive_summary(
             key=lambda x: x[1].get("dollar_amount", x[1].get("dollars") or 0),
             reverse=True,
         )
-        for idx, (ch_name, ch_data) in enumerate(sorted_channels[:15]):
+        _row_idx = 0
+        for ch_name, ch_data in sorted_channels[:15]:
+            # Bug 23: Skip garbage rows where all metrics are zero/empty
+            _ch_cpc = ch_data.get("cpc") or 0
+            _ch_cpa = ch_data.get("cpa") or 0
+            _ch_dollars = ch_data.get("dollar_amount", ch_data.get("dollars") or 0) or 0
+            _ch_roi = ch_data.get("roi_score") or 0
+            _ch_pct = ch_data.get("percentage") or 0
+            if not any([_ch_cpc, _ch_cpa, _ch_dollars, _ch_roi, _ch_pct]):
+                continue
+            idx = _row_idx
+            _row_idx += 1
             _display_name = ch_name.replace("_", " ").title()
             values = [
                 _display_name,
-                f"{_safe_num(ch_data.get('percentage') or 0):.1f}%",
-                _fmt_currency(
-                    ch_data.get("dollar_amount", ch_data.get("dollars") or 0)
-                ),
+                f"{_safe_num(_ch_pct):.1f}%",
+                _fmt_currency(_ch_dollars),
                 _fmt_number(ch_data.get("projected_clicks") or 0),
                 _fmt_number(ch_data.get("projected_applications") or 0),
                 _fmt_number(ch_data.get("projected_hires") or 0),
-                _fmt_currency(ch_data.get("cpc") or 0, show_cents=True),
-                _fmt_currency(ch_data.get("cpa") or 0, show_cents=True),
-                str(ch_data.get("roi_score") or ""),
+                _fmt_currency(_ch_cpc, show_cents=True),
+                _fmt_currency(_ch_cpa, show_cents=True),
+                str(_ch_roi or ""),
             ]
             for i, val in enumerate(values):
                 cell = ws.cell(row=row, column=COL_START + i, value=val)
@@ -1944,13 +1995,21 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
 
         row = _write_table_header(ws, row, headers)
 
-        for idx, (plat_key, plat_data) in enumerate(ad_platforms.items()):
+        _plat_idx = 0
+        for plat_key, plat_data in ad_platforms.items():
             if not isinstance(plat_data, dict):
                 continue
             plat_name = plat_data.get(
                 "platform_name", plat_key.replace("_", " ").title()
             )
             fit_score = _safe_num(plat_data.get("fit_score") or 0)
+            _p_cpc = plat_data.get("avg_cpc", plat_data.get("cpc") or 0) or 0
+            _p_cpm = plat_data.get("avg_cpm", plat_data.get("cpm") or 0) or 0
+            _p_cpa = plat_data.get("avg_cpa", plat_data.get("cpa") or 0) or 0
+            if not any([_p_cpc, _p_cpm, _p_cpa, fit_score]):
+                continue
+            idx = _plat_idx
+            _plat_idx += 1
 
             values = [
                 plat_name,
@@ -2668,6 +2727,9 @@ def _build_sheet_sources(ws, data: dict):
     )
     overall_grade = _grade_from_score(overall_score)
 
+    # Store computed confidence so PPT uses the same value
+    data["_computed_confidence_pct"] = round(overall_score * 100)
+
     # Large grade display
     ws.merge_cells(
         start_row=row, start_column=COL_START, end_row=row + 2, end_column=COL_START + 1
@@ -3358,29 +3420,32 @@ def _build_sheet_roi_projections(ws, data: dict) -> None:
             base_ttf = (ttf_lo + ttf_hi) // 2
             est_time_to_fill = _compute_dynamic_ttf(base_ttf, data)
 
-            # ROI Score (1-10): based on cost efficiency
-            # Lower cost per hire = higher score
+            # ROI Score (1-10): inversely proportional to cost-per-hire
+            # Uses realistic recruitment industry thresholds:
+            #   <$300 CPH = 10, $300-600 = 9, $600-1000 = 8, $1000-1500 = 7,
+            #   $1500-2500 = 6, $2500-4000 = 5, $4000-6000 = 4, $6000-10000 = 3,
+            #   $10000-20000 = 2, >$20000 = 1
             existing_roi = ch_data.get("roi_score") or 0
             if existing_roi and 1 <= existing_roi <= 10:
                 roi_score = existing_roi
             else:
-                if cost_per_hire <= 1000:
+                if cost_per_hire <= 300:
                     roi_score = 10
-                elif cost_per_hire <= 2500:
+                elif cost_per_hire <= 600:
                     roi_score = 9
-                elif cost_per_hire <= 4000:
+                elif cost_per_hire <= 1000:
                     roi_score = 8
-                elif cost_per_hire <= 6000:
+                elif cost_per_hire <= 1500:
                     roi_score = 7
-                elif cost_per_hire <= 8000:
+                elif cost_per_hire <= 2500:
                     roi_score = 6
-                elif cost_per_hire <= 12000:
+                elif cost_per_hire <= 4000:
                     roi_score = 5
-                elif cost_per_hire <= 18000:
+                elif cost_per_hire <= 6000:
                     roi_score = 4
-                elif cost_per_hire <= 25000:
+                elif cost_per_hire <= 10000:
                     roi_score = 3
-                elif cost_per_hire <= 40000:
+                elif cost_per_hire <= 20000:
                     roi_score = 2
                 else:
                     roi_score = 1
@@ -4106,6 +4171,10 @@ def generate_excel_v2(
     ]:
         if not data.get(key):
             data[key] = default
+
+    # Normalize client name casing (preserves known brands)
+    data["client_name"] = _proper_client_name(data["client_name"] or "Client")
+    data["company_name"] = _proper_client_name(data["company_name"] or "Client")
 
     for key in ["locations", "roles", "target_roles", "campaign_goals", "competitors"]:
         val = data.get(key)

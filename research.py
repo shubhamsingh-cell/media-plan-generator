@@ -4689,6 +4689,94 @@ def _filter_self_from_competitors(competitors_str, company_name):
     return ", ".join(filtered) if filtered else competitors_str
 
 
+_INDUSTRY_COMPETITOR_FALLBACK: dict[str, list[str]] = {
+    "transportation": [
+        "UPS",
+        "Amazon Logistics",
+        "XPO Logistics",
+        "USPS",
+        "J.B. Hunt",
+        "Ryder",
+        "Penske",
+    ],
+    "logistics": [
+        "UPS",
+        "Amazon Logistics",
+        "XPO Logistics",
+        "DHL",
+        "FedEx",
+        "Maersk",
+        "C.H. Robinson",
+    ],
+    "technology": [
+        "Google",
+        "Microsoft",
+        "Amazon",
+        "Meta",
+        "Apple",
+        "Salesforce",
+        "Oracle",
+    ],
+    "healthcare": [
+        "HCA Healthcare",
+        "UnitedHealth",
+        "Kaiser Permanente",
+        "CVS Health",
+        "Anthem",
+        "Cigna",
+    ],
+    "finance": [
+        "JPMorgan Chase",
+        "Goldman Sachs",
+        "Morgan Stanley",
+        "Bank of America",
+        "Citigroup",
+        "Wells Fargo",
+    ],
+    "retail": [
+        "Walmart",
+        "Amazon",
+        "Target",
+        "Costco",
+        "Home Depot",
+        "Kroger",
+        "Lowe's",
+    ],
+    "manufacturing": [
+        "3M",
+        "GE",
+        "Honeywell",
+        "Caterpillar",
+        "Deere",
+        "Parker Hannifin",
+    ],
+    "construction": [
+        "Turner Construction",
+        "Bechtel",
+        "Fluor",
+        "Jacobs Engineering",
+        "AECOM",
+    ],
+    "energy": [
+        "ExxonMobil",
+        "Chevron",
+        "Shell",
+        "BP",
+        "ConocoPhillips",
+        "Baker Hughes",
+    ],
+    "hospitality": ["Marriott", "Hilton", "Hyatt", "IHG", "Wyndham", "AccorHotels"],
+    "education": [
+        "Pearson",
+        "McGraw-Hill",
+        "Kaplan",
+        "Chegg",
+        "Coursera",
+        "Blackboard",
+    ],
+}
+
+
 def get_competitors(industry, locations, company_name=None):
     """Get real competitor data for the industry (US + international).
 
@@ -4793,15 +4881,40 @@ def get_competitors(industry, locations, company_name=None):
                 ", ".join(filtered_parts) if filtered_parts else comp_str
             )
 
-    # Fallback if no data found
-    if not result:
-        result.append(
-            {
-                "category": "General Market Competitors",
-                "competitors": "Major employers in the region competing for similar talent pools",
-                "threat": "MODERATE",
-            }
-        )
+    # Fallback if no data found -- use industry-based competitor list
+    if not result or all(not (r.get("competitors") or "").strip() for r in result):
+        _ind_lower = str(industry).lower()
+        _fallback_names: list[str] = []
+        for _fb_key, _fb_list in _INDUSTRY_COMPETITOR_FALLBACK.items():
+            if _fb_key in _ind_lower or _ind_lower in _fb_key:
+                _fallback_names = list(_fb_list)
+                break
+        if not _fallback_names:
+            # Try partial keyword match
+            for _fb_key, _fb_list in _INDUSTRY_COMPETITOR_FALLBACK.items():
+                if any(w in _ind_lower for w in _fb_key.split()):
+                    _fallback_names = list(_fb_list)
+                    break
+        # Exclude the client company from fallback list
+        if _fallback_names and company_name:
+            _cn_lower = company_name.strip().lower()
+            _fallback_names = [n for n in _fallback_names if _cn_lower not in n.lower()]
+        if _fallback_names:
+            result = [
+                {
+                    "category": "Industry Competitors (Curated)",
+                    "competitors": ", ".join(_fallback_names[:7]),
+                    "threat": "MODERATE",
+                }
+            ]
+        else:
+            result = [
+                {
+                    "category": "General Market Competitors",
+                    "competitors": "Major employers in the region competing for similar talent pools",
+                    "threat": "MODERATE",
+                }
+            ]
 
     return result
 
