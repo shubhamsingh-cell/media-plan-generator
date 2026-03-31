@@ -3212,7 +3212,52 @@ class Nova:
                     logger.info("Nova loaded %s", _cache_key)
             except Exception as _rf_err:
                 self._data_cache[_cache_key] = {}
-                logger.warning("Nova could not load %s: %s", _rf_name, _rf_err)
+
+        # Load expanded supply repository (S30: 2.7MB, new supply partners)
+        _esp_path = os.path.join(str(DATA_DIR), "joveo_global_supply_repository.json")
+        try:
+            if os.path.exists(_esp_path):
+                with open(_esp_path, "r", encoding="utf-8") as _ef:
+                    self._data_cache["expanded_supply_repo"] = json.load(_ef)
+                    _esp_len = (
+                        len(self._data_cache["expanded_supply_repo"])
+                        if isinstance(
+                            self._data_cache["expanded_supply_repo"], (list, dict)
+                        )
+                        else 0
+                    )
+                    logger.info(
+                        "Nova loaded expanded_supply_repo: %d entries", _esp_len
+                    )
+        except (FileNotFoundError, json.JSONDecodeError, OSError) as _esp_err:
+            logger.warning("Could not load expanded supply repo: %s", _esp_err)
+            self._data_cache["expanded_supply_repo"] = {}
+
+        # Load client plans directory (S30: RTX + other reference plans)
+        _cp_dir = os.path.join(str(DATA_DIR), "client_plans")
+        try:
+            if os.path.isdir(_cp_dir):
+                _cp_data: Dict[str, Any] = {}
+                for _cp_fname in os.listdir(_cp_dir):
+                    if _cp_fname.endswith(".json"):
+                        _cp_fpath = os.path.join(_cp_dir, _cp_fname)
+                        with open(_cp_fpath, "r", encoding="utf-8") as _cpf:
+                            _cp_key = _cp_fname.replace(".json", "")
+                            _cp_data[_cp_key] = json.load(_cpf)
+                if _cp_data:
+                    # Merge into existing client_media_plans for the query_client_plans tool
+                    existing_plans = self._data_cache.get("client_media_plans", {})
+                    existing_plan_dict = existing_plans.get("plans", {})
+                    existing_plan_dict.update(_cp_data)
+                    existing_plans["plans"] = existing_plan_dict
+                    self._data_cache["client_media_plans"] = existing_plans
+                    logger.info(
+                        "Nova loaded %d client plan files from data/client_plans/: %s",
+                        len(_cp_data),
+                        ", ".join(_cp_data.keys()),
+                    )
+        except (FileNotFoundError, json.JSONDecodeError, OSError) as _cp_err:
+            logger.warning("Could not load client plans directory: %s", _cp_err)
 
     # ------------------------------------------------------------------
     # System prompt (for Claude API mode) -- modular design
@@ -4927,8 +4972,12 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
     # ------------------------------------------------------------------
 
     def _query_global_supply(self, params: dict) -> dict:
-        """Query global supply data: country boards, DEI boards, spend data."""
+        """Query global supply data: country boards, DEI boards, spend data.
+
+        Also searches expanded_supply_repo (2.7MB, S30) for new supply partners.
+        """
         supply = self._data_cache.get("global_supply", {})
+        expanded = self._data_cache.get("expanded_supply_repo", {})
         country = (params.get("country") or "").strip()
         board_type = params.get("board_type", "all")
         category_filter = (params.get("category") or "").lower().strip()

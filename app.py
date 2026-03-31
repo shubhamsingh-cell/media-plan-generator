@@ -2978,7 +2978,7 @@ def classify_role_tier(role_title: str) -> dict:
     return ROLE_TIER_KEYWORDS["professional"]
 
 
-# Load global supply data
+# Load global supply data (original 107KB file)
 GLOBAL_SUPPLY_PATH = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "data", "global_supply.json"
 )
@@ -2988,6 +2988,45 @@ try:
         global_supply_data = json.load(f)
 except (FileNotFoundError, json.JSONDecodeError, OSError):
     pass
+
+# Load NEW expanded supply repository (2.7MB, added S30)
+_DATA_DIR = os.path.dirname(os.path.abspath(__file__))
+_expanded_supply_repo: dict = {}
+try:
+    _esp = os.path.join(_DATA_DIR, "data", "joveo_global_supply_repository.json")
+    if os.path.exists(_esp):
+        with open(_esp, "r") as f:
+            _expanded_supply_repo = json.load(f)
+        logger.info(
+            "Loaded expanded supply repository: %d entries",
+            (
+                len(_expanded_supply_repo)
+                if isinstance(_expanded_supply_repo, (list, dict))
+                else 0
+            ),
+        )
+except (FileNotFoundError, json.JSONDecodeError, OSError) as e:
+    logger.warning(f"Could not load expanded supply repository: {e}")
+
+# Load client plans from data/client_plans/ directory (RTX + others, added S30)
+_client_plans_dir = os.path.join(_DATA_DIR, "data", "client_plans")
+_client_plans_data: dict = {}
+try:
+    if os.path.isdir(_client_plans_dir):
+        for fname in os.listdir(_client_plans_dir):
+            if fname.endswith(".json"):
+                fpath = os.path.join(_client_plans_dir, fname)
+                with open(fpath, "r") as f:
+                    plan_key = fname.replace(".json", "")
+                    _client_plans_data[plan_key] = json.load(f)
+        if _client_plans_data:
+            logger.info(
+                "Loaded %d client plan files: %s",
+                len(_client_plans_data),
+                ", ".join(_client_plans_data.keys()),
+            )
+except (FileNotFoundError, json.JSONDecodeError, OSError) as e:
+    logger.warning(f"Could not load client plans directory: {e}")
 
 _channels_db_cache = None
 _joveo_publishers_cache = None
@@ -11857,6 +11896,61 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                             "Supply repository failed (non-fatal): %s",
                                             _sr_err,
                                         )
+
+                                    # ── S30: Expanded supply repository (2.7MB) ──
+                                    if _expanded_supply_repo:
+                                        gen_data["_expanded_supply_repo"] = (
+                                            _expanded_supply_repo
+                                        )
+                                        logger.info(
+                                            "Expanded supply repo: %d entries injected",
+                                            (
+                                                len(_expanded_supply_repo)
+                                                if isinstance(
+                                                    _expanded_supply_repo, (list, dict)
+                                                )
+                                                else 0
+                                            ),
+                                        )
+
+                                    # ── S30: Client plan references (RTX + others) ──
+                                    if _client_plans_data:
+                                        _industry_key = (
+                                            gen_data.get("industry") or ""
+                                        ).lower()
+                                        _matching_plans = {}
+                                        for pkey, pdata in _client_plans_data.items():
+                                            p_industry = (
+                                                pdata.get("industry") or ""
+                                            ).lower()
+                                            if (
+                                                _industry_key
+                                                and p_industry
+                                                and (
+                                                    _industry_key in p_industry
+                                                    or p_industry in _industry_key
+                                                )
+                                            ):
+                                                _matching_plans[pkey] = pdata
+                                        if _matching_plans:
+                                            gen_data["_reference_client_plans"] = (
+                                                _matching_plans
+                                            )
+                                            logger.info(
+                                                "Matched %d reference client plans for industry '%s': %s",
+                                                len(_matching_plans),
+                                                _industry_key,
+                                                ", ".join(_matching_plans.keys()),
+                                            )
+                                        else:
+                                            # Include all plans as general reference
+                                            gen_data["_reference_client_plans"] = (
+                                                _client_plans_data
+                                            )
+                                            logger.info(
+                                                "No industry match -- all %d client plans available as reference",
+                                                len(_client_plans_data),
+                                            )
 
                                     # ── S29: Salary data (48 rows) ──
                                     try:
