@@ -4952,7 +4952,8 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
             from concurrent.futures import TimeoutError as _ToolTimeout
 
             # S27: Dynamic per-tool timeout -- share global budget instead of fixed 10s
-            _PER_TOOL_TIMEOUT: int = 10  # default fallback
+            # S32: Reduced 10s -> 8s to fit more tools within 90s outer budget
+            _PER_TOOL_TIMEOUT: int = 8  # default fallback
 
             with _TPE_Tool(max_workers=1) as _tool_pool:
                 _tool_fut = _tool_pool.submit(handler, tool_input)
@@ -9002,6 +9003,7 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
         cancel_event: Optional[threading.Event] = None,
         session_id: Optional[str] = None,
         outer_deadline: Optional[float] = None,
+        partial_accumulator: Optional[dict] = None,
     ) -> dict:
         """Process a chat message and return a response.
 
@@ -9014,6 +9016,9 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
             session_id: Optional session identifier for A/B test variant assignment.
             outer_deadline: Wall-clock time.time() deadline from the outer
                 timeout wrapper. Used to compute dynamic loop budgets.
+            partial_accumulator: Optional thread-safe dict for incremental
+                tool results.  Written to by the tool loop so the caller can
+                read partial data on timeout.
 
         Returns:
             Dict with response, sources, confidence, tools_used.
@@ -9506,6 +9511,7 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                 is_complex=_is_complex,
                 ab_force_provider=_ab_variant,
                 outer_deadline=outer_deadline,
+                partial_accumulator=partial_accumulator,
             )
             # v4.3 QUALITY GATE: If response has zero tools_used, retry with Gemini forced
             # S24: Skip retry if already past 50s to avoid timeout
@@ -9528,6 +9534,7 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                         enrichment_context,
                         is_complex=True,
                         ab_force_provider="gemini",
+                        partial_accumulator=partial_accumulator,
                     )
                     if _retry_result and _retry_result.get("tools_used"):
                         free_tool_result = _retry_result
@@ -9592,6 +9599,7 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                             is_complex=_is_complex,
                             ab_force_provider=_rp,
                             outer_deadline=outer_deadline,
+                            partial_accumulator=partial_accumulator,
                         )
                         if (
                             free_tool_result
@@ -9627,7 +9635,11 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                     " (tool-use)" if not _is_conversational else " (router fallback)",
                 )
                 result = self._chat_with_claude(
-                    user_message, conversation_history, enrichment_context, api_key
+                    user_message,
+                    conversation_history,
+                    enrichment_context,
+                    api_key,
+                    outer_deadline=outer_deadline,
                 )
                 logger.info("NOVA MODE: Claude API response received successfully")
                 _nova_metrics.record_latency((time.time() - _t0) * 1000)
@@ -10347,6 +10359,7 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
         is_complex: bool = False,
         ab_force_provider: Optional[str] = None,
         outer_deadline: Optional[float] = None,
+        partial_accumulator: Optional[dict] = None,
     ) -> Optional[dict]:
         """Try LLM providers WITH tool calling via OpenAI-compatible format.
 
@@ -10869,7 +10882,7 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                     _fmap = {
                         _tpool.submit(_exec_free_tool, tc): tc for tc in tool_calls
                     }
-                    for _fut in _as_done_free(_fmap, timeout=15):
+                    for _fut in _as_done_free(_fmap, timeout=10):
                         try:
                             _par_res.append(_fut.result())
                         except Exception as _texc:
@@ -10926,6 +10939,18 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                                 "source": "",
                                 "result": _trc,
                             }
+                        )
+
+                    # S32: Write to partial accumulator so timeout handler
+                    # can surface whatever data was collected so far.
+                    if (
+                        partial_accumulator is not None
+                        and has_data
+                        and _tname in _valid_tools
+                    ):
+                        partial_accumulator["tools_used"].append(_tname)
+                        partial_accumulator["tool_data"].append(
+                            {"tool": _tname, "result_summary": str(_trc)[:500]}
                         )
 
                     try:
@@ -11301,6 +11326,7 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
         conversation_history: Optional[list],
         enrichment_context: Optional[dict],
         api_key: str,
+        outer_deadline: Optional[float] = None,
     ) -> dict:
         """Use Claude API for natural-language chat with tool use.
 
@@ -11382,7 +11408,8 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
         _MAX_TOTAL_TOOL_CALLS = (
             20  # S26: Hard cap on total tool calls across all iterations
         )
-        _SYNTHESIS_RESERVE_C = 25.0  # seconds reserved for final synthesis call
+        # S32: Reduced 25s -> 20s (Haiku synthesizes in 15-18s consistently)
+        _SYNTHESIS_RESERVE_C = 20.0  # seconds reserved for final synthesis call
 
         adaptive_max_tokens, selected_model = _classify_query_complexity(user_message)
         logger.info(
@@ -11475,8 +11502,21 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
             tool_defs[-1]["cache_control"] = {"type": "ephemeral"}
 
         # S24: Deadline-aware tool loop for Path C (Claude API)
+        # S32: Dynamic budget from outer_deadline (was static 50s, causing timeouts
+        # on competitive intel / multi-city queries that arrive via Path C after
+        # enrichment already consumed 20-30s of the 90s outer budget).
         _loop_start_c = time.monotonic()
-        _LOOP_BUDGET_C = 50.0  # seconds before forcing synthesis
+        if outer_deadline:
+            _remaining_c = outer_deadline - time.time()
+            _LOOP_BUDGET_C = max(15.0, min(50.0, _remaining_c - _SYNTHESIS_RESERVE_C))
+            logger.info(
+                "Claude tool loop: dynamic budget=%.1fs (remaining=%.1fs, reserve=%.0fs)",
+                _LOOP_BUDGET_C,
+                _remaining_c,
+                _SYNTHESIS_RESERVE_C,
+            )
+        else:
+            _LOOP_BUDGET_C = 50.0  # static fallback
 
         for iteration in range(max_iterations):
             # S24: Check deadline before starting a new iteration
@@ -11619,7 +11659,7 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                             _cpool.submit(_exec_claude_tool, blk): blk
                             for blk in _tool_use_blocks
                         }
-                        for _cfut in _as_done_claude(_cfmap, timeout=15):
+                        for _cfut in _as_done_claude(_cfmap, timeout=10):
                             try:
                                 _claude_par.append(_cfut.result())
                             except Exception as _cexc:
@@ -15604,6 +15644,7 @@ def handle_chat_request(
     request_data: dict,
     cancel_event: Optional[threading.Event] = None,
     outer_deadline: Optional[float] = None,
+    partial_accumulator: Optional[dict] = None,
 ) -> dict:
     """Handle an incoming chat API request.
 
@@ -15629,6 +15670,9 @@ def handle_chat_request(
         outer_deadline: Wall-clock monotonic deadline from the outer timeout
             wrapper.  Passed through to ``Nova.chat()`` so the tool loop
             can compute a dynamic budget that accounts for enrichment time.
+        partial_accumulator: Optional thread-safe dict that tool results are
+            written to incrementally.  On timeout the caller reads whatever
+            was collected and synthesizes a partial response.
 
     Returns::
 
@@ -15672,6 +15716,7 @@ def handle_chat_request(
             cancel_event=cancel_event,
             session_id=_conv_id,
             outer_deadline=outer_deadline,
+            partial_accumulator=partial_accumulator,
         )
 
         # C-01: Graceful fallback when all LLM providers fail (empty response)

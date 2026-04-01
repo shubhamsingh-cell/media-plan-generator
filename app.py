@@ -14024,7 +14024,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 # ── Timeout wrapper: enrichment + LLM call share budget ──
                 # Enrichment (~8s) runs inside the executor so it doesn't
                 # steal time from the LLM + tool loop.
-                def _enriched_chat(d: dict) -> dict:
+                def _enriched_chat(d: dict, partial_accumulator: dict = None) -> dict:
                     import time as _t
 
                     _t0 = _t.time()
@@ -14116,7 +14116,11 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         f"[CHAT DEBUG] enrichment done in {_t1-_t0:.1f}s, calling handle_chat_request",
                         flush=True,
                     )
-                    result = handle_chat_request(d, outer_deadline=_outer_deadline)
+                    result = handle_chat_request(
+                        d,
+                        outer_deadline=_outer_deadline,
+                        partial_accumulator=partial_accumulator,
+                    )
                     _t2 = _t.time()
                     print(
                         f"[CHAT DEBUG] handle_chat_request done in {_t2-_t1:.1f}s, provider={result.get('llm_provider','?')}, tools={result.get('tools_used',[])}",
@@ -14124,7 +14128,18 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     )
                     return result
 
-                _chat_future = _background_executor.submit(_enriched_chat, data)
+                # S32: Thread-safe partial result accumulator -- background thread
+                # writes tool results here incrementally; on timeout the main
+                # thread reads whatever was collected and synthesizes a partial
+                # response instead of a generic error.
+                _partial_results: dict = {
+                    "tools_used": [],
+                    "tool_data": [],
+                    "message": data.get("message") or "",
+                }
+                _chat_future = _background_executor.submit(
+                    _enriched_chat, data, _partial_results
+                )
                 try:
                     with _chat_span_fn("nova.chat", "Nova chat LLM routing + response"):
                         response = _chat_future.result(timeout=_CHAT_REQUEST_TIMEOUT)
@@ -14138,29 +14153,55 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         _chat_timeout_err,
                         exc_info=True,
                     )
-                    response = {
-                        "response": (
-                            "I wasn't able to complete my full analysis within the time limit, "
-                            "but here's what I can tell you based on what I gathered:\n\n"
-                            "Your question required multiple data lookups that took longer than expected. "
-                            "Here are some suggestions:\n\n"
-                            "1. **Try breaking your question into smaller parts** -- ask about one specific aspect at a time\n"
-                            "2. **Be more specific** -- instead of comparing multiple cities, ask about one city first\n"
-                            "3. **Try again** -- server load varies and the same question may succeed on retry\n\n"
-                            "I apologize for the inconvenience. Nova processes 56+ data tools and sometimes "
-                            "complex queries need a bit more time."
-                            if _is_timeout
-                            else "An error occurred processing your request. Please try again."
-                        ),
-                        "sources": [],
-                        "confidence": 0.3 if _is_timeout else 0.0,
-                        "tools_used": [],
-                        "error": (
-                            "Request timed out - partial response provided"
-                            if _is_timeout
-                            else str(_chat_timeout_err)[:200]
-                        ),
-                    }
+
+                    # S32: Use partial results from the accumulator if available
+                    _collected_tools = _partial_results.get("tool_data") or []
+                    _collected_names = _partial_results.get("tools_used") or []
+                    if _is_timeout and _collected_tools:
+                        _partial_text = (
+                            f"I gathered data from {len(_collected_names)} tool(s) "
+                            f"({', '.join(_collected_names)}) before running out of time. "
+                            f"Here's what I found:\n\n"
+                        )
+                        for _td in _collected_tools:
+                            _partial_text += (
+                                f"**{_td['tool']}**: {_td['result_summary'][:400]}\n\n"
+                            )
+                        _partial_text += (
+                            "\n---\n*This is a partial response due to timeout. "
+                            "Try breaking your question into smaller parts for a complete analysis.*"
+                        )
+                        response = {
+                            "response": _partial_text,
+                            "sources": [],
+                            "confidence": 0.4,
+                            "tools_used": _collected_names,
+                            "error": "Request timed out - partial response from collected data",
+                        }
+                    else:
+                        response = {
+                            "response": (
+                                "I wasn't able to complete my full analysis within the time limit, "
+                                "but here's what I can tell you based on what I gathered:\n\n"
+                                "Your question required multiple data lookups that took longer than expected. "
+                                "Here are some suggestions:\n\n"
+                                "1. **Try breaking your question into smaller parts** -- ask about one specific aspect at a time\n"
+                                "2. **Be more specific** -- instead of comparing multiple cities, ask about one city first\n"
+                                "3. **Try again** -- server load varies and the same question may succeed on retry\n\n"
+                                "I apologize for the inconvenience. Nova processes 56+ data tools and sometimes "
+                                "complex queries need a bit more time."
+                                if _is_timeout
+                                else "An error occurred processing your request. Please try again."
+                            ),
+                            "sources": [],
+                            "confidence": 0.3 if _is_timeout else 0.0,
+                            "tools_used": [],
+                            "error": (
+                                "Request timed out - partial response provided"
+                                if _is_timeout
+                                else str(_chat_timeout_err)[:200]
+                            ),
+                        }
                 except BaseException as _chat_base_err:
                     # Catch SystemExit / GreenletExit from gevent worker timeout
                     _chat_future.cancel()
