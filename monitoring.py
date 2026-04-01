@@ -2180,9 +2180,7 @@ def get_platform_observability() -> Dict[str, Any]:
             },
             "intelligence_hub": {
                 "web_scraper_router": "web_scraper_router" in _sys.modules,
-                "search_clients": bool(
-                    os.environ.get("TAVILY_API_KEY") or os.environ.get("SERPER_API_KEY")
-                ),
+                "search_clients": bool(os.environ.get("TAVILY_API_KEY")),
                 "data_apis": "api_integrations" in _sys.modules,
                 "supabase": bool(os.environ.get("SUPABASE_URL")),
             },

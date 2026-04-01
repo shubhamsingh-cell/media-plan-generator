@@ -8,10 +8,10 @@ instead of calling individual service modules directly.
 Service Categories:
     1. CACHING    -- Upstash Redis -> Supabase cache -> Memory dict -> File cache
     2. DATABASE   -- Supabase PostgREST -> Local JSON -> Memory KB
-    3. EMAIL      -- Resend -> SMTP -> Slack -> Stderr
+    3. EMAIL      -- Resend -> Slack -> Sentry Breadcrumb -> Local log
     4. ANALYTICS  -- PostHog -> Local file -> Memory counter
     5. ERRORS     -- Sentry -> Local file -> Email -> Stderr
-    6. LOGGING    -- Grafana Loki -> Local file -> Stderr
+    6. LOGGING    -- Local file -> Stderr
 
 Thread-safe, stdlib-only (no new pip packages).
 """
@@ -21,14 +21,11 @@ from __future__ import annotations
 import json
 import logging
 import os
-import smtplib
 import sys
 import threading
 import time
 from collections import deque
 from datetime import datetime, timezone
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -875,9 +872,6 @@ class ResilienceRouter:
         ]
 
         # 3. EMAIL
-        smtp_host = (os.environ.get("SMTP_HOST") or "").strip()
-        smtp_user = (os.environ.get("SMTP_USER") or "").strip()
-        smtp_pass = (os.environ.get("SMTP_PASS") or "").strip()
         slack_configured = bool((os.environ.get("SLACK_BOT_TOKEN") or "").strip())
 
         self._tiers["email"] = [
@@ -892,19 +886,9 @@ class ResilienceRouter:
                 rate_limit_info="100 emails/day free",
             ),
             ServiceTier(
-                "SMTP",
-                "smtp",
-                2,
-                bool(smtp_host and smtp_user and smtp_pass),
-                max_failures=3,
-                cooldown_seconds=1800,
-                cost_label="free",
-                rate_limit_info="depends on provider",
-            ),
-            ServiceTier(
                 "Slack Notification",
                 "slack",
-                3,
+                2,
                 slack_configured,
                 max_failures=5,
                 cooldown_seconds=900,
@@ -914,7 +898,7 @@ class ResilienceRouter:
             ServiceTier(
                 "Sentry Breadcrumb",
                 "sentry_breadcrumb",
-                4,
+                3,
                 bool(sentry_dsn),
                 max_failures=999,
                 cooldown_seconds=60,
@@ -924,7 +908,7 @@ class ResilienceRouter:
             ServiceTier(
                 "Local Log File",
                 "local_log",
-                5,
+                4,
                 True,
                 max_failures=999,
                 cooldown_seconds=60,
@@ -1024,24 +1008,11 @@ class ResilienceRouter:
         ]
 
         # 6. LOGGING
-        grafana_url = (os.environ.get("GRAFANA_LOKI_URL") or "").strip()
-        grafana_key = (os.environ.get("GRAFANA_API_KEY") or "").strip()
-
         self._tiers["logging"] = [
-            ServiceTier(
-                "Grafana Loki",
-                "grafana",
-                1,
-                bool(grafana_url and grafana_key),
-                max_failures=5,
-                cooldown_seconds=600,
-                cost_label="freemium",
-                rate_limit_info="50GB free tier",
-            ),
             ServiceTier(
                 "Local Structured File",
                 "local_file",
-                2,
+                1,
                 True,
                 max_failures=10,
                 cooldown_seconds=120,
@@ -1051,7 +1022,7 @@ class ResilienceRouter:
             ServiceTier(
                 "Stderr Log",
                 "stderr",
-                3,
+                2,
                 True,
                 max_failures=999,
                 cooldown_seconds=60,
@@ -1064,9 +1035,6 @@ class ResilienceRouter:
         firecrawl_key = (os.environ.get("FIRECRAWL_API_KEY") or "").strip()
         jina_key = (os.environ.get("JINA_API_KEY") or "").strip()
         tavily_key = (os.environ.get("TAVILY_API_KEY") or "").strip()
-        serper_key = (os.environ.get("SERPER_API_KEY") or "").strip()
-        brave_key = (os.environ.get("BRAVE_API_KEY") or "").strip()
-
         self._tiers["web_scraping"] = [
             ServiceTier(
                 "Firecrawl",
@@ -1099,29 +1067,9 @@ class ResilienceRouter:
                 rate_limit_info="1K free/mo",
             ),
             ServiceTier(
-                "Serper + Jina",
-                "serper",
-                4,
-                bool(serper_key),
-                max_failures=3,
-                cooldown_seconds=1800,
-                cost_label="freemium",
-                rate_limit_info="2,500 free lifetime",
-            ),
-            ServiceTier(
-                "Brave Search",
-                "brave",
-                5,
-                bool(brave_key),
-                max_failures=3,
-                cooldown_seconds=1800,
-                cost_label="freemium",
-                rate_limit_info="2K free/mo",
-            ),
-            ServiceTier(
                 "Direct urllib",
                 "urllib",
-                6,
+                4,
                 True,
                 max_failures=10,
                 cooldown_seconds=120,
@@ -1460,7 +1408,7 @@ class ResilienceRouter:
     ) -> bool:
         """Send an email alert via the best available tier.
 
-        Tries: Resend -> SMTP -> Slack -> Stderr.
+        Tries: Resend -> Slack -> Sentry Breadcrumb -> Local log.
         Returns True if any tier succeeded.
         """
         for tier in self._tiers["email"]:
@@ -1492,8 +1440,6 @@ class ResilienceRouter:
             from alert_manager import send_alert
 
             return send_alert(subject, body, severity)
-        elif tier.provider == "smtp":
-            return self._send_smtp(to, subject, body)
         elif tier.provider == "slack":
             return self._send_slack_notification(subject, body, severity)
         elif tier.provider == "local_log":
@@ -1521,34 +1467,6 @@ class ResilienceRouter:
             except ImportError:
                 return False
         return False
-
-    def _send_smtp(self, to: str, subject: str, body: str) -> bool:
-        """Send email via SMTP (stdlib smtplib)."""
-        smtp_host = (os.environ.get("SMTP_HOST") or "").strip()
-        smtp_port = int(os.environ.get("SMTP_PORT") or "587")
-        smtp_user = (os.environ.get("SMTP_USER") or "").strip()
-        smtp_pass = (os.environ.get("SMTP_PASS") or "").strip()
-
-        if not (smtp_host and smtp_user and smtp_pass):
-            return False
-
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = subject
-        msg["From"] = smtp_user
-        msg["To"] = to
-        msg.attach(MIMEText(body, "html"))
-
-        try:
-            with smtplib.SMTP(smtp_host, smtp_port, timeout=15) as server:
-                server.ehlo()
-                server.starttls()
-                server.ehlo()
-                server.login(smtp_user, smtp_pass)
-                server.sendmail(smtp_user, [to], msg.as_string())
-            return True
-        except (smtplib.SMTPException, OSError) as exc:
-            logger.error(f"[resilience] SMTP send failed: {exc}", exc_info=True)
-            raise
 
     def _send_slack_notification(self, subject: str, body: str, severity: str) -> bool:
         """Send a notification to Slack as a fallback for email."""
@@ -1721,7 +1639,7 @@ class ResilienceRouter:
     def log_structured(self, level: str, message: str, **kwargs: Any) -> bool:
         """Send a structured log via the best available tier.
 
-        Tries: Grafana Loki -> Local file -> Stderr.
+        Tries: Local file -> Stderr.
         Returns True if any tier succeeded.
         """
         for tier in self._tiers["logging"]:
@@ -1741,12 +1659,7 @@ class ResilienceRouter:
         self, tier: ServiceTier, level: str, message: str, **kwargs: Any
     ) -> bool:
         """Dispatch structured log to the appropriate tier."""
-        if tier.provider == "grafana":
-            # Use the existing grafana_logger if a handler is attached
-            log_level = getattr(logging, level.upper(), logging.INFO)
-            logging.getLogger("nova.structured").log(log_level, message, extra=kwargs)
-            return True
-        elif tier.provider == "local_file":
+        if tier.provider == "local_file":
             return self._structured_logger.log(level, message, **kwargs)
         elif tier.provider == "stderr":
             ts = datetime.now(timezone.utc).isoformat()

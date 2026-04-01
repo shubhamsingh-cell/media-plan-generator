@@ -160,13 +160,6 @@ def _run_deferred_startup() -> None:
     except ImportError:
         logger.debug("[wsgi] Calendar sync not available")
 
-    try:
-        import chroma_rag as _cr_preload
-
-        logger.info("[wsgi] Chroma RAG preloaded")
-    except ImportError:
-        logger.debug("[wsgi] Chroma RAG not available")
-
     # Mark deploy warmup as complete
     try:
         import app as _app_module

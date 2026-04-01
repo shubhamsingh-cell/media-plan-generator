@@ -52,31 +52,67 @@ _token_cache: Dict[str, Any] = {"token": None, "expires_at": 0.0}
 
 
 def _load_credentials() -> Optional[Dict[str, str]]:
-    """Load service-account JSON from GOOGLE_SHEETS_CREDENTIALS env var.
+    """Load service-account JSON from env vars.
+
+    Tries two sources in order:
+        1. GOOGLE_SHEETS_CREDENTIALS -- path to a service account JSON file.
+        2. GOOGLE_SLIDES_CREDENTIALS_B64 -- base64-encoded service account JSON
+           string (shared with Google Slides, used on Render).
 
     Returns:
         Parsed JSON dict or None if not configured / file missing.
     """
+    import base64
+
+    required = ("client_email", "private_key", "token_uri")
+
+    # --- Try 1: file path ---
     cred_path = os.environ.get("GOOGLE_SHEETS_CREDENTIALS") or ""
-    if not cred_path:
-        return None
-    try:
-        path = Path(cred_path)
-        if not path.is_file():
-            logger.warning("Google Sheets credentials file not found: %s", cred_path)
-            return None
-        with open(path, "r", encoding="utf-8") as fh:
-            creds = json.load(fh)
-        # Validate minimum required fields
-        required = ("client_email", "private_key", "token_uri")
-        for field in required:
-            if field not in creds:
-                logger.error("Service account JSON missing required field: %s", field)
-                return None
-        return creds
-    except (json.JSONDecodeError, OSError) as exc:
-        logger.error("Failed to load Google Sheets credentials: %s", exc, exc_info=True)
-        return None
+    if cred_path:
+        try:
+            path = Path(cred_path)
+            if not path.is_file():
+                logger.warning(
+                    "Google Sheets credentials file not found: %s", cred_path
+                )
+            else:
+                with open(path, "r", encoding="utf-8") as fh:
+                    creds = json.load(fh)
+                for field in required:
+                    if field not in creds:
+                        logger.error(
+                            "Service account JSON missing required field: %s", field
+                        )
+                        return None
+                return creds
+        except (json.JSONDecodeError, OSError) as exc:
+            logger.error(
+                "Failed to load Google Sheets credentials from file: %s",
+                exc,
+                exc_info=True,
+            )
+
+    # --- Try 2: base64-encoded JSON (shared with Google Slides on Render) ---
+    b64_creds = os.environ.get("GOOGLE_SLIDES_CREDENTIALS_B64") or ""
+    if b64_creds:
+        try:
+            decoded = base64.b64decode(b64_creds)
+            creds = json.loads(decoded)
+            for field in required:
+                if field not in creds:
+                    logger.error(
+                        "B64 service account JSON missing required field: %s", field
+                    )
+                    return None
+            logger.info(
+                "Loaded Google Sheets credentials from GOOGLE_SLIDES_CREDENTIALS_B64 (service account: %s)",
+                creds.get("client_email", "unknown"),
+            )
+            return creds
+        except Exception as exc:
+            logger.error("Failed to load B64 credentials: %s", exc, exc_info=True)
+
+    return None
 
 
 def _build_jwt(creds: Dict[str, str]) -> str:

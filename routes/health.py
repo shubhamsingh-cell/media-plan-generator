@@ -539,68 +539,6 @@ def _handle_health_integrations(handler, path: str, parsed: Any) -> None:
             "detail": str(_e),
         }
 
-    # -- Grafana Loki --
-    try:
-        from grafana_logger import get_grafana_stats as _graf_stats_fn
-
-        _graf_data = _graf_stats_fn()
-        _graf_shipped = _graf_data.get("records_shipped") or 0
-        _graf_dropped = _graf_data.get("records_dropped") or 0
-        _graf_errors = _graf_data.get("flush_errors") or 0
-        _graf_last_err = _graf_data.get("last_error")
-        _graf_url = (os.environ.get("GRAFANA_LOKI_URL") or "").strip()
-        _graf_status = "disabled"
-        if _graf_url:
-            _graf_last_err_t = _graf_data.get("last_error_time")
-            _graf_last_flush_t = _graf_data.get("last_flush_time")
-            if _graf_errors > 0 and (
-                _graf_shipped == 0
-                or (
-                    _graf_last_err_t
-                    and (
-                        not _graf_last_flush_t or _graf_last_err_t > _graf_last_flush_t
-                    )
-                )
-            ):
-                _graf_status = "degraded"
-            else:
-                _graf_status = "ok"
-        _graf_detail = (
-            f"Centralized logging -- {_graf_shipped} shipped, {_graf_dropped} dropped, {_graf_errors} errors"
-            if _graf_url
-            else "GRAFANA_LOKI_URL not set"
-        )
-        if _graf_last_err and _graf_url:
-            _graf_detail += f" | last error: {_graf_last_err[:150]}"
-        infra["grafana_loki"] = {
-            "name": "Grafana Loki",
-            "status": _graf_status,
-            "detail": _graf_detail,
-            "value": "Ships WARNING/ERROR/CRITICAL logs to Grafana Cloud Loki for centralized search and alerting.",
-            "runtime": {
-                "records_shipped": _graf_shipped,
-                "records_dropped": _graf_dropped,
-                "flush_errors": _graf_errors,
-                "last_flush_iso": _graf_data.get("last_flush_iso"),
-                "last_error": _graf_last_err,
-                "last_error_status": _graf_data.get("last_error_status"),
-                "last_error_iso": _graf_data.get("last_error_iso"),
-            },
-        }
-    except ImportError:
-        infra["grafana_loki"] = {
-            "name": "Grafana Loki",
-            "status": "disabled",
-            "detail": "Module not available",
-            "value": "Centralized logging to Grafana Cloud",
-        }
-    except Exception as _e:
-        infra["grafana_loki"] = {
-            "name": "Grafana Loki",
-            "status": "error",
-            "detail": str(_e),
-        }
-
     # -- Resend Email Alerts --
     try:
         from email_alerts import get_alert_status as _resend_stats_fn
@@ -1036,21 +974,6 @@ def _handle_health_integrations_diagnose(handler, path: str, parsed: Any) -> Non
         handler.send_error(401, "Unauthorized")
         return
     diag_results: dict[str, Any] = {}
-    # Grafana Loki diagnostic
-    try:
-        from grafana_logger import diagnose_grafana
-
-        diag_results["grafana_loki"] = diagnose_grafana()
-    except ImportError:
-        diag_results["grafana_loki"] = {
-            "ok": False,
-            "detail": "grafana_logger module not available",
-        }
-    except Exception as _de:
-        diag_results["grafana_loki"] = {
-            "ok": False,
-            "detail": f"diagnostic error: {_de}",
-        }
     # Resend Email diagnostic
     try:
         from email_alerts import diagnose_resend

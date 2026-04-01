@@ -243,19 +243,10 @@ except ImportError:
     _calendar_sync_available = False
     logger.warning("calendar_sync module not available; Calendar MCP disabled")
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# CHROMA RAG MCP INTEGRATION (ChromaDB embeddings for Nova knowledge search)
-# ═══════════════════════════════════════════════════════════════════════════════
-try:
-    from chroma_rag import (
-        search_similar as _chroma_search,
-        get_collection_stats as _chroma_stats,
-    )
-
-    _chroma_rag_available = True
-except ImportError:
-    _chroma_rag_available = False
-    logger.warning("chroma_rag module not available; ChromaDB RAG disabled")
+# ChromaDB RAG disabled -- module kept but disconnected from startup
+_chroma_rag_available = False
+_chroma_search = None
+_chroma_stats = None
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # NOVA INTELLIGENT CACHE (Supabase-backed query caching for instant responses)
@@ -5282,17 +5273,6 @@ except ImportError:
     _email_alerts = None
     logger.debug("email_alerts module not available")
 
-# Grafana Cloud Loki logging (ships WARNING+ logs)
-try:
-    from grafana_logger import setup_grafana_logging
-
-    if setup_grafana_logging(logging.getLogger()):
-        logger.info("Grafana Loki logging enabled")
-    else:
-        logger.debug("Grafana Loki logging not configured (env vars missing)")
-except ImportError:
-    logger.debug("grafana_logger module not available")
-
 # Supabase persistent cache (L3 cache layer)
 try:
     from supabase_cache import start_cleanup_thread as _supa_start_cleanup
@@ -10021,6 +10001,32 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     self._send_json({"error": "Plan expired"}, status_code=404)
                     return
                 self._send_json({"plan_id": _pr_id, **_pr_entry["data"]})
+        # ── Google Sheets URL for a generated plan ──
+        elif path == "/api/plan/sheets-url":
+            _qs_parsed = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            _su_plan_id = (_qs_parsed.get("plan_id") or [""])[0]
+            if not _su_plan_id or not re.match(r"^[a-f0-9]{1,12}$", _su_plan_id):
+                self._send_json(
+                    {"error": "Missing or invalid plan_id"}, status_code=400
+                )
+                return
+            with _plan_results_lock:
+                _su_entry = _plan_results_store.get(_su_plan_id)
+                if not _su_entry:
+                    self._send_json(
+                        {"error": "Plan not found or expired"}, status_code=404
+                    )
+                    return
+                _su_url = _su_entry.get("sheets_url") or ""
+            if _su_url:
+                self._send_json(
+                    {"plan_id": _su_plan_id, "sheets_url": _su_url, "ready": True}
+                )
+            else:
+                # Sheet may still be generating in the background
+                self._send_json(
+                    {"plan_id": _su_plan_id, "sheets_url": None, "ready": False}
+                )
         # ── Plan events list: GET /api/plan/events (no trailing plan_id) ──
         elif path == "/api/plan/events":
             try:
@@ -13786,6 +13792,44 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             # Store plan results JSON for on-screen dashboard
             _plan_id = uuid.uuid4().hex[:12]
             _store_plan_result(_plan_id, data)
+
+            # ── Async Google Sheets export (non-blocking) ──
+            # Creates a cloud-hosted Google Sheet copy of the plan in the
+            # background.  The URL is stored in _plan_results_store for
+            # later retrieval via /api/plan/sheets-url?plan_id=xxx.
+            def _create_sheets_async(
+                plan_data_copy: dict,
+                plan_id_ref: str,
+            ) -> None:
+                try:
+                    from sheets_export import export_media_plan
+
+                    sheet_url = export_media_plan(plan_data_copy)
+                    if sheet_url:
+                        with _plan_results_lock:
+                            entry = _plan_results_store.get(plan_id_ref)
+                            if entry:
+                                entry["sheets_url"] = sheet_url
+                        logger.info(
+                            "Async Google Sheets created for plan %s: %s",
+                            plan_id_ref,
+                            sheet_url,
+                        )
+                except Exception as exc:
+                    logger.error(
+                        "Async Sheets export failed for plan %s: %s",
+                        plan_id_ref,
+                        exc,
+                        exc_info=True,
+                    )
+
+            _submit_background_task(
+                _create_sheets_async,
+                dict(data),  # shallow copy to avoid mutation
+                _plan_id,
+                task_name=f"sheets-export-{_plan_id}",
+                timeout=45,
+            )
 
             # Generate Strategy PPT deck (7-tier fallback via DeckGenerator)
             pptx_bytes = None

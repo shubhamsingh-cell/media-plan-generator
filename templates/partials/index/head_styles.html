@@ -3444,6 +3444,31 @@
     color: white;
   }
 
+  .btn-open-sheets {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    background: rgba(15, 157, 88, 0.12);
+    border: 1px solid rgba(15, 157, 88, 0.3);
+    border-radius: 10px;
+    color: #34a853;
+    font-size: 0.85rem;
+    font-family: inherit;
+    cursor: pointer;
+    text-decoration: none;
+    font-weight: 500;
+    transition:
+      background 0.2s,
+      border-color 0.2s,
+      color 0.2s;
+  }
+  .btn-open-sheets:hover {
+    background: rgba(15, 157, 88, 0.2);
+    border-color: rgba(15, 157, 88, 0.5);
+    color: #2e9e4b;
+  }
+
   .btn-regenerate {
     display: inline-flex;
     align-items: center;
@@ -4385,6 +4410,7 @@
     .generation-overlay,
     .plan-compare-overlay,
     .btn-export-pdf,
+    .btn-open-sheets,
     .btn-save-plan,
     .btn-share-plan,
     .btn-copy-plan,

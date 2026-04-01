@@ -3195,6 +3195,11 @@
         var _dlPlanId = _dlRes.headers.get("X-Plan-Id");
         if (_dlPlanId) _lastPlanId = _dlPlanId;
 
+        // Poll for async Google Sheets URL (created in background)
+        if (_dlPlanId) {
+          _pollSheetsUrl(_dlPlanId);
+        }
+
         // Auto-save campaign context for platform shell
         try {
           fetch("/api/campaign/save", {
@@ -3334,6 +3339,56 @@
       showToast("Bundle re-downloaded successfully!", "success");
     } else {
       generatePlan();
+    }
+  }
+
+  // ============================================
+  // Google Sheets async URL polling + open
+  // ============================================
+  var _lastSheetsUrl = null;
+
+  function _pollSheetsUrl(planId) {
+    var attempts = 0;
+    var maxAttempts = 12; // 12 x 5s = 60s max
+    var interval = setInterval(function () {
+      attempts++;
+      fetch("/api/plan/sheets-url?plan_id=" + planId)
+        .then(function (r) {
+          return r.json();
+        })
+        .then(function (data) {
+          if (data.ready && data.sheets_url) {
+            clearInterval(interval);
+            _lastSheetsUrl = data.sheets_url;
+            // Show the "Open in Google Sheets" button
+            var sheetsBtn = document.getElementById("openSheetsBtn");
+            if (sheetsBtn) {
+              sheetsBtn.style.display = "";
+              sheetsBtn.href = data.sheets_url;
+            }
+            // Also ensure export dropdown Sheets button is visible
+            var expBtn = document.getElementById("exportSheetsBtn");
+            var expDiv = document.getElementById("exportSheetsDivider");
+            if (expBtn) expBtn.style.display = "";
+            if (expDiv) expDiv.style.display = "";
+          } else if (attempts >= maxAttempts) {
+            clearInterval(interval);
+          }
+        })
+        .catch(function () {
+          if (attempts >= maxAttempts) clearInterval(interval);
+        });
+    }, 5000);
+  }
+
+  function openGoogleSheets() {
+    if (_lastSheetsUrl) {
+      window.open(_lastSheetsUrl, "_blank");
+    } else if (_lastPlanPayload) {
+      // Fallback: create on demand via /api/export/sheets
+      exportPlan("sheets");
+    } else {
+      showToast("Generate a media plan first.", "warning");
     }
   }
 

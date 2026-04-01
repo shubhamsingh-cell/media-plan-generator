@@ -1,17 +1,16 @@
 """alert_manager.py -- Multi-tier infrastructure alert delivery.
 
-Four-tier fallback chain for maximum reliability:
+Three-tier fallback chain for maximum reliability:
     Tier 1: Resend API (primary email delivery)
-    Tier 2: SMTP via smtplib (direct email delivery)
-    Tier 3: Slack webhook (via slack_alerter module)
-    Tier 4: Local log file (/tmp/nova_alerts.log)
+    Tier 2: Slack webhook (via slack_alerter module)
+    Tier 3: Local log file (/tmp/nova_alerts.log)
 
 Callers:
     - data_enrichment.py: enrichment source failures after retries
     - data_matrix_monitor.py: check failures unresolved by self-healing
     - auto_qc.py: critical QC test failures
 
-Uses stdlib only (urllib.request, smtplib). Thread-safe, rate-limited,
+Uses stdlib only (urllib.request). Thread-safe, rate-limited,
 and deduplicating. Fails silently so callers are never impacted.
 
 Rate limiting:
@@ -21,11 +20,7 @@ Rate limiting:
 Configuration (env vars):
     RESEND_API_KEY   -- Tier 1: Resend API key
     ALERT_EMAIL      -- Recipient. Default: shubhamsingh@joveo.com
-    SMTP_HOST        -- Tier 2: SMTP server host
-    SMTP_USER        -- Tier 2: SMTP username
-    SMTP_PASSWORD    -- Tier 2: SMTP password
-    SMTP_PORT        -- Tier 2: SMTP port (default: 587)
-    SLACK_WEBHOOK_URL -- Tier 3: Slack incoming webhook
+    SLACK_WEBHOOK_URL -- Tier 2: Slack incoming webhook
 """
 
 from __future__ import annotations
@@ -33,13 +28,10 @@ from __future__ import annotations
 import json
 import logging
 import os
-import smtplib
 import threading
 import time
 import urllib.error
 import urllib.request
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 from pathlib import Path
 from typing import Any, Dict
 
@@ -52,16 +44,9 @@ _FROM_EMAIL = "Nova Alerts <onboarding@resend.dev>"
 _API_KEY: str = os.environ.get("RESEND_API_KEY") or ""
 _ALERT_EMAIL: str = os.environ.get("ALERT_EMAIL") or "shubhamsingh@joveo.com"
 
-# SMTP configuration (Tier 2)
-_SMTP_HOST: str = os.environ.get("SMTP_HOST") or ""
-_SMTP_USER: str = os.environ.get("SMTP_USER") or ""
-_SMTP_PASSWORD: str = os.environ.get("SMTP_PASSWORD") or ""
-_SMTP_PORT: int = int(os.environ.get("SMTP_PORT") or "587")
-
 _HOURLY_LIMIT = 10
 _DEDUP_WINDOW = 3600.0  # 1 hour in seconds
 _SEND_TIMEOUT = 15  # HTTP timeout for Resend API
-_SMTP_TIMEOUT = 15  # SMTP connection timeout
 
 _LOG_FILE = Path("/tmp/nova_alerts.log")
 
@@ -72,7 +57,6 @@ _send_timestamps: list[float] = []
 _dedup_cache: Dict[str, float] = {}  # subject -> last_sent_timestamp
 _tier_stats: Dict[str, int] = {
     "resend": 0,
-    "smtp": 0,
     "slack": 0,
     "logfile": 0,
     "failed": 0,
@@ -183,11 +167,7 @@ def _send_alert_impl(subject: str, body: str, severity: str) -> bool:
     if _try_resend(subject, html, severity_label, to_email, dedup_key):
         return True
 
-    # -- Tier 2: SMTP ---------------------------------------------------------
-    if _try_smtp(subject, html, severity_label, to_email, dedup_key):
-        return True
-
-    # -- Tier 3: Slack webhook ------------------------------------------------
+    # -- Tier 2: Slack webhook ------------------------------------------------
     if _try_slack(subject, body, severity, dedup_key):
         return True
 
@@ -278,62 +258,6 @@ def _try_resend(
         return False
 
 
-def _try_smtp(
-    subject: str, html: str, severity_label: str, to_email: str, dedup_key: str
-) -> bool:
-    """Tier 2: Send alert via SMTP.
-
-    Uses STARTTLS on the configured SMTP_HOST. Requires SMTP_HOST,
-    SMTP_USER, and SMTP_PASSWORD env vars.
-
-    Args:
-        subject: Alert subject.
-        html: Pre-formatted HTML body.
-        severity_label: Uppercase severity string.
-        to_email: Recipient email.
-        dedup_key: Dedup cache key.
-
-    Returns:
-        True if sent successfully.
-    """
-    if not (_SMTP_HOST and _SMTP_USER and _SMTP_PASSWORD):
-        logger.debug("alert_manager: Tier 2 (SMTP) -- not configured, skipping")
-        return False
-
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = f"[{severity_label}] {subject or 'Infrastructure Alert'}"
-    msg["From"] = _SMTP_USER
-    msg["To"] = to_email
-    msg.attach(MIMEText(html, "html", "utf-8"))
-
-    try:
-        with smtplib.SMTP(_SMTP_HOST, _SMTP_PORT, timeout=_SMTP_TIMEOUT) as server:
-            server.ehlo()
-            server.starttls()
-            server.ehlo()
-            server.login(_SMTP_USER, _SMTP_PASSWORD)
-            server.sendmail(_SMTP_USER, [to_email], msg.as_string())
-        logger.info(
-            "alert_manager: Tier 2 (SMTP) sent (severity=%s, subject=%s)",
-            severity_label,
-            (subject or "")[:80],
-        )
-        _record_send("smtp", dedup_key)
-        return True
-
-    except smtplib.SMTPAuthenticationError as auth_err:
-        logger.warning("alert_manager: Tier 2 (SMTP) auth error: %s", auth_err)
-        return False
-
-    except smtplib.SMTPException as smtp_err:
-        logger.warning("alert_manager: Tier 2 (SMTP) error: %s", smtp_err)
-        return False
-
-    except OSError as exc:
-        logger.warning("alert_manager: Tier 2 (SMTP) connection error: %s", exc)
-        return False
-
-
 def _try_slack(subject: str, body: str, severity: str, dedup_key: str) -> bool:
     """Tier 3: Send alert via Slack webhook.
 
@@ -390,7 +314,7 @@ def _write_to_logfile(subject: str, body: str, severity_label: str) -> None:
     log_line = (
         f"[{timestamp}] [{severity_label}] {subject or 'Alert'}\n"
         f"  Body: {(body or 'No details.')[:500]}\n"
-        f"  Note: All upstream tiers (Resend, SMTP, Slack) failed.\n\n"
+        f"  Note: All upstream tiers (Resend, Slack) failed.\n\n"
     )
 
     try:
@@ -429,8 +353,7 @@ def get_alert_stats() -> Dict[str, Any]:
             },
             "configuration": {
                 "tier_1_resend": bool(_API_KEY),
-                "tier_2_smtp": bool(_SMTP_HOST and _SMTP_USER),
-                "tier_3_slack": bool(os.environ.get("SLACK_WEBHOOK_URL")),
-                "tier_4_logfile": str(_LOG_FILE),
+                "tier_2_slack": bool(os.environ.get("SLACK_WEBHOOK_URL")),
+                "tier_3_logfile": str(_LOG_FILE),
             },
         }

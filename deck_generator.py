@@ -1,22 +1,13 @@
 #!/usr/bin/env python3
-"""Multi-tier presentation generation with automatic fallback.
+"""Two-tier presentation generation with automatic fallback.
 
-Tries providers in order: Presenton -> Gamma -> MagicSlides -> Google Slides
--> Alai -> FlashDocs -> python-pptx. Each tier is tried; if it fails or
-hits rate limits, the next tier takes over automatically.
+Tries providers in order: Google Slides -> python-pptx.
+Google Slides is the primary tier; python-pptx is the guaranteed offline
+fallback that always works.
 
-Tier 7 (python-pptx via ppt_generator) is the guaranteed offline fallback
-that always works. The other tiers are optional upgrades that produce
-higher-quality, AI-designed slides when their API keys are configured.
-
-Environment variables (all optional except Tier 7 which needs no config):
-    PRESENTON_URL         - Self-hosted Presenton API base URL
-    GAMMA_API_KEY         - Gamma REST API key (Pro plan required)
-    MAGICSLIDES_API_KEY   - MagicSlides REST API key
+Environment variables (all optional -- Tier 2 needs no config):
     GOOGLE_SLIDES_CREDENTIALS - Path to Google service account JSON file
     GOOGLE_SLIDES_CREDENTIALS_B64 - Base64-encoded Google service account JSON
-    ALAI_API_KEY          - Alai REST API key
-    FLASHDOCS_API_KEY     - FlashDocs REST API key
 """
 
 import json
@@ -39,25 +30,13 @@ _usage_lock = threading.Lock()
 _monthly_usage: dict[str, int] = {}
 _usage_month: str = ""  # "YYYY-MM" -- resets counters when month changes
 
-_TIER_LIMITS: dict[str, int] = {
-    "gamma": 10,
-    "magicslides": 100,
-    "alai": 200,
-    "flashdocs": 5000,
-}
+_TIER_LIMITS: dict[str, int] = {}
 
 # Tier ordering and display names
 # Tier order: Google Slides #1 (fast, reliable), python-pptx #2 (offline, guaranteed).
-# External APIs demoted to #3+ -- too slow (180s/120s timeouts),
-# caused 7-min cascading failures when down.
 _TIERS: list[tuple[str, str]] = [
     ("google_slides", "Google Slides API"),
     ("pptx", "python-pptx (offline)"),
-    ("presenton", "Presenton (self-hosted)"),
-    ("gamma", "Gamma API"),
-    ("magicslides", "MagicSlides API"),
-    ("alai", "Alai API"),
-    ("flashdocs", "FlashDocs SDK"),
 ]
 
 
@@ -249,8 +228,7 @@ class DeckGenerator:
             data: Media plan data dict (channels, budget, benchmarks, etc.).
             format: Output format -- "pptx" (default) or "pdf".
             force_tier: If set, skip the fallback chain and use only this tier.
-                Valid values: "presenton", "gamma", "magicslides",
-                "google_slides", "alai", "flashdocs", "pptx".
+                Valid values: "google_slides", "pptx".
 
         Returns:
             Tuple of (file_bytes, provider_name).
@@ -260,12 +238,7 @@ class DeckGenerator:
                 Tier 7 python-pptx is always available).
         """
         tier_methods = {
-            "presenton": self._try_presenton,
-            "gamma": self._try_gamma,
-            "magicslides": self._try_magicslides,
             "google_slides": self._try_google_slides,
-            "alai": self._try_alai,
-            "flashdocs": self._try_flashdocs,
             "pptx": self._try_pptx,
         }
 
@@ -304,316 +277,7 @@ class DeckGenerator:
         )
 
     # ------------------------------------------------------------------
-    # Tier 1: Presenton (self-hosted, unlimited)
-    # ------------------------------------------------------------------
-    def _try_presenton(self, data: dict[str, Any]) -> Optional[bytes]:
-        """Generate via self-hosted Presenton API.
-
-        Requires PRESENTON_URL env var (e.g., http://localhost:8501/api/v1/ppt/presentation/generate).
-        Returns PPTX bytes on success, None if not configured.
-        """
-        base_url = os.environ.get("PRESENTON_URL") or ""
-        if not base_url:
-            logger.debug("Presenton skipped: PRESENTON_URL not set")
-            return None
-
-        # Build the endpoint URL
-        endpoint = base_url.rstrip("/")
-        if not endpoint.endswith("/generate"):
-            endpoint = f"{endpoint}/api/v1/ppt/presentation/generate"
-
-        payload = json.dumps(
-            {
-                "content": _format_plan_as_text(data),
-                "n_slides": _slide_count(data),
-                "language": "English",
-                "template": "professional",
-                "export_as": "pptx",
-                "tone": "professional",
-                "density": "standard",
-            }
-        ).encode("utf-8")
-
-        try:
-            status, body, headers = _http_request(
-                endpoint,
-                method="POST",
-                data=payload,
-                headers={"Content-Type": "application/json"},
-                timeout=30,  # was 180s -- exceeded 55s global budget by 3.3x
-            )
-        except urllib.error.URLError as exc:
-            logger.error("Presenton network error: %s", exc, exc_info=True)
-            return None
-
-        if status != 200:
-            logger.warning(
-                "Presenton returned HTTP %d: %s",
-                status,
-                body[:500].decode("utf-8", errors="replace"),
-            )
-            return None
-
-        content_type = headers.get("content-type") or ""
-        if "application/json" in content_type:
-            # Some Presenton versions return JSON with a download URL
-            try:
-                resp_data = json.loads(body)
-                download_url = (
-                    resp_data.get("download_url") or resp_data.get("file_url") or ""
-                )
-                if download_url:
-                    dl_status, dl_body, _ = _http_request(download_url, timeout=60)
-                    if dl_status == 200 and len(dl_body) > 1000:
-                        return dl_body
-                # Or inline base64 PPTX
-                pptx_b64 = resp_data.get("pptx_base64") or ""
-                if pptx_b64:
-                    import base64
-
-                    return base64.b64decode(pptx_b64)
-            except (json.JSONDecodeError, KeyError, ValueError) as exc:
-                logger.warning("Presenton JSON parse error: %s", exc)
-                return None
-        else:
-            # Direct binary PPTX response
-            if len(body) > 1000:
-                return body
-
-        logger.warning("Presenton returned unexpected response (len=%d)", len(body))
-        return None
-
-    # ------------------------------------------------------------------
-    # Tier 2: Gamma (API, ~10 free/month on Pro plan)
-    # ------------------------------------------------------------------
-    def _try_gamma(self, data: dict[str, Any]) -> Optional[bytes]:
-        """Generate via Gamma REST API.
-
-        Requires GAMMA_API_KEY env var. Tracks monthly usage (limit: 10).
-        Uses async poll workflow: POST to create, poll until complete, download.
-        """
-        api_key = os.environ.get("GAMMA_API_KEY") or ""
-        if not api_key:
-            logger.debug("Gamma skipped: GAMMA_API_KEY not set")
-            return None
-
-        if not _check_and_increment("gamma"):
-            logger.info(
-                "Gamma skipped: monthly limit reached (%d/%d)",
-                _get_usage("gamma"),
-                _TIER_LIMITS["gamma"],
-            )
-            return None
-
-        base_url = "https://public-api.gamma.app/v1.0"
-        auth_headers = {
-            "X-API-KEY": api_key,
-            "Content-Type": "application/json",
-        }
-
-        # Step 1: Create generation
-        payload = json.dumps(
-            {
-                "inputText": _format_plan_as_text(data),
-                "textMode": "generate",
-                "format": "presentation",
-                "numCards": _slide_count(data),
-                "cardOptions": {"dimensions": "16x9"},
-                "exportAs": "pptx",
-            }
-        ).encode("utf-8")
-
-        try:
-            status, body, _ = _http_request(
-                f"{base_url}/generations",
-                method="POST",
-                data=payload,
-                headers=auth_headers,
-                timeout=30,
-            )
-        except urllib.error.URLError as exc:
-            logger.error("Gamma create request failed: %s", exc, exc_info=True)
-            return None
-
-        if status not in (200, 201):
-            logger.warning(
-                "Gamma create returned HTTP %d: %s",
-                status,
-                body[:500].decode("utf-8", errors="replace"),
-            )
-            return None
-
-        try:
-            resp_data = json.loads(body)
-            generation_id = resp_data.get("generationId") or resp_data.get("id") or ""
-        except (json.JSONDecodeError, KeyError):
-            logger.warning("Gamma: could not parse creation response")
-            return None
-
-        if not generation_id:
-            logger.warning("Gamma: no generation ID in response")
-            return None
-
-        # Step 2: Poll for completion (max ~120 seconds)
-        poll_headers = {"X-API-KEY": api_key}
-        for attempt in range(24):
-            time.sleep(5)
-            try:
-                p_status, p_body, _ = _http_request(
-                    f"{base_url}/generations/{generation_id}",
-                    method="GET",
-                    headers=poll_headers,
-                    timeout=15,
-                )
-            except urllib.error.URLError:
-                continue
-
-            if p_status != 200:
-                continue
-
-            try:
-                poll_data = json.loads(p_body)
-            except json.JSONDecodeError:
-                continue
-
-            gen_status = poll_data.get("status") or ""
-            if gen_status == "completed":
-                export_url = poll_data.get("exportUrl") or ""
-                if export_url:
-                    return self._download_file(export_url)
-                logger.warning("Gamma completed but no exportUrl found")
-                return None
-            elif gen_status == "failed":
-                error_msg = poll_data.get("error") or "unknown error"
-                logger.warning("Gamma generation failed: %s", error_msg)
-                return None
-
-        logger.warning("Gamma generation timed out after 120s")
-        return None
-
-    # ------------------------------------------------------------------
-    # Tier 3: MagicSlides (API, 100 free/month)
-    # ------------------------------------------------------------------
-    def _try_magicslides(self, data: dict[str, Any]) -> Optional[bytes]:
-        """Generate via MagicSlides REST API.
-
-        Requires MAGICSLIDES_API_KEY env var. Tracks monthly usage (limit: 100).
-        API docs: https://www.magicslides.app/magicslides-api/docs
-        """
-        api_key = os.environ.get("MAGICSLIDES_API_KEY") or ""
-        if not api_key:
-            logger.debug("MagicSlides skipped: MAGICSLIDES_API_KEY not set")
-            return None
-
-        if not _check_and_increment("magicslides"):
-            logger.info(
-                "MagicSlides skipped: monthly limit reached (%d/%d)",
-                _get_usage("magicslides"),
-                _TIER_LIMITS["magicslides"],
-            )
-            return None
-
-        base_url = "https://api.magicslides.app/v1"
-
-        payload = json.dumps(
-            {
-                "text": _format_plan_as_text(data),
-                "length": _slide_count(data),
-                "template": "professional",
-                "language": "en",
-                "tone": "professional",
-                "response_format": "pptx",
-            }
-        ).encode("utf-8")
-
-        try:
-            status, body, _ = _http_request(
-                f"{base_url}/presentations/generate",
-                method="POST",
-                data=payload,
-                headers={
-                    "x-api-key": api_key,
-                    "Content-Type": "application/json",
-                },
-                timeout=30,
-            )
-        except urllib.error.URLError as exc:
-            logger.error("MagicSlides request failed: %s", exc, exc_info=True)
-            return None
-
-        if status not in (200, 201, 202):
-            logger.warning(
-                "MagicSlides returned HTTP %d: %s",
-                status,
-                body[:500].decode("utf-8", errors="replace"),
-            )
-            return None
-
-        # MagicSlides may return async task_id or direct file
-        try:
-            resp_data = json.loads(body)
-        except json.JSONDecodeError:
-            # Might be direct binary PPTX
-            if len(body) > 1000:
-                return body
-            return None
-
-        task_id = resp_data.get("task_id") or resp_data.get("id") or ""
-        download_url = resp_data.get("download_url") or resp_data.get("url") or ""
-
-        if download_url:
-            return self._download_file(download_url)
-
-        if task_id:
-            return self._poll_magicslides(api_key, base_url, task_id)
-
-        logger.warning("MagicSlides: no task_id or download_url in response")
-        return None
-
-    def _poll_magicslides(
-        self, api_key: str, base_url: str, task_id: str
-    ) -> Optional[bytes]:
-        """Poll MagicSlides for task completion."""
-        for attempt in range(24):
-            time.sleep(5)
-            try:
-                status, body, _ = _http_request(
-                    f"{base_url}/tasks/{task_id}",
-                    method="GET",
-                    headers={"x-api-key": api_key},
-                    timeout=15,
-                )
-            except urllib.error.URLError:
-                continue
-
-            if status != 200:
-                continue
-
-            try:
-                poll_data = json.loads(body)
-            except json.JSONDecodeError:
-                continue
-
-            task_status = (poll_data.get("status") or "").upper()
-            if task_status == "SUCCESS":
-                dl_url = (
-                    poll_data.get("download_url")
-                    or poll_data.get("url")
-                    or poll_data.get("result", {}).get("download_url")
-                    or ""
-                )
-                if dl_url:
-                    return self._download_file(dl_url)
-                return None
-            elif task_status in ("FAILED", "ERROR"):
-                logger.warning("MagicSlides task failed: %s", poll_data)
-                return None
-
-        logger.warning("MagicSlides task timed out after 120s")
-        return None
-
-    # ------------------------------------------------------------------
-    # Tier 4: Google Slides API (unlimited, free)
+    # Tier 1: Google Slides API (unlimited, free)
     # ------------------------------------------------------------------
     def _try_google_slides(self, data: dict[str, Any]) -> Optional[bytes]:
         """Generate via Google Slides API using a service account.
@@ -803,172 +467,7 @@ class DeckGenerator:
         return requests_list
 
     # ------------------------------------------------------------------
-    # Tier 5: Alai (MCP/API, 200 free credits)
-    # ------------------------------------------------------------------
-    def _try_alai(self, data: dict[str, Any]) -> Optional[bytes]:
-        """Generate via Alai REST API.
-
-        Requires ALAI_API_KEY env var. Tracks credit usage (limit: 200).
-        API docs: https://getalai.com/api
-        """
-        api_key = os.environ.get("ALAI_API_KEY") or ""
-        if not api_key:
-            logger.debug("Alai skipped: ALAI_API_KEY not set")
-            return None
-
-        if not _check_and_increment("alai"):
-            logger.info(
-                "Alai skipped: credit limit reached (%d/%d)",
-                _get_usage("alai"),
-                _TIER_LIMITS["alai"],
-            )
-            return None
-
-        base_url = "https://api.getalai.com/v1"
-
-        payload = json.dumps(
-            {
-                "content": _format_plan_as_text(data),
-                "format": "pptx",
-                "slides": _slide_count(data),
-                "style": "professional",
-            }
-        ).encode("utf-8")
-
-        try:
-            status, body, _ = _http_request(
-                f"{base_url}/presentations",
-                method="POST",
-                data=payload,
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "Content-Type": "application/json",
-                },
-                timeout=60,
-            )
-        except urllib.error.URLError as exc:
-            logger.error("Alai request failed: %s", exc, exc_info=True)
-            return None
-
-        if status not in (200, 201, 202):
-            logger.warning(
-                "Alai returned HTTP %d: %s",
-                status,
-                body[:500].decode("utf-8", errors="replace"),
-            )
-            return None
-
-        try:
-            resp_data = json.loads(body)
-        except json.JSONDecodeError:
-            if len(body) > 1000:
-                return body
-            return None
-
-        download_url = (
-            resp_data.get("download_url")
-            or resp_data.get("pptx_url")
-            or resp_data.get("url")
-            or ""
-        )
-        if download_url:
-            return self._download_file(download_url)
-
-        # Check for async job
-        job_id = resp_data.get("job_id") or resp_data.get("id") or ""
-        if job_id:
-            return self._poll_generic(
-                poll_url=f"{base_url}/presentations/{job_id}",
-                headers={"Authorization": f"Bearer {api_key}"},
-                tier_name="Alai",
-            )
-
-        return None
-
-    # ------------------------------------------------------------------
-    # Tier 6: FlashDocs (SDK, 5000 free credits)
-    # ------------------------------------------------------------------
-    def _try_flashdocs(self, data: dict[str, Any]) -> Optional[bytes]:
-        """Generate via FlashDocs REST API / SDK.
-
-        Requires FLASHDOCS_API_KEY env var. Tracks credit usage (limit: 5000).
-        API docs: https://www.flashdocs.com
-        """
-        api_key = os.environ.get("FLASHDOCS_API_KEY") or ""
-        if not api_key:
-            logger.debug("FlashDocs skipped: FLASHDOCS_API_KEY not set")
-            return None
-
-        if not _check_and_increment("flashdocs"):
-            logger.info(
-                "FlashDocs skipped: credit limit reached (%d/%d)",
-                _get_usage("flashdocs"),
-                _TIER_LIMITS["flashdocs"],
-            )
-            return None
-
-        base_url = "https://api.flashdocs.com/v1"
-
-        payload = json.dumps(
-            {
-                "content": _format_plan_as_text(data),
-                "format": "pptx",
-                "template": "professional",
-                "slides": _slide_count(data),
-            }
-        ).encode("utf-8")
-
-        try:
-            status, body, _ = _http_request(
-                f"{base_url}/presentations",
-                method="POST",
-                data=payload,
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "Content-Type": "application/json",
-                },
-                timeout=60,
-            )
-        except urllib.error.URLError as exc:
-            logger.error("FlashDocs request failed: %s", exc, exc_info=True)
-            return None
-
-        if status not in (200, 201, 202):
-            logger.warning(
-                "FlashDocs returned HTTP %d: %s",
-                status,
-                body[:500].decode("utf-8", errors="replace"),
-            )
-            return None
-
-        try:
-            resp_data = json.loads(body)
-        except json.JSONDecodeError:
-            if len(body) > 1000:
-                return body
-            return None
-
-        download_url = (
-            resp_data.get("download_url")
-            or resp_data.get("pptx_url")
-            or resp_data.get("url")
-            or ""
-        )
-        if download_url:
-            return self._download_file(download_url)
-
-        job_id = resp_data.get("job_id") or resp_data.get("id") or ""
-        if job_id:
-            return self._poll_generic(
-                poll_url=f"{base_url}/presentations/{job_id}",
-                headers={"Authorization": f"Bearer {api_key}"},
-                tier_name="FlashDocs",
-            )
-
-        return None
-
-    # ------------------------------------------------------------------
-    # Tier 7: python-pptx (offline, always works)
+    # Tier 2: python-pptx (offline, always works)
     # ------------------------------------------------------------------
     def _try_pptx(self, data: dict[str, Any]) -> Optional[bytes]:
         """Generate via the existing ppt_generator.py module.
@@ -1089,25 +588,7 @@ class DeckGenerator:
                 "limit": _TIER_LIMITS.get(tier_key),
             }
 
-            if tier_key == "presenton":
-                url = os.environ.get("PRESENTON_URL") or ""
-                tier_info["configured"] = bool(url)
-                tier_info["available"] = bool(url)
-            elif tier_key == "gamma":
-                key = os.environ.get("GAMMA_API_KEY") or ""
-                tier_info["configured"] = bool(key)
-                usage = _get_usage("gamma")
-                tier_info["usage"] = usage
-                tier_info["available"] = bool(key) and usage < _TIER_LIMITS["gamma"]
-            elif tier_key == "magicslides":
-                key = os.environ.get("MAGICSLIDES_API_KEY") or ""
-                tier_info["configured"] = bool(key)
-                usage = _get_usage("magicslides")
-                tier_info["usage"] = usage
-                tier_info["available"] = (
-                    bool(key) and usage < _TIER_LIMITS["magicslides"]
-                )
-            elif tier_key == "google_slides":
+            if tier_key == "google_slides":
                 # Check both file-based and base64-encoded credentials
                 creds_path = os.environ.get("GOOGLE_SLIDES_CREDENTIALS") or ""
                 creds_b64 = os.environ.get("GOOGLE_SLIDES_CREDENTIALS_B64") or ""
@@ -1117,18 +598,6 @@ class DeckGenerator:
 
                 tier_info["configured"] = file_exists or has_b64
                 tier_info["available"] = file_exists or has_b64
-            elif tier_key == "alai":
-                key = os.environ.get("ALAI_API_KEY") or ""
-                tier_info["configured"] = bool(key)
-                usage = _get_usage("alai")
-                tier_info["usage"] = usage
-                tier_info["available"] = bool(key) and usage < _TIER_LIMITS["alai"]
-            elif tier_key == "flashdocs":
-                key = os.environ.get("FLASHDOCS_API_KEY") or ""
-                tier_info["configured"] = bool(key)
-                usage = _get_usage("flashdocs")
-                tier_info["usage"] = usage
-                tier_info["available"] = bool(key) and usage < _TIER_LIMITS["flashdocs"]
             elif tier_key == "pptx":
                 try:
                     from ppt_generator import generate_pptx  # noqa: F811
