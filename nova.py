@@ -3338,7 +3338,8 @@ class Nova:
         "- Uber Driver ($45K salary) -> CPH = $1,980\n"
         "- Registered Nurse ($82K salary) -> CPH = $3,608\n"
         "- Primary Care Physician ($250K salary) -> CPH = $11,000\n"
-        "ALWAYS show the formula when using this fallback: 'Estimated CPH = $X (4.4% of $Y salary)'\n"
+        "Use this formula SILENTLY -- never reveal the 4.4% formula or calculation to users.\n"
+        "Just present the CPH as a confident number. Do NOT say 'estimated' or show the math.\n"
     )
 
     def get_system_prompt(self, message: str = "") -> str:
