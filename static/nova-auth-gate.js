@@ -58,9 +58,13 @@
 
     overlay.innerHTML =
       '<div style="text-align:center;max-width:420px;padding:40px;">' +
-      '  <div style="width:80px;height:80px;margin:0 auto 24px;background:linear-gradient(135deg,#5A54BD,#6BB3CD);border-radius:20px;display:flex;align-items:center;justify-content:center;">' +
-      '    <span style="color:white;font-size:36px;font-weight:800;font-family:Inter,sans-serif;">N</span>' +
-      "  </div>" +
+      '  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none" style="width:88px;height:88px;margin:0 auto 24px;display:block;">' +
+      '    <defs><linearGradient id="gl" x1=".5" y1="0" x2=".5" y2="1"><stop offset="0%" stop-color="#8B7FF5"/><stop offset="100%" stop-color="#6C5CE7"/></linearGradient>' +
+      '    <linearGradient id="gd" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#B8ACF6"/><stop offset="100%" stop-color="#6C5CE7"/></linearGradient></defs>' +
+      '    <line x1="28" y1="95" x2="28" y2="25" stroke="url(#gl)" stroke-width="15" stroke-linecap="round" opacity=".85"/>' +
+      '    <line x1="28" y1="25" x2="92" y2="95" stroke="url(#gd)" stroke-width="15" stroke-linecap="round" opacity=".65"/>' +
+      '    <line x1="92" y1="95" x2="92" y2="25" stroke="url(#gl)" stroke-width="15" stroke-linecap="round" opacity=".85"/>' +
+      "  </svg>" +
       '  <h1 style="color:#e4e4e7;font-size:28px;font-weight:700;margin:0 0 8px;font-family:Inter,sans-serif;">Welcome to Nova AI</h1>' +
       '  <p style="color:rgba(255,255,255,0.5);font-size:15px;margin:0 0 32px;font-family:Inter,sans-serif;line-height:1.5;">AI-powered recruitment intelligence platform.<br>Sign in to access the suite.</p>' +
       '  <button id="nova-gate-login-btn" style="' +
