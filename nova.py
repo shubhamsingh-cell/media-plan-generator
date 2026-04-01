@@ -12353,6 +12353,48 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                 "tools_used": [],
             }
 
+        # ── Context-setting fast path (budget, role, location, industry) ──
+        _budget_set_match = _re.search(
+            r"(?:set|change|update|my)\s+(?:campaign\s+)?budget\s+(?:to|is|=)\s*\$?([\d,]+)",
+            msg_lower,
+        )
+        if _budget_set_match:
+            _budget_val = _budget_set_match.group(1).replace(",", "")
+            try:
+                _budget_num = int(_budget_val)
+                # Save to memory + user context
+                try:
+                    from nova_memory import get_memory
+
+                    _mem = get_memory(session_id)
+                    _mem.learn_fact(
+                        f"User's campaign budget is ${_budget_num:,}",
+                        category="user_context",
+                    )
+                except Exception:
+                    pass
+                # Update conversation context
+                if "context" not in (self._conversations.get(session_id) or {}):
+                    if session_id not in self._conversations:
+                        self._conversations[session_id] = {"messages": []}
+                    self._conversations[session_id]["context"] = {}
+                self._conversations[session_id]["context"]["budget"] = _budget_num
+                return {
+                    "response": (
+                        f"Got it! I've set your campaign budget to **${_budget_num:,}**. "
+                        f"I'll use this for all future media plan recommendations and budget allocations.\n\n"
+                        f"You can now ask things like:\n"
+                        f'- "Create a media plan for hiring nurses in Texas"\n'
+                        f'- "How should I allocate this budget across channels?"\n'
+                        f'- "What\'s the best ROI I can get with this budget?"'
+                    ),
+                    "sources": [],
+                    "confidence": 1.0,
+                    "tools_used": ["context_setting"],
+                }
+            except (ValueError, TypeError):
+                pass
+
         # ── Guidewire / LinkedIn hiring data ──
         if any(
             kw in msg_lower
