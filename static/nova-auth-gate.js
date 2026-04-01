@@ -42,6 +42,39 @@
       } catch (_) {}
     }
 
+    // Admin key bypass: ?admin_key=<key> skips OAuth entirely
+    try {
+      var urlParams = new URLSearchParams(window.location.search);
+      var adminKey = urlParams.get("admin_key");
+      if (adminKey) {
+        // Validate against server
+        fetch("/api/admin/status", {
+          headers: { "X-Admin-Key": adminKey },
+        })
+          .then(function (r) {
+            return r.json();
+          })
+          .then(function (d) {
+            if (d && d.authenticated) {
+              localStorage.setItem(
+                "nova_auth_user",
+                JSON.stringify({ email: "admin@joveo.com", role: "admin" }),
+              );
+              // Clean URL
+              urlParams.delete("admin_key");
+              var clean = window.location.pathname;
+              if (urlParams.toString()) clean += "?" + urlParams.toString();
+              history.replaceState(null, "", clean);
+              // Remove gate if it was already created
+              var gate = document.getElementById("nova-auth-gate");
+              if (gate) gate.remove();
+            }
+          })
+          .catch(function () {});
+        return; // Don't show gate while validating
+      }
+    } catch (_) {}
+
     // Check localStorage for cached user
     try {
       var cached = localStorage.getItem("nova_auth_user");
