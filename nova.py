@@ -3327,7 +3327,18 @@ class Nova:
         "- If user specifies ONLY target hires (no budget), ESTIMATE the budget using: budget = target_hires x industry_avg_CPH.\n"
         "  Do NOT assume a random budget like $50K. Show how you calculated it.\n"
         "- If user specifies ONLY budget (no target), estimate hires from budget / avg_CPH.\n"
-        "- Always show the math transparently.\n"
+        "- Always show the math transparently.\n\n"
+        "## CPH LAST-RESORT FORMULA (when no benchmark data available)\n"
+        "If you cannot find CPH data for a specific role from tools or benchmarks:\n"
+        "  CPH = Annual Salary x 4.4%\n"
+        "This is because normal staffing companies charge 10-20% of salary.\n"
+        "Programmatic recruitment advertising (Joveo) is ~4.4% of salary.\n"
+        "Examples:\n"
+        "- Software Engineer ($150K salary) -> CPH = $6,600\n"
+        "- Uber Driver ($45K salary) -> CPH = $1,980\n"
+        "- Registered Nurse ($82K salary) -> CPH = $3,608\n"
+        "- Primary Care Physician ($250K salary) -> CPH = $11,000\n"
+        "ALWAYS show the formula when using this fallback: 'Estimated CPH = $X (4.4% of $Y salary)'\n"
     )
 
     def get_system_prompt(self, message: str = "") -> str:

@@ -651,6 +651,28 @@ def _industry_avg_cph(industry: str) -> float:
     return (low + high) / 2.0
 
 
+def estimate_cph_from_salary(annual_salary: float) -> float:
+    """Estimate Cost-Per-Hire from annual salary using the 4.4% rule.
+
+    Normal staffing companies charge 10-20% of salary. Programmatic
+    recruitment advertising (Joveo's model) is significantly cheaper.
+    4.4% is a conservative estimate for total recruitment advertising
+    cost per hire as a percentage of the role's annual salary.
+
+    This is the DEFINITIVE LAST-RESORT fallback when no industry CPH
+    benchmark, no Appcast data, and no client-specific data is available.
+
+    Args:
+        annual_salary: The annual salary for the role in USD.
+
+    Returns:
+        Estimated CPH in USD.
+    """
+    if annual_salary <= 0:
+        return 4500.0  # absolute fallback
+    return round(annual_salary * 0.044, 2)
+
+
 def _score_roi(cost_per_hire: float, industry_avg: float) -> int:
     """
     Score ROI on a 1-10 scale.
