@@ -1247,11 +1247,20 @@ def _handle_config(handler, path: str, parsed: Any) -> None:
     _ph_key: str = (os.environ.get("POSTHOG_API_KEY") or "").strip()
     config: dict[str, Any] = {}
     if _ph_key:
-        # Bug #8 fix: Redact PostHog key -- only expose existence, not the value
         config["posthog_configured"] = True
+        config["posthog_key"] = _ph_key  # Frontend needs actual key to init PostHog
     else:
         config["posthog_configured"] = False
     config["posthog_host"] = "https://us.i.posthog.com"
+
+    # S32: Supabase Auth config (public keys only, never secrets)
+    _sb_url = (os.environ.get("SUPABASE_URL") or "").strip()
+    _sb_anon = (os.environ.get("SUPABASE_ANON_KEY") or "").strip()
+    config["supabase_url"] = _sb_url
+    config["supabase_anon_key"] = _sb_anon
+    config["auth_enabled"] = bool(_sb_url and _sb_anon)
+    config["auth_provider"] = "google"
+
     _send_json_response(handler, config)
 
 

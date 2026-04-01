@@ -9150,21 +9150,6 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(body)
 
-        elif path == "/api/config":
-            # ── Public config endpoint (safe: only public keys, never secrets) ──
-            _posthog_key = os.environ.get("POSTHOG_API_KEY") or ""
-            _sb_url = os.environ.get("SUPABASE_URL") or ""
-            _sb_anon = os.environ.get("SUPABASE_ANON_KEY") or ""
-            self._send_json(
-                {
-                    "posthog_key": _posthog_key,
-                    "supabase_url": _sb_url,
-                    "supabase_anon_key": _sb_anon,
-                    "auth_enabled": bool(_sb_url and _sb_anon),
-                    "auth_provider": "google",
-                }
-            )
-
         elif path == "/api/auth/me":
             # ── Auth: Return current user info (from Supabase JWT) ──
             # Non-breaking: returns null user if not authenticated
