@@ -10682,7 +10682,20 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                 "create a plan",
             )
         )
-        max_iterations = 6 if (_is_media_plan or is_complex) else 4
+        # S32: Comparison queries need fewer iterations (3 data + 1 synthesis = 4)
+        # to avoid burning through the entire timeout budget on redundant tool calls.
+        _is_comparison = any(
+            kw in user_message.lower()
+            for kw in ("compare", "vs", "versus", "comparison", "better for")
+        )
+        if _is_media_plan:
+            max_iterations = 6  # Media plans need many tools
+        elif _is_comparison:
+            max_iterations = 4  # Comparisons: 2-3 data calls + synthesis
+        elif is_complex:
+            max_iterations = 5  # Complex but not comparison
+        else:
+            max_iterations = 4  # Standard queries
         active_provider = None  # Lock to same provider for multi-turn
 
         task_type = classify_task(user_message)

@@ -14012,11 +14012,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 )
                 return
             _CHAT_REQUEST_TIMEOUT: float = (
-                75.0  # seconds -- S32: 90→55 was too aggressive (4/9 tests dumped raw JSON)
-                # 75s gives complex queries enough time to synthesize properly
-                # while keeping P99 under 80s. The partial accumulator handles
-                # partial results earlier via the partial_accumulator pattern,
-                # which is a better UX than waiting 90s for a timeout message.
+                90.0  # seconds -- S32: 75s still too tight for multi-city comparisons (Test 7)
+                # 90s with partial accumulator + deadline-aware synthesis ensures
+                # complex queries get enough time while partial results handle timeouts.
                 # gunicorn kill is 120s so 55s is safely below that.
             )
             try:
