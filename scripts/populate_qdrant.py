@@ -44,7 +44,7 @@ QDRANT_API_KEY = os.environ.get("QDRANT_API_KEY") or ""
 VOYAGE_API_KEY = os.environ.get("VOYAGE_API_KEY") or ""
 
 COLLECTION_NAME = "nova_knowledge"
-VECTOR_DIM = 1024
+VECTOR_DIM = 512  # voyage-3-lite produces 512-dim vectors
 VOYAGE_MODEL = "voyage-3-lite"
 VOYAGE_API_URL = "https://api.voyageai.com/v1/embeddings"
 
@@ -52,12 +52,12 @@ VOYAGE_API_URL = "https://api.voyageai.com/v1/embeddings"
 MAX_CHUNK_CHARS = 2000  # ~500 tokens
 MIN_CHUNK_CHARS = 100  # skip tiny chunks
 
-# Rate limiting for Voyage AI (free tier: ~10 RPM)
-VOYAGE_BATCH_SIZE = 8  # Keep small for 10K TPM limit
-VOYAGE_DELAY = 22.0  # 3 RPM free tier = 20s + buffer
+# Rate limiting for Voyage AI (paid tier: 300 RPM, 1M TPM)
+VOYAGE_BATCH_SIZE = 32  # Paid tier allows larger batches
+VOYAGE_DELAY = 1.0  # 300 RPM paid tier = minimal delay
 
-# Qdrant upsert batch size
-QDRANT_BATCH_SIZE = 100
+# Qdrant upsert batch size (smaller for reliability on free tier)
+QDRANT_BATCH_SIZE = 50
 
 # Files to skip (not KB content)
 SKIP_FILES = {
@@ -161,9 +161,9 @@ def upsert_points(points: list[dict]) -> int:
         batch = points[i : i + QDRANT_BATCH_SIZE]
         result = qdrant_request(
             "PUT",
-            f"/collections/{COLLECTION_NAME}/points",
+            f"/collections/{COLLECTION_NAME}/points?wait=true",
             body={"points": batch},
-            timeout=60,
+            timeout=120,
         )
         if result is not None:
             total += len(batch)
