@@ -1220,6 +1220,7 @@ _TOOL_LABELS: Dict[str, str] = {
     "query_occupation_projections": "Loading occupation projections",
     "query_workforce_demographics": "Loading Census demographics",
     "query_vendor_profiles": "Loading vendor profiles",
+    "get_cg_automation_data": "Loading CG Automation data",
 }
 
 # Thread-local storage for tool status queue.
@@ -4842,6 +4843,35 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                     },
                 },
             },
+            # ── S33: CG Automation (Craigslist posting intelligence) ──────
+            {
+                "name": "get_cg_automation_data",
+                "description": "Craigslist posting automation data: returns location-specific recommendations for CG ad campaigns including best titles, categories, posting days, profit tiers, and repost triggers. Use when asked about Craigslist posting, CG automation, posting optimization, or Craigslist campaign performance.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "action": {
+                            "type": "string",
+                            "enum": [
+                                "latest_summary",
+                                "location_detail",
+                                "top_locations",
+                                "repost_candidates",
+                            ],
+                            "description": "What to retrieve: latest_summary (scorecard), location_detail (specific location), top_locations (best performing), repost_candidates (what to repost today)",
+                        },
+                        "location": {
+                            "type": "string",
+                            "description": "Location name for location_detail action",
+                        },
+                        "limit": {
+                            "type": "integer",
+                            "description": "Number of results to return (default 10)",
+                        },
+                    },
+                    "required": ["action"],
+                },
+            },
         ]
 
     # ------------------------------------------------------------------
@@ -4917,6 +4947,7 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
             "query_occupation_projections": self._query_occupation_projections,
             "query_workforce_demographics": self._query_workforce_demographics,
             "query_vendor_profiles": self._query_vendor_profiles,
+            "get_cg_automation_data": self._get_cg_automation_data,
         }
 
     def execute_tool(self, tool_name: str, tool_input: dict) -> str:
@@ -9021,6 +9052,196 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
             return {"error": f"Vendor profiles query failed: {e}"}
 
     # ------------------------------------------------------------------
+    # S33: CG Automation (Craigslist posting intelligence)
+    # ------------------------------------------------------------------
+
+    def _get_cg_automation_data(self, params: dict) -> dict:
+        """Query CG Automation API for Craigslist posting intelligence.
+
+        Returns location-specific recommendations for CG ad campaigns
+        including best titles, categories, posting days, profit tiers,
+        and repost triggers.
+
+        Args:
+            params: Dict with action (required), optional location and limit.
+
+        Returns:
+            Dict with CG automation data or error.
+        """
+        import urllib.request
+        import urllib.error
+
+        _CG_BASE = "https://cg-automation.onrender.com"
+        _CG_TIMEOUT = 10
+        action = (params.get("action") or "latest_summary").strip()
+        limit = params.get("limit") or 10
+        location_filter = (params.get("location") or "").strip().lower()
+
+        try:
+            # Step 1: Get list of jobs to find latest job_id
+            req = urllib.request.Request(
+                f"{_CG_BASE}/api/jobs",
+                headers={"Accept": "application/json"},
+            )
+            with urllib.request.urlopen(req, timeout=_CG_TIMEOUT) as resp:
+                jobs_data = json.loads(resp.read().decode())
+
+            jobs = (
+                jobs_data if isinstance(jobs_data, list) else jobs_data.get("jobs", [])
+            )
+            if not jobs:
+                return {
+                    "message": "No CG Automation analysis jobs found.",
+                    "source": "CG Automation API",
+                }
+
+            # Use the most recent job
+            latest_job = jobs[0] if isinstance(jobs[0], dict) else {"job_id": jobs[0]}
+            job_id = latest_job.get("job_id") or latest_job.get("id") or str(jobs[0])
+
+            # Step 2: Get the scorecard for that job
+            req2 = urllib.request.Request(
+                f"{_CG_BASE}/api/job/{job_id}",
+                headers={"Accept": "application/json"},
+            )
+            with urllib.request.urlopen(req2, timeout=_CG_TIMEOUT) as resp2:
+                scorecard = json.loads(resp2.read().decode())
+
+            # Extract the action plan / locations from scorecard
+            action_plan = (
+                scorecard.get("action_plan")
+                or scorecard.get("locations")
+                or scorecard.get("results")
+                or scorecard.get("data")
+                or []
+            )
+            # If scorecard is the data itself (flat list), use it directly
+            if isinstance(scorecard, list):
+                action_plan = scorecard
+
+            # ── action: latest_summary ──
+            if action == "latest_summary":
+                summary = {
+                    "job_id": job_id,
+                    "total_locations": (
+                        len(action_plan) if isinstance(action_plan, list) else "N/A"
+                    ),
+                    "source": "CG Automation API",
+                }
+                # Add top-level scorecard fields
+                for k in (
+                    "status",
+                    "created_at",
+                    "updated_at",
+                    "summary",
+                    "score",
+                    "total_profit",
+                    "file_name",
+                ):
+                    if k in scorecard:
+                        summary[k] = scorecard[k]
+                # Add first few locations as preview
+                if isinstance(action_plan, list) and action_plan:
+                    summary["sample_locations"] = action_plan[:3]
+                return summary
+
+            # ── action: top_locations ──
+            if action == "top_locations":
+                if not isinstance(action_plan, list):
+                    return {
+                        "message": "No location data available in scorecard.",
+                        "source": "CG Automation API",
+                    }
+                # Sort by profit or score if available
+                sorted_locs = sorted(
+                    action_plan,
+                    key=lambda x: (
+                        x.get("estimated_profit")
+                        or x.get("profit")
+                        or x.get("score")
+                        or 0
+                    ),
+                    reverse=True,
+                )
+                return {
+                    "top_locations": sorted_locs[:limit],
+                    "total_available": len(action_plan),
+                    "source": "CG Automation API",
+                    "job_id": job_id,
+                }
+
+            # ── action: repost_candidates ──
+            if action == "repost_candidates":
+                if not isinstance(action_plan, list):
+                    return {
+                        "message": "No location data available in scorecard.",
+                        "source": "CG Automation API",
+                    }
+                repost = [
+                    loc
+                    for loc in action_plan
+                    if (loc.get("action") or loc.get("recommendation") or "").upper()
+                    == "REPOST"
+                    or loc.get("repost") is True
+                ]
+                return {
+                    "repost_candidates": repost[:limit],
+                    "total_repost": len(repost),
+                    "total_locations": len(action_plan),
+                    "source": "CG Automation API",
+                    "job_id": job_id,
+                }
+
+            # ── action: location_detail ──
+            if action == "location_detail":
+                if not location_filter:
+                    return {
+                        "error": "location parameter required for location_detail action"
+                    }
+                if not isinstance(action_plan, list):
+                    return {
+                        "message": "No location data available in scorecard.",
+                        "source": "CG Automation API",
+                    }
+                matches = [
+                    loc
+                    for loc in action_plan
+                    if location_filter
+                    in (
+                        loc.get("location") or loc.get("city") or loc.get("name") or ""
+                    ).lower()
+                ]
+                if not matches:
+                    return {
+                        "message": f"No data found for location '{params.get('location')}'.",
+                        "available_locations": [
+                            loc.get("location") or loc.get("city") or loc.get("name")
+                            for loc in action_plan[:20]
+                        ],
+                        "source": "CG Automation API",
+                    }
+                return {
+                    "location_data": matches[:limit],
+                    "matches_found": len(matches),
+                    "source": "CG Automation API",
+                    "job_id": job_id,
+                }
+
+            return {"error": f"Unknown action: {action}"}
+
+        except urllib.error.URLError as e:
+            logger.error("CG Automation API request failed: %s", e, exc_info=True)
+            return {"error": f"CG Automation API unavailable: {e}"}
+        except json.JSONDecodeError as e:
+            logger.error(
+                "CG Automation API returned invalid JSON: %s", e, exc_info=True
+            )
+            return {"error": "CG Automation API returned invalid data"}
+        except Exception as e:
+            logger.error("get_cg_automation_data failed: %s", e, exc_info=True)
+            return {"error": f"CG Automation query failed: {e}"}
+
+    # ------------------------------------------------------------------
     # Chat orchestration
     # ------------------------------------------------------------------
 
@@ -10512,6 +10733,7 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
             "- For compliance/legal questions: call query_knowledge_base with topic='compliance'\n"
             "- For channel/platform questions: call query_remote_jobs + query_channels + query_benchmarks\n"
             "- For vendor/publisher questions: call query_vendor_profiles for platform-specific data (Indeed, LinkedIn, etc.)\n"
+            "- For Craigslist posting/CG automation questions: call get_cg_automation_data for location-specific posting recommendations, repost triggers, and profit tiers\n"
             "- For any hiring question: ALWAYS also call query_h1b_salaries for competitive salary intelligence\n"
             "- For visualizing a plan as a canvas: call render_canvas with budget, channels, role, location, industry\n"
             "- For editing a canvas (reallocate budget, add/remove channel): call edit_canvas with plan_id and edit details\n"
@@ -15189,6 +15411,7 @@ _TOOL_SOURCE_MAP: Dict[str, str] = {
     "query_occupation_projections": "CareerOneStop (Employment Projections)",
     "query_workforce_demographics": "US Census Bureau (Workforce Demographics)",
     "query_vendor_profiles": "Supabase Vendor Profiles",
+    "get_cg_automation_data": "CG Automation (Craigslist Intelligence)",
 }
 
 _FOLLOW_UP_TEMPLATES: Dict[str, List[str]] = {
