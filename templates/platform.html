@@ -1151,7 +1151,7 @@
               NovaAuth.init({
                 supabaseUrl: cfg.supabase_url || "",
                 supabaseAnonKey: cfg.supabase_anon_key || "",
-                allowedDomains: [],
+                allowedDomains: ["joveo.com"],
               });
 
               // Listen for auth state changes to update sidebar

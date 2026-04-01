@@ -19,7 +19,7 @@
           NovaAuth.init({
             supabaseUrl: cfg.supabase_url || "",
             supabaseAnonKey: cfg.supabase_anon_key || "",
-            allowedDomains: [], // Empty = open to all. Set ["joveo.com"] to restrict.
+            allowedDomains: ["joveo.com"], // Restrict to Joveo emails only
           });
         }
       })

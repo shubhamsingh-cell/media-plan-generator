@@ -17,7 +17,7 @@
   var AUTH_CONFIG = {
     supabaseUrl: "", // Injected from server via data attribute
     supabaseAnonKey: "", // Injected from server via data attribute
-    allowedDomains: [], // Empty = allow all. ["joveo.com"] = Joveo only
+    allowedDomains: ["joveo.com"], // Restrict to Joveo emails only
     storageKey: "nova_auth_user",
     sessionKey: "nova_auth_session",
     onLoginCallbacks: [],
