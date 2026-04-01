@@ -853,7 +853,7 @@
           codeId +
           '" onclick="(function(b){var c=document.getElementById(\'' +
           codeId +
-          "');if(c){navigator.clipboard.writeText(c.textContent).then(function(){b.textContent='Copied!';setTimeout(function(){b.textContent='Copy'},1500);if(window.posthog){window.posthog.capture('nova_chat_code_copied',{source:'widget',page:window.location.pathname});window.posthog.capture('nova_chat_action_taken',{action_type:'code_copy',page:window.location.pathname})}})}})(this)\">Copy</button>" +
+          "');if(c){navigator.clipboard.writeText(c.textContent).then(function(){b.textContent='Copied!';setTimeout(function(){b.textContent='Copy'},1500);if(window.posthog&&typeof window.posthog.capture==='function'){try{window.posthog.capture('nova_chat_code_copied',{source:'widget',page:window.location.pathname});window.posthog.capture('nova_chat_action_taken',{action_type:'code_copy',page:window.location.pathname})}catch(_e){}}})}})(this)\">Copy</button>" +
           "</div>" +
           '<pre style="margin:0;padding:12px;background:#0d0d18;overflow-x:auto;"><code id="' +
           codeId +
@@ -1884,6 +1884,9 @@
       // Hide orb, show close icon
       if (orbCanvas) orbCanvas.style.display = "none";
       btn.classList.add("nova-btn-close");
+      // Remove any existing close icon before adding new one (prevents duplicates)
+      var existingClose = document.getElementById("nova-close-icon");
+      if (existingClose) existingClose.remove();
       // Insert close SVG without destroying canvas
       var closeSpan = document.createElement("span");
       closeSpan.id = "nova-close-icon";
@@ -1905,12 +1908,20 @@
       }, 300);
     } else {
       // PostHog: track session duration on close
-      if (window.posthog && state.chatOpenedAt > 0) {
-        window.posthog.capture("nova_chat_session_duration", {
-          duration_ms: Date.now() - state.chatOpenedAt,
-          messages_sent: state.messagesSentCount,
-          page: window.location.pathname,
-        });
+      if (
+        window.posthog &&
+        typeof window.posthog.capture === "function" &&
+        state.chatOpenedAt > 0
+      ) {
+        try {
+          window.posthog.capture("nova_chat_session_duration", {
+            duration_ms: Date.now() - state.chatOpenedAt,
+            messages_sent: state.messagesSentCount,
+            page: window.location.pathname,
+          });
+        } catch (_e) {
+          /* posthog tracking failure must never block close */
+        }
       }
       state.chatOpenedAt = 0;
       // Close WebSocket connection when panel is closed

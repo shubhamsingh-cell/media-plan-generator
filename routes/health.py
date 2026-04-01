@@ -362,13 +362,28 @@ def _handle_health_enrichment(handler, path: str, parsed: Any) -> None:
         _app = sys.modules.get("app") or sys.modules.get("__main__")
         get_enrichment_status = getattr(_app, "get_enrichment_status", None)
 
-        de_result = get_enrichment_status()
-        de_body = json.dumps(de_result, indent=2).encode("utf-8")
-        handler.send_response(200)
-        handler.send_header("Content-Type", "application/json")
-        handler.send_header("Content-Length", str(len(de_body)))
-        handler.end_headers()
-        handler.wfile.write(de_body)
+        try:
+            de_result = get_enrichment_status()
+            de_body = json.dumps(de_result, indent=2).encode("utf-8")
+            handler.send_response(200)
+            handler.send_header("Content-Type", "application/json")
+            handler.send_header("Content-Length", str(len(de_body)))
+            handler.end_headers()
+            handler.wfile.write(de_body)
+        except Exception as _e:
+            import logging
+
+            logging.getLogger(__name__).error(
+                "Enrichment status error: %s", _e, exc_info=True
+            )
+            _err_body = json.dumps(
+                {"error": f"Enrichment status check failed: {_e}"}
+            ).encode("utf-8")
+            handler.send_response(500)
+            handler.send_header("Content-Type", "application/json")
+            handler.send_header("Content-Length", str(len(_err_body)))
+            handler.end_headers()
+            handler.wfile.write(_err_body)
     else:
         de_err_body = json.dumps(
             {"error": "Data enrichment engine not available"}
