@@ -26,18 +26,9 @@
 
     overlay.innerHTML =
       '<div style="text-align:center;max-width:420px;padding:40px;">' +
-      '  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none" style="width:80px;height:80px;margin:0 auto 24px;display:block;">' +
-      '    <defs><linearGradient id="ng" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#5A54BD"/><stop offset="100%" stop-color="#6BB3CD"/></linearGradient>' +
-      '    <radialGradient id="ngw" cx=".5" cy=".5" r=".5"><stop offset="0%" stop-color="#6BB3CD" stop-opacity=".9"/><stop offset="60%" stop-color="#6BB3CD" stop-opacity=".2"/><stop offset="100%" stop-color="#6BB3CD" stop-opacity="0"/></radialGradient>' +
-      '    <filter id="nsg" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="b"/><feComposite in="SourceGraphic" in2="b" operator="over"/></filter>' +
-      '    <filter id="nog" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur in="SourceAlpha" stdDeviation="4" result="b"/><feFlood flood-color="#5A54BD" flood-opacity=".25" result="c"/><feComposite in="c" in2="b" operator="in" result="g"/><feMerge><feMergeNode in="g"/><feMergeNode in="SourceGraphic"/></feMerge></filter>' +
-      '    <clipPath id="nc"><rect x="12" y="12" width="104" height="104" rx="24"/></clipPath></defs>' +
-      '    <rect x="12" y="12" width="104" height="104" rx="24" fill="url(#ng)" filter="url(#nog)"/>' +
-      '    <rect x="12" y="12" width="104" height="52" rx="24" fill="white" opacity=".08" clip-path="url(#nc)"/>' +
-      '    <path d="M42 88L42 40L50 40L78 76L78 40L86 40L86 88L78 88L50 52L50 88Z" fill="white" opacity=".95"/>' +
-      '    <g filter="url(#nsg)" transform="translate(86,36)"><line x1="0" y1="-10" x2="0" y2="10" stroke="white" stroke-width="1.5" stroke-linecap="round"/><line x1="-10" y1="0" x2="10" y2="0" stroke="white" stroke-width="1.5" stroke-linecap="round"/><line x1="-6" y1="-6" x2="6" y2="6" stroke="white" stroke-width="1" stroke-linecap="round" opacity=".7"/><line x1="6" y1="-6" x2="-6" y2="6" stroke="white" stroke-width="1" stroke-linecap="round" opacity=".7"/><circle cx="0" cy="0" r="2.5" fill="white"/><circle cx="0" cy="0" r="6" fill="url(#ngw)" opacity=".5"/></g>' +
-      '    <g transform="translate(42,88)" opacity=".4"><line x1="0" y1="-4" x2="0" y2="4" stroke="white" stroke-width="1" stroke-linecap="round"/><line x1="-4" y1="0" x2="4" y2="0" stroke="white" stroke-width="1" stroke-linecap="round"/><circle cx="0" cy="0" r="1.5" fill="white"/></g>' +
-      "  </svg>" +
+      '  <div style="width:80px;height:80px;margin:0 auto 24px;background:linear-gradient(135deg,#5A54BD,#6BB3CD);border-radius:20px;display:flex;align-items:center;justify-content:center;">' +
+      '    <span style="color:white;font-size:36px;font-weight:800;font-family:Inter,sans-serif;">N</span>' +
+      "  </div>" +
       '  <h1 style="color:#e4e4e7;font-size:28px;font-weight:700;margin:0 0 8px;font-family:Inter,sans-serif;">Welcome to Nova AI</h1>' +
       '  <p style="color:rgba(255,255,255,0.5);font-size:15px;margin:0 0 32px;font-family:Inter,sans-serif;line-height:1.5;">AI-powered recruitment intelligence platform.<br>Sign in to access the suite.</p>' +
       '  <button id="nova-gate-login-btn" style="' +
@@ -70,24 +61,14 @@
       };
     }
 
-    // Direct click handler -- handles case where NovaAuth.init() hasn't completed
+    // BULLETPROOF click handler: fetches config and redirects directly
+    // No dependency on Supabase JS, NovaAuth, or any library
     if (btn) {
       btn.addEventListener("click", function (e) {
         e.preventDefault();
-
-        // Try NovaAuth first
-        if (
-          typeof NovaAuth !== "undefined" &&
-          NovaAuth.isInitialized &&
-          NovaAuth.isInitialized()
-        ) {
-          NovaAuth.signInWithGoogle();
-          return;
-        }
-
-        // Fallback: init directly from /api/config
-        btn.textContent = "Connecting...";
+        btn.innerHTML = "Connecting...";
         btn.disabled = true;
+        btn.style.opacity = "0.7";
 
         fetch("/api/config")
           .then(function (r) {
@@ -95,52 +76,33 @@
           })
           .then(function (cfg) {
             if (!cfg.auth_enabled || !cfg.supabase_url) {
-              btn.textContent = "Sign in with Google";
+              alert("Authentication is not configured.");
+              btn.innerHTML = "Sign in with Google";
               btn.disabled = false;
-              alert("Authentication is not configured. Please contact admin.");
+              btn.style.opacity = "1";
               return;
             }
 
-            // Initialize NovaAuth if available
-            if (typeof NovaAuth !== "undefined") {
-              NovaAuth.init({
-                supabaseUrl: cfg.supabase_url,
-                supabaseAnonKey: cfg.supabase_anon_key,
-                allowedDomains: [],
-              });
-              // Small delay for init to complete
-              setTimeout(function () {
-                NovaAuth.signInWithGoogle();
-              }, 200);
-              return;
-            }
-
-            // Last resort: create Supabase client directly
-            if (typeof window.supabase !== "undefined") {
-              var sb = window.supabase.createClient(
-                cfg.supabase_url,
-                cfg.supabase_anon_key,
-              );
-              sb.auth.signInWithOAuth({
-                provider: "google",
-                options: {
-                  redirectTo: window.location.origin + window.location.pathname,
-                },
-              });
-            } else {
-              alert(
-                "Authentication library failed to load. Please refresh the page.",
-              );
-              btn.textContent = "Sign in with Google";
-              btn.disabled = false;
-            }
-          })
-          .catch(function () {
-            alert(
-              "Failed to connect. Please check your internet and try again.",
+            // Direct redirect to Supabase OAuth - NO JS library needed
+            var redirectTo = encodeURIComponent(
+              window.location.origin + window.location.pathname,
             );
-            btn.textContent = "Sign in with Google";
+            var authUrl =
+              cfg.supabase_url +
+              "/auth/v1/authorize" +
+              "?provider=google" +
+              "&redirect_to=" +
+              redirectTo;
+
+            // This WILL work - it's just a URL redirect
+            window.location.href = authUrl;
+          })
+          .catch(function (err) {
+            console.error("[NovaAuth] Sign-in error:", err);
+            alert("Failed to connect. Please try again.");
+            btn.innerHTML = "Sign in with Google";
             btn.disabled = false;
+            btn.style.opacity = "1";
           });
       });
     }
