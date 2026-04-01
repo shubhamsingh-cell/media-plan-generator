@@ -7,458 +7,239 @@
       rel="stylesheet"
     />
     <style>
-      .nova-n {
-        /* Reusable inline SVG via CSS */
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        background: #0f0f1a;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        flex-direction: column;
+        gap: 60px;
+        padding: 40px 20px;
+        font-family: Inter, sans-serif;
+      }
+      .section-label {
+        color: #e4e4e7;
+        font-weight: 400;
+        letter-spacing: 1px;
+        font-size: 14px;
+        text-transform: uppercase;
+        margin-bottom: 40px;
+        text-align: center;
+      }
+      .size-row {
+        display: flex;
+        gap: 50px;
+        align-items: flex-end;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+      .size-item {
+        text-align: center;
+      }
+      .size-label {
+        color: rgba(255, 255, 255, 0.35);
+        font-size: 11px;
+        margin-top: 10px;
+      }
+      .white-card {
+        background: white;
+        padding: 30px 40px;
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+      }
+      .white-card .brand-name {
+        font-size: 22px;
+        font-weight: 700;
+        color: #1a1a2e;
+      }
+      .white-card .brand-sub {
+        font-size: 13px;
+        color: #666;
+      }
+      .login-card {
+        background: linear-gradient(
+          135deg,
+          #0f0f1a 0%,
+          #1a1a2e 50%,
+          #16213e 100%
+        );
+        padding: 60px 50px;
+        border-radius: 20px;
+        max-width: 440px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        text-align: center;
+      }
+      .login-card h1 {
+        color: #e4e4e7;
+        font-size: 30px;
+        font-weight: 700;
+        margin: 0 0 8px;
+      }
+      .login-card .subtitle {
+        color: rgba(255, 255, 255, 0.45);
+        font-size: 15px;
+        margin: 0 0 36px;
+        line-height: 1.6;
+      }
+      .login-btn {
+        background: white;
+        color: #1a1a2e;
+        border: none;
+        padding: 14px 36px;
+        border-radius: 12px;
+        font-size: 15px;
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        font-family: Inter, sans-serif;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+      }
+      .login-footer {
+        color: rgba(255, 255, 255, 0.25);
+        font-size: 12px;
+        margin-top: 28px;
       }
     </style>
   </head>
-  <body
-    style="
-      background: #0f0f1a;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      margin: 0;
-      flex-direction: column;
-      gap: 60px;
-    "
-  >
-    <div style="text-align: center">
-      <h2
-        style="
-          color: #e4e4e7;
-          font-family: Inter, sans-serif;
-          margin-bottom: 40px;
-          font-weight: 400;
-          letter-spacing: 1px;
-          font-size: 14px;
-          text-transform: uppercase;
-        "
-      >
-        Nova AI Logo — Mercor Style
-      </h2>
-      <div
-        style="
-          display: flex;
-          gap: 50px;
-          align-items: flex-end;
-          justify-content: center;
-        "
-      >
-        <div style="text-align: center">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 120 120"
-            fill="none"
-            style="width: 120px; height: 120px"
-          >
-            <defs>
-              <linearGradient id="l1a" x1=".5" y1="0" x2=".5" y2="1">
-                <stop offset="0%" stop-color="#8B7FF5" />
-                <stop offset="100%" stop-color="#6C5CE7" />
-              </linearGradient>
-              <linearGradient id="l2a" x1=".5" y1="0" x2=".5" y2="1">
-                <stop offset="0%" stop-color="#A594F9" />
-                <stop offset="50%" stop-color="#7B6CF6" />
-                <stop offset="100%" stop-color="#6366F1" />
-              </linearGradient>
-              <linearGradient id="da" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stop-color="#B8ACF6" />
-                <stop offset="50%" stop-color="#8B7FF5" />
-                <stop offset="100%" stop-color="#6C5CE7" />
-              </linearGradient>
-            </defs>
-            <path
-              d="M20,95 L20,25 C20,21.7 22.7,19 26,19 C29.3,19 32,21.7 32,25 L32,95 C32,98.3 29.3,101 26,101 C22.7,101 20,98.3 20,95Z"
-              fill="url(#l1a)"
-              opacity=".7"
-            />
-            <path
-              d="M22,30 L30,19 L100,90 L92,101Z"
-              fill="url(#da)"
-              opacity=".55"
-            />
-            <path
-              d="M88,95 L88,25 C88,21.7 90.7,19 94,19 C97.3,19 100,21.7 100,25 L100,95 C100,98.3 97.3,101 94,101 C90.7,101 88,98.3 88,95Z"
-              fill="url(#l1a)"
-              opacity=".7"
-            />
-            <path
-              d="M20,35 L20,25 C20,21.7 22.7,19 26,19 C29.3,19 32,21.7 32,25 L32,35 C32,38.3 29.3,41 26,41 C22.7,41 20,38.3 20,35Z"
-              fill="url(#l2a)"
-              opacity=".9"
-            />
-            <path
-              d="M88,95 L88,85 C88,81.7 90.7,79 94,79 C97.3,79 100,81.7 100,85 L100,95 C100,98.3 97.3,101 94,101 C90.7,101 88,98.3 88,95Z"
-              fill="url(#l2a)"
-              opacity=".9"
-            />
-          </svg>
-          <p
-            style="
-              color: rgba(255, 255, 255, 0.35);
-              font-size: 11px;
-              margin-top: 10px;
-              font-family: Inter, sans-serif;
-            "
-          >
-            120px
-          </p>
+  <body>
+    <!-- Dark background sizes -->
+    <div>
+      <h2 class="section-label">Nova AI Logo -- Dark Background</h2>
+      <div class="size-row">
+        <div class="size-item">
+          <img
+            src="nova-logo.svg"
+            width="120"
+            height="120"
+            alt="Nova N logo 120px"
+          />
+          <p class="size-label">120px</p>
         </div>
-
-        <div style="text-align: center">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 120 120"
-            fill="none"
-            style="width: 80px; height: 80px"
-          >
-            <defs>
-              <linearGradient id="l1b" x1=".5" y1="0" x2=".5" y2="1">
-                <stop offset="0%" stop-color="#8B7FF5" />
-                <stop offset="100%" stop-color="#6C5CE7" />
-              </linearGradient>
-              <linearGradient id="l2b" x1=".5" y1="0" x2=".5" y2="1">
-                <stop offset="0%" stop-color="#A594F9" />
-                <stop offset="50%" stop-color="#7B6CF6" />
-                <stop offset="100%" stop-color="#6366F1" />
-              </linearGradient>
-              <linearGradient id="db" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stop-color="#B8ACF6" />
-                <stop offset="50%" stop-color="#8B7FF5" />
-                <stop offset="100%" stop-color="#6C5CE7" />
-              </linearGradient>
-            </defs>
-            <path
-              d="M20,95 L20,25 C20,21.7 22.7,19 26,19 C29.3,19 32,21.7 32,25 L32,95 C32,98.3 29.3,101 26,101 C22.7,101 20,98.3 20,95Z"
-              fill="url(#l1b)"
-              opacity=".7"
-            />
-            <path
-              d="M22,30 L30,19 L100,90 L92,101Z"
-              fill="url(#db)"
-              opacity=".55"
-            />
-            <path
-              d="M88,95 L88,25 C88,21.7 90.7,19 94,19 C97.3,19 100,21.7 100,25 L100,95 C100,98.3 97.3,101 94,101 C90.7,101 88,98.3 88,95Z"
-              fill="url(#l1b)"
-              opacity=".7"
-            />
-            <path
-              d="M20,35 L20,25 C20,21.7 22.7,19 26,19 C29.3,19 32,21.7 32,25 L32,35 C32,38.3 29.3,41 26,41 C22.7,41 20,38.3 20,35Z"
-              fill="url(#l2b)"
-              opacity=".9"
-            />
-            <path
-              d="M88,95 L88,85 C88,81.7 90.7,79 94,79 C97.3,79 100,81.7 100,85 L100,95 C100,98.3 97.3,101 94,101 C90.7,101 88,98.3 88,95Z"
-              fill="url(#l2b)"
-              opacity=".9"
-            />
-          </svg>
-          <p
-            style="
-              color: rgba(255, 255, 255, 0.35);
-              font-size: 11px;
-              margin-top: 10px;
-              font-family: Inter, sans-serif;
-            "
-          >
-            80px
-          </p>
+        <div class="size-item">
+          <img
+            src="nova-logo.svg"
+            width="80"
+            height="80"
+            alt="Nova N logo 80px"
+          />
+          <p class="size-label">80px</p>
         </div>
-
-        <div style="text-align: center">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 120 120"
-            fill="none"
-            style="width: 48px; height: 48px"
-          >
-            <defs>
-              <linearGradient id="l1c" x1=".5" y1="0" x2=".5" y2="1">
-                <stop offset="0%" stop-color="#8B7FF5" />
-                <stop offset="100%" stop-color="#6C5CE7" />
-              </linearGradient>
-              <linearGradient id="dc" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stop-color="#B8ACF6" />
-                <stop offset="50%" stop-color="#8B7FF5" />
-                <stop offset="100%" stop-color="#6C5CE7" />
-              </linearGradient>
-            </defs>
-            <path
-              d="M20,95 L20,25 C20,21.7 22.7,19 26,19 C29.3,19 32,21.7 32,25 L32,95 C32,98.3 29.3,101 26,101 C22.7,101 20,98.3 20,95Z"
-              fill="url(#l1c)"
-              opacity=".7"
-            />
-            <path
-              d="M22,30 L30,19 L100,90 L92,101Z"
-              fill="url(#dc)"
-              opacity=".55"
-            />
-            <path
-              d="M88,95 L88,25 C88,21.7 90.7,19 94,19 C97.3,19 100,21.7 100,25 L100,95 C100,98.3 97.3,101 94,101 C90.7,101 88,98.3 88,95Z"
-              fill="url(#l1c)"
-              opacity=".7"
-            />
-          </svg>
-          <p
-            style="
-              color: rgba(255, 255, 255, 0.35);
-              font-size: 11px;
-              margin-top: 10px;
-              font-family: Inter, sans-serif;
-            "
-          >
-            48px
-          </p>
+        <div class="size-item">
+          <img
+            src="nova-logo.svg"
+            width="48"
+            height="48"
+            alt="Nova N logo 48px"
+          />
+          <p class="size-label">48px</p>
         </div>
-
-        <div style="text-align: center">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 120 120"
-            fill="none"
-            style="width: 32px; height: 32px"
-          >
-            <defs>
-              <linearGradient id="l1d" x1=".5" y1="0" x2=".5" y2="1">
-                <stop offset="0%" stop-color="#8B7FF5" />
-                <stop offset="100%" stop-color="#6C5CE7" />
-              </linearGradient>
-              <linearGradient id="dd" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stop-color="#B8ACF6" />
-                <stop offset="50%" stop-color="#8B7FF5" />
-                <stop offset="100%" stop-color="#6C5CE7" />
-              </linearGradient>
-            </defs>
-            <path
-              d="M20,95 L20,25 C20,21.7 22.7,19 26,19 C29.3,19 32,21.7 32,25 L32,95 C32,98.3 29.3,101 26,101 C22.7,101 20,98.3 20,95Z"
-              fill="url(#l1d)"
-              opacity=".7"
-            />
-            <path
-              d="M22,30 L30,19 L100,90 L92,101Z"
-              fill="url(#dd)"
-              opacity=".55"
-            />
-            <path
-              d="M88,95 L88,25 C88,21.7 90.7,19 94,19 C97.3,19 100,21.7 100,25 L100,95 C100,98.3 97.3,101 94,101 C90.7,101 88,98.3 88,95Z"
-              fill="url(#l1d)"
-              opacity=".7"
-            />
-          </svg>
-          <p
-            style="
-              color: rgba(255, 255, 255, 0.35);
-              font-size: 11px;
-              margin-top: 10px;
-              font-family: Inter, sans-serif;
-            "
-          >
-            32px
-          </p>
+        <div class="size-item">
+          <img
+            src="nova-logo.svg"
+            width="32"
+            height="32"
+            alt="Nova N logo 32px"
+          />
+          <p class="size-label">32px</p>
         </div>
       </div>
+    </div>
 
-      <!-- White background version -->
-      <div
-        style="
-          display: flex;
-          gap: 50px;
-          align-items: center;
-          justify-content: center;
-          margin-top: 40px;
-        "
-      >
+    <!-- White background -->
+    <div>
+      <h2 class="section-label">Nova AI Logo -- White Background</h2>
+      <div class="size-row">
+        <div class="white-card">
+          <img
+            src="nova-logo.svg"
+            width="48"
+            height="48"
+            alt="Nova N logo on white"
+          />
+          <div>
+            <div class="brand-name">Nova AI</div>
+            <div class="brand-sub">Recruitment intelligence platform</div>
+          </div>
+        </div>
+      </div>
+      <div class="size-row" style="margin-top: 24px">
         <div
           style="
             background: white;
-            padding: 30px 40px;
-            border-radius: 16px;
+            padding: 24px 32px;
+            border-radius: 12px;
             display: flex;
-            align-items: center;
-            gap: 16px;
+            gap: 40px;
+            align-items: flex-end;
           "
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 120 120"
-            fill="none"
-            style="width: 48px; height: 48px"
-          >
-            <defs>
-              <linearGradient id="l1w" x1=".5" y1="0" x2=".5" y2="1">
-                <stop offset="0%" stop-color="#8B7FF5" />
-                <stop offset="100%" stop-color="#6C5CE7" />
-              </linearGradient>
-              <linearGradient id="l2w" x1=".5" y1="0" x2=".5" y2="1">
-                <stop offset="0%" stop-color="#A594F9" />
-                <stop offset="50%" stop-color="#7B6CF6" />
-                <stop offset="100%" stop-color="#6366F1" />
-              </linearGradient>
-              <linearGradient id="dw" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stop-color="#B8ACF6" />
-                <stop offset="50%" stop-color="#8B7FF5" />
-                <stop offset="100%" stop-color="#6C5CE7" />
-              </linearGradient>
-            </defs>
-            <path
-              d="M20,95 L20,25 C20,21.7 22.7,19 26,19 C29.3,19 32,21.7 32,25 L32,95 C32,98.3 29.3,101 26,101 C22.7,101 20,98.3 20,95Z"
-              fill="url(#l1w)"
-              opacity=".7"
+          <div class="size-item">
+            <img
+              src="nova-logo.svg"
+              width="120"
+              height="120"
+              alt="Nova N 120px white bg"
             />
-            <path
-              d="M22,30 L30,19 L100,90 L92,101Z"
-              fill="url(#dw)"
-              opacity=".55"
+            <p class="size-label" style="color: #999">120px</p>
+          </div>
+          <div class="size-item">
+            <img
+              src="nova-logo.svg"
+              width="80"
+              height="80"
+              alt="Nova N 80px white bg"
             />
-            <path
-              d="M88,95 L88,25 C88,21.7 90.7,19 94,19 C97.3,19 100,21.7 100,25 L100,95 C100,98.3 97.3,101 94,101 C90.7,101 88,98.3 88,95Z"
-              fill="url(#l1w)"
-              opacity=".7"
+            <p class="size-label" style="color: #999">80px</p>
+          </div>
+          <div class="size-item">
+            <img
+              src="nova-logo.svg"
+              width="48"
+              height="48"
+              alt="Nova N 48px white bg"
             />
-            <path
-              d="M20,35 L20,25 C20,21.7 22.7,19 26,19 C29.3,19 32,21.7 32,25 L32,35 C32,38.3 29.3,41 26,41 C22.7,41 20,38.3 20,35Z"
-              fill="url(#l2w)"
-              opacity=".9"
+            <p class="size-label" style="color: #999">48px</p>
+          </div>
+          <div class="size-item">
+            <img
+              src="nova-logo.svg"
+              width="32"
+              height="32"
+              alt="Nova N 32px white bg"
             />
-            <path
-              d="M88,95 L88,85 C88,81.7 90.7,79 94,79 C97.3,79 100,81.7 100,85 L100,95 C100,98.3 97.3,101 94,101 C90.7,101 88,98.3 88,95Z"
-              fill="url(#l2w)"
-              opacity=".9"
-            />
-          </svg>
-          <div>
-            <div
-              style="
-                font-family: Inter, sans-serif;
-                font-size: 22px;
-                font-weight: 700;
-                color: #1a1a2e;
-              "
-            >
-              Nova AI
-            </div>
-            <div
-              style="
-                font-family: Inter, sans-serif;
-                font-size: 13px;
-                color: #666;
-              "
-            >
-              Recruitment intelligence platform
-            </div>
+            <p class="size-label" style="color: #999">32px</p>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Login screen -->
-    <div style="text-align: center">
-      <div
-        style="
-          background: linear-gradient(
-            135deg,
-            #0f0f1a 0%,
-            #1a1a2e 50%,
-            #16213e 100%
-          );
-          padding: 60px 50px;
-          border-radius: 20px;
-          max-width: 440px;
-          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-        "
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 120 120"
-          fill="none"
-          style="width: 88px; height: 88px; margin: 0 auto 28px; display: block"
-        >
-          <defs>
-            <linearGradient id="l1e" x1=".5" y1="0" x2=".5" y2="1">
-              <stop offset="0%" stop-color="#8B7FF5" />
-              <stop offset="100%" stop-color="#6C5CE7" />
-            </linearGradient>
-            <linearGradient id="l2e" x1=".5" y1="0" x2=".5" y2="1">
-              <stop offset="0%" stop-color="#A594F9" />
-              <stop offset="50%" stop-color="#7B6CF6" />
-              <stop offset="100%" stop-color="#6366F1" />
-            </linearGradient>
-            <linearGradient id="de" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stop-color="#B8ACF6" />
-              <stop offset="50%" stop-color="#8B7FF5" />
-              <stop offset="100%" stop-color="#6C5CE7" />
-            </linearGradient>
-          </defs>
-          <path
-            d="M20,95 L20,25 C20,21.7 22.7,19 26,19 C29.3,19 32,21.7 32,25 L32,95 C32,98.3 29.3,101 26,101 C22.7,101 20,98.3 20,95Z"
-            fill="url(#l1e)"
-            opacity=".7"
-          />
-          <path
-            d="M22,30 L30,19 L100,90 L92,101Z"
-            fill="url(#de)"
-            opacity=".55"
-          />
-          <path
-            d="M88,95 L88,25 C88,21.7 90.7,19 94,19 C97.3,19 100,21.7 100,25 L100,95 C100,98.3 97.3,101 94,101 C90.7,101 88,98.3 88,95Z"
-            fill="url(#l1e)"
-            opacity=".7"
-          />
-          <path
-            d="M20,35 L20,25 C20,21.7 22.7,19 26,19 C29.3,19 32,21.7 32,25 L32,35 C32,38.3 29.3,41 26,41 C22.7,41 20,38.3 20,35Z"
-            fill="url(#l2e)"
-            opacity=".9"
-          />
-          <path
-            d="M88,95 L88,85 C88,81.7 90.7,79 94,79 C97.3,79 100,81.7 100,85 L100,95 C100,98.3 97.3,101 94,101 C90.7,101 88,98.3 88,95Z"
-            fill="url(#l2e)"
-            opacity=".9"
-          />
-        </svg>
-        <h1
-          style="
-            color: #e4e4e7;
-            font-size: 30px;
-            font-weight: 700;
-            margin: 0 0 8px;
-            font-family: Inter, sans-serif;
-          "
-        >
-          Welcome to Nova AI
-        </h1>
-        <p
-          style="
-            color: rgba(255, 255, 255, 0.45);
-            font-size: 15px;
-            margin: 0 0 36px;
-            font-family: Inter, sans-serif;
-            line-height: 1.6;
-          "
-        >
-          AI-powered recruitment intelligence platform.<br />Sign in to access
-          the suite.
+    <!-- Login screen mockup -->
+    <div>
+      <h2 class="section-label">Login Screen Mockup</h2>
+      <div class="login-card">
+        <img
+          src="nova-logo.svg"
+          width="88"
+          height="88"
+          alt="Nova N logo"
+          style="display: block; margin: 0 auto 28px"
+        />
+        <h1>Welcome to Nova AI</h1>
+        <p class="subtitle">
+          AI-powered recruitment intelligence platform.<br />
+          Sign in to access the suite.
         </p>
-        <button
-          style="
-            background: white;
-            color: #1a1a2e;
-            border: none;
-            padding: 14px 36px;
-            border-radius: 12px;
-            font-size: 15px;
-            font-weight: 600;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-family: Inter, sans-serif;
-            margin: 0 auto;
-            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
-          "
-        >
+        <button class="login-btn">
           <svg viewBox="0 0 24 24" style="width: 20px; height: 20px">
             <path
               d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"
@@ -479,16 +260,7 @@
           </svg>
           Sign in with Google
         </button>
-        <p
-          style="
-            color: rgba(255, 255, 255, 0.25);
-            font-size: 12px;
-            margin-top: 28px;
-            font-family: Inter, sans-serif;
-          "
-        >
-          Created by Shubham Singh Chandel
-        </p>
+        <p class="login-footer">Created by Shubham Singh Chandel</p>
       </div>
     </div>
   </body>

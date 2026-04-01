@@ -1,43 +1,28 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
   <defs>
-    <linearGradient id="leg1" x1=".5" y1="0" x2=".5" y2="1">
+    <linearGradient id="grad-left" x1="0.5" y1="0" x2="0.5" y2="1">
       <stop offset="0%" stop-color="#8B7FF5"/>
       <stop offset="100%" stop-color="#6C5CE7"/>
     </linearGradient>
-    <linearGradient id="leg2" x1=".5" y1="0" x2=".5" y2="1">
-      <stop offset="0%" stop-color="#A594F9"/>
-      <stop offset="50%" stop-color="#7B6CF6"/>
-      <stop offset="100%" stop-color="#6366F1"/>
-    </linearGradient>
-    <linearGradient id="diag" x1="0" y1="0" x2="1" y2="1">
+    <linearGradient id="grad-diag" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0%" stop-color="#B8ACF6"/>
-      <stop offset="50%" stop-color="#8B7FF5"/>
+      <stop offset="100%" stop-color="#6C5CE7"/>
+    </linearGradient>
+    <linearGradient id="grad-right" x1="0.5" y1="0" x2="0.5" y2="1">
+      <stop offset="0%" stop-color="#8B7FF5"/>
       <stop offset="100%" stop-color="#6C5CE7"/>
     </linearGradient>
   </defs>
 
   <!-- N = left vertical + diagonal (top-left to bottom-right) + right vertical -->
-  <!-- Built from thick rounded strokes like Mercor's M -->
+  <!-- Mercor-style thick rounded strokes with transparency overlap -->
 
-  <!-- Left vertical leg (back layer, slightly transparent) -->
-  <path d="M20,95 L20,25 C20,21.7 22.7,19 26,19 C29.3,19 32,21.7 32,25 L32,95 C32,98.3 29.3,101 26,101 C22.7,101 20,98.3 20,95Z"
-        fill="url(#leg1)" opacity=".7"/>
+  <!-- Left vertical stroke -->
+  <line x1="28" y1="95" x2="28" y2="25" stroke="url(#grad-left)" stroke-width="15" stroke-linecap="round" opacity="0.75"/>
 
-  <!-- Diagonal stroke: from top-left to bottom-right -->
-  <!-- This is a parallelogram/ribbon shape -->
-  <path d="M22,30 L30,19 L100,90 L92,101 Z"
-        fill="url(#diag)" opacity=".55"/>
+  <!-- Diagonal stroke: top-left down to bottom-right -->
+  <line x1="28" y1="25" x2="92" y2="95" stroke="url(#grad-diag)" stroke-width="15" stroke-linecap="round" opacity="0.55"/>
 
-  <!-- Right vertical leg (back layer) -->
-  <path d="M88,95 L88,25 C88,21.7 90.7,19 94,19 C97.3,19 100,21.7 100,25 L100,95 C100,98.3 97.3,101 94,101 C90.7,101 88,98.3 88,95Z"
-        fill="url(#leg1)" opacity=".7"/>
-
-  <!-- Overlap highlights where diagonal meets verticals -->
-  <!-- Top-left intersection: brighter -->
-  <path d="M20,35 L20,25 C20,21.7 22.7,19 26,19 C29.3,19 32,21.7 32,25 L32,35 C32,38.3 29.3,41 26,41 C22.7,41 20,38.3 20,35Z"
-        fill="url(#leg2)" opacity=".9"/>
-
-  <!-- Bottom-right intersection: brighter -->
-  <path d="M88,95 L88,85 C88,81.7 90.7,79 94,79 C97.3,79 100,81.7 100,85 L100,95 C100,98.3 97.3,101 94,101 C90.7,101 88,98.3 88,95Z"
-        fill="url(#leg2)" opacity=".9"/>
+  <!-- Right vertical stroke -->
+  <line x1="92" y1="95" x2="92" y2="25" stroke="url(#grad-right)" stroke-width="15" stroke-linecap="round" opacity="0.75"/>
 </svg>

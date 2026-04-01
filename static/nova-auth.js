@@ -158,6 +158,13 @@
       if (logoutBtn) logoutBtn.style.display = "none";
     }
 
+    // Floating user badge
+    if (user) {
+      _renderUserBadge();
+    } else {
+      _removeUserBadge();
+    }
+
     // Update chat widget header if it exists
     _updateChatWidgetAuth(user);
   }
@@ -190,6 +197,160 @@
     var div = document.createElement("div");
     div.appendChild(document.createTextNode(str));
     return div.innerHTML;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Floating User Badge (top-right corner, all gated pages)
+  // ---------------------------------------------------------------------------
+  var _badgeEl = null;
+  var _dropdownOpen = false;
+
+  function _renderUserBadge() {
+    if (!_currentUser) return;
+    _removeUserBadge();
+
+    var container = document.createElement("div");
+    container.id = "nova-auth-badge";
+    container.style.cssText =
+      "position:fixed;top:16px;right:16px;z-index:99998;font-family:Inter,system-ui,sans-serif;";
+
+    // Avatar circle
+    var avatar = document.createElement("div");
+    avatar.id = "nova-auth-badge-avatar";
+    avatar.style.cssText =
+      "width:40px;height:40px;border-radius:50%;cursor:pointer;" +
+      "background:rgba(30,30,50,0.9);border:1px solid rgba(255,255,255,0.1);" +
+      "display:flex;align-items:center;justify-content:center;" +
+      "overflow:hidden;transition:box-shadow 0.2s ease;";
+
+    if (_currentUser.avatar_url || _currentUser.avatar) {
+      var img = document.createElement("img");
+      img.src = _currentUser.avatar_url || _currentUser.avatar || "";
+      img.alt = _currentUser.name || _currentUser.email || "User";
+      img.style.cssText =
+        "width:100%;height:100%;object-fit:cover;border-radius:50%;";
+      img.onerror = function () {
+        img.style.display = "none";
+        _showInitial(avatar);
+      };
+      avatar.appendChild(img);
+    } else {
+      _showInitial(avatar);
+    }
+
+    // Tooltip (name on hover)
+    avatar.title = _currentUser.name || _currentUser.email || "";
+
+    // Dropdown panel
+    var dropdown = document.createElement("div");
+    dropdown.id = "nova-auth-badge-dropdown";
+    dropdown.style.cssText =
+      "position:absolute;top:48px;right:0;min-width:220px;" +
+      "background:rgba(30,30,50,0.95);border:1px solid rgba(255,255,255,0.1);" +
+      "border-radius:12px;padding:12px 16px;display:none;" +
+      "box-shadow:0 8px 32px rgba(0,0,0,0.4);backdrop-filter:blur(12px);";
+
+    // User info row
+    var infoRow = document.createElement("div");
+    infoRow.style.cssText =
+      "margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,0.08);";
+
+    var nameEl = document.createElement("div");
+    nameEl.style.cssText =
+      "color:#fff;font-size:14px;font-weight:600;line-height:1.3;";
+    nameEl.textContent =
+      _currentUser.name || _currentUser.email?.split("@")[0] || "User";
+    infoRow.appendChild(nameEl);
+
+    var emailEl = document.createElement("div");
+    emailEl.style.cssText =
+      "color:rgba(255,255,255,0.5);font-size:12px;margin-top:2px;";
+    emailEl.textContent = _currentUser.email || "";
+    infoRow.appendChild(emailEl);
+
+    dropdown.appendChild(infoRow);
+
+    // Sign out button
+    var signOutBtn = document.createElement("button");
+    signOutBtn.textContent = "Sign out";
+    signOutBtn.style.cssText =
+      "width:100%;padding:8px 12px;border:none;border-radius:8px;cursor:pointer;" +
+      "background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.8);" +
+      "font-size:13px;font-family:Inter,system-ui,sans-serif;text-align:left;" +
+      "transition:background 0.15s ease;";
+    signOutBtn.onmouseenter = function () {
+      signOutBtn.style.background = "rgba(255,80,80,0.15)";
+      signOutBtn.style.color = "#ff6b6b";
+    };
+    signOutBtn.onmouseleave = function () {
+      signOutBtn.style.background = "rgba(255,255,255,0.06)";
+      signOutBtn.style.color = "rgba(255,255,255,0.8)";
+    };
+    signOutBtn.onclick = function (e) {
+      e.stopPropagation();
+      signOut();
+    };
+    dropdown.appendChild(signOutBtn);
+
+    container.appendChild(avatar);
+    container.appendChild(dropdown);
+
+    // Toggle dropdown on avatar click
+    avatar.onclick = function (e) {
+      e.stopPropagation();
+      _dropdownOpen = !_dropdownOpen;
+      dropdown.style.display = _dropdownOpen ? "block" : "none";
+      avatar.style.boxShadow = _dropdownOpen
+        ? "0 0 0 2px rgba(90,84,189,0.5)"
+        : "none";
+    };
+
+    // Hover glow
+    avatar.onmouseenter = function () {
+      if (!_dropdownOpen)
+        avatar.style.boxShadow = "0 0 0 2px rgba(90,84,189,0.3)";
+    };
+    avatar.onmouseleave = function () {
+      if (!_dropdownOpen) avatar.style.boxShadow = "none";
+    };
+
+    // Close dropdown when clicking elsewhere
+    document.addEventListener("click", _closeBadgeDropdown);
+
+    document.body.appendChild(container);
+    _badgeEl = container;
+  }
+
+  function _showInitial(parent) {
+    var initial = document.createElement("span");
+    initial.style.cssText =
+      "color:#fff;font-size:16px;font-weight:600;text-transform:uppercase;" +
+      "user-select:none;";
+    var letter =
+      (_currentUser.name && _currentUser.name.charAt(0)) ||
+      (_currentUser.email && _currentUser.email.charAt(0)) ||
+      "?";
+    initial.textContent = letter;
+    parent.appendChild(initial);
+  }
+
+  function _removeUserBadge() {
+    if (_badgeEl) {
+      _badgeEl.remove();
+      _badgeEl = null;
+    }
+    _dropdownOpen = false;
+    document.removeEventListener("click", _closeBadgeDropdown);
+  }
+
+  function _closeBadgeDropdown() {
+    if (_dropdownOpen) {
+      _dropdownOpen = false;
+      var dd = document.getElementById("nova-auth-badge-dropdown");
+      if (dd) dd.style.display = "none";
+      var av = document.getElementById("nova-auth-badge-avatar");
+      if (av) av.style.boxShadow = "none";
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -231,20 +392,25 @@
 
   function signOut() {
     var sb = _getSupabase();
+    var _cleanup = function () {
+      _setUser(null);
+      try {
+        localStorage.removeItem(AUTH_CONFIG.sessionKey);
+      } catch (_) {}
+      window.location.reload();
+    };
     if (sb) {
       sb.auth
         .signOut()
         .then(function () {
-          _setUser(null);
-          _showAuthToast("Signed out successfully", "success");
+          _cleanup();
         })
         .catch(function (err) {
           console.warn("[NovaAuth] Sign-out error:", err);
-          // Force local cleanup even if Supabase call fails
-          _setUser(null);
+          _cleanup();
         });
     } else {
-      _setUser(null);
+      _cleanup();
     }
   }
 
