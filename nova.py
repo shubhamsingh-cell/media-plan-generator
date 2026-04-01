@@ -3382,7 +3382,7 @@ Before calling any tools, briefly plan which tools you need:
 - For H-1B/visa salary questions: call query_h1b_salaries (city-level H-1B wage data with top employers)
 - For labor market outlook: call query_occupation_projections + query_market_demand
 - For media plan questions: call query_budget_projection + query_channels + query_salary_data + query_market_demand + query_benchmarks
-- For comparison questions: call the relevant tool for EACH item being compared
+- For comparison questions (city vs city, role vs role): call ALL relevant tools for ALL items IN ONE BATCH (e.g., query_salary_data for City A AND query_salary_data for City B in the SAME tool call round). Do NOT do one city per iteration -- batch everything in 1-2 rounds max, then synthesize.
 - For competitive analysis: call analyze_competitors + query_market_signals + query_location_profile
 - For skills/occupation questions: call query_skills_profile + query_salary_data + query_market_demand
 - For "what roles are similar to X": call query_skills_profile with include='related'
@@ -10721,7 +10721,7 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
             "- For H-1B/visa salary questions: call query_h1b_salaries (city-level H-1B wage data with top employers)\n"
             "- For labor market outlook: call query_occupation_projections + query_market_demand\n"
             "- For media plan questions: call query_budget_projection + query_channels + query_salary_data + query_market_demand + query_benchmarks\n"
-            "- For comparison questions: call the relevant tool for EACH item being compared\n"
+            "- For comparison questions (city vs city, role vs role): call ALL relevant tools for ALL items IN ONE BATCH (e.g., query_salary_data for City A AND City B in the SAME round). Do NOT do one city per iteration -- batch everything in 1-2 rounds max, then synthesize.\n"
             "- For competitive analysis: call analyze_competitors + query_market_signals + query_location_profile\n"
             "- For skills/occupation questions: call query_skills_profile + query_salary_data + query_market_demand\n"
             "- For remote/distributed workforce questions: call query_remote_jobs + query_workforce_demographics\n"
@@ -11664,12 +11664,36 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
         sources = set()
         tool_call_details = []  # Track detailed tool interactions for debugging
         tool_results_raw = []  # Collect raw tool results for grounding verification
-        max_iterations = (
-            5  # v4.2: 5 iterations (Claude is fast, 5x~8s=40s within 55s budget)
+
+        # S33: Comparison-aware iteration limits for Claude path.
+        # Comparison queries (city vs city) need only 2-3 iterations because
+        # Claude can batch tool calls for both cities in a single round.
+        # Previously used static 5 iterations which caused >90s timeouts.
+        _msg_lower_c = (user_message or "").lower()
+        _is_comparison_c = any(
+            kw in _msg_lower_c
+            for kw in (
+                "compare",
+                "vs",
+                "versus",
+                "comparison",
+                "better for",
+                "compared to",
+            )
         )
-        _MAX_TOTAL_TOOL_CALLS = (
-            20  # S26: Hard cap on total tool calls across all iterations
-        )
+        if _is_comparison_c:
+            max_iterations = 3  # S33: 1 batch data + 1 follow-up + 1 synthesis
+            _MAX_TOTAL_TOOL_CALLS = 10  # S33: Enough for 2 cities x 4-5 tools
+            logger.info(
+                "Claude comparison query detected -- capped to 3 iterations, 10 tool calls"
+            )
+        else:
+            max_iterations = (
+                5  # v4.2: 5 iterations (Claude is fast, 5x~8s=40s within 55s budget)
+            )
+            _MAX_TOTAL_TOOL_CALLS = (
+                20  # S26: Hard cap on total tool calls across all iterations
+            )
         # S32: Reduced 25s -> 20s (Haiku synthesizes in 15-18s consistently)
         _SYNTHESIS_RESERVE_C = 20.0  # seconds reserved for final synthesis call
 
@@ -11767,18 +11791,26 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
         # S32: Dynamic budget from outer_deadline (was static 50s, causing timeouts
         # on competitive intel / multi-city queries that arrive via Path C after
         # enrichment already consumed 20-30s of the 90s outer budget).
+        # S33: Comparison queries get a tighter cap (35s) because they should
+        # batch all tool calls in 1-2 rounds, not iterate sequentially per city.
         _loop_start_c = time.monotonic()
+        _MAX_LOOP_CAP = 35.0 if _is_comparison_c else 50.0
         if outer_deadline:
             _remaining_c = outer_deadline - time.time()
-            _LOOP_BUDGET_C = max(15.0, min(50.0, _remaining_c - _SYNTHESIS_RESERVE_C))
+            _LOOP_BUDGET_C = max(
+                15.0, min(_MAX_LOOP_CAP, _remaining_c - _SYNTHESIS_RESERVE_C)
+            )
             logger.info(
-                "Claude tool loop: dynamic budget=%.1fs (remaining=%.1fs, reserve=%.0fs)",
+                "Claude tool loop: dynamic budget=%.1fs (remaining=%.1fs, reserve=%.0fs, comparison=%s)",
                 _LOOP_BUDGET_C,
                 _remaining_c,
                 _SYNTHESIS_RESERVE_C,
+                _is_comparison_c,
             )
         else:
-            _LOOP_BUDGET_C = 50.0  # static fallback
+            _LOOP_BUDGET_C = (
+                _MAX_LOOP_CAP  # static fallback (35s comparison, 50s normal)
+            )
 
         for iteration in range(max_iterations):
             # S24: Check deadline before starting a new iteration
@@ -12058,6 +12090,20 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                         _total_tools_now,
                     )
                     break
+                # S33: Comparison early exit -- once we have sufficient data
+                # for both sides of the comparison (>=4 tools = ~2 per city),
+                # stop gathering and let Claude synthesize on the next iteration.
+                if _is_comparison_c and _total_tools_now >= 4 and iteration >= 1:
+                    logger.info(
+                        "Claude comparison: sufficient data (%d tools at iter %d) "
+                        "— allowing one more iteration for synthesis",
+                        _total_tools_now,
+                        iteration,
+                    )
+                    # Don't break -- let the loop continue ONE more time
+                    # so Claude can produce a text response with the data.
+                    # But cap iterations to current + 1.
+                    max_iterations = min(max_iterations, iteration + 2)
             else:
                 # Extract text response
                 response_text = ""

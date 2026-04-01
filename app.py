@@ -9820,23 +9820,27 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                             content = f.read()
                         etag = hashlib.sha256(content).hexdigest()[:12]
 
+                    # Cache policy: JS/CSS use must-revalidate so browsers
+                    # always check ETags (304 on match); images/fonts use
+                    # long-lived immutable cache (they rarely change).
+                    if ext in (".js", ".css"):
+                        cache_control = "public, no-cache, must-revalidate"
+                    else:
+                        cache_control = "public, max-age=31536000, immutable"
+
                     # ETag-based conditional response (304 Not Modified)
                     client_etag = self.headers.get("If-None-Match", "")
                     if client_etag and client_etag.strip('"') == etag:
                         self.send_response(304)
                         self.send_header("ETag", f'"{etag}"')
-                        self.send_header(
-                            "Cache-Control", "public, max-age=31536000, immutable"
-                        )
+                        self.send_header("Cache-Control", cache_control)
                         self.end_headers()
                         return
 
                     self.send_response(200)
                     self.send_header("Content-Type", f"{ctype}; charset=utf-8")
                     self.send_header("Content-Length", str(len(content)))
-                    self.send_header(
-                        "Cache-Control", "public, max-age=31536000, immutable"
-                    )  # 1 year -- cache-bust via query param
+                    self.send_header("Cache-Control", cache_control)
                     self.send_header("ETag", f'"{etag}"')
                     self.end_headers()
                     self.wfile.write(content)
