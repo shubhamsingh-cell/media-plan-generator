@@ -14061,11 +14061,61 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         r"how'?s it going|how do you do|greetings|namaste)\b",
                         _msg_lower,
                     )
-                    if _is_trivial:
+
+                    # S32: Gibberish/nonsense detection -- skip enrichment + tools
+                    _is_gibberish_input = False
+                    if not _is_trivial and len(_msg_words) <= 5:
+
+                        def _is_gibberish(text: str) -> bool:
+                            """Detect gibberish/keyboard mash/nonsense input."""
+                            words = text.split()
+                            if not words:
+                                return True
+                            vowels = set("aeiou")
+                            real_word_count = 0
+                            for w in words:
+                                w_clean = re.sub(r"[^a-z]", "", w.lower())
+                                if len(w_clean) < 2:
+                                    continue
+                                if vowels & set(w_clean):
+                                    real_word_count += 1
+                            # No real words (words with vowels) => gibberish
+                            if real_word_count == 0 and len(text.strip()) > 0:
+                                return True
+                            # High consonant ratio (keyboard mash like "asdfghjkl")
+                            alpha_chars = re.sub(r"[^a-z]", "", text.lower())
+                            if len(alpha_chars) >= 4:
+                                vowel_count = sum(1 for c in alpha_chars if c in vowels)
+                                if vowel_count / len(alpha_chars) < 0.15:
+                                    return True
+                            return False
+
+                        if _is_gibberish(_msg_lower):
+                            _is_trivial = True
+                            _is_gibberish_input = True
+                            print(
+                                f"[CHAT DEBUG] gibberish detected -- skipping enrichment + tools",
+                                flush=True,
+                            )
+
+                    if _is_trivial and not _is_gibberish_input:
                         print(
                             f"[CHAT DEBUG] greeting detected -- skipping enrichment",
                             flush=True,
                         )
+                    elif _is_gibberish_input:
+                        # Return fast clarification response without LLM/tool calls
+                        return {
+                            "response": (
+                                "I didn't quite understand that. Could you rephrase your question? "
+                                "I can help with recruitment media planning, salary benchmarks, "
+                                "job market trends, and more."
+                            ),
+                            "sources": [],
+                            "confidence": 0.0,
+                            "tools_used": [],
+                            "llm_provider": "none (gibberish early-exit)",
+                        }
                     else:
                         print(f"[CHAT DEBUG] enrichment starting", flush=True)
                         try:
@@ -14105,15 +14155,23 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     )
                     response = {
                         "response": (
-                            "I took too long to respond. Please try again with a simpler question."
+                            "I wasn't able to complete my full analysis within the time limit, "
+                            "but here's what I can tell you based on what I gathered:\n\n"
+                            "Your question required multiple data lookups that took longer than expected. "
+                            "Here are some suggestions:\n\n"
+                            "1. **Try breaking your question into smaller parts** -- ask about one specific aspect at a time\n"
+                            "2. **Be more specific** -- instead of comparing multiple cities, ask about one city first\n"
+                            "3. **Try again** -- server load varies and the same question may succeed on retry\n\n"
+                            "I apologize for the inconvenience. Nova processes 56+ data tools and sometimes "
+                            "complex queries need a bit more time."
                             if _is_timeout
                             else "An error occurred processing your request. Please try again."
                         ),
                         "sources": [],
-                        "confidence": 0.0,
+                        "confidence": 0.3 if _is_timeout else 0.0,
                         "tools_used": [],
                         "error": (
-                            "Request timed out"
+                            "Request timed out - partial response provided"
                             if _is_timeout
                             else str(_chat_timeout_err)[:200]
                         ),

@@ -5469,6 +5469,29 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
         role = (params.get("role") or "").strip()
         location = (params.get("location") or "").strip()
 
+        # Physician role normalization -- ensure physician variants map to
+        # correct salary data ($180K-$310K+) instead of generic fallback
+        _PHYSICIAN_ALIASES = {
+            "primary care physician": "Physician",
+            "family medicine physician": "Physician",
+            "family doctor": "Physician",
+            "general practitioner": "Physician",
+            "gp": "Physician",
+            "internist": "Physician",
+            "internal medicine physician": "Physician",
+            "pcp": "Physician",
+            "md": "Physician",
+            "doctor": "Physician",
+        }
+        if role:
+            role_lower = role.lower()
+            # Skip normalization for "physician assistant" / "PA" roles
+            if "physician assistant" not in role_lower and "pa-c" not in role_lower:
+                for alias, normalized in _PHYSICIAN_ALIASES.items():
+                    if alias in role_lower:
+                        role = normalized
+                        break
+
         # Fast path: check pre-computed data first (zero API calls)
         if role and location:
             try:
