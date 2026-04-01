@@ -704,5 +704,33 @@
       defer
     ></script>
     <script src="/static/js/animations.js?v=2.0.0" defer></script>
+    <!-- Nova Auth: Google Sign-In via Supabase (hard gate) -->
+    <script
+      src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"
+      defer
+    ></script>
+    <script src="/static/nova-auth.js?v=1.0.0" defer></script>
+    <script src="/static/nova-auth-gate.js?v=1.0.0" defer></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        if (typeof NovaAuth === "undefined") return;
+        fetch("/api/config")
+          .then(function (r) {
+            return r.json();
+          })
+          .then(function (cfg) {
+            if (cfg && cfg.auth_enabled) {
+              NovaAuth.init({
+                supabaseUrl: cfg.supabase_url || "",
+                supabaseAnonKey: cfg.supabase_anon_key || "",
+                allowedDomains: [],
+              });
+            }
+          })
+          .catch(function () {
+            // Auth init failure must never break the page
+          });
+      });
+    </script>
   </body>
 </html>
