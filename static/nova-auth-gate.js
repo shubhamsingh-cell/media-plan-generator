@@ -10,6 +10,38 @@
     // Don't gate if already logged in
     if (typeof NovaAuth !== "undefined" && NovaAuth.isLoggedIn()) return;
 
+    // Check if we just came back from OAuth (access_token in URL hash)
+    if (
+      window.location.hash &&
+      window.location.hash.indexOf("access_token") !== -1
+    ) {
+      // Auth succeeded -- save minimal user info and skip gate
+      try {
+        // Parse the hash params
+        var hashParams = {};
+        window.location.hash
+          .substring(1)
+          .split("&")
+          .forEach(function (p) {
+            var kv = p.split("=");
+            hashParams[kv[0]] = decodeURIComponent(kv[1] || "");
+          });
+        if (hashParams.access_token) {
+          // Store token so gate knows user is authenticated
+          localStorage.setItem(
+            "nova_auth_user",
+            JSON.stringify({
+              email: "authenticated",
+              token: hashParams.access_token,
+            }),
+          );
+          // Clean up URL hash
+          history.replaceState(null, "", window.location.pathname);
+          return; // Skip gate
+        }
+      } catch (_) {}
+    }
+
     // Check localStorage for cached user
     try {
       var cached = localStorage.getItem("nova_auth_user");
