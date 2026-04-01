@@ -1453,12 +1453,24 @@ class DataEnrichmentEngine:
 
                     adzuna_result = fetch_job_market(roles=[role], locations=["USA"])
                     if adzuna_result and isinstance(adzuna_result, dict):
-                        count = (
-                            adzuna_result.get("posting_count")
-                            or adzuna_result.get("count")
-                            or adzuna_result.get("total")
-                            or 0
-                        )
+                        # fetch_job_market returns {role_name: {posting_count: N, ...}}
+                        # Extract the role-level entry first, then check top-level as fallback
+                        _role_entry = adzuna_result.get(role) or {}
+                        if isinstance(_role_entry, dict):
+                            count = (
+                                _role_entry.get("posting_count")
+                                or _role_entry.get("count")
+                                or _role_entry.get("total")
+                                or 0
+                            )
+                        else:
+                            # Fallback: check top-level keys (legacy format)
+                            count = (
+                                adzuna_result.get("posting_count")
+                                or adzuna_result.get("count")
+                                or adzuna_result.get("total")
+                                or 0
+                            )
                         if count > 0:
                             data = {
                                 "role": role,

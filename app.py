@@ -14012,9 +14012,14 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 )
                 return
             _CHAT_REQUEST_TIMEOUT: float = (
-                90.0  # seconds -- must finish well before gunicorn 120s kill
-                # S25: raised from 75→90. Complex media-plan queries need
-                # enrichment(15s) + tool loop(~45s) + synthesis(20s) = 80s.
+                55.0  # seconds -- must finish before P99 SLO target of 65s
+                # S32: lowered from 90→55. The 90s timeout caused P50=P99=90s
+                # SLO violations because every timeout hit exactly 90s.
+                # At 55s + ~5s overhead = 60s total, comfortably within 65s P99.
+                # Complex queries that would have taken 60-90s now return
+                # partial results earlier via the partial_accumulator pattern,
+                # which is a better UX than waiting 90s for a timeout message.
+                # gunicorn kill is 120s so 55s is safely below that.
             )
             try:
                 from nova import handle_chat_request

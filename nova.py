@@ -5602,9 +5602,37 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
         }
         role_lower = role.lower()
         tier = "Professional"
-        if any(
-            kw in role_lower
-            for kw in ["nurse", "rn", "lpn", "therapist", "physician", "clinical"]
+        # Physician tier MUST be checked BEFORE Clinical to avoid $45K fallback
+        _is_physician = (
+            any(
+                kw in role_lower
+                for kw in [
+                    "physician",
+                    "doctor",
+                    "surgeon",
+                    "psychiatrist",
+                    "anesthesiologist",
+                    "cardiologist",
+                    "dermatologist",
+                    "radiologist",
+                    "oncologist",
+                    "neurologist",
+                    "urologist",
+                    "pathologist",
+                    "hospitalist",
+                    "internist",
+                    "pediatrician",
+                    "obstetrician",
+                    "gynecologist",
+                ]
+            )
+            and "physician assistant" not in role_lower
+            and "pa-c" not in role_lower
+        )
+        if _is_physician:
+            tier = "Physician"
+        elif any(
+            kw in role_lower for kw in ["nurse", "rn", "lpn", "therapist", "clinical"]
         ):
             tier = "Clinical"
         elif any(
@@ -5630,6 +5658,7 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
 
         _US_RANGES = {
             "Professional": ("$75,000", "$200,000"),
+            "Physician": ("$180,000", "$400,000+"),
             "Clinical": ("$45,000", "$120,000"),
             "Executive": ("$150,000", "$500,000+"),
             "Trades": ("$35,000", "$80,000"),

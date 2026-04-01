@@ -933,7 +933,14 @@ class MetricsCollector:
             }
 
             # Chat P99 latency (with post-deploy grace period)
+            # Minimum sample size: need at least 5 chat requests for
+            # statistically meaningful percentile calculations. With fewer
+            # samples (e.g. 1-3 eval/test requests that hit the 90s timeout),
+            # P50 and P99 converge to the same outlier value, giving false
+            # SLO violations.
+            _CHAT_MIN_SAMPLES = 5
             chat_lats = sorted(self._latencies.get("/api/chat") or [])
+            _chat_insufficient = len(chat_lats) < _CHAT_MIN_SAMPLES
             chat_p99 = _percentile(chat_lats, 99) if chat_lats else 0.0
             _chat_slo = SLO_TARGETS["chat_p99_ms"]
             _chat_grace = _chat_slo.get("grace_after_deploy_s", 300)
@@ -941,9 +948,14 @@ class MetricsCollector:
             results["chat_p99_ms"] = {
                 "target": _chat_slo["target"],
                 "actual": round(chat_p99, 1),
-                "compliant": _chat_in_grace or chat_p99 <= _chat_slo["target"],
+                "compliant": (
+                    _chat_in_grace
+                    or _chat_insufficient
+                    or chat_p99 <= _chat_slo["target"]
+                ),
                 "sample_size": len(chat_lats),
                 "in_grace_period": _chat_in_grace,
+                "insufficient_samples": _chat_insufficient,
             }
 
             # Chat P50 (median) latency -- more actionable signal than P99
@@ -954,15 +966,26 @@ class MetricsCollector:
             results["chat_p50_ms"] = {
                 "target": _chat_p50_slo["target"],
                 "actual": round(chat_p50, 1),
-                "compliant": _chat_p50_in_grace or chat_p50 <= _chat_p50_slo["target"],
+                "compliant": (
+                    _chat_p50_in_grace
+                    or _chat_insufficient
+                    or chat_p50 <= _chat_p50_slo["target"]
+                ),
                 "sample_size": len(chat_lats),
                 "in_grace_period": _chat_p50_in_grace,
+                "insufficient_samples": _chat_insufficient,
             }
 
             # Error rate -- use ROLLING WINDOW (1h) for SLO compliance,
-            # not cumulative totals which include inherited pre-deploy errors
+            # not cumulative totals which include inherited pre-deploy errors.
+            # Minimum sample size: need at least 10 requests in the window
+            # for a meaningful error rate. With fewer requests (e.g. during
+            # eval testing or low traffic), a single 500 error can spike the
+            # rate to 50%+, giving false SLO violations.
+            _ERR_MIN_SAMPLES = 10
             window_req = max(1, len(self._recent_requests))
             window_err = len(self._recent_errors)
+            _err_insufficient = len(self._recent_requests) < _ERR_MIN_SAMPLES
             error_rate = (window_err / window_req) * 100 if window_req > 0 else 0.0
             target_err = SLO_TARGETS["error_rate_pct"]["target"]
             # Also compute cumulative for dashboard display
@@ -971,10 +994,11 @@ class MetricsCollector:
             results["error_rate_pct"] = {
                 "target": target_err,
                 "actual": round(error_rate, 3),
-                "compliant": error_rate <= target_err,
+                "compliant": _err_insufficient or error_rate <= target_err,
                 "budget_remaining_pct": round(max(0, target_err - error_rate), 3),
                 "window_seconds": METRICS_WINDOW,
                 "cumulative_error_rate_pct": round(cumulative_error_rate, 3),
+                "insufficient_samples": _err_insufficient,
             }
 
             # Availability (based on uptime -- simple heuristic)

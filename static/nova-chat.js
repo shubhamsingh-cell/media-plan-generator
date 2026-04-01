@@ -124,6 +124,7 @@
         onReady(_widgetWsConn);
       };
       _widgetWsConn.onerror = function () {
+        console.warn("[Nova] WebSocket unavailable, using SSE fallback");
         _widgetWsFailCount++;
         onReady(null);
       };
@@ -1216,6 +1217,25 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Toast notification helper for export feedback
+  // ---------------------------------------------------------------------------
+  function _showNovaToast(msg) {
+    var t = document.createElement("div");
+    t.textContent = msg;
+    t.style.cssText =
+      "position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:rgba(107,179,205,0.95);color:#fff;padding:8px 20px;border-radius:8px;font-size:13px;z-index:100000;opacity:0;transition:opacity 0.3s;pointer-events:none;";
+    document.body.appendChild(t);
+    requestAnimationFrame(function () {
+      t.style.opacity = "1";
+    });
+    setTimeout(function () {
+      t.style.opacity = "0";
+      setTimeout(function () {
+        t.remove();
+      }, 300);
+    }, 2000);
+  }
+
   // Export handlers (Issue 2: export dropdown)
   // ---------------------------------------------------------------------------
   function handleExportOption(exportType) {
@@ -1237,10 +1257,7 @@
         textContent += label + ": " + m.content + "\n\n";
       });
       navigator.clipboard.writeText(textContent).then(function () {
-        appendMessage(
-          { role: "assistant", content: "Conversation copied as plain text!" },
-          false,
-        );
+        _showNovaToast("Copied as text!");
       });
     } else if (exportType === "markdown") {
       var mdContent = "# Nova AI Conversation\n\n";
@@ -1252,10 +1269,7 @@
         mdContent += label + " " + m.content + "\n\n---\n\n";
       });
       navigator.clipboard.writeText(mdContent).then(function () {
-        appendMessage(
-          { role: "assistant", content: "Conversation copied as Markdown!" },
-          false,
-        );
+        _showNovaToast("Copied as Markdown!");
       });
     } else if (exportType === "pdf") {
       // Open the panel fullscreen for print
@@ -1264,8 +1278,10 @@
         state.chatPanel.classList.remove("nova-hidden");
       }
       window.print();
+      _showNovaToast("Download started");
     } else if (exportType === "html") {
       exportConversation(); // existing HTML export via server
+      _showNovaToast("Export started");
     }
   }
 
@@ -1856,6 +1872,14 @@
   // Panel toggle
   // ---------------------------------------------------------------------------
   function togglePanel(forceClose) {
+    // Debounce FAB toggle (300ms cooldown) to prevent double-click open→close
+    if (forceClose !== true) {
+      if (window._novaFabDebounce) return;
+      window._novaFabDebounce = true;
+      setTimeout(function () {
+        window._novaFabDebounce = false;
+      }, 300);
+    }
     // If forceClose is true, always close regardless of current state
     if (forceClose === true) {
       state.isOpen = false;
