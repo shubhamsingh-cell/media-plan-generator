@@ -14,7 +14,7 @@ import io
 import logging
 import math
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 logger = logging.getLogger(__name__)
 
@@ -105,8 +105,8 @@ def generate_pdf_report(
         from reportlab.lib import colors
         from reportlab.lib.pagesizes import A4
         from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-        from reportlab.lib.units import inch, mm
-        from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+        from reportlab.lib.units import mm
+        from reportlab.lib.enums import TA_CENTER
         from reportlab.platypus import (
             SimpleDocTemplate,
             Paragraph,
@@ -116,8 +116,7 @@ def generate_pdf_report(
             PageBreak,
             HRFlowable,
         )
-        from reportlab.graphics.shapes import Drawing, Wedge, String, Rect, Line
-        from reportlab.graphics import renderPDF
+        from reportlab.graphics.shapes import Drawing, Wedge, String, Line
     except ImportError:
         logger.error("reportlab not installed -- PDF export unavailable")
         raise ImportError(

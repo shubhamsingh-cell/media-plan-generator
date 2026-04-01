@@ -18,7 +18,7 @@ import re
 import time
 import threading
 from collections import Counter, deque
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 

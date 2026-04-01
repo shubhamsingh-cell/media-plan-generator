@@ -9500,8 +9500,6 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                     )
                 else:
                     # S25: Vary greeting to avoid identical responses on repeated "Hi"
-                    import random as _greet_rng
-
                     _greetings = [
                         (
                             "Hey there! I'm Nova, your recruitment marketing intelligence assistant "

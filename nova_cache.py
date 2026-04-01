@@ -21,7 +21,6 @@ Stdlib-only (no third-party dependencies beyond supabase_cache).
 from __future__ import annotations
 
 import hashlib
-import json
 import logging
 import re
 import threading
