@@ -60,6 +60,8 @@ KB_FILES: dict[str, str] = {
     "global_supply_repository": "joveo_global_supply_repository.json",
     "rtx_media_plan": "client_plans/rtx_usa_media_plan.json",
     "rtx_aerospace_benchmarks": "client_plans/rtx_aerospace_defense_benchmarks.json",
+    # S30: Joveo JAX CPA benchmarks (304 categories, real programmatic data)
+    "joveo_cpa_benchmarks": "joveo_cpa_benchmarks_2026.json",
 }
 
 # Maximum file age (in days) before a startup warning is logged.

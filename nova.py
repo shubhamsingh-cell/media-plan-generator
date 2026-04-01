@@ -3309,6 +3309,27 @@ class Nova:
         "Only ask for genuinely ambiguous titles (manager, coordinator, associate)."
     )
 
+    _CPA_GUARDRAILS = (
+        "\n\n## CRITICAL: CPA vs SALARY -- NEVER CONFUSE THESE\n"
+        "CPA = Cost Per Application (what you pay per job application). Typically $2-$150.\n"
+        "SALARY = Annual compensation for the role. Typically $30K-$300K.\n"
+        "NEVER show salary numbers in a CPA column. If CPA > $500 for ANY role, you are wrong.\n\n"
+        "## JOVEO CPA BENCHMARKS (real data, use these first)\n"
+        "Use joveo_cpa_benchmarks from knowledge base for CPA data. Key examples:\n"
+        "- Uber/Lyft Drivers: Gross CPA $2-$8, Net CPA $1-$4 (programmatic DSP)\n"
+        "- Registered Nurses: Gross CPA $35-$85, Net CPA $15-$40\n"
+        "- Software Engineers: Gross CPA $20-$45, Net CPA $8-$20\n"
+        "- Warehouse Workers: Gross CPA $3-$12, Net CPA $2-$6\n"
+        "- Primary Care Physicians: Gross CPA $80-$150, Net CPA $40-$80 (NOT $180K -- that is salary)\n"
+        "- Mechanical Engineers: Gross CPA $50-$80, Net CPA $15-$25\n\n"
+        "## BUDGET RULES\n"
+        "- If user specifies BOTH target hires AND budget, use both.\n"
+        "- If user specifies ONLY target hires (no budget), ESTIMATE the budget using: budget = target_hires x industry_avg_CPH.\n"
+        "  Do NOT assume a random budget like $50K. Show how you calculated it.\n"
+        "- If user specifies ONLY budget (no target), estimate hires from budget / avg_CPH.\n"
+        "- Always show the math transparently.\n"
+    )
+
     def get_system_prompt(self, message: str = "") -> str:
         """Build a minimal core system prompt with contextual extensions.
 
@@ -3506,6 +3527,28 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
         ]
         if any(t in msg_lower for t in _role_triggers):
             core += self._ROLE_CLASSIFICATION
+
+        # CPA guardrails: ALWAYS inject for budget/CPA/campaign/media plan queries
+        _cpa_triggers = [
+            "cpa",
+            "cpc",
+            "cost per",
+            "budget",
+            "media plan",
+            "campaign",
+            "programmatic",
+            "channel",
+            "spend",
+            "allocation",
+            "hires",
+            "drivers",
+            "nurses",
+            "recruitment",
+            "hire",
+            "cost",
+        ]
+        if any(t in msg_lower for t in _cpa_triggers):
+            core += self._CPA_GUARDRAILS
 
         # Morning brief: when user asks for daily digest/summary/overnight
         _brief_triggers = [

@@ -1,0 +1,1528 @@
+{
+  "source": "Joveo JAX Platform -- Category Spends Oct 2025 - Feb 2026",
+  "last_updated": "2026-02-28",
+  "description": "Real Joveo programmatic CPA benchmarks by SOC occupation category. Gross CPA = total cost per application. Net CPA = cost after Joveo optimization.",
+  "total_categories": 304,
+  "benchmarks": {
+    "Aerospace Engineers": {
+      "spend_feb26": 121.0,
+      "gross_cpa": 12.11,
+      "net_cpa": 3.16
+    },
+    "Architects, Except Naval": {
+      "spend_feb26": 747.0,
+      "gross_cpa": 15.25,
+      "net_cpa": 7.32
+    },
+    "Bioengineers and Biomedical Engineers": {
+      "spend_feb26": 137.0,
+      "gross_cpa": 19.59,
+      "net_cpa": 6.58
+    },
+    "Chemical Engineers": {
+      "spend_feb26": 76.0,
+      "gross_cpa": 38.05,
+      "net_cpa": 17.44
+    },
+    "Civil Engineers": {
+      "spend_feb26": 598.0,
+      "gross_cpa": 4.86,
+      "net_cpa": 3.94
+    },
+    "Computer Hardware Engineers": {
+      "spend_feb26": 189.0,
+      "gross_cpa": 27.07,
+      "net_cpa": 9.04
+    },
+    "Drafters": {
+      "spend_feb26": 260.0,
+      "gross_cpa": 13.66,
+      "net_cpa": 7.32
+    },
+    "Electrical and Electronics Engineers": {
+      "spend_feb26": 1946.0,
+      "gross_cpa": 20.27,
+      "net_cpa": 7.04
+    },
+    "Engineering Technologists and Technicians, Except Drafters": {
+      "spend_feb26": 5868.0,
+      "gross_cpa": 20.45,
+      "net_cpa": 10.06
+    },
+    "Industrial Engineers, Including Health and Safety": {
+      "spend_feb26": 14781.0,
+      "gross_cpa": 18.81,
+      "net_cpa": 8.3
+    },
+    "Materials Engineers": {
+      "spend_feb26": 629.0,
+      "gross_cpa": 33.08,
+      "net_cpa": 10.15
+    },
+    "Mechanical Engineers": {
+      "spend_feb26": 17438.0,
+      "gross_cpa": 76.48,
+      "net_cpa": 22.29
+    },
+    "Miscellaneous Engineers": {
+      "spend_feb26": 598.0,
+      "gross_cpa": 33.25,
+      "net_cpa": 17.94
+    },
+    "Surveying and Mapping Technicians": {
+      "spend_feb26": 176.0,
+      "gross_cpa": 17.63,
+      "net_cpa": 10.06
+    },
+    "Surveyors, Cartographers, and Photogrammetrists": {
+      "spend_feb26": 159.0,
+      "gross_cpa": 3.12,
+      "net_cpa": 2.83
+    },
+    "Actors, Producers, and Directors": {
+      "spend_feb26": 197.0,
+      "gross_cpa": 32.81,
+      "net_cpa": 11.46
+    },
+    "Artists and Related Workers": {
+      "spend_feb26": 3.0,
+      "gross_cpa": 1.7,
+      "net_cpa": 0.97
+    },
+    "Broadcast, Sound, and Lighting Technicians": {
+      "spend_feb26": 55.0,
+      "gross_cpa": 55.25,
+      "net_cpa": 51.76
+    },
+    "Designers": {
+      "spend_feb26": 3908.0,
+      "gross_cpa": 3.28,
+      "net_cpa": 1.86
+    },
+    "Miscellaneous Entertainers and Performers, Sports and Related Workers": {
+      "spend_feb26": 5.0,
+      "gross_cpa": 5.27,
+      "net_cpa": 4.05
+    },
+    "Miscellaneous Media and Communication Workers": {
+      "spend_feb26": 6125.0,
+      "gross_cpa": 10.58,
+      "net_cpa": 1.99
+    },
+    "Public Relations Specialists": {
+      "spend_feb26": 3631.0,
+      "gross_cpa": 31.57,
+      "net_cpa": 15.29
+    },
+    "Writers and Editors": {
+      "spend_feb26": 6041.0,
+      "gross_cpa": 13.79,
+      "net_cpa": 1.03
+    },
+    "Building Cleaning Workers": {
+      "spend_feb26": 5666.0,
+      "gross_cpa": 10.92,
+      "net_cpa": 4.99
+    },
+    "First-Line Supervisors of Building and Grounds Cleaning and Maintenance Workers": {
+      "spend_feb26": 2357.0,
+      "gross_cpa": 21.63,
+      "net_cpa": 9.83
+    },
+    "Grounds Maintenance Workers": {
+      "spend_feb26": 122.0,
+      "gross_cpa": 6.08,
+      "net_cpa": 4.81
+    },
+    "Accountants and Auditors": {
+      "spend_feb26": 10423.0,
+      "gross_cpa": 22.91,
+      "net_cpa": 13.63
+    },
+    "Buyers and Purchasing Agents": {
+      "spend_feb26": 20468.0,
+      "gross_cpa": 109.46,
+      "net_cpa": 68.44
+    },
+    "Claims Adjusters, Appraisers, Examiners, and Investigators": {
+      "spend_feb26": 75.0,
+      "gross_cpa": 9.33,
+      "net_cpa": 6.21
+    },
+    "Compensation, Benefits, and Job Analysis Specialists": {
+      "spend_feb26": 780.0,
+      "gross_cpa": 3.02,
+      "net_cpa": 1.55
+    },
+    "Compliance Officers": {
+      "spend_feb26": 887.0,
+      "gross_cpa": 23.34,
+      "net_cpa": 9.5
+    },
+    "Cost Estimators": {
+      "spend_feb26": 636.0,
+      "gross_cpa": 6.36,
+      "net_cpa": 5.44
+    },
+    "Credit Analysts": {
+      "spend_feb26": 228.0,
+      "gross_cpa": 14.22,
+      "net_cpa": 7.61
+    },
+    "Credit Counselors and Loan Officers": {
+      "spend_feb26": 268.0,
+      "gross_cpa": 66.92,
+      "net_cpa": 36.13
+    },
+    "Financial Analysts and Advisors": {
+      "spend_feb26": 8121.0,
+      "gross_cpa": 23.54,
+      "net_cpa": 11.26
+    },
+    "Financial Examiners": {
+      "spend_feb26": 118.0,
+      "gross_cpa": 9.87,
+      "net_cpa": 4.33
+    },
+    "Fundraisers": {
+      "spend_feb26": 350.0,
+      "gross_cpa": 26.91,
+      "net_cpa": 13.4
+    },
+    "Human Resources Workers": {
+      "spend_feb26": 8034.0,
+      "gross_cpa": 12.69,
+      "net_cpa": 7.08
+    },
+    "Logisticians and Project Management Specialists": {
+      "spend_feb26": 6085.0,
+      "gross_cpa": 10.19,
+      "net_cpa": 4.25
+    },
+    "Management Analysts": {
+      "spend_feb26": 3985.0,
+      "gross_cpa": 11.23,
+      "net_cpa": 4.23
+    },
+    "Market Research Analysts and Marketing Specialists": {
+      "spend_feb26": 13260.0,
+      "gross_cpa": 3.29,
+      "net_cpa": 1.49
+    },
+    "Meeting, Convention, and Event Planners": {
+      "spend_feb26": 1365.0,
+      "gross_cpa": 27.3,
+      "net_cpa": 9.02
+    },
+    "Miscellaneous Business Operations Specialists": {
+      "spend_feb26": 2564.0,
+      "gross_cpa": 21.19,
+      "net_cpa": 7.57
+    },
+    "Miscellaneous Financial Specialists": {
+      "spend_feb26": 178.0,
+      "gross_cpa": 44.61,
+      "net_cpa": 22.45
+    },
+    "Tax Examiners, Collectors and Preparers, and Revenue Agents": {
+      "spend_feb26": 523.0,
+      "gross_cpa": 26.13,
+      "net_cpa": 15.2
+    },
+    "Training and Development Specialists": {
+      "spend_feb26": 1002.0,
+      "gross_cpa": 13.73,
+      "net_cpa": 8.22
+    },
+    "Counselors": {
+      "spend_feb26": 9864.0,
+      "gross_cpa": 9.18,
+      "net_cpa": 4.73
+    },
+    "Miscellaneous Community and Social Service Specialists": {
+      "spend_feb26": 2333.0,
+      "gross_cpa": 18.37,
+      "net_cpa": 9.21
+    },
+    "Miscellaneous Religious Workers": {
+      "spend_feb26": 3.0,
+      "gross_cpa": 0.96,
+      "net_cpa": 0.7
+    },
+    "Social Workers": {
+      "spend_feb26": 5467.0,
+      "gross_cpa": 22.59,
+      "net_cpa": 11.91
+    },
+    "Actuaries": {
+      "spend_feb26": 101.0,
+      "gross_cpa": 25.28,
+      "net_cpa": 6.0
+    },
+    "Computer Support Specialists": {
+      "spend_feb26": 3118.0,
+      "gross_cpa": 21.65,
+      "net_cpa": 9.48
+    },
+    "Computer and Information Analysts": {
+      "spend_feb26": 6079.0,
+      "gross_cpa": 132.14,
+      "net_cpa": 65.26
+    },
+    "Computer and Information Research Scientists": {
+      "spend_feb26": 2.0,
+      "gross_cpa": 1.0,
+      "net_cpa": 0.92
+    },
+    "Data Scientists": {
+      "spend_feb26": 3638.0,
+      "gross_cpa": 7.5,
+      "net_cpa": 2.69
+    },
+    "Database and Network Administrators and Architects": {
+      "spend_feb26": 1930.0,
+      "gross_cpa": 14.73,
+      "net_cpa": 9.07
+    },
+    "Miscellaneous Computer Occupations": {
+      "spend_feb26": 8476.0,
+      "gross_cpa": 11.12,
+      "net_cpa": 5.56
+    },
+    "Operations Research Analysts": {
+      "spend_feb26": 319.0,
+      "gross_cpa": 5.6,
+      "net_cpa": 4.65
+    },
+    "Software and Web Developers, Programmers, and Testers": {
+      "spend_feb26": 31239.0,
+      "gross_cpa": 5.42,
+      "net_cpa": 3.73
+    },
+    "Brickmasons, Blockmasons, and Stonemasons": {
+      "spend_feb26": 49.0,
+      "gross_cpa": 4.95,
+      "net_cpa": 4.61
+    },
+    "Carpenters": {
+      "spend_feb26": 1204.0,
+      "gross_cpa": 5.63,
+      "net_cpa": 4.08
+    },
+    "Carpet, Floor, and Tile Installers and Finishers": {
+      "spend_feb26": 103.0,
+      "gross_cpa": 3.23,
+      "net_cpa": 2.95
+    },
+    "Cement Masons, Concrete Finishers, and Terrazzo Workers": {
+      "spend_feb26": 3201.0,
+      "gross_cpa": 9.5,
+      "net_cpa": 5.62
+    },
+    "Construction Equipment Operators": {
+      "spend_feb26": 5460.0,
+      "gross_cpa": 9.22,
+      "net_cpa": 3.98
+    },
+    "Construction Laborers": {
+      "spend_feb26": 3041.0,
+      "gross_cpa": 3.06,
+      "net_cpa": 2.69
+    },
+    "Construction and Building Inspectors": {
+      "spend_feb26": 16.0,
+      "gross_cpa": 8.09,
+      "net_cpa": 4.84
+    },
+    "Derrick, Rotary Drill, and Service Unit Operators, Oil and Gas": {
+      "spend_feb26": 506.0,
+      "gross_cpa": 36.16,
+      "net_cpa": 6.02
+    },
+    "Drywall Installers, Ceiling Tile Installers, and Tapers": {
+      "spend_feb26": 2453.0,
+      "gross_cpa": 11.15,
+      "net_cpa": 6.42
+    },
+    "Electricians": {
+      "spend_feb26": 2195.0,
+      "gross_cpa": 8.35,
+      "net_cpa": 5.49
+    },
+    "Fence Erectors": {
+      "spend_feb26": 87.0,
+      "gross_cpa": 2.81,
+      "net_cpa": 2.38
+    },
+    "First-Line Supervisors of Construction Trades and Extraction Workers": {
+      "spend_feb26": 2658.0,
+      "gross_cpa": 4.47,
+      "net_cpa": 3.73
+    },
+    "Glaziers": {
+      "spend_feb26": 3.0,
+      "gross_cpa": 1.47,
+      "net_cpa": 1.01
+    },
+    "Helpers, Construction Trades": {
+      "spend_feb26": 3776.0,
+      "gross_cpa": 4.5,
+      "net_cpa": 3.39
+    },
+    "Helpers--Extraction Workers": {
+      "spend_feb26": 999.0,
+      "gross_cpa": 5.2,
+      "net_cpa": 3.17
+    },
+    "Highway Maintenance Workers": {
+      "spend_feb26": 382.0,
+      "gross_cpa": 2.91,
+      "net_cpa": 2.35
+    },
+    "Miscellaneous Construction and Related Workers": {
+      "spend_feb26": 43.0,
+      "gross_cpa": 10.7,
+      "net_cpa": 7.48
+    },
+    "Painters and Paperhangers": {
+      "spend_feb26": 555.0,
+      "gross_cpa": 7.7,
+      "net_cpa": 3.57
+    },
+    "Pipelayers, Plumbers, Pipefitters, and Steamfitters": {
+      "spend_feb26": 1112.0,
+      "gross_cpa": 9.19,
+      "net_cpa": 7.05
+    },
+    "Sheet Metal Workers": {
+      "spend_feb26": 386.0,
+      "gross_cpa": 5.02,
+      "net_cpa": 4.37
+    },
+    "Solar Photovoltaic Installers": {
+      "spend_feb26": 123.0,
+      "gross_cpa": 4.26,
+      "net_cpa": 3.34
+    },
+    "Surface Mining Machine Operators and Earth Drillers": {
+      "spend_feb26": 43.0,
+      "gross_cpa": 6.19,
+      "net_cpa": 6.3
+    },
+    "Underground Mining Machine Operators": {
+      "spend_feb26": 34.0,
+      "gross_cpa": 33.73,
+      "net_cpa": 15.86
+    },
+    "Arts, Communications, History, and Humanities Teachers, Postsecondary": {
+      "spend_feb26": 959.0,
+      "gross_cpa": 43.6,
+      "net_cpa": 29.4
+    },
+    "Business Teachers, Postsecondary": {
+      "spend_feb26": 2526.0,
+      "gross_cpa": 15.99,
+      "net_cpa": 5.71
+    },
+    "Education and Library Science Teachers, Postsecondary": {
+      "spend_feb26": 22.0,
+      "gross_cpa": 7.29,
+      "net_cpa": 3.25
+    },
+    "Elementary and Middle School Teachers": {
+      "spend_feb26": 136.0,
+      "gross_cpa": 67.95,
+      "net_cpa": 32.74
+    },
+    "Engineering and Architecture Teachers, Postsecondary": {
+      "spend_feb26": 436.0,
+      "gross_cpa": 54.5,
+      "net_cpa": 28.37
+    },
+    "Health Teachers, Postsecondary": {
+      "spend_feb26": 1630.0,
+      "gross_cpa": 52.57,
+      "net_cpa": 16.56
+    },
+    "Instructional Coordinators": {
+      "spend_feb26": 1187.0,
+      "gross_cpa": 16.04,
+      "net_cpa": 7.81
+    },
+    "Librarians and Media Collections Specialists": {
+      "spend_feb26": 14.0,
+      "gross_cpa": 13.63,
+      "net_cpa": 3.75
+    },
+    "Library Technicians": {
+      "spend_feb26": 243.0,
+      "gross_cpa": 10.54,
+      "net_cpa": 2.79
+    },
+    "Life Sciences Teachers, Postsecondary": {
+      "spend_feb26": 241.0,
+      "gross_cpa": 15.06,
+      "net_cpa": 7.26
+    },
+    "Math and Computer Science Teachers, Postsecondary": {
+      "spend_feb26": 485.0,
+      "gross_cpa": 15.63,
+      "net_cpa": 7.12
+    },
+    "Miscellaneous Educational Instruction and Library Workers": {
+      "spend_feb26": 667.0,
+      "gross_cpa": 13.08,
+      "net_cpa": 6.32
+    },
+    "Miscellaneous Postsecondary Teachers": {
+      "spend_feb26": 1510.0,
+      "gross_cpa": 12.9,
+      "net_cpa": 8.95
+    },
+    "Secondary School Teachers": {
+      "spend_feb26": 741.0,
+      "gross_cpa": 12.77,
+      "net_cpa": 6.16
+    },
+    "Self-Enrichment Teachers": {
+      "spend_feb26": 63.0,
+      "gross_cpa": 3.95,
+      "net_cpa": 3.93
+    },
+    "Social Sciences Teachers, Postsecondary": {
+      "spend_feb26": 625.0,
+      "gross_cpa": 23.15,
+      "net_cpa": 9.75
+    },
+    "Special Education Teachers": {
+      "spend_feb26": 13793.0,
+      "gross_cpa": 13.82,
+      "net_cpa": 6.67
+    },
+    "Teaching Assistants": {
+      "spend_feb26": 552.0,
+      "gross_cpa": 9.2,
+      "net_cpa": 4.8
+    },
+    "Tutors": {
+      "spend_feb26": 212.0,
+      "gross_cpa": 13.28,
+      "net_cpa": 4.26
+    },
+    "Animal Breeders": {
+      "spend_feb26": 17.0,
+      "gross_cpa": 17.1,
+      "net_cpa": 8.55
+    },
+    "First-Line Supervisors of Farming, Fishing, and Forestry Workers": {
+      "spend_feb26": 34.0,
+      "gross_cpa": 34.05,
+      "net_cpa": 11.49
+    },
+    "Logging Workers": {
+      "spend_feb26": 88.0,
+      "gross_cpa": 6.76,
+      "net_cpa": 6.32
+    },
+    "Miscellaneous Agricultural Workers": {
+      "spend_feb26": 792.0,
+      "gross_cpa": 21.42,
+      "net_cpa": 8.94
+    },
+    "Bartenders": {
+      "spend_feb26": 2846.0,
+      "gross_cpa": 15.06,
+      "net_cpa": 7.02
+    },
+    "Cooks": {
+      "spend_feb26": 20345.0,
+      "gross_cpa": 51.9,
+      "net_cpa": 33.99
+    },
+    "Dining Room and Cafeteria Attendants and Bartender Helpers": {
+      "spend_feb26": 1520.0,
+      "gross_cpa": 13.57,
+      "net_cpa": 8.0
+    },
+    "Dishwashers": {
+      "spend_feb26": 1769.0,
+      "gross_cpa": 5.67,
+      "net_cpa": 1.8
+    },
+    "Fast Food and Counter Workers": {
+      "spend_feb26": 70149.0,
+      "gross_cpa": 119.1,
+      "net_cpa": 81.16
+    },
+    "Food Preparation Workers": {
+      "spend_feb26": 24.0,
+      "gross_cpa": 24.36,
+      "net_cpa": 14.04
+    },
+    "Hosts and Hostesses, Restaurant, Lounge, and Coffee Shop": {
+      "spend_feb26": 22.0,
+      "gross_cpa": 10.94,
+      "net_cpa": 10.34
+    },
+    "Miscellaneous Food Preparation and Serving Related Workers": {
+      "spend_feb26": 1388.0,
+      "gross_cpa": 30.18,
+      "net_cpa": 14.93
+    },
+    "Supervisors of Food Preparation and Serving Workers": {
+      "spend_feb26": 26244.0,
+      "gross_cpa": 53.02,
+      "net_cpa": 35.63
+    },
+    "Waiters and Waitresses": {
+      "spend_feb26": 4060.0,
+      "gross_cpa": 7.99,
+      "net_cpa": 2.83
+    },
+    "Clinical Laboratory Technologists and Technicians": {
+      "spend_feb26": 4649.0,
+      "gross_cpa": 125.64,
+      "net_cpa": 70.89
+    },
+    "Diagnostic Related Technologists and Technicians": {
+      "spend_feb26": 61301.0,
+      "gross_cpa": 16.46,
+      "net_cpa": 5.79
+    },
+    "Dietitians and Nutritionists": {
+      "spend_feb26": 767.0,
+      "gross_cpa": 127.83,
+      "net_cpa": 65.07
+    },
+    "Emergency Medical Technicians and Paramedics": {
+      "spend_feb26": 3744.0,
+      "gross_cpa": 156.02,
+      "net_cpa": 79.06
+    },
+    "Health Information Technologists and Medical Registrars": {
+      "spend_feb26": 821.0,
+      "gross_cpa": 410.3,
+      "net_cpa": 209.31
+    },
+    "Health Practitioner Support Technologists and Technicians": {
+      "spend_feb26": 23857.0,
+      "gross_cpa": 38.17,
+      "net_cpa": 21.26
+    },
+    "Licensed Practical and Licensed Vocational Nurses": {
+      "spend_feb26": 35663.0,
+      "gross_cpa": 85.73,
+      "net_cpa": 32.32
+    },
+    "Medical Records Specialists": {
+      "spend_feb26": 2790.0,
+      "gross_cpa": 38.22,
+      "net_cpa": 13.95
+    },
+    "Miscellaneous Health Practitioners and Technical Workers": {
+      "spend_feb26": 557.0,
+      "gross_cpa": 37.15,
+      "net_cpa": 20.25
+    },
+    "Miscellaneous Health Technologists and Technicians": {
+      "spend_feb26": 5195.0,
+      "gross_cpa": 26.92,
+      "net_cpa": 14.86
+    },
+    "Nurse Anesthetists": {
+      "spend_feb26": 700.0,
+      "gross_cpa": 350.14,
+      "net_cpa": 148.99
+    },
+    "Nurse Midwives": {
+      "spend_feb26": 1578.0,
+      "gross_cpa": 788.91,
+      "net_cpa": 298.4
+    },
+    "Nurse Practitioners": {
+      "spend_feb26": 1902.0,
+      "gross_cpa": 317.06,
+      "net_cpa": 132.32
+    },
+    "Opticians, Dispensing": {
+      "spend_feb26": 316.0,
+      "gross_cpa": 4.33,
+      "net_cpa": 2.47
+    },
+    "Optometrists": {
+      "spend_feb26": 287.0,
+      "gross_cpa": 20.47,
+      "net_cpa": 10.26
+    },
+    "Pediatricians, General": {
+      "spend_feb26": 13454.0,
+      "gross_cpa": 407.68,
+      "net_cpa": 191.24
+    },
+    "Pharmacists": {
+      "spend_feb26": 3631.0,
+      "gross_cpa": 605.08,
+      "net_cpa": 264.03
+    },
+    "Physician Assistants": {
+      "spend_feb26": 3407.0,
+      "gross_cpa": 170.34,
+      "net_cpa": 81.64
+    },
+    "Physicians": {
+      "spend_feb26": 147387.0,
+      "gross_cpa": 15.19,
+      "net_cpa": 1.06
+    },
+    "Registered Nurses": {
+      "spend_feb26": 213371.0,
+      "gross_cpa": 82.57,
+      "net_cpa": 38.17
+    },
+    "Surgeons": {
+      "spend_feb26": 528.0,
+      "gross_cpa": 131.9,
+      "net_cpa": 59.94
+    },
+    "Therapists": {
+      "spend_feb26": 13167.0,
+      "gross_cpa": 223.16,
+      "net_cpa": 101.19
+    },
+    "Veterinarians": {
+      "spend_feb26": 5764.0,
+      "gross_cpa": 67.02,
+      "net_cpa": 35.76
+    },
+    "Home Health and Personal Care Aides": {
+      "spend_feb26": 14023.0,
+      "gross_cpa": 11.05,
+      "net_cpa": 4.29
+    },
+    "Miscellaneous Healthcare Support Occupations": {
+      "spend_feb26": 18487.0,
+      "gross_cpa": 118.51,
+      "net_cpa": 57.23
+    },
+    "Nursing Assistants, Orderlies, and Psychiatric Aides": {
+      "spend_feb26": 11899.0,
+      "gross_cpa": 30.51,
+      "net_cpa": 13.57
+    },
+    "Occupational Therapy Assistants and Aides": {
+      "spend_feb26": 6511.0,
+      "gross_cpa": 114.23,
+      "net_cpa": 61.37
+    },
+    "Physical Therapist Assistants and Aides": {
+      "spend_feb26": 8689.0,
+      "gross_cpa": 95.48,
+      "net_cpa": 47.81
+    },
+    "Aircraft Mechanics and Service Technicians": {
+      "spend_feb26": 15.0,
+      "gross_cpa": 14.69,
+      "net_cpa": 8.46
+    },
+    "Automotive Technicians and Repairers": {
+      "spend_feb26": 4537.0,
+      "gross_cpa": 2268.31,
+      "net_cpa": 471.36
+    },
+    "Bus and Truck Mechanics and Diesel Engine Specialists": {
+      "spend_feb26": 2512.0,
+      "gross_cpa": 21.29,
+      "net_cpa": 14.63
+    },
+    "Computer, Automated Teller, and Office Machine Repairers": {
+      "spend_feb26": 56.0,
+      "gross_cpa": 27.99,
+      "net_cpa": 25.65
+    },
+    "Control and Valve Installers and Repairers": {
+      "spend_feb26": 228.0,
+      "gross_cpa": 7.35,
+      "net_cpa": 5.53
+    },
+    "First-Line Supervisors of Mechanics, Installers, and Repairers": {
+      "spend_feb26": 4749.0,
+      "gross_cpa": 19.15,
+      "net_cpa": 8.06
+    },
+    "Heating, Air Conditioning, and Refrigeration Mechanics and Installers": {
+      "spend_feb26": 1353.0,
+      "gross_cpa": 7.12,
+      "net_cpa": 5.62
+    },
+    "Heavy Vehicle and Mobile Equipment Service Technicians and Mechanics": {
+      "spend_feb26": 456.0,
+      "gross_cpa": 10.61,
+      "net_cpa": 7.68
+    },
+    "Industrial Machinery Installation, Repair, and Maintenance Workers": {
+      "spend_feb26": 3509.0,
+      "gross_cpa": 20.28,
+      "net_cpa": 10.23
+    },
+    "Maintenance and Repair Workers, General": {
+      "spend_feb26": 29127.0,
+      "gross_cpa": 30.44,
+      "net_cpa": 9.63
+    },
+    "Miscellaneous Electrical and Electronic Equipment Mechanics, Installers, and Repairers": {
+      "spend_feb26": 1747.0,
+      "gross_cpa": 8.2,
+      "net_cpa": 4.04
+    },
+    "Miscellaneous Installation, Maintenance, and Repair Workers": {
+      "spend_feb26": 794.0,
+      "gross_cpa": 37.81,
+      "net_cpa": 21.4
+    },
+    "Miscellaneous Vehicle and Mobile Equipment Mechanics, Installers, and Repairers": {
+      "spend_feb26": 346.0,
+      "gross_cpa": 14.42,
+      "net_cpa": 11.5
+    },
+    "Precision Instrument and Equipment Repairers": {
+      "spend_feb26": 411.0,
+      "gross_cpa": 51.42,
+      "net_cpa": 20.73
+    },
+    "Radio and Telecommunications Equipment Installers and Repairers": {
+      "spend_feb26": 275.0,
+      "gross_cpa": 6.87,
+      "net_cpa": 4.55
+    },
+    "Wind Turbine Service Technicians": {
+      "spend_feb26": 593.0,
+      "gross_cpa": 98.89,
+      "net_cpa": 67.46
+    },
+    "Judges, Magistrates, and Other Judicial Workers": {
+      "spend_feb26": 84.0,
+      "gross_cpa": 42.18,
+      "net_cpa": 27.59
+    },
+    "Lawyers and Judicial Law Clerks": {
+      "spend_feb26": 1447.0,
+      "gross_cpa": 111.34,
+      "net_cpa": 29.28
+    },
+    "Paralegals and Legal Assistants": {
+      "spend_feb26": 69.0,
+      "gross_cpa": 11.56,
+      "net_cpa": 6.47
+    },
+    "Agricultural and Food Science Technicians": {
+      "spend_feb26": 178.0,
+      "gross_cpa": 88.9,
+      "net_cpa": 35.56
+    },
+    "Agricultural and Food Scientists": {
+      "spend_feb26": 31.0,
+      "gross_cpa": 7.83,
+      "net_cpa": 4.02
+    },
+    "Biological Scientists": {
+      "spend_feb26": 65.0,
+      "gross_cpa": 16.16,
+      "net_cpa": 5.72
+    },
+    "Biological Technicians": {
+      "spend_feb26": 1550.0,
+      "gross_cpa": 1.9,
+      "net_cpa": 1.73
+    },
+    "Chemical Technicians": {
+      "spend_feb26": 182.0,
+      "gross_cpa": 7.29,
+      "net_cpa": 4.4
+    },
+    "Chemists and Materials Scientists": {
+      "spend_feb26": 236.0,
+      "gross_cpa": 47.15,
+      "net_cpa": 24.38
+    },
+    "Environmental Science and Geoscience Technicians": {
+      "spend_feb26": 22.0,
+      "gross_cpa": 22.22,
+      "net_cpa": 10.62
+    },
+    "Environmental Scientists and Geoscientists": {
+      "spend_feb26": 602.0,
+      "gross_cpa": 14.33,
+      "net_cpa": 7.16
+    },
+    "Medical Scientists": {
+      "spend_feb26": 10640.0,
+      "gross_cpa": 2.2,
+      "net_cpa": 1.99
+    },
+    "Miscellaneous Life, Physical, and Social Science Technicians": {
+      "spend_feb26": 861.0,
+      "gross_cpa": 34.43,
+      "net_cpa": 17.07
+    },
+    "Miscellaneous Social Scientists and Related Workers": {
+      "spend_feb26": 12.0,
+      "gross_cpa": 1.48,
+      "net_cpa": 0.95
+    },
+    "Occupational Health and Safety Specialists and Technicians": {
+      "spend_feb26": 1864.0,
+      "gross_cpa": 23.29,
+      "net_cpa": 5.95
+    },
+    "Psychologists": {
+      "spend_feb26": 599.0,
+      "gross_cpa": 22.17,
+      "net_cpa": 10.66
+    },
+    "Social Science Research Assistants": {
+      "spend_feb26": 3445.0,
+      "gross_cpa": 3.78,
+      "net_cpa": 0.5
+    },
+    "Survey Researchers": {
+      "spend_feb26": 2777.0,
+      "gross_cpa": 2.07,
+      "net_cpa": 1.08
+    },
+    "Administrative Services and Facilities Managers": {
+      "spend_feb26": 2590.0,
+      "gross_cpa": 10.93,
+      "net_cpa": 4.31
+    },
+    "Advertising and Promotions Managers": {
+      "spend_feb26": 7030.0,
+      "gross_cpa": 24.24,
+      "net_cpa": 7.42
+    },
+    "Architectural and Engineering Managers": {
+      "spend_feb26": 1604.0,
+      "gross_cpa": 16.04,
+      "net_cpa": 10.03
+    },
+    "Chief Executives": {
+      "spend_feb26": 362.0,
+      "gross_cpa": 10.04,
+      "net_cpa": 5.94
+    },
+    "Compensation and Benefits Managers": {
+      "spend_feb26": 1449.0,
+      "gross_cpa": 131.73,
+      "net_cpa": 19.35
+    },
+    "Computer and Information Systems Managers": {
+      "spend_feb26": 275.0,
+      "gross_cpa": 14.47,
+      "net_cpa": 8.73
+    },
+    "Construction Managers": {
+      "spend_feb26": 7303.0,
+      "gross_cpa": 5.64,
+      "net_cpa": 3.05
+    },
+    "Education and Childcare Administrators": {
+      "spend_feb26": 1919.0,
+      "gross_cpa": 13.32,
+      "net_cpa": 5.77
+    },
+    "Entertainment and Recreation Managers": {
+      "spend_feb26": 165.0,
+      "gross_cpa": 11.78,
+      "net_cpa": 4.05
+    },
+    "Farmers, Ranchers, and Other Agricultural Managers": {
+      "spend_feb26": 98.0,
+      "gross_cpa": 98.41,
+      "net_cpa": 48.21
+    },
+    "Financial Managers": {
+      "spend_feb26": 10518.0,
+      "gross_cpa": 22.72,
+      "net_cpa": 15.02
+    },
+    "Food Service Managers": {
+      "spend_feb26": 1238.0,
+      "gross_cpa": 8.84,
+      "net_cpa": 3.65
+    },
+    "General and Operations Managers": {
+      "spend_feb26": 2838.0,
+      "gross_cpa": 11.87,
+      "net_cpa": 6.61
+    },
+    "Human Resources Managers": {
+      "spend_feb26": 5351.0,
+      "gross_cpa": 12.56,
+      "net_cpa": 6.43
+    },
+    "Industrial Production Managers": {
+      "spend_feb26": 2955.0,
+      "gross_cpa": 11.37,
+      "net_cpa": 6.38
+    },
+    "Lodging Managers": {
+      "spend_feb26": 52.0,
+      "gross_cpa": 10.44,
+      "net_cpa": 6.35
+    },
+    "Marketing and Sales Managers": {
+      "spend_feb26": 22276.0,
+      "gross_cpa": 9.85,
+      "net_cpa": 4.72
+    },
+    "Medical and Health Services Managers": {
+      "spend_feb26": 10190.0,
+      "gross_cpa": 44.11,
+      "net_cpa": 23.53
+    },
+    "Miscellaneous Managers": {
+      "spend_feb26": 734.0,
+      "gross_cpa": 8.84,
+      "net_cpa": 3.1
+    },
+    "Natural Sciences Managers": {
+      "spend_feb26": 2020.0,
+      "gross_cpa": 26.24,
+      "net_cpa": 14.15
+    },
+    "Personal Service Managers": {
+      "spend_feb26": 246.0,
+      "gross_cpa": 10.72,
+      "net_cpa": 6.15
+    },
+    "Property, Real Estate, and Community Association Managers": {
+      "spend_feb26": 182.0,
+      "gross_cpa": 30.28,
+      "net_cpa": 22.56
+    },
+    "Public Relations and Fundraising Managers": {
+      "spend_feb26": 4096.0,
+      "gross_cpa": 16.45,
+      "net_cpa": 7.13
+    },
+    "Purchasing Managers": {
+      "spend_feb26": 1933.0,
+      "gross_cpa": 37.91,
+      "net_cpa": 17.08
+    },
+    "Social and Community Service Managers": {
+      "spend_feb26": 1158.0,
+      "gross_cpa": 24.13,
+      "net_cpa": 10.18
+    },
+    "Training and Development Managers": {
+      "spend_feb26": 553.0,
+      "gross_cpa": 6.35,
+      "net_cpa": 3.85
+    },
+    "Transportation, Storage, and Distribution Managers": {
+      "spend_feb26": 4341.0,
+      "gross_cpa": 7.2,
+      "net_cpa": 4.34
+    },
+    "Bill and Account Collectors": {
+      "spend_feb26": 974.0,
+      "gross_cpa": 5.15,
+      "net_cpa": 3.77
+    },
+    "Billing and Posting Clerks": {
+      "spend_feb26": 104.0,
+      "gross_cpa": 5.21,
+      "net_cpa": 2.54
+    },
+    "Bookkeeping, Accounting, and Auditing Clerks": {
+      "spend_feb26": 6032.0,
+      "gross_cpa": 13.9,
+      "net_cpa": 8.47
+    },
+    "Brokerage Clerks": {
+      "spend_feb26": 153.0,
+      "gross_cpa": 38.13,
+      "net_cpa": 28.15
+    },
+    "Cargo and Freight Agents": {
+      "spend_feb26": 96.0,
+      "gross_cpa": 8.69,
+      "net_cpa": 4.35
+    },
+    "Couriers and Messengers": {
+      "spend_feb26": 14546.0,
+      "gross_cpa": 9.7,
+      "net_cpa": 5.06
+    },
+    "Customer Service Representatives": {
+      "spend_feb26": 8062.0,
+      "gross_cpa": 13.35,
+      "net_cpa": 8.06
+    },
+    "Data Entry and Information Processing Workers": {
+      "spend_feb26": 20.0,
+      "gross_cpa": 20.35,
+      "net_cpa": 8.66
+    },
+    "Dispatchers": {
+      "spend_feb26": 1096.0,
+      "gross_cpa": 2.47,
+      "net_cpa": 1.82
+    },
+    "Eligibility Interviewers, Government Programs": {
+      "spend_feb26": 14731.0,
+      "gross_cpa": 151.87,
+      "net_cpa": 103.37
+    },
+    "File Clerks": {
+      "spend_feb26": 118.0,
+      "gross_cpa": 118.09,
+      "net_cpa": 70.79
+    },
+    "First-Line Supervisors of Office and Administrative Support Workers": {
+      "spend_feb26": 6303.0,
+      "gross_cpa": 20.53,
+      "net_cpa": 11.39
+    },
+    "Hotel, Motel, and Resort Desk Clerks": {
+      "spend_feb26": 250.0,
+      "gross_cpa": 6.75,
+      "net_cpa": 2.01
+    },
+    "Human Resources Assistants, Except Payroll and Timekeeping": {
+      "spend_feb26": 785.0,
+      "gross_cpa": 19.14,
+      "net_cpa": 10.61
+    },
+    "Insurance Claims and Policy Processing Clerks": {
+      "spend_feb26": 323.0,
+      "gross_cpa": 80.73,
+      "net_cpa": 41.01
+    },
+    "Interviewers, Except Eligibility and Loan": {
+      "spend_feb26": 89836.0,
+      "gross_cpa": 5.68,
+      "net_cpa": 1.46
+    },
+    "Loan Interviewers and Clerks": {
+      "spend_feb26": 149.0,
+      "gross_cpa": 149.4,
+      "net_cpa": 76.23
+    },
+    "Meter Readers, Utilities": {
+      "spend_feb26": 35.0,
+      "gross_cpa": 17.48,
+      "net_cpa": 1.0
+    },
+    "Miscellaneous Financial Clerks": {
+      "spend_feb26": 2.0,
+      "gross_cpa": 2.24,
+      "net_cpa": 1.59
+    },
+    "Miscellaneous Office and Administrative Support Workers": {
+      "spend_feb26": 20.0,
+      "gross_cpa": 19.88,
+      "net_cpa": 11.56
+    },
+    "New Accounts Clerks": {
+      "spend_feb26": 2348.0,
+      "gross_cpa": 41.19,
+      "net_cpa": 28.07
+    },
+    "Office Clerks, General": {
+      "spend_feb26": 430.0,
+      "gross_cpa": 20.46,
+      "net_cpa": 11.86
+    },
+    "Order Clerks": {
+      "spend_feb26": 726.0,
+      "gross_cpa": 45.38,
+      "net_cpa": 23.02
+    },
+    "Payroll and Timekeeping Clerks": {
+      "spend_feb26": 2257.0,
+      "gross_cpa": 34.2,
+      "net_cpa": 20.93
+    },
+    "Postal Service Workers": {
+      "spend_feb26": 164.0,
+      "gross_cpa": 1.8,
+      "net_cpa": 1.24
+    },
+    "Procurement Clerks": {
+      "spend_feb26": 2940.0,
+      "gross_cpa": 23.15,
+      "net_cpa": 3.72
+    },
+    "Production, Planning, and Expediting Clerks": {
+      "spend_feb26": 615.0,
+      "gross_cpa": 18.08,
+      "net_cpa": 8.57
+    },
+    "Receptionists and Information Clerks": {
+      "spend_feb26": 2175.0,
+      "gross_cpa": 5.71,
+      "net_cpa": 2.27
+    },
+    "Secretaries and Administrative Assistants": {
+      "spend_feb26": 13670.0,
+      "gross_cpa": 15.22,
+      "net_cpa": 7.25
+    },
+    "Shipping, Receiving, and Inventory Clerks": {
+      "spend_feb26": 507.0,
+      "gross_cpa": 14.92,
+      "net_cpa": 5.75
+    },
+    "Switchboard Operators, Including Answering Service": {
+      "spend_feb26": 4.0,
+      "gross_cpa": 3.95,
+      "net_cpa": 2.72
+    },
+    "Tellers": {
+      "spend_feb26": 286.0,
+      "gross_cpa": 28.63,
+      "net_cpa": 18.33
+    },
+    "Weighers, Measurers, Checkers, and Samplers, Recordkeeping": {
+      "spend_feb26": 6.0,
+      "gross_cpa": 6.03,
+      "net_cpa": 3.43
+    },
+    "Animal Trainers": {
+      "spend_feb26": 85.0,
+      "gross_cpa": 5.67,
+      "net_cpa": 2.52
+    },
+    "Baggage Porters, Bellhops, and Concierges": {
+      "spend_feb26": 157.0,
+      "gross_cpa": 13.05,
+      "net_cpa": 3.71
+    },
+    "Barbers, Hairdressers, Hairstylists and Cosmetologists": {
+      "spend_feb26": 18.0,
+      "gross_cpa": 18.09,
+      "net_cpa": 10.21
+    },
+    "Childcare Workers": {
+      "spend_feb26": 1621.0,
+      "gross_cpa": 23.15,
+      "net_cpa": 10.23
+    },
+    "First-Line Supervisors of Entertainment and Recreation Workers": {
+      "spend_feb26": 73.0,
+      "gross_cpa": 18.18,
+      "net_cpa": 8.31
+    },
+    "Gambling Services Workers": {
+      "spend_feb26": 118364.0,
+      "gross_cpa": 46.49,
+      "net_cpa": 31.41
+    },
+    "Miscellaneous Entertainment Attendants and Related Workers": {
+      "spend_feb26": 34.0,
+      "gross_cpa": 1.97,
+      "net_cpa": 1.33
+    },
+    "Miscellaneous Personal Care and Service Workers": {
+      "spend_feb26": 1782.0,
+      "gross_cpa": 59.39,
+      "net_cpa": 31.53
+    },
+    "Recreation and Fitness Workers": {
+      "spend_feb26": 1218.0,
+      "gross_cpa": 10.68,
+      "net_cpa": 4.0
+    },
+    "Residential Advisors": {
+      "spend_feb26": 172.0,
+      "gross_cpa": 85.95,
+      "net_cpa": 64.74
+    },
+    "Aircraft Structure, Surfaces, Rigging, and Systems Assemblers": {
+      "spend_feb26": 40.0,
+      "gross_cpa": 20.17,
+      "net_cpa": 4.33
+    },
+    "Bakers": {
+      "spend_feb26": 54.0,
+      "gross_cpa": 3.2,
+      "net_cpa": 2.38
+    },
+    "Butchers and Other Meat, Poultry, and Fish Processing Workers": {
+      "spend_feb26": 83.0,
+      "gross_cpa": 2.43,
+      "net_cpa": 1.73
+    },
+    "Chemical Processing Machine Setters, Operators, and Tenders": {
+      "spend_feb26": 2.0,
+      "gross_cpa": 2.4,
+      "net_cpa": 1.7
+    },
+    "Computer Numerically Controlled Tool Operators and Programmers": {
+      "spend_feb26": 1473.0,
+      "gross_cpa": 17.97,
+      "net_cpa": 9.27
+    },
+    "Crushing, Grinding, Polishing, Mixing, and Blending Workers": {
+      "spend_feb26": 264.0,
+      "gross_cpa": 32.95,
+      "net_cpa": 17.82
+    },
+    "Electrical, Electronics, and Electromechanical Assemblers": {
+      "spend_feb26": 1639.0,
+      "gross_cpa": 13.77,
+      "net_cpa": 4.64
+    },
+    "First-Line Supervisors of Production and Operating Workers": {
+      "spend_feb26": 7149.0,
+      "gross_cpa": 11.89,
+      "net_cpa": 6.33
+    },
+    "Inspectors, Testers, Sorters, Samplers, and Weighers": {
+      "spend_feb26": 241.0,
+      "gross_cpa": 26.83,
+      "net_cpa": 10.65
+    },
+    "Laundry and Dry-Cleaning Workers": {
+      "spend_feb26": 241.0,
+      "gross_cpa": 26.76,
+      "net_cpa": 16.54
+    },
+    "Machine Tool Cutting Setters, Operators, and Tenders, Metal and Plastic": {
+      "spend_feb26": 103.0,
+      "gross_cpa": 9.41,
+      "net_cpa": 4.94
+    },
+    "Machinists": {
+      "spend_feb26": 1694.0,
+      "gross_cpa": 26.05,
+      "net_cpa": 6.21
+    },
+    "Miscellaneous Assemblers and Fabricators": {
+      "spend_feb26": 4044.0,
+      "gross_cpa": 15.03,
+      "net_cpa": 10.97
+    },
+    "Miscellaneous Food Processing Workers": {
+      "spend_feb26": 31.0,
+      "gross_cpa": 3.45,
+      "net_cpa": 2.69
+    },
+    "Miscellaneous Metal Workers and Plastic Workers": {
+      "spend_feb26": 29.0,
+      "gross_cpa": 1.04,
+      "net_cpa": 1.03
+    },
+    "Miscellaneous Plant and System Operators": {
+      "spend_feb26": 62.0,
+      "gross_cpa": 10.29,
+      "net_cpa": 6.59
+    },
+    "Miscellaneous Production Workers": {
+      "spend_feb26": 60022.0,
+      "gross_cpa": 33.49,
+      "net_cpa": 23.46
+    },
+    "Miscellaneous Textile, Apparel, and Furnishings Workers": {
+      "spend_feb26": 8.0,
+      "gross_cpa": 1.66,
+      "net_cpa": 1.52
+    },
+    "Molders and Molding Machine Setters, Operators, and Tenders, Metal and Plastic": {
+      "spend_feb26": 11.0,
+      "gross_cpa": 2.16,
+      "net_cpa": 1.33
+    },
+    "Multiple Machine Tool Setters, Operators, and Tenders, Metal and Plastic": {
+      "spend_feb26": 1.0,
+      "gross_cpa": 0.41,
+      "net_cpa": 0.28
+    },
+    "Packaging and Filling Machine Operators and Tenders": {
+      "spend_feb26": 626.0,
+      "gross_cpa": 20.88,
+      "net_cpa": 14.61
+    },
+    "Painting Workers": {
+      "spend_feb26": 100.0,
+      "gross_cpa": 24.99,
+      "net_cpa": 12.9
+    },
+    "Power Plant Operators, Distributors, and Dispatchers": {
+      "spend_feb26": 36.0,
+      "gross_cpa": 35.63,
+      "net_cpa": 31.22
+    },
+    "Water and Wastewater Treatment Plant and System Operators": {
+      "spend_feb26": 220.0,
+      "gross_cpa": 54.97,
+      "net_cpa": 22.31
+    },
+    "Welding, Soldering, and Brazing Workers": {
+      "spend_feb26": 905.0,
+      "gross_cpa": 9.73,
+      "net_cpa": 5.81
+    },
+    "Woodworking Machine Setters, Operators, and Tenders": {
+      "spend_feb26": 12.0,
+      "gross_cpa": 6.24,
+      "net_cpa": 5.73
+    },
+    "Miscellaneous First-Line Supervisors, Protective Service Workers": {
+      "spend_feb26": 12.0,
+      "gross_cpa": 12.43,
+      "net_cpa": 6.79
+    },
+    "Miscellaneous Protective Service Workers": {
+      "spend_feb26": 528.0,
+      "gross_cpa": 12.57,
+      "net_cpa": 8.26
+    },
+    "Security Guards and Gambling Surveillance Officers": {
+      "spend_feb26": 7382.0,
+      "gross_cpa": 61.52,
+      "net_cpa": 36.93
+    },
+    "Advertising Sales Agents": {
+      "spend_feb26": 160.0,
+      "gross_cpa": 10.69,
+      "net_cpa": 6.11
+    },
+    "Cashiers": {
+      "spend_feb26": 25672.0,
+      "gross_cpa": 67.56,
+      "net_cpa": 48.64
+    },
+    "Counter and Rental Clerks and Parts Salespersons": {
+      "spend_feb26": 475.0,
+      "gross_cpa": 12.17,
+      "net_cpa": 8.8
+    },
+    "First-Line Supervisors of Sales Workers": {
+      "spend_feb26": 11912.0,
+      "gross_cpa": 7.7,
+      "net_cpa": 4.19
+    },
+    "Insurance Sales Agents": {
+      "spend_feb26": 1039.0,
+      "gross_cpa": 8.66,
+      "net_cpa": 4.6
+    },
+    "Miscellaneous Sales Representatives, Services": {
+      "spend_feb26": 12201.0,
+      "gross_cpa": 20.44,
+      "net_cpa": 9.03
+    },
+    "Models, Demonstrators, and Product Promoters": {
+      "spend_feb26": 182.0,
+      "gross_cpa": 10.74,
+      "net_cpa": 6.79
+    },
+    "Real Estate Brokers and Sales Agents": {
+      "spend_feb26": 548.0,
+      "gross_cpa": 9.61,
+      "net_cpa": 5.09
+    },
+    "Retail Salespersons": {
+      "spend_feb26": 25551.0,
+      "gross_cpa": 9.62,
+      "net_cpa": 6.02
+    },
+    "Sales Engineers": {
+      "spend_feb26": 544.0,
+      "gross_cpa": 9.9,
+      "net_cpa": 7.12
+    },
+    "Sales Representatives, Wholesale and Manufacturing": {
+      "spend_feb26": 4128.0,
+      "gross_cpa": 14.79,
+      "net_cpa": 7.97
+    },
+    "Securities, Commodities, and Financial Services Sales Agents": {
+      "spend_feb26": 5770.0,
+      "gross_cpa": 40.07,
+      "net_cpa": 24.59
+    },
+    "Telemarketers": {
+      "spend_feb26": 428.0,
+      "gross_cpa": 71.29,
+      "net_cpa": 37.31
+    },
+    "Travel Agents": {
+      "spend_feb26": 77.0,
+      "gross_cpa": 77.12,
+      "net_cpa": 50.0
+    },
+    "Air Traffic Controllers and Airfield Operations Specialists": {
+      "spend_feb26": 61.0,
+      "gross_cpa": 60.73,
+      "net_cpa": 30.69
+    },
+    "Crane and Tower Operators": {
+      "spend_feb26": 32.0,
+      "gross_cpa": 6.35,
+      "net_cpa": 5.08
+    },
+    "Driver/Sales Workers and Truck Drivers": {
+      "spend_feb26": 392976.0,
+      "gross_cpa": 27.94,
+      "net_cpa": 18.64
+    },
+    "First-Line Supervisors of Transportation and Material Moving Workers": {
+      "spend_feb26": 2573.0,
+      "gross_cpa": 4.43,
+      "net_cpa": 2.76
+    },
+    "Industrial Truck and Tractor Operators": {
+      "spend_feb26": 3468.0,
+      "gross_cpa": 4.25,
+      "net_cpa": 2.22
+    },
+    "Laborers and Material Movers": {
+      "spend_feb26": 42609.0,
+      "gross_cpa": 5.79,
+      "net_cpa": 3.04
+    },
+    "Locomotive Engineers and Operators": {
+      "spend_feb26": 8.0,
+      "gross_cpa": 2.67,
+      "net_cpa": 1.87
+    },
+    "Miscellaneous Motor Vehicle Operators": {
+      "spend_feb26": 171.0,
+      "gross_cpa": 42.86,
+      "net_cpa": 20.0
+    },
+    "Parking Attendants": {
+      "spend_feb26": 41.0,
+      "gross_cpa": 4.14,
+      "net_cpa": 1.18
+    },
+    "Passenger Attendants": {
+      "spend_feb26": 20562.0,
+      "gross_cpa": 142.79,
+      "net_cpa": 103.77
+    },
+    "Passenger Vehicle Drivers": {
+      "spend_feb26": 534914.0,
+      "gross_cpa": 56.68,
+      "net_cpa": 43.65
+    },
+    "Railroad Brake, Signal, and Switch Operators and Locomotive Firers": {
+      "spend_feb26": 15.0,
+      "gross_cpa": 7.53,
+      "net_cpa": 3.95
+    },
+    "Railroad Conductors and Yardmasters": {
+      "spend_feb26": 19.0,
+      "gross_cpa": 9.48,
+      "net_cpa": 6.28
+    },
+    "Ship and Boat Captains and Operators": {
+      "spend_feb26": 59.0,
+      "gross_cpa": 14.78,
+      "net_cpa": 4.91
+    }
+  }
+}
