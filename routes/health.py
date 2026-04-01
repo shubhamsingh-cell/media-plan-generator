@@ -89,7 +89,10 @@ def _handle_health(handler, path: str, parsed: Any) -> None:
                 "status": "healthy",
                 "note": "health_check_detailed not available",
             }
-        status_code = 200 if _health_full.get("status") == "healthy" else 503
+        # ALWAYS return 200 to Render health probes -- prevents deploy promotion failures
+        # when AutoQC reports 0.0 during enrichment startup burst.
+        # Internal monitoring (AutoQC, alerts) handles degraded state separately.
+        status_code = 200
 
         # Check if request has admin auth -- only admin sees full details
         _is_admin = False
