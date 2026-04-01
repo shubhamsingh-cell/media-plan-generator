@@ -56,6 +56,10 @@ KB_FILES: dict[str, str] = {
     "top_employers_by_city": "top_employers_by_city_2026.json",
     "compliance_regulations": "compliance_regulations_2026.json",
     "agency_rpo_market": "agency_rpo_market_2026.json",
+    # S30: Global supply + client plans for vector search indexing
+    "global_supply_repository": "joveo_global_supply_repository.json",
+    "rtx_media_plan": "client_plans/rtx_usa_media_plan.json",
+    "rtx_aerospace_benchmarks": "client_plans/rtx_aerospace_defense_benchmarks.json",
 }
 
 # Maximum file age (in days) before a startup warning is logged.

@@ -14800,6 +14800,38 @@ def enrich_data(data: Dict[str, Any], request_id: str = "") -> Dict[str, Any]:
             )
         )
 
+    # --- S30: International labour market APIs (UK ONS, StatCan, CareerJet) ---
+    if locations:
+        # UK ONS -- employment/wage data for UK plans
+        tasks.append(
+            (
+                "uk_ons_data",
+                "UK-ONS",
+                lambda _l=locations: fetch_uk_ons_data(_l),
+            )
+        )
+        # StatCan -- job vacancies/wages for Canada plans
+        tasks.append(
+            (
+                "statcan_data",
+                "StatCan",
+                lambda _l=locations: fetch_statcan_data(_l),
+            )
+        )
+
+    if roles and locations:
+        # CareerJet -- global job counts (60+ countries, free)
+        tasks.append(
+            (
+                "careerjet_data",
+                "CareerJet",
+                lambda _r=roles, _l=locations: fetch_careerjet_data(
+                    role=_r[0] if _r else "",
+                    location=_l[0] if _l else "",
+                ),
+            )
+        )
+
     # --- Execute tasks concurrently ---
     _log_info(
         f"Starting enrichment with {len(tasks)} tasks "
@@ -15875,7 +15907,11 @@ def fetch_eurostat_data(
     indicator: str = "unemployment",
     country: str = "",
 ) -> Dict[str, Any]:
-    """Fetch EU labor market data from Eurostat (free, no key, EU 27 countries).
+    """Fetch EU labor market data from Eurostat (SDMX 2.1 endpoint).
+
+    DEPRECATED in S30: Use fetch_eurostat_labour_data() instead (line 13372).
+    That function is already wired into enrich_data() and handles the same data.
+    This function is kept for backward compatibility only.
 
     Args:
         indicator: One of 'unemployment', 'employment', 'wages', 'vacancies'.
