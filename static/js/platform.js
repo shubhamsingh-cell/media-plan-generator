@@ -42,6 +42,7 @@ const ICONS = {
   nova: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a7 7 0 0 1 7 7c0 3-2 5.5-4 7l-1 4h-4l-1-4c-2-1.5-4-4-4-7a7 7 0 0 1 7-7z"/><line x1="10" y1="22" x2="14" y2="22"/></svg>',
   geoviz:
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="7" opacity="0.4"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/></svg>',
+  cg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/><line x1="2" y1="20" x2="22" y2="20"/></svg>',
 };
 
 /* ─────────────────────────────────────────────────────────────
@@ -225,6 +226,19 @@ const MODULES = [
     externalUrl: null /* Set after Vercel deploy */,
   },
 
+  /* ─── TOOLS ─── */
+  {
+    id: "cg-automation",
+    route: "tools/cg-automation",
+    fragment: "cg-automation",
+    group: "tools",
+    label: "CG Automation",
+    icon: "cg",
+    desc: "Craigslist posting optimizer for maximum net revenue",
+    external: true,
+    externalUrl: "https://cg-automation.onrender.com",
+  },
+
   /* ─── UTILITY ─── */
   {
     id: "api-portal",
@@ -242,6 +256,7 @@ const GROUPS = [
   { id: "intelligence", label: "Intelligence", icon: "intelligence" },
   { id: "compliance", label: "Compliance", icon: "comply" },
   { id: "nova", label: "Nova AI", icon: "nova" },
+  { id: "tools", label: "Tools", icon: "cg" },
 ];
 
 /* ─────────────────────────────────────────────────────────────
@@ -624,7 +639,11 @@ const NovaSidebar = (() => {
       groupModules.forEach((mod) => {
         const hasTabs = mod.tabs && mod.tabs.length > 1;
         const isFav = NovaFavorites.isFavorited(mod.route);
-        html += `<a class="sidebar-item" data-route="${mod.route}" data-tooltip="${mod.label}" href="/platform/${mod.route}" onclick="event.preventDefault(); NovaRouter.navigate('${mod.route}')">`;
+        if (mod.external && mod.externalUrl) {
+          html += `<a class="sidebar-item" data-route="${mod.route}" data-tooltip="${mod.label}" href="${mod.externalUrl}" target="_blank" rel="noopener">`;
+        } else {
+          html += `<a class="sidebar-item" data-route="${mod.route}" data-tooltip="${mod.label}" href="/platform/${mod.route}" onclick="event.preventDefault(); NovaRouter.navigate('${mod.route}')">`;
+        }
         html += `<span class="sidebar-item-icon">${ICONS[mod.icon] || ""}</span>`;
         html += `<span class="sidebar-item-label">${mod.label}</span>`;
         html += `<span class="sidebar-item-star ${isFav ? "favorited" : ""}" onclick="event.stopPropagation(); event.preventDefault(); NovaFavorites.toggle('${mod.route}');" title="Toggle favorite">${isFav ? ICONS.starFilled : ICONS.star}</span>`;

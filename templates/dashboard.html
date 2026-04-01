@@ -2396,6 +2396,13 @@
           category: "Intelligence",
           status: "live",
         },
+        {
+          name: "CG Automation",
+          path: "https://cg-automation.onrender.com",
+          category: "Tools",
+          status: "live",
+          external: true,
+        },
       ];
 
       async function checkProductStatus() {
@@ -2427,7 +2434,7 @@
         grid.innerHTML = results
           .map(
             (r) => `
-        <a href="${r.path}" style="text-decoration:none;display:flex;align-items:center;gap:10px;padding:12px 14px;background:rgba(15,18,30,0.5);border:1px solid rgba(255,255,255,0.06);border-radius:8px;transition:all 0.2s;" onmouseenter="this.style.borderColor='rgba(99,102,241,0.3)'" onmouseleave="this.style.borderColor='rgba(255,255,255,0.06)'">
+        <a href="${r.path}" ${r.external ? 'target="_blank" rel="noopener"' : ""} style="text-decoration:none;display:flex;align-items:center;gap:10px;padding:12px 14px;background:rgba(15,18,30,0.5);border:1px solid rgba(255,255,255,0.06);border-radius:8px;transition:all 0.2s;" onmouseenter="this.style.borderColor='rgba(99,102,241,0.3)'" onmouseleave="this.style.borderColor='rgba(255,255,255,0.06)'">
             <span style="width:8px;height:8px;border-radius:50%;flex-shrink:0;background:${r.online ? "var(--green)" : "var(--red)"};box-shadow:0 0 6px ${r.online ? "var(--green)" : "var(--red)"}"></span>
             <div style="flex:1;min-width:0;">
                 <div style="font-size:13px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${r.name}</div>

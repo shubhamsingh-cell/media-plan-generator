@@ -241,6 +241,9 @@
       .product-nova:hover {
         border-color: rgba(107, 179, 205, 0.5) !important;
       }
+      .product-cg:hover {
+        border-color: rgba(72, 199, 142, 0.5) !important;
+      }
 
       /* Demo card glow */
       .demo-card:hover {
@@ -1693,10 +1696,10 @@
       }
       .products-duo {
         display: grid;
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: repeat(3, 1fr);
         gap: var(--space-6);
         margin-top: var(--space-10);
-        max-width: 900px;
+        max-width: 1200px;
         margin-left: auto;
         margin-right: auto;
       }
@@ -1756,6 +1759,9 @@
       .product-nova::before {
         background: linear-gradient(90deg, #6bb3cd, #8ecfe0);
       }
+      .product-cg::before {
+        background: linear-gradient(90deg, #48c78e, #6dd5a8);
+      }
       .product-hero-badge {
         position: absolute;
         top: 16px;
@@ -1768,6 +1774,10 @@
         color: var(--text-secondary);
         text-transform: uppercase;
         letter-spacing: 0.06em;
+      }
+      .product-hero-badge--new {
+        background: rgba(72, 199, 142, 0.15);
+        color: #48c78e;
       }
       .product-hero-icon {
         width: 48px;
@@ -1784,6 +1794,9 @@
       }
       .product-nova .product-hero-icon {
         color: #6bb3cd;
+      }
+      .product-cg .product-hero-icon {
+        color: #48c78e;
       }
       .product-hero-card h3 {
         font-size: 1.4rem;
@@ -1825,6 +1838,9 @@
       }
       .product-nova .product-hero-cta {
         color: #6bb3cd;
+      }
+      .product-cg .product-hero-cta {
+        color: #48c78e;
       }
       .products-also {
         text-align: center;
@@ -2303,6 +2319,11 @@
       }
 
       /* ── Responsive ── */
+      @media (max-width: 1024px) {
+        .products-duo {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
       @media (max-width: 768px) {
         .hero {
           padding: 100px 1.5rem 60px;
@@ -3383,13 +3404,13 @@
       <!--/HIDDEN-->
 
       <!-- ========================================== -->
-      <!-- SECTION 5: TWO PRODUCTS                    -->
+      <!-- SECTION 5: THREE PRODUCTS                   -->
       <!-- ========================================== -->
       <section class="products-section" id="platform" aria-label="Products">
         <div class="container">
           <div class="section-label reveal">The platform</div>
           <h2 class="section-title reveal" style="text-align: center">
-            Two products. One intelligence layer.
+            Three products. One intelligence layer.
           </h2>
 
           <div class="products-duo reveal">
@@ -3470,6 +3491,58 @@
               </div>
               <div class="product-hero-cta">
                 Ask Nova &rarr;
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  width="16"
+                  height="16"
+                >
+                  <path d="M5 12h14M12 5l7 7-7 7" />
+                </svg>
+              </div>
+            </a>
+
+            <!-- CG AUTOMATION -->
+            <a
+              href="https://cg-automation.onrender.com"
+              class="product-hero-card product-cg"
+              target="_blank"
+              rel="noopener"
+            >
+              <span class="product-hero-badge product-hero-badge--new"
+                >NEW</span
+              >
+              <div class="product-hero-icon">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M18 20V10" />
+                  <path d="M12 20V4" />
+                  <path d="M6 20v-6" />
+                  <line x1="2" y1="20" x2="22" y2="20" />
+                </svg>
+              </div>
+              <h3>CG Automation</h3>
+              <p>
+                Craigslist posting optimizer &mdash; tells you exactly which
+                location, title, category, and day to post for maximum net
+                revenue.
+              </p>
+              <div class="product-hero-tools">
+                <span>Location Optimizer</span>
+                <span>Title Analyzer</span>
+                <span>Category Picker</span>
+                <span>Day Scheduler</span>
+              </div>
+              <div class="product-hero-cta">
+                Open CG Automation &#8599;
                 <svg
                   viewBox="0 0 24 24"
                   fill="none"
@@ -3717,6 +3790,14 @@
             <ul class="footer-links">
               <li><a href="/media-plan">Plan</a></li>
               <li><a href="/nova">Nova AI</a></li>
+              <li>
+                <a
+                  href="https://cg-automation.onrender.com"
+                  target="_blank"
+                  rel="noopener"
+                  >CG Automation</a
+                >
+              </li>
               <li><a href="/quick-plan">Quick Plan</a></li>
               <li><a href="/api-portal">API Portal</a></li>
               <li><a href="/creative-ai">Creative AI</a></li>
