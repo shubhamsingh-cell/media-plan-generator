@@ -5338,6 +5338,47 @@ if os.path.isdir(DATA_DIR):
 else:
     logger.warning("KB backup scheduler not started (data/ directory not found)")
 
+
+# ── S32: Qdrant keep-alive ping (every 12 hours) ──────────────────────────
+# Prevents free-tier Qdrant cluster from being suspended due to inactivity.
+_QDRANT_PING_INTERVAL = 12 * 60 * 60  # 12 hours in seconds
+
+
+def _scheduled_qdrant_ping() -> None:
+    """Ping Qdrant cluster to prevent inactivity suspension."""
+    try:
+        _q_url = os.environ.get("QDRANT_URL") or ""
+        _q_key = os.environ.get("QDRANT_API_KEY") or ""
+        if _q_url and _q_key:
+            import urllib.request
+
+            _req = urllib.request.Request(
+                f"{_q_url.rstrip('/')}/collections",
+                headers={"api-key": _q_key, "Content-Type": "application/json"},
+            )
+            with urllib.request.urlopen(_req, timeout=10) as _resp:
+                logger.info("Qdrant keep-alive ping: %s", _resp.status)
+        else:
+            logger.debug("Qdrant keep-alive skipped (no URL/key configured)")
+    except Exception as _qp_err:
+        logger.warning("Qdrant keep-alive ping failed: %s", _qp_err)
+    finally:
+        _qt = threading.Timer(_QDRANT_PING_INTERVAL, _scheduled_qdrant_ping)
+        _qt.daemon = True
+        _qt.name = "qdrant-ping"
+        _qt.start()
+
+
+if os.environ.get("QDRANT_URL") and os.environ.get("QDRANT_API_KEY"):
+    _qdrant_ping_timer = threading.Timer(
+        60.0, _scheduled_qdrant_ping
+    )  # first ping after 60s
+    _qdrant_ping_timer.daemon = True
+    _qdrant_ping_timer.name = "qdrant-ping"
+    _qdrant_ping_timer.start()
+    logger.info("Qdrant keep-alive scheduler started (every 12h)")
+
+
 # Simple in-memory rate limiter
 from collections import defaultdict
 
