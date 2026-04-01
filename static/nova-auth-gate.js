@@ -60,6 +60,81 @@
         this.style.boxShadow = "0 4px 12px rgba(0,0,0,0.3)";
       };
     }
+
+    // Direct click handler -- handles case where NovaAuth.init() hasn't completed
+    if (btn) {
+      btn.addEventListener("click", function (e) {
+        e.preventDefault();
+
+        // Try NovaAuth first
+        if (
+          typeof NovaAuth !== "undefined" &&
+          NovaAuth.isInitialized &&
+          NovaAuth.isInitialized()
+        ) {
+          NovaAuth.signInWithGoogle();
+          return;
+        }
+
+        // Fallback: init directly from /api/config
+        btn.textContent = "Connecting...";
+        btn.disabled = true;
+
+        fetch("/api/config")
+          .then(function (r) {
+            return r.json();
+          })
+          .then(function (cfg) {
+            if (!cfg.auth_enabled || !cfg.supabase_url) {
+              btn.textContent = "Sign in with Google";
+              btn.disabled = false;
+              alert("Authentication is not configured. Please contact admin.");
+              return;
+            }
+
+            // Initialize NovaAuth if available
+            if (typeof NovaAuth !== "undefined") {
+              NovaAuth.init({
+                supabaseUrl: cfg.supabase_url,
+                supabaseAnonKey: cfg.supabase_anon_key,
+                allowedDomains: [],
+              });
+              // Small delay for init to complete
+              setTimeout(function () {
+                NovaAuth.signInWithGoogle();
+              }, 200);
+              return;
+            }
+
+            // Last resort: create Supabase client directly
+            if (typeof window.supabase !== "undefined") {
+              var sb = window.supabase.createClient(
+                cfg.supabase_url,
+                cfg.supabase_anon_key,
+              );
+              sb.auth.signInWithOAuth({
+                provider: "google",
+                options: {
+                  redirectTo: window.location.origin + window.location.pathname,
+                },
+              });
+            } else {
+              alert(
+                "Authentication library failed to load. Please refresh the page.",
+              );
+              btn.textContent = "Sign in with Google";
+              btn.disabled = false;
+            }
+          })
+          .catch(function () {
+            alert(
+              "Failed to connect. Please check your internet and try again.",
+            );
+            btn.textContent = "Sign in with Google";
+            btn.disabled = false;
+          });
+      });
+    }
   }
 
   function removeGate() {

@@ -417,12 +417,16 @@
   window.NovaAuth = {
     init: init,
     signIn: signInWithGoogle,
+    signInWithGoogle: signInWithGoogle,
     signOut: signOut,
     getUser: function () {
       return _currentUser;
     },
     isLoggedIn: function () {
       return !!_currentUser;
+    },
+    isInitialized: function () {
+      return _initialized;
     },
     onLogin: function (cb) {
       AUTH_CONFIG.onLoginCallbacks.push(cb);
