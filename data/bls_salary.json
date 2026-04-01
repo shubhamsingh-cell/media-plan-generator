@@ -1,0 +1,74 @@
+{
+  "data": {
+    "Software Engineer": {
+      "source": "BLS OES",
+      "mean": 144570,
+      "median": 133080,
+      "p10": 79850,
+      "p90": 211450
+    },
+    "Registered Nurse": {
+      "source": "BLS OES",
+      "mean": 98430,
+      "median": 93600,
+      "p10": 66030,
+      "p90": 135320
+    },
+    "Marketing Manager": {
+      "source": "BLS OES",
+      "mean": 171520,
+      "median": 161030,
+      "p10": 81900
+    },
+    "Sales Representative": {
+      "source": "BLS OES",
+      "mean": 160930,
+      "median": 138060,
+      "p10": 66910
+    },
+    "Data Analyst": {
+      "source": "BLS OES",
+      "mean": 124590,
+      "median": 112590,
+      "p10": 63650,
+      "p90": 194410
+    },
+    "Warehouse Associate": {
+      "source": "BLS OES",
+      "mean": 38910,
+      "median": 37090,
+      "p10": 29850,
+      "p90": 49200
+    },
+    "Truck Driver": {
+      "source": "BLS OES",
+      "mean": 58400,
+      "median": 57440,
+      "p10": 38640,
+      "p90": 78800
+    },
+    "Financial Analyst": {
+      "source": "BLS OES",
+      "mean": 116490,
+      "median": 101350,
+      "p10": 62410,
+      "p90": 180550
+    },
+    "Project Manager": {
+      "source": "BLS OES",
+      "mean": 149890,
+      "median": 136550,
+      "p10": 68860,
+      "p90": 227590
+    },
+    "Customer Service Representative": {
+      "source": "BLS OES",
+      "mean": 31350,
+      "median": 30480,
+      "p10": 22620,
+      "p90": 38800
+    }
+  },
+  "_refreshed_at": 1774782432.689664,
+  "_refreshed_iso": "2026-03-29T11:07:12.690066+00:00"
+}

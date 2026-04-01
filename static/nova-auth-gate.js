@@ -40,7 +40,7 @@
       "  </svg>" +
       '  <h1 style="color:#e4e4e7;font-size:28px;font-weight:700;margin:0 0 8px;font-family:Inter,sans-serif;">Welcome to Nova AI</h1>' +
       '  <p style="color:rgba(255,255,255,0.5);font-size:15px;margin:0 0 32px;font-family:Inter,sans-serif;line-height:1.5;">AI-powered recruitment intelligence platform.<br>Sign in to access the suite.</p>' +
-      '  <button id="nova-gate-login-btn" data-nova-auth-login style="' +
+      '  <button id="nova-gate-login-btn" style="' +
       "    background:white;color:#1a1a2e;border:none;padding:14px 32px;border-radius:12px;" +
       "    font-size:15px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;" +
       '    gap:10px;font-family:Inter,sans-serif;transition:all 0.2s;box-shadow:0 4px 12px rgba(0,0,0,0.3);">' +
@@ -52,7 +52,7 @@
       "    </svg>" +
       "    Sign in with Google" +
       "  </button>" +
-      '  <p style="color:rgba(255,255,255,0.3);font-size:12px;margin-top:24px;font-family:Inter,sans-serif;">Powered by Joveo</p>' +
+      '  <p style="color:rgba(255,255,255,0.3);font-size:12px;margin-top:24px;font-family:Inter,sans-serif;">Created by Shubham Singh Chandel</p>' +
       "</div>";
 
     document.body.appendChild(overlay);

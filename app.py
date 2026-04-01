@@ -14012,11 +14012,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 )
                 return
             _CHAT_REQUEST_TIMEOUT: float = (
-                55.0  # seconds -- must finish before P99 SLO target of 65s
-                # S32: lowered from 90→55. The 90s timeout caused P50=P99=90s
-                # SLO violations because every timeout hit exactly 90s.
-                # At 55s + ~5s overhead = 60s total, comfortably within 65s P99.
-                # Complex queries that would have taken 60-90s now return
+                75.0  # seconds -- S32: 90→55 was too aggressive (4/9 tests dumped raw JSON)
+                # 75s gives complex queries enough time to synthesize properly
+                # while keeping P99 under 80s. The partial accumulator handles
                 # partial results earlier via the partial_accumulator pattern,
                 # which is a better UX than waiting 90s for a timeout message.
                 # gunicorn kill is 120s so 55s is safely below that.

@@ -1,0 +1,82 @@
+{
+  "scraped_at": "2026-03-31T08:41:38.660245+00:00",
+  "platforms": {
+    "facebook": {
+      "platform": "Facebook",
+      "formats": [
+        "Image",
+        "Video",
+        "Carousel",
+        "Stories"
+      ],
+      "image_specs": {
+        "recommended_size": "1080x1080",
+        "aspect_ratio": "1:1",
+        "max_file_size_mb": 30
+      },
+      "video_specs": {
+        "max_duration_sec": 240,
+        "recommended_resolution": "1080x1080",
+        "max_file_size_mb": 4000
+      },
+      "text_limits": {
+        "primary_text": 125,
+        "headline": 40,
+        "description": 30
+      },
+      "source": "router_partial",
+      "last_updated": "2026-03-31T08:41:40Z"
+    },
+    "linkedin": {
+      "platform": "LinkedIn",
+      "formats": [
+        "Single Image",
+        "Video",
+        "Carousel",
+        "Message Ad"
+      ],
+      "image_specs": {
+        "recommended_size": "1200x627",
+        "aspect_ratio": "1.91:1",
+        "max_file_size_mb": 5
+      },
+      "video_specs": {
+        "max_duration_sec": 600,
+        "recommended_resolution": "1920x1080",
+        "max_file_size_mb": 200
+      },
+      "text_limits": {
+        "intro_text": 600,
+        "headline": 70,
+        "description": 100
+      },
+      "source": "router_partial",
+      "last_updated": "2026-03-31T08:41:41Z"
+    },
+    "tiktok": {
+      "platform": "TikTok",
+      "formats": [
+        "In-Feed",
+        "TopView",
+        "Branded Hashtag",
+        "Spark Ads"
+      ],
+      "image_specs": {
+        "recommended_size": "1080x1920",
+        "aspect_ratio": "9:16",
+        "max_file_size_mb": 10
+      },
+      "video_specs": {
+        "max_duration_sec": 60,
+        "recommended_resolution": "1080x1920",
+        "max_file_size_mb": 500
+      },
+      "text_limits": {
+        "ad_text": 100,
+        "display_name": 40
+      },
+      "source": "router_partial",
+      "last_updated": "2026-03-31T08:41:42Z"
+    }
+  }
+}

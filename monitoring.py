@@ -282,7 +282,7 @@ SLO_TARGETS: Dict[str, Dict[str, Any]] = {
         "severity": "warning",
     },
     "chat_p99_ms": {
-        "target": 65000,  # 65 seconds (free-tier LLM cold-start + tool-use can reach 55-60s at P99)
+        "target": 80000,  # 80 seconds -- S32: timeout raised to 75s, complex queries need synthesis time
         "description": "99th percentile chat latency",
         "endpoint": "/api/chat",
         "grace_after_deploy_s": 300,  # Exclude first 5 min after deploy from SLO

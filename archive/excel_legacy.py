@@ -508,7 +508,7 @@ def generate_excel(data):
     ws_overview.cell(
         row=row + 2,
         column=2,
-        value="Powered by Joveo — Programmatic Job Advertising at Scale",
+        value="Created by Shubham Singh Chandel — Programmatic Job Advertising at Scale",
     ).font = Font(name="Calibri", italic=True, size=9, color="2E75B6")
 
     # ── Executive Summary (inserted as FIRST sheet) ──
