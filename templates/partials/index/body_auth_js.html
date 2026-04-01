@@ -1,0 +1,29 @@
+<!-- Nova Auth: Google Sign-In via Supabase (optional, non-blocking) -->
+<script
+  src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"
+  defer
+></script>
+<script src="/static/nova-auth.js?v=1.0.0" defer></script>
+<script>
+  // Initialize NovaAuth after DOM + scripts are ready
+  // Fetches public Supabase config from /api/config (same pattern as PostHog)
+  document.addEventListener("DOMContentLoaded", function () {
+    if (typeof NovaAuth === "undefined") return;
+    fetch("/api/config")
+      .then(function (r) {
+        return r.json();
+      })
+      .then(function (cfg) {
+        if (cfg && cfg.auth_enabled) {
+          NovaAuth.init({
+            supabaseUrl: cfg.supabase_url || "",
+            supabaseAnonKey: cfg.supabase_anon_key || "",
+            allowedDomains: [], // Empty = open to all. Set ["joveo.com"] to restrict.
+          });
+        }
+      })
+      .catch(function () {
+        // Auth init failure must never break the page
+      });
+  });
+</script>

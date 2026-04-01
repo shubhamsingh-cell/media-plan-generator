@@ -9150,6 +9150,62 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(body)
 
+        elif path == "/api/config":
+            # ── Public config endpoint (safe: only public keys, never secrets) ──
+            _posthog_key = os.environ.get("POSTHOG_API_KEY") or ""
+            _sb_url = os.environ.get("SUPABASE_URL") or ""
+            _sb_anon = os.environ.get("SUPABASE_ANON_KEY") or ""
+            self._send_json(
+                {
+                    "posthog_key": _posthog_key,
+                    "supabase_url": _sb_url,
+                    "supabase_anon_key": _sb_anon,
+                    "auth_enabled": bool(_sb_url and _sb_anon),
+                    "auth_provider": "google",
+                }
+            )
+
+        elif path == "/api/auth/me":
+            # ── Auth: Return current user info (from Supabase JWT) ──
+            # Non-breaking: returns null user if not authenticated
+            auth_header = self.headers.get("Authorization") or ""
+            if auth_header.startswith("Bearer "):
+                _auth_token = auth_header[7:]
+                # Validate via Supabase REST API
+                _sb_url = os.environ.get("SUPABASE_URL") or ""
+                _sb_key = os.environ.get("SUPABASE_ANON_KEY") or ""
+                if _sb_url and _sb_key:
+                    try:
+                        _auth_req = urllib.request.Request(
+                            f"{_sb_url.rstrip('/')}/auth/v1/user",
+                            headers={
+                                "apikey": _sb_key,
+                                "Authorization": f"Bearer {_auth_token}",
+                            },
+                        )
+                        with urllib.request.urlopen(_auth_req, timeout=5) as _resp:
+                            _user_data = json.loads(_resp.read().decode())
+                            self._send_json(
+                                {
+                                    "authenticated": True,
+                                    "user": {
+                                        "id": _user_data.get("id", ""),
+                                        "email": _user_data.get("email", ""),
+                                        "name": (
+                                            _user_data.get("user_metadata") or {}
+                                        ).get("full_name", ""),
+                                        "avatar_url": (
+                                            _user_data.get("user_metadata") or {}
+                                        ).get("avatar_url", ""),
+                                    },
+                                }
+                            )
+                            return
+                    except Exception:
+                        pass
+            # Not authenticated -- return gracefully (non-breaking)
+            self._send_json({"authenticated": False, "user": None})
+
         elif path == "/api/slack/status":
             # ── Slack Bot Diagnostic Endpoint (admin-protected) ──
             if not self._check_admin_auth():
@@ -11100,6 +11156,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             "/api/health",  # Read-only health checks
             "/api/health/ping",  # Read-only ping
             "/api/csrf-token",  # Must be exempt to bootstrap
+            "/api/config",  # Public config, read-only
+            "/api/auth/me",  # Uses Bearer token, not CSRF
+            "/api/auth/session",  # Uses Bearer token, not CSRF
         )
         if (
             not _has_api_key
@@ -11117,6 +11176,25 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     403,
                 )
                 return
+
+        # ── Auth session notification (fire-and-forget from frontend) ──
+        if path == "/api/auth/session":
+            # Non-blocking: frontend notifies backend of auth state
+            # Used for optional server-side session tracking
+            try:
+                content_length = int(self.headers.get("Content-Length") or 0)
+                body = self.rfile.read(content_length) if content_length > 0 else b"{}"
+                auth_data = json.loads(body.decode("utf-8"))
+                logger.info(
+                    "Auth session: user=%s email=%s",
+                    auth_data.get("user_id", ""),
+                    auth_data.get("email", ""),
+                )
+                self._send_json({"status": "ok"})
+            except Exception as e:
+                logger.warning("Auth session error: %s", e)
+                self._send_json({"status": "ok"})  # Never fail auth notification
+            return
 
         # ── Extracted POST route modules ──
         from routes.competitive import handle_competitive_post_routes
