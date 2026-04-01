@@ -80,15 +80,28 @@ def _run_deferred_startup() -> None:
     except Exception as kb_err:
         logger.warning("[wsgi] Knowledge base pre-warm failed: %s", kb_err)
 
-    # Build vector search index
+    # Build vector search index in background thread (non-blocking)
+    # This takes 3-5 min for 5000+ chunks and was blocking port binding,
+    # causing Render's port scan to timeout and reject deploys.
     try:
         from app import _vector_search_available, _vector_index_kb
 
         if _vector_search_available and _vector_index_kb:
-            count = _vector_index_kb()
-            logger.info("[wsgi] Vector search index built: %d documents", count)
+
+            def _bg_vector_index():
+                try:
+                    count = _vector_index_kb()
+                    logger.info("[wsgi] Vector search index built: %d documents", count)
+                except Exception as _ve:
+                    logger.warning("[wsgi] Vector index build failed: %s", _ve)
+
+            _vt = threading.Thread(
+                target=_bg_vector_index, daemon=True, name="vector-index"
+            )
+            _vt.start()
+            logger.info("[wsgi] Vector search indexing started in background thread")
     except Exception as ve:
-        logger.warning("[wsgi] Vector index build failed: %s", ve)
+        logger.warning("[wsgi] Vector index setup failed: %s", ve)
 
     # Data Refresh Pipeline
     try:
