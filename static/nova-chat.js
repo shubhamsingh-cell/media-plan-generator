@@ -1716,12 +1716,9 @@
       .querySelector(".nova-close-btn")
       .addEventListener("click", function (e) {
         e.stopPropagation();
-        // Force close (not toggle) -- fixes state.isOpen desync bug
-        // If panel is visible, always close. Never re-open from close button.
-        if (panel.classList.contains("nova-visible")) {
-          state.isOpen = true; // Ensure togglePanel takes the close branch
-        }
-        togglePanel();
+        e.preventDefault();
+        // Force close (never toggle) -- S30 fix v2
+        togglePanel(true);
       });
     panel.appendChild(header);
 
@@ -1840,7 +1837,7 @@
   // ---------------------------------------------------------------------------
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape" && state.isOpen) {
-      togglePanel();
+      togglePanel(true);
     }
     // Cmd+Shift+L (Mac) or Ctrl+Shift+L (Win/Linux): Clear conversation
     if (
@@ -1857,8 +1854,13 @@
   // ---------------------------------------------------------------------------
   // Panel toggle
   // ---------------------------------------------------------------------------
-  function togglePanel() {
-    state.isOpen = !state.isOpen;
+  function togglePanel(forceClose) {
+    // If forceClose is true, always close regardless of current state
+    if (forceClose === true) {
+      state.isOpen = false;
+    } else {
+      state.isOpen = !state.isOpen;
+    }
     var panel = state.chatPanel;
     var btn = state.floatingBtn;
     var orbCanvas = state.orbCanvas;
@@ -3528,14 +3530,8 @@
      * Programmatically close the chat panel.
      */
     close: function () {
-      // Force close regardless of state.isOpen (fixes desync bug)
-      if (
-        state.chatPanel &&
-        state.chatPanel.classList.contains("nova-visible")
-      ) {
-        state.isOpen = true; // Ensure togglePanel takes the close branch
-        togglePanel();
-      }
+      // Force close regardless of state.isOpen -- S30 fix v2
+      togglePanel(true);
     },
 
     /**
