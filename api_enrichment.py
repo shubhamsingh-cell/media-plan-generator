@@ -892,7 +892,7 @@ def _circuit_breaker_record_failure(api_name: str) -> None:
                 "is_open": False,
             },
         )
-        state["failure_count"] = state.get("failure_count") or 0 + 1
+        state["failure_count"] = (state.get("failure_count") or 0) + 1
         state["last_failure_time"] = time.time()
         if state["failure_count"] >= _CB_FAILURE_THRESHOLD:
             state["is_open"] = True
