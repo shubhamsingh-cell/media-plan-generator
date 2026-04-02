@@ -83,6 +83,9 @@ services:
       # --- Slack Alerts (slack_alerts.py, slack_alerter.py, sentry_integration.py) ---
       - key: SLACK_WEBHOOK_URL
         sync: false
+      # --- Slack Plan Notifications (slack_plan_notifier.py) ---
+      - key: SLACK_PLAN_CHANNEL
+        sync: false
       # --- Google Calendar Sync (calendar_sync.py) ---
       - key: GOOGLE_CALENDAR_CREDENTIALS
         sync: false
