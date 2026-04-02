@@ -535,12 +535,21 @@ class NovaSlackBot:
     # ------------------------------------------------------------------
 
     def _load_learned_answers(self) -> None:
-        """Load previously learned answers from disk, merging with pre-loaded pairs."""
+        """Load learned answers from disk, falling back to Supabase if missing.
+
+        On Render deploys the ephemeral filesystem is wiped, so the local JSON
+        file disappears.  When that happens we restore from the Supabase
+        ``cache`` table (rows whose ``key`` starts with ``learned_answer::``).
+        After a successful Supabase restore the local file is re-created so
+        subsequent reads are fast.
+        """
         with self._lock:
+            loaded_from_disk = False
             try:
                 if LEARNED_ANSWERS_FILE.exists():
                     with open(LEARNED_ANSWERS_FILE, "r") as fh:
                         self.learned_answers = json.load(fh)
+                    loaded_from_disk = bool(self.learned_answers.get("answers"))
                 else:
                     self.learned_answers = {
                         "answers": [],
@@ -552,6 +561,57 @@ class NovaSlackBot:
                     "answers": [],
                     "metadata": {"total_learned": 0, "last_updated": None},
                 }
+
+            # ── Supabase restore when local file is empty/missing ─────────
+            if not loaded_from_disk:
+                try:
+                    from supabase_client import get_client
+
+                    client = get_client()
+                    if client:
+                        result = (
+                            client.table("cache")
+                            .select("key, data")
+                            .like("key", "learned_answer::%")
+                            .execute()
+                        )
+                        if result and result.data:
+                            restored: list[dict] = []
+                            for row in result.data:
+                                val = row.get("data")
+                                if isinstance(val, str):
+                                    try:
+                                        val = json.loads(val)
+                                    except json.JSONDecodeError:
+                                        continue
+                                if isinstance(val, dict):
+                                    restored.append(val)
+                            if restored:
+                                self.learned_answers["answers"] = restored
+                                logger.info(
+                                    "Nova: Restored %d learned answers from Supabase",
+                                    len(restored),
+                                )
+                                # Re-create local file for fast subsequent reads
+                                try:
+                                    self.learned_answers["metadata"][
+                                        "last_updated"
+                                    ] = datetime.utcnow().isoformat()
+                                    tmp = str(LEARNED_ANSWERS_FILE) + ".tmp"
+                                    with open(tmp, "w") as fh:
+                                        json.dump(self.learned_answers, fh, indent=2)
+                                    os.replace(tmp, LEARNED_ANSWERS_FILE)
+                                except OSError as write_exc:
+                                    logger.warning(
+                                        "Nova: Could not write restored answers to disk: %s",
+                                        write_exc,
+                                    )
+                except Exception as exc:
+                    logger.warning(
+                        "Nova: Supabase restore of learned answers failed (using local fallback): %s",
+                        exc,
+                    )
+
             # P1 FIX: Merge pre-loaded answers (survives ephemeral filesystem)
             existing_qs = {
                 (a.get("question") or "").lower()
@@ -565,12 +625,53 @@ class NovaSlackBot:
             )
 
     def _save_learned_answers(self) -> None:
-        """Persist learned answers to disk (caller must hold ``_lock``)."""
+        """Persist learned answers to disk and Supabase (caller must hold ``_lock``).
+
+        After writing the local JSON file, each answer is upserted into the
+        Supabase ``cache`` table with key ``learned_answer::<question_hash>``
+        so the data survives Render's ephemeral filesystem.  Supabase failures
+        are logged but never block the local write.
+        """
         self.learned_answers["metadata"]["last_updated"] = datetime.utcnow().isoformat()
         tmp = str(LEARNED_ANSWERS_FILE) + ".tmp"
         with open(tmp, "w") as fh:
             json.dump(self.learned_answers, fh, indent=2)
         os.replace(tmp, LEARNED_ANSWERS_FILE)
+
+        # ── Sync to Supabase cache table ──────────────────────────────
+        try:
+            from supabase_client import get_client
+
+            client = get_client()
+            if client:
+                answers = self.learned_answers.get("answers") or []
+                rows = []
+                for entry in answers:
+                    q = (entry.get("question") or "").strip()
+                    if not q:
+                        continue
+                    q_hash = hashlib.md5(q.lower().encode()).hexdigest()[:12]
+                    rows.append(
+                        {
+                            "key": f"learned_answer::{q_hash}",
+                            "data": entry,
+                            "category": "learned_answer",
+                        }
+                    )
+                if rows:
+                    # Upsert in batches of 50 to stay within Supabase limits
+                    for i in range(0, len(rows), 50):
+                        batch = rows[i : i + 50]
+                        client.table("cache").upsert(batch, on_conflict="key").execute()
+                    logger.info(
+                        "Nova: Synced %d learned answers to Supabase cache table",
+                        len(rows),
+                    )
+        except Exception as exc:
+            logger.warning(
+                "Nova: Failed to sync learned answers to Supabase (local file is fine): %s",
+                exc,
+            )
 
     # ------------------------------------------------------------------
     # Persistence -- unanswered questions

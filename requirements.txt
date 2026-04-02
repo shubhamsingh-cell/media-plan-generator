@@ -4,7 +4,7 @@ python-pptx>=1.0.0,<2.0.0
 reportlab>=4.0.0,<5.0.0
 
 # File upload processing (brief/transcript/historical data extraction)
-PyPDF2>=3.0.0,<4.0.0
+pypdf>=4.0.0,<5.0.0
 python-docx>=1.0.0,<2.0.0
 
 # Error tracking
@@ -19,10 +19,10 @@ pytrends>=4.9.0,<5.0.0
 
 # Multi-platform job scraping (LinkedIn, Indeed, Glassdoor, ZipRecruiter, Google)
 # Optional: import is guarded with try/except in job_scraper.py
-python-jobspy>=0.28.0
+python-jobspy>=0.28.0,<1.0.0
 
 # Image processing (for Pillow-based features)
-Pillow>=10.0.0
+Pillow>=10.4.0,<11.0.0
 
 # ChromaDB vector store for Nova RAG (optional: guarded with try/except in chroma_rag.py)
 chromadb>=0.5.0,<1.0.0

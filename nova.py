@@ -2819,17 +2819,50 @@ def _check_learned_answers(question: str) -> Optional[Dict[str, Any]]:
     This prevents a query about "mechanical engineers in Germany" from matching
     a cached answer about "nursing boards in the US".
     """
-    # Merge preloaded with disk-based learned answers
+    # Merge preloaded with disk-based learned answers (fall back to Supabase)
     all_answers = list(_PRELOADED_ANSWERS)
+    disk_loaded = False
     try:
         learned_file = DATA_DIR / "nova_learned_answers.json"
         if learned_file.exists():
             with open(learned_file, "r", encoding="utf-8") as f:
                 disk_data = json.load(f)
                 disk_answers = disk_data.get("answers") or []
-                all_answers.extend(disk_answers)
+                if disk_answers:
+                    all_answers.extend(disk_answers)
+                    disk_loaded = True
     except Exception as exc:
         logger.warning("Could not load learned answers from disk: %s", exc)
+
+    # If local file was empty/missing, try Supabase cache table
+    if not disk_loaded:
+        try:
+            from supabase_client import get_client
+
+            client = get_client()
+            if client:
+                result = (
+                    client.table("cache")
+                    .select("key, data")
+                    .like("key", "learned_answer::%")
+                    .execute()
+                )
+                if result and result.data:
+                    for row in result.data:
+                        val = row.get("data")
+                        if isinstance(val, str):
+                            try:
+                                val = json.loads(val)
+                            except (json.JSONDecodeError, TypeError):
+                                continue
+                        if isinstance(val, dict):
+                            all_answers.append(val)
+                    logger.info(
+                        "Restored %d learned answers from Supabase for matching",
+                        len(result.data),
+                    )
+        except Exception as exc:
+            logger.warning("Could not load learned answers from Supabase: %s", exc)
 
     q_words = _extract_keywords(question)
     if not q_words:
@@ -10024,23 +10057,35 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
 
         # Hardcoded safety net: if rule-based also returned empty/None, ensure
         # the caller always gets a usable response dict.
+        # v4.4: Enhanced degraded-mode -- attempt direct tool calls to surface
+        # raw data even when ALL LLM providers are unavailable.
         if not result or not (result.get("response") or "").strip():
             logger.error(
                 "All LLM providers AND rule-based fallback failed for chat query: %s",
                 user_message[:100],
             )
-            result = {
-                "response": (
-                    "I'm temporarily unable to process your question due to connectivity issues "
-                    "with our AI providers. Please try again in a few minutes. "
-                    "If this persists, the system may be experiencing high load."
-                ),
-                "sources": [],
-                "confidence": 0.0,
-                "tools_used": [],
-                "error": "all_providers_and_fallback_failed",
-                "error_type": "rule_based_empty",
-            }
+            # Attempt direct tool data collection without LLM narration
+            _degraded_response = self._build_degraded_mode_response(user_message)
+            if _degraded_response:
+                result = _degraded_response
+            else:
+                result = {
+                    "response": (
+                        "I'm experiencing connectivity issues with my AI backend, but I can still help!\n\n"
+                        "**Tools available right now** (no AI narration, raw data only):\n"
+                        "- **Salary data**: Ask about any role + location (e.g., 'nurse salary in Texas')\n"
+                        "- **CPC/CPA benchmarks**: Ask about industry benchmarks\n"
+                        "- **Job board recommendations**: Ask about publishers for any country\n"
+                        "- **Market demand**: Ask about hiring difficulty for any role\n"
+                        "- **Budget allocation**: Ask about channel mix for a budget\n\n"
+                        "Try a specific question and I'll pull the data directly from our tools."
+                    ),
+                    "sources": [],
+                    "confidence": 0.3,
+                    "tools_used": [],
+                    "error": "all_providers_failed_degraded_mode",
+                    "error_type": "degraded_mode",
+                }
 
         return _append_follow_ups_to_response(
             _sanitize_refusal_language(_filter_competitor_names(result)),

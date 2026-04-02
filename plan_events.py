@@ -24,6 +24,7 @@ The EventStore class provides:
 
 import copy
 import datetime
+import json
 import logging
 import threading
 import uuid
@@ -239,13 +240,41 @@ class EventStore:
     ) -> list[Event]:
         """Return the full (or partial) event history for *plan_id*.
 
+        When the in-memory stream is empty and Supabase persistence is
+        enabled, lazily loads events from the ``plan_events`` table so
+        that undo/redo works correctly across gunicorn workers and deploys.
+
         Parameters
         ----------
         since_version : int
             If >0, only return events with ``version > since_version``.
         """
         with self._lock:
-            stream = list(self._streams.get(plan_id) or [])
+            stream = self._streams.get(plan_id)
+
+        # Lazy-load from Supabase when in-memory cache is empty
+        if not stream and self._persist:
+            loaded = self._load_events_from_supabase(plan_id)
+            if loaded:
+                with self._lock:
+                    # Double-check: another thread may have loaded already
+                    if not self._streams.get(plan_id):
+                        self._streams[plan_id] = loaded
+                        # Rebuild version counter and total from loaded events
+                        max_version = max(e.version for e in loaded)
+                        self._versions[plan_id] = max_version
+                        self._total_events += len(loaded)
+                        logger.info(
+                            f"Lazy-loaded {len(loaded)} events for plan={plan_id} "
+                            f"from Supabase (max_version={max_version})"
+                        )
+                    stream = list(self._streams.get(plan_id) or [])
+            else:
+                stream = []
+        else:
+            with self._lock:
+                stream = list(self._streams.get(plan_id) or [])
+
         if since_version > 0:
             stream = [e for e in stream if e.version > since_version]
         return stream
@@ -289,15 +318,14 @@ class EventStore:
         ValueError
             If there are no events or only a ``PlanCreated`` event.
         """
-        with self._lock:
-            stream = self._streams.get(plan_id) or []
-            if len(stream) == 0:
-                raise ValueError(f"No events exist for plan {plan_id}")
+        # Ensure events are loaded (triggers Supabase lazy-load if needed)
+        stream = self.get_events(plan_id)
+        if len(stream) == 0:
+            raise ValueError(f"No events exist for plan {plan_id}")
 
-            # Find the last non-undo event to undo
-            last_event = stream[-1]
-            if last_event.event_type == EventType.PLAN_CREATED:
-                raise ValueError("Cannot undo plan creation")
+        last_event = stream[-1]
+        if last_event.event_type == EventType.PLAN_CREATED:
+            raise ValueError("Cannot undo plan creation")
 
         # Snapshot before the last event
         target_version = last_event.version - 1
@@ -434,23 +462,40 @@ class EventStore:
         }
 
     # ------------------------------------------------------------------
-    # Supabase persistence (best-effort)
+    # Supabase persistence (best-effort, fire-and-forget)
     # ------------------------------------------------------------------
-    # NOTE: Supabase `plan_events` table is intentionally write-only at the
-    # persistence layer.  Events are read back from the in-memory store for
-    # fast snapshot replay.  The Supabase copy serves as a durable audit log
-    # for compliance and disaster recovery.  A read API is exposed at
-    # GET /api/plan/events (list all) and GET /api/plans/<id>/history.
+    # The ``plan_events`` Supabase table is the durable source of truth.
+    # In-memory ``_streams`` acts as an L1 cache for fast snapshot replay
+    # within a single gunicorn worker.  On cache miss (e.g. after deploy
+    # or when a different worker handles the request), events are lazy-
+    # loaded from Supabase.  Writes are fire-and-forget via daemon threads
+    # so they never slow down the main request path.
 
     def _persist_event(self, event: Event) -> None:
-        """Write event to Supabase ``plan_events`` table (best-effort)."""
+        """Write event to Supabase ``plan_events`` table (fire-and-forget).
+
+        Spawns a daemon thread so the main request path is never blocked.
+        All errors are caught and logged -- Supabase downtime degrades
+        gracefully to in-memory-only operation.
+        """
+        t = threading.Thread(
+            target=self._persist_event_sync,
+            args=(event,),
+            daemon=True,
+        )
+        t.start()
+
+    def _persist_event_sync(self, event: Event) -> None:
+        """Synchronous Supabase write (runs in daemon thread)."""
         try:
             from supabase_client import get_client
 
             client = get_client()
             if client is None:
                 return
+
             client.table("plan_events").insert(event.to_dict()).execute()
+            logger.debug(f"Persisted event {event.event_id} to Supabase")
         except ImportError:
             logger.debug("supabase_client not available; skipping persistence")
         except Exception as exc:
@@ -458,6 +503,64 @@ class EventStore:
                 f"Failed to persist event {event.event_id} to Supabase: {exc}",
                 exc_info=True,
             )
+
+    def _load_events_from_supabase(self, plan_id: str) -> list[Event]:
+        """Load all events for *plan_id* from Supabase (blocking).
+
+        Returns an ordered list of ``Event`` objects, or an empty list
+        if Supabase is unavailable or the plan has no persisted events.
+        """
+        try:
+            from supabase_client import get_client
+
+            client = get_client()
+            if client is None:
+                return []
+
+            response = (
+                client.table("plan_events")
+                .select("*")
+                .eq("plan_id", plan_id)
+                .order("version", desc=False)
+                .execute()
+            )
+
+            rows = response.data or []
+            if not rows:
+                return []
+
+            events: list[Event] = []
+            for row in rows:
+                # Deserialise payload from JSON string if needed
+                payload = row.get("payload") or {}
+                if isinstance(payload, str):
+                    try:
+                        payload = json.loads(payload)
+                    except (json.JSONDecodeError, TypeError):
+                        payload = {}
+
+                events.append(
+                    Event(
+                        event_id=row["event_id"],
+                        plan_id=row["plan_id"],
+                        event_type=row["event_type"],
+                        timestamp=row["timestamp"],
+                        user_id=row["user_id"],
+                        payload=payload,
+                        version=row["version"],
+                    )
+                )
+
+            return events
+        except ImportError:
+            logger.debug("supabase_client not available; skipping load")
+            return []
+        except Exception as exc:
+            logger.error(
+                f"Failed to load events for plan={plan_id} from Supabase: {exc}",
+                exc_info=True,
+            )
+            return []
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

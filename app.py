@@ -48,6 +48,10 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+# Auth module availability flag -- set during deferred_startup().
+# Defaults to False so that if auth.py fails to import, admin endpoints are blocked.
+_auth_module_loaded: bool = False
+
 
 def _safe_str(val: object, default: str = "") -> str:
     """Safely convert any value to string, returning default for None/empty."""
@@ -9150,24 +9154,36 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             return
 
         # ── API Key Authentication (Phase 6) ──
-        try:
-            from auth import authenticate
+        if _auth_module_loaded:
+            try:
+                from auth import authenticate
 
-            auth_header = self.headers.get("Authorization") or ""
-            query_params = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
-            query_key = query_params.get("api_key", [None])[0]
-            auth_result = authenticate(path, auth_header, query_key)
-            if not auth_result["authenticated"]:
-                self._send_json(
-                    {
-                        "error": "Authentication required",
-                        "reason": auth_result["reason"],
-                    },
-                    status_code=401,
+                auth_header = self.headers.get("Authorization") or ""
+                query_params = urllib.parse.parse_qs(
+                    urllib.parse.urlparse(self.path).query
                 )
+                query_key = query_params.get("api_key", [None])[0]
+                auth_result = authenticate(path, auth_header, query_key)
+                if not auth_result["authenticated"]:
+                    self._send_json(
+                        {
+                            "error": "Authentication required",
+                            "reason": auth_result["reason"],
+                        },
+                        status_code=401,
+                    )
+                    return
+            except Exception:
+                logger.error("Auth check failed unexpectedly", exc_info=True)
+                self._send_json({"error": "Internal auth error"}, status_code=500)
                 return
-        except ImportError:
-            pass  # Auth module not available, allow all
+        elif path.startswith("/api/admin"):
+            # Auth module not loaded -- block admin endpoints
+            self._send_json(
+                {"error": "Auth module unavailable -- admin access denied"},
+                status_code=503,
+            )
+            return
 
         # ── Audit logging for API access ──
         try:
@@ -11185,24 +11201,36 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             path = path[3:]
 
         # ── API Key Authentication (Phase 6) ──
-        try:
-            from auth import authenticate
+        if _auth_module_loaded:
+            try:
+                from auth import authenticate
 
-            auth_header = self.headers.get("Authorization") or ""
-            query_params = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
-            query_key = query_params.get("api_key", [None])[0]
-            auth_result = authenticate(path, auth_header, query_key)
-            if not auth_result["authenticated"]:
-                self._send_json(
-                    {
-                        "error": "Authentication required",
-                        "reason": auth_result["reason"],
-                    },
-                    status_code=401,
+                auth_header = self.headers.get("Authorization") or ""
+                query_params = urllib.parse.parse_qs(
+                    urllib.parse.urlparse(self.path).query
                 )
+                query_key = query_params.get("api_key", [None])[0]
+                auth_result = authenticate(path, auth_header, query_key)
+                if not auth_result["authenticated"]:
+                    self._send_json(
+                        {
+                            "error": "Authentication required",
+                            "reason": auth_result["reason"],
+                        },
+                        status_code=401,
+                    )
+                    return
+            except Exception:
+                logger.error("Auth check failed unexpectedly", exc_info=True)
+                self._send_json({"error": "Internal auth error"}, status_code=500)
                 return
-        except ImportError:
-            pass  # Auth module not available, allow all
+        elif path.startswith("/api/admin"):
+            # Auth module not loaded -- block admin endpoints
+            self._send_json(
+                {"error": "Auth module unavailable -- admin access denied"},
+                status_code=503,
+            )
+            return
 
         # ── Audit logging for API access ──
         try:
@@ -18515,12 +18543,18 @@ if __name__ == "__main__":
             )
 
         # API Key Authentication Init
+        global _auth_module_loaded
         try:
             from auth import init as _init_auth
 
             _init_auth()
+            _auth_module_loaded = True
         except ImportError:
-            pass
+            _auth_module_loaded = False
+            logger.critical(
+                "SECURITY: auth module failed to import -- admin endpoints will be BLOCKED. "
+                "Fix auth.py or set NOVA_AUTH_DISABLED=1 to explicitly run without auth."
+            )
 
         # Pre-compute salary + demand data (runs after 10-min warm-up, then every 24h)
         try:

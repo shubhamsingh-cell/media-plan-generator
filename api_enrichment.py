@@ -139,8 +139,15 @@ MAX_WORKERS = 15  # (unused after deadlock fix; kept for compatibility)
 _enrichment_semaphore = threading.Semaphore(3)
 CACHE_DIR = Path(__file__).resolve().parent / "data" / "api_cache"
 
-# Ensure cache directory exists at import time
-CACHE_DIR.mkdir(parents=True, exist_ok=True)
+# L2 disk cache: disabled on Render (ephemeral filesystem makes it useless overhead).
+# Render automatically sets the RENDER env var on all services.
+_L2_ENABLED = not os.environ.get("RENDER")
+
+# Ensure cache directory exists at import time (only when L2 is active)
+if _L2_ENABLED:
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+else:
+    _api_logger.info("L2 disk cache disabled (Render ephemeral FS)")
 
 # SSL context for API calls. Verified by default; unverified context is
 # created lazily only when explicitly opted in via ALLOW_UNVERIFIED_SSL=1.
@@ -711,20 +718,21 @@ def _get_cached(key: str) -> Optional[Any]:
             else:
                 _memory_cache.pop(key, None)
 
-    # File-based
-    cache_file = CACHE_DIR / f"{key}.json"
-    if cache_file.exists():
-        try:
-            with open(cache_file, "r", encoding="utf-8") as fh:
-                entry = json.load(fh)
-            if time.time() - (entry.get("ts") or 0) < CACHE_TTL:
-                with _cache_lock:
-                    _memory_cache[key] = entry  # promote to memory
-                return entry["data"]
-            else:
-                cache_file.unlink(missing_ok=True)
-        except Exception:
-            pass
+    # File-based (L2 disk cache — skipped on Render ephemeral FS)
+    if _L2_ENABLED:
+        cache_file = CACHE_DIR / f"{key}.json"
+        if cache_file.exists():
+            try:
+                with open(cache_file, "r", encoding="utf-8") as fh:
+                    entry = json.load(fh)
+                if time.time() - (entry.get("ts") or 0) < CACHE_TTL:
+                    with _cache_lock:
+                        _memory_cache[key] = entry  # promote to memory
+                    return entry["data"]
+                else:
+                    cache_file.unlink(missing_ok=True)
+            except Exception:
+                pass
 
     # L3: Supabase persistent cache
     if _HAS_SUPABASE:
@@ -775,7 +783,8 @@ def _startup_cache_cleanup():
         _api_logger.debug("Startup cache cleanup skipped: %s", e)
 
 
-_startup_cache_cleanup()
+if _L2_ENABLED:
+    _startup_cache_cleanup()
 
 
 def _set_cached(key: str, data: Any) -> None:
@@ -794,12 +803,14 @@ def _set_cached(key: str, data: Any) -> None:
                 _memory_cache.pop(k, None)
         _memory_cache[key] = entry
 
-    cache_file = CACHE_DIR / f"{key}.json"
-    try:
-        with open(cache_file, "w", encoding="utf-8") as fh:
-            json.dump(entry, fh, ensure_ascii=False)
-    except Exception as exc:
-        _log_warn(f"Failed to write cache file {cache_file}: {exc}")
+    # L2: Disk cache (skipped on Render ephemeral FS)
+    if _L2_ENABLED:
+        cache_file = CACHE_DIR / f"{key}.json"
+        try:
+            with open(cache_file, "w", encoding="utf-8") as fh:
+                json.dump(entry, fh, ensure_ascii=False)
+        except Exception as exc:
+            _log_warn(f"Failed to write cache file {cache_file}: {exc}")
 
     # L3: Replicate to Supabase persistent cache
     if _HAS_SUPABASE:
@@ -817,22 +828,25 @@ def _set_cached(key: str, data: Any) -> None:
 
     # Periodic disk cache cleanup: remove oldest files when count exceeds limit.
     # Run at most once per hour to avoid I/O overhead.
-    now = time.time()
-    if now - _last_disk_cleanup > 3600:
-        _last_disk_cleanup = now
-        try:
-            cache_files = sorted(
-                CACHE_DIR.glob("*.json"),
-                key=lambda p: p.stat().st_mtime,
-            )
-            if len(cache_files) > _MAX_DISK_CACHE_FILES:
-                for old_file in cache_files[: len(cache_files) - _MAX_DISK_CACHE_FILES]:
-                    old_file.unlink(missing_ok=True)
-                _log_info(
-                    f"Disk cache cleanup: removed {len(cache_files) - _MAX_DISK_CACHE_FILES} old files"
+    if _L2_ENABLED:
+        now = time.time()
+        if now - _last_disk_cleanup > 3600:
+            _last_disk_cleanup = now
+            try:
+                cache_files = sorted(
+                    CACHE_DIR.glob("*.json"),
+                    key=lambda p: p.stat().st_mtime,
                 )
-        except Exception as exc:
-            _log_warn(f"Disk cache cleanup failed: {exc}")
+                if len(cache_files) > _MAX_DISK_CACHE_FILES:
+                    for old_file in cache_files[
+                        : len(cache_files) - _MAX_DISK_CACHE_FILES
+                    ]:
+                        old_file.unlink(missing_ok=True)
+                    _log_info(
+                        f"Disk cache cleanup: removed {len(cache_files) - _MAX_DISK_CACHE_FILES} old files"
+                    )
+            except Exception as exc:
+                _log_warn(f"Disk cache cleanup failed: {exc}")
 
 
 # ---------------------------------------------------------------------------
@@ -904,6 +918,98 @@ def _circuit_breaker_record_failure(api_name: str) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Proactive Rate Limiter — prevents quota exhaustion for external APIs
+# ---------------------------------------------------------------------------
+# Simple in-memory counters per API. Resets on deploy (acceptable).
+# Each entry tracks: call count and window start time.
+
+_API_RATE_LIMITS: Dict[str, Dict[str, int]] = {
+    "BLS": {"max_calls": 400, "window_seconds": 86400},  # 400/day (buffer from 500 v2)
+    "BLS_v1": {"max_calls": 20, "window_seconds": 86400},  # 20/day (buffer from 25 v1)
+    "GeoNames": {"max_calls": 800, "window_seconds": 3600},  # 800/hr (buffer from 1000)
+    "FRED": {"max_calls": 100, "window_seconds": 60},  # 100/min (buffer from 120)
+}
+
+_rate_limiter_state: Dict[str, Dict[str, Any]] = {}
+_rate_limiter_lock = threading.Lock()
+
+
+def _rate_limit_check(api_name: str) -> bool:
+    """
+    Return True if the API has exceeded its proactive rate limit (should be skipped).
+    Thread-safe. Automatically resets counter when the time window expires.
+    """
+    limits = _API_RATE_LIMITS.get(api_name)
+    if limits is None:
+        return False  # No rate limit configured — allow
+
+    max_calls = limits["max_calls"]
+    window_seconds = limits["window_seconds"]
+    now = time.time()
+
+    with _rate_limiter_lock:
+        state = _rate_limiter_state.get(api_name)
+        if state is None or (now - state["window_start"]) >= window_seconds:
+            # First call or window expired — reset
+            _rate_limiter_state[api_name] = {
+                "call_count": 0,
+                "window_start": now,
+            }
+            return False
+
+        if state["call_count"] >= max_calls:
+            return True  # Over limit
+        return False
+
+
+def _rate_limit_record(api_name: str) -> None:
+    """Increment call count for an API. Thread-safe."""
+    if api_name not in _API_RATE_LIMITS:
+        return
+
+    now = time.time()
+    with _rate_limiter_lock:
+        state = _rate_limiter_state.get(api_name)
+        if (
+            state is None
+            or (now - state["window_start"])
+            >= _API_RATE_LIMITS[api_name]["window_seconds"]
+        ):
+            _rate_limiter_state[api_name] = {
+                "call_count": 1,
+                "window_start": now,
+            }
+        else:
+            state["call_count"] += 1
+
+
+def _rate_limit_status() -> Dict[str, Dict[str, Any]]:
+    """Return current rate limit status for all tracked APIs (for diagnostics)."""
+    now = time.time()
+    status: Dict[str, Dict[str, Any]] = {}
+    with _rate_limiter_lock:
+        for api_name, limits in _API_RATE_LIMITS.items():
+            state = _rate_limiter_state.get(api_name)
+            if state is None:
+                status[api_name] = {
+                    "calls_used": 0,
+                    "max_calls": limits["max_calls"],
+                    "window_seconds": limits["window_seconds"],
+                    "window_remaining_seconds": limits["window_seconds"],
+                }
+            else:
+                elapsed = now - state["window_start"]
+                remaining = max(0, limits["window_seconds"] - elapsed)
+                status[api_name] = {
+                    "calls_used": state["call_count"],
+                    "max_calls": limits["max_calls"],
+                    "window_seconds": limits["window_seconds"],
+                    "window_remaining_seconds": round(remaining, 1),
+                }
+    return status
+
+
+# ---------------------------------------------------------------------------
 # API Key Auth Failure Tracking (self-healing: key rotation detection)
 # ---------------------------------------------------------------------------
 
@@ -972,8 +1078,9 @@ def _http_get_json(
     """Perform an HTTP GET and return parsed JSON, or None on any failure.
 
     Uses pooled HTTPS connections when available. Retries on 429/503 with
-    exponential backoff (1s, 2s, 4s). Tries verified SSL first, falls back
-    to unverified if ALLOW_UNVERIFIED_SSL=1.
+    capped backoff (0.5s, 1.5s) and a 5s total retry budget to avoid
+    blocking worker threads. Tries verified SSL first, falls back to
+    unverified if ALLOW_UNVERIFIED_SSL=1.
     """
     if _HAS_POOL:
         return _http_get_json_pooled(url, headers=headers, timeout=timeout)
@@ -996,7 +1103,10 @@ def _http_get_json_pooled(
     if _allow_unverified:
         ssl_contexts.append(_get_unverified_ssl_ctx())
 
-    max_retries = 3
+    max_retries = 2
+    _retry_delays = [0.5, 1.5]
+    _retry_start = time.monotonic()
+    _RETRY_BUDGET = 5.0  # max total seconds spent on retries
     for attempt in range(max_retries + 1):
         for ctx_idx, ctx in enumerate(ssl_contexts):
             try:
@@ -1012,7 +1122,12 @@ def _http_get_json_pooled(
                         f"SSL verification BYPASSED for {url} — consider fixing the certificate"
                     )
                 if resp.status in (429, 503) and attempt < max_retries:
-                    wait = min(2**attempt, 8)
+                    if time.monotonic() - _retry_start > _RETRY_BUDGET:
+                        _log_warn(
+                            f"HTTP {resp.status} for {url}, retry budget exhausted"
+                        )
+                        return None
+                    wait = _retry_delays[min(attempt, len(_retry_delays) - 1)]
                     _log_warn(
                         f"HTTP {resp.status} for {url}, retry in {wait}s (attempt {attempt + 1}/{max_retries})"
                     )
@@ -1055,7 +1170,10 @@ def _http_get_json_urllib(
     if _allow_unverified:
         ssl_contexts.append(_get_unverified_ssl_ctx())
 
-    max_retries = 3
+    max_retries = 2
+    _retry_delays = [0.5, 1.5]
+    _retry_start = time.monotonic()
+    _RETRY_BUDGET = 5.0  # max total seconds spent on retries
     for attempt in range(max_retries + 1):
         for ctx_idx, ctx in enumerate(ssl_contexts):
             try:
@@ -1072,7 +1190,10 @@ def _http_get_json_urllib(
                 continue
             except urllib.error.HTTPError as exc:
                 if exc.code in (429, 503) and attempt < max_retries:
-                    wait = min(2**attempt, 8)
+                    if time.monotonic() - _retry_start > _RETRY_BUDGET:
+                        _log_warn(f"HTTP {exc.code} for {url}, retry budget exhausted")
+                        return None
+                    wait = _retry_delays[min(attempt, len(_retry_delays) - 1)]
                     _log_warn(
                         f"HTTP {exc.code} for {url}, retry in {wait}s (attempt {attempt + 1}/{max_retries})"
                     )
@@ -1119,7 +1240,9 @@ def _http_post_json_pooled(
 ) -> Optional[Any]:
     """HTTP POST JSON via persistent connection pool with retry logic."""
     body = json.dumps(payload).encode("utf-8")
-    backoff_delays = [1, 2, 4]
+    backoff_delays = [0.5, 1.5]
+    _retry_start = time.monotonic()
+    _RETRY_BUDGET = 5.0  # max total seconds spent on retries
 
     all_headers: Dict[str, str] = {
         "User-Agent": "MediaPlanGenerator/1.0 (media-plan-generator.onrender.com)",
@@ -1148,10 +1271,15 @@ def _http_post_json_pooled(
                 if ctx_idx > 0:
                     _log_warn(f"SSL verification BYPASSED for POST {url}")
                 if resp.status in (429, 503) and attempt < max_retries:
+                    if time.monotonic() - _retry_start > _RETRY_BUDGET:
+                        _log_warn(
+                            f"HTTP {resp.status} for POST {url}, retry budget exhausted"
+                        )
+                        return None
                     retry_after = resp.getheader("Retry-After")
                     if retry_after is not None:
                         try:
-                            wait = max(float(retry_after), 0.5)
+                            wait = min(max(float(retry_after), 0.5), 2.0)
                         except (ValueError, TypeError):
                             wait = backoff_delays[min(attempt, len(backoff_delays) - 1)]
                     else:
@@ -1190,7 +1318,9 @@ def _http_post_json_urllib(
 ) -> Optional[Any]:
     """HTTP POST JSON via urllib (fallback when pool unavailable)."""
     body = json.dumps(payload).encode("utf-8")
-    backoff_delays = [1, 2, 4]
+    backoff_delays = [0.5, 1.5]
+    _retry_start = time.monotonic()
+    _RETRY_BUDGET = 5.0  # max total seconds spent on retries
 
     for attempt in range(max_retries + 1):
         req = urllib.request.Request(url, data=body, method="POST")
@@ -1226,12 +1356,17 @@ def _http_post_json_urllib(
                 continue
             except urllib.error.HTTPError as exc:
                 if exc.code in (429, 503) and attempt < max_retries:
+                    if time.monotonic() - _retry_start > _RETRY_BUDGET:
+                        _log_warn(
+                            f"HTTP {exc.code} for POST {url}, retry budget exhausted"
+                        )
+                        return None
                     retry_after = (
                         exc.headers.get("Retry-After") if exc.headers else None
                     )
                     if retry_after is not None:
                         try:
-                            wait = max(float(retry_after), 0.5)
+                            wait = min(max(float(retry_after), 0.5), 2.0)
                         except (ValueError, TypeError):
                             wait = backoff_delays[min(attempt, len(backoff_delays) - 1)]
                     else:
@@ -1305,7 +1440,9 @@ def _http_get_json_with_retry_pooled(
     max_retries: int = 3,
 ) -> Any:
     """HTTP GET JSON with retry via persistent connection pool."""
-    backoff_delays = [1, 2, 4, 8, 16]
+    backoff_delays = [0.5, 1.5]
+    _retry_start = time.monotonic()
+    _RETRY_BUDGET = 5.0  # max total seconds spent on retries
     last_exc: Optional[Exception] = None
 
     all_headers: Dict[str, str] = {
@@ -1356,10 +1493,17 @@ def _http_get_json_with_retry_pooled(
 
                 # Retryable status codes
                 if status_code in (429, 503) and attempt < max_retries:
+                    if time.monotonic() - _retry_start > _RETRY_BUDGET:
+                        _log_warn(
+                            f"HTTP {status_code} for {url}, retry budget exhausted"
+                        )
+                        raise http.client.HTTPException(
+                            f"HTTP {status_code} for {url} (retry budget exhausted)"
+                        )
                     retry_after = resp.getheader("Retry-After")
                     if retry_after is not None:
                         try:
-                            wait = max(float(retry_after), 0.5)
+                            wait = min(max(float(retry_after), 0.5), 2.0)
                         except (ValueError, TypeError):
                             wait = backoff_delays[min(attempt, len(backoff_delays) - 1)]
                     else:
@@ -1387,6 +1531,8 @@ def _http_get_json_with_retry_pooled(
                 last_exc = exc
                 if attempt >= max_retries:
                     raise
+                if time.monotonic() - _retry_start > _RETRY_BUDGET:
+                    raise
                 wait = backoff_delays[min(attempt, len(backoff_delays) - 1)]
                 _log_warn(
                     f"HTTP GET error for {url}: {exc} — retry {attempt + 1}/{max_retries} after {wait}s"
@@ -1410,7 +1556,9 @@ def _http_get_json_with_retry_urllib(
     max_retries: int = 3,
 ) -> Any:
     """HTTP GET JSON with retry via urllib (fallback when pool unavailable)."""
-    backoff_delays = [1, 2, 4, 8, 16]
+    backoff_delays = [0.5, 1.5]
+    _retry_start = time.monotonic()
+    _RETRY_BUDGET = 5.0  # max total seconds spent on retries
     last_exc: Optional[Exception] = None
 
     for attempt in range(max_retries + 1):
@@ -1455,12 +1603,17 @@ def _http_get_json_with_retry_urllib(
                         _host = url[:60]
                     _record_auth_failure(_host)
                 if status_code in (429, 503) and attempt < max_retries:
+                    if time.monotonic() - _retry_start > _RETRY_BUDGET:
+                        _log_warn(
+                            f"HTTP {status_code} for {url}, retry budget exhausted"
+                        )
+                        raise exc
                     retry_after = (
                         exc.headers.get("Retry-After") if exc.headers else None
                     )
                     if retry_after is not None:
                         try:
-                            wait = max(float(retry_after), 0.5)
+                            wait = min(max(float(retry_after), 0.5), 2.0)
                         except (ValueError, TypeError):
                             wait = backoff_delays[min(attempt, len(backoff_delays) - 1)]
                     else:
@@ -1480,6 +1633,8 @@ def _http_get_json_with_retry_urllib(
             except Exception as exc:
                 last_exc = exc
                 if attempt >= max_retries:
+                    raise
+                if time.monotonic() - _retry_start > _RETRY_BUDGET:
                     raise
                 wait = backoff_delays[min(attempt, len(backoff_delays) - 1)]
                 _log_warn(
@@ -15082,6 +15237,21 @@ def _safe_call(func, label: str):
         metadata["elapsed_time"] = 0.0
         return None, "circuit_open", metadata
 
+    # --- Proactive rate limiter gate ---
+    if _rate_limit_check(label):
+        limits = _API_RATE_LIMITS.get(label, {})
+        _log_warn(
+            f"Rate limit reached for {label} "
+            f"({limits.get('max_calls', '?')}/{limits.get('max_calls', '?')} "
+            f"in {limits.get('window_seconds', '?')}s window)"
+        )
+        metadata["source"] = "rate_limited"
+        metadata["elapsed_time"] = 0.0
+        return None, "rate_limited", metadata
+
+    # Record this call against the rate limiter before executing
+    _rate_limit_record(label)
+
     call_start = time.time()
     if rid:
         _log_info(f"[{rid}] API '{label}' — call started")
@@ -15173,7 +15343,7 @@ def clear_cache(memory: bool = True, disk: bool = True) -> None:
             _memory_cache.clear()
         _log_info("In-memory cache cleared")
 
-    if disk:
+    if disk and _L2_ENABLED:
         count = 0
         for f in CACHE_DIR.glob("*.json"):
             try:

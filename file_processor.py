@@ -76,9 +76,9 @@ def _extract_txt(raw_bytes: bytes, filename: str) -> str:
 
 
 def _extract_pdf(raw_bytes: bytes, filename: str) -> str:
-    """Extract text from PDF using PyPDF2."""
+    """Extract text from PDF using pypdf."""
     try:
-        from PyPDF2 import PdfReader
+        from pypdf import PdfReader
 
         reader = PdfReader(io.BytesIO(raw_bytes))
         pages = []
