@@ -434,17 +434,151 @@ def _check_and_reload() -> None:
         _knowledge_base = kb_updated
 
 
+def _check_supabase_kb_freshness() -> None:
+    """Check if Supabase knowledge_base table has newer data than in-memory KB.
+
+    Queries the knowledge_base table for the most recent updated_at timestamp
+    and compares against the last known sync time. If newer rows exist, fetches
+    them and merges into the in-memory KB.
+
+    Runs every 30 minutes as part of the hot-reload loop.
+    """
+    global _knowledge_base
+    if _knowledge_base is None:
+        return
+
+    try:
+        import ssl
+        import urllib.request
+        import urllib.parse
+
+        _sb_url = os.environ.get("SUPABASE_URL") or ""
+        _sb_key = (
+            os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+            or os.environ.get("SUPABASE_ANON_KEY")
+            or ""
+        )
+        if not _sb_url or not _sb_key:
+            return
+
+        base = _sb_url.rstrip("/")
+        ssl_ctx = ssl.create_default_context()
+
+        # Query for the max updated_at from knowledge_base
+        # PostgREST: select=updated_at&order=updated_at.desc&limit=1
+        select_param = urllib.parse.quote("category,key,data,updated_at", safe="")
+        url = (
+            f"{base}/rest/v1/knowledge_base"
+            f"?select={select_param}"
+            f"&order=updated_at.desc"
+            f"&limit=50"
+        )
+        headers = {
+            "apikey": _sb_key,
+            "Authorization": f"Bearer {_sb_key}",
+            "Accept": "application/json",
+        }
+
+        req = urllib.request.Request(url, method="GET", headers=headers)
+        with urllib.request.urlopen(req, timeout=10, context=ssl_ctx) as resp:
+            raw = resp.read().decode("utf-8")
+            rows = json.loads(raw)
+
+        if not isinstance(rows, list) or not rows:
+            logger.debug("KB Supabase sync: no rows found in knowledge_base table")
+            return
+
+        # Check if any rows are newer than our last sync
+        _last_sync_key = "_supabase_last_sync"
+        last_sync = (_knowledge_base or {}).get(_last_sync_key) or ""
+
+        new_rows = []
+        for row in rows:
+            row_updated = row.get("updated_at") or ""
+            if row_updated > last_sync:
+                new_rows.append(row)
+
+        if not new_rows:
+            logger.debug(
+                "KB Supabase sync: no new data (last_sync=%s)",
+                last_sync[:19] if last_sync else "never",
+            )
+            return
+
+        # Merge new rows into the in-memory KB
+        with _kb_lock:
+            if _knowledge_base is None:
+                return
+            kb_updated = dict(_knowledge_base)
+            merged_count = 0
+            for row in new_rows:
+                category = row.get("category") or ""
+                key = row.get("key") or ""
+                data = row.get("data")
+                if not category or data is None:
+                    continue
+
+                # Store under category key in KB (create section if needed)
+                section_key = f"supabase_{category}"
+                if section_key not in kb_updated:
+                    kb_updated[section_key] = {}
+                if isinstance(kb_updated[section_key], dict):
+                    kb_updated[section_key][key] = data
+                    merged_count += 1
+
+            # Update last sync timestamp
+            newest_ts = max(r.get("updated_at") or "" for r in new_rows)
+            kb_updated[_last_sync_key] = newest_ts
+
+            _rebuild_backward_compat(kb_updated)
+            _knowledge_base = kb_updated
+
+        logger.info(
+            "KB Supabase sync: merged %d new rows from knowledge_base table (newest=%s)",
+            merged_count,
+            newest_ts[:19] if newest_ts else "unknown",
+        )
+
+    except ImportError:
+        logger.debug("KB Supabase sync: ssl/urllib not available")
+    except (OSError, ValueError, KeyError, TypeError) as e:
+        logger.warning("KB Supabase sync failed (non-fatal): %s", e)
+    except Exception as e:
+        logger.warning("KB Supabase sync unexpected error (non-fatal): %s", e)
+
+
+# How often to check Supabase for KB updates (seconds).
+KB_SUPABASE_SYNC_INTERVAL_SECONDS: int = 1800  # 30 minutes
+
+
 def _reload_loop() -> None:
-    """Background loop: sleep, then check for file changes.
+    """Background loop: sleep, then check for file changes and Supabase freshness.
 
     Runs forever on a daemon thread so it doesn't prevent process exit.
+    Checks file mtimes every 5 minutes and Supabase every 30 minutes.
     """
+    _supabase_check_counter = 0
+    _supabase_checks_per_interval = (
+        KB_SUPABASE_SYNC_INTERVAL_SECONDS // KB_RELOAD_INTERVAL_SECONDS
+    )
+
     while True:
         time.sleep(KB_RELOAD_INTERVAL_SECONDS)
+
+        # File mtime check (every 5 minutes)
         try:
             _check_and_reload()
         except Exception as e:
             logger.error("KB hot-reload loop error: %s", e, exc_info=True)
+
+        # Supabase freshness check (every 30 minutes)
+        _supabase_check_counter += 1
+        if _supabase_check_counter >= _supabase_checks_per_interval:
+            _supabase_check_counter = 0
+            try:
+                _check_supabase_kb_freshness()
+            except Exception as e:
+                logger.error("KB Supabase sync loop error: %s", e, exc_info=True)
 
 
 def _ensure_reload_thread() -> None:

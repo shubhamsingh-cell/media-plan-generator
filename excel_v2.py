@@ -4158,6 +4158,50 @@ def generate_excel_v2(
     Returns:
         bytes: The Excel file as bytes.
     """
+    try:
+        return _generate_excel_v2_inner(
+            data, research_mod, load_kb_fn, classify_tier_fn, fetch_logo_fn
+        )
+    except Exception as exc:
+        logger.error("generate_excel_v2 top-level crash: %s", exc, exc_info=True)
+        # Return a minimal error workbook so the caller always gets valid bytes
+        try:
+            err_wb = Workbook()
+            err_ws = err_wb.active
+            err_ws.title = "Error"
+            err_ws.cell(row=1, column=1, value="Media Plan Generation Error")
+            err_ws.cell(
+                row=3,
+                column=1,
+                value=f"An error occurred while generating the Excel report: {exc}",
+            )
+            err_ws.cell(
+                row=5,
+                column=1,
+                value="Please try again or contact support if the issue persists.",
+            )
+            err_ws.column_dimensions["A"].width = 80
+            err_buf = io.BytesIO()
+            err_wb.save(err_buf)
+            err_buf.seek(0)
+            return err_buf.getvalue()
+        except Exception as inner_exc:
+            logger.error(
+                "generate_excel_v2: even error workbook creation failed: %s",
+                inner_exc,
+                exc_info=True,
+            )
+            raise RuntimeError(f"Excel generation failed: {exc}") from exc
+
+
+def _generate_excel_v2_inner(
+    data: dict,
+    research_mod=None,
+    load_kb_fn=None,
+    classify_tier_fn=None,
+    fetch_logo_fn=None,
+) -> bytes:
+    """Inner implementation of generate_excel_v2 (wrapped by top-level try/except)."""
     # ── Input normalization (mirrors generate_excel for compatibility) ──
     if data.get("budget_range") and not data.get("budget"):
         data["budget"] = data["budget_range"]

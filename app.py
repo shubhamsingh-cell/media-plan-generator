@@ -62,6 +62,12 @@ def _safe_str(val: object, default: str = "") -> str:
     return str(val)
 
 
+def _internal_error_msg() -> str:
+    """Return a user-facing error message with a short reference ID for support."""
+    ref = uuid.uuid4().hex[:8]
+    return f"Something went wrong (ref: {ref}). Please try again."
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # FIRECRAWL WEB DATA ENRICHMENT (lazy import)
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -5727,9 +5733,13 @@ def _validate_csrf_double_submit(cookie_token: str, header_token: str) -> bool:
             expiry = int(parts[1])
             if time.time() > expiry:
                 return False
+        else:
+            # Tokens without expiry are no longer accepted (legacy compat removed)
+            logger.warning("CSRF token rejected: missing expiry timestamp")
+            return False
     except (ValueError, TypeError):
-        # Legacy tokens without expiry -- allow for backward compat
-        pass
+        logger.warning("CSRF token rejected: invalid expiry format")
+        return False
     return True
 
 
@@ -10364,7 +10374,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 self._send_json(result)
             except Exception as e:
                 logger.error("Simulator defaults error: %s", e, exc_info=True)
-                self._send_json({"error": "Internal server error"})
+                self._send_json({"error": _internal_error_msg()})
         # NOTE: /competitive through /terms pages now handled by routes/pages.py
         # ── API Integrations Status ──
         elif path == "/api/integrations/status":
@@ -10512,7 +10522,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 self.wfile.write(json.dumps(result, default=str).encode())
             except Exception as e:
                 logger.error("API Portal GET error: %s", e, exc_info=True)
-                self._send_json({"error": "Internal server error"})
+                self._send_json({"error": _internal_error_msg()})
         # ── Market Pulse GET APIs ──
         elif (
             path.startswith("/api/pulse/")
@@ -10533,7 +10543,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     self.wfile.write(json.dumps(result).encode())
             except Exception as e:
                 logger.error("Market Pulse GET error: %s", e, exc_info=True)
-                self._send_json({"ok": False, "error": "Internal server error"})
+                self._send_json({"ok": False, "error": _internal_error_msg()})
         # ── Firecrawl Status ──
         elif path == "/api/firecrawl/status":
             if _firecrawl_available:
@@ -10585,7 +10595,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     )
             except Exception as e:
                 logger.error("Sentry issues endpoint error: %s", e, exc_info=True)
-                self._send_json({"error": "Internal server error"}, status_code=500)
+                self._send_json({"error": _internal_error_msg()}, status_code=500)
         # ── Market Pulse News via Firecrawl ──
         elif path == "/api/market-pulse/news":
             try:
@@ -10692,7 +10702,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             except Exception as e:
                 logger.error("Firecrawl news error: %s", e, exc_info=True)
                 self._send_json(
-                    {"ok": False, "error": "Internal server error", "articles": []}
+                    {"ok": False, "error": _internal_error_msg(), "articles": []}
                 )
         # ── ElevenLabs Health Check ──
         elif path == "/api/elevenlabs/health":
@@ -12136,6 +12146,31 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         else:
                             gen_data["_enriched"] = {}
 
+                        # ── Fix 25: Detect silent enrichment quality degradation ──
+                        _enr = gen_data.get("_enriched") or {}
+                        _enr_summary = (
+                            _enr.get("enrichment_summary", {})
+                            if isinstance(_enr, dict)
+                            else {}
+                        )
+                        _enr_succeeded = _enr_summary.get("apis_succeeded") or []
+                        if not _enr or (
+                            isinstance(_enr_succeeded, list) and len(_enr_succeeded) < 3
+                        ):
+                            gen_data["quality_warning"] = (
+                                "Some market data sources were unavailable. "
+                                "Plan uses benchmark estimates."
+                            )
+                            logger.warning(
+                                "Enrichment quality degraded for job %s: %d APIs succeeded (min 3)",
+                                jid,
+                                (
+                                    len(_enr_succeeded)
+                                    if isinstance(_enr_succeeded, list)
+                                    else 0
+                                ),
+                            )
+
                         with _generation_jobs_lock:
                             if jid in _generation_jobs:
                                 _generation_jobs[jid]["progress_pct"] = 30
@@ -13542,6 +13577,30 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             data["_enriched"] = enriched
             if _market_ctx:
                 data["market_context"] = _market_ctx
+
+            # ── Fix 25: Detect silent enrichment quality degradation ──
+            _enr_sync = data.get("_enriched") or {}
+            _enr_sync_summary = (
+                _enr_sync.get("enrichment_summary", {})
+                if isinstance(_enr_sync, dict)
+                else {}
+            )
+            _enr_sync_succeeded = _enr_sync_summary.get("apis_succeeded") or []
+            if not _enr_sync or (
+                isinstance(_enr_sync_succeeded, list) and len(_enr_sync_succeeded) < 3
+            ):
+                data["quality_warning"] = (
+                    "Some market data sources were unavailable. "
+                    "Plan uses benchmark estimates."
+                )
+                logger.warning(
+                    "Enrichment quality degraded: %d APIs succeeded (min 3)",
+                    (
+                        len(_enr_sync_succeeded)
+                        if isinstance(_enr_sync_succeeded, list)
+                        else 0
+                    ),
+                )
 
             logger.info(
                 "Parallel enrichment completed in %.2fs (sources: %s)",
@@ -15854,7 +15913,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 self._send_json(result)
             except Exception as e:
                 logger.error("Simulator defaults POST error: %s", e, exc_info=True)
-                self._send_json({"error": "Internal server error"})
+                self._send_json({"error": _internal_error_msg()})
         elif path == "/api/simulator/simulate":
             try:
                 content_len = int(self.headers.get("Content-Length") or 0)
@@ -15933,7 +15992,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 self._send_json(result)
             except Exception as e:
                 logger.error("Simulator simulate error: %s", e, exc_info=True)
-                self._send_json({"error": "Internal server error"})
+                self._send_json({"error": _internal_error_msg()})
         elif path == "/api/simulator/optimize":
             try:
                 content_len = int(self.headers.get("Content-Length") or 0)
@@ -15977,7 +16036,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 self._send_json(result)
             except Exception as e:
                 logger.error("Simulator optimize error: %s", e, exc_info=True)
-                self._send_json({"error": "Internal server error"})
+                self._send_json({"error": _internal_error_msg()})
         elif path == "/api/simulator/compare":
             try:
                 content_len = int(self.headers.get("Content-Length") or 0)
@@ -16027,7 +16086,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 self._send_json(result)
             except Exception as e:
                 logger.error("Simulator compare error: %s", e, exc_info=True)
-                self._send_json({"error": "Internal server error"})
+                self._send_json({"error": _internal_error_msg()})
         elif path == "/api/simulator/export/excel":
             try:
                 content_len = int(self.headers.get("Content-Length") or 0)
@@ -16113,7 +16172,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 self.wfile.write(json.dumps(result, default=str).encode())
             except Exception as e:
                 logger.error("API Portal POST error: %s", e, exc_info=True)
-                self._send_json({"error": "Internal server error", "status": "error"})
+                self._send_json({"error": _internal_error_msg(), "status": "error"})
         # ── Social & Search Media Plan: Generate ──
         elif path == "/api/social-plan/generate":
             try:
@@ -16180,7 +16239,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 self._send_json(result)
             except Exception as e:
                 logger.error("Social plan generation error: %s", e, exc_info=True)
-                self._send_json({"success": False, "error": "Internal server error"})
+                self._send_json({"success": False, "error": _internal_error_msg()})
         # ── Social & Search Media Plan: Excel Download ──
         elif path == "/api/social-plan/download/excel":
             try:
@@ -16457,7 +16516,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 self._send_json(result)
             except Exception as e:
                 logger.error("Talent heatmap analysis error: %s", e, exc_info=True)
-                self._send_json({"error": "Internal server error", "status": "error"})
+                self._send_json({"error": _internal_error_msg(), "status": "error"})
         # ── Talent Heatmap: Excel Download ──
         elif path == "/api/talent-heatmap/download/excel":
             try:
@@ -16700,7 +16759,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 self._send_json(result)
             except Exception as e:
                 logger.error("Quick plan error: %s", e, exc_info=True)
-                self._send_json({"success": False, "error": "Internal server error"})
+                self._send_json({"success": False, "error": _internal_error_msg()})
         # ── Recruitment Advertising Audit: Full Audit ──
         elif path == "/api/audit/analyze":
             try:
@@ -16774,7 +16833,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 self._send_json(result)
             except Exception as e:
                 logger.error("Audit analysis error: %s", e, exc_info=True)
-                self._send_json({"error": "Internal server error", "success": False})
+                self._send_json({"error": _internal_error_msg(), "success": False})
         # ── Audit: Excel Download ──
         elif path == "/api/audit/download/excel":
             try:
@@ -17067,7 +17126,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 self._send_json(result)
             except Exception as e:
                 logger.error("HireSignal analyze error: %s", e, exc_info=True)
-                self._send_json({"error": "Internal server error", "success": False})
+                self._send_json({"error": _internal_error_msg(), "success": False})
         # ── HireSignal: Sample Data ──
         elif path == "/api/hire-signal/sample-data":
             try:
@@ -17088,7 +17147,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 self._send_json(result)
             except Exception as e:
                 logger.error("HireSignal sample data error: %s", e, exc_info=True)
-                self._send_json({"error": "Internal server error", "success": False})
+                self._send_json({"error": _internal_error_msg(), "success": False})
         # ── HireSignal: Excel Download ──
         elif path == "/api/hire-signal/download/excel":
             try:
@@ -17212,7 +17271,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     self.wfile.write(json.dumps(result).encode())
             except Exception as e:
                 logger.error("Market Pulse POST error: %s", e, exc_info=True)
-                self._send_json({"ok": False, "error": "Internal server error"})
+                self._send_json({"ok": False, "error": _internal_error_msg()})
         # ── ApplyFlow API ──
         elif path == "/api/applyflow":
             try:
@@ -17682,7 +17741,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
 
             except Exception as e:
                 logger.error("Sentry webhook error: %s", e, exc_info=True)
-                self._send_json({"error": "Internal server error"}, status_code=500)
+                self._send_json({"error": _internal_error_msg()}, status_code=500)
 
         # ── ElevenLabs: Text-to-Speech ──
         elif path == "/api/elevenlabs/tts":

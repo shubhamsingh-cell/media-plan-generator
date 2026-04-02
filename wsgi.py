@@ -80,6 +80,32 @@ def _run_deferred_startup() -> None:
     except Exception as kb_err:
         logger.warning("[wsgi] Knowledge base pre-warm failed: %s", kb_err)
 
+    # ── Fix 26: Memory pressure logging after KB load ──
+    try:
+        import resource
+
+        _rss_kb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        # macOS returns bytes, Linux returns KB -- normalize to MB
+        import sys as _sys_mem
+
+        if _sys_mem.platform == "darwin":
+            _rss_mb = _rss_kb / (1024 * 1024)
+        else:
+            _rss_mb = _rss_kb / 1024
+        logger.info(
+            "[wsgi] Memory after KB load: peak RSS = %.1f MB (PID %d)",
+            _rss_mb,
+            os.getpid(),
+        )
+        if _rss_mb > 400:
+            logger.warning(
+                "[wsgi] MEMORY PRESSURE: peak RSS %.1f MB exceeds 400 MB threshold per worker. "
+                "Consider lazy loading KB sections or reducing worker count.",
+                _rss_mb,
+            )
+    except Exception as _mem_err:
+        logger.debug("[wsgi] Memory usage check failed (non-fatal): %s", _mem_err)
+
     # Build vector search index in background thread (non-blocking)
     # This takes 3-5 min for 5000+ chunks and was blocking port binding,
     # causing Render's port scan to timeout and reject deploys.
@@ -92,6 +118,31 @@ def _run_deferred_startup() -> None:
                 try:
                     count = _vector_index_kb()
                     logger.info("[wsgi] Vector search index built: %d documents", count)
+
+                    # Log memory after vector index build
+                    try:
+                        import resource as _res_vi
+
+                        _rss_vi = _res_vi.getrusage(_res_vi.RUSAGE_SELF).ru_maxrss
+                        import sys as _sys_vi
+
+                        if _sys_vi.platform == "darwin":
+                            _rss_vi_mb = _rss_vi / (1024 * 1024)
+                        else:
+                            _rss_vi_mb = _rss_vi / 1024
+                        logger.info(
+                            "[wsgi] Memory after vector index: peak RSS = %.1f MB",
+                            _rss_vi_mb,
+                        )
+                        if _rss_vi_mb > 400:
+                            logger.warning(
+                                "[wsgi] MEMORY PRESSURE: peak RSS %.1f MB exceeds 400 MB threshold "
+                                "after vector index build.",
+                                _rss_vi_mb,
+                            )
+                    except Exception:
+                        pass
+
                 except Exception as _ve:
                     logger.warning("[wsgi] Vector index build failed: %s", _ve)
 

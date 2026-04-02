@@ -2880,6 +2880,19 @@ def _call_llm_inner(
                     _resp_text, task_type
                 )
             result["priority"] = priority
+            # Truncation detection: flag if response appears cut off
+            if _resp_text and _output_tok and _output_tok >= max_tokens:
+                _last_char = _resp_text.rstrip()[-1:] if _resp_text.rstrip() else ""
+                if _last_char not in (".", "!", "?", "`", '"', "'", ")", "]", "}"):
+                    result["truncated"] = True
+                    logger.warning(
+                        "LLM Router: response appears truncated (output_tokens=%d == max_tokens=%d, "
+                        "last_char=%r, provider=%s)",
+                        _output_tok,
+                        max_tokens,
+                        _last_char,
+                        provider,
+                    )
             # Cache successful responses (only text-based, not tool_calls)
             if use_cache and not tools and result.get("text") and _user_msg_for_cache:
                 _response_cache.put(

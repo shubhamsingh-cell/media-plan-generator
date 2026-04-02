@@ -136,6 +136,15 @@ FONT_BODY = "Inter"  # Brand body font
 SLIDE_WIDTH = Inches(13.333)
 SLIDE_HEIGHT = Inches(7.5)
 
+
+def _trunc_word(s: str, maxlen: int = 500) -> str:
+    """Truncate text at word boundary to prevent PPT text box overflow."""
+    s = str(s)
+    if len(s) <= maxlen:
+        return s
+    return s[:maxlen].rsplit(" ", 1)[0] + "..."
+
+
 # ---------------------------------------------------------------------------
 # Industry Benchmark Data
 # NOTE: Canonical benchmark source is trend_engine.py. These values are fallbacks only.
@@ -1559,6 +1568,15 @@ def _add_data_sources_footnote(slide, data: Dict, benchmarks: Dict):
     sources_parts.append(f"Appcast {datetime.date.today().year}")
     sources_parts.append("SHRM Benchmarks")
 
+    # International disclaimer -- detect non-US campaigns
+    is_us_only = _is_us_only_campaign(data)
+    intl_disclaimer = ""
+    if not is_us_only:
+        intl_disclaimer = (
+            "Note: Benchmarks shown are US-calibrated. "
+            "International markets may vary significantly."
+        )
+
     enriched = data.get("_enriched", {})
     if enriched:
         summary = enriched.get("enrichment_summary", {})
@@ -1597,6 +1615,20 @@ def _add_data_sources_footnote(slide, data: Dict, benchmarks: Dict):
         color=conf_color,
         alignment=PP_ALIGN.RIGHT,
     )
+
+    # International benchmark disclaimer (if non-US locations detected)
+    if intl_disclaimer:
+        _add_textbox(
+            slide,
+            Inches(0.55),
+            Inches(7.18),
+            Inches(10),
+            Inches(0.2),
+            text=intl_disclaimer,
+            font_size=6,
+            italic=True,
+            color=AMBER,
+        )
 
 
 def _format_salary(amount):
@@ -3462,7 +3494,7 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
         insight_top + Inches(0.08),
         Inches(10.4),
         insight_h - Inches(0.15),
-        text=insight_text,
+        text=_trunc_word(insight_text, 500),
         font_size=9,
         color=DARK_TEXT,
     )
@@ -3786,7 +3818,7 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
         insight_top + Inches(0.08),
         Inches(11.7),
         insight_h - Inches(0.15),
-        text=insight_text,
+        text=_trunc_word(insight_text, 500),
         font_size=10,
         color=DARK_TEXT,
     )
@@ -5743,7 +5775,7 @@ def _build_slide_geopolitical_risk(prs: Presentation, data: Dict):
         )
 
         # Summary section -- size text to fit longer narratives
-        summary_display = summary_text[:500]
+        summary_display = _trunc_word(summary_text, 500)
         summary_font = 11 if len(summary_display) <= 200 else 9
         summary_box_h = Inches(0.9) if len(summary_display) <= 200 else Inches(1.1)
         _add_rounded_rect(
@@ -5858,13 +5890,7 @@ def _build_slide_geopolitical_risk(prs: Presentation, data: Dict):
                 color=BLUE,
             )
 
-            def _trunc_word(s: str, maxlen: int = 200) -> str:
-                s = str(s)
-                if len(s) <= maxlen:
-                    return s
-                return s[:maxlen].rsplit(" ", 1)[0] + "..."
-
-            rec_text = " | ".join(_trunc_word(r) for r in recommendations[:4])
+            rec_text = " | ".join(_trunc_word(r, 200) for r in recommendations[:4])
             _add_textbox(
                 slide,
                 Inches(0.55),
@@ -8008,6 +8034,27 @@ def generate_pptx(data: Dict[str, Any]) -> bytes:
         # Slide 1: Premium cover / section divider
         _build_slide_cover(prs, data)
 
+        # Quality warning disclaimer on cover slide (when enrichment degraded)
+        _quality_warn = data.get("quality_warning") or ""
+        if _quality_warn and prs.slides:
+            try:
+                _cover_slide = prs.slides[0]
+                _add_textbox(
+                    _cover_slide,
+                    Inches(0.6),
+                    Inches(7.0),
+                    Inches(10),
+                    Inches(0.3),
+                    text=f"Note: {_quality_warn}",
+                    font_size=7,
+                    italic=True,
+                    color="FFD700",  # Gold/warning color
+                )
+            except Exception as _qw_err:
+                logger.debug(
+                    "Quality warning disclaimer failed (non-fatal): %s", _qw_err
+                )
+
         # Slide 2: Executive Summary (hero stats + SCR + market context)
         _build_slide_executive_summary(prs, data)
 
@@ -8066,9 +8113,51 @@ def generate_pptx(data: Dict[str, Any]) -> bytes:
         return buffer.getvalue()
 
     except Exception as exc:
-        raise RuntimeError(
-            f"Failed to generate PowerPoint presentation: {exc}"
-        ) from exc
+        logger.error("generate_pptx top-level crash: %s", exc, exc_info=True)
+        # Return a minimal error presentation so the caller always gets valid bytes
+        try:
+            err_prs = Presentation()
+            err_prs.slide_width = SLIDE_WIDTH
+            err_prs.slide_height = SLIDE_HEIGHT
+            err_slide = err_prs.slides.add_slide(err_prs.slide_layouts[6])
+            _add_filled_rect(
+                err_slide, Inches(0), Inches(0), SLIDE_WIDTH, SLIDE_HEIGHT, NAVY
+            )
+            _add_textbox(
+                err_slide,
+                Inches(1),
+                Inches(2),
+                Inches(11),
+                Inches(1),
+                text="Media Plan Generation Error",
+                font_size=28,
+                bold=True,
+                color="FFFFFF",
+            )
+            _add_textbox(
+                err_slide,
+                Inches(1),
+                Inches(3.5),
+                Inches(11),
+                Inches(1.5),
+                text=f"An error occurred while generating the presentation: {exc}\n\n"
+                "Please try again or contact support if the issue persists.",
+                font_size=14,
+                color="CCCCCC",
+            )
+            err_buf = io.BytesIO()
+            err_prs.save(err_buf)
+            err_buf.seek(0)
+            return err_buf.getvalue()
+        except Exception as inner_exc:
+            logger.error(
+                "generate_pptx: even error presentation creation failed: %s",
+                inner_exc,
+                exc_info=True,
+            )
+            raise RuntimeError(
+                f"Failed to generate PowerPoint presentation: {exc}"
+            ) from exc
 
 
 # ===================================================================
