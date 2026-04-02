@@ -147,7 +147,9 @@ _L2_ENABLED = not os.environ.get("RENDER")
 if _L2_ENABLED:
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
 else:
-    _api_logger.info("L2 disk cache disabled (Render ephemeral FS)")
+    # Note: _api_logger is defined later in this module (line ~670).
+    # Use stdlib print for this early-init message to avoid NameError.
+    print("[api_enrichment] L2 disk cache disabled (Render ephemeral FS)")
 
 # SSL context for API calls. Verified by default; unverified context is
 # created lazily only when explicitly opted in via ALLOW_UNVERIFIED_SSL=1.
