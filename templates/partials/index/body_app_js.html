@@ -3161,9 +3161,41 @@
         }, 2000);
       });
 
-      // Step 3: Download the completed file
-      var _dlRes = await fetch("/api/jobs/" + jobId);
-      if (!_dlRes.ok) throw new Error("Failed to download generated file");
+      // Step 3: Download the completed file (with retry for network flakiness)
+      var _dlRes = null;
+      var _dlRetries = 3;
+      for (var _dlAttempt = 0; _dlAttempt < _dlRetries; _dlAttempt++) {
+        try {
+          _dlRes = await fetch("/api/jobs/" + jobId);
+          if (_dlRes.ok) break;
+          // 410 = bytes expired, no point retrying
+          if (_dlRes.status === 410)
+            throw new Error("File expired. Please regenerate the plan.");
+          if (_dlAttempt < _dlRetries - 1) {
+            updateGenProgress(
+              100,
+              "Download retry " + (_dlAttempt + 2) + "/" + _dlRetries + "...",
+            );
+            await new Promise(function (r) {
+              setTimeout(r, 1500 * (_dlAttempt + 1));
+            });
+          }
+        } catch (_dlErr) {
+          if (_dlErr.message.includes("expired")) throw _dlErr;
+          if (_dlAttempt >= _dlRetries - 1) throw _dlErr;
+          updateGenProgress(
+            100,
+            "Download retry " + (_dlAttempt + 2) + "/" + _dlRetries + "...",
+          );
+          await new Promise(function (r) {
+            setTimeout(r, 1500 * (_dlAttempt + 1));
+          });
+        }
+      }
+      if (!_dlRes || !_dlRes.ok)
+        throw new Error(
+          "Failed to download generated file after " + _dlRetries + " attempts",
+        );
       {
         const contentType = _dlRes.headers.get("Content-Type") || "";
         const blob = await _dlRes.blob();

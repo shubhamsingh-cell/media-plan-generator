@@ -9940,6 +9940,19 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     result_bytes = job.get("result_bytes", b"")
                     content_type = job.get("result_content_type", "application/zip")
                     filename = job.get("result_filename", "result.zip")
+                    # S37 fix: If result_bytes already cleared (retry after
+                    # previous download), return 410 so frontend can show a
+                    # helpful message instead of silently serving 0 bytes.
+                    if not result_bytes:
+                        self._send_json(
+                            {
+                                "job_id": job_id,
+                                "status": "expired",
+                                "error": "File already downloaded. Please regenerate.",
+                            },
+                            status_code=410,
+                        )
+                        return
                     self.send_response(200)
                     self.send_header("Content-Type", content_type)
                     self.send_header(
@@ -9948,18 +9961,29 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     self.send_header("Content-Length", str(len(result_bytes)))
                     self.end_headers()
                     self.wfile.write(result_bytes)
-                    # S23 fix: Do NOT delete job on download -- let TTL expiry
-                    # handle cleanup. Previous code deleted here, causing a race
-                    # where a stray poll (without Accept: application/json) could
-                    # consume and delete the job before the real download request.
-                    # Mark as downloaded so we can skip result_bytes on next poll
-                    # (save memory) but keep the job entry alive for status queries.
+                    # S37 fix: Keep result_bytes for 5 min after first download
+                    # to allow retries if network drops mid-transfer. Previously
+                    # bytes were cleared immediately, causing "failed download"
+                    # on retry (Ashlie's bug). Deferred cleanup via timer thread.
                     with _generation_jobs_lock:
                         if job_id in _generation_jobs:
                             _generation_jobs[job_id]["_downloaded"] = True
-                            _generation_jobs[job_id][
-                                "result_bytes"
-                            ] = b""  # free memory
+                            _generation_jobs[job_id]["_download_time"] = time.time()
+
+                            # Schedule deferred cleanup: free bytes after 5 min
+                            def _deferred_bytes_cleanup(_jid: str) -> None:
+                                time.sleep(300)  # 5 minutes
+                                with _generation_jobs_lock:
+                                    j = _generation_jobs.get(_jid)
+                                    if j and j.get("_downloaded"):
+                                        j["result_bytes"] = b""
+
+                            t = threading.Thread(
+                                target=_deferred_bytes_cleanup,
+                                args=(job_id,),
+                                daemon=True,
+                            )
+                            t.start()
             elif job_status == "failed":
                 err_msg = job.get("error", "Generation failed")
                 self._send_json(
