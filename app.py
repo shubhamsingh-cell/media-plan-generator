@@ -318,6 +318,10 @@ def _generate_narrative(
     Routes all plan synthesis calls through TASK_CAMPAIGN_PLAN (which maps to
     Claude Haiku first) to ensure C-suite quality narrative output.
 
+    Falls back to a template-based summary extracted from the data dict when
+    all LLM providers are unavailable, ensuring the caller always gets usable
+    text rather than an empty string.
+
     Args:
         data: Product data dict to summarize.
         product_context: Brief description of what this product does.
@@ -325,11 +329,11 @@ def _generate_narrative(
         max_tokens: Maximum tokens for the response.
 
     Returns:
-        Generated narrative string, or empty string on failure.
+        Generated narrative string, or template fallback on failure.
     """
     router = _lazy_llm_router()
     if not router:
-        return ""
+        return _narrative_template_fallback(data, product_context)
     # Force campaign_plan task type for all plan narratives -- routes to Claude Haiku
     task = task_type or getattr(router, "TASK_CAMPAIGN_PLAN", "campaign_plan")
     try:
@@ -352,10 +356,48 @@ def _generate_narrative(
             task_type=task,
             max_tokens=max_tokens,
         )
-        return result.get("text") or ""
+        text = result.get("text") or ""
+        if text:
+            return text
+        # LLM returned empty -- use template fallback
+        return _narrative_template_fallback(data, product_context)
     except Exception as e:
         logger.error("Narrative generation failed: %s", e, exc_info=True)
-        return ""
+        return _narrative_template_fallback(data, product_context)
+
+
+def _narrative_template_fallback(data: dict, product_context: str) -> str:
+    """Build a template-based narrative from raw data when LLM is unavailable.
+
+    Extracts key numeric values from the data dict and formats them into a
+    concise summary sentence. Returns empty string only if no useful data
+    can be extracted.
+    """
+    parts: list = []
+    # Extract common numeric fields from data
+    if "roi_percentage" in data:
+        roi = data.get("roi_percentage")
+        payback = data.get("payback_period_months")
+        savings = data.get("annual_savings")
+        industry = data.get("industry") or "this sector"
+        if roi:
+            parts.append(f"Projected ROI of {roi}%")
+        if payback:
+            parts.append(f"payback period of {payback} months")
+        if savings:
+            try:
+                parts.append(f"estimated annual savings of ${float(savings):,.0f}")
+            except (ValueError, TypeError):
+                parts.append(f"estimated annual savings of {savings}")
+        if parts:
+            return (
+                f"For {industry} recruitment: {', '.join(parts)}. "
+                f"See data sheets for detailed analysis."
+            )
+    # Generic fallback from product_context
+    if product_context:
+        return f"Analysis based on provided data. {product_context}"
+    return ""
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -7206,12 +7248,7 @@ def _generate_post_campaign_summary(data: dict) -> dict:
 
     router = _lazy_llm_router()
     if not router:
-        return {
-            "executive_summary": "",
-            "channel_analysis": "",
-            "recommendations": "",
-            "llm_available": False,
-        }
+        return _post_campaign_template_fallback(data)
 
     task_type = getattr(router, "TASK_CAMPAIGN_PLAN", "campaign_plan")
     prompt = f"Generate an executive summary of this recruitment campaign.\n\n"
@@ -7263,12 +7300,64 @@ def _generate_post_campaign_summary(data: dict) -> dict:
             }
     except Exception as e:
         logger.error("Post-campaign summary generation failed: %s", e, exc_info=True)
-        return {
-            "executive_summary": "",
-            "channel_analysis": "",
-            "recommendations": "",
-            "llm_available": False,
-        }
+        return _post_campaign_template_fallback(data)
+
+
+def _post_campaign_template_fallback(data: dict) -> dict:
+    """Build a template-based post-campaign summary when LLM is unavailable.
+
+    Extracts key metrics from the campaign data dict and formats them into
+    structured text, ensuring the UI always has content to display.
+    """
+    total_spend = 0.0
+    total_hires = 0
+    channels_data = data.get("channels") or data.get("channel_data") or []
+    best_channel = ""
+    best_cpa = float("inf")
+
+    for ch in channels_data:
+        if isinstance(ch, dict):
+            spend = float(ch.get("spend") or ch.get("budget") or 0)
+            hires = int(ch.get("hires") or ch.get("applications") or 0)
+            total_spend += spend
+            total_hires += hires
+            cpa = spend / hires if hires > 0 else float("inf")
+            name = ch.get("name") or ch.get("channel") or "Unknown"
+            if cpa < best_cpa:
+                best_cpa = cpa
+                best_channel = name
+
+    exec_parts: list[str] = []
+    if total_spend > 0:
+        exec_parts.append(f"Total campaign spend: ${total_spend:,.0f}")
+    if total_hires > 0:
+        exec_parts.append(f"Total hires/applications: {total_hires}")
+        if total_spend > 0:
+            exec_parts.append(f"Overall CPA: ${total_spend / total_hires:,.0f}")
+    if best_channel and best_cpa < float("inf"):
+        exec_parts.append(
+            f"Best performing channel: {best_channel} (CPA: ${best_cpa:,.0f})"
+        )
+
+    exec_summary = (
+        "AI narrative temporarily unavailable. Key metrics from campaign data:\n"
+        + "\n".join(f"- {p}" for p in exec_parts)
+        if exec_parts
+        else "Executive summary unavailable -- see data sheets for detailed analysis."
+    )
+
+    return {
+        "executive_summary": exec_summary,
+        "channel_analysis": (
+            "Channel-level analysis unavailable -- review individual channel "
+            "metrics in the data export."
+        ),
+        "recommendations": (
+            "AI-powered recommendations temporarily unavailable. Review channel "
+            "CPA and conversion rates to identify optimization opportunities."
+        ),
+        "llm_available": False,
+    }
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -11758,11 +11847,27 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     "Locations list exceeds 100 items limit", "VALIDATION_ERROR", 400
                 )
                 return
+            if isinstance(_roles_input, list) and len(_roles_input) > 30:
+                self._send_error(
+                    "Maximum 30 roles supported per plan. Please split into multiple plans.",
+                    "VALIDATION_ERROR",
+                    400,
+                )
+                return
 
             # P2: Numeric range validation -- budget cap
-            _bval = parse_budget(
-                _safe_str(data.get("budget") or data.get("budget_range") or "")
+            _budget_raw_str = _safe_str(
+                data.get("budget") or data.get("budget_range") or ""
             )
+            _bval = parse_budget(_budget_raw_str)
+            if parse_budget.last_was_defaulted and _budget_raw_str.strip():
+                self._send_error(
+                    f"Could not parse budget '{_budget_raw_str}'. "
+                    "Please enter a numeric value like $50,000",
+                    "VALIDATION_ERROR",
+                    400,
+                )
+                return
             if _bval <= 0:
                 _bval = 100_000.0  # Default to $100K instead of blocking
             if (

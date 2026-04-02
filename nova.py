@@ -10094,6 +10094,203 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
         )
 
     # ------------------------------------------------------------------
+    # Degraded mode: direct tool data without LLM narration (v4.4)
+    # ------------------------------------------------------------------
+
+    def _build_degraded_mode_response(self, user_message: str) -> Optional[dict]:
+        """Build a response from raw tool data when ALL LLM providers are down.
+
+        Attempts to detect query intent via keyword matching and calls tools
+        directly, formatting the raw results into a structured response without
+        any LLM narration. Returns None if no useful data could be gathered.
+        """
+        msg_lower = user_message.lower()
+        sections: list = []
+        tools_used: list = []
+        sources: set = set()
+
+        # Detect role from message
+        _role_title = None
+        for _token, _canonical in self._QUICK_ROLE_MAP.items():
+            if _token in msg_lower:
+                _role_title = _canonical
+                break
+
+        # Detect location
+        _location = _detect_us_state(user_message) or _detect_country(msg_lower) or ""
+
+        # --- Salary data ---
+        _is_salary = any(
+            kw in msg_lower
+            for kw in [
+                "salary",
+                "compensation",
+                "pay",
+                "wage",
+                "earn",
+                "income",
+            ]
+        )
+        if _is_salary and _role_title:
+            try:
+                sal_data = self._query_salary_data(
+                    {
+                        "role": _role_title,
+                        "location": _location or "United States",
+                    }
+                )
+                tools_used.append("query_salary_data")
+                sources.add(sal_data.get("source") or "Salary Data API")
+                sections.append(_format_salary_response(sal_data))
+            except Exception as _e:
+                logger.error("Degraded mode: salary tool failed: %s", _e, exc_info=True)
+
+        # --- CPC/CPA/Benchmark data ---
+        _is_benchmark = any(
+            kw in msg_lower
+            for kw in [
+                "cpc",
+                "cpa",
+                "cph",
+                "benchmark",
+                "cost per",
+            ]
+        )
+        if _is_benchmark:
+            try:
+                kb_data = self._query_knowledge_base(
+                    {
+                        "topic": "benchmarks",
+                    }
+                )
+                tools_used.append("query_knowledge_base")
+                sources.add("Recruitment Industry Knowledge Base")
+                _bench = kb_data.get("benchmarks", {})
+                _parts = []
+                _cpa = _bench.get("cost_per_application", {})
+                if _cpa:
+                    _avg = _cpa.get("overall_average") or _cpa.get("average")
+                    if _avg:
+                        _parts.append(f"- **Average CPA**: {_avg}")
+                _cpc = _bench.get("cost_per_click", {})
+                if _cpc:
+                    _avg_cpc = _cpc.get("overall_average") or _cpc.get("average")
+                    if _avg_cpc:
+                        _parts.append(f"- **Average CPC**: {_avg_cpc}")
+                if _parts:
+                    sections.append(
+                        "**Recruitment Benchmarks** (US national averages)\n\n"
+                        + "\n".join(_parts)
+                    )
+            except Exception as _e:
+                logger.error(
+                    "Degraded mode: benchmark tool failed: %s", _e, exc_info=True
+                )
+
+        # --- Market demand ---
+        _is_demand = any(
+            kw in msg_lower
+            for kw in [
+                "demand",
+                "hiring",
+                "market",
+                "difficulty",
+                "openings",
+            ]
+        )
+        if _is_demand and _role_title:
+            try:
+                demand_data = self._query_market_demand(
+                    {
+                        "role": _role_title,
+                        "location": _location or "United States",
+                    }
+                )
+                tools_used.append("query_market_demand")
+                sources.add(demand_data.get("source") or "Market Demand API")
+                sections.append(_format_demand_response(demand_data, _role_title))
+            except Exception as _e:
+                logger.error("Degraded mode: demand tool failed: %s", _e, exc_info=True)
+
+        # --- Publisher/job board queries ---
+        _is_publisher = any(
+            kw in msg_lower
+            for kw in [
+                "publisher",
+                "job board",
+                "board",
+                "where to post",
+            ]
+        )
+        if _is_publisher:
+            try:
+                _country = _detect_country(msg_lower) or "United States"
+                pub_data = self._query_publishers({"country": _country})
+                tools_used.append("query_publishers")
+                sources.add("Joveo Publisher Network")
+                sections.append(_format_publisher_response(pub_data))
+            except Exception as _e:
+                logger.error(
+                    "Degraded mode: publisher tool failed: %s", _e, exc_info=True
+                )
+
+        # --- Generic role query (no specific metric keyword) ---
+        if _role_title and not sections:
+            # User mentioned a role but no specific metric -- give salary + demand
+            try:
+                sal_data = self._query_salary_data(
+                    {
+                        "role": _role_title,
+                        "location": _location or "United States",
+                    }
+                )
+                tools_used.append("query_salary_data")
+                sources.add(sal_data.get("source") or "Salary Data API")
+                sections.append(_format_salary_response(sal_data))
+            except Exception as _e:
+                logger.error(
+                    "Degraded mode: generic salary failed: %s", _e, exc_info=True
+                )
+            try:
+                demand_data = self._query_market_demand(
+                    {
+                        "role": _role_title,
+                        "location": _location or "United States",
+                    }
+                )
+                tools_used.append("query_market_demand")
+                sources.add(demand_data.get("source") or "Market Demand API")
+                sections.append(_format_demand_response(demand_data, _role_title))
+            except Exception as _e:
+                logger.error(
+                    "Degraded mode: generic demand failed: %s", _e, exc_info=True
+                )
+
+        if not sections:
+            return None
+
+        # Prepend degraded-mode notice
+        _header = (
+            "*Note: AI narration is temporarily unavailable. "
+            "Showing raw data from Nova's tools.*\n\n"
+        )
+        response_text = _header + "\n\n".join(sections)
+
+        logger.info(
+            "DEGRADED MODE: Built response with %d tools: %s",
+            len(tools_used),
+            tools_used,
+        )
+
+        return {
+            "response": response_text,
+            "sources": list(sources),
+            "confidence": 0.5,
+            "tools_used": tools_used,
+            "degraded_mode": True,
+        }
+
+    # ------------------------------------------------------------------
     # Quick answer path for simple role+location queries (v3.6)
     # ------------------------------------------------------------------
 
@@ -10711,6 +10908,14 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
             if result and response_text:
                 provider = result.get("provider", "unknown")
                 model = result.get("model", "unknown")
+                # Detect truncated responses and append notice
+                if result.get("truncated"):
+                    response_text += "\n\n...(response may be incomplete)"
+                    logger.warning(
+                        "NOVA LLM Router: truncated response from %s (%s), appending notice",
+                        provider,
+                        model,
+                    )
                 logger.info("NOVA LLM Router: Response from %s (%s)", provider, model)
                 return {
                     "response": response_text,
@@ -10723,6 +10928,7 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                     "tools_used": [],
                     "llm_provider": provider,
                     "llm_model": model,
+                    "truncated": bool(result.get("truncated")),
                 }
         except Exception as e:
             logger.warning("NOVA LLM Router failed: %s", e)
@@ -11601,6 +11807,15 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                 iteration + 1,
             )
 
+            # Detect truncated responses and append notice
+            if result.get("truncated"):
+                response_text += "\n\n...(response may be incomplete)"
+                logger.warning(
+                    "Free LLM tools: truncated response from %s (%s), appending notice",
+                    provider,
+                    model,
+                )
+
             return {
                 "response": response_text,
                 "sources": list(sources),
@@ -11613,6 +11828,7 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                 "verification_score": round(verification_score, 2),
                 "llm_provider": provider,
                 "llm_model": model,
+                "truncated": bool(result.get("truncated")),
             }
 
         # Exhausted iterations without final text.
