@@ -220,37 +220,37 @@ COMPLICATIONS: Dict[str, List[str]] = {
     ],
     "retail_consumer": [
         "64,000 retail jobs shed in 2025 Q1",
-        "CPA up 55% YoY despite market softening",
+        "Retail CPA rising sharply despite market softening",
         "5,800+ store closures accelerating talent displacement",
         "Seasonal demand creates volatile cost spikes",
     ],
     "hospitality_travel": [
-        "CPA surging +225% YoY across hospitality",
+        "Hospitality CPA surging as travel demand outpaces labor supply",
         "Extreme seasonal demand swings in Q2/Q4",
         "High turnover-driven churn exceeds 73%",
         "Hourly wage competition from adjacent industries",
     ],
     "logistics_supply_chain": [
-        "CPA up 131% YoY across logistics roles",
+        "Logistics CPA rising significantly as warehouse/CDL demand grows",
         "CDL/last-mile roles most expensive at $52+ CPA",
         "Automation creating new hybrid role types",
         "Warehouse labor competing with gig economy",
     ],
     "finance_banking": [
-        "Finance CPA surged +33.3% MoM",
+        "Finance CPA climbing as compliance and fintech hiring intensify",
         "Compliance-heavy hiring extends cycles by 2-3 weeks",
         "Extensive background checks inflate cost-per-hire",
         "Fintech competition drawing mid-career talent",
     ],
     "general_entry_level": [
-        "CPCs rose 27% in 2024; trend continuing",
+        "CPCs trending upward across entry-level roles",
         "Seasonal Q4 spikes compress planning windows",
         "Apply rates improving but quality remains a challenge",
         "High-volume funnels require aggressive top-of-funnel spend",
     ],
     "blue_collar_trades": [
         "Skilled trades gap widening as workforce ages",
-        "CPA up 40% for certified/licensed positions",
+        "CPA elevated for certified/licensed positions",
         "Geographic mismatch between supply and demand",
         "Apprenticeship pipelines insufficient for near-term needs",
     ],
@@ -1401,8 +1401,18 @@ def _selected_channels(data: Dict) -> Dict[str, Dict[str, Any]]:
             selected[key] = dict(meta)
 
     if not selected:
-        for key in ("programmatic_dsp", "global_boards", "social_media"):
-            selected[key] = dict(alloc_base[key])
+        # Legacy plans without channel_categories: include ALL channels
+        # (New UI defaults channels to OFF, so empty cats means legacy data)
+        has_explicit_cats = any(v for v in cats.values()) if cats else False
+        if not has_explicit_cats:
+            for key, meta in alloc_base.items():
+                selected[key] = dict(meta)
+        else:
+            # cats was provided but no True values matched alloc_base keys;
+            # fall back to programmatic + global + social as minimum
+            for key in ("programmatic_dsp", "global_boards", "social_media"):
+                if key in alloc_base:
+                    selected[key] = dict(alloc_base[key])
 
     raw_total = sum(v["pct"] for v in selected.values())
     if raw_total > 0:
@@ -5847,13 +5857,20 @@ def _build_slide_geopolitical_risk(prs: Presentation, data: Dict):
                 bold=True,
                 color=BLUE,
             )
-            rec_text = " | ".join(str(r)[:100] for r in recommendations[:4])
+
+            def _trunc_word(s: str, maxlen: int = 200) -> str:
+                s = str(s)
+                if len(s) <= maxlen:
+                    return s
+                return s[:maxlen].rsplit(" ", 1)[0] + "..."
+
+            rec_text = " | ".join(_trunc_word(r) for r in recommendations[:4])
             _add_textbox(
                 slide,
                 Inches(0.55),
                 rec_top + Inches(0.3),
                 Inches(12.2),
-                Inches(0.6),
+                Inches(0.9),
                 text=rec_text,
                 font_size=9,
                 color=DARK_TEXT,
