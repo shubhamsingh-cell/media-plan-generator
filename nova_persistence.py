@@ -37,6 +37,10 @@ except ImportError:
 # Thread-safe Supabase Client Singleton (delegates to supabase_client.py)
 # ---------------------------------------------------------------------------
 
+# Schema detection cache: None = unknown, True = new (document model), False = old (row-per-turn)
+_schema_is_document_model: Optional[bool] = None
+_schema_detection_lock = threading.Lock()
+
 
 def _get_supabase():
     """Get or initialize Supabase client (lazy, thread-safe).
@@ -50,6 +54,89 @@ def _get_supabase():
     except ImportError:
         logger.warning("supabase_client module not available")
         return None
+
+
+def _detect_schema() -> bool:
+    """Detect whether nova_conversations uses the document model (new) or row-per-turn (old).
+
+    Checks once and caches the result. The new schema has a 'messages' JSONB column;
+    the old schema has 'user_message' and 'assistant_response' columns.
+
+    Returns:
+        True if document model (new schema), False if row-per-turn (old schema).
+    """
+    global _schema_is_document_model
+
+    if _schema_is_document_model is not None:
+        return _schema_is_document_model
+
+    with _schema_detection_lock:
+        # Double-check after acquiring lock
+        if _schema_is_document_model is not None:
+            return _schema_is_document_model
+
+        sb = _get_supabase()
+        if not sb:
+            logger.warning(
+                "Cannot detect schema: Supabase unavailable; assuming old schema"
+            )
+            _schema_is_document_model = False
+            return False
+
+        try:
+            # Fetch one row and inspect its keys
+            result = sb.table("nova_conversations").select("*").limit(1).execute()
+            if result.data:
+                columns = set(result.data[0].keys())
+                if "messages" in columns:
+                    _schema_is_document_model = True
+                    logger.info("Detected document-model schema for nova_conversations")
+                else:
+                    _schema_is_document_model = False
+                    logger.info("Detected row-per-turn schema for nova_conversations")
+            else:
+                # Empty table -- try inserting a test row with new schema fields
+                # If it works, we have the new schema
+                try:
+                    test_id = str(uuid.uuid4())
+                    sb.table("nova_conversations").insert(
+                        {
+                            "id": test_id,
+                            "user_id": "__schema_test__",
+                            "messages": [],
+                        }
+                    ).execute()
+                    # Clean up test row
+                    sb.table("nova_conversations").delete().eq("id", test_id).execute()
+                    _schema_is_document_model = True
+                    logger.info(
+                        "Detected document-model schema (empty table, insert test passed)"
+                    )
+                except Exception:
+                    _schema_is_document_model = False
+                    logger.info(
+                        "Detected row-per-turn schema (empty table, insert test failed)"
+                    )
+
+        except Exception as exc:
+            logger.error(
+                "Schema detection failed: %s; assuming old schema", exc, exc_info=True
+            )
+            _schema_is_document_model = False
+
+        return _schema_is_document_model
+
+
+def reset_schema_cache() -> None:
+    """Reset the schema detection cache so next operation re-detects.
+
+    Call this after running the migration SQL to switch from old to new schema
+    without restarting the server.
+    """
+    global _schema_is_document_model
+    with _schema_detection_lock:
+        _schema_is_document_model = None
+    logger.info("Schema detection cache reset; will re-detect on next operation")
 
 
 # ---------------------------------------------------------------------------
@@ -83,6 +170,16 @@ def create_conversation(
         logger.warning("Supabase unavailable; cannot create conversation")
         return None
 
+    if not _detect_schema():
+        # Old row-per-turn schema -- cannot create document-model conversations
+        logger.warning("Old schema detected; create_conversation is a no-op")
+        return {
+            "id": str(uuid.uuid4()),
+            "user_id": user_id,
+            "title": title,
+            "messages": [],
+        }
+
     try:
         result = (
             sb.table("nova_conversations")
@@ -113,6 +210,8 @@ def create_conversation(
 def get_conversation(conversation_id: str) -> Optional[Dict[str, Any]]:
     """Get conversation by ID.
 
+    Handles both old (row-per-turn) and new (document-model) schemas.
+
     Args:
         conversation_id: UUID of conversation
 
@@ -122,6 +221,37 @@ def get_conversation(conversation_id: str) -> Optional[Dict[str, Any]]:
     sb = _get_supabase()
     if not sb:
         return None
+
+    # Old schema: build a synthetic conversation from rows
+    if not _detect_schema():
+        try:
+            result = (
+                sb.table("nova_conversations")
+                .select("*")
+                .eq("conversation_id", conversation_id)
+                .order("timestamp", desc=False)
+                .execute()
+            )
+            if not result.data:
+                return None
+            messages = load_conversation_messages(conversation_id)
+            first_row = result.data[0]
+            return {
+                "id": conversation_id,
+                "user_id": "anonymous",
+                "title": (first_row.get("user_message") or "New Chat")[:100],
+                "messages": messages,
+                "created_at": first_row.get("timestamp") or "",
+                "updated_at": result.data[-1].get("timestamp") or "",
+            }
+        except Exception as exc:
+            logger.error(
+                "get_conversation(%s) old-schema failed: %s",
+                conversation_id,
+                exc,
+                exc_info=True,
+            )
+            return None
 
     try:
         result = (
@@ -151,6 +281,11 @@ def list_conversations(user_id: str, limit: int = 50) -> List[Dict[str, Any]]:
     """
     sb = _get_supabase()
     if not sb:
+        return []
+
+    # Old schema: no user_id column, return empty
+    if not _detect_schema():
+        logger.info("Old schema: list_conversations not supported")
         return []
 
     try:
@@ -318,6 +453,8 @@ def get_or_create_conversation(
     using that ID so both app.py and nova_persistence.py share the same
     document.
 
+    Handles both old (row-per-turn) and new (document-model) schemas.
+
     Args:
         conversation_id: UUID string (caller-generated or from the widget).
         user_id: Anonymous user identifier.
@@ -329,6 +466,18 @@ def get_or_create_conversation(
     sb = _get_supabase()
     if not sb:
         return None
+
+    # Old schema fallback: return a synthetic conversation dict
+    if not _detect_schema():
+        logger.info(
+            "Old schema: returning synthetic conversation for %s", conversation_id
+        )
+        return {
+            "id": conversation_id,
+            "user_id": user_id,
+            "title": title,
+            "messages": [],
+        }
 
     try:
         # Try fetching first
@@ -429,6 +578,72 @@ def verify_conversation_token(
         return True  # Fail open if verification itself errors
 
 
+def _append_message_old_schema(
+    conversation_id: str,
+    role: str,
+    content: str,
+    model_used: str = "",
+    sources: Optional[List[Any]] = None,
+    confidence: float = 0.0,
+) -> bool:
+    """Append a message using the old row-per-turn schema.
+
+    Inserts user+assistant as paired rows. Only the assistant role
+    triggers an insert (with the last user message cached in _pending_user_messages).
+
+    Args:
+        conversation_id: Conversation identifier.
+        role: 'user' or 'assistant'.
+        content: Message text.
+        model_used: LLM model string.
+        sources: Data sources list.
+        confidence: Confidence score.
+
+    Returns:
+        True on success.
+    """
+    sb = _get_supabase()
+    if not sb:
+        return False
+
+    # For the old schema, we store user+assistant as a single row
+    # Cache user messages and write when assistant responds
+    if role == "user":
+        _pending_user_messages[conversation_id] = content[:10000]
+        return True
+
+    if role == "assistant":
+        user_msg = _pending_user_messages.pop(conversation_id, "")
+        sources_str = json.dumps(sources) if sources else "[]"
+        try:
+            sb.table("nova_conversations").insert(
+                {
+                    "conversation_id": conversation_id,
+                    "user_message": user_msg,
+                    "assistant_response": content[:10000],
+                    "model_used": model_used or "",
+                    "sources": sources_str,
+                    "confidence": confidence or 0.0,
+                }
+            ).execute()
+            logger.info("Saved turn to old schema for %s", conversation_id)
+            return True
+        except Exception as exc:
+            logger.error(
+                "Old-schema insert failed for %s: %s",
+                conversation_id,
+                exc,
+                exc_info=True,
+            )
+            return False
+
+    return False
+
+
+# Cache for user messages when using old schema (paired writes)
+_pending_user_messages: Dict[str, str] = {}
+
+
 def append_message(
     conversation_id: str,
     role: str,
@@ -448,6 +663,8 @@ def append_message(
     On failure the message is queued in ``_retry_queue`` so a
     subsequent successful call can drain it.
 
+    Handles both old (row-per-turn) and new (document-model) schemas.
+
     Args:
         conversation_id: UUID of the conversation.
         role: 'user' or 'assistant'.
@@ -464,6 +681,17 @@ def append_message(
     sb = _get_supabase()
     if not sb:
         return False
+
+    # Old schema fallback: use row-per-turn inserts
+    if not _detect_schema():
+        return _append_message_old_schema(
+            conversation_id,
+            role,
+            content,
+            model_used=model_used,
+            sources=sources,
+            confidence=confidence,
+        )
 
     msg_obj: Dict[str, Any] = {
         "role": role,
@@ -593,7 +821,9 @@ def _drain_retry_queue() -> None:
 
 
 def load_conversation_messages(conversation_id: str) -> List[Dict[str, Any]]:
-    """Load conversation messages from the JSONB array.
+    """Load conversation messages.
+
+    Handles both old (row-per-turn) and new (document-model JSONB array) schemas.
 
     Args:
         conversation_id: UUID of conversation.
@@ -605,6 +835,58 @@ def load_conversation_messages(conversation_id: str) -> List[Dict[str, Any]]:
     if not sb:
         return []
 
+    # Old schema: query rows by conversation_id and build messages list
+    if not _detect_schema():
+        try:
+            result = (
+                sb.table("nova_conversations")
+                .select("*")
+                .eq("conversation_id", conversation_id)
+                .order("timestamp", desc=False)
+                .execute()
+            )
+            messages: List[Dict[str, Any]] = []
+            for row in result.data or []:
+                user_msg = row.get("user_message") or ""
+                asst_msg = row.get("assistant_response") or ""
+                ts = row.get("timestamp") or ""
+                if user_msg:
+                    messages.append(
+                        {"role": "user", "content": user_msg, "timestamp": ts}
+                    )
+                if asst_msg:
+                    msg_obj: Dict[str, Any] = {
+                        "role": "assistant",
+                        "content": asst_msg,
+                        "timestamp": ts,
+                    }
+                    if row.get("model_used"):
+                        msg_obj["model_used"] = row["model_used"]
+                    sources_raw = row.get("sources") or "[]"
+                    try:
+                        parsed = (
+                            json.loads(sources_raw)
+                            if isinstance(sources_raw, str)
+                            else sources_raw
+                        )
+                        if parsed:
+                            msg_obj["sources"] = parsed
+                    except (json.JSONDecodeError, TypeError):
+                        pass
+                    if row.get("confidence"):
+                        msg_obj["confidence"] = row["confidence"]
+                    messages.append(msg_obj)
+            return messages
+        except Exception as exc:
+            logger.error(
+                "load_conversation_messages(%s) old-schema failed: %s",
+                conversation_id,
+                exc,
+                exc_info=True,
+            )
+            return []
+
+    # New schema: read from JSONB messages array
     try:
         result = (
             sb.table("nova_conversations")
@@ -631,6 +913,8 @@ def list_conversations_summary(
 ) -> List[Dict[str, Any]]:
     """List conversations with summary info for the sidebar.
 
+    Handles both old (row-per-turn) and new (document-model) schemas.
+
     Args:
         user_id: Optional filter by user. If None, lists all.
         limit: Max rows.
@@ -641,6 +925,44 @@ def list_conversations_summary(
     sb = _get_supabase()
     if not sb:
         return []
+
+    # Old schema: group rows by conversation_id
+    if not _detect_schema():
+        try:
+            result = (
+                sb.table("nova_conversations")
+                .select("*")
+                .order("timestamp", desc=True)
+                .limit(500)
+                .execute()
+            )
+            grouped: Dict[str, List[Dict[str, Any]]] = {}
+            for row in result.data or []:
+                cid = row.get("conversation_id") or ""
+                if cid:
+                    grouped.setdefault(cid, []).append(row)
+
+            summaries: List[Dict[str, Any]] = []
+            for cid, turns in grouped.items():
+                last_ts = max(t.get("timestamp") or "" for t in turns)
+                first_msg = (
+                    turns[-1].get("user_message") or "New Chat" if turns else "New Chat"
+                )
+                summaries.append(
+                    {
+                        "conversation_id": cid,
+                        "title": first_msg[:100],
+                        "last_message": (turns[0].get("user_message") or "")[:100],
+                        "updated_at": last_ts,
+                        "message_count": len(turns) * 2,
+                    }
+                )
+            return summaries[:limit]
+        except Exception as exc:
+            logger.error(
+                "list_conversations_summary (old schema) failed: %s", exc, exc_info=True
+            )
+            return []
 
     try:
         query = (
@@ -653,7 +975,7 @@ def list_conversations_summary(
             query = query.eq("user_id", user_id)
 
         result = query.execute()
-        summaries: List[Dict[str, Any]] = []
+        summaries_list: List[Dict[str, Any]] = []
         for row in result.data or []:
             messages = row.get("messages") or []
             last_user_msg = ""
@@ -661,7 +983,7 @@ def list_conversations_summary(
                 if msg.get("role") == "user":
                     last_user_msg = (msg.get("content") or "")[:100]
                     break
-            summaries.append(
+            summaries_list.append(
                 {
                     "conversation_id": row.get("id") or "",
                     "title": row.get("title") or "New Chat",
@@ -670,7 +992,7 @@ def list_conversations_summary(
                     "message_count": len(messages),
                 }
             )
-        return summaries
+        return summaries_list
 
     except Exception as exc:
         logger.error("list_conversations_summary failed: %s", exc, exc_info=True)
@@ -1113,8 +1435,8 @@ def health_check() -> bool:
         return False
 
     try:
-        # Simple query to test connection
-        sb.table("nova_conversations").select("count").limit(1).execute()
+        # Simple query to test connection -- works with both schemas
+        sb.table("nova_conversations").select("id").limit(1).execute()
         return True
     except Exception as e:
         logger.error("Supabase health check failed: %s", e, exc_info=True)

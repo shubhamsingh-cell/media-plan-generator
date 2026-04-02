@@ -2537,7 +2537,31 @@ def _cleanup_old_docs(docs_dir, max_files=200):
 def log_request(
     data, status, file_size=0, generation_time=0, error_msg=None, doc_filename=None
 ):
-    """Append a log entry with file locking to prevent corruption from concurrent writes."""
+    """Append a log entry with file locking and persist to Supabase plan_events table.
+
+    Writes to both the local JSON file (backward compat) and the Supabase
+    ``plan_events`` table for durable storage that survives deploys.
+    """
+    # Determine event_type from status
+    event_type_map = {
+        "success": "plan_generated",
+        "error": "plan_failed",
+        "started": "plan_started",
+    }
+    event_type = event_type_map.get(status, f"plan_{status}")
+
+    # Extract enrichment APIs list
+    enrichment_apis = (
+        data.get("_enriched", {}).get("enrichment_summary", {}).get("apis_succeeded")
+        or []
+        if isinstance(data.get("_enriched"), dict)
+        else []
+    )
+
+    # Extract channels selected from data
+    channels_selected = data.get("channels") or data.get("selected_channels") or []
+
+    # Build local log entry (backward compat)
     entry = {
         "id": str(uuid.uuid4())[:8],
         "timestamp": datetime.datetime.now().isoformat(),
@@ -2554,16 +2578,10 @@ def log_request(
         "generation_time_seconds": round(generation_time, 2),
         "error_message": error_msg,
         "doc_filename": doc_filename,
-        "enrichment_apis": (
-            data.get("_enriched", {})
-            .get("enrichment_summary", {})
-            .get("apis_succeeded")
-            or []
-            if isinstance(data.get("_enriched"), dict)
-            else []
-        ),
+        "enrichment_apis": enrichment_apis,
     }
-    # Use file locking to prevent concurrent write corruption
+
+    # ── Local JSON file (backward compat) ──
     try:
         os.makedirs(os.path.dirname(REQUEST_LOG_LOCK), exist_ok=True)
         with open(REQUEST_LOG_LOCK, "w") as lock_fd:
@@ -2581,6 +2599,43 @@ def log_request(
                     fcntl.flock(lock_fd, fcntl.LOCK_UN)
     except OSError as e:
         logger.error("Failed to write request log: %s", e)
+
+    # ── Supabase plan_events table (best-effort, never raises) ──
+    try:
+        from supabase_client import get_client
+
+        client = get_client()
+        if client is not None:
+            supabase_row = {
+                "event_type": event_type,
+                "plan_id": data.get("_plan_id")
+                or data.get("_request_id")
+                or entry["id"],
+                "client_name": entry["client_name"],
+                "industry": entry["industry"],
+                "budget": str(entry["budget"]),
+                "roles": entry["roles"],
+                "locations": entry["locations"],
+                "channels_selected": channels_selected,
+                "user_email": entry["requester_email"],
+                "user_name": entry["requester_name"],
+                "generation_time_ms": round(generation_time * 1000, 1),
+                "file_size_bytes": file_size,
+                "error_message": error_msg,
+                "enrichment_apis": enrichment_apis,
+                "metadata": {
+                    "work_environment": data.get("work_environment", ""),
+                    "doc_filename": doc_filename,
+                    "deploy_version": _DEPLOY_VERSION,
+                },
+            }
+            client.table("plan_events").insert(supabase_row).execute()
+            logger.debug("Plan event persisted to Supabase: %s", event_type)
+    except ImportError:
+        logger.debug("supabase_client not available; skipping plan_events persistence")
+    except Exception as exc:
+        logger.warning("Failed to persist plan event to Supabase: %s", exc)
+
     return entry
 
 
@@ -4682,7 +4737,13 @@ def _build_health_response() -> dict:
         pass
 
     # PostHog availability flag (key is NOT exposed in health response for security)
-    _ph_configured = bool((os.environ.get("POSTHOG_API_KEY") or "").strip())
+    _ph_configured = bool(
+        (
+            os.environ.get("POSTHOG_PROJECT_API_KEY")
+            or os.environ.get("POSTHOG_API_KEY")
+            or ""
+        ).strip()
+    )
 
     # Resolve metrics_persisted from the persistence singleton (with grace period)
     _metrics_ok = False
@@ -11829,6 +11890,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
 
             # ── Feature 2b: Async generation mode ──
             if (self.headers.get("X-Async") or "").lower() == "true":
+                data["_gen_created"] = (
+                    time.time()
+                )  # Stamp for Slack notification timing
                 job_id = uuid.uuid4().hex[:12]
                 # Bug #14 fix: Store session token with job for IDOR prevention
                 _job_csrf = _parse_cookie_value(
@@ -12650,6 +12714,61 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         logger.info(
                             "Async job %s completed (%d bytes)", jid, len(result_bytes)
                         )
+
+                        # ── Slack notification: plan generated ──
+                        try:
+                            from slack_plan_notifier import notify_plan_generated
+
+                            _budget_alloc = gen_data.get("_budget_allocation") or {}
+                            _ch_allocs = _budget_alloc.get("channel_allocations") or {}
+                            _channels_list = (
+                                list(_ch_allocs.keys()) if _ch_allocs else []
+                            )
+                            _roles = (
+                                gen_data.get("target_roles")
+                                or gen_data.get("roles")
+                                or []
+                            )
+                            _locs = gen_data.get("locations") or []
+                            _gen_elapsed = time.time() - gen_data.get(
+                                "_gen_created", time.time()
+                            )
+
+                            notify_plan_generated(
+                                {
+                                    "client_name": gen_data.get("client_name")
+                                    or "Unknown",
+                                    "industry": (
+                                        gen_data.get("industry_label")
+                                        or gen_data.get("industry")
+                                        or "N/A"
+                                    ),
+                                    "budget": gen_data.get("budget")
+                                    or gen_data.get("budget_range")
+                                    or "N/A",
+                                    "user_name": gen_data.get("requester_name")
+                                    or "Unknown",
+                                    "user_email": gen_data.get("requester_email")
+                                    or "Unknown",
+                                    "role_count": (
+                                        len(_roles) if isinstance(_roles, list) else 0
+                                    ),
+                                    "location_count": (
+                                        len(_locs) if isinstance(_locs, list) else 0
+                                    ),
+                                    "channel_count": len(_channels_list),
+                                    "channels_list": _channels_list,
+                                    "generation_time_seconds": _gen_elapsed,
+                                    "job_id": jid,
+                                    "filename": result_fn,
+                                    "timestamp": time.strftime(
+                                        "%Y-%m-%d %H:%M:%S UTC", time.gmtime()
+                                    ),
+                                }
+                            )
+                        except Exception:
+                            pass  # Slack notification is best-effort
+
                     except Exception as async_err:
                         logger.error(
                             "Async job %s failed: %s", jid, async_err, exc_info=True
@@ -14007,6 +14126,49 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         )
                 except Exception:
                     pass
+
+                # ── Slack notification: sync plan generated (zip bundle) ──
+                try:
+                    from slack_plan_notifier import notify_plan_generated
+
+                    _budget_alloc = data.get("_budget_allocation") or {}
+                    _ch_allocs = _budget_alloc.get("channel_allocations") or {}
+                    _channels_list = list(_ch_allocs.keys()) if _ch_allocs else []
+                    _roles = data.get("target_roles") or data.get("roles") or []
+                    _locs = data.get("locations") or []
+
+                    notify_plan_generated(
+                        {
+                            "client_name": data.get("client_name") or "Unknown",
+                            "industry": (
+                                data.get("industry_label")
+                                or data.get("industry")
+                                or "N/A"
+                            ),
+                            "budget": data.get("budget")
+                            or data.get("budget_range")
+                            or "N/A",
+                            "user_name": data.get("requester_name") or "Unknown",
+                            "user_email": data.get("requester_email") or "Unknown",
+                            "role_count": (
+                                len(_roles) if isinstance(_roles, list) else 0
+                            ),
+                            "location_count": (
+                                len(_locs) if isinstance(_locs, list) else 0
+                            ),
+                            "channel_count": len(_channels_list),
+                            "channels_list": _channels_list,
+                            "generation_time_seconds": generation_time,
+                            "job_id": "",
+                            "filename": f"{client_name}_Media_Plan_Bundle.zip",
+                            "timestamp": time.strftime(
+                                "%Y-%m-%d %H:%M:%S UTC", time.gmtime()
+                            ),
+                        }
+                    )
+                except Exception:
+                    pass  # Slack notification is best-effort
+
             else:
                 # Fallback to Excel only if PPT fails — save Excel as doc copy
                 doc_filename = None
@@ -14060,6 +14222,49 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 )
                 if _metrics:
                     _metrics.record_generation(generation_time)
+
+                # ── Slack notification: sync plan generated (Excel only) ──
+                try:
+                    from slack_plan_notifier import notify_plan_generated
+
+                    _budget_alloc = data.get("_budget_allocation") or {}
+                    _ch_allocs = _budget_alloc.get("channel_allocations") or {}
+                    _channels_list = list(_ch_allocs.keys()) if _ch_allocs else []
+                    _roles = data.get("target_roles") or data.get("roles") or []
+                    _locs = data.get("locations") or []
+
+                    notify_plan_generated(
+                        {
+                            "client_name": data.get("client_name") or "Unknown",
+                            "industry": (
+                                data.get("industry_label")
+                                or data.get("industry")
+                                or "N/A"
+                            ),
+                            "budget": data.get("budget")
+                            or data.get("budget_range")
+                            or "N/A",
+                            "user_name": data.get("requester_name") or "Unknown",
+                            "user_email": data.get("requester_email") or "Unknown",
+                            "role_count": (
+                                len(_roles) if isinstance(_roles, list) else 0
+                            ),
+                            "location_count": (
+                                len(_locs) if isinstance(_locs, list) else 0
+                            ),
+                            "channel_count": len(_channels_list),
+                            "channels_list": _channels_list,
+                            "generation_time_seconds": generation_time,
+                            "job_id": "",
+                            "filename": f"{client_name}_Media_Plan.xlsx",
+                            "timestamp": time.strftime(
+                                "%Y-%m-%d %H:%M:%S UTC", time.gmtime()
+                            ),
+                        }
+                    )
+                except Exception:
+                    pass  # Slack notification is best-effort
+
         elif path == "/api/chat":
             # ── Nova Chat Endpoint ──
             if not self._check_rate_limit() or not self._check_global_chat_rate_limit():

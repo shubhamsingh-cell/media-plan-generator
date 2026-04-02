@@ -479,7 +479,11 @@ def get_event_store() -> EventStore:
 
                 persist = bool(
                     (os.environ.get("SUPABASE_URL") or "").strip()
-                    and (os.environ.get("SUPABASE_KEY") or "").strip()
+                    and (
+                        os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+                        or os.environ.get("SUPABASE_KEY")
+                        or ""
+                    ).strip()
                 )
                 _event_store = EventStore(persist_to_supabase=persist)
                 logger.info(f"EventStore initialised (supabase_persist={persist})")

@@ -1170,7 +1170,11 @@ def _handle_config(handler, path: str, parsed: Any) -> None:
     This endpoint exposes only public frontend configuration values.
     Sensitive keys and internal details are NOT included.
     """
-    _ph_key: str = (os.environ.get("POSTHOG_API_KEY") or "").strip()
+    _ph_key: str = (
+        os.environ.get("POSTHOG_PROJECT_API_KEY")
+        or os.environ.get("POSTHOG_API_KEY")
+        or ""
+    ).strip()
     config: dict[str, Any] = {}
     if _ph_key:
         config["posthog_configured"] = True

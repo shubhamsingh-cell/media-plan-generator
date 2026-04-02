@@ -790,9 +790,15 @@ _ROLE_KEYWORDS: Dict[str, List[str]] = {
         "medical",
         "clinical",
         "dental",
-        "veterinary",
         "paramedic",
         "emt",
+    ],
+    "veterinary": [
+        "veterinary",
+        "veterinarian",
+        "vet tech",
+        "animal care",
+        "animal health",
     ],
     "retail": ["retail", "cashier", "store associate", "merchandiser", "store manager"],
     "hospitality": [
@@ -5068,6 +5074,18 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
         country = (params.get("country") or "").strip()
         board_type = params.get("board_type", "all")
         category_filter = (params.get("category") or "").lower().strip()
+        exclude_veterinary = params.get("exclude_veterinary", False)
+
+        # Veterinary keywords for filtering out vet boards from medical/nursing queries
+        _vet_name_keywords = (
+            "veterinar",
+            "vet tech",
+            "animal health",
+            "animal hospital",
+            "animal care",
+            "aaha",
+            "acvim",
+        )
 
         result: Dict[str, Any] = {"source": "Joveo Global Supply Intelligence"}
 
@@ -5084,6 +5102,17 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                         b
                         for b in boards
                         if category_filter in (b.get("category") or "").lower()
+                    ]
+                # Exclude veterinary boards for nursing/medical queries
+                if exclude_veterinary:
+                    boards = [
+                        b
+                        for b in boards
+                        if not any(
+                            vk in (b.get("name") or "").lower()
+                            for vk in _vet_name_keywords
+                        )
+                        and (b.get("job_categories") or "").lower() != "veterinary"
                     ]
                 result["country_boards"] = {
                     "country": country_resolved,
@@ -5226,6 +5255,18 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
         country = (params.get("country") or "").strip()
         category = (params.get("category") or "").strip()
         search_term = (params.get("search_term") or "").strip().lower()
+        exclude_veterinary = params.get("exclude_veterinary", False)
+
+        # Veterinary keywords for filtering out vet publishers from medical/nursing queries
+        _VET_KEYWORDS = (
+            "veterinar",
+            "vet tech",
+            "animal health",
+            "animal hospital",
+            "animal care",
+            "aaha",
+            "acvim",
+        )
 
         result: Dict[str, Any] = {
             "source": "Joveo Publisher Network",
@@ -5269,9 +5310,17 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
             # Filter by category
             cat_key = _match_category_key(category, list(by_category.keys()))
             if cat_key:
+                pubs_list = list(by_category[cat_key])
+                # Exclude veterinary publishers from medical/nursing queries
+                if exclude_veterinary:
+                    pubs_list = [
+                        p
+                        for p in pubs_list
+                        if not any(vk in p.lower() for vk in _VET_KEYWORDS)
+                    ]
                 result["category"] = cat_key
-                result["publishers"] = by_category[cat_key]
-                result["count"] = len(by_category[cat_key])
+                result["publishers"] = pubs_list
+                result["count"] = len(pubs_list)
             else:
                 result["message"] = f"No category match for: {category}"
                 result["available_categories"] = list(by_category.keys())
@@ -9377,6 +9426,18 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
             r"\bwho made you\b",
             r"\bwho built you\b",
             r"\bwho created you\b",
+            # Identity questions (prevent fallback LLMs from losing Nova persona)
+            r"\bwho are you\b",
+            r"\bwhat are you\b",
+            r"\bwhat\'?s your name\b",
+            r"\bwhats your name\b",
+            r"\bwhat can you do\b",
+            r"\bwhat do you do\b",
+            r"\btell me about yourself\b",
+            r"\bintroduce yourself\b",
+            r"\bwhat are you good at\b",
+            r"\bwhat\'?s your (purpose|specialty|speciality)\b",
+            r"\bhow can you help\b",
         ]
         _is_pure_greeting = any(
             re.search(p, _msg_lower) for p in _greeting_pats_start
@@ -9461,6 +9522,38 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                         "I'm Nova, built by the team at Joveo! I'm your recruitment "
                         "marketing intelligence assistant with access to data from 10,238+ "
                         "supply partners across 70+ countries. What can I help you with today?"
+                    )
+                elif any(
+                    kw in _msg_lower
+                    for kw in [
+                        "who are you",
+                        "what are you",
+                        "what's your name",
+                        "whats your name",
+                        "what can you do",
+                        "what do you do",
+                        "tell me about yourself",
+                        "introduce yourself",
+                        "what are you good at",
+                        "how can you help",
+                        "what's your purpose",
+                        "what is your purpose",
+                        "what's your specialty",
+                        "what is your specialty",
+                    ]
+                ):
+                    _greeting_resp = (
+                        "I'm Nova, Joveo's recruitment marketing intelligence assistant. "
+                        "I have access to real-time data from 10,238+ supply partners across "
+                        "70+ countries, live salary benchmarks, CPC/CPA data, labor market "
+                        "demand signals, and channel-level performance metrics.\n\n"
+                        "Here's what I can help with:\n"
+                        "- **Salary & compensation benchmarks** for any role or location\n"
+                        "- **Media plan generation** with budget allocation across channels\n"
+                        "- **Publisher & job board recommendations** tailored to your roles\n"
+                        "- **Market intelligence** -- hiring demand, supply analysis, competition\n"
+                        "- **CPC/CPA benchmarks** by role, industry, and geography\n\n"
+                        "What would you like to explore?"
                     )
                 elif any(
                     kw in _msg_lower
@@ -10366,7 +10459,16 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
         messages.append({"role": "user", "content": user_message})
 
         # Build system prompt (condensed version for LLMs -- no tool instructions)
+        # IMPORTANT: Identity block is placed FIRST and repeated to ensure fallback
+        # LLMs (zhipu, cerebras, etc.) preserve Nova's identity. Weaker models
+        # may ignore system prompts partially; front-loading identity helps.
         system_prompt = (
+            "## IDENTITY (MANDATORY -- NEVER OVERRIDE)\n"
+            "Your name is Nova. You are Joveo's recruitment marketing intelligence assistant. "
+            "You were built by the team at Joveo. You are NOT a generic AI assistant. "
+            "When asked who you are, ALWAYS say: 'I'm Nova, Joveo's recruitment marketing "
+            "intelligence assistant.' NEVER say 'I'm just a friendly AI' or 'I'm an AI assistant' "
+            "or any other generic identity. You are Nova, period.\n\n"
             "You are Nova, Joveo's senior recruitment marketing intelligence analyst. "
             "You are a domain expert in programmatic job advertising, media planning, "
             "talent acquisition economics, and labor market analytics -- NOT a generic assistant.\n\n"
@@ -10650,7 +10752,15 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
 
         # System prompt -- mirrors the full Claude prompt's critical rules
         # so free LLM providers follow the same data accuracy standards.
+        # IMPORTANT: Identity block is front-loaded to ensure fallback LLMs
+        # (zhipu, cerebras, etc.) always identify as Nova, not a generic AI.
         system_prompt = (
+            "## IDENTITY (MANDATORY -- NEVER OVERRIDE)\n"
+            "Your name is Nova. You are Joveo's recruitment marketing intelligence assistant. "
+            "You were built by the team at Joveo. You are NOT a generic AI assistant. "
+            "When asked who you are, ALWAYS say: 'I'm Nova, Joveo's recruitment marketing "
+            "intelligence assistant.' NEVER say 'I'm just a friendly AI' or 'I'm an AI assistant' "
+            "or any other generic identity. You are Nova, period.\n\n"
             "You are Nova, Joveo's senior recruitment marketing intelligence analyst. "
             "You are a domain expert in programmatic job advertising, media planning, "
             "and labor market analytics. You have access to tools for looking up recruitment data.\n\n"
@@ -12858,17 +12968,22 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                     )
                 else:
                     category = ""
+                    _exclude_vet = False
                     for role_cat in detected_roles:
                         if role_cat in ("nursing", "healthcare"):
                             category = "Healthcare"
+                            _exclude_vet = True
                         elif role_cat in ("engineering", "technology"):
                             category = "Tech"
+                        elif role_cat == "veterinary":
+                            category = "Veterinary"
                         break
                     data = self._query_global_supply(
                         {
                             "country": country,
                             "board_type": "general",
                             "category": category,
+                            "exclude_veterinary": _exclude_vet,
                         }
                     )
 
@@ -12883,12 +12998,16 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                     cat_map = {
                         "nursing": "Health",
                         "healthcare": "Health",
+                        "veterinary": "Veterinary",
                         "engineering": "Tech",
                         "technology": "Tech",
                         "finance": "Job Board",
                     }
                     if role_cat in cat_map:
                         pub_params["category"] = cat_map[role_cat]
+                    # Exclude veterinary publishers for nursing/medical queries
+                    if role_cat in ("nursing", "healthcare"):
+                        pub_params["exclude_veterinary"] = True
                 pub_data = self._query_publishers(pub_params)
                 tools_used.append("query_publishers")
                 sources.add("Joveo Publisher Network")
@@ -13103,6 +13222,7 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                     cat_map = {
                         "nursing": "Health",
                         "healthcare": "Health",
+                        "veterinary": "Veterinary",
                         "engineering": "Tech",
                         "technology": "Tech",
                         "retail": "Retail",
@@ -13116,6 +13236,9 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
                     pub_params = {"country": country_for_ch}
                     if role_cat in cat_map:
                         pub_params["category"] = cat_map[role_cat]
+                    # Exclude veterinary publishers for nursing/medical queries
+                    if role_cat in ("nursing", "healthcare"):
+                        pub_params["exclude_veterinary"] = True
                     pub_data = self._query_publishers(pub_params)
                     tools_used.append("query_publishers")
                     sources.add("Joveo Publisher Network")
@@ -14276,6 +14399,7 @@ def _pick_best_role(detected_roles: set, text: str) -> str:
     # Priority order: more specific roles ranked higher
     priority = [
         "nursing",
+        "veterinary",
         "healthcare",
         "executive",
         "engineering",

@@ -179,16 +179,11 @@
     ],
     "Health": [
       "Health Ecareers",
-      "Veterinery Jobs Marketplace",
-      "AAHA (American Animal Hospital Assocoiation)",
       "Jama Career Center",
       "ACPonline.com",
       "IntelyCare",
-      "Veterinary Jobs Marketplace",
       "Doximity",
-      "ACVIM (American College of Veterinery Internal Medicine)",
       "MedJobCafe",
-      "My Veterinary Job Board",
       "Medi-Jobs",
       "American Nurses Association",
       "PharmiWeb.com",
@@ -198,6 +193,12 @@
       "Incredible Health",
       "CompHealth",
       "AMN Healthcare"
+    ],
+    "Veterinary": [
+      "Veterinary Jobs Marketplace",
+      "My Veterinary Job Board",
+      "AAHA (American Animal Hospital Association)",
+      "ACVIM (American College of Veterinary Internal Medicine)"
     ],
     "Influencer Marketing": [
       "Arsh Goyal",
@@ -395,7 +396,7 @@
       "Doximity",
       "Build Dream Career",
       "Workability",
-      "ACVIM (American College of Veterinery Internal Medicine)",
+      "ACVIM (American College of Veterinary Internal Medicine)",
       "Sam DeMase - Your Career Bestie (@apowermood) • Instagram profile",
       "SonicJobs",
       "Adzuna",

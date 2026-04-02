@@ -28,8 +28,10 @@ logger = logging.getLogger(__name__)
 # ═══════════════════════════════════════════════════════════════════════════════
 # CONFIGURATION
 # ═══════════════════════════════════════════════════════════════════════════════
-POSTHOG_API_KEY: str = os.environ.get("POSTHOG_API_KEY") or ""
-POSTHOG_HOST: str = os.environ.get("POSTHOG_HOST") or "https://us.posthog.com"
+POSTHOG_API_KEY: str = (
+    os.environ.get("POSTHOG_PROJECT_API_KEY") or os.environ.get("POSTHOG_API_KEY") or ""
+)
+POSTHOG_HOST: str = os.environ.get("POSTHOG_HOST") or "https://us.i.posthog.com"
 CAPTURE_URL: str = f"{POSTHOG_HOST}/batch/"
 
 _FLUSH_INTERVAL_S: float = 5.0  # Flush every 5 seconds

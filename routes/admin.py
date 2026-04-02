@@ -181,10 +181,14 @@ def _handle_admin_posthog_stats(handler, path: str, parsed: Any) -> None:
     _ph_stats: dict[str, Any] = {}
     if _posthog_available:
         try:
-            _app = sys.modules.get("app") or sys.modules.get("__main__")
-            _ph_get_stats = getattr(_app, "_ph_get_stats", None)
+            from posthog_integration import get_stats as _ph_get_stats_fn
 
-            _ph_stats["posthog_integration"] = _ph_get_stats()
+            _ph_stats["posthog_integration"] = _ph_get_stats_fn()
+        except ImportError:
+            _ph_stats["posthog_integration"] = {
+                "enabled": False,
+                "error": "posthog_integration module not importable",
+            }
         except Exception as _phe:
             _ph_stats["posthog_integration"] = {"error": str(_phe)}
     else:
