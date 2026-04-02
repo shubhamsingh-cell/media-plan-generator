@@ -75,7 +75,16 @@ def parse_budget(budget_input, *, default: float = 100_000.0) -> float:
     -------
     float
         Parsed numeric budget value, always > 0 when input is non-empty.
+
+    Notes
+    -----
+    When parsing fails for a non-empty string input, logs a warning and sets
+    ``parse_budget.last_was_defaulted = True`` so callers can detect the fallback.
     """
+    # Reset the defaulted flag for this call
+    parse_budget.last_was_defaulted = False
+    parse_budget.last_raw_input = budget_input
+
     # Already numeric
     if isinstance(budget_input, (int, float)):
         return float(budget_input) if budget_input > 0 else default
@@ -88,10 +97,16 @@ def parse_budget(budget_input, *, default: float = 100_000.0) -> float:
         return default
 
     # Clean currency symbols and whitespace
-    clean = bstr.replace(",", "").replace("$", "").replace("USD", "").replace("usd", "").strip()
+    clean = (
+        bstr.replace(",", "")
+        .replace("$", "")
+        .replace("USD", "")
+        .replace("usd", "")
+        .strip()
+    )
 
     # 1. K/M/B suffix:  "50K", "1.5M", "2B"
-    km_match = re.match(r'^[<>~\s]*([\d.]+)\s*([KkMmBb])\b', clean)
+    km_match = re.match(r"^[<>~\s]*([\d.]+)\s*([KkMmBb])\b", clean)
     if km_match:
         num_part = float(km_match.group(1))
         suffix = km_match.group(2).upper()
@@ -99,7 +114,7 @@ def parse_budget(budget_input, *, default: float = 100_000.0) -> float:
 
     # 2. Extract all numbers >= 100 (filter noise like "3 months" but accept
     #    small employer budgets under $1000 -- lowered from 1000 to 100)
-    all_nums = re.findall(r'[\d]+', clean)
+    all_nums = re.findall(r"[\d]+", clean)
     parsed_nums = [int(n) for n in all_nums if int(n) >= 100]
 
     if len(parsed_nums) >= 2:
@@ -109,7 +124,7 @@ def parse_budget(budget_input, *, default: float = 100_000.0) -> float:
         return float(parsed_nums[0])
 
     # 3. Decimal numbers (e.g., "1.5" without suffix, or small values)
-    decimal_match = re.search(r'([\d.]+)', clean)
+    decimal_match = re.search(r"([\d.]+)", clean)
     if decimal_match:
         val = float(decimal_match.group(1))
         if val > 0:
@@ -126,8 +141,19 @@ def parse_budget(budget_input, *, default: float = 100_000.0) -> float:
     if "100k" in lower:
         return 100_000.0
 
-    # 5. Final fallback
+    # 5. Final fallback -- log warning for non-empty unparseable input
+    logger.warning(
+        "parse_budget: could not parse '%s', defaulting to $%s",
+        budget_input,
+        f"{default:,.0f}",
+    )
+    parse_budget.last_was_defaulted = True
     return default
+
+
+# Initialize function-level attributes for parse_budget
+parse_budget.last_was_defaulted = False
+parse_budget.last_raw_input = None
 
 
 def parse_budget_display(budget_input) -> Optional[float]:
@@ -151,85 +177,171 @@ def parse_budget_display(budget_input) -> Optional[float]:
 # ─────────────────────────────────────────────────────────────
 
 COUNTRY_CANONICAL: Dict[str, str] = {
-    "us": "United States", "usa": "United States", "united states": "United States",
-    "united states of america": "United States", "u.s.": "United States",
+    "us": "United States",
+    "usa": "United States",
+    "united states": "United States",
+    "united states of america": "United States",
+    "u.s.": "United States",
     "u.s.a.": "United States",
-    "uk": "United Kingdom", "united kingdom": "United Kingdom",
+    "uk": "United Kingdom",
+    "united kingdom": "United Kingdom",
     "great britain": "United Kingdom",
-    "uae": "United Arab Emirates", "united arab emirates": "United Arab Emirates",
-    "india": "India", "china": "China", "japan": "Japan", "germany": "Germany",
-    "france": "France", "canada": "Canada", "australia": "Australia", "brazil": "Brazil",
-    "mexico": "Mexico", "singapore": "Singapore", "ireland": "Ireland", "israel": "Israel",
-    "south korea": "South Korea", "netherlands": "Netherlands",
+    "uae": "United Arab Emirates",
+    "united arab emirates": "United Arab Emirates",
+    "india": "India",
+    "china": "China",
+    "japan": "Japan",
+    "germany": "Germany",
+    "france": "France",
+    "canada": "Canada",
+    "australia": "Australia",
+    "brazil": "Brazil",
+    "mexico": "Mexico",
+    "singapore": "Singapore",
+    "ireland": "Ireland",
+    "israel": "Israel",
+    "south korea": "South Korea",
+    "netherlands": "Netherlands",
     "the netherlands": "Netherlands",
-    "switzerland": "Switzerland", "sweden": "Sweden", "spain": "Spain", "italy": "Italy",
-    "poland": "Poland", "philippines": "Philippines", "new zealand": "New Zealand",
-    "south africa": "South Africa", "saudi arabia": "Saudi Arabia",
+    "switzerland": "Switzerland",
+    "sweden": "Sweden",
+    "spain": "Spain",
+    "italy": "Italy",
+    "poland": "Poland",
+    "philippines": "Philippines",
+    "new zealand": "New Zealand",
+    "south africa": "South Africa",
+    "saudi arabia": "Saudi Arabia",
     "hong kong": "Hong Kong",
-    "taiwan": "Taiwan", "indonesia": "Indonesia", "malaysia": "Malaysia",
+    "taiwan": "Taiwan",
+    "indonesia": "Indonesia",
+    "malaysia": "Malaysia",
     "thailand": "Thailand",
-    "vietnam": "Vietnam", "norway": "Norway", "denmark": "Denmark", "finland": "Finland",
-    "belgium": "Belgium", "austria": "Austria", "portugal": "Portugal",
+    "vietnam": "Vietnam",
+    "norway": "Norway",
+    "denmark": "Denmark",
+    "finland": "Finland",
+    "belgium": "Belgium",
+    "austria": "Austria",
+    "portugal": "Portugal",
     "czech republic": "Czech Republic",
-    "romania": "Romania", "colombia": "Colombia", "argentina": "Argentina",
+    "romania": "Romania",
+    "colombia": "Colombia",
+    "argentina": "Argentina",
     "chile": "Chile",
-    "peru": "Peru", "egypt": "Egypt", "nigeria": "Nigeria", "kenya": "Kenya",
+    "peru": "Peru",
+    "egypt": "Egypt",
+    "nigeria": "Nigeria",
+    "kenya": "Kenya",
     "pakistan": "Pakistan",
-    "bangladesh": "Bangladesh", "sri lanka": "Sri Lanka", "costa rica": "Costa Rica",
+    "bangladesh": "Bangladesh",
+    "sri lanka": "Sri Lanka",
+    "costa rica": "Costa Rica",
 }
 
 US_STATES_CANONICAL: Dict[str, str] = {
-    "ca": "California", "california": "California",
-    "ny": "New York", "new york": "New York",
-    "tx": "Texas", "texas": "Texas",
-    "fl": "Florida", "florida": "Florida",
-    "il": "Illinois", "illinois": "Illinois",
-    "pa": "Pennsylvania", "pennsylvania": "Pennsylvania",
-    "oh": "Ohio", "ohio": "Ohio",
-    "ga": "Georgia", "georgia": "Georgia",
-    "nc": "North Carolina", "north carolina": "North Carolina",
-    "mi": "Michigan", "michigan": "Michigan",
-    "nj": "New Jersey", "new jersey": "New Jersey",
-    "va": "Virginia", "virginia": "Virginia",
-    "wa": "Washington", "washington": "Washington",
-    "az": "Arizona", "arizona": "Arizona",
-    "ma": "Massachusetts", "massachusetts": "Massachusetts",
-    "tn": "Tennessee", "tennessee": "Tennessee",
-    "in": "Indiana", "indiana": "Indiana",
-    "mo": "Missouri", "missouri": "Missouri",
-    "md": "Maryland", "maryland": "Maryland",
-    "wi": "Wisconsin", "wisconsin": "Wisconsin",
-    "co": "Colorado", "colorado": "Colorado",
-    "mn": "Minnesota", "minnesota": "Minnesota",
-    "sc": "South Carolina", "south carolina": "South Carolina",
-    "al": "Alabama", "alabama": "Alabama",
-    "la": "Louisiana", "louisiana": "Louisiana",
-    "ky": "Kentucky", "kentucky": "Kentucky",
-    "or": "Oregon", "oregon": "Oregon",
-    "ok": "Oklahoma", "oklahoma": "Oklahoma",
-    "ct": "Connecticut", "connecticut": "Connecticut",
-    "ut": "Utah", "utah": "Utah",
-    "ia": "Iowa", "iowa": "Iowa",
-    "nv": "Nevada", "nevada": "Nevada",
-    "ar": "Arkansas", "arkansas": "Arkansas",
-    "ms": "Mississippi", "mississippi": "Mississippi",
-    "ks": "Kansas", "kansas": "Kansas",
-    "nm": "New Mexico", "new mexico": "New Mexico",
-    "ne": "Nebraska", "nebraska": "Nebraska",
-    "id": "Idaho", "idaho": "Idaho",
-    "wv": "West Virginia", "west virginia": "West Virginia",
-    "hi": "Hawaii", "hawaii": "Hawaii",
-    "nh": "New Hampshire", "new hampshire": "New Hampshire",
-    "me": "Maine", "maine": "Maine",
-    "mt": "Montana", "montana": "Montana",
-    "ri": "Rhode Island", "rhode island": "Rhode Island",
-    "de": "Delaware", "delaware": "Delaware",
-    "sd": "South Dakota", "south dakota": "South Dakota",
-    "nd": "North Dakota", "north dakota": "North Dakota",
-    "ak": "Alaska", "alaska": "Alaska",
-    "vt": "Vermont", "vermont": "Vermont",
-    "wy": "Wyoming", "wyoming": "Wyoming",
-    "dc": "Washington, D.C.", "washington dc": "Washington, D.C.",
+    "ca": "California",
+    "california": "California",
+    "ny": "New York",
+    "new york": "New York",
+    "tx": "Texas",
+    "texas": "Texas",
+    "fl": "Florida",
+    "florida": "Florida",
+    "il": "Illinois",
+    "illinois": "Illinois",
+    "pa": "Pennsylvania",
+    "pennsylvania": "Pennsylvania",
+    "oh": "Ohio",
+    "ohio": "Ohio",
+    "ga": "Georgia",
+    "georgia": "Georgia",
+    "nc": "North Carolina",
+    "north carolina": "North Carolina",
+    "mi": "Michigan",
+    "michigan": "Michigan",
+    "nj": "New Jersey",
+    "new jersey": "New Jersey",
+    "va": "Virginia",
+    "virginia": "Virginia",
+    "wa": "Washington",
+    "washington": "Washington",
+    "az": "Arizona",
+    "arizona": "Arizona",
+    "ma": "Massachusetts",
+    "massachusetts": "Massachusetts",
+    "tn": "Tennessee",
+    "tennessee": "Tennessee",
+    "in": "Indiana",
+    "indiana": "Indiana",
+    "mo": "Missouri",
+    "missouri": "Missouri",
+    "md": "Maryland",
+    "maryland": "Maryland",
+    "wi": "Wisconsin",
+    "wisconsin": "Wisconsin",
+    "co": "Colorado",
+    "colorado": "Colorado",
+    "mn": "Minnesota",
+    "minnesota": "Minnesota",
+    "sc": "South Carolina",
+    "south carolina": "South Carolina",
+    "al": "Alabama",
+    "alabama": "Alabama",
+    "la": "Louisiana",
+    "louisiana": "Louisiana",
+    "ky": "Kentucky",
+    "kentucky": "Kentucky",
+    "or": "Oregon",
+    "oregon": "Oregon",
+    "ok": "Oklahoma",
+    "oklahoma": "Oklahoma",
+    "ct": "Connecticut",
+    "connecticut": "Connecticut",
+    "ut": "Utah",
+    "utah": "Utah",
+    "ia": "Iowa",
+    "iowa": "Iowa",
+    "nv": "Nevada",
+    "nevada": "Nevada",
+    "ar": "Arkansas",
+    "arkansas": "Arkansas",
+    "ms": "Mississippi",
+    "mississippi": "Mississippi",
+    "ks": "Kansas",
+    "kansas": "Kansas",
+    "nm": "New Mexico",
+    "new mexico": "New Mexico",
+    "ne": "Nebraska",
+    "nebraska": "Nebraska",
+    "id": "Idaho",
+    "idaho": "Idaho",
+    "wv": "West Virginia",
+    "west virginia": "West Virginia",
+    "hi": "Hawaii",
+    "hawaii": "Hawaii",
+    "nh": "New Hampshire",
+    "new hampshire": "New Hampshire",
+    "me": "Maine",
+    "maine": "Maine",
+    "mt": "Montana",
+    "montana": "Montana",
+    "ri": "Rhode Island",
+    "rhode island": "Rhode Island",
+    "de": "Delaware",
+    "delaware": "Delaware",
+    "sd": "South Dakota",
+    "south dakota": "South Dakota",
+    "nd": "North Dakota",
+    "north dakota": "North Dakota",
+    "ak": "Alaska",
+    "alaska": "Alaska",
+    "vt": "Vermont",
+    "vermont": "Vermont",
+    "wy": "Wyoming",
+    "wyoming": "Wyoming",
+    "dc": "Washington, D.C.",
+    "washington dc": "Washington, D.C.",
     "washington d.c.": "Washington, D.C.",
 }
 

@@ -594,6 +594,7 @@ def _resolve_industry_key(raw_industry: str) -> str:
     """Resolve a raw industry string to a canonical key in _INDUSTRY_TOP_EMPLOYERS.
 
     Uses alias table first, then substring matching, then falls back to empty string.
+    When falling back to generic, logs a warning for observability.
     """
     industry = raw_industry.strip().lower()
     # 1) Direct alias lookup
@@ -610,6 +611,10 @@ def _resolve_industry_key(raw_industry: str) -> str:
     for alias, canonical in _INDUSTRY_ALIASES.items():
         if alias in industry:
             return canonical
+    logger.warning(
+        "Industry '%s' could not be resolved to a known key; falling back to generic benchmarks",
+        raw_industry,
+    )
     return ""
 
 
@@ -2257,12 +2262,25 @@ def apply_all_quality_gates(data: dict) -> dict[str, Any]:
     except Exception as e:
         logger.error("Gold Standard Gate 7 (calendar) failed: %s", e, exc_info=True)
 
+    # Check if industry resolved to generic fallback and flag it
+    raw_industry = str(data.get("industry") or "general_entry_level")
+    resolved_key = _resolve_industry_key(raw_industry)
+    if not resolved_key:
+        gold["industry_fallback"] = True
+
+    # Compute aggregate quality score: gates_passed / 7
+    gates_passed = len(gold) - (1 if "industry_fallback" in gold else 0)
+    gold["quality_score"] = round(gates_passed / 7, 2)
+
     # Store on data for downstream consumers (Excel/PPT generators)
     data["_gold_standard"] = gold
     logger.info(
-        "Gold Standard: %d of 7 gates produced data (%s)",
-        len(gold),
-        ", ".join(gold.keys()),
+        "Gold Standard: %d of 7 gates produced data (%s), quality_score=%.2f",
+        gates_passed,
+        ", ".join(
+            k for k in gold.keys() if k not in ("industry_fallback", "quality_score")
+        ),
+        gold["quality_score"],
     )
 
     return gold
