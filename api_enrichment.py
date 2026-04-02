@@ -15099,6 +15099,9 @@ def enrich_data(data: Dict[str, Any], request_id: str = "") -> Dict[str, Any]:
                     elif status == "circuit_open":
                         apis_circuit_broken.append(api_label)
                         apis_failed.append(api_label)
+                    elif status == "rate_limited":
+                        apis_circuit_broken.append(api_label)
+                        apis_skipped.append(api_label)
                     else:
                         apis_failed.append(api_label)
 
@@ -15210,7 +15213,7 @@ def _safe_call(func, label: str):
 
     Returns (result, status, metadata) where:
         - result:   the API return value (or None on failure)
-        - status:   "ok", "empty", "error", or "circuit_open"
+        - status:   "ok", "empty", "error", "circuit_open", or "rate_limited"
         - metadata: dict with timing and source info:
             - elapsed_time:  seconds the call took (float)
             - source:        "live", "cached", "fallback", or "circuit_open"

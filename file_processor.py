@@ -96,9 +96,9 @@ def _extract_pdf(raw_bytes: bytes, filename: str) -> str:
         return result
     except ImportError:
         logger.warning(
-            "PyPDF2 not installed -- cannot extract PDF text from %s", filename
+            "pypdf not installed -- cannot extract PDF text from %s", filename
         )
-        return f"[PDF file: {filename} -- install PyPDF2 for text extraction]"
+        return f"[PDF file: {filename} -- install pypdf for text extraction]"
     except Exception as e:
         logger.warning("PDF extraction failed for %s: %s", filename, e)
         return ""

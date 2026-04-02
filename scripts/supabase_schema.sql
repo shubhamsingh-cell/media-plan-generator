@@ -138,18 +138,8 @@ CREATE TABLE IF NOT EXISTS cache (
 );
 
 -- =========================================================================
--- 8b. Research Cache (web research results with timestamps)
+-- 8b. [REMOVED] research_cache -- Dropped in S34 (dead since S19, superseded by cache table)
 -- =========================================================================
-CREATE TABLE IF NOT EXISTS research_cache (
-    id BIGSERIAL PRIMARY KEY,
-    query_hash TEXT NOT NULL UNIQUE,
-    query TEXT NOT NULL,
-    results JSONB NOT NULL,
-    source TEXT DEFAULT 'firecrawl',  -- 'firecrawl', 'api', 'manual'
-    ttl_hours INTEGER DEFAULT 24,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    expires_at TIMESTAMPTZ
-);
 
 -- =========================================================================
 -- 9. Enrichment Log (audit trail for data updates)
@@ -182,7 +172,7 @@ CREATE INDEX IF NOT EXISTS idx_enrichment_date ON enrichment_log(created_at DESC
 CREATE INDEX IF NOT EXISTS idx_cache_key ON cache(key);
 CREATE INDEX IF NOT EXISTS idx_cache_expires_at ON cache(expires_at);
 CREATE INDEX IF NOT EXISTS idx_cache_category ON cache(category);
-CREATE INDEX IF NOT EXISTS idx_research_expires ON research_cache(expires_at);
+-- [REMOVED] idx_research_expires -- dropped with research_cache table in S34
 
 -- =========================================================================
 -- Row Level Security (RLS) -- enable for all tables
@@ -196,7 +186,7 @@ ALTER TABLE market_trends ENABLE ROW LEVEL SECURITY;
 ALTER TABLE vendor_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE supply_repository ENABLE ROW LEVEL SECURITY;
 ALTER TABLE cache ENABLE ROW LEVEL SECURITY;
-ALTER TABLE research_cache ENABLE ROW LEVEL SECURITY;
+-- [REMOVED] research_cache RLS -- dropped with table in S34
 ALTER TABLE enrichment_log ENABLE ROW LEVEL SECURITY;
 
 -- Permissive policies (server-side only, anon key)
@@ -208,7 +198,7 @@ CREATE POLICY "Allow all on market_trends" ON market_trends FOR ALL USING (true)
 CREATE POLICY "Allow all on vendor_profiles" ON vendor_profiles FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all on supply_repository" ON supply_repository FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all on cache" ON cache FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all on research_cache" ON research_cache FOR ALL USING (true) WITH CHECK (true);
+-- [REMOVED] research_cache policy -- dropped with table in S34
 CREATE POLICY "Allow all on enrichment_log" ON enrichment_log FOR ALL USING (true) WITH CHECK (true);
 
 -- =========================================================================

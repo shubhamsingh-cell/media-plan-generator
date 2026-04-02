@@ -58,22 +58,8 @@ CREATE INDEX IF NOT EXISTS idx_nova_shared_conversations_conversation_id ON nova
 CREATE INDEX IF NOT EXISTS idx_nova_shared_conversations_expires_at ON nova_shared_conversations(expires_at);
 
 -- ---------------------------------------------------------------------------
--- 4. Nova Avatars Table  [DEPRECATED 2026-03-25]
---    This table is unused. Avatar display is handled via CSS in the chat UI.
---    Kept for reference only -- do NOT add new code that reads/writes this table.
+-- 4. [REMOVED] nova_avatars table dropped in S34 (dead since S19, confirmed unreferenced)
 -- ---------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS nova_avatars (
-    id              UUID            PRIMARY KEY DEFAULT gen_random_uuid(),
-    persona_name    VARCHAR(128)    NOT NULL UNIQUE,
-    image_url       VARCHAR(512),
-    style           VARCHAR(32)     NOT NULL,  -- 'ai-generated', 'gradient', 'emoji', 'initials'
-    color           VARCHAR(7),                -- Hex color for gradient/initials
-    metadata        JSONB           DEFAULT '{}'::jsonb,
-    created_at      TIMESTAMPTZ     DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_nova_avatars_persona_name ON nova_avatars(persona_name);
-CREATE INDEX IF NOT EXISTS idx_nova_avatars_style ON nova_avatars(style);
 
 -- ---------------------------------------------------------------------------
 -- 5. Update Trigger for nova_conversations
@@ -88,13 +74,10 @@ CREATE TRIGGER trg_nova_conversations_updated_at
 ALTER TABLE nova_conversations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE nova_documents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE nova_shared_conversations ENABLE ROW LEVEL SECURITY;
-ALTER TABLE nova_avatars ENABLE ROW LEVEL SECURITY;
-
 -- Permissive policies: allow full access for service_role
 CREATE POLICY service_role_nova_conversations ON nova_conversations FOR ALL TO service_role USING (true) WITH CHECK (true);
 CREATE POLICY service_role_nova_documents ON nova_documents FOR ALL TO service_role USING (true) WITH CHECK (true);
 CREATE POLICY service_role_nova_shared_conversations ON nova_shared_conversations FOR ALL TO service_role USING (true) WITH CHECK (true);
-CREATE POLICY service_role_nova_avatars ON nova_avatars FOR ALL TO service_role USING (true) WITH CHECK (true);
 
 -- ---------------------------------------------------------------------------
 -- 7. Helper Functions

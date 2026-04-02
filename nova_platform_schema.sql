@@ -5,8 +5,8 @@
 --              (Command Center, Intelligence Hub, Nova AI)
 --
 -- Tables:
---   1. nova_campaigns        -- Campaign context persistence  [DEPRECATED]
---   2. nova_module_usage     -- Per-action analytics  [DEPRECATED]
+--   1. [REMOVED] nova_campaigns    -- Dropped in S34 (dead since S19)
+--   2. [REMOVED] nova_module_usage -- Dropped in S34 (dead since S19)
 --   3. nova_module_health    -- Health snapshot time-series
 --   4. nova_data_cache       -- Structured data cache with TTL
 --   5. nova_user_preferences -- User settings and personalization
@@ -21,75 +21,12 @@
 -- =============================================================================
 
 -- ---------------------------------------------------------------------------
--- 1. Nova Campaigns -- Campaign context persistence  [DEPRECATED 2026-03-25]
---    This table was never populated -- campaign state is stored client-side.
---    Kept for reference only -- do NOT add new code that reads/writes this table.
+-- 1. [REMOVED] nova_campaigns -- Dropped in S34 (dead since S19, never populated)
 -- ---------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS nova_campaigns (
-    id              UUID            PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id         VARCHAR(255)    NOT NULL,       -- Anonymous user ID (from localStorage)
-    name            VARCHAR(255)    NOT NULL,       -- Campaign display name
-    client          VARCHAR(255),                   -- Client/company name
-    budget          NUMERIC(14, 2),                 -- Total budget (USD)
-    currency        VARCHAR(3)      DEFAULT 'USD',  -- ISO 4217 currency code
-    timeline_start  DATE,                           -- Campaign start date
-    timeline_end    DATE,                           -- Campaign end date
-    roles           JSONB           DEFAULT '[]'::jsonb,   -- Array of target roles [{title, soc_code, count}]
-    locations       JSONB           DEFAULT '[]'::jsonb,   -- Array of target locations [{city, state, country}]
-    channels        JSONB           DEFAULT '[]'::jsonb,   -- Array of channels [{name, budget_pct, cpc, cpa}]
-    status          VARCHAR(32)     DEFAULT 'draft',       -- draft | active | paused | completed | archived
-    plan_data       JSONB           DEFAULT '{}'::jsonb,   -- Full generated plan (media mix, forecasts, etc.)
-    metadata        JSONB           DEFAULT '{}'::jsonb,   -- Flexible: tags, notes, version history
-    created_by      VARCHAR(255),                   -- Who created (user_id or system)
-    created_at      TIMESTAMPTZ     DEFAULT NOW(),
-    updated_at      TIMESTAMPTZ     DEFAULT NOW()
-);
-
--- Query patterns: user's campaigns, active campaigns, recent campaigns
-CREATE INDEX IF NOT EXISTS idx_nova_campaigns_user_id ON nova_campaigns(user_id);
-CREATE INDEX IF NOT EXISTS idx_nova_campaigns_status ON nova_campaigns(status);
-CREATE INDEX IF NOT EXISTS idx_nova_campaigns_created_at ON nova_campaigns(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_nova_campaigns_client ON nova_campaigns(client);
-
--- Auto-update updated_at on modification
-CREATE TRIGGER trg_nova_campaigns_updated_at
-    BEFORE UPDATE ON nova_campaigns
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- ---------------------------------------------------------------------------
--- 2. Nova Module Usage -- Per-action analytics  [DEPRECATED 2026-03-25]
---    Analytics now tracked via PostHog. Python callers replaced with no-op stub.
---    Kept for reference only -- do NOT add new code that reads/writes this table.
+-- 2. [REMOVED] nova_module_usage -- Dropped in S34 (dead since S19, replaced by PostHog)
 -- ---------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS nova_module_usage (
-    id              UUID            PRIMARY KEY DEFAULT gen_random_uuid(),
-    module_name     VARCHAR(64)     NOT NULL,       -- command_center | intelligence_hub | nova_ai
-    action          VARCHAR(128)    NOT NULL,       -- e.g. campaign_plan, market_analysis, chat_response
-    user_id         VARCHAR(255),                   -- Anonymous user ID
-    session_id      VARCHAR(255),                   -- Browser session ID
-    timestamp       TIMESTAMPTZ     DEFAULT NOW(),
-    latency_ms      INTEGER,                        -- End-to-end latency in milliseconds
-    success         BOOLEAN         DEFAULT TRUE,
-    llm_provider    VARCHAR(64),                    -- Which LLM provider was used
-    llm_model       VARCHAR(128),                   -- Which model was used
-    input_tokens    INTEGER,                        -- Token count for input
-    output_tokens   INTEGER,                        -- Token count for output
-    data_sources    JSONB           DEFAULT '[]'::jsonb,  -- Which data sources were queried
-    error_message   TEXT,                           -- Error text if success=false
-    metadata        JSONB           DEFAULT '{}'::jsonb   -- Flexible: campaign_id, query hash, etc.
-);
-
--- Query patterns: module analytics, user activity, time-range queries, error analysis
-CREATE INDEX IF NOT EXISTS idx_nova_module_usage_module ON nova_module_usage(module_name);
-CREATE INDEX IF NOT EXISTS idx_nova_module_usage_action ON nova_module_usage(action);
-CREATE INDEX IF NOT EXISTS idx_nova_module_usage_user_id ON nova_module_usage(user_id);
-CREATE INDEX IF NOT EXISTS idx_nova_module_usage_timestamp ON nova_module_usage(timestamp DESC);
-CREATE INDEX IF NOT EXISTS idx_nova_module_usage_success ON nova_module_usage(success) WHERE success = FALSE;
-CREATE INDEX IF NOT EXISTS idx_nova_module_usage_llm_provider ON nova_module_usage(llm_provider);
-
--- Composite index for common analytics query: module + time range
-CREATE INDEX IF NOT EXISTS idx_nova_module_usage_module_ts
-    ON nova_module_usage(module_name, timestamp DESC);
 
 -- ---------------------------------------------------------------------------
 -- 3. Nova Module Health -- Health snapshot time-series
@@ -177,8 +114,6 @@ CREATE TRIGGER trg_nova_user_preferences_updated_at
 -- =============================================================================
 -- 6. Enable Row Level Security on all new tables
 -- =============================================================================
-ALTER TABLE nova_campaigns ENABLE ROW LEVEL SECURITY;
-ALTER TABLE nova_module_usage ENABLE ROW LEVEL SECURITY;
 ALTER TABLE nova_module_health ENABLE ROW LEVEL SECURITY;
 ALTER TABLE nova_data_cache ENABLE ROW LEVEL SECURITY;
 ALTER TABLE nova_user_preferences ENABLE ROW LEVEL SECURITY;
@@ -186,12 +121,6 @@ ALTER TABLE nova_user_preferences ENABLE ROW LEVEL SECURITY;
 -- =============================================================================
 -- 7. Service Role Policies (full access for backend)
 -- =============================================================================
-CREATE POLICY service_role_nova_campaigns ON nova_campaigns
-    FOR ALL TO service_role USING (true) WITH CHECK (true);
-
-CREATE POLICY service_role_nova_module_usage ON nova_module_usage
-    FOR ALL TO service_role USING (true) WITH CHECK (true);
-
 CREATE POLICY service_role_nova_module_health ON nova_module_health
     FOR ALL TO service_role USING (true) WITH CHECK (true);
 
@@ -267,30 +196,4 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Aggregate module usage stats for a time window
-CREATE OR REPLACE FUNCTION nova_module_usage_stats(
-    p_module VARCHAR,
-    p_since TIMESTAMPTZ DEFAULT NOW() - INTERVAL '24 hours'
-)
-RETURNS TABLE (
-    total_requests BIGINT,
-    success_count BIGINT,
-    error_count BIGINT,
-    avg_latency_ms NUMERIC,
-    p95_latency_ms NUMERIC,
-    top_actions TEXT[]
-) AS $$
-BEGIN
-    RETURN QUERY
-    SELECT
-        COUNT(*)::BIGINT AS total_requests,
-        COUNT(*) FILTER (WHERE success = TRUE)::BIGINT AS success_count,
-        COUNT(*) FILTER (WHERE success = FALSE)::BIGINT AS error_count,
-        ROUND(AVG(latency_ms)::NUMERIC, 1) AS avg_latency_ms,
-        ROUND(PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY latency_ms)::NUMERIC, 1) AS p95_latency_ms,
-        ARRAY_AGG(DISTINCT action ORDER BY action) AS top_actions
-    FROM nova_module_usage
-    WHERE module_name = p_module
-      AND timestamp >= p_since;
-END;
-$$ LANGUAGE plpgsql;
+-- [REMOVED] nova_module_usage_stats function -- dropped with nova_module_usage table in S34

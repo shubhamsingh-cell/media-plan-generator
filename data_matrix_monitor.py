@@ -171,14 +171,19 @@ _TIER2_MODULE_CHECKS: Dict[str, Dict[str, str]] = {
     },
 }
 
-# Map data layers to orchestrator lazy-loader function names and global var names
+# Map data layers to their underlying module names for VIA_ORCHESTRATOR probes.
+# The DataOrchestrator class (get_orchestrator()) provides access to these
+# through registered source handlers, but the simplest health check is to
+# verify the underlying module is loaded in sys.modules (same check excel_ppt
+# uses for direct imports -- if the module is loaded, it's accessible via
+# orchestrator too).
 _ORCH_LAYER_MAP = {
-    "api_enrichment": ("_lazy_api", "_api_enrichment"),
-    "research": ("_lazy_research", "_research"),
-    "budget_engine": ("_lazy_budget", "_budget_engine"),
-    "standardizer": ("_lazy_standardizer", "_standardizer"),
-    "trend_engine": ("_lazy_trend_engine", "_trend_engine"),
-    "collar_intelligence": ("_lazy_collar_intel", "_collar_intel"),
+    "api_enrichment": "api_enrichment",
+    "research": "research",
+    "budget_engine": "budget_engine",
+    "standardizer": "standardizer",
+    "trend_engine": "trend_engine",
+    "collar_intelligence": "collar_intelligence",
 }
 
 
@@ -499,9 +504,11 @@ class DataMatrixMonitor:
             module_name = layer
             return self._check_sys_module(module_name)
         elif product in ("nova_chat", "slack_bot"):
-            # Via orchestrator
-            lazy_fn_name, _ = _ORCH_LAYER_MAP[layer]
-            return self._check_orchestrator_lazy(lazy_fn_name, layer)
+            # Via orchestrator -- check module is loaded (orchestrator accesses
+            # it through registered handlers; if module is in sys.modules it's
+            # available to the orchestrator)
+            underlying_module = _ORCH_LAYER_MAP.get(layer, layer)
+            return self._check_orchestrator_module(underlying_module, layer)
         elif product == "ppt_generator":
             if layer == "research":
                 return self._check_sys_module("research")
@@ -544,30 +551,37 @@ class DataMatrixMonitor:
             return {"status": "error", "detail": f"{module_name}.{check_attr} missing"}
         return {"status": "ok", "detail": f"{module_name} loaded"}
 
-    def _check_orchestrator_lazy(
-        self, lazy_fn_name: str, underlying_module: str
+    def _check_orchestrator_module(
+        self, module_name: str, layer_name: str
     ) -> Dict[str, Any]:
-        """Check if a data_orchestrator lazy-loader returns a valid module."""
+        """Check if a module is accessible via the DataOrchestrator.
+
+        The DataOrchestrator class uses registered source handlers to access
+        data modules. The simplest and most reliable health check is verifying
+        (1) data_orchestrator itself is loaded, and (2) the underlying module
+        is in sys.modules (meaning it was successfully imported at startup).
+        """
         try:
             if "data_orchestrator" not in sys.modules:
                 return {"status": "error", "detail": "data_orchestrator not loaded"}
-            do = sys.modules["data_orchestrator"]
-            lazy_fn = getattr(do, lazy_fn_name, None)
-            if lazy_fn is None:
+            # Check the underlying module is loaded
+            if module_name in sys.modules:
+                return {
+                    "status": "ok",
+                    "detail": f"{layer_name} available via orchestrator ({module_name} loaded)",
+                }
+            # Not in sys.modules -- try importing to see if it's importable
+            try:
+                importlib.import_module(module_name)
+                return {
+                    "status": "ok",
+                    "detail": f"{layer_name} importable via orchestrator",
+                }
+            except ImportError:
                 return {
                     "status": "error",
-                    "detail": f"data_orchestrator.{lazy_fn_name} not found",
+                    "detail": f"{module_name} not loaded and not importable",
                 }
-            result = lazy_fn()
-            if result is None:
-                return {
-                    "status": "error",
-                    "detail": f"{underlying_module} failed via orchestrator",
-                }
-            return {
-                "status": "ok",
-                "detail": f"{underlying_module} available via orchestrator",
-            }
         except Exception as e:
             return {"status": "error", "detail": str(e)}
 
@@ -1313,23 +1327,21 @@ class DataMatrixMonitor:
                     self._record_heal(product, layer, "import_data_orchestrator", False)
                     logger.warning("Self-heal import data_orchestrator failed: %s", e)
 
-        # Strategy 2b: Reset orchestrator lazy-load sentinel
+        # Strategy 2b: Re-import the underlying module for orchestrator layers
         if layer in _ORCH_LAYER_MAP and product in ("nova_chat", "slack_bot"):
+            module_name = _ORCH_LAYER_MAP[layer]
             try:
-                if "data_orchestrator" in sys.modules:
-                    do = sys.modules["data_orchestrator"]
-                    _, global_name = _ORCH_LAYER_MAP[layer]
-                    with do._load_lock:
-                        current = getattr(do, global_name, None)
-                        if current is do._IMPORT_FAILED:
-                            setattr(do, global_name, None)
-                        healed = True
-                        self._record_heal(
-                            product, layer, "reset_orchestrator_sentinel", True
-                        )
+                if module_name in sys.modules:
+                    importlib.reload(sys.modules[module_name])
+                else:
+                    importlib.import_module(module_name)
+                healed = True
+                self._record_heal(product, layer, "reimport_orchestrator_module", True)
             except Exception as e:
-                self._record_heal(product, layer, "reset_orchestrator_sentinel", False)
-                logger.warning("Self-heal reset sentinel for %s failed: %s", layer, e)
+                self._record_heal(product, layer, "reimport_orchestrator_module", False)
+                logger.warning(
+                    "Self-heal reimport %s for orchestrator failed: %s", module_name, e
+                )
 
         # Strategy 3: Reset Nova's _orchestrator if it's False
         if product in ("nova_chat", "slack_bot"):
