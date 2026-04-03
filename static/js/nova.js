@@ -1831,7 +1831,11 @@
       var responseContent = metadata.full_response || fullText;
       if (!responseContent || !responseContent.trim()) {
         responseContent =
-          "I wasn't able to generate a response for that question. I'm best at *recruitment marketing* topics -- try asking about publishers, benchmarks, budgets, or salary data!";
+          "I'm having trouble with that request. Try rephrasing -- for example:\n\n" +
+          '- *"Create a media plan for [job title] jobs"*\n' +
+          '- *"What are the benchmarks for [industry]?"*\n' +
+          '- *"What\'s the average salary for [role] in [city]?"*\n\n' +
+          "I specialize in recruitment marketing -- media plans, salary benchmarks, channel recommendations, and hiring costs!";
       }
       var assistantMsg = {
         role: "assistant",

@@ -1631,6 +1631,14 @@ def compute_channel_dollar_amounts(
             cpa = _safe_divide(dollars, max(projected_applications, 1), dollars)
             cost_per_hire = _safe_divide(dollars, max(projected_hires, 1), dollars)
 
+        # S39: Apply 35% safety margin to CPH for Programmatic & DSP and
+        # Global Job Boards -- these channels historically under-estimate
+        # cost-per-hire, leading to overly aggressive projections.
+        _CPH_SAFETY_MARGIN_CATEGORIES = {"programmatic", "job_board"}
+        if category in _CPH_SAFETY_MARGIN_CATEGORIES:
+            cost_per_hire *= 1.35
+            cpa *= 1.35
+
         roi = _score_roi(cost_per_hire, industry_avg_cph)
 
         allocation_entry: Dict[str, Any] = {
@@ -2269,6 +2277,15 @@ def calculate_budget_allocation(
     )
     total_hires = sum(ch.get("projected_hires") or 0 for ch in channel_allocs.values())
     avg_cost_per_hire = _safe_divide(total_budget, max(total_hires, 1), total_budget)
+
+    # S39: Enforce benchmark CPH floor -- plan CPH should never be below
+    # the industry benchmark minimum.  This prevents plans from showing
+    # e.g. $246 CPH when industry benchmarks say $400-$800.
+    _benchmark_cph_floor = _industry_avg_cph(industry) * 0.5  # 50% of avg as floor
+    if avg_cost_per_hire < _benchmark_cph_floor and total_hires > 0:
+        # Adjust hires down so CPH meets benchmark floor
+        avg_cost_per_hire = _benchmark_cph_floor
+        total_hires = max(1, int(total_budget / _benchmark_cph_floor))
 
     total_projected = {
         "clicks": total_clicks,
