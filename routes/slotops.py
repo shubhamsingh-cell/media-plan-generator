@@ -79,6 +79,35 @@ def handle_slotops_get_routes(handler: Any, path: str, parsed: Any) -> bool:
             )
         return True
 
+    if path == "/api/slotops/template":
+        import os
+
+        template_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "data",
+            "slotops_upload_template.xlsx",
+        )
+        try:
+            with open(template_path, "rb") as f:
+                data = f.read()
+            handler.send_response(200)
+            handler.send_header(
+                "Content-Type",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+            handler.send_header(
+                "Content-Disposition",
+                'attachment; filename="SlotOps_Upload_Template.xlsx"',
+            )
+            handler.send_header("Content-Length", str(len(data)))
+            handler.end_headers()
+            handler.wfile.write(data)
+        except FileNotFoundError:
+            send_json_response(
+                handler, {"error": "Template not found"}, status_code=404
+            )
+        return True
+
     if path == "/api/slotops/baselines":
         engine = _lazy_engine()
         if not engine:
