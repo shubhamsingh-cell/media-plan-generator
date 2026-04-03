@@ -159,6 +159,51 @@
         }
       }
 
+      /* ── Aurora Gradient ── */
+      @keyframes aurora {
+        0%,
+        100% {
+          transform: translateX(-25%) translateY(-25%) rotate(0deg);
+        }
+        25% {
+          transform: translateX(25%) translateY(-10%) rotate(90deg);
+        }
+        50% {
+          transform: translateX(-15%) translateY(25%) rotate(180deg);
+        }
+        75% {
+          transform: translateX(20%) translateY(-20%) rotate(270deg);
+        }
+      }
+      .page-header {
+        position: relative;
+        overflow: hidden;
+      }
+      .page-header::before {
+        content: "";
+        position: absolute;
+        inset: -50%;
+        background:
+          radial-gradient(
+            ellipse at 30% 50%,
+            rgba(10, 102, 194, 0.08),
+            transparent 60%
+          ),
+          radial-gradient(
+            ellipse at 70% 30%,
+            rgba(90, 84, 189, 0.06),
+            transparent 60%
+          ),
+          radial-gradient(
+            ellipse at 50% 80%,
+            rgba(107, 179, 205, 0.05),
+            transparent 60%
+          );
+        animation: aurora 20s ease-in-out infinite;
+        pointer-events: none;
+        z-index: -1;
+      }
+
       /* ── Base ── */
       html {
         scroll-behavior: smooth;
@@ -301,6 +346,18 @@
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
         scrollbar-width: none;
+        position: relative;
+      }
+      .tab-nav-indicator {
+        position: absolute;
+        bottom: 0;
+        height: 2px;
+        background: var(--linkedin);
+        border-radius: 1px;
+        transition:
+          left 0.3s var(--ease-out),
+          width 0.3s var(--ease-out);
+        pointer-events: none;
       }
       .tab-nav::-webkit-scrollbar {
         display: none;
@@ -329,7 +386,6 @@
       }
       .tab-btn[aria-selected="true"] {
         color: var(--linkedin-light);
-        border-bottom-color: var(--linkedin);
       }
       .tab-btn:focus-visible {
         outline: none;
@@ -374,6 +430,9 @@
       }
       .glass-card:hover {
         border-color: var(--glass-border-hover);
+        box-shadow:
+          0 0 20px rgba(10, 102, 194, 0.1),
+          var(--shadow-md);
       }
       .card-header {
         display: flex;
@@ -425,6 +484,9 @@
       .metric-card:hover {
         border-color: var(--glass-border-hover);
         transform: translateY(-2px);
+        box-shadow:
+          0 0 20px rgba(10, 102, 194, 0.1),
+          var(--shadow-md);
       }
       .metric-label {
         font-size: 0.6875rem;
@@ -604,6 +666,29 @@
         color: var(--red);
         letter-spacing: 0.05em;
       }
+      @keyframes nowPulse {
+        0%,
+        100% {
+          opacity: 1;
+          transform: translateX(-50%) scale(1);
+        }
+        50% {
+          opacity: 0.6;
+          transform: translateX(-50%) scale(1.5);
+        }
+      }
+      .timeline-now-line::after {
+        content: "";
+        position: absolute;
+        bottom: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--red);
+        animation: nowPulse 1.5s ease-in-out infinite;
+      }
 
       /* ── Slot Grid (Tab 2) ── */
       .slot-controls {
@@ -694,8 +779,18 @@
         outline-offset: 1px;
         z-index: 10;
       }
+      @keyframes slotPulse {
+        0%,
+        100% {
+          box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.3);
+        }
+        50% {
+          box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1);
+        }
+      }
       .slot-cell.active {
         background: var(--green);
+        animation: slotPulse 2s infinite;
       }
       .slot-cell.queued {
         background: var(--amber);
@@ -1694,6 +1789,7 @@
           </svg>
           Schedule Export
         </button>
+        <div class="tab-nav-indicator" aria-hidden="true"></div>
       </nav>
 
       <!-- Main Content -->
@@ -2749,6 +2845,38 @@
         }
 
         /* ════════════════════════════════════════════════
+         PREMIUM ANIMATIONS
+         ════════════════════════════════════════════════ */
+        function animateNumber(el, target, duration) {
+          duration = duration || 600;
+          var start = parseInt(el.textContent.replace(/,/g, "")) || 0;
+          if (start === target) return;
+          var startTime = performance.now();
+          function update(now) {
+            var progress = Math.min((now - startTime) / duration, 1);
+            var eased = 1 - Math.pow(1 - progress, 3);
+            el.textContent = Math.round(
+              start + (target - start) * eased,
+            ).toLocaleString();
+            if (progress < 1) requestAnimationFrame(update);
+          }
+          requestAnimationFrame(update);
+        }
+
+        function moveTabIndicator(activeTab) {
+          var indicator = $(".tab-nav-indicator");
+          if (!indicator || !activeTab) return;
+          var navRect = activeTab.parentElement.getBoundingClientRect();
+          var tabRect = activeTab.getBoundingClientRect();
+          indicator.style.left =
+            tabRect.left -
+            navRect.left +
+            activeTab.parentElement.scrollLeft +
+            "px";
+          indicator.style.width = tabRect.width + "px";
+        }
+
+        /* ════════════════════════════════════════════════
          TAB NAVIGATION
          ════════════════════════════════════════════════ */
         function initTabs() {
@@ -2770,6 +2898,11 @@
 
             if (hash === "dashboard") startAutoRefresh();
             else stopAutoRefresh();
+
+            var activeBtn = document.querySelector(
+              '.tab-btn[aria-selected="true"]',
+            );
+            moveTabIndicator(activeBtn);
           }
 
           tabs.forEach((tab) => {
@@ -2807,6 +2940,18 @@
             const h = window.location.hash.replace("#", "");
             if (h && validHashes.includes(h)) activateTab("tab-" + h);
           });
+
+          /* Position indicator on load + resize */
+          requestAnimationFrame(() =>
+            moveTabIndicator(
+              document.querySelector('.tab-btn[aria-selected="true"]'),
+            ),
+          );
+          window.addEventListener("resize", () =>
+            moveTabIndicator(
+              document.querySelector('.tab-btn[aria-selected="true"]'),
+            ),
+          );
         }
 
         /* ════════════════════════════════════════════════
@@ -2816,12 +2961,11 @@
           const d = state.dashboard;
           if (!d) return;
 
-          $("#metricTotalSlots").textContent = d.totalSlots.toLocaleString();
-          $("#metricActiveSlots").textContent = d.activeSlots.toLocaleString();
-          $("#metricJobsQueue").textContent = d.jobsInQueue.toLocaleString();
+          animateNumber($("#metricTotalSlots"), d.totalSlots);
+          animateNumber($("#metricActiveSlots"), d.activeSlots);
+          animateNumber($("#metricJobsQueue"), d.jobsInQueue);
           $("#metricApplyRate").textContent = d.avgApplyRate;
-          $("#metricTotalApps").textContent =
-            d.totalApplications.toLocaleString();
+          animateNumber($("#metricTotalApps"), d.totalApplications);
 
           renderTimeline();
           renderCountryGrid();
