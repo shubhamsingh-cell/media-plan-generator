@@ -1,1074 +1,1086 @@
 {
   "metadata": {
     "source": "LinkedIn Jobs Report",
-    "date_range": "2025-04-16 to 2026-03-27",
+    "date_range": "2025-04-16 to 2026-04-02",
     "last_updated": "2026-04-04",
-    "total_jobs": 88954,
-    "countries": 73,
-    "titles": 2023,
-    "industries": 178
+    "total_jobs": 108871,
+    "countries": 76,
+    "titles": 2121,
+    "industries": 200
   },
   "linkedin_country_benchmarks": {
     "United States": {
-      "jobs_analyzed": 20235,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
+      "jobs_analyzed": 23539,
+      "avg_apply_rate_pct": 9.14,
+      "avg_views": 81.77,
+      "avg_applications": 4.05
     },
     "United Kingdom": {
-      "jobs_analyzed": 11215,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
+      "jobs_analyzed": 13530,
+      "avg_apply_rate_pct": 8.1,
+      "avg_views": 43.84,
+      "avg_applications": 1.45
     },
     "Canada": {
-      "jobs_analyzed": 6191,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
+      "jobs_analyzed": 7130,
+      "avg_apply_rate_pct": 8.51,
+      "avg_views": 52.75,
+      "avg_applications": 0.75
     },
     "Australia": {
-      "jobs_analyzed": 4749,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
+      "jobs_analyzed": 4916,
+      "avg_apply_rate_pct": 7.64,
+      "avg_views": 31.3,
+      "avg_applications": 0.55
     },
     "Germany": {
-      "jobs_analyzed": 4444,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
+      "jobs_analyzed": 4905,
+      "avg_apply_rate_pct": 8.9,
+      "avg_views": 28.38,
+      "avg_applications": 1.0
     },
     "New Zealand": {
-      "jobs_analyzed": 4123,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
-    },
-    "Ireland": {
-      "jobs_analyzed": 3514,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
+      "jobs_analyzed": 4247,
+      "avg_apply_rate_pct": 8.48,
+      "avg_views": 21.8,
+      "avg_applications": 0.21
     },
     "Brazil": {
-      "jobs_analyzed": 2669,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
+      "jobs_analyzed": 3835,
+      "avg_apply_rate_pct": 8.56,
+      "avg_views": 90.04,
+      "avg_applications": 1.14
     },
-    "Netherlands": {
-      "jobs_analyzed": 2261,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
+    "Ireland": {
+      "jobs_analyzed": 3618,
+      "avg_apply_rate_pct": 7.91,
+      "avg_views": 36.55,
+      "avg_applications": 0.99
     },
     "India": {
-      "jobs_analyzed": 1726,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
-    },
-    "Mexico": {
-      "jobs_analyzed": 1667,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
-    },
-    "France": {
-      "jobs_analyzed": 1651,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
-    },
-    "Singapore": {
-      "jobs_analyzed": 1347,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
-    },
-    "Italy": {
-      "jobs_analyzed": 1319,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
-    },
-    "China": {
-      "jobs_analyzed": 1236,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
-    },
-    "Japan": {
-      "jobs_analyzed": 1219,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
+      "jobs_analyzed": 3033,
+      "avg_apply_rate_pct": 19.14,
+      "avg_views": 268.31,
+      "avg_applications": 21.32
     },
     "NAMER": {
-      "jobs_analyzed": 1149,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
+      "jobs_analyzed": 2592,
+      "avg_apply_rate_pct": 11.8,
+      "avg_views": 290.82,
+      "avg_applications": 12.81
     },
-    "Switzerland": {
-      "jobs_analyzed": 997,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
+    "Mexico": {
+      "jobs_analyzed": 2473,
+      "avg_apply_rate_pct": 7.48,
+      "avg_views": 39.86,
+      "avg_applications": 0.65
+    },
+    "Netherlands": {
+      "jobs_analyzed": 2336,
+      "avg_apply_rate_pct": 4.83,
+      "avg_views": 35.16,
+      "avg_applications": 0.55
+    },
+    "France": {
+      "jobs_analyzed": 1929,
+      "avg_apply_rate_pct": 5.48,
+      "avg_views": 35.58,
+      "avg_applications": 0.0
+    },
+    "Italy": {
+      "jobs_analyzed": 1647,
+      "avg_apply_rate_pct": 5.37,
+      "avg_views": 48.84,
+      "avg_applications": 0.0
+    },
+    "Singapore": {
+      "jobs_analyzed": 1574,
+      "avg_apply_rate_pct": 7.99,
+      "avg_views": 47.15,
+      "avg_applications": 0.12
+    },
+    "Latin America": {
+      "jobs_analyzed": 1562,
+      "avg_apply_rate_pct": 11.38,
+      "avg_views": 692.23,
+      "avg_applications": 33.77
+    },
+    "Colombia": {
+      "jobs_analyzed": 1410,
+      "avg_apply_rate_pct": 8.71,
+      "avg_views": 46.43,
+      "avg_applications": 0.13
+    },
+    "APAC": {
+      "jobs_analyzed": 1408,
+      "avg_apply_rate_pct": 12.66,
+      "avg_views": 1691.32,
+      "avg_applications": 92.11
+    },
+    "China": {
+      "jobs_analyzed": 1360,
+      "avg_apply_rate_pct": 10.31,
+      "avg_views": 21.31,
+      "avg_applications": 0.01
+    },
+    "European Union": {
+      "jobs_analyzed": 1325,
+      "avg_apply_rate_pct": 7.15,
+      "avg_views": 603.7,
+      "avg_applications": 49.73
     },
     "Spain": {
-      "jobs_analyzed": 966,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
+      "jobs_analyzed": 1256,
+      "avg_apply_rate_pct": 6.18,
+      "avg_views": 44.25,
+      "avg_applications": 0.17
     },
-    "Poland": {
-      "jobs_analyzed": 960,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
+    "Japan": {
+      "jobs_analyzed": 1252,
+      "avg_apply_rate_pct": 7.86,
+      "avg_views": 33.3,
+      "avg_applications": 0.68
+    },
+    "EMEA": {
+      "jobs_analyzed": 1216,
+      "avg_apply_rate_pct": 12.48,
+      "avg_views": 2587.72,
+      "avg_applications": 66.38
     },
     "Argentina": {
-      "jobs_analyzed": 958,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
+      "jobs_analyzed": 1161,
+      "avg_apply_rate_pct": 7.87,
+      "avg_views": 68.33,
+      "avg_applications": 3.2
+    },
+    "Switzerland": {
+      "jobs_analyzed": 1147,
+      "avg_apply_rate_pct": 4.82,
+      "avg_views": 53.61,
+      "avg_applications": 0.88
+    },
+    "Poland": {
+      "jobs_analyzed": 1051,
+      "avg_apply_rate_pct": 5.19,
+      "avg_views": 32.63,
+      "avg_applications": 0.15
+    },
+    "United Arab Emirates": {
+      "jobs_analyzed": 967,
+      "avg_apply_rate_pct": 16.34,
+      "avg_views": 97.64,
+      "avg_applications": 0.0
+    },
+    "Denmark": {
+      "jobs_analyzed": 955,
+      "avg_apply_rate_pct": 3.17,
+      "avg_views": 39.37,
+      "avg_applications": 0.58
+    },
+    "Philippines": {
+      "jobs_analyzed": 949,
+      "avg_apply_rate_pct": 8.5,
+      "avg_views": 70.0,
+      "avg_applications": 0.05
     },
     "Australia and New Zealand": {
       "jobs_analyzed": 904,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
-    },
-    "Denmark": {
-      "jobs_analyzed": 859,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
-    },
-    "Colombia": {
-      "jobs_analyzed": 836,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
+      "avg_apply_rate_pct": 8.19,
+      "avg_views": 17.47,
+      "avg_applications": 1.27
     },
     "Austria": {
-      "jobs_analyzed": 777,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
-    },
-    "Philippines": {
-      "jobs_analyzed": 724,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
-    },
-    "European Union": {
-      "jobs_analyzed": 723,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
-    },
-    "Belgium": {
-      "jobs_analyzed": 694,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
+      "jobs_analyzed": 787,
+      "avg_apply_rate_pct": 5.37,
+      "avg_views": 41.26,
+      "avg_applications": 1.26
     },
     "Sweden": {
-      "jobs_analyzed": 691,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
-    },
-    "United Arab Emirates": {
-      "jobs_analyzed": 687,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
+      "jobs_analyzed": 782,
+      "avg_apply_rate_pct": 3.14,
+      "avg_views": 28.01,
+      "avg_applications": 0.0
     },
     "Norway": {
-      "jobs_analyzed": 674,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
+      "jobs_analyzed": 748,
+      "avg_apply_rate_pct": 4.05,
+      "avg_views": 19.67,
+      "avg_applications": 0.0
     },
-    "Latin America": {
-      "jobs_analyzed": 571,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
-    },
-    "T\u00fcrkiye": {
-      "jobs_analyzed": 565,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
+    "Belgium": {
+      "jobs_analyzed": 735,
+      "avg_apply_rate_pct": 4.58,
+      "avg_views": 35.62,
+      "avg_applications": 0.41
     },
     "Indonesia": {
-      "jobs_analyzed": 542,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
+      "jobs_analyzed": 620,
+      "avg_apply_rate_pct": 7.84,
+      "avg_views": 142.54,
+      "avg_applications": 2.25
     },
-    "Romania": {
-      "jobs_analyzed": 446,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
-    },
-    "Bulgaria": {
-      "jobs_analyzed": 443,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
-    },
-    "South Africa": {
-      "jobs_analyzed": 441,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
+    "T\u00fcrkiye": {
+      "jobs_analyzed": 615,
+      "avg_apply_rate_pct": 6.48,
+      "avg_views": 45.56,
+      "avg_applications": 0.0
     },
     "Finland": {
-      "jobs_analyzed": 385,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
+      "jobs_analyzed": 473,
+      "avg_apply_rate_pct": 3.68,
+      "avg_views": 30.32,
+      "avg_applications": 0.0
+    },
+    "Bulgaria": {
+      "jobs_analyzed": 469,
+      "avg_apply_rate_pct": 5.04,
+      "avg_views": 21.68,
+      "avg_applications": 0.21
+    },
+    "Romania": {
+      "jobs_analyzed": 458,
+      "avg_apply_rate_pct": 7.54,
+      "avg_views": 53.3,
+      "avg_applications": 5.97
+    },
+    "South Africa": {
+      "jobs_analyzed": 453,
+      "avg_apply_rate_pct": 9.33,
+      "avg_views": 24.32,
+      "avg_applications": 0.0
+    },
+    "Hungary": {
+      "jobs_analyzed": 394,
+      "avg_apply_rate_pct": 2.75,
+      "avg_views": 24.39,
+      "avg_applications": 0.11
     },
     "Portugal": {
       "jobs_analyzed": 382,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
+      "avg_apply_rate_pct": 4.73,
+      "avg_views": 26.79,
+      "avg_applications": 0.0
+    },
+    "Slovakia": {
+      "jobs_analyzed": 376,
+      "avg_apply_rate_pct": 3.42,
+      "avg_views": 16.41,
+      "avg_applications": 0.03
     },
     "Greece": {
       "jobs_analyzed": 369,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
-    },
-    "Slovakia": {
-      "jobs_analyzed": 364,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
-    },
-    "APAC": {
-      "jobs_analyzed": 359,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
-    },
-    "Hungary": {
-      "jobs_analyzed": 357,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
-    },
-    "Pakistan": {
-      "jobs_analyzed": 294,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
-    },
-    "Czechia": {
-      "jobs_analyzed": 283,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
+      "avg_apply_rate_pct": 3.81,
+      "avg_views": 23.69,
+      "avg_applications": 0.0
     },
     "Saudi Arabia": {
-      "jobs_analyzed": 201,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
+      "jobs_analyzed": 310,
+      "avg_apply_rate_pct": 15.87,
+      "avg_views": 140.51,
+      "avg_applications": 0.0
     },
-    "EMEA": {
-      "jobs_analyzed": 172,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
+    "Pakistan": {
+      "jobs_analyzed": 303,
+      "avg_apply_rate_pct": 10.69,
+      "avg_views": 23.73,
+      "avg_applications": 0.15
+    },
+    "Czechia": {
+      "jobs_analyzed": 295,
+      "avg_apply_rate_pct": 3.02,
+      "avg_views": 18.62,
+      "avg_applications": 0.0
     },
     "Ukraine": {
       "jobs_analyzed": 170,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
-    },
-    "Luxembourg": {
-      "jobs_analyzed": 80,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
-    },
-    "Taiwan": {
-      "jobs_analyzed": 69,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
+      "avg_apply_rate_pct": 6.12,
+      "avg_views": 17.79,
+      "avg_applications": 0.0
     },
     "Malaysia": {
-      "jobs_analyzed": 57,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
+      "jobs_analyzed": 163,
+      "avg_apply_rate_pct": 9.34,
+      "avg_views": 62.34,
+      "avg_applications": 0.66
     },
-    "South Asia": {
-      "jobs_analyzed": 53,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
+    "Israel": {
+      "jobs_analyzed": 135,
+      "avg_apply_rate_pct": 10.71,
+      "avg_views": 36.35,
+      "avg_applications": 0.03
+    },
+    "Luxembourg": {
+      "jobs_analyzed": 103,
+      "avg_apply_rate_pct": 5.87,
+      "avg_views": 46.23,
+      "avg_applications": 0.0
+    },
+    "Taiwan": {
+      "jobs_analyzed": 70,
+      "avg_apply_rate_pct": 5.16,
+      "avg_views": 43.8,
+      "avg_applications": 0.0
     },
     "Peru": {
-      "jobs_analyzed": 51,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
+      "jobs_analyzed": 59,
+      "avg_apply_rate_pct": 7.15,
+      "avg_views": 36.32,
+      "avg_applications": 0.0
+    },
+    "South Asia": {
+      "jobs_analyzed": 54,
+      "avg_apply_rate_pct": 12.33,
+      "avg_views": 44.72,
+      "avg_applications": 0.0
+    },
+    "Morocco": {
+      "jobs_analyzed": 50,
+      "avg_apply_rate_pct": 16.28,
+      "avg_views": 292.22,
+      "avg_applications": 0.0
     }
   },
   "linkedin_title_benchmarks": {
     "Software Engineer": {
-      "jobs_analyzed": 3561,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
+      "jobs_analyzed": 5555,
+      "avg_apply_rate_pct": 9.87,
+      "avg_views": 458.68,
+      "avg_applications": 26.54
     },
     "Managing Director": {
-      "jobs_analyzed": 3183,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
+      "jobs_analyzed": 3574,
+      "avg_apply_rate_pct": 4.4,
+      "avg_views": 21.48,
+      "avg_applications": 0.03
     },
     "Driver": {
-      "jobs_analyzed": 2623,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
+      "jobs_analyzed": 2625,
+      "avg_apply_rate_pct": 6.72,
+      "avg_views": 38.57,
+      "avg_applications": 1.76
+    },
+    "Language Specialist": {
+      "jobs_analyzed": 2165,
+      "avg_apply_rate_pct": 8.73,
+      "avg_views": 41.78,
+      "avg_applications": 0.26
+    },
+    "Radiologist": {
+      "jobs_analyzed": 2122,
+      "avg_apply_rate_pct": 6.59,
+      "avg_views": 9.99,
+      "avg_applications": 0.0
+    },
+    "Radiology Professional": {
+      "jobs_analyzed": 1935,
+      "avg_apply_rate_pct": 5.18,
+      "avg_views": 22.38,
+      "avg_applications": 0.0
     },
     "Delivery Driver": {
       "jobs_analyzed": 1930,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
-    },
-    "Language Specialist": {
-      "jobs_analyzed": 1828,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
+      "avg_apply_rate_pct": 6.05,
+      "avg_views": 29.01,
+      "avg_applications": 0.66
     },
     "Content Specialist": {
-      "jobs_analyzed": 1611,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
-    },
-    "Radiologist": {
-      "jobs_analyzed": 1590,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
+      "jobs_analyzed": 1869,
+      "avg_apply_rate_pct": 10.9,
+      "avg_views": 82.59,
+      "avg_applications": 1.58
     },
     "Voice Over Artist": {
-      "jobs_analyzed": 1448,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
-    },
-    "Medical Doctor": {
-      "jobs_analyzed": 1245,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
+      "jobs_analyzed": 1752,
+      "avg_apply_rate_pct": 8.67,
+      "avg_views": 49.3,
+      "avg_applications": 0.0
     },
     "Expert": {
-      "jobs_analyzed": 1174,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
-    },
-    "Writer": {
-      "jobs_analyzed": 1072,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
+      "jobs_analyzed": 1522,
+      "avg_apply_rate_pct": 6.32,
+      "avg_views": 54.67,
+      "avg_applications": 0.01
     },
     "Consultant": {
-      "jobs_analyzed": 993,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
+      "jobs_analyzed": 1453,
+      "avg_apply_rate_pct": 9.35,
+      "avg_views": 256.19,
+      "avg_applications": 1.13
     },
-    "Radiology Professional": {
-      "jobs_analyzed": 854,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
+    "Medical Doctor": {
+      "jobs_analyzed": 1371,
+      "avg_apply_rate_pct": 10.66,
+      "avg_views": 57.05,
+      "avg_applications": 3.4
+    },
+    "Writer": {
+      "jobs_analyzed": 1331,
+      "avg_apply_rate_pct": 9.39,
+      "avg_views": 155.58,
+      "avg_applications": 11.99
     },
     "Medical Specialist": {
-      "jobs_analyzed": 763,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
+      "jobs_analyzed": 1108,
+      "avg_apply_rate_pct": 7.71,
+      "avg_views": 179.53,
+      "avg_applications": 10.55
+    },
+    "Writing Specialist": {
+      "jobs_analyzed": 950,
+      "avg_apply_rate_pct": 13.29,
+      "avg_views": 483.75,
+      "avg_applications": 0.45
+    },
+    "Legal Specialist": {
+      "jobs_analyzed": 902,
+      "avg_apply_rate_pct": 6.86,
+      "avg_views": 61.03,
+      "avg_applications": 0.24
+    },
+    "Medical Consultant": {
+      "jobs_analyzed": 873,
+      "avg_apply_rate_pct": 5.91,
+      "avg_views": 62.25,
+      "avg_applications": 2.73
+    },
+    "Content Moderator": {
+      "jobs_analyzed": 837,
+      "avg_apply_rate_pct": 9.89,
+      "avg_views": 43.77,
+      "avg_applications": 0.74
+    },
+    "Healthcare Specialist": {
+      "jobs_analyzed": 806,
+      "avg_apply_rate_pct": 6.44,
+      "avg_views": 250.92,
+      "avg_applications": 4.44
     },
     "Supply Chain Associate": {
       "jobs_analyzed": 711,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
+      "avg_apply_rate_pct": 4.21,
+      "avg_views": 35.43,
+      "avg_applications": 1.16
     },
     "Interpreter": {
       "jobs_analyzed": 665,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
-    },
-    "Legal Specialist": {
-      "jobs_analyzed": 647,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
-    },
-    "Content Moderator": {
-      "jobs_analyzed": 619,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
+      "avg_apply_rate_pct": 6.79,
+      "avg_views": 24.2,
+      "avg_applications": 0.0
     },
     "Reviewer": {
-      "jobs_analyzed": 616,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
+      "jobs_analyzed": 632,
+      "avg_apply_rate_pct": 6.43,
+      "avg_views": 28.32,
+      "avg_applications": 0.19
     },
     "Warehouse Associate": {
       "jobs_analyzed": 614,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
+      "avg_apply_rate_pct": 14.95,
+      "avg_views": 19.8,
+      "avg_applications": 2.05
+    },
+    "English Specialist": {
+      "jobs_analyzed": 603,
+      "avg_apply_rate_pct": 12.72,
+      "avg_views": 177.52,
+      "avg_applications": 1.69
     },
     "Courier": {
       "jobs_analyzed": 572,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
+      "avg_apply_rate_pct": 4.07,
+      "avg_views": 12.54,
+      "avg_applications": 0.0
     },
-    "Medical Consultant": {
-      "jobs_analyzed": 562,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
+    "Physics Specialist": {
+      "jobs_analyzed": 560,
+      "avg_apply_rate_pct": 7.57,
+      "avg_views": 30.39,
+      "avg_applications": 0.0
     },
-    "Writing Specialist": {
-      "jobs_analyzed": 544,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
+    "Software Expert": {
+      "jobs_analyzed": 556,
+      "avg_apply_rate_pct": 7.75,
+      "avg_views": 62.46,
+      "avg_applications": 0.0
+    },
+    "Clinical Reviewer": {
+      "jobs_analyzed": 547,
+      "avg_apply_rate_pct": 5.16,
+      "avg_views": 32.15,
+      "avg_applications": 0.0
     },
     "Sales Team Member": {
       "jobs_analyzed": 530,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
-    },
-    "Healthcare Specialist": {
-      "jobs_analyzed": 529,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
+      "avg_apply_rate_pct": 4.43,
+      "avg_views": 6.26,
+      "avg_applications": 0.0
     },
     "Nursery Assistant": {
-      "jobs_analyzed": 493,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
+      "jobs_analyzed": 497,
+      "avg_apply_rate_pct": 3.8,
+      "avg_views": 1.39,
+      "avg_applications": 0.0
     },
-    "Physics Specialist": {
-      "jobs_analyzed": 477,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
+    "Cardiologist": {
+      "jobs_analyzed": 487,
+      "avg_apply_rate_pct": 10.57,
+      "avg_views": 24.12,
+      "avg_applications": 0.0
+    },
+    "Clinical Specialist": {
+      "jobs_analyzed": 472,
+      "avg_apply_rate_pct": 4.77,
+      "avg_views": 68.63,
+      "avg_applications": 5.49
     },
     "Audio Engineer": {
       "jobs_analyzed": 471,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
+      "avg_apply_rate_pct": 5.94,
+      "avg_views": 27.95,
+      "avg_applications": 0.0
+    },
+    "Research Advisor": {
+      "jobs_analyzed": 469,
+      "avg_apply_rate_pct": 6.99,
+      "avg_views": 82.67,
+      "avg_applications": 0.21
+    },
+    "Coding Specialist": {
+      "jobs_analyzed": 466,
+      "avg_apply_rate_pct": 6.79,
+      "avg_views": 52.58,
+      "avg_applications": 0.0
     },
     "Logistics Associate": {
       "jobs_analyzed": 464,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
-    },
-    "Taxi Driver": {
-      "jobs_analyzed": 443,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
+      "avg_apply_rate_pct": 6.73,
+      "avg_views": 17.92,
+      "avg_applications": 0.0
     },
     "Python Developer": {
-      "jobs_analyzed": 442,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
+      "jobs_analyzed": 460,
+      "avg_apply_rate_pct": 8.98,
+      "avg_views": 46.87,
+      "avg_applications": 0.12
     },
-    "Clinical Reviewer": {
-      "jobs_analyzed": 441,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
+    "Taxi Driver": {
+      "jobs_analyzed": 444,
+      "avg_apply_rate_pct": 4.3,
+      "avg_views": 23.48,
+      "avg_applications": 1.74
+    },
+    "Radiology Assistant": {
+      "jobs_analyzed": 443,
+      "avg_apply_rate_pct": 5.81,
+      "avg_views": 55.81,
+      "avg_applications": 0.0
     },
     "Warehouse Specialist": {
       "jobs_analyzed": 435,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
+      "avg_apply_rate_pct": 9.08,
+      "avg_views": 10.93,
+      "avg_applications": 0.63
     },
     "Shipping Specialist": {
       "jobs_analyzed": 432,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
+      "avg_apply_rate_pct": 7.07,
+      "avg_views": 27.06,
+      "avg_applications": 2.22
     },
-    "Software Expert": {
-      "jobs_analyzed": 426,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
+    "Quality Analyst": {
+      "jobs_analyzed": 425,
+      "avg_apply_rate_pct": 8.52,
+      "avg_views": 79.95,
+      "avg_applications": 1.0
     },
-    "Clinical Specialist": {
-      "jobs_analyzed": 404,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
+    "Medical Assistant": {
+      "jobs_analyzed": 420,
+      "avg_apply_rate_pct": 9.36,
+      "avg_views": 135.16,
+      "avg_applications": 0.26
+    },
+    "Salesperson": {
+      "jobs_analyzed": 417,
+      "avg_apply_rate_pct": 10.13,
+      "avg_views": 275.81,
+      "avg_applications": 1.8
+    },
+    "Financial Advisor": {
+      "jobs_analyzed": 410,
+      "avg_apply_rate_pct": 7.97,
+      "avg_views": 64.82,
+      "avg_applications": 0.03
+    },
+    "Mathematics Specialist": {
+      "jobs_analyzed": 410,
+      "avg_apply_rate_pct": 10.19,
+      "avg_views": 59.07,
+      "avg_applications": 1.18
+    },
+    "Full Stack Engineer": {
+      "jobs_analyzed": 407,
+      "avg_apply_rate_pct": 13.35,
+      "avg_views": 226.95,
+      "avg_applications": 4.65
     },
     "Warehouse Supervisor": {
       "jobs_analyzed": 404,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
-    },
-    "Java Software Engineer": {
-      "jobs_analyzed": 371,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
-    },
-    "Cardiologist": {
-      "jobs_analyzed": 367,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
+      "avg_apply_rate_pct": 11.81,
+      "avg_views": 11.92,
+      "avg_applications": 0.59
     },
     "Clinical Data Analyst": {
-      "jobs_analyzed": 367,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
+      "jobs_analyzed": 400,
+      "avg_apply_rate_pct": 6.24,
+      "avg_views": 253.2,
+      "avg_applications": 31.42
     },
-    "Maintenance Technician": {
-      "jobs_analyzed": 357,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
-    },
-    "Order Picker": {
-      "jobs_analyzed": 355,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
-    },
-    "Accounting Specialist": {
-      "jobs_analyzed": 352,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
-    },
-    "Nursery Nurse": {
-      "jobs_analyzed": 337,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
-    },
-    "Logistics Specialist": {
-      "jobs_analyzed": 336,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
-    },
-    "English Specialist": {
-      "jobs_analyzed": 330,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
-    },
-    "Healthcare Consultant": {
-      "jobs_analyzed": 327,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
-    },
-    "Salesperson": {
-      "jobs_analyzed": 326,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
-    },
-    "Mathematics Specialist": {
-      "jobs_analyzed": 324,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
-    },
-    "Therapeutic Specialist": {
-      "jobs_analyzed": 322,
-      "avg_apply_rate_pct": 0,
-      "avg_views": 0,
-      "avg_applications": 0
+    "Java Software Engineer": {
+      "jobs_analyzed": 395,
+      "avg_apply_rate_pct": 10.26,
+      "avg_views": 64.74,
+      "avg_applications": 0.59
     }
   },
   "linkedin_day_of_week_patterns": {
     "United States": {
       "Friday": {
-        "sample_size": 3227,
-        "avg_apply_rate": 9.11,
-        "avg_views": 29.13,
-        "avg_applications": 2.64
+        "sample_size": 3672,
+        "avg_apply_rate": 9.06,
+        "avg_views": 65.63,
+        "avg_applications": 2.32
       },
       "Monday": {
-        "sample_size": 2560,
+        "sample_size": 2932,
         "avg_apply_rate": 9.17,
-        "avg_views": 77.88,
-        "avg_applications": 11.1
+        "avg_views": 111.52,
+        "avg_applications": 9.69
       },
       "Saturday": {
-        "sample_size": 2305,
-        "avg_apply_rate": 10.74,
-        "avg_views": 26.22,
-        "avg_applications": 1.96
+        "sample_size": 2614,
+        "avg_apply_rate": 10.08,
+        "avg_views": 60.4,
+        "avg_applications": 1.73
       },
       "Sunday": {
-        "sample_size": 2207,
-        "avg_apply_rate": 8.74,
-        "avg_views": 38.93,
-        "avg_applications": 3.4
+        "sample_size": 2750,
+        "avg_apply_rate": 9.65,
+        "avg_views": 98.56,
+        "avg_applications": 2.73
       },
       "Thursday": {
-        "sample_size": 3312,
-        "avg_apply_rate": 8.54,
-        "avg_views": 30.14,
-        "avg_applications": 2.89
+        "sample_size": 3651,
+        "avg_apply_rate": 8.69,
+        "avg_views": 61.52,
+        "avg_applications": 2.62
       },
       "Tuesday": {
-        "sample_size": 2733,
-        "avg_apply_rate": 7.94,
-        "avg_views": 29.12,
-        "avg_applications": 2.29
+        "sample_size": 3236,
+        "avg_apply_rate": 8.32,
+        "avg_views": 85.07,
+        "avg_applications": 1.93
       },
       "Wednesday": {
-        "sample_size": 3891,
-        "avg_apply_rate": 8.92,
-        "avg_views": 53.0,
-        "avg_applications": 7.83
+        "sample_size": 4684,
+        "avg_apply_rate": 9.26,
+        "avg_views": 91.39,
+        "avg_applications": 6.5
       }
     },
     "United Kingdom": {
       "Friday": {
-        "sample_size": 2284,
-        "avg_apply_rate": 7.13,
-        "avg_views": 26.63,
-        "avg_applications": 1.72
+        "sample_size": 2602,
+        "avg_apply_rate": 6.99,
+        "avg_views": 33.86,
+        "avg_applications": 1.52
       },
       "Monday": {
-        "sample_size": 1573,
-        "avg_apply_rate": 9.69,
-        "avg_views": 19.49,
-        "avg_applications": 0.56
+        "sample_size": 1957,
+        "avg_apply_rate": 8.49,
+        "avg_views": 43.59,
+        "avg_applications": 0.46
       },
       "Saturday": {
-        "sample_size": 1509,
-        "avg_apply_rate": 10.27,
-        "avg_views": 19.45,
-        "avg_applications": 0.22
+        "sample_size": 1674,
+        "avg_apply_rate": 9.08,
+        "avg_views": 32.92,
+        "avg_applications": 0.2
       },
       "Sunday": {
-        "sample_size": 1225,
-        "avg_apply_rate": 9.95,
-        "avg_views": 24.44,
-        "avg_applications": 1.59
+        "sample_size": 1655,
+        "avg_apply_rate": 9.41,
+        "avg_views": 50.71,
+        "avg_applications": 1.19
       },
       "Thursday": {
-        "sample_size": 1839,
-        "avg_apply_rate": 8.17,
-        "avg_views": 34.37,
-        "avg_applications": 3.61
+        "sample_size": 2214,
+        "avg_apply_rate": 7.47,
+        "avg_views": 44.52,
+        "avg_applications": 3.0
       },
       "Tuesday": {
-        "sample_size": 1455,
-        "avg_apply_rate": 10.37,
-        "avg_views": 25.29,
-        "avg_applications": 1.76
+        "sample_size": 1875,
+        "avg_apply_rate": 9.46,
+        "avg_views": 46.55,
+        "avg_applications": 1.37
       },
       "Wednesday": {
-        "sample_size": 1330,
-        "avg_apply_rate": 6.39,
-        "avg_views": 28.83,
-        "avg_applications": 2.42
+        "sample_size": 1553,
+        "avg_apply_rate": 6.3,
+        "avg_views": 61.11,
+        "avg_applications": 2.07
       }
     },
     "Canada": {
       "Friday": {
-        "sample_size": 782,
-        "avg_apply_rate": 8.19,
-        "avg_views": 29.45,
-        "avg_applications": 0.17
+        "sample_size": 878,
+        "avg_apply_rate": 8.51,
+        "avg_views": 35.91,
+        "avg_applications": 0.15
       },
       "Monday": {
-        "sample_size": 804,
+        "sample_size": 982,
         "avg_apply_rate": 8.21,
-        "avg_views": 31.44,
-        "avg_applications": 1.22
+        "avg_views": 67.08,
+        "avg_applications": 1.0
       },
       "Saturday": {
-        "sample_size": 851,
-        "avg_apply_rate": 9.55,
-        "avg_views": 23.56,
-        "avg_applications": 0.3
+        "sample_size": 958,
+        "avg_apply_rate": 9.79,
+        "avg_views": 49.43,
+        "avg_applications": 0.27
       },
       "Sunday": {
-        "sample_size": 874,
-        "avg_apply_rate": 7.52,
-        "avg_views": 27.88,
-        "avg_applications": 0.39
+        "sample_size": 1002,
+        "avg_apply_rate": 8.06,
+        "avg_views": 43.66,
+        "avg_applications": 0.34
       },
       "Thursday": {
-        "sample_size": 994,
-        "avg_apply_rate": 10.26,
-        "avg_views": 29.74,
-        "avg_applications": 1.85
+        "sample_size": 1151,
+        "avg_apply_rate": 9.95,
+        "avg_views": 59.36,
+        "avg_applications": 1.59
       },
       "Tuesday": {
-        "sample_size": 712,
-        "avg_apply_rate": 8.23,
-        "avg_views": 31.5,
-        "avg_applications": 0.44
+        "sample_size": 854,
+        "avg_apply_rate": 8.58,
+        "avg_views": 56.26,
+        "avg_applications": 0.36
       },
       "Wednesday": {
-        "sample_size": 1174,
-        "avg_apply_rate": 6.86,
-        "avg_views": 24.03,
-        "avg_applications": 1.26
+        "sample_size": 1305,
+        "avg_apply_rate": 6.82,
+        "avg_views": 54.57,
+        "avg_applications": 1.16
       }
     },
     "Australia": {
       "Friday": {
-        "sample_size": 704,
-        "avg_apply_rate": 7.99,
-        "avg_views": 27.44,
-        "avg_applications": 0.25
+        "sample_size": 727,
+        "avg_apply_rate": 7.92,
+        "avg_views": 28.97,
+        "avg_applications": 0.24
       },
       "Monday": {
-        "sample_size": 718,
-        "avg_apply_rate": 7.35,
-        "avg_views": 30.03,
-        "avg_applications": 0.12
+        "sample_size": 749,
+        "avg_apply_rate": 7.38,
+        "avg_views": 32.37,
+        "avg_applications": 0.11
       },
       "Saturday": {
-        "sample_size": 532,
-        "avg_apply_rate": 8.2,
-        "avg_views": 30.09,
+        "sample_size": 546,
+        "avg_apply_rate": 8.23,
+        "avg_views": 30.9,
         "avg_applications": 0.0
       },
       "Sunday": {
-        "sample_size": 643,
-        "avg_apply_rate": 6.53,
-        "avg_views": 33.8,
-        "avg_applications": 0.44
+        "sample_size": 669,
+        "avg_apply_rate": 6.62,
+        "avg_views": 36.63,
+        "avg_applications": 0.42
       },
       "Thursday": {
-        "sample_size": 988,
-        "avg_apply_rate": 9.0,
-        "avg_views": 30.01,
-        "avg_applications": 1.7
+        "sample_size": 1004,
+        "avg_apply_rate": 8.85,
+        "avg_views": 30.46,
+        "avg_applications": 1.67
       },
       "Tuesday": {
-        "sample_size": 580,
-        "avg_apply_rate": 7.82,
-        "avg_views": 32.89,
-        "avg_applications": 0.53
+        "sample_size": 609,
+        "avg_apply_rate": 7.73,
+        "avg_views": 35.19,
+        "avg_applications": 0.5
       },
       "Wednesday": {
-        "sample_size": 584,
-        "avg_apply_rate": 6.3,
-        "avg_views": 23.14,
-        "avg_applications": 0.27
+        "sample_size": 612,
+        "avg_apply_rate": 6.14,
+        "avg_views": 24.78,
+        "avg_applications": 0.26
       }
     },
     "Germany": {
       "Friday": {
-        "sample_size": 992,
-        "avg_apply_rate": 10.2,
-        "avg_views": 17.71,
-        "avg_applications": 0.59
+        "sample_size": 1025,
+        "avg_apply_rate": 9.67,
+        "avg_views": 18.37,
+        "avg_applications": 0.57
       },
       "Monday": {
-        "sample_size": 727,
-        "avg_apply_rate": 10.05,
-        "avg_views": 33.42,
-        "avg_applications": 2.66
+        "sample_size": 818,
+        "avg_apply_rate": 9.22,
+        "avg_views": 37.23,
+        "avg_applications": 2.36
       },
       "Saturday": {
-        "sample_size": 380,
-        "avg_apply_rate": 10.37,
-        "avg_views": 26.15,
-        "avg_applications": 1.65
+        "sample_size": 436,
+        "avg_apply_rate": 9.82,
+        "avg_views": 27.2,
+        "avg_applications": 1.44
       },
       "Sunday": {
-        "sample_size": 693,
-        "avg_apply_rate": 9.37,
-        "avg_views": 22.01,
-        "avg_applications": 0.97
+        "sample_size": 765,
+        "avg_apply_rate": 8.86,
+        "avg_views": 26.61,
+        "avg_applications": 0.88
       },
       "Thursday": {
-        "sample_size": 371,
-        "avg_apply_rate": 6.59,
-        "avg_views": 27.63,
-        "avg_applications": 0.85
+        "sample_size": 438,
+        "avg_apply_rate": 6.47,
+        "avg_views": 35.47,
+        "avg_applications": 0.72
       },
       "Tuesday": {
-        "sample_size": 781,
-        "avg_apply_rate": 9.77,
-        "avg_views": 23.54,
-        "avg_applications": 0.32
+        "sample_size": 881,
+        "avg_apply_rate": 9.27,
+        "avg_views": 27.78,
+        "avg_applications": 0.28
       },
       "Wednesday": {
-        "sample_size": 500,
-        "avg_apply_rate": 7.63,
-        "avg_views": 26.33,
-        "avg_applications": 1.09
-      }
-    },
-    "India": {
-      "Friday": {
-        "sample_size": 95,
-        "avg_apply_rate": 21.22,
-        "avg_views": 523.23,
-        "avg_applications": 113.79
-      },
-      "Monday": {
-        "sample_size": 329,
-        "avg_apply_rate": 20.43,
-        "avg_views": 126.06,
-        "avg_applications": 24.43
-      },
-      "Saturday": {
-        "sample_size": 36,
-        "avg_apply_rate": 15.69,
-        "avg_views": 1163.61,
-        "avg_applications": 251.17
-      },
-      "Sunday": {
-        "sample_size": 145,
-        "avg_apply_rate": 15.73,
-        "avg_views": 242.42,
-        "avg_applications": 50.06
-      },
-      "Thursday": {
-        "sample_size": 228,
-        "avg_apply_rate": 19.01,
-        "avg_views": 181.15,
-        "avg_applications": 39.25
-      },
-      "Tuesday": {
-        "sample_size": 139,
-        "avg_apply_rate": 21.25,
-        "avg_views": 335.29,
-        "avg_applications": 70.4
-      },
-      "Wednesday": {
-        "sample_size": 754,
-        "avg_apply_rate": 17.79,
-        "avg_views": 70.43,
-        "avg_applications": 14.06
+        "sample_size": 542,
+        "avg_apply_rate": 7.61,
+        "avg_views": 32.66,
+        "avg_applications": 1.01
       }
     },
     "New Zealand": {
       "Friday": {
-        "sample_size": 490,
-        "avg_apply_rate": 9.18,
-        "avg_views": 22.64,
+        "sample_size": 510,
+        "avg_apply_rate": 8.64,
+        "avg_views": 22.69,
         "avg_applications": 0.01
       },
       "Monday": {
-        "sample_size": 614,
-        "avg_apply_rate": 7.82,
-        "avg_views": 26.0,
+        "sample_size": 637,
+        "avg_apply_rate": 7.64,
+        "avg_views": 26.1,
         "avg_applications": 0.0
       },
       "Saturday": {
-        "sample_size": 473,
-        "avg_apply_rate": 8.91,
-        "avg_views": 21.68,
+        "sample_size": 483,
+        "avg_apply_rate": 8.57,
+        "avg_views": 21.85,
         "avg_applications": 0.0
       },
       "Sunday": {
-        "sample_size": 598,
-        "avg_apply_rate": 8.59,
-        "avg_views": 21.91,
+        "sample_size": 613,
+        "avg_apply_rate": 8.35,
+        "avg_views": 22.17,
         "avg_applications": 0.0
       },
       "Thursday": {
-        "sample_size": 1024,
-        "avg_apply_rate": 10.11,
-        "avg_views": 19.59,
-        "avg_applications": 0.87
+        "sample_size": 1037,
+        "avg_apply_rate": 9.69,
+        "avg_views": 19.62,
+        "avg_applications": 0.86
       },
       "Tuesday": {
-        "sample_size": 376,
-        "avg_apply_rate": 7.74,
-        "avg_views": 27.35,
+        "sample_size": 400,
+        "avg_apply_rate": 7.52,
+        "avg_views": 27.12,
         "avg_applications": 0.0
       },
       "Wednesday": {
-        "sample_size": 548,
-        "avg_apply_rate": 8.2,
-        "avg_views": 16.02,
-        "avg_applications": 0.01
-      }
-    },
-    "Ireland": {
-      "Friday": {
-        "sample_size": 497,
+        "sample_size": 567,
         "avg_apply_rate": 7.83,
-        "avg_views": 26.08,
-        "avg_applications": 0.04
-      },
-      "Monday": {
-        "sample_size": 407,
-        "avg_apply_rate": 6.14,
-        "avg_views": 42.85,
-        "avg_applications": 0.0
-      },
-      "Saturday": {
-        "sample_size": 588,
-        "avg_apply_rate": 7.94,
-        "avg_views": 28.02,
-        "avg_applications": 0.0
-      },
-      "Sunday": {
-        "sample_size": 473,
-        "avg_apply_rate": 7.15,
-        "avg_views": 31.43,
-        "avg_applications": 0.0
-      },
-      "Thursday": {
-        "sample_size": 823,
-        "avg_apply_rate": 10.46,
-        "avg_views": 49.02,
-        "avg_applications": 4.32
-      },
-      "Tuesday": {
-        "sample_size": 376,
-        "avg_apply_rate": 6.57,
-        "avg_views": 40.76,
-        "avg_applications": 0.0
-      },
-      "Wednesday": {
-        "sample_size": 350,
-        "avg_apply_rate": 6.91,
-        "avg_views": 28.61,
-        "avg_applications": 0.0
+        "avg_views": 15.99,
+        "avg_applications": 0.01
       }
     },
     "Brazil": {
       "Friday": {
-        "sample_size": 779,
-        "avg_apply_rate": 7.48,
-        "avg_views": 34.1,
-        "avg_applications": 1.12
+        "sample_size": 886,
+        "avg_apply_rate": 7.34,
+        "avg_views": 48.19,
+        "avg_applications": 0.99
       },
       "Monday": {
-        "sample_size": 543,
-        "avg_apply_rate": 7.98,
-        "avg_views": 41.45,
-        "avg_applications": 1.48
+        "sample_size": 755,
+        "avg_apply_rate": 8.16,
+        "avg_views": 93.21,
+        "avg_applications": 1.06
       },
       "Saturday": {
-        "sample_size": 353,
-        "avg_apply_rate": 9.61,
-        "avg_views": 37.66,
-        "avg_applications": 1.33
+        "sample_size": 562,
+        "avg_apply_rate": 9.39,
+        "avg_views": 65.87,
+        "avg_applications": 0.83
       },
       "Sunday": {
-        "sample_size": 513,
-        "avg_apply_rate": 8.68,
-        "avg_views": 59.86,
-        "avg_applications": 2.3
+        "sample_size": 619,
+        "avg_apply_rate": 8.97,
+        "avg_views": 87.77,
+        "avg_applications": 1.91
       },
       "Thursday": {
-        "sample_size": 222,
-        "avg_apply_rate": 7.93,
-        "avg_views": 47.96,
-        "avg_applications": 1.09
+        "sample_size": 403,
+        "avg_apply_rate": 8.74,
+        "avg_views": 104.09,
+        "avg_applications": 0.6
       },
       "Tuesday": {
-        "sample_size": 168,
-        "avg_apply_rate": 7.6,
-        "avg_views": 69.28,
-        "avg_applications": 2.98
+        "sample_size": 364,
+        "avg_apply_rate": 9.28,
+        "avg_views": 164.94,
+        "avg_applications": 1.38
       },
       "Wednesday": {
-        "sample_size": 91,
-        "avg_apply_rate": 8.3,
-        "avg_views": 109.74,
-        "avg_applications": 3.18
+        "sample_size": 246,
+        "avg_apply_rate": 9.78,
+        "avg_views": 158.14,
+        "avg_applications": 1.17
       }
     },
-    "Netherlands": {
+    "Ireland": {
       "Friday": {
-        "sample_size": 828,
-        "avg_apply_rate": 4.66,
-        "avg_views": 27.56,
-        "avg_applications": 0.1
+        "sample_size": 512,
+        "avg_apply_rate": 7.78,
+        "avg_views": 26.91,
+        "avg_applications": 0.04
       },
       "Monday": {
-        "sample_size": 239,
-        "avg_apply_rate": 5.77,
-        "avg_views": 37.44,
-        "avg_applications": 0.88
+        "sample_size": 425,
+        "avg_apply_rate": 6.14,
+        "avg_views": 43.11,
+        "avg_applications": 0.0
       },
       "Saturday": {
-        "sample_size": 205,
-        "avg_apply_rate": 5.27,
-        "avg_views": 30.86,
-        "avg_applications": 1.09
+        "sample_size": 600,
+        "avg_apply_rate": 7.84,
+        "avg_views": 28.28,
+        "avg_applications": 0.0
       },
       "Sunday": {
-        "sample_size": 232,
-        "avg_apply_rate": 4.73,
-        "avg_views": 42.63,
-        "avg_applications": 1.42
+        "sample_size": 489,
+        "avg_apply_rate": 7.25,
+        "avg_views": 32.09,
+        "avg_applications": 0.0
       },
       "Thursday": {
-        "sample_size": 224,
-        "avg_apply_rate": 5.28,
-        "avg_views": 30.83,
-        "avg_applications": 0.47
+        "sample_size": 831,
+        "avg_apply_rate": 10.45,
+        "avg_views": 48.94,
+        "avg_applications": 4.28
       },
       "Tuesday": {
-        "sample_size": 254,
-        "avg_apply_rate": 4.58,
-        "avg_views": 48.52,
-        "avg_applications": 0.78
+        "sample_size": 398,
+        "avg_apply_rate": 6.51,
+        "avg_views": 40.52,
+        "avg_applications": 0.0
       },
       "Wednesday": {
-        "sample_size": 279,
-        "avg_apply_rate": 4.33,
-        "avg_views": 28.9,
-        "avg_applications": 0.46
+        "sample_size": 363,
+        "avg_apply_rate": 6.87,
+        "avg_views": 29.47,
+        "avg_applications": 0.0
+      }
+    },
+    "India": {
+      "Friday": {
+        "sample_size": 140,
+        "avg_apply_rate": 21.44,
+        "avg_views": 583.58,
+        "avg_applications": 78.56
+      },
+      "Monday": {
+        "sample_size": 646,
+        "avg_apply_rate": 21.71,
+        "avg_views": 232.37,
+        "avg_applications": 12.44
+      },
+      "Saturday": {
+        "sample_size": 415,
+        "avg_apply_rate": 17.98,
+        "avg_views": 251.6,
+        "avg_applications": 21.79
+      },
+      "Sunday": {
+        "sample_size": 484,
+        "avg_apply_rate": 18.13,
+        "avg_views": 347.53,
+        "avg_applications": 15.0
+      },
+      "Thursday": {
+        "sample_size": 265,
+        "avg_apply_rate": 18.55,
+        "avg_views": 263.72,
+        "avg_applications": 33.77
+      },
+      "Tuesday": {
+        "sample_size": 185,
+        "avg_apply_rate": 20.69,
+        "avg_views": 735.05,
+        "avg_applications": 52.89
+      },
+      "Wednesday": {
+        "sample_size": 898,
+        "avg_apply_rate": 17.88,
+        "avg_views": 115.23,
+        "avg_applications": 11.8
+      }
+    },
+    "NAMER": {
+      "Friday": {
+        "sample_size": 377,
+        "avg_apply_rate": 11.38,
+        "avg_views": 136.52,
+        "avg_applications": 0.0
+      },
+      "Monday": {
+        "sample_size": 433,
+        "avg_apply_rate": 12.46,
+        "avg_views": 405.8,
+        "avg_applications": 22.55
+      },
+      "Saturday": {
+        "sample_size": 410,
+        "avg_apply_rate": 11.48,
+        "avg_views": 217.8,
+        "avg_applications": 8.81
+      },
+      "Sunday": {
+        "sample_size": 468,
+        "avg_apply_rate": 11.65,
+        "avg_views": 275.83,
+        "avg_applications": 9.48
+      },
+      "Thursday": {
+        "sample_size": 255,
+        "avg_apply_rate": 12.96,
+        "avg_views": 313.68,
+        "avg_applications": 10.66
+      },
+      "Tuesday": {
+        "sample_size": 381,
+        "avg_apply_rate": 11.43,
+        "avg_views": 339.49,
+        "avg_applications": 13.56
+      },
+      "Wednesday": {
+        "sample_size": 268,
+        "avg_apply_rate": 11.48,
+        "avg_views": 369.02,
+        "avg_applications": 28.02
       }
     }
   },
@@ -1093,70 +1105,70 @@
         "avg_apply_rate": 15.15,
         "avg_views": 776.23,
         "avg_applications": 156.15,
-        "avg_completion_rate": 91.82
+        "avg_completion_rate": 77.69
       },
       "2025-07": {
         "sample_size": 64,
-        "avg_apply_rate": 12.19,
+        "avg_apply_rate": 12.0,
         "avg_views": 433.92,
         "avg_applications": 56.03,
-        "avg_completion_rate": 84.64
+        "avg_completion_rate": 72.73
       },
       "2025-08": {
         "sample_size": 24,
         "avg_apply_rate": 11.5,
         "avg_views": 1607.71,
         "avg_applications": 212.67,
-        "avg_completion_rate": 92.14
+        "avg_completion_rate": 84.46
       },
       "2025-09": {
         "sample_size": 164,
-        "avg_apply_rate": 10.73,
+        "avg_apply_rate": 9.55,
         "avg_views": 737.88,
         "avg_applications": 119.91,
-        "avg_completion_rate": 86.33
+        "avg_completion_rate": 42.64
       },
       "2025-10": {
         "sample_size": 1408,
-        "avg_apply_rate": 8.84,
+        "avg_apply_rate": 8.56,
         "avg_views": 93.87,
         "avg_applications": 14.88,
-        "avg_completion_rate": 6.21
+        "avg_completion_rate": 3.7
       },
       "2025-11": {
         "sample_size": 7632,
-        "avg_apply_rate": 7.69,
+        "avg_apply_rate": 7.37,
         "avg_views": 21.02,
         "avg_applications": 1.11,
-        "avg_completion_rate": 0.39
+        "avg_completion_rate": 0.22
       },
       "2025-12": {
         "sample_size": 826,
-        "avg_apply_rate": 14.82,
+        "avg_apply_rate": 14.67,
         "avg_views": 183.84,
         "avg_applications": 34.28,
-        "avg_completion_rate": 41.67
+        "avg_completion_rate": 38.19
       },
       "2026-01": {
-        "sample_size": 1156,
-        "avg_apply_rate": 10.39,
-        "avg_views": 30.6,
-        "avg_applications": 2.28,
-        "avg_completion_rate": 1.06
+        "sample_size": 2982,
+        "avg_apply_rate": 12.35,
+        "avg_views": 260.98,
+        "avg_applications": 0.88,
+        "avg_completion_rate": 0.27
       },
       "2026-02": {
-        "sample_size": 3901,
-        "avg_apply_rate": 9.86,
-        "avg_views": 14.52,
-        "avg_applications": 0.42,
-        "avg_completion_rate": 1.55
+        "sample_size": 4793,
+        "avg_apply_rate": 9.69,
+        "avg_views": 60.75,
+        "avg_applications": 0.35,
+        "avg_completion_rate": 0.65
       },
       "2026-03": {
-        "sample_size": 5041,
-        "avg_apply_rate": 8.81,
-        "avg_views": 16.42,
-        "avg_applications": 0.21,
-        "avg_completion_rate": 0.22
+        "sample_size": 5627,
+        "avg_apply_rate": 8.61,
+        "avg_views": 36.41,
+        "avg_applications": 0.18,
+        "avg_completion_rate": 0.1
       }
     },
     "United Kingdom": {
@@ -1197,45 +1209,45 @@
       },
       "2025-10": {
         "sample_size": 70,
-        "avg_apply_rate": 11.57,
+        "avg_apply_rate": 11.4,
         "avg_views": 189.96,
         "avg_applications": 24.3,
-        "avg_completion_rate": 22.03
+        "avg_completion_rate": 21.09
       },
       "2025-11": {
         "sample_size": 3501,
-        "avg_apply_rate": 6.74,
+        "avg_apply_rate": 6.44,
         "avg_views": 22.78,
         "avg_applications": 0.17,
-        "avg_completion_rate": 0.13
+        "avg_completion_rate": 0.08
       },
       "2025-12": {
         "sample_size": 1135,
-        "avg_apply_rate": 10.97,
+        "avg_apply_rate": 10.9,
         "avg_views": 54.37,
         "avg_applications": 5.7,
-        "avg_completion_rate": 12.57
+        "avg_completion_rate": 10.73
       },
       "2026-01": {
-        "sample_size": 611,
-        "avg_apply_rate": 9.69,
-        "avg_views": 14.89,
+        "sample_size": 1046,
+        "avg_apply_rate": 11.16,
+        "avg_views": 113.11,
         "avg_applications": 0.0,
         "avg_completion_rate": 0.0
       },
       "2026-02": {
-        "sample_size": 750,
-        "avg_apply_rate": 11.3,
-        "avg_views": 26.18,
+        "sample_size": 1652,
+        "avg_apply_rate": 10.46,
+        "avg_views": 89.77,
         "avg_applications": 0.0,
         "avg_completion_rate": 0.0
       },
       "2026-03": {
-        "sample_size": 5112,
-        "avg_apply_rate": 8.91,
-        "avg_views": 8.45,
-        "avg_applications": 0.0,
-        "avg_completion_rate": 0.0
+        "sample_size": 6090,
+        "avg_apply_rate": 7.27,
+        "avg_views": 17.96,
+        "avg_applications": 0.01,
+        "avg_completion_rate": 0.15
       }
     },
     "Canada": {
@@ -1255,45 +1267,45 @@
       },
       "2025-10": {
         "sample_size": 65,
-        "avg_apply_rate": 7.39,
+        "avg_apply_rate": 7.28,
         "avg_views": 67.34,
         "avg_applications": 3.97,
-        "avg_completion_rate": 6.35
+        "avg_completion_rate": 5.28
       },
       "2025-11": {
         "sample_size": 1830,
-        "avg_apply_rate": 9.02,
+        "avg_apply_rate": 8.88,
         "avg_views": 29.94,
         "avg_applications": 0.16,
-        "avg_completion_rate": 0.24
+        "avg_completion_rate": 0.2
       },
       "2025-12": {
         "sample_size": 1102,
-        "avg_apply_rate": 11.21,
+        "avg_apply_rate": 11.08,
         "avg_views": 31.88,
         "avg_applications": 1.27,
-        "avg_completion_rate": 12.94
+        "avg_completion_rate": 11.17
       },
       "2026-01": {
-        "sample_size": 184,
-        "avg_apply_rate": 7.57,
-        "avg_views": 21.44,
+        "sample_size": 535,
+        "avg_apply_rate": 9.71,
+        "avg_views": 179.37,
         "avg_applications": 0.0,
         "avg_completion_rate": 0.0
       },
       "2026-02": {
-        "sample_size": 779,
-        "avg_apply_rate": 8.38,
-        "avg_views": 24.74,
+        "sample_size": 1176,
+        "avg_apply_rate": 9.5,
+        "avg_views": 81.21,
         "avg_applications": 0.0,
         "avg_completion_rate": 0.0
       },
       "2026-03": {
-        "sample_size": 2212,
-        "avg_apply_rate": 6.29,
-        "avg_views": 13.93,
-        "avg_applications": 0.0,
-        "avg_completion_rate": 0.0
+        "sample_size": 2403,
+        "avg_apply_rate": 6.25,
+        "avg_views": 27.35,
+        "avg_applications": 0.02,
+        "avg_completion_rate": 0.04
       }
     },
     "Australia": {
@@ -1313,43 +1325,43 @@
       },
       "2025-10": {
         "sample_size": 87,
-        "avg_apply_rate": 10.53,
+        "avg_apply_rate": 10.29,
         "avg_views": 79.54,
         "avg_applications": 7.61,
-        "avg_completion_rate": 16.12
+        "avg_completion_rate": 14.26
       },
       "2025-11": {
         "sample_size": 1779,
-        "avg_apply_rate": 7.75,
+        "avg_apply_rate": 7.72,
         "avg_views": 28.81,
         "avg_applications": 0.02,
-        "avg_completion_rate": 0.06
+        "avg_completion_rate": 0.05
       },
       "2025-12": {
         "sample_size": 901,
-        "avg_apply_rate": 10.86,
+        "avg_apply_rate": 10.78,
         "avg_views": 33.85,
         "avg_applications": 1.86,
-        "avg_completion_rate": 16.24
+        "avg_completion_rate": 13.46
       },
       "2026-01": {
-        "sample_size": 169,
-        "avg_apply_rate": 5.37,
-        "avg_views": 27.04,
+        "sample_size": 225,
+        "avg_apply_rate": 6.52,
+        "avg_views": 34.05,
         "avg_applications": 0.0,
         "avg_completion_rate": 0.0
       },
       "2026-02": {
-        "sample_size": 710,
-        "avg_apply_rate": 6.08,
-        "avg_views": 30.44,
+        "sample_size": 749,
+        "avg_apply_rate": 6.11,
+        "avg_views": 34.43,
         "avg_applications": 0.0,
         "avg_completion_rate": 0.0
       },
       "2026-03": {
-        "sample_size": 1099,
-        "avg_apply_rate": 6.11,
-        "avg_views": 21.77,
+        "sample_size": 1171,
+        "avg_apply_rate": 6.05,
+        "avg_views": 25.32,
         "avg_applications": 0.0,
         "avg_completion_rate": 0.0
       }
@@ -1388,18 +1400,18 @@
         "avg_apply_rate": 18.6,
         "avg_views": 255.5,
         "avg_applications": 50.1,
-        "avg_completion_rate": 92.67
+        "avg_completion_rate": 83.4
       },
       "2025-10": {
         "sample_size": 2051,
-        "avg_apply_rate": 11.48,
+        "avg_apply_rate": 11.02,
         "avg_views": 19.42,
         "avg_applications": 1.63,
-        "avg_completion_rate": 9.37
+        "avg_completion_rate": 5.36
       },
       "2025-11": {
         "sample_size": 839,
-        "avg_apply_rate": 10.83,
+        "avg_apply_rate": 10.57,
         "avg_views": 15.53,
         "avg_applications": 0.0,
         "avg_completion_rate": 0.0
@@ -1412,162 +1424,67 @@
         "avg_completion_rate": 12.2
       },
       "2026-01": {
-        "sample_size": 225,
-        "avg_apply_rate": 5.38,
-        "avg_views": 27.28,
+        "sample_size": 547,
+        "avg_apply_rate": 6.15,
+        "avg_views": 45.57,
         "avg_applications": 0.0,
         "avg_completion_rate": 0.0
       },
       "2026-02": {
-        "sample_size": 777,
-        "avg_apply_rate": 5.69,
-        "avg_views": 33.47,
+        "sample_size": 870,
+        "avg_apply_rate": 5.57,
+        "avg_views": 35.49,
         "avg_applications": 0.0,
         "avg_completion_rate": 0.0
       },
       "2026-03": {
-        "sample_size": 530,
-        "avg_apply_rate": 6.08,
-        "avg_views": 28.69,
+        "sample_size": 576,
+        "avg_apply_rate": 6.2,
+        "avg_views": 38.01,
         "avg_applications": 0.0,
         "avg_completion_rate": 0.0
-      }
-    },
-    "India": {
-      "2025-08": {
-        "sample_size": 1,
-        "avg_apply_rate": 19.0,
-        "avg_views": 141.0,
-        "avg_applications": 27.0,
-        "avg_completion_rate": 100.0
-      },
-      "2025-10": {
-        "sample_size": 15,
-        "avg_apply_rate": 21.8,
-        "avg_views": 5158.93,
-        "avg_applications": 1117.27,
-        "avg_completion_rate": 83.8
-      },
-      "2025-11": {
-        "sample_size": 18,
-        "avg_apply_rate": 22.61,
-        "avg_views": 6687.61,
-        "avg_applications": 1572.72,
-        "avg_completion_rate": 78.11
-      },
-      "2025-12": {
-        "sample_size": 24,
-        "avg_apply_rate": 19.67,
-        "avg_views": 847.46,
-        "avg_applications": 156.42,
-        "avg_completion_rate": 62.26
-      },
-      "2026-01": {
-        "sample_size": 8,
-        "avg_apply_rate": 25.0,
-        "avg_views": 1976.62,
-        "avg_applications": 400.38,
-        "avg_completion_rate": 82.5
-      },
-      "2026-02": {
-        "sample_size": 111,
-        "avg_apply_rate": 16.65,
-        "avg_views": 371.29,
-        "avg_applications": 80.25,
-        "avg_completion_rate": 26.92
-      },
-      "2026-03": {
-        "sample_size": 1549,
-        "avg_apply_rate": 18.75,
-        "avg_views": 21.93,
-        "avg_applications": 2.27,
-        "avg_completion_rate": 2.0
       }
     },
     "New Zealand": {
       "2025-10": {
         "sample_size": 98,
-        "avg_apply_rate": 9.61,
+        "avg_apply_rate": 9.42,
         "avg_views": 31.28,
         "avg_applications": 0.11,
-        "avg_completion_rate": 1.82
+        "avg_completion_rate": 1.58
       },
       "2025-11": {
         "sample_size": 2090,
-        "avg_apply_rate": 8.72,
+        "avg_apply_rate": 8.6,
         "avg_views": 21.61,
         "avg_applications": 0.0,
         "avg_completion_rate": 0.0
       },
       "2025-12": {
         "sample_size": 921,
-        "avg_apply_rate": 10.84,
+        "avg_apply_rate": 10.66,
         "avg_views": 29.1,
         "avg_applications": 0.97,
-        "avg_completion_rate": 15.2
+        "avg_completion_rate": 12.77
       },
       "2026-01": {
-        "sample_size": 189,
-        "avg_apply_rate": 7.2,
-        "avg_views": 17.37,
+        "sample_size": 248,
+        "avg_apply_rate": 7.34,
+        "avg_views": 19.62,
         "avg_applications": 0.0,
         "avg_completion_rate": 0.0
       },
       "2026-02": {
-        "sample_size": 441,
-        "avg_apply_rate": 6.51,
-        "avg_views": 13.23,
+        "sample_size": 462,
+        "avg_apply_rate": 5.56,
+        "avg_views": 13.29,
         "avg_applications": 0.0,
         "avg_completion_rate": 0.0
       },
       "2026-03": {
-        "sample_size": 384,
-        "avg_apply_rate": 7.35,
-        "avg_views": 14.04,
-        "avg_applications": 0.0,
-        "avg_completion_rate": 0.0
-      }
-    },
-    "Ireland": {
-      "2025-08": {
-        "sample_size": 1,
-        "avg_apply_rate": 15.0,
-        "avg_views": 154.0,
-        "avg_applications": 21.0,
-        "avg_completion_rate": 91.0
-      },
-      "2025-11": {
-        "sample_size": 1927,
-        "avg_apply_rate": 7.41,
-        "avg_views": 33.68,
-        "avg_applications": 0.0,
-        "avg_completion_rate": 0.0
-      },
-      "2025-12": {
-        "sample_size": 952,
-        "avg_apply_rate": 10.15,
-        "avg_views": 50.84,
-        "avg_applications": 3.74,
-        "avg_completion_rate": 21.14
-      },
-      "2026-01": {
-        "sample_size": 162,
-        "avg_apply_rate": 5.81,
-        "avg_views": 22.18,
-        "avg_applications": 0.0,
-        "avg_completion_rate": 0.0
-      },
-      "2026-02": {
-        "sample_size": 417,
-        "avg_apply_rate": 6.37,
-        "avg_views": 20.98,
-        "avg_applications": 0.0,
-        "avg_completion_rate": 0.0
-      },
-      "2026-03": {
-        "sample_size": 55,
-        "avg_apply_rate": 6.74,
-        "avg_views": 29.56,
+        "sample_size": 428,
+        "avg_apply_rate": 6.84,
+        "avg_views": 15.35,
         "avg_applications": 0.0,
         "avg_completion_rate": 0.0
       }
@@ -1599,14 +1516,14 @@
         "avg_apply_rate": 0.0,
         "avg_views": 2.0,
         "avg_applications": 0.0,
-        "avg_completion_rate": null
+        "avg_completion_rate": 0.0
       },
       "2025-11": {
         "sample_size": 1506,
-        "avg_apply_rate": 7.95,
+        "avg_apply_rate": 7.51,
         "avg_views": 22.23,
         "avg_applications": 0.12,
-        "avg_completion_rate": 0.77
+        "avg_completion_rate": 0.47
       },
       "2025-12": {
         "sample_size": 3,
@@ -1616,247 +1533,335 @@
         "avg_completion_rate": 0.0
       },
       "2026-01": {
-        "sample_size": 166,
-        "avg_apply_rate": 6.76,
-        "avg_views": 27.46,
+        "sample_size": 451,
+        "avg_apply_rate": 9.55,
+        "avg_views": 193.83,
         "avg_applications": 0.0,
         "avg_completion_rate": 0.0
       },
       "2026-02": {
-        "sample_size": 554,
-        "avg_apply_rate": 8.82,
-        "avg_views": 77.96,
-        "avg_applications": 2.29,
-        "avg_completion_rate": 21.11
+        "sample_size": 1340,
+        "avg_apply_rate": 9.14,
+        "avg_views": 113.42,
+        "avg_applications": 0.95,
+        "avg_completion_rate": 7.37
       },
       "2026-03": {
-        "sample_size": 431,
-        "avg_apply_rate": 8.63,
-        "avg_views": 79.49,
-        "avg_applications": 3.11,
-        "avg_completion_rate": 14.14
+        "sample_size": 526,
+        "avg_apply_rate": 9.18,
+        "avg_views": 118.96,
+        "avg_applications": 2.55,
+        "avg_completion_rate": 9.28
       }
     },
-    "Netherlands": {
-      "2025-05": {
-        "sample_size": 1,
-        "avg_apply_rate": 22.0,
-        "avg_views": 1054.0,
-        "avg_applications": 224.0,
-        "avg_completion_rate": 95.0
-      },
-      "2025-06": {
-        "sample_size": 2,
-        "avg_apply_rate": 13.5,
-        "avg_views": 1028.5,
-        "avg_applications": 165.0,
-        "avg_completion_rate": 90.0
-      },
-      "2025-07": {
-        "sample_size": 1,
-        "avg_apply_rate": 23.0,
-        "avg_views": 98.0,
-        "avg_applications": 22.0,
-        "avg_completion_rate": 96.0
-      },
+    "Ireland": {
       "2025-08": {
-        "sample_size": 5,
-        "avg_apply_rate": 12.8,
-        "avg_views": 323.4,
-        "avg_applications": 38.0,
-        "avg_completion_rate": 92.2
-      },
-      "2025-09": {
-        "sample_size": 11,
-        "avg_apply_rate": 14.82,
-        "avg_views": 326.18,
-        "avg_applications": 46.82,
-        "avg_completion_rate": 87.9
-      },
-      "2025-10": {
-        "sample_size": 50,
-        "avg_apply_rate": 4.82,
-        "avg_views": 26.52,
-        "avg_applications": 0.0,
-        "avg_completion_rate": 0.0
+        "sample_size": 1,
+        "avg_apply_rate": 15.0,
+        "avg_views": 154.0,
+        "avg_applications": 21.0,
+        "avg_completion_rate": 91.0
       },
       "2025-11": {
-        "sample_size": 598,
-        "avg_apply_rate": 4.63,
-        "avg_views": 26.05,
+        "sample_size": 1927,
+        "avg_apply_rate": 7.41,
+        "avg_views": 33.68,
         "avg_applications": 0.0,
         "avg_completion_rate": 0.0
       },
       "2025-12": {
-        "sample_size": 4,
-        "avg_apply_rate": 2.5,
-        "avg_views": 82.75,
-        "avg_applications": 0.0,
-        "avg_completion_rate": 0.0
+        "sample_size": 952,
+        "avg_apply_rate": 10.11,
+        "avg_views": 50.84,
+        "avg_applications": 3.74,
+        "avg_completion_rate": 18.66
       },
       "2026-01": {
-        "sample_size": 225,
-        "avg_apply_rate": 3.38,
-        "avg_views": 38.27,
+        "sample_size": 230,
+        "avg_apply_rate": 6.61,
+        "avg_views": 29.96,
         "avg_applications": 0.0,
         "avg_completion_rate": 0.0
       },
       "2026-02": {
-        "sample_size": 848,
-        "avg_apply_rate": 4.84,
-        "avg_views": 29.36,
+        "sample_size": 443,
+        "avg_apply_rate": 6.2,
+        "avg_views": 21.24,
         "avg_applications": 0.0,
         "avg_completion_rate": 0.0
       },
       "2026-03": {
-        "sample_size": 516,
-        "avg_apply_rate": 5.4,
-        "avg_views": 31.24,
+        "sample_size": 65,
+        "avg_apply_rate": 6.78,
+        "avg_views": 38.45,
         "avg_applications": 0.0,
         "avg_completion_rate": 0.0
+      }
+    },
+    "India": {
+      "2025-08": {
+        "sample_size": 1,
+        "avg_apply_rate": 19.0,
+        "avg_views": 141.0,
+        "avg_applications": 27.0,
+        "avg_completion_rate": 100.0
+      },
+      "2025-10": {
+        "sample_size": 15,
+        "avg_apply_rate": 21.8,
+        "avg_views": 5158.93,
+        "avg_applications": 1117.27,
+        "avg_completion_rate": 83.8
+      },
+      "2025-11": {
+        "sample_size": 18,
+        "avg_apply_rate": 22.61,
+        "avg_views": 6687.61,
+        "avg_applications": 1572.72,
+        "avg_completion_rate": 78.11
+      },
+      "2025-12": {
+        "sample_size": 24,
+        "avg_apply_rate": 19.67,
+        "avg_views": 847.46,
+        "avg_applications": 156.42,
+        "avg_completion_rate": 59.67
+      },
+      "2026-01": {
+        "sample_size": 89,
+        "avg_apply_rate": 23.57,
+        "avg_views": 1137.78,
+        "avg_applications": 35.99,
+        "avg_completion_rate": 7.42
+      },
+      "2026-02": {
+        "sample_size": 307,
+        "avg_apply_rate": 18.08,
+        "avg_views": 927.8,
+        "avg_applications": 29.02,
+        "avg_completion_rate": 8.77
+      },
+      "2026-03": {
+        "sample_size": 2579,
+        "avg_apply_rate": 19.07,
+        "avg_views": 81.21,
+        "avg_applications": 1.44,
+        "avg_completion_rate": 1.0
+      }
+    },
+    "NAMER": {
+      "2025-06": {
+        "sample_size": 5,
+        "avg_apply_rate": 23.0,
+        "avg_views": 10854.8,
+        "avg_applications": 2393.6,
+        "avg_completion_rate": 87.0
+      },
+      "2025-07": {
+        "sample_size": 1,
+        "avg_apply_rate": 11.0,
+        "avg_views": 2176.0,
+        "avg_applications": 180.0,
+        "avg_completion_rate": 72.0
+      },
+      "2025-08": {
+        "sample_size": 5,
+        "avg_apply_rate": 15.2,
+        "avg_views": 178.2,
+        "avg_applications": 27.8,
+        "avg_completion_rate": 92.6
+      },
+      "2025-09": {
+        "sample_size": 4,
+        "avg_apply_rate": 13.5,
+        "avg_views": 2053.75,
+        "avg_applications": 298.5,
+        "avg_completion_rate": 61.75
+      },
+      "2025-10": {
+        "sample_size": 51,
+        "avg_apply_rate": 6.78,
+        "avg_views": 524.57,
+        "avg_applications": 81.73,
+        "avg_completion_rate": 19.41
+      },
+      "2025-11": {
+        "sample_size": 22,
+        "avg_apply_rate": 13.36,
+        "avg_views": 963.73,
+        "avg_applications": 208.5,
+        "avg_completion_rate": 16.09
+      },
+      "2025-12": {
+        "sample_size": 20,
+        "avg_apply_rate": 9.4,
+        "avg_views": 37.55,
+        "avg_applications": 0.0,
+        "avg_completion_rate": 0.0
+      },
+      "2026-01": {
+        "sample_size": 269,
+        "avg_apply_rate": 16.24,
+        "avg_views": 725.83,
+        "avg_applications": 0.0,
+        "avg_completion_rate": 0.0
+      },
+      "2026-02": {
+        "sample_size": 1200,
+        "avg_apply_rate": 12.33,
+        "avg_views": 230.03,
+        "avg_applications": 4.21,
+        "avg_completion_rate": 0.43
+      },
+      "2026-03": {
+        "sample_size": 1015,
+        "avg_apply_rate": 10.18,
+        "avg_views": 165.76,
+        "avg_applications": 5.84,
+        "avg_completion_rate": 0.89
       }
     }
   },
   "linkedin_industry_benchmarks": {
     "Technology, Information and Media": {
-      "total_jobs": 48104,
-      "weighted_avg_apply_rate_pct": 8.42
+      "total_jobs": 56976,
+      "weighted_avg_apply_rate_pct": 8.96
     },
     "Hospitals and Health Care/Technology, Information and Media": {
-      "total_jobs": 8116,
-      "weighted_avg_apply_rate_pct": 4.34
+      "total_jobs": 8200,
+      "weighted_avg_apply_rate_pct": 4.13
     },
     "Transportation, Logistics, Supply Chain and Storage": {
-      "total_jobs": 7477,
-      "weighted_avg_apply_rate_pct": 7.11
+      "total_jobs": 7484,
+      "weighted_avg_apply_rate_pct": 6.77
+    },
+    "Staffing and Recruiting": {
+      "total_jobs": 5275,
+      "weighted_avg_apply_rate_pct": 13.2
+    },
+    "Health and Human Services/Technology, Information and Media": {
+      "total_jobs": 5058,
+      "weighted_avg_apply_rate_pct": 7.86
     },
     "Technology, Information and Internet": {
-      "total_jobs": 2648,
-      "weighted_avg_apply_rate_pct": 8.19
+      "total_jobs": 2673,
+      "weighted_avg_apply_rate_pct": 8.11
     },
     "Software Development/Transportation, Logistics, Supply Chain and Storage": {
       "total_jobs": 1902,
-      "weighted_avg_apply_rate_pct": 7.14
+      "weighted_avg_apply_rate_pct": 6.69
     },
     "Building Construction": {
-      "total_jobs": 1355,
-      "weighted_avg_apply_rate_pct": 13.87
+      "total_jobs": 1367,
+      "weighted_avg_apply_rate_pct": 12.03
     },
     "Recreational Facilities": {
       "total_jobs": 1291,
-      "weighted_avg_apply_rate_pct": 7.75
+      "weighted_avg_apply_rate_pct": 7.45
     },
     "Hospitals and Health Care": {
-      "total_jobs": 1243,
-      "weighted_avg_apply_rate_pct": 5.6
+      "total_jobs": 1247,
+      "weighted_avg_apply_rate_pct": 5.32
     },
     "Education Administration Programs/IT Services and IT Consulting/Technology, Information and Internet": {
-      "total_jobs": 1076,
-      "weighted_avg_apply_rate_pct": 12.24
+      "total_jobs": 1078,
+      "weighted_avg_apply_rate_pct": 12.15
     },
     "Technology, Information and Internet/Transportation, Logistics, Supply Chain and Storage": {
-      "total_jobs": 1026,
-      "weighted_avg_apply_rate_pct": 11.54
+      "total_jobs": 1029,
+      "weighted_avg_apply_rate_pct": 11.27
     },
     "Pharmaceutical Manufacturing/Staffing and Recruiting/Technology, Information and Media": {
-      "total_jobs": 919,
-      "weighted_avg_apply_rate_pct": 8.16
-    },
-    "Financial Services": {
-      "total_jobs": 874,
-      "weighted_avg_apply_rate_pct": 7.82
+      "total_jobs": 918,
+      "weighted_avg_apply_rate_pct": 7.42
     },
     "Building Construction/Construction": {
-      "total_jobs": 863,
-      "weighted_avg_apply_rate_pct": 10.73
+      "total_jobs": 906,
+      "weighted_avg_apply_rate_pct": 9.91
     },
-    "Manufacturing/Transportation, Logistics, Supply Chain and Storage": {
-      "total_jobs": 775,
-      "weighted_avg_apply_rate_pct": 6.48
-    },
-    "Health and Human Services/Technology, Information and Media": {
-      "total_jobs": 727,
-      "weighted_avg_apply_rate_pct": 6.82
+    "Financial Services": {
+      "total_jobs": 880,
+      "weighted_avg_apply_rate_pct": 7.4
     },
     "Technology, Information and Media/Wholesale Building Materials": {
-      "total_jobs": 712,
-      "weighted_avg_apply_rate_pct": 10.57
+      "total_jobs": 863,
+      "weighted_avg_apply_rate_pct": 9.34
+    },
+    "Manufacturing/Transportation, Logistics, Supply Chain and Storage": {
+      "total_jobs": 783,
+      "weighted_avg_apply_rate_pct": 6.24
     },
     "Education/Technology, Information and Media": {
       "total_jobs": 630,
-      "weighted_avg_apply_rate_pct": 7.66
+      "weighted_avg_apply_rate_pct": 3.74
     },
     "Education": {
-      "total_jobs": 567,
-      "weighted_avg_apply_rate_pct": 7.13
+      "total_jobs": 569,
+      "weighted_avg_apply_rate_pct": 3.21
     },
     "Furniture and Home Furnishings Manufacturing": {
       "total_jobs": 476,
-      "weighted_avg_apply_rate_pct": 9.37
-    },
-    "Hospitality/Technology, Information and Media": {
-      "total_jobs": 438,
-      "weighted_avg_apply_rate_pct": 14.26
+      "weighted_avg_apply_rate_pct": 8.94
     },
     "Building Construction/Technology, Information and Media": {
-      "total_jobs": 438,
-      "weighted_avg_apply_rate_pct": 14.27
+      "total_jobs": 463,
+      "weighted_avg_apply_rate_pct": 13.35
+    },
+    "Hospitality/Technology, Information and Media": {
+      "total_jobs": 452,
+      "weighted_avg_apply_rate_pct": 9.89
     },
     "Furniture and Home Furnishings Manufacturing/Retail": {
-      "total_jobs": 437,
-      "weighted_avg_apply_rate_pct": 9.6
+      "total_jobs": 438,
+      "weighted_avg_apply_rate_pct": 9.45
     },
     "Accounting/Marketing Services": {
-      "total_jobs": 406,
-      "weighted_avg_apply_rate_pct": 7.56
+      "total_jobs": 408,
+      "weighted_avg_apply_rate_pct": 7.55
+    },
+    "IT System Custom Software Development/Software Development": {
+      "total_jobs": 378,
+      "weighted_avg_apply_rate_pct": 10.95
     },
     "Environmental Services/Services for Renewable Energy": {
       "total_jobs": 362,
-      "weighted_avg_apply_rate_pct": 5.56
+      "weighted_avg_apply_rate_pct": 4.91
     },
     "Construction": {
-      "total_jobs": 337,
-      "weighted_avg_apply_rate_pct": 10.9
+      "total_jobs": 351,
+      "weighted_avg_apply_rate_pct": 9.63
+    },
+    "Technical and Vocational Training": {
+      "total_jobs": 334,
+      "weighted_avg_apply_rate_pct": 8.0
     },
     "Accounting/Technology, Information and Internet": {
       "total_jobs": 323,
-      "weighted_avg_apply_rate_pct": 9.27
-    },
-    "IT System Custom Software Development/Software Development": {
-      "total_jobs": 307,
-      "weighted_avg_apply_rate_pct": 9.73
-    },
-    "Technical and Vocational Training": {
-      "total_jobs": 299,
-      "weighted_avg_apply_rate_pct": 8.02
-    },
-    "Health and Human Services/Hospitals and Health Care": {
-      "total_jobs": 281,
-      "weighted_avg_apply_rate_pct": 10.6
+      "weighted_avg_apply_rate_pct": 9.22
     },
     "Research Services/Technology, Information and Media": {
-      "total_jobs": 270,
-      "weighted_avg_apply_rate_pct": 7.26
+      "total_jobs": 316,
+      "weighted_avg_apply_rate_pct": 8.46
     }
   },
   "linkedin_posting_duration": {
     "overall_correlations": {
-      "days_vs_apply_rate": -0.0196,
-      "days_vs_views": 0.0736,
-      "days_vs_applications": 0.068
+      "days_vs_apply_rate": -0.0117,
+      "days_vs_views": 0.0705,
+      "days_vs_applications": 0.0656
     },
     "duration_buckets": {
       "1-7d": {
-        "sample_size": 85616,
-        "avg_apply_rate": 8.19,
-        "avg_views": 52.28,
-        "avg_applications": 5.37
+        "sample_size": 105411,
+        "avg_apply_rate": 8.59,
+        "avg_views": 126.69,
+        "avg_applications": 4.38
       },
       "8-14d": {
-        "sample_size": 3293,
-        "avg_apply_rate": 7.19,
-        "avg_views": 202.31,
-        "avg_applications": 34.16
+        "sample_size": 3415,
+        "avg_apply_rate": 7.29,
+        "avg_views": 228.73,
+        "avg_applications": 32.94
       },
       "15-21d": {
         "sample_size": 26,
@@ -1870,408 +1875,195 @@
         "avg_views": 2094.57,
         "avg_applications": 382.29
       },
-      "31-60d": {
+      "30d+": {
         "sample_size": 12,
         "avg_apply_rate": 21.5,
         "avg_views": 2367.08,
         "avg_applications": 406.08
       }
-    },
-    "optimal_duration_by_country": {
-      "APAC": {
-        "optimal_bucket": "1-7d",
-        "avg_apply_rate": 7.81
-      },
-      "Argentina": {
-        "optimal_bucket": "1-7d",
-        "avg_apply_rate": 7.4
-      },
-      "Australia": {
-        "optimal_bucket": "1-7d",
-        "avg_apply_rate": 7.71
-      },
-      "Australia and New Zealand": {
-        "optimal_bucket": "1-7d",
-        "avg_apply_rate": 9.56
-      },
-      "Austria": {
-        "optimal_bucket": "1-7d",
-        "avg_apply_rate": 5.76
-      },
-      "Belgium": {
-        "optimal_bucket": "1-7d",
-        "avg_apply_rate": 4.5
-      },
-      "Brazil": {
-        "optimal_bucket": "8-14d",
-        "avg_apply_rate": 10.63
-      },
-      "Bulgaria": {
-        "optimal_bucket": "1-7d",
-        "avg_apply_rate": 4.85
-      },
-      "Canada": {
-        "optimal_bucket": "1-7d",
-        "avg_apply_rate": 8.39
-      },
-      "China": {
-        "optimal_bucket": "1-7d",
-        "avg_apply_rate": 10.21
-      },
-      "Colombia": {
-        "optimal_bucket": "1-7d",
-        "avg_apply_rate": 7.83
-      },
-      "Czechia": {
-        "optimal_bucket": "1-7d",
-        "avg_apply_rate": 2.96
-      },
-      "Denmark": {
-        "optimal_bucket": "1-7d",
-        "avg_apply_rate": 3.25
-      },
-      "EMEA": {
-        "optimal_bucket": "1-7d",
-        "avg_apply_rate": 6.66
-      },
-      "European Union": {
-        "optimal_bucket": "1-7d",
-        "avg_apply_rate": 5.25
-      },
-      "Finland": {
-        "optimal_bucket": "1-7d",
-        "avg_apply_rate": 3.68
-      },
-      "France": {
-        "optimal_bucket": "1-7d",
-        "avg_apply_rate": 5.55
-      },
-      "Germany": {
-        "optimal_bucket": "1-7d",
-        "avg_apply_rate": 9.38
-      },
-      "Greece": {
-        "optimal_bucket": "1-7d",
-        "avg_apply_rate": 3.88
-      },
-      "Hungary": {
-        "optimal_bucket": "1-7d",
-        "avg_apply_rate": 2.26
-      },
-      "India": {
-        "optimal_bucket": "1-7d",
-        "avg_apply_rate": 18.66
-      },
-      "Indonesia": {
-        "optimal_bucket": "1-7d",
-        "avg_apply_rate": 7.18
-      },
-      "Ireland": {
-        "optimal_bucket": "1-7d",
-        "avg_apply_rate": 7.96
-      },
-      "Italy": {
-        "optimal_bucket": "1-7d",
-        "avg_apply_rate": 5.27
-      },
-      "Japan": {
-        "optimal_bucket": "1-7d",
-        "avg_apply_rate": 7.88
-      },
-      "Latin America": {
-        "optimal_bucket": "1-7d",
-        "avg_apply_rate": 8.19
-      },
-      "Luxembourg": {
-        "optimal_bucket": "1-7d",
-        "avg_apply_rate": 4.57
-      },
-      "Malaysia": {
-        "optimal_bucket": "1-7d",
-        "avg_apply_rate": 5.75
-      },
-      "Mexico": {
-        "optimal_bucket": "8-14d",
-        "avg_apply_rate": 8.34
-      },
-      "NAMER": {
-        "optimal_bucket": "8-14d",
-        "avg_apply_rate": 9.13
-      },
-      "Netherlands": {
-        "optimal_bucket": "1-7d",
-        "avg_apply_rate": 4.94
-      },
-      "New Zealand": {
-        "optimal_bucket": "1-7d",
-        "avg_apply_rate": 8.83
-      },
-      "Norway": {
-        "optimal_bucket": "1-7d",
-        "avg_apply_rate": 3.92
-      },
-      "Pakistan": {
-        "optimal_bucket": "1-7d",
-        "avg_apply_rate": 10.86
-      },
-      "Peru": {
-        "optimal_bucket": "1-7d",
-        "avg_apply_rate": 7.16
-      },
-      "Philippines": {
-        "optimal_bucket": "1-7d",
-        "avg_apply_rate": 7.48
-      },
-      "Poland": {
-        "optimal_bucket": "1-7d",
-        "avg_apply_rate": 5.02
-      },
-      "Portugal": {
-        "optimal_bucket": "1-7d",
-        "avg_apply_rate": 4.94
-      },
-      "Romania": {
-        "optimal_bucket": "1-7d",
-        "avg_apply_rate": 7.11
-      },
-      "Saudi Arabia": {
-        "optimal_bucket": "1-7d",
-        "avg_apply_rate": 14.68
-      },
-      "Singapore": {
-        "optimal_bucket": "1-7d",
-        "avg_apply_rate": 7.66
-      },
-      "Slovakia": {
-        "optimal_bucket": "1-7d",
-        "avg_apply_rate": 3.98
-      },
-      "South Africa": {
-        "optimal_bucket": "1-7d",
-        "avg_apply_rate": 9.55
-      },
-      "South Asia": {
-        "optimal_bucket": "1-7d",
-        "avg_apply_rate": 12.24
-      },
-      "South Korea": {
-        "optimal_bucket": "1-7d",
-        "avg_apply_rate": 5.08
-      },
-      "Spain": {
-        "optimal_bucket": "1-7d",
-        "avg_apply_rate": 6.17
-      },
-      "Sweden": {
-        "optimal_bucket": "1-7d",
-        "avg_apply_rate": 3.19
-      },
-      "Switzerland": {
-        "optimal_bucket": "1-7d",
-        "avg_apply_rate": 4.5
-      },
-      "Taiwan": {
-        "optimal_bucket": "1-7d",
-        "avg_apply_rate": 5.14
-      },
-      "T\u00fcrkiye": {
-        "optimal_bucket": "1-7d",
-        "avg_apply_rate": 6.42
-      },
-      "Ukraine": {
-        "optimal_bucket": "1-7d",
-        "avg_apply_rate": 6.34
-      },
-      "United Arab Emirates": {
-        "optimal_bucket": "1-7d",
-        "avg_apply_rate": 16.34
-      },
-      "United Kingdom": {
-        "optimal_bucket": "1-7d",
-        "avg_apply_rate": 8.8
-      },
-      "United States": {
-        "optimal_bucket": "15-21d",
-        "avg_apply_rate": 13.05
-      }
     }
   },
   "linkedin_company_benchmarks": {
     "Quik Hire Staffing": {
-      "jobs_analyzed": 19274,
-      "avg_apply_rate_pct": 5.4,
-      "avg_views": 35.0
+      "jobs_analyzed": 21357,
+      "avg_apply_rate_pct": 5.93,
+      "avg_views": 42.92
+    },
+    "Taskify AI": {
+      "jobs_analyzed": 17921,
+      "avg_apply_rate_pct": 9.0,
+      "avg_views": 157.73
+    },
+    "Keystone Recruitment": {
+      "jobs_analyzed": 15515,
+      "avg_apply_rate_pct": 10.92,
+      "avg_views": 394.13
     },
     "AI Jobs": {
       "jobs_analyzed": 14711,
-      "avg_apply_rate_pct": 7.4,
-      "avg_views": 31.7
+      "avg_apply_rate_pct": 7.05,
+      "avg_views": 31.74
     },
     "Talent Bridge": {
-      "jobs_analyzed": 10542,
-      "avg_apply_rate_pct": 9.79,
-      "avg_views": 20.2
-    },
-    "Taskify AI": {
-      "jobs_analyzed": 9845,
-      "avg_apply_rate_pct": 8.05,
-      "avg_views": 29.1
-    },
-    "Keystone Recruitment": {
-      "jobs_analyzed": 8463,
-      "avg_apply_rate_pct": 8.83,
-      "avg_views": 22.4
+      "jobs_analyzed": 11137,
+      "avg_apply_rate_pct": 8.94,
+      "avg_views": 21.19
     },
     "Get Offers": {
-      "jobs_analyzed": 6794,
-      "avg_apply_rate_pct": 7.62,
-      "avg_views": 44.5
+      "jobs_analyzed": 7469,
+      "avg_apply_rate_pct": 7.35,
+      "avg_views": 63.32
     },
     "Nexus Consulting": {
-      "jobs_analyzed": 4040,
-      "avg_apply_rate_pct": 10.45,
-      "avg_views": 21.6
+      "jobs_analyzed": 4469,
+      "avg_apply_rate_pct": 9.29,
+      "avg_views": 21.8
     },
     "Taskify": {
       "jobs_analyzed": 2451,
-      "avg_apply_rate_pct": 9.65,
-      "avg_views": 489.7
+      "avg_apply_rate_pct": 9.46,
+      "avg_views": 489.66
     },
     "Amazon": {
       "jobs_analyzed": 2364,
-      "avg_apply_rate_pct": 10.9,
-      "avg_views": 17.6
+      "avg_apply_rate_pct": 10.53,
+      "avg_views": 17.62
     },
     "North Star Staffing": {
       "jobs_analyzed": 2235,
-      "avg_apply_rate_pct": 7.88,
-      "avg_views": 31.4
+      "avg_apply_rate_pct": 7.78,
+      "avg_views": 31.37
+    },
+    "Jobs Ai": {
+      "jobs_analyzed": 1565,
+      "avg_apply_rate_pct": 11.62,
+      "avg_views": 39.92
     },
     "Elevate Recruitment": {
       "jobs_analyzed": 1540,
-      "avg_apply_rate_pct": 10.3,
-      "avg_views": 19.6
-    },
-    "Jobs Ai": {
-      "jobs_analyzed": 1030,
-      "avg_apply_rate_pct": 10.48,
-      "avg_views": 23.5
+      "avg_apply_rate_pct": 9.99,
+      "avg_views": 19.62
     },
     "Work Vista": {
       "jobs_analyzed": 921,
-      "avg_apply_rate_pct": 8.81,
-      "avg_views": 31.6
+      "avg_apply_rate_pct": 8.67,
+      "avg_views": 31.59
     },
     "Get Jobs": {
       "jobs_analyzed": 681,
-      "avg_apply_rate_pct": 7.7,
-      "avg_views": 39.5
+      "avg_apply_rate_pct": 7.66,
+      "avg_views": 39.51
     },
     "Get Hired": {
       "jobs_analyzed": 679,
-      "avg_apply_rate_pct": 8.18,
-      "avg_views": 34.9
+      "avg_apply_rate_pct": 8.17,
+      "avg_views": 34.94
     },
     "Work Loom": {
       "jobs_analyzed": 568,
       "avg_apply_rate_pct": 21.01,
-      "avg_views": 220.8
+      "avg_views": 220.82
     },
     "JobLift Media": {
       "jobs_analyzed": 536,
       "avg_apply_rate_pct": 21.34,
-      "avg_views": 139.1
+      "avg_views": 139.14
     },
     "HireFast": {
       "jobs_analyzed": 397,
       "avg_apply_rate_pct": 11.58,
-      "avg_views": 1471.2
+      "avg_views": 1471.21
+    },
+    "Onboard": {
+      "jobs_analyzed": 390,
+      "avg_apply_rate_pct": 16.69,
+      "avg_views": 37.13
     },
     "Talent Connect": {
       "jobs_analyzed": 312,
       "avg_apply_rate_pct": 9.86,
-      "avg_views": 31.3
+      "avg_views": 31.33
     },
     "Ai Jobs": {
       "jobs_analyzed": 253,
-      "avg_apply_rate_pct": 7.76,
-      "avg_views": 20.2
+      "avg_apply_rate_pct": 7.73,
+      "avg_views": 20.22
     },
     "Prime Jobs": {
       "jobs_analyzed": 238,
-      "avg_apply_rate_pct": 11.91,
-      "avg_views": 26.4
+      "avg_apply_rate_pct": 11.61,
+      "avg_views": 26.44
     },
     "Hire Sync": {
       "jobs_analyzed": 175,
-      "avg_apply_rate_pct": 10.85,
-      "avg_views": 29.8
+      "avg_apply_rate_pct": 10.79,
+      "avg_views": 29.75
     },
     "Joveo": {
       "jobs_analyzed": 160,
       "avg_apply_rate_pct": 23.52,
-      "avg_views": 1260.0
+      "avg_views": 1259.95
     },
     "Next Jobs": {
       "jobs_analyzed": 119,
       "avg_apply_rate_pct": 8.31,
-      "avg_views": 41.8
+      "avg_views": 41.84
     },
     "Hire Wave": {
       "jobs_analyzed": 107,
-      "avg_apply_rate_pct": 10.73,
+      "avg_apply_rate_pct": 10.43,
       "avg_views": 29.2
+    },
+    "Joblet-AI": {
+      "jobs_analyzed": 96,
+      "avg_apply_rate_pct": 16.43,
+      "avg_views": 1138.71
     },
     "Talent Orbit": {
       "jobs_analyzed": 96,
-      "avg_apply_rate_pct": 10.41,
-      "avg_views": 29.7
+      "avg_apply_rate_pct": 10.2,
+      "avg_views": 29.74
     },
     "Job Spark": {
       "jobs_analyzed": 90,
-      "avg_apply_rate_pct": 7.22,
-      "avg_views": 44.6
+      "avg_apply_rate_pct": 7.14,
+      "avg_views": 44.64
     },
     "Amazon DSP": {
       "jobs_analyzed": 78,
       "avg_apply_rate_pct": 6.06,
-      "avg_views": 27.4
+      "avg_views": 27.41
     },
     "Recruit Loop": {
       "jobs_analyzed": 71,
       "avg_apply_rate_pct": 7.44,
-      "avg_views": 46.3
+      "avg_views": 46.32
     },
     "Talent Flow": {
       "jobs_analyzed": 58,
       "avg_apply_rate_pct": 10.55,
-      "avg_views": 41.6
+      "avg_views": 41.62
     },
     "Horizon Workforce Partners": {
       "jobs_analyzed": 38,
       "avg_apply_rate_pct": 13.66,
-      "avg_views": 153.8
+      "avg_views": 153.84
     },
     "Talent Pulse": {
       "jobs_analyzed": 21,
       "avg_apply_rate_pct": 9.29,
-      "avg_views": 23.7
+      "avg_views": 23.67
     },
     "Joveo Ai": {
       "jobs_analyzed": 18,
       "avg_apply_rate_pct": 19.33,
-      "avg_views": 14468.2
-    },
-    "Joblet-AI": {
-      "jobs_analyzed": 15,
-      "avg_apply_rate_pct": 20.53,
-      "avg_views": 5273.3
+      "avg_views": 14468.17
     }
   },
   "linkedin_timezone_peaks": {
     "EMEA": {
       "timezone": "Europe/London",
-      "timezone_label": "GMT (proxy)",
+      "timezone_label": "Europe/Middle East/Africa",
       "utc_offset": 0,
       "local_peak_hours": [
         8,
@@ -2289,12 +2081,12 @@
         18,
         19
       ],
-      "utc_morning_window": "08.0-10.0 UTC",
+      "utc_morning_window": "8.0-10.0 UTC",
       "utc_evening_window": "17.0-19.0 UTC"
     },
     "APAC": {
       "timezone": "Asia/Singapore",
-      "timezone_label": "SGT (proxy)",
+      "timezone_label": "Asia-Pacific",
       "utc_offset": 8,
       "local_peak_hours": [
         8,
@@ -2312,13 +2104,13 @@
         10,
         11
       ],
-      "utc_morning_window": "00.0-02.0 UTC",
-      "utc_evening_window": "09.0-11.0 UTC"
+      "utc_morning_window": "0.0-2.0 UTC",
+      "utc_evening_window": "9.0-11.0 UTC"
     },
     "European Union": {
-      "timezone": "UTC",
-      "timezone_label": "UTC (default)",
-      "utc_offset": 0,
+      "timezone": "Europe/Brussels",
+      "timezone_label": "European Union",
+      "utc_offset": 1,
       "local_peak_hours": [
         8,
         9,
@@ -2328,20 +2120,20 @@
         19
       ],
       "utc_peak_hours": [
+        7,
         8,
         9,
-        10,
+        16,
         17,
-        18,
-        19
+        18
       ],
-      "utc_morning_window": "08.0-10.0 UTC",
-      "utc_evening_window": "17.0-19.0 UTC"
+      "utc_morning_window": "7.0-9.0 UTC",
+      "utc_evening_window": "16.0-18.0 UTC"
     },
     "India": {
       "timezone": "Asia/Kolkata",
-      "timezone_label": "IST",
-      "utc_offset": 5.5,
+      "timezone_label": "India",
+      "utc_offset": 5,
       "local_peak_hours": [
         8,
         9,
@@ -2351,20 +2143,20 @@
         19
       ],
       "utc_peak_hours": [
-        2.5,
-        3.5,
-        4.5,
-        11.5,
-        12.5,
-        13.5
+        3,
+        4,
+        5,
+        12,
+        13,
+        14
       ],
-      "utc_morning_window": "02.5-04.5 UTC",
-      "utc_evening_window": "11.5-13.5 UTC"
+      "utc_morning_window": "3.0-5.0 UTC",
+      "utc_evening_window": "12.0-14.0 UTC"
     },
     "Latin America": {
-      "timezone": "UTC",
-      "timezone_label": "UTC (default)",
-      "utc_offset": 0,
+      "timezone": "America/Sao_Paulo",
+      "timezone_label": "Latin America",
+      "utc_offset": -3,
       "local_peak_hours": [
         8,
         9,
@@ -2374,15 +2166,15 @@
         19
       ],
       "utc_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
+        11,
+        12,
+        13,
+        20,
+        21,
+        22
       ],
-      "utc_morning_window": "08.0-10.0 UTC",
-      "utc_evening_window": "17.0-19.0 UTC"
+      "utc_morning_window": "11.0-13.0 UTC",
+      "utc_evening_window": "20.0-22.0 UTC"
     },
     "United States": {
       "timezone": "America/New_York",
@@ -2405,11 +2197,11 @@
         23
       ],
       "utc_morning_window": "13.0-15.0 UTC",
-      "utc_evening_window": "22.0-00.0 UTC"
+      "utc_evening_window": "0.0-23.0 UTC"
     },
     "Middle East": {
       "timezone": "UTC",
-      "timezone_label": "UTC (default)",
+      "timezone_label": "Middle East",
       "utc_offset": 0,
       "local_peak_hours": [
         8,
@@ -2427,173 +2219,12 @@
         18,
         19
       ],
-      "utc_morning_window": "08.0-10.0 UTC",
+      "utc_morning_window": "8.0-10.0 UTC",
       "utc_evening_window": "17.0-19.0 UTC"
     },
     "NAMER": {
-      "timezone": "UTC",
-      "timezone_label": "UTC (default)",
-      "utc_offset": 0,
-      "local_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_morning_window": "08.0-10.0 UTC",
-      "utc_evening_window": "17.0-19.0 UTC"
-    },
-    "United Kingdom": {
-      "timezone": "Europe/London",
-      "timezone_label": "GMT/BST",
-      "utc_offset": 0,
-      "local_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_morning_window": "08.0-10.0 UTC",
-      "utc_evening_window": "17.0-19.0 UTC"
-    },
-    "Indonesia": {
-      "timezone": "UTC",
-      "timezone_label": "UTC (default)",
-      "utc_offset": 0,
-      "local_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_morning_window": "08.0-10.0 UTC",
-      "utc_evening_window": "17.0-19.0 UTC"
-    },
-    "Egypt": {
-      "timezone": "UTC",
-      "timezone_label": "UTC (default)",
-      "utc_offset": 0,
-      "local_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_morning_window": "08.0-10.0 UTC",
-      "utc_evening_window": "17.0-19.0 UTC"
-    },
-    "Argentina": {
-      "timezone": "UTC",
-      "timezone_label": "UTC (default)",
-      "utc_offset": 0,
-      "local_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_morning_window": "08.0-10.0 UTC",
-      "utc_evening_window": "17.0-19.0 UTC"
-    },
-    "Mexico": {
-      "timezone": "America/Mexico_City",
-      "timezone_label": "CST",
-      "utc_offset": -6,
-      "local_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_peak_hours": [
-        0,
-        1,
-        14,
-        15,
-        16,
-        23
-      ],
-      "utc_morning_window": "14.0-16.0 UTC",
-      "utc_evening_window": "23.0-01.0 UTC"
-    },
-    "Japan": {
-      "timezone": "Asia/Tokyo",
-      "timezone_label": "JST",
-      "utc_offset": 9,
-      "local_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_peak_hours": [
-        0,
-        1,
-        8,
-        9,
-        10,
-        23
-      ],
-      "utc_morning_window": "23.0-01.0 UTC",
-      "utc_evening_window": "08.0-10.0 UTC"
-    },
-    "Canada": {
-      "timezone": "America/Toronto",
-      "timezone_label": "Eastern",
+      "timezone": "America/New_York",
+      "timezone_label": "North America",
       "utc_offset": -5,
       "local_peak_hours": [
         8,
@@ -2612,11 +2243,57 @@
         23
       ],
       "utc_morning_window": "13.0-15.0 UTC",
-      "utc_evening_window": "22.0-00.0 UTC"
+      "utc_evening_window": "0.0-23.0 UTC"
+    },
+    "United Kingdom": {
+      "timezone": "Europe/London",
+      "timezone_label": "UK/Ireland",
+      "utc_offset": 0,
+      "local_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_morning_window": "8.0-10.0 UTC",
+      "utc_evening_window": "17.0-19.0 UTC"
+    },
+    "Indonesia": {
+      "timezone": "Asia/Jakarta",
+      "timezone_label": "Indonesia",
+      "utc_offset": 7,
+      "local_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_peak_hours": [
+        1,
+        2,
+        3,
+        10,
+        11,
+        12
+      ],
+      "utc_morning_window": "1.0-3.0 UTC",
+      "utc_evening_window": "10.0-12.0 UTC"
     },
     "Brazil": {
       "timezone": "America/Sao_Paulo",
-      "timezone_label": "BRT",
+      "timezone_label": "Brazil",
       "utc_offset": -3,
       "local_peak_hours": [
         8,
@@ -2637,860 +2314,9 @@
       "utc_morning_window": "11.0-13.0 UTC",
       "utc_evening_window": "20.0-22.0 UTC"
     },
-    "Switzerland": {
-      "timezone": "UTC",
-      "timezone_label": "UTC (default)",
-      "utc_offset": 0,
-      "local_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_morning_window": "08.0-10.0 UTC",
-      "utc_evening_window": "17.0-19.0 UTC"
-    },
-    "Denmark": {
-      "timezone": "UTC",
-      "timezone_label": "UTC (default)",
-      "utc_offset": 0,
-      "local_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_morning_window": "08.0-10.0 UTC",
-      "utc_evening_window": "17.0-19.0 UTC"
-    },
-    "Australia and New Zealand": {
-      "timezone": "UTC",
-      "timezone_label": "UTC (default)",
-      "utc_offset": 0,
-      "local_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_morning_window": "08.0-10.0 UTC",
-      "utc_evening_window": "17.0-19.0 UTC"
-    },
-    "Germany": {
-      "timezone": "Europe/Berlin",
-      "timezone_label": "CET",
-      "utc_offset": 1,
-      "local_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_peak_hours": [
-        7,
-        8,
-        9,
-        16,
-        17,
-        18
-      ],
-      "utc_morning_window": "07.0-09.0 UTC",
-      "utc_evening_window": "16.0-18.0 UTC"
-    },
-    "Netherlands": {
-      "timezone": "Europe/Amsterdam",
-      "timezone_label": "CET",
-      "utc_offset": 1,
-      "local_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_peak_hours": [
-        7,
-        8,
-        9,
-        16,
-        17,
-        18
-      ],
-      "utc_morning_window": "07.0-09.0 UTC",
-      "utc_evening_window": "16.0-18.0 UTC"
-    },
-    "Spain": {
-      "timezone": "Europe/Madrid",
-      "timezone_label": "CET",
-      "utc_offset": 1,
-      "local_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_peak_hours": [
-        7,
-        8,
-        9,
-        16,
-        17,
-        18
-      ],
-      "utc_morning_window": "07.0-09.0 UTC",
-      "utc_evening_window": "16.0-18.0 UTC"
-    },
-    "Colombia": {
-      "timezone": "UTC",
-      "timezone_label": "UTC (default)",
-      "utc_offset": 0,
-      "local_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_morning_window": "08.0-10.0 UTC",
-      "utc_evening_window": "17.0-19.0 UTC"
-    },
-    "Australia": {
-      "timezone": "Australia/Sydney",
-      "timezone_label": "AEST",
-      "utc_offset": 10,
-      "local_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_peak_hours": [
-        0,
-        7,
-        8,
-        9,
-        22,
-        23
-      ],
-      "utc_morning_window": "22.0-00.0 UTC",
-      "utc_evening_window": "07.0-09.0 UTC"
-    },
-    "Thailand": {
-      "timezone": "UTC",
-      "timezone_label": "UTC (default)",
-      "utc_offset": 0,
-      "local_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_morning_window": "08.0-10.0 UTC",
-      "utc_evening_window": "17.0-19.0 UTC"
-    },
-    "Romania": {
-      "timezone": "UTC",
-      "timezone_label": "UTC (default)",
-      "utc_offset": 0,
-      "local_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_morning_window": "08.0-10.0 UTC",
-      "utc_evening_window": "17.0-19.0 UTC"
-    },
-    "Malaysia": {
-      "timezone": "UTC",
-      "timezone_label": "UTC (default)",
-      "utc_offset": 0,
-      "local_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_morning_window": "08.0-10.0 UTC",
-      "utc_evening_window": "17.0-19.0 UTC"
-    },
-    "Singapore": {
-      "timezone": "Asia/Singapore",
-      "timezone_label": "SGT",
-      "utc_offset": 8,
-      "local_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_peak_hours": [
-        0,
-        1,
-        2,
-        9,
-        10,
-        11
-      ],
-      "utc_morning_window": "00.0-02.0 UTC",
-      "utc_evening_window": "09.0-11.0 UTC"
-    },
-    "Poland": {
-      "timezone": "Europe/Warsaw",
-      "timezone_label": "CET",
-      "utc_offset": 1,
-      "local_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_peak_hours": [
-        7,
-        8,
-        9,
-        16,
-        17,
-        18
-      ],
-      "utc_morning_window": "07.0-09.0 UTC",
-      "utc_evening_window": "16.0-18.0 UTC"
-    },
-    "Philippines": {
-      "timezone": "Asia/Manila",
-      "timezone_label": "PHT",
-      "utc_offset": 8,
-      "local_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_peak_hours": [
-        0,
-        1,
-        2,
-        9,
-        10,
-        11
-      ],
-      "utc_morning_window": "00.0-02.0 UTC",
-      "utc_evening_window": "09.0-11.0 UTC"
-    },
-    "Austria": {
-      "timezone": "UTC",
-      "timezone_label": "UTC (default)",
-      "utc_offset": 0,
-      "local_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_morning_window": "08.0-10.0 UTC",
-      "utc_evening_window": "17.0-19.0 UTC"
-    },
-    "Belgium": {
-      "timezone": "UTC",
-      "timezone_label": "UTC (default)",
-      "utc_offset": 0,
-      "local_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_morning_window": "08.0-10.0 UTC",
-      "utc_evening_window": "17.0-19.0 UTC"
-    },
-    "Ireland": {
-      "timezone": "Europe/Dublin",
-      "timezone_label": "GMT/IST",
-      "utc_offset": 0,
-      "local_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_morning_window": "08.0-10.0 UTC",
-      "utc_evening_window": "17.0-19.0 UTC"
-    },
-    "South Korea": {
-      "timezone": "UTC",
-      "timezone_label": "UTC (default)",
-      "utc_offset": 0,
-      "local_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_morning_window": "08.0-10.0 UTC",
-      "utc_evening_window": "17.0-19.0 UTC"
-    },
-    "France": {
-      "timezone": "Europe/Paris",
-      "timezone_label": "CET",
-      "utc_offset": 1,
-      "local_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_peak_hours": [
-        7,
-        8,
-        9,
-        16,
-        17,
-        18
-      ],
-      "utc_morning_window": "07.0-09.0 UTC",
-      "utc_evening_window": "16.0-18.0 UTC"
-    },
-    "Hungary": {
-      "timezone": "UTC",
-      "timezone_label": "UTC (default)",
-      "utc_offset": 0,
-      "local_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_morning_window": "08.0-10.0 UTC",
-      "utc_evening_window": "17.0-19.0 UTC"
-    },
-    "Italy": {
-      "timezone": "Europe/Rome",
-      "timezone_label": "CET",
-      "utc_offset": 1,
-      "local_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_peak_hours": [
-        7,
-        8,
-        9,
-        16,
-        17,
-        18
-      ],
-      "utc_morning_window": "07.0-09.0 UTC",
-      "utc_evening_window": "16.0-18.0 UTC"
-    },
-    "Portugal": {
-      "timezone": "UTC",
-      "timezone_label": "UTC (default)",
-      "utc_offset": 0,
-      "local_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_morning_window": "08.0-10.0 UTC",
-      "utc_evening_window": "17.0-19.0 UTC"
-    },
-    "Sweden": {
-      "timezone": "Europe/Stockholm",
-      "timezone_label": "CET",
-      "utc_offset": 1,
-      "local_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_peak_hours": [
-        7,
-        8,
-        9,
-        16,
-        17,
-        18
-      ],
-      "utc_morning_window": "07.0-09.0 UTC",
-      "utc_evening_window": "16.0-18.0 UTC"
-    },
-    "T\u00fcrkiye": {
-      "timezone": "UTC",
-      "timezone_label": "UTC (default)",
-      "utc_offset": 0,
-      "local_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_morning_window": "08.0-10.0 UTC",
-      "utc_evening_window": "17.0-19.0 UTC"
-    },
-    "New Zealand": {
-      "timezone": "UTC",
-      "timezone_label": "UTC (default)",
-      "utc_offset": 0,
-      "local_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_morning_window": "08.0-10.0 UTC",
-      "utc_evening_window": "17.0-19.0 UTC"
-    },
-    "Pakistan": {
-      "timezone": "UTC",
-      "timezone_label": "UTC (default)",
-      "utc_offset": 0,
-      "local_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_morning_window": "08.0-10.0 UTC",
-      "utc_evening_window": "17.0-19.0 UTC"
-    },
-    "Finland": {
-      "timezone": "UTC",
-      "timezone_label": "UTC (default)",
-      "utc_offset": 0,
-      "local_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_morning_window": "08.0-10.0 UTC",
-      "utc_evening_window": "17.0-19.0 UTC"
-    },
-    "Czechia": {
-      "timezone": "UTC",
-      "timezone_label": "UTC (default)",
-      "utc_offset": 0,
-      "local_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_morning_window": "08.0-10.0 UTC",
-      "utc_evening_window": "17.0-19.0 UTC"
-    },
-    "Bulgaria": {
-      "timezone": "UTC",
-      "timezone_label": "UTC (default)",
-      "utc_offset": 0,
-      "local_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_morning_window": "08.0-10.0 UTC",
-      "utc_evening_window": "17.0-19.0 UTC"
-    },
-    "Bosnia and Herzegovina": {
-      "timezone": "UTC",
-      "timezone_label": "UTC (default)",
-      "utc_offset": 0,
-      "local_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_morning_window": "08.0-10.0 UTC",
-      "utc_evening_window": "17.0-19.0 UTC"
-    },
-    "Norway": {
-      "timezone": "UTC",
-      "timezone_label": "UTC (default)",
-      "utc_offset": 0,
-      "local_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_morning_window": "08.0-10.0 UTC",
-      "utc_evening_window": "17.0-19.0 UTC"
-    },
-    "Taiwan": {
-      "timezone": "UTC",
-      "timezone_label": "UTC (default)",
-      "utc_offset": 0,
-      "local_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_morning_window": "08.0-10.0 UTC",
-      "utc_evening_window": "17.0-19.0 UTC"
-    },
-    "China": {
-      "timezone": "UTC",
-      "timezone_label": "UTC (default)",
-      "utc_offset": 0,
-      "local_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_morning_window": "08.0-10.0 UTC",
-      "utc_evening_window": "17.0-19.0 UTC"
-    },
-    "Greece": {
-      "timezone": "UTC",
-      "timezone_label": "UTC (default)",
-      "utc_offset": 0,
-      "local_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_morning_window": "08.0-10.0 UTC",
-      "utc_evening_window": "17.0-19.0 UTC"
-    },
-    "Slovakia": {
-      "timezone": "UTC",
-      "timezone_label": "UTC (default)",
-      "utc_offset": 0,
-      "local_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_morning_window": "08.0-10.0 UTC",
-      "utc_evening_window": "17.0-19.0 UTC"
-    },
-    "United Arab Emirates": {
-      "timezone": "UTC",
-      "timezone_label": "UTC (default)",
-      "utc_offset": 0,
-      "local_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_morning_window": "08.0-10.0 UTC",
-      "utc_evening_window": "17.0-19.0 UTC"
-    },
-    "Ukraine": {
-      "timezone": "UTC",
-      "timezone_label": "UTC (default)",
-      "utc_offset": 0,
-      "local_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_morning_window": "08.0-10.0 UTC",
-      "utc_evening_window": "17.0-19.0 UTC"
-    },
-    "South Africa": {
-      "timezone": "Africa/Johannesburg",
-      "timezone_label": "SAST",
+    "Egypt": {
+      "timezone": "Africa/Cairo",
+      "timezone_label": "Egypt",
       "utc_offset": 2,
       "local_peak_hours": [
         8,
@@ -3508,13 +2334,13 @@
         16,
         17
       ],
-      "utc_morning_window": "06.0-08.0 UTC",
+      "utc_morning_window": "6.0-8.0 UTC",
       "utc_evening_window": "15.0-17.0 UTC"
     },
-    "Myanmar": {
-      "timezone": "UTC",
-      "timezone_label": "UTC (default)",
-      "utc_offset": 0,
+    "Argentina": {
+      "timezone": "America/Argentina/Buenos_Aires",
+      "timezone_label": "Argentina",
+      "utc_offset": -3,
       "local_peak_hours": [
         8,
         9,
@@ -3524,20 +2350,20 @@
         19
       ],
       "utc_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
+        11,
+        12,
+        13,
+        20,
+        21,
+        22
       ],
-      "utc_morning_window": "08.0-10.0 UTC",
-      "utc_evening_window": "17.0-19.0 UTC"
+      "utc_morning_window": "11.0-13.0 UTC",
+      "utc_evening_window": "20.0-22.0 UTC"
     },
-    "Liechtenstein": {
-      "timezone": "UTC",
-      "timezone_label": "UTC (default)",
-      "utc_offset": 0,
+    "Canada": {
+      "timezone": "America/Toronto",
+      "timezone_label": "Canada Eastern",
+      "utc_offset": -5,
       "local_peak_hours": [
         8,
         9,
@@ -3547,20 +2373,20 @@
         19
       ],
       "utc_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
+        0,
+        13,
+        14,
+        15,
+        22,
+        23
       ],
-      "utc_morning_window": "08.0-10.0 UTC",
-      "utc_evening_window": "17.0-19.0 UTC"
+      "utc_morning_window": "13.0-15.0 UTC",
+      "utc_evening_window": "0.0-23.0 UTC"
     },
-    "Peru": {
-      "timezone": "UTC",
-      "timezone_label": "UTC (default)",
-      "utc_offset": 0,
+    "Mexico": {
+      "timezone": "America/Mexico_City",
+      "timezone_label": "Mexico",
+      "utc_offset": -6,
       "local_peak_hours": [
         8,
         9,
@@ -3570,20 +2396,20 @@
         19
       ],
       "utc_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
+        0,
+        1,
+        14,
+        15,
+        16,
+        23
       ],
-      "utc_morning_window": "08.0-10.0 UTC",
-      "utc_evening_window": "17.0-19.0 UTC"
+      "utc_morning_window": "14.0-16.0 UTC",
+      "utc_evening_window": "0.0-23.0 UTC"
     },
-    "South Asia": {
-      "timezone": "UTC",
-      "timezone_label": "UTC (default)",
-      "utc_offset": 0,
+    "United Arab Emirates": {
+      "timezone": "Asia/Dubai",
+      "timezone_label": "UAE/Gulf",
+      "utc_offset": 4,
       "local_peak_hours": [
         8,
         9,
@@ -3593,6 +2419,21 @@
         19
       ],
       "utc_peak_hours": [
+        4,
+        5,
+        6,
+        13,
+        14,
+        15
+      ],
+      "utc_morning_window": "4.0-6.0 UTC",
+      "utc_evening_window": "13.0-15.0 UTC"
+    },
+    "Japan": {
+      "timezone": "Asia/Tokyo",
+      "timezone_label": "Japan",
+      "utc_offset": 9,
+      "local_peak_hours": [
         8,
         9,
         10,
@@ -3600,12 +2441,181 @@
         18,
         19
       ],
-      "utc_morning_window": "08.0-10.0 UTC",
-      "utc_evening_window": "17.0-19.0 UTC"
+      "utc_peak_hours": [
+        0,
+        1,
+        8,
+        9,
+        10,
+        23
+      ],
+      "utc_morning_window": "0.0-23.0 UTC",
+      "utc_evening_window": "8.0-10.0 UTC"
+    },
+    "Switzerland": {
+      "timezone": "Europe/Zurich",
+      "timezone_label": "Central Europe",
+      "utc_offset": 1,
+      "local_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_peak_hours": [
+        7,
+        8,
+        9,
+        16,
+        17,
+        18
+      ],
+      "utc_morning_window": "7.0-9.0 UTC",
+      "utc_evening_window": "16.0-18.0 UTC"
+    },
+    "Denmark": {
+      "timezone": "Europe/Copenhagen",
+      "timezone_label": "Central Europe",
+      "utc_offset": 1,
+      "local_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_peak_hours": [
+        7,
+        8,
+        9,
+        16,
+        17,
+        18
+      ],
+      "utc_morning_window": "7.0-9.0 UTC",
+      "utc_evening_window": "16.0-18.0 UTC"
+    },
+    "Australia and New Zealand": {
+      "timezone": "Australia/Sydney",
+      "timezone_label": "ANZ",
+      "utc_offset": 10,
+      "local_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_peak_hours": [
+        0,
+        7,
+        8,
+        9,
+        22,
+        23
+      ],
+      "utc_morning_window": "0.0-23.0 UTC",
+      "utc_evening_window": "7.0-9.0 UTC"
+    },
+    "Germany": {
+      "timezone": "Europe/Berlin",
+      "timezone_label": "Central Europe",
+      "utc_offset": 1,
+      "local_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_peak_hours": [
+        7,
+        8,
+        9,
+        16,
+        17,
+        18
+      ],
+      "utc_morning_window": "7.0-9.0 UTC",
+      "utc_evening_window": "16.0-18.0 UTC"
     },
     "Saudi Arabia": {
+      "timezone": "Asia/Riyadh",
+      "timezone_label": "Saudi Arabia",
+      "utc_offset": 3,
+      "local_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_peak_hours": [
+        5,
+        6,
+        7,
+        14,
+        15,
+        16
+      ],
+      "utc_morning_window": "5.0-7.0 UTC",
+      "utc_evening_window": "14.0-16.0 UTC"
+    },
+    "Netherlands": {
+      "timezone": "Europe/Amsterdam",
+      "timezone_label": "Central Europe",
+      "utc_offset": 1,
+      "local_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_peak_hours": [
+        7,
+        8,
+        9,
+        16,
+        17,
+        18
+      ],
+      "utc_morning_window": "7.0-9.0 UTC",
+      "utc_evening_window": "16.0-18.0 UTC"
+    },
+    "Philippines": {
+      "timezone": "Asia/Manila",
+      "timezone_label": "Philippines",
+      "utc_offset": 8,
+      "local_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_peak_hours": [
+        0,
+        1,
+        2,
+        9,
+        10,
+        11
+      ],
+      "utc_morning_window": "0.0-2.0 UTC",
+      "utc_evening_window": "9.0-11.0 UTC"
+    },
+    "Jordan": {
       "timezone": "UTC",
-      "timezone_label": "UTC (default)",
+      "timezone_label": "Jordan",
       "utc_offset": 0,
       "local_peak_hours": [
         8,
@@ -3623,13 +2633,13 @@
         18,
         19
       ],
-      "utc_morning_window": "08.0-10.0 UTC",
+      "utc_morning_window": "8.0-10.0 UTC",
       "utc_evening_window": "17.0-19.0 UTC"
     },
-    "Luxembourg": {
-      "timezone": "UTC",
-      "timezone_label": "UTC (default)",
-      "utc_offset": 0,
+    "Spain": {
+      "timezone": "Europe/Madrid",
+      "timezone_label": "Central Europe",
+      "utc_offset": 1,
       "local_peak_hours": [
         8,
         9,
@@ -3639,88 +2649,19 @@
         19
       ],
       "utc_peak_hours": [
+        7,
         8,
         9,
-        10,
+        16,
         17,
-        18,
-        19
+        18
       ],
-      "utc_morning_window": "08.0-10.0 UTC",
-      "utc_evening_window": "17.0-19.0 UTC"
-    },
-    "Kuwait": {
-      "timezone": "UTC",
-      "timezone_label": "UTC (default)",
-      "utc_offset": 0,
-      "local_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_morning_window": "08.0-10.0 UTC",
-      "utc_evening_window": "17.0-19.0 UTC"
-    },
-    "Bahrain": {
-      "timezone": "UTC",
-      "timezone_label": "UTC (default)",
-      "utc_offset": 0,
-      "local_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_morning_window": "08.0-10.0 UTC",
-      "utc_evening_window": "17.0-19.0 UTC"
-    },
-    "Monaco": {
-      "timezone": "UTC",
-      "timezone_label": "UTC (default)",
-      "utc_offset": 0,
-      "local_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_morning_window": "08.0-10.0 UTC",
-      "utc_evening_window": "17.0-19.0 UTC"
+      "utc_morning_window": "7.0-9.0 UTC",
+      "utc_evening_window": "16.0-18.0 UTC"
     },
     "Morocco": {
       "timezone": "UTC",
-      "timezone_label": "UTC (default)",
+      "timezone_label": "Morocco",
       "utc_offset": 0,
       "local_peak_hours": [
         8,
@@ -3738,12 +2679,81 @@
         18,
         19
       ],
-      "utc_morning_window": "08.0-10.0 UTC",
+      "utc_morning_window": "8.0-10.0 UTC",
       "utc_evening_window": "17.0-19.0 UTC"
     },
-    "Southern Africa": {
+    "Singapore": {
+      "timezone": "Asia/Singapore",
+      "timezone_label": "Singapore",
+      "utc_offset": 8,
+      "local_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_peak_hours": [
+        0,
+        1,
+        2,
+        9,
+        10,
+        11
+      ],
+      "utc_morning_window": "0.0-2.0 UTC",
+      "utc_evening_window": "9.0-11.0 UTC"
+    },
+    "Colombia": {
+      "timezone": "America/Bogota",
+      "timezone_label": "Colombia",
+      "utc_offset": -5,
+      "local_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_peak_hours": [
+        0,
+        13,
+        14,
+        15,
+        22,
+        23
+      ],
+      "utc_morning_window": "13.0-15.0 UTC",
+      "utc_evening_window": "0.0-23.0 UTC"
+    },
+    "France": {
+      "timezone": "Europe/Paris",
+      "timezone_label": "Central Europe",
+      "utc_offset": 1,
+      "local_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_peak_hours": [
+        7,
+        8,
+        9,
+        16,
+        17,
+        18
+      ],
+      "utc_morning_window": "7.0-9.0 UTC",
+      "utc_evening_window": "16.0-18.0 UTC"
+    },
+    "South Asia": {
       "timezone": "UTC",
-      "timezone_label": "UTC (default)",
+      "timezone_label": "South Asia",
       "utc_offset": 0,
       "local_peak_hours": [
         8,
@@ -3761,13 +2771,13 @@
         18,
         19
       ],
-      "utc_morning_window": "08.0-10.0 UTC",
+      "utc_morning_window": "8.0-10.0 UTC",
       "utc_evening_window": "17.0-19.0 UTC"
     },
-    "Southeast Asia": {
-      "timezone": "UTC",
-      "timezone_label": "UTC (default)",
-      "utc_offset": 0,
+    "Australia": {
+      "timezone": "Australia/Sydney",
+      "timezone_label": "Australia Eastern",
+      "utc_offset": 10,
       "local_peak_hours": [
         8,
         9,
@@ -3777,19 +2787,88 @@
         19
       ],
       "utc_peak_hours": [
+        0,
+        7,
         8,
         9,
-        10,
-        17,
-        18,
-        19
+        22,
+        23
       ],
-      "utc_morning_window": "08.0-10.0 UTC",
-      "utc_evening_window": "17.0-19.0 UTC"
+      "utc_morning_window": "0.0-23.0 UTC",
+      "utc_evening_window": "7.0-9.0 UTC"
     },
-    "Kenya": {
+    "Thailand": {
+      "timezone": "Asia/Bangkok",
+      "timezone_label": "Thailand",
+      "utc_offset": 7,
+      "local_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_peak_hours": [
+        1,
+        2,
+        3,
+        10,
+        11,
+        12
+      ],
+      "utc_morning_window": "1.0-3.0 UTC",
+      "utc_evening_window": "10.0-12.0 UTC"
+    },
+    "Romania": {
+      "timezone": "Europe/Bucharest",
+      "timezone_label": "Eastern Europe",
+      "utc_offset": 2,
+      "local_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_peak_hours": [
+        6,
+        7,
+        8,
+        15,
+        16,
+        17
+      ],
+      "utc_morning_window": "6.0-8.0 UTC",
+      "utc_evening_window": "15.0-17.0 UTC"
+    },
+    "Italy": {
+      "timezone": "Europe/Rome",
+      "timezone_label": "Central Europe",
+      "utc_offset": 1,
+      "local_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_peak_hours": [
+        7,
+        8,
+        9,
+        16,
+        17,
+        18
+      ],
+      "utc_morning_window": "7.0-9.0 UTC",
+      "utc_evening_window": "16.0-18.0 UTC"
+    },
+    "Russia": {
       "timezone": "UTC",
-      "timezone_label": "UTC (default)",
+      "timezone_label": "Russia",
       "utc_offset": 0,
       "local_peak_hours": [
         8,
@@ -3807,12 +2886,12 @@
         18,
         19
       ],
-      "utc_morning_window": "08.0-10.0 UTC",
+      "utc_morning_window": "8.0-10.0 UTC",
       "utc_evening_window": "17.0-19.0 UTC"
     },
     "Algeria": {
       "timezone": "UTC",
-      "timezone_label": "UTC (default)",
+      "timezone_label": "Algeria",
       "utc_offset": 0,
       "local_peak_hours": [
         8,
@@ -3830,12 +2909,817 @@
         18,
         19
       ],
-      "utc_morning_window": "08.0-10.0 UTC",
+      "utc_morning_window": "8.0-10.0 UTC",
       "utc_evening_window": "17.0-19.0 UTC"
+    },
+    "T\u00fcrkiye": {
+      "timezone": "UTC",
+      "timezone_label": "T\u00fcrkiye",
+      "utc_offset": 0,
+      "local_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_morning_window": "8.0-10.0 UTC",
+      "utc_evening_window": "17.0-19.0 UTC"
+    },
+    "Malaysia": {
+      "timezone": "Asia/Kuala_Lumpur",
+      "timezone_label": "Malaysia",
+      "utc_offset": 8,
+      "local_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_peak_hours": [
+        0,
+        1,
+        2,
+        9,
+        10,
+        11
+      ],
+      "utc_morning_window": "0.0-2.0 UTC",
+      "utc_evening_window": "9.0-11.0 UTC"
+    },
+    "Poland": {
+      "timezone": "Europe/Warsaw",
+      "timezone_label": "Central Europe",
+      "utc_offset": 1,
+      "local_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_peak_hours": [
+        7,
+        8,
+        9,
+        16,
+        17,
+        18
+      ],
+      "utc_morning_window": "7.0-9.0 UTC",
+      "utc_evening_window": "16.0-18.0 UTC"
+    },
+    "Belgium": {
+      "timezone": "Europe/Brussels",
+      "timezone_label": "Central Europe",
+      "utc_offset": 1,
+      "local_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_peak_hours": [
+        7,
+        8,
+        9,
+        16,
+        17,
+        18
+      ],
+      "utc_morning_window": "7.0-9.0 UTC",
+      "utc_evening_window": "16.0-18.0 UTC"
+    },
+    "Austria": {
+      "timezone": "Europe/Vienna",
+      "timezone_label": "Central Europe",
+      "utc_offset": 1,
+      "local_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_peak_hours": [
+        7,
+        8,
+        9,
+        16,
+        17,
+        18
+      ],
+      "utc_morning_window": "7.0-9.0 UTC",
+      "utc_evening_window": "16.0-18.0 UTC"
+    },
+    "Ireland": {
+      "timezone": "Europe/Dublin",
+      "timezone_label": "UK/Ireland",
+      "utc_offset": 0,
+      "local_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_morning_window": "8.0-10.0 UTC",
+      "utc_evening_window": "17.0-19.0 UTC"
+    },
+    "South Korea": {
+      "timezone": "Asia/Seoul",
+      "timezone_label": "South Korea",
+      "utc_offset": 9,
+      "local_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_peak_hours": [
+        0,
+        1,
+        8,
+        9,
+        10,
+        23
+      ],
+      "utc_morning_window": "0.0-23.0 UTC",
+      "utc_evening_window": "8.0-10.0 UTC"
+    },
+    "Hungary": {
+      "timezone": "UTC",
+      "timezone_label": "Hungary",
+      "utc_offset": 0,
+      "local_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_morning_window": "8.0-10.0 UTC",
+      "utc_evening_window": "17.0-19.0 UTC"
+    },
+    "Sweden": {
+      "timezone": "Europe/Stockholm",
+      "timezone_label": "Central Europe",
+      "utc_offset": 1,
+      "local_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_peak_hours": [
+        7,
+        8,
+        9,
+        16,
+        17,
+        18
+      ],
+      "utc_morning_window": "7.0-9.0 UTC",
+      "utc_evening_window": "16.0-18.0 UTC"
+    },
+    "Luxembourg": {
+      "timezone": "UTC",
+      "timezone_label": "Luxembourg",
+      "utc_offset": 0,
+      "local_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_morning_window": "8.0-10.0 UTC",
+      "utc_evening_window": "17.0-19.0 UTC"
+    },
+    "Finland": {
+      "timezone": "Europe/Helsinki",
+      "timezone_label": "Eastern Europe",
+      "utc_offset": 2,
+      "local_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_peak_hours": [
+        6,
+        7,
+        8,
+        15,
+        16,
+        17
+      ],
+      "utc_morning_window": "6.0-8.0 UTC",
+      "utc_evening_window": "15.0-17.0 UTC"
+    },
+    "Portugal": {
+      "timezone": "Europe/Lisbon",
+      "timezone_label": "Portugal",
+      "utc_offset": 0,
+      "local_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_morning_window": "8.0-10.0 UTC",
+      "utc_evening_window": "17.0-19.0 UTC"
+    },
+    "Israel": {
+      "timezone": "Asia/Jerusalem",
+      "timezone_label": "Israel",
+      "utc_offset": 2,
+      "local_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_peak_hours": [
+        6,
+        7,
+        8,
+        15,
+        16,
+        17
+      ],
+      "utc_morning_window": "6.0-8.0 UTC",
+      "utc_evening_window": "15.0-17.0 UTC"
+    },
+    "New Zealand": {
+      "timezone": "Pacific/Auckland",
+      "timezone_label": "New Zealand",
+      "utc_offset": 12,
+      "local_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_peak_hours": [
+        5,
+        6,
+        7,
+        20,
+        21,
+        22
+      ],
+      "utc_morning_window": "20.0-22.0 UTC",
+      "utc_evening_window": "5.0-7.0 UTC"
+    },
+    "Pakistan": {
+      "timezone": "Asia/Karachi",
+      "timezone_label": "Pakistan",
+      "utc_offset": 5,
+      "local_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_peak_hours": [
+        3,
+        4,
+        5,
+        12,
+        13,
+        14
+      ],
+      "utc_morning_window": "3.0-5.0 UTC",
+      "utc_evening_window": "12.0-14.0 UTC"
+    },
+    "Czechia": {
+      "timezone": "UTC",
+      "timezone_label": "Czechia",
+      "utc_offset": 0,
+      "local_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_morning_window": "8.0-10.0 UTC",
+      "utc_evening_window": "17.0-19.0 UTC"
+    },
+    "Bulgaria": {
+      "timezone": "UTC",
+      "timezone_label": "Bulgaria",
+      "utc_offset": 0,
+      "local_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_morning_window": "8.0-10.0 UTC",
+      "utc_evening_window": "17.0-19.0 UTC"
+    },
+    "Bosnia and Herzegovina": {
+      "timezone": "UTC",
+      "timezone_label": "Bosnia and Herzegovina",
+      "utc_offset": 0,
+      "local_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_morning_window": "8.0-10.0 UTC",
+      "utc_evening_window": "17.0-19.0 UTC"
+    },
+    "Norway": {
+      "timezone": "Europe/Oslo",
+      "timezone_label": "Central Europe",
+      "utc_offset": 1,
+      "local_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_peak_hours": [
+        7,
+        8,
+        9,
+        16,
+        17,
+        18
+      ],
+      "utc_morning_window": "7.0-9.0 UTC",
+      "utc_evening_window": "16.0-18.0 UTC"
+    },
+    "Taiwan": {
+      "timezone": "Asia/Taipei",
+      "timezone_label": "Taiwan",
+      "utc_offset": 8,
+      "local_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_peak_hours": [
+        0,
+        1,
+        2,
+        9,
+        10,
+        11
+      ],
+      "utc_morning_window": "0.0-2.0 UTC",
+      "utc_evening_window": "9.0-11.0 UTC"
+    },
+    "China": {
+      "timezone": "Asia/Shanghai",
+      "timezone_label": "China",
+      "utc_offset": 8,
+      "local_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_peak_hours": [
+        0,
+        1,
+        2,
+        9,
+        10,
+        11
+      ],
+      "utc_morning_window": "0.0-2.0 UTC",
+      "utc_evening_window": "9.0-11.0 UTC"
+    },
+    "Peru": {
+      "timezone": "America/Lima",
+      "timezone_label": "Peru",
+      "utc_offset": -5,
+      "local_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_peak_hours": [
+        0,
+        13,
+        14,
+        15,
+        22,
+        23
+      ],
+      "utc_morning_window": "13.0-15.0 UTC",
+      "utc_evening_window": "0.0-23.0 UTC"
+    },
+    "Greece": {
+      "timezone": "Europe/Athens",
+      "timezone_label": "Eastern Europe",
+      "utc_offset": 2,
+      "local_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_peak_hours": [
+        6,
+        7,
+        8,
+        15,
+        16,
+        17
+      ],
+      "utc_morning_window": "6.0-8.0 UTC",
+      "utc_evening_window": "15.0-17.0 UTC"
+    },
+    "Slovakia": {
+      "timezone": "UTC",
+      "timezone_label": "Slovakia",
+      "utc_offset": 0,
+      "local_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_morning_window": "8.0-10.0 UTC",
+      "utc_evening_window": "17.0-19.0 UTC"
+    },
+    "Ukraine": {
+      "timezone": "UTC",
+      "timezone_label": "Ukraine",
+      "utc_offset": 0,
+      "local_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_morning_window": "8.0-10.0 UTC",
+      "utc_evening_window": "17.0-19.0 UTC"
+    },
+    "South Africa": {
+      "timezone": "Africa/Johannesburg",
+      "timezone_label": "South Africa",
+      "utc_offset": 2,
+      "local_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_peak_hours": [
+        6,
+        7,
+        8,
+        15,
+        16,
+        17
+      ],
+      "utc_morning_window": "6.0-8.0 UTC",
+      "utc_evening_window": "15.0-17.0 UTC"
+    },
+    "Myanmar": {
+      "timezone": "UTC",
+      "timezone_label": "Myanmar",
+      "utc_offset": 0,
+      "local_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_morning_window": "8.0-10.0 UTC",
+      "utc_evening_window": "17.0-19.0 UTC"
+    },
+    "Liechtenstein": {
+      "timezone": "UTC",
+      "timezone_label": "Liechtenstein",
+      "utc_offset": 0,
+      "local_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_morning_window": "8.0-10.0 UTC",
+      "utc_evening_window": "17.0-19.0 UTC"
+    },
+    "Moldova": {
+      "timezone": "UTC",
+      "timezone_label": "Moldova",
+      "utc_offset": 0,
+      "local_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_morning_window": "8.0-10.0 UTC",
+      "utc_evening_window": "17.0-19.0 UTC"
+    },
+    "Kuwait": {
+      "timezone": "UTC",
+      "timezone_label": "Kuwait",
+      "utc_offset": 0,
+      "local_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_morning_window": "8.0-10.0 UTC",
+      "utc_evening_window": "17.0-19.0 UTC"
+    },
+    "Bahrain": {
+      "timezone": "UTC",
+      "timezone_label": "Bahrain",
+      "utc_offset": 0,
+      "local_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_morning_window": "8.0-10.0 UTC",
+      "utc_evening_window": "17.0-19.0 UTC"
+    },
+    "Monaco": {
+      "timezone": "UTC",
+      "timezone_label": "Monaco",
+      "utc_offset": 0,
+      "local_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_morning_window": "8.0-10.0 UTC",
+      "utc_evening_window": "17.0-19.0 UTC"
+    },
+    "Southern Africa": {
+      "timezone": "UTC",
+      "timezone_label": "Southern Africa",
+      "utc_offset": 0,
+      "local_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_morning_window": "8.0-10.0 UTC",
+      "utc_evening_window": "17.0-19.0 UTC"
+    },
+    "Southeast Asia": {
+      "timezone": "UTC",
+      "timezone_label": "Southeast Asia",
+      "utc_offset": 0,
+      "local_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_morning_window": "8.0-10.0 UTC",
+      "utc_evening_window": "17.0-19.0 UTC"
+    },
+    "Kenya": {
+      "timezone": "Africa/Nairobi",
+      "timezone_label": "East Africa",
+      "utc_offset": 3,
+      "local_peak_hours": [
+        8,
+        9,
+        10,
+        17,
+        18,
+        19
+      ],
+      "utc_peak_hours": [
+        5,
+        6,
+        7,
+        14,
+        15,
+        16
+      ],
+      "utc_morning_window": "5.0-7.0 UTC",
+      "utc_evening_window": "14.0-16.0 UTC"
     },
     "Northern Africa": {
       "timezone": "UTC",
-      "timezone_label": "UTC (default)",
+      "timezone_label": "Northern Africa",
       "utc_offset": 0,
       "local_peak_hours": [
         8,
@@ -3853,12 +3737,12 @@
         18,
         19
       ],
-      "utc_morning_window": "08.0-10.0 UTC",
+      "utc_morning_window": "8.0-10.0 UTC",
       "utc_evening_window": "17.0-19.0 UTC"
     },
     "Ghana": {
       "timezone": "UTC",
-      "timezone_label": "UTC (default)",
+      "timezone_label": "Ghana",
       "utc_offset": 0,
       "local_peak_hours": [
         8,
@@ -3876,36 +3760,13 @@
         18,
         19
       ],
-      "utc_morning_window": "08.0-10.0 UTC",
-      "utc_evening_window": "17.0-19.0 UTC"
-    },
-    "Israel": {
-      "timezone": "UTC",
-      "timezone_label": "UTC (default)",
-      "utc_offset": 0,
-      "local_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_peak_hours": [
-        8,
-        9,
-        10,
-        17,
-        18,
-        19
-      ],
-      "utc_morning_window": "08.0-10.0 UTC",
+      "utc_morning_window": "8.0-10.0 UTC",
       "utc_evening_window": "17.0-19.0 UTC"
     },
     "Nigeria": {
-      "timezone": "UTC",
-      "timezone_label": "UTC (default)",
-      "utc_offset": 0,
+      "timezone": "Africa/Lagos",
+      "timezone_label": "West Africa",
+      "utc_offset": 1,
       "local_peak_hours": [
         8,
         9,
@@ -3915,19 +3776,19 @@
         19
       ],
       "utc_peak_hours": [
+        7,
         8,
         9,
-        10,
+        16,
         17,
-        18,
-        19
+        18
       ],
-      "utc_morning_window": "08.0-10.0 UTC",
-      "utc_evening_window": "17.0-19.0 UTC"
+      "utc_morning_window": "7.0-9.0 UTC",
+      "utc_evening_window": "16.0-18.0 UTC"
     },
     "East Asia": {
       "timezone": "UTC",
-      "timezone_label": "UTC (default)",
+      "timezone_label": "East Asia",
       "utc_offset": 0,
       "local_peak_hours": [
         8,
@@ -3945,22 +3806,24 @@
         18,
         19
       ],
-      "utc_morning_window": "08.0-10.0 UTC",
+      "utc_morning_window": "8.0-10.0 UTC",
       "utc_evening_window": "17.0-19.0 UTC"
     }
   },
   "key_insights": [
-    "India highest LinkedIn apply rate: 18.73% (median 18%), nearly 2x global average",
-    "US leads volume (20,235 jobs), 8.96% avg apply rate, 16.22% view-to-apply conversion",
-    "Saturday best day to post globally (8.96%), Thursday 2nd (8.52%)",
-    "December elevated apply rates across all markets (US: 14.82%, UK: 10.97%)",
-    "Posting duration near-zero correlation with apply rate (-0.02) -- short rotations effective",
-    "Remote jobs dominate (72%), on-site 26%, hybrid 1%",
-    "Software Engineer highest-volume title (3,561 jobs), 233 avg views per posting",
-    "Warehouse Associate highest apply rate among top titles at 15.61%",
-    "UAE 16.34% apply rate, 4x overweighted in ROI allocation",
-    "97% applications via ATS, only 3% LinkedIn native apply",
-    "500 slots can serve 2,500-3,000 jobs/day with timezone rotation across 11 countries",
-    "LinkedIn peak apply hours: 8-10am and 5-7pm local time per country"
+    "India highest LinkedIn apply rate: 19.14% (median 19.0%), ~2.2x global average",
+    "US leads volume (23,539 jobs), 9.14% avg apply rate, 81.77 avg views per job",
+    "Saturday best day to post globally (9.25%), Sunday 2nd (8.9%)",
+    "December elevated apply rates across all markets (US: 14.67%, UK: 10.9%)",
+    "Posting duration near-zero correlation with apply rate (-0.01) -- short rotations effective",
+    "Remote jobs dominate (76.28%), on-site 22.63%, hybrid 1.08%",
+    "Software Engineer highest-volume title (5,555 jobs), 458.68 avg views per posting",
+    "Warehouse Associate highest apply rate among top titles at 14.95%",
+    "UAE 16.34% apply rate, overweighted in ROI allocation",
+    "97.43% applications via ATS, 2.57% LinkedIn native apply",
+    "500 slots can serve 2,500-3,000 jobs/day with timezone rotation across 76 countries",
+    "LinkedIn peak apply hours: 8-10am and 5-7pm local time per country",
+    "Dataset: 108,871 total jobs across 76 countries and 2,121 standardized titles",
+    "Global average apply rate: 8.56%, median: 6.0%"
   ]
 }
