@@ -76,7 +76,8 @@ def _extract_txt(raw_bytes: bytes, filename: str) -> str:
 
 
 def _extract_pdf(raw_bytes: bytes, filename: str) -> str:
-    """Extract text from PDF using pypdf."""
+    """Extract text from PDF using pypdf, with Google Vision OCR fallback."""
+    result = ""
     try:
         from pypdf import PdfReader
 
@@ -87,21 +88,40 @@ def _extract_pdf(raw_bytes: bytes, filename: str) -> str:
             if text:
                 pages.append(text.strip())
         result = "\n\n".join(pages)
-        logger.info(
-            "Extracted %d chars from PDF %s (%d pages)",
-            len(result),
-            filename,
-            len(reader.pages),
-        )
-        return result
+        if result:
+            logger.info(
+                "Extracted %d chars from PDF %s (%d pages)",
+                len(result),
+                filename,
+                len(reader.pages),
+            )
+            return result
     except ImportError:
         logger.warning(
             "pypdf not installed -- cannot extract PDF text from %s", filename
         )
-        return f"[PDF file: {filename} -- install pypdf for text extraction]"
     except Exception as e:
         logger.warning("PDF extraction failed for %s: %s", filename, e)
-        return ""
+
+    # Fallback: Google Vision OCR for scanned PDFs or when pypdf fails
+    if not result:
+        try:
+            from google_vision_integration import extract_text_from_pdf_vision
+
+            result = extract_text_from_pdf_vision(raw_bytes, filename)
+            if result:
+                logger.info(
+                    "Google Vision OCR extracted %d chars from PDF %s",
+                    len(result),
+                    filename,
+                )
+                return result
+        except ImportError:
+            pass
+        except Exception as e:
+            logger.warning("Google Vision OCR fallback failed for %s: %s", filename, e)
+
+    return result or f"[PDF file: {filename} -- text extraction failed]"
 
 
 def _extract_docx(raw_bytes: bytes, filename: str) -> str:

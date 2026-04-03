@@ -1227,6 +1227,8 @@ _TOOL_LABELS: Dict[str, str] = {
     "query_workforce_demographics": "Loading Census demographics",
     "query_vendor_profiles": "Loading vendor profiles",
     "get_cg_automation_data": "Loading CG Automation data",
+    "enrich_entity": "Looking up entity in Knowledge Graph",
+    "audit_career_page": "Auditing career page performance",
 }
 
 # Thread-local storage for tool status queue.
@@ -3486,6 +3488,9 @@ Before calling any tools, briefly plan which tools you need:
 - For compliance/legal questions: call query_knowledge_base with topic="compliance"
 - For channel/platform questions: call query_remote_jobs + query_channels + query_benchmarks
 - For vendor/publisher questions: call query_vendor_profiles for platform-specific data (Indeed, LinkedIn, etc.)
+- For company/employer information: call enrich_entity with entity_type='company' for verified company details from Google Knowledge Graph
+- For career page quality assessment: call audit_career_page to check performance, accessibility, SEO, and Core Web Vitals
+- For Google Ads benchmark data: call query_google_ads_benchmarks for CPC/CTR/spend data from Joveo's first-party campaigns
 - For any hiring question: ALWAYS also call query_h1b_salaries for competitive salary intelligence
 - For visualizing/rendering a plan as a canvas: call render_canvas with budget, channels, role, location, industry
 - For editing/adjusting a canvas (reallocate budget, add/remove channel): call edit_canvas with plan_id and edit details
@@ -4968,6 +4973,45 @@ Do NOT generate month-over-month trend alerts, spike warnings, or "critical aler
                     "required": ["action"],
                 },
             },
+            # ── S39: Knowledge Graph + PageSpeed tools ────────────────────
+            {
+                "name": "enrich_entity",
+                "description": "Look up a company, job title, or location in Google's Knowledge Graph for authoritative information including descriptions, URLs, and structured data. Use when you need verified company details, job title classification, or location context.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "entity_name": {
+                            "type": "string",
+                            "description": "Name of the entity to look up (company name, job title, or location)",
+                        },
+                        "entity_type": {
+                            "type": "string",
+                            "enum": ["company", "job_title", "location"],
+                            "description": "Type of entity: 'company' for employers, 'job_title' for roles/occupations, 'location' for cities/regions",
+                        },
+                    },
+                    "required": ["entity_name", "entity_type"],
+                },
+            },
+            {
+                "name": "audit_career_page",
+                "description": "Audit a company's career page for performance, accessibility, SEO, and Core Web Vitals using Google PageSpeed Insights. Useful when recommending where to direct traffic or assessing employer career page quality.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "url": {
+                            "type": "string",
+                            "description": "Full URL of the career page to audit (e.g., 'https://careers.google.com')",
+                        },
+                        "strategy": {
+                            "type": "string",
+                            "enum": ["mobile", "desktop"],
+                            "description": "Audit strategy: 'mobile' (default) or 'desktop'",
+                        },
+                    },
+                    "required": ["url"],
+                },
+            },
         ]
 
     # ------------------------------------------------------------------
@@ -5044,6 +5088,9 @@ Do NOT generate month-over-month trend alerts, spike warnings, or "critical aler
             "query_workforce_demographics": self._query_workforce_demographics,
             "query_vendor_profiles": self._query_vendor_profiles,
             "get_cg_automation_data": self._get_cg_automation_data,
+            # S39: Knowledge Graph + PageSpeed tools
+            "enrich_entity": self._enrich_entity,
+            "audit_career_page": self._audit_career_page,
         }
 
     def execute_tool(self, tool_name: str, tool_input: dict) -> str:
@@ -9381,6 +9428,105 @@ Do NOT generate month-over-month trend alerts, spike warnings, or "critical aler
             return {"error": f"CG Automation query failed: {e}"}
 
     # ------------------------------------------------------------------
+    # S39: Knowledge Graph entity enrichment
+    # ------------------------------------------------------------------
+
+    def _enrich_entity(self, params: dict) -> dict:
+        """Handler for enrich_entity tool.
+
+        Looks up a company, job title, or location in Google's Knowledge Graph
+        for authoritative structured data.
+        """
+        entity_name = (params.get("entity_name") or "").strip()
+        entity_type = (params.get("entity_type") or "company").strip().lower()
+
+        if not entity_name:
+            return {
+                "error": "entity_name is required",
+                "source": "Google Knowledge Graph",
+            }
+
+        try:
+            from google_knowledge_graph import (
+                enrich_company,
+                enrich_job_title,
+                enrich_location,
+            )
+
+            if entity_type == "company":
+                result = enrich_company(entity_name)
+            elif entity_type == "job_title":
+                result = enrich_job_title(entity_name)
+            elif entity_type == "location":
+                result = enrich_location(entity_name)
+            else:
+                return {
+                    "error": f"Unknown entity_type: {entity_type}. Use 'company', 'job_title', or 'location'.",
+                    "source": "Google Knowledge Graph",
+                }
+
+            result["source"] = "Google Knowledge Graph"
+            result["entity_type"] = entity_type
+            return result
+        except ImportError:
+            logger.error("google_knowledge_graph module not available", exc_info=True)
+            return {
+                "error": "Knowledge Graph module not available",
+                "source": "Google Knowledge Graph",
+            }
+        except Exception as e:
+            logger.error(
+                "enrich_entity failed for %r (%s): %s",
+                entity_name,
+                entity_type,
+                e,
+                exc_info=True,
+            )
+            return {
+                "error": f"Knowledge Graph lookup failed: {e}",
+                "source": "Google Knowledge Graph",
+            }
+
+    # ------------------------------------------------------------------
+    # S39: PageSpeed career page audit
+    # ------------------------------------------------------------------
+
+    def _audit_career_page(self, params: dict) -> dict:
+        """Handler for audit_career_page tool.
+
+        Audits a career page URL for performance, accessibility, SEO,
+        and Core Web Vitals using Google PageSpeed Insights.
+        """
+        url = (params.get("url") or "").strip()
+        strategy = (params.get("strategy") or "mobile").strip().lower()
+
+        if not url:
+            return {"error": "url is required", "source": "Google PageSpeed Insights"}
+
+        if strategy not in ("mobile", "desktop"):
+            strategy = "mobile"
+
+        try:
+            from google_search_pagespeed import audit_career_page as _pagespeed_audit
+
+            result = _pagespeed_audit(url, strategy=strategy)
+            result["source"] = "Google PageSpeed Insights"
+            result["strategy"] = strategy
+            return result
+        except ImportError:
+            logger.error("google_search_pagespeed module not available", exc_info=True)
+            return {
+                "error": "PageSpeed module not available",
+                "source": "Google PageSpeed Insights",
+            }
+        except Exception as e:
+            logger.error("audit_career_page failed for %r: %s", url, e, exc_info=True)
+            return {
+                "error": f"PageSpeed audit failed: {e}",
+                "source": "Google PageSpeed Insights",
+            }
+
+    # ------------------------------------------------------------------
     # Chat orchestration
     # ------------------------------------------------------------------
 
@@ -11213,6 +11359,9 @@ Do NOT generate month-over-month trend alerts, spike warnings, or "critical aler
             "- For channel/platform questions: call query_remote_jobs + query_channels + query_benchmarks\n"
             "- For vendor/publisher questions: call query_vendor_profiles for platform-specific data (Indeed, LinkedIn, etc.)\n"
             "- For Craigslist posting/CG automation questions: call get_cg_automation_data for location-specific posting recommendations, repost triggers, and profit tiers\n"
+            "- For company/employer information: call enrich_entity with entity_type='company' for verified company details from Google Knowledge Graph\n"
+            "- For career page quality assessment: call audit_career_page to check performance, accessibility, SEO, and Core Web Vitals\n"
+            "- For Google Ads benchmark data: call query_google_ads_benchmarks for CPC/CTR/spend data from Joveo's first-party campaigns\n"
             "- For any hiring question: ALWAYS also call query_h1b_salaries for competitive salary intelligence\n"
             "- For visualizing a plan as a canvas: call render_canvas with budget, channels, role, location, industry\n"
             "- For editing a canvas (reallocate budget, add/remove channel): call edit_canvas with plan_id and edit details\n"
@@ -15972,6 +16121,8 @@ _TOOL_SOURCE_MAP: Dict[str, str] = {
     "query_workforce_demographics": "US Census Bureau (Workforce Demographics)",
     "query_vendor_profiles": "Supabase Vendor Profiles",
     "get_cg_automation_data": "CG Automation (Craigslist Intelligence)",
+    "enrich_entity": "Google Knowledge Graph",
+    "audit_career_page": "Google PageSpeed Insights",
 }
 
 _FOLLOW_UP_TEMPLATES: Dict[str, List[str]] = {

@@ -2783,6 +2783,87 @@ except ImportError as e:
     logger.warning("excel_v2 import failed, falling back to legacy generator: %s", e)
     generate_excel_v2 = None
 
+# ── Google Cloud integration modules (lazy, non-blocking) ──
+try:
+    from google_maps_integration import (
+        geocode_address,
+        batch_geocode,
+        places_autocomplete,
+        get_status as maps_status,
+    )
+
+    _has_google_maps = True
+    logger.info("google_maps_integration loaded successfully")
+except ImportError:
+    _has_google_maps = False
+
+try:
+    from google_knowledge_graph import (
+        enrich_company,
+        enrich_job_title,
+        enrich_location,
+        get_status as kg_status,
+    )
+
+    _has_knowledge_graph = True
+    logger.info("google_knowledge_graph loaded successfully")
+except ImportError:
+    _has_knowledge_graph = False
+
+try:
+    from google_bigquery_integration import (
+        store_media_plan as bq_store_plan,
+        ensure_tables_exist as bq_ensure_tables,
+        get_status as bq_status,
+    )
+
+    _has_bigquery = True
+    logger.info("google_bigquery_integration loaded successfully")
+except ImportError:
+    _has_bigquery = False
+
+try:
+    from google_search_pagespeed import (
+        audit_career_page,
+        get_status as pagespeed_status,
+    )
+
+    _has_pagespeed = True
+    logger.info("google_search_pagespeed loaded successfully")
+except ImportError:
+    _has_pagespeed = False
+
+try:
+    from google_vision_integration import (
+        extract_text_from_image,
+        extract_text_from_pdf_vision,
+        get_status as vision_status,
+    )
+
+    _has_google_vision = True
+    logger.info("google_vision_integration loaded successfully")
+except ImportError:
+    _has_google_vision = False
+
+try:
+    from google_cloud_storage import upload_file as gcs_upload, get_status as gcs_status
+
+    _has_gcs = True
+    logger.info("google_cloud_storage loaded successfully")
+except ImportError:
+    _has_gcs = False
+
+try:
+    from google_ads_analytics import (
+        get_google_ads_benchmarks,
+        get_status as ads_analytics_status,
+    )
+
+    _has_ads_analytics = True
+    logger.info("google_ads_analytics loaded successfully")
+except ImportError:
+    _has_ads_analytics = False
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # ROLE-TIER CLASSIFICATION ENGINE
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -14169,6 +14250,13 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 task_name=f"sheets-export-{_plan_id}",
                 timeout=45,
             )
+
+            # ── Store plan in BigQuery for historical analytics (non-blocking) ──
+            if _has_bigquery:
+                try:
+                    bq_store_plan(dict(data))
+                except Exception as _bq_err:
+                    logger.warning("BigQuery plan storage failed: %s", _bq_err)
 
             # Generate Strategy PPT deck (7-tier fallback via DeckGenerator)
             pptx_bytes = None

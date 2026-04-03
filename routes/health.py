@@ -1542,6 +1542,42 @@ def _handle_deploy_ready(handler, path: str, parsed: Any) -> None:
     _send_json_response(handler, result, status_code)
 
 
+def _handle_google_status(handler, path: str, parsed: Any) -> None:
+    """/api/google/status -- admin-protected status of all Google integration modules."""
+    if not handler._check_admin_auth():
+        handler.send_error(401, "Unauthorized")
+        return
+    _app = sys.modules.get("app") or sys.modules.get("__main__")
+    result: dict[str, Any] = {}
+    _module_checks = [
+        ("google_maps", "_has_google_maps", "maps_status"),
+        ("google_knowledge_graph", "_has_knowledge_graph", "kg_status"),
+        ("google_bigquery", "_has_bigquery", "bq_status"),
+        ("google_pagespeed", "_has_pagespeed", "pagespeed_status"),
+        ("google_vision", "_has_google_vision", "vision_status"),
+        ("google_cloud_storage", "_has_gcs", "gcs_status"),
+        ("google_ads_analytics", "_has_ads_analytics", "ads_analytics_status"),
+    ]
+    for module_name, flag_name, status_fn_name in _module_checks:
+        loaded = getattr(_app, flag_name, False)
+        if loaded:
+            try:
+                status_fn = getattr(_app, status_fn_name, None)
+                result[module_name] = status_fn() if status_fn else {"loaded": True}
+            except Exception as exc:
+                result[module_name] = {"loaded": True, "error": str(exc)}
+        else:
+            result[module_name] = {"loaded": False}
+    _send_json_response(
+        handler,
+        {
+            "google_integrations": result,
+            "modules_loaded": sum(1 for v in result.values() if v.get("loaded")),
+            "modules_total": len(_module_checks),
+        },
+    )
+
+
 _HEALTH_ROUTE_MAP: dict[str, Any] = {
     "/api/config": _handle_config,
     "/api/features": _handle_features,
@@ -1578,4 +1614,5 @@ _HEALTH_ROUTE_MAP: dict[str, Any] = {
     "/api/health/slo": _handle_health_slo_modules,
     "/api/health/anomalies": _handle_health_anomalies,
     "/api/deploy/ready": _handle_deploy_ready,
+    "/api/google/status": _handle_google_status,
 }
