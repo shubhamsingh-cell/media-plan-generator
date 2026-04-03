@@ -1,0 +1,484 @@
+{
+  "metadata": {
+    "source": "CG Automation - Apex Craigslist Campaign Data",
+    "date_range": "2025-12-11 to 2026-03-29",
+    "last_updated": "2026-04-04",
+    "total_posts": 98665,
+    "locations": 397,
+    "categories": 8
+  },
+  "craigslist_category_benchmarks": {
+    "admin/office": {
+      "posts": 57,
+      "avg_media_cost": 4.39,
+      "avg_impressions": 425.7,
+      "avg_clicks": 88.4,
+      "avg_applies": 52.1,
+      "click_rate_pct": 20.77,
+      "apply_rate_pct": 58.91
+    },
+    "computer gigs": {
+      "posts": 8441,
+      "avg_media_cost": 0.19,
+      "avg_impressions": 59.0,
+      "avg_clicks": 5.2,
+      "avg_applies": 3.2,
+      "click_rate_pct": 8.87,
+      "apply_rate_pct": 60.72
+    },
+    "creative gigs": {
+      "posts": 19752,
+      "avg_media_cost": 0.2,
+      "avg_impressions": 94.5,
+      "avg_clicks": 10.7,
+      "avg_applies": 6.1,
+      "click_rate_pct": 11.34,
+      "apply_rate_pct": 56.68
+    },
+    "crew gigs": {
+      "posts": 5962,
+      "avg_media_cost": 0.18,
+      "avg_impressions": 59.0,
+      "avg_clicks": 6.3,
+      "avg_applies": 3.8,
+      "click_rate_pct": 10.75,
+      "apply_rate_pct": 59.88
+    },
+    "domestic gigs": {
+      "posts": 20324,
+      "avg_media_cost": 0.18,
+      "avg_impressions": 81.3,
+      "avg_clicks": 8.0,
+      "avg_applies": 4.8,
+      "click_rate_pct": 9.79,
+      "apply_rate_pct": 60.66
+    },
+    "event gigs": {
+      "posts": 11193,
+      "avg_media_cost": 0.23,
+      "avg_impressions": 78.7,
+      "avg_clicks": 9.0,
+      "avg_applies": 5.3,
+      "click_rate_pct": 11.48,
+      "apply_rate_pct": 58.36
+    },
+    "labor gigs": {
+      "posts": 21989,
+      "avg_media_cost": 0.25,
+      "avg_impressions": 89.0,
+      "avg_clicks": 8.1,
+      "avg_applies": 4.9,
+      "click_rate_pct": 9.09,
+      "apply_rate_pct": 60.5
+    },
+    "talent gigs": {
+      "posts": 10947,
+      "avg_media_cost": 0.22,
+      "avg_impressions": 96.6,
+      "avg_clicks": 10.2,
+      "avg_applies": 5.7,
+      "click_rate_pct": 10.57,
+      "apply_rate_pct": 56.08
+    }
+  },
+  "craigslist_location_benchmarks": {
+    "portland, OR": {
+      "posts": 1546,
+      "avg_applies": 11.3,
+      "avg_clicks": 18.9,
+      "avg_impressions": 174.0,
+      "avg_media_cost": 0.37
+    },
+    "seattle-tacoma": {
+      "posts": 1502,
+      "avg_applies": 10.5,
+      "avg_clicks": 18.7,
+      "avg_impressions": 151.6,
+      "avg_media_cost": 0.34
+    },
+    "south jersey": {
+      "posts": 1420,
+      "avg_applies": 9.4,
+      "avg_clicks": 17.3,
+      "avg_impressions": 187.9,
+      "avg_media_cost": 0.27
+    },
+    "atlanta, GA": {
+      "posts": 1267,
+      "avg_applies": 9.8,
+      "avg_clicks": 16.0,
+      "avg_impressions": 114.0,
+      "avg_media_cost": 0.43
+    },
+    "san diego": {
+      "posts": 1257,
+      "avg_applies": 10.1,
+      "avg_clicks": 17.7,
+      "avg_impressions": 162.1,
+      "avg_media_cost": 0.34
+    },
+    "chicago": {
+      "posts": 1214,
+      "avg_applies": 8.8,
+      "avg_clicks": 15.5,
+      "avg_impressions": 133.7,
+      "avg_media_cost": 0.35
+    },
+    "sacramento": {
+      "posts": 1190,
+      "avg_applies": 7.1,
+      "avg_clicks": 12.6,
+      "avg_impressions": 149.5,
+      "avg_media_cost": 0.23
+    },
+    "austin, TX": {
+      "posts": 1154,
+      "avg_applies": 6.3,
+      "avg_clicks": 11.2,
+      "avg_impressions": 120.5,
+      "avg_media_cost": 0.36
+    },
+    "phoenix, AZ": {
+      "posts": 1143,
+      "avg_applies": 10.1,
+      "avg_clicks": 16.1,
+      "avg_impressions": 170.9,
+      "avg_media_cost": 0.31
+    },
+    "washington, DC": {
+      "posts": 1140,
+      "avg_applies": 9.4,
+      "avg_clicks": 17.7,
+      "avg_impressions": 150.8,
+      "avg_media_cost": 0.36
+    },
+    "las vegas": {
+      "posts": 1139,
+      "avg_applies": 10.6,
+      "avg_clicks": 17.3,
+      "avg_impressions": 142.2,
+      "avg_media_cost": 0.33
+    },
+    "houston, TX": {
+      "posts": 1125,
+      "avg_applies": 9.7,
+      "avg_clicks": 16.8,
+      "avg_impressions": 145.5,
+      "avg_media_cost": 0.37
+    },
+    "denver, CO": {
+      "posts": 1010,
+      "avg_applies": 10.1,
+      "avg_clicks": 16.8,
+      "avg_impressions": 145.9,
+      "avg_media_cost": 0.33
+    },
+    "eugene, OR": {
+      "posts": 903,
+      "avg_applies": 6.4,
+      "avg_clicks": 11.4,
+      "avg_impressions": 110.8,
+      "avg_media_cost": 0.13
+    },
+    "los angeles": {
+      "posts": 848,
+      "avg_applies": 8.9,
+      "avg_clicks": 15.4,
+      "avg_impressions": 142.5,
+      "avg_media_cost": 0.27
+    },
+    "ventura county": {
+      "posts": 832,
+      "avg_applies": 4.8,
+      "avg_clicks": 8.7,
+      "avg_impressions": 103.7,
+      "avg_media_cost": 0.22
+    },
+    "st louis, MO": {
+      "posts": 812,
+      "avg_applies": 7.4,
+      "avg_clicks": 11.9,
+      "avg_impressions": 103.8,
+      "avg_media_cost": 0.23
+    },
+    "spokane / coeur d'alene": {
+      "posts": 740,
+      "avg_applies": 8.2,
+      "avg_clicks": 14.9,
+      "avg_impressions": 122.9,
+      "avg_media_cost": 0.22
+    },
+    "inland empire, CA": {
+      "posts": 721,
+      "avg_applies": 8.6,
+      "avg_clicks": 15.1,
+      "avg_impressions": 162.8,
+      "avg_media_cost": 0.25
+    },
+    "tampa bay area": {
+      "posts": 719,
+      "avg_applies": 9.1,
+      "avg_clicks": 14.5,
+      "avg_impressions": 150.5,
+      "avg_media_cost": 0.31
+    },
+    "modesto, CA": {
+      "posts": 711,
+      "avg_applies": 4.5,
+      "avg_clicks": 7.3,
+      "avg_impressions": 89.3,
+      "avg_media_cost": 0.15
+    },
+    "philadelphia": {
+      "posts": 710,
+      "avg_applies": 7.6,
+      "avg_clicks": 13.6,
+      "avg_impressions": 111.1,
+      "avg_media_cost": 0.26
+    },
+    "norfolk / hampton roads": {
+      "posts": 696,
+      "avg_applies": 5.1,
+      "avg_clicks": 8.8,
+      "avg_impressions": 84.2,
+      "avg_media_cost": 0.25
+    },
+    "minneapolis / st paul": {
+      "posts": 685,
+      "avg_applies": 7.5,
+      "avg_clicks": 14.0,
+      "avg_impressions": 109.9,
+      "avg_media_cost": 0.26
+    },
+    "palm springs, CA": {
+      "posts": 656,
+      "avg_applies": 5.9,
+      "avg_clicks": 8.7,
+      "avg_impressions": 129.1,
+      "avg_media_cost": 0.14
+    },
+    "asheville, NC": {
+      "posts": 632,
+      "avg_applies": 5.0,
+      "avg_clicks": 9.8,
+      "avg_impressions": 99.0,
+      "avg_media_cost": 0.14
+    },
+    "pittsburgh, PA": {
+      "posts": 581,
+      "avg_applies": 7.7,
+      "avg_clicks": 14.3,
+      "avg_impressions": 117.4,
+      "avg_media_cost": 0.21
+    },
+    "boston": {
+      "posts": 571,
+      "avg_applies": 10.8,
+      "avg_clicks": 19.8,
+      "avg_impressions": 157.4,
+      "avg_media_cost": 0.29
+    },
+    "rhode island": {
+      "posts": 571,
+      "avg_applies": 5.9,
+      "avg_clicks": 10.5,
+      "avg_impressions": 95.5,
+      "avg_media_cost": 0.25
+    },
+    "space coast, FL": {
+      "posts": 570,
+      "avg_applies": 4.2,
+      "avg_clicks": 8.2,
+      "avg_impressions": 81.8,
+      "avg_media_cost": 0.15
+    },
+    "raleigh / durham / CH": {
+      "posts": 568,
+      "avg_applies": 5.8,
+      "avg_clicks": 9.7,
+      "avg_impressions": 99.2,
+      "avg_media_cost": 0.26
+    },
+    "treasure coast, FL": {
+      "posts": 566,
+      "avg_applies": 5.0,
+      "avg_clicks": 9.1,
+      "avg_impressions": 96.5,
+      "avg_media_cost": 0.15
+    },
+    "corvallis/albany": {
+      "posts": 558,
+      "avg_applies": 2.9,
+      "avg_clicks": 5.7,
+      "avg_impressions": 80.5,
+      "avg_media_cost": 0.13
+    },
+    "orange county, CA": {
+      "posts": 555,
+      "avg_applies": 7.0,
+      "avg_clicks": 12.2,
+      "avg_impressions": 138.4,
+      "avg_media_cost": 0.25
+    },
+    "salem, OR": {
+      "posts": 553,
+      "avg_applies": 5.3,
+      "avg_clicks": 8.9,
+      "avg_impressions": 106.3,
+      "avg_media_cost": 0.12
+    },
+    "long island, NY": {
+      "posts": 548,
+      "avg_applies": 6.6,
+      "avg_clicks": 12.5,
+      "avg_impressions": 123.6,
+      "avg_media_cost": 0.18
+    },
+    "san antonio": {
+      "posts": 547,
+      "avg_applies": 6.5,
+      "avg_clicks": 11.2,
+      "avg_impressions": 123.6,
+      "avg_media_cost": 0.27
+    },
+    "orlando, FL": {
+      "posts": 537,
+      "avg_applies": 6.8,
+      "avg_clicks": 12.1,
+      "avg_impressions": 115.3,
+      "avg_media_cost": 0.3
+    },
+    "sarasota-bradenton": {
+      "posts": 527,
+      "avg_applies": 5.5,
+      "avg_clicks": 8.6,
+      "avg_impressions": 95.5,
+      "avg_media_cost": 0.26
+    },
+    "reno / tahoe": {
+      "posts": 519,
+      "avg_applies": 4.5,
+      "avg_clicks": 7.2,
+      "avg_impressions": 86.1,
+      "avg_media_cost": 0.14
+    },
+    "tulsa, OK": {
+      "posts": 511,
+      "avg_applies": 4.9,
+      "avg_clicks": 8.5,
+      "avg_impressions": 73.9,
+      "avg_media_cost": 0.24
+    },
+    "new orleans": {
+      "posts": 502,
+      "avg_applies": 5.0,
+      "avg_clicks": 8.6,
+      "avg_impressions": 67.3,
+      "avg_media_cost": 0.32
+    },
+    "oregon coast": {
+      "posts": 488,
+      "avg_applies": 5.5,
+      "avg_clicks": 9.2,
+      "avg_impressions": 78.9,
+      "avg_media_cost": 0.15
+    },
+    "north jersey": {
+      "posts": 485,
+      "avg_applies": 4.9,
+      "avg_clicks": 8.8,
+      "avg_impressions": 113.5,
+      "avg_media_cost": 0.29
+    },
+    "tucson, AZ": {
+      "posts": 485,
+      "avg_applies": 5.7,
+      "avg_clicks": 12.0,
+      "avg_impressions": 119.5,
+      "avg_media_cost": 0.23
+    },
+    "jersey shore": {
+      "posts": 481,
+      "avg_applies": 3.9,
+      "avg_clicks": 7.8,
+      "avg_impressions": 69.8,
+      "avg_media_cost": 0.24
+    },
+    "hawaii": {
+      "posts": 475,
+      "avg_applies": 5.5,
+      "avg_clicks": 9.4,
+      "avg_impressions": 145.1,
+      "avg_media_cost": 0.22
+    },
+    "daytona beach": {
+      "posts": 473,
+      "avg_applies": 5.8,
+      "avg_clicks": 9.7,
+      "avg_impressions": 89.5,
+      "avg_media_cost": 0.15
+    },
+    "stockton, CA": {
+      "posts": 466,
+      "avg_applies": 3.4,
+      "avg_clicks": 6.0,
+      "avg_impressions": 85.8,
+      "avg_media_cost": 0.14
+    },
+    "lakeland, FL": {
+      "posts": 464,
+      "avg_applies": 3.3,
+      "avg_clicks": 4.6,
+      "avg_impressions": 76.7,
+      "avg_media_cost": 0.15
+    }
+  },
+  "craigslist_template_benchmarks": {},
+  "craigslist_day_of_week_patterns": {
+    "Friday": {
+      "posts": 14448,
+      "avg_applies": 4.93,
+      "avg_clicks": 8.39
+    },
+    "Monday": {
+      "posts": 13577,
+      "avg_applies": 5.1,
+      "avg_clicks": 8.66
+    },
+    "Saturday": {
+      "posts": 13572,
+      "avg_applies": 5.12,
+      "avg_clicks": 8.7
+    },
+    "Sunday": {
+      "posts": 13569,
+      "avg_applies": 5.26,
+      "avg_clicks": 8.95
+    },
+    "Thursday": {
+      "posts": 14198,
+      "avg_applies": 5.13,
+      "avg_clicks": 8.77
+    },
+    "Tuesday": {
+      "posts": 14555,
+      "avg_applies": 4.94,
+      "avg_clicks": 8.36
+    },
+    "Wednesday": {
+      "posts": 14746,
+      "avg_applies": 5.01,
+      "avg_clicks": 8.59
+    }
+  },
+  "key_insights": [
+    "98,665 Craigslist posts across 397 US locations, 8 categories (Dec 2025-Mar 2026)",
+    "Admin/Office has highest apply rate (52.1 avg applies) but smallest volume (57 posts)",
+    "Creative gigs (6.07 applies) and Talent gigs (5.73) are best high-volume categories",
+    "Computer gigs underperform (3.18 avg applies) despite demand",
+    "Average media cost per post: $0.21, average impressions: 84, clicks: 8.6, applies: 5.1",
+    "GIG template type dominates (99.9%) vs JOB (0.1%)",
+    "Portland OR, Seattle, South Jersey, Atlanta are top-volume locations",
+    "Cross-channel insight: CL apply rate ~60% (clicks-to-applies) vs LinkedIn ~8-10% (views-to-applies) -- CL more efficient per click but lower reach"
+  ]
+}

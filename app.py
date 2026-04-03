@@ -1296,6 +1296,8 @@ _FRAGMENT_MAP: dict[str, str] = {
     "compliance-guard": "compliance-guard.html",
     "audit": "audit.html",
     "nova": "nova.html",
+    # ── SlotOps ──
+    "slotops": "slotops.html",
     # ── Utility fragments ──
     "api-portal": "api-portal.html",
     "dashboard": "hub.html",
@@ -1695,6 +1697,8 @@ def load_knowledge_base() -> dict:
         "google_ads_benchmarks": "google_ads_2025_benchmarks.json",
         "external_benchmarks": "external_benchmarks_2025.json",
         "client_media_plans": "client_media_plans_kb.json",
+        "linkedin_performance": "linkedin_performance_benchmarks.json",
+        "craigslist_performance": "craigslist_performance_benchmarks.json",
     }
 
     kb = {}
@@ -9389,6 +9393,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
         from routes.pricing import handle_pricing_get_routes
         from routes.canvas import handle_canvas_get_routes
         from routes.export import handle_export_get_routes
+        from routes.slotops import handle_slotops_get_routes
 
         if handle_health_routes(self, path, parsed):
             return
@@ -9405,6 +9410,8 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
         if handle_canvas_get_routes(self, path, parsed):
             return
         if handle_export_get_routes(self, path, parsed):
+            return
+        if handle_slotops_get_routes(self, path, parsed):
             return
         # NOTE: /plan/shared/<id>, page routes (platform, health-dashboard, etc.)
         # are now handled by routes/pages.py and routes/campaign.py above.
@@ -11577,7 +11584,10 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
         from routes.tts import handle_tts_post_routes
         from routes.diagram import handle_diagram_post_routes
         from routes.canvas import handle_canvas_post_routes
+        from routes.slotops import handle_slotops_post_routes
 
+        if handle_slotops_post_routes(self, path, parsed):
+            return
         if handle_tts_post_routes(self, path, parsed):
             return
         if handle_diagram_post_routes(self, path, parsed):

@@ -1230,6 +1230,8 @@ _TOOL_LABELS: Dict[str, str] = {
     "enrich_entity": "Looking up entity in Knowledge Graph",
     "audit_career_page": "Auditing career page performance",
     "geocode_location": "Geocoding location coordinates",
+    "slotops_predict": "Predicting LinkedIn job performance",
+    "slotops_optimize": "Optimizing LinkedIn slot allocation",
     "translate_text": "Translating text content",
     "analyze_employer_brand": "Analyzing employer brand videos",
     "estimate_meta_campaign": "Estimating Meta campaign costs",
@@ -5202,6 +5204,9 @@ Do NOT generate month-over-month trend alerts, spike warnings, or "critical aler
             "analyze_employer_brand": self._analyze_employer_brand,
             "estimate_meta_campaign": self._estimate_meta_campaign,
             "get_meta_benchmarks": self._get_meta_benchmarks,
+            # S42: SlotOps LinkedIn tools
+            "slotops_predict": self._slotops_predict,
+            "slotops_optimize": self._slotops_optimize,
         }
 
     def execute_tool(self, tool_name: str, tool_input: dict) -> str:
@@ -9906,6 +9911,104 @@ Do NOT generate month-over-month trend alerts, spike warnings, or "critical aler
             }
 
     # ------------------------------------------------------------------
+    # S42: SlotOps tools (LinkedIn Slot Optimization)
+    # ------------------------------------------------------------------
+
+    def _slotops_predict(self, params: dict) -> dict:
+        """Predict LinkedIn job performance using 89K-job baseline data."""
+        try:
+            import slotops_engine as se
+
+            se.load_baselines()
+            country = params.get("country") or ""
+            title = params.get("title") or ""
+
+            result: dict = {"source": "SlotOps LinkedIn Baselines (89K jobs)"}
+
+            # If we have pre-computed optimal_time from direct dispatch
+            if params.get("optimal_time"):
+                result["optimal_posting_time"] = params["optimal_time"]
+                result["avg_apply_rate_pct"] = params.get("avg_apply_rate", 0)
+                result["country"] = country
+                return result
+
+            # Otherwise compute from scratch
+            if country:
+                opt = se.get_optimal_posting_time(country)
+                result["optimal_posting_time"] = opt
+                result["country"] = country
+
+            if title and country:
+                from dataclasses import asdict
+
+                job = se.Job(
+                    job_id="predict",
+                    title=title,
+                    standardized_title=title,
+                    country=country,
+                    location=country,
+                    industry="",
+                    company="",
+                    priority=3,
+                )
+                pred = se.predict_performance(job)
+                result["prediction"] = pred
+                result["score"] = se.score_job(job)
+            elif country:
+                bl = se._baselines or {}
+                cb = (bl.get("country_baselines") or {}).get(country, {})
+                ar = cb.get("apply_rate", {})
+                result["avg_apply_rate_pct"] = (
+                    ar.get("mean", 0) if isinstance(ar, dict) else ar
+                )
+                result["avg_views"] = (
+                    (cb.get("views", {}) or {}).get("mean", 0)
+                    if isinstance(cb.get("views"), dict)
+                    else cb.get("views", 0)
+                )
+                result["sample_size"] = cb.get("sample_size", 0)
+
+            return result
+        except ImportError:
+            return {"error": "SlotOps engine not available", "source": "SlotOps"}
+        except Exception as e:
+            logger.error("slotops_predict failed: %s", e, exc_info=True)
+            return {"error": f"SlotOps prediction failed: {e}", "source": "SlotOps"}
+
+    def _slotops_optimize(self, params: dict) -> dict:
+        """Return LinkedIn slot optimization data from 89K-job baselines."""
+        try:
+            import slotops_engine as se
+
+            se.load_baselines()
+            bl = se._baselines or {}
+            alloc = params.get("allocation") or bl.get("slot_rotation", {}).get(
+                "allocations", []
+            )
+            insights = bl.get("metadata", {})
+            tz = bl.get("timezone_peaks", {})
+
+            # Get top 10 allocations with timezone info
+            top_alloc = alloc[:10] if isinstance(alloc, list) else []
+            for a in top_alloc:
+                country = a.get("country", "")
+                if country in tz:
+                    a["timezone_info"] = tz[country]
+
+            return {
+                "total_slots": 500,
+                "total_jobs_in_baseline": insights.get("total_rows", 88954),
+                "top_allocations": top_alloc,
+                "key_insight": "500 slots can serve 2,500-3,000 jobs/day with 4-hour timezone rotation windows across 11+ countries",
+                "source": "SlotOps LinkedIn Baselines (89K jobs)",
+            }
+        except ImportError:
+            return {"error": "SlotOps engine not available", "source": "SlotOps"}
+        except Exception as e:
+            logger.error("slotops_optimize failed: %s", e, exc_info=True)
+            return {"error": f"SlotOps optimization failed: {e}", "source": "SlotOps"}
+
+    # ------------------------------------------------------------------
     # Chat orchestration
     # ------------------------------------------------------------------
 
@@ -11149,6 +11252,21 @@ Do NOT generate month-over-month trend alerts, spike warnings, or "critical aler
         r"|recruitment\s+video|hiring\s+video|brand\s+(?:on\s+)?youtube)\b",
         re.IGNORECASE,
     )
+    _SLOTOPS_PREDICT_INTENT = re.compile(
+        r"\b(linkedin\s+(?:apply|performance|predict|rate|benchmark)"
+        r"|apply\s+rate\s+(?:for|in|of)|slot\s*ops?\s+predict"
+        r"|job\s+performance\s+(?:on\s+)?linkedin|linkedin\s+(?:views|applies|applications)"
+        r"|best\s+(?:day|time)\s+(?:to\s+)?post\s+(?:on\s+)?linkedin"
+        r"|optimal\s+(?:posting|post)\s+(?:time|day|window))\b",
+        re.IGNORECASE,
+    )
+    _SLOTOPS_OPTIMIZE_INTENT = re.compile(
+        r"\b(slot\s*ops?\s+optimiz|linkedin\s+slot\s+(?:optimiz|rotat|schedul)"
+        r"|rotat(?:e|ion)\s+(?:slots?|schedule|linkedin)"
+        r"|optimiz\w+\s+(?:500|linkedin)\s+slots?"
+        r"|slot\s+allocation|timezone\s+rotation)\b",
+        re.IGNORECASE,
+    )
 
     def _try_direct_tool_dispatch(
         self,
@@ -11225,6 +11343,79 @@ Do NOT generate month-over-month trend alerts, spike warnings, or "critical aler
                 tool_name = "analyze_employer_brand"
                 tool_params = {"company_name": _company.title()}
                 tool_label = "Analyzing employer brand"
+
+        # --- SlotOps predict intent (LinkedIn performance prediction) ---
+        if not tool_name and self._SLOTOPS_PREDICT_INTENT.search(msg_lower):
+            # Extract title and country from the message
+            try:
+                import slotops_engine as _se
+
+                _se.load_baselines()
+                # Try to extract country and title from the query
+                _title = ""
+                _country = ""
+                # Common country detection
+                for _c in [
+                    "united states",
+                    "india",
+                    "united kingdom",
+                    "canada",
+                    "australia",
+                    "germany",
+                    "brazil",
+                    "mexico",
+                    "france",
+                    "netherlands",
+                    "uae",
+                    "singapore",
+                    "japan",
+                    "china",
+                    "ireland",
+                    "new zealand",
+                ]:
+                    if _c in msg_lower:
+                        _country = _c.title()
+                        break
+                if not _country and any(
+                    w in msg_lower for w in ["us", "usa", "america"]
+                ):
+                    _country = "United States"
+                if not _country and "uk" in msg_lower.split():
+                    _country = "United Kingdom"
+                # Use predict_performance or get_optimal_posting_time
+                if _country:
+                    opt = _se.get_optimal_posting_time(_country)
+                    bl = _se._baselines or {}
+                    cb = (bl.get("country_baselines") or {}).get(_country, {})
+                    ar = cb.get("apply_rate", {})
+                    avg_rate = ar.get("mean", 0) if isinstance(ar, dict) else ar
+                    tool_name = "slotops_predict"
+                    tool_params = {
+                        "country": _country,
+                        "optimal_time": opt,
+                        "avg_apply_rate": avg_rate,
+                    }
+                    tool_label = f"LinkedIn performance for {_country}"
+                else:
+                    tool_name = "slotops_predict"
+                    tool_params = {"country": "global", "message": user_message}
+                    tool_label = "LinkedIn performance prediction"
+            except ImportError:
+                pass  # SlotOps not available
+
+        # --- SlotOps optimize intent (slot rotation/optimization) ---
+        if not tool_name and self._SLOTOPS_OPTIMIZE_INTENT.search(msg_lower):
+            try:
+                import slotops_engine as _se
+
+                _se.load_baselines()
+                bl = _se._baselines or {}
+                alloc = bl.get("slot_rotation", {}).get("allocations", [])
+                tool_name = "slotops_optimize"
+                tool_params = {"allocation": alloc[:20], "message": user_message}
+                tool_label = "LinkedIn slot optimization"
+            except ImportError:
+                pass
 
         if not tool_name:
             return None  # No direct dispatch -- fall through to normal routing
@@ -16803,6 +16994,8 @@ _TOOL_SOURCE_MAP: Dict[str, str] = {
     "enrich_entity": "Google Knowledge Graph",
     "audit_career_page": "Google PageSpeed Insights",
     "geocode_location": "Google Maps",
+    "slotops_predict": "SlotOps LinkedIn Baselines (89K jobs)",
+    "slotops_optimize": "SlotOps LinkedIn Baselines (89K jobs)",
     "translate_text": "Google Translate",
     "analyze_employer_brand": "YouTube Data API",
     "estimate_meta_campaign": "Meta Ads (Facebook/Instagram)",

@@ -1,0 +1,4033 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SlotOps -- LinkedIn Slot Optimization | Nova AI Suite</title>
+    <meta
+      name="description"
+      content="SlotOps - LinkedIn Slot Optimization Dashboard. Manage 500 posting slots across global markets with intelligent rotation, job scoring, and performance prediction."
+    />
+    <meta name="theme-color" content="#000000" />
+    <link
+      rel="canonical"
+      href="https://media-plan-generator.onrender.com/slotops"
+    />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%230A66C2'/><text x='16' y='22' text-anchor='middle' fill='white' font-family='Inter,sans-serif' font-weight='800' font-size='14'>SO</text></svg>"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=optional"
+      rel="stylesheet"
+    />
+    <style>
+      /* ── Reset & Root ── */
+      *,
+      *::before,
+      *::after {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      :root {
+        --bg: #000000;
+        --bg-primary: #08080f;
+        --bg-secondary: #0d0d1a;
+        --surface-1: rgba(17, 17, 17, 0.8);
+        --card: rgba(17, 17, 17, 0.8);
+        --card-hover: rgba(26, 26, 26, 0.7);
+        --glass-blur: blur(24px) saturate(1.3);
+        --glass-border: rgba(255, 255, 255, 0.08);
+        --glass-border-hover: rgba(255, 255, 255, 0.16);
+
+        --accent: #5a54bd;
+        --accent-light: #7b75d4;
+        --accent-glow: rgba(90, 84, 189, 0.15);
+        --teal: #6bb3cd;
+        --teal-glow: rgba(107, 179, 205, 0.12);
+        --linkedin: #0a66c2;
+        --linkedin-light: #378fe9;
+        --linkedin-glow: rgba(10, 102, 194, 0.15);
+        --linkedin-bg: rgba(10, 102, 194, 0.08);
+
+        --green: #22c55e;
+        --green-glow: rgba(34, 197, 94, 0.12);
+        --amber: #f59e0b;
+        --amber-glow: rgba(245, 158, 11, 0.12);
+        --red: #ef4444;
+        --red-glow: rgba(239, 68, 68, 0.12);
+        --gray-slot: #3f3f46;
+
+        --text: #e4e4e7;
+        --text-secondary: #a1a1aa;
+        --text-muted: #71717a;
+        --border: rgba(255, 255, 255, 0.08);
+        --border-hover: rgba(255, 255, 255, 0.14);
+        --border-accent: rgba(90, 84, 189, 0.3);
+
+        --gradient-primary: linear-gradient(135deg, #5a54bd 0%, #7b75d4 100%);
+        --gradient-accent: linear-gradient(135deg, #5a54bd 0%, #6bb3cd 100%);
+        --gradient-linkedin: linear-gradient(135deg, #0a66c2 0%, #378fe9 100%);
+        --gradient-mesh:
+          radial-gradient(
+            ellipse at 20% 50%,
+            rgba(10, 102, 194, 0.06) 0%,
+            transparent 50%
+          ),
+          radial-gradient(
+            ellipse at 80% 20%,
+            rgba(90, 84, 189, 0.05) 0%,
+            transparent 50%
+          ),
+          radial-gradient(
+            ellipse at 40% 80%,
+            rgba(107, 179, 205, 0.04) 0%,
+            transparent 50%
+          );
+
+        --shadow-md:
+          0 4px 12px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3);
+        --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
+        --shadow-glow: 0 0 20px rgba(10, 102, 194, 0.15);
+
+        --radius: 12px;
+        --radius-sm: 8px;
+        --radius-lg: 16px;
+        --radius-xl: 20px;
+
+        --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+        --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+        --duration-fast: 150ms;
+        --duration-normal: 200ms;
+        --duration-slow: 300ms;
+
+        --focus-ring: 0 0 0 2px var(--bg), 0 0 0 4px var(--linkedin);
+
+        --font-display: "Space Grotesk", sans-serif;
+        --font-sans:
+          "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          sans-serif;
+        --font-mono: "SF Mono", "Fira Code", monospace;
+      }
+
+      /* ── Accessibility ── */
+      .skip-nav {
+        position: absolute;
+        top: -40px;
+        left: 0;
+        background: var(--linkedin);
+        color: #fff;
+        padding: 8px 16px;
+        z-index: 10000;
+        transition: top 0.3s;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 0.85rem;
+      }
+      .skip-nav:focus {
+        top: 0;
+      }
+      :focus-visible {
+        outline: 2px solid var(--linkedin);
+        outline-offset: 2px;
+      }
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border-width: 0;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation-duration: 0.01ms !important;
+          transition-duration: 0.01ms !important;
+        }
+        html {
+          scroll-behavior: auto;
+        }
+      }
+
+      /* ── Base ── */
+      html {
+        scroll-behavior: smooth;
+      }
+      ::selection {
+        background: var(--linkedin);
+        color: white;
+      }
+      body {
+        font-family: var(--font-sans);
+        background: var(--bg);
+        color: var(--text);
+        min-height: 100vh;
+        font-size: 16px;
+        line-height: 1.5;
+        -webkit-font-smoothing: antialiased;
+      }
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background: var(--gradient-mesh);
+        pointer-events: none;
+        z-index: 0;
+      }
+
+      h1,
+      h2,
+      h3 {
+        font-family: var(--font-display);
+        letter-spacing: -0.02em;
+        line-height: 1.2;
+      }
+
+      /* ── Layout ── */
+      .page-wrapper {
+        position: relative;
+        z-index: 1;
+        max-width: 1320px;
+        margin: 0 auto;
+        padding: 1.5rem 1.5rem 4rem;
+      }
+
+      /* ── Header ── */
+      .page-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1.5rem;
+        flex-wrap: wrap;
+        gap: 1rem;
+      }
+      .header-left {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+      }
+      .back-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: var(--text-secondary);
+        text-decoration: none;
+        font-size: 0.875rem;
+        padding: 0.5rem 0;
+        min-height: 44px;
+        transition: color var(--duration-normal);
+      }
+      .back-link:hover {
+        color: var(--linkedin-light);
+      }
+      .back-link:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
+        border-radius: 4px;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+      }
+      .brand-icon {
+        width: 40px;
+        height: 40px;
+        background: var(--gradient-linkedin);
+        border-radius: var(--radius-sm);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+      .brand-icon svg {
+        width: 22px;
+        height: 22px;
+        fill: white;
+      }
+      .brand-text h1 {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--text);
+      }
+      .brand-text p {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        font-weight: 500;
+      }
+      .header-right {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+      }
+      .utc-clock {
+        font-family: var(--font-mono);
+        font-size: 0.8125rem;
+        color: var(--linkedin-light);
+        background: var(--linkedin-bg);
+        border: 1px solid rgba(10, 102, 194, 0.2);
+        padding: 0.375rem 0.75rem;
+        border-radius: var(--radius-sm);
+        white-space: nowrap;
+      }
+      .badge-product {
+        font-size: 0.625rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--linkedin-light);
+        background: var(--linkedin-bg);
+        border: 1px solid rgba(10, 102, 194, 0.25);
+        padding: 0.25rem 0.625rem;
+        border-radius: var(--radius-sm);
+      }
+
+      /* ── Tab Navigation ── */
+      .tab-nav {
+        display: flex;
+        gap: 0.25rem;
+        margin-bottom: 1.5rem;
+        border-bottom: 1px solid var(--border);
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+      }
+      .tab-nav::-webkit-scrollbar {
+        display: none;
+      }
+      .tab-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1.25rem;
+        font-size: 0.8125rem;
+        font-weight: 600;
+        font-family: var(--font-sans);
+        color: var(--text-muted);
+        background: none;
+        border: none;
+        border-bottom: 2px solid transparent;
+        cursor: pointer;
+        white-space: nowrap;
+        transition:
+          color var(--duration-normal),
+          border-color var(--duration-normal);
+        min-height: 44px;
+      }
+      .tab-btn:hover {
+        color: var(--text-secondary);
+      }
+      .tab-btn[aria-selected="true"] {
+        color: var(--linkedin-light);
+        border-bottom-color: var(--linkedin);
+      }
+      .tab-btn:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
+        border-radius: 4px 4px 0 0;
+      }
+      .tab-btn svg {
+        width: 16px;
+        height: 16px;
+        flex-shrink: 0;
+      }
+
+      /* ── Tab Panels ── */
+      .tab-panel {
+        display: none;
+        animation: fadeSlideIn 300ms var(--ease-out);
+      }
+      .tab-panel[aria-hidden="false"] {
+        display: block;
+      }
+      @keyframes fadeSlideIn {
+        from {
+          opacity: 0;
+          transform: translateY(12px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /* ── Glass Card ── */
+      .glass-card {
+        background: var(--card);
+        backdrop-filter: var(--glass-blur);
+        border: 1px solid var(--glass-border);
+        border-radius: var(--radius-lg);
+        padding: 1.5rem;
+        box-shadow: var(--shadow-md);
+        margin-bottom: 1.25rem;
+        transition: border-color var(--duration-normal);
+      }
+      .glass-card:hover {
+        border-color: var(--glass-border-hover);
+      }
+      .card-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        margin-bottom: 1.25rem;
+      }
+      .card-title {
+        font-size: 1rem;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 0.625rem;
+      }
+      .card-title .icon {
+        width: 32px;
+        height: 32px;
+        background: var(--gradient-linkedin);
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+      .card-title .icon svg {
+        width: 16px;
+        height: 16px;
+        fill: white;
+      }
+
+      /* ── Metrics Row ── */
+      .metrics-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1.25rem;
+      }
+      .metric-card {
+        background: var(--card);
+        backdrop-filter: var(--glass-blur);
+        border: 1px solid var(--glass-border);
+        border-radius: var(--radius);
+        padding: 1.25rem;
+        transition:
+          border-color var(--duration-normal),
+          transform var(--duration-normal);
+      }
+      .metric-card:hover {
+        border-color: var(--glass-border-hover);
+        transform: translateY(-2px);
+      }
+      .metric-label {
+        font-size: 0.6875rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 0.5rem;
+      }
+      .metric-value {
+        font-size: 1.75rem;
+        font-weight: 800;
+        font-family: var(--font-display);
+        letter-spacing: -0.02em;
+      }
+      .metric-value.linkedin-color {
+        color: var(--linkedin-light);
+      }
+      .metric-value.green-color {
+        color: var(--green);
+      }
+      .metric-value.amber-color {
+        color: var(--amber);
+      }
+      .metric-value.teal-color {
+        color: var(--teal);
+      }
+      .metric-sub {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        margin-top: 0.25rem;
+      }
+
+      /* ── Country Status Cards ── */
+      .country-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 1rem;
+      }
+      .country-card {
+        background: var(--card);
+        backdrop-filter: var(--glass-blur);
+        border: 1px solid var(--glass-border);
+        border-radius: var(--radius);
+        padding: 1rem 1.25rem;
+        transition: border-color var(--duration-normal);
+      }
+      .country-card:hover {
+        border-color: rgba(10, 102, 194, 0.3);
+      }
+      .country-name {
+        font-size: 0.875rem;
+        font-weight: 700;
+        margin-bottom: 0.625rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+      .country-flag {
+        font-size: 1.125rem;
+        line-height: 1;
+      }
+      .country-stats {
+        display: flex;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+      }
+      .country-stat {
+        font-size: 0.6875rem;
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+      }
+      .stat-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+      .stat-dot.active {
+        background: var(--green);
+      }
+      .stat-dot.queued {
+        background: var(--amber);
+      }
+      .stat-dot.idle {
+        background: var(--gray-slot);
+      }
+      .country-peak {
+        font-size: 0.6875rem;
+        color: var(--text-muted);
+        margin-top: 0.5rem;
+      }
+
+      /* ── Peak Timeline ── */
+      .timeline-container {
+        overflow-x: auto;
+        margin-bottom: 1.25rem;
+      }
+      .peak-timeline {
+        min-width: 700px;
+        width: 100%;
+      }
+      .timeline-header {
+        display: flex;
+        padding-left: 120px;
+        margin-bottom: 0.5rem;
+      }
+      .timeline-hour {
+        flex: 1;
+        text-align: center;
+        font-size: 0.625rem;
+        color: var(--text-muted);
+        font-weight: 600;
+        font-family: var(--font-mono);
+      }
+      .timeline-row {
+        display: flex;
+        align-items: center;
+        margin-bottom: 0.375rem;
+      }
+      .timeline-label {
+        width: 120px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        flex-shrink: 0;
+        padding-right: 0.75rem;
+        text-align: right;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .timeline-bar-track {
+        flex: 1;
+        height: 24px;
+        background: rgba(255, 255, 255, 0.02);
+        border-radius: 4px;
+        position: relative;
+        overflow: hidden;
+      }
+      .timeline-bar-fill {
+        position: absolute;
+        height: 100%;
+        background: var(--linkedin-bg);
+        border: 1px solid rgba(10, 102, 194, 0.25);
+        border-radius: 4px;
+        transition: opacity var(--duration-normal);
+      }
+      .timeline-bar-fill:hover {
+        background: rgba(10, 102, 194, 0.15);
+      }
+      .timeline-bar-fill.evening {
+        background: rgba(90, 84, 189, 0.1);
+        border-color: rgba(90, 84, 189, 0.25);
+      }
+      .timeline-bar-fill.evening:hover {
+        background: rgba(90, 84, 189, 0.18);
+      }
+      .timeline-now-line {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: var(--red);
+        z-index: 2;
+        pointer-events: none;
+      }
+      .timeline-now-line::before {
+        content: "NOW";
+        position: absolute;
+        top: -16px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 0.5625rem;
+        font-weight: 700;
+        color: var(--red);
+        letter-spacing: 0.05em;
+      }
+
+      /* ── Slot Grid (Tab 2) ── */
+      .slot-controls {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 1.25rem;
+        flex-wrap: wrap;
+      }
+      .slot-filter {
+        padding: 0.5rem 0.875rem;
+        font-size: 0.8125rem;
+        font-family: var(--font-sans);
+        color: var(--text);
+        background: var(--surface-1);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        min-height: 40px;
+        cursor: pointer;
+        -webkit-appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23818CF8' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 0.625rem center;
+        padding-right: 2.25rem;
+      }
+      .slot-filter:focus {
+        border-color: var(--linkedin);
+        box-shadow: 0 0 0 3px var(--linkedin-glow);
+      }
+      .slot-stats-bar {
+        display: flex;
+        gap: 1.25rem;
+        flex-wrap: wrap;
+      }
+      .slot-stat {
+        display: flex;
+        align-items: center;
+        gap: 0.375rem;
+        font-size: 0.8125rem;
+        font-weight: 600;
+      }
+      .slot-stat-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 3px;
+      }
+      .slot-stat-dot.active {
+        background: var(--green);
+      }
+      .slot-stat-dot.queued {
+        background: var(--amber);
+      }
+      .slot-stat-dot.closing {
+        background: var(--red);
+      }
+      .slot-stat-dot.idle {
+        background: var(--gray-slot);
+      }
+
+      .slot-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(14px, 1fr));
+        gap: 3px;
+        padding: 1rem;
+        background: rgba(0, 0, 0, 0.3);
+        border-radius: var(--radius);
+        border: 1px solid var(--border);
+        max-width: 100%;
+      }
+      .slot-cell {
+        aspect-ratio: 1;
+        border-radius: 3px;
+        cursor: pointer;
+        transition:
+          transform var(--duration-fast),
+          box-shadow var(--duration-fast);
+        position: relative;
+        min-width: 12px;
+        min-height: 12px;
+      }
+      .slot-cell:hover {
+        transform: scale(1.8);
+        z-index: 10;
+        box-shadow: 0 0 8px rgba(255, 255, 255, 0.2);
+      }
+      .slot-cell:focus-visible {
+        outline: 2px solid white;
+        outline-offset: 1px;
+        z-index: 10;
+      }
+      .slot-cell.active {
+        background: var(--green);
+      }
+      .slot-cell.queued {
+        background: var(--amber);
+      }
+      .slot-cell.closing {
+        background: var(--red);
+      }
+      .slot-cell.idle {
+        background: var(--gray-slot);
+      }
+
+      .slot-detail-panel {
+        display: none;
+        background: var(--card);
+        border: 1px solid rgba(10, 102, 194, 0.3);
+        border-radius: var(--radius);
+        padding: 1.25rem;
+        margin-top: 1rem;
+        animation: fadeSlideIn 200ms var(--ease-out);
+      }
+      .slot-detail-panel.visible {
+        display: block;
+      }
+      .slot-detail-panel h3 {
+        font-size: 0.9375rem;
+        font-weight: 700;
+        margin-bottom: 0.75rem;
+        color: var(--linkedin-light);
+      }
+      .slot-detail-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 0.75rem;
+      }
+      .slot-detail-item {
+        font-size: 0.8125rem;
+      }
+      .slot-detail-item .label {
+        color: var(--text-muted);
+        font-size: 0.6875rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .slot-detail-item .value {
+        font-weight: 600;
+        margin-top: 0.125rem;
+      }
+
+      /* ── Rotation Queue (Tab 3) ── */
+      .rotation-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+      }
+      .rotation-item {
+        display: grid;
+        grid-template-columns: 160px 1fr 100px 100px;
+        align-items: center;
+        gap: 1rem;
+        padding: 1rem 1.25rem;
+        background: var(--card);
+        border: 1px solid var(--glass-border);
+        border-radius: var(--radius);
+        transition: border-color var(--duration-normal);
+      }
+      .rotation-item:hover {
+        border-color: rgba(10, 102, 194, 0.25);
+      }
+      @media (max-width: 768px) {
+        .rotation-item {
+          grid-template-columns: 1fr 1fr;
+          gap: 0.5rem;
+        }
+      }
+      .rotation-country {
+        font-weight: 700;
+        font-size: 0.9375rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+      .rotation-tz {
+        font-size: 0.6875rem;
+        color: var(--text-muted);
+        display: block;
+        margin-top: 0.125rem;
+      }
+      .rotation-peak-bars {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+      }
+      .peak-tag {
+        font-size: 0.6875rem;
+        font-weight: 600;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        white-space: nowrap;
+      }
+      .peak-tag.morning {
+        color: var(--linkedin-light);
+        background: var(--linkedin-bg);
+        border: 1px solid rgba(10, 102, 194, 0.2);
+      }
+      .peak-tag.evening {
+        color: var(--accent-light);
+        background: rgba(90, 84, 189, 0.08);
+        border: 1px solid rgba(90, 84, 189, 0.2);
+      }
+      .rotation-slots {
+        text-align: center;
+        font-weight: 700;
+        font-size: 1.125rem;
+        color: var(--linkedin-light);
+      }
+      .rotation-slots .sub {
+        font-size: 0.625rem;
+        color: var(--text-muted);
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        display: block;
+      }
+      .rotation-queued {
+        text-align: center;
+        font-weight: 700;
+        font-size: 1.125rem;
+        color: var(--amber);
+      }
+      .rotation-queued .sub {
+        font-size: 0.625rem;
+        color: var(--text-muted);
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        display: block;
+      }
+
+      .alloc-bar-container {
+        margin-top: 1rem;
+      }
+      .alloc-row {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 0.5rem;
+      }
+      .alloc-label {
+        width: 100px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        text-align: right;
+        flex-shrink: 0;
+      }
+      .alloc-track {
+        flex: 1;
+        height: 20px;
+        background: rgba(255, 255, 255, 0.03);
+        border-radius: 4px;
+        overflow: hidden;
+      }
+      .alloc-fill {
+        height: 100%;
+        background: var(--gradient-linkedin);
+        border-radius: 4px;
+        transition: width 600ms var(--ease-out);
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        padding-right: 0.5rem;
+        font-size: 0.625rem;
+        font-weight: 700;
+        color: white;
+        min-width: 28px;
+      }
+
+      /* ── 24h Visual Timeline ── */
+      .cycle-timeline {
+        position: relative;
+        height: 60px;
+        background: rgba(255, 255, 255, 0.02);
+        border-radius: var(--radius);
+        border: 1px solid var(--border);
+        margin-top: 1.25rem;
+        overflow: hidden;
+      }
+      .cycle-segment {
+        position: absolute;
+        top: 8px;
+        bottom: 8px;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.5625rem;
+        font-weight: 700;
+        color: white;
+        letter-spacing: 0.03em;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        padding: 0 4px;
+      }
+      .cycle-hour-markers {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        display: flex;
+        height: 14px;
+      }
+      .cycle-hour-mark {
+        flex: 1;
+        text-align: center;
+        font-size: 0.5rem;
+        color: var(--text-muted);
+        font-family: var(--font-mono);
+        border-left: 1px solid rgba(255, 255, 255, 0.04);
+      }
+
+      /* ── Job Assignment (Tab 4) ── */
+      .upload-area {
+        margin-bottom: 1.25rem;
+      }
+      .upload-tabs {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+      }
+      .upload-tab-btn {
+        padding: 0.5rem 1rem;
+        font-size: 0.8125rem;
+        font-weight: 600;
+        font-family: var(--font-sans);
+        color: var(--text-muted);
+        background: transparent;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        transition: all var(--duration-normal);
+        min-height: 36px;
+      }
+      .upload-tab-btn.active {
+        color: var(--linkedin-light);
+        border-color: rgba(10, 102, 194, 0.4);
+        background: var(--linkedin-bg);
+      }
+      .upload-panel {
+        display: none;
+      }
+      .upload-panel.visible {
+        display: block;
+      }
+      textarea.job-input {
+        width: 100%;
+        min-height: 140px;
+        padding: 1rem;
+        font-size: 0.8125rem;
+        font-family: var(--font-mono);
+        color: var(--text);
+        background: rgba(0, 0, 0, 0.3);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        resize: vertical;
+        line-height: 1.5;
+      }
+      textarea.job-input:focus {
+        border-color: var(--linkedin);
+        box-shadow: 0 0 0 3px var(--linkedin-glow);
+        outline: none;
+      }
+      textarea.job-input::placeholder {
+        color: var(--text-muted);
+      }
+
+      .manual-form {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 1rem;
+      }
+      @media (max-width: 768px) {
+        .manual-form {
+          grid-template-columns: 1fr;
+        }
+      }
+      .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.375rem;
+      }
+      .form-group label {
+        font-size: 0.6875rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .form-group input,
+      .form-group select {
+        width: 100%;
+        padding: 0.625rem 0.875rem;
+        font-size: 0.875rem;
+        font-family: var(--font-sans);
+        color: var(--text);
+        background: rgba(17, 17, 17, 0.8);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        min-height: 40px;
+        -webkit-appearance: none;
+      }
+      .form-group input:focus,
+      .form-group select:focus {
+        border-color: var(--linkedin);
+        box-shadow: 0 0 0 3px var(--linkedin-glow);
+        outline: none;
+      }
+      .form-group select {
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%230A66C2' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 0.625rem center;
+        padding-right: 2.25rem;
+        cursor: pointer;
+      }
+      .form-group input::placeholder {
+        color: var(--text-muted);
+      }
+
+      .btn-row {
+        display: flex;
+        gap: 0.75rem;
+        margin-top: 1rem;
+        flex-wrap: wrap;
+      }
+      .btn-primary {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1.5rem;
+        font-size: 0.875rem;
+        font-weight: 700;
+        font-family: var(--font-sans);
+        color: white;
+        background: var(--gradient-linkedin);
+        border: none;
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        min-height: 44px;
+        transition: all var(--duration-normal);
+        box-shadow: 0 4px 16px rgba(10, 102, 194, 0.25);
+        position: relative;
+        overflow: hidden;
+      }
+      .btn-primary:hover:not(:disabled) {
+        box-shadow: 0 6px 24px rgba(10, 102, 194, 0.4);
+        transform: translateY(-1px);
+      }
+      .btn-primary:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      .btn-primary:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
+      }
+      .btn-secondary {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1.5rem;
+        font-size: 0.875rem;
+        font-weight: 600;
+        font-family: var(--font-sans);
+        color: var(--text-secondary);
+        background: transparent;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        min-height: 44px;
+        transition: all var(--duration-normal);
+      }
+      .btn-secondary:hover {
+        border-color: var(--border-hover);
+        color: var(--text);
+      }
+      .btn-secondary:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
+      }
+      .btn-add-job {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.375rem;
+        padding: 0.5rem 0.875rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        font-family: var(--font-sans);
+        color: var(--green);
+        background: rgba(34, 197, 94, 0.08);
+        border: 1px solid rgba(34, 197, 94, 0.25);
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        min-height: 36px;
+        transition: background var(--duration-normal);
+      }
+      .btn-add-job:hover {
+        background: rgba(34, 197, 94, 0.15);
+      }
+
+      /* Score table */
+      .score-table-wrap {
+        overflow-x: auto;
+        margin-top: 1.25rem;
+      }
+      .score-table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      .score-table th,
+      .score-table td {
+        padding: 0.75rem 1rem;
+        text-align: left;
+        font-size: 0.8125rem;
+        border-bottom: 1px solid var(--border);
+      }
+      .score-table th {
+        font-weight: 600;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        font-size: 0.625rem;
+        letter-spacing: 0.06em;
+        cursor: pointer;
+        user-select: none;
+        white-space: nowrap;
+        transition: color var(--duration-normal);
+      }
+      .score-table th:hover {
+        color: var(--linkedin-light);
+      }
+      .score-table th.sorted-asc::after {
+        content: " ^";
+      }
+      .score-table th.sorted-desc::after {
+        content: " v";
+      }
+      .score-table td {
+        color: var(--text);
+      }
+      .score-table tr:hover td {
+        background: rgba(255, 255, 255, 0.02);
+      }
+      .score-table .drag-handle {
+        cursor: grab;
+        color: var(--text-muted);
+        padding-right: 0.5rem;
+        user-select: none;
+      }
+      .score-table .drag-handle:active {
+        cursor: grabbing;
+      }
+      .score-badge {
+        display: inline-block;
+        padding: 0.2rem 0.5rem;
+        font-size: 0.6875rem;
+        font-weight: 700;
+        border-radius: 4px;
+        font-family: var(--font-mono);
+      }
+      .score-badge.high {
+        color: var(--green);
+        background: var(--green-glow);
+      }
+      .score-badge.medium {
+        color: var(--amber);
+        background: var(--amber-glow);
+      }
+      .score-badge.low {
+        color: var(--red);
+        background: var(--red-glow);
+      }
+      .score-breakdown {
+        display: flex;
+        gap: 0.375rem;
+      }
+      .score-segment {
+        font-size: 0.625rem;
+        font-weight: 600;
+        padding: 0.125rem 0.375rem;
+        border-radius: 3px;
+        font-family: var(--font-mono);
+        background: rgba(255, 255, 255, 0.04);
+        color: var(--text-secondary);
+      }
+
+      /* ── Predictor (Tab 5) ── */
+      .predictor-form {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 1rem;
+        margin-bottom: 1.25rem;
+      }
+      @media (max-width: 768px) {
+        .predictor-form {
+          grid-template-columns: 1fr;
+        }
+      }
+      .prediction-results {
+        display: none;
+      }
+      .prediction-results.visible {
+        display: block;
+        animation: fadeSlideIn 300ms var(--ease-out);
+      }
+      .prediction-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1.25rem;
+      }
+      .pred-card {
+        background: var(--card);
+        border: 1px solid var(--glass-border);
+        border-radius: var(--radius);
+        padding: 1rem;
+        text-align: center;
+      }
+      .pred-card .pred-label {
+        font-size: 0.625rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-muted);
+        margin-bottom: 0.375rem;
+      }
+      .pred-card .pred-value {
+        font-size: 1.375rem;
+        font-weight: 800;
+        font-family: var(--font-display);
+        color: var(--linkedin-light);
+      }
+      .pred-card .pred-sub {
+        font-size: 0.6875rem;
+        color: var(--text-muted);
+        margin-top: 0.25rem;
+      }
+
+      /* Gauge */
+      .gauge-container {
+        display: flex;
+        justify-content: center;
+        margin: 1.5rem 0;
+      }
+      .gauge-wrap {
+        position: relative;
+        width: 180px;
+        height: 100px;
+      }
+      .gauge-svg {
+        width: 180px;
+        height: 100px;
+      }
+      .gauge-bg {
+        fill: none;
+        stroke: rgba(255, 255, 255, 0.06);
+        stroke-width: 12;
+      }
+      .gauge-fill {
+        fill: none;
+        stroke: url(#gaugeGradient);
+        stroke-width: 12;
+        stroke-linecap: round;
+        transition: stroke-dashoffset 800ms var(--ease-out);
+      }
+      .gauge-value-text {
+        position: absolute;
+        bottom: 8px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 1.5rem;
+        font-weight: 800;
+        font-family: var(--font-display);
+        color: var(--linkedin-light);
+      }
+      .gauge-label-text {
+        position: absolute;
+        bottom: -4px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 0.625rem;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-weight: 600;
+      }
+
+      /* Comparison */
+      .comparison-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 1rem;
+        margin-top: 1.25rem;
+      }
+      .comparison-col {
+        background: var(--card);
+        border: 1px solid var(--glass-border);
+        border-radius: var(--radius);
+        padding: 1.25rem;
+      }
+      .comparison-col h4 {
+        font-size: 0.875rem;
+        font-weight: 700;
+        margin-bottom: 1rem;
+        color: var(--text);
+      }
+      .comp-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.375rem 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        font-size: 0.8125rem;
+      }
+      .comp-row:last-child {
+        border-bottom: none;
+      }
+      .comp-label {
+        color: var(--text-muted);
+      }
+      .comp-value {
+        font-weight: 700;
+        color: var(--text);
+      }
+
+      /* ── Export (Tab 6) ── */
+      .export-toggle {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 1.25rem;
+      }
+      .toggle-btn {
+        padding: 0.5rem 1rem;
+        font-size: 0.8125rem;
+        font-weight: 600;
+        font-family: var(--font-sans);
+        color: var(--text-muted);
+        background: transparent;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        transition: all var(--duration-normal);
+        min-height: 36px;
+      }
+      .toggle-btn.active {
+        color: var(--linkedin-light);
+        border-color: rgba(10, 102, 194, 0.4);
+        background: var(--linkedin-bg);
+      }
+
+      .schedule-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 1.25rem;
+      }
+      .schedule-table th,
+      .schedule-table td {
+        padding: 0.625rem 0.875rem;
+        text-align: left;
+        font-size: 0.8125rem;
+        border-bottom: 1px solid var(--border);
+      }
+      .schedule-table th {
+        font-weight: 600;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        font-size: 0.625rem;
+        letter-spacing: 0.05em;
+      }
+      .schedule-table td {
+        color: var(--text);
+      }
+
+      .json-preview {
+        background: rgba(0, 0, 0, 0.3);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        padding: 1rem;
+        max-height: 300px;
+        overflow: auto;
+        font-family: var(--font-mono);
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+        line-height: 1.5;
+        white-space: pre-wrap;
+        word-break: break-all;
+      }
+
+      .btn-download {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1.25rem;
+        font-size: 0.875rem;
+        font-weight: 600;
+        font-family: var(--font-sans);
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        min-height: 44px;
+        transition: all var(--duration-normal);
+        text-decoration: none;
+        color: var(--green);
+        background: rgba(34, 197, 94, 0.08);
+        border: 1px solid rgba(34, 197, 94, 0.3);
+      }
+      .btn-download:hover {
+        background: rgba(34, 197, 94, 0.15);
+      }
+      .btn-download:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
+      }
+
+      /* ── Loading spinner ── */
+      .loading-overlay {
+        display: none;
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(4px);
+        border-radius: inherit;
+        z-index: 10;
+        justify-content: center;
+        align-items: center;
+      }
+      .loading-overlay.visible {
+        display: flex;
+      }
+      .spinner {
+        width: 32px;
+        height: 32px;
+        border: 3px solid rgba(255, 255, 255, 0.1);
+        border-top-color: var(--linkedin-light);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* ── Toast ── */
+      .toast {
+        position: fixed;
+        bottom: 2rem;
+        right: 2rem;
+        padding: 0.75rem 1.25rem;
+        font-size: 0.8125rem;
+        font-weight: 600;
+        color: white;
+        background: var(--linkedin);
+        border-radius: var(--radius-sm);
+        box-shadow: var(--shadow-lg);
+        z-index: 9999;
+        transform: translateY(100px);
+        opacity: 0;
+        transition: all 300ms var(--ease-out);
+        pointer-events: none;
+      }
+      .toast.visible {
+        transform: translateY(0);
+        opacity: 1;
+      }
+      .toast.error {
+        background: var(--red);
+      }
+
+      /* ── Responsive ── */
+      @media (max-width: 768px) {
+        .page-header {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+        .metrics-row {
+          grid-template-columns: repeat(2, 1fr);
+        }
+        .slot-grid {
+          grid-template-columns: repeat(auto-fill, minmax(12px, 1fr));
+        }
+        .predictor-form {
+          grid-template-columns: 1fr;
+        }
+        .comparison-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+      @media (max-width: 480px) {
+        .page-wrapper {
+          padding: 1rem;
+        }
+        .metrics-row {
+          grid-template-columns: 1fr;
+        }
+        .manual-form {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <a href="#main-content" class="skip-nav">Skip to main content</a>
+
+    <div class="page-wrapper">
+      <!-- Header -->
+      <header class="page-header">
+        <div class="header-left">
+          <a href="/" class="back-link" aria-label="Back to Nova AI Suite Hub">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="m15 18-6-6 6-6" />
+            </svg>
+            Hub
+          </a>
+          <div class="brand">
+            <div class="brand-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none">
+                <rect x="3" y="3" width="7" height="7" rx="1" fill="white" />
+                <rect
+                  x="14"
+                  y="3"
+                  width="7"
+                  height="7"
+                  rx="1"
+                  fill="white"
+                  opacity="0.7"
+                />
+                <rect
+                  x="3"
+                  y="14"
+                  width="7"
+                  height="7"
+                  rx="1"
+                  fill="white"
+                  opacity="0.5"
+                />
+                <rect
+                  x="14"
+                  y="14"
+                  width="7"
+                  height="7"
+                  rx="1"
+                  fill="white"
+                  opacity="0.3"
+                />
+              </svg>
+            </div>
+            <div class="brand-text">
+              <h1>SlotOps</h1>
+              <p>LinkedIn Slot Optimization</p>
+            </div>
+          </div>
+        </div>
+        <div class="header-right">
+          <span class="badge-product">Product #6</span>
+          <time
+            class="utc-clock"
+            id="utcClock"
+            aria-live="polite"
+            aria-label="Current UTC time"
+            >--:--:-- UTC</time
+          >
+        </div>
+      </header>
+
+      <!-- Tab Navigation -->
+      <nav class="tab-nav" role="tablist" aria-label="SlotOps sections">
+        <button
+          class="tab-btn"
+          role="tab"
+          id="tab-dashboard"
+          aria-controls="panel-dashboard"
+          aria-selected="true"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <rect x="3" y="3" width="7" height="9" rx="1" />
+            <rect x="14" y="3" width="7" height="5" rx="1" />
+            <rect x="14" y="12" width="7" height="9" rx="1" />
+            <rect x="3" y="16" width="7" height="5" rx="1" />
+          </svg>
+          Live Dashboard
+        </button>
+        <button
+          class="tab-btn"
+          role="tab"
+          id="tab-slots"
+          aria-controls="panel-slots"
+          aria-selected="false"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <rect x="3" y="3" width="18" height="18" rx="2" />
+            <path d="M3 9h18M9 21V9" />
+          </svg>
+          Slot Manager
+        </button>
+        <button
+          class="tab-btn"
+          role="tab"
+          id="tab-rotation"
+          aria-controls="panel-rotation"
+          aria-selected="false"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+            <polyline points="21 3 21 9 15 9" />
+          </svg>
+          Rotation Queue
+        </button>
+        <button
+          class="tab-btn"
+          role="tab"
+          id="tab-assignment"
+          aria-controls="panel-assignment"
+          aria-selected="false"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+            <circle cx="9" cy="7" r="4" />
+            <line x1="19" y1="8" x2="19" y2="14" />
+            <line x1="22" y1="11" x2="16" y2="11" />
+          </svg>
+          Job Assignment
+        </button>
+        <button
+          class="tab-btn"
+          role="tab"
+          id="tab-predictor"
+          aria-controls="panel-predictor"
+          aria-selected="false"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+          </svg>
+          Predictor
+        </button>
+        <button
+          class="tab-btn"
+          role="tab"
+          id="tab-export"
+          aria-controls="panel-export"
+          aria-selected="false"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="7 10 12 15 17 10" />
+            <line x1="12" y1="15" x2="12" y2="3" />
+          </svg>
+          Schedule Export
+        </button>
+      </nav>
+
+      <!-- Main Content -->
+      <main id="main-content">
+        <!-- ═══════════════════════════════════════════ -->
+        <!-- TAB 1: Live Dashboard                       -->
+        <!-- ═══════════════════════════════════════════ -->
+        <section
+          class="tab-panel"
+          id="panel-dashboard"
+          role="tabpanel"
+          aria-labelledby="tab-dashboard"
+          aria-hidden="false"
+        >
+          <!-- Summary Metrics -->
+          <div class="metrics-row" id="dashboardMetrics">
+            <div class="metric-card">
+              <div class="metric-label">Total Slots</div>
+              <div class="metric-value linkedin-color" id="metricTotalSlots">
+                500
+              </div>
+              <div class="metric-sub">LinkedIn posting slots</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">Active Slots</div>
+              <div class="metric-value green-color" id="metricActiveSlots">
+                --
+              </div>
+              <div class="metric-sub">Currently posting</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">Jobs in Queue</div>
+              <div class="metric-value amber-color" id="metricJobsQueue">
+                --
+              </div>
+              <div class="metric-sub">Awaiting slot assignment</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">Avg Apply Rate</div>
+              <div class="metric-value teal-color" id="metricApplyRate">--</div>
+              <div class="metric-sub">Applications per posting</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">Total Applications</div>
+              <div class="metric-value linkedin-color" id="metricTotalApps">
+                --
+              </div>
+              <div class="metric-sub">Predicted daily total</div>
+            </div>
+          </div>
+
+          <!-- Peak Window Timeline -->
+          <div class="glass-card">
+            <div class="card-header">
+              <h2 class="card-title">
+                <span class="icon" aria-hidden="true">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="white"
+                    stroke-width="2"
+                  >
+                    <circle cx="12" cy="12" r="10" />
+                    <polyline points="12 6 12 12 16 14" />
+                  </svg>
+                </span>
+                Country Peak Windows (UTC)
+              </h2>
+            </div>
+            <div
+              class="timeline-container"
+              role="img"
+              aria-label="24-hour timeline showing peak posting hours for each country"
+            >
+              <div class="peak-timeline" id="peakTimeline">
+                <div class="timeline-header" id="timelineHeader"></div>
+                <div id="timelineRows"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Country Status Cards -->
+          <div class="glass-card">
+            <div class="card-header">
+              <h2 class="card-title">
+                <span class="icon" aria-hidden="true">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="white"
+                    stroke-width="2"
+                  >
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="2" y1="12" x2="22" y2="12" />
+                    <path
+                      d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"
+                    />
+                  </svg>
+                </span>
+                Country Status
+              </h2>
+            </div>
+            <div class="country-grid" id="countryGrid"></div>
+          </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════ -->
+        <!-- TAB 2: Slot Manager                         -->
+        <!-- ═══════════════════════════════════════════ -->
+        <section
+          class="tab-panel"
+          id="panel-slots"
+          role="tabpanel"
+          aria-labelledby="tab-slots"
+          aria-hidden="true"
+        >
+          <div class="glass-card">
+            <div class="card-header">
+              <h2 class="card-title">
+                <span class="icon" aria-hidden="true">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="white"
+                    stroke-width="2"
+                  >
+                    <rect x="3" y="3" width="18" height="18" rx="2" />
+                    <path d="M3 9h18M9 21V9" />
+                  </svg>
+                </span>
+                500 Slot Grid
+              </h2>
+              <div class="slot-controls">
+                <label for="filterCountry" class="sr-only"
+                  >Filter by Country</label
+                >
+                <select
+                  id="filterCountry"
+                  class="slot-filter"
+                  aria-label="Filter slots by country"
+                >
+                  <option value="all">All Countries</option>
+                </select>
+                <label for="filterStatus" class="sr-only"
+                  >Filter by Status</label
+                >
+                <select
+                  id="filterStatus"
+                  class="slot-filter"
+                  aria-label="Filter slots by status"
+                >
+                  <option value="all">All Status</option>
+                  <option value="active">Active</option>
+                  <option value="queued">Queued</option>
+                  <option value="closing">Closing</option>
+                  <option value="idle">Idle</option>
+                </select>
+              </div>
+            </div>
+            <div
+              class="slot-stats-bar"
+              id="slotStatsBar"
+              aria-label="Slot status summary"
+            ></div>
+            <div
+              class="slot-grid"
+              id="slotGrid"
+              role="grid"
+              aria-label="Visual grid of 500 LinkedIn posting slots"
+            ></div>
+            <div
+              class="slot-detail-panel"
+              id="slotDetail"
+              aria-live="polite"
+            ></div>
+          </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════ -->
+        <!-- TAB 3: Rotation Queue                       -->
+        <!-- ═══════════════════════════════════════════ -->
+        <section
+          class="tab-panel"
+          id="panel-rotation"
+          role="tabpanel"
+          aria-labelledby="tab-rotation"
+          aria-hidden="true"
+        >
+          <div class="glass-card">
+            <div class="card-header">
+              <h2 class="card-title">
+                <span class="icon" aria-hidden="true">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="white"
+                    stroke-width="2"
+                  >
+                    <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                    <polyline points="21 3 21 9 15 9" />
+                  </svg>
+                </span>
+                Rotation Queue by UTC Peak
+              </h2>
+            </div>
+            <div class="rotation-list" id="rotationList"></div>
+          </div>
+
+          <div class="glass-card">
+            <div class="card-header">
+              <h2 class="card-title">
+                <span class="icon" aria-hidden="true">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="white"
+                    stroke-width="2"
+                  >
+                    <circle cx="12" cy="12" r="10" />
+                    <polyline points="12 6 12 12 16 14" />
+                  </svg>
+                </span>
+                Proportional Allocation
+              </h2>
+            </div>
+            <div class="alloc-bar-container" id="allocBars"></div>
+          </div>
+
+          <div class="glass-card">
+            <div class="card-header">
+              <h2 class="card-title">
+                <span class="icon" aria-hidden="true">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="white"
+                    stroke-width="2"
+                  >
+                    <rect x="1" y="3" width="22" height="18" rx="2" />
+                    <line x1="1" y1="9" x2="23" y2="9" />
+                  </svg>
+                </span>
+                24-Hour Rotation Cycle
+              </h2>
+            </div>
+            <div
+              class="cycle-timeline"
+              id="cycleTimeline"
+              role="img"
+              aria-label="24-hour rotation cycle showing active countries at each hour"
+            ></div>
+          </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════ -->
+        <!-- TAB 4: Job Assignment Engine                -->
+        <!-- ═══════════════════════════════════════════ -->
+        <section
+          class="tab-panel"
+          id="panel-assignment"
+          role="tabpanel"
+          aria-labelledby="tab-assignment"
+          aria-hidden="true"
+        >
+          <div class="glass-card" style="position: relative">
+            <div class="loading-overlay" id="assignmentLoading">
+              <div class="spinner"></div>
+            </div>
+            <div class="card-header">
+              <h2 class="card-title">
+                <span class="icon" aria-hidden="true">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="white"
+                    stroke-width="2"
+                  >
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                    <circle cx="9" cy="7" r="4" />
+                    <line x1="19" y1="8" x2="19" y2="14" />
+                    <line x1="22" y1="11" x2="16" y2="11" />
+                  </svg>
+                </span>
+                Job Assignment Engine
+              </h2>
+            </div>
+
+            <!-- Upload tabs -->
+            <div class="upload-tabs">
+              <button
+                class="upload-tab-btn active"
+                data-upload="json"
+                aria-pressed="true"
+              >
+                JSON / CSV Paste
+              </button>
+              <button
+                class="upload-tab-btn"
+                data-upload="manual"
+                aria-pressed="false"
+              >
+                Manual Entry
+              </button>
+            </div>
+
+            <!-- JSON upload -->
+            <div class="upload-panel visible" id="upload-json">
+              <textarea
+                class="job-input"
+                id="jobJsonInput"
+                placeholder='[{"title": "Software Engineer", "country": "US", "priority": "high"}, ...]'
+                aria-label="Paste job data as JSON or CSV"
+              ></textarea>
+            </div>
+
+            <!-- Manual entry -->
+            <div class="upload-panel" id="upload-manual">
+              <div id="manualJobForms">
+                <div class="manual-form" data-job-index="0">
+                  <div class="form-group">
+                    <label for="jobTitle0">Job Title</label>
+                    <input
+                      type="text"
+                      id="jobTitle0"
+                      placeholder="e.g. Software Engineer"
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label for="jobCountry0">Country</label>
+                    <select id="jobCountry0"></select>
+                  </div>
+                  <div class="form-group">
+                    <label for="jobPriority0">Priority</label>
+                    <select id="jobPriority0">
+                      <option value="high">High</option>
+                      <option value="medium" selected>Medium</option>
+                      <option value="low">Low</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+              <button
+                class="btn-add-job"
+                id="btnAddJob"
+                type="button"
+                aria-label="Add another job entry"
+              >
+                + Add Job
+              </button>
+            </div>
+
+            <div class="btn-row">
+              <button class="btn-primary" id="btnOptimize" type="button">
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+                </svg>
+                Optimize
+              </button>
+              <button class="btn-secondary" id="btnClearJobs" type="button">
+                Clear
+              </button>
+            </div>
+          </div>
+
+          <!-- Results -->
+          <div class="glass-card" id="assignmentResults" style="display: none">
+            <div class="card-header">
+              <h2 class="card-title">
+                <span class="icon" aria-hidden="true">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="white"
+                    stroke-width="2"
+                  >
+                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+                  </svg>
+                </span>
+                Scored Job Queue
+              </h2>
+              <div>
+                <label for="sortScoreTable" class="sr-only">Sort by</label>
+                <select
+                  id="sortScoreTable"
+                  class="slot-filter"
+                  aria-label="Sort scored jobs"
+                >
+                  <option value="score-desc">Score (High to Low)</option>
+                  <option value="score-asc">Score (Low to High)</option>
+                  <option value="country">Country</option>
+                  <option value="title">Title</option>
+                </select>
+              </div>
+            </div>
+            <div class="score-table-wrap">
+              <table class="score-table" id="scoreTable">
+                <thead>
+                  <tr>
+                    <th
+                      scope="col"
+                      style="width: 30px"
+                      aria-label="Drag handle"
+                    ></th>
+                    <th scope="col">Rank</th>
+                    <th scope="col">Job Title</th>
+                    <th scope="col">Country</th>
+                    <th scope="col">Score Breakdown</th>
+                    <th scope="col">Final Score</th>
+                  </tr>
+                </thead>
+                <tbody id="scoreTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════ -->
+        <!-- TAB 5: Performance Predictor                -->
+        <!-- ═══════════════════════════════════════════ -->
+        <section
+          class="tab-panel"
+          id="panel-predictor"
+          role="tabpanel"
+          aria-labelledby="tab-predictor"
+          aria-hidden="true"
+        >
+          <div class="glass-card" style="position: relative">
+            <div class="loading-overlay" id="predictorLoading">
+              <div class="spinner"></div>
+            </div>
+            <div class="card-header">
+              <h2 class="card-title">
+                <span class="icon" aria-hidden="true">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="white"
+                    stroke-width="2"
+                  >
+                    <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+                  </svg>
+                </span>
+                Performance Predictor
+              </h2>
+            </div>
+            <div class="predictor-form">
+              <div class="form-group">
+                <label for="predTitle">Job Title</label>
+                <input
+                  type="text"
+                  id="predTitle"
+                  placeholder="e.g. Data Analyst"
+                />
+              </div>
+              <div class="form-group">
+                <label for="predCountry">Country</label>
+                <select id="predCountry"></select>
+              </div>
+              <div class="form-group">
+                <label for="predIndustry">Industry</label>
+                <select id="predIndustry">
+                  <option value="technology">Technology</option>
+                  <option value="finance">Finance & Banking</option>
+                  <option value="healthcare">Healthcare</option>
+                  <option value="manufacturing">Manufacturing</option>
+                  <option value="retail">Retail & E-commerce</option>
+                  <option value="consulting">Consulting</option>
+                  <option value="education">Education</option>
+                  <option value="energy">Energy & Utilities</option>
+                </select>
+              </div>
+            </div>
+            <div class="btn-row">
+              <button class="btn-primary" id="btnPredict" type="button">
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+                </svg>
+                Predict Performance
+              </button>
+              <button class="btn-secondary" id="btnAddComparison" type="button">
+                + Compare
+              </button>
+            </div>
+          </div>
+
+          <!-- Prediction Results -->
+          <div class="prediction-results" id="predictionResults">
+            <div class="glass-card">
+              <div class="card-header">
+                <h2 class="card-title">
+                  <span class="icon" aria-hidden="true">
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="white"
+                      stroke-width="2"
+                    >
+                      <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+                    </svg>
+                  </span>
+                  Prediction Results
+                </h2>
+              </div>
+
+              <!-- Gauge -->
+              <div class="gauge-container">
+                <div class="gauge-wrap">
+                  <svg class="gauge-svg" viewBox="0 0 180 100">
+                    <defs>
+                      <linearGradient
+                        id="gaugeGradient"
+                        x1="0%"
+                        y1="0%"
+                        x2="100%"
+                        y2="0%"
+                      >
+                        <stop offset="0%" stop-color="#ef4444" />
+                        <stop offset="50%" stop-color="#f59e0b" />
+                        <stop offset="100%" stop-color="#22c55e" />
+                      </linearGradient>
+                    </defs>
+                    <path class="gauge-bg" d="M 20 90 A 70 70 0 0 1 160 90" />
+                    <path
+                      class="gauge-fill"
+                      id="gaugeFill"
+                      d="M 20 90 A 70 70 0 0 1 160 90"
+                      stroke-dasharray="220"
+                      stroke-dashoffset="220"
+                    />
+                  </svg>
+                  <div class="gauge-value-text" id="gaugeValue">--</div>
+                  <div class="gauge-label-text">Confidence</div>
+                </div>
+              </div>
+
+              <div class="prediction-cards" id="predictionCards"></div>
+            </div>
+
+            <!-- Comparison -->
+            <div class="comparison-grid" id="comparisonGrid"></div>
+          </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════ -->
+        <!-- TAB 6: Schedule Export                      -->
+        <!-- ═══════════════════════════════════════════ -->
+        <section
+          class="tab-panel"
+          id="panel-export"
+          role="tabpanel"
+          aria-labelledby="tab-export"
+          aria-hidden="true"
+        >
+          <div class="glass-card" style="position: relative">
+            <div class="loading-overlay" id="exportLoading">
+              <div class="spinner"></div>
+            </div>
+            <div class="card-header">
+              <h2 class="card-title">
+                <span class="icon" aria-hidden="true">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="white"
+                    stroke-width="2"
+                  >
+                    <rect x="3" y="4" width="18" height="18" rx="2" />
+                    <line x1="16" y1="2" x2="16" y2="6" />
+                    <line x1="8" y1="2" x2="8" y2="6" />
+                    <line x1="3" y1="10" x2="21" y2="10" />
+                  </svg>
+                </span>
+                Rotation Schedule
+              </h2>
+              <div class="export-toggle">
+                <button
+                  class="toggle-btn active"
+                  data-view="daily"
+                  aria-pressed="true"
+                >
+                  Daily
+                </button>
+                <button
+                  class="toggle-btn"
+                  data-view="weekly"
+                  aria-pressed="false"
+                >
+                  Weekly
+                </button>
+              </div>
+            </div>
+
+            <div class="score-table-wrap">
+              <table class="schedule-table" id="scheduleTable">
+                <thead id="scheduleHead"></thead>
+                <tbody id="scheduleBody"></tbody>
+              </table>
+            </div>
+
+            <div class="btn-row" style="margin-bottom: 1.25rem">
+              <button class="btn-download" id="btnDownloadCSV" type="button">
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+                Download CSV
+              </button>
+              <button
+                class="btn-secondary"
+                id="btnGenerateSchedule"
+                type="button"
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                  <polyline points="21 3 21 9 15 9" />
+                </svg>
+                Regenerate from API
+              </button>
+            </div>
+          </div>
+
+          <!-- JSON Preview -->
+          <div class="glass-card">
+            <div class="card-header">
+              <h2 class="card-title">
+                <span class="icon" aria-hidden="true">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="white"
+                    stroke-width="2"
+                  >
+                    <polyline points="16 18 22 12 16 6" />
+                    <polyline points="8 6 2 12 8 18" />
+                  </svg>
+                </span>
+                API Payload Preview
+              </h2>
+            </div>
+            <pre
+              class="json-preview"
+              id="jsonPreview"
+              aria-label="JSON representation of the rotation schedule"
+            ></pre>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast" role="alert" aria-live="assertive"></div>
+
+    <script>
+      (function () {
+        "use strict";
+
+        /* ════════════════════════════════════════════════
+         DEMO / BASELINE DATA
+         ════════════════════════════════════════════════ */
+        const COUNTRIES = [
+          {
+            code: "US",
+            name: "United States",
+            flag: "\u{1F1FA}\u{1F1F8}",
+            tz: "UTC-5",
+            peakMorning: [13, 17],
+            peakEvening: [22, 2],
+            slots: 120,
+            jobs: 85,
+          },
+          {
+            code: "UK",
+            name: "United Kingdom",
+            flag: "\u{1F1EC}\u{1F1E7}",
+            tz: "UTC+0",
+            peakMorning: [8, 12],
+            peakEvening: [17, 20],
+            slots: 80,
+            jobs: 52,
+          },
+          {
+            code: "DE",
+            name: "Germany",
+            flag: "\u{1F1E9}\u{1F1EA}",
+            tz: "UTC+1",
+            peakMorning: [7, 11],
+            peakEvening: [16, 19],
+            slots: 60,
+            jobs: 41,
+          },
+          {
+            code: "IN",
+            name: "India",
+            flag: "\u{1F1EE}\u{1F1F3}",
+            tz: "UTC+5:30",
+            peakMorning: [3, 7],
+            peakEvening: [12, 16],
+            slots: 70,
+            jobs: 65,
+          },
+          {
+            code: "AU",
+            name: "Australia",
+            flag: "\u{1F1E6}\u{1F1FA}",
+            tz: "UTC+10",
+            peakMorning: [22, 2],
+            peakEvening: [7, 10],
+            slots: 40,
+            jobs: 28,
+          },
+          {
+            code: "CA",
+            name: "Canada",
+            flag: "\u{1F1E8}\u{1F1E6}",
+            tz: "UTC-5",
+            peakMorning: [13, 17],
+            peakEvening: [22, 2],
+            slots: 50,
+            jobs: 36,
+          },
+          {
+            code: "SG",
+            name: "Singapore",
+            flag: "\u{1F1F8}\u{1F1EC}",
+            tz: "UTC+8",
+            peakMorning: [0, 4],
+            peakEvening: [9, 13],
+            slots: 30,
+            jobs: 22,
+          },
+          {
+            code: "AE",
+            name: "UAE",
+            flag: "\u{1F1E6}\u{1F1EA}",
+            tz: "UTC+4",
+            peakMorning: [4, 8],
+            peakEvening: [13, 16],
+            slots: 30,
+            jobs: 18,
+          },
+          {
+            code: "JP",
+            name: "Japan",
+            flag: "\u{1F1EF}\u{1F1F5}",
+            tz: "UTC+9",
+            peakMorning: [23, 3],
+            peakEvening: [8, 11],
+            slots: 20,
+            jobs: 14,
+          },
+        ];
+
+        const DEMO_JOBS = [
+          {
+            title: "Software Engineer",
+            country: "US",
+            priority: "high",
+            industry: "technology",
+          },
+          {
+            title: "Product Manager",
+            country: "US",
+            priority: "high",
+            industry: "technology",
+          },
+          {
+            title: "Data Analyst",
+            country: "UK",
+            priority: "medium",
+            industry: "finance",
+          },
+          {
+            title: "UX Designer",
+            country: "DE",
+            priority: "medium",
+            industry: "technology",
+          },
+          {
+            title: "DevOps Engineer",
+            country: "IN",
+            priority: "high",
+            industry: "technology",
+          },
+          {
+            title: "Marketing Manager",
+            country: "AU",
+            priority: "low",
+            industry: "retail",
+          },
+          {
+            title: "Financial Analyst",
+            country: "SG",
+            priority: "medium",
+            industry: "finance",
+          },
+          {
+            title: "Nurse Practitioner",
+            country: "CA",
+            priority: "high",
+            industry: "healthcare",
+          },
+          {
+            title: "Sales Director",
+            country: "AE",
+            priority: "medium",
+            industry: "consulting",
+          },
+          {
+            title: "ML Engineer",
+            country: "JP",
+            priority: "high",
+            industry: "technology",
+          },
+          {
+            title: "HR Business Partner",
+            country: "US",
+            priority: "low",
+            industry: "consulting",
+          },
+          {
+            title: "Cloud Architect",
+            country: "UK",
+            priority: "high",
+            industry: "technology",
+          },
+          {
+            title: "Supply Chain Manager",
+            country: "DE",
+            priority: "medium",
+            industry: "manufacturing",
+          },
+          {
+            title: "QA Engineer",
+            country: "IN",
+            priority: "medium",
+            industry: "technology",
+          },
+          {
+            title: "Business Analyst",
+            country: "CA",
+            priority: "low",
+            industry: "finance",
+          },
+        ];
+
+        const SLOT_STATUSES = ["active", "queued", "closing", "idle"];
+        const BASELINE_RATES = {
+          technology: { applyRate: 4.2, views: 320, apps: 14 },
+          finance: { applyRate: 3.8, views: 280, apps: 11 },
+          healthcare: { applyRate: 5.1, views: 250, apps: 13 },
+          manufacturing: { applyRate: 3.2, views: 200, apps: 6 },
+          retail: { applyRate: 3.5, views: 260, apps: 9 },
+          consulting: { applyRate: 4.0, views: 300, apps: 12 },
+          education: { applyRate: 3.0, views: 180, apps: 5 },
+          energy: { applyRate: 3.6, views: 220, apps: 8 },
+        };
+
+        const CYCLE_COLORS = [
+          "rgba(10, 102, 194, 0.35)",
+          "rgba(90, 84, 189, 0.35)",
+          "rgba(107, 179, 205, 0.35)",
+          "rgba(34, 197, 94, 0.3)",
+          "rgba(245, 158, 11, 0.3)",
+          "rgba(239, 68, 68, 0.25)",
+          "rgba(168, 85, 247, 0.3)",
+          "rgba(236, 72, 153, 0.3)",
+          "rgba(6, 182, 212, 0.3)",
+        ];
+
+        /* ════════════════════════════════════════════════
+         STATE
+         ════════════════════════════════════════════════ */
+        const state = {
+          slots: [],
+          dashboard: null,
+          scoredJobs: [],
+          predictions: [],
+          schedule: [],
+          scheduleView: "daily",
+          refreshInterval: null,
+          manualJobCount: 1,
+        };
+
+        /* Generate 500 demo slots */
+        function generateDemoSlots() {
+          const slots = [];
+          let slotIdx = 0;
+          for (const c of COUNTRIES) {
+            const activeCount = Math.round(c.slots * 0.45);
+            const queuedCount = Math.round(c.slots * 0.25);
+            const closingCount = Math.round(c.slots * 0.1);
+            const idleCount =
+              c.slots - activeCount - queuedCount - closingCount;
+            const statuses = [];
+            for (let i = 0; i < activeCount; i++) statuses.push("active");
+            for (let i = 0; i < queuedCount; i++) statuses.push("queued");
+            for (let i = 0; i < closingCount; i++) statuses.push("closing");
+            for (let i = 0; i < idleCount; i++) statuses.push("idle");
+            for (const s of statuses) {
+              const jobTitles = [
+                "Software Engineer",
+                "Product Manager",
+                "Data Analyst",
+                "UX Designer",
+                "DevOps Engineer",
+                "Marketing Lead",
+                "Sales Rep",
+                "HR Manager",
+                "Cloud Architect",
+                "ML Engineer",
+              ];
+              slots.push({
+                id: slotIdx++,
+                country: c.code,
+                countryName: c.name,
+                status: s,
+                jobTitle:
+                  s !== "idle"
+                    ? jobTitles[Math.floor(Math.random() * jobTitles.length)]
+                    : null,
+                timeRemaining:
+                  s === "active"
+                    ? Math.floor(Math.random() * 180) + 20 + " min"
+                    : s === "closing"
+                      ? Math.floor(Math.random() * 10) + 1 + " min"
+                      : null,
+                applyRate:
+                  s === "active"
+                    ? (Math.random() * 4 + 2).toFixed(1) + "%"
+                    : null,
+              });
+            }
+          }
+          return slots;
+        }
+
+        function generateDemoDashboard() {
+          const slots = state.slots;
+          const active = slots.filter((s) => s.status === "active").length;
+          const queued = slots.filter((s) => s.status === "queued").length;
+          return {
+            totalSlots: 500,
+            activeSlots: active,
+            jobsInQueue: queued + 47,
+            avgApplyRate: "3.8%",
+            totalApplications: Math.round(active * 3.8),
+            countries: COUNTRIES.map((c) => {
+              const cSlots = slots.filter((s) => s.country === c.code);
+              return {
+                ...c,
+                active: cSlots.filter((s) => s.status === "active").length,
+                queued: cSlots.filter((s) => s.status === "queued").length,
+                idle: cSlots.filter((s) => s.status === "idle").length,
+              };
+            }),
+          };
+        }
+
+        function generateDemoSchedule() {
+          const days = [
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday",
+            "Sunday",
+          ];
+          const schedule = [];
+          for (const c of COUNTRIES) {
+            for (let d = 0; d < 7; d++) {
+              schedule.push({
+                country: c.name,
+                countryCode: c.code,
+                day: days[d],
+                morningStart: c.peakMorning[0] + ":00",
+                morningEnd: c.peakMorning[1] + ":00",
+                eveningStart: c.peakEvening[0] + ":00",
+                eveningEnd: c.peakEvening[1] + ":00",
+                slotsAllocated: c.slots,
+                jobsScheduled: Math.min(c.jobs, c.slots),
+              });
+            }
+          }
+          return schedule;
+        }
+
+        /* ════════════════════════════════════════════════
+         UTILITY
+         ════════════════════════════════════════════════ */
+        function $(sel) {
+          return document.querySelector(sel);
+        }
+        function $$(sel) {
+          return document.querySelectorAll(sel);
+        }
+
+        function showToast(msg, isError) {
+          const t = $("#toast");
+          t.textContent = msg;
+          t.classList.toggle("error", !!isError);
+          t.classList.add("visible");
+          setTimeout(() => t.classList.remove("visible"), 3000);
+        }
+
+        function padH(n) {
+          return String(n).padStart(2, "0");
+        }
+
+        function formatHour(h) {
+          h = ((h % 24) + 24) % 24;
+          return padH(h) + ":00";
+        }
+
+        /* ════════════════════════════════════════════════
+         UTC CLOCK
+         ════════════════════════════════════════════════ */
+        function updateClock() {
+          const now = new Date();
+          const hh = padH(now.getUTCHours());
+          const mm = padH(now.getUTCMinutes());
+          const ss = padH(now.getUTCSeconds());
+          $("#utcClock").textContent = hh + ":" + mm + ":" + ss + " UTC";
+        }
+
+        /* ════════════════════════════════════════════════
+         TAB NAVIGATION
+         ════════════════════════════════════════════════ */
+        function initTabs() {
+          const tabs = $$(".tab-btn");
+          const panels = $$(".tab-panel");
+
+          function activateTab(tabId) {
+            const hash = tabId.replace("tab-", "");
+            tabs.forEach((t) => {
+              const isActive = t.id === tabId;
+              t.setAttribute("aria-selected", isActive);
+              t.tabIndex = isActive ? 0 : -1;
+            });
+            panels.forEach((p) => {
+              const isVisible = p.id === "panel-" + hash;
+              p.setAttribute("aria-hidden", !isVisible);
+            });
+            window.location.hash = "#" + hash;
+
+            if (hash === "dashboard") startAutoRefresh();
+            else stopAutoRefresh();
+          }
+
+          tabs.forEach((tab) => {
+            tab.addEventListener("click", () => activateTab(tab.id));
+            tab.addEventListener("keydown", (e) => {
+              const idx = Array.from(tabs).indexOf(tab);
+              let next = idx;
+              if (e.key === "ArrowRight") next = (idx + 1) % tabs.length;
+              else if (e.key === "ArrowLeft")
+                next = (idx - 1 + tabs.length) % tabs.length;
+              else if (e.key === "Home") next = 0;
+              else if (e.key === "End") next = tabs.length - 1;
+              else return;
+              e.preventDefault();
+              tabs[next].focus();
+              activateTab(tabs[next].id);
+            });
+          });
+
+          /* hash routing */
+          const hash = window.location.hash.replace("#", "");
+          const validHashes = [
+            "dashboard",
+            "slots",
+            "rotation",
+            "assignment",
+            "predictor",
+            "export",
+          ];
+          if (hash && validHashes.includes(hash)) {
+            activateTab("tab-" + hash);
+          }
+
+          window.addEventListener("hashchange", () => {
+            const h = window.location.hash.replace("#", "");
+            if (h && validHashes.includes(h)) activateTab("tab-" + h);
+          });
+        }
+
+        /* ════════════════════════════════════════════════
+         TAB 1: LIVE DASHBOARD
+         ════════════════════════════════════════════════ */
+        function renderDashboard() {
+          const d = state.dashboard;
+          if (!d) return;
+
+          $("#metricTotalSlots").textContent = d.totalSlots.toLocaleString();
+          $("#metricActiveSlots").textContent = d.activeSlots.toLocaleString();
+          $("#metricJobsQueue").textContent = d.jobsInQueue.toLocaleString();
+          $("#metricApplyRate").textContent = d.avgApplyRate;
+          $("#metricTotalApps").textContent =
+            d.totalApplications.toLocaleString();
+
+          renderTimeline();
+          renderCountryGrid();
+        }
+
+        function renderTimeline() {
+          const header = $("#timelineHeader");
+          const rows = $("#timelineRows");
+          header.innerHTML = "";
+          rows.innerHTML = "";
+
+          /* hours */
+          for (let h = 0; h < 24; h++) {
+            const el = document.createElement("div");
+            el.className = "timeline-hour";
+            el.textContent = padH(h);
+            header.appendChild(el);
+          }
+
+          const nowH = new Date().getUTCHours();
+          const nowM = new Date().getUTCMinutes();
+          const nowPct = ((nowH + nowM / 60) / 24) * 100;
+
+          for (const c of COUNTRIES) {
+            const row = document.createElement("div");
+            row.className = "timeline-row";
+
+            const label = document.createElement("div");
+            label.className = "timeline-label";
+            label.textContent = c.name;
+
+            const track = document.createElement("div");
+            track.className = "timeline-bar-track";
+
+            /* Morning peak */
+            const mStart = c.peakMorning[0];
+            const mEnd = c.peakMorning[1];
+            const mBar = document.createElement("div");
+            mBar.className = "timeline-bar-fill";
+            if (mEnd > mStart) {
+              mBar.style.left = (mStart / 24) * 100 + "%";
+              mBar.style.width = ((mEnd - mStart) / 24) * 100 + "%";
+            } else {
+              mBar.style.left = (mStart / 24) * 100 + "%";
+              mBar.style.width = ((24 - mStart + mEnd) / 24) * 100 + "%";
+            }
+            mBar.title =
+              c.name +
+              " morning peak: " +
+              formatHour(mStart) +
+              " - " +
+              formatHour(mEnd) +
+              " UTC";
+            track.appendChild(mBar);
+
+            /* Evening peak */
+            const eStart = c.peakEvening[0];
+            const eEnd = c.peakEvening[1];
+            const eBar = document.createElement("div");
+            eBar.className = "timeline-bar-fill evening";
+            if (eEnd > eStart) {
+              eBar.style.left = (eStart / 24) * 100 + "%";
+              eBar.style.width = ((eEnd - eStart) / 24) * 100 + "%";
+            } else {
+              eBar.style.left = (eStart / 24) * 100 + "%";
+              eBar.style.width = ((24 - eStart + eEnd) / 24) * 100 + "%";
+            }
+            eBar.title =
+              c.name +
+              " evening peak: " +
+              formatHour(eStart) +
+              " - " +
+              formatHour(eEnd) +
+              " UTC";
+            track.appendChild(eBar);
+
+            /* Now line */
+            const nowLine = document.createElement("div");
+            nowLine.className = "timeline-now-line";
+            nowLine.style.left = nowPct + "%";
+            track.appendChild(nowLine);
+
+            row.appendChild(label);
+            row.appendChild(track);
+            rows.appendChild(row);
+          }
+        }
+
+        function renderCountryGrid() {
+          const grid = $("#countryGrid");
+          grid.innerHTML = "";
+          const d = state.dashboard;
+          if (!d) return;
+
+          for (const c of d.countries) {
+            const card = document.createElement("div");
+            card.className = "country-card";
+            card.innerHTML =
+              '<div class="country-name"><span class="country-flag" aria-hidden="true">' +
+              c.flag +
+              "</span>" +
+              c.name +
+              "</div>" +
+              '<div class="country-stats">' +
+              '<span class="country-stat"><span class="stat-dot active" aria-hidden="true"></span>' +
+              c.active +
+              " active</span>" +
+              '<span class="country-stat"><span class="stat-dot queued" aria-hidden="true"></span>' +
+              c.queued +
+              " queued</span>" +
+              '<span class="country-stat"><span class="stat-dot idle" aria-hidden="true"></span>' +
+              c.idle +
+              " idle</span>" +
+              "</div>" +
+              '<div class="country-peak">Peak: ' +
+              formatHour(c.peakMorning[0]) +
+              "-" +
+              formatHour(c.peakMorning[1]) +
+              " / " +
+              formatHour(c.peakEvening[0]) +
+              "-" +
+              formatHour(c.peakEvening[1]) +
+              " UTC</div>";
+            grid.appendChild(card);
+          }
+        }
+
+        function startAutoRefresh() {
+          stopAutoRefresh();
+          state.refreshInterval = setInterval(() => {
+            fetchDashboardData();
+          }, 30000);
+        }
+
+        function stopAutoRefresh() {
+          if (state.refreshInterval) {
+            clearInterval(state.refreshInterval);
+            state.refreshInterval = null;
+          }
+        }
+
+        async function fetchDashboardData() {
+          try {
+            const resp = await fetch("/api/slotops/dashboard");
+            if (resp.ok) {
+              const data = await resp.json();
+              state.dashboard = data;
+            }
+          } catch (_) {
+            /* Use demo data if API unavailable */
+          }
+          renderDashboard();
+        }
+
+        /* ════════════════════════════════════════════════
+         TAB 2: SLOT MANAGER
+         ════════════════════════════════════════════════ */
+        function renderSlotGrid() {
+          const grid = $("#slotGrid");
+          const detail = $("#slotDetail");
+          const statsBar = $("#slotStatsBar");
+          grid.innerHTML = "";
+          detail.classList.remove("visible");
+
+          const filterCountry = $("#filterCountry").value;
+          const filterStatus = $("#filterStatus").value;
+
+          let filtered = state.slots;
+          if (filterCountry !== "all") {
+            filtered = filtered.filter((s) => s.country === filterCountry);
+          }
+          if (filterStatus !== "all") {
+            filtered = filtered.filter((s) => s.status === filterStatus);
+          }
+
+          /* Stats */
+          const counts = { active: 0, queued: 0, closing: 0, idle: 0 };
+          filtered.forEach((s) => counts[s.status]++);
+          statsBar.innerHTML =
+            '<span class="slot-stat"><span class="slot-stat-dot active" aria-hidden="true"></span>' +
+            counts.active +
+            " Active</span>" +
+            '<span class="slot-stat"><span class="slot-stat-dot queued" aria-hidden="true"></span>' +
+            counts.queued +
+            " Queued</span>" +
+            '<span class="slot-stat"><span class="slot-stat-dot closing" aria-hidden="true"></span>' +
+            counts.closing +
+            " Closing</span>" +
+            '<span class="slot-stat"><span class="slot-stat-dot idle" aria-hidden="true"></span>' +
+            counts.idle +
+            " Idle</span>";
+
+          /* Grid cells */
+          filtered.forEach((s) => {
+            const cell = document.createElement("div");
+            cell.className = "slot-cell " + s.status;
+            cell.tabIndex = 0;
+            cell.setAttribute("role", "gridcell");
+            cell.setAttribute(
+              "aria-label",
+              "Slot " +
+                s.id +
+                ": " +
+                s.status +
+                (s.jobTitle ? ", " + s.jobTitle : "") +
+                ", " +
+                s.countryName,
+            );
+            cell.title =
+              "#" +
+              s.id +
+              " " +
+              s.status +
+              (s.jobTitle ? " - " + s.jobTitle : "");
+
+            const showDetail = () => {
+              detail.classList.add("visible");
+              detail.innerHTML =
+                "<h3>Slot #" +
+                s.id +
+                "</h3>" +
+                '<div class="slot-detail-grid">' +
+                '<div class="slot-detail-item"><div class="label">Status</div><div class="value">' +
+                s.status.charAt(0).toUpperCase() +
+                s.status.slice(1) +
+                "</div></div>" +
+                '<div class="slot-detail-item"><div class="label">Country</div><div class="value">' +
+                s.countryName +
+                " (" +
+                s.country +
+                ")</div></div>" +
+                '<div class="slot-detail-item"><div class="label">Job Title</div><div class="value">' +
+                (s.jobTitle || "--") +
+                "</div></div>" +
+                '<div class="slot-detail-item"><div class="label">Time Remaining</div><div class="value">' +
+                (s.timeRemaining || "--") +
+                "</div></div>" +
+                '<div class="slot-detail-item"><div class="label">Apply Rate</div><div class="value">' +
+                (s.applyRate || "--") +
+                "</div></div>" +
+                "</div>";
+            };
+
+            cell.addEventListener("click", showDetail);
+            cell.addEventListener("keydown", (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                showDetail();
+              }
+            });
+
+            grid.appendChild(cell);
+          });
+        }
+
+        function populateCountryFilters() {
+          const selects = ["#filterCountry", "#jobCountry0", "#predCountry"];
+          selects.forEach((sel) => {
+            const el = $(sel);
+            if (!el) return;
+            const isFilter = sel === "#filterCountry";
+            if (isFilter) {
+              el.innerHTML = '<option value="all">All Countries</option>';
+            } else {
+              el.innerHTML = "";
+            }
+            COUNTRIES.forEach((c) => {
+              const opt = document.createElement("option");
+              opt.value = c.code;
+              opt.textContent = c.name;
+              el.appendChild(opt);
+            });
+          });
+        }
+
+        /* ════════════════════════════════════════════════
+         TAB 3: ROTATION QUEUE
+         ════════════════════════════════════════════════ */
+        function renderRotation() {
+          const list = $("#rotationList");
+          list.innerHTML = "";
+
+          /* Sort by earliest peak start */
+          const sorted = [...COUNTRIES].sort(
+            (a, b) => a.peakMorning[0] - b.peakMorning[0],
+          );
+
+          sorted.forEach((c) => {
+            const item = document.createElement("div");
+            item.className = "rotation-item";
+            item.innerHTML =
+              "<div>" +
+              '<div class="rotation-country"><span class="country-flag" aria-hidden="true">' +
+              c.flag +
+              "</span>" +
+              c.name +
+              "</div>" +
+              '<span class="rotation-tz">' +
+              c.tz +
+              "</span>" +
+              "</div>" +
+              '<div class="rotation-peak-bars">' +
+              '<span class="peak-tag morning">' +
+              formatHour(c.peakMorning[0]) +
+              " - " +
+              formatHour(c.peakMorning[1]) +
+              "</span>" +
+              '<span class="peak-tag evening">' +
+              formatHour(c.peakEvening[0]) +
+              " - " +
+              formatHour(c.peakEvening[1]) +
+              "</span>" +
+              "</div>" +
+              '<div class="rotation-slots">' +
+              c.slots +
+              '<span class="sub">Slots</span></div>' +
+              '<div class="rotation-queued">' +
+              c.jobs +
+              '<span class="sub">Jobs Queued</span></div>';
+            list.appendChild(item);
+          });
+
+          renderAllocBars(sorted);
+          renderCycleTimeline(sorted);
+        }
+
+        function renderAllocBars(sorted) {
+          const container = $("#allocBars");
+          container.innerHTML = "";
+          const totalSlots = COUNTRIES.reduce((sum, c) => sum + c.slots, 0);
+
+          sorted.forEach((c) => {
+            const pct = ((c.slots / totalSlots) * 100).toFixed(1);
+            const row = document.createElement("div");
+            row.className = "alloc-row";
+            row.innerHTML =
+              '<div class="alloc-label">' +
+              c.name +
+              "</div>" +
+              '<div class="alloc-track"><div class="alloc-fill" style="width:' +
+              pct +
+              '%">' +
+              pct +
+              "%</div></div>";
+            container.appendChild(row);
+          });
+        }
+
+        function renderCycleTimeline(sorted) {
+          const container = $("#cycleTimeline");
+          container.innerHTML = "";
+
+          sorted.forEach((c, idx) => {
+            const color = CYCLE_COLORS[idx % CYCLE_COLORS.length];
+            /* Morning segment */
+            const mStart = c.peakMorning[0];
+            const mEnd = c.peakMorning[1];
+            const mSeg = document.createElement("div");
+            mSeg.className = "cycle-segment";
+            mSeg.style.background = color;
+            if (mEnd > mStart) {
+              mSeg.style.left = (mStart / 24) * 100 + "%";
+              mSeg.style.width = ((mEnd - mStart) / 24) * 100 + "%";
+            } else {
+              mSeg.style.left = (mStart / 24) * 100 + "%";
+              mSeg.style.width = ((24 - mStart + mEnd) / 24) * 100 + "%";
+            }
+            mSeg.textContent = c.code;
+            mSeg.title =
+              c.name +
+              " morning: " +
+              formatHour(mStart) +
+              "-" +
+              formatHour(mEnd);
+            container.appendChild(mSeg);
+
+            /* Evening segment */
+            const eStart = c.peakEvening[0];
+            const eEnd = c.peakEvening[1];
+            const eSeg = document.createElement("div");
+            eSeg.className = "cycle-segment";
+            eSeg.style.background = color;
+            eSeg.style.opacity = "0.6";
+            if (eEnd > eStart) {
+              eSeg.style.left = (eStart / 24) * 100 + "%";
+              eSeg.style.width = ((eEnd - eStart) / 24) * 100 + "%";
+            } else {
+              eSeg.style.left = (eStart / 24) * 100 + "%";
+              eSeg.style.width = ((24 - eStart + eEnd) / 24) * 100 + "%";
+            }
+            eSeg.textContent = c.code;
+            eSeg.title =
+              c.name +
+              " evening: " +
+              formatHour(eStart) +
+              "-" +
+              formatHour(eEnd);
+            container.appendChild(eSeg);
+          });
+
+          /* Hour markers */
+          const markers = document.createElement("div");
+          markers.className = "cycle-hour-markers";
+          for (let h = 0; h < 24; h++) {
+            const mark = document.createElement("div");
+            mark.className = "cycle-hour-mark";
+            mark.textContent = h % 3 === 0 ? padH(h) : "";
+            markers.appendChild(mark);
+          }
+          container.appendChild(markers);
+        }
+
+        /* ════════════════════════════════════════════════
+         TAB 4: JOB ASSIGNMENT ENGINE
+         ════════════════════════════════════════════════ */
+        function initAssignment() {
+          /* Upload tab switching */
+          $$(".upload-tab-btn").forEach((btn) => {
+            btn.addEventListener("click", () => {
+              $$(".upload-tab-btn").forEach((b) => {
+                b.classList.remove("active");
+                b.setAttribute("aria-pressed", "false");
+              });
+              btn.classList.add("active");
+              btn.setAttribute("aria-pressed", "true");
+              $$(".upload-panel").forEach((p) => p.classList.remove("visible"));
+              $("#upload-" + btn.dataset.upload).classList.add("visible");
+            });
+          });
+
+          /* Add job */
+          $("#btnAddJob").addEventListener("click", () => {
+            const idx = state.manualJobCount++;
+            const container = $("#manualJobForms");
+            const form = document.createElement("div");
+            form.className = "manual-form";
+            form.dataset.jobIndex = idx;
+            form.style.marginTop = "0.75rem";
+            form.innerHTML =
+              '<div class="form-group"><label for="jobTitle' +
+              idx +
+              '">Job Title</label><input type="text" id="jobTitle' +
+              idx +
+              '" placeholder="e.g. Data Scientist" /></div>' +
+              '<div class="form-group"><label for="jobCountry' +
+              idx +
+              '">Country</label><select id="jobCountry' +
+              idx +
+              '"></select></div>' +
+              '<div class="form-group"><label for="jobPriority' +
+              idx +
+              '">Priority</label><select id="jobPriority' +
+              idx +
+              '"><option value="high">High</option><option value="medium" selected>Medium</option><option value="low">Low</option></select></div>';
+            container.appendChild(form);
+            /* Populate country */
+            const sel = form.querySelector('select[id^="jobCountry"]');
+            COUNTRIES.forEach((c) => {
+              const opt = document.createElement("option");
+              opt.value = c.code;
+              opt.textContent = c.name;
+              sel.appendChild(opt);
+            });
+          });
+
+          /* Optimize */
+          $("#btnOptimize").addEventListener("click", runOptimize);
+
+          /* Clear */
+          $("#btnClearJobs").addEventListener("click", () => {
+            $("#jobJsonInput").value = "";
+            const container = $("#manualJobForms");
+            container.innerHTML = "";
+            state.manualJobCount = 0;
+            $("#btnAddJob").click(); /* re-add one empty form */
+            state.manualJobCount = 1;
+            $("#assignmentResults").style.display = "none";
+            state.scoredJobs = [];
+          });
+
+          /* Sort */
+          $("#sortScoreTable").addEventListener("change", renderScoreTable);
+        }
+
+        function getJobsFromInput() {
+          const activePanel = $(".upload-panel.visible");
+          if (activePanel.id === "upload-json") {
+            const raw = $("#jobJsonInput").value.trim();
+            if (!raw) return DEMO_JOBS;
+            try {
+              return JSON.parse(raw);
+            } catch (_) {
+              /* Try CSV parse */
+              const lines = raw.split("\n").filter((l) => l.trim());
+              if (lines.length < 2) {
+                showToast("Invalid input format", true);
+                return null;
+              }
+              const headers = lines[0]
+                .split(",")
+                .map((h) => h.trim().toLowerCase());
+              return lines.slice(1).map((line) => {
+                const vals = line.split(",").map((v) => v.trim());
+                const obj = {};
+                headers.forEach((h, i) => (obj[h] = vals[i] || ""));
+                return obj;
+              });
+            }
+          } else {
+            const forms = $$("#manualJobForms .manual-form");
+            const jobs = [];
+            forms.forEach((f) => {
+              const idx = f.dataset.jobIndex;
+              const title = $("#jobTitle" + idx).value.trim();
+              const country = $("#jobCountry" + idx).value;
+              const priority = $("#jobPriority" + idx).value;
+              if (title) jobs.push({ title, country, priority });
+            });
+            return jobs.length ? jobs : DEMO_JOBS;
+          }
+        }
+
+        function scoreJob(job) {
+          const countryWeight = 0.4;
+          const titleWeight = 0.25;
+          const priorityWeight = 0.2;
+          const historyWeight = 0.15;
+
+          /* Country score: based on slot availability */
+          const c =
+            COUNTRIES.find((x) => x.code === job.country) || COUNTRIES[0];
+          const countryScore = Math.min(100, (c.slots / 120) * 100);
+
+          /* Title score: common titles score higher */
+          const highDemand = [
+            "software engineer",
+            "product manager",
+            "data analyst",
+            "devops engineer",
+            "cloud architect",
+            "ml engineer",
+            "data scientist",
+          ];
+          const titleLower = (job.title || "").toLowerCase();
+          const titleScore = highDemand.some((t) => titleLower.includes(t))
+            ? 90
+            : 60 + Math.random() * 20;
+
+          /* Priority */
+          const priorityScore =
+            job.priority === "high" ? 100 : job.priority === "medium" ? 60 : 30;
+
+          /* History (simulated) */
+          const historyScore = 50 + Math.random() * 40;
+
+          const final =
+            countryScore * countryWeight +
+            titleScore * titleWeight +
+            priorityScore * priorityWeight +
+            historyScore * historyWeight;
+
+          return {
+            ...job,
+            scores: {
+              country: Math.round(countryScore),
+              title: Math.round(titleScore),
+              priority: Math.round(priorityScore),
+              history: Math.round(historyScore),
+            },
+            finalScore: Math.round(final),
+          };
+        }
+
+        async function runOptimize() {
+          const jobs = getJobsFromInput();
+          if (!jobs) return;
+
+          const loader = $("#assignmentLoading");
+          loader.classList.add("visible");
+
+          /* Try API first */
+          try {
+            const resp = await fetch("/api/slotops/optimize", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ jobs }),
+            });
+            if (resp.ok) {
+              const data = await resp.json();
+              state.scoredJobs = data.scored || data;
+              loader.classList.remove("visible");
+              renderScoreTable();
+              return;
+            }
+          } catch (_) {
+            /* fallback to client-side */
+          }
+
+          /* Client-side scoring */
+          state.scoredJobs = jobs
+            .map(scoreJob)
+            .sort((a, b) => b.finalScore - a.finalScore);
+          loader.classList.remove("visible");
+          renderScoreTable();
+          showToast("Optimization complete (demo mode)");
+        }
+
+        function renderScoreTable() {
+          const results = $("#assignmentResults");
+          results.style.display = "block";
+          const body = $("#scoreTableBody");
+          body.innerHTML = "";
+
+          const sortVal = $("#sortScoreTable").value;
+          let sorted = [...state.scoredJobs];
+          if (sortVal === "score-desc")
+            sorted.sort((a, b) => b.finalScore - a.finalScore);
+          else if (sortVal === "score-asc")
+            sorted.sort((a, b) => a.finalScore - b.finalScore);
+          else if (sortVal === "country")
+            sorted.sort((a, b) =>
+              (a.country || "").localeCompare(b.country || ""),
+            );
+          else if (sortVal === "title")
+            sorted.sort((a, b) => (a.title || "").localeCompare(b.title || ""));
+
+          sorted.forEach((job, idx) => {
+            const sc = job.scores || {
+              country: 0,
+              title: 0,
+              priority: 0,
+              history: 0,
+            };
+            const finalScore = job.finalScore || 0;
+            const badgeClass =
+              finalScore >= 75 ? "high" : finalScore >= 50 ? "medium" : "low";
+            const countryObj = COUNTRIES.find((c) => c.code === job.country);
+            const countryDisplay = countryObj
+              ? countryObj.name
+              : job.country || "--";
+
+            const tr = document.createElement("tr");
+            tr.draggable = true;
+            tr.addEventListener("dragstart", (e) => {
+              e.dataTransfer.setData("text/plain", idx);
+              tr.style.opacity = "0.5";
+            });
+            tr.addEventListener("dragend", () => {
+              tr.style.opacity = "1";
+            });
+            tr.addEventListener("dragover", (e) => {
+              e.preventDefault();
+            });
+            tr.addEventListener("drop", (e) => {
+              e.preventDefault();
+              const fromIdx = parseInt(e.dataTransfer.getData("text/plain"));
+              const toIdx = idx;
+              if (fromIdx !== toIdx) {
+                const item = state.scoredJobs.splice(fromIdx, 1)[0];
+                state.scoredJobs.splice(toIdx, 0, item);
+                renderScoreTable();
+              }
+            });
+
+            tr.innerHTML =
+              '<td><span class="drag-handle" aria-hidden="true">::</span></td>' +
+              "<td>" +
+              (idx + 1) +
+              "</td>" +
+              "<td>" +
+              (job.title || "--") +
+              "</td>" +
+              "<td>" +
+              countryDisplay +
+              "</td>" +
+              '<td><div class="score-breakdown">' +
+              '<span class="score-segment" title="Country 40%">C:' +
+              sc.country +
+              "</span>" +
+              '<span class="score-segment" title="Title 25%">T:' +
+              sc.title +
+              "</span>" +
+              '<span class="score-segment" title="Priority 20%">P:' +
+              sc.priority +
+              "</span>" +
+              '<span class="score-segment" title="History 15%">H:' +
+              sc.history +
+              "</span>" +
+              "</div></td>" +
+              '<td><span class="score-badge ' +
+              badgeClass +
+              '">' +
+              finalScore +
+              "</span></td>";
+
+            body.appendChild(tr);
+          });
+        }
+
+        /* ════════════════════════════════════════════════
+         TAB 5: PERFORMANCE PREDICTOR
+         ════════════════════════════════════════════════ */
+        function initPredictor() {
+          $("#btnPredict").addEventListener("click", runPrediction);
+          $("#btnAddComparison").addEventListener("click", addComparison);
+        }
+
+        function predictPerformance(title, country, industry) {
+          const base = BASELINE_RATES[industry] || BASELINE_RATES.technology;
+          const countryObj = COUNTRIES.find((c) => c.code === country);
+
+          /* Modifiers */
+          const slotMod = countryObj ? countryObj.slots / 80 : 1;
+          const titleMod =
+            title.toLowerCase().includes("engineer") ||
+            title.toLowerCase().includes("developer")
+              ? 1.3
+              : title.toLowerCase().includes("manager")
+                ? 1.15
+                : 1.0;
+          const days = [
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday",
+            "Sunday",
+          ];
+          const months = [
+            "January",
+            "February",
+            "March",
+            "April",
+            "May",
+            "June",
+            "July",
+            "August",
+            "September",
+            "October",
+            "November",
+            "December",
+          ];
+
+          const applyRate = (
+            base.applyRate *
+            titleMod *
+            (0.9 + Math.random() * 0.2)
+          ).toFixed(1);
+          const views = Math.round(base.views * slotMod * titleMod);
+          const apps = Math.round(base.apps * slotMod * titleMod);
+          const confidence = Math.round(65 + Math.random() * 25);
+          const bestDay = days[Math.floor(Math.random() * 5)]; /* weekdays */
+          const bestMonth = months[Math.floor(Math.random() * 12)];
+
+          return {
+            title,
+            country: countryObj ? countryObj.name : country,
+            industry,
+            applyRate: applyRate + "%",
+            views,
+            applications: apps,
+            bestDay,
+            bestMonth,
+            confidence,
+          };
+        }
+
+        async function runPrediction() {
+          const title = $("#predTitle").value.trim() || "Software Engineer";
+          const country = $("#predCountry").value;
+          const industry = $("#predIndustry").value;
+
+          const loader = $("#predictorLoading");
+          loader.classList.add("visible");
+
+          let prediction;
+
+          /* Try API */
+          try {
+            const resp = await fetch("/api/slotops/predict", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ title, country, industry }),
+            });
+            if (resp.ok) {
+              prediction = await resp.json();
+            }
+          } catch (_) {
+            /* fallback */
+          }
+
+          if (!prediction) {
+            prediction = predictPerformance(title, country, industry);
+          }
+
+          state.predictions = [prediction];
+          loader.classList.remove("visible");
+          renderPrediction();
+          showToast("Prediction complete");
+        }
+
+        function renderPrediction() {
+          const container = $("#predictionResults");
+          container.classList.add("visible");
+
+          const pred = state.predictions[0];
+          if (!pred) return;
+
+          /* Gauge */
+          const conf = pred.confidence || 75;
+          const arcLen = 220;
+          const offset = arcLen - (arcLen * conf) / 100;
+          $("#gaugeFill").style.strokeDashoffset = offset;
+          $("#gaugeValue").textContent = conf + "%";
+
+          /* Cards */
+          const cards = $("#predictionCards");
+          cards.innerHTML = "";
+          const items = [
+            { label: "Apply Rate", value: pred.applyRate, sub: "per posting" },
+            {
+              label: "Est. Views",
+              value: pred.views ? pred.views.toLocaleString() : "--",
+              sub: "first 7 days",
+            },
+            {
+              label: "Est. Applications",
+              value: pred.applications
+                ? pred.applications.toLocaleString()
+                : "--",
+              sub: "first 7 days",
+            },
+            { label: "Best Day", value: pred.bestDay || "--", sub: "to post" },
+            {
+              label: "Best Month",
+              value: pred.bestMonth || "--",
+              sub: "highest engagement",
+            },
+            {
+              label: "Confidence",
+              value: conf + "%",
+              sub: "prediction accuracy",
+            },
+          ];
+          items.forEach((item) => {
+            const card = document.createElement("div");
+            card.className = "pred-card";
+            card.innerHTML =
+              '<div class="pred-label">' +
+              item.label +
+              "</div>" +
+              '<div class="pred-value">' +
+              item.value +
+              "</div>" +
+              '<div class="pred-sub">' +
+              item.sub +
+              "</div>";
+            cards.appendChild(card);
+          });
+
+          renderComparisons();
+        }
+
+        function addComparison() {
+          if (state.predictions.length >= 3) {
+            showToast("Maximum 3 comparisons", true);
+            return;
+          }
+          const title = $("#predTitle").value.trim() || "Product Manager";
+          const country = $("#predCountry").value;
+          const industry = $("#predIndustry").value;
+          const pred = predictPerformance(title, country, industry);
+          state.predictions.push(pred);
+          renderComparisons();
+          showToast("Comparison added");
+        }
+
+        function renderComparisons() {
+          const grid = $("#comparisonGrid");
+          grid.innerHTML = "";
+          if (state.predictions.length < 2) return;
+
+          state.predictions.forEach((pred, idx) => {
+            const col = document.createElement("div");
+            col.className = "comparison-col";
+            col.innerHTML =
+              "<h4>Config " +
+              (idx + 1) +
+              ": " +
+              (pred.title || "--") +
+              "</h4>" +
+              '<div class="comp-row"><span class="comp-label">Country</span><span class="comp-value">' +
+              (pred.country || "--") +
+              "</span></div>" +
+              '<div class="comp-row"><span class="comp-label">Industry</span><span class="comp-value">' +
+              (pred.industry || "--") +
+              "</span></div>" +
+              '<div class="comp-row"><span class="comp-label">Apply Rate</span><span class="comp-value">' +
+              (pred.applyRate || "--") +
+              "</span></div>" +
+              '<div class="comp-row"><span class="comp-label">Views</span><span class="comp-value">' +
+              (pred.views ? pred.views.toLocaleString() : "--") +
+              "</span></div>" +
+              '<div class="comp-row"><span class="comp-label">Applications</span><span class="comp-value">' +
+              (pred.applications ? pred.applications.toLocaleString() : "--") +
+              "</span></div>" +
+              '<div class="comp-row"><span class="comp-label">Best Day</span><span class="comp-value">' +
+              (pred.bestDay || "--") +
+              "</span></div>" +
+              '<div class="comp-row"><span class="comp-label">Confidence</span><span class="comp-value">' +
+              (pred.confidence || "--") +
+              "%</span></div>";
+            grid.appendChild(col);
+          });
+        }
+
+        /* ════════════════════════════════════════════════
+         TAB 6: SCHEDULE EXPORT
+         ════════════════════════════════════════════════ */
+        function initExport() {
+          $$(".export-toggle .toggle-btn").forEach((btn) => {
+            btn.addEventListener("click", () => {
+              $$(".export-toggle .toggle-btn").forEach((b) => {
+                b.classList.remove("active");
+                b.setAttribute("aria-pressed", "false");
+              });
+              btn.classList.add("active");
+              btn.setAttribute("aria-pressed", "true");
+              state.scheduleView = btn.dataset.view;
+              renderSchedule();
+            });
+          });
+
+          $("#btnDownloadCSV").addEventListener("click", downloadCSV);
+          $("#btnGenerateSchedule").addEventListener(
+            "click",
+            regenerateSchedule,
+          );
+        }
+
+        function renderSchedule() {
+          const head = $("#scheduleHead");
+          const body = $("#scheduleBody");
+          const json = $("#jsonPreview");
+          head.innerHTML = "";
+          body.innerHTML = "";
+
+          const schedule = state.schedule;
+          if (!schedule.length) return;
+
+          if (state.scheduleView === "daily") {
+            /* Group by country, show today only */
+            head.innerHTML =
+              '<tr><th scope="col">Country</th><th scope="col">Morning Peak</th><th scope="col">Evening Peak</th><th scope="col">Slots</th><th scope="col">Jobs</th></tr>';
+
+            const todayIdx = new Date().getUTCDay();
+            const dayNames = [
+              "Sunday",
+              "Monday",
+              "Tuesday",
+              "Wednesday",
+              "Thursday",
+              "Friday",
+              "Saturday",
+            ];
+            const today = dayNames[todayIdx];
+
+            const todayRows = schedule.filter((r) => r.day === today);
+            const unique = [];
+            const seen = new Set();
+            (todayRows.length
+              ? todayRows
+              : schedule.slice(0, COUNTRIES.length)
+            ).forEach((r) => {
+              if (!seen.has(r.countryCode)) {
+                seen.add(r.countryCode);
+                unique.push(r);
+              }
+            });
+
+            unique.forEach((r) => {
+              const tr = document.createElement("tr");
+              tr.innerHTML =
+                "<td>" +
+                r.country +
+                "</td>" +
+                "<td>" +
+                r.morningStart +
+                " - " +
+                r.morningEnd +
+                "</td>" +
+                "<td>" +
+                r.eveningStart +
+                " - " +
+                r.eveningEnd +
+                "</td>" +
+                "<td>" +
+                r.slotsAllocated +
+                "</td>" +
+                "<td>" +
+                r.jobsScheduled +
+                "</td>";
+              body.appendChild(tr);
+            });
+          } else {
+            /* Weekly */
+            head.innerHTML =
+              '<tr><th scope="col">Country</th><th scope="col">Day</th><th scope="col">Morning</th><th scope="col">Evening</th><th scope="col">Slots</th><th scope="col">Jobs</th></tr>';
+            schedule.forEach((r) => {
+              const tr = document.createElement("tr");
+              tr.innerHTML =
+                "<td>" +
+                r.country +
+                "</td>" +
+                "<td>" +
+                r.day +
+                "</td>" +
+                "<td>" +
+                r.morningStart +
+                " - " +
+                r.morningEnd +
+                "</td>" +
+                "<td>" +
+                r.eveningStart +
+                " - " +
+                r.eveningEnd +
+                "</td>" +
+                "<td>" +
+                r.slotsAllocated +
+                "</td>" +
+                "<td>" +
+                r.jobsScheduled +
+                "</td>";
+              body.appendChild(tr);
+            });
+          }
+
+          /* JSON preview */
+          const payload = {
+            generated: new Date().toISOString(),
+            view: state.scheduleView,
+            totalSlots: 500,
+            countries: COUNTRIES.length,
+            schedule:
+              state.scheduleView === "daily"
+                ? schedule
+                    .filter(
+                      (r) =>
+                        r.day ===
+                        [
+                          "Sunday",
+                          "Monday",
+                          "Tuesday",
+                          "Wednesday",
+                          "Thursday",
+                          "Friday",
+                          "Saturday",
+                        ][new Date().getUTCDay()],
+                    )
+                    .map((r) => ({ ...r }))
+                : schedule,
+          };
+          json.textContent = JSON.stringify(payload, null, 2);
+        }
+
+        function downloadCSV() {
+          const schedule = state.schedule;
+          if (!schedule.length) {
+            showToast("No schedule data to export", true);
+            return;
+          }
+
+          const headers = [
+            "Country",
+            "Country Code",
+            "Day",
+            "Morning Start",
+            "Morning End",
+            "Evening Start",
+            "Evening End",
+            "Slots Allocated",
+            "Jobs Scheduled",
+          ];
+          let rows =
+            state.scheduleView === "daily"
+              ? schedule.filter(
+                  (r) =>
+                    r.day ===
+                    [
+                      "Sunday",
+                      "Monday",
+                      "Tuesday",
+                      "Wednesday",
+                      "Thursday",
+                      "Friday",
+                      "Saturday",
+                    ][new Date().getUTCDay()],
+                )
+              : schedule;
+
+          if (!rows.length) rows = schedule;
+
+          const csvContent = [
+            headers.join(","),
+            ...rows.map((r) =>
+              [
+                r.country,
+                r.countryCode,
+                r.day,
+                r.morningStart,
+                r.morningEnd,
+                r.eveningStart,
+                r.eveningEnd,
+                r.slotsAllocated,
+                r.jobsScheduled,
+              ].join(","),
+            ),
+          ].join("\n");
+
+          const blob = new Blob([csvContent], {
+            type: "text/csv;charset=utf-8;",
+          });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download =
+            "slotops_schedule_" +
+            new Date().toISOString().slice(0, 10) +
+            ".csv";
+          a.click();
+          URL.revokeObjectURL(url);
+          showToast("CSV downloaded");
+        }
+
+        async function regenerateSchedule() {
+          const loader = $("#exportLoading");
+          loader.classList.add("visible");
+
+          try {
+            const resp = await fetch("/api/slotops/schedule", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ countries: COUNTRIES.map((c) => c.code) }),
+            });
+            if (resp.ok) {
+              const data = await resp.json();
+              state.schedule = data.schedule || data;
+            }
+          } catch (_) {
+            /* Keep demo data */
+          }
+
+          loader.classList.remove("visible");
+          renderSchedule();
+          showToast("Schedule regenerated");
+        }
+
+        /* ════════════════════════════════════════════════
+         INITIALIZATION
+         ════════════════════════════════════════════════ */
+        function init() {
+          /* Generate demo data */
+          state.slots = generateDemoSlots();
+          state.dashboard = generateDemoDashboard();
+          state.schedule = generateDemoSchedule();
+
+          /* Clock */
+          updateClock();
+          setInterval(updateClock, 1000);
+
+          /* Tabs */
+          initTabs();
+
+          /* Populate country dropdowns */
+          populateCountryFilters();
+
+          /* Tab 1 */
+          renderDashboard();
+          startAutoRefresh();
+
+          /* Tab 2 */
+          renderSlotGrid();
+          $("#filterCountry").addEventListener("change", renderSlotGrid);
+          $("#filterStatus").addEventListener("change", renderSlotGrid);
+
+          /* Tab 3 */
+          renderRotation();
+
+          /* Tab 4 */
+          initAssignment();
+
+          /* Tab 5 */
+          initPredictor();
+
+          /* Tab 6 */
+          initExport();
+          renderSchedule();
+        }
+
+        if (document.readyState === "loading") {
+          document.addEventListener("DOMContentLoaded", init);
+        } else {
+          init();
+        }
+      })();
+    </script>
+  </body>
+</html>

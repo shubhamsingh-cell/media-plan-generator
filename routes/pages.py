@@ -137,6 +137,7 @@ _PAGE_ROUTES: list[tuple[tuple[str, ...], str]] = [
     (("/pricing", "/pricing/"), "pricing.html"),
     (("/privacy", "/privacy/"), "privacy.html"),
     (("/terms", "/terms/"), "terms.html"),
+    (("/slotops", "/slotops/", "/slot-ops", "/slot-ops/"), "slotops.html"),
 ]
 
 # Build a fast lookup dict: path -> template_filename
