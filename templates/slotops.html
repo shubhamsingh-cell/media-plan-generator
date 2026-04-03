@@ -1429,8 +1429,8 @@
           </div>
         </div>
         <div class="header-right">
-          <div class="utc-clock" id="utcClock" aria-label="Current UTC time">
-            --:--:-- UTC
+          <div class="utc-clock" id="utcClock" aria-label="Current IST time">
+            --:--:-- IST
           </div>
           <span class="badge-product">Product #6</span>
         </div>
@@ -1710,7 +1710,7 @@
                       <polyline points="12 6 12 12 16 14" />
                     </svg>
                   </span>
-                  Country Peak Windows (UTC)
+                  Country Peak Windows (IST)
                 </h2>
               </div>
               <div class="timeline-container" id="peak-timeline-wrap">
@@ -3556,8 +3556,13 @@
           var hours = [];
           for (var h = 0; h < 24; h += 2) hours.push(h);
 
+          // Convert current time to IST (UTC+5:30)
           var nowUTC = new Date();
-          var nowHour = nowUTC.getUTCHours() + nowUTC.getUTCMinutes() / 60;
+          var istOffset = 5.5 * 60 * 60 * 1000;
+          var nowIST = new Date(
+            nowUTC.getTime() + nowUTC.getTimezoneOffset() * 60000 + istOffset,
+          );
+          var nowHour = nowIST.getHours() + nowIST.getMinutes() / 60;
 
           var html = '<div class="peak-timeline"><div class="timeline-header">';
           hours.forEach(function (h) {
@@ -3572,11 +3577,12 @@
             var cc = entry[0];
             var count = entry[1];
             var utcOff = CC_UTC[cc] || 0;
-            // Peak hours: 8-12 local and 14-18 local
-            var peakStart1 = (8 - utcOff + 24) % 24;
-            var peakEnd1 = (12 - utcOff + 24) % 24;
-            var peakStart2 = (14 - utcOff + 24) % 24;
-            var peakEnd2 = (18 - utcOff + 24) % 24;
+            // Peak hours: 8-12 local and 14-18 local, converted to IST (UTC+5.5)
+            var istOff = 5.5;
+            var peakStart1 = (8 - utcOff + istOff + 24) % 24;
+            var peakEnd1 = (12 - utcOff + istOff + 24) % 24;
+            var peakStart2 = (14 - utcOff + istOff + 24) % 24;
+            var peakEnd2 = (18 - utcOff + istOff + 24) % 24;
 
             var left1 = (peakStart1 / 24) * 100;
             var width1 = (((peakEnd1 - peakStart1 + 24) % 24) / 24) * 100;
@@ -4615,15 +4621,20 @@
         }
 
         /* ════════════════════════════════════════════════════════════════════
-           UTC CLOCK
+           IST CLOCK (UTC+5:30)
            ════════════════════════════════════════════════════════════════════ */
 
         function updateClock() {
           var now = new Date();
-          var h = String(now.getUTCHours()).padStart(2, "0");
-          var m = String(now.getUTCMinutes()).padStart(2, "0");
-          var s = String(now.getUTCSeconds()).padStart(2, "0");
-          $("#utcClock").textContent = h + ":" + m + ":" + s + " UTC";
+          // Convert to IST (UTC + 5:30)
+          var istOffset = 5.5 * 60 * 60 * 1000;
+          var ist = new Date(
+            now.getTime() + now.getTimezoneOffset() * 60000 + istOffset,
+          );
+          var h = String(ist.getHours()).padStart(2, "0");
+          var m = String(ist.getMinutes()).padStart(2, "0");
+          var s = String(ist.getSeconds()).padStart(2, "0");
+          $("#utcClock").textContent = h + ":" + m + ":" + s + " IST";
         }
 
         /* ════════════════════════════════════════════════════════════════════
