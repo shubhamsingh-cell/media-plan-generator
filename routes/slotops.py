@@ -146,6 +146,7 @@ def handle_slotops_post_routes(handler: Any, path: str, parsed: Any) -> bool:
         "/api/slotops/upload": engine.handle_slotops_upload,
         "/api/slotops/daily-actions": engine.handle_slotops_daily_actions,
         "/api/slotops/quick-wins": engine.handle_slotops_quick_wins,
+        "/api/slotops/analyze": engine.handle_slotops_analyze,
     }
 
     handler_fn = _dispatch.get(path)

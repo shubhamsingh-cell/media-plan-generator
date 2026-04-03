@@ -63,6 +63,73 @@ _DOW_SCORES: dict[str, float] = {
     "sunday": 5.0,
 }
 
+COUNTRY_CODE_MAP: dict[str, str] = {
+    "GB": "United Kingdom",
+    "US": "United States",
+    "CA": "Canada",
+    "AU": "Australia",
+    "DE": "Germany",
+    "FR": "France",
+    "IN": "India",
+    "SG": "Singapore",
+    "NZ": "New Zealand",
+    "IE": "Ireland",
+    "BR": "Brazil",
+    "MX": "Mexico",
+    "NL": "Netherlands",
+    "JP": "Japan",
+    "CN": "China",
+    "IL": "Israel",
+    "AE": "United Arab Emirates",
+    "SA": "Saudi Arabia",
+    "TW": "Taiwan",
+    "ID": "Indonesia",
+    "TH": "Thailand",
+    "MY": "Malaysia",
+    "KR": "South Korea",
+    "IT": "Italy",
+    "ES": "Spain",
+    "PL": "Poland",
+    "CH": "Switzerland",
+    "AT": "Austria",
+    "SE": "Sweden",
+    "NO": "Norway",
+    "DK": "Denmark",
+    "FI": "Finland",
+    "BE": "Belgium",
+    "PT": "Portugal",
+    "GR": "Greece",
+    "CZ": "Czechia",
+    "RO": "Romania",
+    "HU": "Hungary",
+    "CO": "Colombia",
+    "AR": "Argentina",
+    "CL": "Chile",
+    "PE": "Peru",
+}
+
+_NICHE_KEYWORDS: list[str] = [
+    "driver",
+    "cleaner",
+    "housekeeper",
+    "lifeguard",
+    "demi chef",
+    "commis chef",
+    "food and beverage",
+]
+
+_HIGH_PERFORMER_KEYWORDS: list[str] = [
+    "software engineer",
+    "data analyst",
+    "business analyst",
+    "content specialist",
+    "medical doctor",
+    "consultant",
+    "writer",
+    "project manager",
+    "product manager",
+]
+
 
 # -- Data Models -------------------------------------------------------------
 @dataclass
@@ -185,25 +252,131 @@ def _best_dow(country: str) -> tuple[str, float]:
     return best, rate
 
 
-def _jobs_from_dicts(raw: list[dict]) -> list[Job]:
-    """Convert plain dicts to Job instances."""
-    return [
-        Job(
-            job_id=str(r.get("job_id") or ""),
-            title=str(r.get("title") or ""),
-            standardized_title=str(r.get("standardized_title") or r.get("title") or ""),
-            country=str(r.get("country") or ""),
-            location=str(r.get("location") or ""),
-            industry=str(r.get("industry") or ""),
-            company=str(r.get("company") or ""),
-            priority=int(r.get("priority") or 3),
-            language=str(r.get("language") or "English"),
-            application_method=str(r.get("application_method") or "ATS"),
-            workplace_type=str(r.get("workplace_type") or "Remote"),
-            function=str(r.get("function") or ""),
-        )
-        for r in raw
+_US_STATE_CODES = frozenset(
+    [
+        "AL",
+        "AK",
+        "AZ",
+        "AR",
+        "CA",
+        "CO",
+        "CT",
+        "DE",
+        "FL",
+        "GA",
+        "HI",
+        "ID",
+        "IL",
+        "IN",
+        "IA",
+        "KS",
+        "KY",
+        "LA",
+        "ME",
+        "MD",
+        "MA",
+        "MI",
+        "MN",
+        "MS",
+        "MO",
+        "MT",
+        "NE",
+        "NV",
+        "NH",
+        "NJ",
+        "NM",
+        "NY",
+        "NC",
+        "ND",
+        "OH",
+        "OK",
+        "OR",
+        "PA",
+        "RI",
+        "SC",
+        "SD",
+        "TN",
+        "TX",
+        "UT",
+        "VT",
+        "VA",
+        "WA",
+        "WV",
+        "WI",
+        "WY",
+        "DC",
     ]
+)
+_CA_PROVINCE_CODES = frozenset(
+    ["AB", "BC", "MB", "NB", "NL", "NS", "NT", "NU", "ON", "PE", "QC", "SK", "YT"]
+)
+
+
+def _resolve_country(raw_country: str, state: str = "", cl_market: str = "") -> str:
+    """Map 2-letter ISO codes, US state codes, and CL Market to full country names."""
+    code = (raw_country or "").strip().upper()
+    if code in COUNTRY_CODE_MAP:
+        return COUNTRY_CODE_MAP[code]
+    if raw_country and raw_country.strip():
+        return raw_country.strip()
+    # Infer from state code
+    state_code = (state or "").strip().upper()
+    if state_code in _US_STATE_CODES:
+        return "United States"
+    if state_code in _CA_PROVINCE_CODES:
+        return "Canada"
+    # Infer from CL Market (e.g., "east tx, tx, us")
+    market = (cl_market or "").strip().lower()
+    if market.endswith(", us") or ", us," in market:
+        return "United States"
+    if market.endswith(", ca") or ", ca," in market:
+        return "Canada"
+    if market.endswith(", uk") or ", uk," in market:
+        return "United Kingdom"
+    return ""
+
+
+def _jobs_from_dicts(raw: list[dict]) -> list[Job]:
+    """Convert plain dicts to Job instances. Handles real user Excel formats:
+    country may be 2-letter code, city used for location, company from tab name.
+    """
+    jobs: list[Job] = []
+    for r in raw:
+        country_raw = str(r.get("country") or "")
+        state_raw = str(r.get("state") or "")
+        cl_market = str(r.get("CL Market") or r.get("cl_market") or "")
+        country = _resolve_country(country_raw, state_raw, cl_market)
+        location = str(r.get("city") or r.get("location") or "")
+        company = str(r.get("company") or r.get("client") or r.get("_sheet_name") or "")
+        title = str(r.get("title") or "")
+        job_id = str(
+            r.get("job_id")
+            or r.get("referencenumber")
+            or r.get("reference_number")
+            or ""
+        )
+        description = str(r.get("description") or "")
+        workplace = str(r.get("workplace_type") or r.get("type") or "Remote")
+        status_on_li = str(
+            r.get("Status On LinkedIn") or r.get("status_on_linkedin") or ""
+        )
+        jobs.append(
+            Job(
+                job_id=job_id,
+                title=title,
+                standardized_title=str(r.get("standardized_title") or title),
+                country=country,
+                location=location,
+                industry=str(r.get("industry") or ""),
+                company=company,
+                priority=int(r.get("priority") or 3),
+                language=str(r.get("language") or "English"),
+                application_method=str(r.get("application_method") or "ATS"),
+                workplace_type=workplace,
+                function=str(r.get("function") or ""),
+            )
+        )
+    return jobs
 
 
 def _config_from_dict(raw: dict) -> SlotConfig:
@@ -1191,4 +1364,357 @@ def handle_slotops_insights(body: dict[str, Any]) -> dict[str, Any]:
         }
     except Exception as exc:
         logger.error(f"SlotOps insights error: {exc}", exc_info=True)
+        return {"ok": False, "error": str(exc)}
+
+
+# ---------------------------------------------------------------------------
+# Job Eligibility Analysis & Slot Planning (108K-job baselines)
+# ---------------------------------------------------------------------------
+
+
+def _eligibility_score(job_dict: dict[str, Any]) -> tuple[int, list[str]]:
+    """Score a single job for LinkedIn eligibility (0-100). Returns (score, reasons)."""
+    score = 0
+    reasons: list[str] = []
+    title_lower = str(job_dict.get("title") or "").lower().strip()
+    country_raw = str(job_dict.get("country") or "")
+    country = _resolve_country(country_raw)
+    description = str(job_dict.get("description") or "")
+    workplace = (
+        str(job_dict.get("workplace_type") or job_dict.get("type") or "")
+        .lower()
+        .strip()
+    )
+
+    # 1. Country has baseline data with good apply rate (>5%): +20
+    cb = _country_bl(country)
+    country_rate = _safe_avg(cb, "apply_rate") if cb else 0.0
+    if country_rate > 5.0:
+        score += 20
+        reasons.append(f"Country {country} has {country_rate:.1f}% avg apply rate")
+    elif cb:
+        reasons.append(
+            f"Country {country} apply rate {country_rate:.1f}% below 5% threshold"
+        )
+
+    # 2. Title matches known high-performer: +20
+    is_high = any(kw in title_lower for kw in _HIGH_PERFORMER_KEYWORDS)
+    if is_high:
+        score += 20
+        reasons.append(f"High-performing title match")
+
+    # 3. Remote or can be posted as Remote: +15
+    if workplace in ("remote", "hybrid", ""):
+        score += 15
+        reasons.append("Remote/hybrid eligible")
+
+    # 4. Country has timezone with peak hours: +10
+    tz_peaks = (load_baselines().get("timezone_peaks") or {}).get(country)
+    if tz_peaks and tz_peaks.get("utc_peak_hours"):
+        score += 10
+        reasons.append("Timezone rotation available")
+
+    # 5. Title has Easy Apply benchmarks >15% apply rate: +15
+    ea_ats = load_baselines().get("easy_apply_vs_ats") or {}
+    norm_title = normalize_job_title(title_lower)
+    ea_key = f"{norm_title}||easy_apply"
+    ea_data = ea_ats.get(ea_key)
+    if ea_data and (ea_data.get("avg_apply_rate") or 0) > 15.0:
+        score += 15
+        reasons.append(
+            f"Easy Apply benchmark {ea_data['avg_apply_rate']:.1f}% apply rate"
+        )
+
+    # 6. Not a niche/local role: +10
+    is_niche = any(kw in title_lower for kw in _NICHE_KEYWORDS)
+    if not is_niche:
+        score += 10
+        reasons.append("Not a niche/local role")
+    else:
+        reasons.append(f"Niche/local role detected -- may not perform on LinkedIn")
+
+    # 7. Has description: +10
+    if description.strip():
+        score += 10
+        reasons.append("Has job description")
+    else:
+        reasons.append("Missing job description")
+
+    return min(score, 100), reasons
+
+
+def analyze_job_eligibility(jobs: list[dict[str, Any]]) -> dict[str, Any]:
+    """Analyze LinkedIn eligibility for a list of jobs based on 108K-job baselines.
+
+    Each job receives a LinkedIn Eligibility Score (0-100) and classification:
+    >= 60 ELIGIBLE, 40-59 CONDITIONAL, < 40 NOT RECOMMENDED.
+    """
+    load_baselines()
+    eligible: list[dict] = []
+    conditional: list[dict] = []
+    not_recommended: list[dict] = []
+    all_scored: list[dict] = []
+
+    for idx, job in enumerate(jobs):
+        score, reasons = _eligibility_score(job)
+        title = str(job.get("title") or "")
+        country_raw = str(job.get("country") or "")
+        country = _resolve_country(country_raw)
+        company = str(
+            job.get("company") or job.get("client") or job.get("_sheet_name") or ""
+        )
+        job_id = str(
+            job.get("job_id")
+            or job.get("referencenumber")
+            or job.get("reference_number")
+            or f"job_{idx}"
+        )
+
+        if score >= 60:
+            classification = "ELIGIBLE"
+        elif score >= 40:
+            classification = "CONDITIONAL"
+        else:
+            classification = "NOT RECOMMENDED"
+
+        entry = {
+            "job_id": job_id,
+            "title": title,
+            "country": country,
+            "company": company,
+            "score": score,
+            "classification": classification,
+            "reasons": reasons,
+        }
+        all_scored.append(entry)
+        if classification == "ELIGIBLE":
+            eligible.append(entry)
+        elif classification == "CONDITIONAL":
+            conditional.append(entry)
+        else:
+            not_recommended.append(entry)
+
+    # Aggregations
+    by_client: dict[str, int] = {}
+    by_country: dict[str, int] = {}
+    for e in eligible:
+        c = e["company"] or "Unknown"
+        by_client[c] = by_client.get(c, 0) + 1
+        co = e["country"] or "Unknown"
+        by_country[co] = by_country.get(co, 0) + 1
+
+    return {
+        "total_jobs_analyzed": len(jobs),
+        "eligible": len(eligible),
+        "conditional": len(conditional),
+        "not_recommended": len(not_recommended),
+        "eligible_by_client": dict(sorted(by_client.items(), key=lambda x: -x[1])),
+        "eligible_by_country": dict(sorted(by_country.items(), key=lambda x: -x[1])),
+        "scored_jobs": all_scored,
+        "eligible_jobs": eligible,
+        "conditional_jobs": conditional,
+        "not_recommended_jobs": not_recommended,
+    }
+
+
+def generate_slot_plan(
+    eligible_jobs: list[dict[str, Any]], total_slots: int = 501
+) -> dict[str, Any]:
+    """Generate a 30-day slot rotation plan for eligible jobs.
+
+    Groups by country + timezone, allocates slots ROI-weighted from baselines,
+    builds daily rotation respecting Tue-Thu prime days, no new posts Friday,
+    Monday is ops day.
+    """
+    load_baselines()
+    if not eligible_jobs:
+        return {
+            "total_eligible": 0,
+            "slot_allocation": {},
+            "rotation_plan": [],
+            "utilization_rate": 0.0,
+            "recommendations": ["No eligible jobs to plan."],
+        }
+
+    # Build Job objects for slot allocation
+    job_objs = _jobs_from_dicts(eligible_jobs)
+    countries = list({j.country for j in job_objs if j.country})
+    alloc = calculate_slot_allocation(countries, total_slots, job_objs)
+
+    # Score and sort
+    scored = sorted(
+        [(score_job(j), j, ej) for j, ej in zip(job_objs, eligible_jobs)],
+        key=lambda x: x[0],
+        reverse=True,
+    )
+
+    # Build 30-day rotation plan
+    cycle_len = sum(REFRESH_CADENCE_DAYS) // len(REFRESH_CADENCE_DAYS)
+    dow_names = [
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+        "Sunday",
+    ]
+    rotation_plan: list[dict[str, Any]] = []
+    daily_live: dict[int, list[str]] = {d: [] for d in range(1, 31)}
+
+    for idx, (sc, j, ej) in enumerate(scored):
+        start_day = (idx * cycle_len) % 30 + 1
+        dur = REFRESH_CADENCE_DAYS[idx % len(REFRESH_CADENCE_DAYS)]
+        end_day = min(start_day + dur - 1, 30)
+        dow_name = dow_names[(start_day - 1) % 7]
+
+        # No new posts on Friday; shift to Thursday
+        if dow_name == "Friday" and start_day > 1:
+            start_day -= 1
+            end_day = min(start_day + dur - 1, 30)
+
+        jid = str(ej.get("job_id") or ej.get("referencenumber") or f"job_{idx}")
+        rotation_plan.append(
+            {
+                "job_id": jid,
+                "title": j.title,
+                "country": j.country,
+                "company": j.company,
+                "score": sc,
+                "start_day": start_day,
+                "end_day": end_day,
+                "duration_days": dur,
+            }
+        )
+        for d in range(start_day, end_day + 1):
+            if d <= 30:
+                daily_live[d].append(jid)
+
+    # Daily summary
+    daily_summary: list[dict[str, Any]] = []
+    for d in range(1, 31):
+        dow_name = dow_names[(d - 1) % 7]
+        live_count = len(daily_live[d])
+        daily_summary.append(
+            {
+                "day": d,
+                "day_of_week": dow_name,
+                "jobs_live": live_count,
+                "slot_utilization": (
+                    round(min(live_count / total_slots, 1.0), 4)
+                    if total_slots > 0
+                    else 0.0
+                ),
+                "is_prime_day": dow_name in BEST_POSTING_DAYS,
+                "is_ops_day": dow_name == "Monday",
+            }
+        )
+
+    avg_util = (
+        sum(ds["slot_utilization"] for ds in daily_summary) / 30.0
+        if daily_summary
+        else 0.0
+    )
+
+    # Recommendations
+    recs: list[str] = []
+    n_elig = len(eligible_jobs)
+    cycles_needed = max(1, math.ceil(n_elig / total_slots))
+    recs.append(
+        f"{n_elig} eligible jobs can be served by {total_slots} slots "
+        f"with {cycles_needed} rotation cycle{'s' if cycles_needed > 1 else ''}"
+    )
+    top_country = max(alloc.items(), key=lambda x: x[1]) if alloc else ("N/A", 0)
+    cb = _country_bl(top_country[0])
+    top_rate = _safe_avg(cb, "apply_rate") if cb else 0.0
+    top_sample = (cb or {}).get("sample_size", 0)
+    recs.append(
+        f"{top_country[0]} gets {top_country[1]} slots "
+        f"(highest ROI: {top_rate:.2f}% apply rate, {top_sample:,}+ baseline jobs)"
+    )
+    recs.append("Post on Tuesday-Thursday for best results")
+    recs.append("Monday is ops day -- use for monitoring, not new launches")
+    recs.append("Avoid launching new posts on Friday (lowest engagement)")
+
+    return {
+        "total_eligible": n_elig,
+        "total_slots": total_slots,
+        "slot_allocation": alloc,
+        "rotation_plan": rotation_plan,
+        "daily_summary": daily_summary,
+        "utilization_rate": round(avg_util, 4),
+        "recommendations": recs,
+    }
+
+
+def handle_slotops_analyze(body: dict[str, Any]) -> dict[str, Any]:
+    """POST /api/slotops/analyze -- Job eligibility analysis and slot planning.
+
+    Accepts:
+        jobs: list[dict] -- parsed from Excel
+        total_slots: int -- default 501
+        include_conditional: bool -- include CONDITIONAL jobs in the slot plan
+    """
+    t0 = time.monotonic()
+    try:
+        raw_jobs = body.get("jobs") or []
+        if not raw_jobs:
+            return {"ok": False, "error": "No jobs provided"}
+        total_slots = int(body.get("total_slots") or 501)
+        include_conditional = bool(body.get("include_conditional", False))
+
+        # Step 1: Eligibility analysis
+        eligibility = analyze_job_eligibility(raw_jobs)
+
+        # Step 2: Build slot plan from eligible (+ conditional if requested)
+        plan_jobs = list(eligibility["eligible_jobs"])
+        if include_conditional:
+            plan_jobs.extend(eligibility["conditional_jobs"])
+
+        # Re-build dicts for slot planning (need original dict fields for _jobs_from_dicts)
+        plan_dicts: list[dict[str, Any]] = []
+        scored_map = {e["job_id"]: e for e in eligibility["scored_jobs"]}
+        for pj in plan_jobs:
+            jid = pj["job_id"]
+            # Find original dict
+            orig = next(
+                (
+                    r
+                    for r in raw_jobs
+                    if str(
+                        r.get("job_id")
+                        or r.get("referencenumber")
+                        or r.get("reference_number")
+                        or ""
+                    )
+                    == jid
+                ),
+                pj,
+            )
+            plan_dicts.append(orig)
+
+        slot_plan = generate_slot_plan(plan_dicts, total_slots)
+
+        ms = round((time.monotonic() - t0) * 1000, 1)
+        return {
+            "ok": True,
+            "total_jobs_analyzed": eligibility["total_jobs_analyzed"],
+            "eligible": eligibility["eligible"],
+            "conditional": eligibility["conditional"],
+            "not_recommended": eligibility["not_recommended"],
+            "eligible_by_client": eligibility["eligible_by_client"],
+            "eligible_by_country": eligibility["eligible_by_country"],
+            "slot_allocation": slot_plan["slot_allocation"],
+            "rotation_plan": slot_plan["rotation_plan"],
+            "daily_summary": slot_plan["daily_summary"],
+            "utilization_rate": slot_plan["utilization_rate"],
+            "recommendations": slot_plan["recommendations"],
+            "include_conditional": include_conditional,
+            "total_slots": total_slots,
+            "computation_ms": ms,
+        }
+    except ValueError as exc:
+        return {"ok": False, "error": str(exc)}
+    except (TypeError, KeyError) as exc:
+        logger.error(f"SlotOps analyze error: {exc}", exc_info=True)
         return {"ok": False, "error": str(exc)}
