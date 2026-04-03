@@ -10,9 +10,12 @@ Features:
     - Circuit breaker: trips after 5 consecutive failures, 30-min cooldown
 
 Configuration (env vars):
-    SLACK_WEBHOOK_URL    -- Incoming webhook URL (simple alerts)
-    SLACK_BOT_TOKEN      -- Bot token for Slack API (richer messages)
-    SLACK_ALERT_CHANNEL  -- Default channel (optional, defaults to #alerts)
+    SLACK_ALERTS_WEBHOOK_URL -- Incoming webhook URL for system alerts (separate from plan notifications)
+    SLACK_BOT_TOKEN          -- Bot token for Slack API (richer messages)
+    SLACK_ALERT_CHANNEL      -- Default channel (optional, defaults to #alerts)
+
+Note: Uses SLACK_ALERTS_WEBHOOK_URL (not SLACK_WEBHOOK_URL) to keep system
+alerts separate from plan generation notifications in #nova-media-plans.
 """
 
 from __future__ import annotations
@@ -30,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 # -- Configuration -----------------------------------------------------------
 
-_WEBHOOK_URL: str = os.environ.get("SLACK_WEBHOOK_URL") or ""
+_WEBHOOK_URL: str = os.environ.get("SLACK_ALERTS_WEBHOOK_URL") or ""
 _BOT_TOKEN: str = os.environ.get("SLACK_BOT_TOKEN") or ""
 _DEFAULT_CHANNEL: str = os.environ.get("SLACK_ALERT_CHANNEL") or "#alerts"
 

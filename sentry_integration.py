@@ -576,9 +576,11 @@ def _attempt_slack_escalation(module: str, fingerprint: str) -> None:
 
     def _send() -> None:
         try:
-            webhook_url = os.environ.get("SLACK_WEBHOOK_URL") or ""
+            webhook_url = os.environ.get("SLACK_ALERTS_WEBHOOK_URL") or ""
             if not webhook_url:
-                logger.debug("sentry_integration: no SLACK_WEBHOOK_URL for escalation")
+                logger.debug(
+                    "sentry_integration: no SLACK_ALERTS_WEBHOOK_URL for escalation"
+                )
                 return
             payload = json.dumps(
                 {

@@ -10,9 +10,12 @@ Functions:
     send_error_alert(error)                 -- Application error alert
 
 Configuration (env vars):
-    SLACK_WEBHOOK_URL    -- Incoming webhook URL (optional, disables alerts if unset)
-    SLACK_ALERT_CHANNEL  -- Default channel (optional, defaults to #nova-alerts)
-    RENDER_DEPLOY_URL    -- Render deployment URL (optional, for deploy links)
+    SLACK_ALERTS_WEBHOOK_URL -- Incoming webhook URL for system alerts (separate from plan notifications)
+    SLACK_ALERT_CHANNEL      -- Default channel (optional, defaults to #nova-alerts)
+    RENDER_DEPLOY_URL        -- Render deployment URL (optional, for deploy links)
+
+Note: Uses SLACK_ALERTS_WEBHOOK_URL (not SLACK_WEBHOOK_URL) to keep system
+alerts separate from plan generation notifications in #nova-media-plans.
 
 Rate limiting: max 10 alerts/minute per severity level to prevent alert storms.
 """
@@ -32,7 +35,7 @@ logger = logging.getLogger(__name__)
 
 # -- Configuration -----------------------------------------------------------
 
-_WEBHOOK_URL: str = os.environ.get("SLACK_WEBHOOK_URL") or ""
+_WEBHOOK_URL: str = os.environ.get("SLACK_ALERTS_WEBHOOK_URL") or ""
 _DEFAULT_CHANNEL: str = os.environ.get("SLACK_ALERT_CHANNEL") or "#nova-alerts"
 _DEPLOY_URL: str = os.environ.get(
     "RENDER_DEPLOY_URL", "https://media-plan-generator.onrender.com"
