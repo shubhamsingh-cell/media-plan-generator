@@ -312,6 +312,10 @@ def build_rotation_schedule(
 def predict_performance(job: Job) -> dict[str, Any]:
     """Predict apply rate, views, applications, best day/month, confidence."""
     bl = load_baselines()
+    # Normalize title for better baseline matching
+    norm_title = normalize_job_title(job.standardized_title or job.title)
+    if norm_title and norm_title != job.standardized_title:
+        job = Job(**{**job.__dict__, "standardized_title": norm_title})
     cross = _cross_bl(job.country, job.standardized_title)
     cb, tb = _country_bl(job.country), _title_bl(job.standardized_title)
     if cross:
@@ -999,6 +1003,113 @@ def _lazy_llm():
     except ImportError:
         logger.warning("llm_router not available; SlotOps LLM insights disabled")
         return None, None
+
+
+_title_norm_cache: dict[str, str] = {}
+
+
+def normalize_job_title(raw_title: str) -> str:
+    """Normalize a job title to match our baseline standardized titles using Gemini Flash Lite.
+
+    Uses LLM to fuzzy-match user input (e.g., 'software dev', 'Sr. SWE', 'full stack developer')
+    to our 962 baseline standardized titles. Falls back to basic string matching if LLM unavailable.
+    Results are cached to avoid repeated LLM calls.
+    """
+    if not raw_title:
+        return ""
+    raw_clean = raw_title.strip()
+    if raw_clean in _title_norm_cache:
+        return _title_norm_cache[raw_clean]
+
+    bl = load_baselines()
+    all_titles = list((bl.get("title_baselines") or {}).keys())
+
+    # Fast exact match
+    for t in all_titles:
+        if t.lower() == raw_clean.lower():
+            _title_norm_cache[raw_clean] = t
+            return t
+
+    raw_lower = raw_clean.lower()
+
+    # Keyword alias map for common variations
+    _ALIASES: dict[str, str] = {
+        "software dev": "Software Engineer",
+        "swe": "Software Engineer",
+        "sde": "Software Engineer",
+        "full stack": "Full Stack Engineer",
+        "frontend": "Frontend Engineer",
+        "backend": "Backend Engineer",
+        "data science": "Data Scientist",
+        "ml engineer": "Machine Learning Engineer",
+        "devops": "DevOps Engineer",
+        "qa": "Quality Assurance Engineer",
+        "hr": "Human Resources",
+        "pm": "Project Manager",
+        "product manager": "Product Manager",
+        "customer support": "Customer Support Specialist",
+        "customer service": "Customer Service Representative",
+        "nurse": "Registered Nurse",
+        "rn": "Registered Nurse",
+        "doctor": "Medical Doctor",
+        "truck driver": "Truck Driver",
+        "driver": "Driver",
+        "warehouse": "Warehouse Associate",
+    }
+    for alias, target in _ALIASES.items():
+        if alias in raw_lower:
+            if target in all_titles:
+                _title_norm_cache[raw_clean] = target
+                return target
+
+    # Fast substring match
+    raw_lower = raw_clean.lower()
+    for t in all_titles:
+        if raw_lower in t.lower() or t.lower() in raw_lower:
+            _title_norm_cache[raw_clean] = t
+            return t
+
+    # LLM-based fuzzy matching
+    call_fn, provider = _lazy_llm()
+    if call_fn:
+        try:
+            sample_titles = [
+                t
+                for t in all_titles
+                if any(w in t.lower() for w in raw_lower.split()[:2])
+            ][:30]
+            if not sample_titles:
+                sample_titles = all_titles[:50]
+            prompt = (
+                f"Match this job title to the closest standardized title from the list.\n"
+                f'Input: "{raw_clean}"\n'
+                f"Standardized titles: {', '.join(sample_titles)}\n"
+                f"Reply with ONLY the matching title, nothing else. If no good match, reply with the closest one."
+            )
+            result = call_fn(
+                messages=[{"role": "user", "content": prompt}],
+                system_prompt="You are a job title normalizer. Reply with only the matched title.",
+                max_tokens=50,
+                task_type="classification",
+                force_provider=provider or "",
+                use_cache=True,
+            )
+            matched = (result.get("text") or "").strip().strip('"').strip("'")
+            if matched and matched in all_titles:
+                _title_norm_cache[raw_clean] = matched
+                logger.info(f"LLM title normalization: '{raw_clean}' -> '{matched}'")
+                return matched
+            # Check if LLM returned something close
+            for t in all_titles:
+                if matched.lower() == t.lower():
+                    _title_norm_cache[raw_clean] = t
+                    return t
+        except Exception as exc:
+            logger.error(f"LLM title normalization failed: {exc}", exc_info=True)
+
+    # Fallback: return as-is
+    _title_norm_cache[raw_clean] = raw_clean
+    return raw_clean
 
 
 def generate_optimization_report(
