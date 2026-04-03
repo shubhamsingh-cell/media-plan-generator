@@ -1024,7 +1024,7 @@ def _copilot_suggest_locations(
                         suggestions.append(
                             {
                                 "text": loc_name,
-                                "confidence": min(0.70 + count * 0.05, 0.95),
+                                "confidence": min(0.70 + count * 0.05, 0.99),
                                 "reason": f"High demand for {existing_roles[0]} ({count} openings found)",
                             }
                         )
