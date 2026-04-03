@@ -10289,6 +10289,11 @@ Do NOT generate month-over-month trend alerts, spike warnings, or "critical aler
             r"|\bwho\s+(is|was)\s+(the\s+)?(president|king|queen|prime\s*minister)\b"
             r"|\b(translate|translation)\s+(to|into)\b"
             r"|\b(sports|football|basketball|soccer|cricket|tennis)\s+(score|result|match)\b"
+            r"|\b(generic|general)\s+(question|topic|thing|stuff|query|queries)\b"
+            r"|\bcan\s+you\s+(help|do|answer)\s+(with\s+)?(anything|everything|generic|general)\b"
+            r"|\bwould\s+you\s+help\s+with\s+(generic|general|random|any)\b"
+            r"|\bwhat\s+(can|do)\s+you\s+(do|help\s+with|know|answer)\b"
+            r"|\b(hello|hi|hey|howdy|greetings)\s*[!?.,]*$"
         )
         _RECRUITMENT_KEYWORDS_FAST = re.compile(
             r"\b(hire|hiring|recruit|talent|job|salary|cpc|cpa|cph|benchmark|budget"
@@ -10297,12 +10302,44 @@ Do NOT generate month-over-month trend alerts, spike warnings, or "critical aler
             r"|programmatic|indeed|linkedin|ziprecruiter|glassdoor|joveo"
             r"|remote|h-?1b|visa|labor|labour|compliance|diversity|dei)\b"
         )
+        _CAPABILITY_QUESTION = re.compile(
+            r"\bwhat\s+(can|do)\s+you\s+(do|help|know|answer)\b"
+            r"|\bwould\s+you\s+help\s+with\b"
+            r"|\bcan\s+you\s+help\s+with\b"
+            r"|\b(generic|general)\s+(question|topic|thing)\b"
+            r"|\b(hello|hi|hey|howdy|greetings)\s*[!?.,]*$",
+            re.IGNORECASE,
+        )
         if _OFF_TOPIC_FAST.search(_msg_lower) and not _RECRUITMENT_KEYWORDS_FAST.search(
             _msg_lower
         ):
             logger.info("NOVA MODE: Off-topic fast deflection -- 0 tokens")
             _nova_metrics.record_rule_based()
             _nova_metrics.record_latency((time.time() - _t0) * 1000)
+            # If it's a capability question, give a friendly capabilities overview
+            if _CAPABILITY_QUESTION.search(_msg_lower):
+                return {
+                    "response": (
+                        "I'm **Nova**, your recruitment marketing intelligence assistant. "
+                        "Here's what I can help with:\n\n"
+                        "**Media Planning** -- Create data-driven recruitment media plans with budget allocation, "
+                        "channel mix, and ROI projections\n"
+                        "**Benchmarks** -- CPC, CPA, CPH benchmarks by industry, role, and location\n"
+                        "**Salary Data** -- Compensation ranges and market rates\n"
+                        "**Publisher Intelligence** -- Compare job boards (Indeed, LinkedIn, ZipRecruiter, etc.)\n"
+                        "**Market Analysis** -- Labor market trends, supply/demand, H-1B data\n"
+                        "**Career Page Audits** -- Performance and accessibility analysis\n"
+                        "**Employer Brand Analysis** -- YouTube recruitment video presence\n\n"
+                        "Try asking:\n"
+                        '- *"Create a media plan for nursing jobs in Texas"*\n'
+                        '- *"What are the CPC benchmarks for tech recruiting?"*\n'
+                        '- *"Compare Indeed vs LinkedIn for retail hiring"*\n'
+                        '- *"Salary data for software engineers in San Francisco"*'
+                    ),
+                    "sources": [],
+                    "confidence": None,
+                    "tools_used": [],
+                }
             return {
                 "response": (
                     "That's outside my area of expertise. I specialize in recruitment "
