@@ -10370,6 +10370,18 @@ Do NOT generate month-over-month trend alerts, spike warnings, or "critical aler
                 _intelligent_cache_set(user_message, _quick, history)
                 return _filter_competitor_names(_quick)
 
+        # --- S40: Direct tool dispatch for single-tool queries ---
+        # Certain queries map unambiguously to a specific tool. LLMs often fail
+        # to call these tools (geocode_location, audit_career_page, etc.) because
+        # the query phrasing doesn't match typical recruitment keywords. Instead of
+        # burning 90s on retry cascades, detect the intent and call the tool
+        # directly, then use a cheap LLM call to synthesize the result.
+        _direct_result = self._try_direct_tool_dispatch(
+            user_message, _msg_lower, history, _t0, cache_key, _session_id
+        )
+        if _direct_result:
+            return _direct_result
+
         # --- LLM routing strategy (v3.6 -- SMART: complexity-aware routing) ---
         # PRINCIPLE: Unknown queries default to tool path (safe).
         # Complex/analytical queries prefer paid models for quality.
@@ -11062,6 +11074,227 @@ Do NOT generate month-over-month trend alerts, spike warnings, or "critical aler
         }
 
     # ------------------------------------------------------------------
+    # S40: Direct tool dispatch for single-tool queries
+    # ------------------------------------------------------------------
+    # Some queries clearly need a specific tool but LLMs don't recognise
+    # them as recruitment-tool queries (e.g. "coordinates for Mumbai",
+    # "audit careers page"). Instead of a 90s retry cascade we detect
+    # the intent, call the tool directly, and use a cheap LLM to narrate.
+
+    # Compiled intent patterns -- evaluated once at class load time.
+    _GEOCODE_INTENT = re.compile(
+        r"\b(geocode|coordinates?|lat\s*(?:/|,)?\s*l(?:ng|on)|latitude|longitude"
+        r"|geo(?:\s*-?\s*)locate|where\s+is|location\s+of|map\s+coordinates?"
+        r"|gps\s+coordinates?)\b",
+        re.IGNORECASE,
+    )
+    _AUDIT_INTENT = re.compile(
+        r"\b(audit|pagespeed|page\s*speed|lighthouse|core\s*web\s*vitals"
+        r"|accessibility\s+(?:check|score|test|audit)|seo\s+(?:check|audit|score)"
+        r"|careers?\s+page\s+(?:check|test|audit|review|analysis|performance))\b",
+        re.IGNORECASE,
+    )
+    _EMPLOYER_BRAND_INTENT = re.compile(
+        r"\b(employer\s+brand|youtube\s+(?:brand|recruit|employer|hiring|video)"
+        r"|recruitment\s+video|hiring\s+video|brand\s+(?:on\s+)?youtube)\b",
+        re.IGNORECASE,
+    )
+
+    def _try_direct_tool_dispatch(
+        self,
+        user_message: str,
+        msg_lower: str,
+        history: list,
+        t0: float,
+        cache_key: str,
+        session_id: Optional[str],
+    ) -> Optional[dict]:
+        """Detect single-tool queries and dispatch directly, bypassing LLM tool selection.
+
+        Returns a response dict if a direct tool dispatch was performed, or None
+        to fall through to normal LLM routing.
+        """
+        tool_name: Optional[str] = None
+        tool_params: dict = {}
+        tool_label: str = ""
+
+        # --- Geocode intent ---
+        if self._GEOCODE_INTENT.search(msg_lower):
+            # Extract the address/location from the message
+            # Strip the intent keywords to isolate the address
+            _addr = re.sub(
+                r"\b(geocode|coordinates?\s*(for|of)?|lat\s*/?\s*l(?:ng|on)"
+                r"|latitude|longitude|geo\s*-?\s*locate|where\s+is"
+                r"|location\s+of|map\s+coordinates?\s*(for|of)?|gps\s+coordinates?\s*(for|of)?"
+                r"|what\s+are\s+the|give\s+me\s+the|get\s+me\s+the|can\s+you"
+                r"|please|and)\b",
+                "",
+                msg_lower,
+                flags=re.IGNORECASE,
+            ).strip(" ?.,!\"'")
+            if _addr and len(_addr) > 1:
+                tool_name = "geocode_location"
+                tool_params = {"address": _addr}
+                tool_label = "Geocoding location"
+
+        # --- Career page audit intent ---
+        if not tool_name and self._AUDIT_INTENT.search(msg_lower):
+            # Extract URL from the message
+            _url_match = re.search(r"https?://[^\s]+", user_message)
+            if _url_match:
+                tool_name = "audit_career_page"
+                tool_params = {"url": _url_match.group(0).rstrip(".,!?)}]")}
+                tool_label = "Auditing career page"
+            elif "career" in msg_lower and any(
+                c in msg_lower for c in ("page", "site", "website")
+            ):
+                # No URL but asking about a career page -- ask for URL
+                return {
+                    "response": (
+                        "I can audit a career page for performance, accessibility, SEO, "
+                        "and Core Web Vitals. Please provide the URL you'd like me to audit "
+                        "(e.g., `https://careers.yourcompany.com`)."
+                    ),
+                    "sources": [],
+                    "confidence": None,
+                    "tools_used": [],
+                }
+
+        # --- Employer brand / YouTube intent ---
+        if not tool_name and self._EMPLOYER_BRAND_INTENT.search(msg_lower):
+            # Extract company name: strip intent keywords
+            _company = re.sub(
+                r"\b(analyze|analyse|check|review|audit|assess|employer\s+brand"
+                r"|youtube|recruitment\s+video|hiring\s+video|brand"
+                r"|on\s+youtube|video\s+presence|of|the|for|at|company)\b",
+                "",
+                msg_lower,
+                flags=re.IGNORECASE,
+            ).strip(" ?.,!\"'")
+            if _company and len(_company) > 1:
+                tool_name = "analyze_employer_brand"
+                tool_params = {"company_name": _company.title()}
+                tool_label = "Analyzing employer brand"
+
+        if not tool_name:
+            return None  # No direct dispatch -- fall through to normal routing
+
+        # Execute the tool directly
+        logger.info(
+            "NOVA MODE: Direct tool dispatch -- %s(%s)",
+            tool_name,
+            json.dumps(tool_params)[:200],
+        )
+        try:
+            tool_result_str = self.execute_tool(tool_name, tool_params)
+            tool_result = (
+                json.loads(tool_result_str)
+                if isinstance(tool_result_str, str)
+                else tool_result_str
+            )
+        except Exception as exc:
+            logger.error(
+                "Direct tool dispatch failed for %s: %s", tool_name, exc, exc_info=True
+            )
+            return None  # Fall through to normal routing
+
+        # Check for tool error
+        if isinstance(tool_result, dict) and tool_result.get("error"):
+            logger.warning(
+                "Direct tool dispatch %s returned error: %s",
+                tool_name,
+                tool_result["error"],
+            )
+            # Return the error gracefully instead of retrying
+            _source = tool_result.get("source") or tool_name
+            return {
+                "response": (
+                    f"I tried to run the {tool_label.lower()} tool but encountered an issue: "
+                    f"**{tool_result['error']}**\n\n"
+                    f"Please check the input and try again. "
+                    f"If the problem persists, let me know and I'll look into it."
+                ),
+                "sources": [_source],
+                "confidence": 0.3,
+                "tools_used": [tool_name],
+            }
+
+        # Synthesize the tool result using a cheap LLM call (no tools needed)
+        _source = ""
+        if isinstance(tool_result, dict):
+            _source = tool_result.get("source") or ""
+
+        _synth_prompt = (
+            "You are Nova, Joveo's recruitment marketing intelligence assistant. "
+            "A tool has returned the following data. Present it clearly and concisely "
+            "in markdown format. Lead with the key finding, then provide details. "
+            "Do NOT call any tools -- the data is already provided below.\n\n"
+            f"User question: {user_message}\n\n"
+            f"Tool: {tool_name}\n"
+            f"Result:\n{json.dumps(tool_result, indent=2)[:3000]}\n\n"
+            "Format your response as a senior analyst would. Include a brief "
+            "recommendation or context if relevant to recruitment."
+        )
+
+        try:
+            from llm_router import call_llm
+
+            _synth_result = call_llm(
+                messages=[{"role": "user", "content": _synth_prompt}],
+                system_prompt="You are Nova. Present tool data clearly. No tool calls needed.",
+                max_tokens=2048,
+                query_text=user_message,
+                timeout_budget=20.0,
+            )
+            _synth_text = (_synth_result.get("text") or "").strip()
+            _llm_provider = _synth_result.get("provider") or "unknown"
+            _llm_model = _synth_result.get("model") or "unknown"
+        except Exception as _llm_err:
+            logger.warning("Direct dispatch: LLM synthesis failed: %s", _llm_err)
+            # Fallback: format the raw result
+            _synth_text = f"## {tool_label} Results\n\n```json\n{json.dumps(tool_result, indent=2)[:2000]}\n```"
+            _llm_provider = "none (raw)"
+            _llm_model = "none"
+
+        if not _synth_text:
+            # LLM returned empty -- use raw format
+            _synth_text = f"## {tool_label} Results\n\n```json\n{json.dumps(tool_result, indent=2)[:2000]}\n```"
+
+        _elapsed = time.time() - t0
+        logger.info(
+            "NOVA MODE: Direct tool dispatch SUCCESS -- %s in %.1fs (provider=%s)",
+            tool_name,
+            _elapsed,
+            _llm_provider,
+        )
+        _nova_metrics.record_latency(_elapsed * 1000)
+        _nova_metrics.record_chat("direct_dispatch")
+
+        _result = {
+            "response": _synth_text,
+            "sources": [_source] if _source else [],
+            "confidence": 0.85,
+            "tools_used": [tool_name],
+            "tool_iterations": 1,
+            "llm_provider": _llm_provider,
+            "llm_model": _llm_model,
+        }
+
+        # Cache successful direct dispatch results
+        if cache_key:
+            _set_response_cache(cache_key, _result)
+        _intelligent_cache_set(user_message, _result, history)
+
+        return _append_follow_ups_to_response(
+            _enrich_response_quality(
+                _sanitize_refusal_language(_filter_competitor_names(_result)),
+                user_message,
+            ),
+            user_message,
+            session_id=session_id,
+        )
+
+    # ------------------------------------------------------------------
     # LLM Router integration (v3.1 -- free LLM providers first)
     # ------------------------------------------------------------------
 
@@ -11176,6 +11409,24 @@ Do NOT generate month-over-month trend alerts, spike warnings, or "critical aler
             "embed",
             "widget",
             "integration",
+            # S40: Tool-specific intents (geocode, audit, employer brand)
+            "geocode",
+            "coordinates",
+            "latitude",
+            "longitude",
+            "pagespeed",
+            "page speed",
+            "core web vitals",
+            "career page",
+            "careers page",
+            "employer brand",
+            "youtube brand",
+            "recruitment video",
+            "meta campaign",
+            "meta ads",
+            "facebook ads",
+            "instagram ads",
+            "google ads benchmark",
         ]
     )
 

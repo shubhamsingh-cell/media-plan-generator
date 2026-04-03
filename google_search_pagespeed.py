@@ -250,7 +250,7 @@ def audit_career_page(url: str, strategy: str = "mobile") -> dict:
     full_url = f"{_PAGESPEED_URL}?{urllib.parse.urlencode(query_parts)}"
     req = urllib.request.Request(full_url)
     try:
-        with urllib.request.urlopen(req, context=_ssl_ctx, timeout=60) as resp:
+        with urllib.request.urlopen(req, context=_ssl_ctx, timeout=15) as resp:
             data = json.loads(resp.read().decode("utf-8"))
         return _parse_pagespeed(data)
     except urllib.error.HTTPError as exc:
