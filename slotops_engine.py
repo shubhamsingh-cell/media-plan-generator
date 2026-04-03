@@ -340,13 +340,68 @@ def predict_performance(job: Job) -> dict[str, Any]:
         if ss >= 100
         else 0.85 if ss >= 50 else 0.70 if ss >= 20 else 0.50 if ss >= 5 else 0.30
     )
+    # Easy Apply vs ATS split from detailed benchmarks
+    ea_ats = bl.get("easy_apply_vs_ats") or {}
+    is_easy_apply = (job.application_method or "").lower() == "linkedin"
+    method_key = "easy_apply" if is_easy_apply else "ats"
+    # Try title+country+method, then title+method, then country+method
+    ea_data = (
+        ea_ats.get(f"{job.standardized_title}|{job.country}|{method_key}")
+        or ea_ats.get(f"{job.standardized_title}||{method_key}")
+        or ea_ats.get(f"|{job.country}|{method_key}")
+    )
+    if ea_data:
+        ar = ea_data.get("avg_apply_rate") or ar
+        vw = ea_data.get("avg_views") or vw
+        ap = ea_data.get("avg_applications") or ap
+        ss = max(ss, ea_data.get("count") or 0)
+    # Also get the opposite method for comparison
+    opp_key = "ats" if is_easy_apply else "easy_apply"
+    opp_data = ea_ats.get(
+        f"{job.standardized_title}|{job.country}|{opp_key}"
+    ) or ea_ats.get(f"{job.standardized_title}||{opp_key}")
     return {
         "job_id": job.job_id,
         "country": job.country,
         "standardized_title": job.standardized_title,
+        "application_method": job.application_method,
         "expected_apply_rate": round(ar, 2),
         "expected_views": round(vw, 1),
+        "expected_apply_clicks": round(
+            (
+                ea_data.get("avg_apply_clicks", vw * ar / 100)
+                if ea_data
+                else vw * ar / 100
+            ),
+            1,
+        ),
         "expected_applications": round(ap, 1),
+        "easy_apply_comparison": (
+            {
+                "current_method": (
+                    "Easy Apply" if is_easy_apply else "ATS (external site)"
+                ),
+                "current_applications": round(ap, 1),
+                "alternative_applications": (
+                    round(opp_data.get("avg_applications", 0), 1) if opp_data else None
+                ),
+                "alternative_rate": (
+                    round(opp_data.get("avg_apply_rate", 0), 2) if opp_data else None
+                ),
+                "lift_available": (
+                    round(opp_data["avg_apply_rate"] / ar, 1)
+                    if opp_data and ar > 0 and not is_easy_apply
+                    else None
+                ),
+                "recommendation": (
+                    "Already using Easy Apply -- optimal"
+                    if is_easy_apply
+                    else f"Switch to Easy Apply for ~{EASY_APPLY_LIFT}x lift in apply rate"
+                ),
+            }
+            if opp_data or is_easy_apply
+            else None
+        ),
         "best_day_of_week": best_day,
         "best_month": best_mo,
         "confidence_score": conf,

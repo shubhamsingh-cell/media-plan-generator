@@ -3824,6 +3824,24 @@
     "500 slots can serve 2,500-3,000 jobs/day with timezone rotation across 76 countries",
     "LinkedIn peak apply hours: 8-10am and 5-7pm local time per country",
     "Dataset: 108,871 total jobs across 76 countries and 2,121 standardized titles",
-    "Global average apply rate: 8.56%, median: 6.0%"
-  ]
+    "Global average apply rate: 8.56%, median: 6.0%",
+    "Easy Apply vs ATS: 17.7% vs 8.7% apply rate (2.3x lift), 205 vs 0.1 avg applications (ATS doesn't report to LinkedIn)",
+    "Software Engineer Easy Apply: 1,109 avg applications, 23.1% apply rate vs ATS: 0 applications, 9.7% rate"
+  ],
+  "easy_apply_vs_ats_summary": {
+    "easy_apply_global": {
+      "jobs": 2795,
+      "avg_apply_rate": 17.7,
+      "avg_applications": 205.0,
+      "total_applications": 572967
+    },
+    "ats_global": {
+      "jobs": 106076,
+      "avg_apply_rate": 8.68,
+      "avg_applications": 0.1,
+      "total_applications": 13352
+    },
+    "lift_factor": 2.3,
+    "insight": "Easy Apply delivers 2.3x higher apply rates and 2000x more tracked applications. ATS jobs show 0 in LinkedIn reports because applications happen off-platform."
+  }
 }
