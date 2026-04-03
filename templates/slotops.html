@@ -1944,15 +1944,136 @@
                 </select>
               </div>
               <div class="form-group">
-                <label for="pred-title">Job Title / Function</label>
+                <label for="pred-city">City / Location</label>
+                <input
+                  type="text"
+                  id="pred-city"
+                  placeholder="e.g. New York, London, Mumbai"
+                  list="city-list"
+                />
+                <datalist id="city-list"></datalist>
+              </div>
+              <div class="form-group">
+                <label for="pred-title">Job Title</label>
                 <input
                   type="text"
                   id="pred-title"
                   placeholder="e.g. Software Engineer"
+                  list="title-list"
                 />
+                <datalist id="title-list"></datalist>
               </div>
               <div class="form-group">
-                <label>Easy Apply</label>
+                <label for="pred-industry">Industry</label>
+                <select id="pred-industry">
+                  <option value="">Any industry</option>
+                  <option>Technology, Information and Media</option>
+                  <option>Hospitals and Health Care</option>
+                  <option>Transportation, Logistics, Supply Chain</option>
+                  <option>Software Development</option>
+                  <option>Building Construction</option>
+                  <option>Financial Services</option>
+                  <option>IT Services and IT Consulting</option>
+                  <option>Education Administration Programs</option>
+                  <option>Pharmaceutical Manufacturing</option>
+                  <option>Staffing and Recruiting</option>
+                  <option>Manufacturing</option>
+                  <option>Accounting</option>
+                  <option>Banking</option>
+                  <option>Higher Education</option>
+                  <option>Insurance</option>
+                  <option>Real Estate</option>
+                  <option>Retail</option>
+                  <option>Hospitality</option>
+                  <option>Government</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="pred-function">Job Function</label>
+                <select id="pred-function">
+                  <option value="">Any function</option>
+                  <option>Engineering</option>
+                  <option>Education/Research</option>
+                  <option>Customer Service</option>
+                  <option>Management</option>
+                  <option>Supply Chain</option>
+                  <option>Project Management</option>
+                  <option>Writing/Editing</option>
+                  <option>Health Care Provider</option>
+                  <option>Information Technology</option>
+                  <option>Consulting</option>
+                  <option>Administrative</option>
+                  <option>Sales</option>
+                  <option>Marketing</option>
+                  <option>Finance</option>
+                  <option>Legal</option>
+                  <option>Human Resources</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Workplace Type</label>
+                <div style="display: flex; gap: 0.75rem; flex-wrap: wrap">
+                  <label
+                    style="
+                      display: flex;
+                      align-items: center;
+                      gap: 0.375rem;
+                      font-size: 0.8125rem;
+                      cursor: pointer;
+                    "
+                  >
+                    <input
+                      type="radio"
+                      name="pred-workplace"
+                      value="Remote"
+                      checked
+                      style="accent-color: var(--linkedin)"
+                    />
+                    Remote
+                  </label>
+                  <label
+                    style="
+                      display: flex;
+                      align-items: center;
+                      gap: 0.375rem;
+                      font-size: 0.8125rem;
+                      cursor: pointer;
+                    "
+                  >
+                    <input
+                      type="radio"
+                      name="pred-workplace"
+                      value="Hybrid"
+                      style="accent-color: var(--linkedin)"
+                    />
+                    Hybrid
+                  </label>
+                  <label
+                    style="
+                      display: flex;
+                      align-items: center;
+                      gap: 0.375rem;
+                      font-size: 0.8125rem;
+                      cursor: pointer;
+                    "
+                  >
+                    <input
+                      type="radio"
+                      name="pred-workplace"
+                      value="On-site"
+                      style="accent-color: var(--linkedin)"
+                    />
+                    On-site
+                  </label>
+                </div>
+              </div>
+              <div class="form-group">
+                <label
+                  >Easy Apply
+                  <span style="color: var(--green); font-size: 0.75rem"
+                    >(2.3x lift)</span
+                  ></label
+                >
                 <div class="toggle-group">
                   <button
                     type="button"
@@ -1965,6 +2086,19 @@
                     >ON</span
                   >
                 </div>
+              </div>
+              <div class="form-group">
+                <label for="pred-client"
+                  >Client / Company
+                  <span style="color: var(--text-muted); font-size: 0.75rem"
+                    >(optional)</span
+                  ></label
+                >
+                <input
+                  type="text"
+                  id="pred-client"
+                  placeholder="e.g. Taskify, AI Jobs, Amazon"
+                />
               </div>
               <button class="predict-btn" id="predict-btn" type="button">
                 Predict
@@ -3059,6 +3193,110 @@
             });
 
           // Also populate predictor country dropdown
+          // Populate city and title autocomplete datalists
+          var cityList = document.getElementById("city-list");
+          var titleList = document.getElementById("title-list");
+          if (cityList) {
+            var cities = [
+              "New York",
+              "London",
+              "Mumbai",
+              "Toronto",
+              "Sydney",
+              "Berlin",
+              "Paris",
+              "Singapore",
+              "Dubai",
+              "Tokyo",
+              "San Francisco",
+              "Chicago",
+              "Los Angeles",
+              "Seattle",
+              "Boston",
+              "Austin",
+              "Denver",
+              "Portland",
+              "Atlanta",
+              "Houston",
+              "Manchester",
+              "Edinburgh",
+              "Dublin",
+              "Amsterdam",
+              "Frankfurt",
+              "Zurich",
+              "Melbourne",
+              "Auckland",
+              "Vancouver",
+              "Montreal",
+              "Bangalore",
+              "Hyderabad",
+              "Delhi",
+              "Chennai",
+              "Pune",
+              "Sao Paulo",
+              "Mexico City",
+              "Buenos Aires",
+              "Bogota",
+              "Tel Aviv",
+              "Jakarta",
+              "Bangkok",
+              "Kuala Lumpur",
+              "Taipei",
+              "Shanghai",
+              "Beijing",
+              "Seoul",
+              "Osaka",
+            ];
+            cities.forEach(function (c) {
+              var o = document.createElement("option");
+              o.value = c;
+              cityList.appendChild(o);
+            });
+          }
+          if (titleList) {
+            var titles = [
+              "Software Engineer",
+              "Data Analyst",
+              "Business Analyst",
+              "Project Manager",
+              "Product Manager",
+              "Marketing Manager",
+              "Sales Executive",
+              "Customer Service Rep",
+              "Financial Analyst",
+              "Healthcare Coordinator",
+              "Operations Manager",
+              "DevOps Engineer",
+              "UX Designer",
+              "Data Scientist",
+              "HR Generalist",
+              "Account Manager",
+              "Content Specialist",
+              "Driver",
+              "Delivery Driver",
+              "Warehouse Associate",
+              "Radiologist",
+              "Medical Doctor",
+              "Writer",
+              "Consultant",
+              "Legal Specialist",
+              "Content Moderator",
+              "Supply Chain Associate",
+              "Nurse",
+              "Pharmacist",
+              "Teacher",
+              "Electrical Engineer",
+              "Mechanical Engineer",
+              "Civil Engineer",
+              "Full Stack Engineer",
+            ];
+            titles.forEach(function (t) {
+              var o = document.createElement("option");
+              o.value = t;
+              titleList.appendChild(o);
+            });
+          }
+
           var predCountry = $("#pred-country");
           predCountry.innerHTML = '<option value="">Select country...</option>';
           Object.keys(COUNTRY_RATES)
@@ -3941,7 +4179,19 @@
 
         function runPredictor() {
           var country = $("#pred-country").value;
+          var city = (document.getElementById("pred-city") || {}).value || "";
           var title = $("#pred-title").value.trim();
+          var industry =
+            (document.getElementById("pred-industry") || {}).value || "";
+          var fnSelect =
+            (document.getElementById("pred-function") || {}).value || "";
+          var workplace =
+            (
+              document.querySelector('input[name="pred-workplace"]:checked') ||
+              {}
+            ).value || "Remote";
+          var client =
+            (document.getElementById("pred-client") || {}).value || "";
           var easyApply = $("#pred-easy-apply").classList.contains("on");
 
           if (!country) {
@@ -3953,8 +4203,8 @@
             return;
           }
 
-          // Determine function from title
-          var fn = "Operations";
+          // Use selected function if provided, else determine from title
+          var fn = fnSelect || "Operations";
           var titleLower = title.toLowerCase();
           if (
             titleLower.includes("engineer") ||
