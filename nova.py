@@ -12260,15 +12260,16 @@ Do NOT generate month-over-month trend alerts, spike warnings, or "critical aler
         # S27: Reduced synthesis reserve 25s -> 20s (Haiku consistently synthesizes
         # in 15-18s). Raised max loop cap 50 -> 55 to give complex 8-tool queries
         # more room. This fixes Test B (50-nurse Phoenix) first-run timeout.
-        # S40: Increased synthesis reserve 20s -> 25s for complex 6+ tool queries
-        # where accumulated context causes slower LLM synthesis. Reduced loop cap
-        # 55 -> 50 to compensate. Net effect: tools get 50s max, synthesis gets 25s.
+        # S40: Outer timeout raised 90s -> 110s (gunicorn kill=120s).
+        # Synthesis reserve 25s gives LLM enough time for 6+ tool context.
+        # Tool loop cap 70s allows 8+ tools at 8s each comfortably.
+        # Budget math: 110s outer - 5s safety = 105s usable -> 70s tools + 25s synthesis + 10s enrichment.
         _SYNTHESIS_RESERVE_S = 25.0
         _loop_start = time.monotonic()
         if outer_deadline:
             # Dynamic: use remaining time minus synthesis reserve
             _remaining = outer_deadline - time.time()
-            _LOOP_BUDGET_S = max(20.0, min(50.0, _remaining - _SYNTHESIS_RESERVE_S))
+            _LOOP_BUDGET_S = max(20.0, min(70.0, _remaining - _SYNTHESIS_RESERVE_S))
             logger.info(
                 "Tool loop: dynamic budget=%.1fs (remaining=%.1fs, reserve=%.0fs)",
                 _LOOP_BUDGET_S,

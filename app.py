@@ -14651,10 +14651,10 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 )
                 return
             _CHAT_REQUEST_TIMEOUT: float = (
-                90.0  # seconds -- S32: 75s still too tight for multi-city comparisons (Test 7)
-                # 90s with partial accumulator + deadline-aware synthesis ensures
-                # complex queries get enough time while partial results handle timeouts.
-                # gunicorn kill is 120s so 55s is safely below that.
+                110.0  # seconds -- S40: 90s still too tight for 6+ tool queries
+                # 6 tools x 8s = 48s tools + 25s synthesis + enrichment = needs ~80-90s
+                # 110s gives comfortable margin. gunicorn kill is 120s, 10s safety buffer.
+                # Partial accumulator returns collected data if synthesis times out.
             )
             try:
                 from nova import handle_chat_request
