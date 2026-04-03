@@ -110,11 +110,12 @@ def _handle_health(handler, path: str, parsed: Any) -> None:
         if _is_admin:
             _health = _health_full
         else:
-            # Minimal public response: status + version only
+            # Minimal public response: status + version + timestamp
             _health = {
                 "status": _health_full.get("status", "healthy"),
                 "version": _health_full.get("version", "unknown"),
-                "timestamp": _health_full.get("timestamp") or "",
+                "timestamp": _health_full.get("timestamp")
+                or datetime.datetime.now(datetime.timezone.utc).isoformat(),
             }
     except Exception as e:
         _health = {"status": "healthy", "error": str(e)}

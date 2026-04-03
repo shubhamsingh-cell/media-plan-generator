@@ -9264,7 +9264,11 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 except Exception:
                     pass
             try:
-                self.send_error(500, "Internal Server Error")
+                self._send_error(
+                    "Internal server error",
+                    "INTERNAL_ERROR",
+                    500,
+                )
             except Exception:
                 pass
         finally:
@@ -11258,7 +11262,11 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 except Exception:
                     pass
             try:
-                self.send_error(500, "Internal Server Error")
+                self._send_error(
+                    "Internal server error",
+                    "INTERNAL_ERROR",
+                    500,
+                )
             except Exception:
                 pass
         except BaseException as _bexc:
