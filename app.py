@@ -9448,18 +9448,53 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                         )
                         with urllib.request.urlopen(_auth_req, timeout=5) as _resp:
                             _user_data = json.loads(_resp.read().decode())
+                            _user_email = _user_data.get("email") or ""
+                            _user_name = (_user_data.get("user_metadata") or {}).get(
+                                "full_name", ""
+                            )
+                            _user_avatar = (_user_data.get("user_metadata") or {}).get(
+                                "avatar_url", ""
+                            )
+
+                            # S40: Log successful auth to nova_login_log (best-effort)
+                            try:
+                                import hashlib as _hl
+
+                                _client_ip = (
+                                    self.headers.get("X-Forwarded-For", "")
+                                    .split(",")[0]
+                                    .strip()
+                                    or self.client_address[0]
+                                )
+                                _ip_hash = _hl.sha256(_client_ip.encode()).hexdigest()[
+                                    :16
+                                ]
+                                _ua = (self.headers.get("User-Agent") or "")[:200]
+                                _supabase_rest(
+                                    "nova_login_log",
+                                    method="POST",
+                                    payload={
+                                        "user_email": _user_email,
+                                        "user_name": _user_name,
+                                        "provider": "google",
+                                        "ip_hash": _ip_hash,
+                                        "user_agent": _ua,
+                                        "product": "nova",
+                                    },
+                                )
+                            except Exception as _login_log_err:
+                                logger.debug(
+                                    "nova_login_log write failed: %s", _login_log_err
+                                )
+
                             self._send_json(
                                 {
                                     "authenticated": True,
                                     "user": {
                                         "id": _user_data.get("id", ""),
-                                        "email": _user_data.get("email", ""),
-                                        "name": (
-                                            _user_data.get("user_metadata") or {}
-                                        ).get("full_name", ""),
-                                        "avatar_url": (
-                                            _user_data.get("user_metadata") or {}
-                                        ).get("avatar_url", ""),
+                                        "email": _user_email,
+                                        "name": _user_name,
+                                        "avatar_url": _user_avatar,
                                     },
                                 }
                             )
