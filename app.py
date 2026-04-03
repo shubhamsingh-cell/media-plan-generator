@@ -13396,7 +13396,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             # -- Define individual enrichment callables --
             # Each returns (name, result_dict_or_none) and isolates its own errors.
 
-            def _call_enrich_data() -> tuple[str, dict | None]:
+            def _call_enrich_data() -> "tuple[str, Optional[dict]]":
                 """Run the api_enrichment.enrich_data module."""
                 if enrich_data is None:
                     return ("api_enrichment", None)
@@ -13416,7 +13416,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     logger.warning("API enrichment failed (non-fatal): %s", exc)
                     return ("api_enrichment", None)
 
-            def _call_adzuna() -> tuple[str, dict | None]:
+            def _call_adzuna() -> "tuple[str, Optional[dict]]":
                 """Fetch Adzuna job count for ALL roles (up to 5)."""
                 if not (
                     _api_integrations_available and _api_adzuna and _roles_normalized
@@ -13454,7 +13454,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     },
                 )
 
-            def _call_bls() -> tuple[str, dict | None]:
+            def _call_bls() -> "tuple[str, Optional[dict]]":
                 """Fetch BLS occupational employment data for ALL roles with SOC codes."""
                 if not (_api_integrations_available and _api_bls):
                     return ("bls_occupational_employment", None)
@@ -13493,7 +13493,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     },
                 )
 
-            def _call_fred() -> tuple[str, dict | None]:
+            def _call_fred() -> "tuple[str, Optional[dict]]":
                 """Fetch FRED unemployment rate (optionally by state)."""
                 if not (_api_integrations_available and _api_fred):
                     return ("fred_unemployment", None)
@@ -13515,7 +13515,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     )
                     return ("fred_unemployment", None)
 
-            def _call_jobspy() -> tuple[str, dict | None]:
+            def _call_jobspy() -> "tuple[str, Optional[dict]]":
                 """Fetch JobSpy market stats for ALL roles (posting volume + salary)."""
                 if not (
                     _jobspy_available and _jobspy_market_stats and _roles_normalized
@@ -14243,13 +14243,19 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         exc_info=True,
                     )
 
-            _submit_background_task(
-                _create_sheets_async,
-                dict(data),  # shallow copy to avoid mutation
-                _plan_id,
-                task_name=f"sheets-export-{_plan_id}",
-                timeout=45,
-            )
+            try:
+                submit_background_task(
+                    _create_sheets_async,
+                    dict(data),  # shallow copy to avoid mutation
+                    _plan_id,
+                    task_name=f"sheets-export-{_plan_id}",
+                    timeout=45,
+                )
+            except Exception as _sheets_bg_err:
+                logger.warning(
+                    "Async Sheets export submission failed (non-fatal): %s",
+                    _sheets_bg_err,
+                )
 
             # ── Store plan in BigQuery for historical analytics (non-blocking) ──
             if _has_bigquery:
