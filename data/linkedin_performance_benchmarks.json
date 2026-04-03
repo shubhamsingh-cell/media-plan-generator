@@ -3827,7 +3827,9 @@
     "Global average apply rate: 8.56%, median: 6.0%",
     "Easy Apply vs ATS: 17.7% vs 8.7% apply rate (2.3x lift), 205 vs 0.1 avg applications (ATS doesn't report to LinkedIn)",
     "Software Engineer Easy Apply: 1,109 avg applications, 23.1% apply rate vs ATS: 0 applications, 9.7% rate",
-    "Joveo LinkedIn Recruiter account: 16.1% apply rate (5.9% above 10.2% benchmark), 9M views, 1.4M clicks in Q1 2026"
+    "Joveo LinkedIn Recruiter account: 16.1% apply rate (5.9% above 10.2% benchmark), 9M views, 1.4M clicks in Q1 2026",
+    "Joveo LinkedIn total across 2 accounts: 66.3M views, 11M apply clicks, 16.6% apply rate -- massively above 12.6% industry benchmark",
+    "MO 1082 account: 57.3M views, 9.5M clicks, 16.7% AR. Top job: Order Clerk (Remote) 22.1% AR. Peak traffic: Nov 2025 at 11M views/month"
   ],
   "easy_apply_vs_ats_summary": {
     "easy_apply_global": {
@@ -3866,6 +3868,59 @@
       "total_apply_clicks": 6683
     },
     "data_refreshed": "2026-04-03 12:13 UTC",
-    "insight": "Joveo account runs 5.9% above LinkedIn Staffing benchmark (16.1% vs 10.2%). Easy Apply jobs drive the majority of this outperformance."
+    "insight": "Joveo account runs 5.9% above LinkedIn Staffing benchmark (16.1% vs 10.2%). Easy Apply jobs drive the majority of this outperformance.",
+    "full_year": {
+      "date_range": "2025-03-04 to 2026-03-31",
+      "total_views": 8993315,
+      "total_apply_clicks": 1446741,
+      "apply_rate_pct": 16.1,
+      "above_benchmark_pct": 4.7,
+      "industry": "All industries",
+      "project": "Scale LATAM Coders - April (ID: 1992012386)",
+      "owners": [
+        "Harshal Fuse",
+        "Bebabai Chavan"
+      ],
+      "traffic_pattern": "Near zero Mar-Nov 2025, massive spike Dec 2025-Mar 2026 (4M+ views/month)",
+      "top_company": {
+        "name": "Unknown company",
+        "apply_rate_pct": 17.2,
+        "total_views": 1879748,
+        "total_apply_clicks": 323970
+      },
+      "note": "Candidate demographics tab shows company-level breakdown"
+    }
+  },
+  "joveo_account_mo1082": {
+    "account": "MO 1082 (ID: 1977887610)",
+    "date_range": "2025-03-04 to 2026-04-04",
+    "total_views": 57287620,
+    "total_apply_clicks": 9542824,
+    "apply_rate_pct": 16.7,
+    "above_benchmark_pct": 4.1,
+    "benchmark_apply_rate_pct": 12.6,
+    "industry": "All industries",
+    "company_sizes": "All sizes",
+    "owners": [
+      "Sudarshan Bari",
+      "Harshal Fuse",
+      "Sanket Ghule"
+    ],
+    "traffic_pattern": "Ramp from Sep 2025 (5M), peak Nov 2025 (11M), sustained 8-12M/month through Mar 2026",
+    "top_job": {
+      "title": "Order Clerk (Remote)",
+      "apply_rate_pct": 22.1,
+      "above_benchmark": 9.5,
+      "total_views": 53271,
+      "total_apply_clicks": 11767
+    },
+    "data_refreshed": "2026-04-03 12:13 UTC"
+  },
+  "joveo_combined_accounts": {
+    "total_views": 66280935,
+    "total_apply_clicks": 10989565,
+    "combined_apply_rate_pct": 16.6,
+    "accounts": 2,
+    "insight": "Across both Joveo LinkedIn Recruiter accounts: 66.3M views, 11M apply clicks, 16.6% combined apply rate. MO 1082 is the primary volume driver (57.3M views, 86% of traffic)."
   }
 }
