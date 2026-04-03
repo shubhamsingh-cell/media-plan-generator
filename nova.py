@@ -1229,6 +1229,11 @@ _TOOL_LABELS: Dict[str, str] = {
     "get_cg_automation_data": "Loading CG Automation data",
     "enrich_entity": "Looking up entity in Knowledge Graph",
     "audit_career_page": "Auditing career page performance",
+    "geocode_location": "Geocoding location coordinates",
+    "translate_text": "Translating text content",
+    "analyze_employer_brand": "Analyzing employer brand videos",
+    "estimate_meta_campaign": "Estimating Meta campaign costs",
+    "get_meta_benchmarks": "Fetching Meta Ads benchmarks",
 }
 
 # Thread-local storage for tool status queue.
@@ -3491,6 +3496,11 @@ Before calling any tools, briefly plan which tools you need:
 - For company/employer information: call enrich_entity with entity_type='company' for verified company details from Google Knowledge Graph
 - For career page quality assessment: call audit_career_page to check performance, accessibility, SEO, and Core Web Vitals
 - For Google Ads benchmark data: call query_google_ads_benchmarks for CPC/CTR/spend data from Joveo's first-party campaigns
+- For geocoding a location or getting coordinates: call geocode_location with the address to get lat/lng and formatted address
+- For translating content to another language: call translate_text with the text and target_language code (e.g. 'es', 'fr', 'de')
+- For employer branding video analysis: call analyze_employer_brand with the company name to assess YouTube recruitment video presence
+- For Facebook/Instagram ad cost estimates: call estimate_meta_campaign with budget, industry, job_category, and optional location
+- For Meta/Facebook recruitment ad benchmarks: call get_meta_benchmarks with industry and job_category for CPC/CPA/CTR data
 - For any hiring question: ALWAYS also call query_h1b_salaries for competitive salary intelligence
 - For visualizing/rendering a plan as a canvas: call render_canvas with budget, channels, role, location, industry
 - For editing/adjusting a canvas (reallocate budget, add/remove channel): call edit_canvas with plan_id and edit details
@@ -5012,6 +5022,101 @@ Do NOT generate month-over-month trend alerts, spike warnings, or "critical aler
                     "required": ["url"],
                 },
             },
+            # ── S39: Maps, Translate, YouTube, Meta Ads tools ─────────────
+            {
+                "name": "geocode_location",
+                "description": "Geocode an address or location name to latitude/longitude coordinates using Google Maps. Useful for mapping hiring locations, calculating distances, or enriching location data in media plans.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "address": {
+                            "type": "string",
+                            "description": "Address or location name to geocode (e.g., 'San Francisco, CA' or '1600 Amphitheatre Parkway, Mountain View')",
+                        },
+                    },
+                    "required": ["address"],
+                },
+            },
+            {
+                "name": "translate_text",
+                "description": "Translate job postings, descriptions, or other recruitment text to another language using Google Translate. Useful for multi-lingual hiring campaigns or international recruitment.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "text": {
+                            "type": "string",
+                            "description": "Text to translate (e.g., a job posting or job description)",
+                        },
+                        "target_language": {
+                            "type": "string",
+                            "description": "Target language code (e.g., 'es' for Spanish, 'fr' for French, 'de' for German, 'ja' for Japanese)",
+                        },
+                        "source_language": {
+                            "type": "string",
+                            "description": "Source language code (optional, auto-detected if omitted)",
+                        },
+                    },
+                    "required": ["text", "target_language"],
+                },
+            },
+            {
+                "name": "analyze_employer_brand",
+                "description": "Analyze a company's YouTube recruitment video presence for employer branding insights. Returns video counts, engagement metrics, and content themes. Useful for assessing employer brand strength or recommending video strategy.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "company_name": {
+                            "type": "string",
+                            "description": "Company name to search for employer branding videos (e.g., 'Google', 'Amazon')",
+                        },
+                    },
+                    "required": ["company_name"],
+                },
+            },
+            {
+                "name": "estimate_meta_campaign",
+                "description": "Estimate Meta (Facebook/Instagram) recruitment campaign costs and expected outcomes for a given budget. Returns estimated clicks, applies, CPC, CPA, reach, and impressions.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "budget": {
+                            "type": "number",
+                            "description": "Campaign budget in USD",
+                        },
+                        "industry": {
+                            "type": "string",
+                            "description": "Industry vertical (e.g., 'technology', 'healthcare', 'retail')",
+                        },
+                        "job_category": {
+                            "type": "string",
+                            "description": "Job category (e.g., 'engineering', 'nursing', 'sales')",
+                        },
+                        "location": {
+                            "type": "string",
+                            "description": "Target location (default: 'US')",
+                        },
+                    },
+                    "required": ["budget", "industry", "job_category"],
+                },
+            },
+            {
+                "name": "get_meta_benchmarks",
+                "description": "Get Meta Ads (Facebook/Instagram) recruitment advertising benchmarks including CPC, CPA, CTR, and CPM ranges by industry. Useful for setting expectations and comparing campaign performance.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "industry": {
+                            "type": "string",
+                            "description": "Industry vertical (e.g., 'technology', 'healthcare', 'retail')",
+                        },
+                        "job_category": {
+                            "type": "string",
+                            "description": "Job category (e.g., 'engineering', 'nursing', 'sales')",
+                        },
+                    },
+                    "required": ["industry", "job_category"],
+                },
+            },
         ]
 
     # ------------------------------------------------------------------
@@ -5091,6 +5196,12 @@ Do NOT generate month-over-month trend alerts, spike warnings, or "critical aler
             # S39: Knowledge Graph + PageSpeed tools
             "enrich_entity": self._enrich_entity,
             "audit_career_page": self._audit_career_page,
+            # S39: Maps, Translate, YouTube, Meta Ads tools
+            "geocode_location": self._geocode_location,
+            "translate_text": self._translate_text,
+            "analyze_employer_brand": self._analyze_employer_brand,
+            "estimate_meta_campaign": self._estimate_meta_campaign,
+            "get_meta_benchmarks": self._get_meta_benchmarks,
         }
 
     def execute_tool(self, tool_name: str, tool_input: dict) -> str:
@@ -9527,6 +9638,224 @@ Do NOT generate month-over-month trend alerts, spike warnings, or "critical aler
             }
 
     # ------------------------------------------------------------------
+    # S39: Google Maps geocoding
+    # ------------------------------------------------------------------
+
+    def _geocode_location(self, params: dict) -> dict:
+        """Handler for geocode_location tool.
+
+        Geocodes an address to lat/lng coordinates using Google Maps.
+        """
+        address = (params.get("address") or "").strip()
+
+        if not address:
+            return {"error": "address is required", "source": "Google Maps"}
+
+        try:
+            from google_maps_integration import geocode_address
+
+            result = geocode_address(address)
+            result["source"] = "Google Maps"
+            return result
+        except ImportError:
+            logger.error("google_maps_integration module not available", exc_info=True)
+            return {
+                "error": "Google Maps module not available",
+                "source": "Google Maps",
+            }
+        except Exception as e:
+            logger.error(
+                "geocode_location failed for %r: %s", address, e, exc_info=True
+            )
+            return {
+                "error": f"Geocoding failed: {e}",
+                "source": "Google Maps",
+            }
+
+    # ------------------------------------------------------------------
+    # S39: Google Translate
+    # ------------------------------------------------------------------
+
+    def _translate_text(self, params: dict) -> dict:
+        """Handler for translate_text tool.
+
+        Translates text to a target language using Google Translate.
+        """
+        text = (params.get("text") or "").strip()
+        target_language = (params.get("target_language") or "").strip()
+        source_language = (params.get("source_language") or "").strip()
+
+        if not text:
+            return {"error": "text is required", "source": "Google Translate"}
+        if not target_language:
+            return {
+                "error": "target_language is required",
+                "source": "Google Translate",
+            }
+
+        try:
+            from google_translate_integration import translate_text as _gt_translate
+
+            result = _gt_translate(text, target_language, source_language)
+            result["source"] = "Google Translate"
+            result["target_language"] = target_language
+            if source_language:
+                result["source_language"] = source_language
+            return result
+        except ImportError:
+            logger.error(
+                "google_translate_integration module not available", exc_info=True
+            )
+            return {
+                "error": "Google Translate module not available",
+                "source": "Google Translate",
+            }
+        except Exception as e:
+            logger.error(
+                "translate_text failed for target=%r: %s",
+                target_language,
+                e,
+                exc_info=True,
+            )
+            return {
+                "error": f"Translation failed: {e}",
+                "source": "Google Translate",
+            }
+
+    # ------------------------------------------------------------------
+    # S39: YouTube employer brand analysis
+    # ------------------------------------------------------------------
+
+    def _analyze_employer_brand(self, params: dict) -> dict:
+        """Handler for analyze_employer_brand tool.
+
+        Analyzes a company's YouTube recruitment video presence.
+        """
+        company_name = (params.get("company_name") or "").strip()
+
+        if not company_name:
+            return {"error": "company_name is required", "source": "YouTube Data API"}
+
+        try:
+            from google_youtube_scheduler import analyze_employer_brand as _yt_analyze
+
+            result = _yt_analyze(company_name)
+            result["source"] = "YouTube Data API"
+            return result
+        except ImportError:
+            logger.error("google_youtube_scheduler module not available", exc_info=True)
+            return {
+                "error": "YouTube module not available",
+                "source": "YouTube Data API",
+            }
+        except Exception as e:
+            logger.error(
+                "analyze_employer_brand failed for %r: %s",
+                company_name,
+                e,
+                exc_info=True,
+            )
+            return {
+                "error": f"Employer brand analysis failed: {e}",
+                "source": "YouTube Data API",
+            }
+
+    # ------------------------------------------------------------------
+    # S39: Meta Ads campaign estimation
+    # ------------------------------------------------------------------
+
+    def _estimate_meta_campaign(self, params: dict) -> dict:
+        """Handler for estimate_meta_campaign tool.
+
+        Estimates Meta (Facebook/Instagram) campaign costs and outcomes.
+        """
+        budget = params.get("budget")
+        industry = (params.get("industry") or "").strip()
+        job_category = (params.get("job_category") or "").strip()
+        location = (params.get("location") or "US").strip()
+
+        if not budget or budget <= 0:
+            return {"error": "budget must be a positive number", "source": "Meta Ads"}
+        if not industry:
+            return {"error": "industry is required", "source": "Meta Ads"}
+        if not job_category:
+            return {"error": "job_category is required", "source": "Meta Ads"}
+
+        try:
+            from meta_ads_integration import estimate_campaign_cost
+
+            result = estimate_campaign_cost(
+                budget=float(budget),
+                industry=industry,
+                job_category=job_category,
+                location=location,
+            )
+            result["source"] = "Meta Ads (Facebook/Instagram)"
+            return result
+        except ImportError:
+            logger.error("meta_ads_integration module not available", exc_info=True)
+            return {
+                "error": "Meta Ads module not available",
+                "source": "Meta Ads",
+            }
+        except Exception as e:
+            logger.error(
+                "estimate_meta_campaign failed (budget=%.2f, industry=%r): %s",
+                budget,
+                industry,
+                e,
+                exc_info=True,
+            )
+            return {
+                "error": f"Meta campaign estimation failed: {e}",
+                "source": "Meta Ads",
+            }
+
+    # ------------------------------------------------------------------
+    # S39: Meta Ads recruitment benchmarks
+    # ------------------------------------------------------------------
+
+    def _get_meta_benchmarks(self, params: dict) -> dict:
+        """Handler for get_meta_benchmarks tool.
+
+        Returns Meta Ads recruitment benchmarks by industry and job category.
+        """
+        industry = (params.get("industry") or "").strip()
+        job_category = (params.get("job_category") or "").strip()
+
+        if not industry:
+            return {"error": "industry is required", "source": "Meta Ads"}
+        if not job_category:
+            return {"error": "job_category is required", "source": "Meta Ads"}
+
+        try:
+            from meta_ads_integration import get_recruitment_benchmarks
+
+            result = get_recruitment_benchmarks(
+                industry=industry, job_category=job_category
+            )
+            result["source"] = "Meta Ads (Facebook/Instagram)"
+            return result
+        except ImportError:
+            logger.error("meta_ads_integration module not available", exc_info=True)
+            return {
+                "error": "Meta Ads module not available",
+                "source": "Meta Ads",
+            }
+        except Exception as e:
+            logger.error(
+                "get_meta_benchmarks failed (industry=%r, job_category=%r): %s",
+                industry,
+                job_category,
+                e,
+                exc_info=True,
+            )
+            return {
+                "error": f"Meta benchmarks lookup failed: {e}",
+                "source": "Meta Ads",
+            }
+
+    # ------------------------------------------------------------------
     # Chat orchestration
     # ------------------------------------------------------------------
 
@@ -11362,6 +11691,11 @@ Do NOT generate month-over-month trend alerts, spike warnings, or "critical aler
             "- For company/employer information: call enrich_entity with entity_type='company' for verified company details from Google Knowledge Graph\n"
             "- For career page quality assessment: call audit_career_page to check performance, accessibility, SEO, and Core Web Vitals\n"
             "- For Google Ads benchmark data: call query_google_ads_benchmarks for CPC/CTR/spend data from Joveo's first-party campaigns\n"
+            "- For geocoding a location or getting coordinates: call geocode_location with the address to get lat/lng and formatted address\n"
+            "- For translating content to another language: call translate_text with the text and target_language code (e.g. 'es', 'fr', 'de')\n"
+            "- For employer branding video analysis: call analyze_employer_brand with the company name to assess YouTube recruitment video presence\n"
+            "- For Facebook/Instagram ad cost estimates: call estimate_meta_campaign with budget, industry, job_category, and optional location\n"
+            "- For Meta/Facebook recruitment ad benchmarks: call get_meta_benchmarks with industry and job_category for CPC/CPA/CTR data\n"
             "- For any hiring question: ALWAYS also call query_h1b_salaries for competitive salary intelligence\n"
             "- For visualizing a plan as a canvas: call render_canvas with budget, channels, role, location, industry\n"
             "- For editing a canvas (reallocate budget, add/remove channel): call edit_canvas with plan_id and edit details\n"
@@ -16123,6 +16457,11 @@ _TOOL_SOURCE_MAP: Dict[str, str] = {
     "get_cg_automation_data": "CG Automation (Craigslist Intelligence)",
     "enrich_entity": "Google Knowledge Graph",
     "audit_career_page": "Google PageSpeed Insights",
+    "geocode_location": "Google Maps",
+    "translate_text": "Google Translate",
+    "analyze_employer_brand": "YouTube Data API",
+    "estimate_meta_campaign": "Meta Ads (Facebook/Instagram)",
+    "get_meta_benchmarks": "Meta Ads (Facebook/Instagram)",
 }
 
 _FOLLOW_UP_TEMPLATES: Dict[str, List[str]] = {
