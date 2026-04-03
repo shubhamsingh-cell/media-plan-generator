@@ -9644,33 +9644,83 @@ Do NOT generate month-over-month trend alerts, spike warnings, or "critical aler
     def _geocode_location(self, params: dict) -> dict:
         """Handler for geocode_location tool.
 
-        Geocodes an address to lat/lng coordinates using Google Maps.
+        Geocodes an address to lat/lng coordinates using Google Maps,
+        with GeoNames fallback if Maps API is unavailable.
         """
         address = (params.get("address") or "").strip()
 
         if not address:
             return {"error": "address is required", "source": "Google Maps"}
 
+        # Try Google Maps first
         try:
             from google_maps_integration import geocode_address
 
             result = geocode_address(address)
-            result["source"] = "Google Maps"
-            return result
-        except ImportError:
-            logger.error("google_maps_integration module not available", exc_info=True)
-            return {
-                "error": "Google Maps module not available",
-                "source": "Google Maps",
-            }
-        except Exception as e:
-            logger.error(
-                "geocode_location failed for %r: %s", address, e, exc_info=True
+            if not result.get("error"):
+                result["source"] = "Google Maps"
+                return result
+            logger.warning(
+                "Google Maps geocode returned error for %r: %s, trying GeoNames fallback",
+                address,
+                result.get("error"),
             )
-            return {
-                "error": f"Geocoding failed: {e}",
-                "source": "Google Maps",
-            }
+        except ImportError:
+            logger.warning(
+                "google_maps_integration not available, trying GeoNames fallback"
+            )
+        except Exception as e:
+            logger.warning(
+                "Google Maps geocode failed for %r: %s, trying GeoNames fallback",
+                address,
+                e,
+            )
+
+        # GeoNames fallback
+        try:
+            from api_enrichment import fetch_geonames_data
+
+            geo_data = fetch_geonames_data([address])
+            if geo_data and geo_data.get("locations"):
+                locations = geo_data["locations"]
+                # Get the first (and usually only) location entry
+                _key = next(iter(locations), None)
+                if _key and isinstance(locations[_key], dict):
+                    loc = locations[_key]
+                    lat_str = loc.get("latitude") or ""
+                    lng_str = loc.get("longitude") or ""
+                    if lat_str and lng_str:
+                        return {
+                            "formatted_address": (
+                                f"{loc.get('name', address)}"
+                                + (
+                                    f", {loc['admin_name']}"
+                                    if loc.get("admin_name")
+                                    else ""
+                                )
+                                + (
+                                    f", {loc['country_name']}"
+                                    if loc.get("country_name")
+                                    else ""
+                                )
+                            ),
+                            "lat": float(lat_str),
+                            "lng": float(lng_str),
+                            "population": loc.get("population") or 0,
+                            "country_code": loc.get("country_code") or "",
+                            "timezone": loc.get("timezone") or "",
+                            "source": "GeoNames",
+                        }
+            logger.warning("GeoNames fallback returned no data for %r", address)
+        except ImportError:
+            logger.warning("api_enrichment not available for GeoNames fallback")
+        except Exception as e:
+            logger.warning("GeoNames fallback failed for %r: %s", address, e)
+
+        return {
+            "error": f"Geocoding failed for '{address}' -- both Google Maps and GeoNames unavailable",
+            "source": "Google Maps / GeoNames",
+        }
 
     # ------------------------------------------------------------------
     # S39: Google Translate
