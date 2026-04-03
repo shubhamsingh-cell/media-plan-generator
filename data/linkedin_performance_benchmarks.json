@@ -3826,7 +3826,8 @@
     "Dataset: 108,871 total jobs across 76 countries and 2,121 standardized titles",
     "Global average apply rate: 8.56%, median: 6.0%",
     "Easy Apply vs ATS: 17.7% vs 8.7% apply rate (2.3x lift), 205 vs 0.1 avg applications (ATS doesn't report to LinkedIn)",
-    "Software Engineer Easy Apply: 1,109 avg applications, 23.1% apply rate vs ATS: 0 applications, 9.7% rate"
+    "Software Engineer Easy Apply: 1,109 avg applications, 23.1% apply rate vs ATS: 0 applications, 9.7% rate",
+    "Joveo LinkedIn Recruiter account: 16.1% apply rate (5.9% above 10.2% benchmark), 9M views, 1.4M clicks in Q1 2026"
   ],
   "easy_apply_vs_ats_summary": {
     "easy_apply_global": {
@@ -3843,5 +3844,28 @@
     },
     "lift_factor": 2.3,
     "insight": "Easy Apply delivers 2.3x higher apply rates and 2000x more tracked applications. ATS jobs show 0 in LinkedIn reports because applications happen off-platform."
+  },
+  "joveo_account_benchmarks": {
+    "account": "RECRUITER-Quik Hire",
+    "date_range": "2026-01-01 to 2026-03-31",
+    "total_views": 8993315,
+    "total_apply_clicks": 1446741,
+    "apply_rate_pct": 16.1,
+    "benchmark_apply_rate_pct": 10.2,
+    "above_benchmark_pct": 5.9,
+    "industry_benchmark": "Staffing and Recruiting",
+    "company_sizes": "All sizes",
+    "owners": [
+      "Harshal Fuse",
+      "Bebabai Chavan"
+    ],
+    "top_job": {
+      "title": "Customer Support Specialist (Remote)",
+      "apply_rate_pct": 19.8,
+      "total_views": 33754,
+      "total_apply_clicks": 6683
+    },
+    "data_refreshed": "2026-04-03 12:13 UTC",
+    "insight": "Joveo account runs 5.9% above LinkedIn Staffing benchmark (16.1% vs 10.2%). Easy Apply jobs drive the majority of this outperformance."
   }
 }
