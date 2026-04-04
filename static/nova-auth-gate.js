@@ -1,23 +1,47 @@
 /**
- * Nova Auth Gate -- Hard login requirement
- * Blocks page content until Google sign-in completes.
- * Add this script AFTER nova-auth.js on protected pages.
+ * Nova Auth Gate -- Sign in ONCE, never again
+ * Shows login overlay only if no cached session exists.
+ * After first sign-in, session is stored in localStorage permanently.
  */
 (function () {
   "use strict";
 
-  function createGate() {
-    // Don't gate if already logged in
-    if (typeof NovaAuth !== "undefined" && NovaAuth.isLoggedIn()) return;
+  var STORAGE_KEY = "nova_auth_user";
 
-    // Check if we just came back from OAuth (access_token in URL hash)
+  function isAuthenticated() {
+    // Check 1: NovaAuth already initialized and logged in
+    if (typeof NovaAuth !== "undefined" && NovaAuth.isLoggedIn()) return true;
+
+    // Check 2: localStorage has cached user (persists across refreshes)
+    try {
+      var cached = localStorage.getItem(STORAGE_KEY);
+      if (cached) {
+        var user = JSON.parse(cached);
+        if (user && user.email) return true;
+      }
+    } catch (_) {}
+
+    // Check 3: Supabase session token in localStorage (set by Supabase JS)
+    try {
+      for (var i = 0; i < localStorage.length; i++) {
+        var key = localStorage.key(i);
+        if (
+          key &&
+          key.indexOf("supabase") !== -1 &&
+          key.indexOf("auth") !== -1
+        ) {
+          var val = localStorage.getItem(key);
+          if (val && val.indexOf("access_token") !== -1) return true;
+        }
+      }
+    } catch (_) {}
+
+    // Check 4: Just came back from OAuth redirect (access_token in URL hash)
     if (
       window.location.hash &&
       window.location.hash.indexOf("access_token") !== -1
     ) {
-      // Auth succeeded -- save minimal user info and skip gate
       try {
-        // Parse the hash params
         var hashParams = {};
         window.location.hash
           .substring(1)
@@ -27,61 +51,53 @@
             hashParams[kv[0]] = decodeURIComponent(kv[1] || "");
           });
         if (hashParams.access_token) {
-          // Store token so gate knows user is authenticated
           localStorage.setItem(
-            "nova_auth_user",
+            STORAGE_KEY,
             JSON.stringify({
               email: "authenticated",
               token: hashParams.access_token,
+              logged_in_at: new Date().toISOString(),
             }),
           );
-          // Clean up URL hash
           history.replaceState(null, "", window.location.pathname);
-          return; // Skip gate
+          return true;
         }
       } catch (_) {}
     }
 
-    // Admin key bypass: ?admin_key=<key> skips OAuth entirely
+    // Check 5: Admin key in URL
     try {
       var urlParams = new URLSearchParams(window.location.search);
       var adminKey = urlParams.get("admin_key");
       if (adminKey) {
-        // Validate against server
-        fetch("/api/admin/status", {
-          headers: { "X-Admin-Key": adminKey },
-        })
+        fetch("/api/admin/status", { headers: { "X-Admin-Key": adminKey } })
           .then(function (r) {
             return r.json();
           })
           .then(function (d) {
             if (d && d.authenticated) {
               localStorage.setItem(
-                "nova_auth_user",
+                STORAGE_KEY,
                 JSON.stringify({ email: "admin@joveo.com", role: "admin" }),
               );
-              // Clean URL
               urlParams.delete("admin_key");
               var clean = window.location.pathname;
               if (urlParams.toString()) clean += "?" + urlParams.toString();
               history.replaceState(null, "", clean);
-              // Remove gate if it was already created
-              var gate = document.getElementById("nova-auth-gate");
-              if (gate) gate.remove();
+              removeGate();
             }
           })
           .catch(function () {});
-        return; // Don't show gate while validating
+        return true; // Don't show gate while validating
       }
     } catch (_) {}
 
-    // Check localStorage for cached user
-    try {
-      var cached = localStorage.getItem("nova_auth_user");
-      if (cached && JSON.parse(cached).email) return;
-    } catch (_) {}
+    return false;
+  }
 
-    // Create full-screen overlay
+  function createGate() {
+    if (isAuthenticated()) return;
+
     var overlay = document.createElement("div");
     overlay.id = "nova-auth-gate";
     overlay.style.cssText =
@@ -113,7 +129,6 @@
 
     document.body.appendChild(overlay);
 
-    // Add hover effect
     var btn = document.getElementById("nova-gate-login-btn");
     if (btn) {
       btn.onmouseover = function () {
@@ -124,17 +139,11 @@
         this.style.transform = "none";
         this.style.boxShadow = "0 4px 12px rgba(0,0,0,0.3)";
       };
-    }
-
-    // BULLETPROOF click handler: fetches config and redirects directly
-    // No dependency on Supabase JS, NovaAuth, or any library
-    if (btn) {
       btn.addEventListener("click", function (e) {
         e.preventDefault();
         btn.innerHTML = "Connecting...";
         btn.disabled = true;
         btn.style.opacity = "0.7";
-
         fetch("/api/config")
           .then(function (r) {
             return r.json();
@@ -147,23 +156,15 @@
               btn.style.opacity = "1";
               return;
             }
-
-            // Direct redirect to Supabase OAuth - NO JS library needed
             var redirectTo = encodeURIComponent(
               window.location.origin + window.location.pathname,
             );
-            var authUrl =
+            window.location.href =
               cfg.supabase_url +
-              "/auth/v1/authorize" +
-              "?provider=google" +
-              "&redirect_to=" +
+              "/auth/v1/authorize?provider=google&redirect_to=" +
               redirectTo;
-
-            // This WILL work - it's just a URL redirect
-            window.location.href = authUrl;
           })
-          .catch(function (err) {
-            console.error("[NovaAuth] Sign-in error:", err);
+          .catch(function () {
             alert("Failed to connect. Please try again.");
             btn.innerHTML = "Sign in with Google";
             btn.disabled = false;
@@ -184,12 +185,12 @@
     }
   }
 
-  // Listen for successful login
+  // Listen for successful login from NovaAuth
   document.addEventListener("nova:auth:login", function () {
     removeGate();
   });
 
-  // Create gate on DOM ready
+  // Run on DOM ready
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", createGate);
   } else {

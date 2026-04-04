@@ -533,8 +533,13 @@
     // Load cached user for instant UI
     var cachedUser = _loadCachedUser();
     if (cachedUser) {
-      // Re-validate domain on cached user (in case restriction was added after login)
-      if (_isAllowedDomain(cachedUser.email || "")) {
+      // Skip domain check for gate-authenticated sessions (email = "authenticated")
+      var email = cachedUser.email || "";
+      if (
+        email === "authenticated" ||
+        email === "admin@joveo.com" ||
+        _isAllowedDomain(email)
+      ) {
         _updateUI(cachedUser);
       } else {
         // Cached user no longer allowed -- clear them
