@@ -2432,9 +2432,13 @@
 
             <!-- Optimal Timing -->
             <div class="pred-section-label">Optimal Posting Strategy</div>
-            <div class="pred-timing" id="pred-timing">
+            <div
+              class="pred-timing"
+              id="pred-timing"
+              style="grid-template-columns: repeat(5, 1fr)"
+            >
               <div class="pred-timing-card">
-                <div class="timing-label">Best Days</div>
+                <div class="timing-label">Best Day</div>
                 <div class="timing-value" id="pred-best-day">--</div>
               </div>
               <div class="pred-timing-card">
@@ -2442,14 +2446,64 @@
                 <div class="timing-value" id="pred-best-month">--</div>
               </div>
               <div class="pred-timing-card">
-                <div class="timing-label">Data Source</div>
-                <div class="timing-value" id="pred-data-source">--</div>
+                <div class="timing-label">Morning Peak</div>
+                <div class="timing-value" id="pred-peak-morning">--</div>
               </div>
+              <div class="pred-timing-card">
+                <div class="timing-label">Evening Peak</div>
+                <div class="timing-value" id="pred-peak-evening">--</div>
+              </div>
+              <div class="pred-timing-card">
+                <div class="timing-label">Timezone</div>
+                <div class="timing-value" id="pred-timezone">--</div>
+              </div>
+            </div>
+
+            <!-- LLM Expert Analysis -->
+            <div class="pred-section-label">
+              Expert Analysis
+              <span
+                style="
+                  font-weight: 400;
+                  text-transform: none;
+                  letter-spacing: 0;
+                  color: var(--text-muted);
+                "
+                >(Gemini)</span
+              >
+            </div>
+            <div
+              id="pred-llm-analysis"
+              style="
+                padding: 1rem 1.25rem;
+                background: rgba(10, 102, 194, 0.06);
+                border: 1px solid rgba(10, 102, 194, 0.15);
+                border-radius: var(--radius-sm);
+                margin-bottom: 1.25rem;
+                font-size: 0.8125rem;
+                line-height: 1.6;
+                color: var(--text-secondary);
+                display: none;
+              "
+            >
+              <div
+                id="pred-llm-loading"
+                style="text-align: center; padding: 1rem 0"
+              >
+                <div class="spinner"></div>
+                <div style="color: var(--text-muted)">
+                  Generating expert analysis...
+                </div>
+              </div>
+              <div
+                id="pred-llm-text"
+                style="display: none; white-space: pre-wrap"
+              ></div>
             </div>
 
             <!-- Actionable Recommendations -->
             <div class="pred-actions" id="pred-actions">
-              <div class="actions-title">Recommended Actions</div>
+              <div class="actions-title">Quick Actions Checklist</div>
               <ul id="pred-actions-list"></ul>
             </div>
 
@@ -4831,8 +4885,11 @@
                 compEl.style.display = "none";
               }
 
-              // ── Timing ──
-              document.getElementById("pred-best-day").textContent = bestDay;
+              // ── Timing (country-specific from backend) ──
+              var optTiming = pred.optimal_timing || {};
+              document.getElementById("pred-best-day").textContent =
+                optTiming.best_day_of_week || bestDay;
+
               // Format month from "2025-04" to "April"
               var monthNames = [
                 "January",
@@ -4855,12 +4912,19 @@
               }
               document.getElementById("pred-best-month").textContent =
                 formattedMonth || "Any month";
-              var srcLabel =
-                pred.data_source === "cross"
-                  ? sampleSize + " exact matches"
-                  : sampleSize + " blended matches";
-              document.getElementById("pred-data-source").textContent =
-                srcLabel;
+
+              // Peak hours
+              var morningHrs = optTiming.morning_peak_hours_local || [];
+              var eveningHrs = optTiming.evening_peak_hours_local || [];
+              function fmtHr(h) {
+                return h < 12 ? h + " AM" : h === 12 ? "12 PM" : h - 12 + " PM";
+              }
+              document.getElementById("pred-peak-morning").textContent =
+                morningHrs.length ? morningHrs.map(fmtHr).join(", ") : "N/A";
+              document.getElementById("pred-peak-evening").textContent =
+                eveningHrs.length ? eveningHrs.map(fmtHr).join(", ") : "N/A";
+              document.getElementById("pred-timezone").textContent =
+                optTiming.timezone_label || optTiming.timezone || country;
 
               // ── Actionable Recommendations ──
               var actions = [];
@@ -5029,6 +5093,47 @@
               // Show results
               resultEl.classList.add("visible");
               resultEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
+
+              // ── Async LLM Expert Analysis (fires after data renders) ──
+              var llmBox = document.getElementById("pred-llm-analysis");
+              var llmLoading = document.getElementById("pred-llm-loading");
+              var llmText = document.getElementById("pred-llm-text");
+              llmBox.style.display = "block";
+              llmLoading.style.display = "";
+              llmText.style.display = "none";
+              llmText.textContent = "";
+
+              fetch("/api/slotops/predict-analysis", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  job: payload.job,
+                  prediction: pred,
+                  score_total: scoreResult.total,
+                }),
+              })
+                .then(function (r) {
+                  return r.json();
+                })
+                .then(function (llmData) {
+                  llmLoading.style.display = "none";
+                  if (llmData.ok && llmData.analysis) {
+                    llmText.textContent = llmData.analysis;
+                    llmText.style.display = "block";
+                  } else {
+                    llmText.textContent =
+                      "Expert analysis unavailable. Use the data and recommendations above.";
+                    llmText.style.display = "block";
+                    llmText.style.color = "var(--text-muted)";
+                  }
+                })
+                .catch(function () {
+                  llmLoading.style.display = "none";
+                  llmText.textContent =
+                    "Expert analysis unavailable. Use the data and recommendations above.";
+                  llmText.style.display = "block";
+                  llmText.style.color = "var(--text-muted)";
+                });
             })
             .catch(function (err) {
               loadingEl.style.display = "none";

@@ -169,6 +169,7 @@ def handle_slotops_post_routes(handler: Any, path: str, parsed: Any) -> bool:
     _dispatch: dict[str, Any] = {
         "/api/slotops/optimize": engine.handle_slotops_optimize,
         "/api/slotops/predict": engine.handle_slotops_predict,
+        "/api/slotops/predict-analysis": engine.handle_slotops_predict_analysis,
         "/api/slotops/schedule": engine.handle_slotops_schedule,
         "/api/slotops/export": engine.handle_slotops_export,
         "/api/slotops/insights": engine.handle_slotops_insights,

@@ -584,6 +584,7 @@ def predict_performance(job: Job) -> dict[str, Any]:
         "confidence_score": conf,
         "sample_size": ss,
         "data_source": "cross" if cross else "averaged",
+        "optimal_timing": get_optimal_posting_time(job.country),
     }
 
 
@@ -763,6 +764,138 @@ def handle_slotops_predict(body: dict[str, Any]) -> dict[str, Any]:
     except (ValueError, TypeError, KeyError) as exc:
         logger.error(f"SlotOps predict error: {exc}", exc_info=True)
         return {"ok": False, "error": str(exc)}
+
+
+def handle_slotops_predict_analysis(body: dict[str, Any]) -> dict[str, Any]:
+    """POST /api/slotops/predict-analysis -- LLM expert analysis for a single job prediction.
+
+    Takes prediction data + job context and generates actionable strategic recommendation
+    using all available data: baselines, Easy Apply benchmarks, seasonality, timing, and
+    Joveo account performance data.
+    """
+    t0 = time.monotonic()
+    call_fn, provider = _lazy_llm()
+    if not call_fn:
+        return {"ok": False, "error": "LLM not available", "analysis": ""}
+
+    try:
+        job_data = body.get("job") or {}
+        prediction = body.get("prediction") or {}
+        score_total = body.get("score_total", 0)
+
+        country = job_data.get("country") or prediction.get("country") or "Unknown"
+        title = (
+            job_data.get("title") or prediction.get("standardized_title") or "Unknown"
+        )
+        method = (
+            job_data.get("application_method")
+            or prediction.get("application_method")
+            or "ATS"
+        )
+        workplace = job_data.get("workplace_type") or "Remote"
+        industry = job_data.get("industry") or ""
+        company = job_data.get("company") or ""
+
+        ar = prediction.get("expected_apply_rate", 0)
+        views = prediction.get("expected_views", 0)
+        apps = prediction.get("expected_applications", 0)
+        clicks = prediction.get("expected_apply_clicks", 0)
+        conf = prediction.get("confidence_score", 0)
+        sample = prediction.get("sample_size", 0)
+        best_day = prediction.get("best_day_of_week", "")
+        best_month = prediction.get("best_month", "")
+        data_src = prediction.get("data_source", "")
+
+        comp = prediction.get("easy_apply_comparison") or {}
+        timing = prediction.get("optimal_timing") or {}
+
+        # Build country context
+        bl = load_baselines()
+        cb = _country_bl(country)
+        country_avg_ar = _safe_avg(cb, "apply_rate") if cb else 0
+        country_avg_views = _safe_avg(cb, "views") if cb else 0
+
+        # Build seasonality context
+        season = (bl.get("seasonality") or {}).get(country) or {}
+        season_str = ""
+        if season:
+            top_months = sorted(
+                season.items(), key=lambda x: -(x[1].get("avg_apply_rate") or 0)
+            )[:3]
+            season_str = ", ".join(
+                f"{m}: {d.get('avg_apply_rate', 0):.1f}% AR" for m, d in top_months
+            )
+
+        # Joveo benchmark context
+        joveo_str = "Joveo accounts combined: 66.3M views, 11M clicks, 16.6% avg AR (above 12.6% industry benchmark)"
+
+        prompt = f"""You are a LinkedIn recruitment advertising expert at Joveo. Analyze this job posting prediction and give a strategic recommendation.
+
+JOB DETAILS:
+- Title: {title}
+- Country: {country}
+- Application Method: {method} ({"Easy Apply -- candidates apply directly on LinkedIn" if method == "LinkedIn" else "ATS -- candidates are redirected to external career site"})
+- Workplace: {workplace}
+- Industry: {industry or "Not specified"}
+- Company: {company or "Not specified"}
+
+PREDICTED PERFORMANCE (based on {sample} similar historical jobs):
+- Expected Views: {views:.0f}
+- Expected Apply Clicks: {clicks:.0f}
+- Expected Applications: {apps:.0f}
+- Expected Apply Rate: {ar}%
+- Slot Priority Score: {score_total}/100
+- Confidence: {conf*100:.0f}%
+
+COUNTRY BENCHMARKS ({country}):
+- Country avg apply rate: {country_avg_ar:.1f}%
+- Country avg views: {country_avg_views:.0f}
+- This job vs country avg: {"+" if ar > country_avg_ar else ""}{ar - country_avg_ar:.1f}% difference
+
+EASY APPLY vs ATS:
+- Current method: {comp.get("current_method", method)}
+- Current applications: {comp.get("current_applications", apps):.0f}
+- Alternative method applications: {comp.get("alternative_applications", "N/A")}
+- Alternative rate: {comp.get("alternative_rate", "N/A")}%
+- Lift available: {comp.get("lift_available", "N/A")}x
+- {comp.get("recommendation", "")}
+
+OPTIMAL TIMING:
+- Best posting day: {best_day}
+- Best month: {best_month}
+- Peak hours (local): Morning {timing.get("morning_peak_hours_local", [])}, Evening {timing.get("evening_peak_hours_local", [])}
+- Timezone: {timing.get("timezone_label", "")} ({timing.get("timezone", "")})
+- Top seasonal months: {season_str or "No seasonality data"}
+
+JOVEO BENCHMARK:
+- {joveo_str}
+- LinkedIn industry avg for Staffing & Recruiting: 10.2-12.6% AR
+
+Write a 3-paragraph strategic recommendation:
+1. VERDICT: Should they post this job on LinkedIn? Be direct and specific with numbers.
+2. OPTIMIZATION: What specific changes would improve performance? Quantify the impact.
+3. TIMING & STRATEGY: When exactly should they post and what's the ideal slot rotation strategy?
+
+Be data-driven, specific, and actionable. Use actual numbers from the data above. No generic advice. Max 200 words."""
+
+        result = call_fn(
+            messages=[{"role": "user", "content": prompt}],
+            system_prompt="Senior LinkedIn recruitment advertising strategist at Joveo. Data-driven, concise, actionable. Always cite specific numbers.",
+            max_tokens=500,
+            task_type="summarization",
+            force_provider=provider or "",
+            use_cache=True,
+        )
+        analysis_text = result.get("text") or ""
+        ms = _timed("predict-analysis", t0)
+        return {
+            "ok": True,
+            "analysis": analysis_text,
+            "computation_ms": ms,
+        }
+    except Exception as exc:
+        logger.error(f"SlotOps predict-analysis error: {exc}", exc_info=True)
+        return {"ok": False, "error": str(exc), "analysis": ""}
 
 
 def handle_slotops_schedule(body: dict[str, Any]) -> dict[str, Any]:
