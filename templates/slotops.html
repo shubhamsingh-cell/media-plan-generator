@@ -23,6 +23,17 @@
       href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=optional"
       rel="stylesheet"
     />
+    <script>
+      window.__csrfToken = "";
+      window.__csrfReady = fetch("/api/csrf-token")
+        .then(function (r) {
+          return r.json();
+        })
+        .then(function (d) {
+          window.__csrfToken = d.token || "";
+        })
+        .catch(function () {});
+    </script>
     <style>
       /* ── Reset & Root ── */
       *,
@@ -4695,7 +4706,10 @@
 
           fetch("/api/slotops/predict", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              "X-CSRF-Token": window.__csrfToken || "",
+            },
             body: JSON.stringify(payload),
           })
             .then(function (res) {
@@ -5105,7 +5119,10 @@
 
               fetch("/api/slotops/predict-analysis", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: {
+                  "Content-Type": "application/json",
+                  "X-CSRF-Token": window.__csrfToken || "",
+                },
                 body: JSON.stringify({
                   job: payload.job,
                   prediction: pred,

@@ -52,12 +52,18 @@ import logging
 import math
 import os
 import re
+import ssl
 import threading
 import time
 import urllib.error
 import urllib.request
 from pathlib import Path
 from typing import Any
+
+# SSL context for Voyage AI API -- Python 3.14+ has stricter TLS defaults
+# that cause WRONG_VERSION_NUMBER errors with some API endpoints.
+_VOYAGE_SSL_CTX: ssl.SSLContext = ssl.create_default_context()
+_VOYAGE_SSL_CTX.minimum_version = ssl.TLSVersion.TLSv1_2
 
 logger = logging.getLogger(__name__)
 
@@ -535,7 +541,9 @@ def embed_batch(texts: list[str]) -> list[list[float]] | None:
                     },
                     method="POST",
                 )
-                with urllib.request.urlopen(req, timeout=_VOYAGE_TIMEOUT) as resp:
+                with urllib.request.urlopen(
+                    req, timeout=_VOYAGE_TIMEOUT, context=_VOYAGE_SSL_CTX
+                ) as resp:
                     body = resp.read().decode("utf-8")
                     api_result = json.loads(body)
 
