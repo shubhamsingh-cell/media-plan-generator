@@ -2526,22 +2526,31 @@
       /* Live stat counters */
       .products-stats {
         display: flex;
+        flex-wrap: wrap;
         justify-content: center;
-        gap: var(--space-10);
+        gap: var(--space-6) var(--space-8);
         margin-top: var(--space-10);
         position: relative;
         z-index: 1;
+        max-width: 1000px;
+        margin-left: auto;
+        margin-right: auto;
+        padding: var(--space-6) var(--space-8);
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: var(--radius-xl);
       }
       .products-stat {
         text-align: center;
         opacity: 0;
         animation: countUp 0.5s ease forwards;
+        min-width: 90px;
       }
       .products-stat.counted {
         opacity: 1;
       }
       .products-stat-number {
-        font-size: 2rem;
+        font-size: 1.8rem;
         font-weight: 800;
         background: linear-gradient(135deg, #5a54bd, #6bb3cd);
         -webkit-background-clip: text;
@@ -2550,9 +2559,10 @@
         font-variant-numeric: tabular-nums;
       }
       .products-stat-label {
-        font-size: 13px;
+        font-size: 11px;
         color: var(--text-muted);
         margin-top: 4px;
+        letter-spacing: 0.02em;
       }
 
       .products-also {
@@ -5498,16 +5508,36 @@
 
           <div class="products-stats reveal" aria-label="Platform statistics">
             <div class="products-stat">
-              <div class="products-stat-number" data-count="108871">0</div>
-              <div class="products-stat-label">LinkedIn jobs analyzed</div>
+              <div class="products-stat-number" data-count="23">0</div>
+              <div class="products-stat-label">LLM providers</div>
+            </div>
+            <div class="products-stat">
+              <div class="products-stat-number" data-count="22">0</div>
+              <div class="products-stat-label">Live APIs</div>
             </div>
             <div class="products-stat">
               <div class="products-stat-number" data-count="60">0</div>
               <div class="products-stat-label">AI tools</div>
             </div>
             <div class="products-stat">
+              <div class="products-stat-number" data-count="108871">0</div>
+              <div class="products-stat-label">Jobs analyzed</div>
+            </div>
+            <div class="products-stat">
               <div class="products-stat-number" data-count="76">0</div>
-              <div class="products-stat-label">Countries covered</div>
+              <div class="products-stat-label">Countries</div>
+            </div>
+            <div class="products-stat">
+              <div class="products-stat-number" data-count="26">0</div>
+              <div class="products-stat-label">Database tables</div>
+            </div>
+            <div class="products-stat">
+              <div class="products-stat-number" data-count="25">0</div>
+              <div class="products-stat-label">KB documents</div>
+            </div>
+            <div class="products-stat">
+              <div class="products-stat-number" data-count="6">0</div>
+              <div class="products-stat-label">Products</div>
             </div>
           </div>
 
