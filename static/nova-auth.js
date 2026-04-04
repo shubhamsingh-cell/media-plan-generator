@@ -207,6 +207,14 @@
 
   function _renderUserBadge() {
     if (!_currentUser) return;
+    // Skip floating badge on pages that have their own nav with auth (hub, platform)
+    var hasNav =
+      document.querySelector(".nav") ||
+      document.querySelector(".top-nav") ||
+      document.querySelector('[class*="nav-bar"]');
+    var isHub =
+      window.location.pathname === "/" || window.location.pathname === "/hub";
+    if (hasNav || isHub) return;
     _removeUserBadge();
 
     var container = document.createElement("div");
