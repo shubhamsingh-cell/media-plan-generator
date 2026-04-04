@@ -533,7 +533,14 @@
     // Load cached user for instant UI
     var cachedUser = _loadCachedUser();
     if (cachedUser) {
-      _updateUI(cachedUser);
+      // Re-validate domain on cached user (in case restriction was added after login)
+      if (_isAllowedDomain(cachedUser.email || "")) {
+        _updateUI(cachedUser);
+      } else {
+        // Cached user no longer allowed -- clear them
+        _setUser(null);
+        cachedUser = null;
+      }
     }
 
     // Initialize Supabase auth listener
@@ -556,6 +563,14 @@
               logged_in_at: new Date().toISOString(),
             };
             _setUser(userData);
+          } else {
+            // Unauthorized domain -- force sign out
+            sb.auth.signOut();
+            _setUser(null);
+            _showAuthToast(
+              "Access restricted to @joveo.com accounts only.",
+              "error",
+            );
           }
         }
       });
