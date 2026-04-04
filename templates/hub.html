@@ -2854,6 +2854,281 @@
           animation: none;
           opacity: 1;
         }
+        /* v2 enhancements reduced-motion */
+        .particle-canvas,
+        .flow-lines-svg {
+          display: none !important;
+        }
+        .products-spotlight-overlay {
+          display: none !important;
+        }
+        .morphing-mesh {
+          animation: none !important;
+        }
+        .section-title-typed .typed-cursor {
+          display: none;
+        }
+        .section-title-typed {
+          opacity: 1 !important;
+        }
+        .product-hero-card .product-hero-icon,
+        .product-hero-card .product-hero-badge {
+          transform: none !important;
+          transition: none !important;
+        }
+        .holo-overlay {
+          display: none !important;
+        }
+        .card-preview-tooltip {
+          display: none !important;
+        }
+      }
+
+      /* ── V2: Particle Canvas ── */
+      .particle-canvas {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 0;
+        pointer-events: none;
+      }
+
+      /* ── V2: Holographic overlay on cards ── */
+      .holo-overlay {
+        position: absolute;
+        inset: 0;
+        border-radius: var(--radius-xl);
+        pointer-events: none;
+        z-index: 2;
+        opacity: 0;
+        transition: opacity 0.5s ease;
+        mix-blend-mode: overlay;
+        background: linear-gradient(
+          135deg,
+          rgba(255, 0, 0, 0.06) 0%,
+          rgba(255, 154, 0, 0.06) 10%,
+          rgba(208, 222, 33, 0.06) 20%,
+          rgba(79, 220, 74, 0.06) 30%,
+          rgba(63, 218, 216, 0.06) 40%,
+          rgba(47, 201, 226, 0.06) 50%,
+          rgba(28, 127, 238, 0.06) 60%,
+          rgba(95, 21, 242, 0.06) 70%,
+          rgba(186, 12, 248, 0.06) 80%,
+          rgba(251, 7, 217, 0.06) 90%,
+          rgba(255, 0, 0, 0.06) 100%
+        );
+        background-size: 300% 300%;
+      }
+      .product-hero-card:hover .holo-overlay {
+        opacity: 1;
+        animation: holoShift 3s linear infinite;
+      }
+      @keyframes holoShift {
+        0% {
+          background-position: 0% 0%;
+        }
+        50% {
+          background-position: 100% 100%;
+        }
+        100% {
+          background-position: 0% 0%;
+        }
+      }
+
+      /* ── V2: Spotlight cursor overlay ── */
+      .products-spotlight-overlay {
+        position: absolute;
+        inset: 0;
+        z-index: 0;
+        pointer-events: none;
+        background: rgba(0, 0, 0, 0.12);
+        opacity: 0;
+        transition: opacity 0.6s ease;
+        -webkit-mask-image: radial-gradient(
+          600px circle at var(--spot-x, 50%) var(--spot-y, 50%),
+          transparent 0%,
+          black 100%
+        );
+        mask-image: radial-gradient(
+          600px circle at var(--spot-x, 50%) var(--spot-y, 50%),
+          transparent 0%,
+          black 100%
+        );
+      }
+      .products-section:hover .products-spotlight-overlay {
+        opacity: 1;
+      }
+
+      /* ── V2: SVG Flow Lines ── */
+      .flow-lines-svg {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 0;
+        pointer-events: none;
+        overflow: visible;
+      }
+      .flow-line {
+        fill: none;
+        stroke: rgba(255, 255, 255, 0.06);
+        stroke-width: 1.5;
+        stroke-dasharray: 6 8;
+        animation: flowDash 12s linear infinite;
+      }
+      .flow-line--reverse {
+        animation-direction: reverse;
+      }
+      @keyframes flowDash {
+        to {
+          stroke-dashoffset: -100;
+        }
+      }
+      /* Flow particle dots */
+      .flow-dot {
+        fill: rgba(90, 84, 189, 0.35);
+      }
+      @media (max-width: 1024px) {
+        .flow-lines-svg {
+          display: none;
+        }
+      }
+
+      /* ── V2: Card inner parallax layers ── */
+      .product-hero-card:hover .product-hero-icon {
+        transform: translate(
+          calc(var(--card-ry) * -1.2),
+          calc(var(--card-rx) * 1.2)
+        );
+      }
+      .product-hero-card:hover .product-hero-badge {
+        transform: translate(
+          calc(var(--card-ry) * -0.6),
+          calc(var(--card-rx) * 0.6)
+        );
+      }
+
+      /* ── V2: Morphing mesh gradient ── */
+      .morphing-mesh {
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        pointer-events: none;
+        opacity: 0.07;
+        background: linear-gradient(
+          45deg,
+          #5a54bd 0%,
+          #202058 25%,
+          #6bb3cd 50%,
+          #202058 75%,
+          #5a54bd 100%
+        );
+        background-size: 400% 400%;
+        animation: meshMorph 20s ease-in-out infinite;
+        filter: blur(60px);
+      }
+      @keyframes meshMorph {
+        0%,
+        100% {
+          background-position: 0% 50%;
+        }
+        25% {
+          background-position: 100% 0%;
+        }
+        50% {
+          background-position: 100% 100%;
+        }
+        75% {
+          background-position: 0% 100%;
+        }
+      }
+
+      /* ── V2: Typing effect ── */
+      .section-title-typed {
+        display: inline;
+      }
+      .typed-cursor {
+        display: inline-block;
+        width: 2px;
+        height: 1em;
+        background: var(--accent-light);
+        margin-left: 2px;
+        vertical-align: text-bottom;
+        animation: cursorBlink 0.75s step-end infinite;
+      }
+      @keyframes cursorBlink {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0;
+        }
+      }
+
+      /* ── V2: Card preview tooltip ── */
+      .card-preview-tooltip {
+        position: absolute;
+        bottom: calc(100% + 12px);
+        left: 50%;
+        transform: translateX(-50%) translateY(8px);
+        width: 200px;
+        height: 130px;
+        border-radius: var(--radius-md);
+        background: var(--bg-secondary);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+        opacity: 0;
+        pointer-events: none;
+        transition:
+          opacity 0.3s ease,
+          transform 0.3s ease;
+        overflow: hidden;
+        z-index: 100;
+        padding: 10px;
+      }
+      .card-preview-tooltip.visible {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+      }
+      /* Mini UI mockup elements */
+      .preview-bar {
+        height: 8px;
+        border-radius: 4px;
+        margin-bottom: 6px;
+        opacity: 0.5;
+      }
+      .preview-row {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 5px;
+      }
+      .preview-block {
+        height: 16px;
+        border-radius: 3px;
+        opacity: 0.3;
+        flex: 1;
+      }
+      .preview-header {
+        height: 6px;
+        width: 60%;
+        border-radius: 3px;
+        margin-bottom: 8px;
+        opacity: 0.6;
+      }
+      .preview-chart-bar {
+        flex: 1;
+        border-radius: 2px 2px 0 0;
+        opacity: 0.4;
+        align-self: flex-end;
+      }
+      .preview-chart-row {
+        display: flex;
+        gap: 4px;
+        align-items: flex-end;
+        height: 50px;
+        margin-top: auto;
       }
     </style>
 
@@ -3791,19 +4066,41 @@
       <!-- SECTION 5: THREE PRODUCTS                   -->
       <!-- ========================================== -->
       <section class="products-section" id="platform" aria-label="Products">
+        <!-- V2: Morphing mesh gradient -->
+        <div class="morphing-mesh" aria-hidden="true"></div>
         <!-- Floating glow orbs -->
         <div class="products-orb products-orb--1" aria-hidden="true"></div>
         <div class="products-orb products-orb--2" aria-hidden="true"></div>
         <div class="products-orb products-orb--3" aria-hidden="true"></div>
+        <!-- V2: Particle canvas -->
+        <canvas class="particle-canvas" aria-hidden="true"></canvas>
+        <!-- V2: Spotlight overlay -->
+        <div class="products-spotlight-overlay" aria-hidden="true"></div>
+        <!-- V2: Flow lines SVG (populated by JS) -->
+        <svg
+          class="flow-lines-svg"
+          aria-hidden="true"
+          preserveAspectRatio="none"
+        ></svg>
         <div class="container">
           <div class="section-label reveal">The platform</div>
-          <h2 class="section-title reveal" style="text-align: center">
+          <h2
+            class="section-title reveal"
+            style="text-align: center"
+            id="products-typed-title"
+            data-typed-text="Six products. One intelligence layer."
+          >
             Six products. One intelligence layer.
           </h2>
 
           <div class="products-duo reveal">
             <!-- PLAN -->
-            <a href="/media-plan" class="product-hero-card product-plan">
+            <a
+              href="/media-plan"
+              class="product-hero-card product-plan"
+              data-product="plan"
+            >
+              <div class="holo-overlay" aria-hidden="true"></div>
               <span class="product-hero-badge">FLAGSHIP</span>
               <div class="product-hero-icon">
                 <svg
@@ -3848,7 +4145,12 @@
             </a>
 
             <!-- NOVA AI -->
-            <a href="/nova" class="product-hero-card product-nova">
+            <a
+              href="/nova"
+              class="product-hero-card product-nova"
+              data-product="nova"
+            >
+              <div class="holo-overlay" aria-hidden="true"></div>
               <span class="product-hero-badge">AI ASSISTANT</span>
               <div class="product-hero-icon">
                 <svg
@@ -3893,7 +4195,12 @@
             </a>
 
             <!-- SLOTOPS -->
-            <a href="/slotops" class="product-hero-card product-slotops">
+            <a
+              href="/slotops"
+              class="product-hero-card product-slotops"
+              data-product="slotops"
+            >
+              <div class="holo-overlay" aria-hidden="true"></div>
               <span class="product-hero-badge product-hero-badge--live"
                 >NEW</span
               >
@@ -3941,9 +4248,11 @@
             <a
               href="https://cg-automation.onrender.com"
               class="product-hero-card product-cg"
+              data-product="cg"
               target="_blank"
               rel="noopener"
             >
+              <div class="holo-overlay" aria-hidden="true"></div>
               <span class="product-hero-badge product-hero-badge--live"
                 >LIVE</span
               >
@@ -3992,9 +4301,11 @@
             <a
               href="https://geoviz-3d.vercel.app"
               class="product-hero-card product-geoviz"
+              data-product="geoviz"
               target="_blank"
               rel="noopener"
             >
+              <div class="holo-overlay" aria-hidden="true"></div>
               <span class="product-hero-badge product-hero-badge--live"
                 >LIVE</span
               >
@@ -4976,6 +5287,409 @@
         } else if (statsSection) {
           animateCounters();
         }
+      })();
+    </script>
+
+    <!-- V2: Premium product section enhancements -->
+    <script>
+      (function () {
+        "use strict";
+        var reducedMotion = window.matchMedia(
+          "(prefers-reduced-motion: reduce)",
+        ).matches;
+        if (reducedMotion) return;
+
+        var section = document.querySelector(".products-section");
+        if (!section) return;
+
+        /* ── 1. Particle Constellation Canvas ── */
+        var canvas = section.querySelector(".particle-canvas");
+        if (canvas && canvas.getContext) {
+          var ctx = canvas.getContext("2d");
+          var particles = [];
+          var mouseX = -9999,
+            mouseY = -9999;
+          var PARTICLE_COUNT = 60;
+          var CONNECT_DIST = 120;
+          var COLORS = ["90,84,189", "107,179,205", "32,32,88"];
+          var animId = null;
+          var isVisible = false;
+
+          function resizeCanvas() {
+            var rect = section.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+          }
+
+          function initParticles() {
+            particles = [];
+            for (var i = 0; i < PARTICLE_COUNT; i++) {
+              particles.push({
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height,
+                vx: (Math.random() - 0.5) * 0.4,
+                vy: (Math.random() - 0.5) * 0.4,
+                r: Math.random() * 2 + 1,
+                color: COLORS[Math.floor(Math.random() * COLORS.length)],
+                alpha: Math.random() * 0.15 + 0.15,
+              });
+            }
+          }
+
+          function drawParticles() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            for (var i = 0; i < particles.length; i++) {
+              var p = particles[i];
+              /* Mouse repulsion */
+              var dx = p.x - mouseX;
+              var dy = p.y - mouseY;
+              var dist = Math.sqrt(dx * dx + dy * dy);
+              if (dist < 100 && dist > 0) {
+                var force = ((100 - dist) / 100) * 0.8;
+                p.x += (dx / dist) * force;
+                p.y += (dy / dist) * force;
+              }
+              p.x += p.vx;
+              p.y += p.vy;
+              /* Wrap edges */
+              if (p.x < 0) p.x = canvas.width;
+              if (p.x > canvas.width) p.x = 0;
+              if (p.y < 0) p.y = canvas.height;
+              if (p.y > canvas.height) p.y = 0;
+              /* Draw particle */
+              ctx.beginPath();
+              ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+              ctx.fillStyle = "rgba(" + p.color + "," + p.alpha + ")";
+              ctx.fill();
+              /* Connect nearby particles */
+              for (var j = i + 1; j < particles.length; j++) {
+                var p2 = particles[j];
+                var ddx = p.x - p2.x;
+                var ddy = p.y - p2.y;
+                var d = Math.sqrt(ddx * ddx + ddy * ddy);
+                if (d < CONNECT_DIST) {
+                  var lineAlpha = (1 - d / CONNECT_DIST) * 0.12;
+                  ctx.beginPath();
+                  ctx.moveTo(p.x, p.y);
+                  ctx.lineTo(p2.x, p2.y);
+                  ctx.strokeStyle = "rgba(" + p.color + "," + lineAlpha + ")";
+                  ctx.lineWidth = 0.5;
+                  ctx.stroke();
+                }
+              }
+            }
+            if (isVisible) animId = requestAnimationFrame(drawParticles);
+          }
+
+          resizeCanvas();
+          initParticles();
+
+          var particleObserver = new IntersectionObserver(
+            function (entries) {
+              entries.forEach(function (entry) {
+                if (entry.isIntersecting) {
+                  isVisible = true;
+                  if (!animId) animId = requestAnimationFrame(drawParticles);
+                } else {
+                  isVisible = false;
+                  if (animId) {
+                    cancelAnimationFrame(animId);
+                    animId = null;
+                  }
+                }
+              });
+            },
+            { threshold: 0.05 },
+          );
+          particleObserver.observe(section);
+
+          section.addEventListener("mousemove", function (e) {
+            var rect = section.getBoundingClientRect();
+            mouseX = e.clientX - rect.left;
+            mouseY = e.clientY - rect.top;
+          });
+          section.addEventListener("mouseleave", function () {
+            mouseX = -9999;
+            mouseY = -9999;
+          });
+
+          var resizeTimer;
+          window.addEventListener("resize", function () {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(function () {
+              resizeCanvas();
+              initParticles();
+            }, 250);
+          });
+        }
+
+        /* ── 2. Holographic mouse tracking ── */
+        var holoCards = section.querySelectorAll(".holo-overlay");
+        holoCards.forEach(function (holo) {
+          var card = holo.parentElement;
+          card.addEventListener("mousemove", function (e) {
+            var rect = card.getBoundingClientRect();
+            var x = ((e.clientX - rect.left) / rect.width) * 100;
+            var y = ((e.clientY - rect.top) / rect.height) * 100;
+            holo.style.backgroundPosition = x + "% " + y + "%";
+          });
+        });
+
+        /* ── 3. Spotlight cursor on section ── */
+        var spotlight = section.querySelector(".products-spotlight-overlay");
+        if (spotlight) {
+          section.addEventListener("mousemove", function (e) {
+            var rect = section.getBoundingClientRect();
+            spotlight.style.setProperty(
+              "--spot-x",
+              e.clientX - rect.left + "px",
+            );
+            spotlight.style.setProperty(
+              "--spot-y",
+              e.clientY - rect.top + "px",
+            );
+          });
+        }
+
+        /* ── 4. Connected flow lines (SVG) ── */
+        var flowSvg = section.querySelector(".flow-lines-svg");
+        if (flowSvg && window.innerWidth > 1024) {
+          function updateFlowLines() {
+            var grid = section.querySelector(".products-duo");
+            if (!grid) return;
+            flowSvg.innerHTML = "";
+            var sRect = section.getBoundingClientRect();
+            flowSvg.setAttribute(
+              "viewBox",
+              "0 0 " + sRect.width + " " + sRect.height,
+            );
+            var cardsByProduct = {};
+            section
+              .querySelectorAll(".product-hero-card")
+              .forEach(function (c) {
+                var p = c.dataset.product;
+                if (p) {
+                  var r = c.getBoundingClientRect();
+                  cardsByProduct[p] = {
+                    cx: r.left - sRect.left + r.width / 2,
+                    cy: r.top - sRect.top + r.height / 2,
+                    right: r.left - sRect.left + r.width,
+                    left: r.left - sRect.left,
+                    bottom: r.top - sRect.top + r.height,
+                    top: r.top - sRect.top,
+                  };
+                }
+              });
+            /* Flow connections: Plan->Nova, Nova->SlotOps, Plan->CG */
+            var connections = [
+              { from: "plan", to: "nova" },
+              { from: "nova", to: "slotops" },
+              { from: "plan", to: "cg" },
+            ];
+            connections.forEach(function (conn, idx) {
+              var a = cardsByProduct[conn.from];
+              var b = cardsByProduct[conn.to];
+              if (!a || !b) return;
+              var path = document.createElementNS(
+                "http://www.w3.org/2000/svg",
+                "path",
+              );
+              /* Create curved path between card edges */
+              var startX = a.right;
+              var startY = a.cy;
+              var endX = b.left;
+              var endY = b.cy;
+              /* If same row, connect horizontally */
+              if (Math.abs(a.cy - b.cy) < 100) {
+                var midX = (startX + endX) / 2;
+                path.setAttribute(
+                  "d",
+                  "M" +
+                    startX +
+                    "," +
+                    startY +
+                    " C" +
+                    midX +
+                    "," +
+                    startY +
+                    " " +
+                    midX +
+                    "," +
+                    endY +
+                    " " +
+                    endX +
+                    "," +
+                    endY,
+                );
+              } else {
+                /* Different rows -- connect bottom to top */
+                startX = a.cx;
+                startY = a.bottom;
+                endX = b.cx;
+                endY = b.top;
+                var midY = (startY + endY) / 2;
+                path.setAttribute(
+                  "d",
+                  "M" +
+                    startX +
+                    "," +
+                    startY +
+                    " C" +
+                    startX +
+                    "," +
+                    midY +
+                    " " +
+                    endX +
+                    "," +
+                    midY +
+                    " " +
+                    endX +
+                    "," +
+                    endY,
+                );
+              }
+              path.classList.add("flow-line");
+              if (idx % 2 === 1) path.classList.add("flow-line--reverse");
+              flowSvg.appendChild(path);
+
+              /* Animated dot along path */
+              var dot = document.createElementNS(
+                "http://www.w3.org/2000/svg",
+                "circle",
+              );
+              dot.setAttribute("r", "2");
+              dot.classList.add("flow-dot");
+              flowSvg.appendChild(dot);
+              var animMotion = document.createElementNS(
+                "http://www.w3.org/2000/svg",
+                "animateMotion",
+              );
+              animMotion.setAttribute("dur", 8 + idx * 2 + "s");
+              animMotion.setAttribute("repeatCount", "indefinite");
+              animMotion.setAttribute("path", path.getAttribute("d"));
+              dot.appendChild(animMotion);
+            });
+          }
+          /* Delayed init to ensure layout */
+          setTimeout(updateFlowLines, 500);
+          var flowResizeTimer;
+          window.addEventListener("resize", function () {
+            clearTimeout(flowResizeTimer);
+            flowResizeTimer = setTimeout(updateFlowLines, 300);
+          });
+        }
+
+        /* ── 5. Typing effect on section title ── */
+        var titleEl = document.getElementById("products-typed-title");
+        if (titleEl) {
+          var fullText = titleEl.getAttribute("data-typed-text");
+          var typed = false;
+          var typingObserver = new IntersectionObserver(
+            function (entries) {
+              entries.forEach(function (entry) {
+                if (entry.isIntersecting && !typed) {
+                  typed = true;
+                  typingObserver.unobserve(titleEl);
+                  titleEl.textContent = "";
+                  var cursor = document.createElement("span");
+                  cursor.className = "typed-cursor";
+                  cursor.textContent = "\u200B";
+                  titleEl.appendChild(cursor);
+                  var charIndex = 0;
+                  function typeNext() {
+                    if (charIndex < fullText.length) {
+                      titleEl.insertBefore(
+                        document.createTextNode(fullText[charIndex]),
+                        cursor,
+                      );
+                      charIndex++;
+                      setTimeout(typeNext, 35 + Math.random() * 25);
+                    } else {
+                      /* Remove cursor after 2s */
+                      setTimeout(function () {
+                        cursor.style.opacity = "0";
+                        cursor.style.transition = "opacity 0.5s";
+                        setTimeout(function () {
+                          cursor.remove();
+                        }, 500);
+                      }, 2000);
+                    }
+                  }
+                  typeNext();
+                }
+              });
+            },
+            { threshold: 0.5 },
+          );
+          typingObserver.observe(titleEl);
+        }
+
+        /* ── 6. Hover preview tooltips ── */
+        var previewConfigs = {
+          plan: {
+            color: "#7b75d4",
+            bars: [70, 50, 35, 20],
+            label: "Channel Mix",
+          },
+          nova: { color: "#6bb3cd", bars: [60, 80, 40, 55], label: "AI Chat" },
+          slotops: {
+            color: "#378fe9",
+            bars: [90, 45, 65, 30],
+            label: "Slot Score",
+          },
+          cg: { color: "#48c78e", bars: [50, 75, 60, 40], label: "Locations" },
+          geoviz: { color: "#a78bfa", bars: [40, 60, 80, 50], label: "Globe" },
+        };
+
+        section
+          .querySelectorAll(".product-hero-card[data-product]")
+          .forEach(function (card) {
+            var product = card.dataset.product;
+            var cfg = previewConfigs[product];
+            if (!cfg) return;
+
+            /* Build tooltip */
+            var tip = document.createElement("div");
+            tip.className = "card-preview-tooltip";
+            tip.setAttribute("aria-hidden", "true");
+
+            /* Mini UI mockup */
+            var header = document.createElement("div");
+            header.className = "preview-header";
+            header.style.background = cfg.color;
+            tip.appendChild(header);
+
+            var bar = document.createElement("div");
+            bar.className = "preview-bar";
+            bar.style.background = cfg.color;
+            bar.style.width = "80%";
+            tip.appendChild(bar);
+
+            var chartRow = document.createElement("div");
+            chartRow.className = "preview-chart-row";
+            cfg.bars.forEach(function (h) {
+              var b = document.createElement("div");
+              b.className = "preview-chart-bar";
+              b.style.height = h + "%";
+              b.style.background = cfg.color;
+              chartRow.appendChild(b);
+            });
+            tip.appendChild(chartRow);
+
+            card.style.position = "relative";
+            card.appendChild(tip);
+
+            var hoverTimer = null;
+            card.addEventListener("mouseenter", function () {
+              hoverTimer = setTimeout(function () {
+                tip.classList.add("visible");
+              }, 1500);
+            });
+            card.addEventListener("mouseleave", function () {
+              clearTimeout(hoverTimer);
+              tip.classList.remove("visible");
+            });
+          });
       })();
     </script>
   </body>
