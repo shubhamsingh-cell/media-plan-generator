@@ -24,6 +24,17 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/static/css/tokens.css" />
+    <script>
+      window.__csrfToken = "";
+      window.__csrfReady = fetch("/api/csrf-token")
+        .then(function (r) {
+          return r.json();
+        })
+        .then(function (d) {
+          window.__csrfToken = d.token || "";
+        })
+        .catch(function () {});
+    </script>
     <style>
       /* ═══════════════════════════════════════════════════════════════════
    DESIGN SYSTEM: Deep Obsidian + Electric Indigo
@@ -2029,6 +2040,7 @@
           var xhr = new XMLHttpRequest();
           xhr.open("POST", "/api/applyflow", true);
           xhr.setRequestHeader("Content-Type", "application/json");
+          xhr.setRequestHeader("X-CSRF-Token", window.__csrfToken || "");
           xhr.timeout = 30000;
 
           xhr.onload = function () {
@@ -2133,6 +2145,7 @@
           var xhr = new XMLHttpRequest();
           xhr.open("POST", "/api/applyflow", true);
           xhr.setRequestHeader("Content-Type", "application/json");
+          xhr.setRequestHeader("X-CSRF-Token", window.__csrfToken || "");
           xhr.timeout = 30000;
 
           xhr.onload = function () {
@@ -2407,6 +2420,7 @@
           var xhr = new XMLHttpRequest();
           xhr.open("POST", "/api/applyflow", true);
           xhr.setRequestHeader("Content-Type", "application/json");
+          xhr.setRequestHeader("X-CSRF-Token", window.__csrfToken || "");
           xhr.timeout = 10000;
 
           xhr.onload = function () {
