@@ -91,13 +91,9 @@
 
     overlay.innerHTML =
       '<div style="text-align:center;max-width:420px;padding:40px;">' +
-      '  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none" style="width:80px;height:80px;margin:0 auto 24px;display:block;">' +
-      '    <defs><linearGradient id="ng1" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#8B7FF5"/><stop offset="100%" stop-color="#6C5CE7"/></linearGradient>' +
-      '    <linearGradient id="ng2" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#B8ACF6"/><stop offset="100%" stop-color="#7B6FDE"/></linearGradient></defs>' +
-      '    <line x1="30" y1="92" x2="30" y2="28" stroke="url(#ng1)" stroke-width="16" stroke-linecap="round" opacity="0.9"/>' +
-      '    <line x1="30" y1="28" x2="90" y2="92" stroke="url(#ng2)" stroke-width="16" stroke-linecap="round" opacity="0.75"/>' +
-      '    <line x1="90" y1="92" x2="90" y2="28" stroke="url(#ng1)" stroke-width="16" stroke-linecap="round" opacity="0.9"/>' +
-      "  </svg>" +
+      '  <div style="width:80px;height:80px;margin:0 auto 24px;border-radius:20px;background:linear-gradient(135deg,#5A54BD,#7B6FDE);display:flex;align-items:center;justify-content:center;box-shadow:0 8px 32px rgba(90,84,189,0.4);">' +
+      '    <span style="font-size:40px;font-weight:800;color:white;font-family:Inter,system-ui,sans-serif;line-height:1;">N</span>' +
+      "  </div>" +
       '  <h1 style="color:#e4e4e7;font-size:28px;font-weight:700;margin:0 0 8px;font-family:Inter,sans-serif;">Welcome to Nova AI</h1>' +
       '  <p style="color:rgba(255,255,255,0.5);font-size:15px;margin:0 0 32px;font-family:Inter,sans-serif;line-height:1.5;">AI-powered recruitment intelligence platform.<br>Sign in to access the suite.</p>' +
       '  <button id="nova-gate-login-btn" style="' +
@@ -112,7 +108,7 @@
       "    </svg>" +
       "    Sign in with Google" +
       "  </button>" +
-      '  <p style="color:rgba(255,255,255,0.3);font-size:12px;margin-top:24px;font-family:Inter,sans-serif;">Created by Shubham Singh Chandel</p>' +
+      '  <p style="color:rgba(255,255,255,0.25);font-size:11px;margin-top:24px;font-family:Inter,sans-serif;">Nova AI Suite &mdash; Joveo</p>' +
       "</div>";
 
     document.body.appendChild(overlay);
