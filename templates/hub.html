@@ -1985,7 +1985,7 @@
         opacity: 1;
       }
 
-      /* ── Product background illustrations ── */
+      /* ── Product background illustrations (inline SVG) ── */
       .product-bg-illustration {
         position: absolute;
         inset: 0;
@@ -1993,156 +1993,19 @@
         z-index: 0;
         overflow: hidden;
         border-radius: inherit;
-        opacity: 0.7;
+        opacity: 0.35;
         transition: opacity 0.4s ease;
+        display: flex;
+        align-items: flex-end;
+        justify-content: flex-end;
       }
       .product-hero-card:hover .product-bg-illustration {
-        opacity: 0.9;
+        opacity: 0.6;
       }
-
-      /* Plan -- dashboard with bar chart + pie chart */
-      .product-plan .product-bg-illustration {
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='180' fill='none'%3E%3Crect x='20' y='130' width='24' height='40' rx='3' fill='%237b75d4' opacity='0.48'/%3E%3Crect x='54' y='100' width='24' height='70' rx='3' fill='%237b75d4' opacity='0.60'/%3E%3Crect x='88' y='80' width='24' height='90' rx='3' fill='%237b75d4' opacity='0.65'/%3E%3Crect x='122' y='110' width='24' height='60' rx='3' fill='%237b75d4' opacity='0.48'/%3E%3Ccircle cx='190' cy='60' r='30' stroke='%237b75d4' stroke-width='2' opacity='0.48' fill='none'/%3E%3Cpath d='M190 60 L190 30 A30 30 0 0 1 215 75 Z' fill='%237b75d4' opacity='0.32'/%3E%3Cline x1='20' y1='25' x2='120' y2='25' stroke='%237b75d4' stroke-width='2' opacity='0.32' stroke-linecap='round'/%3E%3Cline x1='20' y1='38' x2='95' y2='38' stroke='%237b75d4' stroke-width='2' opacity='0.24' stroke-linecap='round'/%3E%3Cline x1='20' y1='51' x2='110' y2='51' stroke='%237b75d4' stroke-width='2' opacity='0.24' stroke-linecap='round'/%3E%3C/svg%3E");
-        background-position: bottom right;
-        background-size: 55% auto;
-        background-repeat: no-repeat;
-        -webkit-mask-image: linear-gradient(
-          to bottom right,
-          transparent 10%,
-          rgba(0, 0, 0, 0.7) 100%
-        );
-        mask-image: linear-gradient(
-          to bottom right,
-          transparent 10%,
-          rgba(0, 0, 0, 0.7) 100%
-        );
-        animation: planBarPulse 4s ease-in-out infinite;
-      }
-      @keyframes planBarPulse {
-        0%,
-        100% {
-          transform: scaleY(1);
-          transform-origin: bottom;
-        }
-        50% {
-          transform: scaleY(1.04);
-          transform-origin: bottom;
-        }
-      }
-
-      /* Nova -- floating chat bubbles */
-      .product-nova .product-bg-illustration {
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='200' fill='none'%3E%3Crect x='130' y='140' width='80' height='32' rx='16' fill='%236bb3cd' opacity='0.48'/%3E%3Crect x='150' y='95' width='65' height='28' rx='14' fill='%236bb3cd' opacity='0.40'/%3E%3Crect x='100' y='55' width='90' height='30' rx='15' fill='%236bb3cd' opacity='0.32'/%3E%3Crect x='170' y='20' width='50' height='24' rx='12' fill='%236bb3cd' opacity='0.24'/%3E%3Ccircle cx='145' cy='156' r='3' fill='%236bb3cd' opacity='0.60'/%3E%3Ccircle cx='155' cy='156' r='3' fill='%236bb3cd' opacity='0.60'/%3E%3Ccircle cx='165' cy='156' r='3' fill='%236bb3cd' opacity='0.60'/%3E%3Ccircle cx='165' cy='109' r='2.5' fill='%236bb3cd' opacity='0.48'/%3E%3Ccircle cx='175' cy='109' r='2.5' fill='%236bb3cd' opacity='0.48'/%3E%3C/svg%3E");
-        background-position: bottom right;
-        background-size: 55% auto;
-        background-repeat: no-repeat;
-        -webkit-mask-image: linear-gradient(
-          to bottom right,
-          transparent 10%,
-          rgba(0, 0, 0, 0.7) 100%
-        );
-        mask-image: linear-gradient(
-          to bottom right,
-          transparent 10%,
-          rgba(0, 0, 0, 0.7) 100%
-        );
-        animation: novaFloat 5s ease-in-out infinite;
-      }
-      @keyframes novaFloat {
-        0%,
-        100% {
-          transform: translateY(0);
-        }
-        50% {
-          transform: translateY(-6px);
-        }
-      }
-
-      /* SlotOps -- calendar grid with highlighted cells */
-      .product-slotops .product-bg-illustration {
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='180' fill='none'%3E%3Crect x='50' y='30' width='170' height='130' rx='6' stroke='%23378fe9' stroke-width='1' opacity='0.32'/%3E%3Cline x1='50' y1='55' x2='220' y2='55' stroke='%23378fe9' stroke-width='0.8' opacity='0.32'/%3E%3Cline x1='50' y1='80' x2='220' y2='80' stroke='%23378fe9' stroke-width='0.5' opacity='0.24'/%3E%3Cline x1='50' y1='105' x2='220' y2='105' stroke='%23378fe9' stroke-width='0.5' opacity='0.24'/%3E%3Cline x1='50' y1='130' x2='220' y2='130' stroke='%23378fe9' stroke-width='0.5' opacity='0.24'/%3E%3Cline x1='84' y1='30' x2='84' y2='160' stroke='%23378fe9' stroke-width='0.5' opacity='0.24'/%3E%3Cline x1='118' y1='30' x2='118' y2='160' stroke='%23378fe9' stroke-width='0.5' opacity='0.24'/%3E%3Cline x1='152' y1='30' x2='152' y2='160' stroke='%23378fe9' stroke-width='0.5' opacity='0.24'/%3E%3Cline x1='186' y1='30' x2='186' y2='160' stroke='%23378fe9' stroke-width='0.5' opacity='0.24'/%3E%3Crect x='88' y='60' width='26' height='16' rx='3' fill='%23378fe9' opacity='0.60'/%3E%3Crect x='156' y='85' width='26' height='16' rx='3' fill='%23378fe9' opacity='0.65'/%3E%3Crect x='122' y='110' width='26' height='16' rx='3' fill='%23378fe9' opacity='0.48'/%3E%3Crect x='190' y='60' width='26' height='16' rx='3' fill='%23378fe9' opacity='0.40'/%3E%3Crect x='54' y='135' width='26' height='16' rx='3' fill='%23378fe9' opacity='0.56'/%3E%3C/svg%3E");
-        background-position: bottom right;
-        background-size: 60% auto;
-        background-repeat: no-repeat;
-        -webkit-mask-image: linear-gradient(
-          to bottom right,
-          transparent 10%,
-          rgba(0, 0, 0, 0.7) 100%
-        );
-        mask-image: linear-gradient(
-          to bottom right,
-          transparent 10%,
-          rgba(0, 0, 0, 0.7) 100%
-        );
-        animation: slotGlow 3s ease-in-out infinite;
-      }
-      @keyframes slotGlow {
-        0%,
-        100% {
-          opacity: 0.45;
-        }
-        50% {
-          opacity: 0.6;
-        }
-      }
-
-      /* CG Automation -- classified listing lines */
-      .product-cg .product-bg-illustration {
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='180' fill='none'%3E%3Ccircle cx='45' cy='40' r='3' fill='%2348c78e' opacity='0.60'/%3E%3Cline x1='58' y1='40' x2='200' y2='40' stroke='%2348c78e' stroke-width='2' opacity='0.40' stroke-linecap='round'/%3E%3Ccircle cx='45' cy='62' r='3' fill='%2348c78e' opacity='0.48'/%3E%3Cline x1='58' y1='62' x2='180' y2='62' stroke='%2348c78e' stroke-width='2' opacity='0.32' stroke-linecap='round'/%3E%3Ccircle cx='45' cy='84' r='3' fill='%2348c78e' opacity='0.40'/%3E%3Cline x1='58' y1='84' x2='210' y2='84' stroke='%2348c78e' stroke-width='2' opacity='0.28' stroke-linecap='round'/%3E%3Ccircle cx='45' cy='106' r='3' fill='%2348c78e' opacity='0.32'/%3E%3Cline x1='58' y1='106' x2='190' y2='106' stroke='%2348c78e' stroke-width='2' opacity='0.24' stroke-linecap='round'/%3E%3Ccircle cx='45' cy='128' r='3' fill='%2348c78e' opacity='0.24'/%3E%3Cline x1='58' y1='128' x2='170' y2='128' stroke='%2348c78e' stroke-width='2' opacity='0.20' stroke-linecap='round'/%3E%3Crect x='58' y='145' width='40' height='14' rx='3' fill='%2348c78e' opacity='0.32'/%3E%3Crect x='106' y='145' width='55' height='14' rx='3' fill='%2348c78e' opacity='0.24'/%3E%3C/svg%3E");
-        background-position: bottom right;
-        background-size: 55% auto;
-        background-repeat: no-repeat;
-        -webkit-mask-image: linear-gradient(
-          to bottom right,
-          transparent 10%,
-          rgba(0, 0, 0, 0.7) 100%
-        );
-        mask-image: linear-gradient(
-          to bottom right,
-          transparent 10%,
-          rgba(0, 0, 0, 0.7) 100%
-        );
-        animation: cgSlideIn 6s ease-in-out infinite;
-      }
-      @keyframes cgSlideIn {
-        0%,
-        100% {
-          transform: translateX(0);
-        }
-        50% {
-          transform: translateX(-4px);
-        }
-      }
-
-      /* GeoViz -- dot grid world map pattern */
-      .product-geoviz .product-bg-illustration {
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='180' fill='none'%3E%3Ccircle cx='80' cy='50' r='1.5' fill='%23a78bfa' opacity='0.60'/%3E%3Ccircle cx='95' cy='45' r='1.5' fill='%23a78bfa' opacity='0.48'/%3E%3Ccircle cx='110' cy='42' r='1.5' fill='%23a78bfa' opacity='0.56'/%3E%3Ccircle cx='125' cy='40' r='1.5' fill='%23a78bfa' opacity='0.40'/%3E%3Ccircle cx='140' cy='43' r='1.5' fill='%23a78bfa' opacity='0.52'/%3E%3Ccircle cx='155' cy='48' r='1.5' fill='%23a78bfa' opacity='0.60'/%3E%3Ccircle cx='170' cy='55' r='1.5' fill='%23a78bfa' opacity='0.44'/%3E%3Ccircle cx='185' cy='50' r='1.5' fill='%23a78bfa' opacity='0.36'/%3E%3Ccircle cx='200' cy='52' r='1.5' fill='%23a78bfa' opacity='0.40'/%3E%3Ccircle cx='75' cy='65' r='1.5' fill='%23a78bfa' opacity='0.48'/%3E%3Ccircle cx='90' cy='68' r='2' fill='%23a78bfa' opacity='0.65'/%3E%3Ccircle cx='105' cy='62' r='1.5' fill='%23a78bfa' opacity='0.44'/%3E%3Ccircle cx='120' cy='58' r='1.5' fill='%23a78bfa' opacity='0.52'/%3E%3Ccircle cx='135' cy='65' r='2' fill='%23a78bfa' opacity='0.64'/%3E%3Ccircle cx='150' cy='70' r='1.5' fill='%23a78bfa' opacity='0.40'/%3E%3Ccircle cx='165' cy='72' r='1.5' fill='%23a78bfa' opacity='0.48'/%3E%3Ccircle cx='180' cy='68' r='1.5' fill='%23a78bfa' opacity='0.36'/%3E%3Ccircle cx='195' cy='65' r='2' fill='%23a78bfa' opacity='0.56'/%3E%3Ccircle cx='85' cy='85' r='1.5' fill='%23a78bfa' opacity='0.40'/%3E%3Ccircle cx='100' cy='82' r='1.5' fill='%23a78bfa' opacity='0.52'/%3E%3Ccircle cx='115' cy='80' r='2' fill='%23a78bfa' opacity='0.65'/%3E%3Ccircle cx='130' cy='85' r='1.5' fill='%23a78bfa' opacity='0.44'/%3E%3Ccircle cx='145' cy='90' r='1.5' fill='%23a78bfa' opacity='0.36'/%3E%3Ccircle cx='160' cy='88' r='1.5' fill='%23a78bfa' opacity='0.48'/%3E%3Ccircle cx='175' cy='82' r='1.5' fill='%23a78bfa' opacity='0.40'/%3E%3Ccircle cx='190' cy='85' r='1.5' fill='%23a78bfa' opacity='0.32'/%3E%3Ccircle cx='90' cy='100' r='1.5' fill='%23a78bfa' opacity='0.32'/%3E%3Ccircle cx='110' cy='98' r='1.5' fill='%23a78bfa' opacity='0.44'/%3E%3Ccircle cx='130' cy='105' r='2' fill='%23a78bfa' opacity='0.60'/%3E%3Ccircle cx='150' cy='108' r='1.5' fill='%23a78bfa' opacity='0.40'/%3E%3Ccircle cx='170' cy='100' r='1.5' fill='%23a78bfa' opacity='0.28'/%3E%3Ccircle cx='100' cy='120' r='1.5' fill='%23a78bfa' opacity='0.36'/%3E%3Ccircle cx='120' cy='122' r='1.5' fill='%23a78bfa' opacity='0.48'/%3E%3Ccircle cx='140' cy='125' r='1.5' fill='%23a78bfa' opacity='0.32'/%3E%3Ccircle cx='160' cy='118' r='1.5' fill='%23a78bfa' opacity='0.24'/%3E%3C/svg%3E");
-        background-position: bottom right;
-        background-size: 65% auto;
-        background-repeat: no-repeat;
-        -webkit-mask-image: linear-gradient(
-          to bottom right,
-          transparent 10%,
-          rgba(0, 0, 0, 0.7) 100%
-        );
-        mask-image: linear-gradient(
-          to bottom right,
-          transparent 10%,
-          rgba(0, 0, 0, 0.7) 100%
-        );
-        animation: geoDotPulse 4s ease-in-out infinite;
-      }
-      @keyframes geoDotPulse {
-        0%,
-        100% {
-          opacity: 0.45;
-        }
-        33% {
-          opacity: 0.6;
-        }
-        66% {
-          opacity: 0.5;
-        }
+      .product-demo-svg {
+        width: 75%;
+        height: 80%;
+        max-width: 320px;
       }
 
       /* 3D tilt + magnetic cursor + DRAMATIC lift on hover */
@@ -4485,7 +4348,233 @@
               data-product="plan"
             >
               <div class="holo-overlay" aria-hidden="true"></div>
-              <div class="product-bg-illustration" aria-hidden="true"></div>
+              <div class="product-bg-illustration" aria-hidden="true">
+                <svg
+                  viewBox="0 0 400 300"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="product-demo-svg"
+                >
+                  <!-- Header bar -->
+                  <rect
+                    x="20"
+                    y="18"
+                    width="360"
+                    height="36"
+                    rx="6"
+                    fill="#7b75d4"
+                    opacity="0.15"
+                  />
+                  <text
+                    x="34"
+                    y="41"
+                    font-family="sans-serif"
+                    font-size="13"
+                    fill="#7b75d4"
+                    opacity="0.7"
+                  >
+                    Campaign Plan
+                  </text>
+                  <rect
+                    x="280"
+                    y="28"
+                    width="88"
+                    height="16"
+                    rx="8"
+                    fill="#7b75d4"
+                    opacity="0.2"
+                  />
+                  <!-- Progress bar -->
+                  <rect
+                    x="20"
+                    y="64"
+                    width="220"
+                    height="8"
+                    rx="4"
+                    fill="#7b75d4"
+                    opacity="0.12"
+                  />
+                  <rect
+                    x="20"
+                    y="64"
+                    width="0"
+                    height="8"
+                    rx="4"
+                    fill="#7b75d4"
+                    opacity="0.5"
+                  >
+                    <animate
+                      attributeName="width"
+                      values="0;180;180;0"
+                      keyTimes="0;0.4;0.8;1"
+                      dur="10s"
+                      repeatCount="indefinite"
+                    />
+                  </rect>
+                  <!-- Bar chart -->
+                  <rect
+                    x="30"
+                    y="240"
+                    width="36"
+                    height="0"
+                    rx="4"
+                    fill="#7b75d4"
+                    opacity="0.55"
+                  >
+                    <animate
+                      attributeName="height"
+                      values="0;90;90;60;60;0"
+                      keyTimes="0;0.15;0.5;0.55;0.85;1"
+                      dur="10s"
+                      repeatCount="indefinite"
+                    />
+                    <animate
+                      attributeName="y"
+                      values="240;150;150;180;180;240"
+                      keyTimes="0;0.15;0.5;0.55;0.85;1"
+                      dur="10s"
+                      repeatCount="indefinite"
+                    />
+                  </rect>
+                  <rect
+                    x="80"
+                    y="240"
+                    width="36"
+                    height="0"
+                    rx="4"
+                    fill="#7b75d4"
+                    opacity="0.65"
+                  >
+                    <animate
+                      attributeName="height"
+                      values="0;130;130;100;100;0"
+                      keyTimes="0;0.15;0.5;0.55;0.85;1"
+                      dur="10s"
+                      repeatCount="indefinite"
+                      begin="0.3s"
+                    />
+                    <animate
+                      attributeName="y"
+                      values="240;110;110;140;140;240"
+                      keyTimes="0;0.15;0.5;0.55;0.85;1"
+                      dur="10s"
+                      repeatCount="indefinite"
+                      begin="0.3s"
+                    />
+                  </rect>
+                  <rect
+                    x="130"
+                    y="240"
+                    width="36"
+                    height="0"
+                    rx="4"
+                    fill="#7b75d4"
+                    opacity="0.6"
+                  >
+                    <animate
+                      attributeName="height"
+                      values="0;110;110;140;140;0"
+                      keyTimes="0;0.15;0.5;0.55;0.85;1"
+                      dur="10s"
+                      repeatCount="indefinite"
+                      begin="0.6s"
+                    />
+                    <animate
+                      attributeName="y"
+                      values="240;130;130;100;100;240"
+                      keyTimes="0;0.15;0.5;0.55;0.85;1"
+                      dur="10s"
+                      repeatCount="indefinite"
+                      begin="0.6s"
+                    />
+                  </rect>
+                  <!-- Pie chart -->
+                  <circle
+                    cx="310"
+                    cy="160"
+                    r="50"
+                    stroke="#7b75d4"
+                    stroke-width="1.5"
+                    opacity="0.2"
+                  />
+                  <circle
+                    cx="310"
+                    cy="160"
+                    r="50"
+                    stroke="#7b75d4"
+                    stroke-width="8"
+                    opacity="0.4"
+                    stroke-dasharray="78.5 235.6"
+                    stroke-dashoffset="314"
+                    stroke-linecap="round"
+                    transform="rotate(-90 310 160)"
+                  >
+                    <animate
+                      attributeName="stroke-dashoffset"
+                      values="314;0;0;314"
+                      keyTimes="0;0.3;0.8;1"
+                      dur="10s"
+                      repeatCount="indefinite"
+                    />
+                  </circle>
+                  <circle
+                    cx="310"
+                    cy="160"
+                    r="50"
+                    stroke="#9b8fe8"
+                    stroke-width="8"
+                    opacity="0.3"
+                    stroke-dasharray="110 204"
+                    stroke-dashoffset="314"
+                    stroke-linecap="round"
+                    transform="rotate(-90 310 160)"
+                  >
+                    <animate
+                      attributeName="stroke-dashoffset"
+                      values="314;-78;-78;314"
+                      keyTimes="0;0.35;0.8;1"
+                      dur="10s"
+                      repeatCount="indefinite"
+                    />
+                  </circle>
+                  <!-- Counting numbers -->
+                  <text
+                    x="260"
+                    y="240"
+                    font-family="sans-serif"
+                    font-size="16"
+                    font-weight="bold"
+                    fill="#7b75d4"
+                    opacity="0"
+                  >
+                    847 apps
+                    <animate
+                      attributeName="opacity"
+                      values="0;0;0.7;0.7;0"
+                      keyTimes="0;0.3;0.4;0.8;0.9"
+                      dur="10s"
+                      repeatCount="indefinite"
+                    />
+                  </text>
+                  <text
+                    x="260"
+                    y="264"
+                    font-family="sans-serif"
+                    font-size="14"
+                    fill="#7b75d4"
+                    opacity="0"
+                  >
+                    $24 CPA
+                    <animate
+                      attributeName="opacity"
+                      values="0;0;0.5;0.5;0"
+                      keyTimes="0;0.35;0.45;0.8;0.9"
+                      dur="10s"
+                      repeatCount="indefinite"
+                    />
+                  </text>
+                </svg>
+              </div>
               <span class="product-hero-badge">FLAGSHIP</span>
               <div class="product-hero-icon product-icon-animated">
                 <svg
@@ -4724,7 +4813,218 @@
               data-product="nova"
             >
               <div class="holo-overlay" aria-hidden="true"></div>
-              <div class="product-bg-illustration" aria-hidden="true"></div>
+              <div class="product-bg-illustration" aria-hidden="true">
+                <svg
+                  viewBox="0 0 400 300"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="product-demo-svg"
+                >
+                  <!-- Chat window outline -->
+                  <rect
+                    x="30"
+                    y="20"
+                    width="340"
+                    height="260"
+                    rx="12"
+                    stroke="#6bb3cd"
+                    stroke-width="1.5"
+                    opacity="0.25"
+                  />
+                  <rect
+                    x="30"
+                    y="20"
+                    width="340"
+                    height="32"
+                    rx="12"
+                    fill="#6bb3cd"
+                    opacity="0.1"
+                  />
+                  <circle cx="52" cy="36" r="5" fill="#6bb3cd" opacity="0.3" />
+                  <circle cx="68" cy="36" r="5" fill="#6bb3cd" opacity="0.25" />
+                  <circle cx="84" cy="36" r="5" fill="#6bb3cd" opacity="0.2" />
+                  <!-- User message 1 - slides in from right -->
+                  <g opacity="0">
+                    <animate
+                      attributeName="opacity"
+                      values="0;0;1;1;1;1;1;0"
+                      keyTimes="0;0.05;0.12;0.5;0.7;0.85;0.92;1"
+                      dur="10s"
+                      repeatCount="indefinite"
+                    />
+                    <rect
+                      x="160"
+                      y="68"
+                      width="190"
+                      height="36"
+                      rx="18"
+                      fill="#6bb3cd"
+                      opacity="0.25"
+                    >
+                      <animate
+                        attributeName="x"
+                        values="400;160"
+                        dur="0.6s"
+                        begin="0.5s"
+                        fill="freeze"
+                        repeatCount="indefinite"
+                      />
+                    </rect>
+                    <text
+                      x="176"
+                      y="91"
+                      font-family="sans-serif"
+                      font-size="10"
+                      fill="#6bb3cd"
+                      opacity="0.8"
+                    >
+                      Avg CPA for nurses?
+                    </text>
+                  </g>
+                  <!-- Typing indicator -->
+                  <g opacity="0">
+                    <animate
+                      attributeName="opacity"
+                      values="0;0;0;1;1;0;0;0"
+                      keyTimes="0;0.12;0.18;0.22;0.35;0.38;0.9;1"
+                      dur="10s"
+                      repeatCount="indefinite"
+                    />
+                    <rect
+                      x="50"
+                      y="118"
+                      width="60"
+                      height="28"
+                      rx="14"
+                      fill="#6bb3cd"
+                      opacity="0.15"
+                    />
+                    <circle cx="68" cy="132" r="4" fill="#6bb3cd" opacity="0.5">
+                      <animate
+                        attributeName="cy"
+                        values="132;128;132"
+                        dur="0.6s"
+                        repeatCount="indefinite"
+                      />
+                    </circle>
+                    <circle cx="82" cy="132" r="4" fill="#6bb3cd" opacity="0.5">
+                      <animate
+                        attributeName="cy"
+                        values="132;128;132"
+                        dur="0.6s"
+                        repeatCount="indefinite"
+                        begin="0.15s"
+                      />
+                    </circle>
+                    <circle cx="96" cy="132" r="4" fill="#6bb3cd" opacity="0.5">
+                      <animate
+                        attributeName="cy"
+                        values="132;128;132"
+                        dur="0.6s"
+                        repeatCount="indefinite"
+                        begin="0.3s"
+                      />
+                    </circle>
+                  </g>
+                  <!-- AI response 1 - slides in from left -->
+                  <g opacity="0">
+                    <animate
+                      attributeName="opacity"
+                      values="0;0;0;0;1;1;1;0"
+                      keyTimes="0;0.3;0.35;0.38;0.42;0.7;0.92;1"
+                      dur="10s"
+                      repeatCount="indefinite"
+                    />
+                    <rect
+                      x="50"
+                      y="118"
+                      width="240"
+                      height="52"
+                      rx="18"
+                      fill="#6bb3cd"
+                      opacity="0.18"
+                    />
+                    <text
+                      x="66"
+                      y="140"
+                      font-family="sans-serif"
+                      font-size="10"
+                      fill="#6bb3cd"
+                      opacity="0.75"
+                    >
+                      Based on 12K data points, the
+                    </text>
+                    <text
+                      x="66"
+                      y="156"
+                      font-family="sans-serif"
+                      font-size="10"
+                      fill="#6bb3cd"
+                      opacity="0.75"
+                    >
+                      avg CPA for nurses is $28.40
+                    </text>
+                  </g>
+                  <!-- User message 2 -->
+                  <g opacity="0">
+                    <animate
+                      attributeName="opacity"
+                      values="0;0;0;0;0;1;1;0"
+                      keyTimes="0;0.48;0.5;0.52;0.55;0.58;0.92;1"
+                      dur="10s"
+                      repeatCount="indefinite"
+                    />
+                    <rect
+                      x="180"
+                      y="184"
+                      width="170"
+                      height="36"
+                      rx="18"
+                      fill="#6bb3cd"
+                      opacity="0.25"
+                    />
+                    <text
+                      x="196"
+                      y="207"
+                      font-family="sans-serif"
+                      font-size="10"
+                      fill="#6bb3cd"
+                      opacity="0.8"
+                    >
+                      How about in Texas?
+                    </text>
+                  </g>
+                  <!-- AI response 2 -->
+                  <g opacity="0">
+                    <animate
+                      attributeName="opacity"
+                      values="0;0;0;0;0;0;1;0"
+                      keyTimes="0;0.6;0.62;0.65;0.68;0.7;0.74;1"
+                      dur="10s"
+                      repeatCount="indefinite"
+                    />
+                    <rect
+                      x="50"
+                      y="234"
+                      width="220"
+                      height="36"
+                      rx="18"
+                      fill="#6bb3cd"
+                      opacity="0.18"
+                    />
+                    <text
+                      x="66"
+                      y="257"
+                      font-family="sans-serif"
+                      font-size="10"
+                      fill="#6bb3cd"
+                      opacity="0.75"
+                    >
+                      In Texas, avg CPA is $31.20
+                    </text>
+                  </g>
+                </svg>
+              </div>
               <span class="product-hero-badge">AI ASSISTANT</span>
               <div class="product-hero-icon product-icon-animated">
                 <svg
@@ -4919,7 +5219,610 @@
               data-product="slotops"
             >
               <div class="holo-overlay" aria-hidden="true"></div>
-              <div class="product-bg-illustration" aria-hidden="true"></div>
+              <div class="product-bg-illustration" aria-hidden="true">
+                <svg
+                  viewBox="0 0 400 300"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="product-demo-svg"
+                >
+                  <!-- LinkedIn header bar -->
+                  <rect
+                    x="20"
+                    y="14"
+                    width="360"
+                    height="34"
+                    rx="6"
+                    fill="#378fe9"
+                    opacity="0.18"
+                  />
+                  <text
+                    x="34"
+                    y="36"
+                    font-family="sans-serif"
+                    font-size="16"
+                    font-weight="bold"
+                    fill="#378fe9"
+                    opacity="0.6"
+                  >
+                    in
+                  </text>
+                  <text
+                    x="56"
+                    y="36"
+                    font-family="sans-serif"
+                    font-size="11"
+                    fill="#378fe9"
+                    opacity="0.45"
+                  >
+                    Job Slots
+                  </text>
+                  <!-- Grid of 6 job slot cards (3x2) -->
+                  <!-- Row 1 -->
+                  <rect
+                    x="24"
+                    y="60"
+                    width="108"
+                    height="80"
+                    rx="8"
+                    stroke="#378fe9"
+                    stroke-width="1"
+                    opacity="0.2"
+                    fill="#378fe9"
+                    fill-opacity="0.04"
+                  >
+                    <animate
+                      attributeName="fill-opacity"
+                      values="0.04;0.15;0.04"
+                      dur="10s"
+                      begin="0s"
+                      repeatCount="indefinite"
+                    />
+                  </rect>
+                  <text
+                    x="36"
+                    y="82"
+                    font-family="sans-serif"
+                    font-size="9"
+                    fill="#378fe9"
+                    opacity="0.5"
+                  >
+                    Sr. Engineer
+                  </text>
+                  <text
+                    x="36"
+                    y="96"
+                    font-family="sans-serif"
+                    font-size="8"
+                    fill="#378fe9"
+                    opacity="0.35"
+                  >
+                    US - Remote
+                  </text>
+                  <rect
+                    x="36"
+                    y="108"
+                    width="36"
+                    height="16"
+                    rx="8"
+                    fill="#378fe9"
+                    opacity="0"
+                  >
+                    <animate
+                      attributeName="opacity"
+                      values="0;0;0.5;0.5;0"
+                      keyTimes="0;0.1;0.18;0.8;0.9"
+                      dur="10s"
+                      repeatCount="indefinite"
+                    />
+                  </rect>
+                  <text
+                    x="43"
+                    y="120"
+                    font-family="sans-serif"
+                    font-size="9"
+                    font-weight="bold"
+                    fill="#fff"
+                    opacity="0"
+                  >
+                    85
+                    <animate
+                      attributeName="opacity"
+                      values="0;0;0.9;0.9;0"
+                      keyTimes="0;0.1;0.18;0.8;0.9"
+                      dur="10s"
+                      repeatCount="indefinite"
+                    />
+                  </text>
+
+                  <rect
+                    x="146"
+                    y="60"
+                    width="108"
+                    height="80"
+                    rx="8"
+                    stroke="#378fe9"
+                    stroke-width="1"
+                    opacity="0.2"
+                    fill="#378fe9"
+                    fill-opacity="0.04"
+                  >
+                    <animate
+                      attributeName="fill-opacity"
+                      values="0.04;0.15;0.04"
+                      dur="10s"
+                      begin="1s"
+                      repeatCount="indefinite"
+                    />
+                  </rect>
+                  <text
+                    x="158"
+                    y="82"
+                    font-family="sans-serif"
+                    font-size="9"
+                    fill="#378fe9"
+                    opacity="0.5"
+                  >
+                    Data Analyst
+                  </text>
+                  <text
+                    x="158"
+                    y="96"
+                    font-family="sans-serif"
+                    font-size="8"
+                    fill="#378fe9"
+                    opacity="0.35"
+                  >
+                    UK - London
+                  </text>
+                  <rect
+                    x="158"
+                    y="108"
+                    width="36"
+                    height="16"
+                    rx="8"
+                    fill="#378fe9"
+                    opacity="0"
+                  >
+                    <animate
+                      attributeName="opacity"
+                      values="0;0;0.5;0.5;0"
+                      keyTimes="0;0.15;0.25;0.8;0.9"
+                      dur="10s"
+                      repeatCount="indefinite"
+                    />
+                  </rect>
+                  <text
+                    x="165"
+                    y="120"
+                    font-family="sans-serif"
+                    font-size="9"
+                    font-weight="bold"
+                    fill="#fff"
+                    opacity="0"
+                  >
+                    72
+                    <animate
+                      attributeName="opacity"
+                      values="0;0;0.9;0.9;0"
+                      keyTimes="0;0.15;0.25;0.8;0.9"
+                      dur="10s"
+                      repeatCount="indefinite"
+                    />
+                  </text>
+
+                  <rect
+                    x="268"
+                    y="60"
+                    width="108"
+                    height="80"
+                    rx="8"
+                    stroke="#378fe9"
+                    stroke-width="1"
+                    opacity="0.2"
+                    fill="#378fe9"
+                    fill-opacity="0.04"
+                  >
+                    <animate
+                      attributeName="fill-opacity"
+                      values="0.04;0.15;0.04"
+                      dur="10s"
+                      begin="2s"
+                      repeatCount="indefinite"
+                    />
+                  </rect>
+                  <text
+                    x="280"
+                    y="82"
+                    font-family="sans-serif"
+                    font-size="9"
+                    fill="#378fe9"
+                    opacity="0.5"
+                  >
+                    PM Lead
+                  </text>
+                  <text
+                    x="280"
+                    y="96"
+                    font-family="sans-serif"
+                    font-size="8"
+                    fill="#378fe9"
+                    opacity="0.35"
+                  >
+                    IN - Bangalore
+                  </text>
+                  <rect
+                    x="280"
+                    y="108"
+                    width="36"
+                    height="16"
+                    rx="8"
+                    fill="#378fe9"
+                    opacity="0"
+                  >
+                    <animate
+                      attributeName="opacity"
+                      values="0;0;0.5;0.5;0"
+                      keyTimes="0;0.2;0.3;0.8;0.9"
+                      dur="10s"
+                      repeatCount="indefinite"
+                    />
+                  </rect>
+                  <text
+                    x="287"
+                    y="120"
+                    font-family="sans-serif"
+                    font-size="9"
+                    font-weight="bold"
+                    fill="#fff"
+                    opacity="0"
+                  >
+                    91
+                    <animate
+                      attributeName="opacity"
+                      values="0;0;0.9;0.9;0"
+                      keyTimes="0;0.2;0.3;0.8;0.9"
+                      dur="10s"
+                      repeatCount="indefinite"
+                    />
+                  </text>
+
+                  <!-- Row 2 -->
+                  <rect
+                    x="24"
+                    y="154"
+                    width="108"
+                    height="80"
+                    rx="8"
+                    stroke="#378fe9"
+                    stroke-width="1"
+                    opacity="0.2"
+                    fill="#378fe9"
+                    fill-opacity="0.04"
+                  >
+                    <animate
+                      attributeName="fill-opacity"
+                      values="0.04;0.15;0.04"
+                      dur="10s"
+                      begin="3s"
+                      repeatCount="indefinite"
+                    />
+                  </rect>
+                  <text
+                    x="36"
+                    y="176"
+                    font-family="sans-serif"
+                    font-size="9"
+                    fill="#378fe9"
+                    opacity="0.5"
+                  >
+                    UX Designer
+                  </text>
+                  <text
+                    x="36"
+                    y="190"
+                    font-family="sans-serif"
+                    font-size="8"
+                    fill="#378fe9"
+                    opacity="0.35"
+                  >
+                    DE - Berlin
+                  </text>
+                  <rect
+                    x="36"
+                    y="202"
+                    width="36"
+                    height="16"
+                    rx="8"
+                    fill="#378fe9"
+                    opacity="0"
+                  >
+                    <animate
+                      attributeName="opacity"
+                      values="0;0;0.5;0.5;0"
+                      keyTimes="0;0.3;0.4;0.8;0.9"
+                      dur="10s"
+                      repeatCount="indefinite"
+                    />
+                  </rect>
+                  <text
+                    x="43"
+                    y="214"
+                    font-family="sans-serif"
+                    font-size="9"
+                    font-weight="bold"
+                    fill="#fff"
+                    opacity="0"
+                  >
+                    78
+                    <animate
+                      attributeName="opacity"
+                      values="0;0;0.9;0.9;0"
+                      keyTimes="0;0.3;0.4;0.8;0.9"
+                      dur="10s"
+                      repeatCount="indefinite"
+                    />
+                  </text>
+
+                  <rect
+                    x="146"
+                    y="154"
+                    width="108"
+                    height="80"
+                    rx="8"
+                    stroke="#378fe9"
+                    stroke-width="1"
+                    opacity="0.2"
+                    fill="#378fe9"
+                    fill-opacity="0.04"
+                  >
+                    <animate
+                      attributeName="fill-opacity"
+                      values="0.04;0.15;0.04"
+                      dur="10s"
+                      begin="4s"
+                      repeatCount="indefinite"
+                    />
+                  </rect>
+                  <text
+                    x="158"
+                    y="176"
+                    font-family="sans-serif"
+                    font-size="9"
+                    fill="#378fe9"
+                    opacity="0.5"
+                  >
+                    DevOps Eng
+                  </text>
+                  <text
+                    x="158"
+                    y="190"
+                    font-family="sans-serif"
+                    font-size="8"
+                    fill="#378fe9"
+                    opacity="0.35"
+                  >
+                    US - NYC
+                  </text>
+                  <rect
+                    x="158"
+                    y="202"
+                    width="36"
+                    height="16"
+                    rx="8"
+                    fill="#378fe9"
+                    opacity="0"
+                  >
+                    <animate
+                      attributeName="opacity"
+                      values="0;0;0.5;0.5;0"
+                      keyTimes="0;0.35;0.45;0.8;0.9"
+                      dur="10s"
+                      repeatCount="indefinite"
+                    />
+                  </rect>
+                  <text
+                    x="165"
+                    y="214"
+                    font-family="sans-serif"
+                    font-size="9"
+                    font-weight="bold"
+                    fill="#fff"
+                    opacity="0"
+                  >
+                    66
+                    <animate
+                      attributeName="opacity"
+                      values="0;0;0.9;0.9;0"
+                      keyTimes="0;0.35;0.45;0.8;0.9"
+                      dur="10s"
+                      repeatCount="indefinite"
+                    />
+                  </text>
+
+                  <rect
+                    x="268"
+                    y="154"
+                    width="108"
+                    height="80"
+                    rx="8"
+                    stroke="#378fe9"
+                    stroke-width="1"
+                    opacity="0.2"
+                    fill="#378fe9"
+                    fill-opacity="0.04"
+                  >
+                    <animate
+                      attributeName="fill-opacity"
+                      values="0.04;0.15;0.04"
+                      dur="10s"
+                      begin="5s"
+                      repeatCount="indefinite"
+                    />
+                  </rect>
+                  <text
+                    x="280"
+                    y="176"
+                    font-family="sans-serif"
+                    font-size="9"
+                    fill="#378fe9"
+                    opacity="0.5"
+                  >
+                    Sales Rep
+                  </text>
+                  <text
+                    x="280"
+                    y="190"
+                    font-family="sans-serif"
+                    font-size="8"
+                    fill="#378fe9"
+                    opacity="0.35"
+                  >
+                    AU - Sydney
+                  </text>
+                  <rect
+                    x="280"
+                    y="202"
+                    width="36"
+                    height="16"
+                    rx="8"
+                    fill="#378fe9"
+                    opacity="0"
+                  >
+                    <animate
+                      attributeName="opacity"
+                      values="0;0;0.5;0.5;0"
+                      keyTimes="0;0.4;0.5;0.8;0.9"
+                      dur="10s"
+                      repeatCount="indefinite"
+                    />
+                  </rect>
+                  <text
+                    x="287"
+                    y="214"
+                    font-family="sans-serif"
+                    font-size="9"
+                    font-weight="bold"
+                    fill="#fff"
+                    opacity="0"
+                  >
+                    88
+                    <animate
+                      attributeName="opacity"
+                      values="0;0;0.9;0.9;0"
+                      keyTimes="0;0.4;0.5;0.8;0.9"
+                      dur="10s"
+                      repeatCount="indefinite"
+                    />
+                  </text>
+
+                  <!-- Green checkmarks appearing on optimized slots -->
+                  <g opacity="0">
+                    <animate
+                      attributeName="opacity"
+                      values="0;0;0;1;1;0"
+                      keyTimes="0;0.18;0.22;0.26;0.85;0.92"
+                      dur="10s"
+                      repeatCount="indefinite"
+                    />
+                    <circle
+                      cx="118"
+                      cy="68"
+                      r="8"
+                      fill="#34d399"
+                      opacity="0.8"
+                    />
+                    <path
+                      d="M113 68l3 3 6-6"
+                      stroke="#fff"
+                      stroke-width="1.5"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
+                  </g>
+                  <g opacity="0">
+                    <animate
+                      attributeName="opacity"
+                      values="0;0;0;1;1;0"
+                      keyTimes="0;0.3;0.34;0.38;0.85;0.92"
+                      dur="10s"
+                      repeatCount="indefinite"
+                    />
+                    <circle
+                      cx="362"
+                      cy="68"
+                      r="8"
+                      fill="#34d399"
+                      opacity="0.8"
+                    />
+                    <path
+                      d="M357 68l3 3 6-6"
+                      stroke="#fff"
+                      stroke-width="1.5"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
+                  </g>
+                  <g opacity="0">
+                    <animate
+                      attributeName="opacity"
+                      values="0;0;0;1;1;0"
+                      keyTimes="0;0.42;0.46;0.5;0.85;0.92"
+                      dur="10s"
+                      repeatCount="indefinite"
+                    />
+                    <circle
+                      cx="362"
+                      cy="162"
+                      r="8"
+                      fill="#34d399"
+                      opacity="0.8"
+                    />
+                    <path
+                      d="M357 162l3 3 6-6"
+                      stroke="#fff"
+                      stroke-width="1.5"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
+                  </g>
+                  <!-- Clock hand sweep -->
+                  <circle
+                    cx="340"
+                    cy="268"
+                    r="18"
+                    stroke="#378fe9"
+                    stroke-width="1"
+                    opacity="0.25"
+                  />
+                  <line
+                    x1="340"
+                    y1="268"
+                    x2="340"
+                    y2="254"
+                    stroke="#378fe9"
+                    stroke-width="1.5"
+                    opacity="0.5"
+                    stroke-linecap="round"
+                  >
+                    <animateTransform
+                      attributeName="transform"
+                      type="rotate"
+                      from="0 340 268"
+                      to="360 340 268"
+                      dur="10s"
+                      repeatCount="indefinite"
+                    />
+                  </line>
+                  <circle
+                    cx="340"
+                    cy="268"
+                    r="2"
+                    fill="#378fe9"
+                    opacity="0.5"
+                  />
+                </svg>
+              </div>
               <span class="product-hero-badge product-hero-badge--live"
                 >NEW</span
               >
@@ -5108,7 +6011,341 @@
               rel="noopener"
             >
               <div class="holo-overlay" aria-hidden="true"></div>
-              <div class="product-bg-illustration" aria-hidden="true"></div>
+              <div class="product-bg-illustration" aria-hidden="true">
+                <svg
+                  viewBox="0 0 400 300"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="product-demo-svg"
+                >
+                  <!-- Craigslist header -->
+                  <rect
+                    x="20"
+                    y="14"
+                    width="360"
+                    height="34"
+                    rx="6"
+                    fill="#7b4aa0"
+                    opacity="0.12"
+                  />
+                  <text
+                    x="34"
+                    y="37"
+                    font-family="sans-serif"
+                    font-size="14"
+                    font-weight="bold"
+                    fill="#7b4aa0"
+                    opacity="0.6"
+                  >
+                    craigslist
+                  </text>
+                  <text
+                    x="140"
+                    y="35"
+                    font-family="sans-serif"
+                    font-size="9"
+                    fill="#48c78e"
+                    opacity="0.4"
+                  >
+                    jobs &gt; all
+                  </text>
+                  <!-- Listing lines appearing one by one -->
+                  <g opacity="0">
+                    <animate
+                      attributeName="opacity"
+                      values="0;0;1;1;0"
+                      keyTimes="0;0.05;0.12;0.82;0.92"
+                      dur="10s"
+                      repeatCount="indefinite"
+                    />
+                    <circle
+                      cx="38"
+                      cy="72"
+                      r="4"
+                      fill="#48c78e"
+                      opacity="0.5"
+                    />
+                    <text
+                      x="52"
+                      y="76"
+                      font-family="sans-serif"
+                      font-size="10"
+                      fill="#48c78e"
+                      opacity="0.6"
+                    >
+                      Warehouse Associate - FT
+                    </text>
+                    <text
+                      x="280"
+                      y="76"
+                      font-family="sans-serif"
+                      font-size="8"
+                      fill="#48c78e"
+                      opacity="0.35"
+                    >
+                      Chicago, IL
+                    </text>
+                    <!-- Checkmark -->
+                    <g opacity="0">
+                      <animate
+                        attributeName="opacity"
+                        values="0;0;0;1;1;0"
+                        keyTimes="0;0.35;0.38;0.42;0.82;0.92"
+                        dur="10s"
+                        repeatCount="indefinite"
+                      />
+                      <circle
+                        cx="368"
+                        cy="72"
+                        r="7"
+                        fill="#34d399"
+                        opacity="0.7"
+                      />
+                      <path
+                        d="M363 72l3 3 5-5"
+                        stroke="#fff"
+                        stroke-width="1.2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                    </g>
+                  </g>
+                  <g opacity="0">
+                    <animate
+                      attributeName="opacity"
+                      values="0;0;1;1;0"
+                      keyTimes="0;0.1;0.18;0.82;0.92"
+                      dur="10s"
+                      repeatCount="indefinite"
+                    />
+                    <circle
+                      cx="38"
+                      cy="100"
+                      r="4"
+                      fill="#48c78e"
+                      opacity="0.5"
+                    />
+                    <text
+                      x="52"
+                      y="104"
+                      font-family="sans-serif"
+                      font-size="10"
+                      fill="#48c78e"
+                      opacity="0.6"
+                    >
+                      Delivery Driver - Immediate
+                    </text>
+                    <text
+                      x="280"
+                      y="104"
+                      font-family="sans-serif"
+                      font-size="8"
+                      fill="#48c78e"
+                      opacity="0.35"
+                    >
+                      Houston, TX
+                    </text>
+                    <g opacity="0">
+                      <animate
+                        attributeName="opacity"
+                        values="0;0;0;1;1;0"
+                        keyTimes="0;0.4;0.43;0.47;0.82;0.92"
+                        dur="10s"
+                        repeatCount="indefinite"
+                      />
+                      <circle
+                        cx="368"
+                        cy="100"
+                        r="7"
+                        fill="#34d399"
+                        opacity="0.7"
+                      />
+                      <path
+                        d="M363 100l3 3 5-5"
+                        stroke="#fff"
+                        stroke-width="1.2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                    </g>
+                  </g>
+                  <g opacity="0">
+                    <animate
+                      attributeName="opacity"
+                      values="0;0;1;1;0"
+                      keyTimes="0;0.15;0.24;0.82;0.92"
+                      dur="10s"
+                      repeatCount="indefinite"
+                    />
+                    <circle
+                      cx="38"
+                      cy="128"
+                      r="4"
+                      fill="#48c78e"
+                      opacity="0.5"
+                    />
+                    <text
+                      x="52"
+                      y="132"
+                      font-family="sans-serif"
+                      font-size="10"
+                      fill="#48c78e"
+                      opacity="0.6"
+                    >
+                      Retail Cashier - Weekends
+                    </text>
+                    <text
+                      x="280"
+                      y="132"
+                      font-family="sans-serif"
+                      font-size="8"
+                      fill="#48c78e"
+                      opacity="0.35"
+                    >
+                      Phoenix, AZ
+                    </text>
+                    <g opacity="0">
+                      <animate
+                        attributeName="opacity"
+                        values="0;0;0;1;1;0"
+                        keyTimes="0;0.45;0.48;0.52;0.82;0.92"
+                        dur="10s"
+                        repeatCount="indefinite"
+                      />
+                      <circle
+                        cx="368"
+                        cy="128"
+                        r="7"
+                        fill="#34d399"
+                        opacity="0.7"
+                      />
+                      <path
+                        d="M363 128l3 3 5-5"
+                        stroke="#fff"
+                        stroke-width="1.2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                    </g>
+                  </g>
+                  <g opacity="0">
+                    <animate
+                      attributeName="opacity"
+                      values="0;0;1;1;0"
+                      keyTimes="0;0.2;0.3;0.82;0.92"
+                      dur="10s"
+                      repeatCount="indefinite"
+                    />
+                    <circle
+                      cx="38"
+                      cy="156"
+                      r="4"
+                      fill="#48c78e"
+                      opacity="0.5"
+                    />
+                    <text
+                      x="52"
+                      y="160"
+                      font-family="sans-serif"
+                      font-size="10"
+                      fill="#48c78e"
+                      opacity="0.6"
+                    >
+                      Line Cook - Evening Shift
+                    </text>
+                    <text
+                      x="280"
+                      y="160"
+                      font-family="sans-serif"
+                      font-size="8"
+                      fill="#48c78e"
+                      opacity="0.35"
+                    >
+                      Denver, CO
+                    </text>
+                  </g>
+                  <g opacity="0">
+                    <animate
+                      attributeName="opacity"
+                      values="0;0;1;1;0"
+                      keyTimes="0;0.25;0.36;0.82;0.92"
+                      dur="10s"
+                      repeatCount="indefinite"
+                    />
+                    <circle
+                      cx="38"
+                      cy="184"
+                      r="4"
+                      fill="#48c78e"
+                      opacity="0.5"
+                    />
+                    <text
+                      x="52"
+                      y="188"
+                      font-family="sans-serif"
+                      font-size="10"
+                      fill="#48c78e"
+                      opacity="0.6"
+                    >
+                      Security Guard - Night
+                    </text>
+                    <text
+                      x="280"
+                      y="188"
+                      font-family="sans-serif"
+                      font-size="8"
+                      fill="#48c78e"
+                      opacity="0.35"
+                    >
+                      Miami, FL
+                    </text>
+                  </g>
+                  <!-- POST button pulsing -->
+                  <rect
+                    x="40"
+                    y="218"
+                    width="80"
+                    height="30"
+                    rx="6"
+                    fill="#48c78e"
+                    opacity="0.3"
+                  >
+                    <animate
+                      attributeName="opacity"
+                      values="0.2;0.45;0.2"
+                      dur="2s"
+                      repeatCount="indefinite"
+                    />
+                  </rect>
+                  <text
+                    x="56"
+                    y="238"
+                    font-family="sans-serif"
+                    font-size="12"
+                    font-weight="bold"
+                    fill="#fff"
+                    opacity="0.7"
+                  >
+                    POST
+                  </text>
+                  <!-- Location pin bouncing -->
+                  <g>
+                    <animateTransform
+                      attributeName="transform"
+                      type="translate"
+                      values="0,0;0,-6;0,0"
+                      dur="1.5s"
+                      repeatCount="indefinite"
+                    />
+                    <path
+                      d="M340 240c0-8 6-14 14-14s14 6 14 14c0 10-14 22-14 22s-14-12-14-22z"
+                      fill="#7b4aa0"
+                      opacity="0.35"
+                    />
+                    <circle cx="354" cy="240" r="5" fill="#fff" opacity="0.3" />
+                  </g>
+                </svg>
+              </div>
               <span class="product-hero-badge product-hero-badge--live"
                 >LIVE</span
               >
@@ -5312,7 +6549,366 @@
               rel="noopener"
             >
               <div class="holo-overlay" aria-hidden="true"></div>
-              <div class="product-bg-illustration" aria-hidden="true"></div>
+              <div class="product-bg-illustration" aria-hidden="true">
+                <svg
+                  viewBox="0 0 400 300"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="product-demo-svg"
+                >
+                  <!-- Wireframe globe -->
+                  <g>
+                    <animateTransform
+                      attributeName="transform"
+                      type="rotate"
+                      from="0 200 150"
+                      to="360 200 150"
+                      dur="30s"
+                      repeatCount="indefinite"
+                    />
+                    <!-- Globe outline -->
+                    <circle
+                      cx="200"
+                      cy="150"
+                      r="110"
+                      stroke="#a78bfa"
+                      stroke-width="1"
+                      opacity="0.2"
+                    />
+                    <!-- Latitude lines -->
+                    <ellipse
+                      cx="200"
+                      cy="150"
+                      rx="110"
+                      ry="30"
+                      stroke="#a78bfa"
+                      stroke-width="0.6"
+                      opacity="0.15"
+                    />
+                    <ellipse
+                      cx="200"
+                      cy="150"
+                      rx="110"
+                      ry="65"
+                      stroke="#a78bfa"
+                      stroke-width="0.6"
+                      opacity="0.15"
+                    />
+                    <ellipse
+                      cx="200"
+                      cy="150"
+                      rx="110"
+                      ry="95"
+                      stroke="#a78bfa"
+                      stroke-width="0.6"
+                      opacity="0.12"
+                    />
+                    <!-- Longitude lines -->
+                    <ellipse
+                      cx="200"
+                      cy="150"
+                      rx="30"
+                      ry="110"
+                      stroke="#a78bfa"
+                      stroke-width="0.6"
+                      opacity="0.15"
+                    />
+                    <ellipse
+                      cx="200"
+                      cy="150"
+                      rx="65"
+                      ry="110"
+                      stroke="#a78bfa"
+                      stroke-width="0.6"
+                      opacity="0.15"
+                    />
+                    <ellipse
+                      cx="200"
+                      cy="150"
+                      rx="95"
+                      ry="110"
+                      stroke="#a78bfa"
+                      stroke-width="0.6"
+                      opacity="0.12"
+                    />
+                  </g>
+                  <!-- Data ping 1 - US -->
+                  <circle cx="130" cy="110" r="0" fill="#a78bfa" opacity="0">
+                    <animate
+                      attributeName="r"
+                      values="0;12;18;0"
+                      keyTimes="0;0.3;0.8;1"
+                      dur="4s"
+                      repeatCount="indefinite"
+                    />
+                    <animate
+                      attributeName="opacity"
+                      values="0;0.4;0.1;0"
+                      keyTimes="0;0.3;0.8;1"
+                      dur="4s"
+                      repeatCount="indefinite"
+                    />
+                  </circle>
+                  <circle cx="130" cy="110" r="3" fill="#a78bfa" opacity="0.6">
+                    <animate
+                      attributeName="opacity"
+                      values="0;0.7;0.7;0"
+                      keyTimes="0;0.1;0.7;1"
+                      dur="4s"
+                      repeatCount="indefinite"
+                    />
+                  </circle>
+                  <text
+                    x="118"
+                    y="100"
+                    font-family="sans-serif"
+                    font-size="9"
+                    font-weight="bold"
+                    fill="#a78bfa"
+                    opacity="0"
+                  >
+                    US
+                    <animate
+                      attributeName="opacity"
+                      values="0;0;0.6;0.6;0"
+                      keyTimes="0;0.15;0.3;0.7;0.85"
+                      dur="4s"
+                      repeatCount="indefinite"
+                    />
+                  </text>
+                  <!-- Data ping 2 - UK -->
+                  <circle cx="210" cy="95" r="0" fill="#a78bfa" opacity="0">
+                    <animate
+                      attributeName="r"
+                      values="0;12;18;0"
+                      keyTimes="0;0.3;0.8;1"
+                      dur="4s"
+                      repeatCount="indefinite"
+                      begin="1.2s"
+                    />
+                    <animate
+                      attributeName="opacity"
+                      values="0;0.4;0.1;0"
+                      keyTimes="0;0.3;0.8;1"
+                      dur="4s"
+                      repeatCount="indefinite"
+                      begin="1.2s"
+                    />
+                  </circle>
+                  <circle cx="210" cy="95" r="3" fill="#a78bfa" opacity="0">
+                    <animate
+                      attributeName="opacity"
+                      values="0;0.7;0.7;0"
+                      keyTimes="0;0.1;0.7;1"
+                      dur="4s"
+                      repeatCount="indefinite"
+                      begin="1.2s"
+                    />
+                  </circle>
+                  <text
+                    x="198"
+                    y="85"
+                    font-family="sans-serif"
+                    font-size="9"
+                    font-weight="bold"
+                    fill="#a78bfa"
+                    opacity="0"
+                  >
+                    UK
+                    <animate
+                      attributeName="opacity"
+                      values="0;0;0.6;0.6;0"
+                      keyTimes="0;0.15;0.3;0.7;0.85"
+                      dur="4s"
+                      repeatCount="indefinite"
+                      begin="1.2s"
+                    />
+                  </text>
+                  <!-- Data ping 3 - IN -->
+                  <circle cx="270" cy="155" r="0" fill="#a78bfa" opacity="0">
+                    <animate
+                      attributeName="r"
+                      values="0;12;18;0"
+                      keyTimes="0;0.3;0.8;1"
+                      dur="4s"
+                      repeatCount="indefinite"
+                      begin="2.4s"
+                    />
+                    <animate
+                      attributeName="opacity"
+                      values="0;0.4;0.1;0"
+                      keyTimes="0;0.3;0.8;1"
+                      dur="4s"
+                      repeatCount="indefinite"
+                      begin="2.4s"
+                    />
+                  </circle>
+                  <circle cx="270" cy="155" r="3" fill="#a78bfa" opacity="0">
+                    <animate
+                      attributeName="opacity"
+                      values="0;0.7;0.7;0"
+                      keyTimes="0;0.1;0.7;1"
+                      dur="4s"
+                      repeatCount="indefinite"
+                      begin="2.4s"
+                    />
+                  </circle>
+                  <text
+                    x="260"
+                    y="145"
+                    font-family="sans-serif"
+                    font-size="9"
+                    font-weight="bold"
+                    fill="#a78bfa"
+                    opacity="0"
+                  >
+                    IN
+                    <animate
+                      attributeName="opacity"
+                      values="0;0;0.6;0.6;0"
+                      keyTimes="0;0.15;0.3;0.7;0.85"
+                      dur="4s"
+                      repeatCount="indefinite"
+                      begin="2.4s"
+                    />
+                  </text>
+                  <!-- Connection lines between points (flight paths) -->
+                  <line
+                    x1="130"
+                    y1="110"
+                    x2="210"
+                    y2="95"
+                    stroke="#a78bfa"
+                    stroke-width="1"
+                    stroke-dasharray="4 4"
+                    opacity="0"
+                  >
+                    <animate
+                      attributeName="opacity"
+                      values="0;0;0.3;0.3;0"
+                      keyTimes="0;0.25;0.35;0.65;0.75"
+                      dur="8s"
+                      repeatCount="indefinite"
+                    />
+                  </line>
+                  <line
+                    x1="210"
+                    y1="95"
+                    x2="270"
+                    y2="155"
+                    stroke="#a78bfa"
+                    stroke-width="1"
+                    stroke-dasharray="4 4"
+                    opacity="0"
+                  >
+                    <animate
+                      attributeName="opacity"
+                      values="0;0;0.3;0.3;0"
+                      keyTimes="0;0.35;0.45;0.7;0.8"
+                      dur="8s"
+                      repeatCount="indefinite"
+                    />
+                  </line>
+                  <line
+                    x1="270"
+                    y1="155"
+                    x2="130"
+                    y2="110"
+                    stroke="#a78bfa"
+                    stroke-width="1"
+                    stroke-dasharray="4 4"
+                    opacity="0"
+                  >
+                    <animate
+                      attributeName="opacity"
+                      values="0;0;0.3;0.3;0"
+                      keyTimes="0;0.45;0.55;0.75;0.85"
+                      dur="8s"
+                      repeatCount="indefinite"
+                    />
+                  </line>
+                  <!-- Data ping 4 - AU (bottom) -->
+                  <circle cx="310" cy="210" r="0" fill="#c4b5fd" opacity="0">
+                    <animate
+                      attributeName="r"
+                      values="0;10;15;0"
+                      keyTimes="0;0.3;0.8;1"
+                      dur="4s"
+                      repeatCount="indefinite"
+                      begin="3.2s"
+                    />
+                    <animate
+                      attributeName="opacity"
+                      values="0;0.35;0.08;0"
+                      keyTimes="0;0.3;0.8;1"
+                      dur="4s"
+                      repeatCount="indefinite"
+                      begin="3.2s"
+                    />
+                  </circle>
+                  <circle cx="310" cy="210" r="3" fill="#c4b5fd" opacity="0">
+                    <animate
+                      attributeName="opacity"
+                      values="0;0.6;0.6;0"
+                      keyTimes="0;0.1;0.7;1"
+                      dur="4s"
+                      repeatCount="indefinite"
+                      begin="3.2s"
+                    />
+                  </circle>
+                  <text
+                    x="296"
+                    y="200"
+                    font-family="sans-serif"
+                    font-size="9"
+                    font-weight="bold"
+                    fill="#c4b5fd"
+                    opacity="0"
+                  >
+                    AU
+                    <animate
+                      attributeName="opacity"
+                      values="0;0;0.5;0.5;0"
+                      keyTimes="0;0.15;0.3;0.7;0.85"
+                      dur="4s"
+                      repeatCount="indefinite"
+                      begin="3.2s"
+                    />
+                  </text>
+                  <!-- Heat map gradient overlay -->
+                  <ellipse
+                    cx="180"
+                    cy="130"
+                    rx="60"
+                    ry="40"
+                    fill="#a78bfa"
+                    opacity="0"
+                  >
+                    <animate
+                      attributeName="opacity"
+                      values="0;0.08;0.12;0.08;0"
+                      dur="8s"
+                      repeatCount="indefinite"
+                    />
+                  </ellipse>
+                  <ellipse
+                    cx="260"
+                    cy="160"
+                    rx="45"
+                    ry="35"
+                    fill="#c4b5fd"
+                    opacity="0"
+                  >
+                    <animate
+                      attributeName="opacity"
+                      values="0;0.06;0.1;0.06;0"
+                      dur="8s"
+                      repeatCount="indefinite"
+                      begin="2s"
+                    />
+                  </ellipse>
+                </svg>
+              </div>
               <span class="product-hero-badge product-hero-badge--live"
                 >LIVE</span
               >
@@ -5860,6 +7456,16 @@
         var prefersReducedMotion = window.matchMedia(
           "(prefers-reduced-motion: reduce)",
         ).matches;
+
+        // Pause SMIL animations inside product illustration SVGs for reduced-motion
+        if (prefersReducedMotion) {
+          document
+            .querySelectorAll(".product-demo-svg")
+            .forEach(function (svg) {
+              if (svg.pauseAnimations) svg.pauseAnimations();
+            });
+        }
+
         var counterEls = document.querySelectorAll("[data-counter]");
 
         function setCounterFinal(el) {
