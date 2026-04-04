@@ -1153,6 +1153,227 @@
           grid-template-columns: 1fr;
         }
       }
+
+      /* ── Prediction Metrics ── */
+      .pred-loading {
+        text-align: center;
+        padding: 2rem;
+        color: var(--text-muted);
+      }
+      .pred-loading .spinner {
+        width: 32px;
+        height: 32px;
+        border: 3px solid rgba(255, 255, 255, 0.1);
+        border-top-color: var(--linkedin);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        margin: 0 auto 0.75rem;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      .pred-verdict-banner {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 1rem 1.25rem;
+        border-radius: var(--radius-sm);
+        margin-bottom: 1.25rem;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+      }
+      .pred-verdict-banner .verdict-icon {
+        font-size: 2rem;
+        line-height: 1;
+        flex-shrink: 0;
+      }
+      .pred-verdict-banner .verdict-label {
+        font-size: 1.125rem;
+        font-weight: 800;
+        font-family: var(--font-display);
+      }
+      .pred-verdict-banner .verdict-reason {
+        font-size: 0.8125rem;
+        color: var(--text-muted);
+        margin-top: 0.25rem;
+      }
+
+      .pred-metrics-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 0.75rem;
+        margin-bottom: 1.25rem;
+      }
+      @media (max-width: 768px) {
+        .pred-metrics-grid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+      }
+      .pred-metric-card {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: var(--radius-sm);
+        padding: 1rem;
+        text-align: center;
+      }
+      .pred-metric-card .metric-label {
+        font-size: 0.6875rem;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 0.375rem;
+      }
+      .pred-metric-card .metric-value {
+        font-size: 1.5rem;
+        font-weight: 800;
+        font-family: var(--font-display);
+        color: var(--text);
+      }
+      .pred-metric-card .metric-sub {
+        font-size: 0.6875rem;
+        color: var(--text-muted);
+        margin-top: 0.25rem;
+      }
+
+      .pred-comparison {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        gap: 0.75rem;
+        align-items: center;
+        margin-bottom: 1.25rem;
+        padding: 1rem 1.25rem;
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: var(--radius-sm);
+      }
+      .pred-comparison .comp-method {
+        text-align: center;
+      }
+      .pred-comparison .comp-method .method-label {
+        font-size: 0.6875rem;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 0.375rem;
+      }
+      .pred-comparison .comp-method .method-apps {
+        font-size: 1.75rem;
+        font-weight: 800;
+        font-family: var(--font-display);
+      }
+      .pred-comparison .comp-method .method-rate {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        margin-top: 0.125rem;
+      }
+      .pred-comparison .comp-vs {
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: var(--text-muted);
+        padding: 0.25rem 0.5rem;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 999px;
+      }
+
+      .pred-timing {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 0.75rem;
+        margin-bottom: 1.25rem;
+      }
+      @media (max-width: 640px) {
+        .pred-timing {
+          grid-template-columns: 1fr;
+        }
+      }
+      .pred-timing-card {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: var(--radius-sm);
+        padding: 0.875rem 1rem;
+        text-align: center;
+      }
+      .pred-timing-card .timing-label {
+        font-size: 0.6875rem;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 0.25rem;
+      }
+      .pred-timing-card .timing-value {
+        font-size: 0.9375rem;
+        font-weight: 700;
+        color: var(--text);
+      }
+
+      .pred-actions {
+        padding: 1rem 1.25rem;
+        background: rgba(10, 102, 194, 0.08);
+        border: 1px solid rgba(10, 102, 194, 0.2);
+        border-radius: var(--radius-sm);
+        margin-bottom: 1.25rem;
+      }
+      .pred-actions .actions-title {
+        font-size: 0.8125rem;
+        font-weight: 700;
+        color: var(--linkedin);
+        margin-bottom: 0.5rem;
+      }
+      .pred-actions ul {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+      .pred-actions li {
+        font-size: 0.8125rem;
+        color: var(--text-secondary);
+        padding: 0.25rem 0;
+        padding-left: 1.25rem;
+        position: relative;
+      }
+      .pred-actions li::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 0.5rem;
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--linkedin);
+      }
+
+      .pred-section-label {
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--text-muted);
+        margin-bottom: 0.75rem;
+      }
+
+      .pred-confidence {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        margin-top: 0.75rem;
+      }
+      .pred-confidence .conf-bar {
+        flex: 1;
+        max-width: 120px;
+        height: 4px;
+        background: rgba(255, 255, 255, 0.08);
+        border-radius: 2px;
+        overflow: hidden;
+      }
+      .pred-confidence .conf-bar-fill {
+        height: 100%;
+        border-radius: 2px;
+        transition: width 0.5s ease;
+      }
       .score-factor {
         display: flex;
         align-items: center;
@@ -1971,8 +2192,8 @@
                 margin-bottom: 1.25rem;
               "
             >
-              Predict slot performance using the 8-factor scoring model. Score
-              70+ = Immediate Slot, 50-69 = Queue, below 50 = Hold.
+              Predict how a job will perform on LinkedIn -- views, clicks, and
+              applications based on 108,871 historical jobs across 76 countries.
             </p>
             <div class="predictor-form">
               <div class="form-group">
@@ -2143,54 +2364,160 @@
               </button>
             </div>
           </div>
+          <!-- Loading state -->
+          <div
+            class="score-result glass-card"
+            id="score-loading"
+            style="display: none"
+          >
+            <div class="pred-loading">
+              <div class="spinner"></div>
+              <div>Analyzing against 108,871 job baselines...</div>
+            </div>
+          </div>
+
+          <!-- Full prediction results -->
           <div class="score-result glass-card" id="score-result">
-            <div
-              style="
-                display: grid;
-                grid-template-columns: 200px 1fr;
-                gap: 2rem;
-                align-items: start;
-              "
-            >
-              <div style="text-align: center">
-                <div class="score-gauge" id="score-gauge">
-                  <div>
-                    <div class="score-gauge-text" id="score-total">--</div>
-                    <div class="score-gauge-label">/ 100</div>
-                  </div>
-                </div>
-                <div
-                  id="score-verdict"
-                  style="
-                    font-size: 1rem;
-                    font-weight: 800;
-                    margin-bottom: 0.5rem;
-                  "
-                >
-                  --
-                </div>
-                <div
-                  id="score-prediction"
-                  style="font-size: 0.8125rem; color: var(--text-muted)"
-                >
-                  --
-                </div>
-              </div>
+            <!-- Verdict Banner -->
+            <div class="pred-verdict-banner" id="pred-verdict-banner">
+              <div class="verdict-icon" id="pred-verdict-icon"></div>
               <div>
-                <h3
-                  style="
-                    font-size: 0.875rem;
-                    font-weight: 700;
-                    margin-bottom: 1rem;
-                  "
-                >
-                  Score Breakdown (8 Factors)
-                </h3>
-                <div class="score-breakdown" id="score-breakdown">
-                  <!-- Populated by JS -->
-                </div>
+                <div class="verdict-label" id="pred-verdict-label">--</div>
+                <div class="verdict-reason" id="pred-verdict-reason">--</div>
               </div>
             </div>
+
+            <!-- Key Metrics -->
+            <div class="pred-section-label">
+              Predicted Performance (per job posting)
+            </div>
+            <div class="pred-metrics-grid" id="pred-metrics-grid">
+              <div class="pred-metric-card">
+                <div class="metric-label">Views</div>
+                <div class="metric-value" id="pred-views">--</div>
+                <div class="metric-sub" id="pred-views-sub"></div>
+              </div>
+              <div class="pred-metric-card">
+                <div class="metric-label">Apply Clicks</div>
+                <div class="metric-value" id="pred-clicks">--</div>
+                <div class="metric-sub" id="pred-clicks-sub"></div>
+              </div>
+              <div class="pred-metric-card">
+                <div class="metric-label">Applications</div>
+                <div class="metric-value" id="pred-apps">--</div>
+                <div class="metric-sub" id="pred-apps-sub"></div>
+              </div>
+              <div class="pred-metric-card">
+                <div class="metric-label">Apply Rate</div>
+                <div class="metric-value" id="pred-ar">--</div>
+                <div class="metric-sub" id="pred-ar-sub"></div>
+              </div>
+            </div>
+
+            <!-- Easy Apply vs ATS Comparison -->
+            <div class="pred-section-label">Easy Apply vs ATS Comparison</div>
+            <div class="pred-comparison" id="pred-comparison">
+              <div class="comp-method" id="pred-comp-easy">
+                <div class="method-label">Easy Apply</div>
+                <div class="method-apps" style="color: var(--green)">--</div>
+                <div class="method-rate">-- apply rate</div>
+              </div>
+              <div class="comp-vs">VS</div>
+              <div class="comp-method" id="pred-comp-ats">
+                <div class="method-label">ATS (Redirect)</div>
+                <div class="method-apps" style="color: var(--amber)">--</div>
+                <div class="method-rate">-- apply rate</div>
+              </div>
+            </div>
+
+            <!-- Optimal Timing -->
+            <div class="pred-section-label">Optimal Posting Strategy</div>
+            <div class="pred-timing" id="pred-timing">
+              <div class="pred-timing-card">
+                <div class="timing-label">Best Days</div>
+                <div class="timing-value" id="pred-best-day">--</div>
+              </div>
+              <div class="pred-timing-card">
+                <div class="timing-label">Best Month</div>
+                <div class="timing-value" id="pred-best-month">--</div>
+              </div>
+              <div class="pred-timing-card">
+                <div class="timing-label">Data Source</div>
+                <div class="timing-value" id="pred-data-source">--</div>
+              </div>
+            </div>
+
+            <!-- Actionable Recommendations -->
+            <div class="pred-actions" id="pred-actions">
+              <div class="actions-title">Recommended Actions</div>
+              <ul id="pred-actions-list"></ul>
+            </div>
+
+            <!-- Confidence + Score Breakdown (collapsible) -->
+            <div class="pred-confidence" id="pred-confidence">
+              <span id="pred-conf-label">Confidence: --</span>
+              <div class="conf-bar">
+                <div
+                  class="conf-bar-fill"
+                  id="pred-conf-fill"
+                  style="width: 0%; background: var(--green)"
+                ></div>
+              </div>
+              <span id="pred-sample-size">-- jobs sampled</span>
+            </div>
+
+            <!-- Score breakdown toggle -->
+            <details style="margin-top: 1rem">
+              <summary
+                style="
+                  font-size: 0.75rem;
+                  color: var(--text-muted);
+                  cursor: pointer;
+                  user-select: none;
+                "
+              >
+                Show 8-Factor Score Breakdown
+              </summary>
+              <div style="margin-top: 0.75rem">
+                <div
+                  style="
+                    display: flex;
+                    align-items: center;
+                    gap: 1rem;
+                    margin-bottom: 0.75rem;
+                  "
+                >
+                  <div
+                    class="score-gauge"
+                    id="score-gauge"
+                    style="width: 100px; height: 100px; margin: 0"
+                  >
+                    <div>
+                      <div
+                        class="score-gauge-text"
+                        id="score-total"
+                        style="font-size: 1.5rem"
+                      >
+                        --
+                      </div>
+                      <div class="score-gauge-label">/ 100</div>
+                    </div>
+                  </div>
+                  <div>
+                    <div
+                      id="score-verdict"
+                      style="font-size: 0.875rem; font-weight: 800"
+                    >
+                      --
+                    </div>
+                    <div style="font-size: 0.6875rem; color: var(--text-muted)">
+                      Slot priority score
+                    </div>
+                  </div>
+                </div>
+                <div class="score-breakdown" id="score-breakdown"></div>
+              </div>
+            </details>
           </div>
         </section>
 
@@ -4247,7 +4574,7 @@
             return;
           }
 
-          // Use selected function if provided, else determine from title
+          // Determine function from title if not selected
           var fn = fnSelect || "Operations";
           var titleLower = title.toLowerCase();
           if (
@@ -4285,98 +4612,431 @@
           )
             fn = "Customer Service";
 
-          var mockJob = {
-            title: title,
-            country: country,
-            fn: fn,
-            client: "Prediction",
-            easyApply: easyApply,
-            workplace: "Hybrid",
-            clientTier: 2,
-            isScale: false,
-            daysLive: 0,
-            applies: 0,
+          // Show loading, hide results
+          var loadingEl = document.getElementById("score-loading");
+          var resultEl = $("#score-result");
+          loadingEl.style.display = "block";
+          resultEl.classList.remove("visible");
+
+          // Disable predict button
+          var btn = $("#predict-btn");
+          btn.disabled = true;
+          btn.textContent = "Analyzing...";
+
+          // Call backend API for real predictions
+          var appMethod = easyApply ? "LinkedIn" : "ATS";
+          var payload = {
+            job: {
+              title: title,
+              standardized_title: title,
+              country: country,
+              location: city,
+              industry: industry,
+              company: client,
+              application_method: appMethod,
+              workplace_type: workplace,
+              function: fn,
+            },
           };
 
-          var result = scoreJob(mockJob);
-          var verdict = scoreVerdict(result.total);
+          fetch("/api/slotops/predict", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          })
+            .then(function (res) {
+              return res.json();
+            })
+            .then(function (data) {
+              loadingEl.style.display = "none";
+              btn.disabled = false;
+              btn.textContent = "Predict";
 
-          // Show result
-          var resultEl = $("#score-result");
-          resultEl.classList.add("visible");
+              if (!data.ok || !data.predictions || !data.predictions.length) {
+                alert("Prediction failed: " + (data.error || "Unknown error"));
+                return;
+              }
 
-          // Gauge
-          var gauge = $("#score-gauge");
-          gauge.style.background =
-            "conic-gradient(" +
-            verdict.color +
-            " 0deg, " +
-            verdict.color +
-            " " +
-            result.total * 3.6 +
-            "deg, rgba(255,255,255,0.05) " +
-            result.total * 3.6 +
-            "deg)";
+              var pred = data.predictions[0];
+              var comp = pred.easy_apply_comparison;
 
-          $("#score-total").textContent = result.total;
-          $("#score-total").style.color = verdict.color;
+              // Also run client-side scoring for the 8-factor breakdown
+              var mockJob = {
+                title: title,
+                country: country,
+                fn: fn,
+                client: client || "Prediction",
+                easyApply: easyApply,
+                workplace: workplace,
+                clientTier: 2,
+                isScale: false,
+                daysLive: 0,
+                applies: 0,
+              };
+              var scoreResult = scoreJob(mockJob);
+              var verdict = scoreVerdict(scoreResult.total);
 
-          $("#score-verdict").textContent = verdict.text;
-          $("#score-verdict").style.color = verdict.color;
+              // ── Verdict Banner ──
+              var ar = pred.expected_apply_rate || 0;
+              var views = pred.expected_views || 0;
+              var apps = pred.expected_applications || 0;
+              var clicks = pred.expected_apply_clicks || 0;
+              var confScore = pred.confidence_score || 0.5;
+              var sampleSize = pred.sample_size || 0;
+              var bestDay = pred.best_day_of_week || "Tuesday";
+              var bestMonth = pred.best_month || "";
 
-          var baseRate = COUNTRY_RATES[country] || 7.0;
-          var predAR = (baseRate * (easyApply ? EASY_APPLY_LIFT : 1)).toFixed(
-            1,
-          );
-          var bestDay = BEST_DAYS[0] + "-" + BEST_DAYS[2];
-          $("#score-prediction").innerHTML =
-            "Predicted AR: <strong style='color:var(--text);'>" +
-            predAR +
-            "%</strong> " +
-            " | Best days: <strong style='color:var(--text);'>" +
-            bestDay +
-            "</strong>" +
-            " | Confidence: <strong style='color:var(--text);'>" +
-            (result.total >= 70
-              ? "High"
-              : result.total >= 50
-                ? "Medium"
-                : "Low") +
-            "</strong>";
+              // Determine go/caution/hold based on multiple factors
+              var verdictType,
+                verdictIcon,
+                verdictLabel,
+                verdictReason,
+                verdictBg;
+              if (ar >= 12 && apps >= 10 && scoreResult.total >= 60) {
+                verdictType = "go";
+                verdictIcon = "\u2705"; // checkmark
+                verdictLabel = "POST THIS JOB";
+                verdictReason =
+                  "Strong predicted performance -- " +
+                  ar +
+                  "% apply rate with ~" +
+                  Math.round(apps) +
+                  " applications expected. This job should perform well on LinkedIn.";
+                verdictBg = "rgba(34,197,94,0.08)";
+              } else if (ar >= 7 && apps >= 3 && scoreResult.total >= 40) {
+                verdictType = "caution";
+                verdictIcon = "\u26A0\uFE0F"; // warning
+                verdictLabel = "POST WITH OPTIMIZATION";
+                verdictReason =
+                  "Moderate performance expected -- " +
+                  ar +
+                  "% apply rate. Review recommendations below to improve results before posting.";
+                verdictBg = "rgba(245,158,11,0.08)";
+              } else {
+                verdictType = "hold";
+                verdictIcon = "\u{1F6D1}"; // stop sign
+                verdictLabel = "RECONSIDER THIS POSTING";
+                verdictReason =
+                  "Low predicted performance -- " +
+                  ar +
+                  "% apply rate with ~" +
+                  Math.round(apps) +
+                  " applications. Consider the optimizations below or alternative channels.";
+                verdictBg = "rgba(239,68,68,0.08)";
+              }
 
-          // Breakdown
-          var breakdown = $("#score-breakdown");
-          breakdown.innerHTML = "";
+              var banner = document.getElementById("pred-verdict-banner");
+              banner.style.background = verdictBg;
+              document.getElementById("pred-verdict-icon").textContent =
+                verdictIcon;
+              document.getElementById("pred-verdict-label").textContent =
+                verdictLabel;
+              document.getElementById("pred-verdict-label").style.color =
+                verdictType === "go"
+                  ? "var(--green)"
+                  : verdictType === "caution"
+                    ? "var(--amber)"
+                    : "var(--red)";
+              document.getElementById("pred-verdict-reason").textContent =
+                verdictReason;
 
-          result.factors.forEach(function (f) {
-            var pct = ((f.value / f.max) * 100).toFixed(0);
-            var color =
-              f.value >= f.max * 0.7
-                ? "var(--green)"
-                : f.value >= f.max * 0.4
-                  ? "var(--amber)"
-                  : "var(--red)";
-            breakdown.innerHTML +=
-              '<div class="score-factor">' +
-              '<div class="score-factor-label">' +
-              f.name +
-              ' <span style="color:var(--text-muted);font-size:0.6875rem;">(' +
-              f.max +
-              "pts max)</span></div>" +
-              '<div class="score-factor-bar"><div class="score-factor-bar-fill" style="width:' +
-              pct +
-              "%;background:" +
-              color +
-              ';"></div></div>' +
-              '<div class="score-factor-value" style="color:' +
-              color +
-              ';">' +
-              f.value +
-              "</div>" +
-              "</div>";
-          });
+              // ── Key Metrics ──
+              function fmt(n) {
+                return n >= 1000
+                  ? (n / 1000).toFixed(1) + "K"
+                  : Math.round(n).toLocaleString();
+              }
 
-          resultEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
+              document.getElementById("pred-views").textContent = fmt(views);
+              document.getElementById("pred-views-sub").textContent =
+                "per posting lifetime";
+
+              document.getElementById("pred-clicks").textContent = fmt(clicks);
+              document.getElementById("pred-clicks-sub").textContent = easyApply
+                ? "Easy Apply clicks"
+                : "redirect clicks to ATS";
+
+              document.getElementById("pred-apps").textContent = fmt(apps);
+              document.getElementById("pred-apps-sub").textContent = easyApply
+                ? "completed applications"
+                : "apply starts on ATS";
+
+              document.getElementById("pred-ar").textContent = ar + "%";
+              var benchAR = COUNTRY_RATES[country] || 7.0;
+              var arDiff = ar - benchAR;
+              document.getElementById("pred-ar-sub").textContent =
+                (arDiff >= 0 ? "+" : "") +
+                arDiff.toFixed(1) +
+                "% vs " +
+                country +
+                " avg";
+              document.getElementById("pred-ar-sub").style.color =
+                arDiff >= 0 ? "var(--green)" : "var(--red)";
+
+              // ── Easy Apply vs ATS Comparison ──
+              var compEl = document.getElementById("pred-comparison");
+              if (comp) {
+                compEl.style.display = "";
+                var eaEl = document.getElementById("pred-comp-easy");
+                var atsEl = document.getElementById("pred-comp-ats");
+
+                if (comp.current_method === "Easy Apply") {
+                  eaEl.querySelector(".method-apps").textContent = Math.round(
+                    comp.current_applications || apps,
+                  );
+                  eaEl.querySelector(".method-apps").style.color =
+                    "var(--green)";
+                  eaEl.querySelector(".method-rate").textContent =
+                    ar + "% apply rate";
+                  atsEl.querySelector(".method-apps").textContent =
+                    comp.alternative_applications
+                      ? Math.round(comp.alternative_applications)
+                      : "--";
+                  atsEl.querySelector(".method-apps").style.color =
+                    "var(--text-muted)";
+                  atsEl.querySelector(".method-rate").textContent =
+                    comp.alternative_rate
+                      ? comp.alternative_rate + "% apply rate"
+                      : "no data";
+                } else {
+                  atsEl.querySelector(".method-apps").textContent = Math.round(
+                    comp.current_applications || apps,
+                  );
+                  atsEl.querySelector(".method-apps").style.color =
+                    "var(--amber)";
+                  atsEl.querySelector(".method-rate").textContent =
+                    ar + "% apply rate";
+                  eaEl.querySelector(".method-apps").textContent =
+                    comp.alternative_applications
+                      ? Math.round(comp.alternative_applications)
+                      : "--";
+                  eaEl.querySelector(".method-apps").style.color =
+                    "var(--green)";
+                  eaEl.querySelector(".method-rate").textContent =
+                    comp.alternative_rate
+                      ? comp.alternative_rate + "% apply rate"
+                      : "no data";
+                }
+
+                if (comp.lift_available) {
+                  document.querySelector(".comp-vs").textContent =
+                    comp.lift_available + "x lift";
+                  document.querySelector(".comp-vs").style.color =
+                    "var(--green)";
+                } else {
+                  document.querySelector(".comp-vs").textContent = "VS";
+                  document.querySelector(".comp-vs").style.color = "";
+                }
+              } else {
+                compEl.style.display = "none";
+              }
+
+              // ── Timing ──
+              document.getElementById("pred-best-day").textContent = bestDay;
+              // Format month from "2025-04" to "April"
+              var monthNames = [
+                "January",
+                "February",
+                "March",
+                "April",
+                "May",
+                "June",
+                "July",
+                "August",
+                "September",
+                "October",
+                "November",
+                "December",
+              ];
+              var formattedMonth = bestMonth;
+              if (bestMonth && bestMonth.indexOf("-") > -1) {
+                var mIdx = parseInt(bestMonth.split("-")[1], 10) - 1;
+                if (mIdx >= 0 && mIdx < 12) formattedMonth = monthNames[mIdx];
+              }
+              document.getElementById("pred-best-month").textContent =
+                formattedMonth || "Any month";
+              var srcLabel =
+                pred.data_source === "cross"
+                  ? sampleSize + " exact matches"
+                  : sampleSize + " blended matches";
+              document.getElementById("pred-data-source").textContent =
+                srcLabel;
+
+              // ── Actionable Recommendations ──
+              var actions = [];
+
+              if (!easyApply) {
+                var liftFactor =
+                  comp && comp.lift_available
+                    ? comp.lift_available
+                    : EASY_APPLY_LIFT;
+                actions.push(
+                  "Switch to Easy Apply -- could increase applications by " +
+                    liftFactor +
+                    "x (biggest single improvement)",
+                );
+              }
+
+              var today = new Date();
+              var dow = today.getDay();
+              if (dow === 0 || dow === 5 || dow === 6) {
+                actions.push(
+                  "Wait until " +
+                    bestDay +
+                    " to post -- weekend/Friday postings get 20-40% fewer applications",
+                );
+              }
+
+              if (workplace !== "Remote") {
+                actions.push(
+                  "Consider offering Remote option -- remote jobs get ~25% higher apply rates",
+                );
+              }
+
+              if (bestMonth && bestMonth.length > 0) {
+                var months = [
+                  "January",
+                  "February",
+                  "March",
+                  "April",
+                  "May",
+                  "June",
+                  "July",
+                  "August",
+                  "September",
+                  "October",
+                  "November",
+                  "December",
+                ];
+                var curMonth = months[today.getMonth()];
+                if (curMonth !== bestMonth) {
+                  actions.push(
+                    "Peak month for this role/country is " +
+                      bestMonth +
+                      " -- plan budget accordingly",
+                  );
+                }
+              }
+
+              if (ar < 7) {
+                actions.push(
+                  "Consider rewriting the job title -- competitive titles like 'Software Engineer' perform 30-50% better than niche titles",
+                );
+              }
+
+              if (scoreResult.total < 50) {
+                actions.push(
+                  "Overall slot score is low (" +
+                    scoreResult.total +
+                    "/100) -- this job may not justify a LinkedIn slot. Consider other channels",
+                );
+              }
+
+              if (sampleSize < 20) {
+                actions.push(
+                  "Limited historical data (" +
+                    sampleSize +
+                    " jobs) -- prediction has lower confidence. Monitor actual performance closely",
+                );
+              }
+
+              if (apps >= 10 && easyApply) {
+                actions.push(
+                  "Strong candidate for LinkedIn -- expected " +
+                    Math.round(apps) +
+                    " applications. Prioritize this in your slot rotation",
+                );
+              }
+
+              var actList = document.getElementById("pred-actions-list");
+              actList.innerHTML = "";
+              actions.forEach(function (a) {
+                var li = document.createElement("li");
+                li.textContent = a;
+                actList.appendChild(li);
+              });
+
+              // ── Confidence ──
+              var confPct = Math.round(confScore * 100);
+              var confLabel =
+                confPct >= 85
+                  ? "High"
+                  : confPct >= 70
+                    ? "Medium"
+                    : confPct >= 50
+                      ? "Low"
+                      : "Very Low";
+              var confColor =
+                confPct >= 85
+                  ? "var(--green)"
+                  : confPct >= 70
+                    ? "var(--amber)"
+                    : "var(--red)";
+              document.getElementById("pred-conf-label").textContent =
+                "Confidence: " + confLabel + " (" + confPct + "%)";
+              var fill = document.getElementById("pred-conf-fill");
+              fill.style.width = confPct + "%";
+              fill.style.background = confColor;
+              document.getElementById("pred-sample-size").textContent =
+                sampleSize + " jobs sampled";
+
+              // ── 8-Factor Score (in collapsible) ──
+              var gauge = $("#score-gauge");
+              gauge.style.background =
+                "conic-gradient(" +
+                verdict.color +
+                " 0deg, " +
+                verdict.color +
+                " " +
+                scoreResult.total * 3.6 +
+                "deg, rgba(255,255,255,0.05) " +
+                scoreResult.total * 3.6 +
+                "deg)";
+              $("#score-total").textContent = scoreResult.total;
+              $("#score-total").style.color = verdict.color;
+              $("#score-verdict").textContent = verdict.text;
+              $("#score-verdict").style.color = verdict.color;
+
+              var breakdown = $("#score-breakdown");
+              breakdown.innerHTML = "";
+              scoreResult.factors.forEach(function (f) {
+                var pct = ((f.value / f.max) * 100).toFixed(0);
+                var color =
+                  f.value >= f.max * 0.7
+                    ? "var(--green)"
+                    : f.value >= f.max * 0.4
+                      ? "var(--amber)"
+                      : "var(--red)";
+                breakdown.innerHTML +=
+                  '<div class="score-factor">' +
+                  '<div class="score-factor-label">' +
+                  f.name +
+                  ' <span style="color:var(--text-muted);font-size:0.6875rem;">(' +
+                  f.max +
+                  "pts max)</span></div>" +
+                  '<div class="score-factor-bar"><div class="score-factor-bar-fill" style="width:' +
+                  pct +
+                  "%;background:" +
+                  color +
+                  ';"></div></div>' +
+                  '<div class="score-factor-value" style="color:' +
+                  color +
+                  ';">' +
+                  f.value +
+                  "</div></div>";
+              });
+
+              // Show results
+              resultEl.classList.add("visible");
+              resultEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
+            })
+            .catch(function (err) {
+              loadingEl.style.display = "none";
+              btn.disabled = false;
+              btn.textContent = "Predict";
+              console.error("Predict error:", err);
+              alert("Prediction failed. Please try again.");
+            });
         }
 
         /* ════════════════════════════════════════════════════════════════════
@@ -4708,6 +5368,7 @@
             $("#export-empty").style.display = "block";
             $("#tracker-count").textContent = "0";
             $("#score-result").classList.remove("visible");
+            document.getElementById("score-loading").style.display = "none";
 
             switchTab("command");
           });
