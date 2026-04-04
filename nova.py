@@ -1232,6 +1232,7 @@ _TOOL_LABELS: Dict[str, str] = {
     "geocode_location": "Geocoding location coordinates",
     "slotops_predict": "Predicting LinkedIn job performance",
     "slotops_optimize": "Optimizing LinkedIn slot allocation",
+    "ga4_analytics": "Querying Google Analytics traffic data",
     "translate_text": "Translating text content",
     "analyze_employer_brand": "Analyzing employer brand videos",
     "estimate_meta_campaign": "Estimating Meta campaign costs",
@@ -5207,6 +5208,8 @@ Do NOT generate month-over-month trend alerts, spike warnings, or "critical aler
             # S42: SlotOps LinkedIn tools
             "slotops_predict": self._slotops_predict,
             "slotops_optimize": self._slotops_optimize,
+            # S42: Google Analytics 4
+            "ga4_analytics": self._ga4_analytics,
         }
 
     def execute_tool(self, tool_name: str, tool_input: dict) -> str:
@@ -10008,6 +10011,25 @@ Do NOT generate month-over-month trend alerts, spike warnings, or "critical aler
             logger.error("slotops_optimize failed: %s", e, exc_info=True)
             return {"error": f"SlotOps optimization failed: {e}", "source": "SlotOps"}
 
+    def _ga4_analytics(self, params: dict) -> dict:
+        """Return Google Analytics 4 traffic data."""
+        try:
+            import google_analytics_data as ga
+
+            result = ga.handle_ga4_query(params)
+            if result.get("error"):
+                return {"error": result["error"], "source": "Google Analytics 4"}
+            result["source"] = "Google Analytics 4"
+            return result
+        except ImportError:
+            return {
+                "error": "Google Analytics module not available",
+                "source": "Google Analytics 4",
+            }
+        except Exception as e:
+            logger.error("ga4_analytics failed: %s", e, exc_info=True)
+            return {"error": f"GA4 query failed: {e}", "source": "Google Analytics 4"}
+
     # ------------------------------------------------------------------
     # Chat orchestration
     # ------------------------------------------------------------------
@@ -11329,6 +11351,41 @@ Do NOT generate month-over-month trend alerts, spike warnings, or "critical aler
                 }
 
         # --- Employer brand / YouTube intent ---
+        # S42: GA4 Analytics intent
+        if not tool_name and any(
+            kw in msg_lower
+            for kw in [
+                "google analytics",
+                "ga4",
+                "website traffic",
+                "site traffic",
+                "page views",
+                "pageviews",
+                "top pages",
+                "traffic source",
+                "traffic overview",
+                "active users",
+                "sessions today",
+                "bounce rate",
+                "realtime users",
+            ]
+        ):
+            _query_type = "overview"
+            if any(w in msg_lower for w in ["top page", "popular page"]):
+                _query_type = "top_pages"
+            elif any(w in msg_lower for w in ["source", "referr", "where from"]):
+                _query_type = "sources"
+            elif any(w in msg_lower for w in ["country", "geo", "location", "city"]):
+                _query_type = "geo"
+            elif any(
+                w in msg_lower
+                for w in ["realtime", "real-time", "right now", "active now"]
+            ):
+                _query_type = "realtime"
+            tool_name = "ga4_analytics"
+            tool_params = {"query_type": _query_type, "query": msg_lower}
+            tool_label = "Querying Google Analytics"
+
         if not tool_name and self._EMPLOYER_BRAND_INTENT.search(msg_lower):
             # Extract company name: strip intent keywords
             _company = re.sub(
