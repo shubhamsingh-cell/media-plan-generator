@@ -318,16 +318,43 @@
         <!-- Footer -->
         <div class="sidebar-footer">
           <!-- Default profile (shown when not logged in) -->
-          <div id="nova-auth-default-profile">
+          <div
+            id="nova-auth-default-profile"
+            style="
+              display: flex;
+              align-items: center;
+              gap: 10px;
+              width: 100%;
+              overflow: hidden;
+            "
+          >
             <div class="sidebar-footer-avatar">SC</div>
-            <div class="sidebar-footer-info">
-              <div class="sidebar-footer-name">Nova AI Suite</div>
+            <div
+              class="sidebar-footer-info"
+              style="flex: 1; min-width: 0; overflow: hidden"
+            >
+              <div
+                class="sidebar-footer-name"
+                style="
+                  white-space: nowrap;
+                  overflow: hidden;
+                  text-overflow: ellipsis;
+                "
+              >
+                Nova AI Suite
+              </div>
               <div
                 class="sidebar-footer-role"
                 id="role-selector"
                 onclick="NovaRoleSelector.cycle()"
                 title="Click to change view"
-                style="cursor: pointer"
+                style="
+                  cursor: pointer;
+                  white-space: nowrap;
+                  overflow: hidden;
+                  text-overflow: ellipsis;
+                  font-size: 11px;
+                "
               >
                 Chief of Strategic Initiatives @ Joveo
               </div>

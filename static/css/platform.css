@@ -1820,6 +1820,20 @@ body {
 .group-compliance svg {
   color: var(--red);
 }
+.group-products {
+  background: rgba(251, 191, 36, 0.12);
+  color: #fbbf24;
+}
+.group-products svg {
+  color: #fbbf24;
+}
+.group-nova {
+  background: rgba(139, 133, 224, 0.12);
+  color: #8b85e0;
+}
+.group-nova svg {
+  color: #8b85e0;
+}
 /* Legacy group colors (backward compat) */
 .group-plan {
   background: rgba(90, 84, 189, 0.12);

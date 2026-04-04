@@ -43,6 +43,8 @@ const ICONS = {
   geoviz:
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="7" opacity="0.4"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/></svg>',
   cg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/><line x1="2" y1="20" x2="22" y2="20"/></svg>',
+  slotops:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>',
 };
 
 /* ─────────────────────────────────────────────────────────────
@@ -223,15 +225,26 @@ const MODULES = [
     icon: "geoviz",
     desc: "3D geospatial labour market & competitive intelligence map",
     external: true,
-    externalUrl: null /* Set after Vercel deploy */,
+    externalUrl: "https://geoviz-3d.vercel.app",
   },
 
-  /* ─── TOOLS ─── */
+  /* ─── PRODUCTS ─── */
+  {
+    id: "slotops",
+    route: "products/slotops",
+    fragment: "slotops",
+    group: "products",
+    label: "SlotOps",
+    icon: "slotops",
+    desc: "LinkedIn slot optimizer with 8-factor scoring and performance prediction",
+    external: true,
+    externalUrl: "/slotops",
+  },
   {
     id: "cg-automation",
-    route: "tools/cg-automation",
+    route: "products/cg-automation",
     fragment: "cg-automation",
-    group: "tools",
+    group: "products",
     label: "CG Automation",
     icon: "cg",
     desc: "Craigslist posting optimizer for maximum net revenue",
@@ -255,8 +268,8 @@ const GROUPS = [
   { id: "plan", label: "Plan", icon: "campaign" },
   { id: "intelligence", label: "Intelligence", icon: "intelligence" },
   { id: "compliance", label: "Compliance", icon: "comply" },
+  { id: "products", label: "Products", icon: "slotops" },
   { id: "nova", label: "Nova AI", icon: "nova" },
-  { id: "tools", label: "Tools", icon: "cg" },
 ];
 
 /* ─────────────────────────────────────────────────────────────
