@@ -19,6 +19,10 @@ _predict_count: int = 0
 _schedule_count: int = 0
 _total_latency_ms: float = 0.0
 _BASELINE_PATH = Path(__file__).resolve().parent / "data" / "slotops_baseline_data.json"
+_INDUSTRY_BENCH_PATH = (
+    Path(__file__).resolve().parent / "data" / "linkedin_industry_benchmarks.json"
+)
+_industry_benchmarks: dict[str, Any] = {}
 
 # -- Constants ---------------------------------------------------------------
 EASY_APPLY_LIFT: float = 2.3
@@ -204,6 +208,190 @@ def load_baselines(path: Path | None = None) -> dict[str, Any]:
             logger.error(f"Invalid JSON in baseline file: {exc}", exc_info=True)
             _baselines = {}
     return _baselines
+
+
+def load_industry_benchmarks() -> dict[str, Any]:
+    """Load external LinkedIn industry benchmarks; thread-safe, cached."""
+    global _industry_benchmarks
+    if _industry_benchmarks:
+        return _industry_benchmarks
+    with _lock:
+        if _industry_benchmarks:
+            return _industry_benchmarks
+        try:
+            with open(_INDUSTRY_BENCH_PATH, "r", encoding="utf-8") as fh:
+                _industry_benchmarks = json.load(fh)
+            logger.info("LinkedIn industry benchmarks loaded")
+        except FileNotFoundError:
+            logger.warning("Industry benchmarks file not found; using defaults")
+            _industry_benchmarks = {}
+        except json.JSONDecodeError as exc:
+            logger.error(f"Invalid JSON in industry benchmarks: {exc}", exc_info=True)
+            _industry_benchmarks = {}
+    return _industry_benchmarks
+
+
+def get_industry_context(
+    industry: str, function: str, country: str, workplace: str
+) -> dict[str, Any]:
+    """Get relevant external benchmarks for a job based on its attributes.
+
+    Args:
+        industry: Job industry (e.g., 'Technology, Information and Media').
+        function: Job function (e.g., 'Engineering').
+        country: Job country (e.g., 'United States').
+        workplace: Workplace type (e.g., 'Remote').
+
+    Returns:
+        Dict with industry, function, region, workplace, and seniority benchmarks.
+    """
+    ib = load_industry_benchmarks()
+    if not ib:
+        return {}
+
+    # Map industry to key
+    ind_lower = (industry or "").lower()
+    ind_map = {
+        "technology": "technology",
+        "tech": "technology",
+        "information": "technology",
+        "software": "technology",
+        "it": "technology",
+        "healthcare": "healthcare",
+        "health": "healthcare",
+        "medical": "healthcare",
+        "pharma": "healthcare",
+        "finance": "finance_banking",
+        "banking": "finance_banking",
+        "insurance": "finance_banking",
+        "financial": "finance_banking",
+        "staffing": "staffing_recruiting",
+        "recruiting": "staffing_recruiting",
+        "manufacturing": "manufacturing",
+        "industrial": "manufacturing",
+        "retail": "retail_consumer",
+        "consumer": "retail_consumer",
+        "ecommerce": "retail_consumer",
+        "professional": "professional_services",
+        "consulting": "professional_services",
+        "education": "education",
+        "academic": "education",
+        "government": "government_nonprofit",
+        "nonprofit": "government_nonprofit",
+        "logistics": "logistics_transportation",
+        "transport": "logistics_transportation",
+    }
+    ind_key = None
+    for keyword, key in ind_map.items():
+        if keyword in ind_lower:
+            ind_key = key
+            break
+
+    # Map function to key
+    fn_lower = (function or "").lower()
+    fn_map = {
+        "engineering": "engineering_software",
+        "software": "engineering_software",
+        "sales": "sales",
+        "marketing": "marketing",
+        "operations": "operations",
+        "human resources": "human_resources",
+        "hr": "human_resources",
+        "finance": "finance_accounting",
+        "accounting": "finance_accounting",
+        "data": "data_science_analytics",
+        "analytics": "data_science_analytics",
+        "customer": "customer_service",
+        "design": "design_creative",
+    }
+    fn_key = None
+    for keyword, key in fn_map.items():
+        if keyword in fn_lower:
+            fn_key = key
+            break
+
+    # Map country to region
+    region_map = {
+        "United States": "north_america",
+        "Canada": "north_america",
+        "Mexico": "north_america",
+        "United Kingdom": "europe",
+        "Germany": "europe",
+        "France": "europe",
+        "Netherlands": "europe",
+        "Ireland": "europe",
+        "Spain": "europe",
+        "Italy": "europe",
+        "Sweden": "europe",
+        "Poland": "europe",
+        "Belgium": "europe",
+        "Switzerland": "europe",
+        "Austria": "europe",
+        "Denmark": "europe",
+        "Norway": "europe",
+        "Finland": "europe",
+        "Portugal": "europe",
+        "Czech Republic": "europe",
+        "Romania": "europe",
+        "India": "asia_pacific",
+        "Australia": "asia_pacific",
+        "Singapore": "asia_pacific",
+        "Japan": "asia_pacific",
+        "South Korea": "asia_pacific",
+        "New Zealand": "asia_pacific",
+        "Philippines": "asia_pacific",
+        "Malaysia": "asia_pacific",
+        "Indonesia": "asia_pacific",
+        "Thailand": "asia_pacific",
+        "Vietnam": "asia_pacific",
+        "China": "asia_pacific",
+        "Hong Kong": "asia_pacific",
+        "Taiwan": "asia_pacific",
+        "Brazil": "latin_america",
+        "Argentina": "latin_america",
+        "Colombia": "latin_america",
+        "Chile": "latin_america",
+        "Peru": "latin_america",
+        "Saudi Arabia": "middle_east_africa",
+        "UAE": "middle_east_africa",
+        "United Arab Emirates": "middle_east_africa",
+        "South Africa": "middle_east_africa",
+        "Egypt": "middle_east_africa",
+        "Nigeria": "middle_east_africa",
+        "Qatar": "middle_east_africa",
+        "Kuwait": "middle_east_africa",
+    }
+    region_key = region_map.get(country)
+
+    wp_key = (workplace or "remote").lower().replace("-", "").replace(" ", "")
+    if wp_key == "onsite":
+        wp_key = "onsite"
+
+    by_ind = (ib.get("by_industry") or {}).get(ind_key or "") or {}
+    by_fn = (ib.get("by_job_function") or {}).get(fn_key or "") or {}
+    by_region = (ib.get("by_region") or {}).get(region_key or "") or {}
+    by_wp = (ib.get("by_workplace_type") or {}).get(wp_key or "") or {}
+    platform = ib.get("linkedin_platform_benchmarks") or {}
+    tips = ib.get("posting_optimization_tips") or {}
+    seasonal = ib.get("seasonal_patterns") or {}
+    algo = ib.get("linkedin_algorithm_insights") or {}
+    costs = ib.get("cost_benchmarks_2025") or {}
+
+    return {
+        "industry": by_ind,
+        "industry_key": ind_key,
+        "function": by_fn,
+        "function_key": fn_key,
+        "region": by_region,
+        "region_key": region_key,
+        "workplace": by_wp,
+        "workplace_key": wp_key,
+        "platform": platform,
+        "tips": tips,
+        "seasonal": seasonal,
+        "algorithm": algo,
+        "costs": costs,
+    }
 
 
 # -- Internal Helpers --------------------------------------------------------
@@ -711,7 +899,7 @@ def _timed(counter_name: str, t0: float) -> float:
 
 
 def handle_slotops_optimize(body: dict[str, Any]) -> dict[str, Any]:
-    """POST /api/slotops/optimize -- Run full optimization."""
+    """POST /api/slotops/optimize -- Run full optimization with predictions per job."""
     t0 = time.monotonic()
     try:
         jobs, config = _parse_jobs_config(body)
@@ -720,16 +908,73 @@ def handle_slotops_optimize(body: dict[str, Any]) -> dict[str, Any]:
         scored = sorted(
             ((score_job(j), j) for j in jobs), key=lambda x: x[0], reverse=True
         )
-        top = [
-            {"job_id": j.job_id, "title": j.title, "country": j.country, "score": s}
-            for s, j in scored[:30]
-        ]
+        # Enrich top jobs with predictions + external benchmarks
+        top = []
+        total_views = 0.0
+        total_apps = 0.0
+        for s, j in scored[:30]:
+            pred = predict_performance(j)
+            ext = get_industry_context(
+                j.industry, j.function, j.country, j.workplace_type
+            )
+            ind_bench = ext.get("industry") or {}
+            verdict = "GO" if s >= 70 else "CAUTION" if s >= 50 else "HOLD"
+            entry = {
+                "job_id": j.job_id,
+                "title": j.title,
+                "country": j.country,
+                "score": s,
+                "verdict": verdict,
+                "expected_views": round(pred.get("expected_views", 0)),
+                "expected_clicks": round(pred.get("expected_apply_clicks", 0)),
+                "expected_applications": round(pred.get("expected_applications", 0)),
+                "expected_apply_rate": pred.get("expected_apply_rate", 0),
+                "best_day": pred.get("best_day_of_week", ""),
+                "easy_apply_lift": (
+                    round(
+                        (pred.get("easy_apply_comparison") or {}).get("lift_available")
+                        or 0,
+                        1,
+                    )
+                ),
+                "industry_avg_ar": ind_bench.get("avg_apply_rate_pct", 0),
+                "industry_competition": ind_bench.get("competition_level", ""),
+                "vs_industry": (
+                    round(
+                        pred.get("expected_apply_rate", 0)
+                        - ind_bench.get("avg_apply_rate_pct", 0),
+                        1,
+                    )
+                    if ind_bench.get("avg_apply_rate_pct")
+                    else None
+                ),
+            }
+            top.append(entry)
+            total_views += pred.get("expected_views", 0)
+            total_apps += pred.get("expected_applications", 0)
+
+        # Portfolio-level summary
+        portfolio = {
+            "total_predicted_views": round(total_views),
+            "total_predicted_applications": round(total_apps),
+            "avg_apply_rate": (
+                round(total_apps / total_views * 100, 1) if total_views > 0 else 0
+            ),
+            "go_count": sum(1 for t in top if t["verdict"] == "GO"),
+            "caution_count": sum(1 for t in top if t["verdict"] == "CAUTION"),
+            "hold_count": sum(1 for t in top if t["verdict"] == "HOLD"),
+            "easy_apply_opportunity": sum(
+                1 for t in top if t.get("easy_apply_lift", 0) > 0
+            ),
+        }
+
         ms = _timed("optimize", t0)
         return {
             "ok": True,
             "allocation": alloc,
             "schedule": [asdict(s) for s in sched],
             "top_jobs": top,
+            "portfolio_summary": portfolio,
             "total_jobs": len(jobs),
             "countries": config.countries,
             "total_slots": config.total_slots,
@@ -826,33 +1071,94 @@ def handle_slotops_predict_analysis(body: dict[str, Any]) -> dict[str, Any]:
                 f"{m}: {d.get('avg_apply_rate', 0):.1f}% AR" for m, d in top_months
             )
 
+        # External industry benchmarks context
+        ext = get_industry_context(
+            industry, job_data.get("function", ""), country, workplace
+        )
+        ind_bench = ext.get("industry") or {}
+        fn_bench = ext.get("function") or {}
+        region_bench = ext.get("region") or {}
+        wp_bench = ext.get("workplace") or {}
+        platform_bench = ext.get("platform") or {}
+        ea_bench = platform_bench.get("easy_apply_vs_ats") or {}
+
         # Joveo benchmark context
         joveo_str = "Joveo accounts combined: 66.3M views, 11M clicks, 16.6% avg AR (above 12.6% industry benchmark)"
 
-        prompt = f"""You are a LinkedIn recruitment advertising expert at Joveo. Analyze this job posting prediction and give a strategic recommendation.
+        # Build external benchmarks section
+        ext_section = ""
+        if ind_bench:
+            ext_section += f"\nINDUSTRY BENCHMARKS ({ext.get('industry_key', 'unknown').replace('_', ' ').title()}):"
+            ext_section += f"\n- Industry avg apply rate: {ind_bench.get('avg_apply_rate_pct', 'N/A')}%"
+            ext_section += (
+                f"\n- Industry avg views: {ind_bench.get('avg_views', 'N/A')}"
+            )
+            ext_section += f"\n- Industry avg applications: {ind_bench.get('avg_applications', 'N/A')}"
+            ext_section += (
+                f"\n- Competition level: {ind_bench.get('competition_level', 'N/A')}"
+            )
+            ext_section += f"\n- Avg time to fill: {ind_bench.get('avg_time_to_fill_days', 'N/A')} days"
+            ext_section += (
+                f"\n- Avg CPA: ${ind_bench.get('avg_cost_per_application_usd', 'N/A')}"
+            )
+            if ind_bench.get("notes"):
+                ext_section += f"\n- Key insight: {ind_bench['notes']}"
+        if fn_bench:
+            ext_section += f"\n\nFUNCTION BENCHMARKS ({ext.get('function_key', '').replace('_', ' ').title()}):"
+            ext_section += f"\n- Function avg apply rate: {fn_bench.get('avg_apply_rate_pct', 'N/A')}%"
+            ext_section += f"\n- Supply/demand ratio: {fn_bench.get('candidate_supply_demand_ratio', 'N/A')}"
+            ext_section += f"\n- Avg time to fill: {fn_bench.get('avg_time_to_fill_days', 'N/A')} days"
+            if fn_bench.get("recommended_channels"):
+                ext_section += f"\n- Recommended channels: {', '.join(fn_bench['recommended_channels'][:4])}"
+        if region_bench:
+            ext_section += f"\n\nREGION BENCHMARKS ({ext.get('region_key', '').replace('_', ' ').title()}):"
+            ext_section += f"\n- Region avg apply rate: {region_bench.get('avg_apply_rate_pct', 'N/A')}%"
+            ext_section += (
+                f"\n- Avg CPC: ${region_bench.get('avg_cost_per_click_usd', 'N/A')}"
+            )
+            ext_section += f"\n- Mobile application %: {region_bench.get('mobile_application_pct', 'N/A')}%"
+            if region_bench.get("best_days"):
+                ext_section += f"\n- Best days: {', '.join(region_bench['best_days'])}"
+        if wp_bench:
+            ext_section += f"\n\nWORKPLACE ({workplace}):"
+            ext_section += f"\n- Workplace avg apply rate: {wp_bench.get('avg_apply_rate_pct', 'N/A')}%"
+            ext_section += f"\n- Volume vs on-site: {wp_bench.get('application_volume_vs_onsite', 'N/A')}x"
+        if ea_bench:
+            ext_section += f"\n\nPLATFORM BENCHMARKS (LinkedIn overall):"
+            ext_section += f"\n- Easy Apply avg AR: {ea_bench.get('easy_apply_avg_apply_rate_pct', 'N/A')}%"
+            ext_section += f"\n- ATS redirect avg AR: {ea_bench.get('ats_redirect_avg_apply_rate_pct', 'N/A')}%"
+            ext_section += f"\n- Easy Apply completion rate: {ea_bench.get('easy_apply_completion_rate_pct', 'N/A')}%"
+            ext_section += f"\n- ATS redirect completion rate: {ea_bench.get('ats_redirect_completion_rate_pct', 'N/A')}%"
+            ext_section += f"\n- Mobile Easy Apply: {ea_bench.get('mobile_easy_apply_rate_pct', 'N/A')}%"
+
+        prompt = f"""You are a LinkedIn recruitment advertising expert at Joveo with access to both internal performance data (108K+ jobs) and external industry benchmarks from Appcast, Recruitics, LinkedIn Talent Solutions, SHRM, Gem, and Greenhouse.
+
+Analyze this job posting prediction and give a strategic recommendation grounded in ALL data sources.
 
 JOB DETAILS:
 - Title: {title}
 - Country: {country}
-- Application Method: {method} ({"Easy Apply -- candidates apply directly on LinkedIn" if method == "LinkedIn" else "ATS -- candidates are redirected to external career site"})
+- Application Method: {method} ({"Easy Apply -- candidates apply directly on LinkedIn" if method == "LinkedIn" else "ATS -- candidates are redirected to external career site, 65% drop-off rate"})
 - Workplace: {workplace}
 - Industry: {industry or "Not specified"}
 - Company: {company or "Not specified"}
 
-PREDICTED PERFORMANCE (based on {sample} similar historical jobs):
+PREDICTED PERFORMANCE (based on {sample} similar historical jobs from Joveo data):
 - Expected Views: {views:.0f}
-- Expected Apply Clicks: {clicks:.0f}
-- Expected Applications: {apps:.0f}
+- Expected Apply Clicks: {clicks:.0f} (candidates who click Apply)
+- Expected Applications: {apps:.0f} (candidates who complete application)
+- Click-to-Application rate: {(apps/clicks*100) if clicks > 0 else 0:.0f}%
 - Expected Apply Rate: {ar}%
 - Slot Priority Score: {score_total}/100
 - Confidence: {conf*100:.0f}%
 
-COUNTRY BENCHMARKS ({country}):
+COUNTRY BENCHMARKS ({country}, from Joveo 108K database):
 - Country avg apply rate: {country_avg_ar:.1f}%
 - Country avg views: {country_avg_views:.0f}
 - This job vs country avg: {"+" if ar > country_avg_ar else ""}{ar - country_avg_ar:.1f}% difference
+{ext_section}
 
-EASY APPLY vs ATS:
+EASY APPLY vs ATS (from Joveo database):
 - Current method: {comp.get("current_method", method)}
 - Current applications: {comp.get("current_applications", apps):.0f}
 - Alternative method applications: {comp.get("alternative_applications", "N/A")}
@@ -869,19 +1175,18 @@ OPTIMAL TIMING:
 
 JOVEO BENCHMARK:
 - {joveo_str}
-- LinkedIn industry avg for Staffing & Recruiting: 10.2-12.6% AR
 
 Write a 3-paragraph strategic recommendation:
-1. VERDICT: Should they post this job on LinkedIn? Be direct and specific with numbers.
-2. OPTIMIZATION: What specific changes would improve performance? Quantify the impact.
-3. TIMING & STRATEGY: When exactly should they post and what's the ideal slot rotation strategy?
+1. **Verdict:** Should they post this job on LinkedIn? Compare against BOTH Joveo data AND external industry benchmarks. Be direct with specific numbers.
+2. **Optimization:** What specific changes would improve performance? Quantify impact using industry data. Include CPA estimates if relevant.
+3. **Timing & Strategy:** When to post, ideal rotation cadence, and channel mix recommendation (LinkedIn alone or combine with other channels?).
 
-Be data-driven, specific, and actionable. Use actual numbers from the data above. No generic advice. Max 200 words."""
+Be data-driven, specific, and actionable. Cross-reference internal Joveo data with external industry benchmarks. No generic advice. Max 250 words."""
 
         result = call_fn(
             messages=[{"role": "user", "content": prompt}],
-            system_prompt="Senior LinkedIn recruitment advertising strategist at Joveo. Data-driven, concise, actionable. Always cite specific numbers.",
-            max_tokens=500,
+            system_prompt="Senior LinkedIn recruitment advertising strategist at Joveo. You have access to both internal Joveo performance data (108K+ jobs) and external industry benchmarks from Appcast, Recruitics, LinkedIn Talent Solutions, SHRM, Gem, Greenhouse, and iCIMS. Cross-reference all sources for the most accurate recommendation. Data-driven, concise, actionable. Always cite specific numbers and their source.",
+            max_tokens=600,
             task_type="summarization",
             force_provider=provider or "",
             use_cache=True,
@@ -895,6 +1200,90 @@ Be data-driven, specific, and actionable. Use actual numbers from the data above
         }
     except Exception as exc:
         logger.error(f"SlotOps predict-analysis error: {exc}", exc_info=True)
+        return {"ok": False, "error": str(exc), "analysis": ""}
+
+
+def handle_slotops_command_analysis(body: dict[str, Any]) -> dict[str, Any]:
+    """POST /api/slotops/command-analysis -- LLM portfolio analysis for Command Center.
+
+    Generates a strategic summary analyzing the entire uploaded job portfolio,
+    identifying patterns, risks, and optimization opportunities across all jobs.
+    """
+    t0 = time.monotonic()
+    call_fn, provider = _lazy_llm()
+    if not call_fn:
+        return {"ok": False, "error": "LLM not available", "analysis": ""}
+
+    try:
+        portfolio = body.get("portfolio") or {}
+        top_jobs = body.get("top_jobs") or []
+        countries = body.get("countries") or []
+        total_jobs = body.get("total_jobs", 0)
+        total_slots = body.get("total_slots", 0)
+
+        # Build job summary for LLM
+        job_lines = []
+        for j in top_jobs[:15]:
+            job_lines.append(
+                f"  - {j.get('title', '?')} | {j.get('country', '?')} | "
+                f"Score: {j.get('score', 0)}/100 | Verdict: {j.get('verdict', '?')} | "
+                f"Views: {j.get('expected_views', 0)} | Apps: {j.get('expected_applications', 0)} | "
+                f"AR: {j.get('expected_apply_rate', 0)}% | "
+                f"vs Industry: {j.get('vs_industry', 'N/A')}%"
+            )
+        jobs_str = "\n".join(job_lines)
+
+        # Load external benchmarks for context
+        ib = load_industry_benchmarks()
+        platform = ib.get("linkedin_platform_benchmarks", {}).get("overall", {})
+
+        prompt = f"""You are a senior LinkedIn recruitment advertising strategist at Joveo analyzing a client's full job portfolio.
+
+PORTFOLIO OVERVIEW:
+- Total jobs: {total_jobs}
+- Total slots: {total_slots}
+- Countries active: {', '.join(countries[:10])}
+- GO (score 70+): {portfolio.get('go_count', 0)} jobs
+- CAUTION (50-69): {portfolio.get('caution_count', 0)} jobs
+- HOLD (<50): {portfolio.get('hold_count', 0)} jobs
+- Total predicted views: {portfolio.get('total_predicted_views', 0):,}
+- Total predicted applications: {portfolio.get('total_predicted_applications', 0):,}
+- Portfolio avg apply rate: {portfolio.get('avg_apply_rate', 0)}%
+- Easy Apply opportunity: {portfolio.get('easy_apply_opportunity', 0)} jobs not using Easy Apply
+
+LINKEDIN PLATFORM BENCHMARKS:
+- Platform avg AR: {platform.get('avg_apply_rate_pct', 11.2)}%
+- Platform avg views/posting: {platform.get('avg_views_per_posting', 150)}
+- Platform avg apps/posting: {platform.get('avg_applications_per_posting', 12)}
+- Easy Apply adoption: {platform.get('easy_apply_adoption_pct', 65)}%
+
+TOP JOBS (ranked by score):
+{jobs_str}
+
+Write a concise portfolio analysis (3 sections, max 200 words):
+1. **Portfolio Health**: Overall performance vs LinkedIn platform benchmarks. Key strengths and weaknesses.
+2. **Top 3 Actions**: Most impactful changes to make TODAY, with specific job references and expected impact.
+3. **Slot Strategy**: How to optimize the {total_slots} slots across {len(countries)} countries for maximum ROI.
+
+Be specific. Reference actual job titles and countries. Quantify impact."""
+
+        result = call_fn(
+            messages=[{"role": "user", "content": prompt}],
+            system_prompt="Senior LinkedIn recruitment strategist at Joveo. Analyzing a client portfolio of job postings. Data-driven, specific, actionable. Reference individual jobs by name.",
+            max_tokens=500,
+            task_type="summarization",
+            force_provider=provider or "",
+            use_cache=True,
+        )
+        analysis_text = result.get("text") or ""
+        ms = round((time.monotonic() - t0) * 1000, 1)
+        return {
+            "ok": True,
+            "analysis": analysis_text,
+            "computation_ms": ms,
+        }
+    except Exception as exc:
+        logger.error(f"SlotOps command-analysis error: {exc}", exc_info=True)
         return {"ok": False, "error": str(exc), "analysis": ""}
 
 

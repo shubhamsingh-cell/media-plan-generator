@@ -1698,6 +1698,7 @@ def load_knowledge_base() -> dict:
         "external_benchmarks": "external_benchmarks_2025.json",
         "client_media_plans": "client_media_plans_kb.json",
         "linkedin_performance": "linkedin_performance_benchmarks.json",
+        "linkedin_industry_benchmarks": "linkedin_industry_benchmarks.json",
         "craigslist_performance": "craigslist_performance_benchmarks.json",
     }
 

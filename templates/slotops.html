@@ -1972,6 +1972,58 @@
               </div>
             </div>
 
+            <!-- Expert Portfolio Analysis (LLM) -->
+            <div
+              class="glass-card"
+              id="portfolio-analysis-card"
+              style="display: none; margin-top: 1.25rem"
+            >
+              <div class="card-header">
+                <h2 class="card-title">
+                  <span class="icon" aria-hidden="true">
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="white"
+                      stroke-width="2"
+                    >
+                      <circle cx="12" cy="12" r="3" />
+                      <path
+                        d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72 1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"
+                      />
+                    </svg>
+                  </span>
+                  Expert Portfolio Analysis
+                  <span
+                    style="
+                      font-size: 0.625rem;
+                      color: var(--text-muted);
+                      font-weight: 400;
+                      margin-left: 0.5rem;
+                    "
+                    >(Gemini)</span
+                  >
+                </h2>
+              </div>
+              <div id="portfolio-analysis-content" style="padding: 0.5rem 0">
+                <div
+                  style="
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                    color: var(--text-muted);
+                    font-size: 0.8125rem;
+                  "
+                >
+                  <div
+                    class="spinner"
+                    style="width: 16px; height: 16px; border-width: 2px"
+                  ></div>
+                  Analyzing portfolio...
+                </div>
+              </div>
+            </div>
+
             <!-- Reset -->
             <div style="text-align: center; margin-top: 1rem">
               <button
@@ -3161,6 +3213,46 @@
 
           const total = f1 + f2 + f3 + f4 + f5 + f6 + f7 + f8;
 
+          var computedAR = +(
+            baseRate *
+            (job.easyApply ? EASY_APPLY_LIFT : 1) *
+            (0.85 + Math.random() * 0.3)
+          ).toFixed(1);
+
+          // Predicted metrics based on country baselines + workplace + easyApply
+          var baseViews =
+            {
+              US: 82,
+              GB: 44,
+              CA: 53,
+              AU: 31,
+              DE: 28,
+              NZ: 22,
+              BR: 90,
+              IE: 37,
+              IN: 140,
+              SG: 25,
+              FR: 30,
+              NL: 35,
+              JP: 20,
+              MX: 60,
+            }[cc] || 50;
+          var wpMult = wt === "remote" ? 3.5 : wt === "hybrid" ? 1.6 : 1.0;
+          var hotMult = hotTitles.some(function (t) {
+            return titleLower.includes(t);
+          })
+            ? 2.2
+            : 1.0;
+          var eViews = Math.round(
+            baseViews * wpMult * hotMult * (0.8 + Math.random() * 0.4),
+          );
+          var eClicks = Math.round(
+            eViews * (computedAR / 100) * (job.easyApply ? 1.0 : 1.8),
+          );
+          var eApps = Math.round(
+            eViews * (computedAR / 100) * (job.easyApply ? 0.92 : 0.35),
+          );
+
           return {
             total: Math.min(100, total),
             factors: [
@@ -3173,11 +3265,10 @@
               { name: "Historical Performance", value: f7, max: 10 },
               { name: "Day-of-Week Timing", value: f8, max: 10 },
             ],
-            expectedAR: +(
-              baseRate *
-              (job.easyApply ? EASY_APPLY_LIFT : 1) *
-              (0.85 + Math.random() * 0.3)
-            ).toFixed(1),
+            expectedAR: computedAR,
+            expectedViews: eViews,
+            expectedClicks: eClicks,
+            expectedApps: eApps,
           };
         }
 
@@ -3239,6 +3330,9 @@
             const s = scoreJob(job);
             job.score = s.total;
             job.expectedAR = s.expectedAR;
+            job.expectedViews = s.expectedViews;
+            job.expectedClicks = s.expectedClicks;
+            job.expectedApps = s.expectedApps;
             jobs.push(job);
           }
           return jobs;
@@ -3448,6 +3542,9 @@
               var s = scoreJob(job);
               job.score = s.total;
               job.expectedAR = s.expectedAR;
+              job.expectedViews = s.expectedViews;
+              job.expectedClicks = s.expectedClicks;
+              job.expectedApps = s.expectedApps;
               allJobs.push(job);
             });
           });
@@ -3524,6 +3621,9 @@
             var s = scoreJob(job);
             job.score = s.total;
             job.expectedAR = s.expectedAR;
+            job.expectedViews = s.expectedViews;
+            job.expectedClicks = s.expectedClicks;
+            job.expectedApps = s.expectedApps;
             jobs.push(job);
           }
 
@@ -3752,9 +3852,119 @@
           renderMetrics();
           renderPeakTimeline();
           renderQuickWins();
+          fetchPortfolioAnalysis();
 
           var now = new Date();
           $("#today-date").textContent = fmtDate(now) + " " + now.getFullYear();
+        }
+
+        function fetchPortfolioAnalysis() {
+          var card = document.getElementById("portfolio-analysis-card");
+          var content = document.getElementById("portfolio-analysis-content");
+          if (!card || !content) return;
+          card.style.display = "";
+          content.innerHTML =
+            '<div style="display:flex;align-items:center;gap:0.5rem;color:var(--text-muted);font-size:0.8125rem;"><div class="spinner" style="width:16px;height:16px;border-width:2px;"></div>Analyzing portfolio across industry benchmarks...</div>';
+
+          // Build portfolio summary
+          var goCount = STATE.slots.filter(function (s) {
+            return s.job.score >= 70;
+          }).length;
+          var cautionCount = STATE.slots.filter(function (s) {
+            return s.job.score >= 50 && s.job.score < 70;
+          }).length;
+          var holdCount = STATE.slots.filter(function (s) {
+            return s.job.score < 50;
+          }).length;
+          var totalViews = STATE.slots.reduce(function (s, sl) {
+            return s + (sl.job.expectedViews || 0);
+          }, 0);
+          var totalApps = STATE.slots.reduce(function (s, sl) {
+            return s + (sl.job.expectedApps || 0);
+          }, 0);
+          var nonEa = STATE.slots.filter(function (s) {
+            return !s.job.easyApply;
+          }).length;
+          var avgAR =
+            STATE.slots.length > 0
+              ? STATE.slots.reduce(function (s, sl) {
+                  return s + sl.job.expectedAR;
+                }, 0) / STATE.slots.length
+              : 0;
+
+          var topJobs = STATE.slots.slice(0, 15).map(function (sl) {
+            return {
+              title: sl.job.title || sl.job.id,
+              country: COUNTRY_NAMES[sl.job.country] || sl.job.country,
+              score: sl.job.score,
+              verdict:
+                sl.job.score >= 70
+                  ? "GO"
+                  : sl.job.score >= 50
+                    ? "CAUTION"
+                    : "HOLD",
+              expected_views: sl.job.expectedViews || 0,
+              expected_applications: sl.job.expectedApps || 0,
+              expected_apply_rate: sl.job.expectedAR || 0,
+            };
+          });
+
+          var countries = [];
+          STATE.slots.forEach(function (sl) {
+            var c = COUNTRY_NAMES[sl.job.country] || sl.job.country;
+            if (countries.indexOf(c) === -1) countries.push(c);
+          });
+
+          var payload = {
+            portfolio: {
+              total_predicted_views: totalViews,
+              total_predicted_applications: totalApps,
+              avg_apply_rate: +avgAR.toFixed(1),
+              go_count: goCount,
+              caution_count: cautionCount,
+              hold_count: holdCount,
+              easy_apply_opportunity: nonEa,
+            },
+            top_jobs: topJobs,
+            countries: countries,
+            total_jobs: STATE.jobs.length,
+            total_slots: TOTAL_SLOTS,
+          };
+
+          window.__csrfReady.then(function () {
+            fetch("/api/slotops/command-analysis", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "X-CSRF-Token": window.__csrfToken || "",
+              },
+              body: JSON.stringify(payload),
+            })
+              .then(function (r) {
+                return r.json();
+              })
+              .then(function (d) {
+                if (d.ok && d.analysis) {
+                  var html = d.analysis
+                    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+                    .replace(/\n/g, "<br>");
+                  content.innerHTML =
+                    '<div style="font-size:0.8125rem;line-height:1.7;color:var(--text-secondary);">' +
+                    html +
+                    "</div>" +
+                    '<div style="font-size:0.625rem;color:var(--text-muted);margin-top:0.75rem;">Generated in ' +
+                    (d.computation_ms / 1000).toFixed(1) +
+                    "s using Joveo data + industry benchmarks (Appcast, Recruitics, LinkedIn Talent Solutions, SHRM, Gem)</div>";
+                } else {
+                  content.innerHTML =
+                    '<div style="font-size:0.8125rem;color:var(--text-muted);">Analysis unavailable</div>';
+                }
+              })
+              .catch(function () {
+                content.innerHTML =
+                  '<div style="font-size:0.8125rem;color:var(--text-muted);">Analysis unavailable -- LLM service may be busy</div>';
+              });
+          });
         }
 
         function renderTodayActions() {
@@ -3813,17 +4023,53 @@
             var list = card.querySelector(".action-card-list");
             var shown = sec.jobs.slice(0, 50);
             shown.forEach(function (j) {
+              var verdictColor =
+                j.score >= 70
+                  ? "var(--green)"
+                  : j.score >= 50
+                    ? "var(--amber)"
+                    : "var(--red)";
+              var verdictText =
+                j.score >= 70 ? "GO" : j.score >= 50 ? "CAUTION" : "HOLD";
+              var eaTag = j.easyApply
+                ? '<span style="font-size:0.5625rem;padding:1px 4px;background:var(--green);color:#000;border-radius:3px;font-weight:600;">EA</span>'
+                : '<span style="font-size:0.5625rem;padding:1px 4px;background:var(--amber);color:#000;border-radius:3px;font-weight:600;">ATS</span>';
               list.innerHTML +=
-                '<div class="action-job-row">' +
-                '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px;">' +
-                escHtml(j.title || j.projectName || j.id) +
+                '<div class="action-job-row" style="display:grid;grid-template-columns:1fr auto;gap:0.5rem;align-items:center;">' +
+                '<div style="overflow:hidden;">' +
+                '<div style="display:flex;align-items:center;gap:0.375rem;">' +
+                '<span style="font-size:0.5625rem;font-weight:700;color:' +
+                verdictColor +
+                ";padding:1px 4px;border:1px solid " +
+                verdictColor +
+                ';border-radius:3px;">' +
+                verdictText +
                 "</span>" +
-                '<span style="color:var(--text-muted);">' +
+                eaTag +
+                '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' +
+                escHtml(j.title || j.projectName || j.id) +
+                "</span></div>" +
+                '<div style="font-size:0.625rem;color:var(--text-muted);margin-top:2px;">' +
                 escHtml(j.client) +
                 " / " +
                 (COUNTRY_NAMES[j.country] || j.country) +
-                "</span>" +
-                "</div>";
+                "</div></div>" +
+                '<div style="display:flex;gap:0.75rem;font-size:0.625rem;text-align:right;white-space:nowrap;">' +
+                '<div><div style="color:var(--text-muted);">Views</div><div style="font-weight:600;">' +
+                (j.expectedViews || "?") +
+                "</div></div>" +
+                '<div><div style="color:var(--text-muted);">Apps</div><div style="font-weight:600;color:var(--green);">' +
+                (j.expectedApps || "?") +
+                "</div></div>" +
+                '<div><div style="color:var(--text-muted);">AR</div><div style="font-weight:600;">' +
+                (j.expectedAR || "?") +
+                "%</div></div>" +
+                '<div><div style="color:var(--text-muted);">Score</div><div style="font-weight:600;color:' +
+                verdictColor +
+                ';">' +
+                j.score +
+                "</div></div>" +
+                "</div></div>";
             });
             if (sec.jobs.length > 50) {
               list.innerHTML +=
@@ -3866,27 +4112,32 @@
                   }, 0) / STATE.slots.length
                 ).toFixed(1)
               : "0.0";
-          var predictedDaily =
-            STATE.slots.length > 0
-              ? Math.round(
-                  STATE.slots.reduce(function (s, sl) {
-                    return s + (sl.job.expectedAR / 100) * 50;
-                  }, 0),
-                )
-              : 0;
+
+          // Predicted totals from expected metrics
+          var totalViews = STATE.slots.reduce(function (s, sl) {
+            return s + (sl.job.expectedViews || 0);
+          }, 0);
+          var totalApps = STATE.slots.reduce(function (s, sl) {
+            return s + (sl.job.expectedApps || 0);
+          }, 0);
+          var goCount = STATE.slots.filter(function (s) {
+            return s.job.score >= 70;
+          }).length;
+          var eaCount = STATE.slots.filter(function (s) {
+            return s.job.easyApply;
+          }).length;
+          var nonEaCount = active - eaCount;
+
+          function fmtK(n) {
+            return n >= 1000 ? (n / 1000).toFixed(1) + "K" : String(n);
+          }
 
           var metrics = [
             {
-              label: "Total Slots",
-              value: TOTAL_SLOTS,
-              cls: "linkedin-color",
-              sub: "LinkedIn posting capacity",
-            },
-            {
-              label: "Active",
-              value: active,
+              label: "Active Slots",
+              value: active + "/" + TOTAL_SLOTS,
               cls: "green-color",
-              sub: "Currently live",
+              sub: goCount + " GO, " + (active - goCount) + " CAUTION/HOLD",
             },
             {
               label: "Queued",
@@ -3895,16 +4146,31 @@
               sub: "Waiting for slot",
             },
             {
+              label: "Predicted Views",
+              value: fmtK(totalViews),
+              cls: "linkedin-color",
+              sub: "Across all active postings",
+            },
+            {
+              label: "Predicted Apps",
+              value: fmtK(totalApps),
+              cls: "green-color",
+              sub: "Total expected applications",
+            },
+            {
               label: "Avg Apply Rate",
               value: avgAR + "%",
               cls: "teal-color",
-              sub: "Expected weighted avg",
+              sub: "Platform avg: 11.2%",
             },
             {
-              label: "Predicted Daily Applies",
-              value: predictedDaily,
-              cls: "linkedin-color",
-              sub: "Across all active slots",
+              label: "Easy Apply",
+              value: eaCount + "/" + active,
+              cls: nonEaCount > 0 ? "amber-color" : "green-color",
+              sub:
+                nonEaCount > 0
+                  ? nonEaCount + " using ATS (2.3x lift available)"
+                  : "All using Easy Apply",
             },
           ];
 
@@ -4821,13 +5087,15 @@
 
               document.getElementById("pred-clicks").textContent = fmt(clicks);
               document.getElementById("pred-clicks-sub").textContent = easyApply
-                ? "Easy Apply clicks"
-                : "redirect clicks to ATS";
+                ? "clicked Apply on LinkedIn"
+                : "clicked Apply, redirected to ATS";
 
               document.getElementById("pred-apps").textContent = fmt(apps);
               document.getElementById("pred-apps-sub").textContent = easyApply
                 ? "completed applications"
-                : "apply starts on ATS";
+                : "finished application on ATS (" +
+                  (clicks > 0 ? Math.round((apps / clicks) * 100) : 0) +
+                  "% of clicks)";
 
               document.getElementById("pred-ar").textContent = ar + "%";
               var benchAR = COUNTRY_RATES[country] || 7.0;

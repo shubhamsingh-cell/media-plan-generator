@@ -1,0 +1,496 @@
+{
+  "_metadata": {
+    "title": "LinkedIn Job Advertising Industry Benchmarks (External Sources)",
+    "description": "Aggregated benchmarks from public industry reports, LinkedIn Talent Solutions, Appcast, Recruitics, Joveo research, and recruitment marketing publications. Used by SlotOps, Nova Chatbot, and Media Plan Generator.",
+    "sources": [
+      "LinkedIn Talent Solutions Benchmarks 2024-2025",
+      "Appcast Recruitment Marketing Benchmark Report 2024-2025",
+      "Recruitics Industry Benchmarks 2024-2025",
+      "Joveo Programmatic Recruitment Intelligence",
+      "SHRM Talent Acquisition Benchmarking Report",
+      "Gem Recruiting Benchmarks 2024",
+      "Greenhouse Hiring Benchmarks 2024-2025",
+      "Lever State of Hiring 2024",
+      "iCIMS Workforce Report 2024-2025"
+    ],
+    "last_updated": "2026-04-04",
+    "data_quality": "high",
+    "shared_across": ["slotops", "nova_chatbot", "media_plan_generator"]
+  },
+
+  "linkedin_platform_benchmarks": {
+    "overall": {
+      "avg_apply_rate_pct": 11.2,
+      "median_apply_rate_pct": 8.5,
+      "avg_views_per_posting": 150,
+      "avg_clicks_per_posting": 18,
+      "avg_applications_per_posting": 12,
+      "avg_cost_per_click_usd": 3.50,
+      "avg_cost_per_application_usd": 45.00,
+      "avg_time_to_first_application_hours": 4,
+      "avg_posting_lifespan_days": 30,
+      "easy_apply_adoption_pct": 65,
+      "source": "LinkedIn Talent Solutions + Appcast aggregate 2024-2025"
+    },
+    "easy_apply_vs_ats": {
+      "easy_apply_avg_apply_rate_pct": 16.8,
+      "ats_redirect_avg_apply_rate_pct": 6.5,
+      "easy_apply_lift_factor": 2.6,
+      "easy_apply_completion_rate_pct": 92,
+      "ats_redirect_completion_rate_pct": 35,
+      "easy_apply_drop_off_pct": 8,
+      "ats_redirect_drop_off_pct": 65,
+      "mobile_easy_apply_rate_pct": 72,
+      "mobile_ats_redirect_rate_pct": 28,
+      "source": "Appcast + Recruitics combined 2024-2025"
+    },
+    "by_posting_type": {
+      "promoted_job": {
+        "avg_views": 300,
+        "avg_applications": 22,
+        "avg_apply_rate_pct": 13.5,
+        "cost_range_usd_per_day": [10, 50]
+      },
+      "free_job_posting": {
+        "avg_views": 45,
+        "avg_applications": 4,
+        "avg_apply_rate_pct": 8.9,
+        "visibility_vs_promoted": 0.15
+      }
+    }
+  },
+
+  "by_industry": {
+    "technology": {
+      "avg_apply_rate_pct": 8.2,
+      "avg_views": 180,
+      "avg_applications": 15,
+      "avg_cost_per_application_usd": 52,
+      "competition_level": "very_high",
+      "avg_time_to_fill_days": 44,
+      "talent_scarcity_index": 0.85,
+      "top_titles": ["Software Engineer", "Data Scientist", "Product Manager", "DevOps Engineer"],
+      "easy_apply_lift": 2.8,
+      "best_posting_days": ["Tuesday", "Wednesday"],
+      "notes": "High competition drives up CPA. Easy Apply critical for mobile-first tech candidates."
+    },
+    "healthcare": {
+      "avg_apply_rate_pct": 14.5,
+      "avg_views": 120,
+      "avg_applications": 18,
+      "avg_cost_per_application_usd": 35,
+      "competition_level": "high",
+      "avg_time_to_fill_days": 49,
+      "talent_scarcity_index": 0.90,
+      "top_titles": ["Registered Nurse", "Medical Assistant", "Physical Therapist"],
+      "easy_apply_lift": 2.2,
+      "best_posting_days": ["Monday", "Tuesday"],
+      "notes": "Highest scarcity. Clinical roles perform well on LinkedIn despite being non-traditional platform."
+    },
+    "finance_banking": {
+      "avg_apply_rate_pct": 10.8,
+      "avg_views": 160,
+      "avg_applications": 17,
+      "avg_cost_per_application_usd": 48,
+      "competition_level": "high",
+      "avg_time_to_fill_days": 38,
+      "talent_scarcity_index": 0.70,
+      "top_titles": ["Financial Analyst", "Accountant", "Risk Manager"],
+      "easy_apply_lift": 2.4,
+      "best_posting_days": ["Tuesday", "Thursday"]
+    },
+    "staffing_recruiting": {
+      "avg_apply_rate_pct": 12.6,
+      "avg_views": 200,
+      "avg_applications": 25,
+      "avg_cost_per_application_usd": 30,
+      "competition_level": "very_high",
+      "avg_time_to_fill_days": 21,
+      "talent_scarcity_index": 0.45,
+      "notes": "Highest volume. Staffing firms dominate LinkedIn job postings. Easy Apply is standard."
+    },
+    "manufacturing": {
+      "avg_apply_rate_pct": 13.2,
+      "avg_views": 90,
+      "avg_applications": 12,
+      "avg_cost_per_application_usd": 28,
+      "competition_level": "moderate",
+      "avg_time_to_fill_days": 35,
+      "talent_scarcity_index": 0.75,
+      "easy_apply_lift": 3.1,
+      "notes": "Blue-collar roles see highest Easy Apply lift -- mobile-dominant audience."
+    },
+    "retail_consumer": {
+      "avg_apply_rate_pct": 15.3,
+      "avg_views": 110,
+      "avg_applications": 20,
+      "avg_cost_per_application_usd": 22,
+      "competition_level": "moderate",
+      "avg_time_to_fill_days": 25,
+      "talent_scarcity_index": 0.55,
+      "easy_apply_lift": 3.5,
+      "notes": "Highest Easy Apply lift. Candidates are mobile-first and expect frictionless applications."
+    },
+    "professional_services": {
+      "avg_apply_rate_pct": 9.5,
+      "avg_views": 140,
+      "avg_applications": 13,
+      "avg_cost_per_application_usd": 55,
+      "competition_level": "high",
+      "avg_time_to_fill_days": 42
+    },
+    "education": {
+      "avg_apply_rate_pct": 11.8,
+      "avg_views": 95,
+      "avg_applications": 14,
+      "avg_cost_per_application_usd": 32,
+      "competition_level": "moderate",
+      "avg_time_to_fill_days": 30
+    },
+    "government_nonprofit": {
+      "avg_apply_rate_pct": 16.2,
+      "avg_views": 85,
+      "avg_applications": 22,
+      "avg_cost_per_application_usd": 18,
+      "competition_level": "low",
+      "avg_time_to_fill_days": 45,
+      "notes": "Highest apply rates due to mission-driven candidates. Longer time-to-fill due to bureaucracy."
+    },
+    "logistics_transportation": {
+      "avg_apply_rate_pct": 14.8,
+      "avg_views": 75,
+      "avg_applications": 11,
+      "avg_cost_per_application_usd": 25,
+      "competition_level": "moderate",
+      "avg_time_to_fill_days": 28,
+      "easy_apply_lift": 3.2
+    }
+  },
+
+  "by_seniority": {
+    "entry_level": {
+      "avg_apply_rate_pct": 18.5,
+      "avg_views": 250,
+      "avg_applications": 45,
+      "avg_cost_per_application_usd": 15,
+      "competition_for_candidates": "low",
+      "competition_among_employers": "high",
+      "notes": "Highest application volume but lowest quality. Screen aggressively."
+    },
+    "mid_level": {
+      "avg_apply_rate_pct": 11.2,
+      "avg_views": 150,
+      "avg_applications": 18,
+      "avg_cost_per_application_usd": 38,
+      "competition_for_candidates": "moderate",
+      "competition_among_employers": "high"
+    },
+    "senior": {
+      "avg_apply_rate_pct": 7.5,
+      "avg_views": 120,
+      "avg_applications": 9,
+      "avg_cost_per_application_usd": 65,
+      "competition_for_candidates": "high",
+      "competition_among_employers": "moderate"
+    },
+    "director_vp": {
+      "avg_apply_rate_pct": 4.2,
+      "avg_views": 200,
+      "avg_applications": 5,
+      "avg_cost_per_application_usd": 120,
+      "competition_for_candidates": "very_high",
+      "competition_among_employers": "low",
+      "notes": "Low apply rates expected. Combine with InMail outreach for best results."
+    },
+    "executive_c_suite": {
+      "avg_apply_rate_pct": 2.1,
+      "avg_views": 350,
+      "avg_applications": 3,
+      "avg_cost_per_application_usd": 250,
+      "competition_for_candidates": "extreme",
+      "notes": "LinkedIn job posts alone rarely fill C-suite. Use as brand signal alongside headhunter."
+    }
+  },
+
+  "by_workplace_type": {
+    "remote": {
+      "avg_apply_rate_pct": 14.8,
+      "avg_views": 280,
+      "avg_applications": 35,
+      "application_volume_vs_onsite": 3.5,
+      "quality_score_vs_onsite": 0.7,
+      "geographic_reach_multiplier": 5.0,
+      "notes": "3.5x more applications but lower location-specific quality. Great for high-volume roles."
+    },
+    "hybrid": {
+      "avg_apply_rate_pct": 10.5,
+      "avg_views": 150,
+      "avg_applications": 16,
+      "application_volume_vs_onsite": 1.6,
+      "quality_score_vs_onsite": 0.9,
+      "notes": "Best balance of volume and quality. Specify exact in-office days for better targeting."
+    },
+    "onsite": {
+      "avg_apply_rate_pct": 8.2,
+      "avg_views": 80,
+      "avg_applications": 10,
+      "application_volume_vs_onsite": 1.0,
+      "quality_score_vs_onsite": 1.0,
+      "notes": "Lowest volume but highest geo-relevance. Consider location-based salary in posting."
+    }
+  },
+
+  "by_region": {
+    "north_america": {
+      "avg_apply_rate_pct": 9.5,
+      "avg_cost_per_click_usd": 4.20,
+      "avg_cost_per_application_usd": 52,
+      "linkedin_penetration_pct": 85,
+      "mobile_application_pct": 65,
+      "peak_posting_hours_local": [8, 9, 10, 14, 15],
+      "best_days": ["Tuesday", "Wednesday", "Thursday"],
+      "worst_days": ["Saturday", "Sunday"],
+      "seasonal_peaks": ["January", "September"],
+      "seasonal_troughs": ["July", "December"]
+    },
+    "europe": {
+      "avg_apply_rate_pct": 8.8,
+      "avg_cost_per_click_usd": 3.50,
+      "avg_cost_per_application_usd": 45,
+      "linkedin_penetration_pct": 70,
+      "mobile_application_pct": 58,
+      "peak_posting_hours_local": [9, 10, 11, 15, 16],
+      "best_days": ["Tuesday", "Wednesday"],
+      "worst_days": ["Saturday", "Sunday"],
+      "seasonal_peaks": ["January", "September"],
+      "seasonal_troughs": ["August", "December"],
+      "notes": "GDPR affects retargeting. Strong preference for local language postings."
+    },
+    "asia_pacific": {
+      "avg_apply_rate_pct": 12.5,
+      "avg_cost_per_click_usd": 2.00,
+      "avg_cost_per_application_usd": 25,
+      "linkedin_penetration_pct": 45,
+      "mobile_application_pct": 78,
+      "peak_posting_hours_local": [10, 11, 14, 15, 16],
+      "best_days": ["Monday", "Tuesday", "Wednesday"],
+      "notes": "Lower CPC but mobile-first. Easy Apply almost mandatory for APAC markets."
+    },
+    "latin_america": {
+      "avg_apply_rate_pct": 13.8,
+      "avg_cost_per_click_usd": 1.50,
+      "avg_cost_per_application_usd": 18,
+      "linkedin_penetration_pct": 40,
+      "mobile_application_pct": 82,
+      "notes": "Highest mobile application rates. Very cost-effective for high-volume hiring."
+    },
+    "middle_east_africa": {
+      "avg_apply_rate_pct": 15.2,
+      "avg_cost_per_click_usd": 1.80,
+      "avg_cost_per_application_usd": 20,
+      "linkedin_penetration_pct": 35,
+      "notes": "Growing market. High apply rates but smaller talent pool."
+    }
+  },
+
+  "by_job_function": {
+    "engineering_software": {
+      "avg_apply_rate_pct": 7.8,
+      "avg_views": 200,
+      "avg_time_to_fill_days": 45,
+      "candidate_supply_demand_ratio": 0.6,
+      "recommended_channels": ["LinkedIn", "GitHub Jobs", "Stack Overflow", "AngelList"],
+      "notes": "Most competitive function. Passive sourcing + Easy Apply essential."
+    },
+    "sales": {
+      "avg_apply_rate_pct": 12.5,
+      "avg_views": 140,
+      "avg_time_to_fill_days": 30,
+      "candidate_supply_demand_ratio": 1.2,
+      "recommended_channels": ["LinkedIn", "Indeed", "Glassdoor"]
+    },
+    "marketing": {
+      "avg_apply_rate_pct": 13.8,
+      "avg_views": 160,
+      "avg_time_to_fill_days": 32,
+      "candidate_supply_demand_ratio": 1.5,
+      "recommended_channels": ["LinkedIn", "Indeed", "Built In"]
+    },
+    "operations": {
+      "avg_apply_rate_pct": 14.2,
+      "avg_views": 100,
+      "avg_time_to_fill_days": 28,
+      "candidate_supply_demand_ratio": 1.8,
+      "recommended_channels": ["LinkedIn", "Indeed", "ZipRecruiter"]
+    },
+    "human_resources": {
+      "avg_apply_rate_pct": 15.5,
+      "avg_views": 130,
+      "avg_time_to_fill_days": 25,
+      "candidate_supply_demand_ratio": 2.0,
+      "recommended_channels": ["LinkedIn", "SHRM Job Board", "Indeed"]
+    },
+    "finance_accounting": {
+      "avg_apply_rate_pct": 10.5,
+      "avg_views": 120,
+      "avg_time_to_fill_days": 35,
+      "candidate_supply_demand_ratio": 1.0,
+      "recommended_channels": ["LinkedIn", "Indeed", "Robert Half"]
+    },
+    "data_science_analytics": {
+      "avg_apply_rate_pct": 9.2,
+      "avg_views": 220,
+      "avg_time_to_fill_days": 42,
+      "candidate_supply_demand_ratio": 0.7,
+      "notes": "High demand. Remote option significantly increases applicant pool."
+    },
+    "customer_service": {
+      "avg_apply_rate_pct": 18.5,
+      "avg_views": 80,
+      "avg_time_to_fill_days": 18,
+      "candidate_supply_demand_ratio": 2.5,
+      "notes": "LinkedIn not primary channel. Consider Indeed, ZipRecruiter for better ROI."
+    },
+    "design_creative": {
+      "avg_apply_rate_pct": 11.0,
+      "avg_views": 170,
+      "avg_time_to_fill_days": 35,
+      "candidate_supply_demand_ratio": 1.1,
+      "recommended_channels": ["LinkedIn", "Dribbble", "Behance", "Built In"]
+    }
+  },
+
+  "posting_optimization_tips": {
+    "title_optimization": {
+      "impact": "high",
+      "guidelines": [
+        "Use standard job titles (Software Engineer > Ninja Developer) -- 30% more views",
+        "Include seniority level (Senior, Lead, Director) -- 25% higher qualified applicants",
+        "Avoid internal jargon -- 40% drop in views for non-standard titles",
+        "Keep under 60 characters for full mobile visibility",
+        "Include one keyword candidates search for"
+      ]
+    },
+    "description_optimization": {
+      "impact": "high",
+      "guidelines": [
+        "150-300 words ideal length -- 18% higher apply rate vs 500+ words",
+        "Lead with impact and opportunity, not requirements",
+        "Include salary range -- 75% more applications when listed",
+        "Bullet points for requirements -- 12% higher readability score",
+        "Include company culture and benefits in first 200 characters (mobile preview)"
+      ]
+    },
+    "timing_optimization": {
+      "impact": "medium",
+      "guidelines": [
+        "Post Tuesday-Thursday for highest visibility (15-20% more views than weekend)",
+        "Morning posts (8-10 AM local) get 23% more first-day applications",
+        "Refresh/repost every 7-10 days to reset algorithmic boost",
+        "January and September are peak hiring months (20-30% more activity)",
+        "Avoid posting during major holidays (50-70% drop in engagement)"
+      ]
+    },
+    "application_method": {
+      "impact": "very_high",
+      "guidelines": [
+        "Easy Apply increases applications by 2.3-3.5x vs ATS redirect",
+        "Mobile candidates abandon 65% of ATS redirects",
+        "Easy Apply completion rate: 92% vs ATS: 35%",
+        "If ATS required, ensure mobile-optimized career site",
+        "Consider Easy Apply for volume roles, ATS for senior/specialized roles"
+      ]
+    },
+    "salary_transparency": {
+      "impact": "high",
+      "guidelines": [
+        "Listings with salary get 75% more applications (LinkedIn data)",
+        "Salary range acceptable (e.g., $80K-$100K) vs exact figure",
+        "State salary band even if competitive -- shows transparency",
+        "Include total compensation (base + bonus + equity) for tech roles",
+        "Required by law in many US states (CO, NY, CA, WA, CT, MD)"
+      ]
+    }
+  },
+
+  "competitive_benchmarks": {
+    "linkedin_vs_indeed": {
+      "linkedin_strengths": ["Professional/white-collar roles", "Passive candidate reach", "Employer branding", "Senior roles", "B2B industries"],
+      "indeed_strengths": ["Volume hiring", "Blue-collar roles", "Lower CPA", "Broader candidate pool", "Entry-level"],
+      "linkedin_avg_cpa_usd": 45,
+      "indeed_avg_cpa_usd": 22,
+      "linkedin_candidate_quality_index": 8.5,
+      "indeed_candidate_quality_index": 6.2,
+      "recommendation": "Use LinkedIn for quality-focused professional hiring; Indeed for volume-focused operational hiring"
+    },
+    "linkedin_vs_glassdoor": {
+      "linkedin_advantage": "Active + passive reach, InMail, Easy Apply",
+      "glassdoor_advantage": "Employer brand transparency, review-driven candidates",
+      "overlap_pct": 45
+    },
+    "linkedin_vs_programmatic": {
+      "programmatic_platforms": ["Appcast", "Joveo", "PandoLogic", "Recruitics"],
+      "programmatic_avg_cpa_usd": 18,
+      "programmatic_advantage": "Cost efficiency, multi-channel distribution, AI-optimized spend",
+      "linkedin_advantage": "Candidate quality, passive reach, professional targeting",
+      "recommendation": "Combine programmatic for volume + LinkedIn for quality/senior roles"
+    }
+  },
+
+  "cost_benchmarks_2025": {
+    "linkedin_cpc_by_region": {
+      "north_america": {"min": 2.0, "max": 8.0, "avg": 4.20},
+      "europe": {"min": 1.5, "max": 6.0, "avg": 3.50},
+      "asia_pacific": {"min": 0.8, "max": 4.0, "avg": 2.00},
+      "latin_america": {"min": 0.5, "max": 3.0, "avg": 1.50},
+      "middle_east_africa": {"min": 0.8, "max": 4.0, "avg": 1.80}
+    },
+    "linkedin_cpa_by_seniority": {
+      "entry_level": {"min": 8, "max": 25, "avg": 15},
+      "mid_level": {"min": 20, "max": 55, "avg": 38},
+      "senior": {"min": 40, "max": 100, "avg": 65},
+      "director_plus": {"min": 80, "max": 200, "avg": 120}
+    },
+    "budget_recommendations": {
+      "small_company_1_5_roles": {"daily_usd": [10, 25], "monthly_usd": [300, 750]},
+      "mid_company_5_20_roles": {"daily_usd": [25, 100], "monthly_usd": [750, 3000]},
+      "enterprise_20_plus_roles": {"daily_usd": [100, 500], "monthly_usd": [3000, 15000]},
+      "note": "Budget should be 2x for first 2 weeks to build momentum, then optimize"
+    }
+  },
+
+  "seasonal_patterns": {
+    "january": {"activity_index": 1.25, "notes": "New Year hiring surge, budget resets"},
+    "february": {"activity_index": 1.15, "notes": "Strong continuation of Q1 hiring"},
+    "march": {"activity_index": 1.10, "notes": "Spring hiring active"},
+    "april": {"activity_index": 1.05, "notes": "Steady hiring, Q1 hires onboarding"},
+    "may": {"activity_index": 0.95, "notes": "Slight slowdown before summer"},
+    "june": {"activity_index": 0.85, "notes": "Summer slowdown begins"},
+    "july": {"activity_index": 0.75, "notes": "Lowest activity month, vacation season"},
+    "august": {"activity_index": 0.80, "notes": "Gradual recovery"},
+    "september": {"activity_index": 1.20, "notes": "Back-to-work hiring surge"},
+    "october": {"activity_index": 1.10, "notes": "Q4 hiring for year-end goals"},
+    "november": {"activity_index": 0.90, "notes": "Slows around Thanksgiving (US)"},
+    "december": {"activity_index": 0.70, "notes": "Holiday slowdown, lowest engagement"}
+  },
+
+  "linkedin_algorithm_insights": {
+    "posting_freshness_decay": {
+      "day_1_3": "100% visibility -- algorithmic boost for new postings",
+      "day_4_7": "70% visibility -- natural decay begins",
+      "day_8_14": "40% visibility -- consider refreshing",
+      "day_15_21": "20% visibility -- repost recommended",
+      "day_22_30": "10% visibility -- repost or close",
+      "recommendation": "Refresh every 7-10 days for sustained visibility"
+    },
+    "ranking_factors": [
+      "Relevance to candidate profile and search terms",
+      "Posting recency (newer = higher)",
+      "Easy Apply availability (boosted in mobile feed)",
+      "Salary information included (boosted)",
+      "Company page engagement and follower count",
+      "Application velocity (more apps early = more visibility)",
+      "Job description completeness and keyword density"
+    ]
+  }
+}
