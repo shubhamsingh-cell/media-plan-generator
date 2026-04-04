@@ -108,7 +108,7 @@
       "    </svg>" +
       "    Sign in with Google" +
       "  </button>" +
-      '  <p style="color:rgba(255,255,255,0.25);font-size:11px;margin-top:24px;font-family:Inter,sans-serif;">Nova AI Suite &mdash; Joveo</p>' +
+      '  <p style="color:rgba(255,255,255,0.2);font-size:11px;margin-top:24px;font-family:Inter,sans-serif;">Nova AI Suite</p>' +
       "</div>";
 
     document.body.appendChild(overlay);
