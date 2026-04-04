@@ -594,13 +594,36 @@ def embed_batch(texts: list[str]) -> list[list[float]] | None:
                     )
                     return None
             except urllib.error.URLError as e:
+                reason_str = str(e.reason) if e.reason else ""
+                if "SSL" in reason_str and attempt < _VOYAGE_MAX_RETRIES:
+                    logger.warning(
+                        "Voyage AI SSL error (attempt %d/%d), retrying: %s",
+                        attempt + 1,
+                        _VOYAGE_MAX_RETRIES,
+                        reason_str[:100],
+                    )
+                    time.sleep(_VOYAGE_BASE_BACKOFF * (2**attempt))
+                    continue
                 logger.error(
                     "Voyage AI URL error: %s",
                     e.reason,
                     exc_info=True,
                 )
                 return None
-            except (json.JSONDecodeError, OSError, ValueError, TypeError) as e:
+            except OSError as e:
+                err_str = str(e)
+                if "SSL" in err_str and attempt < _VOYAGE_MAX_RETRIES:
+                    logger.warning(
+                        "Voyage AI SSL/OS error (attempt %d/%d), retrying: %s",
+                        attempt + 1,
+                        _VOYAGE_MAX_RETRIES,
+                        err_str[:100],
+                    )
+                    time.sleep(_VOYAGE_BASE_BACKOFF * (2**attempt))
+                    continue
+                logger.error("Voyage AI OS error: %s", e, exc_info=True)
+                return None
+            except (json.JSONDecodeError, ValueError, TypeError) as e:
                 logger.error("Voyage AI error: %s", e, exc_info=True)
                 return None
 
