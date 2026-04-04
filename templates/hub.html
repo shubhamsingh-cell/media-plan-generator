@@ -230,21 +230,7 @@
         opacity: 0.5;
       }
 
-      /* Product cards: glass glow on hover */
-      .product-hero-card:hover {
-        box-shadow:
-          0 20px 60px rgba(0, 0, 0, 0.4),
-          0 0 40px rgba(90, 84, 189, 0.12) !important;
-      }
-      .product-plan:hover {
-        border-color: rgba(90, 84, 189, 0.5) !important;
-      }
-      .product-nova:hover {
-        border-color: rgba(107, 179, 205, 0.5) !important;
-      }
-      .product-cg:hover {
-        border-color: rgba(72, 199, 142, 0.5) !important;
-      }
+      /* Product cards: glass glow on hover -- overrides removed, handled in main card CSS */
 
       /* Demo card glow */
       .demo-card:hover {
@@ -1805,20 +1791,20 @@
         overflow: hidden;
       }
 
-      /* Floating glow orbs */
+      /* Floating glow orbs -- BOLD */
       .products-orb {
         position: absolute;
         border-radius: 50%;
         filter: blur(80px);
-        opacity: 0.35;
+        opacity: 0.45;
         pointer-events: none;
         z-index: 0;
         will-change: transform;
         animation: floatOrb 20s ease-in-out infinite;
       }
       .products-orb--1 {
-        width: 400px;
-        height: 400px;
+        width: 500px;
+        height: 500px;
         background: radial-gradient(circle, #5a54bd 0%, transparent 70%);
         top: -5%;
         left: -8%;
@@ -1826,8 +1812,8 @@
         animation-duration: 22s;
       }
       .products-orb--2 {
-        width: 350px;
-        height: 350px;
+        width: 450px;
+        height: 450px;
         background: radial-gradient(circle, #6bb3cd 0%, transparent 70%);
         bottom: -10%;
         right: -5%;
@@ -1835,8 +1821,8 @@
         animation-duration: 18s;
       }
       .products-orb--3 {
-        width: 280px;
-        height: 280px;
+        width: 380px;
+        height: 380px;
         background: radial-gradient(circle, #202058 0%, transparent 70%);
         top: 40%;
         left: 50%;
@@ -1857,14 +1843,14 @@
       }
 
       .product-hero-card {
-        background: var(--bg-card);
         border-radius: var(--radius-xl);
         padding: var(--space-8);
         text-decoration: none;
         color: var(--text-primary);
         transition:
           transform 0.4s cubic-bezier(0.16, 1, 0.3, 1),
-          box-shadow 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+          box-shadow 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+          background 0.4s ease;
         position: relative;
         overflow: hidden;
         display: flex;
@@ -1880,85 +1866,61 @@
         transform-style: preserve-3d;
         perspective: 800px;
         will-change: transform;
-        /* Animated gradient border */
         border: 1px solid transparent;
         background-clip: padding-box;
         animation: rotateBorderAngle 8s linear infinite;
+        /* Default bg -- overridden per product */
+        background: var(--bg-card);
       }
 
-      /* Gradient border via box-shadow trick (fallback-friendly) */
-      .product-hero-card::before {
-        content: "";
-        position: absolute;
-        inset: -1px;
-        border-radius: var(--radius-xl);
-        padding: 1px;
-        background: conic-gradient(
-          from var(--border-angle, 0deg),
-          transparent 30%,
-          var(--card-accent, #5a54bd) 50%,
-          transparent 70%
-        );
-        -webkit-mask:
-          linear-gradient(#fff 0 0) content-box,
-          linear-gradient(#fff 0 0);
-        -webkit-mask-composite: xor;
-        mask-composite: exclude;
-        pointer-events: none;
-        z-index: -1;
-        opacity: 0.8;
-        transition: opacity 0.4s ease;
-      }
-
-      .product-hero-card:hover::before {
-        opacity: 1;
-      }
-
-      /* Mouse-tracking glow on hover */
-      .product-hero-card::after {
-        content: "";
-        position: absolute;
-        inset: -1px;
-        border-radius: var(--radius-xl);
-        background: radial-gradient(
-          500px circle at var(--mouse-x) var(--mouse-y),
-          rgba(90, 84, 189, 0.25),
-          transparent 60%
-        );
-        opacity: 0;
-        transition: opacity 0.4s ease;
-        z-index: -1;
-        pointer-events: none;
-      }
-      .product-hero-card:hover::after {
-        opacity: 1;
-      }
-
-      /* 3D tilt + magnetic cursor + lift on hover */
-      .product-hero-card:hover {
-        transform: perspective(800px) rotateX(var(--card-rx))
-          rotateY(var(--card-ry)) translateX(var(--card-tx))
-          translateY(var(--card-ty)) translateZ(8px);
-      }
-
-      /* Per-product accent colors for animated border */
+      /* Per-product accent colors + gradient backgrounds */
       .product-plan {
         --card-accent: #7b75d4;
+        --card-accent-rgb: 123, 117, 212;
+        background: linear-gradient(
+          145deg,
+          rgba(123, 117, 212, 0.15) 0%,
+          var(--bg-card) 55%
+        );
       }
       .product-nova {
         --card-accent: #6bb3cd;
+        --card-accent-rgb: 107, 179, 205;
+        background: linear-gradient(
+          225deg,
+          rgba(107, 179, 205, 0.15) 0%,
+          var(--bg-card) 55%
+        );
       }
       .product-slotops {
         --card-accent: #378fe9;
+        --card-accent-rgb: 55, 143, 233;
+        background: linear-gradient(
+          315deg,
+          rgba(55, 143, 233, 0.15) 0%,
+          var(--bg-card) 55%
+        );
       }
       .product-cg {
         --card-accent: #48c78e;
+        --card-accent-rgb: 72, 199, 142;
+        background: linear-gradient(
+          135deg,
+          rgba(72, 199, 142, 0.15) 0%,
+          var(--bg-card) 55%
+        );
       }
       .product-geoviz {
         --card-accent: #a78bfa;
+        --card-accent-rgb: 167, 139, 250;
+        background: radial-gradient(
+          ellipse at 50% 30%,
+          rgba(167, 139, 250, 0.18) 0%,
+          var(--bg-card) 60%
+        );
       }
 
-      /* Top accent stripe (via box-shadow inset) */
+      /* Top accent stripe */
       .product-plan {
         box-shadow: inset 0 3px 0 0 #7b75d4;
       }
@@ -1974,27 +1936,135 @@
       .product-geoviz {
         box-shadow: inset 0 3px 0 0 #a78bfa;
       }
-      .product-hero-card:hover {
-        box-shadow:
-          inset 0 3px 0 0 var(--card-accent),
-          0 25px 80px rgba(0, 0, 0, 0.5),
-          0 0 40px color-mix(in srgb, var(--card-accent) 15%, transparent);
+
+      /* Gradient border via conic-gradient */
+      .product-hero-card::before {
+        content: "";
+        position: absolute;
+        inset: -1px;
+        border-radius: var(--radius-xl);
+        padding: 1.5px;
+        background: conic-gradient(
+          from var(--border-angle, 0deg),
+          transparent 25%,
+          var(--card-accent, #5a54bd) 50%,
+          transparent 75%
+        );
+        -webkit-mask:
+          linear-gradient(#fff 0 0) content-box,
+          linear-gradient(#fff 0 0);
+        -webkit-mask-composite: xor;
+        mask-composite: exclude;
+        pointer-events: none;
+        z-index: -1;
+        opacity: 0.9;
+        transition: opacity 0.4s ease;
       }
 
-      /* Badge with shimmer */
+      .product-hero-card:hover::before {
+        opacity: 1;
+      }
+
+      /* Mouse-tracking glow on hover */
+      .product-hero-card::after {
+        content: "";
+        position: absolute;
+        inset: -1px;
+        border-radius: var(--radius-xl);
+        background: radial-gradient(
+          500px circle at var(--mouse-x) var(--mouse-y),
+          rgba(var(--card-accent-rgb, 90, 84, 189), 0.3),
+          transparent 60%
+        );
+        opacity: 0;
+        transition: opacity 0.4s ease;
+        z-index: -1;
+        pointer-events: none;
+      }
+      .product-hero-card:hover::after {
+        opacity: 1;
+      }
+
+      /* 3D tilt + magnetic cursor + DRAMATIC lift on hover */
+      .product-hero-card:hover {
+        transform: perspective(800px) rotateX(var(--card-rx))
+          rotateY(var(--card-ry)) translateX(var(--card-tx))
+          translateY(var(--card-ty)) translateZ(12px);
+      }
+
+      /* Hover: gradient intensifies + big glow */
+      .product-plan:hover {
+        background: linear-gradient(
+          145deg,
+          rgba(123, 117, 212, 0.35) 0%,
+          var(--bg-card) 60%
+        );
+        box-shadow:
+          inset 0 3px 0 0 #7b75d4,
+          0 25px 80px rgba(0, 0, 0, 0.5),
+          0 0 40px rgba(123, 117, 212, 0.3);
+      }
+      .product-nova:hover {
+        background: linear-gradient(
+          225deg,
+          rgba(107, 179, 205, 0.35) 0%,
+          var(--bg-card) 60%
+        );
+        box-shadow:
+          inset 0 3px 0 0 #6bb3cd,
+          0 25px 80px rgba(0, 0, 0, 0.5),
+          0 0 40px rgba(107, 179, 205, 0.3);
+      }
+      .product-slotops:hover {
+        background: linear-gradient(
+          315deg,
+          rgba(55, 143, 233, 0.35) 0%,
+          var(--bg-card) 60%
+        );
+        box-shadow:
+          inset 0 3px 0 0 #378fe9,
+          0 25px 80px rgba(0, 0, 0, 0.5),
+          0 0 40px rgba(55, 143, 233, 0.3);
+      }
+      .product-cg:hover {
+        background: linear-gradient(
+          135deg,
+          rgba(72, 199, 142, 0.35) 0%,
+          var(--bg-card) 60%
+        );
+        box-shadow:
+          inset 0 3px 0 0 #48c78e,
+          0 25px 80px rgba(0, 0, 0, 0.5),
+          0 0 40px rgba(72, 199, 142, 0.3);
+      }
+      .product-geoviz:hover {
+        background: radial-gradient(
+          ellipse at 50% 30%,
+          rgba(167, 139, 250, 0.4) 0%,
+          var(--bg-card) 60%
+        );
+        box-shadow:
+          inset 0 3px 0 0 #a78bfa,
+          0 25px 80px rgba(0, 0, 0, 0.5),
+          0 0 40px rgba(167, 139, 250, 0.3);
+      }
+
+      /* Badge with shimmer -- BOLD */
       .product-hero-badge {
         position: absolute;
         top: 16px;
         right: 16px;
         font-size: 10px;
         font-weight: 700;
-        padding: 4px 10px;
+        padding: 5px 12px;
         border-radius: var(--radius-full);
-        background: rgba(255, 255, 255, 0.06);
-        color: var(--text-secondary);
+        background: linear-gradient(135deg, #c8a84e, #f0d078, #c8a84e);
+        color: #1a1a2e;
         text-transform: uppercase;
-        letter-spacing: 0.06em;
+        letter-spacing: 0.08em;
         overflow: hidden;
+        border: 1px solid rgba(240, 208, 120, 0.4);
+        box-shadow: 0 0 12px rgba(200, 168, 78, 0.25);
       }
       .product-hero-badge::after {
         content: "";
@@ -2003,39 +2073,112 @@
         background: linear-gradient(
           105deg,
           transparent 35%,
-          rgba(255, 255, 255, 0.2) 45%,
-          rgba(255, 255, 255, 0.3) 50%,
-          rgba(255, 255, 255, 0.2) 55%,
+          rgba(255, 255, 255, 0.35) 45%,
+          rgba(255, 255, 255, 0.5) 50%,
+          rgba(255, 255, 255, 0.35) 55%,
           transparent 65%
         );
         background-size: 200% 100%;
         animation: badgeShimmer 3s ease-in-out infinite;
       }
-      .product-hero-badge--new {
-        background: rgba(72, 199, 142, 0.15);
-        color: #48c78e;
+      /* AI ASSISTANT badge -- teal */
+      .product-nova .product-hero-badge {
+        background: linear-gradient(135deg, #4a9bb5, #6bb3cd, #4a9bb5);
+        color: #0a1a20;
+        border: 1px solid rgba(107, 179, 205, 0.4);
+        box-shadow: 0 0 12px rgba(107, 179, 205, 0.25);
       }
+      /* NEW badge -- green with pulsing glow */
+      .product-hero-badge--new {
+        background: linear-gradient(135deg, #2ea06a, #48c78e, #2ea06a);
+        color: #0a1a12;
+        border: 1px solid rgba(72, 199, 142, 0.5);
+        box-shadow: 0 0 12px rgba(72, 199, 142, 0.3);
+        animation: badgePulseGlow 2s ease-in-out infinite;
+      }
+      /* LIVE badge -- green with pulsing dot */
       .product-hero-badge--live {
-        background: rgba(72, 199, 142, 0.15);
-        color: #48c78e;
+        background: linear-gradient(135deg, #2ea06a, #48c78e, #2ea06a);
+        color: #0a1a12;
+        border: 1px solid rgba(72, 199, 142, 0.5);
+        box-shadow: 0 0 12px rgba(72, 199, 142, 0.3);
+        padding-left: 20px;
+      }
+      .product-hero-badge--live::before {
+        content: "";
+        position: absolute;
+        left: 8px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #0a1a12;
+        animation: liveDotPulse 1.5s ease-in-out infinite;
+      }
+      @keyframes badgePulseGlow {
+        0%,
+        100% {
+          box-shadow: 0 0 12px rgba(72, 199, 142, 0.3);
+        }
+        50% {
+          box-shadow: 0 0 20px rgba(72, 199, 142, 0.5);
+        }
+      }
+      @keyframes liveDotPulse {
+        0%,
+        100% {
+          opacity: 1;
+          transform: translateY(-50%) scale(1);
+        }
+        50% {
+          opacity: 0.5;
+          transform: translateY(-50%) scale(0.7);
+        }
       }
 
-      /* Icon container */
+      /* Icon container -- BOLD with glowing backdrop */
       .product-hero-icon {
-        width: 56px;
-        height: 56px;
+        width: 80px;
+        height: 80px;
         margin-bottom: 20px;
-        opacity: 0.85;
+        opacity: 0.9;
         transition:
           opacity 0.3s ease,
-          transform 0.3s ease;
+          transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        border-radius: 50%;
+      }
+      .product-hero-icon::before {
+        content: "";
+        position: absolute;
+        inset: -8px;
+        border-radius: 50%;
+        background: radial-gradient(
+          circle,
+          rgba(var(--card-accent-rgb, 90, 84, 189), 0.2) 0%,
+          transparent 70%
+        );
+        z-index: -1;
+        transition: opacity 0.3s ease;
       }
       .product-hero-icon svg {
-        width: 100%;
-        height: 100%;
+        width: 48px;
+        height: 48px;
       }
       .product-hero-card:hover .product-hero-icon {
         opacity: 1;
+        transform: scale(1.1);
+      }
+      .product-hero-card:hover .product-hero-icon::before {
+        background: radial-gradient(
+          circle,
+          rgba(var(--card-accent-rgb, 90, 84, 189), 0.35) 0%,
+          transparent 70%
+        );
       }
 
       /* Per-product icon colors */
@@ -2079,6 +2222,45 @@
         font-size: 1.4rem;
         font-weight: 700;
         margin-bottom: 12px;
+        background: linear-gradient(
+          135deg,
+          var(--card-accent, #fff) 0%,
+          #fff 100%
+        );
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+      /* Per-product gradient text on h3 */
+      .product-plan h3 {
+        background: linear-gradient(135deg, #9b96e3 0%, #d4d2f0 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+      .product-nova h3 {
+        background: linear-gradient(135deg, #7fc8de 0%, #c8e8f0 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+      .product-slotops h3 {
+        background: linear-gradient(135deg, #5ea3ee 0%, #b8d6f7 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+      .product-cg h3 {
+        background: linear-gradient(135deg, #5ed4a0 0%, #b8f0d8 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+      .product-geoviz h3 {
+        background: linear-gradient(135deg, #b99dfc 0%, #ddd2fc 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
       }
       .product-hero-card > p {
         font-size: 14px;
@@ -2098,25 +2280,42 @@
         font-weight: 500;
         padding: 4px 12px;
         border-radius: var(--radius-full);
-        background: rgba(255, 255, 255, 0.04);
-        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(var(--card-accent-rgb, 255, 255, 255), 0.06);
+        border: 1px solid rgba(var(--card-accent-rgb, 255, 255, 255), 0.12);
         color: var(--text-secondary);
         transition:
           border-color 0.3s ease,
-          background 0.3s ease;
+          background 0.3s ease,
+          color 0.3s ease;
       }
       .product-hero-card:hover .product-hero-tools span {
-        border-color: rgba(255, 255, 255, 0.12);
-        background: rgba(255, 255, 255, 0.06);
+        border-color: rgba(var(--card-accent-rgb, 255, 255, 255), 0.25);
+        background: rgba(var(--card-accent-rgb, 255, 255, 255), 0.1);
+        color: var(--text-primary);
       }
       .product-hero-cta {
         font-size: 14px;
         font-weight: 600;
-        display: flex;
+        display: inline-flex;
         align-items: center;
         gap: 8px;
         margin-top: auto;
         transition: gap 0.3s ease;
+        position: relative;
+        padding-bottom: 2px;
+      }
+      .product-hero-cta::after {
+        content: "";
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 0;
+        height: 1.5px;
+        background: var(--card-accent, #5a54bd);
+        transition: width 0.3s ease;
+      }
+      .product-hero-card:hover .product-hero-cta::after {
+        width: 100%;
       }
       .product-hero-card:hover .product-hero-cta {
         gap: 12px;
@@ -2125,22 +2324,22 @@
         transition: transform 0.3s ease;
       }
       .product-hero-card:hover .product-hero-cta svg {
-        transform: translateX(3px);
+        transform: translateX(4px);
       }
       .product-plan .product-hero-cta {
-        color: #7b75d4;
+        color: #9b96e3;
       }
       .product-nova .product-hero-cta {
-        color: #6bb3cd;
+        color: #7fc8de;
       }
       .product-slotops .product-hero-cta {
-        color: #378fe9;
+        color: #5ea3ee;
       }
       .product-cg .product-hero-cta {
-        color: #48c78e;
+        color: #5ed4a0;
       }
       .product-geoviz .product-hero-cta {
-        color: #a78bfa;
+        color: #b99dfc;
       }
 
       /* Staggered entrance animation */
@@ -2836,6 +3035,12 @@
         .product-hero-badge::after {
           animation: none;
         }
+        .product-hero-badge--new {
+          animation: none;
+        }
+        .product-hero-badge--live::before {
+          animation: none;
+        }
         .products-duo.reveal .product-hero-card {
           animation: none;
           opacity: 1;
@@ -2847,6 +3052,9 @@
         .product-geoviz:hover .product-hero-icon svg {
           animation: none;
           stroke-dashoffset: 0;
+        }
+        .product-hero-card:hover .product-hero-icon {
+          transform: none;
         }
         .products-orb {
           animation: none;
@@ -2998,10 +3206,8 @@
 
       /* ── V2: Card inner parallax layers ── */
       .product-hero-card:hover .product-hero-icon {
-        transform: translate(
-          calc(var(--card-ry) * -1.2),
-          calc(var(--card-rx) * 1.2)
-        );
+        transform: scale(1.1)
+          translate(calc(var(--card-ry) * -1.2), calc(var(--card-rx) * 1.2));
       }
       .product-hero-card:hover .product-hero-badge {
         transform: translate(
@@ -3016,7 +3222,7 @@
         inset: 0;
         z-index: -1;
         pointer-events: none;
-        opacity: 0.07;
+        opacity: 0.15;
         background: linear-gradient(
           45deg,
           #5a54bd 0%,
