@@ -9607,6 +9607,12 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 self.send_error(404)
             return
 
+        elif path == "/favicon.ico":
+            # Redirect to SVG favicon
+            self.send_response(301)
+            self.send_header("Location", "/static/favicon.svg")
+            self.send_header("Cache-Control", "public, max-age=604800")
+            self.end_headers()
         elif path == "/robots.txt":
             robots_content = (
                 "User-agent: *\n"
