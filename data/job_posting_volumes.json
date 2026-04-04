@@ -1,0 +1,60 @@
+{
+  "scraped_at": "2026-04-04T08:33:22.127019+00:00",
+  "volumes": {
+    "Software Engineer": {
+      "role": "Software Engineer",
+      "location": "",
+      "estimated_openings": 126848,
+      "sources": [
+        "adzuna"
+      ],
+      "trend": "stable",
+      "source": "adzuna",
+      "last_updated": "2026-04-04T08:33:22.127019+00:00"
+    },
+    "Registered Nurse": {
+      "role": "Registered Nurse",
+      "location": "",
+      "estimated_openings": 453406,
+      "sources": [
+        "adzuna"
+      ],
+      "trend": "stable",
+      "source": "adzuna",
+      "last_updated": "2026-04-04T08:33:22.127019+00:00"
+    },
+    "Marketing Manager": {
+      "role": "Marketing Manager",
+      "location": "",
+      "estimated_openings": 70788,
+      "sources": [
+        "adzuna"
+      ],
+      "trend": "stable",
+      "source": "adzuna",
+      "last_updated": "2026-04-04T08:33:22.127019+00:00"
+    },
+    "Sales Representative": {
+      "role": "Sales Representative",
+      "location": "",
+      "estimated_openings": 82753,
+      "sources": [
+        "adzuna"
+      ],
+      "trend": "stable",
+      "source": "adzuna",
+      "last_updated": "2026-04-04T08:33:22.127019+00:00"
+    },
+    "Data Analyst": {
+      "role": "Data Analyst",
+      "location": "",
+      "estimated_openings": 15808,
+      "sources": [
+        "adzuna"
+      ],
+      "trend": "stable",
+      "source": "adzuna",
+      "last_updated": "2026-04-04T08:33:22.127019+00:00"
+    }
+  }
+}

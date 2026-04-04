@@ -1,0 +1,64 @@
+{
+  "data": {
+    "roles": {
+      "Software Engineer": {
+        "source": "google_trends",
+        "keyword": "Software Engineer jobs",
+        "timeframe": "today 3-m",
+        "data_points": 91,
+        "peak_interest": 100,
+        "related_queries": [],
+        "trend_direction": "declining",
+        "current_interest": 43,
+        "trend_change_pct": -17.5
+      },
+      "Registered Nurse": {
+        "source": "google_trends",
+        "keyword": "Registered Nurse jobs",
+        "timeframe": "today 3-m",
+        "data_points": 91,
+        "peak_interest": 100,
+        "related_queries": [],
+        "trend_direction": "stable",
+        "current_interest": 67,
+        "trend_change_pct": 4.2
+      },
+      "Marketing Manager": {
+        "source": "google_trends",
+        "keyword": "Marketing Manager jobs",
+        "timeframe": "today 3-m",
+        "data_points": 91,
+        "peak_interest": 100,
+        "related_queries": [],
+        "trend_direction": "declining",
+        "current_interest": 27,
+        "trend_change_pct": -30.1
+      },
+      "Sales Representative": {
+        "source": "google_trends",
+        "keyword": "Sales Representative jobs",
+        "timeframe": "today 3-m",
+        "data_points": 91,
+        "peak_interest": 100,
+        "related_queries": [],
+        "trend_direction": "rising",
+        "current_interest": 31,
+        "trend_change_pct": 23.1
+      },
+      "Data Analyst": {
+        "source": "google_trends",
+        "keyword": "Data Analyst jobs",
+        "timeframe": "today 3-m",
+        "data_points": 91,
+        "peak_interest": 100,
+        "related_queries": [],
+        "trend_direction": "declining",
+        "current_interest": 50,
+        "trend_change_pct": -16.7
+      }
+    },
+    "refreshed_at": "2026-04-03T13:38:40.577826+00:00"
+  },
+  "_refreshed_at": 1775223532.213284,
+  "_refreshed_iso": "2026-04-03T13:38:52.214999+00:00"
+}

@@ -1,0 +1,289 @@
+{
+  "data": {
+    "roles": {
+      "Software Engineer": {
+        "count_us": {
+          "count": 126873,
+          "role": "Software Engineer",
+          "location": "us"
+        },
+        "count_gb": {
+          "count": 9864,
+          "role": "Software Engineer",
+          "location": "gb"
+        },
+        "count_ca": {
+          "count": 5427,
+          "role": "Software Engineer",
+          "location": "ca"
+        },
+        "salary_histogram_us": {
+          "histogram": {
+            "120000": 2708,
+            "100000": 2117,
+            "80000": 1701,
+            "40000": 865,
+            "20000": 241,
+            "140000": 16295,
+            "60000": 1178
+          }
+        }
+      },
+      "Registered Nurse": {
+        "count_us": {
+          "count": 452428,
+          "role": "Registered Nurse",
+          "location": "us"
+        },
+        "count_gb": {
+          "count": 5935,
+          "role": "Registered Nurse",
+          "location": "gb"
+        },
+        "count_ca": {
+          "count": 4292,
+          "role": "Registered Nurse",
+          "location": "ca"
+        },
+        "salary_histogram_us": {
+          "histogram": {
+            "20000": 2159,
+            "40000": 5811,
+            "60000": 16683,
+            "120000": 15522,
+            "80000": 38767,
+            "140000": 10170,
+            "100000": 32607
+          }
+        }
+      },
+      "Marketing Manager": {
+        "count_us": {
+          "count": 70864,
+          "role": "Marketing Manager",
+          "location": "us"
+        },
+        "count_gb": {
+          "count": 6936,
+          "role": "Marketing Manager",
+          "location": "gb"
+        },
+        "count_ca": {
+          "count": 3315,
+          "role": "Marketing Manager",
+          "location": "ca"
+        },
+        "salary_histogram_us": {
+          "histogram": {
+            "40000": 2309,
+            "20000": 1134,
+            "120000": 1272,
+            "60000": 1879,
+            "100000": 1553,
+            "140000": 3004,
+            "80000": 1947
+          }
+        }
+      },
+      "Sales Representative": {
+        "count_us": {
+          "count": 82696,
+          "role": "Sales Representative",
+          "location": "us"
+        },
+        "count_gb": {
+          "count": 5824,
+          "role": "Sales Representative",
+          "location": "gb"
+        },
+        "count_ca": {
+          "count": 6764,
+          "role": "Sales Representative",
+          "location": "ca"
+        },
+        "salary_histogram_us": {
+          "histogram": {
+            "120000": 951,
+            "60000": 7202,
+            "40000": 5755,
+            "20000": 2726,
+            "140000": 2336,
+            "100000": 2217,
+            "80000": 2762
+          }
+        }
+      },
+      "Data Analyst": {
+        "count_us": {
+          "count": 15803,
+          "role": "Data Analyst",
+          "location": "us"
+        },
+        "count_gb": {
+          "count": 2087,
+          "role": "Data Analyst",
+          "location": "gb"
+        },
+        "count_ca": {
+          "count": 812,
+          "role": "Data Analyst",
+          "location": "ca"
+        },
+        "salary_histogram_us": {
+          "histogram": {
+            "60000": 391,
+            "140000": 882,
+            "20000": 50,
+            "40000": 209,
+            "80000": 458,
+            "100000": 436,
+            "120000": 391
+          }
+        }
+      },
+      "Warehouse Associate": {
+        "count_us": {
+          "count": 18994,
+          "role": "Warehouse Associate",
+          "location": "us"
+        },
+        "count_gb": {
+          "count": 123,
+          "role": "Warehouse Associate",
+          "location": "gb"
+        },
+        "count_ca": {
+          "count": 846,
+          "role": "Warehouse Associate",
+          "location": "ca"
+        },
+        "salary_histogram_us": {
+          "histogram": {
+            "40000": 1854,
+            "120000": 14,
+            "20000": 1571,
+            "80000": 41,
+            "140000": 9,
+            "60000": 412,
+            "100000": 34
+          }
+        }
+      },
+      "Truck Driver": {
+        "count_us": {
+          "count": 380675,
+          "role": "Truck Driver",
+          "location": "us"
+        },
+        "count_gb": {
+          "count": 10880,
+          "role": "Truck Driver",
+          "location": "gb"
+        },
+        "count_ca": {
+          "count": 10547,
+          "role": "Truck Driver",
+          "location": "ca"
+        },
+        "salary_histogram_us": {
+          "histogram": {
+            "40000": 113712,
+            "120000": 1037,
+            "20000": 179355,
+            "140000": 8055,
+            "100000": 6847,
+            "60000": 23088,
+            "80000": 16369
+          }
+        }
+      },
+      "Financial Analyst": {
+        "count_us": {
+          "count": 10940,
+          "role": "Financial Analyst",
+          "location": "us"
+        },
+        "count_gb": {
+          "count": 1320,
+          "role": "Financial Analyst",
+          "location": "gb"
+        },
+        "count_ca": {
+          "count": 1125,
+          "role": "Financial Analyst",
+          "location": "ca"
+        },
+        "salary_histogram_us": {
+          "histogram": {
+            "140000": 407,
+            "60000": 385,
+            "20000": 22,
+            "80000": 574,
+            "100000": 655,
+            "40000": 100,
+            "120000": 264
+          }
+        }
+      },
+      "Project Manager": {
+        "count_us": {
+          "count": 426662,
+          "role": "Project Manager",
+          "location": "us"
+        },
+        "count_gb": {
+          "count": 53283,
+          "role": "Project Manager",
+          "location": "gb"
+        },
+        "count_ca": {
+          "count": 23576,
+          "role": "Project Manager",
+          "location": "ca"
+        },
+        "salary_histogram_us": {
+          "histogram": {
+            "20000": 3706,
+            "120000": 11994,
+            "40000": 10510,
+            "80000": 14927,
+            "140000": 22777,
+            "100000": 15652,
+            "60000": 13766
+          }
+        }
+      },
+      "Customer Service Representative": {
+        "count_us": {
+          "count": 34440,
+          "role": "Customer Service Representative",
+          "location": "us"
+        },
+        "count_gb": {
+          "count": 1239,
+          "role": "Customer Service Representative",
+          "location": "gb"
+        },
+        "count_ca": {
+          "count": 1784,
+          "role": "Customer Service Representative",
+          "location": "ca"
+        },
+        "salary_histogram_us": {
+          "histogram": {
+            "140000": 174,
+            "100000": 97,
+            "80000": 141,
+            "120000": 46,
+            "20000": 3626,
+            "40000": 4115,
+            "60000": 814
+          }
+        }
+      }
+    },
+    "refreshed_at": "2026-04-03T13:36:59.931427+00:00"
+  },
+  "_refreshed_at": 1775223516.22208,
+  "_refreshed_iso": "2026-04-03T13:38:36.223206+00:00"
+}

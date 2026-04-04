@@ -1,11 +1,11 @@
 {
   "data": {
     "Software Engineer": {
-      "source": "BLS OES",
+      "p10": 79850,
+      "p90": 211450,
       "mean": 144570,
       "median": 133080,
-      "p10": 79850,
-      "p90": 211450
+      "source": "BLS OES"
     },
     "Registered Nurse": {
       "source": "BLS OES",
@@ -15,44 +15,44 @@
       "p90": 135320
     },
     "Marketing Manager": {
-      "source": "BLS OES",
+      "p10": 81900,
       "mean": 171520,
       "median": 161030,
-      "p10": 81900
+      "source": "BLS OES"
     },
     "Sales Representative": {
-      "source": "BLS OES",
+      "p10": 66910,
       "mean": 160930,
       "median": 138060,
-      "p10": 66910
+      "source": "BLS OES"
     },
     "Data Analyst": {
-      "source": "BLS OES",
+      "p10": 63650,
+      "p90": 194410,
       "mean": 124590,
       "median": 112590,
-      "p10": 63650,
-      "p90": 194410
+      "source": "BLS OES"
     },
     "Warehouse Associate": {
-      "source": "BLS OES",
+      "p10": 29850,
+      "p90": 49200,
       "mean": 38910,
       "median": 37090,
-      "p10": 29850,
-      "p90": 49200
+      "source": "BLS OES"
     },
     "Truck Driver": {
-      "source": "BLS OES",
+      "p10": 38640,
+      "p90": 78800,
       "mean": 58400,
       "median": 57440,
-      "p10": 38640,
-      "p90": 78800
+      "source": "BLS OES"
     },
     "Financial Analyst": {
-      "source": "BLS OES",
+      "p10": 62410,
+      "p90": 180550,
       "mean": 116490,
       "median": 101350,
-      "p10": 62410,
-      "p90": 180550
+      "source": "BLS OES"
     },
     "Project Manager": {
       "source": "BLS OES",
@@ -62,13 +62,13 @@
       "p90": 227590
     },
     "Customer Service Representative": {
-      "source": "BLS OES",
+      "p10": 22620,
+      "p90": 38800,
       "mean": 31350,
       "median": 30480,
-      "p10": 22620,
-      "p90": 38800
+      "source": "BLS OES"
     }
   },
-  "_refreshed_at": 1774782432.689664,
-  "_refreshed_iso": "2026-03-29T11:07:12.690066+00:00"
+  "_refreshed_at": 1775223417.920189,
+  "_refreshed_iso": "2026-04-03T13:36:57.921448+00:00"
 }

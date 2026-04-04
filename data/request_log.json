@@ -25,5 +25,40 @@
       "Wikipedia",
       "Census-ACS"
     ]
+  },
+  {
+    "id": "e45d0cb5",
+    "timestamp": "2026-04-03T17:52:05.852813",
+    "requester_name": "Test User",
+    "requester_email": "test@example.com",
+    "client_name": "Test Corp",
+    "industry": "tech_engineering",
+    "budget": "50000",
+    "roles": [
+      "Software Engineer"
+    ],
+    "locations": [
+      "New York, NY"
+    ],
+    "work_environment": "hybrid",
+    "status": "success",
+    "file_size_bytes": 122536,
+    "generation_time_seconds": 22.14,
+    "error_message": null,
+    "doc_filename": "20260403_175205_Test_Corp.zip",
+    "enrichment_apis": [
+      "SEC-EDGAR",
+      "Clearbit-Auto",
+      "BLS-QCEW",
+      "Wikipedia",
+      "FRED",
+      "IMF",
+      "Teleport",
+      "GeoNames",
+      "RESTCountries",
+      "DataUSA-Loc",
+      "CurrencyRates",
+      "Census-ACS"
+    ]
   }
 ]

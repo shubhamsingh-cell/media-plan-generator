@@ -1162,7 +1162,7 @@
       defer
     ></script>
     <script src="/static/nova-auth.js?v=1.0.0" defer></script>
-    <script src="/static/nova-auth-gate.js?v=1.0.0" defer></script>
+    <!-- Auth gate removed -- auth is optional, not blocking -->
     <script>
       document.addEventListener("DOMContentLoaded", function () {
         if (typeof NovaAuth === "undefined") return;

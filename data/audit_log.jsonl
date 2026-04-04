@@ -722,3 +722,8 @@
 {"ts": 1774423226.710706, "iso": "2026-03-25T07:20:26Z", "action": "api.access", "actor": "system", "resource": "/api/health", "severity": "info", "ip_hash": "12ca17b49af2"}
 {"ts": 1774510949.1010938, "iso": "2026-03-26T07:42:29Z", "action": "test.event", "actor": "test", "resource": "/test", "severity": "info", "ip_hash": ""}
 {"ts": 1774510954.061377, "iso": "2026-03-26T07:42:34Z", "action": "test.event", "actor": "test", "resource": "/test", "severity": "info", "ip_hash": ""}
+{"ts": 1775218322.758087, "iso": "2026-04-03T12:12:02Z", "action": "api.access", "actor": "system", "resource": "/api/csrf-token", "severity": "info", "ip_hash": "12ca17b49af2"}
+{"ts": 1775218322.821126, "iso": "2026-04-03T12:12:02Z", "action": "api.access", "actor": "system", "resource": "/api/generate", "severity": "info", "ip_hash": "12ca17b49af2"}
+{"ts": 1775218903.664282, "iso": "2026-04-03T12:21:43Z", "action": "api.access", "actor": "system", "resource": "/api/health/ping", "severity": "info", "ip_hash": "12ca17b49af2"}
+{"ts": 1775218903.6797178, "iso": "2026-04-03T12:21:43Z", "action": "api.access", "actor": "system", "resource": "/api/csrf-token", "severity": "info", "ip_hash": "12ca17b49af2"}
+{"ts": 1775218903.709305, "iso": "2026-04-03T12:21:43Z", "action": "api.access", "actor": "system", "resource": "/api/generate", "severity": "info", "ip_hash": "12ca17b49af2"}

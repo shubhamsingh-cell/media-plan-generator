@@ -1,0 +1,27 @@
+{
+  "data": {
+    "source": "FRED",
+    "job_openings": {
+      "date": "2026-02-01",
+      "value": 6882.0
+    },
+    "cpi_inflation": {
+      "date": "2026-02-01",
+      "value": 327.46
+    },
+    "fed_funds_rate": {
+      "date": "2026-03-01",
+      "value": 3.64
+    },
+    "unemployment_rate": {
+      "date": "2026-02-01",
+      "value": 4.4
+    },
+    "avg_hourly_earnings": {
+      "date": "2026-02-01",
+      "value": 37.32
+    }
+  },
+  "_refreshed_at": 1775223518.573555,
+  "_refreshed_iso": "2026-04-03T13:38:38.574182+00:00"
+}
