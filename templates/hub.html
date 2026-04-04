@@ -1688,12 +1688,161 @@
         color: var(--text-primary);
       }
 
-      /* ── SECTION 5: TWO PRODUCTS ── */
+      /* ── SECTION 5: PRODUCTS (Premium) ── */
+
+      /* CSS Houdini @property for animated gradient angle */
+      @property --border-angle {
+        syntax: "<angle>";
+        initial-value: 0deg;
+        inherits: false;
+      }
+
+      @keyframes rotateBorderAngle {
+        to {
+          --border-angle: 360deg;
+        }
+      }
+
+      @keyframes fadeSlideUp {
+        from {
+          opacity: 0;
+          transform: translateY(32px) scale(0.97);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+      }
+
+      @keyframes badgeShimmer {
+        0%,
+        80% {
+          background-position: -200% 0;
+        }
+        100% {
+          background-position: 200% 0;
+        }
+      }
+
+      @keyframes iconPulse {
+        0%,
+        100% {
+          transform: scale(1);
+        }
+        50% {
+          transform: scale(1.15);
+        }
+      }
+
+      @keyframes iconSpinGlobe {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      @keyframes iconClockHand {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      @keyframes iconBarsGrow {
+        0% {
+          transform: scaleY(0.5);
+          transform-origin: bottom;
+        }
+        50% {
+          transform: scaleY(1.1);
+          transform-origin: bottom;
+        }
+        100% {
+          transform: scaleY(1);
+          transform-origin: bottom;
+        }
+      }
+
+      @keyframes iconStrokeDraw {
+        from {
+          stroke-dashoffset: 120;
+        }
+        to {
+          stroke-dashoffset: 0;
+        }
+      }
+
+      @keyframes floatOrb {
+        0%,
+        100% {
+          transform: translate(0, 0) scale(1);
+        }
+        25% {
+          transform: translate(30px, -20px) scale(1.05);
+        }
+        50% {
+          transform: translate(-15px, 15px) scale(0.95);
+        }
+        75% {
+          transform: translate(20px, 25px) scale(1.02);
+        }
+      }
+
+      @keyframes countUp {
+        from {
+          opacity: 0;
+          transform: translateY(8px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
       .products-section {
         position: relative;
         z-index: 1;
         padding: var(--space-section) 0 var(--space-16);
+        overflow: hidden;
       }
+
+      /* Floating glow orbs */
+      .products-orb {
+        position: absolute;
+        border-radius: 50%;
+        filter: blur(80px);
+        opacity: 0.18;
+        pointer-events: none;
+        z-index: 0;
+        will-change: transform;
+        animation: floatOrb 20s ease-in-out infinite;
+      }
+      .products-orb--1 {
+        width: 400px;
+        height: 400px;
+        background: radial-gradient(circle, #5a54bd 0%, transparent 70%);
+        top: -5%;
+        left: -8%;
+        animation-delay: 0s;
+        animation-duration: 22s;
+      }
+      .products-orb--2 {
+        width: 350px;
+        height: 350px;
+        background: radial-gradient(circle, #6bb3cd 0%, transparent 70%);
+        bottom: -10%;
+        right: -5%;
+        animation-delay: -7s;
+        animation-duration: 18s;
+      }
+      .products-orb--3 {
+        width: 280px;
+        height: 280px;
+        background: radial-gradient(circle, #202058 0%, transparent 70%);
+        top: 40%;
+        left: 50%;
+        animation-delay: -12s;
+        animation-duration: 25s;
+      }
+
       .products-duo {
         display: grid;
         grid-template-columns: repeat(3, 1fr);
@@ -1702,15 +1851,19 @@
         max-width: 1200px;
         margin-left: auto;
         margin-right: auto;
+        position: relative;
+        z-index: 1;
       }
+
       .product-hero-card {
         background: var(--bg-card);
-        border: 1px solid rgba(255, 255, 255, 0.08);
         border-radius: var(--radius-xl);
         padding: var(--space-8);
         text-decoration: none;
         color: var(--text-primary);
-        transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        transition:
+          transform 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+          box-shadow 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         position: relative;
         overflow: hidden;
         display: flex;
@@ -1719,7 +1872,47 @@
         isolation: isolate;
         --mouse-x: 50%;
         --mouse-y: 50%;
+        --card-rx: 0deg;
+        --card-ry: 0deg;
+        --card-tx: 0px;
+        --card-ty: 0px;
+        transform-style: preserve-3d;
+        perspective: 800px;
+        will-change: transform;
+        /* Animated gradient border */
+        border: 1px solid transparent;
+        background-clip: padding-box;
+        animation: rotateBorderAngle 8s linear infinite;
       }
+
+      /* Gradient border via box-shadow trick (fallback-friendly) */
+      .product-hero-card::before {
+        content: "";
+        position: absolute;
+        inset: -1px;
+        border-radius: var(--radius-xl);
+        padding: 1px;
+        background: conic-gradient(
+          from var(--border-angle, 0deg),
+          transparent 30%,
+          var(--card-accent, #5a54bd) 50%,
+          transparent 70%
+        );
+        -webkit-mask:
+          linear-gradient(#fff 0 0) content-box,
+          linear-gradient(#fff 0 0);
+        -webkit-mask-composite: xor;
+        mask-composite: exclude;
+        pointer-events: none;
+        z-index: -1;
+        opacity: 0.5;
+        transition: opacity 0.4s ease;
+      }
+
+      .product-hero-card:hover::before {
+        opacity: 1;
+      }
+
       /* Mouse-tracking glow on hover */
       .product-hero-card::after {
         content: "";
@@ -1739,32 +1932,55 @@
       .product-hero-card:hover::after {
         opacity: 1;
       }
+
+      /* 3D tilt + magnetic cursor + lift on hover */
       .product-hero-card:hover {
-        border-color: rgba(255, 255, 255, 0.15);
-        transform: translateY(-4px);
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+        transform: perspective(800px) rotateX(var(--card-rx))
+          rotateY(var(--card-ry)) translateX(var(--card-tx))
+          translateY(var(--card-ty)) translateZ(8px);
       }
-      .product-hero-card::before {
-        content: "";
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 3px;
-        border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+
+      /* Per-product accent colors for animated border */
+      .product-plan {
+        --card-accent: #7b75d4;
       }
-      .product-plan::before {
-        background: linear-gradient(90deg, #5a54bd, #7b75d4);
+      .product-nova {
+        --card-accent: #6bb3cd;
       }
-      .product-nova::before {
-        background: linear-gradient(90deg, #6bb3cd, #8ecfe0);
+      .product-slotops {
+        --card-accent: #378fe9;
       }
-      .product-slotops::before {
-        background: linear-gradient(90deg, #0a66c2, #378fe9);
+      .product-cg {
+        --card-accent: #48c78e;
       }
-      .product-cg::before {
-        background: linear-gradient(90deg, #48c78e, #6dd5a8);
+      .product-geoviz {
+        --card-accent: #a78bfa;
       }
+
+      /* Top accent stripe (via box-shadow inset) */
+      .product-plan {
+        box-shadow: inset 0 3px 0 0 #7b75d4;
+      }
+      .product-nova {
+        box-shadow: inset 0 3px 0 0 #6bb3cd;
+      }
+      .product-slotops {
+        box-shadow: inset 0 3px 0 0 #378fe9;
+      }
+      .product-cg {
+        box-shadow: inset 0 3px 0 0 #48c78e;
+      }
+      .product-geoviz {
+        box-shadow: inset 0 3px 0 0 #a78bfa;
+      }
+      .product-hero-card:hover {
+        box-shadow:
+          inset 0 3px 0 0 var(--card-accent),
+          0 20px 60px rgba(0, 0, 0, 0.4),
+          0 0 30px rgba(90, 84, 189, 0.08);
+      }
+
+      /* Badge with shimmer */
       .product-hero-badge {
         position: absolute;
         top: 16px;
@@ -1777,6 +1993,22 @@
         color: var(--text-secondary);
         text-transform: uppercase;
         letter-spacing: 0.06em;
+        overflow: hidden;
+      }
+      .product-hero-badge::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(
+          105deg,
+          transparent 35%,
+          rgba(255, 255, 255, 0.2) 45%,
+          rgba(255, 255, 255, 0.3) 50%,
+          rgba(255, 255, 255, 0.2) 55%,
+          transparent 65%
+        );
+        background-size: 200% 100%;
+        animation: badgeShimmer 3s ease-in-out infinite;
       }
       .product-hero-badge--new {
         background: rgba(72, 199, 142, 0.15);
@@ -1786,16 +2018,26 @@
         background: rgba(72, 199, 142, 0.15);
         color: #48c78e;
       }
+
+      /* Icon container */
       .product-hero-icon {
         width: 48px;
         height: 48px;
         margin-bottom: 20px;
         opacity: 0.7;
+        transition:
+          opacity 0.3s ease,
+          transform 0.3s ease;
       }
       .product-hero-icon svg {
         width: 100%;
         height: 100%;
       }
+      .product-hero-card:hover .product-hero-icon {
+        opacity: 1;
+      }
+
+      /* Per-product icon colors */
       .product-plan .product-hero-icon {
         color: #7b75d4;
       }
@@ -1808,6 +2050,30 @@
       .product-cg .product-hero-icon {
         color: #48c78e;
       }
+      .product-geoviz .product-hero-icon {
+        color: #a78bfa;
+      }
+
+      /* Icon micro-animations on hover */
+      .product-plan:hover .product-hero-icon svg {
+        stroke-dasharray: 120;
+        stroke-dashoffset: 120;
+        animation: iconStrokeDraw 1s ease forwards;
+      }
+      .product-nova:hover .product-hero-icon svg {
+        animation: iconPulse 0.8s ease;
+      }
+      .product-slotops:hover .product-hero-icon svg polyline {
+        transform-origin: 12px 12px;
+        animation: iconClockHand 1.5s linear;
+      }
+      .product-cg:hover .product-hero-icon svg path {
+        animation: iconBarsGrow 0.6s ease;
+      }
+      .product-geoviz:hover .product-hero-icon svg {
+        animation: iconSpinGlobe 3s linear infinite;
+      }
+
       .product-hero-card h3 {
         font-size: 1.4rem;
         font-weight: 700;
@@ -1834,6 +2100,13 @@
         background: rgba(255, 255, 255, 0.04);
         border: 1px solid rgba(255, 255, 255, 0.08);
         color: var(--text-secondary);
+        transition:
+          border-color 0.3s ease,
+          background 0.3s ease;
+      }
+      .product-hero-card:hover .product-hero-tools span {
+        border-color: rgba(255, 255, 255, 0.12);
+        background: rgba(255, 255, 255, 0.06);
       }
       .product-hero-cta {
         font-size: 14px;
@@ -1842,6 +2115,16 @@
         align-items: center;
         gap: 8px;
         margin-top: auto;
+        transition: gap 0.3s ease;
+      }
+      .product-hero-card:hover .product-hero-cta {
+        gap: 12px;
+      }
+      .product-hero-cta svg {
+        transition: transform 0.3s ease;
+      }
+      .product-hero-card:hover .product-hero-cta svg {
+        transform: translateX(3px);
       }
       .product-plan .product-hero-cta {
         color: #7b75d4;
@@ -1849,14 +2132,76 @@
       .product-nova .product-hero-cta {
         color: #6bb3cd;
       }
+      .product-slotops .product-hero-cta {
+        color: #378fe9;
+      }
       .product-cg .product-hero-cta {
         color: #48c78e;
       }
+      .product-geoviz .product-hero-cta {
+        color: #a78bfa;
+      }
+
+      /* Staggered entrance animation */
+      .products-duo.reveal .product-hero-card {
+        opacity: 0;
+        animation: fadeSlideUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      }
+      .products-duo.reveal .product-hero-card:nth-child(1) {
+        animation-delay: 0.05s;
+      }
+      .products-duo.reveal .product-hero-card:nth-child(2) {
+        animation-delay: 0.12s;
+      }
+      .products-duo.reveal .product-hero-card:nth-child(3) {
+        animation-delay: 0.19s;
+      }
+      .products-duo.reveal .product-hero-card:nth-child(4) {
+        animation-delay: 0.26s;
+      }
+      .products-duo.reveal .product-hero-card:nth-child(5) {
+        animation-delay: 0.33s;
+      }
+
+      /* Live stat counters */
+      .products-stats {
+        display: flex;
+        justify-content: center;
+        gap: var(--space-10);
+        margin-top: var(--space-10);
+        position: relative;
+        z-index: 1;
+      }
+      .products-stat {
+        text-align: center;
+        opacity: 0;
+        animation: countUp 0.5s ease forwards;
+      }
+      .products-stat.counted {
+        opacity: 1;
+      }
+      .products-stat-number {
+        font-size: 2rem;
+        font-weight: 800;
+        background: linear-gradient(135deg, #5a54bd, #6bb3cd);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        font-variant-numeric: tabular-nums;
+      }
+      .products-stat-label {
+        font-size: 13px;
+        color: var(--text-muted);
+        margin-top: 4px;
+      }
+
       .products-also {
         text-align: center;
         margin-top: var(--space-8);
         font-size: var(--text-sm);
         color: var(--text-muted);
+        position: relative;
+        z-index: 1;
       }
       .products-also a {
         color: var(--text-secondary);
@@ -2479,6 +2824,35 @@
         }
         .product-hero-card:hover {
           transform: none;
+        }
+        .product-hero-card::before {
+          animation: none;
+          opacity: 0.3;
+        }
+        .product-hero-card {
+          animation: none;
+        }
+        .product-hero-badge::after {
+          animation: none;
+        }
+        .products-duo.reveal .product-hero-card {
+          animation: none;
+          opacity: 1;
+        }
+        .product-plan:hover .product-hero-icon svg,
+        .product-nova:hover .product-hero-icon svg,
+        .product-slotops:hover .product-hero-icon svg polyline,
+        .product-cg:hover .product-hero-icon svg path,
+        .product-geoviz:hover .product-hero-icon svg {
+          animation: none;
+          stroke-dashoffset: 0;
+        }
+        .products-orb {
+          animation: none;
+        }
+        .products-stat {
+          animation: none;
+          opacity: 1;
         }
       }
     </style>
@@ -3417,6 +3791,10 @@
       <!-- SECTION 5: THREE PRODUCTS                   -->
       <!-- ========================================== -->
       <section class="products-section" id="platform" aria-label="Products">
+        <!-- Floating glow orbs -->
+        <div class="products-orb products-orb--1" aria-hidden="true"></div>
+        <div class="products-orb products-orb--2" aria-hidden="true"></div>
+        <div class="products-orb products-orb--3" aria-hidden="true"></div>
         <div class="container">
           <div class="section-label reveal">The platform</div>
           <h2 class="section-title reveal" style="text-align: center">
@@ -3662,6 +4040,21 @@
                 </svg>
               </div>
             </a>
+          </div>
+
+          <div class="products-stats reveal" aria-label="Platform statistics">
+            <div class="products-stat">
+              <div class="products-stat-number" data-count="108871">0</div>
+              <div class="products-stat-label">LinkedIn jobs analyzed</div>
+            </div>
+            <div class="products-stat">
+              <div class="products-stat-number" data-count="60">0</div>
+              <div class="products-stat-label">AI tools</div>
+            </div>
+            <div class="products-stat">
+              <div class="products-stat-number" data-count="76">0</div>
+              <div class="products-stat-label">Countries covered</div>
+            </div>
           </div>
 
           <div class="products-also reveal">
@@ -4485,6 +4878,105 @@
             // Auth init failure must never break the page
           });
       });
+    </script>
+    <!-- Premium product card interactions -->
+    <script>
+      (function () {
+        "use strict";
+        var prefersReducedMotion = window.matchMedia(
+          "(prefers-reduced-motion: reduce)",
+        ).matches;
+
+        /* ── 3D Tilt + Magnetic Cursor ── */
+        var cards = document.querySelectorAll(".product-hero-card");
+        cards.forEach(function (card) {
+          card.addEventListener("mousemove", function (e) {
+            if (prefersReducedMotion) return;
+            var rect = card.getBoundingClientRect();
+            var x = e.clientX - rect.left;
+            var y = e.clientY - rect.top;
+            var cx = rect.width / 2;
+            var cy = rect.height / 2;
+            /* Tilt (max 5deg) */
+            var ry = ((x - cx) / cx) * 5;
+            var rx = ((cy - y) / cy) * 5;
+            /* Magnetic pull (max 4px) */
+            var tx = ((x - cx) / cx) * 4;
+            var ty = ((y - cy) / cy) * 4;
+            card.style.setProperty("--card-rx", rx + "deg");
+            card.style.setProperty("--card-ry", ry + "deg");
+            card.style.setProperty("--card-tx", tx + "px");
+            card.style.setProperty("--card-ty", ty + "px");
+            /* Mouse glow position */
+            card.style.setProperty("--mouse-x", x + "px");
+            card.style.setProperty("--mouse-y", y + "px");
+          });
+          card.addEventListener("mouseleave", function () {
+            card.style.setProperty("--card-rx", "0deg");
+            card.style.setProperty("--card-ry", "0deg");
+            card.style.setProperty("--card-tx", "0px");
+            card.style.setProperty("--card-ty", "0px");
+          });
+        });
+
+        /* ── Animated Counters ── */
+        var statEls = document.querySelectorAll("[data-count]");
+        var counted = false;
+        function animateCounters() {
+          if (counted || prefersReducedMotion) {
+            statEls.forEach(function (el) {
+              var target = parseInt(el.getAttribute("data-count"), 10);
+              el.textContent = target.toLocaleString();
+              el.closest(".products-stat").classList.add("counted");
+            });
+            counted = true;
+            return;
+          }
+          counted = true;
+          statEls.forEach(function (el, i) {
+            var target = parseInt(el.getAttribute("data-count"), 10);
+            var duration = 1800;
+            var start = null;
+            var parent = el.closest(".products-stat");
+            setTimeout(function () {
+              parent.classList.add("counted");
+              parent.style.animation = "countUp 0.4s ease forwards";
+            }, i * 120);
+            function step(ts) {
+              if (!start) start = ts;
+              var progress = Math.min((ts - start) / duration, 1);
+              var eased = 1 - Math.pow(1 - progress, 3);
+              el.textContent = Math.floor(eased * target).toLocaleString();
+              if (progress < 1) {
+                requestAnimationFrame(step);
+              } else {
+                el.textContent = target.toLocaleString();
+              }
+            }
+            setTimeout(function () {
+              requestAnimationFrame(step);
+            }, i * 120);
+          });
+        }
+
+        var statsSection = document.querySelector(".products-stats");
+        if (statsSection && "IntersectionObserver" in window) {
+          var obs = new IntersectionObserver(
+            function (entries) {
+              entries.forEach(function (entry) {
+                if (entry.isIntersecting && !counted) {
+                  animateCounters();
+                  obs.unobserve(entry.target);
+                }
+              });
+            },
+            { threshold: 0.3 },
+          );
+          obs.observe(statsSection);
+        } else if (statsSection) {
+          animateCounters();
+        }
+      })();
     </script>
   </body>
 </html>
