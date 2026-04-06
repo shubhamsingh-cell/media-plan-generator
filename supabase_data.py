@@ -179,6 +179,7 @@ _KB_CATEGORY_FILE_MAP: dict[str, str] = {
     "google_ads_benchmarks": "google_ads_2025_benchmarks.json",
     "external_benchmarks": "external_benchmarks_2025.json",
     "client_plans": "client_media_plans_kb.json",
+    "recruitment_benchmarks_2026": "recruitment_benchmarks_comprehensive_2026.json",
 }
 
 

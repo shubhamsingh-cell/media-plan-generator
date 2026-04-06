@@ -1319,6 +1319,8 @@ def index_knowledge_base() -> int:
         "agency_rpo_market_2026.json",
         # H-1B salary intelligence (rich city-level wage data)
         "h1b_salary_intelligence.json",
+        # Cross-product recruitment benchmarks (S45 deep research -- 28 sources)
+        "recruitment_benchmarks_comprehensive_2026.json",
     ]
 
     documents: list[dict] = []

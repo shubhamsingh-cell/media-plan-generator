@@ -1,0 +1,730 @@
+{
+  "_metadata": {
+    "title": "Comprehensive Recruitment Marketing Benchmarks 2024-2026",
+    "description": "Aggregated CPA, CPH, CPC, apply rate, and performance benchmarks from industry research, platform data, and government sources. Designed for Nova AI Suite, SlotOps, and CG Automation knowledge base.",
+    "last_updated": "2026-04-06",
+    "data_freshness": "2024-2026 (primary: 2025 data published in 2025-2026 reports)",
+    "sources_analyzed": 28,
+    "methodology": "Cross-referenced multiple industry reports, platform pricing pages, government APIs, and academic research. All data labeled as industry research or platform data per compliance requirements.",
+    "reliability_rating_system": {
+      "high": "Published industry benchmark reports with large sample sizes (>1M data points), government data",
+      "medium": "Platform-published data, analyst reports with moderate sample sizes",
+      "low": "Self-reported surveys, estimates, single-source claims"
+    },
+    "source_urls": [
+      "https://www.hrdive.com/news/cost-per-hire-application-increase-2025-recruitment-appcast/812612/",
+      "https://ppcchief.com/blog/average-cpc-by-ad-platform-2026",
+      "https://www.pin.com/blog/recruitment-funnel-benchmarks/",
+      "https://www.careerplug.com/recruiting-metrics-and-kpis/",
+      "https://www.gem.com/blog/10-takeaways-from-the-2025-recruiting-benchmarks-report",
+      "https://www.bls.gov/jlt/",
+      "https://fred.stlouisfed.org/series/JTSJOL/",
+      "https://postiv.ai/blog/linkedin-job-advertising-costs",
+      "https://www.apollotechnical.com/when-is-the-best-time-to-post-a-job/",
+      "https://100hires.com/indeed-job-posting-cost.html",
+      "https://www.pin.com/blog/indeed-pricing/",
+      "https://www.pin.com/blog/ziprecruiter-pricing/",
+      "https://www.selectsoftwarereviews.com/blog/cost-per-applicant-benchmark",
+      "https://blog.hiringthing.com/2025-job-application-statistics-updated-data-you-need-to-know",
+      "https://uppl.ai/job-application-response-rate/",
+      "https://rocketpost.io/what-do-my-craigslist-insights-mean/",
+      "https://dstribute.io/craigslist/craigslist-job-posting-metrics-how-to-measure-success-and-make-improvements/",
+      "https://dstribute.io/craigslist/craigslist-posting-cadence-how-often-should-you-post/",
+      "https://www.shrm.org/topics-tools/research/2025-recruiting-benchmarking",
+      "https://juicebox.ai/blog/cost-per-hire",
+      "https://blog.ongig.com/job-ads/10-ways-to-boost-a-job-ads-apply-rate/",
+      "https://www.jobboardly.com/blog/ultimate-guide-to-job-board-conversion-metrics",
+      "https://info.recruitics.com/blog/the-value-of-easy-apply-in-recruitment",
+      "https://www.linkedin.com/business/talent/blog/talent-strategy/best-times-to-post-job-on-linkedin",
+      "https://speedworksocial.com/linkedin-ads-benchmarks/",
+      "https://localiq.com/blog/search-advertising-benchmarks/",
+      "https://www.socialinsider.io/social-media-benchmarks/linkedin",
+      "https://marketingltb.com/blog/advertising/what-is-the-average-ctr-for-linkedin-ads/"
+    ]
+  },
+
+  "A_cpa_cph_benchmarks_by_channel": {
+    "section_title": "CPA/CPH Benchmarks by Channel",
+    "data_year": "2024-2026",
+    "reliability": "high",
+    "sample_basis": "302M+ clicks, 27M+ applications, 1,200+ employers (2025 data); 379M clicks, 30M+ applies (2024 data)",
+
+    "cpc_by_platform": {
+      "description": "Cost per click by job advertising platform (2025-2026)",
+      "reliability": "high",
+      "data": [
+        {"platform": "Indeed", "cpc_min_usd": 0.25, "cpc_max_usd": 1.50, "cpc_median_usd": 0.92, "pricing_model": "CPC auction (shifting to CPA)", "notes": "Metro areas up to 300% higher than rural. Jan hiring surge adds 15-20% premium. $25 min budget per job since Jul 2025"},
+        {"platform": "Indeed (Technology)", "cpc_min_usd": 0.80, "cpc_max_usd": 1.50, "pricing_model": "CPC", "notes": "High competition for engineers/developers"},
+        {"platform": "Indeed (Healthcare)", "cpc_min_usd": 0.60, "cpc_max_usd": 1.20, "pricing_model": "CPC", "notes": "Nursing shortages drive costs up"},
+        {"platform": "LinkedIn", "cpc_min_usd": 1.50, "cpc_max_usd": 8.00, "cpc_median_usd": 5.26, "pricing_model": "CPC/CPA + subscription", "notes": "Sponsored content CPC $5-$12. Job ads $1.50-$4.50 CPC. Min daily budget $7-$10"},
+        {"platform": "LinkedIn (Staffing/Recruiting)", "cpc_min_usd": 4.00, "cpc_max_usd": 6.00, "pricing_model": "CPC"},
+        {"platform": "LinkedIn (B2B SaaS/Tech)", "cpc_min_usd": 5.00, "cpc_max_usd": 8.00, "pricing_model": "CPC"},
+        {"platform": "LinkedIn (Healthcare B2B)", "cpc_min_usd": 3.00, "cpc_max_usd": 5.00, "pricing_model": "CPC"},
+        {"platform": "LinkedIn (Education)", "cpc_min_usd": 3.50, "cpc_max_usd": 5.50, "pricing_model": "CPC"},
+        {"platform": "ZipRecruiter", "monthly_min_usd": 299, "monthly_standard_usd": 399, "monthly_premium_usd": 519, "monthly_pro_usd": 899, "pricing_model": "Subscription per slot", "notes": "No native CPC model. Free trial 4 days."},
+        {"platform": "Glassdoor", "cpc_min_usd": 5.00, "cpc_max_usd": 150.00, "pricing_model": "CPC (partnered with Indeed)", "notes": "Free posting available. Sponsored 30-day posts."},
+        {"platform": "CareerBuilder", "monthly_lite_usd": 219, "monthly_standard_usd": 299, "monthly_pro_usd": 599, "single_post_30day_usd": 375, "pricing_model": "Subscription + pay-as-you-go"},
+        {"platform": "Craigslist", "cost_per_post_usd": {"min": 0, "max": 75}, "pricing_model": "Flat fee per post", "notes": "Free in most areas. $10-$75 in select metros. One post per position per area per 30 days."},
+        {"platform": "Facebook/Meta Jobs", "cpc_min_usd": 0.50, "cpc_max_usd": 2.11, "cpc_median_usd": 1.11, "pricing_model": "CPC/CPM auction", "notes": "Jobs & Education CPC avg $2.11. Global median $1.11 in 2025."},
+        {"platform": "Google Jobs (Google Ads)", "cpc_avg_usd": 2.69, "cpc_recruitment_avg_usd": 3.20, "cpa_recruitment_avg_usd": 71.00, "pricing_model": "CPC auction", "notes": "Employment Services CPC $3.20, CTR 5.8%, CVR 4.5%"}
+      ]
+    },
+
+    "cpa_by_platform": {
+      "description": "Cost per application by platform (2025-2026)",
+      "reliability": "high",
+      "data": [
+        {"platform": "Indeed", "cpa_min_usd": 5.00, "cpa_max_usd": 30.00, "cpa_median_usd": 15.00, "notes": "Varies by role, location, competition. Sponsored jobs get 4.5x more visibility."},
+        {"platform": "LinkedIn", "cpa_min_usd": 1.00, "cpa_max_usd": 8.00, "cpa_us_avg_usd": 2.83, "notes": "For job-specific ads. Broader B2B lead gen CPA $150-400."},
+        {"platform": "Programmatic (aggregated)", "cpa_min_usd": 10.00, "cpa_max_usd": 50.00, "cpa_median_usd": 20.00, "notes": "Industry example: same role can cost $200/30days (duration), $1 CPC, $20 CPA, or $500 CPH"},
+        {"platform": "Facebook/Meta Jobs", "cpa_min_usd": 5.00, "cpa_max_usd": 35.00, "cpa_median_usd": 15.00, "notes": "Lead ad CPA avg $27.66. Job-specific lower."},
+        {"platform": "Google Ads (recruitment)", "cpa_avg_usd": 71.00, "notes": "Employment Services vertical. Higher than job boards due to broader targeting."},
+        {"platform": "Craigslist", "cpa_effective_usd": {"min": 0.10, "max": 5.00}, "notes": "Extremely low CPA due to free/low-cost posting model. Based on CG Automation Apex data."}
+      ]
+    },
+
+    "cpa_by_industry_vertical": {
+      "description": "Cost per application by industry (2024-2025)",
+      "reliability": "high",
+      "year": "2024-2025",
+      "data": [
+        {"industry": "Healthcare / Nursing", "cpa_range_usd": {"min": 15, "max": 45}, "difficulty": "high", "notes": "Frontline 'standing-up' roles expensive. Nursing shortages drive costs. CPH $5,000-$12,000."},
+        {"industry": "Technology / IT", "cpa_range_usd": {"min": 12, "max": 35}, "apply_rate_pct": 6.41, "difficulty": "high", "notes": "Highest apply rate in 2024 at 6.41%. CPH $6,000-$8,000. Long sales cycles."},
+        {"industry": "Logistics / Transportation", "cpa_range_usd": {"min": 10, "max": 30}, "difficulty": "medium-high", "notes": "Persistently elevated YoY. CDL drivers especially costly."},
+        {"industry": "Retail", "cpa_range_usd": {"min": 5, "max": 15}, "difficulty": "medium", "notes": "Large candidate pools, high volume. CPH ~$2,700."},
+        {"industry": "Hospitality / Food Services", "cpa_range_usd": {"min": 5, "max": 20}, "difficulty": "medium", "notes": "Seasonal swings. CPH ~$2,700. High turnover increases volume needs."},
+        {"industry": "Gig / Labor / Light Industrial", "cpa_range_usd": {"min": 3, "max": 12}, "difficulty": "medium", "notes": "High volume, lower specialization. Craigslist especially effective."},
+        {"industry": "Finance / Insurance", "cpa_range_usd": {"min": 15, "max": 40}, "difficulty": "high", "notes": "CPH ~$4,300. Compliance requirements add friction."},
+        {"industry": "Marketing / Advertising", "cpa_range_usd": {"min": 10, "max": 25}, "apply_rate_pct": 6.31, "difficulty": "medium", "notes": "Second highest apply rate at 6.31%."},
+        {"industry": "Business / Consumer Services", "cpa_range_usd": {"min": 8, "max": 22}, "apply_rate_pct": 6.29, "difficulty": "medium"}
+      ]
+    },
+
+    "cph_by_industry": {
+      "description": "Cost per hire (full recruitment cost) by industry (2025-2026 SHRM data)",
+      "reliability": "high",
+      "source": "SHRM 2025 Talent Acquisition Benchmarking Report",
+      "us_overall_avg_usd": 4800,
+      "data": [
+        {"industry": "Technology / Engineering", "cph_usd": 6200, "notes": "Specialized skills, high competition"},
+        {"industry": "Healthcare / Life Sciences", "cph_usd": 5000, "range_usd": {"min": 5000, "max": 12000}, "notes": "Nurses $9,000-$12,000. Physicians $25,000+"},
+        {"industry": "Finance / Insurance", "cph_usd": 4300},
+        {"industry": "Retail / Hospitality", "cph_usd": 2700, "notes": "High volume, lower specialization"},
+        {"industry": "Logistics / Warehousing", "cph_usd": 3500, "notes": "CDL drivers significantly higher"},
+        {"industry": "Gig / Light Industrial", "cph_usd": 1500, "range_usd": {"min": 800, "max": 2500}},
+        {"industry": "Executive (all industries)", "cph_usd": 28329, "notes": "10-15x entry level cost. SHRM ANSI standard."},
+        {"industry": "Non-Executive (all industries)", "cph_usd": 4683, "notes": "SHRM ANSI standard methodology."}
+      ],
+      "methodology_note": "Organizations using full ANSI/SHRM standard report costs 34% higher than self-reported figures. Many companies underestimate true hiring costs."
+    },
+
+    "cpa_by_geography": {
+      "description": "Geographic CPA variation patterns (US-focused)",
+      "reliability": "medium",
+      "data": {
+        "regional_patterns": [
+          {"region": "Sun Belt (TX, FL, AZ, GA, NC)", "relative_cpa": "below average", "apply_rate": "above average", "notes": "Fast-growing states deliver stronger apply rates and lower CPAs"},
+          {"region": "Northeast Corridor (NY, NJ, MA, CT)", "relative_cpa": "above average", "notes": "High cost of living drives higher CPAs"},
+          {"region": "Rural / Aging States", "relative_cpa": "highest", "notes": "Older, more rural states generate highest recruitment advertising costs"},
+          {"region": "Major Metro Areas", "relative_cpa": "150-300% of rural", "notes": "Metro CPC can run 300% higher than rural for same job title"},
+          {"region": "West Coast (CA, WA, OR)", "relative_cpa": "above average", "notes": "Tech competition drives costs up especially in Bay Area and Seattle"}
+        ],
+        "international_patterns": [
+          {"region": "APAC", "linkedin_ctr_pct": 1.04, "notes": "Highest LinkedIn CTR globally"},
+          {"region": "LATAM", "linkedin_ctr_pct": 0.63},
+          {"region": "North America", "linkedin_ctr_pct": 0.58},
+          {"region": "EMEA", "linkedin_ctr_pct": 0.28, "notes": "Lowest LinkedIn CTR"}
+        ]
+      }
+    },
+
+    "year_over_year_trends": {
+      "description": "CPA/CPH trend data 2023-2026",
+      "reliability": "high",
+      "data": [
+        {"year": 2023, "trend": "Post-pandemic normalization. CPAs declining from 2022 peaks.", "apply_rate_pct": 5.0},
+        {"year": 2024, "cpa_yoy_change_pct": 4.8, "apply_rate_pct": 6.1, "apply_rate_yoy_change_pct": 35, "median_cpc_usd": 0.92, "notes": "Apply rates surged 35% to 6.1%, keeping CPA stable despite rising CPC"},
+        {"year": 2025, "cpa_trend": "sharp increase", "apply_rate_pct": 5.19, "notes": "CPA and CPH rose sharply despite softer labor market. Driven by job board pricing shifts and programmatic model changes."},
+        {"year": 2026, "cpa_trend": "continued increase", "notes": "Cost pressures continue. Performance-based (CPC/CPA) models outperform flat-fee postings."}
+      ]
+    }
+  },
+
+  "B_apply_rate_conversion_benchmarks": {
+    "section_title": "Apply Rate / Conversion Benchmarks",
+    "data_year": "2024-2026",
+    "reliability": "high",
+
+    "click_to_apply_rates_by_platform": {
+      "description": "Percentage of clicks that convert to completed applications",
+      "data": [
+        {"platform": "Indeed", "click_to_apply_pct": 5.0, "notes": "Apply completion rate 50%. Median time to first apply: 4 hours."},
+        {"platform": "LinkedIn", "click_to_apply_pct": 3.0, "notes": "Job view to apply rate 3%. Easy Apply inflates volume but reduces quality."},
+        {"platform": "LinkedIn Easy Apply", "click_to_apply_pct": 8.0, "notes": "Higher raw conversion but lower quality. 2-4% callback rate."},
+        {"platform": "Company Career Sites", "click_to_apply_pct": 2.0, "range_pct": {"min": 2, "max": 5}, "notes": "Lower volume but 8-12% response rate (higher quality)."},
+        {"platform": "ZipRecruiter", "click_to_apply_pct": 7.0, "notes": "AI matching drives 80% match rate. First candidate in 24 hours avg."},
+        {"platform": "Craigslist", "click_to_apply_pct": 55.0, "range_pct": {"min": 45, "max": 65}, "notes": "Based on CG Automation Apex data. Exceptionally high due to intent-driven traffic."},
+        {"platform": "Facebook Jobs", "click_to_apply_pct": 4.0, "notes": "Mobile-first apply flow"},
+        {"platform": "Google Jobs", "click_to_apply_pct": 4.5, "notes": "Aggregator -- redirects to source"},
+        {"platform": "Programmatic (aggregated)", "click_to_apply_pct": 5.19, "notes": "2025 overall benchmark across programmatic sources"}
+      ]
+    },
+
+    "view_to_click_rates_by_platform": {
+      "description": "Percentage of job views that result in a click (CTR)",
+      "data": [
+        {"platform": "Indeed (organic)", "view_to_click_pct": 3.5, "notes": "Organic listings"},
+        {"platform": "Indeed (sponsored)", "view_to_click_pct": 5.8, "notes": "Sponsored get 4.5x more visibility"},
+        {"platform": "LinkedIn (job ads)", "view_to_click_pct": {"min": 0.44, "max": 0.65}, "notes": "Sponsored content CTR. Image ads US 0.48%, global 0.61%"},
+        {"platform": "LinkedIn (jobs tab)", "view_to_click_pct": 3.0, "notes": "Organic job listing CTR"},
+        {"platform": "Facebook/Meta (job ads)", "view_to_click_pct": 2.5, "notes": "Jobs & Education vertical"},
+        {"platform": "Google Ads (recruitment)", "view_to_click_pct": 5.8, "notes": "Employment Services CTR"},
+        {"platform": "Craigslist", "view_to_click_pct": 10.0, "range_pct": {"min": 8, "max": 21}, "notes": "Based on CG Automation data. Category-dependent: admin/office 20.77%, computer gigs 8.87%"}
+      ]
+    },
+
+    "apply_to_hire_conversion_by_industry": {
+      "description": "Full funnel conversion: applicant to hire ratio",
+      "reliability": "high",
+      "source": "Gem 2025 Recruiting Benchmarks (140M+ applicants, 1.3M+ hires); CareerPlug 2025 (10M+ applications)",
+      "overall_funnel": {
+        "applicants_per_hire": 180,
+        "pct_past_initial_review": 8,
+        "pct_to_interview": 3,
+        "pct_interviewed_to_offer": 27,
+        "pct_offer_acceptance": 84,
+        "time_to_fill_days": {"min": 36, "max": 42}
+      },
+      "by_industry": [
+        {"industry": "Technology", "applicants_per_hire": 191, "notes": "High volume, selective screening"},
+        {"industry": "Healthcare", "applicants_per_hire": 47, "notes": "Lower volume, specialized skills"},
+        {"industry": "Retail / Hospitality", "applicants_per_hire": 120, "notes": "High turnover, faster hiring"},
+        {"industry": "Finance", "applicants_per_hire": 150, "notes": "Compliance requirements add steps"},
+        {"industry": "Logistics / Warehousing", "applicants_per_hire": 80, "notes": "Skills-based screening"},
+        {"industry": "Gig / Light Industrial", "applicants_per_hire": 40, "notes": "Lower barriers, faster conversion"}
+      ],
+      "trends": [
+        "Applications per hire have tripled since 2021",
+        "Interviews per hire increased 42% since 2021 (14 to 20)",
+        "Sourced candidates convert at 5x rate of inbound applicants",
+        "Candidate drop-off rate: 30-50%",
+        "Acceptance rate benchmark: 65-70%"
+      ]
+    },
+
+    "easy_apply_vs_standard_apply": {
+      "description": "LinkedIn Easy Apply vs ATS/standard application conversion comparison",
+      "reliability": "medium",
+      "data": {
+        "easy_apply": {
+          "callback_rate_pct": {"min": 2, "max": 4},
+          "interview_rate_pct": 4,
+          "ats_pass_rate_pct": 10,
+          "volume_trend": "submissions up 40%",
+          "response_trend": "response rates down 25%",
+          "notes": "90% of automated applications fail ATS screening"
+        },
+        "standard_ats_apply": {
+          "callback_rate_pct": {"min": 8, "max": 12},
+          "interview_rate_pct": 12,
+          "notes": "Company website applications see 8-12% response rates due to lower competition and better ATS compatibility"
+        },
+        "custom_tailored": {
+          "response_rate_pct": {"min": 35, "max": 50},
+          "notes": "Human-optimized applications. 4x more likely to advance."
+        },
+        "inmail_referral": {
+          "interview_rate_pct": 20,
+          "notes": "InMail or network referrals: >20% interview success rate"
+        },
+        "slotops_internal_data": {
+          "easy_apply_apply_rate_pct": 27.25,
+          "easy_apply_avg_applications": 797,
+          "ats_apply_rate_pct": 10.77,
+          "ats_avg_applications": 16,
+          "multiplier": "50x more applications via Easy Apply in US",
+          "notes": "From SlotOps engine data: 7,614 Easy Apply vs ATS benchmarks across 76 countries"
+        }
+      }
+    },
+
+    "mobile_vs_desktop": {
+      "description": "Mobile vs desktop apply rate differences (2025)",
+      "reliability": "medium",
+      "data": {
+        "mobile_application_share_pct": 67,
+        "mobile_share_2024_pct": 52,
+        "mobile_share_trend": "Steady growth year-over-year",
+        "desktop_higher_apply_rate": true,
+        "mobile_optimized_lift_pct": 45,
+        "by_role_type": [
+          {"role_type": "Retail / Hospitality", "mobile_pct": 78},
+          {"role_type": "Professional Services", "mobile_pct": 58},
+          {"role_type": "Executive", "desktop_pct": 47, "notes": "Higher desktop due to formal application processes"}
+        ],
+        "apply_rate_by_role": [
+          {"role_type": "Remote positions", "apply_rate_pct": 24.7, "notes": "Nearly 3x overall average"},
+          {"role_type": "Healthcare", "apply_rate_pct": 9.8},
+          {"role_type": "Overall", "apply_rate_pct": 8.2, "notes": "July 2025, down from 11.7% in 2023"},
+          {"role_type": "Technology", "apply_rate_pct": 6.1}
+        ],
+        "optimization_insight": "Applications taking 5 minutes or less see 365% increase in conversion rates"
+      }
+    }
+  },
+
+  "C_job_ad_performance_benchmarks": {
+    "section_title": "Job Ad Performance Benchmarks",
+    "data_year": "2024-2026",
+
+    "impression_decay": {
+      "description": "How quickly job post visibility declines after posting",
+      "reliability": "medium",
+      "data": [
+        {"platform": "Indeed", "peak_window_hours": 48, "decay_pattern": "Rapid drop after 48 hours. Refresh recommended every 7-10 days.", "notes": "Sponsored jobs maintain visibility longer"},
+        {"platform": "LinkedIn", "peak_window_hours": 48, "algorithm_distribution_hours": 48, "decay_pattern": "Algorithm gives each post 24-48 hours of distribution. Weekly refresh recommended."},
+        {"platform": "Craigslist", "peak_window_hours": 24, "severe_decay_hours": 48, "decay_pattern": "Best within first 24-48 hours. Chronological feed means rapid burial.", "repost_restriction": "1 post per position per area per 30 days in jobs section"},
+        {"platform": "ZipRecruiter", "peak_window_hours": 72, "decay_pattern": "AI matching extends visibility. Less dependent on recency."},
+        {"platform": "Facebook Jobs", "peak_window_hours": 24, "decay_pattern": "Algorithm-driven feed. Paid boosting extends reach."},
+        {"platform": "Google Jobs", "peak_window_hours": 72, "decay_pattern": "Aggregator -- freshness signal matters but less than direct boards"}
+      ]
+    },
+
+    "optimal_posting_frequency": {
+      "description": "Recommended posting/refresh cadence by platform",
+      "reliability": "medium",
+      "data": [
+        {"platform": "Indeed", "frequency": "Refresh every 7-10 days", "notes": "Republish to regain visibility. Budget resets help."},
+        {"platform": "LinkedIn", "frequency": "2-5 posts per week for employer brand content; refresh jobs weekly", "notes": "2-5x/week earned 1,180+ more impressions per post vs once weekly"},
+        {"platform": "Craigslist", "frequency": "Every 30 days (policy limit for jobs)", "recommended_strategy": "Post Monday 10am, repost Wednesday 10am for gig categories", "notes": "Gig categories may allow more frequent reposting than jobs section"},
+        {"platform": "ZipRecruiter", "frequency": "30-day active listings", "notes": "AI matching reduces need for manual refresh"},
+        {"platform": "Facebook Jobs", "frequency": "Refresh every 14 days", "notes": "Paid boost can extend without repost"},
+        {"platform": "Programmatic (general)", "frequency": "Continuous optimization via rules engine", "notes": "Performance-based models auto-optimize spend allocation"}
+      ]
+    },
+
+    "best_days_times_to_post": {
+      "description": "Optimal posting days and times by platform (2025 data)",
+      "reliability": "medium",
+      "data": {
+        "linkedin": {
+          "best_days": ["Tuesday", "Wednesday"],
+          "best_times": "8-9 AM (Tue/Wed), 10 AM-12 PM (Tue/Thu)",
+          "monday_best_time": "11 AM",
+          "tuesday_best_time": "6-8 AM",
+          "wednesday_best_time": "9 AM",
+          "notes": "Mon-Wed are most popular for job search. Job posts best early week."
+        },
+        "indeed": {
+          "best_days": ["Tuesday", "Wednesday"],
+          "best_times": "10 AM - 1 PM",
+          "notes": "Mid-week, mid-morning to early afternoon. Job seekers most active Tue."
+        },
+        "craigslist": {
+          "best_days": ["Monday", "Tuesday", "Wednesday", "Thursday"],
+          "best_times": "10 AM - 1 PM",
+          "recommended_cadence": "Monday 10 AM, then Wednesday 10 AM",
+          "notes": "Weekday mornings optimal. Weekend posting underperforms."
+        },
+        "general": {
+          "best_days": ["Monday", "Tuesday"],
+          "worst_days": ["Friday", "Saturday", "Sunday"],
+          "best_times": "Early morning (6-9 AM) and lunch (11 AM-1 PM)",
+          "notes": "Post too late in week or off-hours can bury listing under newer posts"
+        }
+      }
+    },
+
+    "title_optimization_impact": {
+      "description": "How job title affects click and apply rates",
+      "reliability": "medium",
+      "data": {
+        "max_title_length_chars": 50,
+        "google_display_limit_chars": 60,
+        "impact_on_ctr": "Job titles are primary CTR driver. Poor titles = low CTR.",
+        "best_practices": [
+          "Keep under 50 characters",
+          "Spell out abbreviations",
+          "Include seniority level",
+          "Avoid internal jargon",
+          "Include location for local roles",
+          "Use common industry terms (not creative titles)"
+        ],
+        "notes": "High CTR = good job title. Low CTR = optimize title word choice."
+      }
+    },
+
+    "description_length_impact": {
+      "description": "How job description length affects apply rates",
+      "reliability": "medium",
+      "data": {
+        "optimal_apply_rate_boost": "Apply rates can reach 60%+ with optimized descriptions",
+        "baseline_click_to_apply_pct": 6,
+        "friction_penalty_per_field_pct": {"min": 5, "max": 10},
+        "optimal_time_to_apply_minutes": 5,
+        "under_5_min_conversion_lift_pct": 365,
+        "best_practices": [
+          "Keep application under 5 minutes",
+          "Every additional field drops completion 5-10%",
+          "Write candidate-facing content, not internal requirements",
+          "Include salary range (increases apply rate significantly)",
+          "Bullet points over paragraphs",
+          "300-700 words optimal range"
+        ]
+      }
+    }
+  },
+
+  "D_linkedin_specific_benchmarks": {
+    "section_title": "LinkedIn-Specific Benchmarks",
+    "data_year": "2025-2026",
+
+    "easy_apply_vs_ats": {
+      "description": "Easy Apply performance vs standard ATS application",
+      "reliability": "high",
+      "data": {
+        "easy_apply_apply_rate_pct": 27.25,
+        "ats_apply_rate_pct": 10.77,
+        "easy_apply_avg_apps_per_posting": 797,
+        "ats_avg_apps_per_posting": 16,
+        "volume_multiplier": "50x more applications via Easy Apply",
+        "quality_tradeoff": "Easy Apply: 2-4% callback. ATS: 8-12% callback.",
+        "ats_screening_failure_rate_pct": 90,
+        "source": "SlotOps engine data (108,871 LinkedIn jobs, 76 countries, 7,614 EA vs ATS entries)"
+      }
+    },
+
+    "slot_utilization": {
+      "description": "LinkedIn job slot best practices",
+      "reliability": "medium",
+      "data": {
+        "slot_rotation_benefit": "Regular rotation improves freshness signal",
+        "optimal_posting_duration_days": 30,
+        "refresh_recommendation": "Weekly content refresh within active slots",
+        "easy_apply_weight_in_scoring": 20,
+        "factors_affecting_performance": [
+          "Country (15% weight)",
+          "Function/Industry (15% weight)",
+          "Company tier (10% weight)",
+          "Easy Apply enabled (20% weight)",
+          "Workplace type (10% weight)",
+          "Title optimization (10% weight)",
+          "Historical performance (10% weight)",
+          "Day of week (10% weight)"
+        ],
+        "source": "SlotOps 8-factor scoring model"
+      }
+    },
+
+    "linkedin_ad_ctr_benchmarks": {
+      "description": "LinkedIn advertising click-through rate benchmarks",
+      "reliability": "high",
+      "data": {
+        "overall_ctr_range_pct": {"min": 0.44, "max": 0.65},
+        "image_ads_us_ctr_pct": 0.48,
+        "image_ads_global_ctr_pct": 0.61,
+        "above_average_threshold_pct": 0.60,
+        "top_performing_threshold_pct": 1.0,
+        "b2b_lead_gen_ctr_range_pct": {"min": 1.0, "max": 3.0},
+        "by_region": [
+          {"region": "APAC", "avg_ctr_pct": 1.04},
+          {"region": "LATAM", "avg_ctr_pct": 0.63},
+          {"region": "North America", "avg_ctr_pct": 0.58},
+          {"region": "EMEA", "avg_ctr_pct": 0.28}
+        ]
+      }
+    },
+
+    "linkedin_sponsored_job_cpc_cpa": {
+      "description": "LinkedIn sponsored job pricing benchmarks",
+      "reliability": "high",
+      "data": {
+        "cpc_range_usd": {"min": 1.50, "max": 4.50},
+        "cpa_range_usd": {"min": 1.00, "max": 8.00},
+        "us_avg_cpa_usd": 2.83,
+        "min_daily_budget_usd": 7.00,
+        "avg_cpm_range_usd": {"min": 30, "max": 60},
+        "roas_b2b_avg": 2.21,
+        "inmail_response_rate_pct": 18,
+        "by_industry": [
+          {"industry": "B2B SaaS/Technology", "cpc_range_usd": {"min": 5.00, "max": 8.00}},
+          {"industry": "Financial Services", "cpc_range_usd": {"min": 4.50, "max": 7.00}},
+          {"industry": "Education", "cpc_range_usd": {"min": 3.50, "max": 5.50}},
+          {"industry": "Staffing/Recruiting", "cpc_range_usd": {"min": 4.00, "max": 6.00}},
+          {"industry": "Healthcare B2B", "cpc_range_usd": {"min": 3.00, "max": 5.00}}
+        ]
+      }
+    },
+
+    "linkedin_job_wrapping": {
+      "description": "Job wrapping and organic distribution performance",
+      "reliability": "low",
+      "data": {
+        "organic_reach_decline": "LinkedIn has reduced organic job post visibility year-over-year",
+        "wrapped_job_performance": "Organic job wrapping typically yields lower apply rates than sponsored",
+        "recommendation": "Combine organic posting with paid sponsorship for optimal results",
+        "notes": "Limited public benchmark data available. Most wrapping performance data is proprietary."
+      }
+    }
+  },
+
+  "E_programmatic_recruitment_benchmarks": {
+    "section_title": "Programmatic Recruitment Benchmarks",
+    "data_year": "2025-2026",
+
+    "programmatic_vs_direct": {
+      "description": "Performance comparison: programmatic vs direct/duration-based buying",
+      "reliability": "medium",
+      "data": {
+        "pricing_model_comparison": {
+          "duration_based": {"example_cost_30_day": 200, "model": "Flat fee per posting period", "control": "Low", "optimization": "None"},
+          "cpc_based": {"example_cost_usd": 1.00, "model": "Pay per click", "control": "Medium", "optimization": "Bid management"},
+          "cpa_based": {"example_cost_usd": 20.00, "model": "Pay per application", "control": "High", "optimization": "Application quality targeting"},
+          "cph_based": {"example_cost_usd": 500, "model": "Pay per hire", "control": "Highest", "optimization": "Full funnel optimization"}
+        },
+        "programmatic_advantages": [
+          "Performance-based models consistently outperform flat-fee postings",
+          "Programmatic shifts spend toward channels actually producing qualified applications",
+          "Real-time bid optimization reduces waste spend",
+          "Multi-source distribution without per-board management"
+        ],
+        "share_of_spend": "Performance-based (CPC/CPA) now dominant model for large employers in US. Growing rapidly in international markets."
+      }
+    },
+
+    "budget_allocation_benchmarks": {
+      "description": "Recommended budget split for recruitment advertising",
+      "reliability": "medium",
+      "data": {
+        "recommended_split": {
+          "programmatic_pct": {"min": 50, "max": 70},
+          "organic_free_pct": {"min": 15, "max": 25},
+          "sponsored_direct_pct": {"min": 15, "max": 30},
+          "employer_brand_pct": {"min": 5, "max": 15}
+        },
+        "scaling_guidance": "Campaigns exceeding benchmarks can scale budgets 20-30% every 3-4 days without significant performance degradation",
+        "notes": "Budget allocation should be dynamic based on role difficulty, location, and time-to-fill urgency"
+      }
+    },
+
+    "bid_optimization": {
+      "description": "Bid management benchmarks for programmatic recruitment",
+      "reliability": "medium",
+      "data": {
+        "optimal_cpc_range_by_role": [
+          {"role_category": "Hourly / Frontline", "recommended_cpc_usd": {"min": 0.25, "max": 0.75}},
+          {"role_category": "Skilled Trade", "recommended_cpc_usd": {"min": 0.50, "max": 1.25}},
+          {"role_category": "Professional", "recommended_cpc_usd": {"min": 0.75, "max": 2.00}},
+          {"role_category": "Technical / IT", "recommended_cpc_usd": {"min": 1.00, "max": 3.00}},
+          {"role_category": "Executive / Senior", "recommended_cpc_usd": {"min": 2.00, "max": 5.00}}
+        ],
+        "bid_strategy_tips": [
+          "Start with platform-suggested bids, adjust based on apply rate",
+          "Monitor CPA daily for first week, then weekly",
+          "Reduce bids on high-volume low-quality sources",
+          "Increase bids for high-converting sources with low volume"
+        ]
+      }
+    },
+
+    "quality_score_factors": {
+      "description": "Factors affecting quality and performance by platform",
+      "reliability": "medium",
+      "data": {
+        "indeed": ["Job title relevance", "Description quality", "Company ratings", "Salary transparency", "Application process length"],
+        "linkedin": ["Company page completeness", "Employer brand strength", "Easy Apply enabled", "Job description quality", "Response rate to applicants"],
+        "google_jobs": ["Structured data markup", "Job description freshness", "Company website quality", "Salary information", "Location accuracy"],
+        "programmatic_general": ["Historical apply rate", "Budget allocation efficiency", "Source diversity", "Time-to-fill tracking", "Quality of apply"]
+      }
+    }
+  },
+
+  "F_free_public_data_sources": {
+    "section_title": "Free/Public Data Sources for Recruitment Benchmarks",
+    "data_year": "2026",
+
+    "government_apis": {
+      "description": "Free government APIs providing labor market data",
+      "reliability": "high",
+      "sources": [
+        {
+          "name": "BLS JOLTS (Job Openings and Labor Turnover Survey)",
+          "api_url": "https://api.bls.gov/publicAPI/v2/timeseries/data/",
+          "documentation": "https://www.bls.gov/developers/home.htm",
+          "free": true,
+          "registration_required": true,
+          "rate_limit": "500 queries/day (v2), 50 series, 20 years per query",
+          "data_provided": ["Job openings by industry/region", "Hires rate", "Separations rate", "Quits rate"],
+          "latest_data": "February 2026: 6.9 million job openings",
+          "update_frequency": "Monthly (released with ~2 month lag)",
+          "api_recommendation": "FETCH_VIA_API",
+          "series_ids": {
+            "total_nonfarm_openings": "JTS000000000000000JOL",
+            "total_nonfarm_hires": "JTS000000000000000HIL",
+            "total_nonfarm_quits": "JTS000000000000000QUL"
+          }
+        },
+        {
+          "name": "FRED (Federal Reserve Economic Data)",
+          "api_url": "https://api.stlouisfed.org/fred/series/observations",
+          "documentation": "https://fred.stlouisfed.org/docs/api/fred/",
+          "free": true,
+          "registration_required": true,
+          "data_provided": ["JOLTS aggregate data", "Unemployment rates", "Labor force participation", "Wage growth"],
+          "key_series": ["JTSJOL (Total Job Openings)", "UNRATE (Unemployment Rate)", "LNS11300000 (Labor Force Participation)"],
+          "api_recommendation": "FETCH_VIA_API"
+        },
+        {
+          "name": "BLS CES (Current Employment Statistics)",
+          "api_url": "https://api.bls.gov/publicAPI/v2/timeseries/data/",
+          "free": true,
+          "data_provided": ["Employment by industry", "Earnings data", "Hours worked"],
+          "api_recommendation": "FETCH_VIA_API"
+        },
+        {
+          "name": "O*NET (Occupational Information Network)",
+          "api_url": "https://services.onetcenter.org/ws/",
+          "free": true,
+          "registration_required": true,
+          "data_provided": ["Occupation characteristics", "Skills requirements", "Wage data", "Job zones"],
+          "api_recommendation": "FETCH_VIA_API"
+        },
+        {
+          "name": "Census Bureau ACS",
+          "api_url": "https://api.census.gov/data/",
+          "free": true,
+          "data_provided": ["Demographics by geography", "Income data", "Commuting patterns", "Industry employment"],
+          "api_recommendation": "FETCH_VIA_API"
+        }
+      ]
+    },
+
+    "platform_published_reports": {
+      "description": "Free annual reports from recruitment platforms",
+      "reliability": "medium",
+      "sources": [
+        {
+          "name": "Industry Recruitment Marketing Benchmark Report (Annual)",
+          "url": "Published annually (Q1)",
+          "data_provided": ["CPC/CPA/CPH by occupation", "Apply rates by industry", "Geographic trends", "YoY changes"],
+          "sample_size": "302M+ clicks, 27M+ applications, 1,200+ employers (2025 data)",
+          "access": "Free download with email registration",
+          "update_frequency": "Annual",
+          "api_recommendation": "HARDCODE_AND_UPDATE_ANNUALLY"
+        },
+        {
+          "name": "Gem Annual Recruiting Benchmarks Report",
+          "url": "https://www.gem.com/blog/10-takeaways-from-the-2025-recruiting-benchmarks-report",
+          "data_provided": ["Funnel conversion rates", "Time-to-fill", "Source effectiveness", "Pipeline metrics"],
+          "sample_size": "140M+ applicants, 1.3M+ hires (2021-2024 data)",
+          "access": "Free download",
+          "api_recommendation": "HARDCODE_AND_UPDATE_ANNUALLY"
+        },
+        {
+          "name": "CareerPlug Recruiting Metrics Report",
+          "url": "https://www.careerplug.com/recruiting-metrics-and-kpis/",
+          "data_provided": ["Application rates", "Applicant-to-hire ratios", "Time-to-hire by industry"],
+          "sample_size": "10M+ applications from 60,000+ SMBs",
+          "access": "Free download",
+          "api_recommendation": "HARDCODE_AND_UPDATE_ANNUALLY"
+        },
+        {
+          "name": "SHRM Talent Acquisition Benchmarking Report",
+          "url": "https://www.shrm.org/topics-tools/research/2025-recruiting-benchmarking",
+          "data_provided": ["Cost per hire by industry", "Time to fill", "Quality of hire metrics"],
+          "access": "SHRM membership or purchase",
+          "api_recommendation": "HARDCODE_AND_UPDATE_ANNUALLY"
+        },
+        {
+          "name": "Talent Market Index (Monthly)",
+          "url": "Published monthly",
+          "data_provided": ["CPC/CPA trends by 9 job categories", "Month-over-month changes", "Year-over-year comparisons"],
+          "access": "Free online",
+          "api_recommendation": "HARDCODE_AND_UPDATE_QUARTERLY"
+        }
+      ]
+    },
+
+    "academic_research": {
+      "description": "Academic and research sources on job ad effectiveness",
+      "reliability": "high",
+      "sources": [
+        {"topic": "Job description length impact", "finding": "Shorter descriptions (300-700 words) outperform longer ones", "source_type": "Industry research"},
+        {"topic": "Salary transparency effect", "finding": "Job ads with salary ranges receive 30-50% more applications", "source_type": "Platform data"},
+        {"topic": "Mobile optimization", "finding": "Mobile-optimized applications show 45% higher completion rates", "source_type": "Industry report"},
+        {"topic": "Application time", "finding": "Under 5-minute applications see 365% conversion lift", "source_type": "Industry report"},
+        {"topic": "Customized vs mass applications", "finding": "Customized applications 4x more likely to advance", "source_type": "Academic research"}
+      ]
+    },
+
+    "api_recommendation_summary": {
+      "description": "Which benchmarks to fetch via API vs hardcode",
+      "data": {
+        "fetch_via_api_realtime": [
+          {"data": "JOLTS job openings", "source": "BLS API", "frequency": "Monthly", "reason": "Changes monthly, affects supply/demand context"},
+          {"data": "Unemployment rate", "source": "FRED API", "frequency": "Monthly", "reason": "Key labor market indicator"},
+          {"data": "Wage growth data", "source": "BLS CES API", "frequency": "Monthly", "reason": "Affects CPA competitiveness"},
+          {"data": "O*NET occupation data", "source": "O*NET API", "frequency": "Quarterly", "reason": "Skills/wage data for planning"}
+        ],
+        "hardcode_update_annually": [
+          {"data": "CPA/CPH by industry", "source": "Annual benchmark reports", "reason": "Stable enough for annual update. Core product data."},
+          {"data": "Apply rate benchmarks", "source": "Annual benchmark reports", "reason": "Changes slowly. Update with each annual release."},
+          {"data": "Platform CPC ranges", "source": "Platform pricing + reports", "reason": "Pricing changes infrequently. Verify quarterly."},
+          {"data": "Funnel conversion rates", "source": "Gem/CareerPlug annual reports", "reason": "Structural metrics change slowly."},
+          {"data": "Best posting days/times", "source": "Platform research", "reason": "Behavioral patterns are stable year-over-year."},
+          {"data": "Geographic CPA patterns", "source": "Annual benchmark reports", "reason": "Regional patterns shift slowly."}
+        ],
+        "hardcode_update_quarterly": [
+          {"data": "CPC trend direction (MoM)", "source": "Monthly talent market index", "reason": "Tracks seasonal swings"},
+          {"data": "LinkedIn CTR benchmarks", "source": "Social media benchmarks", "reason": "Platform algorithm changes can shift these"}
+        ],
+        "derive_from_internal_data": [
+          {"data": "Craigslist performance benchmarks", "source": "CG Automation engine data", "reason": "Internal data more accurate than public benchmarks"},
+          {"data": "LinkedIn Easy Apply vs ATS", "source": "SlotOps engine data", "reason": "Internal data with 108K+ jobs analyzed"},
+          {"data": "Programmatic CPA optimization", "source": "Nova plan generation engine", "reason": "Client-specific data more relevant than averages"}
+        ]
+      }
+    }
+  },
+
+  "product_integration_guide": {
+    "description": "How each benchmark maps to Nova, SlotOps, and CG Automation",
+
+    "nova_ai_suite": {
+      "primary_benchmarks": [
+        "CPA/CPH by industry vertical (Section A)",
+        "CPC by platform (Section A)",
+        "Apply rate benchmarks (Section B)",
+        "Funnel conversion rates (Section B)",
+        "Programmatic vs direct buy comparison (Section E)",
+        "Budget allocation recommendations (Section E)",
+        "All API data sources (Section F)"
+      ],
+      "usage": "Media plan generation, budget recommendations, channel mix optimization, chatbot intelligence"
+    },
+
+    "slotops": {
+      "primary_benchmarks": [
+        "LinkedIn Easy Apply vs ATS data (Section B, D)",
+        "LinkedIn CTR benchmarks (Section D)",
+        "LinkedIn CPC/CPA ranges (Section D)",
+        "Best posting days/times for LinkedIn (Section C)",
+        "Impression decay on LinkedIn (Section C)",
+        "Slot utilization best practices (Section D)"
+      ],
+      "usage": "Slot scoring model, rotation planning, performance prediction, schedule optimization"
+    },
+
+    "cg_automation": {
+      "primary_benchmarks": [
+        "Craigslist impression decay (Section C)",
+        "Craigslist posting frequency/timing (Section C)",
+        "Craigslist click-to-apply rates (Section B)",
+        "Gig/labor CPA benchmarks (Section A)",
+        "Mobile vs desktop apply rates (Section B)",
+        "Title optimization impact (Section C)"
+      ],
+      "usage": "Post scheduling, repost timing, performance prediction, action plan generation"
+    }
+  }
+}
