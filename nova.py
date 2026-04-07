@@ -1282,6 +1282,7 @@ _TOOL_LABELS: Dict[str, str] = {
     "enrich_entity": "Looking up entity in Knowledge Graph",
     "audit_career_page": "Auditing career page performance",
     "geocode_location": "Geocoding location coordinates",
+    "optimize_campaign": "Optimizing campaign channel allocation",
     "slotops_predict": "Predicting LinkedIn job performance",
     "slotops_optimize": "Optimizing LinkedIn slot allocation",
     "ga4_analytics": "Querying Google Analytics traffic data",
@@ -5180,6 +5181,42 @@ Never invent plausible-sounding numbers when data is unavailable. State the gap 
                     "required": ["industry", "job_category"],
                 },
             },
+            # S46: Campaign Optimization Engine
+            {
+                "name": "optimize_campaign",
+                "description": "AI-powered campaign optimizer. Given a role, location, industry, and budget, returns optimal channel allocation with projected clicks, applies, hires, CPA, and CPH. Use when user asks 'what is the best way to spend my budget', 'optimize my campaign', 'how should I allocate budget', or 'recommend channels for hiring'.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "role": {
+                            "type": "string",
+                            "description": "Job title (e.g., 'Registered Nurse', 'Software Engineer')",
+                        },
+                        "location": {
+                            "type": "string",
+                            "description": "Hiring location (e.g., 'San Francisco', 'Dallas, TX')",
+                        },
+                        "industry": {
+                            "type": "string",
+                            "description": "Industry vertical (e.g., 'healthcare', 'tech', 'retail')",
+                        },
+                        "budget": {
+                            "type": "number",
+                            "description": "Total campaign budget in USD",
+                        },
+                        "duration_months": {
+                            "type": "integer",
+                            "description": "Campaign duration in months (default 1)",
+                        },
+                        "goals": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Campaign goals: 'volume', 'quality', 'speed', 'diversity'",
+                        },
+                    },
+                    "required": ["role", "budget"],
+                },
+            },
         ]
 
     # ------------------------------------------------------------------
@@ -5265,6 +5302,8 @@ Never invent plausible-sounding numbers when data is unavailable. State the gap 
             "analyze_employer_brand": self._analyze_employer_brand,
             "estimate_meta_campaign": self._estimate_meta_campaign,
             "get_meta_benchmarks": self._get_meta_benchmarks,
+            # S46: Campaign Optimization Engine
+            "optimize_campaign": self._optimize_campaign,
             # S42: SlotOps LinkedIn tools
             "slotops_predict": self._slotops_predict,
             "slotops_optimize": self._slotops_optimize,
@@ -10002,6 +10041,27 @@ Never invent plausible-sounding numbers when data is unavailable. State the gap 
             }
 
     # ------------------------------------------------------------------
+    # S46: Campaign Optimization Engine
+    # ------------------------------------------------------------------
+
+    def _optimize_campaign(self, params: dict) -> dict:
+        """Run campaign optimization engine for channel allocation."""
+        try:
+            from campaign_optimizer import optimize_campaign_tool
+
+            return optimize_campaign_tool(params)
+        except ImportError:
+            return {
+                "error": "Campaign optimizer not available",
+                "source": "campaign_optimizer",
+            }
+        except Exception as e:
+            logger.error("optimize_campaign tool failed: %s", e, exc_info=True)
+            return {
+                "error": f"Campaign optimization failed: {e}",
+                "source": "campaign_optimizer",
+            }
+
     # S42: SlotOps tools (LinkedIn Slot Optimization)
     # ------------------------------------------------------------------
 
@@ -11377,6 +11437,13 @@ Never invent plausible-sounding numbers when data is unavailable. State the gap 
         r"|slot\s+allocation|timezone\s+rotation)\b",
         re.IGNORECASE,
     )
+    _CAMPAIGN_OPTIMIZE_INTENT = re.compile(
+        r"\b(optimiz\w+\s+(?:my\s+)?campaign|best\s+(?:way\s+)?(?:to\s+)?(?:spend|allocat)"
+        r"|channel\s+(?:allocat|recommend|suggest|strateg)|how\s+(?:should|to)\s+(?:I\s+)?"
+        r"(?:allocat|spend|distribut)\s+(?:my\s+)?budget"
+        r"|recommend\s+channels?\s+for\s+hiring|media\s+mix\s+optimiz)\b",
+        re.IGNORECASE,
+    )
 
     def _try_direct_tool_dispatch(
         self,
@@ -11561,6 +11628,24 @@ Never invent plausible-sounding numbers when data is unavailable. State the gap 
                 tool_label = "LinkedIn slot optimization"
             except ImportError:
                 pass
+
+        # --- S46: Campaign optimization intent ---
+        if not tool_name and self._CAMPAIGN_OPTIMIZE_INTENT.search(msg_lower):
+            tool_name = "optimize_campaign"
+            tool_params = {"message": user_message}
+            # Extract budget if mentioned (e.g. "$50k", "$100,000")
+            import re as _re
+
+            _bud_match = _re.search(r"\$[\d,]+(?:\.\d+)?[kKmM]?", user_message)
+            if _bud_match:
+                _bud_str = _bud_match.group().replace("$", "").replace(",", "")
+                if _bud_str[-1:].lower() == "k":
+                    tool_params["budget"] = float(_bud_str[:-1]) * 1_000
+                elif _bud_str[-1:].lower() == "m":
+                    tool_params["budget"] = float(_bud_str[:-1]) * 1_000_000
+                else:
+                    tool_params["budget"] = float(_bud_str)
+            tool_label = "Campaign channel optimization"
 
         if not tool_name:
             return None  # No direct dispatch -- fall through to normal routing
@@ -17142,6 +17227,7 @@ _TOOL_SOURCE_MAP: Dict[str, str] = {
     "geocode_location": "Google Maps",
     "slotops_predict": "SlotOps LinkedIn Baselines (89K jobs)",
     "slotops_optimize": "SlotOps LinkedIn Baselines (89K jobs)",
+    "optimize_campaign": "Campaign Optimization Engine (66M+ views, 11M+ clicks)",
     "translate_text": "Google Translate",
     "analyze_employer_brand": "YouTube Data API",
     "estimate_meta_campaign": "Meta Ads (Facebook/Instagram)",

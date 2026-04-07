@@ -11999,6 +11999,33 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 )
             return
 
+        # ── S46: Campaign Optimization API ──
+        if path == "/api/optimize":
+            try:
+                content_len = int(self.headers.get("Content-Length") or 0)
+                body = self.rfile.read(content_len) if content_len > 0 else b"{}"
+                data = json.loads(body)
+                from campaign_optimizer import optimize_campaign
+
+                result = optimize_campaign(
+                    role=data.get("role") or data.get("job_title") or "",
+                    location=data.get("location") or "",
+                    industry=data.get("industry") or "",
+                    budget=float(data.get("budget") or 0),
+                    duration_months=int(data.get("duration_months") or 1),
+                    goals=data.get("goals") or [],
+                    constraints=data.get("constraints") or {},
+                )
+                self._send_json(result)
+            except json.JSONDecodeError:
+                self._send_json(
+                    {"error": "Invalid JSON in request body"}, status_code=400
+                )
+            except Exception as exc:
+                logger.error("Campaign optimizer error: %s", exc, exc_info=True)
+                self._send_json({"error": "Optimization failed"}, status_code=500)
+            return
+
         if path == "/api/generate":
             # ── S46: Server-side @joveo.com domain enforcement ──
             if not self._check_joveo_auth() and not self._check_admin_auth():
