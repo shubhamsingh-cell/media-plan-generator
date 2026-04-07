@@ -8980,6 +8980,23 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
         if session_email and session_email.lower().strip().endswith("@joveo.com"):
             return True
 
+        # Path 4: Allow embedded widgets from known Joveo product domains
+        # This is the fallback when NOVA_API_KEYS is not configured yet.
+        # Checks Origin/Referer header against known Joveo product URLs.
+        _joveo_domains = {
+            "media-plan-generator.onrender.com",
+            "cg-automation.onrender.com",
+            "nova.joveo.com",
+            "geoviz.joveo.com",
+            "localhost",
+            "127.0.0.1",
+        }
+        origin = self.headers.get("Origin") or ""
+        referer = self.headers.get("Referer") or ""
+        for _jd in _joveo_domains:
+            if _jd in origin or _jd in referer:
+                return True
+
         return False
 
     def _check_rate_limit(self):
