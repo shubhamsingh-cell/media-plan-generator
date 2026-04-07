@@ -297,8 +297,8 @@ select:hover {
 
 input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not(
     [type="hidden"]
-  ):not([type="range"]):focus,
-textarea:focus,
+  ):not([type="range"]):not(.nova-input):not(.chat-input):not(#chatInput):focus,
+textarea:not(.nova-input):not(.chat-input):not(#chatInput):focus,
 select:focus {
   border-color: var(--accent);
   box-shadow: var(--input-focus-ring);

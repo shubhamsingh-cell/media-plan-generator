@@ -239,9 +239,7 @@
 
   // ── Header shrink on scroll (combined with aurora parallax via rAF) ──
   var nav = document.querySelector(".nav");
-  var auroraLayers = !prefersReducedMotion
-    ? document.querySelectorAll(".bg-mesh .aurora-layer")
-    : [];
+  /* auroraLayers parallax removed -- caused scroll vibration */
   var scrollTicking = false;
   window.addEventListener(
     "scroll",
@@ -255,12 +253,7 @@
             nav.style.background = "rgba(0, 0, 0, 0.8)";
             nav.style.height = "64px";
           }
-          if (auroraLayers.length > 0) {
-            var translateY = window.scrollY * 0.5;
-            auroraLayers.forEach(function (layer) {
-              layer.style.transform = "translateY(" + translateY + "px)";
-            });
-          }
+          /* Aurora parallax removed -- caused scroll vibration */
           scrollTicking = false;
         });
         scrollTicking = true;
