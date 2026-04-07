@@ -366,14 +366,26 @@ class DeckGenerator:
             )
             pres_id = presentation["presentationId"]
 
-            # Build batch update requests
-            requests_list = self._build_google_slides_requests(data, presentation)
+            # Build batch update requests using Joveo template
+            try:
+                from joveo_slides_template import build_joveo_slides
+
+                requests_list = build_joveo_slides(data, presentation)
+            except ImportError:
+                logger.warning(
+                    "joveo_slides_template not available, using basic layout"
+                )
+                requests_list = self._build_google_slides_requests(data, presentation)
 
             if requests_list:
-                slides_service.presentations().batchUpdate(
-                    presentationId=pres_id,
-                    body={"requests": requests_list},
-                ).execute()
+                # Google Slides API limit: send in chunks of 500 requests
+                chunk_size = 500
+                for i in range(0, len(requests_list), chunk_size):
+                    chunk = requests_list[i : i + chunk_size]
+                    slides_service.presentations().batchUpdate(
+                        presentationId=pres_id,
+                        body={"requests": chunk},
+                    ).execute()
 
             # Export as PPTX
             export_resp = (

@@ -78,9 +78,12 @@ def _build_plan_notification_blocks(plan_data: Dict[str, Any]) -> List[Dict[str,
     )
     filename = plan_data.get("filename") or ""
 
-    # Build download URL
+    # Build download URL -- prefer permanent Google Drive link over ephemeral job link
+    drive_url = plan_data.get("drive_url") or ""
     download_url = ""
-    if job_id:
+    if drive_url:
+        download_url = drive_url
+    elif job_id:
         download_url = f"{_BASE_URL.rstrip('/')}/api/jobs/{job_id}"
 
     # Channels display (show up to 5, then "+N more")

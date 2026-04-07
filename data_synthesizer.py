@@ -2637,12 +2637,13 @@ def _build_platform_entry(
     if not isinstance(role_data, dict):
         role_data = {}
 
-    # Aggregate metrics across roles
+    # Aggregate metrics across roles AND keep per-role breakdowns
     cpc_values: List[float] = []
     cpm_values: List[float] = []
     cpa_values: List[float] = []
     search_volumes: List[int] = []
     audience_values: List[int] = []
+    per_role_metrics: Dict[str, Dict[str, Any]] = {}
 
     for role in roles:
         entry = role_data.get(role, {})
@@ -2668,6 +2669,16 @@ def _build_platform_entry(
         audience = _parse_audience_number(str(entry.get("estimated_audience") or ""))
         if audience > 0:
             audience_values.append(audience)
+
+        # S46: Store per-role metrics so Excel can show differentiated data
+        if cpc > 0 or cpm > 0 or cpa > 0:
+            per_role_metrics[role] = {
+                "avg_cpc": round(cpc, 2) if cpc > 0 else None,
+                "avg_cpm": round(cpm, 2) if cpm > 0 else None,
+                "avg_cpa": round(cpa, 2) if cpa > 0 else None,
+                "search_volume": sv if sv > 0 else None,
+                "estimated_audience": audience if audience > 0 else None,
+            }
 
     avg_cpc = round(statistics.mean(cpc_values), 2) if cpc_values else 0.0
     avg_cpm = round(statistics.mean(cpm_values), 2) if cpm_values else 0.0
@@ -2728,6 +2739,7 @@ def _build_platform_entry(
         "platform_summary": (
             platform_summary if isinstance(platform_summary, dict) else {}
         ),
+        "per_role_metrics": per_role_metrics,
         "_meta": {
             "source_count": source_count + (1 if kb_validated_flag else 0),
             "kb_validated": kb_validated_flag,

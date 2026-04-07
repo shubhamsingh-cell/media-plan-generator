@@ -4509,14 +4509,16 @@ _SCORECARDS_TTL = 43200.0  # 12 hours
 # ═══════════════════════════════════════════════════════════════════════════════
 _generation_jobs: dict = {}
 _generation_jobs_lock = threading.Lock()
-_GENERATION_JOB_EXPIRY_SECONDS = 30 * 60  # 30 minutes
+_GENERATION_JOB_EXPIRY_SECONDS = (
+    24 * 60 * 60
+)  # 24 hours (was 30 min -- Slack users download hours later)
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # PLAN RESULTS STORE (in-memory, TTL 30min, for on-screen dashboard)
 # ═══════════════════════════════════════════════════════════════════════════════
 _plan_results_store: dict[str, dict] = {}
 _plan_results_lock = threading.Lock()
-_PLAN_RESULTS_TTL_SECONDS = 30 * 60
+_PLAN_RESULTS_TTL_SECONDS = 24 * 60 * 60  # 24 hours (was 30 min)
 
 
 def _extract_plan_json(data: dict) -> dict:
@@ -4674,6 +4676,60 @@ def _store_plan_result(plan_id: str, data: dict) -> None:
         logger.info("Plan result stored: %s", plan_id)
     except Exception as e:
         logger.error("Failed to store plan result: %s", e, exc_info=True)
+
+
+def _upload_plan_to_drive(file_bytes: bytes, filename: str, mime_type: str) -> str:
+    """Upload plan ZIP to Google Drive for permanent download link.
+
+    Returns:
+        Direct download URL, or empty string if upload fails or Drive not configured.
+    """
+    import base64 as _b64
+
+    creds_b64 = os.environ.get("GOOGLE_SLIDES_CREDENTIALS_B64") or ""
+    if not creds_b64:
+        return ""
+
+    try:
+        creds_json = _b64.b64decode(creds_b64).decode("utf-8")
+        creds_dict = json.loads(creds_json)
+    except Exception:
+        return ""
+
+    try:
+        from googleapiclient.discovery import build as _gapi_build
+        from googleapiclient.http import MediaInMemoryUpload
+        from google.oauth2.service_account import Credentials as _GCreds
+    except ImportError:
+        return ""
+
+    try:
+        scopes = ["https://www.googleapis.com/auth/drive"]
+        creds = _GCreds.from_service_account_info(creds_dict, scopes=scopes)
+        drive = _gapi_build("drive", "v3", credentials=creds)
+
+        file_meta = {"name": filename, "mimeType": mime_type}
+        media = MediaInMemoryUpload(file_bytes, mimetype=mime_type)
+        uploaded = (
+            drive.files()
+            .create(body=file_meta, media_body=media, fields="id,webContentLink")
+            .execute()
+        )
+
+        file_id = uploaded.get("id") or ""
+        if not file_id:
+            return ""
+
+        # Make publicly downloadable
+        drive.permissions().create(
+            fileId=file_id,
+            body={"role": "reader", "type": "anyone"},
+        ).execute()
+
+        return f"https://drive.google.com/uc?export=download&id={file_id}"
+    except Exception as exc:
+        logger.warning("Drive upload failed: %s", exc)
+        return ""
 
 
 def _cleanup_generation_jobs():
@@ -13024,6 +13080,30 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                             "Async job %s completed (%d bytes)", jid, len(result_bytes)
                         )
 
+                        # ── Upload ZIP to Google Drive for permanent Slack link ──
+                        _drive_download_url = ""
+                        try:
+                            _drive_download_url = _upload_plan_to_drive(
+                                result_bytes, result_fn, result_ct
+                            )
+                            if _drive_download_url:
+                                with _generation_jobs_lock:
+                                    if jid in _generation_jobs:
+                                        _generation_jobs[jid][
+                                            "drive_url"
+                                        ] = _drive_download_url
+                                logger.info(
+                                    "Plan uploaded to Drive for job %s: %s",
+                                    jid,
+                                    _drive_download_url,
+                                )
+                        except Exception as drive_exc:
+                            logger.warning(
+                                "Drive upload failed for job %s (non-critical): %s",
+                                jid,
+                                drive_exc,
+                            )
+
                         # ── Slack notification: plan generated ──
                         try:
                             from slack_plan_notifier import notify_plan_generated
@@ -13069,6 +13149,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                     "channels_list": _channels_list,
                                     "generation_time_seconds": _gen_elapsed,
                                     "job_id": jid,
+                                    "drive_url": _drive_download_url,
                                     "filename": result_fn,
                                     "timestamp": time.strftime(
                                         "%Y-%m-%d %H:%M:%S UTC", time.gmtime()

@@ -521,9 +521,13 @@ INDUSTRY_ALLOC_PROFILES: Dict[str, Dict[str, int]] = {
 
 
 def _get_industry_alloc(
-    industry: str, budget_str: str = "", num_roles: int = 0, roles: list = None
+    industry: str,
+    budget_str: str = "",
+    num_roles: int = 0,
+    roles: list = None,
+    locations: list = None,
 ) -> Dict[str, Dict[str, Any]]:
-    """Return a copy of CHANNEL_ALLOC with percentages adjusted for industry, budget, roles."""
+    """Return a copy of CHANNEL_ALLOC with percentages adjusted for industry, budget, roles, locations."""
     # Use manual dict copy to avoid deepcopy issues with RGBColor objects
     base = {k: dict(v) for k, v in CHANNEL_ALLOC.items()}
 
@@ -615,9 +619,35 @@ def _get_industry_alloc(
             base["employer_branding"]["pct"] -= 2
             base["programmatic_dsp"]["pct"] -= 2
 
+    # Step 5: Geo-filter -- remove APAC/EMEA for US-only plans
+    if locations:
+        _locs_list = locations if isinstance(locations, list) else [locations]
+        _us_terms = {"us", "usa", "united states", ""}
+        _all_us = all(
+            str(loc.get("country") if isinstance(loc, dict) else loc).lower().strip()
+            in _us_terms
+            for loc in _locs_list
+        )
+        if _all_us:
+            for _intl_key in ("apac_regional", "emea_regional"):
+                if _intl_key in base:
+                    _freed = base[_intl_key]["pct"]
+                    base[_intl_key]["pct"] = 0
+                    if _freed > 0:
+                        _top = max(
+                            (k for k in base if k != _intl_key),
+                            key=lambda k: base[k]["pct"],
+                        )
+                        base[_top]["pct"] += _freed
+
     # Ensure no negative percentages
     for key in base:
-        base[key]["pct"] = max(1, base[key]["pct"])
+        base[key]["pct"] = max(
+            0 if key in ("apac_regional", "emea_regional") else 1, base[key]["pct"]
+        )
+
+    # Filter out zero-allocation channels
+    base = {k: v for k, v in base.items() if v["pct"] > 0}
 
     # Normalize to 100%
     total = sum(v["pct"] for v in base.values())
@@ -1402,7 +1432,10 @@ def _selected_channels(data: Dict) -> Dict[str, Dict[str, Any]]:
     budget_str = data.get("budget") or ""
     roles = data.get("roles") or []
     num_roles = len(roles) if roles else 0
-    alloc_base = _get_industry_alloc(industry, budget_str, num_roles, roles)
+    locations = data.get("locations") or []
+    alloc_base = _get_industry_alloc(
+        industry, budget_str, num_roles, roles, locations=locations
+    )
 
     selected = {}
     for key, meta in alloc_base.items():

@@ -2049,6 +2049,52 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
                 fills=row_fills,
                 fonts=row_fonts,
             )
+        # S46: Per-role breakdown sub-table when multiple roles have different metrics
+        roles_input = data.get("roles") or data.get("target_roles") or []
+        if isinstance(roles_input, list) and len(roles_input) > 1:
+            # Check if any platform has per_role_metrics
+            _has_role_data = False
+            for _pk, _pd in ad_platforms.items():
+                if isinstance(_pd, dict) and _pd.get("per_role_metrics"):
+                    _has_role_data = True
+                    break
+
+            if _has_role_data:
+                row += 1
+                row = _write_section_header(ws, row, "Ad Platform Metrics by Role")
+                _role_headers = ["Platform", "Role", "CPC", "CPM", "CPA"]
+                row = _write_table_header(ws, row, _role_headers)
+
+                _role_idx = 0
+                for plat_key, plat_data in ad_platforms.items():
+                    if not isinstance(plat_data, dict):
+                        continue
+                    per_role = plat_data.get("per_role_metrics") or {}
+                    if not per_role:
+                        continue
+                    plat_name = plat_data.get(
+                        "platform_name", plat_key.replace("_", " ").title()
+                    )
+                    for role_name, role_metrics in per_role.items():
+                        if not isinstance(role_metrics, dict):
+                            continue
+                        r_cpc = role_metrics.get("avg_cpc") or 0
+                        r_cpm = role_metrics.get("avg_cpm") or 0
+                        r_cpa = role_metrics.get("avg_cpa") or 0
+                        if not any([r_cpc, r_cpm, r_cpa]):
+                            continue
+                        vals = [
+                            plat_name,
+                            str(role_name),
+                            _fmt_currency(r_cpc, show_cents=True) if r_cpc else "",
+                            _fmt_currency(r_cpm, show_cents=True) if r_cpm else "",
+                            _fmt_currency(r_cpa, show_cents=True) if r_cpa else "",
+                        ]
+                        row = _write_table_row(
+                            ws, row, vals, alternate=_role_idx % 2 == 1
+                        )
+                        _role_idx += 1
+
     else:
         # Fallback: show a "data pending" note with general guidance
         ws.merge_cells(

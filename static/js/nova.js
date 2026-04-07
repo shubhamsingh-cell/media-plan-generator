@@ -1612,12 +1612,15 @@
     function resetWsTimeout() {
       if (_wsTimeout) clearTimeout(_wsTimeout);
       _wsTimeout = setTimeout(function () {
-        // No data for 25s -- treat as failure
+        // No data for 90s -- treat as failure
+        // S46: Was 25s -- far too short for complex multi-tool queries
+        // that need 30-80s for LLM + tool execution. Raised to 90s
+        // to match SSE path timeout.
         if (!_done) {
           _done = true;
           callbacks.onError("WebSocket timeout -- no data received");
         }
-      }, 25000);
+      }, 90000);
     }
 
     resetWsTimeout();
@@ -1875,7 +1878,7 @@
 
     // ── Show error banner (shared) ──
     function _showStreamError(errorMsg) {
-      hideThinking();
+      resetLoadingState();
       var streamEl = document.getElementById("streaming-msg");
       if (streamEl) streamEl.remove();
 
