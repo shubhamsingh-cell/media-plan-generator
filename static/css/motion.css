@@ -545,27 +545,12 @@ main,
   opacity: 1;
 }
 
-/* ── Lottie player sizing within thinking indicator ── */
-.thinking-lottie {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.thinking-lottie lottie-player {
-  pointer-events: none;
-}
-
-/* ── Generation overlay Lottie ── */
+/* ── Generation overlay animation container ── */
 .gen-lottie-anim {
   display: flex;
   align-items: center;
   justify-content: center;
   margin-bottom: 8px;
-}
-
-.gen-lottie-anim lottie-player {
-  pointer-events: none;
 }
 
 /* ── Disable all motion for reduced motion preference ── */
@@ -617,10 +602,6 @@ main,
 
   .nav-links a:hover {
     letter-spacing: inherit !important;
-  }
-
-  lottie-player {
-    display: none !important;
   }
 
   .skeleton-loading {

@@ -1336,12 +1336,7 @@
     var wrapper = document.createElement("div");
     wrapper.className = "thinking-wrapper";
     wrapper.id = "thinking-wrapper";
-    var lottieAvailable =
-      typeof customElements !== "undefined" &&
-      customElements.get("lottie-player");
-    var indicatorHtml;
-    /* Always use CSS dots -- Lottie host URLs return 403 without API key */
-    indicatorHtml =
+    var indicatorHtml =
       '<div class="thinking-dots-fallback" aria-label="Nova is thinking">' +
       "<span></span><span></span><span></span>" +
       "</div>";
