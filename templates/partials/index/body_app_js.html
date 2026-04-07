@@ -3800,6 +3800,295 @@
     grid.innerHTML = html;
   }
 
+  // ═══════════════════════════════════════════════════════════════
+  // DRAFT SAVE/LOAD (S46) -- localStorage-backed plan drafts
+  // ═══════════════════════════════════════════════════════════════
+  const _DRAFT_STORAGE_KEY = "nova_drafts";
+
+  function _collectDraftState() {
+    var getVal = function (id) {
+      return (document.getElementById(id) || {}).value || "";
+    };
+    var getCheckedValues = function (name) {
+      return Array.from(
+        document.querySelectorAll('input[name="' + name + '"]:checked'),
+      ).map(function (cb) {
+        return cb.value;
+      });
+    };
+    var channelIds = [
+      "chRegionalBoards",
+      "chGlobalBoards",
+      "chNicheBoards",
+      "chSocial",
+      "chProgrammatic",
+      "chEmployerBrand",
+      "chApac",
+      "chEmea",
+    ];
+    var channels = {};
+    channelIds.forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) channels[id] = el.checked;
+    });
+    var sectionIds = [
+      "includeEducational",
+      "includeEvents",
+      "includeRadioPodcasts",
+      "includeMediaPlatforms",
+      "includeDEI",
+      "includeInnovative",
+      "includeGlobalSupply",
+      "includeBudgetGuide",
+    ];
+    var sections = {};
+    sectionIds.forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) sections[id] = el.checked;
+    });
+    return {
+      clientName: getVal("clientName"),
+      clientWebsite: getVal("clientWebsite"),
+      useCase: getVal("useCase"),
+      callTranscript: getVal("callTranscript"),
+      budgetRange: getVal("budgetRange"),
+      budgetPeriod: getVal("budgetPeriod"),
+      exactBudget: getVal("exactBudget"),
+      campaignDuration: getVal("campaignDuration"),
+      campaignStartMonth: getVal("campaignStartMonth"),
+      hireVolume: getVal("hireVolume"),
+      exactHires: getVal("exactHires"),
+      targetDemographic: getVal("targetDemographic"),
+      requesterName: getVal("requesterName"),
+      requesterEmail: getVal("requesterEmail"),
+      selectedIndustry: selectedIndustry || null,
+      selectedJobCategories: selectedJobCategories
+        ? selectedJobCategories.slice()
+        : [],
+      locations: locations ? locations.slice() : [],
+      roles: roles ? roles.slice() : [],
+      competitors: competitors ? competitors.slice() : [],
+      campaignGoals: getCheckedValues("campaignGoals"),
+      workEnvironment: getCheckedValues("workEnvironment"),
+      experienceLevel: getCheckedValues("experienceLevel"),
+      channels: channels,
+      sections: sections,
+    };
+  }
+
+  function _restoreDraftState(s) {
+    if (!s) return;
+    var setVal = function (id, val) {
+      var el = document.getElementById(id);
+      if (el && val !== undefined && val !== null) el.value = val;
+    };
+    setVal("clientName", s.clientName);
+    setVal("clientWebsite", s.clientWebsite);
+    setVal("useCase", s.useCase);
+    setVal("callTranscript", s.callTranscript);
+    setVal("budgetRange", s.budgetRange);
+    setVal("budgetPeriod", s.budgetPeriod);
+    setVal("exactBudget", s.exactBudget);
+    setVal("campaignDuration", s.campaignDuration);
+    setVal("campaignStartMonth", s.campaignStartMonth);
+    setVal("hireVolume", s.hireVolume);
+    setVal("exactHires", s.exactHires);
+    setVal("targetDemographic", s.targetDemographic);
+    setVal("requesterName", s.requesterName);
+    setVal("requesterEmail", s.requesterEmail);
+
+    // Show/hide exact budget wrap
+    var budgetEl = document.getElementById("budgetRange");
+    if (budgetEl) {
+      var ebw = document.getElementById("exactBudgetWrap");
+      if (ebw)
+        ebw.style.display = budgetEl.value === "custom" ? "block" : "none";
+    }
+    // Show/hide exact hires wrap
+    var hvEl = document.getElementById("hireVolume");
+    if (hvEl) {
+      var ehw = document.getElementById("exactHiresWrap");
+      if (ehw) ehw.style.display = hvEl.value === "custom" ? "block" : "none";
+    }
+
+    // Restore industry selection
+    if (s.selectedIndustry) {
+      selectedIndustry = s.selectedIndustry;
+      var indCard = document.querySelector(
+        '.industry-card[data-industry="' + s.selectedIndustry + '"]',
+      );
+      if (indCard && typeof selectIndustry === "function") {
+        selectIndustry(indCard);
+      }
+    }
+
+    // Restore job categories
+    if (
+      Array.isArray(s.selectedJobCategories) &&
+      s.selectedJobCategories.length > 0
+    ) {
+      selectedJobCategories = [];
+      s.selectedJobCategories.forEach(function (key) {
+        var card = document.querySelector(
+          '.job-category-card[data-category="' + key + '"]',
+        );
+        if (card && typeof toggleJobCategory === "function") {
+          toggleJobCategory(card, key);
+        } else {
+          if (!selectedJobCategories.includes(key))
+            selectedJobCategories.push(key);
+        }
+      });
+    }
+
+    // Restore checkbox groups
+    ["campaignGoals", "workEnvironment", "experienceLevel"].forEach(
+      function (name) {
+        if (Array.isArray(s[name])) {
+          document
+            .querySelectorAll('input[name="' + name + '"]')
+            .forEach(function (cb) {
+              cb.checked = s[name].includes(cb.value);
+            });
+        }
+      },
+    );
+
+    // Restore tags -- clear first then add
+    locations.length = 0;
+    roles.length = 0;
+    competitors.length = 0;
+    ["locationsContainer", "rolesContainer", "competitorsContainer"].forEach(
+      function (id) {
+        var el = document.getElementById(id);
+        if (el) el.innerHTML = "";
+      },
+    );
+    if (Array.isArray(s.locations)) {
+      s.locations.forEach(function (loc) {
+        if (typeof addTag === "function")
+          addTag("locationsContainer", "locationInput", locations, loc);
+        else locations.push(loc);
+      });
+    }
+    if (Array.isArray(s.roles)) {
+      s.roles.forEach(function (r) {
+        if (typeof addTag === "function")
+          addTag("rolesContainer", "roleInput", roles, r);
+        else roles.push(r);
+      });
+    }
+    if (Array.isArray(s.competitors)) {
+      s.competitors.forEach(function (c) {
+        if (typeof addTag === "function")
+          addTag("competitorsContainer", "competitorInput", competitors, c);
+        else competitors.push(c);
+      });
+    }
+
+    // Restore channel checkboxes
+    if (s.channels && typeof s.channels === "object") {
+      Object.keys(s.channels).forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) el.checked = s.channels[id];
+      });
+    }
+
+    // Restore section checkboxes
+    if (s.sections && typeof s.sections === "object") {
+      Object.keys(s.sections).forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) el.checked = s.sections[id];
+      });
+    }
+
+    // Trigger budget feasibility check if available
+    if (typeof checkBudgetFeasibility === "function") checkBudgetFeasibility();
+  }
+
+  window.saveDraft = function saveDraft() {
+    var state = _collectDraftState();
+    var defaultName = state.clientName || "Untitled Draft";
+    var draftName = prompt("Save draft as:", defaultName);
+    if (!draftName) return; // cancelled
+
+    var drafts = JSON.parse(localStorage.getItem(_DRAFT_STORAGE_KEY) || "[]");
+    var existingIdx = drafts.findIndex(function (d) {
+      return d.name === draftName;
+    });
+    var draft = {
+      name: draftName,
+      state: state,
+      savedAt: new Date().toISOString(),
+    };
+
+    if (existingIdx >= 0) {
+      drafts[existingIdx] = draft;
+    } else {
+      drafts.push(draft);
+    }
+
+    localStorage.setItem(_DRAFT_STORAGE_KEY, JSON.stringify(drafts));
+    showToast("Draft saved: " + draftName, "success");
+    _refreshDraftList();
+  };
+
+  window.loadDraft = function loadDraft() {
+    var select = document.getElementById("draftSelect");
+    if (!select || !select.value) {
+      showToast("Select a draft to load", "warning");
+      return;
+    }
+    var drafts = JSON.parse(localStorage.getItem(_DRAFT_STORAGE_KEY) || "[]");
+    var draft = drafts.find(function (d) {
+      return d.name === select.value;
+    });
+    if (!draft || !draft.state) {
+      showToast("Draft not found", "warning");
+      return;
+    }
+    _restoreDraftState(draft.state);
+    showToast("Draft loaded: " + draft.name, "success");
+  };
+
+  window.deleteDraft = function deleteDraft() {
+    var select = document.getElementById("draftSelect");
+    if (!select || !select.value) {
+      showToast("Select a draft to delete", "warning");
+      return;
+    }
+    if (!confirm("Delete draft: " + select.value + "?")) return;
+    var drafts = JSON.parse(localStorage.getItem(_DRAFT_STORAGE_KEY) || "[]");
+    drafts = drafts.filter(function (d) {
+      return d.name !== select.value;
+    });
+    localStorage.setItem(_DRAFT_STORAGE_KEY, JSON.stringify(drafts));
+    showToast("Draft deleted", "success");
+    _refreshDraftList();
+  };
+
+  function _refreshDraftList() {
+    var select = document.getElementById("draftSelect");
+    var bar = document.getElementById("draftBar");
+    if (!select) return;
+    var drafts = JSON.parse(localStorage.getItem(_DRAFT_STORAGE_KEY) || "[]");
+    select.innerHTML = '<option value="">Load a saved draft...</option>';
+    drafts.sort(function (a, b) {
+      return (b.savedAt || "").localeCompare(a.savedAt || "");
+    });
+    drafts.forEach(function (d) {
+      var opt = document.createElement("option");
+      opt.value = d.name;
+      var dateStr = d.savedAt ? new Date(d.savedAt).toLocaleDateString() : "";
+      opt.textContent = d.name + (dateStr ? " (" + dateStr + ")" : "");
+      select.appendChild(opt);
+    });
+    if (bar) bar.style.display = drafts.length > 0 ? "flex" : "none";
+  }
+
+  // Initialize draft list on page load
+  _refreshDraftList();
+
   // ============================================
   // Unsaved changes warning (beforeunload)
   // ============================================
