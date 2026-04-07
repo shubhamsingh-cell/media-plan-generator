@@ -1,0 +1,509 @@
+/* ================================================================
+   NOVA BUTTON DESIGN SYSTEM v1.0
+   Global interactive element styles for Nova AI Suite.
+   Load AFTER tokens.css: <link rel="stylesheet" href="/static/css/buttons.css" />
+   ================================================================ */
+
+/* ================================================================
+   1. BASE INTERACTIVE — shared hover/active/ripple on ALL interactive
+   ================================================================ */
+
+/* Ripple container setup — applied to anything that gets a ripple */
+button,
+.btn,
+[role="button"],
+a.cta-btn,
+a.btn-primary,
+a.btn-ghost {
+  position: relative;
+  overflow: hidden;
+}
+
+/* Ripple pseudo-element (created by JS, styled here) */
+.nova-ripple {
+  position: absolute;
+  border-radius: 50%;
+  background: var(--ripple-color, rgba(255, 255, 255, 0.18));
+  transform: scale(0);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.nova-ripple.animate {
+  animation:
+    nova-ripple-expand 500ms var(--ease-spring) forwards,
+    nova-ripple-fade 600ms var(--ease-fade) forwards;
+}
+
+@keyframes nova-ripple-expand {
+  to {
+    transform: scale(2.5);
+  }
+}
+
+@keyframes nova-ripple-fade {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* ================================================================
+   2. BUTTONS — Primary, Secondary/Ghost, Tertiary, Danger
+   ================================================================ */
+
+/* -- 2a. Universal button base -- */
+.nova-btn,
+.btn,
+button:not(.bare-btn):not([class*="tab-"]):not([class*="topbar-"]):not(
+    [class*="sidebar-"]
+  ):not([class*="nav-"]):not(.suggestion-chip):not(.alert-bell):not(
+    .alert-dismiss
+  ):not(.toggle-switch):not(.inline-action):not([class*="nova-"]) {
+  font-family: var(--font-sans);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: none;
+  text-decoration: none;
+  position: relative;
+  overflow: hidden;
+  transition:
+    transform 0.2s var(--ease-spring),
+    box-shadow 0.2s var(--ease-standard),
+    background 0.2s var(--ease-standard),
+    border-color 0.2s var(--ease-standard),
+    color 0.2s var(--ease-standard),
+    opacity 0.2s var(--ease-standard);
+}
+
+/* -- 2b. Size variants -- */
+.nova-btn--sm,
+.btn-sm {
+  padding: var(--btn-padding-sm);
+  border-radius: var(--btn-radius-sm);
+  font-size: var(--btn-font-sm);
+  font-weight: var(--btn-weight-sm);
+}
+
+.nova-btn--md,
+.btn-md {
+  padding: var(--btn-padding-md);
+  border-radius: var(--btn-radius-md);
+  font-size: var(--btn-font-md);
+  font-weight: var(--btn-weight-md);
+}
+
+.nova-btn--lg,
+.btn-lg {
+  padding: var(--btn-padding-lg);
+  border-radius: var(--btn-radius-lg);
+  font-size: var(--btn-font-lg);
+  font-weight: var(--btn-weight-lg);
+}
+
+/* -- 2c. Primary button -- */
+.nova-btn--primary,
+.btn-primary,
+.cta-btn,
+.btn-success,
+.demo-btn,
+.predict-btn,
+.export-btn {
+  background: var(--accent, #5a54bd);
+  color: #fff;
+  box-shadow: var(--btn-shadow-primary);
+}
+
+.nova-btn--primary:hover:not(:disabled),
+.btn-primary:hover:not(:disabled),
+.cta-btn:hover:not(:disabled),
+.btn-success:hover:not(:disabled),
+.demo-btn:hover:not(:disabled),
+.predict-btn:hover:not(:disabled),
+.export-btn:hover:not(:disabled) {
+  transform: scale(var(--btn-hover-scale));
+  box-shadow: var(--btn-shadow-primary-hover);
+}
+
+.nova-btn--primary:active:not(:disabled),
+.btn-primary:active:not(:disabled),
+.cta-btn:active:not(:disabled),
+.btn-success:active:not(:disabled),
+.demo-btn:active:not(:disabled),
+.predict-btn:active:not(:disabled),
+.export-btn:active:not(:disabled) {
+  transform: scale(var(--btn-active-scale));
+  box-shadow: var(--btn-shadow-active);
+  transition:
+    transform 0.1s ease,
+    box-shadow 0.1s ease;
+}
+
+/* -- 2d. Secondary / Ghost button -- */
+.nova-btn--ghost,
+.btn-ghost,
+.btn-secondary {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--btn-border-default);
+}
+
+.nova-btn--ghost:hover:not(:disabled),
+.btn-ghost:hover:not(:disabled),
+.btn-secondary:hover:not(:disabled) {
+  transform: scale(var(--btn-hover-scale));
+  border-color: var(--accent);
+  color: var(--text-primary);
+  background: var(--accent-glow);
+}
+
+.nova-btn--ghost:active:not(:disabled),
+.btn-ghost:active:not(:disabled),
+.btn-secondary:active:not(:disabled) {
+  transform: scale(var(--btn-active-scale));
+  box-shadow: var(--btn-shadow-active);
+  transition:
+    transform 0.1s ease,
+    box-shadow 0.1s ease;
+}
+
+/* -- 2e. Tertiary / Text button -- */
+.nova-btn--text,
+.btn-text {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  padding: 8px 12px;
+}
+
+.nova-btn--text:hover:not(:disabled),
+.btn-text:hover:not(:disabled) {
+  color: var(--text-primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transform: scale(var(--btn-hover-scale));
+}
+
+.nova-btn--text:active:not(:disabled),
+.btn-text:active:not(:disabled) {
+  transform: scale(var(--btn-active-scale));
+  transition: transform 0.1s ease;
+}
+
+/* -- 2f. Danger button -- */
+.nova-btn--danger,
+.btn-danger {
+  background: var(--btn-danger);
+  color: #fff;
+  box-shadow: 0 4px 14px var(--btn-danger-glow);
+}
+
+.nova-btn--danger:hover:not(:disabled),
+.btn-danger:hover:not(:disabled) {
+  transform: scale(var(--btn-hover-scale));
+  box-shadow: 0 6px 20px var(--btn-danger-glow);
+  filter: brightness(1.1);
+}
+
+.nova-btn--danger:active:not(:disabled),
+.btn-danger:active:not(:disabled) {
+  transform: scale(var(--btn-active-scale));
+  box-shadow: var(--btn-shadow-active);
+  transition:
+    transform 0.1s ease,
+    box-shadow 0.1s ease;
+}
+
+/* -- 2g. Disabled state -- */
+.nova-btn:disabled,
+.btn:disabled,
+button:disabled,
+[role="button"][aria-disabled="true"] {
+  opacity: var(--btn-disabled-opacity) !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+  box-shadow: none !important;
+  pointer-events: auto;
+}
+
+.nova-btn:disabled:hover,
+.btn:disabled:hover,
+button:disabled:hover {
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* ================================================================
+   3. LINKS
+   ================================================================ */
+
+a:not(.btn):not(.cta-btn):not(.btn-primary):not(.btn-ghost):not(
+    [class*="nav-"]
+  ):not([class*="sidebar-"]):not([class*="footer-"]):not([class*="card"]):not(
+    [role="button"]
+  ) {
+  text-decoration: none;
+  transition: color 0.2s var(--ease-standard);
+}
+
+a:not(.btn):not(.cta-btn):not(.btn-primary):not(.btn-ghost):not(
+    [class*="nav-"]
+  ):not([class*="sidebar-"]):not([class*="footer-"]):not([class*="card"]):not(
+    [role="button"]
+  ):hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* Navigation links: DOWNY_TEAL */
+a.nav-link,
+.sidebar-footer-link,
+.breadcrumb a {
+  color: var(--teal, var(--downy-teal, #6bb3cd));
+}
+
+/* Action links: BLUE_VIOLET */
+a.action-link {
+  color: var(--accent, var(--blue-violet, #5a54bd));
+}
+
+/* ================================================================
+   4. INPUT FIELDS
+   ================================================================ */
+
+input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not(
+    [type="hidden"]
+  ):not([type="range"]),
+textarea,
+select {
+  border: 1px solid var(--input-border);
+  transition:
+    border-color 0.2s var(--ease-standard),
+    box-shadow 0.2s var(--ease-standard);
+}
+
+input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not(
+    [type="hidden"]
+  ):not([type="range"]):hover,
+textarea:hover,
+select:hover {
+  border-color: var(--input-border-hover);
+}
+
+input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not(
+    [type="hidden"]
+  ):not([type="range"]):focus,
+textarea:focus,
+select:focus {
+  border-color: var(--accent);
+  box-shadow: var(--input-focus-ring);
+  outline: none;
+}
+
+/* Error state */
+input.error,
+input[aria-invalid="true"],
+textarea.error,
+textarea[aria-invalid="true"],
+select.error,
+select[aria-invalid="true"] {
+  border-color: var(--input-error-border) !important;
+  box-shadow: var(--input-error-glow) !important;
+}
+
+/* ================================================================
+   5. INTERACTIVE CARDS
+   ================================================================ */
+
+.card-interactive,
+[data-interactive="true"],
+.product-card,
+.demo-card {
+  transition:
+    transform 0.3s var(--ease-spring),
+    box-shadow 0.3s var(--ease-standard),
+    border-color 0.3s var(--ease-standard);
+}
+
+.card-interactive:hover,
+[data-interactive="true"]:hover,
+.product-card:hover,
+.demo-card:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.4),
+    0 0 20px rgba(90, 84, 189, 0.08);
+  border-color: rgba(90, 84, 189, 0.25);
+}
+
+/* ================================================================
+   6. TABS — Sliding indicator with spring easing
+   ================================================================ */
+
+.tab-btn,
+[role="tab"] {
+  position: relative;
+  transition:
+    color 0.2s var(--ease-standard),
+    background 0.2s var(--ease-standard);
+}
+
+.tab-btn:hover:not([aria-selected="true"]),
+[role="tab"]:hover:not([aria-selected="true"]) {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.tab-btn[aria-selected="true"]::after,
+[role="tab"][aria-selected="true"]::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    var(--accent),
+    var(--teal, var(--accent-light))
+  );
+  border-radius: 2px 2px 0 0;
+  animation: tab-indicator-slide 0.3s var(--ease-spring);
+}
+
+@keyframes tab-indicator-slide {
+  from {
+    transform: scaleX(0);
+    opacity: 0;
+  }
+  to {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+}
+
+/* ================================================================
+   7. ICON BUTTONS (topbar, sidebar, small icon-only buttons)
+   ================================================================ */
+
+.topbar-btn,
+.new-chat-btn,
+.sidebar-toggle,
+.attach-btn,
+.voice-btn,
+.stop-btn,
+.send-btn {
+  position: relative;
+  overflow: hidden;
+  transition:
+    transform 0.2s var(--ease-spring),
+    box-shadow 0.2s var(--ease-standard),
+    background 0.2s var(--ease-standard),
+    color 0.2s var(--ease-standard),
+    border-color 0.2s var(--ease-standard);
+}
+
+.topbar-btn:hover,
+.new-chat-btn:hover,
+.sidebar-toggle:hover,
+.attach-btn:hover,
+.voice-btn:hover {
+  transform: scale(var(--btn-hover-scale));
+}
+
+.topbar-btn:active,
+.new-chat-btn:active,
+.sidebar-toggle:active,
+.attach-btn:active,
+.voice-btn:active,
+.stop-btn:active,
+.send-btn:active {
+  transform: scale(var(--btn-active-scale));
+  box-shadow: var(--btn-shadow-active);
+  transition:
+    transform 0.1s ease,
+    box-shadow 0.1s ease;
+}
+
+/* ================================================================
+   8. SUGGESTION CHIPS
+   ================================================================ */
+
+.suggestion-chip {
+  position: relative;
+  overflow: hidden;
+  transition:
+    transform 0.2s var(--ease-spring),
+    box-shadow 0.2s var(--ease-standard),
+    background 0.2s var(--ease-standard),
+    border-color 0.2s var(--ease-standard);
+}
+
+.suggestion-chip:hover {
+  transform: scale(var(--btn-hover-scale));
+}
+
+.suggestion-chip:active {
+  transform: scale(var(--btn-active-scale));
+  box-shadow: var(--btn-shadow-active);
+  transition:
+    transform 0.1s ease,
+    box-shadow 0.1s ease;
+}
+
+/* ================================================================
+   9. REDUCED MOTION — respect user preference
+   ================================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  /* Kill all scale transforms */
+  button:hover,
+  .btn:hover,
+  [role="button"]:hover,
+  a.cta-btn:hover,
+  .btn-primary:hover,
+  .btn-ghost:hover,
+  .btn-secondary:hover,
+  .nova-btn:hover,
+  .topbar-btn:hover,
+  .new-chat-btn:hover,
+  .sidebar-toggle:hover,
+  .suggestion-chip:hover,
+  .demo-btn:hover,
+  .predict-btn:hover,
+  .export-btn:hover,
+  .card-interactive:hover,
+  .product-card:hover,
+  .demo-card:hover {
+    transform: none !important;
+  }
+
+  button:active,
+  .btn:active,
+  [role="button"]:active,
+  a.cta-btn:active,
+  .nova-btn:active {
+    transform: none !important;
+  }
+
+  /* Kill ripple animation */
+  .nova-ripple {
+    display: none !important;
+  }
+
+  /* Kill tab indicator animation */
+  @keyframes tab-indicator-slide {
+    from {
+      transform: scaleX(1);
+      opacity: 1;
+    }
+    to {
+      transform: scaleX(1);
+      opacity: 1;
+    }
+  }
+}

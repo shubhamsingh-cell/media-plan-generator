@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """AI Media Planner - Standalone HTTP server with real research data."""
 
+import html as html_mod
 import json
 import hmac
 import os
@@ -5724,7 +5725,7 @@ _slack_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="slack-ev
 _rate_limit_store = defaultdict(list)
 _rate_limit_lock = threading.Lock()
 _RATE_LIMIT_WINDOW = 60  # seconds
-_RATE_LIMIT_MAX = 10  # requests per window per IP
+_RATE_LIMIT_MAX = 30  # requests per window per IP (raised for chat UX)
 
 # Global rate limit for /api/chat to prevent distributed API cost abuse
 _GLOBAL_CHAT_RATE_LIMIT_MAX = int(
@@ -5898,7 +5899,7 @@ _rl_copilot = RateLimiter()  # /api/copilot/* -- 30 req/min (lightweight)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
-_CSRF_TOKEN_TTL_SECONDS: int = 3600  # 1 hour expiry
+_CSRF_TOKEN_TTL_SECONDS: int = 14400  # 4 hours expiry (extended for long sessions)
 
 
 def _generate_csrf_token() -> str:
@@ -6617,47 +6618,170 @@ def _generate_followup_questions(response_text: str, user_message: str) -> list[
     Returns:
         List of 2-3 short follow-up question strings.
     """
-    # Use simple keyword-based heuristics for fast, no-API-cost follow-ups
+    # S47: Enhanced with entity extraction for contextual, specific follow-ups
+    import re as _re
+
+    # S47: Skip follow-ups for greetings and trivial messages
+    _msg_stripped = (user_message or "").strip().lower().rstrip("!.,?")
+    _greeting_words = {
+        "hi",
+        "hello",
+        "hey",
+        "hola",
+        "howdy",
+        "sup",
+        "yo",
+        "wassup",
+        "wazzup",
+        "whaddup",
+        "namaste",
+        "greetings",
+        "thanks",
+        "thank you",
+        "thx",
+        "ty",
+        "bye",
+        "goodbye",
+        "ok",
+        "okay",
+        "yes",
+        "no",
+        "sure",
+    }
+    if _msg_stripped in _greeting_words:
+        return []
+    # Also skip for "how are you" type messages
+    _smalltalk_pats = [
+        r"^how are you",
+        r"^how\'?s it going",
+        r"^what\'?s up",
+        r"^who are you",
+        r"^what can you do",
+        r"^good (morning|afternoon|evening)",
+    ]
+    if any(_re.search(p, _msg_stripped) for p in _smalltalk_pats):
+        return []
+
     followups: list[str] = []
     resp_lower = response_text.lower()
     msg_lower = user_message.lower()
 
-    # Salary/compensation topics
+    # ── Extract key entities from response for contextual questions ──
+    _role_patterns = _re.findall(
+        r"(?:registered nurse|software engineer|data scientist|product manager|"
+        r"account executive|sales representative|marketing manager|project manager|"
+        r"business analyst|financial analyst|mechanical engineer|civil engineer|"
+        r"nursing|developer|designer|recruiter|accountant|pharmacist|physician|"
+        r"electrician|technician|administrator|coordinator|specialist|analyst|"
+        r"engineer|manager|director|executive|consultant)",
+        resp_lower,
+    )
+    _mentioned_role = _role_patterns[0].title() if _role_patterns else ""
+
+    _city_patterns = _re.findall(
+        r"(?:new york|los angeles|chicago|houston|dallas|san francisco|seattle|"
+        r"boston|atlanta|denver|phoenix|miami|austin|portland|minneapolis|"
+        r"charlotte|tampa|san diego|philadelphia|washington|detroit|orlando|"
+        r"nashville|las vegas|salt lake city|raleigh|pittsburgh|columbus|"
+        r"indianapolis|san antonio|san jose|jacksonville|memphis|baltimore|"
+        r"milwaukee|kansas city|sacramento|st\.? louis|cincinnati|cleveland)",
+        resp_lower,
+    )
+    _mentioned_city = _city_patterns[0].title() if _city_patterns else ""
+
+    # ── Topic-specific contextual follow-ups ──
     if any(kw in resp_lower for kw in ("salary", "compensation", "pay range", "wage")):
-        if "national" not in msg_lower:
+        if _mentioned_role and "compare" not in msg_lower:
+            followups.append(
+                f"How does {_mentioned_role} salary compare to similar roles?"
+            )
+        if _mentioned_city:
+            followups.append(
+                f"What is the cost of living adjustment for {_mentioned_city}?"
+            )
+        elif "national" not in msg_lower:
             followups.append("How does this compare to national averages?")
         if "trend" not in msg_lower:
-            followups.append("What are the salary trends for the past year?")
+            followups.append("What are the salary trends over the past year?")
+        if "remote" not in msg_lower:
+            followups.append("How do remote salaries differ for this role?")
 
-    # Job board / publisher topics
-    if any(kw in resp_lower for kw in ("indeed", "linkedin", "job board", "publisher")):
-        if "cost" not in msg_lower and "cpc" not in msg_lower:
-            followups.append("What are the typical CPC benchmarks for these platforms?")
-        if "best" not in msg_lower:
-            followups.append("Which platform gives the best ROI for this role?")
-
-    # Budget / media plan topics
-    if any(kw in resp_lower for kw in ("budget", "allocation", "spend", "media plan")):
+    elif any(
+        kw in resp_lower
+        for kw in ("cpc", "cpa", "cost per click", "cost per application")
+    ):
+        if _mentioned_role:
+            followups.append(
+                f"What channels give the best CPA for {_mentioned_role} roles?"
+            )
         if "optimize" not in msg_lower:
-            followups.append("How can I optimize this budget allocation?")
-        followups.append("What KPIs should I track for this campaign?")
+            followups.append("How can I reduce these costs while maintaining quality?")
+        if "trend" not in msg_lower:
+            followups.append("How have these costs changed over the past quarter?")
 
-    # Hiring difficulty / market topics
-    if any(
+    elif any(
+        kw in resp_lower for kw in ("indeed", "linkedin", "job board", "publisher")
+    ):
+        if _mentioned_role:
+            followups.append(
+                f"Which niche job boards work best for {_mentioned_role} roles?"
+            )
+        elif "cost" not in msg_lower and "cpc" not in msg_lower:
+            followups.append("What are the typical CPC benchmarks for these platforms?")
+        if "roi" not in msg_lower and "best" not in msg_lower:
+            followups.append("Which platform gives the best ROI for this type of role?")
+
+    elif any(
+        kw in resp_lower for kw in ("budget", "allocation", "spend", "media plan")
+    ):
+        if "optimize" not in msg_lower:
+            followups.append(
+                "How can I optimize this budget allocation for better ROI?"
+            )
+        followups.append("What KPIs should I track to measure this campaign's success?")
+
+    elif any(
         kw in resp_lower for kw in ("hiring difficulty", "demand", "supply", "shortage")
     ):
-        followups.append("What sourcing strategies work best in this market?")
+        if _mentioned_city:
+            followups.append(
+                f"What sourcing strategies work best in {_mentioned_city}?"
+            )
+        else:
+            followups.append("What sourcing strategies work best in this market?")
         if "remote" not in msg_lower:
             followups.append("How does remote hiring affect these numbers?")
+        if "competitor" not in msg_lower:
+            followups.append("Who are the top employers competing for this talent?")
 
-    # Recruitment general
+    elif any(
+        kw in resp_lower for kw in ("compliance", "regulation", "legal", "requirement")
+    ):
+        followups.append(
+            "What are the most common compliance violations in job postings?"
+        )
+        followups.append("How do these requirements differ by state?")
+
+    # General recruitment fallback
     if not followups:
         if any(kw in resp_lower for kw in ("recruit", "hire", "talent", "candidate")):
-            followups.append("What are the best practices for this hiring scenario?")
+            if _mentioned_role:
+                followups.append(
+                    f"What are the best practices for hiring {_mentioned_role} talent?"
+                )
+            else:
+                followups.append(
+                    "What are the best practices for this hiring scenario?"
+                )
             followups.append("Can you break this down by region?")
         else:
             followups.append("Can you provide more details on this topic?")
-            followups.append("What data sources did you use for this analysis?")
+            if _mentioned_role:
+                followups.append(
+                    f"What salary and market data is available for {_mentioned_role} roles?"
+                )
+            else:
+                followups.append("What recruitment benchmarks are relevant here?")
 
     return followups[:3]
 
@@ -8839,7 +8963,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
         if _rid:
             self.send_header("X-Request-ID", _rid)
         self.send_header("X-Content-Type-Options", "nosniff")
-        self.send_header("X-Frame-Options", "DENY")
+        self.send_header("X-Frame-Options", "SAMEORIGIN")
         self.send_header("Referrer-Policy", "strict-origin-when-cross-origin")
         # Prevent browsers from running inline scripts from injected content
         self.send_header("X-XSS-Protection", "1; mode=block")
@@ -8856,11 +8980,11 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
         self.send_header(
             "Content-Security-Policy",
             "default-src 'self'; "
-            "script-src 'self' 'unsafe-inline' https://unpkg.com; "
-            "style-src 'self' 'unsafe-inline' https://unpkg.com https://fonts.googleapis.com; "
-            "img-src 'self' https: data:; "
-            "font-src 'self' https: data:; "
-            "connect-src 'self' https:; "
+            "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://unpkg.com https://cdn.jsdelivr.net; "
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+            "font-src https://fonts.gstatic.com; "
+            "img-src 'self' data: blob:; "
+            "connect-src 'self' https://*.supabase.co https://*.sentry.io https://*.posthog.com; "
             "object-src 'none'; "
             "base-uri 'self'; "
             "form-action 'self';",
@@ -9083,6 +9207,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
         _joveo_domains = {
             "media-plan-generator.onrender.com",
             "cg-automation.onrender.com",
+            "geoviz-3d.vercel.app",
             "nova.joveo.com",
             "geoviz.joveo.com",
             "localhost",
@@ -9321,7 +9446,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
 
                     full_response = ""
                     sources: list = []
-                    confidence = 0.0
+                    confidence = None  # S47: None means "don't show badge"
                     tools_used: list = []
                     model_used = ""
                     message_id = str(uuid.uuid4())
@@ -9371,7 +9496,10 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                                     chunk.get("full_response") or full_response
                                 )
                                 sources = chunk.get("sources") or sources
-                                confidence = chunk.get("confidence") or confidence
+                                # S47: Preserve None confidence (means "don't show badge")
+                                _ws_chunk_conf = chunk.get("confidence")
+                                if _ws_chunk_conf is not None:
+                                    confidence = _ws_chunk_conf
                                 tools_used = chunk.get("tools_used") or tools_used
                                 model_used = chunk.get("llm_provider") or model_used
                                 _token_usage = chunk.get("token_usage") or {}
@@ -11248,6 +11376,29 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     status_code=500,
                 )
 
+        # ── Admin Data Freshness (GET /api/admin/data-freshness) ── S47
+        # Same report as /api/data/freshness but under admin auth.
+        elif path == "/api/admin/data-freshness":
+            if not self._check_admin_auth():
+                self._send_error("Unauthorized", "AUTH_REQUIRED", 401)
+                return
+            try:
+                from kb_loader import get_data_freshness_report
+
+                freshness = get_data_freshness_report()
+                self._send_json(freshness)
+            except ImportError:
+                self._send_json(
+                    {"error": "kb_loader module not available"},
+                    status_code=503,
+                )
+            except Exception as e:
+                logger.error("Admin data freshness error: %s", e, exc_info=True)
+                self._send_json(
+                    {"error": f"Freshness check failed: {e}"},
+                    status_code=500,
+                )
+
         # ── Data Refresh Status (GET /api/data/refresh-status) ──
         elif path == "/api/data/refresh-status":
             try:
@@ -12163,7 +12314,12 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 roles_input = [r.strip() for r in roles_input.split(",") if r.strip()]
             data["target_roles"] = roles_input
             # Bug #2 fix: Auto-wrap string values to lists for array fields
-            for _arr_field in ("locations", "job_categories", "competitors"):
+            for _arr_field in (
+                "locations",
+                "job_categories",
+                "competitors",
+                "custom_countries",
+            ):
                 _arr_val = data.get(_arr_field)
                 if isinstance(_arr_val, str):
                     data[_arr_field] = [
@@ -12171,6 +12327,21 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     ]
                 elif _arr_val is not None and not isinstance(_arr_val, list):
                     data[_arr_field] = [str(_arr_val)]
+
+            # ── Region selector: validate and normalize ──
+            _valid_regions = {"us_only", "global", "emea", "apac", "custom"}
+            target_region = (
+                _safe_str(data.get("target_region") or "us_only").strip().lower()
+            )
+            if target_region not in _valid_regions:
+                target_region = "us_only"
+            data["target_region"] = target_region
+            custom_countries = data.get("custom_countries") or []
+            if not isinstance(custom_countries, list):
+                custom_countries = []
+            data["custom_countries"] = [
+                c.strip()[:5] for c in custom_countries if isinstance(c, str)
+            ][:20]
             if isinstance(roles_input, list) and len(roles_input) > 50:
                 self._send_error(
                     "Target roles list exceeds 50 items limit", "VALIDATION_ERROR", 400
@@ -14290,34 +14461,74 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                             _ind_key_ba, _DEFAULT_ALLOC_BA
                         )
 
-                    # Strip APAC/EMEA channels for US-only plans
+                    # Strip APAC/EMEA channels based on target_region or location inference
+                    _target_region = data.get("target_region") or "us_only"
                     _locs_raw = data.get("locations") or []
-                    _all_us = True
-                    if _locs_raw:
-                        for _loc in (
-                            _locs_raw if isinstance(_locs_raw, list) else [_locs_raw]
-                        ):
-                            _loc_str = str(
-                                _loc.get("country") if isinstance(_loc, dict) else _loc
-                            ).lower()
-                            if _loc_str and _loc_str not in (
-                                "us",
-                                "usa",
-                                "united states",
-                                "",
+                    _all_us = _target_region == "us_only"
+                    if not _all_us and _target_region not in (
+                        "global",
+                        "emea",
+                        "apac",
+                        "custom",
+                    ):
+                        # Infer from locations if region not explicitly set
+                        _all_us = True
+                        if _locs_raw:
+                            for _loc in (
+                                _locs_raw
+                                if isinstance(_locs_raw, list)
+                                else [_locs_raw]
                             ):
-                                _all_us = False
-                                break
-                    if _all_us and isinstance(channel_pcts, dict):
-                        _intl_pct = channel_pcts.pop(
-                            "apac_regional", 0
-                        ) + channel_pcts.pop("emea_regional", 0)
-                        if _intl_pct > 0:
-                            _top_ch = max(channel_pcts, key=lambda k: channel_pcts[k])
-                            channel_pcts[_top_ch] = channel_pcts[_top_ch] + _intl_pct
-                            logger.info(
-                                f"US-only plan: redistributed {_intl_pct}% from APAC/EMEA to {_top_ch}"
-                            )
+                                _loc_str = str(
+                                    _loc.get("country")
+                                    if isinstance(_loc, dict)
+                                    else _loc
+                                ).lower()
+                                if _loc_str and _loc_str not in (
+                                    "us",
+                                    "usa",
+                                    "united states",
+                                    "",
+                                ):
+                                    _all_us = False
+                                    break
+
+                    if isinstance(channel_pcts, dict):
+                        if _all_us or _target_region == "us_only":
+                            # US-only: remove APAC/EMEA channels
+                            _intl_pct = channel_pcts.pop(
+                                "apac_regional", 0
+                            ) + channel_pcts.pop("emea_regional", 0)
+                            if _intl_pct > 0:
+                                _top_ch = max(
+                                    channel_pcts, key=lambda k: channel_pcts[k]
+                                )
+                                channel_pcts[_top_ch] = (
+                                    channel_pcts[_top_ch] + _intl_pct
+                                )
+                                logger.info(
+                                    f"US-only plan (region={_target_region}): redistributed {_intl_pct}%% from APAC/EMEA to {_top_ch}"
+                                )
+                        elif _target_region == "emea":
+                            # EMEA-only: remove APAC channels, boost EMEA
+                            _apac_pct = channel_pcts.pop("apac_regional", 0)
+                            if _apac_pct > 0:
+                                channel_pcts["emea_regional"] = (
+                                    channel_pcts.get("emea_regional", 0) + _apac_pct
+                                )
+                                logger.info(
+                                    f"EMEA plan: redistributed {_apac_pct}%% from APAC to EMEA"
+                                )
+                        elif _target_region == "apac":
+                            # APAC-only: remove EMEA channels, boost APAC
+                            _emea_pct = channel_pcts.pop("emea_regional", 0)
+                            if _emea_pct > 0:
+                                channel_pcts["apac_regional"] = (
+                                    channel_pcts.get("apac_regional", 0) + _emea_pct
+                                )
+                                logger.info(
+                                    f"APAC plan: redistributed {_emea_pct}%% from EMEA to APAC"
+                                )
 
                     # Parse budget to float — uses shared_utils.parse_budget (single source of truth)
                     _bstr_ba = str(
@@ -14606,11 +14817,42 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 _gen_timer.cancel()
 
             # Sanitize client_name to ASCII-safe characters (prevents CJK/Unicode crashes in filenames/headers)
+            _raw_client = data.get("client_name") or "Client"
             client_name = re.sub(
                 r"_+",
                 "_",  # S27: Collapse multiple underscores
-                re.sub(r"[^a-zA-Z0-9_\-]", "_", data.get("client_name") or "Client"),
+                re.sub(r"[^a-zA-Z0-9_\-]", "_", _raw_client),
             ).strip("_")
+            # S47: Build descriptive filename with industry, location, and date
+            _fn_industry = re.sub(
+                r"[^a-zA-Z0-9]", "_", (data.get("industry") or "").strip().title()
+            ).strip("_")[:30]
+            _fn_locations = data.get("locations") or []
+            _fn_location = ""
+            if isinstance(_fn_locations, list) and _fn_locations:
+                _first_loc = (
+                    _fn_locations[0]
+                    if isinstance(_fn_locations[0], str)
+                    else str(_fn_locations[0])
+                )
+                _fn_location = re.sub(r"[^a-zA-Z0-9]", "_", _first_loc.strip()).strip(
+                    "_"
+                )[:20]
+            elif isinstance(_fn_locations, str) and _fn_locations.strip():
+                _fn_location = re.sub(
+                    r"[^a-zA-Z0-9]", "_", _fn_locations.strip()
+                ).strip("_")[:20]
+            _fn_date = datetime.datetime.now().strftime("%Y-%m-%d")
+            # Build: "Media_Plan_Healthcare_US_2026-04-07" or "ClientName_Media_Plan_2026-04-07"
+            _fn_parts = ["Media_Plan"]
+            if _fn_industry:
+                _fn_parts.append(_fn_industry)
+            if _fn_location:
+                _fn_parts.append(_fn_location)
+            _fn_parts.append(_fn_date)
+            _descriptive_filename = "_".join(_fn_parts)
+            # Collapse multiple underscores
+            _descriptive_filename = re.sub(r"_+", "_", _descriptive_filename)
 
             # Store plan results JSON for on-screen dashboard
             _plan_id = uuid.uuid4().hex[:12]
@@ -14723,8 +14965,8 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 # Bundle both files in a ZIP
                 zip_buffer = io.BytesIO()
                 with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
-                    zf.writestr(f"{client_name}_Media_Plan.xlsx", excel_bytes)
-                    zf.writestr(f"{client_name}_Strategy_Deck.pptx", pptx_bytes)
+                    zf.writestr(f"{_descriptive_filename}.xlsx", excel_bytes)
+                    zf.writestr(f"{_descriptive_filename}_Deck.pptx", pptx_bytes)
                 zip_bytes = zip_buffer.getvalue()
 
                 # Save a copy for the document repository
@@ -14873,7 +15115,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     with zipfile.ZipFile(
                         doc_zip_buffer, "w", zipfile.ZIP_DEFLATED
                     ) as zf:
-                        zf.writestr(f"{client_name}_Media_Plan.xlsx", excel_bytes)
+                        zf.writestr(f"{_descriptive_filename}.xlsx", excel_bytes)
                     doc_filename = f"{timestamp}_{client_slug}.zip"
                     doc_path = os.path.join(docs_dir, doc_filename)
                     with open(doc_path, "wb") as df:
@@ -14890,7 +15132,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 )
                 self.send_header(
                     "Content-Disposition",
-                    f'attachment; filename="{client_name}_Media_Plan.xlsx"',
+                    f'attachment; filename="{_descriptive_filename}.xlsx"',
                 )
                 self.send_header("Content-Length", str(len(excel_bytes)))
                 self.send_header("X-Plan-Id", _plan_id)
@@ -15460,7 +15702,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
 
                 full_response = ""
                 sources: list = []
-                confidence = 0.0
+                confidence = None  # S47: None means "don't show badge"
                 tools_used: list = []
                 model_used = ""
                 message_id = str(uuid.uuid4())
@@ -15539,7 +15781,10 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                     chunk.get("full_response") or full_response
                                 )
                                 sources = chunk.get("sources") or sources
-                                confidence = chunk.get("confidence") or confidence
+                                # S47: Preserve None confidence (means "don't show badge")
+                                _chunk_conf = chunk.get("confidence")
+                                if _chunk_conf is not None:
+                                    confidence = _chunk_conf
                                 tools_used = chunk.get("tools_used") or tools_used
                                 model_used = chunk.get("llm_provider") or model_used
                                 _token_usage = chunk.get("token_usage") or {}
@@ -18822,7 +19067,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
         for performance. Thread-safe via _fragment_cache_lock.
         """
         if not fragment_name or fragment_name not in _FRAGMENT_MAP:
-            self.send_error(404, f"Fragment not found: {fragment_name}")
+            self.send_error(
+                404, f"Fragment not found: {html_mod.escape(fragment_name)}"
+            )
             return
 
         # Check cache first (thread-safe)
@@ -18858,7 +19105,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
 
         if raw_html is None:
             if not os.path.exists(template_path):
-                self.send_error(404, f"Template not found: {template_file}")
+                self.send_error(
+                    404, f"Template not found: {html_mod.escape(template_file)}"
+                )
                 return
             try:
                 with open(template_path, "r", encoding="utf-8") as f:

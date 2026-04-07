@@ -446,9 +446,10 @@
       "middle_east_africa": {"min": 0.8, "max": 4.0, "avg": 1.80}
     },
     "linkedin_cpa_by_seniority": {
-      "entry_level": {"min": 8, "max": 25, "avg": 15},
-      "mid_level": {"min": 20, "max": 55, "avg": 38},
-      "senior": {"min": 40, "max": 100, "avg": 65},
+      "_note": "CPA = cost per qualified application via Sponsored Jobs. Prior $1-$8 range was CPC not CPA. Updated 2026-04-07, sources: Postiv.ai, SpeedWork Social, Recruitics 2025-2026.",
+      "entry_level": {"min": 15, "max": 40, "avg": 25},
+      "mid_level": {"min": 30, "max": 65, "avg": 45},
+      "senior": {"min": 50, "max": 120, "avg": 75},
       "director_plus": {"min": 80, "max": 200, "avg": 120}
     },
     "budget_recommendations": {

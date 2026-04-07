@@ -817,7 +817,9 @@ def _drain_retry_queue() -> None:
                 (
                     sb.table("nova_conversations")
                     .update({"messages": msgs})
-                    .eq("id", cid)
+                    .eq(
+                        "conversation_id", cid
+                    )  # S47 fix: was .eq("id", cid) -- id is auto-increment int, not conversation_id string
                     .execute()
                 )
             logger.info("Drained retry-queue message for %s", cid)
@@ -1101,7 +1103,7 @@ def migrate_row_per_turn_data() -> Dict[str, Any]:
                 existing = (
                     sb.table("nova_conversations")
                     .select("id,messages")
-                    .eq("id", cid)
+                    .eq("conversation_id", cid)  # S47 fix: was .eq("id", cid)
                     .not_.is_("messages", "null")
                     .execute()
                 )
@@ -1111,7 +1113,7 @@ def migrate_row_per_turn_data() -> Dict[str, Any]:
                     # Merge: prepend legacy messages before existing ones
                     merged = messages + (existing_row.get("messages") or [])
                     sb.table("nova_conversations").update({"messages": merged}).eq(
-                        "id", cid
+                        "conversation_id", cid  # S47 fix: was .eq("id", cid)
                     ).execute()
                 else:
                     # Determine a title from the first user message

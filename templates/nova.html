@@ -20,6 +20,7 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/static/css/tokens.css" />
+    <link rel="stylesheet" href="/static/css/buttons.css" />
     <link
       rel="preload"
       href="/static/css/nova.css"
@@ -121,8 +122,21 @@
           .catch(function () {});
       }
       window.__csrfReady = __refreshCsrfToken();
-      // S25: Auto-refresh CSRF token every 45 minutes to prevent "Session expired"
-      setInterval(__refreshCsrfToken, 45 * 60 * 1000);
+      // S47: Auto-refresh CSRF token 10 min before 4-hour expiry (every 3h50m)
+      // Also checks on each interval if token is nearing expiry (fallback safety)
+      setInterval(
+        function () {
+          var elapsed = Date.now() - (window.__csrfTokenFetchedAt || 0);
+          // Refresh if within last 10 minutes of 4-hour window (or if never fetched)
+          if (
+            !window.__csrfTokenFetchedAt ||
+            elapsed > (4 * 60 - 10) * 60 * 1000
+          ) {
+            __refreshCsrfToken();
+          }
+        },
+        10 * 60 * 1000,
+      ); // Check every 10 minutes
     </script>
 
     <!-- Toast container -->
@@ -604,6 +618,11 @@
       </div>
     </div>
 
+    <!-- Lottie Player (thinking indicator animation) -->
+    <script
+      src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"
+      defer
+    ></script>
     <script src="/static/js/nova.js" defer></script>
 
     <footer style="display: none" aria-hidden="true">
@@ -695,6 +714,128 @@
         }
       })();
     </script>
+    <!-- URL prefill handler: auto-populate chat from "Ask Nova About This Plan" -->
+    <script>
+      (function () {
+        function handlePrefill() {
+          try {
+            var params = new URLSearchParams(window.location.search);
+            var prefillMsg = params.get("prefill");
+            if (!prefillMsg) {
+              // Also check sessionStorage (fallback for long messages)
+              var stored = sessionStorage.getItem("nova_plan_context");
+              if (stored) {
+                var ctx = JSON.parse(stored);
+                prefillMsg = ctx.message || "";
+                sessionStorage.removeItem("nova_plan_context");
+              }
+            }
+            if (!prefillMsg) return;
+
+            // Wait for chat input to be available (nova.js loads async)
+            var attempts = 0;
+            var waitForInput = setInterval(function () {
+              attempts++;
+              if (attempts > 40) {
+                clearInterval(waitForInput);
+                return;
+              } // 8s max
+
+              var input =
+                document.getElementById("chat-input") ||
+                document.getElementById("novaInput") ||
+                document.querySelector(
+                  ".nova-input textarea, .nova-input input",
+                );
+              if (!input) return;
+
+              clearInterval(waitForInput);
+              input.value = decodeURIComponent(prefillMsg);
+              input.dispatchEvent(new Event("input", { bubbles: true }));
+
+              // Auto-send after a short delay to let UI settle
+              setTimeout(function () {
+                var sendBtn =
+                  document.getElementById("send-btn") ||
+                  document.querySelector(
+                    '.nova-send-btn, .send-btn, button[type="submit"]',
+                  );
+                if (sendBtn) sendBtn.click();
+              }, 500);
+
+              // Hide suggestion chips since we have a prefilled message
+              var chips = document.getElementById("nova-suggestion-chips");
+              if (chips) chips.style.display = "none";
+
+              // Clean up URL (remove prefill param without reload)
+              if (window.history && window.history.replaceState) {
+                var cleanUrl = window.location.pathname;
+                window.history.replaceState({}, document.title, cleanUrl);
+              }
+            }, 200);
+          } catch (e) {
+            console.warn("Nova prefill error:", e);
+          }
+        }
+
+        if (document.readyState === "loading") {
+          document.addEventListener("DOMContentLoaded", handlePrefill);
+        } else {
+          handlePrefill();
+        }
+      })();
+    </script>
+    <!-- Save chat activity to localStorage for hub recent activity feed -->
+    <script>
+      (function () {
+        function trackChatActivity() {
+          var chatContainer = document.getElementById("chat-container");
+          if (!chatContainer) return;
+          var tracked = false;
+          var observer = new MutationObserver(function () {
+            if (tracked) return;
+            var userMsgs = chatContainer.querySelectorAll(
+              ".message.user, .user-message, [data-role='user']",
+            );
+            if (userMsgs.length > 0) {
+              tracked = true;
+              try {
+                var firstMsg = userMsgs[0].textContent.trim().substring(0, 80);
+                var recentChats = JSON.parse(
+                  localStorage.getItem("nova_recent_chats") || "[]",
+                );
+                recentChats.unshift({
+                  title: firstMsg || "Nova Chat",
+                  timestamp: new Date().toISOString(),
+                });
+                if (recentChats.length > 10)
+                  recentChats = recentChats.slice(0, 10);
+                localStorage.setItem(
+                  "nova_recent_chats",
+                  JSON.stringify(recentChats),
+                );
+              } catch (e) {
+                /* ignore */
+              }
+            }
+          });
+          observer.observe(chatContainer, { childList: true, subtree: true });
+        }
+
+        if (document.readyState === "loading") {
+          document.addEventListener("DOMContentLoaded", function () {
+            setTimeout(trackChatActivity, 1000);
+          });
+        } else {
+          setTimeout(trackChatActivity, 1000);
+        }
+      })();
+    </script>
+    <!-- jsPDF for PDF export (S47) -->
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"
+      defer
+    ></script>
     <!-- GSAP Animation Library (CDN) -->
     <script
       src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.7/gsap.min.js"
@@ -734,5 +875,6 @@
       });
     </script>
     <script src="/static/back-to-suite.js" defer></script>
+    <script src="/static/js/ripple.js" defer></script>
   </body>
 </html>

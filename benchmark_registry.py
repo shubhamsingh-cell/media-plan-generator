@@ -89,9 +89,15 @@ CHANNEL_BENCHMARKS: dict[str, dict[str, Any]] = {
         "pricing_model": "CPC + subscription",
         "category": "major_job_board",
     },
+    # LinkedIn CPA: $30-$90 for Sponsored Jobs (US avg ~$45). CPC $1.50-$8.00.
+    # Source: Postiv.ai, SpeedWork Social, Recruitics (2025-2026 data).
+    # Prior "$1-$8" was CPC, not CPA. Full CPA factors in apply rates (3-5%).
+    # Updated: 2026-04-07. Review quarterly.
     "linkedin": {
         "cpc": 5.26,
-        "cpa": 75.0,
+        "cpa": 45.0,
+        "cpa_min": 30.0,
+        "cpa_max": 90.0,
         "apply_rate": 0.035,
         "ctr": 0.008,
         "cpm": 35.00,

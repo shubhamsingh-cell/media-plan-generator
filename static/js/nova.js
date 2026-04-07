@@ -1037,15 +1037,33 @@
   }
 
   function renderWelcome() {
+    // S47: Varied welcome titles and subtitles
+    var _welcomeTitles = [
+      "Good " + getGreeting() + ". How can I help?",
+      "Good " + getGreeting() + "! What are you working on?",
+      "Good " + getGreeting() + ". Ready to dive into data?",
+      "Good " + getGreeting() + "! Let's find some insights.",
+      "Good " + getGreeting() + ". What can I look up for you?",
+    ];
+    var _welcomeSubtitles = [
+      "AI-powered recruitment marketing assistant with access to real BLS, FRED, Adzuna, and O*NET data, 10,238+ publishers, 200+ occupation benchmarks, and 91 platform profiles.",
+      "Your data-driven recruitment partner with live salary benchmarks, CPC/CPA data, and channel intelligence across 70+ countries.",
+      "Powered by 22+ APIs, 25+ knowledge bases, and real-time market data. Ask about salaries, media plans, publishers, or hiring trends.",
+    ];
+    var _wIdx = Math.floor(Math.random() * _welcomeTitles.length);
+    var _wSIdx = Math.floor(Math.random() * _welcomeSubtitles.length);
+
     var welcome = document.createElement("div");
     welcome.className = "welcome-screen";
     welcome.id = "welcome-screen";
     welcome.innerHTML =
       '<div class="welcome-orb-container"><div class="welcome-orb" aria-hidden="true"></div><div class="welcome-orb-label">Nova AI</div></div>' +
-      '<div class="welcome-title">Good ' +
-      getGreeting() +
-      ". How can I help?</div>" +
-      '<div class="welcome-subtitle">AI-powered recruitment marketing assistant with access to real BLS, FRED, Adzuna, and O*NET data, 10,238+ publishers, 200+ occupation benchmarks, and 91 platform profiles.</div>' +
+      '<div class="welcome-title">' +
+      _welcomeTitles[_wIdx] +
+      "</div>" +
+      '<div class="welcome-subtitle">' +
+      _welcomeSubtitles[_wSIdx] +
+      "</div>" +
       '<div class="suggestions-grid">' +
       '<button class="suggestion-card" data-query="Create a media plan for 50 software engineers in Austin, TX with a $200K budget">' +
       '<span class="suggestion-card-icon" aria-hidden="true">&#x1F4CB;</span>Create a media plan for 50 software engineers in Austin' +
@@ -1121,10 +1139,11 @@
     if (!isUser) {
       var sources = msg.sources || [];
       var confidence = msg.confidence;
-      if (
-        sources.length > 0 ||
-        (typeof confidence === "number" && confidence > 0)
-      ) {
+      // S47: Don't show confidence for greetings (null/0) or trivial responses
+      // Only show when it's a real score between 0.01 and 0.99
+      var showConfidence =
+        typeof confidence === "number" && confidence > 0 && confidence < 1.0;
+      if (sources.length > 0 || showConfidence) {
         var meta = document.createElement("div");
         meta.className = "message-meta";
         if (sources.length > 0) {
@@ -1155,7 +1174,7 @@
           sourcesWrap.appendChild(sourcesList);
           meta.appendChild(sourcesWrap);
         }
-        if (typeof confidence === "number" && confidence > 0) {
+        if (showConfidence) {
           var pct = Math.round(confidence * 100);
           var cls = pct >= 75 ? "high" : pct >= 50 ? "medium" : "low";
           var cb = document.createElement("span");
@@ -1275,6 +1294,15 @@
     wrapper.appendChild(avatar);
     wrapper.appendChild(body);
     chatContainer.appendChild(wrapper);
+
+    // S47: Render follow-up pills for saved assistant messages
+    if (
+      !isUser &&
+      msg.suggested_followups &&
+      msg.suggested_followups.length > 0
+    ) {
+      renderFollowups(msg.suggested_followups);
+    }
   }
 
   function scrollToBottom() {
@@ -1304,7 +1332,10 @@
     wrapper.innerHTML =
       '<div class="message-avatar nova" aria-hidden="true">N</div>' +
       '<div class="thinking-bubble">' +
-      '<div class="thinking-dots-pill" aria-label="Nova is thinking">' +
+      '<div class="thinking-lottie" aria-label="Nova is thinking">' +
+      '<lottie-player src="https://lottie.host/8a01a0d3-c4e0-4c8a-87af-5c8c0e7e6e5e/7TLXYjNLAt.json" background="transparent" speed="1" style="width:60px;height:30px" loop autoplay></lottie-player>' +
+      "</div>" +
+      '<div class="thinking-dots-pill" aria-label="Nova is thinking" style="display:none">' +
       '<div class="thinking-dot"></div>' +
       '<div class="thinking-dot"></div>' +
       '<div class="thinking-dot"></div>' +
@@ -1547,17 +1578,77 @@
   }
 
   // ========================================================================
-  // WEBSOCKET TRANSPORT (preferred over SSE)
+  // WEBSOCKET TRANSPORT (preferred over SSE, with retry cooldown -- S47)
   // ========================================================================
   var _wsConn = null;
   var _wsReady = false;
-  var _wsReconnectTimer = null;
   var _wsFailCount = 0;
   var _WS_MAX_FAILS = 3; // Fall back to SSE after N consecutive WS failures
+  var _WS_RETRY_INTERVAL = 5 * 60 * 1000; // 5 minutes cooldown
+  var _WS_MAX_RETRIES = 3; // Max WS retry attempts after SSE fallback
+  var _wsRetryCount = 0; // How many times we've retried WS after fallback
+  var _wsFellBackAt = 0; // Timestamp when we fell back to SSE
+  var _wsRetryTimer = null; // Timer for periodic WS reconnect attempts
+
+  function _startWsRetryCooldown() {
+    // S47: After falling back to SSE, schedule periodic WS reconnect attempts
+    if (_wsRetryTimer) return; // Already scheduled
+    _wsFellBackAt = Date.now();
+    _wsRetryCount = 0;
+    _wsRetryTimer = setInterval(function () {
+      // Stop retrying after max attempts
+      if (_wsRetryCount >= _WS_MAX_RETRIES) {
+        clearInterval(_wsRetryTimer);
+        _wsRetryTimer = null;
+        return;
+      }
+      // Attempt WS reconnect
+      _wsRetryCount++;
+      _wsFailCount = 0; // Reset fail count to allow _getOrCreateWS to try
+      _wsConn = null;
+      _wsReady = false;
+      // Probe with a test connection
+      try {
+        var testWs = new WebSocket(WS_URL);
+        testWs.onopen = function () {
+          // WS is available again -- clear cooldown
+          clearInterval(_wsRetryTimer);
+          _wsRetryTimer = null;
+          _wsFailCount = 0;
+          _wsFellBackAt = 0;
+          _wsRetryCount = 0;
+          _wsConn = testWs;
+          _wsReady = true;
+          testWs.onclose = function () {
+            _wsReady = false;
+            _wsConn = null;
+          };
+        };
+        testWs.onerror = function () {
+          _wsFailCount = _WS_MAX_FAILS; // Keep on SSE
+          try {
+            testWs.close();
+          } catch (_) {}
+        };
+        testWs.onclose = function () {
+          // If it closed without opening, WS still unavailable
+          if (!_wsReady || _wsConn !== testWs) {
+            _wsFailCount = _WS_MAX_FAILS;
+          }
+        };
+      } catch (_) {
+        _wsFailCount = _WS_MAX_FAILS;
+      }
+    }, _WS_RETRY_INTERVAL);
+  }
 
   function _getOrCreateWS(onReady) {
     // If WebSocket is not supported or we've failed too many times, skip
     if (!window.WebSocket || _wsFailCount >= _WS_MAX_FAILS) {
+      // S47: Start retry cooldown when falling back to SSE
+      if (_wsFailCount >= _WS_MAX_FAILS && !_wsRetryTimer) {
+        _startWsRetryCooldown();
+      }
       onReady(null);
       return;
     }
@@ -1729,6 +1820,13 @@
   }
 
   function sendMessage() {
+    // S47: Pre-flight CSRF token refresh if token is stale (>30 min old)
+    // This prevents "Session expired" on every second message
+    var _csrfAge = Date.now() - (window.__csrfTokenFetchedAt || 0);
+    if (_csrfAge > 30 * 60 * 1000 || !window.__csrfToken) {
+      __refreshCsrfToken(); // Fire-and-forget; token will be ready by the time fetch runs
+    }
+
     var text = chatInput.value.trim();
     // Handle /clear command
     if (text === "/clear") {
@@ -1849,7 +1947,7 @@
         role: "assistant",
         content: responseContent,
         sources: metadata.sources || [],
-        confidence: metadata.confidence || 0,
+        confidence: metadata.confidence != null ? metadata.confidence : 0,
         tools_used: metadata.tools_used || [],
         message_id: msgId,
         suggested_followups: metadata.suggested_followups || [],
@@ -1900,7 +1998,11 @@
         .querySelector(".retry-btn-inline")
         .addEventListener("click", function () {
           errBanner.remove();
-          _startStreaming();
+          state._csrfRetried = false; // S47: Reset CSRF retry flag for manual retry
+          // S47: Always refresh CSRF token before retry to prevent stale token errors
+          __refreshCsrfToken().then(function () {
+            _startStreaming();
+          });
         });
       resetLoadingState();
     }
@@ -2084,7 +2186,17 @@
               } else if (err.message && err.message.indexOf("429") > -1) {
                 errorMsg = "Nova is busy. Please wait a moment and try again.";
               } else if (err.message && err.message.indexOf("403") > -1) {
-                // S46: Removed dead CSRF retry (referenced non-existent _doSendMessage)
+                // S47: Auto-refresh CSRF token on 403 and retry once
+                // instead of showing "Session expired" error
+                if (!state._csrfRetried) {
+                  state._csrfRetried = true;
+                  __refreshCsrfToken().then(function () {
+                    _startStreaming();
+                  });
+                  return; // Don't show error -- retry is in-flight
+                }
+                // Already retried once -- show error
+                state._csrfRetried = false;
                 errorMsg =
                   "Session expired. Please refresh the page and try again.";
               } else {
@@ -2502,6 +2614,9 @@
     overlay.innerHTML =
       '<div class="modal-content">' +
       '<div class="modal-title">Export Conversation</div>' +
+      '<div class="modal-option" data-action="pdf">' +
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>' +
+      "<span>Download as PDF</span></div>" +
       '<div class="modal-option" data-action="copy">' +
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>' +
       "<span>Copy All to Clipboard</span></div>" +
@@ -2515,6 +2630,12 @@
       "</div>";
     document.body.appendChild(overlay);
 
+    overlay
+      .querySelector('[data-action="pdf"]')
+      .addEventListener("click", function () {
+        exportConvAsPDF(conv);
+        overlay.remove();
+      });
     overlay
       .querySelector('[data-action="copy"]')
       .addEventListener("click", function () {
@@ -2575,6 +2696,146 @@
     a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  // ========================================================================
+  // PDF EXPORT (S47 -- jsPDF-based)
+  // ========================================================================
+  function exportConvAsPDF(conv) {
+    if (typeof window.jspdf === "undefined") {
+      showToast("PDF library is still loading. Please try again.", "error");
+      return;
+    }
+    var jsPDF = window.jspdf.jsPDF;
+    var doc = new jsPDF({ unit: "mm", format: "a4" });
+    var pageW = doc.internal.pageSize.getWidth();
+    var pageH = doc.internal.pageSize.getHeight();
+    var margin = 15;
+    var usableW = pageW - margin * 2;
+    var y = 0;
+
+    // ── Header bar with Nova branding ──
+    doc.setFillColor(32, 32, 88); // PORT_GORE #202058
+    doc.rect(0, 0, pageW, 28, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text("Nova AI", margin, 12);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.text("Recruitment Intelligence", margin, 18);
+    // Date on the right
+    var dateStr = new Date().toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+    doc.setFontSize(8);
+    doc.text(dateStr, pageW - margin, 18, { align: "right" });
+
+    y = 36;
+
+    // ── Conversation title ──
+    doc.setTextColor(32, 32, 88);
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    var titleLines = doc.splitTextToSize(conv.title || "Conversation", usableW);
+    doc.text(titleLines, margin, y);
+    y += titleLines.length * 6 + 4;
+
+    // Thin separator
+    doc.setDrawColor(200, 200, 220);
+    doc.setLineWidth(0.3);
+    doc.line(margin, y, pageW - margin, y);
+    y += 6;
+
+    // ── Messages ──
+    conv.messages.forEach(function (msg) {
+      var isUser = msg.role === "user";
+      var senderLabel = isUser ? "You" : "Nova";
+      var timeLabel = msg.timestamp ? formatTimestamp(msg.timestamp) : "";
+
+      // Strip markdown for PDF (basic cleanup)
+      var cleanContent = (msg.content || "")
+        .replace(/\*\*([^*]+)\*\*/g, "$1")
+        .replace(/\*([^*]+)\*/g, "$1")
+        .replace(/`([^`]+)`/g, "$1")
+        .replace(/^#{1,3}\s+/gm, "")
+        .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");
+
+      // Check if we need a new page
+      var textLines = doc.splitTextToSize(cleanContent, usableW - 4);
+      var blockHeight = 8 + textLines.length * 4 + 8;
+      if (y + blockHeight > pageH - 20) {
+        doc.addPage();
+        y = 15;
+      }
+
+      // Sender + timestamp header
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "bold");
+      if (isUser) {
+        doc.setTextColor(90, 84, 189);
+      } else {
+        doc.setTextColor(32, 32, 88);
+      } // BLUE_VIOLET or PORT_GORE
+      doc.text(senderLabel, margin, y);
+      if (timeLabel) {
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(140, 140, 160);
+        doc.setFontSize(7);
+        doc.text(timeLabel, margin + doc.getTextWidth(senderLabel + "  "), y);
+      }
+      y += 5;
+
+      // Message body
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(50, 50, 60);
+      textLines.forEach(function (line) {
+        if (y > pageH - 20) {
+          doc.addPage();
+          y = 15;
+        }
+        doc.text(line, margin + 2, y);
+        y += 4;
+      });
+
+      // Sources (assistant only)
+      if (!isUser && msg.sources && msg.sources.length > 0) {
+        doc.setFontSize(7);
+        doc.setTextColor(107, 179, 205); // DOWNY_TEAL
+        var srcText = "Sources: " + msg.sources.join(", ");
+        var srcLines = doc.splitTextToSize(srcText, usableW - 4);
+        srcLines.forEach(function (sl) {
+          if (y > pageH - 20) {
+            doc.addPage();
+            y = 15;
+          }
+          doc.text(sl, margin + 2, y);
+          y += 3.5;
+        });
+      }
+
+      y += 4; // spacing between messages
+    });
+
+    // ── Footer ──
+    var totalPages = doc.internal.getNumberOfPages();
+    for (var p = 1; p <= totalPages; p++) {
+      doc.setPage(p);
+      doc.setFontSize(7);
+      doc.setTextColor(160, 160, 180);
+      doc.text(
+        "Nova AI -- Powered by Joveo  |  Page " + p + " of " + totalPages,
+        pageW / 2,
+        pageH - 8,
+        { align: "center" },
+      );
+    }
+
+    doc.save((conv.title || "Nova-Conversation") + ".pdf");
+    showToast("PDF exported successfully", "success");
   }
 
   // ========================================================================

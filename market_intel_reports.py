@@ -588,9 +588,10 @@ METRO_SALARY_INDEX: Dict[str, Dict[str, Any]] = {
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # Hardcoded fallback (kept for resilience if benchmark_registry unavailable)
+# LinkedIn CPA: US avg ~$45 for Sponsored Jobs (range $30-$90). Updated 2026-04-07.
 _PLATFORM_BENCHMARKS_FALLBACK: Dict[str, Dict[str, float]] = {
     "indeed": {"cpc": 0.50, "cpa": 25.0, "ctr": 0.040, "conv_rate": 0.025},
-    "linkedin": {"cpc": 5.26, "cpa": 75.0, "ctr": 0.008, "conv_rate": 0.065},
+    "linkedin": {"cpc": 5.26, "cpa": 45.0, "ctr": 0.008, "conv_rate": 0.065},
     "google_search": {"cpc": 2.69, "cpa": 45.0, "ctr": 0.042, "conv_rate": 0.069},
     "meta": {"cpc": 1.72, "cpa": 30.0, "ctr": 0.012, "conv_rate": 0.047},
     "programmatic": {"cpc": 0.63, "cpa": 22.0, "ctr": 0.025, "conv_rate": 0.029},

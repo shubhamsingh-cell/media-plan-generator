@@ -87,7 +87,7 @@ def _handle_chat_conversations_search(handler, path: str, parsed: Any) -> None:
         # Search by title (ilike) in Supabase
         params = (
             f"?select=id,title,updated_at,messages"
-            f"&title=ilike.*{urllib.parse.quote(query)}*"
+            f"&title=ilike.*{urllib.parse.quote(query, safe='')}*"
             f"&order=updated_at.desc"
             f"&limit={limit_val}"
         )

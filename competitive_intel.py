@@ -1113,7 +1113,11 @@ def _fallback_benchmarks(industry: str) -> Dict[str, Dict[str, Any]]:
         "google_search": {"cpc": 2.69, "cpa": 45.00, "ctr": 3.2},
         "meta_facebook": {"cpc": 1.72, "cpa": 30.00, "ctr": 1.1},
         "meta_instagram": {"cpc": 1.50, "cpa": 35.00, "ctr": 0.9},
-        "linkedin": {"cpc": 5.26, "cpa": 75.00, "ctr": 0.5},
+        "linkedin": {
+            "cpc": 5.26,
+            "cpa": 45.00,
+            "ctr": 0.5,
+        },  # Sponsored Jobs CPA $30-$90, US avg $45 (2026-04-07)
         "indeed": {"cpc": 0.50, "cpa": 25.00, "ctr": 4.5},
         "programmatic": {"cpc": 0.63, "cpa": 22.00, "ctr": 2.8},
     }

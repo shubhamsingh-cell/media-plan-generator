@@ -2,12 +2,16 @@
 """
 Consolidated 5-Sheet Excel Generator (v2) for AI Media Plan Generator.
 
-Replaces the 26+ sheet original with 5 focused sheets:
+Replaces the 26+ sheet original with up to 9 focused sheets:
     1. Executive Summary     -- overview, budget, benchmarks, recommendations
     2. Channels & Strategy   -- vetted channels, ad platform analysis, niche boards
     3. Market Intelligence   -- labour market, locations, competition, salary, demand
     4. Sources & Confidence  -- data quality, API status, methodology
     5. ROI Projections       -- per-channel hire forecasts, cost-per-hire, time-to-fill
+    6. Quality Intelligence  -- gold standard gates (conditional)
+    7. 90-Day Forecast       -- rolling monthly spend, apps, hires, CPA trend
+    8. Confidence Intervals  -- low/expected/high ranges for CPA, CPH, apps, hires
+    9. Niche Board Matching  -- role-level specialty job board recommendations
 
 Design: Sapphire Blue palette, Calibri font throughout, clean professional layout.
 All content starts at column B (col A = left margin).
@@ -230,6 +234,584 @@ INDUSTRY_NICHE_CHANNELS: Dict[str, List[str]] = {
     "mental_health": ["Psychology Today Jobs", "SAMHSA Jobs", "APA PsycCareers"],
     "maritime_marine": ["Maritime Jobs", "Rigzone", "Sea Career"],
 }
+
+# ---------------------------------------------------------------------------
+# Role-Level Niche Board Matching (Task 4)
+# Maps role keywords to specialty job boards for targeted channel recommendations.
+# ---------------------------------------------------------------------------
+ROLE_NICHE_BOARDS: Dict[str, Dict[str, Any]] = {
+    "software_engineer": {
+        "keywords": [
+            "software engineer",
+            "developer",
+            "full stack",
+            "frontend",
+            "backend",
+            "web developer",
+            "mobile developer",
+            "ios",
+            "android",
+            "react",
+            "python developer",
+            "java developer",
+            "golang",
+        ],
+        "boards": [
+            {
+                "name": "Dice",
+                "url": "dice.com",
+                "strength": "Tech-focused aggregator, strong for contract/perm",
+            },
+            {
+                "name": "Stack Overflow Jobs",
+                "url": "stackoverflow.com/jobs",
+                "strength": "Developer community, passive candidates",
+            },
+            {
+                "name": "GitHub Jobs",
+                "url": "github.com/jobs",
+                "strength": "Open source community reach",
+            },
+            {
+                "name": "Wellfound (AngelList)",
+                "url": "wellfound.com",
+                "strength": "Startup ecosystem, equity-motivated candidates",
+            },
+            {
+                "name": "HackerRank",
+                "url": "hackerrank.com",
+                "strength": "Skill-verified candidates",
+            },
+        ],
+    },
+    "data_science": {
+        "keywords": [
+            "data scientist",
+            "machine learning",
+            "ml engineer",
+            "ai engineer",
+            "deep learning",
+            "nlp",
+            "data analyst",
+            "analytics engineer",
+            "data engineer",
+            "mlops",
+        ],
+        "boards": [
+            {
+                "name": "Kaggle Jobs",
+                "url": "kaggle.com/jobs",
+                "strength": "ML/AI community, competition-proven talent",
+            },
+            {
+                "name": "DataJobs.com",
+                "url": "datajobs.com",
+                "strength": "Data-specific roles",
+            },
+            {
+                "name": "Dice",
+                "url": "dice.com",
+                "strength": "Tech-focused, strong data science segment",
+            },
+            {
+                "name": "AI Jobs Board",
+                "url": "aijobs.net",
+                "strength": "AI/ML specialty listings",
+            },
+        ],
+    },
+    "cybersecurity": {
+        "keywords": [
+            "cybersecurity",
+            "security engineer",
+            "security analyst",
+            "infosec",
+            "penetration tester",
+            "soc analyst",
+            "ciso",
+            "security architect",
+        ],
+        "boards": [
+            {
+                "name": "CyberSecJobs",
+                "url": "cybersecjobs.com",
+                "strength": "Cybersecurity-only board",
+            },
+            {
+                "name": "ClearedJobs.Net",
+                "url": "clearedjobs.net",
+                "strength": "Clearance-required security roles",
+            },
+            {
+                "name": "Dice",
+                "url": "dice.com",
+                "strength": "Strong cybersecurity segment",
+            },
+            {
+                "name": "SANS Job Board",
+                "url": "sans.org/careers",
+                "strength": "SANS-certified professional network",
+            },
+        ],
+    },
+    "nursing": {
+        "keywords": [
+            "nurse",
+            "rn",
+            "lpn",
+            "cna",
+            "nurse practitioner",
+            "np",
+            "registered nurse",
+            "travel nurse",
+            "icu nurse",
+            "or nurse",
+            "nursing",
+            "bsn",
+        ],
+        "boards": [
+            {
+                "name": "Vivian Health",
+                "url": "vivian.com",
+                "strength": "Travel + staff nursing, transparent pay",
+            },
+            {
+                "name": "Nurse.com",
+                "url": "nurse.com",
+                "strength": "Largest nursing community, CE integration",
+            },
+            {
+                "name": "Health eCareers",
+                "url": "healthecareers.com",
+                "strength": "Multi-specialty healthcare",
+            },
+            {
+                "name": "NurseFly",
+                "url": "nursefly.com",
+                "strength": "Travel nursing marketplace",
+            },
+            {
+                "name": "Incredible Health",
+                "url": "incrediblehealth.com",
+                "strength": "Employer-applies-to-nurse model",
+            },
+        ],
+    },
+    "physician": {
+        "keywords": [
+            "physician",
+            "doctor",
+            "md",
+            "surgeon",
+            "hospitalist",
+            "anesthesiologist",
+            "radiologist",
+            "cardiologist",
+            "dermatologist",
+            "psychiatrist",
+            "pediatrician",
+        ],
+        "boards": [
+            {
+                "name": "PracticeLink",
+                "url": "practicelink.com",
+                "strength": "Physician-only, permanent placement",
+            },
+            {
+                "name": "Doximity",
+                "url": "doximity.com",
+                "strength": "Physician social network, verified MDs",
+            },
+            {
+                "name": "JAMA Career Center",
+                "url": "careers.jamanetwork.com",
+                "strength": "Academic/research physicians",
+            },
+            {
+                "name": "Health eCareers",
+                "url": "healthecareers.com",
+                "strength": "Broad healthcare, physician segment",
+            },
+        ],
+    },
+    "allied_health": {
+        "keywords": [
+            "therapist",
+            "physical therapist",
+            "occupational therapist",
+            "pharmacist",
+            "respiratory therapist",
+            "radiology tech",
+            "medical assistant",
+            "lab technician",
+            "phlebotomist",
+        ],
+        "boards": [
+            {
+                "name": "Health eCareers",
+                "url": "healthecareers.com",
+                "strength": "Multi-specialty allied health",
+            },
+            {
+                "name": "Vivian Health",
+                "url": "vivian.com",
+                "strength": "Allied health travel positions",
+            },
+            {
+                "name": "AlliedTravelCareers",
+                "url": "alliedtravelcareers.com",
+                "strength": "Travel allied health",
+            },
+        ],
+    },
+    "executive": {
+        "keywords": [
+            "ceo",
+            "cfo",
+            "cto",
+            "cio",
+            "coo",
+            "cmo",
+            "chief",
+            "president",
+            "vice president",
+            "vp",
+            "svp",
+            "evp",
+            "managing director",
+            "general manager",
+            "c-suite",
+        ],
+        "boards": [
+            {
+                "name": "LinkedIn Executive Search",
+                "url": "linkedin.com/talent",
+                "strength": "Executive passive candidate network",
+            },
+            {
+                "name": "ExecuNet",
+                "url": "execunet.com",
+                "strength": "C-suite and board-level positions",
+            },
+            {
+                "name": "Ladders",
+                "url": "theladders.com",
+                "strength": "$100K+ positions, executive focus",
+            },
+            {
+                "name": "BlueSteps",
+                "url": "bluesteps.com",
+                "strength": "AESC-affiliated executive search",
+            },
+        ],
+    },
+    "trucking": {
+        "keywords": [
+            "cdl",
+            "truck driver",
+            "trucker",
+            "otr driver",
+            "class a",
+            "class b",
+            "delivery driver",
+            "long haul",
+            "local driver",
+            "fleet driver",
+        ],
+        "boards": [
+            {
+                "name": "CDLjobs.com",
+                "url": "cdljobs.com",
+                "strength": "CDL-specific, high intent",
+            },
+            {
+                "name": "TruckingJobs.com",
+                "url": "truckingjobs.com",
+                "strength": "Trucking industry focus",
+            },
+            {
+                "name": "DriveMyWay",
+                "url": "drivemyway.com",
+                "strength": "Driver-job matching algorithm",
+            },
+            {
+                "name": "TruckersReport Jobs",
+                "url": "thetruckersreport.com/jobs",
+                "strength": "Active trucker community",
+            },
+        ],
+    },
+    "warehouse": {
+        "keywords": [
+            "warehouse",
+            "forklift",
+            "picker",
+            "packer",
+            "shipping",
+            "receiving",
+            "inventory",
+            "distribution",
+            "fulfillment",
+            "material handler",
+        ],
+        "boards": [
+            {
+                "name": "WarehouseJobs.com",
+                "url": "warehousejobs.com",
+                "strength": "Warehouse-specific board",
+            },
+            {
+                "name": "Wonolo",
+                "url": "wonolo.com",
+                "strength": "On-demand warehouse staffing",
+            },
+            {
+                "name": "Instawork",
+                "url": "instawork.com",
+                "strength": "Flexible warehouse/logistics shifts",
+            },
+            {
+                "name": "Jobcase",
+                "url": "jobcase.com",
+                "strength": "Hourly/blue collar community",
+            },
+        ],
+    },
+    "accounting": {
+        "keywords": [
+            "accountant",
+            "cpa",
+            "auditor",
+            "tax",
+            "bookkeeper",
+            "controller",
+            "financial analyst",
+            "accounts payable",
+            "accounts receivable",
+        ],
+        "boards": [
+            {
+                "name": "eFinancialCareers",
+                "url": "efinancialcareers.com",
+                "strength": "Finance/accounting specialty",
+            },
+            {
+                "name": "AccountingJobsToday",
+                "url": "accountingjobstoday.com",
+                "strength": "Accounting-only listings",
+            },
+            {
+                "name": "Robert Half",
+                "url": "roberthalf.com",
+                "strength": "Accounting staffing leader",
+            },
+        ],
+    },
+    "sales": {
+        "keywords": [
+            "sales representative",
+            "account executive",
+            "business development",
+            "sales manager",
+            "account manager",
+            "sdr",
+            "bdr",
+            "sales engineer",
+            "enterprise sales",
+        ],
+        "boards": [
+            {
+                "name": "Rainmakers",
+                "url": "rainmakers.co",
+                "strength": "Sales talent marketplace, verified quotas",
+            },
+            {
+                "name": "SalesJobs.com",
+                "url": "salesjobs.com",
+                "strength": "Sales-only board",
+            },
+            {
+                "name": "RepVue",
+                "url": "repvue.com",
+                "strength": "Sales org ratings, compensation data",
+            },
+        ],
+    },
+    "marketing": {
+        "keywords": [
+            "marketing manager",
+            "digital marketing",
+            "content marketing",
+            "seo",
+            "social media manager",
+            "brand manager",
+            "growth marketing",
+            "product marketing",
+        ],
+        "boards": [
+            {
+                "name": "MarketingHire",
+                "url": "marketinghire.com",
+                "strength": "Marketing-specific positions",
+            },
+            {
+                "name": "MediaBistro",
+                "url": "mediabistro.com",
+                "strength": "Media/marketing/creative jobs",
+            },
+            {
+                "name": "Built In",
+                "url": "builtin.com",
+                "strength": "Tech marketing roles, company profiles",
+            },
+        ],
+    },
+    "construction": {
+        "keywords": [
+            "construction",
+            "electrician",
+            "plumber",
+            "hvac",
+            "carpenter",
+            "welder",
+            "mason",
+            "ironworker",
+            "heavy equipment operator",
+            "project manager construction",
+        ],
+        "boards": [
+            {
+                "name": "ConstructionJobs.com",
+                "url": "constructionjobs.com",
+                "strength": "Construction-only board",
+            },
+            {
+                "name": "iHireConstruction",
+                "url": "ihireconstruction.com",
+                "strength": "Construction staffing network",
+            },
+            {
+                "name": "TradeHounds",
+                "url": "tradehounds.com",
+                "strength": "Skilled trades social network",
+            },
+            {
+                "name": "Built Hire",
+                "url": "builthire.com",
+                "strength": "Construction workforce platform",
+            },
+        ],
+    },
+    "education": {
+        "keywords": [
+            "teacher",
+            "professor",
+            "instructor",
+            "educator",
+            "principal",
+            "academic",
+            "curriculum",
+            "dean",
+            "superintendent",
+        ],
+        "boards": [
+            {
+                "name": "HigherEdJobs",
+                "url": "higheredjobs.com",
+                "strength": "Higher education positions",
+            },
+            {
+                "name": "SchoolSpring",
+                "url": "schoolspring.com",
+                "strength": "K-12 teaching positions",
+            },
+            {
+                "name": "K12JobSpot",
+                "url": "k12jobspot.com",
+                "strength": "K-12 administration and teaching",
+            },
+            {
+                "name": "Chronicle Vitae",
+                "url": "chroniclevitae.com",
+                "strength": "Academic career network",
+            },
+        ],
+    },
+    "legal": {
+        "keywords": [
+            "attorney",
+            "lawyer",
+            "paralegal",
+            "legal assistant",
+            "general counsel",
+            "litigation",
+            "corporate counsel",
+            "compliance officer",
+        ],
+        "boards": [
+            {
+                "name": "LawCrossing",
+                "url": "lawcrossing.com",
+                "strength": "Legal-only job aggregator",
+            },
+            {
+                "name": "Lawjobs.com",
+                "url": "lawjobs.com",
+                "strength": "Legal staffing marketplace",
+            },
+            {
+                "name": "Robert Half Legal",
+                "url": "roberthalf.com/legal",
+                "strength": "Legal staffing leader",
+            },
+        ],
+    },
+}
+
+
+def _match_roles_to_niche_boards(
+    roles: List[str],
+) -> Dict[str, List[Dict[str, str]]]:
+    """Cross-reference role titles against ROLE_NICHE_BOARDS to find specialty boards.
+
+    Args:
+        roles: List of role title strings.
+
+    Returns:
+        Dict mapping role title to list of recommended niche boards.
+        Each board entry has keys: name, url, strength.
+    """
+    if not roles:
+        return {}
+
+    results: Dict[str, List[Dict[str, str]]] = {}
+
+    for role in roles:
+        role_lower = role.lower().strip()
+        matched_boards: List[Dict[str, str]] = []
+        matched_categories: set = set()
+
+        for category, config in ROLE_NICHE_BOARDS.items():
+            keywords = config.get("keywords") or []
+            for kw in keywords:
+                if kw in role_lower or role_lower in kw:
+                    if category not in matched_categories:
+                        matched_categories.add(category)
+                        for board in config.get("boards") or []:
+                            matched_boards.append(dict(board))
+                    break
+
+        if matched_boards:
+            # Deduplicate by board name
+            seen = set()
+            deduped = []
+            for b in matched_boards:
+                if b["name"] not in seen:
+                    seen.add(b["name"])
+                    deduped.append(b)
+            results[role] = deduped
+
+    return results
 
 
 # ---------------------------------------------------------------------------
@@ -4296,6 +4878,684 @@ def _build_sheet_quality_intelligence(
     _write_attribution_footer(ws, row)
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# SHEET 7: 90-Day Rolling Forecast
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def _build_sheet_rolling_forecast(ws, data: dict) -> None:
+    """Build Sheet 7: 90-Day Rolling Forecast with monthly spend, applications, hires, and CPA trend.
+
+    Breaks the campaign timeline into 3 monthly periods showing projected metrics
+    with a ramp-up curve (Month 1: 25%, Month 2: 35%, Month 3: 40% of totals).
+    """
+    ws.title = "90-Day Forecast"
+    ws.sheet_properties.tabColor = SAPPHIRE
+
+    _set_column_widths(
+        ws,
+        {
+            1: 3,  # margin
+            2: 22,  # Metric / Channel
+            3: 18,  # Month 1
+            4: 18,  # Month 2
+            5: 18,  # Month 3
+            6: 18,  # 90-Day Total
+            7: 16,  # Trend
+        },
+    )
+
+    budget_alloc = data.get("_budget_allocation", {})
+    if not isinstance(budget_alloc, dict):
+        budget_alloc = {}
+    ba_total_proj = budget_alloc.get("total_projected", {})
+    if not isinstance(ba_total_proj, dict):
+        ba_total_proj = {}
+    ba_metadata = budget_alloc.get("metadata", {})
+    if not isinstance(ba_metadata, dict):
+        ba_metadata = {}
+    ba_channel_alloc = budget_alloc.get("channel_allocations", {})
+    if not isinstance(ba_channel_alloc, dict):
+        ba_channel_alloc = {}
+
+    total_budget = _safe_num(ba_metadata.get("total_budget") or 0)
+    if total_budget <= 0:
+        from shared_utils import parse_budget as _pb
+
+        total_budget = _safe_num(_pb(data.get("budget") or ""))
+
+    total_apps = int(_safe_num(ba_total_proj.get("applications") or 0))
+    total_hires = int(_safe_num(ba_total_proj.get("hires") or 0))
+
+    # Ramp-up distribution: campaigns need time to optimize
+    # Month 1: 25% (ramp-up, learning), Month 2: 35% (optimizing), Month 3: 40% (peak)
+    monthly_pcts = [0.25, 0.35, 0.40]
+    today = datetime.date.today()
+    month_labels = []
+    for i in range(3):
+        m = today.month + i
+        y = today.year
+        if m > 12:
+            m -= 12
+            y += 1
+        month_labels.append(datetime.date(y, m, 1).strftime("%B %Y"))
+
+    row = 2
+
+    # ── Section Header ──
+    row = _write_section_header(ws, row, "90-Day Rolling Forecast")
+
+    # ── Campaign Period ──
+    end_date = today + datetime.timedelta(days=90)
+    row = _write_kv_row(
+        ws,
+        row,
+        "Forecast Period",
+        f"{today.strftime('%b %d, %Y')} - {end_date.strftime('%b %d, %Y')}",
+    )
+    row += 1
+
+    # ── Summary Forecast Table ──
+    row = _write_subsection_header(ws, row, "Monthly Projections Overview")
+
+    headers = ["Metric"] + month_labels + ["90-Day Total", "Trend"]
+    row = _write_table_header(ws, row, headers)
+
+    # Calculate monthly values
+    monthly_spend = [total_budget * p for p in monthly_pcts]
+    monthly_apps = [int(total_apps * p) for p in monthly_pcts]
+    monthly_hires = [int(total_hires * p) for p in monthly_pcts]
+    # CPA trend: higher in Month 1 (ramp-up), lower by Month 3
+    cpa_multipliers = [1.30, 1.00, 0.85]  # CPA decreases as campaign optimizes
+    base_cpa = total_budget / max(total_apps, 1) if total_apps > 0 else 0
+    monthly_cpa = [base_cpa * m for m in cpa_multipliers]
+
+    forecast_rows = [
+        (
+            "Spend",
+            [f"${s:,.0f}" for s in monthly_spend],
+            f"${total_budget:,.0f}",
+            "--",
+        ),
+        (
+            "Applications",
+            [f"{a:,}" for a in monthly_apps],
+            f"{total_apps:,}",
+            "Increasing" if total_apps > 0 else "--",
+        ),
+        (
+            "Hires",
+            [str(h) for h in monthly_hires],
+            str(total_hires),
+            "Increasing" if total_hires > 0 else "--",
+        ),
+        (
+            "CPA (Cost Per Application)",
+            [f"${c:,.0f}" if c > 0 else "--" for c in monthly_cpa],
+            f"${base_cpa:,.0f}" if base_cpa > 0 else "--",
+            "Decreasing" if base_cpa > 0 else "--",
+        ),
+    ]
+
+    for idx, (metric, monthly_vals, total_val, trend) in enumerate(forecast_rows):
+        values = [metric] + monthly_vals + [total_val, trend]
+        fonts_list = [_FONT_BODY_BOLD] + [_FONT_BODY] * (len(values) - 1)
+
+        # Color-code trend
+        trend_font = _FONT_BODY
+        if trend == "Increasing":
+            trend_font = Font(name="Calibri", bold=True, size=10, color=GREEN)
+        elif trend == "Decreasing" and "CPA" in metric:
+            trend_font = Font(name="Calibri", bold=True, size=10, color=GREEN)
+        elif trend == "Decreasing":
+            trend_font = Font(name="Calibri", bold=True, size=10, color=RED)
+        fonts_list[-1] = trend_font
+
+        row = _write_table_row(
+            ws, row, values, alternate=(idx % 2 == 0), fonts=fonts_list
+        )
+
+    row += 1
+
+    # ── Per-Channel Monthly Breakdown ──
+    if ba_channel_alloc:
+        row = _write_subsection_header(ws, row, "Per-Channel Monthly Spend Forecast")
+
+        ch_headers = ["Channel"] + month_labels + ["Total", "% of Budget"]
+        row = _write_table_header(ws, row, ch_headers)
+
+        sorted_channels = sorted(
+            ba_channel_alloc.items(),
+            key=lambda x: _safe_num(
+                x[1].get("dollar_amount", x[1].get("dollars") or 0)
+                if isinstance(x[1], dict)
+                else 0
+            ),
+            reverse=True,
+        )
+
+        for idx, (ch_name, ch_data) in enumerate(sorted_channels):
+            if not isinstance(ch_data, dict):
+                continue
+            ch_dollars = _safe_num(
+                ch_data.get("dollar_amount", ch_data.get("dollars") or 0)
+            )
+            if ch_dollars <= 0:
+                continue
+
+            ch_monthly = [ch_dollars * p for p in monthly_pcts]
+            ch_pct = (ch_dollars / total_budget * 100) if total_budget > 0 else 0
+
+            values = (
+                [
+                    ch_name.replace("_", " ").title(),
+                ]
+                + [f"${m:,.0f}" for m in ch_monthly]
+                + [
+                    f"${ch_dollars:,.0f}",
+                    f"{ch_pct:.1f}%",
+                ]
+            )
+
+            row = _write_table_row(ws, row, values, alternate=(idx % 2 == 0))
+
+    row += 1
+
+    # ── Optimization Milestones ──
+    row = _write_subsection_header(ws, row, "Optimization Milestones")
+
+    milestones = [
+        (
+            "Week 1-2",
+            "Campaign launch, initial bid calibration, creative A/B testing begins",
+        ),
+        (
+            "Week 3-4",
+            "First optimization cycle: pause underperforming channels, reallocate budget",
+        ),
+        ("Week 5-6", "Conversion tracking validated, CPA benchmarks established"),
+        ("Week 7-8", "Second optimization: refine targeting, scale winning channels"),
+        (
+            "Week 9-10",
+            "Quality-of-hire feedback loop, adjust for retention correlation",
+        ),
+        (
+            "Week 11-12",
+            "Final optimization, prepare renewal recommendations, ROI summary",
+        ),
+    ]
+
+    for idx, (period, action) in enumerate(milestones):
+        row = _write_table_row(
+            ws,
+            row,
+            [period, action],
+            alternate=(idx % 2 == 0),
+            fonts=[_FONT_BODY_BOLD, _FONT_BODY],
+        )
+
+    row += 1
+    row = _write_footnote(
+        ws,
+        row,
+        "Forecast assumes typical campaign ramp-up curve: 25% Month 1 (learning), "
+        "35% Month 2 (optimizing), 40% Month 3 (peak performance). "
+        "Actual distribution may vary based on channel mix and market conditions.",
+    )
+    row += 1
+    _write_attribution_footer(ws, row)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# SHEET 8: Confidence Intervals
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def _build_sheet_confidence_intervals(ws, data: dict) -> None:
+    """Build Sheet 8: Confidence Intervals showing low/expected/high estimates.
+
+    Instead of point estimates, shows ranges for CPA, CPH, applications, and hires
+    with variance based on data confidence level per channel.
+    """
+    ws.title = "Confidence Intervals"
+    ws.sheet_properties.tabColor = AMBER
+
+    _set_column_widths(
+        ws,
+        {
+            1: 3,  # margin
+            2: 22,  # Channel
+            3: 14,  # Metric
+            4: 16,  # Low (Pessimistic)
+            5: 16,  # Expected
+            6: 16,  # High (Optimistic)
+            7: 14,  # Variance %
+            8: 14,  # Confidence
+        },
+    )
+
+    budget_alloc = data.get("_budget_allocation", {})
+    if not isinstance(budget_alloc, dict):
+        budget_alloc = {}
+    ba_channel_alloc = budget_alloc.get("channel_allocations", {})
+    if not isinstance(ba_channel_alloc, dict):
+        ba_channel_alloc = {}
+
+    row = 2
+
+    # ── Section Header ──
+    row = _write_section_header(ws, row, "Confidence Intervals & Metric Ranges")
+
+    row = _write_kv_row(
+        ws,
+        row,
+        "Methodology",
+        "Ranges derived from data confidence levels. HIGH confidence = +/-15% variance, "
+        "MEDIUM = +/-20%, LOW = +/-25%. Based on source count and KB validation.",
+    )
+    row += 1
+
+    # ── Variance explanation ──
+    row = _write_subsection_header(ws, row, "Variance Scale")
+
+    var_headers = [
+        "Confidence Level",
+        "Variance Applied",
+        "Description",
+        "Typical Sources",
+    ]
+    row = _write_table_header(ws, row, var_headers)
+
+    var_data = [
+        ("HIGH", "+/- 15%", "Multiple validated data sources", "2+ APIs, KB-validated"),
+        ("MEDIUM", "+/- 20%", "Single source or KB-validated", "1 API or KB match"),
+        ("LOW", "+/- 25%", "Estimated or insufficient data", "No direct data sources"),
+    ]
+    for idx, (level, variance, desc, sources) in enumerate(var_data):
+        conf_font = Font(name="Calibri", bold=True, size=10, color=GREEN)
+        if level == "MEDIUM":
+            conf_font = Font(name="Calibri", bold=True, size=10, color=AMBER)
+        elif level == "LOW":
+            conf_font = Font(name="Calibri", bold=True, size=10, color=RED)
+
+        row = _write_table_row(
+            ws,
+            row,
+            [level, variance, desc, sources],
+            alternate=(idx % 2 == 0),
+            fonts=[conf_font, _FONT_BODY, _FONT_BODY, _FONT_BODY],
+        )
+
+    row += 1
+
+    # ── Per-Channel Confidence Intervals ──
+    row = _write_subsection_header(ws, row, "Per-Channel Metric Ranges")
+
+    headers = [
+        "Channel",
+        "Metric",
+        "Low (Pessimistic)",
+        "Expected",
+        "High (Optimistic)",
+        "Variance",
+        "Confidence",
+    ]
+    row = _write_table_header(ws, row, headers)
+
+    sorted_channels = sorted(
+        ba_channel_alloc.items(),
+        key=lambda x: _safe_num(
+            x[1].get("dollar_amount", x[1].get("dollars") or 0)
+            if isinstance(x[1], dict)
+            else 0
+        ),
+        reverse=True,
+    )
+
+    idx = 0
+    for ch_name, ch_data in sorted_channels:
+        if not isinstance(ch_data, dict):
+            continue
+        dollars = _safe_num(ch_data.get("dollar_amount", ch_data.get("dollars") or 0))
+        if dollars <= 0:
+            continue
+
+        # Determine confidence and variance
+        _meta = ch_data.get("_meta", {})
+        if not isinstance(_meta, dict):
+            _meta = {}
+        source_count = _meta.get("source_count", 0)
+        kb_validated = _meta.get("kb_validated", False)
+        ch_confidence_raw = ch_data.get("confidence", "")
+
+        if source_count >= 2 or str(ch_confidence_raw).lower() == "high":
+            confidence = "HIGH"
+            variance = 0.15
+        elif (
+            kb_validated
+            or source_count >= 1
+            or str(ch_confidence_raw).lower() == "medium"
+        ):
+            confidence = "MEDIUM"
+            variance = 0.20
+        else:
+            confidence = "LOW"
+            variance = 0.25
+
+        conf_font = Font(name="Calibri", bold=True, size=10, color=GREEN)
+        if confidence == "MEDIUM":
+            conf_font = Font(name="Calibri", bold=True, size=10, color=AMBER)
+        elif confidence == "LOW":
+            conf_font = Font(name="Calibri", bold=True, size=10, color=RED)
+
+        ch_label = ch_name.replace("_", " ").title()
+
+        # CPA
+        cpa = _safe_num(ch_data.get("cpa") or 0)
+        if cpa > 0:
+            cpa_lo = cpa * (1 + variance)  # Pessimistic = higher CPA
+            cpa_hi = cpa * (1 - variance)  # Optimistic = lower CPA
+            row = _write_table_row(
+                ws,
+                row,
+                [
+                    ch_label,
+                    "CPA",
+                    f"${cpa_lo:,.0f}",
+                    f"${cpa:,.0f}",
+                    f"${cpa_hi:,.0f}",
+                    f"+/-{int(variance * 100)}%",
+                    confidence,
+                ],
+                alternate=(idx % 2 == 0),
+                fonts=[
+                    _FONT_BODY_BOLD,
+                    _FONT_BODY,
+                    _FONT_BODY,
+                    _FONT_BODY_BOLD,
+                    _FONT_BODY,
+                    _FONT_BODY,
+                    conf_font,
+                ],
+            )
+            idx += 1
+
+        # Applications
+        apps = int(_safe_num(ch_data.get("projected_applications") or 0))
+        if apps > 0:
+            apps_lo = max(0, int(apps * (1 - variance)))
+            apps_hi = int(apps * (1 + variance))
+            row = _write_table_row(
+                ws,
+                row,
+                [
+                    ch_label,
+                    "Applications",
+                    f"{apps_lo:,}",
+                    f"{apps:,}",
+                    f"{apps_hi:,}",
+                    f"+/-{int(variance * 100)}%",
+                    confidence,
+                ],
+                alternate=(idx % 2 == 0),
+                fonts=[
+                    _FONT_BODY_BOLD,
+                    _FONT_BODY,
+                    _FONT_BODY,
+                    _FONT_BODY_BOLD,
+                    _FONT_BODY,
+                    _FONT_BODY,
+                    conf_font,
+                ],
+            )
+            idx += 1
+
+        # Hires
+        hires = int(_safe_num(ch_data.get("projected_hires") or 0))
+        if hires > 0:
+            hires_lo = max(0, int(hires * (1 - variance)))
+            hires_hi = int(hires * (1 + variance))
+            row = _write_table_row(
+                ws,
+                row,
+                [
+                    ch_label,
+                    "Hires",
+                    str(hires_lo),
+                    str(hires),
+                    str(hires_hi),
+                    f"+/-{int(variance * 100)}%",
+                    confidence,
+                ],
+                alternate=(idx % 2 == 0),
+                fonts=[
+                    _FONT_BODY_BOLD,
+                    _FONT_BODY,
+                    _FONT_BODY,
+                    _FONT_BODY_BOLD,
+                    _FONT_BODY,
+                    _FONT_BODY,
+                    conf_font,
+                ],
+            )
+            idx += 1
+
+        # CPH (Cost Per Hire)
+        if hires > 0 and dollars > 0:
+            cph = dollars / hires
+            cph_lo = dollars / max(
+                hires_lo, 1
+            )  # Pessimistic = fewer hires = higher CPH
+            cph_hi = dollars / max(hires_hi, 1)  # Optimistic = more hires = lower CPH
+            row = _write_table_row(
+                ws,
+                row,
+                [
+                    ch_label,
+                    "Cost Per Hire",
+                    f"${cph_lo:,.0f}",
+                    f"${cph:,.0f}",
+                    f"${cph_hi:,.0f}",
+                    f"+/-{int(variance * 100)}%",
+                    confidence,
+                ],
+                alternate=(idx % 2 == 0),
+                fonts=[
+                    _FONT_BODY_BOLD,
+                    _FONT_BODY,
+                    _FONT_BODY,
+                    _FONT_BODY_BOLD,
+                    _FONT_BODY,
+                    _FONT_BODY,
+                    conf_font,
+                ],
+            )
+            idx += 1
+
+    row += 1
+    row = _write_footnote(
+        ws,
+        row,
+        "Note: Pessimistic/Optimistic estimates reflect the range of likely outcomes. "
+        "For cost metrics (CPA, CPH), pessimistic = higher cost, optimistic = lower cost. "
+        "For volume metrics (Applications, Hires), pessimistic = lower volume, optimistic = higher volume.",
+    )
+    row += 1
+    row = _write_footnote(
+        ws,
+        row,
+        "Confidence levels are determined by the number and quality of data sources: "
+        "HIGH (2+ validated APIs), MEDIUM (1 API or KB-validated), LOW (estimated).",
+    )
+    row += 1
+    _write_attribution_footer(ws, row)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# SHEET 9: Role-Level Niche Board Recommendations
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def _build_sheet_niche_board_matching(ws, data: dict) -> None:
+    """Build Sheet 9: Role-Level Niche Board Matching.
+
+    Cross-references target roles against ROLE_NICHE_BOARDS to recommend
+    specialty job boards tailored to each role type.
+    """
+    ws.title = "Niche Board Matching"
+    ws.sheet_properties.tabColor = "B5669C"  # Tapestry pink
+
+    _set_column_widths(
+        ws,
+        {
+            1: 3,  # margin
+            2: 24,  # Role Title
+            3: 22,  # Recommended Board
+            4: 22,  # Board URL
+            5: 40,  # Why This Board
+            6: 16,  # Match Type
+        },
+    )
+
+    roles = _get_roles(data)
+    industry = data.get("industry", "general_entry_level")
+
+    row = 2
+
+    # ── Section Header ──
+    row = _write_section_header(ws, row, "Role-Level Niche Board Recommendations")
+
+    row = _write_kv_row(
+        ws,
+        row,
+        "Purpose",
+        "Specialty job boards matched to your target roles for higher-quality, "
+        "lower-CPA applicants. Niche boards typically deliver 10-15% apply-to-hire "
+        "rates vs. 5-8% on general boards.",
+    )
+    row += 1
+
+    # ── Role-Based Matches ──
+    role_matches = _match_roles_to_niche_boards(roles)
+
+    if role_matches:
+        row = _write_subsection_header(ws, row, "Role-Specific Specialty Boards")
+
+        headers = [
+            "Role Title",
+            "Recommended Board",
+            "URL",
+            "Why This Board",
+            "Match Type",
+        ]
+        row = _write_table_header(ws, row, headers)
+
+        idx = 0
+        for role, boards in role_matches.items():
+            for board in boards:
+                values = [
+                    role,
+                    board.get("name", ""),
+                    board.get("url", ""),
+                    board.get("strength", ""),
+                    "Role-Matched",
+                ]
+                row = _write_table_row(
+                    ws,
+                    row,
+                    values,
+                    alternate=(idx % 2 == 0),
+                    fonts=[
+                        _FONT_BODY_BOLD,
+                        _FONT_BODY,
+                        _FONT_BODY,
+                        _FONT_BODY,
+                        _FONT_BODY,
+                    ],
+                )
+                idx += 1
+
+        row += 1
+
+    # ── Industry-Based Matches ──
+    industry_boards = INDUSTRY_NICHE_CHANNELS.get(industry, [])
+    if industry_boards:
+        row = _write_subsection_header(ws, row, "Industry-Specific Boards")
+
+        ind_headers = ["Board Name", "Match Type", "Notes"]
+        row = _write_table_header(ws, row, ind_headers)
+
+        industry_label = INDUSTRY_LABEL_MAP.get(
+            industry, industry.replace("_", " ").title()
+        )
+        for idx, board_name in enumerate(industry_boards):
+            values = [
+                board_name,
+                "Industry-Matched",
+                f"Recommended for {industry_label} roles",
+            ]
+            row = _write_table_row(ws, row, values, alternate=(idx % 2 == 0))
+
+        row += 1
+
+    # ── No matches fallback ──
+    if not role_matches and not industry_boards:
+        row = _write_kv_row(
+            ws,
+            row,
+            "Status",
+            "No specialty board matches found for the specified roles. "
+            "Consider general-purpose boards (Indeed, LinkedIn, ZipRecruiter) "
+            "with targeted ad copy and audience filters.",
+        )
+        row += 1
+
+    # ── Niche Board Best Practices ──
+    row = _write_subsection_header(ws, row, "Niche Board Best Practices")
+
+    practices = [
+        (
+            "Budget Allocation",
+            "Allocate 10-20% of total budget to niche boards for quality volume",
+        ),
+        (
+            "Job Posting Optimization",
+            "Use role-specific keywords and certifications in titles",
+        ),
+        (
+            "Employer Branding",
+            "Many niche boards offer enhanced profiles -- invest in brand presence",
+        ),
+        (
+            "Tracking",
+            "Set up UTM parameters per niche board to measure quality of applicants",
+        ),
+        (
+            "Refresh Cadence",
+            "Re-post or refresh listings every 14-21 days for visibility",
+        ),
+    ]
+
+    for idx, (practice, detail) in enumerate(practices):
+        row = _write_table_row(
+            ws,
+            row,
+            [practice, detail],
+            alternate=(idx % 2 == 0),
+            fonts=[_FONT_BODY_BOLD, _FONT_BODY],
+        )
+
+    row += 1
+    row = _write_footnote(
+        ws,
+        row,
+        "Niche boards are matched based on role title keyword analysis. "
+        "Board availability and pricing may vary. Verify current offerings before purchasing.",
+    )
+    row += 1
+    _write_attribution_footer(ws, row)
+
+
 def generate_excel_v2(
     data: dict,
     research_mod=None,
@@ -4531,6 +5791,39 @@ def _generate_excel_v2_inner(
                 column=2,
                 value=f"Error generating Quality Intelligence sheet: {exc}",
             ).font = _FONT_BODY
+
+    # ── Sheet 7: 90-Day Rolling Forecast ──
+    ws7 = wb.create_sheet()
+    try:
+        _build_sheet_rolling_forecast(ws7, data)
+    except Exception as exc:
+        logger.error("Sheet 7 (90-Day Forecast) failed: %s", exc, exc_info=True)
+        ws7.title = "90-Day Forecast"
+        ws7.cell(
+            row=2, column=2, value=f"Error generating 90-Day Forecast sheet: {exc}"
+        ).font = _FONT_BODY
+
+    # ── Sheet 8: Confidence Intervals ──
+    ws8 = wb.create_sheet()
+    try:
+        _build_sheet_confidence_intervals(ws8, data)
+    except Exception as exc:
+        logger.error("Sheet 8 (Confidence Intervals) failed: %s", exc, exc_info=True)
+        ws8.title = "Confidence Intervals"
+        ws8.cell(
+            row=2, column=2, value=f"Error generating Confidence Intervals sheet: {exc}"
+        ).font = _FONT_BODY
+
+    # ── Sheet 9: Niche Board Matching ──
+    ws9 = wb.create_sheet()
+    try:
+        _build_sheet_niche_board_matching(ws9, data)
+    except Exception as exc:
+        logger.error("Sheet 9 (Niche Board Matching) failed: %s", exc, exc_info=True)
+        ws9.title = "Niche Board Matching"
+        ws9.cell(
+            row=2, column=2, value=f"Error generating Niche Board Matching sheet: {exc}"
+        ).font = _FONT_BODY
 
     # ── Write to bytes ──
     output = io.BytesIO()

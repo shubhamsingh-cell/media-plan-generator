@@ -648,6 +648,213 @@
       </div>
 
       <div class="form-group">
+        <label for="regionSelector">Target Region</label>
+        <select id="regionSelector" aria-describedby="regionSelector-hint">
+          <option value="us_only">US Only</option>
+          <option value="global">Global</option>
+          <option value="emea">EMEA (Europe, Middle East, Africa)</option>
+          <option value="apac">APAC (Asia-Pacific)</option>
+          <option value="custom">Custom (select countries)</option>
+        </select>
+        <div class="form-hint" id="regionSelector-hint">
+          Choose a region to filter benchmarks and platform recommendations
+        </div>
+        <div id="customCountriesWrap" style="display: none; margin-top: 8px">
+          <label
+            style="
+              font-size: 13px;
+              color: var(--text-secondary);
+              margin-bottom: 6px;
+              display: block;
+            "
+          >
+            Select countries
+          </label>
+          <div
+            class="custom-countries-grid"
+            id="customCountriesGrid"
+            style="
+              display: grid;
+              grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+              gap: 6px;
+              max-height: 200px;
+              overflow-y: auto;
+              padding: 8px;
+              border: 1px solid var(--border);
+              border-radius: var(--radius-sm);
+              background: var(--bg-secondary);
+            "
+          >
+            <label
+              style="
+                font-size: 13px;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                cursor: pointer;
+              "
+              ><input type="checkbox" name="customCountry" value="US" /> United
+              States</label
+            >
+            <label
+              style="
+                font-size: 13px;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                cursor: pointer;
+              "
+              ><input type="checkbox" name="customCountry" value="UK" /> United
+              Kingdom</label
+            >
+            <label
+              style="
+                font-size: 13px;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                cursor: pointer;
+              "
+              ><input type="checkbox" name="customCountry" value="CA" />
+              Canada</label
+            >
+            <label
+              style="
+                font-size: 13px;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                cursor: pointer;
+              "
+              ><input type="checkbox" name="customCountry" value="DE" />
+              Germany</label
+            >
+            <label
+              style="
+                font-size: 13px;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                cursor: pointer;
+              "
+              ><input type="checkbox" name="customCountry" value="FR" />
+              France</label
+            >
+            <label
+              style="
+                font-size: 13px;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                cursor: pointer;
+              "
+              ><input type="checkbox" name="customCountry" value="AU" />
+              Australia</label
+            >
+            <label
+              style="
+                font-size: 13px;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                cursor: pointer;
+              "
+              ><input type="checkbox" name="customCountry" value="IN" />
+              India</label
+            >
+            <label
+              style="
+                font-size: 13px;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                cursor: pointer;
+              "
+              ><input type="checkbox" name="customCountry" value="SG" />
+              Singapore</label
+            >
+            <label
+              style="
+                font-size: 13px;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                cursor: pointer;
+              "
+              ><input type="checkbox" name="customCountry" value="JP" />
+              Japan</label
+            >
+            <label
+              style="
+                font-size: 13px;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                cursor: pointer;
+              "
+              ><input type="checkbox" name="customCountry" value="BR" />
+              Brazil</label
+            >
+            <label
+              style="
+                font-size: 13px;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                cursor: pointer;
+              "
+              ><input type="checkbox" name="customCountry" value="MX" />
+              Mexico</label
+            >
+            <label
+              style="
+                font-size: 13px;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                cursor: pointer;
+              "
+              ><input type="checkbox" name="customCountry" value="AE" />
+              UAE</label
+            >
+            <label
+              style="
+                font-size: 13px;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                cursor: pointer;
+              "
+              ><input type="checkbox" name="customCountry" value="NL" />
+              Netherlands</label
+            >
+            <label
+              style="
+                font-size: 13px;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                cursor: pointer;
+              "
+              ><input type="checkbox" name="customCountry" value="SE" />
+              Sweden</label
+            >
+            <label
+              style="
+                font-size: 13px;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                cursor: pointer;
+              "
+              ><input type="checkbox" name="customCountry" value="PH" />
+              Philippines</label
+            >
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group">
         <label
           >Target Locations *
           <span
@@ -2212,6 +2419,53 @@
           </svg>
           Regenerate
         </button>
+        <button
+          class="btn-ask-nova"
+          id="askNovaBtn"
+          onclick="askNovaAboutPlan()"
+          style="
+            background: linear-gradient(135deg, #6bb3cd, #5a54bd);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: inherit;
+            font-weight: 600;
+            font-size: 0.85rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition:
+              opacity 0.2s,
+              transform 0.2s;
+            box-shadow: 0 2px 12px rgba(107, 179, 205, 0.3);
+          "
+          onmouseenter="
+            this.style.opacity = '0.9';
+            this.style.transform = 'translateY(-1px)';
+          "
+          onmouseleave="
+            this.style.opacity = '1';
+            this.style.transform = 'none';
+          "
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path
+              d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"
+            />
+          </svg>
+          Ask Nova About This Plan
+        </button>
       </div>
     </div>
 
@@ -2389,6 +2643,38 @@
   aria-describedby="genSubtitle"
 >
   <div class="generation-card">
+    <div class="gen-lottie-wrap" id="genLottieWrap">
+      <div class="gen-lottie-anim">
+        <lottie-player
+          src="https://lottie.host/f7a942c1-130c-4998-b093-3f0f4954ef75/TL4KHhGffz.json"
+          background="transparent"
+          speed="1"
+          style="width: 120px; height: 120px"
+          loop
+          autoplay
+          aria-hidden="true"
+        ></lottie-player>
+      </div>
+      <div class="gen-lottie-dots">
+        <div class="gen-dot"></div>
+        <div class="gen-dot"></div>
+        <div class="gen-dot"></div>
+      </div>
+    </div>
+    <div class="gen-success-check" id="genSuccessCheck">
+      <lottie-player
+        src="https://lottie.host/cc310c11-75b6-4e24-b2e0-d52041f0a9d8/aGUxHWxoEN.json"
+        background="transparent"
+        speed="1"
+        style="width: 80px; height: 80px"
+        autoplay
+        aria-hidden="true"
+      ></lottie-player>
+      <svg viewBox="0 0 52 52" aria-hidden="true" style="display: none">
+        <circle class="check-circle" cx="26" cy="26" r="25" />
+        <path class="check-mark" d="M14.1 27.2l7.1 7.2 16.7-16.8" />
+      </svg>
+    </div>
     <h3>Generating Your Media Plan</h3>
     <p class="gen-subtitle" id="genSubtitle">
       Querying 15 live APIs, synthesizing market data, and building your

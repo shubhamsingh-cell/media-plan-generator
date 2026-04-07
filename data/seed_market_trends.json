@@ -95,7 +95,7 @@
       "regions": ["US", "UK", "EU"],
       "data_points": {
         "indeed_avg_cpc": "$0.55",
-        "linkedin_avg_cpc": "$1.85",
+        "linkedin_avg_cpc": "$5.26",
         "ziprecruiter_avg_cpc": "$0.70",
         "programmatic_savings_vs_direct": "20%",
         "yoy_cpc_increase": "+15%"

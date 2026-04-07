@@ -1011,7 +1011,7 @@
     "apac": {
       "low_cpa": {"range": "$0.15-$0.50 CPC", "publishers": ["Regional boards", "Classifieds"]},
       "mid_cpa": {"range": "$0.50-$2.00 CPC", "publishers": ["Indeed", "Talent.com", "JobStreet"]},
-      "high_cpa": {"range": "$2.00-$8.00 CPC/CPA", "publishers": ["LinkedIn", "Naukri", "SEEK"]}
+      "high_cpa": {"range": "$2.00-$8.00 CPC; CPA $30-$90 for LinkedIn Sponsored Jobs", "publishers": ["LinkedIn", "Naukri", "SEEK"]}
     },
     "north_america": {
       "low_cpa": {"range": "$0.20-$0.80 CPC", "publishers": ["Jooble", "Talent.com", "JobRapido"]},

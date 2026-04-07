@@ -24,6 +24,8 @@
       href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=optional"
       rel="stylesheet"
     />
+    <link rel="stylesheet" href="/static/css/tokens.css" />
+    <link rel="stylesheet" href="/static/css/buttons.css" />
     <script>
       window.__csrfToken = "";
       window.__csrfReady = fetch("/api/csrf-token")
@@ -591,10 +593,14 @@
       }
       .demo-btn:hover {
         opacity: 0.9;
-        transform: translateY(-1px);
+        transform: scale(var(--btn-hover-scale, 1.05));
       }
       .demo-btn:active {
-        transform: translateY(0);
+        transform: scale(var(--btn-active-scale, 0.98));
+        box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.3);
+        transition:
+          transform 0.1s ease,
+          box-shadow 0.1s ease;
       }
       .or-divider {
         font-size: 0.75rem;
@@ -1124,7 +1130,14 @@
       }
       .predict-btn:hover {
         opacity: 0.9;
-        transform: translateY(-1px);
+        transform: scale(var(--btn-hover-scale, 1.05));
+      }
+      .predict-btn:active {
+        transform: scale(var(--btn-active-scale, 0.98));
+        box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.3);
+        transition:
+          transform 0.1s ease,
+          box-shadow 0.1s ease;
       }
 
       /* ── Score Result ── */
@@ -1454,6 +1467,174 @@
         color: var(--green);
       }
 
+      /* ── Alert Bell ── */
+      .alert-bell {
+        position: relative;
+        background: none;
+        border: 1px solid var(--glass-border);
+        border-radius: var(--radius-sm);
+        padding: 0.375rem;
+        color: var(--text-secondary);
+        cursor: pointer;
+        transition:
+          color var(--duration-normal),
+          border-color var(--duration-normal);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 36px;
+        min-height: 36px;
+      }
+      .alert-bell:hover {
+        color: var(--amber);
+        border-color: rgba(245, 158, 11, 0.3);
+      }
+      .alert-bell:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
+      }
+      .alert-badge {
+        position: absolute;
+        top: -4px;
+        right: -4px;
+        background: var(--red);
+        color: #fff;
+        font-size: 0.625rem;
+        font-weight: 700;
+        min-width: 16px;
+        height: 16px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 4px;
+        line-height: 1;
+      }
+
+      /* ── Alert Cards ── */
+      .alert-card {
+        background: var(--card);
+        border: 1px solid var(--glass-border);
+        border-radius: var(--radius);
+        padding: 1.25rem;
+        margin-bottom: 0.75rem;
+        transition:
+          border-color var(--duration-normal),
+          opacity var(--duration-slow);
+        position: relative;
+      }
+      .alert-card:hover {
+        border-color: var(--glass-border-hover);
+      }
+      .alert-card.dismissed {
+        opacity: 0;
+        transform: translateX(20px);
+        transition:
+          opacity 0.3s,
+          transform 0.3s;
+      }
+      .alert-card-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 1rem;
+        margin-bottom: 0.75rem;
+      }
+      .alert-card-left {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        flex: 1;
+        min-width: 0;
+      }
+      .alert-urgency {
+        flex-shrink: 0;
+        font-size: 0.625rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+      }
+      .alert-urgency.critical {
+        background: var(--red-glow);
+        color: var(--red);
+        border: 1px solid rgba(239, 68, 68, 0.2);
+      }
+      .alert-urgency.high {
+        background: var(--amber-glow);
+        color: var(--amber);
+        border: 1px solid rgba(245, 158, 11, 0.2);
+      }
+      .alert-urgency.medium {
+        background: var(--linkedin-bg);
+        color: var(--linkedin-light);
+        border: 1px solid rgba(10, 102, 194, 0.2);
+      }
+      .alert-urgency.low {
+        background: var(--green-glow);
+        color: var(--green);
+        border: 1px solid rgba(34, 197, 94, 0.2);
+      }
+      .alert-card-title {
+        font-size: 0.9375rem;
+        font-weight: 600;
+        color: var(--text);
+      }
+      .alert-dismiss {
+        flex-shrink: 0;
+        background: none;
+        border: 1px solid var(--glass-border);
+        border-radius: 6px;
+        color: var(--text-muted);
+        cursor: pointer;
+        padding: 0.25rem 0.5rem;
+        font-size: 0.6875rem;
+        transition:
+          color var(--duration-normal),
+          border-color var(--duration-normal);
+      }
+      .alert-dismiss:hover {
+        color: var(--text);
+        border-color: var(--glass-border-hover);
+      }
+      .alert-card-body {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.75rem 1.5rem;
+        font-size: 0.8125rem;
+      }
+      @media (max-width: 640px) {
+        .alert-card-body {
+          grid-template-columns: 1fr;
+        }
+      }
+      .alert-detail-label {
+        font-size: 0.6875rem;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        margin-bottom: 0.125rem;
+      }
+      .alert-detail-value {
+        color: var(--text);
+        line-height: 1.4;
+      }
+      .alert-action-rec {
+        margin-top: 0.75rem;
+        padding: 0.75rem 1rem;
+        background: rgba(90, 84, 189, 0.08);
+        border: 1px solid rgba(90, 84, 189, 0.15);
+        border-radius: var(--radius-sm);
+        font-size: 0.8125rem;
+        color: var(--accent-light);
+        line-height: 1.5;
+      }
+      .alert-action-rec strong {
+        color: var(--text);
+        font-weight: 600;
+      }
+
       /* ── Today's Actions Panel ── */
       .actions-panel {
         display: grid;
@@ -1563,6 +1744,14 @@
       }
       .export-btn:hover {
         opacity: 0.9;
+        transform: scale(var(--btn-hover-scale, 1.05));
+      }
+      .export-btn:active {
+        transform: scale(var(--btn-active-scale, 0.98));
+        box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.3);
+        transition:
+          transform 0.1s ease,
+          box-shadow 0.1s ease;
       }
 
       /* ── Loading Spinner ── */
@@ -1662,6 +1851,28 @@
           </div>
         </div>
         <div class="header-right">
+          <button
+            class="alert-bell"
+            id="alert-bell"
+            aria-label="View alerts"
+            title="Alerts"
+            onclick="switchTab('alerts')"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              width="20"
+              height="20"
+            >
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+              <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+            </svg>
+            <span class="alert-badge" id="alert-badge" style="display: none"
+              >0</span
+            >
+          </button>
           <div class="utc-clock" id="utcClock" aria-label="Current IST time">
             --:--:-- IST
           </div>
@@ -1766,6 +1977,28 @@
             <line x1="12" y1="15" x2="12" y2="3" />
           </svg>
           Schedule Export
+        </button>
+        <button
+          class="tab-btn"
+          role="tab"
+          aria-selected="false"
+          aria-controls="tab-alerts"
+          id="btn-alerts"
+          data-tab="alerts"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+            <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+          </svg>
+          Alerts
+          <span class="tab-count" id="alerts-count" style="display: none"
+            >0</span
+          >
         </button>
       </nav>
 
@@ -2772,6 +3005,88 @@
             </div>
           </div>
         </section>
+
+        <!-- TAB 6: ALERTS -->
+        <section
+          class="tab-panel"
+          id="tab-alerts"
+          role="tabpanel"
+          aria-labelledby="btn-alerts"
+        >
+          <div
+            id="alerts-empty"
+            style="
+              text-align: center;
+              padding: 4rem 0;
+              color: var(--text-muted);
+            "
+          >
+            <svg
+              width="48"
+              height="48"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              style="opacity: 0.4; margin-bottom: 1rem"
+            >
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+              <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+            </svg>
+            <p style="font-size: 1.125rem; margin-bottom: 0.5rem">
+              No alerts yet
+            </p>
+            <p style="font-size: 0.8125rem">
+              Upload jobs to generate slot performance alerts and opportunity
+              notifications.
+            </p>
+          </div>
+          <div id="alerts-content" style="display: none">
+            <div class="glass-card">
+              <div class="card-header">
+                <h2 class="card-title">
+                  <span class="icon" aria-hidden="true">
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="white"
+                      stroke-width="2"
+                    >
+                      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                      <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                    </svg>
+                  </span>
+                  Slot Alerts
+                </h2>
+                <div style="display: flex; gap: 0.5rem; align-items: center">
+                  <select
+                    id="alert-filter-urgency"
+                    class="filter-select"
+                    style="font-size: 0.8125rem; padding: 0.375rem 0.75rem"
+                    aria-label="Filter by urgency"
+                  >
+                    <option value="all">All Urgency</option>
+                    <option value="critical">Critical</option>
+                    <option value="high">High</option>
+                    <option value="medium">Medium</option>
+                    <option value="low">Low</option>
+                  </select>
+                  <button
+                    class="export-btn"
+                    id="dismiss-all-btn"
+                    type="button"
+                    style="font-size: 0.75rem; padding: 0.375rem 0.75rem"
+                  >
+                    Dismiss All
+                  </button>
+                </div>
+              </div>
+              <div id="alerts-list">
+                <!-- Populated by JS -->
+              </div>
+            </div>
+          </div>
+        </section>
       </main>
     </div>
 
@@ -3092,6 +3407,7 @@
           jobs: [],
           slots: [],
           rotation: [],
+          alerts: [],
           loaded: false,
           activeTab: "command",
           sortCol: "slotNum",
@@ -3666,6 +3982,13 @@
           renderSlotTracker();
           renderRotationPlanner();
           renderScheduleExport();
+
+          // Generate and render alerts
+          generateAlerts();
+          renderAlerts();
+          updateAlertBadge();
+          $("#alerts-empty").style.display = "none";
+          $("#alerts-content").style.display = "block";
 
           // Update tab count
           $("#tracker-count").textContent = STATE.slots.length;
@@ -4366,6 +4689,359 @@
               "</div>" +
               "</div>";
           });
+        }
+
+        /* ════════════════════════════════════════════════════════════════════
+           ALERT SYSTEM
+           ════════════════════════════════════════════════════════════════════ */
+
+        function getDismissedAlerts() {
+          try {
+            var raw = sessionStorage.getItem("slotops_dismissed_alerts");
+            return raw ? JSON.parse(raw) : [];
+          } catch (e) {
+            return [];
+          }
+        }
+
+        function saveDismissedAlert(alertId) {
+          try {
+            var dismissed = getDismissedAlerts();
+            if (dismissed.indexOf(alertId) === -1) {
+              dismissed.push(alertId);
+            }
+            sessionStorage.setItem(
+              "slotops_dismissed_alerts",
+              JSON.stringify(dismissed),
+            );
+          } catch (e) {
+            /* ignore */
+          }
+        }
+
+        function dismissAllAlerts() {
+          var ids = STATE.alerts.map(function (a) {
+            return a.id;
+          });
+          try {
+            sessionStorage.setItem(
+              "slotops_dismissed_alerts",
+              JSON.stringify(ids),
+            );
+          } catch (e) {
+            /* ignore */
+          }
+          STATE.alerts.forEach(function (a) {
+            a.dismissed = true;
+          });
+          renderAlerts();
+          updateAlertBadge();
+        }
+
+        function dismissAlert(alertId) {
+          saveDismissedAlert(alertId);
+          var alert = STATE.alerts.find(function (a) {
+            return a.id === alertId;
+          });
+          if (alert) alert.dismissed = true;
+          renderAlerts();
+          updateAlertBadge();
+        }
+
+        function generateAlerts() {
+          var alerts = [];
+          var dismissed = getDismissedAlerts();
+          var idCounter = 0;
+
+          function makeId(prefix) {
+            return prefix + "_" + ++idCounter;
+          }
+
+          // 1. Low-performing slots (score below threshold)
+          var LOW_SCORE_THRESHOLD = 40;
+          STATE.slots.forEach(function (sl) {
+            var s = scoreJob(sl.job);
+            if (s.total < LOW_SCORE_THRESHOLD) {
+              var aid = "low_score_" + sl.slotNum;
+              alerts.push({
+                id: aid,
+                type: "low_performance",
+                urgency: s.total < 25 ? "critical" : "high",
+                title: "Low Performance Score: Slot #" + sl.slotNum,
+                slotNum: sl.slotNum,
+                jobTitle: sl.job.title,
+                country: COUNTRY_NAMES[sl.job.country] || sl.job.country,
+                score: s.total,
+                reason:
+                  "Score " +
+                  s.total +
+                  "/100 is below the " +
+                  LOW_SCORE_THRESHOLD +
+                  " threshold. " +
+                  (sl.job.easyApply
+                    ? ""
+                    : "ATS application method is limiting apply rate. ") +
+                  (s.factors[6].value <= 3
+                    ? "Historical performance is poor (<1 apply/day)."
+                    : ""),
+                action:
+                  "Consider rotating this slot with a higher-scoring queued job. " +
+                  (!sl.job.easyApply
+                    ? "Switching to Easy Apply could boost applications by " +
+                      EASY_APPLY_LIFT +
+                      "x."
+                    : "Review title and country targeting for better fit."),
+                dismissed: dismissed.indexOf(aid) !== -1,
+              });
+            }
+          });
+
+          // 2. High-performing slots becoming available (stale jobs due for refresh)
+          var staleHighPerf = STATE.slots.filter(function (sl) {
+            var s = scoreJob(sl.job);
+            return (
+              sl.job.daysLive >= 8 && sl.job.daysLive <= 12 && s.total >= 60
+            );
+          });
+          staleHighPerf.forEach(function (sl) {
+            var aid = "stale_high_" + sl.slotNum;
+            var s = scoreJob(sl.job);
+            alerts.push({
+              id: aid,
+              type: "opportunity",
+              urgency: s.total >= 75 ? "critical" : "high",
+              title: "High-Performer Ready for Refresh: Slot #" + sl.slotNum,
+              slotNum: sl.slotNum,
+              jobTitle: sl.job.title,
+              country: COUNTRY_NAMES[sl.job.country] || sl.job.country,
+              score: s.total,
+              reason:
+                "This slot scores " +
+                s.total +
+                "/100 but has been live " +
+                sl.job.daysLive +
+                " days. " +
+                "LinkedIn's algorithm boost decays after day 7-10. Refreshing now resets the boost cycle.",
+              action:
+                "Refresh this posting immediately to regain LinkedIn's new-post algorithm boost. " +
+                "Expected lift: +15-25% apply rate in the first week after refresh.",
+              dismissed: dismissed.indexOf(aid) !== -1,
+            });
+          });
+
+          // 3. Easy Apply conversion opportunities
+          var atsHighCountry = STATE.slots.filter(function (sl) {
+            var cc = (sl.job.country || "").toUpperCase();
+            var rate = COUNTRY_RATES[cc] || 7;
+            return !sl.job.easyApply && rate >= 10;
+          });
+          if (atsHighCountry.length > 0) {
+            var topAts = atsHighCountry.slice(0, 5);
+            topAts.forEach(function (sl) {
+              var aid = "ea_opportunity_" + sl.slotNum;
+              var cc = (sl.job.country || "").toUpperCase();
+              var rate = COUNTRY_RATES[cc] || 7;
+              alerts.push({
+                id: aid,
+                type: "opportunity",
+                urgency: rate >= 15 ? "high" : "medium",
+                title: "Easy Apply Opportunity: " + escHtml(sl.job.title),
+                slotNum: sl.slotNum,
+                jobTitle: sl.job.title,
+                country: COUNTRY_NAMES[sl.job.country] || sl.job.country,
+                score: scoreJob(sl.job).total,
+                reason:
+                  (COUNTRY_NAMES[cc] || cc) +
+                  " has a " +
+                  rate.toFixed(1) +
+                  "% base apply rate. " +
+                  "Switching from ATS to Easy Apply would multiply applications by " +
+                  EASY_APPLY_LIFT +
+                  "x.",
+                action:
+                  "Convert this slot to Easy Apply. In high-rate countries, Easy Apply delivers 27% apply rate vs 10% for ATS (a 50x application volume difference).",
+                dismissed: dismissed.indexOf(aid) !== -1,
+              });
+            });
+          }
+
+          // 4. Day-of-week timing alerts
+          var dow = new Date().getDay();
+          if (dow === 5) {
+            var aid = "dow_friday";
+            alerts.push({
+              id: aid,
+              type: "timing",
+              urgency: "medium",
+              title: "Friday Posting Advisory",
+              slotNum: null,
+              jobTitle: "All Jobs",
+              country: "All",
+              score: null,
+              reason:
+                "Friday is the lowest-engagement day for LinkedIn job postings. New posts today will miss the Tuesday-Thursday prime window.",
+              action:
+                "Hold new postings until Tuesday. Use today for operations: takedowns, audits, and refreshing stale listings.",
+              dismissed: dismissed.indexOf(aid) !== -1,
+            });
+          } else if (dow === 0 || dow === 6) {
+            var aid = "dow_weekend";
+            alerts.push({
+              id: aid,
+              type: "timing",
+              urgency: "low",
+              title: "Weekend Posting Advisory",
+              slotNum: null,
+              jobTitle: "All Jobs",
+              country: "All",
+              score: null,
+              reason:
+                "Weekend postings typically see 30-40% lower initial engagement. Saturday can work for gig/hourly roles.",
+              action:
+                "Queue new professional postings for Tuesday-Thursday. Consider Saturday posting only for high-volume gig roles.",
+              dismissed: dismissed.indexOf(aid) !== -1,
+            });
+          }
+
+          // 5. Jobs with declining performance (high days live, low apply rate)
+          STATE.slots.forEach(function (sl) {
+            if (sl.job.daysLive > 5 && sl.job.applies > 0) {
+              var dailyRate = sl.job.applies / sl.job.daysLive;
+              if (dailyRate < 0.5) {
+                var aid = "declining_" + sl.slotNum;
+                alerts.push({
+                  id: aid,
+                  type: "low_performance",
+                  urgency: "medium",
+                  title: "Declining Performance: Slot #" + sl.slotNum,
+                  slotNum: sl.slotNum,
+                  jobTitle: sl.job.title,
+                  country: COUNTRY_NAMES[sl.job.country] || sl.job.country,
+                  score: scoreJob(sl.job).total,
+                  reason:
+                    "Only " +
+                    sl.job.applies +
+                    " applications over " +
+                    sl.job.daysLive +
+                    " days (" +
+                    dailyRate.toFixed(1) +
+                    " applies/day). This is well below the 1 apply/day minimum threshold.",
+                  action:
+                    "Rotate this slot out for a higher-scoring queued job, or refresh the posting with updated title and description.",
+                  dismissed: dismissed.indexOf(aid) !== -1,
+                });
+              }
+            }
+          });
+
+          // Sort: undismissed first, then by urgency
+          var urgencyOrder = { critical: 0, high: 1, medium: 2, low: 3 };
+          alerts.sort(function (a, b) {
+            if (a.dismissed !== b.dismissed) return a.dismissed ? 1 : -1;
+            return (
+              (urgencyOrder[a.urgency] || 9) - (urgencyOrder[b.urgency] || 9)
+            );
+          });
+
+          // Cap at 50 to avoid UI overload
+          STATE.alerts = alerts.slice(0, 50);
+        }
+
+        function renderAlerts() {
+          var container = $("#alerts-list");
+          if (!container) return;
+          container.innerHTML = "";
+
+          var filterUrgency = ($("#alert-filter-urgency") || {}).value || "all";
+          var visible = STATE.alerts.filter(function (a) {
+            if (a.dismissed) return false;
+            if (filterUrgency !== "all" && a.urgency !== filterUrgency)
+              return false;
+            return true;
+          });
+
+          if (visible.length === 0) {
+            container.innerHTML =
+              '<div style="text-align:center;padding:2rem 0;color:var(--text-muted)">' +
+              '<p style="font-size:0.9375rem">No active alerts' +
+              (filterUrgency !== "all"
+                ? ' matching "' + escHtml(filterUrgency) + '"'
+                : "") +
+              ".</p></div>";
+            return;
+          }
+
+          visible.forEach(function (a) {
+            var scoreHtml =
+              a.score !== null
+                ? '<div><div class="alert-detail-label">Score</div>' +
+                  '<div class="alert-detail-value" style="color:' +
+                  scoreColor(a.score) +
+                  ';font-weight:700">' +
+                  a.score +
+                  "/100</div></div>"
+                : "";
+            var slotHtml =
+              a.slotNum !== null
+                ? '<div><div class="alert-detail-label">Slot</div><div class="alert-detail-value">#' +
+                  a.slotNum +
+                  "</div></div>"
+                : "";
+
+            container.innerHTML +=
+              '<div class="alert-card" data-alert-id="' +
+              escAttr(a.id) +
+              '">' +
+              '<div class="alert-card-header">' +
+              '<div class="alert-card-left">' +
+              '<span class="alert-urgency ' +
+              a.urgency +
+              '">' +
+              a.urgency +
+              "</span>" +
+              '<span class="alert-card-title">' +
+              escHtml(a.title) +
+              "</span>" +
+              "</div>" +
+              '<button class="alert-dismiss" onclick="dismissAlert(\'' +
+              escAttr(a.id) +
+              '\')" aria-label="Dismiss alert">Dismiss</button>' +
+              "</div>" +
+              '<div class="alert-card-body">' +
+              '<div><div class="alert-detail-label">Job</div><div class="alert-detail-value">' +
+              escHtml(a.jobTitle) +
+              "</div></div>" +
+              '<div><div class="alert-detail-label">Country</div><div class="alert-detail-value">' +
+              escHtml(a.country) +
+              "</div></div>" +
+              slotHtml +
+              scoreHtml +
+              "</div>" +
+              '<div class="alert-detail-label" style="margin-top:0.75rem">Why This Is Notable</div>' +
+              '<div class="alert-detail-value" style="margin-bottom:0.5rem;font-size:0.8125rem">' +
+              escHtml(a.reason) +
+              "</div>" +
+              '<div class="alert-action-rec"><strong>Recommended Action:</strong> ' +
+              escHtml(a.action) +
+              "</div>" +
+              "</div>";
+          });
+        }
+
+        function updateAlertBadge() {
+          var active = STATE.alerts.filter(function (a) {
+            return !a.dismissed;
+          }).length;
+          var badge = $("#alert-badge");
+          var tabCount = $("#alerts-count");
+          if (badge) {
+            badge.textContent = active;
+            badge.style.display = active > 0 ? "flex" : "none";
+          }
+          if (tabCount) {
+            tabCount.textContent = active;
+            tabCount.style.display = active > 0 ? "inline-flex" : "none";
+          }
         }
 
         function startAutoRefresh() {
@@ -5746,6 +6422,7 @@
             STATE.jobs = [];
             STATE.slots = [];
             STATE.rotation = [];
+            STATE.alerts = [];
             STATE.loaded = false;
             if (STATE.autoRefreshTimer) clearInterval(STATE.autoRefreshTimer);
 
@@ -5757,9 +6434,12 @@
             $("#rotation-empty").style.display = "block";
             $("#export-content").style.display = "none";
             $("#export-empty").style.display = "block";
+            $("#alerts-content").style.display = "none";
+            $("#alerts-empty").style.display = "block";
             $("#tracker-count").textContent = "0";
             $("#score-result").classList.remove("visible");
             document.getElementById("score-loading").style.display = "none";
+            updateAlertBadge();
 
             switchTab("command");
           });
@@ -5874,6 +6554,14 @@
 
           // Export CSV
           $("#export-csv-btn").addEventListener("click", exportCSV);
+
+          // Alert filter
+          $("#alert-filter-urgency").addEventListener("change", function () {
+            renderAlerts();
+          });
+
+          // Dismiss all alerts
+          $("#dismiss-all-btn").addEventListener("click", dismissAllAlerts);
 
           // Hash-based routing
           window.addEventListener("hashchange", function () {
@@ -6026,5 +6714,6 @@
     </script>
     <script src="/static/back-to-suite.js" defer></script>
     <script src="/static/nova-auth-gate.js" defer></script>
+    <script src="/static/js/ripple.js" defer></script>
   </body>
 </html>

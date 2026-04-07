@@ -1154,6 +1154,12 @@
     }
     document.getElementById("genProgressFill").style.width = "0%";
 
+    // Reset Lottie dots + success checkmark
+    const lottieWrap = document.getElementById("genLottieWrap");
+    const successCheck = document.getElementById("genSuccessCheck");
+    if (lottieWrap) lottieWrap.style.display = "";
+    if (successCheck) successCheck.classList.remove("visible");
+
     // Start elapsed timer
     genStartTime = Date.now();
     const elapsedEl = document.getElementById("genElapsed");
@@ -1260,6 +1266,12 @@
       }
       document.getElementById("genProgressFill").style.width = "100%";
 
+      // Show success checkmark, hide loading dots
+      const lottieWrap = document.getElementById("genLottieWrap");
+      const successCheck = document.getElementById("genSuccessCheck");
+      if (lottieWrap) lottieWrap.style.display = "none";
+      if (successCheck) successCheck.classList.add("visible");
+
       // Show final elapsed time
       if (genStartTime) {
         const total = Math.floor((Date.now() - genStartTime) / 1000);
@@ -1308,6 +1320,85 @@
     }
   }
 
+  // ============================================
+  // Region selector toggle + custom countries
+  // ============================================
+  function initRegionSelector() {
+    var regionSel = document.getElementById("regionSelector");
+    var customWrap = document.getElementById("customCountriesWrap");
+    if (!regionSel || !customWrap) return;
+    regionSel.addEventListener("change", function () {
+      customWrap.style.display =
+        regionSel.value === "custom" ? "block" : "none";
+    });
+  }
+
+  function getSelectedRegion() {
+    var regionSel = document.getElementById("regionSelector");
+    if (!regionSel) return { region: "us_only", custom_countries: [] };
+    var region = regionSel.value;
+    var customCountries = [];
+    if (region === "custom") {
+      document
+        .querySelectorAll('input[name="customCountry"]:checked')
+        .forEach(function (cb) {
+          customCountries.push(cb.value);
+        });
+    }
+    return { region: region, custom_countries: customCountries };
+  }
+
+  // ============================================
+  // "Ask Nova About This Plan" handler
+  // ============================================
+  function askNovaAboutPlan() {
+    // Build context from the last generated plan
+    var context = "";
+    try {
+      var p = _lastPlanPayload || {};
+      var parts = [];
+      if (p.client_name) parts.push("Client: " + p.client_name);
+      if (p.industry_label || p.industry)
+        parts.push("Industry: " + (p.industry_label || p.industry));
+      if (p.target_roles && p.target_roles.length)
+        parts.push("Roles: " + p.target_roles.join(", "));
+      if (p.locations && p.locations.length)
+        parts.push("Locations: " + p.locations.join(", "));
+      if (p.budget_range) parts.push("Budget: " + p.budget_range);
+      if (p.hire_volume) parts.push("Hire volume: " + p.hire_volume);
+      if (p.campaign_duration) parts.push("Duration: " + p.campaign_duration);
+      var regionInfo = getSelectedRegion();
+      if (regionInfo.region && regionInfo.region !== "us_only")
+        parts.push("Region: " + regionInfo.region);
+      context = parts.join(". ") + ".";
+    } catch (e) {
+      context = "a recently generated media plan";
+    }
+
+    var message =
+      "I just generated a media plan with these details: " +
+      context +
+      " Can you analyze the plan and suggest optimizations?";
+
+    // Store context in sessionStorage for the chatbot to pick up
+    try {
+      sessionStorage.setItem(
+        "nova_plan_context",
+        JSON.stringify({
+          message: message,
+          payload: _lastPlanPayload || {},
+          timestamp: new Date().toISOString(),
+        }),
+      );
+    } catch (e) {
+      /* ignore storage errors */
+    }
+
+    // Open Nova chatbot in new tab with pre-filled message
+    var encodedMsg = encodeURIComponent(message);
+    window.open("/nova?prefill=" + encodedMsg, "_blank");
+  }
+
   // Wire validation to blur events for required fields
   // Use immediate invocation if DOM is already loaded (e.g. fragment mode),
   // otherwise wait for DOMContentLoaded (standalone page load).
@@ -1321,6 +1412,9 @@
   function _doInit() {
     // Initialize file upload zones and exact input toggles
     initFileUploads();
+
+    // Initialize region selector
+    initRegionSelector();
 
     const requiredFields = [
       "requesterName",
@@ -1446,6 +1540,115 @@
         toast.style.transition = "opacity 0.5s";
         setTimeout(() => toast.remove(), 600);
       }, 3000);
+    }
+
+    // ── URL param pre-fill (for hub quick-start cards) ──
+    _applyUrlParamPrefill();
+  }
+
+  function _applyUrlParamPrefill() {
+    try {
+      var params = new URLSearchParams(window.location.search);
+      if (
+        !params.has("industry") &&
+        !params.has("role") &&
+        !params.has("location")
+      )
+        return;
+
+      // Client name
+      if (params.get("client")) {
+        var cn = document.getElementById("clientName");
+        if (cn) {
+          cn.value = params.get("client");
+          cn.dispatchEvent(new Event("input", { bubbles: true }));
+        }
+      }
+
+      // Industry
+      if (params.get("industry")) {
+        var ic = document.querySelector(
+          '.industry-card[data-industry="' + params.get("industry") + '"]',
+        );
+        if (ic && typeof selectIndustry === "function") selectIndustry(ic);
+      }
+
+      // Budget
+      if (params.get("budget")) {
+        var be = document.getElementById("budgetRange");
+        if (be) {
+          // Try matching the budget range option
+          var budgetVal = params.get("budget");
+          var matched = false;
+          for (var i = 0; i < be.options.length; i++) {
+            if (be.options[i].value === budgetVal) {
+              be.value = budgetVal;
+              matched = true;
+              break;
+            }
+          }
+          if (!matched) {
+            // Set as exact budget
+            be.value = "__exact__";
+            toggleExactBudget();
+            var eb = document.getElementById("exactBudget");
+            if (eb) eb.value = budgetVal;
+          }
+          be.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+      }
+
+      // Location
+      if (params.get("location")) {
+        locations.length = 0;
+        if (typeof addTag === "function") {
+          addTag(
+            "locationsContainer",
+            "locationInput",
+            locations,
+            params.get("location"),
+          );
+        }
+      }
+
+      // Role
+      if (params.get("role")) {
+        setTimeout(function () {
+          if (
+            typeof addTag === "function" &&
+            !roles.includes(params.get("role"))
+          ) {
+            addTag("rolesContainer", "roleInput", roles, params.get("role"));
+          }
+        }, 150);
+      }
+
+      // Use case
+      if (params.get("role") && params.get("location")) {
+        var uc = document.getElementById("useCase");
+        if (uc && !uc.value) {
+          uc.value =
+            "Hiring " +
+            params.get("role") +
+            " roles in " +
+            params.get("location") +
+            ". Looking for a data-driven media plan to optimize recruitment spend and maximize qualified applicant volume.";
+          uc.dispatchEvent(new Event("input", { bubbles: true }));
+        }
+      }
+
+      // Region
+      if (params.get("region")) {
+        var rs = document.getElementById("regionSelector");
+        if (rs) {
+          rs.value = params.get("region");
+          rs.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+      }
+
+      showToast("Template loaded from quick-start", "success");
+    } catch (e) {
+      console.warn("URL param prefill error:", e);
     }
   }
 
@@ -3147,6 +3350,8 @@
         .checked,
       include_budget_guide:
         document.getElementById("includeBudgetGuide").checked,
+      target_region: getSelectedRegion().region,
+      custom_countries: getSelectedRegion().custom_countries,
     };
 
     // ── Async generation with progress polling ──
@@ -3344,6 +3549,32 @@
             ? "Files Generated Successfully"
             : "File Generated Successfully";
           heroSection.classList.add("visible");
+        }
+
+        // Save to recent activity in localStorage
+        try {
+          var recentPlans = JSON.parse(
+            localStorage.getItem("nova_recent_plans") || "[]",
+          );
+          recentPlans.unshift({
+            title:
+              (payload.client_name || "Unnamed") +
+              " - " +
+              (payload.target_roles || []).join(", "),
+            industry: payload.industry_label || payload.industry || "",
+            budget: payload.budget_range || "",
+            locations: (payload.locations || []).join(", "),
+            timestamp: new Date().toISOString(),
+            url: "/media-plan",
+          });
+          // Keep only last 10
+          if (recentPlans.length > 10) recentPlans = recentPlans.slice(0, 10);
+          localStorage.setItem(
+            "nova_recent_plans",
+            JSON.stringify(recentPlans),
+          );
+        } catch (e) {
+          /* ignore storage errors */
         }
 
         // Build plan dashboard (async mode has no X-Plan-Id header)

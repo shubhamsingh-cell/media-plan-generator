@@ -10,6 +10,7 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/static/css/tokens.css" />
+    <link rel="stylesheet" href="/static/css/buttons.css" />
     <style>
       * {
         margin: 0;
@@ -1066,27 +1067,51 @@
 
       function authenticate() {
         const input = document.getElementById("authKeyInput");
+        const errorEl = document.getElementById("authError");
         const key = input.value.trim();
-        if (!key) return;
+        if (!key) {
+          showAuthError("Please enter an admin key.");
+          return;
+        }
         adminKey = key;
-        // Test with health endpoint
-        fetchJSON("/api/health?key=" + encodeURIComponent(key))
+        // Authenticate against a real admin-protected endpoint
+        fetch("/api/admin/stats", {
+          headers: { Authorization: "Bearer " + key },
+        })
+          .then((r) => {
+            if (r.status === 401) {
+              throw new Error("Invalid admin key. Access denied.");
+            }
+            if (!r.ok) {
+              throw new Error(
+                "Server error (HTTP " + r.status + "). Try again.",
+              );
+            }
+            return r.json();
+          })
           .then((data) => {
-            if (data && data.status) {
+            if (data) {
               storeKey(key);
               showDashboard();
             } else {
-              showAuthError();
+              showAuthError("Unexpected response. Please try again.");
             }
           })
-          .catch(() => showAuthError());
+          .catch((err) => {
+            adminKey = "";
+            showAuthError(
+              err.message || "Authentication failed. Check your admin key.",
+            );
+          });
       }
 
-      function showAuthError() {
-        document.getElementById("authError").style.display = "block";
+      function showAuthError(msg) {
+        const errorEl = document.getElementById("authError");
+        errorEl.textContent = msg || "Invalid admin key. Please try again.";
+        errorEl.style.display = "block";
         setTimeout(() => {
-          document.getElementById("authError").style.display = "none";
-        }, 3000);
+          errorEl.style.display = "none";
+        }, 4000);
       }
 
       function showDashboard() {
@@ -1825,14 +1850,26 @@
           showDashboard();
         } else if (storedKey) {
           adminKey = storedKey;
-          // Verify key is still valid
-          fetchJSON("/api/health").then((data) => {
-            if (data && data.status) {
-              showDashboard();
-            } else {
+          // Verify key is still valid against admin endpoint
+          fetch("/api/admin/stats", {
+            headers: { Authorization: "Bearer " + storedKey },
+          })
+            .then((r) => {
+              if (r.ok) return r.json();
+              throw new Error("Unauthorized");
+            })
+            .then((data) => {
+              if (data) {
+                showDashboard();
+              } else {
+                adminKey = "";
+                sessionStorage.removeItem("nova_admin_key");
+              }
+            })
+            .catch(() => {
+              adminKey = "";
               sessionStorage.removeItem("nova_admin_key");
-            }
-          });
+            });
         }
 
         // Enter key to submit

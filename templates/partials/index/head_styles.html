@@ -1,3 +1,5 @@
+<link rel="stylesheet" href="/static/css/tokens.css" />
+<link rel="stylesheet" href="/static/css/buttons.css" />
 <style>
   :root {
     /* ============================================
@@ -962,11 +964,15 @@
   .btn-primary:hover {
     background: var(--primary-light);
     box-shadow: 0 4px 16px rgba(90, 84, 189, 0.4);
-    transform: translateY(-1px);
+    transform: scale(var(--btn-hover-scale, 1.05));
   }
 
   .btn-primary:active {
-    transform: scale(0.98) translateY(0);
+    transform: scale(var(--btn-active-scale, 0.98));
+    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.3);
+    transition:
+      transform 0.1s ease,
+      box-shadow 0.1s ease;
   }
 
   .btn-primary {
@@ -1000,10 +1006,15 @@
   .btn-secondary:hover {
     background: rgba(255, 255, 255, 0.08);
     border-color: var(--glass-border-hover);
+    transform: scale(var(--btn-hover-scale, 1.05));
   }
 
   .btn-secondary:active {
-    transform: scale(0.98);
+    transform: scale(var(--btn-active-scale, 0.98));
+    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.3);
+    transition:
+      transform 0.1s ease,
+      box-shadow 0.1s ease;
   }
 
   .btn-success {
@@ -1037,11 +1048,15 @@
     box-shadow:
       0 6px 28px rgba(90, 84, 189, 0.45),
       0 0 60px rgba(90, 84, 189, 0.15);
-    transform: translateY(-2px);
+    transform: scale(var(--btn-hover-scale, 1.05));
   }
 
   .btn-success:active {
-    transform: scale(0.98) translateY(0);
+    transform: scale(var(--btn-active-scale, 0.98));
+    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.3);
+    transition:
+      transform 0.1s ease,
+      box-shadow 0.1s ease;
   }
 
   .btn-success.ready-pulse:not(:disabled) {
@@ -1065,7 +1080,7 @@
   }
 
   .btn:disabled {
-    opacity: 0.3;
+    opacity: var(--btn-disabled-opacity, 0.4);
     cursor: not-allowed;
     transform: none !important;
     box-shadow: none !important;
@@ -1929,6 +1944,118 @@
 
   .gen-step.gen-active .gen-step-icon .gen-spinner {
     display: none;
+  }
+
+  /* ── Lottie loading animation in generation overlay ── */
+  .gen-lottie-wrap {
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 16px;
+    position: relative;
+  }
+
+  .gen-lottie-dots {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .gen-lottie-dots .gen-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--primary);
+    animation: gen-dot-pulse 1.4s ease-in-out infinite;
+  }
+
+  .gen-lottie-dots .gen-dot:nth-child(2) {
+    animation-delay: 0.2s;
+    background: var(--primary-light, #7b75d4);
+  }
+
+  .gen-lottie-dots .gen-dot:nth-child(3) {
+    animation-delay: 0.4s;
+    background: var(--secondary, #6bb3cd);
+  }
+
+  @keyframes gen-dot-pulse {
+    0%,
+    80%,
+    100% {
+      transform: scale(0.6);
+      opacity: 0.4;
+    }
+    40% {
+      transform: scale(1.2);
+      opacity: 1;
+    }
+  }
+
+  /* Success checkmark animation */
+  .gen-success-check {
+    display: none;
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 16px;
+    position: relative;
+  }
+
+  .gen-success-check.visible {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .gen-success-check svg {
+    width: 48px;
+    height: 48px;
+  }
+
+  .gen-success-check .check-circle {
+    stroke: var(--secondary, #6bb3cd);
+    stroke-width: 2;
+    fill: none;
+    stroke-dasharray: 166;
+    stroke-dashoffset: 166;
+    animation: gen-check-circle 0.6s ease-out 0.1s forwards;
+  }
+
+  .gen-success-check .check-mark {
+    stroke: var(--secondary, #6bb3cd);
+    stroke-width: 3;
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-dasharray: 50;
+    stroke-dashoffset: 50;
+    animation: gen-check-mark 0.4s ease-out 0.5s forwards;
+  }
+
+  @keyframes gen-check-circle {
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+  @keyframes gen-check-mark {
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .gen-lottie-dots .gen-dot {
+      animation: none;
+      opacity: 0.7;
+      transform: none;
+    }
+    .gen-success-check .check-circle,
+    .gen-success-check .check-mark {
+      animation: none;
+      stroke-dashoffset: 0;
+    }
   }
 
   .gen-progress-bar {
@@ -4337,6 +4464,20 @@
   }
   .compare-worse {
     color: #f87171;
+  }
+  /* >20% variance from average -- draw attention with background highlight */
+  .compare-significant {
+    font-weight: 600;
+    position: relative;
+  }
+  .compare-significant::after {
+    content: "\25B2";
+    font-size: 8px;
+    margin-left: 4px;
+    opacity: 0.6;
+  }
+  .compare-worse.compare-significant::after {
+    content: "\25BC";
   }
   .compare-delete-btn {
     background: rgba(248, 113, 113, 0.1);

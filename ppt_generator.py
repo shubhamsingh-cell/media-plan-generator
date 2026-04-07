@@ -14,10 +14,13 @@ and passes the enriched results into the PPT generation functions.
 """
 
 import io
+import logging
 import os
 import re
 import datetime
 from typing import Any, Dict, List, Optional, Tuple
+
+logger = logging.getLogger(__name__)
 
 from shared_utils import (
     parse_budget_display,
@@ -48,6 +51,233 @@ try:
     _HAS_COLLAR_INTEL = True
 except ImportError:
     _HAS_COLLAR_INTEL = False
+
+try:
+    import matplotlib
+
+    matplotlib.use("Agg")  # Non-interactive backend for server use
+    import matplotlib.pyplot as plt
+    import matplotlib.patches as mpatches
+
+    _HAS_MATPLOTLIB = True
+except ImportError:
+    _HAS_MATPLOTLIB = False
+
+
+# ---------------------------------------------------------------------------
+# Chart color palette (hex strings for matplotlib, matching Nova brand)
+# ---------------------------------------------------------------------------
+_CHART_COLORS = [
+    "#5A54BD",  # Blue Violet
+    "#6BB3CD",  # Downy Teal
+    "#CE9047",  # Raw Sienna Bronze
+    "#B5669C",  # Tapestry Pink
+    "#338721",  # Green
+    "#202058",  # Port Gore Navy
+    "#8B5CF6",  # Purple accent
+    "#F59E0B",  # Amber accent
+    "#EC4899",  # Pink accent
+    "#14B8A6",  # Teal accent
+]
+
+
+def _generate_pie_chart_image(labels: List[str], sizes: List[float]) -> Optional[bytes]:
+    """Generate a budget allocation pie chart as PNG bytes using matplotlib.
+
+    Args:
+        labels: Channel names.
+        sizes: Percentage allocations (should sum to ~100).
+
+    Returns:
+        PNG image bytes, or None if matplotlib is unavailable or chart fails.
+    """
+    if not _HAS_MATPLOTLIB or not labels or not sizes:
+        return None
+    try:
+        fig, ax = plt.subplots(figsize=(7, 5), dpi=150)
+        fig.patch.set_facecolor("#FFFDF9")
+
+        colors = _CHART_COLORS[: len(labels)]
+        # Extend colors if we have more channels than palette entries
+        while len(colors) < len(labels):
+            colors.append(_CHART_COLORS[len(colors) % len(_CHART_COLORS)])
+
+        wedges, texts, autotexts = ax.pie(
+            sizes,
+            labels=None,
+            autopct=lambda pct: f"{pct:.1f}%" if pct >= 3 else "",
+            startangle=90,
+            colors=colors,
+            pctdistance=0.75,
+            wedgeprops={"linewidth": 1.5, "edgecolor": "white"},
+        )
+
+        for autotext in autotexts:
+            autotext.set_fontsize(9)
+            autotext.set_fontweight("bold")
+            autotext.set_color("white")
+
+        # Add legend to the right
+        legend_labels = [f"{lbl} ({sz:.0f}%)" for lbl, sz in zip(labels, sizes)]
+        ax.legend(
+            wedges,
+            legend_labels,
+            title="Channels",
+            loc="center left",
+            bbox_to_anchor=(1.0, 0.5),
+            fontsize=8,
+            title_fontsize=9,
+            frameon=False,
+        )
+
+        ax.set_title(
+            "Budget Allocation by Channel",
+            fontsize=13,
+            fontweight="bold",
+            color="#202058",
+            pad=15,
+        )
+
+        plt.tight_layout()
+        buf = io.BytesIO()
+        fig.savefig(
+            buf, format="png", bbox_inches="tight", facecolor=fig.get_facecolor()
+        )
+        plt.close(fig)
+        buf.seek(0)
+        return buf.getvalue()
+    except Exception as exc:
+        logger.warning("Pie chart generation failed (non-fatal): %s", exc)
+        if "fig" in dir():
+            try:
+                plt.close(fig)
+            except Exception:
+                pass
+        return None
+
+
+def _generate_funnel_chart_image(
+    impressions: int,
+    clicks: int,
+    applications: int,
+    hires: int,
+) -> Optional[bytes]:
+    """Generate a horizontal funnel chart as PNG bytes using matplotlib.
+
+    Shows the conversion funnel: Impressions -> Clicks -> Applications -> Hires.
+
+    Args:
+        impressions: Total impressions.
+        clicks: Total clicks.
+        applications: Total applications.
+        hires: Total hires.
+
+    Returns:
+        PNG image bytes, or None if matplotlib is unavailable or chart fails.
+    """
+    if not _HAS_MATPLOTLIB:
+        return None
+    try:
+        stages = ["Impressions", "Clicks", "Applications", "Hires"]
+        values = [
+            max(impressions, 1),
+            max(clicks, 1),
+            max(applications, 1),
+            max(hires, 1),
+        ]
+
+        fig, ax = plt.subplots(figsize=(8, 4.5), dpi=150)
+        fig.patch.set_facecolor("#FFFDF9")
+
+        funnel_colors = ["#202058", "#5A54BD", "#6BB3CD", "#338721"]
+        max_val = values[0]
+
+        y_positions = [3.0, 2.0, 1.0, 0.0]
+        bar_height = 0.65
+
+        for i, (stage, val, color) in enumerate(zip(stages, values, funnel_colors)):
+            width = max(val / max_val, 0.04)  # Minimum visible width
+            # Center-align bars
+            left = (1.0 - width) / 2.0
+            bar = ax.barh(
+                y_positions[i],
+                width,
+                left=left,
+                height=bar_height,
+                color=color,
+                edgecolor="white",
+                linewidth=1.5,
+                zorder=2,
+            )
+
+            # Stage label on the left
+            ax.text(
+                0.0,
+                y_positions[i],
+                stage,
+                ha="right",
+                va="center",
+                fontsize=10,
+                fontweight="bold",
+                color="#202058",
+                transform=ax.get_yaxis_transform(),
+            )
+
+            # Value label centered in bar
+            display_val = f"{val:,}"
+            ax.text(
+                0.5,
+                y_positions[i],
+                display_val,
+                ha="center",
+                va="center",
+                fontsize=10,
+                fontweight="bold",
+                color="white",
+                zorder=3,
+            )
+
+            # Conversion rate arrow between stages
+            if i < len(values) - 1:
+                conv_rate = values[i + 1] / values[i] * 100
+                ax.annotate(
+                    f"{conv_rate:.1f}%",
+                    xy=(0.5, y_positions[i] - bar_height / 2 - 0.05),
+                    ha="center",
+                    va="top",
+                    fontsize=8,
+                    color="#596780",
+                    fontstyle="italic",
+                )
+
+        ax.set_xlim(0, 1.0)
+        ax.set_ylim(-0.6, 3.8)
+        ax.axis("off")
+
+        ax.set_title(
+            "Recruitment Conversion Funnel",
+            fontsize=13,
+            fontweight="bold",
+            color="#202058",
+            pad=15,
+        )
+
+        plt.tight_layout()
+        buf = io.BytesIO()
+        fig.savefig(
+            buf, format="png", bbox_inches="tight", facecolor=fig.get_facecolor()
+        )
+        plt.close(fig)
+        buf.seek(0)
+        return buf.getvalue()
+    except Exception as exc:
+        logger.warning("Funnel chart generation failed (non-fatal): %s", exc)
+        if "fig" in dir():
+            try:
+                plt.close(fig)
+            except Exception:
+                pass
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -7960,6 +8190,191 @@ def _build_slide_data_sources(prs: Presentation, data: Dict):
 
 
 # ===================================================================
+# CHART SLIDES - Matplotlib-generated visual data slides
+# ===================================================================
+
+
+def _build_slide_budget_pie_chart(prs: Presentation, data: Dict):
+    """Build a slide with a matplotlib pie chart showing budget allocation by channel.
+
+    This slide provides a visual breakdown of how the campaign budget is
+    distributed across channels. Only added when matplotlib is available
+    and channel data exists.
+    """
+    channels = _selected_channels(data)
+    if not channels:
+        return
+
+    budget_alloc = data.get("_budget_allocation", {})
+    ba_channel_alloc = (
+        budget_alloc.get("channel_allocations", {})
+        if isinstance(budget_alloc, dict)
+        else {}
+    )
+
+    labels = []
+    sizes = []
+
+    for ch_key, ch_data in channels.items():
+        label = ch_data.get("label", ch_key.replace("_", " ").title())
+        pct = ch_data.get("pct") or 0
+
+        # Try to get real allocation from budget engine
+        ba_match = ba_channel_alloc.get(ch_key)
+        if not ba_match:
+            ch_label_lower = (ch_data.get("label") or "").lower()
+            for ba_key, ba_val in ba_channel_alloc.items():
+                if isinstance(ba_val, dict):
+                    ba_label = ba_val.get("label", ba_key).lower()
+                    if ba_label == ch_label_lower or ba_key.lower() == ch_key.lower():
+                        ba_match = ba_val
+                        break
+        if ba_match and isinstance(ba_match, dict):
+            real_pct = ba_match.get("percentage") or 0
+            if real_pct > 0:
+                pct = round(real_pct)
+
+        if pct > 0:
+            labels.append(label)
+            sizes.append(pct)
+
+    if not labels:
+        return
+
+    chart_bytes = _generate_pie_chart_image(labels, sizes)
+    if not chart_bytes:
+        return
+
+    slide_layout = prs.slide_layouts[6]
+    slide = prs.slides.add_slide(slide_layout)
+    today = datetime.date.today().strftime("%B %d, %Y")
+
+    # Background
+    _add_filled_rect(slide, Inches(0), Inches(0), SLIDE_WIDTH, SLIDE_HEIGHT, OFF_WHITE)
+    _add_top_band(slide, "BUDGET ALLOCATION OVERVIEW", today)
+
+    client = data.get("client_name", "Client")
+    _add_textbox(
+        slide,
+        Inches(0.55),
+        Inches(0.92),
+        Inches(12.2),
+        Inches(0.45),
+        text=f"Visual breakdown of channel investment strategy for {client}",
+        font_size=15,
+        bold=True,
+        color=NAVY,
+    )
+
+    # Insert the pie chart image
+    chart_stream = io.BytesIO(chart_bytes)
+    slide.shapes.add_picture(
+        chart_stream,
+        Inches(2.5),
+        Inches(1.6),
+        Inches(8.3),
+        Inches(5.0),
+    )
+
+    _add_footer(slide, today)
+
+
+def _build_slide_conversion_funnel(prs: Presentation, data: Dict):
+    """Build a slide with a matplotlib funnel chart showing conversion metrics.
+
+    Shows the recruitment funnel: Impressions -> Clicks -> Applications -> Hires.
+    Data sourced from budget allocation projections and enriched analytics.
+    """
+    budget_alloc = data.get("_budget_allocation", {})
+    if not isinstance(budget_alloc, dict):
+        budget_alloc = {}
+    ba_total_proj = budget_alloc.get("total_projected", {})
+    if not isinstance(ba_total_proj, dict):
+        ba_total_proj = {}
+    ba_metadata = budget_alloc.get("metadata", {})
+    if not isinstance(ba_metadata, dict):
+        ba_metadata = {}
+    ba_channel_alloc = budget_alloc.get("channel_allocations", {})
+    if not isinstance(ba_channel_alloc, dict):
+        ba_channel_alloc = {}
+
+    # Gather funnel metrics
+    applications = int(ba_total_proj.get("applications") or 0)
+    hires = int(ba_total_proj.get("hires") or 0)
+
+    # Estimate impressions and clicks from budget if not provided
+    total_budget = ba_metadata.get("total_budget") or 0
+    if total_budget <= 0:
+        budget_val = _parse_budget_number(data.get("budget") or "")
+        total_budget = budget_val if budget_val else 0
+
+    # Calculate clicks and impressions from channel data or defaults
+    total_clicks = 0
+    total_impressions = 0
+    for _ch_key, ch_data in ba_channel_alloc.items():
+        if isinstance(ch_data, dict):
+            total_clicks += int(ch_data.get("projected_clicks") or 0)
+            total_impressions += int(ch_data.get("projected_impressions") or 0)
+
+    # Fallback: estimate from budget using industry averages
+    if total_clicks <= 0 and total_budget > 0:
+        avg_cpc = 1.50  # Industry average CPC
+        total_clicks = int(total_budget / avg_cpc)
+    if total_impressions <= 0 and total_clicks > 0:
+        avg_ctr = 0.035  # Industry average CTR 3.5%
+        total_impressions = int(total_clicks / avg_ctr)
+    if applications <= 0 and total_clicks > 0:
+        avg_apply_rate = 0.05  # Industry average apply rate 5%
+        applications = int(total_clicks * avg_apply_rate)
+    if hires <= 0 and applications > 0:
+        avg_hire_rate = 0.08  # Industry average hire rate 8%
+        hires = max(1, int(applications * avg_hire_rate))
+
+    # Need at least impressions to show a funnel
+    if total_impressions <= 0:
+        return
+
+    chart_bytes = _generate_funnel_chart_image(
+        total_impressions, total_clicks, applications, hires
+    )
+    if not chart_bytes:
+        return
+
+    slide_layout = prs.slide_layouts[6]
+    slide = prs.slides.add_slide(slide_layout)
+    today = datetime.date.today().strftime("%B %d, %Y")
+
+    # Background
+    _add_filled_rect(slide, Inches(0), Inches(0), SLIDE_WIDTH, SLIDE_HEIGHT, OFF_WHITE)
+    _add_top_band(slide, "RECRUITMENT CONVERSION FUNNEL", today)
+
+    client = data.get("client_name", "Client")
+    _add_textbox(
+        slide,
+        Inches(0.55),
+        Inches(0.92),
+        Inches(12.2),
+        Inches(0.45),
+        text=f"Projected candidate pipeline from awareness to hire for {client}",
+        font_size=15,
+        bold=True,
+        color=NAVY,
+    )
+
+    # Insert the funnel chart image
+    chart_stream = io.BytesIO(chart_bytes)
+    slide.shapes.add_picture(
+        chart_stream,
+        Inches(2.2),
+        Inches(1.6),
+        Inches(8.8),
+        Inches(5.0),
+    )
+
+    _add_footer(slide, today)
+
+
+# ===================================================================
 # Public API
 # ===================================================================
 
@@ -8134,6 +8549,23 @@ def generate_pptx(data: Dict[str, Any]) -> bytes:
                 _build_slide_quality_outcomes(prs, data)
         else:
             _build_slide_quality_outcomes(prs, data)
+
+        # Chart Slides: Budget Pie Chart + Conversion Funnel
+        # Added as visual data slides between budget allocation and timeline.
+        if _HAS_MATPLOTLIB:
+            try:
+                _build_slide_budget_pie_chart(prs, data)
+            except Exception as _chart_exc:
+                logger.debug(
+                    "Budget pie chart slide failed (non-fatal): %s", _chart_exc
+                )
+
+            try:
+                _build_slide_conversion_funnel(prs, data)
+            except Exception as _funnel_exc:
+                logger.debug(
+                    "Conversion funnel slide failed (non-fatal): %s", _funnel_exc
+                )
 
         # Slide 5: Implementation Timeline + Competitive Context
         _build_slide_comparison_timeline(prs, data)

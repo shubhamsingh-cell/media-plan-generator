@@ -309,7 +309,12 @@ _FALLBACK_BENCHMARKS: Dict[str, Dict[str, float]] = {
     "google_search": {"cpc": 2.69, "cpa": 45.00, "ctr": 0.042, "cpm": 10.00},
     "meta_facebook": {"cpc": 1.72, "cpa": 30.00, "ctr": 0.012, "cpm": 7.50},
     "meta_instagram": {"cpc": 1.50, "cpa": 35.00, "ctr": 0.010, "cpm": 8.00},
-    "linkedin": {"cpc": 5.26, "cpa": 75.00, "ctr": 0.008, "cpm": 35.00},
+    "linkedin": {
+        "cpc": 5.26,
+        "cpa": 45.00,
+        "ctr": 0.008,
+        "cpm": 35.00,
+    },  # Sponsored Jobs CPA $30-$90, US avg $45 (2026-04-07)
     "indeed": {"cpc": 0.50, "cpa": 25.00, "ctr": 0.040, "cpm": 5.00},
     "programmatic": {"cpc": 0.63, "cpa": 22.00, "ctr": 0.025, "cpm": 4.50},
 }

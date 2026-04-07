@@ -65,7 +65,8 @@ KB_FILES: dict[str, str] = {
 }
 
 # Maximum file age (in days) before a startup warning is logged.
-_FILE_FRESHNESS_THRESHOLD_DAYS: int = 180
+# Lowered from 180 to 90 days (2026-04-07) to catch stale benchmarks sooner.
+_FILE_FRESHNESS_THRESHOLD_DAYS: int = 90
 
 # How often the reload thread checks for file changes (seconds).
 KB_RELOAD_INTERVAL_SECONDS: int = 300  # 5 minutes

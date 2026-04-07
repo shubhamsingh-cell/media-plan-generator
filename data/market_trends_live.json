@@ -1,13 +1,6 @@
 {
-  "fetched_at": "2026-04-04T20:31:48.200810+00:00",
+  "fetched_at": "2026-04-05T07:55:39.183012+00:00",
   "articles": [
-    {
-      "title": "Recruitment Marketing in 2026: More Applications and a ... - LinkedIn",
-      "summary": "TL;DR: Recruitment marketing's biggest challenge in 2026 is not attracting applicants. It is designing hiring systems that can handle",
-      "source": "linkedin.com",
-      "url": "https://www.linkedin.com/pulse/recruitment-marketing-2026-more-applications-market-lay-mba-msciop-ffpsc",
-      "date": ""
-    },
     {
       "title": "Top Recruiting Trends for 2026 - Blue Signal Search",
       "summary": "Explore recruiting trends for 2026, including AI adoption, skills-based hiring, leadership, candidate experience, and flexible recruiting",
@@ -16,17 +9,17 @@
       "date": ""
     },
     {
-      "title": "5 Recruiting Trends in 2026: What the Data Means for Recruitment ...",
-      "summary": "5 Recruiting Trends in 2026: What the Data Means for Recruitment Marketing \u00b7 1. Hiring demand eased \u2014 but the labor market hasn't flipped \u00b7 2.",
-      "source": "rallyrecruitmentmarketing.com",
-      "url": "https://rallyrecruitmentmarketing.com/2026/01/recruiting-trends-2026-recruitment-marketing/",
+      "title": "10 Recruitment Trends To Expect in 2026 - Recruiterflow Blog",
+      "summary": "10 Latest Recruitment Trends To Expect in 2026 \u00b7 Diversification is the new normal \u00b7 The Rise of AI Agents in Recruitment \u00b7 Every Recruiters AI",
+      "source": "recruiterflow.com",
+      "url": "https://recruiterflow.com/blog/recruitment-trends/",
       "date": ""
     },
     {
-      "title": "Top Talent Acquisition Trends Defining Recruitment in 2026",
-      "summary": "Explore top talent acquisition trends for 2026, including AI hiring, skills-based recruitment, data-driven strategies, and future-ready",
-      "source": "gsdcouncil.org",
-      "url": "https://www.gsdcouncil.org/blogs/top-talent-acquisition-trends-in-recruitment",
+      "title": "5 hiring trends recruiters can expect in 2026 - HR Dive",
+      "summary": "Hiring is more focused \u00b7 More applicants means more work \u00b7 Candidates are more cautious, but that's changing \u00b7 Succession remains a sticking point.",
+      "source": "hrdive.com",
+      "url": "https://www.hrdive.com/news/hiring-2026-trends-recruiting-acquisition-skills/810551/",
       "date": ""
     },
     {
@@ -34,6 +27,13 @@
       "summary": "1. AI Discovery Is Replacing Traditional Search \u00b7 2. In 2026, Visibility \u2260 Volume. \u00b7 3. Clients and Candidates Are Platform-Hopping \u00b7 4. Cold Outreach Alone Isn't",
       "source": "recruitmentgarage.com",
       "url": "https://recruitmentgarage.com/recruitment-marketing-has-shifted-21-things-to-know-for-2026/",
+      "date": ""
+    },
+    {
+      "title": "5 Recruiting Trends in 2026: What the Data Means for Recruitment ...",
+      "summary": "5 Recruiting Trends in 2026: What the Data Means for Recruitment Marketing \u00b7 1. Hiring demand eased \u2014 but the labor market hasn't flipped \u00b7 2.",
+      "source": "rallyrecruitmentmarketing.com",
+      "url": "https://rallyrecruitmentmarketing.com/2026/01/recruiting-trends-2026-recruitment-marketing/",
       "date": ""
     },
     {
@@ -72,6 +72,20 @@
       "date": ""
     },
     {
+      "title": "Top Recruiting Trends for 2026 - Blue Signal Search",
+      "summary": "Explore recruiting trends for 2026, including AI adoption, skills-based hiring, leadership, candidate experience, and flexible recruiting",
+      "source": "bluesignal.com",
+      "url": "https://bluesignal.com/2026/01/27/top-recruiting-trends-for-2026/",
+      "date": ""
+    },
+    {
+      "title": "5 hiring trends recruiters can expect in 2026 - HR Dive",
+      "summary": "Hiring is more focused \u00b7 More applicants means more work \u00b7 Candidates are more cautious, but that's changing \u00b7 Succession remains a sticking point.",
+      "source": "hrdive.com",
+      "url": "https://www.hrdive.com/news/hiring-2026-trends-recruiting-acquisition-skills/810551/",
+      "date": ""
+    },
+    {
       "title": "Top 5 Staffing Trends to Watch For 2026",
       "summary": "TREND 1: CAUTIOUS COMMITMENTS: Hiring Fluctuations Amid Economic Uncertainty \u00b7 TREND 2: BALANCING ACT: AI's Dual Impact on Labor Demand \u00b7 TREND 3:",
       "source": "americanstaffing.net",
@@ -86,20 +100,6 @@
       "date": ""
     },
     {
-      "title": "The U.S.'s 2026 Hiring Trends Shaping the Talent Landscape",
-      "summary": "Is your talent strategy ready for 2026? Discover the 6 major challenges shaping the U.S.'s hiring landscape. Learn how to draw in top talent",
-      "source": "randstadusa.com",
-      "url": "https://www.randstadusa.com/business/business-insights/talent-acquisition/2026-hiring-trends-shaping-talent-landscape/",
-      "date": ""
-    },
-    {
-      "title": "Top Recruiting Trends for 2026 - Blue Signal Search",
-      "summary": "Explore recruiting trends for 2026, including AI adoption, skills-based hiring, leadership, candidate experience, and flexible recruiting",
-      "source": "bluesignal.com",
-      "url": "https://bluesignal.com/2026/01/27/top-recruiting-trends-for-2026/",
-      "date": ""
-    },
-    {
       "title": "Key Hiring Trends Expected to Shape 2026 - American...",
       "summary": "AI Becomes a Core Part of Hiring Infrastructure \u00b7 A Cooling Labor Market Raises Hiring Risk \u00b7 Internal Mobility and Upskilling Become Essential.",
       "source": "aseonline.org",
@@ -107,5 +107,5 @@
       "date": ""
     }
   ],
-  "ai_market_summary": ""
+  "ai_market_summary": "# 3 Key Market Trends Affecting Recruitment Advertising Budgets\n\n## 1. **AI-Driven Precision Targeting Replaces Broad-Scale Spending**\nBudget allocation is shifting from volume-based campaigns to AI-powered precision matching. Recruiters are investing in technology that identifies high-probability candidates rather than casting wider nets. This means **reduced spend on traditional job boards** but **increased investment in AI tools and platform capabilities**.\n\n## 2. **Recruitment Marketing Fundamentals Are Being Rewritten**\nThe shift toward strategic recruitment marketing (vs. reactive hiring) is forcing budget reallocation. Organizations must invest more in **employer branding, candidate experience platforms, and multi-channel marketing strategies** rather than individual job postings\u2014requiring more sophisticated budget planning.\n\n## 3. **HR Technology Integration Becomes Non-Negotiable**\nBudget competition is intensifying around **talent acquisition tech stacks**: ATS integration, marketing automation, data analytics, and AI solutions. Recruiters with fragmented tools are consolidating, creating winners in integrated platforms while reducing spend on point solutions.\n\n---\n\n**Bottom Line for Media Planners:** Traditional job advertising faces margin pressure as budgets consolidate around AI-enhanced targeting, employer branding channels, and integrated HR tech platforms. Success requires positioning recruitment media within comprehensive talent strategy narratives rather than as standalone ad inventory."
 }

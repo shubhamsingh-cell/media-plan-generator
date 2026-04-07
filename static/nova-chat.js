@@ -264,11 +264,11 @@
   font-size: 0; padding: 0; overflow: hidden;
 }
 #nova-float-btn:hover {
-  transform: translateY(-3px) scale(1.1);
+  transform: scale(1.05);
   box-shadow: 0 8px 36px rgba(90,84,189,0.35), 0 0 20px rgba(107,179,205,0.25), 0 0 0 1px rgba(107,179,205,0.3);
   border-color: rgba(107,179,205,0.4);
 }
-#nova-float-btn:active { transform: scale(0.95); }
+#nova-float-btn:active { transform: scale(0.98); box-shadow: inset 0 2px 8px rgba(0,0,0,0.3); transition: transform 0.1s ease, box-shadow 0.1s ease; }
 #nova-float-btn svg { width: 26px; height: 26px; }
 #nova-float-btn canvas { display: block; }
 #nova-float-btn.nova-btn-close { background: linear-gradient(135deg, #1a1a2e 0%, #5A54BD 100%); border-color: rgba(107,179,205,0.2); }
@@ -364,8 +364,9 @@
       "  font-size: 14px; line-height: 1.7; word-wrap: break-word;" +
       "}" +
       "@keyframes nova-msgIn {" +
-      "  from { opacity: 0; transform: translateY(12px) scale(0.97); }" +
-      "  to { opacity: 1; transform: translateY(0) scale(1); }" +
+      "  0% { opacity: 0; transform: translateY(16px) scale(0.96); }" +
+      "  60% { opacity: 1; transform: translateY(-3px) scale(1.01); }" +
+      "  100% { opacity: 1; transform: translateY(0) scale(1); }" +
       "}" +
       ".nova-msg-user {" +
       "  align-self: flex-end;" +
@@ -470,8 +471,8 @@
       ".nova-typing-dot:nth-child(2) { animation-delay: 0.2s; }" +
       ".nova-typing-dot:nth-child(3) { animation-delay: 0.4s; }" +
       "@keyframes nova-bounce {" +
-      "  0%, 60%, 100% { transform: translateY(0); opacity: 0.3; }" +
-      "  30% { transform: translateY(-8px); opacity: 1; }" +
+      "  0%, 80%, 100% { transform: translateY(0) scale(1); opacity: 0.3; }" +
+      "  40% { transform: translateY(-8px) scale(1.3); opacity: 1; }" +
       "}" +
       // ── Welcome state ──
       ".nova-welcome {" +
@@ -510,8 +511,13 @@
       "  border-color: rgba(107,179,205,0.35);" +
       "  background: rgba(107,179,205,0.06);" +
       "  color: #e4e4e7;" +
-      "  transform: translateY(-1px);" +
+      "  transform: scale(1.05);" +
       "  box-shadow: 0 4px 12px rgba(0,0,0,0.15);" +
+      "}" +
+      ".nova-suggestion-btn:active {" +
+      "  transform: scale(0.98);" +
+      "  box-shadow: inset 0 2px 8px rgba(0,0,0,0.3);" +
+      "  transition: transform 0.1s ease, box-shadow 0.1s ease;" +
       "}" +
       ".nova-suggestion-btn:focus-visible {" +
       "  outline: 2px solid #6BB3CD; outline-offset: 2px;" +
@@ -550,8 +556,8 @@
       "  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;" +
       "}" +
       ".nova-input:focus {" +
-      "  border-color: rgba(107,179,205,0.3); background: rgba(107,179,205,0.04);" +
-      "  box-shadow: 0 0 0 3px rgba(107,179,205,0.08);" +
+      "  border-color: rgba(107,179,205,0.4); background: rgba(107,179,205,0.04);" +
+      "  box-shadow: 0 0 0 3px rgba(107,179,205,0.1), 0 0 20px rgba(107,179,205,0.06);" +
       "}" +
       ".nova-input::placeholder { color: #555; }" +
       ".nova-send-btn {" +
@@ -565,11 +571,11 @@
       "  box-shadow: 0 2px 12px rgba(0,0,0,0.2);" +
       "}" +
       ".nova-send-btn:hover {" +
-      "  transform: scale(1.08);" +
+      "  transform: scale(1.05);" +
       "  box-shadow: 0 4px 20px rgba(0,0,0,0.3);" +
       "}" +
-      ".nova-send-btn:active { transform: scale(0.95); }" +
-      ".nova-send-btn:disabled { opacity: 0.25; cursor: not-allowed; transform: none; box-shadow: none; }" +
+      ".nova-send-btn:active { transform: scale(0.98); box-shadow: inset 0 2px 8px rgba(0,0,0,0.3); transition: transform 0.1s ease, box-shadow 0.1s ease; }" +
+      ".nova-send-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }" +
       ".nova-send-btn svg { width: 18px; height: 18px; }" +
       // ── Footer ──
       ".nova-footer {" +
@@ -784,8 +790,11 @@
       // ── Reduced motion ──
       "@media (prefers-reduced-motion: reduce) {" +
       "  .nova-msg-row, .nova-msg-user, .nova-msg-assistant { animation: none !important; }" +
+      "  .nova-msg-row { animation: none !important; }" +
       "  .nova-typing-dot { animation: none !important; opacity: 0.5; }" +
-      "  #nova-float-btn, .nova-send-btn { transition: none !important; }" +
+      "  #nova-float-btn, .nova-send-btn, .nova-suggestion-btn, .nova-close-btn, .nova-regen-btn, .nova-edit-btn, .nova-theme-btn { transition: none !important; }" +
+      "  #nova-float-btn:hover, .nova-send-btn:hover, .nova-suggestion-btn:hover { transform: none !important; }" +
+      "  #nova-float-btn:active, .nova-send-btn:active, .nova-suggestion-btn:active { transform: none !important; }" +
       "  .nova-streaming-cursor { animation: none !important; opacity: 0.7; }" +
       "  .nova-welcome-orb { animation: none !important; }" +
       "  .nova-status-indicator { animation: none !important; }" +
@@ -1032,7 +1041,7 @@
           "</span>";
         container.appendChild(pill);
       }
-      messagesEl.scrollTop = messagesEl.scrollHeight;
+      messagesEl.scrollTo({ top: messagesEl.scrollHeight, behavior: "smooth" });
     } else if (type === "tool_complete") {
       delete _widgetActiveTools[toolName];
       var pillId2 = "nova-wt-" + toolName.replace(/[^a-zA-Z0-9]/g, "_");
@@ -2140,7 +2149,7 @@
 
     rowEl.appendChild(colEl);
     messagesDiv.appendChild(rowEl);
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    messagesDiv.scrollTo({ top: messagesDiv.scrollHeight, behavior: "smooth" });
 
     if (persist !== false) {
       state.messages.push(msg);
@@ -2180,7 +2189,7 @@
       '<div class="nova-typing-dot"></div>' +
       '<span id="nova-typing-elapsed" style="font-size:10px;color:#555;margin-left:6px;font-variant-numeric:tabular-nums;min-width:20px;"></span>';
     messagesDiv.appendChild(typing);
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    messagesDiv.scrollTo({ top: messagesDiv.scrollHeight, behavior: "smooth" });
 
     // Show elapsed time after 2s
     _typingElapsedInterval = setInterval(function () {
@@ -2348,7 +2357,7 @@
       errEl.appendChild(retryBtn);
     }
     messagesDiv.appendChild(errEl);
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    messagesDiv.scrollTo({ top: messagesDiv.scrollHeight, behavior: "smooth" });
   }
 
   // ---------------------------------------------------------------------------
@@ -2947,7 +2956,10 @@
             : null;
           if (wsMessagesEl) {
             wsMessagesEl.appendChild(wsStreamRow);
-            wsMessagesEl.scrollTop = wsMessagesEl.scrollHeight;
+            wsMessagesEl.scrollTo({
+              top: wsMessagesEl.scrollHeight,
+              behavior: "smooth",
+            });
           }
 
           var wsCancelFn = _widgetStreamViaWS(_wsForWidget, payload, {
@@ -2957,7 +2969,10 @@
               curEl.className = "nova-streaming-cursor";
               wsStreamEl.appendChild(curEl);
               if (wsMessagesEl)
-                wsMessagesEl.scrollTop = wsMessagesEl.scrollHeight;
+                wsMessagesEl.scrollTo({
+                  top: wsMessagesEl.scrollHeight,
+                  behavior: "smooth",
+                });
             },
             onStatus: function (statusText) {
               var statusEl = document.getElementById("nova-status-indicator");
@@ -3111,7 +3126,10 @@
               : null;
             if (messagesEl) {
               messagesEl.appendChild(streamRow);
-              messagesEl.scrollTop = messagesEl.scrollHeight;
+              messagesEl.scrollTo({
+                top: messagesEl.scrollHeight,
+                behavior: "smooth",
+              });
             }
             var reader = res.body.getReader();
             var decoder = new TextDecoder();
@@ -3183,7 +3201,10 @@
                       }
                       statusEl.textContent = escapeHtml(evt.status);
                       if (messagesEl)
-                        messagesEl.scrollTop = messagesEl.scrollHeight;
+                        messagesEl.scrollTo({
+                          top: messagesEl.scrollHeight,
+                          behavior: "smooth",
+                        });
                     }
                     if (evt.token) {
                       // Remove status indicator once real tokens arrive (guarded)
@@ -3204,7 +3225,10 @@
                       curEl.className = "nova-streaming-cursor";
                       streamEl.appendChild(curEl);
                       if (messagesEl)
-                        messagesEl.scrollTop = messagesEl.scrollHeight;
+                        messagesEl.scrollTo({
+                          top: messagesEl.scrollHeight,
+                          behavior: "smooth",
+                        });
                     }
                   } catch (e) {
                     console.warn("SSE parse error:", e);
@@ -3510,17 +3534,36 @@
       if (options.primaryColor) CONFIG.primaryColor = options.primaryColor;
 
       // Fetch CSRF token on init (needed for double-submit cookie pattern)
-      if (!window.__csrfToken) {
+      function _fetchCsrfToken() {
         fetch("/api/csrf-token", { credentials: "same-origin" })
           .then(function (r) {
             return r.json();
           })
           .then(function (d) {
             window.__csrfToken = d.token || "";
+            window.__csrfTokenFetchedAt = Date.now();
           })
           .catch(function () {
             /* CSRF fetch failed -- requests may fail */
           });
+      }
+      if (!window.__csrfToken) {
+        _fetchCsrfToken();
+      }
+      // S47: Auto-refresh CSRF token before 4-hour expiry (check every 10 min)
+      if (!window.__csrfRefreshInterval) {
+        window.__csrfRefreshInterval = setInterval(
+          function () {
+            var elapsed = Date.now() - (window.__csrfTokenFetchedAt || 0);
+            if (
+              !window.__csrfTokenFetchedAt ||
+              elapsed > (4 * 60 - 10) * 60 * 1000
+            ) {
+              _fetchCsrfToken();
+            }
+          },
+          10 * 60 * 1000,
+        );
       }
 
       // S25: Skip widget init when running inside the platform shell.

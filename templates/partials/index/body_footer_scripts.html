@@ -1,3 +1,9 @@
+<!-- Lottie Player (micro-animations for generation overlay) -->
+<script
+  src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"
+  defer
+></script>
+
 <!-- GSAP Animation Library (CDN) -->
 <script
   src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.7/gsap.min.js"
@@ -12,6 +18,9 @@
 
 <!-- Sankey Flow Budget Visualizer -->
 <script src="/static/sankey-viz.js?v=1.0.0"></script>
+
+<!-- Nova Button Ripple Effect -->
+<script src="/static/js/ripple.js" defer></script>
 
 <!-- Nova AI Suite — AI Chat Widget (floating bottom-right) -->
 <script src="/static/nova-chat.js?v=3.5.4"></script>
@@ -391,32 +400,53 @@
       return parseFloat(String(v).replace(/[^0-9.-]/g, ""));
     });
     if (isNaN(nums[idx])) return "";
-    var max = Math.max.apply(
-      null,
-      nums.filter(function (n) {
-        return !isNaN(n);
-      }),
-    );
-    var min = Math.min.apply(
-      null,
-      nums.filter(function (n) {
-        return !isNaN(n);
-      }),
-    );
+    var validNums = nums.filter(function (n) {
+      return !isNaN(n);
+    });
+    if (validNums.length < 2) return "";
+    var max = Math.max.apply(null, validNums);
+    var min = Math.min.apply(null, validNums);
     if (max === min) return "";
+    // Check for >20% variance -- highlight significantly different values
+    var avg =
+      validNums.reduce(function (a, b) {
+        return a + b;
+      }, 0) / validNums.length;
+    var variancePct = avg > 0 ? Math.abs(nums[idx] - avg) / avg : 0;
+    var significantVariance = variancePct > 0.2 ? " compare-significant" : "";
     if (higherIsBetter) {
-      return nums[idx] === max
-        ? "compare-better"
-        : nums[idx] === min
-          ? "compare-worse"
-          : "";
+      return (
+        (nums[idx] === max
+          ? "compare-better"
+          : nums[idx] === min
+            ? "compare-worse"
+            : "") + significantVariance
+      );
     } else {
-      return nums[idx] === min
-        ? "compare-better"
-        : nums[idx] === max
-          ? "compare-worse"
-          : "";
+      return (
+        (nums[idx] === min
+          ? "compare-better"
+          : nums[idx] === max
+            ? "compare-worse"
+            : "") + significantVariance
+      );
     }
+  }
+
+  function extractChannelList(data) {
+    if (!data) return [];
+    var summary = data.summary || data.plan_summary || data;
+    var ch =
+      summary.channels || summary.recommended_channels || data.channels || [];
+    if (!Array.isArray(ch)) return [];
+    return ch.map(function (c) {
+      return {
+        name: c.channel || c.name || c.platform || "Unknown",
+        budget: c.budget || c.allocation || c.spend || "--",
+        pct: c.percentage || c.budget_pct || c.pct || "--",
+        cpa: c.cpa_range || c.avg_cpa || c.cpa || "--",
+      };
+    });
   }
 
   function renderComparisonView(plans) {
@@ -587,6 +617,59 @@
     html += "<td></td></tr>";
 
     html += "</tbody></table>";
+
+    // ── Platform Mix Comparison (channel-level breakdown) ──
+    var allChannelLists = selected.map(function (p) {
+      return extractChannelList(p.data);
+    });
+    var hasChannels = allChannelLists.some(function (cl) {
+      return cl.length > 0;
+    });
+    if (hasChannels) {
+      // Collect unique channel names across all plans
+      var allNames = {};
+      allChannelLists.forEach(function (cl) {
+        cl.forEach(function (c) {
+          var key = (c.name || "").toLowerCase().replace(/[^a-z0-9]/g, "_");
+          if (key) allNames[key] = c.name;
+        });
+      });
+      var sortedKeys = Object.keys(allNames).sort();
+
+      html +=
+        '<h4 style="color:rgba(255,255,255,0.7);margin:24px 0 12px;font-size:14px;">Platform Mix Breakdown</h4>';
+      html += '<table class="plan-compare-table"><thead><tr><th>Channel</th>';
+      selected.forEach(function (p) {
+        html += "<th>" + (p.name || "Unnamed") + "</th>";
+      });
+      html += "</tr></thead><tbody>";
+
+      sortedKeys.forEach(function (key) {
+        html += "<tr><td>" + (allNames[key] || key) + "</td>";
+        var budgetVals = [];
+        selected.forEach(function (p, i) {
+          var match = allChannelLists[i].find(function (c) {
+            return (
+              (c.name || "").toLowerCase().replace(/[^a-z0-9]/g, "_") === key
+            );
+          });
+          if (match) {
+            var pctStr = match.pct !== "--" ? " (" + match.pct + "%)" : "";
+            budgetVals.push(
+              String(match.budget).replace(/[^0-9.]/g, "") || "0",
+            );
+            html += "<td>" + match.budget + pctStr + "</td>";
+          } else {
+            budgetVals.push("0");
+            html += '<td style="color:rgba(255,255,255,0.3);">--</td>';
+          }
+        });
+        html += "</tr>";
+      });
+
+      html += "</tbody></table>";
+    }
+
     body.innerHTML = html;
   }
 
