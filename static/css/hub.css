@@ -381,6 +381,12 @@ html.lenis body {
   background: var(--accent-glow);
   text-decoration: none !important;
   border-bottom: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+/* Remove the ::after pseudo-underline -- it creates double lines with focus/active styles */
+.nav-links a::after {
+  display: none !important;
 }
 .nav-links a.nav-cta {
   background: var(--accent);

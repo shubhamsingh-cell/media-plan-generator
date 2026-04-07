@@ -108,19 +108,25 @@
     return el.innerHTML;
   }
 
-  // Global fetch error interceptor
+  // Global fetch error interceptor (5s grace period on page load to avoid false alarms)
   var _originalFetch = window.fetch;
+  var _pageLoadTime = Date.now();
+  var _suppressUntil = _pageLoadTime + 5000;
   window.fetch = function () {
     return _originalFetch
       .apply(this, arguments)
       .then(function (response) {
-        if (!response.ok && response.status >= 500) {
+        if (
+          !response.ok &&
+          response.status >= 500 &&
+          Date.now() > _suppressUntil
+        ) {
           show("Server error. Please try again.", "error");
         }
         return response;
       })
       .catch(function (err) {
-        if (err.name !== "AbortError") {
+        if (err.name !== "AbortError" && Date.now() > _suppressUntil) {
           show("Connection lost. Check your network and retry.", "error");
         }
         throw err;
