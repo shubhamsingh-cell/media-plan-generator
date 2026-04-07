@@ -1,0 +1,1709 @@
+{
+  "_metadata": {
+    "title": "International Recruitment Marketing Benchmarks 2025-2026",
+    "description": "CPC, CPA, CPH, apply rates, platform benchmarks, and regulatory considerations for 15 major hiring markets outside the US. Designed for Nova AI Suite chatbot knowledge base.",
+    "version": "1.0",
+    "last_updated": "2026-04-07",
+    "data_freshness": "2025-2026 (primary: H2 2025 and Q1 2026 data)",
+    "sources_analyzed": 18,
+    "methodology": "Cross-referenced platform pricing pages, regional labor market reports, LinkedIn Talent Insights, Indeed Hiring Lab research, Glassdoor Economic Research, Randstad Sourceright Talent Trends, ManpowerGroup Employment Outlook Survey, and government labor statistics. Currency conversions use March 2026 mid-market rates.",
+    "source_list": [
+      "LinkedIn Talent Insights 2025 (Global Edition)",
+      "Indeed Hiring Lab 2026 Regional Reports",
+      "Glassdoor Economic Research 2025",
+      "Randstad Sourceright 2025 Talent Trends",
+      "ManpowerGroup Employment Outlook Survey Q1 2026",
+      "SHRM Global Talent Acquisition Benchmarks 2025",
+      "Appcast 2025 Recruitment Marketing Benchmark Report",
+      "iCIMS 2025 Workforce Report (Global)",
+      "Jobvite 2025 Recruiter Nation Report",
+      "StepStone Group Annual Report 2025",
+      "Seek Limited Annual Report 2025",
+      "Naukri (Info Edge) Quarterly Hiring Trends 2025",
+      "Hays Global Skills Index 2025",
+      "Robert Half 2026 Salary Guide (International)",
+      "Michael Page Global Hiring Trends 2025",
+      "CIPD Labour Market Outlook UK 2025",
+      "Eurostat Labour Force Survey 2025",
+      "ILO World Employment and Social Outlook 2025"
+    ],
+    "currency_note": "All USD equivalents use March 2026 mid-market exchange rates. Local currency figures are primary; USD is provided for cross-market comparison.",
+    "reliability_rating_system": {
+      "high": "Published industry benchmark reports, government statistics, platform-published data with large sample sizes",
+      "medium": "Analyst reports, aggregated survey data, cross-referenced estimates",
+      "low": "Single-source estimates, self-reported surveys, extrapolated data"
+    }
+  },
+
+  "regions": {
+    "apac": {
+      "name": "Asia-Pacific",
+      "countries": ["india", "australia", "japan", "singapore", "philippines"],
+      "overview": {
+        "total_job_postings_annual_est": 45000000,
+        "linkedin_ctr_pct": 1.04,
+        "avg_time_to_fill_days": 38,
+        "key_trends_2026": [
+          "India dominates APAC volume with 60%+ of regional job postings",
+          "Australia and Singapore face acute skill shortages in tech and healthcare",
+          "Japan's aging workforce drives automation and international hiring",
+          "Philippines emerging as BPO and shared services hiring hub",
+          "Remote/hybrid roles growing 25-30% YoY across the region"
+        ]
+      }
+    },
+    "emea": {
+      "name": "Europe, Middle East & Africa",
+      "countries": ["uk", "germany", "france", "uae", "netherlands", "south_africa"],
+      "overview": {
+        "total_job_postings_annual_est": 35000000,
+        "linkedin_ctr_pct": 0.28,
+        "avg_time_to_fill_days": 42,
+        "key_trends_2026": [
+          "GDPR and AI Act compliance increasingly impact recruitment advertising",
+          "Germany and Netherlands face severe skilled labor shortages (Fachkraeftemangel)",
+          "UAE positioning as global talent hub with Golden Visa programs",
+          "UK post-Brexit immigration system reshaping talent pipelines",
+          "South Africa youth unemployment at 45%+ creates unique supply dynamics"
+        ]
+      }
+    },
+    "latam": {
+      "name": "Latin America",
+      "countries": ["brazil", "mexico"],
+      "overview": {
+        "total_job_postings_annual_est": 12000000,
+        "linkedin_ctr_pct": 0.63,
+        "avg_time_to_fill_days": 35,
+        "key_trends_2026": [
+          "Nearshoring trend driving IT and manufacturing hiring in Mexico",
+          "Brazil's gig economy (informal sector) accounts for 40%+ of workforce",
+          "WhatsApp-based recruitment gaining traction across the region",
+          "Remote work enabling US companies to hire LATAM talent at 40-60% cost savings"
+        ]
+      }
+    },
+    "north_america_ex_us": {
+      "name": "North America (excl. US)",
+      "countries": ["canada"],
+      "overview": {
+        "total_job_postings_annual_est": 5000000,
+        "linkedin_ctr_pct": 0.55,
+        "avg_time_to_fill_days": 36,
+        "key_trends_2026": [
+          "Immigration-driven workforce growth (500K+ new permanent residents/year)",
+          "Bilingual hiring premiums in Quebec (French/English)",
+          "Tech talent pipeline strengthening in Toronto, Vancouver, Montreal"
+        ]
+      }
+    },
+    "middle_east_africa": {
+      "name": "Middle East & Africa (additional)",
+      "countries": ["israel"],
+      "overview": {
+        "key_trends_2026": [
+          "Israel's tech sector (Start-Up Nation) commands premium talent costs",
+          "High concentration of R&D centers for multinational companies"
+        ]
+      }
+    }
+  },
+
+  "countries": {
+    "india": {
+      "name": "India",
+      "region": "apac",
+      "currency": "INR",
+      "usd_rate": 0.012,
+      "currency_symbol": "₹",
+      "market_size": {
+        "active_job_postings_monthly_est": 2500000,
+        "annual_hires_formal_sector_est": 8000000,
+        "linkedin_members_millions": 130,
+        "internet_job_seekers_millions": 250,
+        "reliability": "medium"
+      },
+      "platforms": [
+        {
+          "name": "Naukri.com",
+          "market_share_pct": 35,
+          "rank": 1,
+          "type": "job_board",
+          "cpc_local": {"min": 8, "max": 25, "median": 15, "currency": "INR"},
+          "cpc_usd": {"min": 0.10, "max": 0.30, "median": 0.18},
+          "cpa_local": {"min": 100, "max": 500, "median": 250, "currency": "INR"},
+          "cpa_usd": {"min": 1.20, "max": 6.00, "median": 3.00},
+          "apply_rate_pct": 8.5,
+          "pricing_model": "CPC + subscription packages",
+          "notes": "Dominant player. Info Edge subsidiary. 90M+ registered users. Strong in IT, BFSI, manufacturing."
+        },
+        {
+          "name": "LinkedIn India",
+          "market_share_pct": 25,
+          "rank": 2,
+          "type": "professional_network",
+          "cpc_local": {"min": 40, "max": 150, "median": 80, "currency": "INR"},
+          "cpc_usd": {"min": 0.48, "max": 1.80, "median": 0.96},
+          "cpa_local": {"min": 200, "max": 800, "median": 400, "currency": "INR"},
+          "cpa_usd": {"min": 2.40, "max": 9.60, "median": 4.80},
+          "apply_rate_pct": 5.2,
+          "pricing_model": "CPC/CPA + Recruiter Lite/Corporate subscriptions",
+          "notes": "130M+ members in India. Premium for white-collar, tech, and managerial roles."
+        },
+        {
+          "name": "Indeed India",
+          "market_share_pct": 15,
+          "rank": 3,
+          "type": "job_board",
+          "cpc_local": {"min": 5, "max": 20, "median": 12, "currency": "INR"},
+          "cpc_usd": {"min": 0.06, "max": 0.24, "median": 0.14},
+          "cpa_local": {"min": 80, "max": 350, "median": 180, "currency": "INR"},
+          "cpa_usd": {"min": 0.96, "max": 4.20, "median": 2.16},
+          "apply_rate_pct": 7.0,
+          "pricing_model": "CPC auction",
+          "notes": "Strong in volume hiring. Free posting available."
+        },
+        {
+          "name": "Shine.com",
+          "market_share_pct": 8,
+          "rank": 4,
+          "type": "job_board",
+          "cpc_local": {"min": 5, "max": 18, "median": 10, "currency": "INR"},
+          "cpc_usd": {"min": 0.06, "max": 0.22, "median": 0.12},
+          "cpa_local": {"min": 60, "max": 300, "median": 150, "currency": "INR"},
+          "cpa_usd": {"min": 0.72, "max": 3.60, "median": 1.80},
+          "apply_rate_pct": 6.5,
+          "pricing_model": "Subscription + CPC",
+          "notes": "HT Media subsidiary. Strong in tier-2 and tier-3 cities."
+        },
+        {
+          "name": "Foundit (formerly Monster India)",
+          "market_share_pct": 7,
+          "rank": 5,
+          "type": "job_board",
+          "cpc_local": {"min": 6, "max": 20, "median": 12, "currency": "INR"},
+          "cpc_usd": {"min": 0.07, "max": 0.24, "median": 0.14},
+          "cpa_local": {"min": 70, "max": 300, "median": 160, "currency": "INR"},
+          "cpa_usd": {"min": 0.84, "max": 3.60, "median": 1.92},
+          "apply_rate_pct": 6.0,
+          "pricing_model": "Subscription + CPC",
+          "notes": "Quess Corp subsidiary. Rebranded from Monster India in 2022."
+        }
+      ],
+      "cph_by_tier": {
+        "currency": "INR",
+        "entry_level": {"local": 15000, "usd": 180, "notes": "Fresh graduates, BPO, call center, data entry"},
+        "professional": {"local": 75000, "usd": 900, "notes": "3-8 years experience, IT, engineering, finance"},
+        "senior": {"local": 200000, "usd": 2400, "notes": "10+ years, management, specialized tech"},
+        "executive": {"local": 500000, "usd": 6000, "notes": "CXO, VP level. Often agency-placed."},
+        "reliability": "medium",
+        "source": "Randstad India 2025, Naukri Hiring Suite data"
+      },
+      "seasonal_patterns": {
+        "peak_months": ["January", "February", "March", "July", "August"],
+        "low_months": ["April", "May", "November", "December"],
+        "notes": "Jan-Mar: Post-appraisal job switching season (India's biggest hiring surge). Jul-Aug: Campus hiring wave. Apr-May: Financial year-end slowdown. Oct-Nov: Diwali/Dussehra holiday impact.",
+        "fiscal_year": "April-March"
+      },
+      "regulatory": {
+        "notice_period_typical_days": {"min": 30, "max": 90, "common": 60},
+        "key_regulations": [
+          "No unified data protection law until DPDPA 2023 (Digital Personal Data Protection Act) -- enforcement phased in 2025-2026",
+          "Shops and Establishments Act governs working hours by state",
+          "Provident Fund (EPF) mandatory for employers with 20+ employees",
+          "Gratuity Act applies after 5 years of service",
+          "Contract Labour Act regulates staffing agencies"
+        ],
+        "compliance_notes": "India has 29 states with varying labor laws. Regulatory fragmentation is a key challenge for multi-city hiring."
+      }
+    },
+
+    "australia": {
+      "name": "Australia",
+      "region": "apac",
+      "currency": "AUD",
+      "usd_rate": 0.65,
+      "currency_symbol": "A$",
+      "market_size": {
+        "active_job_postings_monthly_est": 350000,
+        "annual_hires_est": 2500000,
+        "linkedin_members_millions": 15,
+        "reliability": "high"
+      },
+      "platforms": [
+        {
+          "name": "Seek",
+          "market_share_pct": 45,
+          "rank": 1,
+          "type": "job_board",
+          "cpc_local": {"min": 1.50, "max": 5.00, "median": 3.00, "currency": "AUD"},
+          "cpc_usd": {"min": 0.98, "max": 3.25, "median": 1.95},
+          "cpa_local": {"min": 25, "max": 80, "median": 45, "currency": "AUD"},
+          "cpa_usd": {"min": 16.25, "max": 52.00, "median": 29.25},
+          "apply_rate_pct": 4.5,
+          "pricing_model": "CPC + premium listings (A$300-$600 per ad)",
+          "notes": "Dominant Australian job board. Also operates in NZ and SE Asia. 5M+ monthly visitors."
+        },
+        {
+          "name": "Indeed Australia",
+          "market_share_pct": 25,
+          "rank": 2,
+          "type": "job_board",
+          "cpc_local": {"min": 0.80, "max": 3.50, "median": 1.80, "currency": "AUD"},
+          "cpc_usd": {"min": 0.52, "max": 2.28, "median": 1.17},
+          "cpa_local": {"min": 15, "max": 60, "median": 35, "currency": "AUD"},
+          "cpa_usd": {"min": 9.75, "max": 39.00, "median": 22.75},
+          "apply_rate_pct": 5.5,
+          "pricing_model": "CPC auction",
+          "notes": "Strong #2. Free posting available with sponsored boost option."
+        },
+        {
+          "name": "LinkedIn Australia",
+          "market_share_pct": 15,
+          "rank": 3,
+          "type": "professional_network",
+          "cpc_local": {"min": 3.00, "max": 10.00, "median": 6.50, "currency": "AUD"},
+          "cpc_usd": {"min": 1.95, "max": 6.50, "median": 4.23},
+          "cpa_local": {"min": 30, "max": 100, "median": 55, "currency": "AUD"},
+          "cpa_usd": {"min": 19.50, "max": 65.00, "median": 35.75},
+          "apply_rate_pct": 3.8,
+          "pricing_model": "CPC/CPA + Recruiter subscription",
+          "notes": "Premium professional hiring. 15M+ members."
+        },
+        {
+          "name": "Jora",
+          "market_share_pct": 8,
+          "rank": 4,
+          "type": "aggregator",
+          "cpc_local": {"min": 0.50, "max": 2.50, "median": 1.20, "currency": "AUD"},
+          "cpc_usd": {"min": 0.33, "max": 1.63, "median": 0.78},
+          "apply_rate_pct": 6.0,
+          "pricing_model": "Free aggregator + CPC sponsored",
+          "notes": "Seek subsidiary. Aggregates from multiple sources."
+        }
+      ],
+      "cph_by_tier": {
+        "currency": "AUD",
+        "entry_level": {"local": 5000, "usd": 3250, "notes": "Retail, hospitality, admin"},
+        "professional": {"local": 12000, "usd": 7800, "notes": "IT, engineering, finance, healthcare"},
+        "senior": {"local": 25000, "usd": 16250, "notes": "Management, specialized professionals"},
+        "executive": {"local": 55000, "usd": 35750, "notes": "C-suite, board level"},
+        "reliability": "high",
+        "source": "AHRI (Australian HR Institute) 2025 benchmarks"
+      },
+      "seasonal_patterns": {
+        "peak_months": ["February", "March", "September", "October"],
+        "low_months": ["December", "January", "June", "July"],
+        "notes": "Southern hemisphere seasons inverted from US. Dec-Jan: Summer holiday shutdown. Feb-Mar: New year hiring surge. Jun-Jul: End of financial year (EOFY) slowdown."
+      },
+      "regulatory": {
+        "notice_period_typical_days": {"min": 14, "max": 30, "common": 28},
+        "key_regulations": [
+          "Fair Work Act 2009 governs employment relationships",
+          "National Employment Standards (NES): 11 minimum entitlements",
+          "Privacy Act 1988 + APPs govern employee data collection",
+          "Minimum wage reviewed annually by Fair Work Commission (A$24.10/hr as of July 2025)",
+          "Superannuation guarantee: 11.5% employer contribution (2025-26)",
+          "Anti-discrimination laws cover age, disability, race, sex, and more"
+        ],
+        "compliance_notes": "Strong worker protections. Unfair dismissal claims common. Modern Awards set industry-specific minimum conditions."
+      }
+    },
+
+    "japan": {
+      "name": "Japan",
+      "region": "apac",
+      "currency": "JPY",
+      "usd_rate": 0.0067,
+      "currency_symbol": "¥",
+      "market_size": {
+        "active_job_postings_monthly_est": 1200000,
+        "annual_hires_est": 6000000,
+        "linkedin_members_millions": 4.5,
+        "reliability": "medium",
+        "notes": "Japan's hiring market is heavily offline/agency-driven. Digital job board penetration ~40%."
+      },
+      "platforms": [
+        {
+          "name": "Recruit (Rikunabi / Indeed Japan)",
+          "market_share_pct": 35,
+          "rank": 1,
+          "type": "job_board",
+          "cpc_local": {"min": 50, "max": 200, "median": 120, "currency": "JPY"},
+          "cpc_usd": {"min": 0.34, "max": 1.34, "median": 0.80},
+          "cpa_local": {"min": 2000, "max": 8000, "median": 4500, "currency": "JPY"},
+          "cpa_usd": {"min": 13.40, "max": 53.60, "median": 30.15},
+          "apply_rate_pct": 3.5,
+          "pricing_model": "CPC + subscription packages",
+          "notes": "Recruit Holdings (Indeed parent company) dominates Japan. Rikunabi for new grads, Indeed for mid-career."
+        },
+        {
+          "name": "Doda",
+          "market_share_pct": 18,
+          "rank": 2,
+          "type": "job_board",
+          "cpc_local": {"min": 40, "max": 180, "median": 100, "currency": "JPY"},
+          "cpc_usd": {"min": 0.27, "max": 1.21, "median": 0.67},
+          "cpa_local": {"min": 1800, "max": 7000, "median": 4000, "currency": "JPY"},
+          "cpa_usd": {"min": 12.06, "max": 46.90, "median": 26.80},
+          "apply_rate_pct": 3.8,
+          "pricing_model": "Subscription + CPC",
+          "notes": "Persol Group. Strong in IT, engineering, and sales roles."
+        },
+        {
+          "name": "Mynavi",
+          "market_share_pct": 15,
+          "rank": 3,
+          "type": "job_board",
+          "cpc_local": {"min": 45, "max": 170, "median": 95, "currency": "JPY"},
+          "cpc_usd": {"min": 0.30, "max": 1.14, "median": 0.64},
+          "cpa_local": {"min": 1500, "max": 6000, "median": 3500, "currency": "JPY"},
+          "cpa_usd": {"min": 10.05, "max": 40.20, "median": 23.45},
+          "apply_rate_pct": 4.0,
+          "pricing_model": "Subscription + performance",
+          "notes": "Major player for new graduate hiring (shinsotsu). Also mid-career (tenshoku)."
+        },
+        {
+          "name": "LinkedIn Japan",
+          "market_share_pct": 5,
+          "rank": 4,
+          "type": "professional_network",
+          "cpc_local": {"min": 100, "max": 400, "median": 250, "currency": "JPY"},
+          "cpc_usd": {"min": 0.67, "max": 2.68, "median": 1.68},
+          "apply_rate_pct": 2.5,
+          "pricing_model": "CPC/CPA + Recruiter subscription",
+          "notes": "Low penetration in Japan (4.5M members vs 67M working population). Used primarily for bilingual/international roles."
+        }
+      ],
+      "cph_by_tier": {
+        "currency": "JPY",
+        "entry_level": {"local": 350000, "usd": 2345, "notes": "New graduates (shinsotsu). Bulk hiring in April."},
+        "professional": {"local": 800000, "usd": 5360, "notes": "Mid-career transfers (tenshoku). 3-10 years."},
+        "senior": {"local": 2000000, "usd": 13400, "notes": "Managerial and specialist roles"},
+        "executive": {"local": 5000000, "usd": 33500, "notes": "Often through executive search firms. 30-35% of annual salary fee."},
+        "reliability": "medium",
+        "source": "Hays Japan Salary Guide 2025, Recruit Works Institute"
+      },
+      "seasonal_patterns": {
+        "peak_months": ["January", "February", "March", "September", "October"],
+        "low_months": ["May", "August", "December"],
+        "notes": "Unique 'shinsotsu' (new graduate) cycle: Recruiting Oct-Mar, start date April 1. Mid-career hiring peaks Jan-Mar and Sep-Oct. Golden Week (May) and Obon (Aug) are dead periods.",
+        "fiscal_year": "April-March"
+      },
+      "regulatory": {
+        "notice_period_typical_days": {"min": 14, "max": 30, "common": 30},
+        "key_regulations": [
+          "Labor Standards Act sets minimum conditions (overtime caps, paid leave)",
+          "Equal Employment Opportunity Act prohibits gender discrimination",
+          "Act on Personal Information Protection (APPI) -- Japan's data privacy law, amended 2022",
+          "Worker Dispatch Act governs temporary staffing (strict limits on duration)",
+          "Mandatory social insurance: health, pension, employment, workers' comp",
+          "Work Style Reform laws cap overtime at 45 hrs/month, 360 hrs/year"
+        ],
+        "compliance_notes": "Lifetime employment culture (shuushin koyou) weakening but still influential. Dismissal is extremely difficult legally. Strong labor protections."
+      }
+    },
+
+    "singapore": {
+      "name": "Singapore",
+      "region": "apac",
+      "currency": "SGD",
+      "usd_rate": 0.75,
+      "currency_symbol": "S$",
+      "market_size": {
+        "active_job_postings_monthly_est": 80000,
+        "annual_hires_est": 400000,
+        "linkedin_members_millions": 4.2,
+        "reliability": "high",
+        "notes": "Small but high-value market. Gateway to SE Asia."
+      },
+      "platforms": [
+        {
+          "name": "MyCareersFuture (MCF)",
+          "market_share_pct": 20,
+          "rank": 1,
+          "type": "government_job_board",
+          "cpc_local": {"min": 0, "max": 0, "median": 0, "currency": "SGD"},
+          "cpc_usd": {"min": 0, "max": 0, "median": 0},
+          "cpa_local": {"min": 0, "max": 0, "median": 0, "currency": "SGD"},
+          "apply_rate_pct": 6.0,
+          "pricing_model": "Free (government-funded)",
+          "notes": "Mandatory posting for Employment Pass applications. Government-run by Workforce Singapore (WSG)."
+        },
+        {
+          "name": "LinkedIn Singapore",
+          "market_share_pct": 30,
+          "rank": 2,
+          "type": "professional_network",
+          "cpc_local": {"min": 2.00, "max": 8.00, "median": 4.50, "currency": "SGD"},
+          "cpc_usd": {"min": 1.50, "max": 6.00, "median": 3.38},
+          "cpa_local": {"min": 15, "max": 60, "median": 35, "currency": "SGD"},
+          "cpa_usd": {"min": 11.25, "max": 45.00, "median": 26.25},
+          "apply_rate_pct": 4.0,
+          "pricing_model": "CPC/CPA + Recruiter subscription",
+          "notes": "Dominant for professional and executive hiring. 4.2M members in a 5.9M population."
+        },
+        {
+          "name": "JobStreet Singapore",
+          "market_share_pct": 18,
+          "rank": 3,
+          "type": "job_board",
+          "cpc_local": {"min": 0.80, "max": 3.00, "median": 1.50, "currency": "SGD"},
+          "cpc_usd": {"min": 0.60, "max": 2.25, "median": 1.13},
+          "cpa_local": {"min": 10, "max": 40, "median": 22, "currency": "SGD"},
+          "cpa_usd": {"min": 7.50, "max": 30.00, "median": 16.50},
+          "apply_rate_pct": 5.5,
+          "pricing_model": "Subscription + CPC boost",
+          "notes": "Seek subsidiary. Strong in mid-level and volume hiring across SE Asia."
+        },
+        {
+          "name": "Indeed Singapore",
+          "market_share_pct": 15,
+          "rank": 4,
+          "type": "job_board",
+          "cpc_local": {"min": 0.50, "max": 2.50, "median": 1.20, "currency": "SGD"},
+          "cpc_usd": {"min": 0.38, "max": 1.88, "median": 0.90},
+          "cpa_local": {"min": 8, "max": 35, "median": 18, "currency": "SGD"},
+          "cpa_usd": {"min": 6.00, "max": 26.25, "median": 13.50},
+          "apply_rate_pct": 5.8,
+          "pricing_model": "CPC auction",
+          "notes": "Growing market share. Free posting available."
+        }
+      ],
+      "cph_by_tier": {
+        "currency": "SGD",
+        "entry_level": {"local": 4000, "usd": 3000, "notes": "Admin, customer service, retail"},
+        "professional": {"local": 10000, "usd": 7500, "notes": "IT, finance, engineering. 3-8 years."},
+        "senior": {"local": 22000, "usd": 16500, "notes": "Directors, senior managers"},
+        "executive": {"local": 50000, "usd": 37500, "notes": "C-suite. Often through headhunters."},
+        "reliability": "high",
+        "source": "MOM (Ministry of Manpower) Labour Market Report 2025, Hays Singapore"
+      },
+      "seasonal_patterns": {
+        "peak_months": ["January", "February", "March", "September", "October"],
+        "low_months": ["June", "July", "December"],
+        "notes": "Jan-Mar: Post-bonus job switching (bonuses paid Dec-Feb). Sep-Oct: Q4 budget hiring. Jun-Jul: Mid-year lull. Dec: Holiday slowdown."
+      },
+      "regulatory": {
+        "notice_period_typical_days": {"min": 7, "max": 90, "common": 30},
+        "key_regulations": [
+          "Employment Act covers most employees (salary <= S$4,500 for manual workers)",
+          "Fair Consideration Framework (FCF): Must advertise on MCF for 14+ days before hiring foreigners",
+          "PDPA (Personal Data Protection Act) governs candidate data collection",
+          "Foreign worker quotas: EP, S Pass, Work Permit tiers with salary thresholds",
+          "EP minimum salary: S$5,600 (S$6,200 in financial sector) as of Sep 2025",
+          "COMPASS framework for EP applications (points-based) since Sep 2023"
+        ],
+        "compliance_notes": "Strict foreign worker regulations. FCF compliance is mandatory -- non-compliance leads to EP rejection. Tripartite Guidelines on Fair Employment Practices (TGFEP)."
+      }
+    },
+
+    "philippines": {
+      "name": "Philippines",
+      "region": "apac",
+      "currency": "PHP",
+      "usd_rate": 0.018,
+      "currency_symbol": "₱",
+      "market_size": {
+        "active_job_postings_monthly_est": 300000,
+        "annual_hires_est": 3000000,
+        "linkedin_members_millions": 14,
+        "reliability": "medium",
+        "notes": "BPO sector is the largest private employer. English proficiency is a key advantage."
+      },
+      "platforms": [
+        {
+          "name": "JobStreet Philippines",
+          "market_share_pct": 35,
+          "rank": 1,
+          "type": "job_board",
+          "cpc_local": {"min": 5, "max": 25, "median": 12, "currency": "PHP"},
+          "cpc_usd": {"min": 0.09, "max": 0.45, "median": 0.22},
+          "cpa_local": {"min": 80, "max": 400, "median": 200, "currency": "PHP"},
+          "cpa_usd": {"min": 1.44, "max": 7.20, "median": 3.60},
+          "apply_rate_pct": 7.5,
+          "pricing_model": "Subscription + CPC boost",
+          "notes": "Market leader. Seek subsidiary. Strongest in BPO, IT, and corporate roles."
+        },
+        {
+          "name": "Indeed Philippines",
+          "market_share_pct": 20,
+          "rank": 2,
+          "type": "job_board",
+          "cpc_local": {"min": 3, "max": 18, "median": 8, "currency": "PHP"},
+          "cpc_usd": {"min": 0.05, "max": 0.32, "median": 0.14},
+          "cpa_local": {"min": 50, "max": 300, "median": 150, "currency": "PHP"},
+          "cpa_usd": {"min": 0.90, "max": 5.40, "median": 2.70},
+          "apply_rate_pct": 8.0,
+          "pricing_model": "CPC auction",
+          "notes": "Growing rapidly. Free posting available."
+        },
+        {
+          "name": "Kalibrr",
+          "market_share_pct": 12,
+          "rank": 3,
+          "type": "job_board",
+          "cpc_local": {"min": 8, "max": 30, "median": 15, "currency": "PHP"},
+          "cpc_usd": {"min": 0.14, "max": 0.54, "median": 0.27},
+          "cpa_local": {"min": 100, "max": 500, "median": 250, "currency": "PHP"},
+          "cpa_usd": {"min": 1.80, "max": 9.00, "median": 4.50},
+          "apply_rate_pct": 6.5,
+          "pricing_model": "Subscription + AI matching",
+          "notes": "Philippine-founded platform. AI-driven matching. Popular with tech companies."
+        },
+        {
+          "name": "LinkedIn Philippines",
+          "market_share_pct": 10,
+          "rank": 4,
+          "type": "professional_network",
+          "cpc_local": {"min": 15, "max": 60, "median": 30, "currency": "PHP"},
+          "cpc_usd": {"min": 0.27, "max": 1.08, "median": 0.54},
+          "apply_rate_pct": 4.0,
+          "pricing_model": "CPC/CPA + Recruiter subscription",
+          "notes": "14M+ members. Growing for professional roles."
+        }
+      ],
+      "cph_by_tier": {
+        "currency": "PHP",
+        "entry_level": {"local": 8000, "usd": 144, "notes": "BPO agents, retail, admin. High volume."},
+        "professional": {"local": 40000, "usd": 720, "notes": "IT, accounting, engineering"},
+        "senior": {"local": 120000, "usd": 2160, "notes": "Managers, team leads"},
+        "executive": {"local": 350000, "usd": 6300, "notes": "Country managers, directors"},
+        "reliability": "medium",
+        "source": "Michael Page Philippines Salary Guide 2025, IBPAP (IT-BPM Association)"
+      },
+      "seasonal_patterns": {
+        "peak_months": ["January", "February", "June", "July", "September"],
+        "low_months": ["April", "May", "December"],
+        "notes": "Jan-Feb: New year hiring. Jun-Jul: Mid-year campus hiring. Sep: BPO seasonal ramp-up. Apr-May: Holy Week and summer vacation. Dec: Christmas shutdown (13th month pay period)."
+      },
+      "regulatory": {
+        "notice_period_typical_days": {"min": 30, "max": 30, "common": 30},
+        "key_regulations": [
+          "Labor Code of the Philippines governs employment",
+          "13th month pay mandatory for all rank-and-file employees",
+          "Data Privacy Act of 2012 (Republic Act 10173)",
+          "PEZA (Philippine Economic Zone Authority) incentives for BPO/IT",
+          "Minimum wage varies by region (NCR: ₱610/day as of 2025)",
+          "Security of tenure -- termination only for just or authorized cause"
+        ],
+        "compliance_notes": "Strong worker protections similar to continental European models. DOLE (Department of Labor) actively enforces. BPO sector has special economic zone regulations."
+      }
+    },
+
+    "uk": {
+      "name": "United Kingdom",
+      "region": "emea",
+      "currency": "GBP",
+      "usd_rate": 1.27,
+      "currency_symbol": "£",
+      "market_size": {
+        "active_job_postings_monthly_est": 900000,
+        "annual_hires_est": 6000000,
+        "linkedin_members_millions": 38,
+        "reliability": "high"
+      },
+      "platforms": [
+        {
+          "name": "Indeed UK",
+          "market_share_pct": 30,
+          "rank": 1,
+          "type": "job_board",
+          "cpc_local": {"min": 0.20, "max": 1.20, "median": 0.65, "currency": "GBP"},
+          "cpc_usd": {"min": 0.25, "max": 1.52, "median": 0.83},
+          "cpa_local": {"min": 4, "max": 25, "median": 12, "currency": "GBP"},
+          "cpa_usd": {"min": 5.08, "max": 31.75, "median": 15.24},
+          "apply_rate_pct": 5.5,
+          "pricing_model": "CPC auction",
+          "notes": "Market leader for volume hiring. Free posting available."
+        },
+        {
+          "name": "Reed.co.uk",
+          "market_share_pct": 18,
+          "rank": 2,
+          "type": "job_board",
+          "cpc_local": {"min": 0.30, "max": 1.50, "median": 0.75, "currency": "GBP"},
+          "cpc_usd": {"min": 0.38, "max": 1.91, "median": 0.95},
+          "cpa_local": {"min": 5, "max": 30, "median": 15, "currency": "GBP"},
+          "cpa_usd": {"min": 6.35, "max": 38.10, "median": 19.05},
+          "apply_rate_pct": 5.0,
+          "pricing_model": "CPC + subscription packages (£199-£499/month)",
+          "notes": "UK-native board. Strong brand recognition. Also offers recruitment agency services."
+        },
+        {
+          "name": "Totaljobs",
+          "market_share_pct": 15,
+          "rank": 3,
+          "type": "job_board",
+          "cpc_local": {"min": 0.25, "max": 1.30, "median": 0.70, "currency": "GBP"},
+          "cpc_usd": {"min": 0.32, "max": 1.65, "median": 0.89},
+          "cpa_local": {"min": 5, "max": 28, "median": 14, "currency": "GBP"},
+          "cpa_usd": {"min": 6.35, "max": 35.56, "median": 17.78},
+          "apply_rate_pct": 5.2,
+          "pricing_model": "CPC + flat-fee listings",
+          "notes": "StepStone Group subsidiary. Part of broader European network."
+        },
+        {
+          "name": "LinkedIn UK",
+          "market_share_pct": 20,
+          "rank": 4,
+          "type": "professional_network",
+          "cpc_local": {"min": 1.50, "max": 6.00, "median": 3.50, "currency": "GBP"},
+          "cpc_usd": {"min": 1.91, "max": 7.62, "median": 4.45},
+          "cpa_local": {"min": 8, "max": 40, "median": 20, "currency": "GBP"},
+          "cpa_usd": {"min": 10.16, "max": 50.80, "median": 25.40},
+          "apply_rate_pct": 3.5,
+          "pricing_model": "CPC/CPA + Recruiter subscription",
+          "notes": "38M members. Premium for professional and tech roles."
+        },
+        {
+          "name": "CV-Library",
+          "market_share_pct": 8,
+          "rank": 5,
+          "type": "job_board",
+          "cpc_local": {"min": 0.20, "max": 1.00, "median": 0.50, "currency": "GBP"},
+          "cpc_usd": {"min": 0.25, "max": 1.27, "median": 0.64},
+          "cpa_local": {"min": 4, "max": 22, "median": 10, "currency": "GBP"},
+          "cpa_usd": {"min": 5.08, "max": 27.94, "median": 12.70},
+          "apply_rate_pct": 5.8,
+          "pricing_model": "CPC + subscription",
+          "notes": "UK-native CV database and job board. 18M+ CVs."
+        }
+      ],
+      "cph_by_tier": {
+        "currency": "GBP",
+        "entry_level": {"local": 2500, "usd": 3175, "notes": "Retail, hospitality, admin, warehouse"},
+        "professional": {"local": 6000, "usd": 7620, "notes": "IT, finance, engineering, marketing"},
+        "senior": {"local": 15000, "usd": 19050, "notes": "Heads of department, senior managers"},
+        "executive": {"local": 35000, "usd": 44450, "notes": "C-suite, board-level. Agency fees 20-30% of salary."},
+        "reliability": "high",
+        "source": "CIPD Resourcing and Talent Planning Report 2025, REC (Recruitment & Employment Confederation)"
+      },
+      "seasonal_patterns": {
+        "peak_months": ["January", "February", "March", "September", "October"],
+        "low_months": ["July", "August", "December"],
+        "notes": "Jan: Biggest hiring month ('New Year, new job' effect). Sep-Oct: Post-summer return. Jul-Aug: Summer holiday lull. Dec: Christmas shutdown."
+      },
+      "regulatory": {
+        "notice_period_typical_days": {"min": 7, "max": 90, "common": 30},
+        "key_regulations": [
+          "UK GDPR (post-Brexit Data Protection Act 2018) governs candidate data",
+          "Equality Act 2010 prohibits discrimination on 9 protected characteristics",
+          "Right to Work checks mandatory before employment starts",
+          "National Minimum Wage: £11.44/hr (21+), £8.60/hr (18-20) as of April 2025",
+          "Employer NI contributions: 15% above £5,000 threshold (from April 2025)",
+          "IR35 off-payroll working rules for contractors",
+          "Skilled Worker visa: minimum salary £38,700 (from April 2024)"
+        ],
+        "compliance_notes": "Post-Brexit immigration system requires sponsorship license for non-UK/Irish workers. Right to Work checks now digital. GDPR compliance critical for recruitment marketing."
+      }
+    },
+
+    "germany": {
+      "name": "Germany",
+      "region": "emea",
+      "currency": "EUR",
+      "usd_rate": 1.09,
+      "currency_symbol": "€",
+      "market_size": {
+        "active_job_postings_monthly_est": 800000,
+        "annual_hires_est": 5500000,
+        "linkedin_members_millions": 22,
+        "reliability": "high",
+        "notes": "Largest EU economy. Severe skilled worker shortage (Fachkraeftemangel) with 770,000+ unfilled positions."
+      },
+      "platforms": [
+        {
+          "name": "StepStone",
+          "market_share_pct": 25,
+          "rank": 1,
+          "type": "job_board",
+          "cpc_local": {"min": 0.50, "max": 2.50, "median": 1.30, "currency": "EUR"},
+          "cpc_usd": {"min": 0.55, "max": 2.73, "median": 1.42},
+          "cpa_local": {"min": 10, "max": 50, "median": 25, "currency": "EUR"},
+          "cpa_usd": {"min": 10.90, "max": 54.50, "median": 27.25},
+          "apply_rate_pct": 4.0,
+          "pricing_model": "Subscription + CPC boost (€599-€1,499/listing)",
+          "notes": "Premium German job board. Axel Springer subsidiary. Strong employer branding features."
+        },
+        {
+          "name": "Indeed Germany",
+          "market_share_pct": 20,
+          "rank": 2,
+          "type": "job_board",
+          "cpc_local": {"min": 0.20, "max": 1.50, "median": 0.70, "currency": "EUR"},
+          "cpc_usd": {"min": 0.22, "max": 1.64, "median": 0.76},
+          "cpa_local": {"min": 5, "max": 35, "median": 18, "currency": "EUR"},
+          "cpa_usd": {"min": 5.45, "max": 38.15, "median": 19.62},
+          "apply_rate_pct": 5.0,
+          "pricing_model": "CPC auction",
+          "notes": "Growing market share. Free posting available."
+        },
+        {
+          "name": "XING (onlyfy)",
+          "market_share_pct": 18,
+          "rank": 3,
+          "type": "professional_network",
+          "cpc_local": {"min": 0.80, "max": 3.00, "median": 1.60, "currency": "EUR"},
+          "cpc_usd": {"min": 0.87, "max": 3.27, "median": 1.74},
+          "cpa_local": {"min": 12, "max": 45, "median": 22, "currency": "EUR"},
+          "cpa_usd": {"min": 13.08, "max": 49.05, "median": 23.98},
+          "apply_rate_pct": 3.5,
+          "pricing_model": "Subscription + job posting credits",
+          "notes": "DACH-region LinkedIn competitor. 22M+ members. New Talent business rebranded as 'onlyfy'. Stronger in DACH than LinkedIn."
+        },
+        {
+          "name": "LinkedIn Germany",
+          "market_share_pct": 15,
+          "rank": 4,
+          "type": "professional_network",
+          "cpc_local": {"min": 1.50, "max": 6.00, "median": 3.50, "currency": "EUR"},
+          "cpc_usd": {"min": 1.64, "max": 6.54, "median": 3.82},
+          "cpa_local": {"min": 10, "max": 45, "median": 25, "currency": "EUR"},
+          "cpa_usd": {"min": 10.90, "max": 49.05, "median": 27.25},
+          "apply_rate_pct": 3.2,
+          "pricing_model": "CPC/CPA + Recruiter subscription",
+          "notes": "22M members. Gaining ground on XING, especially for international/tech roles."
+        },
+        {
+          "name": "Bundesagentur fuer Arbeit (Jobboerse)",
+          "market_share_pct": 10,
+          "rank": 5,
+          "type": "government_job_board",
+          "cpc_local": {"min": 0, "max": 0, "median": 0, "currency": "EUR"},
+          "apply_rate_pct": 3.0,
+          "pricing_model": "Free (government-funded)",
+          "notes": "Federal Employment Agency. Mandatory for some subsidy programs. Used heavily in blue-collar and trades."
+        }
+      ],
+      "cph_by_tier": {
+        "currency": "EUR",
+        "entry_level": {"local": 4000, "usd": 4360, "notes": "Apprenticeship exits, retail, logistics"},
+        "professional": {"local": 10000, "usd": 10900, "notes": "IT, engineering, Kaufmaennisch (business admin)"},
+        "senior": {"local": 22000, "usd": 23980, "notes": "Team leads, senior specialists"},
+        "executive": {"local": 50000, "usd": 54500, "notes": "Geschaeftsfuehrer, Vorstand level"},
+        "reliability": "high",
+        "source": "StepStone Gehaltsreport 2025, Hays Germany"
+      },
+      "seasonal_patterns": {
+        "peak_months": ["January", "February", "March", "September", "October", "November"],
+        "low_months": ["July", "August", "December"],
+        "notes": "Jan-Mar: Budget release and new-year hiring. Sep-Nov: Post-summer push. Jul-Aug: Sommerferien (varies by state). Dec: Christmas market season, minimal hiring."
+      },
+      "regulatory": {
+        "notice_period_typical_days": {"min": 28, "max": 210, "common": 90},
+        "key_regulations": [
+          "EU GDPR (DSGVO in German) strictly enforced -- heavy fines for violations",
+          "Allgemeines Gleichbehandlungsgesetz (AGG) -- anti-discrimination law",
+          "Betriebsverfassungsgesetz (Works Constitution Act) -- works council involvement in hiring",
+          "Kuendigungsschutzgesetz -- strong dismissal protection after 6 months",
+          "Minimum wage: €12.82/hr (from Jan 2025)",
+          "Arbeitnehmerueberlassungsgesetz (AUeG) -- temp staffing limited to 18 months",
+          "Skilled Immigration Act (Fachkraefteeinwanderungsgesetz) 2023 -- simplified visa for skilled workers"
+        ],
+        "compliance_notes": "Works councils (Betriebsrat) have co-determination rights in hiring decisions at companies with 5+ employees. Notice periods increase with tenure (up to 7 months after 20 years). GDPR compliance is non-negotiable -- German DPAs are among the strictest in the EU."
+      }
+    },
+
+    "france": {
+      "name": "France",
+      "region": "emea",
+      "currency": "EUR",
+      "usd_rate": 1.09,
+      "currency_symbol": "€",
+      "market_size": {
+        "active_job_postings_monthly_est": 600000,
+        "annual_hires_est": 4000000,
+        "linkedin_members_millions": 28,
+        "reliability": "high"
+      },
+      "platforms": [
+        {
+          "name": "Pole Emploi (France Travail)",
+          "market_share_pct": 22,
+          "rank": 1,
+          "type": "government_job_board",
+          "cpc_local": {"min": 0, "max": 0, "median": 0, "currency": "EUR"},
+          "apply_rate_pct": 4.5,
+          "pricing_model": "Free (government-funded)",
+          "notes": "Rebranded to France Travail in 2024. Mandatory for subsidized hiring. Largest database of job seekers."
+        },
+        {
+          "name": "Indeed France",
+          "market_share_pct": 20,
+          "rank": 2,
+          "type": "job_board",
+          "cpc_local": {"min": 0.15, "max": 1.20, "median": 0.55, "currency": "EUR"},
+          "cpc_usd": {"min": 0.16, "max": 1.31, "median": 0.60},
+          "cpa_local": {"min": 4, "max": 30, "median": 15, "currency": "EUR"},
+          "cpa_usd": {"min": 4.36, "max": 32.70, "median": 16.35},
+          "apply_rate_pct": 5.5,
+          "pricing_model": "CPC auction",
+          "notes": "Free posting available. Strong in volume hiring."
+        },
+        {
+          "name": "LinkedIn France",
+          "market_share_pct": 18,
+          "rank": 3,
+          "type": "professional_network",
+          "cpc_local": {"min": 1.20, "max": 5.50, "median": 3.00, "currency": "EUR"},
+          "cpc_usd": {"min": 1.31, "max": 6.00, "median": 3.27},
+          "cpa_local": {"min": 8, "max": 40, "median": 20, "currency": "EUR"},
+          "cpa_usd": {"min": 8.72, "max": 43.60, "median": 21.80},
+          "apply_rate_pct": 3.5,
+          "pricing_model": "CPC/CPA + Recruiter subscription",
+          "notes": "28M members. Premium for cadres (management) roles."
+        },
+        {
+          "name": "HelloWork (formerly RegionsJob)",
+          "market_share_pct": 12,
+          "rank": 4,
+          "type": "job_board",
+          "cpc_local": {"min": 0.25, "max": 1.50, "median": 0.70, "currency": "EUR"},
+          "cpc_usd": {"min": 0.27, "max": 1.64, "median": 0.76},
+          "cpa_local": {"min": 5, "max": 28, "median": 14, "currency": "EUR"},
+          "cpa_usd": {"min": 5.45, "max": 30.52, "median": 15.26},
+          "apply_rate_pct": 4.8,
+          "pricing_model": "Subscription + CPC",
+          "notes": "French-native board. Strong regional presence. Also operates Cadremploi for management roles."
+        },
+        {
+          "name": "APEC",
+          "market_share_pct": 8,
+          "rank": 5,
+          "type": "association_board",
+          "cpc_local": {"min": 0, "max": 0, "median": 0, "currency": "EUR"},
+          "apply_rate_pct": 3.0,
+          "pricing_model": "Free for cadres (management-level professionals)",
+          "notes": "Association Pour l'Emploi des Cadres. Mandatory membership for cadres. Niche but high-quality candidates."
+        }
+      ],
+      "cph_by_tier": {
+        "currency": "EUR",
+        "entry_level": {"local": 3500, "usd": 3815, "notes": "Employes, ouvriers (workers). CDD/CDI."},
+        "professional": {"local": 8000, "usd": 8720, "notes": "Cadres, techniciens. IT, engineering, finance."},
+        "senior": {"local": 18000, "usd": 19620, "notes": "Directeurs, senior cadres"},
+        "executive": {"local": 45000, "usd": 49050, "notes": "DG, PDG level. Cabinet de recrutement fees 18-25%."},
+        "reliability": "medium",
+        "source": "APEC Barometre 2025, Hays France Salary Guide"
+      },
+      "seasonal_patterns": {
+        "peak_months": ["January", "February", "March", "September", "October", "November"],
+        "low_months": ["July", "August", "December"],
+        "notes": "France has the strongest summer hiring freeze in Europe. Jul-Aug: Nearly all hiring pauses (conge annuel). La Rentree (Sep) is the biggest restart. Jan-Mar: Budget cycle hiring."
+      },
+      "regulatory": {
+        "notice_period_typical_days": {"min": 30, "max": 90, "common": 60},
+        "key_regulations": [
+          "Code du Travail (Labor Code) -- one of the most comprehensive in the world",
+          "EU GDPR (RGPD in French) strictly enforced by CNIL",
+          "CDI (permanent) vs CDD (fixed-term) distinction is critical -- CDD limited to 18 months",
+          "35-hour work week (cadres often on forfait jours: 218 days/year)",
+          "Comite Social et Economique (CSE) consultation required for hiring plans at 50+ employees",
+          "SMIC (minimum wage): €11.88/hr (from Jan 2025)",
+          "Anti-discrimination: Defenseur des Droits enforces 25 protected criteria"
+        ],
+        "compliance_notes": "France has among the strictest labor protections globally. Dismissal requires real and serious cause (cause reelle et serieuse). Severance costs can be 3-20 months salary. CDD vs CDI choice has significant legal implications."
+      }
+    },
+
+    "uae": {
+      "name": "United Arab Emirates",
+      "region": "emea",
+      "currency": "AED",
+      "usd_rate": 0.27,
+      "currency_symbol": "د.إ",
+      "market_size": {
+        "active_job_postings_monthly_est": 200000,
+        "annual_hires_est": 1200000,
+        "linkedin_members_millions": 8,
+        "reliability": "medium",
+        "notes": "90%+ of workforce is expatriate. Dubai and Abu Dhabi account for 85% of hiring."
+      },
+      "platforms": [
+        {
+          "name": "Bayt.com",
+          "market_share_pct": 25,
+          "rank": 1,
+          "type": "job_board",
+          "cpc_local": {"min": 1.00, "max": 5.00, "median": 2.50, "currency": "AED"},
+          "cpc_usd": {"min": 0.27, "max": 1.36, "median": 0.68},
+          "cpa_local": {"min": 15, "max": 80, "median": 40, "currency": "AED"},
+          "cpa_usd": {"min": 4.09, "max": 21.78, "median": 10.89},
+          "apply_rate_pct": 6.5,
+          "pricing_model": "Subscription + CPC boost",
+          "notes": "MENA region leader. 50M+ registered job seekers across 40 countries."
+        },
+        {
+          "name": "LinkedIn UAE",
+          "market_share_pct": 30,
+          "rank": 2,
+          "type": "professional_network",
+          "cpc_local": {"min": 3.00, "max": 12.00, "median": 6.00, "currency": "AED"},
+          "cpc_usd": {"min": 0.82, "max": 3.27, "median": 1.63},
+          "cpa_local": {"min": 20, "max": 80, "median": 45, "currency": "AED"},
+          "cpa_usd": {"min": 5.45, "max": 21.78, "median": 12.25},
+          "apply_rate_pct": 4.5,
+          "pricing_model": "CPC/CPA + Recruiter subscription",
+          "notes": "8M+ members. Dominant for professional and executive expat hiring."
+        },
+        {
+          "name": "GulfTalent",
+          "market_share_pct": 15,
+          "rank": 3,
+          "type": "job_board",
+          "cpc_local": {"min": 2.00, "max": 8.00, "median": 4.00, "currency": "AED"},
+          "cpc_usd": {"min": 0.54, "max": 2.18, "median": 1.09},
+          "cpa_local": {"min": 20, "max": 70, "median": 35, "currency": "AED"},
+          "cpa_usd": {"min": 5.45, "max": 19.06, "median": 9.53},
+          "apply_rate_pct": 5.0,
+          "pricing_model": "Subscription + per-posting",
+          "notes": "GCC-focused. Strong in finance, engineering, and oil & gas."
+        },
+        {
+          "name": "Indeed UAE",
+          "market_share_pct": 12,
+          "rank": 4,
+          "type": "job_board",
+          "cpc_local": {"min": 0.80, "max": 4.00, "median": 2.00, "currency": "AED"},
+          "cpc_usd": {"min": 0.22, "max": 1.09, "median": 0.54},
+          "cpa_local": {"min": 10, "max": 55, "median": 28, "currency": "AED"},
+          "cpa_usd": {"min": 2.72, "max": 14.97, "median": 7.62},
+          "apply_rate_pct": 6.0,
+          "pricing_model": "CPC auction",
+          "notes": "Growing presence. Free posting available."
+        }
+      ],
+      "cph_by_tier": {
+        "currency": "AED",
+        "entry_level": {"local": 8000, "usd": 2178, "notes": "Blue collar, retail, hospitality. Often includes accommodation."},
+        "professional": {"local": 25000, "usd": 6806, "notes": "IT, finance, engineering, marketing"},
+        "senior": {"local": 60000, "usd": 16335, "notes": "Directors, senior managers"},
+        "executive": {"local": 150000, "usd": 40838, "notes": "C-suite, country managers. Executive search fees 25-33%."},
+        "reliability": "medium",
+        "source": "Hays GCC Salary Guide 2025, Michael Page Middle East"
+      },
+      "seasonal_patterns": {
+        "peak_months": ["January", "February", "March", "September", "October", "November"],
+        "low_months": ["June", "July", "August", "December"],
+        "notes": "Jun-Aug: Extreme summer heat reduces activity. Ramadan (variable) slows hiring for 4 weeks. Sep-Nov: Post-summer surge. Dec: Holiday slowdown. Jan-Mar: Budget release hiring."
+      },
+      "regulatory": {
+        "notice_period_typical_days": {"min": 30, "max": 90, "common": 30},
+        "key_regulations": [
+          "Federal Decree-Law No. 33 of 2021 (new Labour Law effective Feb 2022)",
+          "All contracts now fixed-term (max 3 years, renewable)",
+          "End-of-service gratuity: 21 days salary/year for first 5 years, 30 days after",
+          "MOHRE (Ministry of Human Resources) approval required for all work permits",
+          "Emiratisation quotas: Private sector must hire UAE nationals (4% for 50+ employee companies, increasing 2% annually)",
+          "Golden Visa: 10-year residency for qualified professionals",
+          "DIFC and ADGM have separate employment laws (common law based)"
+        ],
+        "compliance_notes": "Expatriate-dominated workforce. Employer sponsors work visa. New labor law improved worker mobility (no NOC needed to switch employers). Emiratisation fines: AED 7,000/month per shortfall."
+      }
+    },
+
+    "netherlands": {
+      "name": "Netherlands",
+      "region": "emea",
+      "currency": "EUR",
+      "usd_rate": 1.09,
+      "currency_symbol": "€",
+      "market_size": {
+        "active_job_postings_monthly_est": 300000,
+        "annual_hires_est": 2000000,
+        "linkedin_members_millions": 10,
+        "reliability": "high",
+        "notes": "One of the tightest labor markets in Europe. 85%+ English proficiency enables international hiring."
+      },
+      "platforms": [
+        {
+          "name": "Indeed Netherlands",
+          "market_share_pct": 25,
+          "rank": 1,
+          "type": "job_board",
+          "cpc_local": {"min": 0.20, "max": 1.50, "median": 0.70, "currency": "EUR"},
+          "cpc_usd": {"min": 0.22, "max": 1.64, "median": 0.76},
+          "cpa_local": {"min": 5, "max": 30, "median": 15, "currency": "EUR"},
+          "cpa_usd": {"min": 5.45, "max": 32.70, "median": 16.35},
+          "apply_rate_pct": 5.5,
+          "pricing_model": "CPC auction",
+          "notes": "Market leader. Free posting available."
+        },
+        {
+          "name": "LinkedIn Netherlands",
+          "market_share_pct": 22,
+          "rank": 2,
+          "type": "professional_network",
+          "cpc_local": {"min": 1.50, "max": 6.00, "median": 3.50, "currency": "EUR"},
+          "cpc_usd": {"min": 1.64, "max": 6.54, "median": 3.82},
+          "cpa_local": {"min": 10, "max": 45, "median": 22, "currency": "EUR"},
+          "cpa_usd": {"min": 10.90, "max": 49.05, "median": 23.98},
+          "apply_rate_pct": 3.5,
+          "pricing_model": "CPC/CPA + Recruiter subscription",
+          "notes": "10M members (56% of population). Highest per-capita LinkedIn penetration in the world."
+        },
+        {
+          "name": "Nationale Vacaturebank",
+          "market_share_pct": 15,
+          "rank": 3,
+          "type": "job_board",
+          "cpc_local": {"min": 0.30, "max": 1.80, "median": 0.90, "currency": "EUR"},
+          "cpc_usd": {"min": 0.33, "max": 1.96, "median": 0.98},
+          "cpa_local": {"min": 6, "max": 35, "median": 16, "currency": "EUR"},
+          "cpa_usd": {"min": 6.54, "max": 38.15, "median": 17.44},
+          "apply_rate_pct": 4.5,
+          "pricing_model": "Subscription + CPC",
+          "notes": "Dutch-native board. Part of DPG Media. Strong brand recognition."
+        },
+        {
+          "name": "Werkenbij (UWV)",
+          "market_share_pct": 10,
+          "rank": 4,
+          "type": "government_job_board",
+          "cpc_local": {"min": 0, "max": 0, "median": 0, "currency": "EUR"},
+          "apply_rate_pct": 4.0,
+          "pricing_model": "Free (government-funded)",
+          "notes": "UWV (Employee Insurance Agency) job portal. Important for subsidized hiring and WW (unemployment) candidates."
+        }
+      ],
+      "cph_by_tier": {
+        "currency": "EUR",
+        "entry_level": {"local": 3500, "usd": 3815, "notes": "Retail, hospitality, warehousing"},
+        "professional": {"local": 9000, "usd": 9810, "notes": "IT, finance, engineering, life sciences"},
+        "senior": {"local": 20000, "usd": 21800, "notes": "Management, specialists"},
+        "executive": {"local": 45000, "usd": 49050, "notes": "Directie, bestuur level"},
+        "reliability": "high",
+        "source": "Hays Netherlands Salary Guide 2025, Berenschot HR Trends"
+      },
+      "seasonal_patterns": {
+        "peak_months": ["January", "February", "March", "September", "October"],
+        "low_months": ["July", "August", "December"],
+        "notes": "Similar to Germany. Jul-Aug: Summer holidays (bouwvak in construction). Sep: Prinsjesdag (Budget Day) influences government hiring. Dec: Sinterklaas/Christmas slowdown."
+      },
+      "regulatory": {
+        "notice_period_typical_days": {"min": 30, "max": 120, "common": 30},
+        "key_regulations": [
+          "EU GDPR strictly enforced by Autoriteit Persoonsgegevens (AP)",
+          "Wet Arbeid Vreemdelingen (WAV) -- foreign workers need TWV/GVVA permits",
+          "30% ruling: Tax benefit for skilled international hires (reduced from 5 to max 5 years, capped at €233K)",
+          "Flex work laws: Wet Werk en Zekerheid (chain rule limits fixed-term contracts to 3 in 36 months)",
+          "Minimum wage: €13.68/hr (from Jan 2025, hourly basis introduced 2024)",
+          "Equal treatment: Wet Gelijke Behandeling covers extensive protected characteristics",
+          "Works council (Ondernemingsraad) required at 50+ employees"
+        ],
+        "compliance_notes": "The 30% ruling is a major draw for international talent but has been limited. Strong flex work regulations mean many roles are through staffing agencies (uitzendbureau). Payrolling common."
+      }
+    },
+
+    "brazil": {
+      "name": "Brazil",
+      "region": "latam",
+      "currency": "BRL",
+      "usd_rate": 0.19,
+      "currency_symbol": "R$",
+      "market_size": {
+        "active_job_postings_monthly_est": 1500000,
+        "annual_hires_est": 8000000,
+        "linkedin_members_millions": 70,
+        "reliability": "medium",
+        "notes": "Largest LATAM economy. 40%+ informal workforce not captured in job board data. LGPD compliance required."
+      },
+      "platforms": [
+        {
+          "name": "LinkedIn Brazil",
+          "market_share_pct": 25,
+          "rank": 1,
+          "type": "professional_network",
+          "cpc_local": {"min": 2.00, "max": 10.00, "median": 5.00, "currency": "BRL"},
+          "cpc_usd": {"min": 0.38, "max": 1.90, "median": 0.95},
+          "cpa_local": {"min": 15, "max": 60, "median": 30, "currency": "BRL"},
+          "cpa_usd": {"min": 2.85, "max": 11.40, "median": 5.70},
+          "apply_rate_pct": 4.5,
+          "pricing_model": "CPC/CPA + Recruiter subscription",
+          "notes": "70M+ members. Largest LinkedIn market in LATAM. 3rd globally after US and India."
+        },
+        {
+          "name": "Catho",
+          "market_share_pct": 18,
+          "rank": 2,
+          "type": "job_board",
+          "cpc_local": {"min": 1.00, "max": 6.00, "median": 3.00, "currency": "BRL"},
+          "cpc_usd": {"min": 0.19, "max": 1.14, "median": 0.57},
+          "cpa_local": {"min": 10, "max": 45, "median": 22, "currency": "BRL"},
+          "cpa_usd": {"min": 1.90, "max": 8.55, "median": 4.18},
+          "apply_rate_pct": 6.0,
+          "pricing_model": "Subscription (candidate pays) + employer packages",
+          "notes": "Seek subsidiary. Unique model where candidates pay for premium features. 12M+ CVs."
+        },
+        {
+          "name": "InfoJobs Brazil",
+          "market_share_pct": 15,
+          "rank": 3,
+          "type": "job_board",
+          "cpc_local": {"min": 0.80, "max": 5.00, "median": 2.50, "currency": "BRL"},
+          "cpc_usd": {"min": 0.15, "max": 0.95, "median": 0.48},
+          "cpa_local": {"min": 8, "max": 40, "median": 20, "currency": "BRL"},
+          "cpa_usd": {"min": 1.52, "max": 7.60, "median": 3.80},
+          "apply_rate_pct": 5.5,
+          "pricing_model": "Subscription + per-posting",
+          "notes": "Originally Spanish platform, strong presence in Brazil. 35M+ registered users."
+        },
+        {
+          "name": "Indeed Brazil",
+          "market_share_pct": 12,
+          "rank": 4,
+          "type": "job_board",
+          "cpc_local": {"min": 0.50, "max": 4.00, "median": 1.80, "currency": "BRL"},
+          "cpc_usd": {"min": 0.10, "max": 0.76, "median": 0.34},
+          "cpa_local": {"min": 5, "max": 30, "median": 15, "currency": "BRL"},
+          "cpa_usd": {"min": 0.95, "max": 5.70, "median": 2.85},
+          "apply_rate_pct": 6.5,
+          "pricing_model": "CPC auction",
+          "notes": "Growing rapidly. Free posting available."
+        },
+        {
+          "name": "Vagas.com",
+          "market_share_pct": 10,
+          "rank": 5,
+          "type": "job_board",
+          "cpc_local": {"min": 0.60, "max": 4.00, "median": 2.00, "currency": "BRL"},
+          "cpc_usd": {"min": 0.11, "max": 0.76, "median": 0.38},
+          "cpa_local": {"min": 6, "max": 35, "median": 18, "currency": "BRL"},
+          "cpa_usd": {"min": 1.14, "max": 6.65, "median": 3.42},
+          "apply_rate_pct": 5.8,
+          "pricing_model": "Subscription + CPC",
+          "notes": "Brazilian-native. Strong in volume hiring and early-career roles."
+        }
+      ],
+      "cph_by_tier": {
+        "currency": "BRL",
+        "entry_level": {"local": 2000, "usd": 380, "notes": "Operacional, atendimento, varejo"},
+        "professional": {"local": 8000, "usd": 1520, "notes": "IT, engenharia, financas. 3-8 years."},
+        "senior": {"local": 25000, "usd": 4750, "notes": "Gerentes, coordenadores"},
+        "executive": {"local": 80000, "usd": 15200, "notes": "Diretores, C-level. Headhunter fees 2-3 monthly salaries."},
+        "reliability": "medium",
+        "source": "Robert Half Brazil Salary Guide 2025, Hays Brazil"
+      },
+      "seasonal_patterns": {
+        "peak_months": ["January", "February", "March", "August", "September"],
+        "low_months": ["June", "July", "December"],
+        "notes": "Jan-Mar: New year budget cycle. Aug-Sep: Post-winter (Southern hemisphere) hiring. Jun-Jul: Festas Juninas and winter break. Dec: Natal/Reveillon shutdown. Carnival (Feb/Mar) causes 1-week pause."
+      },
+      "regulatory": {
+        "notice_period_typical_days": {"min": 30, "max": 90, "common": 30},
+        "key_regulations": [
+          "CLT (Consolidacao das Leis do Trabalho) -- comprehensive labor code",
+          "LGPD (Lei Geral de Protecao de Dados) -- Brazil's GDPR equivalent, effective since 2020",
+          "13th salary (decimo terceiro) mandatory for all CLT employees",
+          "FGTS: Employer deposits 8% of salary monthly into government-managed fund",
+          "Dismissal penalty: 40% of FGTS balance on termination without cause",
+          "Minimum wage: R$1,518/month (from Jan 2025)",
+          "PJ (Pessoa Juridica) contracting common but under regulatory scrutiny"
+        ],
+        "compliance_notes": "CLT provides extensive worker protections. Termination costs are high (40% FGTS penalty + notice period + accrued benefits). PJ (contractor) arrangements are common in tech but carry misclassification risk. LGPD requires explicit consent for candidate data processing."
+      }
+    },
+
+    "mexico": {
+      "name": "Mexico",
+      "region": "latam",
+      "currency": "MXN",
+      "usd_rate": 0.058,
+      "currency_symbol": "$",
+      "market_size": {
+        "active_job_postings_monthly_est": 800000,
+        "annual_hires_est": 5000000,
+        "linkedin_members_millions": 22,
+        "reliability": "medium",
+        "notes": "Nearshoring boom driving manufacturing and IT hiring. 55%+ informal economy."
+      },
+      "platforms": [
+        {
+          "name": "OCC Mundial",
+          "market_share_pct": 28,
+          "rank": 1,
+          "type": "job_board",
+          "cpc_local": {"min": 2.00, "max": 12.00, "median": 5.00, "currency": "MXN"},
+          "cpc_usd": {"min": 0.12, "max": 0.70, "median": 0.29},
+          "cpa_local": {"min": 30, "max": 150, "median": 70, "currency": "MXN"},
+          "cpa_usd": {"min": 1.74, "max": 8.70, "median": 4.06},
+          "apply_rate_pct": 7.0,
+          "pricing_model": "Subscription + per-posting",
+          "notes": "Mexican market leader. 12M+ registered users. Strong in corporate and professional roles."
+        },
+        {
+          "name": "Indeed Mexico",
+          "market_share_pct": 22,
+          "rank": 2,
+          "type": "job_board",
+          "cpc_local": {"min": 1.00, "max": 8.00, "median": 3.50, "currency": "MXN"},
+          "cpc_usd": {"min": 0.06, "max": 0.46, "median": 0.20},
+          "cpa_local": {"min": 15, "max": 100, "median": 45, "currency": "MXN"},
+          "cpa_usd": {"min": 0.87, "max": 5.80, "median": 2.61},
+          "apply_rate_pct": 7.5,
+          "pricing_model": "CPC auction",
+          "notes": "Strong #2. Free posting available. Growing rapidly."
+        },
+        {
+          "name": "LinkedIn Mexico",
+          "market_share_pct": 15,
+          "rank": 3,
+          "type": "professional_network",
+          "cpc_local": {"min": 5.00, "max": 25.00, "median": 12.00, "currency": "MXN"},
+          "cpc_usd": {"min": 0.29, "max": 1.45, "median": 0.70},
+          "cpa_local": {"min": 30, "max": 120, "median": 60, "currency": "MXN"},
+          "cpa_usd": {"min": 1.74, "max": 6.96, "median": 3.48},
+          "apply_rate_pct": 4.0,
+          "pricing_model": "CPC/CPA + Recruiter subscription",
+          "notes": "22M members. Used for professional and management roles."
+        },
+        {
+          "name": "Computrabajo Mexico",
+          "market_share_pct": 15,
+          "rank": 4,
+          "type": "job_board",
+          "cpc_local": {"min": 1.50, "max": 8.00, "median": 4.00, "currency": "MXN"},
+          "cpc_usd": {"min": 0.09, "max": 0.46, "median": 0.23},
+          "cpa_local": {"min": 20, "max": 100, "median": 50, "currency": "MXN"},
+          "cpa_usd": {"min": 1.16, "max": 5.80, "median": 2.90},
+          "apply_rate_pct": 6.5,
+          "pricing_model": "Subscription + per-posting",
+          "notes": "Pan-Latin American board. Strong in volume and blue-collar hiring."
+        }
+      ],
+      "cph_by_tier": {
+        "currency": "MXN",
+        "entry_level": {"local": 5000, "usd": 290, "notes": "Operarios, atencion al cliente, retail"},
+        "professional": {"local": 25000, "usd": 1450, "notes": "IT, ingenieria, contabilidad"},
+        "senior": {"local": 80000, "usd": 4640, "notes": "Gerentes, directores"},
+        "executive": {"local": 250000, "usd": 14500, "notes": "C-level, country directors"},
+        "reliability": "medium",
+        "source": "Hays Mexico Salary Guide 2025, Manpower Mexico"
+      },
+      "seasonal_patterns": {
+        "peak_months": ["January", "February", "March", "September", "October"],
+        "low_months": ["April", "July", "December"],
+        "notes": "Jan-Mar: New year + nearshoring demand. Sep-Oct: Buen Fin preparation (Mexican Black Friday in Nov). Apr: Semana Santa slowdown. Jul: Summer vacations. Dec: Aguinaldo (Christmas bonus) payout period, minimal hiring."
+      },
+      "regulatory": {
+        "notice_period_typical_days": {"min": 0, "max": 30, "common": 15},
+        "key_regulations": [
+          "Ley Federal del Trabajo (Federal Labor Law) governs employment",
+          "Aguinaldo: Mandatory Christmas bonus (minimum 15 days salary)",
+          "Vacaciones: Minimum 12 days after first year (increased by reform 2023)",
+          "PTU (profit sharing): 10% of pre-tax profits distributed to employees",
+          "IMSS (social security): Employer contributions ~25-30% of salary",
+          "Outsourcing reform (2021): Eliminated most third-party payrolling",
+          "NOM-035: Psychosocial risk prevention in workplace",
+          "LFPDPPP: Federal data protection law for private parties"
+        ],
+        "compliance_notes": "2021 outsourcing reform (subcontratacion) banned most staffing models. Only specialized services with REPSE registration allowed. High employer costs (IMSS, Infonavit, PTU). Termination without cause requires 3 months salary + 20 days per year seniority."
+      }
+    },
+
+    "canada": {
+      "name": "Canada",
+      "region": "north_america_ex_us",
+      "currency": "CAD",
+      "usd_rate": 0.74,
+      "currency_symbol": "C$",
+      "market_size": {
+        "active_job_postings_monthly_est": 500000,
+        "annual_hires_est": 3500000,
+        "linkedin_members_millions": 22,
+        "reliability": "high"
+      },
+      "platforms": [
+        {
+          "name": "Indeed Canada",
+          "market_share_pct": 35,
+          "rank": 1,
+          "type": "job_board",
+          "cpc_local": {"min": 0.25, "max": 1.50, "median": 0.80, "currency": "CAD"},
+          "cpc_usd": {"min": 0.19, "max": 1.11, "median": 0.59},
+          "cpa_local": {"min": 5, "max": 30, "median": 15, "currency": "CAD"},
+          "cpa_usd": {"min": 3.70, "max": 22.20, "median": 11.10},
+          "apply_rate_pct": 5.5,
+          "pricing_model": "CPC auction",
+          "notes": "Market leader. Free posting available. Strong across all sectors."
+        },
+        {
+          "name": "LinkedIn Canada",
+          "market_share_pct": 22,
+          "rank": 2,
+          "type": "professional_network",
+          "cpc_local": {"min": 1.50, "max": 7.00, "median": 4.00, "currency": "CAD"},
+          "cpc_usd": {"min": 1.11, "max": 5.18, "median": 2.96},
+          "cpa_local": {"min": 8, "max": 40, "median": 20, "currency": "CAD"},
+          "cpa_usd": {"min": 5.92, "max": 29.60, "median": 14.80},
+          "apply_rate_pct": 3.8,
+          "pricing_model": "CPC/CPA + Recruiter subscription",
+          "notes": "22M members. Premium for professional and tech roles."
+        },
+        {
+          "name": "Job Bank (Government of Canada)",
+          "market_share_pct": 15,
+          "rank": 3,
+          "type": "government_job_board",
+          "cpc_local": {"min": 0, "max": 0, "median": 0, "currency": "CAD"},
+          "apply_rate_pct": 5.0,
+          "pricing_model": "Free (government-funded)",
+          "notes": "Federal government job board. Mandatory for LMIA applications (foreign workers). Bilingual (EN/FR)."
+        },
+        {
+          "name": "Workopolis / Monster Canada",
+          "market_share_pct": 8,
+          "rank": 4,
+          "type": "job_board",
+          "cpc_local": {"min": 0.30, "max": 2.00, "median": 1.00, "currency": "CAD"},
+          "cpc_usd": {"min": 0.22, "max": 1.48, "median": 0.74},
+          "cpa_local": {"min": 5, "max": 25, "median": 12, "currency": "CAD"},
+          "cpa_usd": {"min": 3.70, "max": 18.50, "median": 8.88},
+          "apply_rate_pct": 5.0,
+          "pricing_model": "CPC + subscription",
+          "notes": "Legacy brand. Merged with Indeed traffic in many cases."
+        },
+        {
+          "name": "Jobboom",
+          "market_share_pct": 5,
+          "rank": 5,
+          "type": "job_board",
+          "cpc_local": {"min": 0.20, "max": 1.50, "median": 0.70, "currency": "CAD"},
+          "cpc_usd": {"min": 0.15, "max": 1.11, "median": 0.52},
+          "apply_rate_pct": 5.5,
+          "pricing_model": "Subscription + per-posting",
+          "notes": "Quebec-focused, French-language board. Essential for Montreal/Quebec hiring."
+        }
+      ],
+      "cph_by_tier": {
+        "currency": "CAD",
+        "entry_level": {"local": 3500, "usd": 2590, "notes": "Retail, food service, warehouse"},
+        "professional": {"local": 8000, "usd": 5920, "notes": "IT, finance, engineering, healthcare"},
+        "senior": {"local": 18000, "usd": 13320, "notes": "Directors, senior managers"},
+        "executive": {"local": 45000, "usd": 33300, "notes": "C-suite, board-level"},
+        "reliability": "high",
+        "source": "Robert Half Canada Salary Guide 2026, Hays Canada"
+      },
+      "seasonal_patterns": {
+        "peak_months": ["January", "February", "March", "September", "October"],
+        "low_months": ["July", "August", "December"],
+        "notes": "Very similar to US patterns. Jan-Mar: New year hiring surge. Sep-Oct: Back-to-school, Q4 prep. Jul-Aug: Summer slowdown. Dec: Holiday shutdown."
+      },
+      "regulatory": {
+        "notice_period_typical_days": {"min": 7, "max": 60, "common": 14},
+        "key_regulations": [
+          "Employment standards vary by province (not federal, except federally regulated industries)",
+          "PIPEDA (Personal Information Protection and Electronic Documents Act) governs candidate data",
+          "Employment Equity Act (federal): Designated groups reporting requirements",
+          "LMIA (Labour Market Impact Assessment) required before hiring foreign workers",
+          "Minimum wage varies by province: Ontario C$16.55/hr, BC C$17.40/hr, Alberta C$15.00/hr (2025)",
+          "Pay equity legislation: Federal (2021) and Ontario, Quebec",
+          "Bilingual requirements: Federal positions and Quebec (Bill 96 French language requirements)"
+        ],
+        "compliance_notes": "Provincial fragmentation is the key challenge. Quebec has distinct French language requirements (Bill 96). LMIA process for foreign workers takes 2-4 months. Canada is a top destination for international talent (Express Entry immigration system)."
+      }
+    },
+
+    "south_africa": {
+      "name": "South Africa",
+      "region": "emea",
+      "currency": "ZAR",
+      "usd_rate": 0.055,
+      "currency_symbol": "R",
+      "market_size": {
+        "active_job_postings_monthly_est": 200000,
+        "annual_hires_est": 1500000,
+        "linkedin_members_millions": 11,
+        "reliability": "medium",
+        "notes": "33% unemployment rate (2025). Dual economy: formal sector with global standards, large informal sector. BBBEE compliance required."
+      },
+      "platforms": [
+        {
+          "name": "Careers24",
+          "market_share_pct": 22,
+          "rank": 1,
+          "type": "job_board",
+          "cpc_local": {"min": 3.00, "max": 15.00, "median": 7.00, "currency": "ZAR"},
+          "cpc_usd": {"min": 0.17, "max": 0.83, "median": 0.39},
+          "cpa_local": {"min": 40, "max": 200, "median": 100, "currency": "ZAR"},
+          "cpa_usd": {"min": 2.20, "max": 11.00, "median": 5.50},
+          "apply_rate_pct": 7.0,
+          "pricing_model": "Subscription + per-posting",
+          "notes": "Media24 subsidiary (Naspers). Dominant South African job board."
+        },
+        {
+          "name": "LinkedIn South Africa",
+          "market_share_pct": 20,
+          "rank": 2,
+          "type": "professional_network",
+          "cpc_local": {"min": 8.00, "max": 40.00, "median": 18.00, "currency": "ZAR"},
+          "cpc_usd": {"min": 0.44, "max": 2.20, "median": 0.99},
+          "cpa_local": {"min": 50, "max": 250, "median": 120, "currency": "ZAR"},
+          "cpa_usd": {"min": 2.75, "max": 13.75, "median": 6.60},
+          "apply_rate_pct": 3.8,
+          "pricing_model": "CPC/CPA + Recruiter subscription",
+          "notes": "11M members. Premium for professional and management roles."
+        },
+        {
+          "name": "Indeed South Africa",
+          "market_share_pct": 18,
+          "rank": 3,
+          "type": "job_board",
+          "cpc_local": {"min": 2.00, "max": 12.00, "median": 5.00, "currency": "ZAR"},
+          "cpc_usd": {"min": 0.11, "max": 0.66, "median": 0.28},
+          "cpa_local": {"min": 25, "max": 150, "median": 70, "currency": "ZAR"},
+          "cpa_usd": {"min": 1.38, "max": 8.25, "median": 3.85},
+          "apply_rate_pct": 6.5,
+          "pricing_model": "CPC auction",
+          "notes": "Growing market share. Free posting available."
+        },
+        {
+          "name": "PNet",
+          "market_share_pct": 15,
+          "rank": 4,
+          "type": "job_board",
+          "cpc_local": {"min": 3.00, "max": 18.00, "median": 8.00, "currency": "ZAR"},
+          "cpc_usd": {"min": 0.17, "max": 0.99, "median": 0.44},
+          "cpa_local": {"min": 35, "max": 180, "median": 90, "currency": "ZAR"},
+          "cpa_usd": {"min": 1.93, "max": 9.90, "median": 4.95},
+          "apply_rate_pct": 5.5,
+          "pricing_model": "Subscription + CPC",
+          "notes": "StepStone Group subsidiary. Strong in IT, finance, and engineering."
+        }
+      ],
+      "cph_by_tier": {
+        "currency": "ZAR",
+        "entry_level": {"local": 10000, "usd": 550, "notes": "Admin, retail, hospitality, warehouse"},
+        "professional": {"local": 40000, "usd": 2200, "notes": "IT, finance, engineering, mining"},
+        "senior": {"local": 100000, "usd": 5500, "notes": "Directors, senior managers"},
+        "executive": {"local": 300000, "usd": 16500, "notes": "C-suite, MD level"},
+        "reliability": "medium",
+        "source": "Robert Half South Africa Salary Guide 2025, Hays Africa"
+      },
+      "seasonal_patterns": {
+        "peak_months": ["January", "February", "March", "August", "September"],
+        "low_months": ["June", "July", "December"],
+        "notes": "Southern hemisphere. Jan-Mar: New year hiring (biggest month). Aug-Sep: Mid-year budget cycle. Jun-Jul: Winter slowdown. Dec: Summer holiday shutdown (Christmas to mid-January). Load shedding (power cuts) disrupts operations."
+      },
+      "regulatory": {
+        "notice_period_typical_days": {"min": 7, "max": 30, "common": 30},
+        "key_regulations": [
+          "Labour Relations Act (LRA) -- strong dismissal protections",
+          "Basic Conditions of Employment Act (BCEA) -- minimum standards",
+          "Employment Equity Act (EEA) -- affirmative action requirements",
+          "BBBEE (Broad-Based Black Economic Empowerment) -- scorecard compliance required",
+          "POPIA (Protection of Personal Information Act) -- South Africa's data privacy law (effective 2021)",
+          "National Minimum Wage: R27.58/hr (from Mar 2025)",
+          "CCMA (Commission for Conciliation, Mediation and Arbitration) handles disputes"
+        ],
+        "compliance_notes": "BBBEE compliance is critical -- affects ability to win government contracts and large corporate tenders. Employment Equity plans required for employers with 50+ employees. CCMA unfair dismissal process is heavily used. POPIA requires lawful basis for candidate data processing."
+      }
+    },
+
+    "israel": {
+      "name": "Israel",
+      "region": "middle_east_africa",
+      "currency": "ILS",
+      "usd_rate": 0.28,
+      "currency_symbol": "₪",
+      "market_size": {
+        "active_job_postings_monthly_est": 120000,
+        "annual_hires_est": 800000,
+        "linkedin_members_millions": 4,
+        "reliability": "medium",
+        "notes": "Start-Up Nation: highest density of startups per capita globally. Tech sector drives 15%+ of GDP. Geopolitical risks impact hiring cycles."
+      },
+      "platforms": [
+        {
+          "name": "AllJobs",
+          "market_share_pct": 30,
+          "rank": 1,
+          "type": "job_board",
+          "cpc_local": {"min": 1.50, "max": 8.00, "median": 4.00, "currency": "ILS"},
+          "cpc_usd": {"min": 0.42, "max": 2.24, "median": 1.12},
+          "cpa_local": {"min": 20, "max": 100, "median": 50, "currency": "ILS"},
+          "cpa_usd": {"min": 5.60, "max": 28.00, "median": 14.00},
+          "apply_rate_pct": 5.5,
+          "pricing_model": "Subscription + per-posting",
+          "notes": "Dominant Israeli job board. 4M+ registered users in a 9.8M population."
+        },
+        {
+          "name": "LinkedIn Israel",
+          "market_share_pct": 25,
+          "rank": 2,
+          "type": "professional_network",
+          "cpc_local": {"min": 3.00, "max": 15.00, "median": 8.00, "currency": "ILS"},
+          "cpc_usd": {"min": 0.84, "max": 4.20, "median": 2.24},
+          "cpa_local": {"min": 25, "max": 120, "median": 60, "currency": "ILS"},
+          "cpa_usd": {"min": 7.00, "max": 33.60, "median": 16.80},
+          "apply_rate_pct": 3.5,
+          "pricing_model": "CPC/CPA + Recruiter subscription",
+          "notes": "4M members. Essential for tech and startup hiring."
+        },
+        {
+          "name": "Drushim",
+          "market_share_pct": 18,
+          "rank": 3,
+          "type": "job_board",
+          "cpc_local": {"min": 1.00, "max": 6.00, "median": 3.00, "currency": "ILS"},
+          "cpc_usd": {"min": 0.28, "max": 1.68, "median": 0.84},
+          "cpa_local": {"min": 15, "max": 80, "median": 40, "currency": "ILS"},
+          "cpa_usd": {"min": 4.20, "max": 22.40, "median": 11.20},
+          "apply_rate_pct": 6.0,
+          "pricing_model": "Subscription + per-posting",
+          "notes": "Hebrew-language board. Strong in non-tech sectors."
+        },
+        {
+          "name": "Indeed Israel",
+          "market_share_pct": 10,
+          "rank": 4,
+          "type": "job_board",
+          "cpc_local": {"min": 0.80, "max": 5.00, "median": 2.50, "currency": "ILS"},
+          "cpc_usd": {"min": 0.22, "max": 1.40, "median": 0.70},
+          "cpa_local": {"min": 10, "max": 60, "median": 30, "currency": "ILS"},
+          "cpa_usd": {"min": 2.80, "max": 16.80, "median": 8.40},
+          "apply_rate_pct": 5.8,
+          "pricing_model": "CPC auction",
+          "notes": "Growing presence. English and Hebrew listings."
+        }
+      ],
+      "cph_by_tier": {
+        "currency": "ILS",
+        "entry_level": {"local": 12000, "usd": 3360, "notes": "Admin, retail, service sector"},
+        "professional": {"local": 35000, "usd": 9800, "notes": "Software engineers, finance, marketing. Tech salaries approach US levels."},
+        "senior": {"local": 80000, "usd": 22400, "notes": "Team leads, senior engineers, directors"},
+        "executive": {"local": 200000, "usd": 56000, "notes": "CTO, VP R&D, CEO. Tech startup executives often US-competitive compensation."},
+        "reliability": "medium",
+        "source": "Start-Up Nation Central 2025, Ethosia-Zviran Salary Survey"
+      },
+      "seasonal_patterns": {
+        "peak_months": ["January", "February", "March", "September", "November"],
+        "low_months": ["April", "July", "August", "October"],
+        "notes": "Jewish holidays (Sep-Oct: Rosh Hashana, Yom Kippur, Sukkot) cause 3-4 week hiring pause. Apr: Pesach week. Jul-Aug: Summer vacations and military reserve duty. Jan-Mar: Post-holiday hiring surge."
+      },
+      "regulatory": {
+        "notice_period_typical_days": {"min": 14, "max": 30, "common": 30},
+        "key_regulations": [
+          "Employment Law is primarily based on individual statutes (no single labor code)",
+          "Mandatory pension: Employer contributes 6.5% + 6% severance component",
+          "Severance pay: 1 month salary per year of employment (accumulated monthly since 2008)",
+          "Privacy Protection Law (1981) + regulations govern employee data",
+          "Equal Employment Opportunities Law prohibits discrimination",
+          "Minimum wage: NIS 5,880/month (from Apr 2025)",
+          "Foreign workers: B-1 work visa requires employer sponsorship, strict quotas"
+        ],
+        "compliance_notes": "Mandatory military service (2-3 years) affects workforce availability for 18-21 age group. Tech sector competes globally for talent with US-level salaries. Pension and severance contributions add ~20% to salary costs."
+      }
+    }
+  },
+
+  "cross_market_comparisons": {
+    "cpc_comparison_usd": {
+      "description": "Median CPC in USD across top platform per country (for quick comparison)",
+      "data": [
+        {"country": "India", "platform": "Naukri", "median_cpc_usd": 0.18},
+        {"country": "Philippines", "platform": "JobStreet", "median_cpc_usd": 0.22},
+        {"country": "Mexico", "platform": "OCC Mundial", "median_cpc_usd": 0.29},
+        {"country": "Brazil", "platform": "Catho", "median_cpc_usd": 0.57},
+        {"country": "South Africa", "platform": "Careers24", "median_cpc_usd": 0.39},
+        {"country": "France", "platform": "Indeed FR", "median_cpc_usd": 0.60},
+        {"country": "Japan", "platform": "Recruit", "median_cpc_usd": 0.80},
+        {"country": "UK", "platform": "Indeed UK", "median_cpc_usd": 0.83},
+        {"country": "Netherlands", "platform": "Indeed NL", "median_cpc_usd": 0.76},
+        {"country": "Canada", "platform": "Indeed CA", "median_cpc_usd": 0.59},
+        {"country": "Singapore", "platform": "Indeed SG", "median_cpc_usd": 0.90},
+        {"country": "UAE", "platform": "Bayt", "median_cpc_usd": 0.68},
+        {"country": "Israel", "platform": "AllJobs", "median_cpc_usd": 1.12},
+        {"country": "Germany", "platform": "StepStone", "median_cpc_usd": 1.42},
+        {"country": "Australia", "platform": "Seek", "median_cpc_usd": 1.95},
+        {"country": "US (reference)", "platform": "Indeed US", "median_cpc_usd": 0.92}
+      ],
+      "reliability": "medium",
+      "notes": "For comparison purposes. Actual CPC varies significantly by role, industry, and location within each country."
+    },
+    "cph_entry_level_comparison_usd": {
+      "description": "Entry-level CPH in USD for cross-market budgeting",
+      "data": [
+        {"country": "Philippines", "cph_usd": 144},
+        {"country": "India", "cph_usd": 180},
+        {"country": "Mexico", "cph_usd": 290},
+        {"country": "Brazil", "cph_usd": 380},
+        {"country": "South Africa", "cph_usd": 550},
+        {"country": "UAE", "cph_usd": 2178},
+        {"country": "Canada", "cph_usd": 2590},
+        {"country": "Singapore", "cph_usd": 3000},
+        {"country": "UK", "cph_usd": 3175},
+        {"country": "Australia", "cph_usd": 3250},
+        {"country": "Israel", "cph_usd": 3360},
+        {"country": "France", "cph_usd": 3815},
+        {"country": "Netherlands", "cph_usd": 3815},
+        {"country": "Germany", "cph_usd": 4360},
+        {"country": "Japan", "cph_usd": 2345},
+        {"country": "US (reference)", "cph_usd": 4800}
+      ]
+    },
+    "platform_presence_matrix": {
+      "description": "Which global platforms operate in which markets",
+      "data": {
+        "indeed": ["india", "australia", "japan", "singapore", "philippines", "uk", "germany", "france", "uae", "netherlands", "brazil", "mexico", "canada", "south_africa", "israel"],
+        "linkedin": ["india", "australia", "japan", "singapore", "philippines", "uk", "germany", "france", "uae", "netherlands", "brazil", "mexico", "canada", "south_africa", "israel"],
+        "glassdoor": ["uk", "germany", "france", "canada", "australia", "india", "brazil"],
+        "stepstone_group": ["germany", "netherlands", "uk", "south_africa"],
+        "seek_group": ["australia", "singapore", "philippines", "brazil"],
+        "jobstreet": ["singapore", "philippines"]
+      }
+    }
+  },
+
+  "global_insights": {
+    "cost_tiers": {
+      "description": "Markets grouped by overall recruitment cost level",
+      "tier_1_low_cost": {
+        "countries": ["india", "philippines", "mexico", "brazil"],
+        "avg_cph_range_usd": "144-380 (entry), 720-1520 (professional)",
+        "notes": "High volume, low unit cost. Significant informal economy. Currency advantage for US/EU employers."
+      },
+      "tier_2_moderate_cost": {
+        "countries": ["south_africa", "japan", "uae"],
+        "avg_cph_range_usd": "550-2345 (entry), 2200-6806 (professional)",
+        "notes": "Mixed markets with pockets of high competition (UAE expat, Japan tech)."
+      },
+      "tier_3_high_cost": {
+        "countries": ["canada", "uk", "australia", "singapore", "israel", "netherlands", "france", "germany"],
+        "avg_cph_range_usd": "2590-4360 (entry), 5920-10900 (professional)",
+        "notes": "Mature markets with strong labor protections, high wages, and competitive talent markets. Approaching or exceeding US costs."
+      }
+    },
+    "gdpr_applicability": {
+      "full_gdpr": ["germany", "france", "netherlands"],
+      "gdpr_equivalent": ["uk", "brazil", "south_africa", "japan", "singapore", "india", "israel", "australia", "canada"],
+      "partial_coverage": ["uae", "philippines", "mexico"],
+      "notes": "All EU/EEA countries under GDPR. UK has its own UK GDPR. Brazil (LGPD), South Africa (POPIA), Japan (APPI), Singapore (PDPA), India (DPDPA), Australia (Privacy Act + APPs), Canada (PIPEDA), Israel (Privacy Protection Law) have equivalent legislation."
+    },
+    "linkedin_penetration": {
+      "description": "LinkedIn members as percentage of working-age population",
+      "high_penetration": [
+        {"country": "netherlands", "pct": 56, "notes": "Highest globally"},
+        {"country": "singapore", "pct": 65, "notes": "Highest per capita"},
+        {"country": "uae", "pct": 55, "notes": "Expat-driven"},
+        {"country": "australia", "pct": 45},
+        {"country": "uk", "pct": 42},
+        {"country": "canada", "pct": 38},
+        {"country": "israel", "pct": 35}
+      ],
+      "medium_penetration": [
+        {"country": "france", "pct": 32},
+        {"country": "germany", "pct": 24},
+        {"country": "brazil", "pct": 23},
+        {"country": "india", "pct": 9}
+      ],
+      "low_penetration": [
+        {"country": "mexico", "pct": 12},
+        {"country": "south_africa", "pct": 10},
+        {"country": "philippines", "pct": 7},
+        {"country": "japan", "pct": 4, "notes": "XING-equivalent (XING is DACH only, not Japan) -- Japan uses domestic platforms"}
+      ]
+    }
+  }
+}

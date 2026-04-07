@@ -338,6 +338,8 @@ _SOURCE_DISPLAY_NAMES: dict[str, str] = {
     "external_benchmarks_2025 (24 analyst reports aggregated)": "2025 Industry Analyst Reports (24 Sources)",
     "external_benchmarks_2025 (24 analyst reports)": "2025 Industry Analyst Reports (24 Sources)",
     "external_benchmarks_2025 (24 reports)": "2025 Industry Analyst Reports (24 Sources)",
+    "international_benchmarks_2026": "International Recruitment Benchmarks 2026",
+    "international_benchmarks_2026 (15 countries)": "International Recruitment Benchmarks (15 Countries)",
     "linkedin_guidewire": "LinkedIn Hiring Intelligence",
     "employer_brand": "Employer Brand Intelligence",
     # Tool/engine source labels
@@ -3305,6 +3307,7 @@ class Nova:
             "external_benchmarks": "external_benchmarks_2025.json",
             "client_media_plans": "client_media_plans_kb.json",
             "international_sources": "international_sources.json",
+            "international_benchmarks": "international_benchmarks_2026.json",
         }
         for _cache_key, _rf_name in _research_files.items():
             _rf_path = os.path.join(str(DATA_DIR), _rf_name)
@@ -5787,6 +5790,34 @@ Never invent plausible-sounding numbers when data is unavailable. State the gap 
                             }
                             for k, v in sources.items()
                         },
+                    }
+            # Merge international benchmarks (15 countries, CPC/CPA/CPH by market)
+            intl_bench = self._data_cache.get("international_benchmarks", {})
+            if intl_bench:
+                countries = intl_bench.get("countries", {})
+                # Check if query matches a specific country
+                _q_lower = (query or "").lower()
+                _matched_country = None
+                for _ckey, _cval in countries.items():
+                    _cname = (_cval.get("name") or "").lower()
+                    if _ckey in _q_lower or _cname in _q_lower:
+                        _matched_country = _ckey
+                        break
+                if _matched_country:
+                    result["international_benchmarks"] = {
+                        "country": _matched_country,
+                        "data": countries[_matched_country],
+                        "source": "international_benchmarks_2026 (15 countries)",
+                    }
+                else:
+                    result["international_benchmarks"] = {
+                        "available_countries": list(countries.keys()),
+                        "regions": intl_bench.get("regions", {}),
+                        "cross_market_comparisons": intl_bench.get(
+                            "cross_market_comparisons", {}
+                        ),
+                        "global_insights": intl_bench.get("global_insights", {}),
+                        "source": "international_benchmarks_2026 (15 countries)",
                     }
 
         # Merge vector search results into response
