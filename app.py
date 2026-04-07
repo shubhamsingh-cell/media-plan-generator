@@ -5835,6 +5835,31 @@ def _build_csrf_cookie(token: str, *, secure: bool) -> str:
     return "; ".join(parts)
 
 
+def _build_session_cookie(token: str, secure: bool = False) -> str:
+    """Build a HttpOnly session cookie for IDOR prevention.
+
+    This cookie is separate from csrf_token: the CSRF cookie must be readable
+    by JavaScript (no HttpOnly) so it can be sent in the X-CSRF-Token header.
+    The session cookie is HttpOnly and used purely server-side for job ownership.
+
+    Args:
+        token: The session token string (same value as CSRF token at creation time).
+        secure: Whether to include the Secure flag (True for HTTPS).
+
+    Returns:
+        A fully-formed Set-Cookie header value.
+    """
+    parts = [
+        f"nova_session={token}",
+        "Path=/",
+        "SameSite=Strict",
+        "HttpOnly",
+    ]
+    if secure:
+        parts.append("Secure")
+    return "; ".join(parts)
+
+
 def _parse_cookie_value(cookie_header: str, name: str) -> str:
     """Extract a named value from a Cookie header string.
 
@@ -8888,10 +8913,13 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
         _idempotency_store(idem_key, response_body, status_code)
 
     def _check_admin_auth(self):
-        """Check for admin API key via Authorization header OR ?key= query param.
+        """Check for admin API key via Authorization header or X-Admin-Key header.
         Uses hmac.compare_digest for timing-safe comparison to prevent
         timing side-channel attacks on the API key.
-        SECURITY: Fails closed -- rejects if ADMIN_API_KEY is not configured."""
+        SECURITY: Fails closed -- rejects if ADMIN_API_KEY is not configured.
+        NOTE: Query parameter auth (?key=) is deliberately NOT supported because
+        URL query strings are logged in server access logs, browser history,
+        proxy logs, and Referer headers -- all of which leak the secret."""
         if not ADMIN_API_KEY:
             return False  # No key configured = reject (fail closed)
         import hmac
@@ -8902,12 +8930,56 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             key = auth[7:]
             if key and hmac.compare_digest(key, ADMIN_API_KEY):
                 return True
-        # Method 2: ?key=<key> query parameter (browser / dashboard access)
-        parsed = urllib.parse.urlparse(self.path)
-        params = urllib.parse.parse_qs(parsed.query)
-        key_param = params.get("key", [None])[0]
-        if key_param and hmac.compare_digest(key_param, ADMIN_API_KEY):
+        # Method 2: X-Admin-Key header (dashboard / browser access)
+        admin_key_header = self.headers.get("X-Admin-Key") or ""
+        if admin_key_header and hmac.compare_digest(admin_key_header, ADMIN_API_KEY):
             return True
+        return False
+
+    def _check_joveo_auth(self) -> bool:
+        """Check if request is from an authenticated @joveo.com user or has valid API key.
+
+        Three authentication paths:
+          1. X-Nova-Api-Key header (for embedded widgets on CG/GeoViz)
+          2. Supabase JWT with @joveo.com email (base64 payload decode, no crypto)
+          3. Cookie-based session (nova_user_email set by auth gate)
+
+        Returns:
+            True if the request is authorized, False otherwise.
+        """
+        import base64
+
+        # Path 1: API key bypass (for embedded widgets on CG/GeoViz)
+        api_key = self.headers.get("X-Nova-Api-Key") or ""
+        if api_key:
+            allowed_keys = (os.environ.get("NOVA_API_KEYS") or "").split(",")
+            if api_key.strip() in [k.strip() for k in allowed_keys if k.strip()]:
+                return True
+
+        # Path 2: Supabase JWT with @joveo.com email
+        auth_header = self.headers.get("Authorization") or ""
+        if auth_header.startswith("Bearer "):
+            token = auth_header[7:]
+            try:
+                # JWT format: header.payload.signature -- decode payload
+                parts = token.split(".")
+                if len(parts) >= 2:
+                    payload = parts[1]
+                    # Add padding for base64
+                    payload += "=" * (4 - len(payload) % 4)
+                    decoded = json.loads(base64.urlsafe_b64decode(payload))
+                    email = (decoded.get("email") or "").lower().strip()
+                    if email.endswith("@joveo.com"):
+                        return True
+            except Exception:
+                pass
+
+        # Path 3: Check cookie-based session
+        cookie = self.headers.get("Cookie") or ""
+        session_email = _parse_cookie_value(cookie, "nova_user_email")
+        if session_email and session_email.lower().strip().endswith("@joveo.com"):
+            return True
+
         return False
 
     def _check_rate_limit(self):
@@ -9493,6 +9565,9 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.send_header("Set-Cookie", cookie_val)
+            # C1 fix: Set a separate HttpOnly session cookie for IDOR prevention
+            session_cookie_val = _build_session_cookie(token, secure=is_https)
+            self.send_header("Set-Cookie", session_cookie_val)
             cors_origin = self._get_cors_origin()
             if cors_origin:
                 self.send_header("Access-Control-Allow-Origin", cors_origin)
@@ -9528,6 +9603,17 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                             _user_avatar = (_user_data.get("user_metadata") or {}).get(
                                 "avatar_url", ""
                             )
+
+                            # S46: Server-side domain enforcement
+                            if not _user_email.lower().strip().endswith("@joveo.com"):
+                                self._send_json(
+                                    {
+                                        "authenticated": False,
+                                        "error": "Only @joveo.com accounts are allowed",
+                                    },
+                                    status_code=403,
+                                )
+                                return
 
                             # S40: Log successful auth to nova_login_log (best-effort)
                             try:
@@ -9578,81 +9664,31 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             self._send_json({"authenticated": False, "user": None})
 
         elif path == "/api/slack/status":
-            # ── Slack Bot Diagnostic Endpoint (admin-protected) ──
+            # ── Slack Bot Status Endpoint (admin-protected) ──
+            # H4 fix: Only expose healthy/unhealthy status -- no internal
+            # configuration, key presence, URLs, or exception details.
             if not self._check_admin_auth():
                 self._send_json({"error": "Unauthorized"}, status_code=401)
                 return
             _slack_bot_token = os.environ.get("SLACK_BOT_TOKEN") or ""
             _slack_signing_secret = os.environ.get("SLACK_SIGNING_SECRET") or ""
-            diag = {
-                "slack_bot_token": "SET" if _slack_bot_token else "NOT SET",
-                "slack_signing_secret": "SET" if _slack_signing_secret else "NOT SET",
-                "anthropic_api_key": (
-                    "SET" if os.environ.get("ANTHROPIC_API_KEY") or "" else "NOT SET"
-                ),
-                "event_endpoint": "/api/slack/events",
-                "event_endpoint_url": os.environ.get(
-                    "BASE_URL", "https://media-plan-generator.onrender.com"
-                )
-                + "/api/slack/events",
-                "admin_endpoint": "/api/admin/nova",
-            }
-            # Try to instantiate bot and check auth
-            try:
-                from nova_slack import get_nova_bot
+            _is_healthy = bool(_slack_bot_token and _slack_signing_secret)
+            if _is_healthy:
+                try:
+                    from nova_slack import get_nova_bot
 
-                bot = get_nova_bot()
-                diag["bot_user_id"] = (
-                    bot.bot_user_id or "NOT AUTHENTICATED (auth.test failed)"
+                    bot = get_nova_bot()
+                    _is_healthy = bool(bot.bot_user_id)
+                except Exception as e:
+                    logger.error("Slack bot health check failed: %s", e, exc_info=True)
+                    _is_healthy = False
+            if _is_healthy:
+                self._send_json({"status": "healthy"})
+            else:
+                self._send_json(
+                    {"status": "unhealthy", "error": "service unavailable"},
+                    status_code=503,
                 )
-                diag["nova_engine"] = "LOADED" if bot._iq_engine else "NOT LOADED"
-                diag["learned_answers_count"] = len(
-                    bot.learned_answers.get("answers") or []
-                )
-                diag["unanswered_count"] = len(
-                    [
-                        q
-                        for q in bot.unanswered.get("questions") or []
-                        if q.get("status") == "pending"
-                    ]
-                )
-            except Exception as e:
-                diag["bot_status"] = f"ERROR: {e}"
-            # Setup checklist
-            checks = []
-            if not _slack_bot_token:
-                checks.append(
-                    "MISSING: Set SLACK_BOT_TOKEN env var (xoxb-...) in Render dashboard"
-                )
-            elif not _slack_bot_token.startswith("xoxb-"):
-                checks.append("WRONG FORMAT: SLACK_BOT_TOKEN should start with 'xoxb-'")
-            if not _slack_signing_secret:
-                checks.append(
-                    "MISSING: Set SLACK_SIGNING_SECRET env var in Render dashboard"
-                )
-            if not os.environ.get("ANTHROPIC_API_KEY") or "":
-                checks.append(
-                    "MISSING: Set ANTHROPIC_API_KEY for Nova chatbot intelligence"
-                )
-            if (diag.get("bot_user_id") or "").startswith("NOT"):
-                checks.append(
-                    "AUTH FAILED: Bot token invalid or bot not installed to workspace"
-                )
-            if not checks:
-                checks.append("ALL CHECKS PASSED - Slack bot should be operational")
-            diag["setup_checklist"] = checks
-            diag["required_slack_scopes"] = [
-                "app_mentions:read",
-                "chat:write",
-                "channels:history",
-                "channels:read",
-                "im:history",
-                "im:read",
-                "im:write",
-                "users:read",
-            ]
-            diag["required_bot_events"] = ["app_mention", "message.im"]
-            self._send_json(diag)
         elif path.startswith("/google") and path.endswith(".html") and len(path) < 60:
             # Google Search Console verification file
             _static = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
@@ -10259,9 +10295,12 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     )
                     return
                 # Bug #14 fix: Validate session owns this job (IDOR prevention)
+                # C1 fix: Use nova_session (HttpOnly) cookie, fallback to csrf_token
                 _job_session = job.get("_session_token") or ""
                 if _job_session:
                     _poll_csrf = _parse_cookie_value(
+                        self.headers.get("Cookie") or "", "nova_session"
+                    ) or _parse_cookie_value(
                         self.headers.get("Cookie") or "", "csrf_token"
                     )
                     if not hmac.compare_digest(_job_session, _poll_csrf):
@@ -10453,7 +10492,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 )
             except Exception as e:
                 logger.error(f"Plan events list error: {e}", exc_info=True)
-                self._send_json({"error": str(e)}, status_code=500)
+                self._send_json({"error": _internal_error_msg()}, status_code=500)
         # ── Event-sourced plan state (audit trail, time-travel) ──
         elif path.startswith("/api/plan/events/"):
             _es_plan_id = path.split("/")[-1]
@@ -10478,7 +10517,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 )
             except Exception as e:
                 logger.error(f"Event store GET error: {e}", exc_info=True)
-                self._send_json({"error": str(e)}, status_code=500)
+                self._send_json({"error": _internal_error_msg()}, status_code=500)
         elif path.startswith("/api/plan/state/"):
             _es_plan_id = path.split("/")[-1]
             if not _es_plan_id:
@@ -10509,7 +10548,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 )
             except Exception as e:
                 logger.error(f"Event store state GET error: {e}", exc_info=True)
-                self._send_json({"error": str(e)}, status_code=500)
+                self._send_json({"error": _internal_error_msg()}, status_code=500)
         # ── Event-sourced plan state machine (plan_events module) ──
         elif path.startswith("/api/plans/") and path.endswith("/history"):
             # GET /api/plans/<plan_id>/history
@@ -10542,7 +10581,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 )
             except Exception as e:
                 logger.error(f"Plan events history error: {e}", exc_info=True)
-                self._send_json({"error": str(e)}, status_code=500)
+                self._send_json({"error": _internal_error_msg()}, status_code=500)
         # NOTE: /plan/{id} shareable view now handled by routes/campaign.py
         # ── Feature 5a: SLO compliance ──
         # ── Platform Observability (aggregated health dashboard) ──
@@ -10601,7 +10640,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     self._send_json(
                         {
                             "available": True,
-                            "error": f"Status check failed: {_e}",
+                            "error": "Status check failed",
                             "apis": {},
                         }
                     )
@@ -10765,7 +10804,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 )
             except Exception as exc:
                 logger.error("Scraper status error: %s", exc, exc_info=True)
-                self._send_json({"error": str(exc)})
+                self._send_json({"error": _internal_error_msg()}, status_code=500)
         # ── Sentry Integration Status + Recent Issues ──
         elif path == "/api/sentry/issues":
             if not self._check_admin_auth():
@@ -10932,7 +10971,8 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     limit = int(params.get("limit", ["20"])[0])
                     self._send_json({"insights": get_insights(limit)})
             except Exception as e:
-                self._send_json({"insights": [], "error": str(e)})
+                logger.error("Insights list error: %s", e, exc_info=True)
+                self._send_json({"insights": [], "error": _internal_error_msg()})
 
         elif path == "/api/insights/stats":
             try:
@@ -10940,7 +10980,8 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
 
                 self._send_json(get_proactive_stats())
             except Exception as e:
-                self._send_json({"error": str(e)})
+                logger.error("Proactive stats error: %s", e, exc_info=True)
+                self._send_json({"error": _internal_error_msg()}, status_code=500)
 
         # ── Outcome Pipeline: prediction accuracy report ──
         elif path == "/api/outcomes/accuracy":
@@ -11255,7 +11296,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 self._send_json(stats)
             except Exception as exc:
                 logger.error("Chroma RAG stats error: %s", exc, exc_info=True)
-                self._send_json({"error": str(exc)}, status_code=500)
+                self._send_json({"error": _internal_error_msg()}, status_code=500)
 
         # ── Nova Intelligent Cache: GET /api/nova/cache/stats ──
         elif path == "/api/nova/cache/stats":
@@ -11272,7 +11313,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 self._send_json(stats)
             except Exception as exc:
                 logger.error("Nova cache stats error: %s", exc, exc_info=True)
-                self._send_json({"error": str(exc)}, status_code=500)
+                self._send_json({"error": _internal_error_msg()}, status_code=500)
 
         # ── Slack Alerts MCP: GET /api/slack/alerts/status ──
         elif path == "/api/slack/alerts/status":
@@ -11286,7 +11327,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 self._send_json(status)
             except Exception as exc:
                 logger.error("Slack alerts status error: %s", exc, exc_info=True)
-                self._send_json({"error": str(exc)}, status_code=500)
+                self._send_json({"error": _internal_error_msg()}, status_code=500)
 
         # NOTE: /api/pricing/live now handled by routes/pricing.py
         # NOTE: /api/campaign/list, /auto-qc, /eval-framework now handled by
@@ -11630,6 +11671,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             # Used for optional server-side session tracking
             try:
                 content_length = int(self.headers.get("Content-Length") or 0)
+                if content_length > 102400:  # 100KB limit
+                    self._send_error("Request too large", "PAYLOAD_TOO_LARGE", 413)
+                    return
                 body = self.rfile.read(content_length) if content_length > 0 else b"{}"
                 auth_data = json.loads(body.decode("utf-8"))
                 logger.info(
@@ -11688,6 +11732,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 _pe_store = _get_pe_store()
                 # Read optional user_id from body
                 content_len = int(self.headers.get("Content-Length") or 0)
+                if content_len > 102400:  # 100KB limit
+                    self._send_error("Request too large", "PAYLOAD_TOO_LARGE", 413)
+                    return
                 raw = self.rfile.read(content_len) if content_len else b"{}"
                 body = json.loads(raw) if raw.strip() else {}
                 pe_user = body.get("user_id") or "system"
@@ -11707,12 +11754,16 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 self._send_json({"error": str(ve)}, status_code=400)
             except Exception as e:
                 logger.error(f"Plan events undo error: {e}", exc_info=True)
-                self._send_json({"error": str(e)}, status_code=500)
+                self._send_json({"error": _internal_error_msg()}, status_code=500)
             return
 
         # ── Event-sourced plan state (legacy event_store): undo / redo ──
         if path.startswith("/api/plan/events/") and path.endswith("/undo"):
             # POST /api/plan/events/<plan_id>/undo
+            _undo_cl = int(self.headers.get("Content-Length") or 0)
+            if _undo_cl > 102400:  # 100KB limit
+                self._send_error("Request too large", "PAYLOAD_TOO_LARGE", 413)
+                return
             parts = path.split("/")
             # Expected: ['', 'api', 'plan', 'events', '<plan_id>', 'undo']
             _es_plan_id = parts[4] if len(parts) >= 6 else ""
@@ -11732,10 +11783,14 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 )
             except Exception as e:
                 logger.error(f"Event store undo error: {e}", exc_info=True)
-                self._send_json({"error": str(e)}, status_code=500)
+                self._send_json({"error": _internal_error_msg()}, status_code=500)
             return
         if path.startswith("/api/plan/events/") and path.endswith("/redo"):
             # POST /api/plan/events/<plan_id>/redo
+            _redo_cl = int(self.headers.get("Content-Length") or 0)
+            if _redo_cl > 102400:  # 100KB limit
+                self._send_error("Request too large", "PAYLOAD_TOO_LARGE", 413)
+                return
             parts = path.split("/")
             _es_plan_id = parts[4] if len(parts) >= 6 else ""
             if not _es_plan_id:
@@ -11754,10 +11809,18 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 )
             except Exception as e:
                 logger.error(f"Event store redo error: {e}", exc_info=True)
-                self._send_json({"error": str(e)}, status_code=500)
+                self._send_json({"error": _internal_error_msg()}, status_code=500)
             return
         # ── Multi-Agent Negotiation (Linear JOV-23) ──
         if path == "/api/plan/negotiate":
+            # ── S46: Server-side @joveo.com domain enforcement ──
+            if not self._check_joveo_auth() and not self._check_admin_auth():
+                self._send_error(
+                    "Authentication required. Please sign in with your @joveo.com account.",
+                    "AUTH_REQUIRED",
+                    401,
+                )
+                return
             try:
                 content_len = int(self.headers.get("Content-Length") or 0)
                 raw = self.rfile.read(content_len) if content_len else b"{}"
@@ -11776,7 +11839,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 )
             except Exception as e:
                 logger.error(f"Plan negotiate error: {e}", exc_info=True)
-                self._send_json({"error": str(e)}, status_code=500)
+                self._send_json({"error": _internal_error_msg()}, status_code=500)
             return
 
         # ── Plan Templates Marketplace: Fork ──
@@ -11817,6 +11880,14 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             return
 
         if path == "/api/generate":
+            # ── S46: Server-side @joveo.com domain enforcement ──
+            if not self._check_joveo_auth() and not self._check_admin_auth():
+                self._send_error(
+                    "Authentication required. Please sign in with your @joveo.com account.",
+                    "AUTH_REQUIRED",
+                    401,
+                )
+                return
             # ── START TIMEOUT TIMER IMMEDIATELY ──
             # Must cover entire pipeline: validation + enrichment (60s+) + excel generation
             _gen_timeout_flag: threading.Event = threading.Event()
@@ -12164,6 +12235,42 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 )
                 return
 
+            # ── Budget period normalization (monthly/quarterly/annual → campaign total) ──
+            _budget_period = (
+                str(data.get("budget_period") or "campaign").strip().lower()
+            )
+            if _budget_period in ("monthly", "quarterly", "annual"):
+                _dur_str = str(data.get("campaign_duration") or "").lower()
+                # Extract campaign duration in months from strings like "3 months", "6 months", "1 year"
+                _dur_months = 1
+                _dur_match = re.search(r"(\d+)", _dur_str)
+                if _dur_match:
+                    _dur_num = int(_dur_match.group(1))
+                    if "year" in _dur_str:
+                        _dur_months = _dur_num * 12
+                    elif "quarter" in _dur_str:
+                        _dur_months = _dur_num * 3
+                    else:
+                        _dur_months = max(_dur_num, 1)
+                # Compute multiplier: how many periods fit in the campaign duration
+                _period_months = {"monthly": 1, "quarterly": 3, "annual": 12}[
+                    _budget_period
+                ]
+                _multiplier = max(_dur_months / _period_months, 1.0)
+                # Scale the parsed budget value to campaign total
+                _bval_period = parse_budget(
+                    _safe_str(data.get("budget") or data.get("budget_range") or "")
+                )
+                if _bval_period > 0:
+                    _scaled = _bval_period * _multiplier
+                    data["budget"] = f"${_scaled:,.0f}"
+                    data["budget_range"] = data["budget"]
+                    data["_budget_period_original"] = _budget_period
+                    data["_budget_multiplier"] = _multiplier
+                    logger.info(
+                        f"Budget period normalization: {_budget_period} ${_bval_period:,.0f} x {_multiplier:.1f} = ${_scaled:,.0f}"
+                    )
+
             # ── Gold Standard: Campaign start month validation ──
             _csm_raw = data.get("campaign_start_month")
             if _csm_raw is not None and str(_csm_raw).strip():
@@ -12240,9 +12347,12 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 )  # Stamp for Slack notification timing
                 job_id = uuid.uuid4().hex[:12]
                 # Bug #14 fix: Store session token with job for IDOR prevention
+                # C1 fix: Use nova_session (HttpOnly) cookie instead of csrf_token
                 _job_csrf = _parse_cookie_value(
+                    self.headers.get("Cookie") or "", "nova_session"
+                ) or _parse_cookie_value(
                     self.headers.get("Cookie") or "", "csrf_token"
-                )
+                )  # Fallback for pre-existing sessions
                 with _generation_jobs_lock:
                     _generation_jobs[job_id] = {
                         "status": "processing",
@@ -14699,6 +14809,14 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
 
         elif path == "/api/chat":
             # ── Nova Chat Endpoint ──
+            # ── S46: Server-side @joveo.com domain enforcement ──
+            if not self._check_joveo_auth() and not self._check_admin_auth():
+                self._send_error(
+                    "Authentication required. Please sign in with your @joveo.com account.",
+                    "AUTH_REQUIRED",
+                    401,
+                )
+                return
             if not self._check_rate_limit() or not self._check_global_chat_rate_limit():
                 self._send_error(
                     "Rate limit exceeded. Please wait a moment.", "RATE_LIMITED", 429
@@ -15034,6 +15152,14 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
 
         elif path == "/api/chat/stream":
             # ── Nova Chat SSE Streaming Endpoint ──
+            # ── S46: Server-side @joveo.com domain enforcement ──
+            if not self._check_joveo_auth() and not self._check_admin_auth():
+                self._send_error(
+                    "Authentication required. Please sign in with your @joveo.com account.",
+                    "AUTH_REQUIRED",
+                    401,
+                )
+                return
             if not self._check_rate_limit() or not self._check_global_chat_rate_limit():
                 self._send_error(
                     "Rate limit exceeded. Please wait a moment.", "RATE_LIMITED", 429
@@ -15363,23 +15489,6 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 except Exception:
                     pass  # Non-critical
 
-                # Persist to Supabase asynchronously
-                _user_msg = data.get("message") or ""
-                if conversation_id and _user_msg:
-                    threading.Thread(
-                        target=_save_conversation_turn,
-                        args=(
-                            conversation_id,
-                            _user_msg,
-                            full_response,
-                            model_used,
-                            sources,
-                            confidence,
-                        ),
-                        daemon=True,
-                        name="supabase-stream-persist",
-                    ).start()
-
             except (BrokenPipeError, ConnectionResetError):
                 logger.info(
                     "SSE client disconnected for conversation %s", conversation_id
@@ -15399,6 +15508,23 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 except (BrokenPipeError, ConnectionResetError, OSError):
                     pass
             finally:
+                # Persist to Supabase asynchronously -- in finally so
+                # BrokenPipeError / ConnectionResetError doesn't skip it
+                _user_msg = data.get("message") or ""
+                if conversation_id and _user_msg and full_response:
+                    threading.Thread(
+                        target=_save_conversation_turn,
+                        args=(
+                            conversation_id,
+                            _user_msg,
+                            full_response,
+                            model_used,
+                            sources,
+                            confidence,
+                        ),
+                        daemon=True,
+                        name="supabase-stream-persist",
+                    ).start()
                 _unregister_stream(conversation_id)
 
         elif path == "/api/chat/stop":
@@ -17951,6 +18077,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
         # NOTE: /api/vendor-iq/live-pricing and /api/payscale-sync/salary now handled by routes/pricing.py
         # NOTE: /api/report/html, /api/export/sheets, /api/export/status now handled by routes/export.py
         # ── Sentry Webhook (POST) ──
+        # M3: Signature verification is performed inside _handle_sentry_webhook
+        # via validate_sentry_signature(). Requires SENTRY_WEBHOOK_SECRET env var.
+        # If not set, the handler rejects the webhook (returns 401).
         elif path == "/api/sentry/webhook":
             try:
                 if not _sentry_integration_available:
@@ -18168,7 +18297,8 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 result = mark_insight_read(insight_id)
                 self._send_json({"ok": result})
             except Exception as e:
-                self._send_json({"error": str(e)})
+                logger.error("Insight mark-read error: %s", e, exc_info=True)
+                self._send_json({"error": _internal_error_msg()}, status_code=500)
 
         elif path == "/api/insights/dismiss":
             try:
@@ -18181,7 +18311,8 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 result = dismiss_insight(insight_id)
                 self._send_json({"ok": result})
             except Exception as e:
-                self._send_json({"error": str(e)})
+                logger.error("Insight dismiss error: %s", e, exc_info=True)
+                self._send_json({"error": _internal_error_msg()}, status_code=500)
 
         # ── Attribution Report (POST /api/attribution/report) ──
         elif path == "/api/attribution/report":
@@ -18464,7 +18595,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 self._send_json({"error": "Invalid JSON"}, status_code=400)
             except Exception as exc:
                 logger.error("Slack alert send error: %s", exc, exc_info=True)
-                self._send_json({"error": str(exc)}, status_code=500)
+                self._send_json({"error": _internal_error_msg()}, status_code=500)
 
         # ── AI Co-Pilot: Inline suggestions for media plan generator ──
         # NOTE: /api/copilot/suggest now handled by routes/copilot.py

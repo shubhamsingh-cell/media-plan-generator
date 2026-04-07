@@ -28,6 +28,9 @@ logger = logging.getLogger(__name__)
 # -- Configuration -----------------------------------------------------------
 
 _WEBHOOK_URL: str = os.environ.get("SLACK_WEBHOOK_URL") or ""
+if _WEBHOOK_URL and not _WEBHOOK_URL.startswith("https://hooks.slack.com/"):
+    logger.warning("SLACK_WEBHOOK_URL does not point to hooks.slack.com -- disabled")
+    _WEBHOOK_URL = ""
 _BOT_TOKEN: str = os.environ.get("SLACK_BOT_TOKEN") or ""
 _PLAN_CHANNEL: str = os.environ.get("SLACK_PLAN_CHANNEL") or "#media-plans"
 _BASE_URL: str = (

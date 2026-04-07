@@ -220,6 +220,8 @@
       date: new Date().toISOString(),
       data: _lastPlanPayload || {},
       budget: document.getElementById("budgetRange")?.value || "",
+      budget_period:
+        document.getElementById("budgetPeriod")?.value || "campaign",
       industry:
         (typeof selectedIndustry !== "undefined" && selectedIndustry) || "",
     });
@@ -276,6 +278,7 @@
   }
 
   function deleteSavedPlan(id) {
+    if (!confirm("Delete this saved plan?")) return;
     var plans = JSON.parse(localStorage.getItem("nova_saved_plans") || "[]");
     plans = plans.filter(function (p) {
       return p.id !== id;
@@ -627,9 +630,9 @@
         var directUrl = window.location.origin + "/plan/" + _lastPlanId;
         try {
           await navigator.clipboard.writeText(directUrl);
-          showToast("Direct plan link copied (expires in 30 min).");
+          showToast("Direct plan link copied (expires in 24 hours).");
         } catch (clipErr) {
-          prompt("Copy this plan link (expires in 30 min):", directUrl);
+          prompt("Copy this plan link (expires in 24 hours):", directUrl);
         }
       } else {
         showToast("Share failed: " + (e.message || "Unknown error"), "error");

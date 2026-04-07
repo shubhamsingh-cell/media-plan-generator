@@ -74,7 +74,7 @@
     <link
       rel="preload"
       as="style"
-      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=optional"
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@500;600;700&display=optional"
       onload="
         this.onload = null;
         this.rel = 'stylesheet';
@@ -82,7 +82,7 @@
     />
     <noscript
       ><link
-        href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=optional"
+        href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@500;600;700&display=optional"
         rel="stylesheet"
     /></noscript>
     <link rel="stylesheet" href="/static/css/tokens.css" />
@@ -113,7 +113,7 @@
         --green-glow: rgba(34, 197, 94, 0.12);
         --text-primary: #e4e4e7;
         --text-secondary: #a1a1aa;
-        --text-muted: #71717a;
+        --text-muted: #8a8a94;
         --border: rgba(255, 255, 255, 0.06);
         --border-hover: rgba(255, 255, 255, 0.14);
         --success: #22c55e;
@@ -121,6 +121,7 @@
         --brand-violet: #5a54bd;
         --brand-teal: #6bb3cd;
         --brand-port-gore: #202058;
+        --bg-brand: rgba(32, 32, 88, 0.15);
 
         /* Typography */
         --font-display: "Space Grotesk", sans-serif;
@@ -275,10 +276,6 @@
         font-family: var(--font-sans);
       }
 
-      html {
-        scroll-behavior: smooth;
-      }
-
       body {
         font-family: var(--font-sans);
         background: var(--bg-primary);
@@ -312,6 +309,8 @@
         height: 200%;
         top: -50%;
         left: -50%;
+      }
+      .bg-mesh .aurora-layer:hover {
         will-change: transform, opacity;
       }
       .bg-mesh .aurora-1 {
@@ -474,15 +473,15 @@
         color: var(--text-primary);
         background: var(--accent-glow);
       }
-      .nav-cta {
-        background: var(--accent) !important;
-        color: white !important;
-        font-weight: 600 !important;
-        padding: 8px 18px !important;
-        border-radius: var(--radius-sm) !important;
+      .nav-links a.nav-cta {
+        background: var(--accent);
+        color: white;
+        font-weight: 600;
+        padding: 8px 18px;
+        border-radius: var(--radius-sm);
       }
-      .nav-cta:hover {
-        background: var(--accent-light) !important;
+      .nav-links a.nav-cta:hover {
+        background: var(--accent-light);
       }
 
       /* ── Shared ── */
@@ -1184,6 +1183,27 @@
       .marquee-reverse {
         animation: marquee-reverse 35s linear infinite;
       }
+      .trust-bar.paused .marquee {
+        animation-play-state: paused;
+      }
+      .marquee-pause {
+        display: block;
+        margin: 0 auto var(--space-4);
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid var(--border);
+        color: var(--text-muted);
+        font-size: var(--text-xs);
+        padding: 4px 12px;
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        transition:
+          background 0.2s,
+          color 0.2s;
+      }
+      .marquee-pause:hover {
+        background: rgba(255, 255, 255, 0.1);
+        color: var(--text-secondary);
+      }
       @keyframes marquee-reverse {
         0% {
           transform: translateX(-50%);
@@ -1799,7 +1819,6 @@
         opacity: 0.45;
         pointer-events: none;
         z-index: 0;
-        will-change: transform;
         animation: floatOrb 20s ease-in-out infinite;
       }
       .products-orb--1 {
@@ -1865,7 +1884,6 @@
         --card-ty: 0px;
         transform-style: preserve-3d;
         perspective: 800px;
-        will-change: transform;
         border: 1px solid transparent;
         background-clip: padding-box;
         animation: rotateBorderAngle 8s linear infinite;
@@ -1961,6 +1979,9 @@
         transition: opacity 0.4s ease;
       }
 
+      .product-hero-card:hover {
+        will-change: transform;
+      }
       .product-hero-card:hover::before {
         opacity: 1;
       }
@@ -2243,7 +2264,7 @@
       .product-hero-card h3 {
         font-size: 1.4rem;
         font-weight: 700;
-        margin-bottom: 12px;
+        margin-bottom: 16px;
         background: linear-gradient(
           135deg,
           var(--card-accent, #fff) 0%,
@@ -3486,15 +3507,7 @@
         <span>Nova</span>
         <span class="suite-badge">AI Suite</span>
       </a>
-      <button
-        class="nav-hamburger"
-        aria-label="Toggle menu"
-        onclick="
-          document
-            .querySelector('.nav-links')
-            .classList.toggle('nav-links--open')
-        "
-      >
+      <button class="nav-hamburger" aria-label="Toggle menu">
         <svg
           width="24"
           height="24"
@@ -3690,10 +3703,17 @@
       <!-- ========================================== -->
       <section
         class="trust-bar reveal-on-scroll"
-        role="marquee"
+        role="region"
         aria-label="Trusted by enterprise teams"
       >
         <div class="trust-bar-label">Powering recruitment intelligence at</div>
+        <button
+          class="marquee-pause"
+          aria-label="Pause scrolling"
+          onclick="this.closest('.trust-bar').classList.toggle('paused')"
+        >
+          ||
+        </button>
         <div class="marquee-wrap">
           <div class="marquee">
             <span class="marquee-item">Barclays</span>
@@ -3790,7 +3810,7 @@
       <!-- SECTION 3: STORY SCROLL                    -->
       <!-- ========================================== -->
       <section class="story-scroll" aria-label="How Nova works">
-        <div class="story-scroll-inner">
+        <div class="story-scroll-inner" tabindex="0" aria-live="polite">
           <span class="section-label">How it works</span>
 
           <!-- Moment 1 — THE PROBLEM -->
@@ -3853,7 +3873,12 @@
           <!-- Moment 3 — THE INTELLIGENCE -->
           <div class="story-moment moment-3">
             <div class="moment-visual">
-              <svg class="intelligence-viz" viewBox="0 0 600 400">
+              <svg
+                class="intelligence-viz"
+                viewBox="0 0 600 400"
+                role="img"
+                aria-label="Nova AI analyzing data from multiple job boards"
+              >
                 <circle
                   cx="300"
                   cy="200"
@@ -4348,6 +4373,7 @@
               href="/media-plan"
               class="product-hero-card product-plan"
               data-product="plan"
+              aria-label="Plan -- Generate data-driven recruitment media plans"
             >
               <div class="holo-overlay" aria-hidden="true"></div>
               <div class="product-bg-illustration" aria-hidden="true">
@@ -4858,6 +4884,7 @@
               href="/nova"
               class="product-hero-card product-nova"
               data-product="nova"
+              aria-label="Nova AI -- Intelligent recruitment chatbot"
             >
               <div class="holo-overlay" aria-hidden="true"></div>
               <div class="product-bg-illustration" aria-hidden="true">
@@ -5729,6 +5756,7 @@
               href="/slotops"
               class="product-hero-card product-slotops"
               data-product="slotops"
+              aria-label="SlotOps -- LinkedIn slot optimization engine"
             >
               <div class="holo-overlay" aria-hidden="true"></div>
               <div class="product-bg-illustration" aria-hidden="true">
@@ -6232,7 +6260,8 @@
               class="product-hero-card product-cg"
               data-product="cg"
               target="_blank"
-              rel="noopener"
+              rel="noopener noreferrer"
+              aria-label="CG Automation -- Craigslist posting optimizer"
             >
               <div class="holo-overlay" aria-hidden="true"></div>
               <div class="product-bg-illustration" aria-hidden="true">
@@ -6730,7 +6759,8 @@
               class="product-hero-card product-geoviz"
               data-product="geoviz"
               target="_blank"
-              rel="noopener"
+              rel="noopener noreferrer"
+              aria-label="GeoViz 3D -- 3D geospatial labour market visualization"
             >
               <div class="holo-overlay" aria-hidden="true"></div>
               <div class="product-bg-illustration" aria-hidden="true">
@@ -7541,7 +7571,7 @@
                 <a
                   href="https://cg-automation.onrender.com"
                   target="_blank"
-                  rel="noopener"
+                  rel="noopener noreferrer"
                   >CG Automation</a
                 >
               </li>
@@ -7549,7 +7579,7 @@
                 <a
                   href="https://geoviz-3d.vercel.app"
                   target="_blank"
-                  rel="noopener"
+                  rel="noopener noreferrer"
                   >GeoViz 3D</a
                 >
               </li>
@@ -7594,7 +7624,7 @@
             <a
               href="https://www.linkedin.com/in/chandel13/"
               target="_blank"
-              rel="noopener"
+              rel="noopener noreferrer"
               >Created by Shubham Singh Chandel</a
             ></span
           >
@@ -7607,12 +7637,27 @@
     <!-- ── Page Scripts ── -->
     <script>
       (function () {
+        // ── Hamburger menu toggle (moved from inline onclick) ──
+        var hamburger = document.querySelector(".nav-hamburger");
+        if (hamburger) {
+          hamburger.addEventListener("click", function () {
+            document
+              .querySelector(".nav-links")
+              .classList.toggle("nav-links--open");
+          });
+        }
+
         // ── Intersection Observer for reveal-on-scroll + reveal ──
         var revealObserver = new IntersectionObserver(
           function (entries) {
             entries.forEach(function (entry) {
               if (entry.isIntersecting) {
                 entry.target.classList.add("visible");
+                entry.target
+                  .querySelectorAll(".word-reveal")
+                  .forEach(function (w) {
+                    w.classList.add("visible");
+                  });
                 revealObserver.unobserve(entry.target);
               }
             });
@@ -7749,56 +7794,6 @@
           dashObserver.observe(dashWindow);
         }
 
-        // ── Demo button animation ──
-        var demoBtn = document.getElementById("demo-btn");
-        if (demoBtn) {
-          demoBtn.addEventListener("click", function () {
-            var output = document.getElementById("demo-output");
-            var btn = this;
-            btn.textContent = "Analyzing...";
-            btn.disabled = true;
-            setTimeout(function () {
-              output.style.display = "block";
-              btn.textContent = "Generate Plan \u2192";
-              btn.disabled = false;
-              // Animate with GSAP if available, else simple show
-              if (typeof gsap !== "undefined") {
-                gsap.from(".demo-output-inner", {
-                  opacity: 0,
-                  y: 20,
-                  duration: 0.5,
-                });
-                gsap.from(".demo-channel", {
-                  opacity: 0,
-                  x: -20,
-                  stagger: 0.1,
-                  duration: 0.4,
-                  delay: 0.2,
-                });
-                gsap.from(".dc-fill", {
-                  width: 0,
-                  stagger: 0.1,
-                  duration: 0.8,
-                  delay: 0.3,
-                  ease: "power2.out",
-                });
-                gsap.from(".demo-metric", {
-                  opacity: 0,
-                  y: 10,
-                  stagger: 0.08,
-                  duration: 0.3,
-                  delay: 0.6,
-                });
-                gsap.from(".demo-full-link", {
-                  opacity: 0,
-                  duration: 0.3,
-                  delay: 1,
-                });
-              }
-            }, 1500);
-          });
-        }
-
         // ── Plan showcase bar animation ──
         var planShowcase = document.getElementById("plan-showcase");
         if (planShowcase) {
@@ -7823,17 +7818,35 @@
           showcaseObserver.observe(planShowcase);
         }
 
-        // ── Header shrink on scroll ──
+        // ── Header shrink on scroll (combined with aurora parallax via rAF) ──
         var nav = document.querySelector(".nav");
+        var auroraLayers = !window.matchMedia(
+          "(prefers-reduced-motion: reduce)",
+        ).matches
+          ? document.querySelectorAll(".bg-mesh .aurora-layer")
+          : [];
+        var scrollTicking = false;
         window.addEventListener(
           "scroll",
           function () {
-            if (window.scrollY > 60) {
-              nav.style.background = "rgba(0, 0, 0, 0.92)";
-              nav.style.height = "56px";
-            } else {
-              nav.style.background = "rgba(0, 0, 0, 0.8)";
-              nav.style.height = "64px";
+            if (!scrollTicking) {
+              requestAnimationFrame(function () {
+                if (window.scrollY > 60) {
+                  nav.style.background = "rgba(0, 0, 0, 0.92)";
+                  nav.style.height = "56px";
+                } else {
+                  nav.style.background = "rgba(0, 0, 0, 0.8)";
+                  nav.style.height = "64px";
+                }
+                if (auroraLayers.length > 0) {
+                  var translateY = window.scrollY * 0.5;
+                  auroraLayers.forEach(function (layer) {
+                    layer.style.transform = "translateY(" + translateY + "px)";
+                  });
+                }
+                scrollTicking = false;
+              });
+              scrollTicking = true;
             }
           },
           { passive: true },
@@ -7877,6 +7890,15 @@
 
         // ── GSAP hero entrance (staggered reveal) ──
         if (typeof gsap !== "undefined") {
+          // Disable CSS @keyframes hero-entrance to prevent double-animation
+          document
+            .querySelectorAll(".hero-anim, .hero-artifact")
+            .forEach(function (el) {
+              el.style.animation = "none";
+              el.style.opacity = "1";
+              el.style.filter = "none";
+              el.style.transform = "none";
+            });
           var heroAnims = document.querySelectorAll(".hero-anim");
           if (heroAnims.length) {
             gsap.from(heroAnims, {
@@ -7890,24 +7912,7 @@
           }
         }
 
-        // ── Parallax scroll on aurora background layers ──
-        if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-          var auroraLayers = document.querySelectorAll(
-            ".bg-mesh .aurora-layer",
-          );
-          if (auroraLayers.length > 0) {
-            window.addEventListener(
-              "scroll",
-              function () {
-                var translateY = window.scrollY * 0.5;
-                auroraLayers.forEach(function (layer) {
-                  layer.style.transform = "translateY(" + translateY + "px)";
-                });
-              },
-              { passive: true },
-            );
-          }
-        }
+        // ── Aurora parallax moved into combined scroll handler above ──
       })();
     </script>
 
@@ -7925,16 +7930,11 @@
         document.body.appendChild(s);
       });
     </script>
-    <script>
-      (function () {
-        if (typeof NovaChat !== "undefined") {
-          NovaChat.init({ containerId: null });
-        }
-      })();
-    </script>
-
     <!-- Lenis smooth scroll -->
-    <script src="https://unpkg.com/lenis@1.1.13/dist/lenis.min.js"></script>
+    <script
+      src="https://unpkg.com/lenis@1.1.13/dist/lenis.min.js"
+      defer
+    ></script>
 
     <!-- GSAP + ScrollTrigger (multi-CDN fallback: unpkg -> jsdelivr -> cdnjs) -->
     <script>
@@ -7974,11 +7974,11 @@
         }
 
         function loadModules() {
-          modules.reduce(function (chain, src) {
-            return chain.then(function () {
+          Promise.all(
+            modules.map(function (src) {
               return loadScript(src);
-            });
-          }, Promise.resolve());
+            }),
+          );
         }
 
         function tryLoadGSAP(idx) {
@@ -8061,31 +8061,8 @@
               .join(" ");
           });
 
-          /* ── Scroll-triggered reveals with stagger ── */
-          var revealObserver = new IntersectionObserver(
-            function (entries) {
-              entries.forEach(function (entry) {
-                if (entry.isIntersecting) {
-                  /* Reveal the element */
-                  entry.target.classList.add("visible");
-                  /* Also reveal any word-reveal children */
-                  entry.target
-                    .querySelectorAll(".word-reveal")
-                    .forEach(function (w) {
-                      w.classList.add("visible");
-                    });
-                  revealObserver.unobserve(entry.target);
-                }
-              });
-            },
-            { threshold: 0.05, rootMargin: "0px 0px -40px 0px" },
-          );
-
-          document
-            .querySelectorAll(".reveal, .reveal-on-scroll")
-            .forEach(function (el) {
-              revealObserver.observe(el);
-            });
+          /* ── Word-reveal children: hook into existing revealObserver ── */
+          /* (Primary revealObserver is defined in the main script block above) */
 
           /* ── Product card mouse-tracking glow ── */
           document

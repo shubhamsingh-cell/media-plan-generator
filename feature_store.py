@@ -137,6 +137,101 @@ SEASONAL_FACTORS: Dict[int, float] = {
     12: 0.75,  # December -- year-end freeze
 }
 
+# S46: Industry-specific seasonal CPA multipliers (relative to baseline 1.0)
+# These adjust the general SEASONAL_FACTORS for industry-specific patterns
+INDUSTRY_SEASONAL_CPA: Dict[str, Dict[int, float]] = {
+    "retail_consumer": {
+        1: 0.85,
+        2: 0.90,
+        3: 0.95,
+        4: 1.00,
+        5: 1.00,
+        6: 1.05,
+        7: 1.10,
+        8: 1.25,
+        9: 1.35,
+        10: 1.40,
+        11: 1.30,
+        12: 0.80,
+        # Retail: CPA spikes Aug-Nov (holiday hiring), drops Dec-Jan (positions filled)
+    },
+    "healthcare_medical": {
+        1: 1.15,
+        2: 1.10,
+        3: 1.05,
+        4: 1.00,
+        5: 1.00,
+        6: 1.10,
+        7: 1.15,
+        8: 1.05,
+        9: 0.95,
+        10: 0.90,
+        11: 0.95,
+        12: 1.05,
+        # Healthcare: CPA spikes summer (travel nurse season), dips fall (new grads)
+    },
+    "tech_engineering": {
+        1: 1.20,
+        2: 1.15,
+        3: 1.10,
+        4: 1.00,
+        5: 0.95,
+        6: 0.85,
+        7: 0.80,
+        8: 0.85,
+        9: 1.05,
+        10: 1.10,
+        11: 1.00,
+        12: 0.75,
+        # Tech: CPA spikes Q1 (budget flush), dips summer (intern → FTE conversions)
+    },
+    "logistics_transportation": {
+        1: 1.00,
+        2: 1.00,
+        3: 0.95,
+        4: 0.90,
+        5: 0.95,
+        6: 1.05,
+        7: 1.10,
+        8: 1.15,
+        9: 1.20,
+        10: 1.25,
+        11: 1.30,
+        12: 1.15,
+        # Logistics: CPA rises steadily toward holiday shipping peak
+    },
+    "finance_banking": {
+        1: 1.20,
+        2: 1.15,
+        3: 1.10,
+        4: 1.05,
+        5: 1.00,
+        6: 0.90,
+        7: 0.85,
+        8: 0.90,
+        9: 1.10,
+        10: 1.05,
+        11: 1.00,
+        12: 0.80,
+        # Finance: Q1 hiring surge (bonus season), summer lull, fall ramp
+    },
+    "hospitality_food": {
+        1: 0.80,
+        2: 0.85,
+        3: 0.95,
+        4: 1.05,
+        5: 1.20,
+        6: 1.30,
+        7: 1.25,
+        8: 1.15,
+        9: 0.90,
+        10: 0.95,
+        11: 1.10,
+        12: 1.20,
+        # Hospitality: CPA peaks summer tourist season + holiday events
+    },
+}
+
 GEO_COST_INDEX: Dict[str, float] = {
     "san francisco": 1.55,
     "new york": 1.45,
@@ -340,6 +435,22 @@ class FeatureStore:
             Multiplier relative to baseline 1.0.
         """
         return SEASONAL_FACTORS.get(month, 1.0)
+
+    def get_industry_seasonal_cpa(self, industry: str, month: int) -> float:
+        """Return industry-specific seasonal CPA multiplier.
+
+        Combines the general seasonal factor with industry-specific patterns.
+
+        Args:
+            industry: Industry key (e.g., "retail_consumer").
+            month: Calendar month (1-12).
+
+        Returns:
+            Combined CPA multiplier (general * industry-specific).
+        """
+        general = SEASONAL_FACTORS.get(month, 1.0)
+        industry_factor = INDUSTRY_SEASONAL_CPA.get(industry, {}).get(month, 1.0)
+        return round(general * industry_factor, 2)
 
     def get_geo_cost_index(self, location: str) -> float:
         """Return the geographic cost index for a location.

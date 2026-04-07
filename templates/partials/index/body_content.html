@@ -90,6 +90,12 @@
       data-step="1"
       aria-current="step"
       onclick="handleStepClick(1)"
+      onkeydown="
+        if (event.key === ' ') {
+          event.preventDefault();
+          handleStepClick(1);
+        }
+      "
       role="button"
       tabindex="0"
       aria-label="Step 1: Client Info"
@@ -104,6 +110,12 @@
       class="step-indicator"
       data-step="2"
       onclick="handleStepClick(2)"
+      onkeydown="
+        if (event.key === ' ') {
+          event.preventDefault();
+          handleStepClick(2);
+        }
+      "
       role="button"
       tabindex="0"
       aria-label="Step 2: Industry and Targeting"
@@ -118,6 +130,12 @@
       class="step-indicator"
       data-step="3"
       onclick="handleStepClick(3)"
+      onkeydown="
+        if (event.key === ' ') {
+          event.preventDefault();
+          handleStepClick(3);
+        }
+      "
       role="button"
       tabindex="0"
       aria-label="Step 3: Channels"
@@ -125,13 +143,19 @@
       <div class="step-circle" aria-hidden="true">3</div>
       <div class="step-label">
         <span class="full-label">Channels</span
-        ><span class="short-label">Chans</span>
+        ><span class="short-label">Channels</span>
       </div>
     </div>
     <div
       class="step-indicator"
       data-step="4"
       onclick="handleStepClick(4)"
+      onkeydown="
+        if (event.key === ' ') {
+          event.preventDefault();
+          handleStepClick(4);
+        }
+      "
       role="button"
       tabindex="0"
       aria-label="Step 4: Extra Sections"
@@ -146,6 +170,12 @@
       class="step-indicator"
       data-step="5"
       onclick="handleStepClick(5)"
+      onkeydown="
+        if (event.key === ' ') {
+          event.preventDefault();
+          handleStepClick(5);
+        }
+      "
       role="button"
       tabindex="0"
       aria-label="Step 5: Review and Export"
@@ -233,7 +263,10 @@
           id="clientName"
           placeholder="Enter client name"
           autocomplete="organization"
+          aria-required="true"
+          aria-describedby="clientName-error"
         />
+        <div class="field-error-msg" id="clientName-error"></div>
       </div>
 
       <div class="form-group">
@@ -266,7 +299,10 @@
         <textarea
           id="useCase"
           placeholder="Describe the client's recruitment goals, target roles, and any specific hiring challenges..."
+          aria-required="true"
+          aria-describedby="useCase-error"
         ></textarea>
+        <div class="field-error-msg" id="useCase-error"></div>
         <div
           class="copilot-suggestions"
           id="copilot-brief"
@@ -280,7 +316,19 @@
           >Upload Brief / Supporting Documents
           <span class="section-optional-badge">Optional</span></label
         >
-        <div class="file-upload-zone" id="briefUploadZone">
+        <div
+          class="file-upload-zone"
+          id="briefUploadZone"
+          tabindex="0"
+          role="button"
+          aria-label="Upload brief or supporting documents"
+          onkeydown="
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              document.getElementById('briefFileInput').click();
+            }
+          "
+        >
           <input
             type="file"
             id="briefFileInput"
@@ -318,7 +366,19 @@
           >Upload Call Transcript File
           <span class="section-optional-badge">Optional</span></label
         >
-        <div class="file-upload-zone file-upload-sm" id="transcriptUploadZone">
+        <div
+          class="file-upload-zone file-upload-sm"
+          id="transcriptUploadZone"
+          tabindex="0"
+          role="button"
+          aria-label="Upload call transcript file"
+          onkeydown="
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              document.getElementById('transcriptFileInput').click();
+            }
+          "
+        >
           <input
             type="file"
             id="transcriptFileInput"
@@ -335,7 +395,11 @@
       <div class="form-row form-row-3">
         <div class="form-group">
           <label for="budgetRange">Total Campaign Budget *</label>
-          <select id="budgetRange">
+          <select
+            id="budgetRange"
+            aria-required="true"
+            aria-describedby="budgetRange-error"
+          >
             <option value="">Select total budget for full campaign</option>
             <option value="< $50,000">Under $50,000</option>
             <option value="$50,000 - $250,000">$50,000 - $250,000</option>
@@ -347,6 +411,29 @@
             <option value="$3,000,000+">$3,000,000+</option>
             <option value="__exact__">Enter exact amount</option>
           </select>
+          <div
+            class="budget-period-row"
+            style="display: flex; gap: 8px; margin-top: 6px"
+          >
+            <select
+              id="budgetPeriod"
+              aria-label="Budget period"
+              style="
+                flex: 1;
+                padding: 8px 12px;
+                border: 1px solid var(--border);
+                border-radius: var(--radius-sm);
+                background: var(--bg-secondary);
+                color: var(--text-primary);
+                font-size: 13px;
+              "
+            >
+              <option value="campaign" selected>Per Campaign (total)</option>
+              <option value="monthly">Per Month</option>
+              <option value="quarterly">Per Quarter</option>
+              <option value="annual">Per Year</option>
+            </select>
+          </div>
           <div
             id="exactBudgetWrap"
             class="exact-input-wrap"
@@ -371,7 +458,11 @@
         </div>
         <div class="form-group">
           <label for="campaignDuration">Campaign Duration *</label>
-          <select id="campaignDuration">
+          <select
+            id="campaignDuration"
+            aria-required="true"
+            aria-describedby="campaignDuration-error"
+          >
             <option value="">Select duration</option>
             <option value="1-3 months">1-3 months</option>
             <option value="3-6 months">3-6 months</option>
@@ -516,6 +607,8 @@
             id="locationInput"
             placeholder="e.g. San Francisco CA, London UK, Singapore... (press Enter or comma to add)"
             autocomplete="off"
+            aria-required="true"
+            aria-describedby="locationInput-error"
           />
         </div>
         <div class="form-hint" style="opacity: 0.7">
@@ -665,7 +758,19 @@
           >Upload Past Campaign Data
           <span class="section-optional-badge">Optional</span></label
         >
-        <div class="file-upload-zone" id="historicalUploadZone">
+        <div
+          class="file-upload-zone"
+          id="historicalUploadZone"
+          tabindex="0"
+          role="button"
+          aria-label="Upload past campaign data"
+          onkeydown="
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              document.getElementById('historicalFileInput').click();
+            }
+          "
+        >
           <input
             type="file"
             id="historicalFileInput"
@@ -737,6 +842,14 @@
             class="industry-card"
             data-industry="healthcare_medical"
             onclick="selectIndustry(this)"
+            role="button"
+            tabindex="0"
+            onkeydown="
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                selectIndustry(this);
+              }
+            "
           >
             <div class="icon">&#9764;</div>
             <div class="name">Healthcare & Medical</div>
@@ -746,6 +859,14 @@
             class="industry-card"
             data-industry="blue_collar_trades"
             onclick="selectIndustry(this)"
+            role="button"
+            tabindex="0"
+            onkeydown="
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                selectIndustry(this);
+              }
+            "
           >
             <div class="icon">&#9881;</div>
             <div class="name">Blue Collar / Trades</div>
@@ -755,6 +876,14 @@
             class="industry-card"
             data-industry="maritime_marine"
             onclick="selectIndustry(this)"
+            role="button"
+            tabindex="0"
+            onkeydown="
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                selectIndustry(this);
+              }
+            "
           >
             <div class="icon">&#9875;</div>
             <div class="name">Maritime & Marine</div>
@@ -764,6 +893,14 @@
             class="industry-card"
             data-industry="military_recruitment"
             onclick="selectIndustry(this)"
+            role="button"
+            tabindex="0"
+            onkeydown="
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                selectIndustry(this);
+              }
+            "
           >
             <div class="icon">&#9733;</div>
             <div class="name">Military Recruitment</div>
@@ -773,6 +910,14 @@
             class="industry-card"
             data-industry="tech_engineering"
             onclick="selectIndustry(this)"
+            role="button"
+            tabindex="0"
+            onkeydown="
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                selectIndustry(this);
+              }
+            "
           >
             <div class="icon">&#128187;</div>
             <div class="name">Tech & Engineering</div>
@@ -782,6 +927,14 @@
             class="industry-card"
             data-industry="general_entry_level"
             onclick="selectIndustry(this)"
+            role="button"
+            tabindex="0"
+            onkeydown="
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                selectIndustry(this);
+              }
+            "
           >
             <div class="icon">&#128188;</div>
             <div class="name">General / Entry-Level</div>
@@ -791,6 +944,14 @@
             class="industry-card"
             data-industry="legal_services"
             onclick="selectIndustry(this)"
+            role="button"
+            tabindex="0"
+            onkeydown="
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                selectIndustry(this);
+              }
+            "
           >
             <div class="icon">&#9878;</div>
             <div class="name">Legal Services</div>
@@ -800,6 +961,14 @@
             class="industry-card"
             data-industry="finance_banking"
             onclick="selectIndustry(this)"
+            role="button"
+            tabindex="0"
+            onkeydown="
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                selectIndustry(this);
+              }
+            "
           >
             <div class="icon">&#128176;</div>
             <div class="name">Finance & Banking</div>
@@ -809,6 +978,14 @@
             class="industry-card"
             data-industry="mental_health"
             onclick="selectIndustry(this)"
+            role="button"
+            tabindex="0"
+            onkeydown="
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                selectIndustry(this);
+              }
+            "
           >
             <div class="icon">&#129504;</div>
             <div class="name">Mental Health</div>
@@ -818,6 +995,14 @@
             class="industry-card"
             data-industry="retail_consumer"
             onclick="selectIndustry(this)"
+            role="button"
+            tabindex="0"
+            onkeydown="
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                selectIndustry(this);
+              }
+            "
           >
             <div class="icon">&#128722;</div>
             <div class="name">Retail & Consumer</div>
@@ -827,6 +1012,14 @@
             class="industry-card"
             data-industry="aerospace_defense"
             onclick="selectIndustry(this)"
+            role="button"
+            tabindex="0"
+            onkeydown="
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                selectIndustry(this);
+              }
+            "
           >
             <div class="icon">&#128640;</div>
             <div class="name">Aerospace & Defense</div>
@@ -836,6 +1029,14 @@
             class="industry-card"
             data-industry="pharma_biotech"
             onclick="selectIndustry(this)"
+            role="button"
+            tabindex="0"
+            onkeydown="
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                selectIndustry(this);
+              }
+            "
           >
             <div class="icon">&#128300;</div>
             <div class="name">Pharma & Biotech</div>
@@ -845,6 +1046,14 @@
             class="industry-card"
             data-industry="energy_utilities"
             onclick="selectIndustry(this)"
+            role="button"
+            tabindex="0"
+            onkeydown="
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                selectIndustry(this);
+              }
+            "
           >
             <div class="icon">&#128267;</div>
             <div class="name">Energy & Utilities</div>
@@ -854,6 +1063,14 @@
             class="industry-card"
             data-industry="insurance"
             onclick="selectIndustry(this)"
+            role="button"
+            tabindex="0"
+            onkeydown="
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                selectIndustry(this);
+              }
+            "
           >
             <div class="icon">&#128737;</div>
             <div class="name">Insurance</div>
@@ -863,6 +1080,14 @@
             class="industry-card"
             data-industry="telecommunications"
             onclick="selectIndustry(this)"
+            role="button"
+            tabindex="0"
+            onkeydown="
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                selectIndustry(this);
+              }
+            "
           >
             <div class="icon">&#128225;</div>
             <div class="name">Telecommunications</div>
@@ -872,6 +1097,14 @@
             class="industry-card"
             data-industry="automotive"
             onclick="selectIndustry(this)"
+            role="button"
+            tabindex="0"
+            onkeydown="
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                selectIndustry(this);
+              }
+            "
           >
             <div class="icon">&#128663;</div>
             <div class="name">Automotive & Manufacturing</div>
@@ -881,6 +1114,14 @@
             class="industry-card"
             data-industry="food_beverage"
             onclick="selectIndustry(this)"
+            role="button"
+            tabindex="0"
+            onkeydown="
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                selectIndustry(this);
+              }
+            "
           >
             <div class="icon">&#127869;</div>
             <div class="name">Food & Beverage</div>
@@ -890,6 +1131,14 @@
             class="industry-card"
             data-industry="logistics_supply_chain"
             onclick="selectIndustry(this)"
+            role="button"
+            tabindex="0"
+            onkeydown="
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                selectIndustry(this);
+              }
+            "
           >
             <div class="icon">&#128230;</div>
             <div class="name">Logistics & Supply Chain</div>
@@ -899,6 +1148,14 @@
             class="industry-card"
             data-industry="hospitality_travel"
             onclick="selectIndustry(this)"
+            role="button"
+            tabindex="0"
+            onkeydown="
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                selectIndustry(this);
+              }
+            "
           >
             <div class="icon">&#127976;</div>
             <div class="name">Hospitality & Travel</div>
@@ -908,6 +1165,14 @@
             class="industry-card"
             data-industry="media_entertainment"
             onclick="selectIndustry(this)"
+            role="button"
+            tabindex="0"
+            onkeydown="
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                selectIndustry(this);
+              }
+            "
           >
             <div class="icon">&#127916;</div>
             <div class="name">Media & Entertainment</div>
@@ -917,6 +1182,14 @@
             class="industry-card"
             data-industry="construction_real_estate"
             onclick="selectIndustry(this)"
+            role="button"
+            tabindex="0"
+            onkeydown="
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                selectIndustry(this);
+              }
+            "
           >
             <div class="icon">&#127959;</div>
             <div class="name">Construction & Real Estate</div>
@@ -926,6 +1199,14 @@
             class="industry-card"
             data-industry="education"
             onclick="selectIndustry(this)"
+            role="button"
+            tabindex="0"
+            onkeydown="
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                selectIndustry(this);
+              }
+            "
           >
             <div class="icon">&#127891;</div>
             <div class="name">Education</div>
@@ -1487,7 +1768,9 @@
               id="requesterName"
               placeholder="e.g., John Smith"
               required
+              aria-required="true"
               autocomplete="name"
+              aria-describedby="requesterName-error"
             />
             <div class="field-error-msg" id="requesterName-error"></div>
           </div>
@@ -1498,7 +1781,9 @@
               id="requesterEmail"
               placeholder="e.g., john@company.com"
               required
+              aria-required="true"
               autocomplete="email"
+              aria-describedby="requesterEmail-error"
             />
             <div class="field-error-msg" id="requesterEmail-error"></div>
           </div>
@@ -1646,7 +1931,7 @@
         <span
           >&#128196; Est. sections: <strong id="estSections">8</strong></span
         >
-        <span>&#9201; Generation time: <strong>~15 seconds</strong></span>
+        <span>&#9201; Generation time: <strong>~30-90 seconds</strong></span>
         <span
           >&#128229; Format: <strong>Excel (.xlsx) + PPT (.pptx)</strong></span
         >
@@ -1998,7 +2283,7 @@
 </footer>
 
 <!-- Toast notification container -->
-<div id="toastContainer" class="toast-container"></div>
+<div id="toastContainer" class="toast-container" aria-live="polite"></div>
 
 <!-- Confetti container -->
 <div

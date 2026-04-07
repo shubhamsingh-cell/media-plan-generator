@@ -51,16 +51,35 @@
             hashParams[kv[0]] = decodeURIComponent(kv[1] || "");
           });
         if (hashParams.access_token) {
-          localStorage.setItem(
-            STORAGE_KEY,
-            JSON.stringify({
-              email: "authenticated",
-              token: hashParams.access_token,
-              logged_in_at: new Date().toISOString(),
-            }),
-          );
+          // S46: Extract actual email from JWT instead of storing "authenticated"
+          var _gateEmail = "";
+          try {
+            var _jwtParts = hashParams.access_token.split(".");
+            if (_jwtParts.length >= 2) {
+              // Base64url decode the payload
+              var _b64 = _jwtParts[1].replace(/-/g, "+").replace(/_/g, "/");
+              while (_b64.length % 4) _b64 += "=";
+              var _payload = JSON.parse(atob(_b64));
+              _gateEmail = (_payload.email || "").toLowerCase().trim();
+            }
+          } catch (_decodeErr) {
+            // JWT decode failed -- do not cache
+          }
+          if (_gateEmail && _gateEmail.endsWith("@joveo.com")) {
+            localStorage.setItem(
+              STORAGE_KEY,
+              JSON.stringify({
+                email: _gateEmail,
+                token: hashParams.access_token,
+                logged_in_at: new Date().toISOString(),
+              }),
+            );
+            history.replaceState(null, "", window.location.pathname);
+            return true;
+          }
+          // Non-joveo email or decode failure -- do not grant access
           history.replaceState(null, "", window.location.pathname);
-          return true;
+          return false;
         }
       } catch (_) {}
     }

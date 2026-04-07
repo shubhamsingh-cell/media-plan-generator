@@ -1522,6 +1522,11 @@
         } catch (_) {}
       }
       state.abortController = null;
+      // S46: clear hard timeout to prevent stale fire after normal completion
+      if (state._hardTimeout) {
+        clearTimeout(state._hardTimeout);
+        state._hardTimeout = null;
+      }
       sendBtn.style.display = "";
       sendBtn.disabled = !chatInput.value.trim();
       stopBtn.classList.remove("visible");
@@ -1913,11 +1918,13 @@
 
       // Hard timeout: forcibly reset after 120s no matter what
       // S21: was 60s, increased to match gunicorn --timeout 120
+      // S46: show error instead of silently resetting
       var hardTimeout = setTimeout(function () {
-        resetLoadingState();
-        var streamEl = document.getElementById("streaming-msg");
-        if (streamEl) streamEl.remove();
+        _showStreamError(
+          "Response took too long. Please try again with a simpler question.",
+        );
       }, 120000);
+      state._hardTimeout = hardTimeout;
 
       // ── Try WebSocket first, fall back to SSE ──
       _getOrCreateWS(function (wsConn) {
@@ -2077,21 +2084,9 @@
               } else if (err.message && err.message.indexOf("429") > -1) {
                 errorMsg = "Nova is busy. Please wait a moment and try again.";
               } else if (err.message && err.message.indexOf("403") > -1) {
-                // S25: Auto-refresh CSRF token and silently retry instead of showing error
-                if (
-                  typeof __refreshCsrfToken === "function" &&
-                  !state._csrfRetried
-                ) {
-                  state._csrfRetried = true;
-                  __refreshCsrfToken().then(function () {
-                    // Retry the send after refreshing token
-                    if (typeof _doSendMessage === "function") {
-                      _doSendMessage(state._lastUserMessage || "");
-                    }
-                  });
-                  return; // Don't show error -- retry will handle it
-                }
-                errorMsg = "Session expired. Please refresh the page.";
+                // S46: Removed dead CSRF retry (referenced non-existent _doSendMessage)
+                errorMsg =
+                  "Session expired. Please refresh the page and try again.";
               } else {
                 errorMsg =
                   "Something went wrong on our end. Click Retry or start a new chat.";
@@ -2319,12 +2314,12 @@
     var hasAnyActivity = hasVisibleStream || hasToolPills;
     if (elapsed > 120000) {
       // Absolute hard limit 120s -- always reset
-      resetLoadingState();
-      if (streamEl) streamEl.remove();
+      // S46: show error instead of silently resetting
+      _showStreamError("Connection lost. Please try again.");
     } else if (elapsed > 90000 && !hasAnyActivity) {
       // 90s with zero activity (no stream text AND no tool pills) -- stuck
-      resetLoadingState();
-      if (streamEl) streamEl.remove();
+      // S46: show error instead of silently resetting
+      _showStreamError("Connection lost. Please try again.");
     }
     // Otherwise: let the stream continue, tools are working
   }, 2000);

@@ -363,7 +363,7 @@ def create_spreadsheet(title: str, data: Dict[str, List[List[str]]]) -> Optional
     if value_ranges:
         batch_url = f"{_SHEETS_BASE}/{spreadsheet_id}/values:batchUpdate"
         batch_body = {
-            "valueInputOption": "USER_ENTERED",
+            "valueInputOption": "RAW",  # RAW prevents formula injection (=CMD, +CMD)
             "data": value_ranges,
         }
         batch_result = _sheets_request("POST", batch_url, body=batch_body, token=token)

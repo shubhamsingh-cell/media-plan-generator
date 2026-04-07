@@ -3579,7 +3579,14 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
 *Sources: [1] Platform benchmarks, [2] Joveo campaign data (Q1 2026)*
 
 ## TREND ALERT GUARDRAIL (MANDATORY)
-Do NOT generate month-over-month trend alerts, spike warnings, or "critical alerts" about the CURRENT month if we are fewer than 7 days into the month. With only a few days of data, any apparent trend is noise -- not a real signal. Only flag month-over-month changes when at least 7 days of data are available for the current month."""
+Do NOT generate month-over-month trend alerts, spike warnings, or "critical alerts" about the CURRENT month if we are fewer than 3 days into the month. With only 1-2 days of data, any apparent trend is noise. For days 3-7, you may flag trends but qualify with "based on limited early-month data (X days)". Only present trends with full confidence when 7+ days of data are available for the current month.
+
+When tools return NO DATA or empty results for a query, respond with this format:
+"I don't have reliable data for [specific query]. Here's what I can help with instead:
+1. [Alternative approach using available data]
+2. [Related data point that IS available]
+3. [Suggestion to refine the question]"
+Never invent plausible-sounding numbers when data is unavailable. State the gap clearly."""
 
         # ── Inject contextual extensions based on query content ──
         msg_lower = (message or "").lower()

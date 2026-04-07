@@ -533,13 +533,9 @@
     // Load cached user for instant UI
     var cachedUser = _loadCachedUser();
     if (cachedUser) {
-      // Skip domain check for gate-authenticated sessions (email = "authenticated")
+      // S46: Require actual @joveo.com email -- no "authenticated" shortcut
       var email = cachedUser.email || "";
-      if (
-        email === "authenticated" ||
-        email === "admin@joveo.com" ||
-        _isAllowedDomain(email)
-      ) {
+      if (_isAllowedDomain(email)) {
         _updateUI(cachedUser);
       } else {
         // Cached user no longer allowed -- clear them

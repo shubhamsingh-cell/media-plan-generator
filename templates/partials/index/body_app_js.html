@@ -288,6 +288,7 @@
       // Create warning banner
       var warningDiv = document.createElement("div");
       warningDiv.id = "budgetFeasibilityWarning";
+      warningDiv.setAttribute("role", "alert");
       warningDiv.style.cssText =
         "background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.25);border-radius:8px;padding:14px 18px;margin:12px 0;color:#FBBF24;font-size:14px;line-height:1.5;";
 
@@ -866,6 +867,8 @@
           (document.getElementById("clientWebsite") || {}).value || "",
         useCase: (document.getElementById("useCase") || {}).value || "",
         budgetRange: (document.getElementById("budgetRange") || {}).value || "",
+        budgetPeriod:
+          (document.getElementById("budgetPeriod") || {}).value || "campaign",
         exactBudget: (document.getElementById("exactBudget") || {}).value || "",
         campaignDuration:
           (document.getElementById("campaignDuration") || {}).value || "",
@@ -883,6 +886,15 @@
         locations: locations || [],
         roles: roles || [],
         competitors: competitors || [],
+        campaignGoals: Array.from(
+          document.querySelectorAll('input[name="campaignGoals"]:checked'),
+        ).map((cb) => cb.value),
+        workEnvironment: Array.from(
+          document.querySelectorAll('input[name="workEnvironment"]:checked'),
+        ).map((cb) => cb.value),
+        experienceLevel: Array.from(
+          document.querySelectorAll('input[name="experienceLevel"]:checked'),
+        ).map((cb) => cb.value),
         ts: Date.now(),
       };
       sessionStorage.setItem(_FORM_STORAGE_KEY, JSON.stringify(state));
@@ -909,6 +921,7 @@
       setVal("clientWebsite", s.clientWebsite);
       setVal("useCase", s.useCase);
       setVal("budgetRange", s.budgetRange);
+      setVal("budgetPeriod", s.budgetPeriod);
       setVal("exactBudget", s.exactBudget);
       setVal("campaignDuration", s.campaignDuration);
       setVal("campaignStartMonth", s.campaignStartMonth);
@@ -920,6 +933,16 @@
       if (s.selectedIndustry) {
         selectedIndustry = s.selectedIndustry;
       }
+      // Restore checkbox groups
+      ["campaignGoals", "workEnvironment", "experienceLevel"].forEach(
+        (name) => {
+          if (Array.isArray(s[name])) {
+            document.querySelectorAll(`input[name="${name}"]`).forEach((cb) => {
+              cb.checked = s[name].includes(cb.value);
+            });
+          }
+        },
+      );
       if (Array.isArray(s.locations) && s.locations.length > 0) {
         s.locations.forEach((loc) => {
           if (typeof addTag === "function")
@@ -954,6 +977,7 @@
       "clientWebsite",
       "useCase",
       "budgetRange",
+      "budgetPeriod",
       "exactBudget",
       "campaignDuration",
       "campaignStartMonth",
@@ -1836,12 +1860,20 @@
       const card = document.createElement("div");
       card.className = "job-cat-card";
       card.dataset.category = key;
+      card.setAttribute("role", "button");
+      card.setAttribute("tabindex", "0");
       card.innerHTML = `
                     <div class="cat-check">&#10003;</div>
                     <span class="cat-icon">${escapeHtml(cat.icon)}</span>
                     <div class="cat-name">${escapeHtml(cat.label)}</div>
                 `;
       card.addEventListener("click", () => toggleJobCategory(card, key));
+      card.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          toggleJobCategory(card, key);
+        }
+      });
       grid.appendChild(card);
     }
   }
@@ -2414,8 +2446,16 @@
       document.getElementById("clientName").value;
     document.getElementById("reviewUseCase").textContent =
       document.getElementById("useCase").value || "Not specified";
+    var _bpLabel = {
+      campaign: "Total",
+      monthly: "Monthly",
+      quarterly: "Quarterly",
+      annual: "Annual",
+    };
+    var _bpVal = document.getElementById("budgetPeriod")?.value || "campaign";
     document.getElementById("reviewBudget").textContent =
-      document.getElementById("budgetRange").value || "Not specified";
+      (document.getElementById("budgetRange").value || "Not specified") +
+      (_bpVal !== "campaign" ? " (" + (_bpLabel[_bpVal] || _bpVal) + ")" : "");
     document.getElementById("reviewDuration").textContent =
       document.getElementById("campaignDuration").value || "Not specified";
     const reviewLocationsEl = document.getElementById("reviewLocations");
@@ -2779,6 +2819,16 @@
       return { valid: false, error: "Budget is required" };
     }
 
+    // Predefined dropdown values are always valid (no need to parse)
+    if (
+      budgetValue !== "__exact__" &&
+      document.querySelector(
+        '#budgetRange option[value="' + CSS.escape(budgetValue) + '"]',
+      )
+    ) {
+      return { valid: true, amount: 0 };
+    }
+
     // Parse budget string (handles formats like $50,000, 50K, 50000, etc)
     const budgetStr = budgetValue.replace(/[\$,]/g, "").trim();
     let amount = 0;
@@ -2920,11 +2970,13 @@
           errorEl.textContent = errorMsg;
           errorEl.style.display = "block";
 
-          // Trigger shake animation
-          formGroup.style.animation = "none";
-          setTimeout(() => {
-            formGroup.style.animation = "shake 0.4s ease";
-          }, 10);
+          // Trigger shake animation (respects prefers-reduced-motion)
+          if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+            formGroup.style.animation = "none";
+            setTimeout(() => {
+              formGroup.style.animation = "shake 0.4s ease";
+            }, 10);
+          }
         }
       }
     }
@@ -2966,7 +3018,9 @@
       const locContainer = document.getElementById("locationsContainer");
       if (locContainer) {
         locContainer.classList.add("field-error");
-        locContainer.style.animation = "shake 0.4s ease";
+        if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+          locContainer.style.animation = "shake 0.4s ease";
+        }
       }
       return;
     }
@@ -2978,7 +3032,9 @@
       const locContainer = document.getElementById("locationsContainer");
       if (locContainer) {
         locContainer.classList.add("field-error");
-        locContainer.style.animation = "shake 0.4s ease";
+        if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+          locContainer.style.animation = "shake 0.4s ease";
+        }
       }
       return;
     }
@@ -3037,6 +3093,8 @@
         document.getElementById("budgetRange").value === "__exact__"
           ? document.getElementById("exactBudget").value.trim() || ""
           : document.getElementById("budgetRange").value,
+      budget_period:
+        document.getElementById("budgetPeriod")?.value || "campaign",
       campaign_duration: document.getElementById("campaignDuration").value,
       campaign_start_month:
         parseInt(document.getElementById("campaignStartMonth").value) ||
@@ -3370,7 +3428,12 @@
       URL.revokeObjectURL(url);
       showToast("Bundle re-downloaded successfully!", "success");
     } else {
-      generatePlan();
+      if (
+        confirm("Your previous plan is no longer cached. Generate a new one?")
+      ) {
+        generatePlan();
+      }
+      return;
     }
   }
 
