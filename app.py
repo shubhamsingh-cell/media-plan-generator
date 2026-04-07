@@ -10529,6 +10529,57 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             with _generation_jobs_lock:
                 job = _generation_jobs.get(job_id)
                 if not job:
+                    # S47: Fallback to Supabase for restart-safe Slack download links
+                    try:
+                        from supabase_client import get_client as _sb_dl_client
+                        import base64 as _b64_dl
+
+                        _sb_dl = _sb_dl_client()
+                        if _sb_dl:
+                            _sb_result = (
+                                _sb_dl.table("nova_generated_plans")
+                                .select("*")
+                                .eq("job_id", job_id)
+                                .execute()
+                            )
+                            if _sb_result.data:
+                                _row = _sb_result.data[0]
+                                _zip_bytes = _b64_dl.b64decode(_row["zip_data"])
+                                _dl_filename = _row.get("filename") or "Media_Plan.zip"
+                                _dl_ct = "application/zip"
+                                accept_hdr = self.headers.get("Accept") or ""
+                                if "application/json" in accept_hdr:
+                                    # Poll mode: tell frontend it's ready
+                                    self._send_json(
+                                        {
+                                            "job_id": job_id,
+                                            "status": "completed",
+                                            "progress_pct": 100,
+                                            "status_message": "Complete",
+                                            "filename": _dl_filename,
+                                            "content_type": _dl_ct,
+                                            "download_url": f"/api/jobs/{job_id}",
+                                            "source": "supabase",
+                                        }
+                                    )
+                                    return
+                                self.send_response(200)
+                                self.send_header("Content-Type", _dl_ct)
+                                self.send_header(
+                                    "Content-Disposition",
+                                    f'attachment; filename="{_dl_filename}"',
+                                )
+                                self.send_header("Content-Length", str(len(_zip_bytes)))
+                                self.end_headers()
+                                self.wfile.write(_zip_bytes)
+                                logger.info(
+                                    "S47: Served plan from Supabase for job %s", job_id
+                                )
+                                return
+                    except Exception as _sb_dl_err:
+                        logger.debug(
+                            "S47: Supabase fallback lookup failed: %s", _sb_dl_err
+                        )
                     self.send_response(404)
                     self.send_header("Content-Type", "application/json")
                     self.end_headers()
@@ -13632,6 +13683,43 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         logger.info(
                             "Async job %s completed (%d bytes)", jid, len(result_bytes)
                         )
+
+                        # ── S47: Persist ZIP to Supabase for restart-safe Slack links ──
+                        try:
+                            from supabase_client import get_client as _sb_client
+                            import base64 as _b64_persist
+
+                            _sb = _sb_client()
+                            if _sb and result_bytes:
+                                _zip_b64 = _b64_persist.b64encode(result_bytes).decode()
+                                _sb.table("nova_generated_plans").upsert(
+                                    {
+                                        "job_id": jid,
+                                        "zip_data": _zip_b64,
+                                        "filename": result_fn,
+                                        "client_name": gen_data.get("client_name")
+                                        or "",
+                                        "industry": (
+                                            gen_data.get("industry_label")
+                                            or gen_data.get("industry")
+                                            or ""
+                                        ),
+                                        "user_email": gen_data.get("requester_email")
+                                        or "",
+                                        "created_at": time.strftime(
+                                            "%Y-%m-%dT%H:%M:%SZ", time.gmtime()
+                                        ),
+                                    }
+                                ).execute()
+                                logger.info(
+                                    "S47: Persisted plan ZIP to Supabase for job %s",
+                                    jid,
+                                )
+                        except Exception as _sb_err:
+                            logger.debug(
+                                "S47: Failed to persist plan to Supabase (non-critical): %s",
+                                _sb_err,
+                            )
 
                         # ── Upload ZIP to Google Drive for permanent Slack link ──
                         _drive_download_url = ""
