@@ -8622,5 +8622,129 @@
           });
       })();
     </script>
+
+    <!-- S46: Premium GSAP ScrollTrigger animations -->
+    <script>
+      (function () {
+        "use strict";
+        if (window.matchMedia("(prefers-reduced-motion: reduce)").matches)
+          return;
+        if (typeof gsap === "undefined" || typeof ScrollTrigger === "undefined")
+          return;
+        gsap.registerPlugin(ScrollTrigger);
+
+        /* ── 1. Product card staggered entrance with scale + rotation ── */
+        var productCards = document.querySelectorAll(".product-hero-card");
+        if (productCards.length) {
+          gsap.from(productCards, {
+            scrollTrigger: {
+              trigger: ".products-section",
+              start: "top 80%",
+            },
+            y: 60,
+            opacity: 0,
+            scale: 0.95,
+            rotateX: 5,
+            duration: 0.8,
+            stagger: 0.15,
+            ease: "power3.out",
+            clearProps: "all",
+          });
+        }
+
+        /* ── 2. Hero headline word-by-word reveal ── */
+        var heroTitle = document.querySelector(".hero-headline");
+        if (heroTitle) {
+          var originalHTML = heroTitle.innerHTML;
+          /* Split by whitespace but preserve <br/> tags */
+          var parts = originalHTML.split(/(<br\s*\/?>)/i);
+          var wordHTML = "";
+          parts.forEach(function (part) {
+            if (/^<br/i.test(part)) {
+              wordHTML += part;
+            } else {
+              var words = part.trim().split(/\s+/);
+              words.forEach(function (w) {
+                if (w) {
+                  wordHTML +=
+                    '<span class="hero-word-gsap" style="display:inline-block;opacity:0;transform:translateY(20px)">' +
+                    w +
+                    " </span>";
+                }
+              });
+            }
+          });
+          heroTitle.innerHTML = wordHTML;
+          heroTitle.style.opacity = "1";
+          gsap.to(".hero-word-gsap", {
+            opacity: 1,
+            y: 0,
+            duration: 0.6,
+            stagger: 0.08,
+            ease: "power2.out",
+            delay: 0.3,
+          });
+        }
+
+        /* ── 3. Animated stat counters on scroll ── */
+        document.querySelectorAll(".footer-stat-value").forEach(function (el) {
+          var raw = el.textContent.trim();
+          var numMatch = raw.match(/[\d.]+/);
+          if (!numMatch) return;
+          var target = parseFloat(numMatch[0]);
+          var suffix = raw.replace(/[\d.]+/, "");
+          var isDecimal = raw.indexOf(".") !== -1;
+          ScrollTrigger.create({
+            trigger: el,
+            start: "top 90%",
+            once: true,
+            onEnter: function () {
+              var obj = { val: 0 };
+              gsap.to(obj, {
+                val: target,
+                duration: 1.5,
+                ease: "power2.out",
+                onUpdate: function () {
+                  el.textContent =
+                    (isDecimal ? obj.val.toFixed(1) : Math.round(obj.val)) +
+                    suffix;
+                },
+              });
+            },
+          });
+        });
+
+        /* ── 4. Magnetic hover effect on CTA buttons ── */
+        document
+          .querySelectorAll(".nav-cta, .btn-primary.btn-lg")
+          .forEach(function (btn) {
+            btn.style.transition =
+              "transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)";
+            btn.addEventListener("mousemove", function (e) {
+              var rect = btn.getBoundingClientRect();
+              var x = (e.clientX - rect.left - rect.width / 2) * 0.15;
+              var y = (e.clientY - rect.top - rect.height / 2) * 0.15;
+              btn.style.transform = "translate(" + x + "px, " + y + "px)";
+            });
+            btn.addEventListener("mouseleave", function () {
+              btn.style.transform = "";
+            });
+          });
+
+        /* ── 5. Parallax depth on products orbs ── */
+        gsap.utils.toArray(".products-orb").forEach(function (orb, i) {
+          gsap.to(orb, {
+            scrollTrigger: {
+              trigger: ".products-section",
+              start: "top bottom",
+              end: "bottom top",
+              scrub: 1,
+            },
+            y: (i + 1) * -40,
+            ease: "none",
+          });
+        });
+      })();
+    </script>
   </body>
 </html>
