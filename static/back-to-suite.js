@@ -8,12 +8,8 @@
   var path = window.location.pathname;
   // Don't show on hub/home
   if (path === "/" || path === "/hub" || path === "/hub/") return;
-  // Don't show if one already exists in the page
-  if (
-    document.querySelector('[href="/hub"][class*="back"]') ||
-    document.querySelector('a[href="/hub"]#back-to-suite')
-  )
-    return;
+  // Don't show if any link to /hub already exists in the page
+  if (document.querySelector('a[href="/hub"]')) return;
 
   var btn = document.createElement("a");
   btn.href = "/hub";
