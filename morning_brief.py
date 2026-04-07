@@ -14,9 +14,9 @@ from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
-SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
-RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
+SUPABASE_URL = os.environ.get("SUPABASE_URL") or ""
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY") or ""
+RESEND_API_KEY = os.environ.get("RESEND_API_KEY") or ""
 
 
 def _supabase_query(table: str, params: str = "") -> Optional[List[Dict]]:

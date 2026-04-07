@@ -366,16 +366,21 @@ html.lenis body {
 }
 .nav-links a {
   color: var(--text-secondary);
-  text-decoration: none;
+  text-decoration: none !important;
+  border-bottom: none !important;
+  outline-offset: 2px;
   font-size: 0.85rem;
   font-weight: 500;
   padding: 6px 14px;
   border-radius: var(--radius-sm);
   transition: all 0.2s;
 }
-.nav-links a:hover {
+.nav-links a:hover,
+.nav-links a:focus-visible {
   color: var(--text-primary);
   background: var(--accent-glow);
+  text-decoration: none !important;
+  border-bottom: none !important;
 }
 .nav-links a.nav-cta {
   background: var(--accent);

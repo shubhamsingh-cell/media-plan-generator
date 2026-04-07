@@ -1209,6 +1209,36 @@ a:hover {
 .thinking-dot:nth-child(3) {
   animation-delay: 0.4s;
 }
+/* Pure CSS fallback typing indicator (3 bouncing dots) -- shown when Lottie unavailable */
+.thinking-dots-fallback {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  padding: 8px 12px;
+}
+.thinking-dots-fallback span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  animation: thinking-bounce 1.4s ease-in-out infinite;
+}
+.thinking-dots-fallback span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.thinking-dots-fallback span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+@keyframes thinking-bounce {
+  0%,
+  80%,
+  100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-6px);
+  }
+}
 /* Streaming cursor -- blinking caret while tokens arrive */
 .streaming-cursor {
   display: inline-block;

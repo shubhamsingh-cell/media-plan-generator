@@ -1336,17 +1336,25 @@
     var wrapper = document.createElement("div");
     wrapper.className = "thinking-wrapper";
     wrapper.id = "thinking-wrapper";
+    var lottieAvailable =
+      typeof customElements !== "undefined" &&
+      customElements.get("lottie-player");
+    var indicatorHtml;
+    if (lottieAvailable) {
+      indicatorHtml =
+        '<div class="thinking-lottie" aria-label="Nova is thinking">' +
+        '<lottie-player src="https://lottie.host/8a01a0d3-c4e0-4c8a-87af-5c8c0e7e6e5e/7TLXYjNLAt.json" background="transparent" speed="1" style="width:60px;height:30px" loop autoplay></lottie-player>' +
+        "</div>";
+    } else {
+      indicatorHtml =
+        '<div class="thinking-dots-fallback" aria-label="Nova is thinking">' +
+        "<span></span><span></span><span></span>" +
+        "</div>";
+    }
     wrapper.innerHTML =
       '<div class="message-avatar nova" aria-hidden="true">N</div>' +
       '<div class="thinking-bubble">' +
-      '<div class="thinking-lottie" aria-label="Nova is thinking">' +
-      '<lottie-player src="https://lottie.host/8a01a0d3-c4e0-4c8a-87af-5c8c0e7e6e5e/7TLXYjNLAt.json" background="transparent" speed="1" style="width:60px;height:30px" loop autoplay></lottie-player>' +
-      "</div>" +
-      '<div class="thinking-dots-pill" aria-label="Nova is thinking" style="display:none">' +
-      '<div class="thinking-dot"></div>' +
-      '<div class="thinking-dot"></div>' +
-      '<div class="thinking-dot"></div>' +
-      "</div>" +
+      indicatorHtml +
       '<div class="thinking-text"><span id="thinking-text">' +
       thinkingTexts[0] +
       '</span><span class="thinking-elapsed" id="thinking-elapsed"></span></div>' +

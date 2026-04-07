@@ -1,0 +1,93 @@
+{
+  "metadata": {
+    "source": "BLS, Indeed Hiring Lab, LinkedIn Economic Graph",
+    "last_updated": "2026-04-07",
+    "description": "Seasonal hiring patterns by industry with peak/low multipliers for budget and timing optimization"
+  },
+  "seasonal_patterns": {
+    "healthcare": {
+      "peak_months": [1, 2, 9, 10],
+      "low_months": [6, 7, 12],
+      "peak_multiplier": 1.25,
+      "low_multiplier": 0.80,
+      "notes": "Post-holiday surge Jan-Feb, fall flu season Sep-Oct"
+    },
+    "retail": {
+      "peak_months": [8, 9, 10],
+      "low_months": [1, 2, 3],
+      "peak_multiplier": 1.50,
+      "low_multiplier": 0.65,
+      "notes": "Holiday hiring Aug-Oct, post-holiday slump Jan-Mar"
+    },
+    "technology": {
+      "peak_months": [1, 2, 3, 9],
+      "low_months": [6, 7, 12],
+      "peak_multiplier": 1.15,
+      "low_multiplier": 0.90,
+      "notes": "New year budget cycles, fall hiring push"
+    },
+    "hospitality": {
+      "peak_months": [3, 4, 5],
+      "low_months": [10, 11, 1],
+      "peak_multiplier": 1.40,
+      "low_multiplier": 0.70,
+      "notes": "Summer season prep Mar-May"
+    },
+    "construction": {
+      "peak_months": [3, 4, 5, 6],
+      "low_months": [11, 12, 1, 2],
+      "peak_multiplier": 1.35,
+      "low_multiplier": 0.65,
+      "notes": "Weather-dependent, spring ramp-up"
+    },
+    "education": {
+      "peak_months": [3, 4, 5, 6],
+      "low_months": [9, 10, 11],
+      "peak_multiplier": 1.30,
+      "low_multiplier": 0.75,
+      "notes": "Hiring for next academic year"
+    },
+    "finance": {
+      "peak_months": [1, 2, 9, 10],
+      "low_months": [6, 7, 8],
+      "peak_multiplier": 1.15,
+      "low_multiplier": 0.85,
+      "notes": "New year + Q4 planning cycles"
+    },
+    "manufacturing": {
+      "peak_months": [1, 2, 3],
+      "low_months": [11, 12],
+      "peak_multiplier": 1.20,
+      "low_multiplier": 0.80,
+      "notes": "Production ramp-up after holidays"
+    },
+    "logistics": {
+      "peak_months": [8, 9, 10, 11],
+      "low_months": [1, 2, 3],
+      "peak_multiplier": 1.45,
+      "low_multiplier": 0.70,
+      "notes": "Peak shipping season prep"
+    },
+    "staffing": {
+      "peak_months": [1, 2, 3, 9],
+      "low_months": [6, 7, 12],
+      "peak_multiplier": 1.20,
+      "low_multiplier": 0.80,
+      "notes": "Mirrors overall job market cycles"
+    },
+    "transportation": {
+      "peak_months": [3, 4, 9, 10],
+      "low_months": [1, 2, 7],
+      "peak_multiplier": 1.25,
+      "low_multiplier": 0.80,
+      "notes": "Seasonal freight demand"
+    },
+    "government": {
+      "peak_months": [7, 8, 9],
+      "low_months": [3, 4],
+      "peak_multiplier": 1.15,
+      "low_multiplier": 0.85,
+      "notes": "Fiscal year start Oct, hiring in Q4 FY"
+    }
+  }
+}

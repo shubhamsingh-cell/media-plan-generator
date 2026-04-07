@@ -118,8 +118,8 @@ class CircuitBreaker:
             for cb in self._on_close_callbacks:
                 try:
                     cb(self)
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug("Circuit breaker on_close callback failed: %s", exc)
         return False
 
     def record_success(self) -> None:
@@ -137,8 +137,8 @@ class CircuitBreaker:
             for cb in self._on_close_callbacks:
                 try:
                     cb(self)
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug("Circuit breaker on_close callback failed: %s", exc)
 
     def _get_cooldown_with_jitter(self) -> float:
         """Exponential backoff with jitter for circuit recovery.
@@ -170,8 +170,8 @@ class CircuitBreaker:
             for cb in self._on_open_callbacks:
                 try:
                     cb(self)
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug("Circuit breaker on_open callback failed: %s", exc)
 
     def reset(self) -> None:
         """Manually reset the circuit breaker."""

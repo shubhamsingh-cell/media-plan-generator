@@ -1115,90 +1115,7 @@
                   xmlns="http://www.w3.org/2000/svg"
                   class="product-demo-svg"
                 >
-                  <!-- Subtle grid lines -->
-                  <line
-                    x1="60"
-                    y1="80"
-                    x2="60"
-                    y2="360"
-                    stroke="#7b75d4"
-                    stroke-width="0.5"
-                    opacity="0.08"
-                  />
-                  <line
-                    x1="120"
-                    y1="80"
-                    x2="120"
-                    y2="360"
-                    stroke="#7b75d4"
-                    stroke-width="0.5"
-                    opacity="0.08"
-                  />
-                  <line
-                    x1="180"
-                    y1="80"
-                    x2="180"
-                    y2="360"
-                    stroke="#7b75d4"
-                    stroke-width="0.5"
-                    opacity="0.08"
-                  />
-                  <line
-                    x1="240"
-                    y1="80"
-                    x2="240"
-                    y2="360"
-                    stroke="#7b75d4"
-                    stroke-width="0.5"
-                    opacity="0.08"
-                  />
-                  <line
-                    x1="300"
-                    y1="80"
-                    x2="300"
-                    y2="360"
-                    stroke="#7b75d4"
-                    stroke-width="0.5"
-                    opacity="0.08"
-                  />
-                  <line
-                    x1="40"
-                    y1="140"
-                    x2="340"
-                    y2="140"
-                    stroke="#7b75d4"
-                    stroke-width="0.5"
-                    opacity="0.08"
-                  />
-                  <line
-                    x1="40"
-                    y1="200"
-                    x2="340"
-                    y2="200"
-                    stroke="#7b75d4"
-                    stroke-width="0.5"
-                    opacity="0.08"
-                  />
-                  <line
-                    x1="40"
-                    y1="260"
-                    x2="340"
-                    y2="260"
-                    stroke="#7b75d4"
-                    stroke-width="0.5"
-                    opacity="0.08"
-                  />
-                  <line
-                    x1="40"
-                    y1="320"
-                    x2="340"
-                    y2="320"
-                    stroke="#7b75d4"
-                    stroke-width="0.5"
-                    opacity="0.08"
-                  />
-
-                  <!-- Large bar chart bars growing up from bottom -->
+                  <!-- Bar chart bars -->
                   <rect
                     x="55"
                     y="360"
@@ -1301,18 +1218,7 @@
                       begin="0.9s"
                     />
                   </rect>
-
-                  <!-- Large pie chart centered -->
-                  <circle
-                    cx="200"
-                    cy="190"
-                    r="100"
-                    stroke="#7b75d4"
-                    stroke-width="1"
-                    opacity="0.1"
-                    fill="none"
-                  />
-                  <!-- Segment 1 -->
+                  <!-- Pie chart segments -->
                   <circle
                     cx="200"
                     cy="190"
@@ -1334,7 +1240,6 @@
                       repeatCount="indefinite"
                     />
                   </circle>
-                  <!-- Segment 2 -->
                   <circle
                     cx="200"
                     cy="190"
@@ -1352,28 +1257,6 @@
                       attributeName="stroke-dashoffset"
                       values="628;-157;-157;628"
                       keyTimes="0;0.3;0.75;1"
-                      dur="12s"
-                      repeatCount="indefinite"
-                    />
-                  </circle>
-                  <!-- Segment 3 -->
-                  <circle
-                    cx="200"
-                    cy="190"
-                    r="100"
-                    stroke="#5a54bd"
-                    stroke-width="16"
-                    opacity="0.12"
-                    fill="none"
-                    stroke-dasharray="125 503"
-                    stroke-dashoffset="628"
-                    stroke-linecap="round"
-                    transform="rotate(-90 200 190)"
-                  >
-                    <animate
-                      attributeName="stroke-dashoffset"
-                      values="628;-377;-377;628"
-                      keyTimes="0;0.35;0.75;1"
                       dur="12s"
                       repeatCount="indefinite"
                     />
@@ -1626,7 +1509,6 @@
                   xmlns="http://www.w3.org/2000/svg"
                   class="product-demo-svg"
                 >
-                  <!-- Neural network mesh -- large interconnected nodes -->
                   <!-- Central hub node -->
                   <circle
                     cx="200"
@@ -1651,530 +1533,50 @@
                       repeatCount="indefinite"
                     />
                   </circle>
-
-                  <!-- Layer 1 nodes (inner ring) -->
+                  <!-- Inner ring nodes (static, no animation noise) -->
                   <circle
                     cx="130"
                     cy="130"
                     r="10"
                     fill="#6bb3cd"
                     opacity="0.15"
-                  >
-                    <animate
-                      attributeName="opacity"
-                      values="0.1;0.25;0.1"
-                      dur="3s"
-                      begin="0s"
-                      repeatCount="indefinite"
-                    />
-                  </circle>
+                  />
                   <circle
                     cx="270"
                     cy="130"
                     r="10"
                     fill="#6bb3cd"
                     opacity="0.15"
-                  >
-                    <animate
-                      attributeName="opacity"
-                      values="0.1;0.25;0.1"
-                      dur="3s"
-                      begin="0.5s"
-                      repeatCount="indefinite"
-                    />
-                  </circle>
+                  />
                   <circle
                     cx="130"
                     cy="250"
                     r="10"
                     fill="#6bb3cd"
                     opacity="0.15"
-                  >
-                    <animate
-                      attributeName="opacity"
-                      values="0.1;0.25;0.1"
-                      dur="3s"
-                      begin="1s"
-                      repeatCount="indefinite"
-                    />
-                  </circle>
+                  />
                   <circle
                     cx="270"
                     cy="250"
                     r="10"
                     fill="#6bb3cd"
                     opacity="0.15"
-                  >
-                    <animate
-                      attributeName="opacity"
-                      values="0.1;0.25;0.1"
-                      dur="3s"
-                      begin="1.5s"
-                      repeatCount="indefinite"
-                    />
-                  </circle>
-                  <circle cx="200" cy="90" r="10" fill="#6bb3cd" opacity="0.15">
-                    <animate
-                      attributeName="opacity"
-                      values="0.1;0.25;0.1"
-                      dur="3s"
-                      begin="0.8s"
-                      repeatCount="indefinite"
-                    />
-                  </circle>
+                  />
+                  <circle
+                    cx="200"
+                    cy="90"
+                    r="10"
+                    fill="#6bb3cd"
+                    opacity="0.15"
+                  />
                   <circle
                     cx="200"
                     cy="290"
                     r="10"
                     fill="#6bb3cd"
                     opacity="0.15"
-                  >
-                    <animate
-                      attributeName="opacity"
-                      values="0.1;0.25;0.1"
-                      dur="3s"
-                      begin="1.3s"
-                      repeatCount="indefinite"
-                    />
-                  </circle>
-
-                  <!-- Layer 2 nodes (outer ring) -->
-                  <circle cx="70" cy="190" r="7" fill="#6bb3cd" opacity="0.1">
-                    <animate
-                      attributeName="opacity"
-                      values="0.06;0.18;0.06"
-                      dur="3.5s"
-                      begin="0.2s"
-                      repeatCount="indefinite"
-                    />
-                  </circle>
-                  <circle cx="330" cy="190" r="7" fill="#6bb3cd" opacity="0.1">
-                    <animate
-                      attributeName="opacity"
-                      values="0.06;0.18;0.06"
-                      dur="3.5s"
-                      begin="0.7s"
-                      repeatCount="indefinite"
-                    />
-                  </circle>
-                  <circle cx="100" cy="70" r="7" fill="#6bb3cd" opacity="0.1">
-                    <animate
-                      attributeName="opacity"
-                      values="0.06;0.18;0.06"
-                      dur="3.5s"
-                      begin="1.2s"
-                      repeatCount="indefinite"
-                    />
-                  </circle>
-                  <circle cx="300" cy="70" r="7" fill="#6bb3cd" opacity="0.1">
-                    <animate
-                      attributeName="opacity"
-                      values="0.06;0.18;0.06"
-                      dur="3.5s"
-                      begin="0.4s"
-                      repeatCount="indefinite"
-                    />
-                  </circle>
-                  <circle cx="100" cy="310" r="7" fill="#6bb3cd" opacity="0.1">
-                    <animate
-                      attributeName="opacity"
-                      values="0.06;0.18;0.06"
-                      dur="3.5s"
-                      begin="0.9s"
-                      repeatCount="indefinite"
-                    />
-                  </circle>
-                  <circle cx="300" cy="310" r="7" fill="#6bb3cd" opacity="0.1">
-                    <animate
-                      attributeName="opacity"
-                      values="0.06;0.18;0.06"
-                      dur="3.5s"
-                      begin="1.4s"
-                      repeatCount="indefinite"
-                    />
-                  </circle>
-
-                  <!-- Connection lines from center to inner ring -->
-                  <line
-                    x1="200"
-                    y1="190"
-                    x2="130"
-                    y2="130"
-                    stroke="#6bb3cd"
-                    stroke-width="1"
-                    opacity="0.08"
-                  >
-                    <animate
-                      attributeName="opacity"
-                      values="0.05;0.2;0.05"
-                      dur="2.5s"
-                      begin="0s"
-                      repeatCount="indefinite"
-                    />
-                  </line>
-                  <line
-                    x1="200"
-                    y1="190"
-                    x2="270"
-                    y2="130"
-                    stroke="#6bb3cd"
-                    stroke-width="1"
-                    opacity="0.08"
-                  >
-                    <animate
-                      attributeName="opacity"
-                      values="0.05;0.2;0.05"
-                      dur="2.5s"
-                      begin="0.4s"
-                      repeatCount="indefinite"
-                    />
-                  </line>
-                  <line
-                    x1="200"
-                    y1="190"
-                    x2="130"
-                    y2="250"
-                    stroke="#6bb3cd"
-                    stroke-width="1"
-                    opacity="0.08"
-                  >
-                    <animate
-                      attributeName="opacity"
-                      values="0.05;0.2;0.05"
-                      dur="2.5s"
-                      begin="0.8s"
-                      repeatCount="indefinite"
-                    />
-                  </line>
-                  <line
-                    x1="200"
-                    y1="190"
-                    x2="270"
-                    y2="250"
-                    stroke="#6bb3cd"
-                    stroke-width="1"
-                    opacity="0.08"
-                  >
-                    <animate
-                      attributeName="opacity"
-                      values="0.05;0.2;0.05"
-                      dur="2.5s"
-                      begin="1.2s"
-                      repeatCount="indefinite"
-                    />
-                  </line>
-                  <line
-                    x1="200"
-                    y1="190"
-                    x2="200"
-                    y2="90"
-                    stroke="#6bb3cd"
-                    stroke-width="1"
-                    opacity="0.08"
-                  >
-                    <animate
-                      attributeName="opacity"
-                      values="0.05;0.2;0.05"
-                      dur="2.5s"
-                      begin="0.6s"
-                      repeatCount="indefinite"
-                    />
-                  </line>
-                  <line
-                    x1="200"
-                    y1="190"
-                    x2="200"
-                    y2="290"
-                    stroke="#6bb3cd"
-                    stroke-width="1"
-                    opacity="0.08"
-                  >
-                    <animate
-                      attributeName="opacity"
-                      values="0.05;0.2;0.05"
-                      dur="2.5s"
-                      begin="1s"
-                      repeatCount="indefinite"
-                    />
-                  </line>
-
-                  <!-- Connection lines from inner to outer ring -->
-                  <line
-                    x1="130"
-                    y1="130"
-                    x2="70"
-                    y2="190"
-                    stroke="#6bb3cd"
-                    stroke-width="0.7"
-                    opacity="0.06"
-                  >
-                    <animate
-                      attributeName="opacity"
-                      values="0.03;0.15;0.03"
-                      dur="3s"
-                      begin="0.3s"
-                      repeatCount="indefinite"
-                    />
-                  </line>
-                  <line
-                    x1="130"
-                    y1="130"
-                    x2="100"
-                    y2="70"
-                    stroke="#6bb3cd"
-                    stroke-width="0.7"
-                    opacity="0.06"
-                  >
-                    <animate
-                      attributeName="opacity"
-                      values="0.03;0.15;0.03"
-                      dur="3s"
-                      begin="0.6s"
-                      repeatCount="indefinite"
-                    />
-                  </line>
-                  <line
-                    x1="270"
-                    y1="130"
-                    x2="330"
-                    y2="190"
-                    stroke="#6bb3cd"
-                    stroke-width="0.7"
-                    opacity="0.06"
-                  >
-                    <animate
-                      attributeName="opacity"
-                      values="0.03;0.15;0.03"
-                      dur="3s"
-                      begin="0.9s"
-                      repeatCount="indefinite"
-                    />
-                  </line>
-                  <line
-                    x1="270"
-                    y1="130"
-                    x2="300"
-                    y2="70"
-                    stroke="#6bb3cd"
-                    stroke-width="0.7"
-                    opacity="0.06"
-                  >
-                    <animate
-                      attributeName="opacity"
-                      values="0.03;0.15;0.03"
-                      dur="3s"
-                      begin="1.1s"
-                      repeatCount="indefinite"
-                    />
-                  </line>
-                  <line
-                    x1="130"
-                    y1="250"
-                    x2="70"
-                    y2="190"
-                    stroke="#6bb3cd"
-                    stroke-width="0.7"
-                    opacity="0.06"
-                  >
-                    <animate
-                      attributeName="opacity"
-                      values="0.03;0.15;0.03"
-                      dur="3s"
-                      begin="1.3s"
-                      repeatCount="indefinite"
-                    />
-                  </line>
-                  <line
-                    x1="130"
-                    y1="250"
-                    x2="100"
-                    y2="310"
-                    stroke="#6bb3cd"
-                    stroke-width="0.7"
-                    opacity="0.06"
-                  >
-                    <animate
-                      attributeName="opacity"
-                      values="0.03;0.15;0.03"
-                      dur="3s"
-                      begin="0.2s"
-                      repeatCount="indefinite"
-                    />
-                  </line>
-                  <line
-                    x1="270"
-                    y1="250"
-                    x2="330"
-                    y2="190"
-                    stroke="#6bb3cd"
-                    stroke-width="0.7"
-                    opacity="0.06"
-                  >
-                    <animate
-                      attributeName="opacity"
-                      values="0.03;0.15;0.03"
-                      dur="3s"
-                      begin="0.7s"
-                      repeatCount="indefinite"
-                    />
-                  </line>
-                  <line
-                    x1="270"
-                    y1="250"
-                    x2="300"
-                    y2="310"
-                    stroke="#6bb3cd"
-                    stroke-width="0.7"
-                    opacity="0.06"
-                  >
-                    <animate
-                      attributeName="opacity"
-                      values="0.03;0.15;0.03"
-                      dur="3s"
-                      begin="1.5s"
-                      repeatCount="indefinite"
-                    />
-                  </line>
-                  <line
-                    x1="200"
-                    y1="90"
-                    x2="100"
-                    y2="70"
-                    stroke="#6bb3cd"
-                    stroke-width="0.7"
-                    opacity="0.06"
-                  >
-                    <animate
-                      attributeName="opacity"
-                      values="0.03;0.15;0.03"
-                      dur="3s"
-                      begin="0.5s"
-                      repeatCount="indefinite"
-                    />
-                  </line>
-                  <line
-                    x1="200"
-                    y1="90"
-                    x2="300"
-                    y2="70"
-                    stroke="#6bb3cd"
-                    stroke-width="0.7"
-                    opacity="0.06"
-                  >
-                    <animate
-                      attributeName="opacity"
-                      values="0.03;0.15;0.03"
-                      dur="3s"
-                      begin="1s"
-                      repeatCount="indefinite"
-                    />
-                  </line>
-                  <line
-                    x1="200"
-                    y1="290"
-                    x2="100"
-                    y2="310"
-                    stroke="#6bb3cd"
-                    stroke-width="0.7"
-                    opacity="0.06"
-                  >
-                    <animate
-                      attributeName="opacity"
-                      values="0.03;0.15;0.03"
-                      dur="3s"
-                      begin="0.4s"
-                      repeatCount="indefinite"
-                    />
-                  </line>
-                  <line
-                    x1="200"
-                    y1="290"
-                    x2="300"
-                    y2="310"
-                    stroke="#6bb3cd"
-                    stroke-width="0.7"
-                    opacity="0.06"
-                  >
-                    <animate
-                      attributeName="opacity"
-                      values="0.03;0.15;0.03"
-                      dur="3s"
-                      begin="0.8s"
-                      repeatCount="indefinite"
-                    />
-                  </line>
-
-                  <!-- Cross connections in inner ring -->
-                  <line
-                    x1="130"
-                    y1="130"
-                    x2="270"
-                    y2="130"
-                    stroke="#6bb3cd"
-                    stroke-width="0.5"
-                    opacity="0.05"
-                  >
-                    <animate
-                      attributeName="opacity"
-                      values="0.03;0.12;0.03"
-                      dur="4s"
-                      begin="0.2s"
-                      repeatCount="indefinite"
-                    />
-                  </line>
-                  <line
-                    x1="130"
-                    y1="250"
-                    x2="270"
-                    y2="250"
-                    stroke="#6bb3cd"
-                    stroke-width="0.5"
-                    opacity="0.05"
-                  >
-                    <animate
-                      attributeName="opacity"
-                      values="0.03;0.12;0.03"
-                      dur="4s"
-                      begin="1s"
-                      repeatCount="indefinite"
-                    />
-                  </line>
-                  <line
-                    x1="130"
-                    y1="130"
-                    x2="200"
-                    y2="90"
-                    stroke="#6bb3cd"
-                    stroke-width="0.5"
-                    opacity="0.05"
-                  >
-                    <animate
-                      attributeName="opacity"
-                      values="0.03;0.12;0.03"
-                      dur="4s"
-                      begin="0.6s"
-                      repeatCount="indefinite"
-                    />
-                  </line>
-                  <line
-                    x1="270"
-                    y1="130"
-                    x2="200"
-                    y2="90"
-                    stroke="#6bb3cd"
-                    stroke-width="0.5"
-                    opacity="0.05"
-                  >
-                    <animate
-                      attributeName="opacity"
-                      values="0.03;0.12;0.03"
-                      dur="4s"
-                      begin="1.4s"
-                      repeatCount="indefinite"
-                    />
-                  </line>
-
-                  <!-- Electrical signal particles traveling along connections -->
+                  />
+                  <!-- Signal particles traveling along connections -->
                   <circle r="3" fill="#6bb3cd" opacity="0.5">
                     <animate
                       attributeName="cx"
@@ -2241,31 +1643,7 @@
                       begin="1s"
                     />
                   </circle>
-                  <circle r="3" fill="#8ecfe0" opacity="0.4">
-                    <animate
-                      attributeName="cx"
-                      values="200;130;100"
-                      dur="2.6s"
-                      repeatCount="indefinite"
-                      begin="1.5s"
-                    />
-                    <animate
-                      attributeName="cy"
-                      values="190;250;310"
-                      dur="2.6s"
-                      repeatCount="indefinite"
-                      begin="1.5s"
-                    />
-                    <animate
-                      attributeName="opacity"
-                      values="0.4;0.2;0"
-                      dur="2.6s"
-                      repeatCount="indefinite"
-                      begin="1.5s"
-                    />
-                  </circle>
-
-                  <!-- Orbiting data particles around the network -->
+                  <!-- Orbiting particles -->
                   <circle r="2.5" fill="#8ecfe0" opacity="0.3">
                     <animate
                       attributeName="cx"
@@ -2280,20 +1658,6 @@
                       repeatCount="indefinite"
                     />
                   </circle>
-                  <circle r="2" fill="#6bb3cd" opacity="0.2">
-                    <animate
-                      attributeName="cx"
-                      values="340;200;60;200;340"
-                      dur="12s"
-                      repeatCount="indefinite"
-                    />
-                    <animate
-                      attributeName="cy"
-                      values="190;340;190;50;190"
-                      dur="12s"
-                      repeatCount="indefinite"
-                    />
-                  </circle>
                 </svg>
               </div>
               <span class="product-hero-badge">AI ASSISTANT</span>
@@ -2303,21 +1667,6 @@
                   fill="none"
                   xmlns="http://www.w3.org/2000/svg"
                 >
-                  <!-- Central bulb glow -->
-                  <circle cx="24" cy="20" r="12" fill="#6bb3cd" opacity="0.08">
-                    <animate
-                      attributeName="r"
-                      values="10;14;10"
-                      dur="3s"
-                      repeatCount="indefinite"
-                    />
-                    <animate
-                      attributeName="opacity"
-                      values="0.05;0.15;0.05"
-                      dur="3s"
-                      repeatCount="indefinite"
-                    />
-                  </circle>
                   <!-- Bulb shape -->
                   <path
                     d="M24 6a11 11 0 0 1 11 11c0 4.5-3 8.5-6 10.5l-1 3h-8l-1-3c-3-2-6-6-6-10.5A11 11 0 0 1 24 6z"
@@ -2498,25 +1847,7 @@
                   xmlns="http://www.w3.org/2000/svg"
                   class="product-demo-svg"
                 >
-                  <!-- LinkedIn "in" logo -- LARGE, centered -->
-                  <!-- Rounded square background -->
-                  <rect
-                    x="110"
-                    y="100"
-                    width="180"
-                    height="180"
-                    rx="30"
-                    fill="#378fe9"
-                    opacity="0.06"
-                  >
-                    <animate
-                      attributeName="opacity"
-                      values="0.04;0.1;0.04"
-                      dur="5s"
-                      repeatCount="indefinite"
-                    />
-                  </rect>
-                  <!-- The "in" text, large and bold -->
+                  <!-- LinkedIn "in" text -->
                   <text
                     x="142"
                     y="252"
@@ -2527,16 +1858,8 @@
                     opacity="0.15"
                   >
                     in
-                    <animate
-                      attributeName="opacity"
-                      values="0.12;0.2;0.12"
-                      dur="5s"
-                      repeatCount="indefinite"
-                    />
                   </text>
-
-                  <!-- Floating job slot cards around the logo -->
-                  <!-- Card 1 - top left -->
+                  <!-- Floating job slot cards -->
                   <g opacity="0">
                     <animate
                       attributeName="opacity"
@@ -2554,24 +1877,6 @@
                       fill="#378fe9"
                       opacity="0.3"
                     />
-                    <rect
-                      x="30"
-                      y="52"
-                      width="50"
-                      height="6"
-                      rx="3"
-                      fill="#378fe9"
-                      opacity="0.4"
-                    />
-                    <rect
-                      x="30"
-                      y="64"
-                      width="35"
-                      height="5"
-                      rx="2.5"
-                      fill="#378fe9"
-                      opacity="0.25"
-                    />
                     <animateTransform
                       attributeName="transform"
                       type="translate"
@@ -2580,7 +1885,6 @@
                       repeatCount="indefinite"
                     />
                   </g>
-                  <!-- Card 2 - top right -->
                   <g opacity="0">
                     <animate
                       attributeName="opacity"
@@ -2599,24 +1903,6 @@
                       fill="#378fe9"
                       opacity="0.3"
                     />
-                    <rect
-                      x="290"
-                      y="42"
-                      width="50"
-                      height="6"
-                      rx="3"
-                      fill="#378fe9"
-                      opacity="0.4"
-                    />
-                    <rect
-                      x="290"
-                      y="54"
-                      width="35"
-                      height="5"
-                      rx="2.5"
-                      fill="#378fe9"
-                      opacity="0.25"
-                    />
                     <animateTransform
                       attributeName="transform"
                       type="translate"
@@ -2625,7 +1911,6 @@
                       repeatCount="indefinite"
                     />
                   </g>
-                  <!-- Card 3 - bottom left -->
                   <g opacity="0">
                     <animate
                       attributeName="opacity"
@@ -2644,24 +1929,6 @@
                       fill="#378fe9"
                       opacity="0.3"
                     />
-                    <rect
-                      x="20"
-                      y="322"
-                      width="50"
-                      height="6"
-                      rx="3"
-                      fill="#378fe9"
-                      opacity="0.4"
-                    />
-                    <rect
-                      x="20"
-                      y="334"
-                      width="35"
-                      height="5"
-                      rx="2.5"
-                      fill="#378fe9"
-                      opacity="0.25"
-                    />
                     <animateTransform
                       attributeName="transform"
                       type="translate"
@@ -2670,7 +1937,6 @@
                       repeatCount="indefinite"
                     />
                   </g>
-                  <!-- Card 4 - bottom right -->
                   <g opacity="0">
                     <animate
                       attributeName="opacity"
@@ -2689,119 +1955,11 @@
                       fill="#378fe9"
                       opacity="0.3"
                     />
-                    <rect
-                      x="300"
-                      y="332"
-                      width="50"
-                      height="6"
-                      rx="3"
-                      fill="#378fe9"
-                      opacity="0.4"
-                    />
-                    <rect
-                      x="300"
-                      y="344"
-                      width="35"
-                      height="5"
-                      rx="2.5"
-                      fill="#378fe9"
-                      opacity="0.25"
-                    />
                     <animateTransform
                       attributeName="transform"
                       type="translate"
                       values="0,0;0,5;0,0"
                       dur="3.8s"
-                      repeatCount="indefinite"
-                    />
-                  </g>
-                  <!-- Card 5 - left middle -->
-                  <g opacity="0">
-                    <animate
-                      attributeName="opacity"
-                      values="0;0.15;0.15;0"
-                      keyTimes="0;0.18;0.55;0.7"
-                      dur="8s"
-                      repeatCount="indefinite"
-                      begin="1.5s"
-                    />
-                    <rect
-                      x="5"
-                      y="175"
-                      width="90"
-                      height="45"
-                      rx="8"
-                      fill="#378fe9"
-                      opacity="0.3"
-                    />
-                    <rect
-                      x="15"
-                      y="187"
-                      width="45"
-                      height="5"
-                      rx="2.5"
-                      fill="#378fe9"
-                      opacity="0.35"
-                    />
-                    <rect
-                      x="15"
-                      y="198"
-                      width="30"
-                      height="4"
-                      rx="2"
-                      fill="#378fe9"
-                      opacity="0.2"
-                    />
-                    <animateTransform
-                      attributeName="transform"
-                      type="translate"
-                      values="0,0;-4,0;0,0"
-                      dur="4.2s"
-                      repeatCount="indefinite"
-                    />
-                  </g>
-                  <!-- Card 6 - right middle -->
-                  <g opacity="0">
-                    <animate
-                      attributeName="opacity"
-                      values="0;0.15;0.15;0"
-                      keyTimes="0;0.22;0.58;0.72"
-                      dur="8s"
-                      repeatCount="indefinite"
-                      begin="2.5s"
-                    />
-                    <rect
-                      x="305"
-                      y="185"
-                      width="90"
-                      height="45"
-                      rx="8"
-                      fill="#378fe9"
-                      opacity="0.3"
-                    />
-                    <rect
-                      x="315"
-                      y="197"
-                      width="45"
-                      height="5"
-                      rx="2.5"
-                      fill="#378fe9"
-                      opacity="0.35"
-                    />
-                    <rect
-                      x="315"
-                      y="208"
-                      width="30"
-                      height="4"
-                      rx="2"
-                      fill="#378fe9"
-                      opacity="0.2"
-                    />
-                    <animateTransform
-                      attributeName="transform"
-                      type="translate"
-                      values="0,0;4,0;0,0"
-                      dur="4.8s"
                       repeatCount="indefinite"
                     />
                   </g>
@@ -3003,7 +2161,7 @@
                   xmlns="http://www.w3.org/2000/svg"
                   class="product-demo-svg"
                 >
-                  <!-- Large "craigslist" text -- classic lowercase style, centered -->
+                  <!-- "craigslist" text -->
                   <text
                     x="200"
                     y="210"
@@ -3016,83 +2174,8 @@
                     letter-spacing="-1"
                   >
                     craigslist
-                    <animate
-                      attributeName="opacity"
-                      values="0.12;0.2;0.12"
-                      dur="6s"
-                      repeatCount="indefinite"
-                    />
                   </text>
-
-                  <!-- Peace sign / CL logo shape -->
-                  <circle
-                    cx="200"
-                    cy="160"
-                    r="70"
-                    stroke="#9b6dcc"
-                    stroke-width="2"
-                    fill="none"
-                    opacity="0.08"
-                  >
-                    <animate
-                      attributeName="opacity"
-                      values="0.06;0.12;0.06"
-                      dur="5s"
-                      repeatCount="indefinite"
-                    />
-                  </circle>
-                  <!-- Peace sign inner lines -->
-                  <line
-                    x1="200"
-                    y1="90"
-                    x2="200"
-                    y2="230"
-                    stroke="#9b6dcc"
-                    stroke-width="1.5"
-                    opacity="0.07"
-                  >
-                    <animate
-                      attributeName="opacity"
-                      values="0.05;0.1;0.05"
-                      dur="5s"
-                      repeatCount="indefinite"
-                    />
-                  </line>
-                  <line
-                    x1="200"
-                    y1="160"
-                    x2="151"
-                    y2="221"
-                    stroke="#9b6dcc"
-                    stroke-width="1.5"
-                    opacity="0.07"
-                  >
-                    <animate
-                      attributeName="opacity"
-                      values="0.05;0.1;0.05"
-                      dur="5s"
-                      repeatCount="indefinite"
-                    />
-                  </line>
-                  <line
-                    x1="200"
-                    y1="160"
-                    x2="249"
-                    y2="221"
-                    stroke="#9b6dcc"
-                    stroke-width="1.5"
-                    opacity="0.07"
-                  >
-                    <animate
-                      attributeName="opacity"
-                      values="0.05;0.1;0.05"
-                      dur="5s"
-                      repeatCount="indefinite"
-                    />
-                  </line>
-
-                  <!-- Floating listing lines around the text -->
-                  <!-- Line 1 - top left -->
+                  <!-- Floating listing lines -->
                   <g opacity="0">
                     <animate
                       attributeName="opacity"
@@ -3110,15 +2193,6 @@
                       fill="#9b6dcc"
                       opacity="0.3"
                     />
-                    <rect
-                      x="30"
-                      y="74"
-                      width="90"
-                      height="6"
-                      rx="3"
-                      fill="#9b6dcc"
-                      opacity="0.15"
-                    />
                     <animateTransform
                       attributeName="transform"
                       type="translate"
@@ -3127,7 +2201,6 @@
                       repeatCount="indefinite"
                     />
                   </g>
-                  <!-- Line 2 - top right -->
                   <g opacity="0">
                     <animate
                       attributeName="opacity"
@@ -3146,15 +2219,6 @@
                       fill="#9b6dcc"
                       opacity="0.3"
                     />
-                    <rect
-                      x="250"
-                      y="64"
-                      width="80"
-                      height="6"
-                      rx="3"
-                      fill="#9b6dcc"
-                      opacity="0.15"
-                    />
                     <animateTransform
                       attributeName="transform"
                       type="translate"
@@ -3163,7 +2227,6 @@
                       repeatCount="indefinite"
                     />
                   </g>
-                  <!-- Line 3 - bottom left -->
                   <g opacity="0">
                     <animate
                       attributeName="opacity"
@@ -3182,15 +2245,6 @@
                       fill="#9b6dcc"
                       opacity="0.3"
                     />
-                    <rect
-                      x="20"
-                      y="324"
-                      width="100"
-                      height="6"
-                      rx="3"
-                      fill="#9b6dcc"
-                      opacity="0.15"
-                    />
                     <animateTransform
                       attributeName="transform"
                       type="translate"
@@ -3199,7 +2253,6 @@
                       repeatCount="indefinite"
                     />
                   </g>
-                  <!-- Line 4 - bottom right -->
                   <g opacity="0">
                     <animate
                       attributeName="opacity"
@@ -3218,74 +2271,11 @@
                       fill="#9b6dcc"
                       opacity="0.3"
                     />
-                    <rect
-                      x="260"
-                      y="334"
-                      width="85"
-                      height="6"
-                      rx="3"
-                      fill="#9b6dcc"
-                      opacity="0.15"
-                    />
                     <animateTransform
                       attributeName="transform"
                       type="translate"
                       values="0,0;0,3;0,0"
                       dur="4.2s"
-                      repeatCount="indefinite"
-                    />
-                  </g>
-                  <!-- Line 5 - left middle -->
-                  <g opacity="0">
-                    <animate
-                      attributeName="opacity"
-                      values="0;0.15;0.15;0"
-                      keyTimes="0;0.18;0.55;0.72"
-                      dur="8s"
-                      repeatCount="indefinite"
-                      begin="1.5s"
-                    />
-                    <rect
-                      x="15"
-                      y="185"
-                      width="80"
-                      height="7"
-                      rx="3.5"
-                      fill="#9b6dcc"
-                      opacity="0.25"
-                    />
-                    <animateTransform
-                      attributeName="transform"
-                      type="translate"
-                      values="0,0;-3,0;0,0"
-                      dur="3.5s"
-                      repeatCount="indefinite"
-                    />
-                  </g>
-                  <!-- Line 6 - right middle -->
-                  <g opacity="0">
-                    <animate
-                      attributeName="opacity"
-                      values="0;0.15;0.15;0"
-                      keyTimes="0;0.22;0.58;0.75"
-                      dur="8s"
-                      repeatCount="indefinite"
-                      begin="2.5s"
-                    />
-                    <rect
-                      x="310"
-                      y="175"
-                      width="80"
-                      height="7"
-                      rx="3.5"
-                      fill="#9b6dcc"
-                      opacity="0.25"
-                    />
-                    <animateTransform
-                      attributeName="transform"
-                      type="translate"
-                      values="0,0;3,0;0,0"
-                      dur="3.8s"
                       repeatCount="indefinite"
                     />
                   </g>
@@ -3502,7 +2492,7 @@
                   xmlns="http://www.w3.org/2000/svg"
                   class="product-demo-svg"
                 >
-                  <!-- Large wireframe globe, centered -->
+                  <!-- Rotating wireframe globe -->
                   <g>
                     <animateTransform
                       attributeName="transform"
@@ -3512,7 +2502,6 @@
                       dur="40s"
                       repeatCount="indefinite"
                     />
-                    <!-- Globe outline -->
                     <circle
                       cx="200"
                       cy="200"
@@ -3520,17 +2509,6 @@
                       stroke="#a78bfa"
                       stroke-width="1.5"
                       opacity="0.15"
-                      fill="none"
-                    />
-                    <!-- Latitude lines -->
-                    <ellipse
-                      cx="200"
-                      cy="200"
-                      rx="150"
-                      ry="40"
-                      stroke="#a78bfa"
-                      stroke-width="0.8"
-                      opacity="0.1"
                       fill="none"
                     />
                     <ellipse
@@ -3546,27 +2524,6 @@
                     <ellipse
                       cx="200"
                       cy="200"
-                      rx="150"
-                      ry="120"
-                      stroke="#a78bfa"
-                      stroke-width="0.8"
-                      opacity="0.08"
-                      fill="none"
-                    />
-                    <!-- Longitude lines (rotating with the globe) -->
-                    <ellipse
-                      cx="200"
-                      cy="200"
-                      rx="40"
-                      ry="150"
-                      stroke="#a78bfa"
-                      stroke-width="0.8"
-                      opacity="0.1"
-                      fill="none"
-                    />
-                    <ellipse
-                      cx="200"
-                      cy="200"
                       rx="80"
                       ry="150"
                       stroke="#a78bfa"
@@ -3574,36 +2531,8 @@
                       opacity="0.1"
                       fill="none"
                     />
-                    <ellipse
-                      cx="200"
-                      cy="200"
-                      rx="120"
-                      ry="150"
-                      stroke="#a78bfa"
-                      stroke-width="0.8"
-                      opacity="0.08"
-                      fill="none"
-                    />
                   </g>
-
-                  <!-- Data point pings on the globe surface -->
-                  <!-- US -->
-                  <circle cx="120" cy="150" r="0" fill="#a78bfa" opacity="0">
-                    <animate
-                      attributeName="r"
-                      values="0;16;24;0"
-                      keyTimes="0;0.3;0.8;1"
-                      dur="5s"
-                      repeatCount="indefinite"
-                    />
-                    <animate
-                      attributeName="opacity"
-                      values="0;0.3;0.08;0"
-                      keyTimes="0;0.3;0.8;1"
-                      dur="5s"
-                      repeatCount="indefinite"
-                    />
-                  </circle>
+                  <!-- Data point pings: US -->
                   <circle cx="120" cy="150" r="4" fill="#a78bfa" opacity="0">
                     <animate
                       attributeName="opacity"
@@ -3631,26 +2560,7 @@
                       repeatCount="indefinite"
                     />
                   </text>
-
                   <!-- UK -->
-                  <circle cx="210" cy="120" r="0" fill="#a78bfa" opacity="0">
-                    <animate
-                      attributeName="r"
-                      values="0;14;20;0"
-                      keyTimes="0;0.3;0.8;1"
-                      dur="5s"
-                      repeatCount="indefinite"
-                      begin="1.2s"
-                    />
-                    <animate
-                      attributeName="opacity"
-                      values="0;0.3;0.08;0"
-                      keyTimes="0;0.3;0.8;1"
-                      dur="5s"
-                      repeatCount="indefinite"
-                      begin="1.2s"
-                    />
-                  </circle>
                   <circle cx="210" cy="120" r="4" fill="#a78bfa" opacity="0">
                     <animate
                       attributeName="opacity"
@@ -3680,26 +2590,7 @@
                       begin="1.2s"
                     />
                   </text>
-
                   <!-- IN -->
-                  <circle cx="280" cy="200" r="0" fill="#a78bfa" opacity="0">
-                    <animate
-                      attributeName="r"
-                      values="0;14;20;0"
-                      keyTimes="0;0.3;0.8;1"
-                      dur="5s"
-                      repeatCount="indefinite"
-                      begin="2.4s"
-                    />
-                    <animate
-                      attributeName="opacity"
-                      values="0;0.3;0.08;0"
-                      keyTimes="0;0.3;0.8;1"
-                      dur="5s"
-                      repeatCount="indefinite"
-                      begin="2.4s"
-                    />
-                  </circle>
                   <circle cx="280" cy="200" r="4" fill="#a78bfa" opacity="0">
                     <animate
                       attributeName="opacity"
@@ -3729,26 +2620,7 @@
                       begin="2.4s"
                     />
                   </text>
-
                   <!-- AU -->
-                  <circle cx="310" cy="280" r="0" fill="#c4b5fd" opacity="0">
-                    <animate
-                      attributeName="r"
-                      values="0;12;18;0"
-                      keyTimes="0;0.3;0.8;1"
-                      dur="5s"
-                      repeatCount="indefinite"
-                      begin="3.6s"
-                    />
-                    <animate
-                      attributeName="opacity"
-                      values="0;0.25;0.06;0"
-                      keyTimes="0;0.3;0.8;1"
-                      dur="5s"
-                      repeatCount="indefinite"
-                      begin="3.6s"
-                    />
-                  </circle>
                   <circle cx="310" cy="280" r="4" fill="#c4b5fd" opacity="0">
                     <animate
                       attributeName="opacity"
@@ -3778,72 +2650,6 @@
                       begin="3.6s"
                     />
                   </text>
-
-                  <!-- Connection arcs between cities -->
-                  <path
-                    d="M120,150 Q165,80 210,120"
-                    stroke="#a78bfa"
-                    stroke-width="1"
-                    stroke-dasharray="5 5"
-                    fill="none"
-                    opacity="0"
-                  >
-                    <animate
-                      attributeName="opacity"
-                      values="0;0;0.2;0.2;0"
-                      keyTimes="0;0.2;0.35;0.65;0.8"
-                      dur="10s"
-                      repeatCount="indefinite"
-                    />
-                  </path>
-                  <path
-                    d="M210,120 Q260,130 280,200"
-                    stroke="#a78bfa"
-                    stroke-width="1"
-                    stroke-dasharray="5 5"
-                    fill="none"
-                    opacity="0"
-                  >
-                    <animate
-                      attributeName="opacity"
-                      values="0;0;0.2;0.2;0"
-                      keyTimes="0;0.3;0.45;0.7;0.85"
-                      dur="10s"
-                      repeatCount="indefinite"
-                    />
-                  </path>
-                  <path
-                    d="M280,200 Q310,250 310,280"
-                    stroke="#c4b5fd"
-                    stroke-width="1"
-                    stroke-dasharray="5 5"
-                    fill="none"
-                    opacity="0"
-                  >
-                    <animate
-                      attributeName="opacity"
-                      values="0;0;0.15;0.15;0"
-                      keyTimes="0;0.4;0.55;0.75;0.9"
-                      dur="10s"
-                      repeatCount="indefinite"
-                    />
-                  </path>
-                  <path
-                    d="M120,150 Q160,230 310,280"
-                    stroke="#a78bfa"
-                    stroke-width="0.8"
-                    stroke-dasharray="4 6"
-                    fill="none"
-                    opacity="0"
-                  >
-                    <animate
-                      attributeName="opacity"
-                      values="0;0;0.12;0.12;0"
-                      keyTimes="0;0.5;0.6;0.8;0.95"
-                      dur="10s"
-                      repeatCount="indefinite"
-                    />
-                  </path>
                 </svg>
               </div>
               <span class="product-hero-badge product-hero-badge--live"
@@ -5091,7 +3897,7 @@
               return loadScript(cdns[idx].st);
             })
             .then(function () {
-              console.log("[Nova] GSAP loaded from CDN #" + (idx + 1));
+              console.debug("[Nova] GSAP loaded from CDN #" + (idx + 1));
               loadModules();
             })
             .catch(function () {
@@ -5140,5 +3946,25 @@
     </script>
     <script src="/static/js/nova-toast.js" defer></script>
     <script src="/static/js/ripple.js" defer></script>
+    <!-- Page exit transition -->
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        document.querySelectorAll('a[href^="/"]').forEach(function (link) {
+          link.addEventListener("click", function (e) {
+            if (window.matchMedia("(prefers-reduced-motion: reduce)").matches)
+              return;
+            e.preventDefault();
+            document.body.style.opacity = "0";
+            document.body.style.transform = "translateY(-10px)";
+            document.body.style.transition =
+              "opacity 0.2s ease, transform 0.2s ease";
+            var href = link.href;
+            setTimeout(function () {
+              window.location.href = href;
+            }, 200);
+          });
+        });
+      });
+    </script>
   </body>
 </html>

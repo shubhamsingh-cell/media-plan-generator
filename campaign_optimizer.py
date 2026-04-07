@@ -17,6 +17,8 @@ from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
+__all__ = ["optimize_campaign", "optimize_campaign_tool"]
+
 _feature_store = None
 _collar_intel = None
 _init_lock = threading.Lock()
@@ -77,51 +79,12 @@ _MARGINS = {
     "employer_branding": 1.10,
 }
 
-# Collar-to-channel fit scores (from quick_plan.py)
-_FIT = {
-    "blue_collar": {
-        "indeed": 92,
-        "linkedin": 18,
-        "google_search": 65,
-        "meta_facebook": 88,
-        "programmatic": 90,
-        "ziprecruiter": 85,
-        "glassdoor": 25,
-        "niche_boards": 60,
-    },
-    "white_collar": {
-        "indeed": 72,
-        "linkedin": 95,
-        "google_search": 70,
-        "meta_facebook": 45,
-        "programmatic": 55,
-        "ziprecruiter": 60,
-        "glassdoor": 82,
-        "niche_boards": 78,
-    },
-    "grey_collar": {
-        "indeed": 80,
-        "linkedin": 55,
-        "google_search": 60,
-        "meta_facebook": 65,
-        "programmatic": 75,
-        "ziprecruiter": 70,
-        "glassdoor": 45,
-        "niche_boards": 92,
-    },
-    "pink_collar": {
-        "indeed": 85,
-        "linkedin": 30,
-        "google_search": 58,
-        "meta_facebook": 82,
-        "programmatic": 78,
-        "ziprecruiter": 80,
-        "glassdoor": 35,
-        "niche_boards": 55,
-    },
-}
+# Collar-to-channel fit scores -- imported from quick_plan.py (single source of truth)
+from quick_plan import _COLLAR_CHANNEL_FIT as _FIT
 
-# Hire rate by collar (from budget_engine.py HIRE_RATE_BY_TIER)
+# Hire rate by collar type. Note: budget_engine.HIRE_RATE_BY_TIER uses
+# tier names (e.g. "Hourly / Entry-Level") not collar names, so we keep
+# this separate collar-keyed mapping for the optimizer's allocation logic.
 _HIRE_RATE = {
     "blue_collar": 0.06,
     "white_collar": 0.02,
@@ -275,53 +238,20 @@ def optimize_campaign(
         }
 
 
-def _optimize_impl(
-    role: str,
-    location: str,
-    industry: str,
-    budget: float,
-    duration_months: int,
-    goals: List[str],
-    constraints: Dict[str, Any],
-) -> Dict[str, Any]:
-    """Internal implementation of campaign optimization."""
-    # Input validation
-    budget = max(budget, 0)
-    if budget < 100:
-        return {
-            "error": "Budget too small (minimum $100)",
-            "recommended_allocation": {},
-            "total_projected": {},
-            "confidence_overall": "LOW",
-        }
-    duration_months = max(1, min(duration_months, 24))
+def _apply_geo_seasonal(month: int, location: str, industry: str) -> Dict[str, Any]:
+    """Compute geo-cost index, seasonal factor, and industry CPA multiplier.
 
-    now = datetime.datetime.now()
-    month = now.month
+    Returns dict with keys: geo_index, seasonal, ind_cpa, industry_key,
+    data_sources (list), optimizations (list).
+    """
+    fs = _get_feature_store()
     data_sources: List[str] = []
     optimizations: List[str] = []
-    warnings: List[str] = []
 
-    # 1. Classify role family
-    fs = _get_feature_store()
-    role_family = fs.get_role_family(role) if fs else "general"
-    if fs:
-        data_sources.append("feature_store")
-
-    # 2. Collar type
-    collar_info = _classify_collar(role, industry)
-    collar_type = collar_info.get("collar_type") or "white_collar"
-    collar_conf = collar_info.get("confidence", 0.5)
-    if collar_type not in _FIT:
-        collar_type = "white_collar"
-    data_sources.append("collar_intelligence")
-
-    # 3. Geo-cost index
     geo_index = fs.get_geo_cost_index(location) if fs else 1.0
     if fs:
         optimizations.append("geo_cost_index")
 
-    # 4. Seasonal + industry CPA
     industry_key = _normalize_industry(industry)
     if fs:
         seasonal = fs.get_seasonal_factor(month)
@@ -332,35 +262,28 @@ def _optimize_impl(
     else:
         seasonal = ind_cpa = 1.0
 
-    # 5. Channel fit scores
-    fit_scores = _FIT.get(collar_type, _FIT["white_collar"])
-    optimizations.append("collar_fit")
+    return {
+        "geo_index": geo_index,
+        "seasonal": seasonal,
+        "ind_cpa": ind_cpa,
+        "industry_key": industry_key,
+        "data_sources": data_sources,
+        "optimizations": optimizations,
+    }
 
-    # 6. Constraints + budget concentration
-    excluded = set(constraints.get("exclude") or [])
-    max_ch = constraints.get("max_channels", 8)
-    eligible = sorted(
-        [(c, s) for c, s in fit_scores.items() if c not in excluded and c in _CH],
-        key=lambda x: x[1],
-        reverse=True,
-    )
-    mo_budget = budget / max(duration_months, 1)
-    if mo_budget < 5_000:
-        max_ch = min(max_ch, 2)
-        optimizations.append("budget_concentration_micro")
-        warnings.append(
-            f"Budget of ${mo_budget:,.0f}/mo is very small. "
-            "Concentrating on top 2 channels for maximum impact."
-        )
-    elif mo_budget < 15_000:
-        max_ch = min(max_ch, 3)
-        optimizations.append("budget_concentration_small")
-    elif mo_budget < 50_000:
-        max_ch = min(max_ch, 5)
-        optimizations.append("budget_concentration_medium")
-    eligible = eligible[:max_ch]
 
-    # 7. Allocate budget proportionally to fit scores
+def _compute_allocations(
+    budget: float,
+    eligible: List[tuple],
+    collar_type: str,
+    collar_conf: float,
+    geo_index: float,
+    ind_cpa: float,
+) -> tuple:
+    """Allocate budget proportionally to fit scores across eligible channels.
+
+    Returns (alloc dict, totals dict).
+    """
     total_fit = sum(s for _, s in eligible) or 1
     hire_rate = _HIRE_RATE.get(collar_type, 0.02)
     alloc: Dict[str, Dict[str, Any]] = {}
@@ -396,9 +319,35 @@ def _optimize_impl(
         tots["hires"] += hires
         tots["spend"] += ch_bud
 
-    optimizations.append("safety_margins")
+    return alloc, tots
 
-    # 8. Totals + scenarios
+
+def _build_optimization_response(
+    alloc: Dict[str, Dict[str, Any]],
+    tots: Dict[str, Any],
+    budget: float,
+    duration_months: int,
+    optimizations: List[str],
+    data_sources: List[str],
+    warnings: List[str],
+    collar_type: str,
+    collar_conf: float,
+    role: str,
+    role_family: str,
+    location: str,
+    geo_index: float,
+    industry_key: str,
+    industry: str,
+    seasonal: float,
+    ind_cpa: float,
+    month: int,
+    mo_budget: float,
+    goals: List[str],
+    fit_scores: Dict[str, int],
+    hire_rate: float,
+    now: Any,
+) -> Dict[str, Any]:
+    """Build the final optimization response dict with projections and scenarios."""
     proj = {
         "clicks": tots["clicks"],
         "applies": tots["applies"],
@@ -414,7 +363,6 @@ def _optimize_impl(
         "aggressive": _scale(proj, 1.20),
     }
 
-    # 9. Recommendations + warnings
     recs = _recs(alloc, collar_type, role, mo_budget, goals)
     warnings.extend(_warns(collar_type, month, industry_key, geo_index, budget, alloc))
 
@@ -446,6 +394,123 @@ def _optimize_impl(
             "generated_at": now.strftime("%Y-%m-%d %H:%M:%S UTC"),
         },
     }
+
+
+def _optimize_impl(
+    role: str,
+    location: str,
+    industry: str,
+    budget: float,
+    duration_months: int,
+    goals: List[str],
+    constraints: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Internal implementation of campaign optimization.
+
+    Orchestrates three phases: geo/seasonal adjustments, channel allocation,
+    and response building via extracted helper functions.
+    """
+    # Input validation
+    budget = max(budget, 0)
+    if budget < 100:
+        return {
+            "error": "Budget too small (minimum $100)",
+            "recommended_allocation": {},
+            "total_projected": {},
+            "confidence_overall": "LOW",
+        }
+    duration_months = max(1, min(duration_months, 24))
+
+    now = datetime.datetime.now()
+    month = now.month
+    data_sources: List[str] = []
+    optimizations: List[str] = []
+    warnings: List[str] = []
+
+    # 1. Classify role family
+    fs = _get_feature_store()
+    role_family = fs.get_role_family(role) if fs else "general"
+    if fs:
+        data_sources.append("feature_store")
+
+    # 2. Collar type
+    collar_info = _classify_collar(role, industry)
+    collar_type = collar_info.get("collar_type") or "white_collar"
+    collar_conf = collar_info.get("confidence", 0.5)
+    if collar_type not in _FIT:
+        collar_type = "white_collar"
+    data_sources.append("collar_intelligence")
+
+    # 3-4. Geo/seasonal adjustments
+    adj = _apply_geo_seasonal(month, location, industry)
+    geo_index = adj["geo_index"]
+    seasonal = adj["seasonal"]
+    ind_cpa = adj["ind_cpa"]
+    industry_key = adj["industry_key"]
+    optimizations.extend(adj["optimizations"])
+    data_sources.extend(adj["data_sources"])
+
+    # 5. Channel fit scores
+    fit_scores = _FIT.get(collar_type, _FIT["white_collar"])
+    optimizations.append("collar_fit")
+
+    # 6. Constraints + budget concentration
+    excluded = set(constraints.get("exclude") or [])
+    max_ch = constraints.get("max_channels", 8)
+    eligible = sorted(
+        [(c, s) for c, s in fit_scores.items() if c not in excluded and c in _CH],
+        key=lambda x: x[1],
+        reverse=True,
+    )
+    mo_budget = budget / max(duration_months, 1)
+    if mo_budget < 5_000:
+        max_ch = min(max_ch, 2)
+        optimizations.append("budget_concentration_micro")
+        warnings.append(
+            f"Budget of ${mo_budget:,.0f}/mo is very small. "
+            "Concentrating on top 2 channels for maximum impact."
+        )
+    elif mo_budget < 15_000:
+        max_ch = min(max_ch, 3)
+        optimizations.append("budget_concentration_small")
+    elif mo_budget < 50_000:
+        max_ch = min(max_ch, 5)
+        optimizations.append("budget_concentration_medium")
+    eligible = eligible[:max_ch]
+
+    # 7. Allocate budget across channels
+    alloc, tots = _compute_allocations(
+        budget, eligible, collar_type, collar_conf, geo_index, ind_cpa
+    )
+    optimizations.append("safety_margins")
+    hire_rate = _HIRE_RATE.get(collar_type, 0.02)
+
+    # 8-9. Build response with projections, scenarios, recommendations
+    return _build_optimization_response(
+        alloc=alloc,
+        tots=tots,
+        budget=budget,
+        duration_months=duration_months,
+        optimizations=optimizations,
+        data_sources=data_sources,
+        warnings=warnings,
+        collar_type=collar_type,
+        collar_conf=collar_conf,
+        role=role,
+        role_family=role_family,
+        location=location,
+        geo_index=geo_index,
+        industry_key=industry_key,
+        industry=industry,
+        seasonal=seasonal,
+        ind_cpa=ind_cpa,
+        month=month,
+        mo_budget=mo_budget,
+        goals=goals,
+        fit_scores=fit_scores,
+        hire_rate=hire_rate,
+        now=now,
+    )
 
 
 # ---------------------------------------------------------------------------

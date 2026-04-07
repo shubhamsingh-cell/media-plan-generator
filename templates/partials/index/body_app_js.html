@@ -2280,13 +2280,18 @@
     const container = document.getElementById(containerId);
     if (!container) return;
     container.innerHTML = "";
+    const _reducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
     channels.forEach((ch, i) => {
       const item = document.createElement("label");
       item.className = "channel-item";
       item.innerHTML = `<input type="checkbox" checked data-group="${escapeHtml(group)}" value="${escapeHtml(ch)}"> ${escapeHtml(ch)}`;
-      // Add staggered animation delay
-      const delay = Math.min(i * 0.03, 0.5);
-      item.style.animationDelay = `${delay}s`;
+      // Add staggered animation delay (skip if reduced motion)
+      if (!_reducedMotion) {
+        const delay = Math.min(i * 0.03, 0.5);
+        item.style.animationDelay = `${delay}s`;
+      }
       container.appendChild(item);
     });
   }
@@ -2468,36 +2473,49 @@
           if (currentStep === 4) fetchLivePricing();
           return;
         }
-        // Add exiting animation
-        currentEl.style.animation = "fadeOutDown 0.3s ease-in forwards";
+        // Add exiting animation (respects prefers-reduced-motion)
+        var _reducedMotion = window.matchMedia(
+          "(prefers-reduced-motion: reduce)",
+        ).matches;
+        if (!_reducedMotion) {
+          currentEl.style.animation = "fadeOutDown 0.3s ease-in forwards";
+        }
 
-        setTimeout(function () {
-          try {
-            currentEl.classList.remove("active");
-            currentEl.style.animation = "";
-            currentStep++;
-            var nextEl = document.getElementById("step" + currentStep);
-            if (nextEl) {
-              nextEl.classList.add("active");
-              nextEl.classList.add("step-animating");
-              setTimeout(function () {
-                nextEl.classList.remove("step-animating");
-              }, 400);
+        setTimeout(
+          function () {
+            try {
+              currentEl.classList.remove("active");
+              currentEl.style.animation = "";
+              currentStep++;
+              var nextEl = document.getElementById("step" + currentStep);
+              if (nextEl) {
+                nextEl.classList.add("active");
+                if (!_reducedMotion) {
+                  nextEl.classList.add("step-animating");
+                  setTimeout(function () {
+                    nextEl.classList.remove("step-animating");
+                  }, 400);
+                }
+              }
+              updateProgress();
+              updateStepCheckmarks();
+              window.scrollTo({
+                top: 0,
+                behavior: _reducedMotion ? "auto" : "smooth",
+              });
+              // Auto-fetch live pricing when entering step 4
+              if (
+                currentStep === 4 &&
+                (roles.length > 0 || locations.length > 0)
+              ) {
+                fetchLivePricing();
+              }
+            } catch (innerErr) {
+              console.error("nextStep transition error:", innerErr);
             }
-            updateProgress();
-            updateStepCheckmarks();
-            window.scrollTo({ top: 0, behavior: "smooth" });
-            // Auto-fetch live pricing when entering step 4
-            if (
-              currentStep === 4 &&
-              (roles.length > 0 || locations.length > 0)
-            ) {
-              fetchLivePricing();
-            }
-          } catch (innerErr) {
-            console.error("nextStep transition error:", innerErr);
-          }
-        }, 280);
+          },
+          _reducedMotion ? 0 : 280,
+        );
       }
     } catch (err) {
       console.error("nextStep error:", err);
@@ -2513,32 +2531,43 @@
   // 23. Step transition animations - enhanced prevStep
   function prevStep() {
     if (currentStep > 1) {
+      var _reducedMotion = window.matchMedia(
+        "(prefers-reduced-motion: reduce)",
+      ).matches;
       var currentEl = document.getElementById("step" + currentStep);
-      if (currentEl)
+      if (currentEl && !_reducedMotion)
         currentEl.style.animation = "fadeOutDown 0.3s ease-in forwards";
 
-      setTimeout(function () {
-        try {
-          if (currentEl) {
-            currentEl.classList.remove("active");
-            currentEl.style.animation = "";
+      setTimeout(
+        function () {
+          try {
+            if (currentEl) {
+              currentEl.classList.remove("active");
+              currentEl.style.animation = "";
+            }
+            currentStep--;
+            var prevEl = document.getElementById("step" + currentStep);
+            if (prevEl) {
+              prevEl.classList.add("active");
+              if (!_reducedMotion) {
+                prevEl.classList.add("step-animating");
+                setTimeout(function () {
+                  prevEl.classList.remove("step-animating");
+                }, 400);
+              }
+            }
+            updateProgress();
+            updateStepCheckmarks();
+            window.scrollTo({
+              top: 0,
+              behavior: _reducedMotion ? "auto" : "smooth",
+            });
+          } catch (e) {
+            console.error("prevStep transition error:", e);
           }
-          currentStep--;
-          var prevEl = document.getElementById("step" + currentStep);
-          if (prevEl) {
-            prevEl.classList.add("active");
-            prevEl.classList.add("step-animating");
-            setTimeout(function () {
-              prevEl.classList.remove("step-animating");
-            }, 400);
-          }
-          updateProgress();
-          updateStepCheckmarks();
-          window.scrollTo({ top: 0, behavior: "smooth" });
-        } catch (e) {
-          console.error("prevStep transition error:", e);
-        }
-      }, 280);
+        },
+        _reducedMotion ? 0 : 280,
+      );
     }
   }
 

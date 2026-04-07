@@ -282,26 +282,36 @@
     });
 
   // ── Hero preview: animate bars + metrics on load ──
-  setTimeout(function () {
+  if (!prefersReducedMotion) {
+    setTimeout(function () {
+      document.querySelectorAll(".hp-anim").forEach(function (el) {
+        var delay = parseInt(el.dataset.delay) || 0;
+        setTimeout(function () {
+          el.classList.add("visible");
+        }, delay);
+      });
+      document.querySelectorAll(".hp-anim-bar").forEach(function (el) {
+        var delay = parseInt(el.dataset.delay) || 0;
+        setTimeout(function () {
+          el.classList.add("animated");
+        }, delay);
+      });
+    }, 800);
+  } else {
+    // Show immediately without animation
     document.querySelectorAll(".hp-anim").forEach(function (el) {
-      var delay = parseInt(el.dataset.delay) || 0;
-      setTimeout(function () {
-        el.classList.add("visible");
-      }, delay);
+      el.classList.add("visible");
     });
     document.querySelectorAll(".hp-anim-bar").forEach(function (el) {
-      var delay = parseInt(el.dataset.delay) || 0;
-      setTimeout(function () {
-        el.classList.add("animated");
-      }, delay);
+      el.classList.add("animated");
     });
-  }, 800);
+  }
 
   // ── Page enter transition ──
   document.body.classList.add("page-enter");
 
   // ── GSAP hero entrance (staggered reveal) ──
-  if (typeof gsap !== "undefined") {
+  if (typeof gsap !== "undefined" && !prefersReducedMotion) {
     document
       .querySelectorAll(".hero-anim, .hero-artifact")
       .forEach(function (el) {
@@ -955,6 +965,7 @@
  * Lenis + GSAP sync + product card mouse-tracking glow
  */
 (function () {
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   if (
     typeof Lenis !== "undefined" &&
     typeof gsap !== "undefined" &&

@@ -1896,7 +1896,29 @@ h3 {
   border-radius: 3px;
 }
 
-/* ── Responsive ── */
+/* ── Disabled tab state (progressive disclosure) ── */
+.tab-btn.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* ── Responsive (tablet) ── */
+@media (max-width: 768px) {
+  .data-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .data-table {
+    min-width: auto;
+  }
+  .data-table th:nth-child(n + 5),
+  .data-table td:nth-child(n + 5) {
+    display: none;
+  }
+}
+
+/* ── Responsive (mobile) ── */
 @media (max-width: 640px) {
   .page-wrapper {
     padding: 1rem 1rem 4rem;

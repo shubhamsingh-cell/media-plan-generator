@@ -10834,6 +10834,73 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
         # ── LLM Cost Tracking Report ──
         # ── Audit Events Endpoint ──
         # NOTE: /tracker, /simulator, /vendor-iq pages now handled by routes/pages.py
+
+        # ── Saved Plans (Supabase persistence -- Cindy request S47) ──
+        elif path == "/api/saved-plans":
+            try:
+                if not _check_joveo_auth(self):
+                    self._send_error("Authentication required", 401)
+                    return
+                try:
+                    from supabase_client import get_client
+
+                    sb = get_client()
+                except Exception:
+                    sb = None
+                if not sb:
+                    self._send_json({"plans": []})
+                    return
+                email = _parse_cookie_value(
+                    self.headers.get("Cookie") or "", "nova_user_email"
+                )
+                result = (
+                    sb.table("nova_saved_plans")
+                    .select(
+                        "id,plan_name,industry,location,budget,created_at,updated_at"
+                    )
+                    .eq("user_email", email or "unknown")
+                    .order("created_at", desc=True)
+                    .limit(20)
+                    .execute()
+                )
+                self._send_json({"plans": result.data or []})
+            except Exception as exc:
+                logger.error("Saved plans list error: %s", exc, exc_info=True)
+                self._send_json({"plans": []})
+
+        elif path.startswith("/api/saved-plans/") and not path.endswith("/"):
+            # GET /api/saved-plans/<id> -- fetch full plan data
+            try:
+                if not _check_joveo_auth(self):
+                    self._send_error("Authentication required", 401)
+                    return
+                plan_id = path.split("/")[-1]
+                if not plan_id.isdigit():
+                    self._send_json({"error": "Invalid plan ID"}, status_code=400)
+                    return
+                try:
+                    from supabase_client import get_client
+
+                    sb = get_client()
+                except Exception:
+                    sb = None
+                if not sb:
+                    self._send_json({"error": "Storage unavailable"}, status_code=503)
+                    return
+                result = (
+                    sb.table("nova_saved_plans")
+                    .select("*")
+                    .eq("id", int(plan_id))
+                    .execute()
+                )
+                if not result.data:
+                    self._send_json({"error": "Plan not found"}, status_code=404)
+                    return
+                self._send_json(result.data[0])
+            except Exception as exc:
+                logger.error("Saved plan fetch error: %s", exc, exc_info=True)
+                self._send_json({"error": "Failed to fetch plan"}, status_code=500)
+
         # ── Budget Simulator GET APIs ──
         elif path == "/api/simulator/defaults":
             try:
@@ -12147,6 +12214,59 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 logger.error(f"Template fork error: {e}", exc_info=True)
                 self._send_json(
                     {"error": f"Failed to fork template: {e}"}, status_code=500
+                )
+            return
+
+        # ── S47: Save Plan to Supabase (Cindy request) ──
+        if path == "/api/saved-plans":
+            try:
+                if not _check_joveo_auth(self):
+                    self._send_error("Authentication required", 401)
+                    return
+                content_len = int(self.headers.get("Content-Length") or 0)
+                body = self.rfile.read(content_len) if content_len > 0 else b"{}"
+                data = json.loads(body)
+                plan_name = (
+                    data.get("name") or data.get("plan_name") or "Untitled Plan"
+                )[:200]
+                plan_data = data.get("data") or data.get("plan_data") or {}
+                industry = (data.get("industry") or "")[:100]
+                location = (data.get("location") or "")[:200]
+                budget = data.get("budget") or 0
+                email = _parse_cookie_value(
+                    self.headers.get("Cookie") or "", "nova_user_email"
+                )
+                try:
+                    from supabase_client import get_client
+
+                    sb = get_client()
+                except Exception:
+                    sb = None
+                if not sb:
+                    self._send_json({"error": "Storage unavailable"}, status_code=503)
+                    return
+                result = (
+                    sb.table("nova_saved_plans")
+                    .insert(
+                        {
+                            "user_email": email or "unknown",
+                            "plan_name": plan_name,
+                            "plan_data": plan_data,
+                            "industry": industry,
+                            "location": location,
+                            "budget": float(budget),
+                        }
+                    )
+                    .execute()
+                )
+                saved = (result.data or [{}])[0]
+                self._send_json(
+                    {"id": saved.get("id"), "plan_name": plan_name, "saved": True}
+                )
+            except Exception as exc:
+                logger.error("Save plan error: %s", exc, exc_info=True)
+                self._send_json(
+                    {"error": f"Failed to save plan: {exc}"}, status_code=500
                 )
             return
 

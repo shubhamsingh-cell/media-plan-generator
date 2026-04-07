@@ -25,7 +25,7 @@ _LOGGING_LIST = "https://logging.googleapis.com/v2/entries:list"
 _MONITORING_TS = (
     f"https://monitoring.googleapis.com/v3/projects/{_GCP_PROJECT}/timeSeries"
 )
-_SCRIPT_RUN = "https://script.googleapis.com/v1/scripts/{sid}:run"
+_SCRIPT_RUN_PREFIX = "https://script.googleapis.com/v1/scripts/"
 _TOKEN_URI = "https://oauth2.googleapis.com/token"
 _LOG_NAME = f"projects/{_GCP_PROJECT}/logs/nova-ai-suite"
 _VALID_SEVERITIES = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL", "DEFAULT"}
@@ -307,7 +307,7 @@ def _run_script(function_name: str, parameters: list[Any]) -> Optional[dict]:
     if not _APPS_SCRIPT_ID:
         logger.warning("APPS_SCRIPT_ID not set -- cannot run Apps Script")
         return None
-    url = _SCRIPT_RUN.format(sid=_APPS_SCRIPT_ID)
+    url = f"{_SCRIPT_RUN_PREFIX}{_APPS_SCRIPT_ID}:run"
     return _api_request(
         url, {"function": function_name, "parameters": parameters}, timeout=30
     )

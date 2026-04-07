@@ -24,9 +24,12 @@ Slide structure:
 
 from __future__ import annotations
 
+import logging
 import uuid
 from datetime import datetime, timezone
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -72,8 +75,8 @@ def _emu_size(w: float, h: float) -> dict:
     }
 
 
-def _emu_transform(x: float, y: float, w: float, h: float) -> dict:
-    """Create a transform dict (position + size) from inches."""
+def _emu_transform(x: float, y: float) -> dict:
+    """Create a transform dict (position) from inches."""
     return {
         "scaleX": 1,
         "scaleY": 1,
@@ -95,7 +98,7 @@ def _text_box(
                 "elementProperties": {
                     "pageObjectId": slide_id,
                     "size": _emu_size(w, h),
-                    "transform": _emu_transform(x, y, w, h),
+                    "transform": _emu_transform(x, y),
                 },
             }
         }
@@ -196,7 +199,7 @@ def _create_table(
             "elementProperties": {
                 "pageObjectId": slide_id,
                 "size": _emu_size(w, h),
-                "transform": _emu_transform(x, y, w, h),
+                "transform": _emu_transform(x, y),
             },
             "rows": rows,
             "columns": cols,
@@ -1279,7 +1282,15 @@ def build_joveo_slides(data: dict, presentation: dict) -> list[dict]:
     ]
 
     for builder in builders:
-        _sid, slide_reqs = builder(data)
-        requests_list.extend(slide_reqs)
+        try:
+            _sid, slide_reqs = builder(data)
+            requests_list.extend(slide_reqs)
+        except Exception as exc:
+            logger.error(
+                "Failed to build slide %s: %s",
+                builder.__name__,
+                exc,
+                exc_info=True,
+            )
 
     return requests_list

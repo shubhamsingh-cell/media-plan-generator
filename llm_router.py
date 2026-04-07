@@ -1779,8 +1779,8 @@ class _ProviderState:
                     send_circuit_breaker_alert(
                         self.provider_id, self.consecutive_failures
                     )
-                except Exception:
-                    pass  # email alerts are best-effort
+                except Exception as exc:
+                    logger.debug("Circuit breaker alert failed: %s", exc)  # best-effort
 
     def record_rate_limit(self) -> None:
         """Record a rate-limit response (429/403).
@@ -1891,7 +1891,8 @@ def classify_task(query: str, module: str = "") -> str:
                     return default_task
             return TASK_CONVERSATIONAL
         return best
-    except Exception:
+    except Exception as exc:
+        logger.debug("Task classification fallback to conversational: %s", exc)
         return TASK_CONVERSATIONAL
 
 
@@ -2979,8 +2980,8 @@ def _stream_openai_compatible(
     finally:
         try:
             resp.close()
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Error closing response stream: %s", exc)
 
 
 def _stream_gemini(
@@ -3053,8 +3054,8 @@ def _stream_gemini(
     finally:
         try:
             resp.close()
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Error closing Gemini response stream: %s", exc)
 
 
 def _stream_anthropic(
@@ -3123,8 +3124,8 @@ def _stream_anthropic(
     finally:
         try:
             resp.close()
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Error closing Anthropic response stream: %s", exc)
 
 
 def _stream_single_provider(
@@ -3278,8 +3279,8 @@ def _call_single_provider(
         error_body = ""
         try:
             error_body = http_err.read().decode("utf-8")[:500]
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Failed to read HTTP error body: %s", exc)
 
         # Rate-limit responses (429 Too Many Requests, 403 Forbidden)
         # get a softer health penalty -- the provider isn't broken, just busy.
@@ -3329,8 +3330,8 @@ def _call_single_provider(
                     "status_code": http_err.code,
                 },
             )
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("PostHog tracking failed for HTTPError: %s", exc)
         return {
             "text": "",
             "provider": provider_id,
@@ -3367,8 +3368,8 @@ def _call_single_provider(
                     "status_code": 0,
                 },
             )
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("PostHog tracking failed for provider error: %s", exc)
         return {
             "text": "",
             "provider": provider_id,

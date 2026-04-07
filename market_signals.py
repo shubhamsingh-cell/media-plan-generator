@@ -153,15 +153,15 @@ def _load_json_file(filepath: Path) -> Optional[Dict[str, Any]]:
     """Load and parse a JSON file, returning None on failure."""
     try:
         if not filepath.exists():
-            logger.warning(f"Market signals data file not found: {filepath}")
+            logger.warning("Market signals data file not found: %s", filepath)
             return None
         with open(filepath, "r", encoding="utf-8") as f:
             return json.load(f)
     except json.JSONDecodeError as e:
-        logger.error(f"Invalid JSON in {filepath}: {e}", exc_info=True)
+        logger.error("Invalid JSON in %s: %s", filepath, e, exc_info=True)
         return None
     except OSError as e:
-        logger.error(f"Failed to read {filepath}: {e}", exc_info=True)
+        logger.error("Failed to read %s: %s", filepath, e, exc_info=True)
         return None
 
 
@@ -661,7 +661,7 @@ class MarketSignalEngine:
             try:
                 self._compute_all_signals()
             except Exception as e:
-                logger.error(f"Failed to compute market signals: {e}", exc_info=True)
+                logger.error("Failed to compute market signals: %s", e, exc_info=True)
 
     def _compute_all_signals(self) -> None:
         """Load data and compute all signal types."""
@@ -680,17 +680,17 @@ class MarketSignalEngine:
         try:
             all_signals.extend(_compute_cpc_signals(market_data))
         except (KeyError, TypeError, ValueError) as e:
-            logger.error(f"CPC signal computation failed: {e}", exc_info=True)
+            logger.error("CPC signal computation failed: %s", e, exc_info=True)
 
         try:
             all_signals.extend(_compute_demand_signals(market_data))
         except (KeyError, TypeError, ValueError) as e:
-            logger.error(f"Demand signal computation failed: {e}", exc_info=True)
+            logger.error("Demand signal computation failed: %s", e, exc_info=True)
 
         try:
             all_signals.extend(_compute_salary_signals(market_data))
         except (KeyError, TypeError, ValueError) as e:
-            logger.error(f"Salary signal computation failed: {e}", exc_info=True)
+            logger.error("Salary signal computation failed: %s", e, exc_info=True)
 
         try:
             all_signals.extend(
@@ -704,12 +704,12 @@ class MarketSignalEngine:
         try:
             all_signals.extend(_compute_seasonal_signals())
         except (KeyError, TypeError, ValueError) as e:
-            logger.error(f"Seasonal signal computation failed: {e}", exc_info=True)
+            logger.error("Seasonal signal computation failed: %s", e, exc_info=True)
 
         try:
             all_signals.extend(_compute_competitor_signals(market_data))
         except (KeyError, TypeError, ValueError) as e:
-            logger.error(f"Competitor signal computation failed: {e}", exc_info=True)
+            logger.error("Competitor signal computation failed: %s", e, exc_info=True)
 
         self._signals = all_signals
         self._volatility = _compute_volatility_index(all_signals)

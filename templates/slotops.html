@@ -2299,6 +2299,9 @@
           $("#export-empty").style.display = "none";
           $("#export-content").style.display = "block";
 
+          // Unlock all tabs after successful data load
+          unlockAllTabs();
+
           // Populate filters
           populateFilters();
 
@@ -4630,16 +4633,33 @@
 
         function initTabs() {
           var buttons = $$(".tab-btn");
+          var onboarded = localStorage.getItem("slotops_onboarded");
+
+          // Progressive disclosure: disable tabs 2-5 until data is uploaded
+          if (!onboarded) {
+            buttons.forEach(function (btn) {
+              var tab = btn.dataset.tab;
+              if (tab !== "command") {
+                btn.classList.add("disabled");
+                btn.setAttribute("title", "Upload data first");
+              }
+            });
+          }
+
           buttons.forEach(function (btn) {
             btn.addEventListener("click", function () {
+              if (btn.classList.contains("disabled")) return;
               var tab = btn.dataset.tab;
               switchTab(tab);
             });
             btn.addEventListener("keydown", function (e) {
               if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
                 e.preventDefault();
-                var btns = Array.from(buttons);
+                var btns = Array.from(buttons).filter(function (b) {
+                  return !b.classList.contains("disabled");
+                });
                 var idx = btns.indexOf(btn);
+                if (idx === -1) return;
                 var next =
                   e.key === "ArrowRight"
                     ? (idx + 1) % btns.length
@@ -4649,6 +4669,14 @@
               }
             });
           });
+        }
+
+        function unlockAllTabs() {
+          $$(".tab-btn").forEach(function (btn) {
+            btn.classList.remove("disabled");
+            btn.removeAttribute("title");
+          });
+          localStorage.setItem("slotops_onboarded", "1");
         }
 
         function switchTab(tab) {

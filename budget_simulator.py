@@ -309,8 +309,8 @@ def _resolve_collar_type(roles: str, industry: str) -> str:
                 industry=_resolve_industry_key(industry),
             )
             return result.get("collar_type", "white_collar")
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("collar_intelligence classify_collar failed: %s", exc)
 
     # Keyword fallback
     roles_lower = roles.lower()
@@ -357,8 +357,8 @@ def _get_channel_cpc(
                 val = result.get("value") or 0
                 if isinstance(val, (int, float)) and val > 0:
                     return float(val)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Feature store CPC lookup failed: %s", exc)
 
     return _FALLBACK_CPC.get(channel_key, 0.85)
 
@@ -392,7 +392,8 @@ def _get_metro_salary_multiplier(location: str) -> float:
         # Ratio to national median, clamped to 0.8-1.4
         ratio = annual_mean / _NATIONAL_MEDIAN_WAGE
         return max(0.8, min(1.4, ratio))
-    except Exception:
+    except Exception as exc:
+        logger.debug("Geo cost index calculation failed: %s", exc)
         return 1.0
 
 
@@ -407,8 +408,8 @@ def _get_channel_apply_rate(channel_key: str, collar_type: str) -> float:
                 category, collar_type
             )
             return round(base_rate * collar_mult, 4)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("budget_engine apply rate lookup failed: %s", exc)
 
     # Simple collar adjustments without budget_engine
     if collar_type == "blue_collar":
@@ -451,7 +452,8 @@ def _score_roi(cost_per_hire: float, industry_key: str) -> int:
     if _HAS_BUDGET_ENGINE:
         try:
             avg_cph = _budget_engine._industry_avg_cph(industry_key)
-        except Exception:
+        except Exception as exc:
+            logger.debug("Industry avg CPH lookup failed: %s", exc)
             avg_cph = 6000.0
     else:
         avg_cph = 6000.0
@@ -1034,6 +1036,9 @@ def export_scenario_excel(
 
         for i, sc in enumerate(scenarios):
             val = sc.get("summary", {}).get(key, 0)
+            # fmt is a data-driven format template (e.g. "${:,.0f}"), not a
+            # static string, so str.format() is required here -- f-string
+            # cannot be used with a variable format spec.
             display = fmt.format(val)
             cell = ws1.cell(row=row, column=3 + i, value=display)
             cell.font = font_body
@@ -1153,6 +1158,8 @@ def export_scenario_excel(
 
         for i, sc in enumerate(scenarios):
             val = sc.get("summary", {}).get(key, 0)
+            # fmt is a data-driven format template -- f-string not possible
+            # with a variable format spec (see metrics tuple above).
             display = fmt.format(val)
             cell = ws3.cell(row=row, column=3 + i, value=display)
             cell.font = font_body

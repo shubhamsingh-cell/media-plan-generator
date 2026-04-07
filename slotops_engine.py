@@ -929,7 +929,7 @@ def handle_slotops_optimize(body: dict[str, Any]) -> dict[str, Any]:
                 "expected_clicks": round(pred.get("expected_apply_clicks", 0)),
                 "expected_applications": round(pred.get("expected_applications", 0)),
                 "expected_apply_rate": pred.get("expected_apply_rate", 0),
-                "best_day": pred.get("best_day_of_week", ""),
+                "best_day": pred.get("best_day_of_week") or "",
                 "easy_apply_lift": (
                     round(
                         (pred.get("easy_apply_comparison") or {}).get("lift_available")
@@ -938,7 +938,7 @@ def handle_slotops_optimize(body: dict[str, Any]) -> dict[str, Any]:
                     )
                 ),
                 "industry_avg_ar": ind_bench.get("avg_apply_rate_pct", 0),
-                "industry_competition": ind_bench.get("competition_level", ""),
+                "industry_competition": ind_bench.get("competition_level") or "",
                 "vs_industry": (
                     round(
                         pred.get("expected_apply_rate", 0)
@@ -1047,9 +1047,9 @@ def handle_slotops_predict_analysis(body: dict[str, Any]) -> dict[str, Any]:
         clicks = prediction.get("expected_apply_clicks", 0)
         conf = prediction.get("confidence_score", 0)
         sample = prediction.get("sample_size", 0)
-        best_day = prediction.get("best_day_of_week", "")
-        best_month = prediction.get("best_month", "")
-        data_src = prediction.get("data_source", "")
+        best_day = prediction.get("best_day_of_week") or ""
+        best_month = prediction.get("best_month") or ""
+        data_src = prediction.get("data_source") or ""
 
         comp = prediction.get("easy_apply_comparison") or {}
         timing = prediction.get("optimal_timing") or {}
@@ -1073,7 +1073,7 @@ def handle_slotops_predict_analysis(body: dict[str, Any]) -> dict[str, Any]:
 
         # External industry benchmarks context
         ext = get_industry_context(
-            industry, job_data.get("function", ""), country, workplace
+            industry, job_data.get("function") or "", country, workplace
         )
         ind_bench = ext.get("industry") or {}
         fn_bench = ext.get("function") or {}
@@ -1104,14 +1104,14 @@ def handle_slotops_predict_analysis(body: dict[str, Any]) -> dict[str, Any]:
             if ind_bench.get("notes"):
                 ext_section += f"\n- Key insight: {ind_bench['notes']}"
         if fn_bench:
-            ext_section += f"\n\nFUNCTION BENCHMARKS ({ext.get('function_key', '').replace('_', ' ').title()}):"
+            ext_section += f"\n\nFUNCTION BENCHMARKS ({(ext.get('function_key') or '').replace('_', ' ').title()}):"
             ext_section += f"\n- Function avg apply rate: {fn_bench.get('avg_apply_rate_pct', 'N/A')}%"
             ext_section += f"\n- Supply/demand ratio: {fn_bench.get('candidate_supply_demand_ratio', 'N/A')}"
             ext_section += f"\n- Avg time to fill: {fn_bench.get('avg_time_to_fill_days', 'N/A')} days"
             if fn_bench.get("recommended_channels"):
                 ext_section += f"\n- Recommended channels: {', '.join(fn_bench['recommended_channels'][:4])}"
         if region_bench:
-            ext_section += f"\n\nREGION BENCHMARKS ({ext.get('region_key', '').replace('_', ' ').title()}):"
+            ext_section += f"\n\nREGION BENCHMARKS ({(ext.get('region_key') or '').replace('_', ' ').title()}):"
             ext_section += f"\n- Region avg apply rate: {region_bench.get('avg_apply_rate_pct', 'N/A')}%"
             ext_section += (
                 f"\n- Avg CPC: ${region_bench.get('avg_cost_per_click_usd', 'N/A')}"
@@ -1164,13 +1164,13 @@ EASY APPLY vs ATS (from Joveo database):
 - Alternative method applications: {comp.get("alternative_applications", "N/A")}
 - Alternative rate: {comp.get("alternative_rate", "N/A")}%
 - Lift available: {comp.get("lift_available", "N/A")}x
-- {comp.get("recommendation", "")}
+- {comp.get("recommendation") or ""}
 
 OPTIMAL TIMING:
 - Best posting day: {best_day}
 - Best month: {best_month}
 - Peak hours (local): Morning {timing.get("morning_peak_hours_local", [])}, Evening {timing.get("evening_peak_hours_local", [])}
-- Timezone: {timing.get("timezone_label", "")} ({timing.get("timezone", "")})
+- Timezone: {timing.get("timezone_label") or ""} ({timing.get("timezone") or ""})
 - Top seasonal months: {season_str or "No seasonality data"}
 
 JOVEO BENCHMARK:
