@@ -434,7 +434,8 @@ def create_spreadsheet(title: str, data: Dict[str, List[List[str]]]) -> Optional
     share_url = f"{_DRIVE_BASE}/{spreadsheet_id}/permissions"
     share_body = {
         "role": "reader",
-        "type": "anyone",
+        "type": "domain",
+        "domain": "joveo.com",
     }
     _sheets_request("POST", share_url, body=share_body, token=token)
 

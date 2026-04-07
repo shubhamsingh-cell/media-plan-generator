@@ -4708,7 +4708,11 @@ def _upload_plan_to_drive(file_bytes: bytes, filename: str, mime_type: str) -> s
         creds = _GCreds.from_service_account_info(creds_dict, scopes=scopes)
         drive = _gapi_build("drive", "v3", credentials=creds)
 
-        file_meta = {"name": filename, "mimeType": mime_type}
+        # S46 security: sanitize filename before Drive upload
+        safe_name = (
+            re.sub(r"[^\w\s\-_.]", "_", filename)[:200] if filename else "plan.zip"
+        )
+        file_meta = {"name": safe_name, "mimeType": mime_type}
         media = MediaInMemoryUpload(file_bytes, mimetype=mime_type)
         uploaded = (
             drive.files()
@@ -4721,9 +4725,10 @@ def _upload_plan_to_drive(file_bytes: bytes, filename: str, mime_type: str) -> s
             return ""
 
         # Make publicly downloadable
+        # S46 security fix: restrict to joveo.com domain instead of public
         drive.permissions().create(
             fileId=file_id,
-            body={"role": "reader", "type": "anyone"},
+            body={"role": "reader", "type": "domain", "domain": "joveo.com"},
         ).execute()
 
         return f"https://drive.google.com/uc?export=download&id={file_id}"
@@ -11594,7 +11599,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
         _CSRF_EXEMPT_PATHS = (
             "/api/sentry/webhook",
             "/api/slack/events",
-            "/api/chat",  # Rate-limited, no state mutation
+            # S46 security: /api/chat removed from CSRF exempt -- it mutates state (Supabase writes, LLM API cost)
             "/api/health",  # Read-only health checks
             "/api/health/ping",  # Read-only ping
             "/api/csrf-token",  # Must be exempt to bootstrap
