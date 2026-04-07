@@ -250,6 +250,56 @@ DATA_DIR = Path(__file__).resolve().parent / "data"
 JOVEO_PRIMARY_COLOR = "#0066CC"
 MAX_HISTORY_TURNS = 20
 MAX_MESSAGE_LENGTH = 4000
+
+
+def _compute_max_turns(message: str, history: list) -> int:
+    """Dynamically adjust conversation history limit based on query complexity.
+
+    Simple greetings/single questions: 15 turns (save context)
+    Standard queries: 20 turns (default)
+    Complex multi-part queries: 30 turns
+    Campaign planning sessions: 40 turns
+    """
+    msg_lower = (message or "").lower()
+    history_len = len(history) if history else 0
+
+    # Complexity signals
+    complexity = 0
+
+    # Multi-part indicators
+    if any(
+        w in msg_lower
+        for w in ["compare", "versus", "vs", "difference between", "which is better"]
+    ):
+        complexity += 2
+    if any(
+        w in msg_lower
+        for w in ["plan", "strategy", "campaign", "budget allocation", "media plan"]
+    ):
+        complexity += 2
+    if any(w in msg_lower for w in ["multiple", "several", "all", "each", "every"]):
+        complexity += 1
+    # Geographic complexity
+    if any(
+        w in msg_lower
+        for w in ["cities", "countries", "regions", "locations", "markets"]
+    ):
+        complexity += 1
+    # Long conversation already (user is deep in planning)
+    if history_len > 10:
+        complexity += 2
+    if history_len > 15:
+        complexity += 1
+
+    if complexity >= 5:
+        return 40  # Campaign planning mode
+    elif complexity >= 3:
+        return 30  # Complex multi-part query
+    elif complexity == 0 and len(msg_lower.split()) < 5:
+        return 15  # Simple greeting/question
+    return 20  # Standard
+
+
 # Token estimation: ~4 chars per token (conservative estimate)
 MAX_CONTEXT_CHARS = 180_000  # ~45K tokens, safe margin for Claude's 200K window
 CLAUDE_MODEL_PRIMARY = (
@@ -13249,7 +13299,8 @@ Never invent plausible-sounding numbers when data is unavailable. State the gap 
         # Build conversation history with context preservation
         if conversation_history:
             # Keep more recent history for context continuity
-            recent_history = conversation_history[-MAX_HISTORY_TURNS:]
+            _dynamic_max = _compute_max_turns(user_message, conversation_history)
+            recent_history = conversation_history[-_dynamic_max:]
             for msg in recent_history:
                 role = msg.get("role", "user")
                 content = msg.get("content") or ""
@@ -17596,7 +17647,7 @@ def _get_iq() -> Nova:
     return _nova_instance
 
 
-def _sanitize_history(raw_history) -> list:
+def _sanitize_history(raw_history, message: str = "") -> list:
     """Sanitize conversation history arriving from the client.
 
     Ensures:
@@ -17604,7 +17655,7 @@ def _sanitize_history(raw_history) -> list:
     - each entry contains only ``role`` (``"user"`` | ``"assistant"``) and
       ``content`` (a non-empty string capped at 4 000 chars)
     - any extra keys are stripped
-    - the list is truncated to ``MAX_HISTORY_TURNS`` most-recent entries
+    - the list is truncated dynamically based on query complexity
     """
     if not isinstance(raw_history, list):
         return []
@@ -17626,8 +17677,9 @@ def _sanitize_history(raw_history) -> list:
             }
         )
 
-    # Respect the same cap used downstream in _chat_with_claude
-    return sanitized[-MAX_HISTORY_TURNS:]
+    # Respect the same dynamic cap used downstream in _chat_with_claude
+    _dynamic_max = _compute_max_turns(message, sanitized)
+    return sanitized[-_dynamic_max:]
 
 
 def handle_chat_request(
@@ -17692,7 +17744,7 @@ def handle_chat_request(
             "error": "No message provided",
         }
 
-    history = _sanitize_history(request_data.get("history") or [])
+    history = _sanitize_history(request_data.get("history") or [], message=message)
     context = request_data.get("context")
 
     iq = _get_iq()
