@@ -36,7 +36,7 @@
   /* ── Text ── */
   --text-primary: #e4e4e7;
   --text-secondary: #a1a1aa;
-  --text-muted: #71717a;
+  --text-muted: #8a8a94; /* was #71717a -- improved for WCAG AA contrast on all surfaces */
 
   /* ── Borders ── */
   --border: rgba(255, 255, 255, 0.06);
