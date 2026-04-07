@@ -1340,17 +1340,11 @@
       typeof customElements !== "undefined" &&
       customElements.get("lottie-player");
     var indicatorHtml;
-    if (lottieAvailable) {
-      indicatorHtml =
-        '<div class="thinking-lottie" aria-label="Nova is thinking">' +
-        '<lottie-player src="https://lottie.host/8a01a0d3-c4e0-4c8a-87af-5c8c0e7e6e5e/7TLXYjNLAt.json" background="transparent" speed="1" style="width:60px;height:30px" loop autoplay></lottie-player>' +
-        "</div>";
-    } else {
-      indicatorHtml =
-        '<div class="thinking-dots-fallback" aria-label="Nova is thinking">' +
-        "<span></span><span></span><span></span>" +
-        "</div>";
-    }
+    /* Always use CSS dots -- Lottie host URLs return 403 without API key */
+    indicatorHtml =
+      '<div class="thinking-dots-fallback" aria-label="Nova is thinking">' +
+      "<span></span><span></span><span></span>" +
+      "</div>";
     wrapper.innerHTML =
       '<div class="message-avatar nova" aria-hidden="true">N</div>' +
       '<div class="thinking-bubble">' +

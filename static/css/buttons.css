@@ -297,11 +297,18 @@ select:hover {
 
 input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not(
     [type="hidden"]
-  ):not([type="range"]):not(.nova-input):not(.chat-input):not(#chatInput):focus,
-textarea:not(.nova-input):not(.chat-input):not(#chatInput):focus,
+  ):not([type="range"]):not(.chat-textarea):not(#chat-input):focus,
+textarea:not(.chat-textarea):not(#chat-input):focus,
 select:focus {
   border-color: var(--accent);
   box-shadow: var(--input-focus-ring);
+  outline: none;
+}
+
+/* Nova chat input -- handled by nova.css, do not override */
+.chat-textarea:focus,
+#chat-input:focus,
+.input-box textarea:focus {
   outline: none;
 }
 
