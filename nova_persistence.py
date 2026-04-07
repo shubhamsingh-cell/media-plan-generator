@@ -254,14 +254,15 @@ def get_conversation(conversation_id: str) -> Optional[Dict[str, Any]]:
             return None
 
     try:
+        # S46 fix: use conversation_id column (id is auto-increment integer)
         result = (
             sb.table("nova_conversations")
             .select("*")
-            .eq("id", conversation_id)
-            .single()
+            .eq("conversation_id", conversation_id)
+            .limit(1)
             .execute()
         )
-        return result.data if result.data else None
+        return result.data[0] if result.data else None
     except Exception as e:
         logger.error(
             "Error fetching conversation %s: %s", conversation_id, e, exc_info=True
@@ -341,10 +342,11 @@ def update_conversation(
         return None
 
     try:
+        # S46 fix: use conversation_id column
         result = (
             sb.table("nova_conversations")
             .update(kwargs)
-            .eq("id", conversation_id)
+            .eq("conversation_id", conversation_id)
             .execute()
         )
         return result.data[0] if result.data else None
@@ -369,8 +371,10 @@ def delete_conversation(conversation_id: str) -> bool:
         return False
 
     try:
-        # This will cascade delete documents and shared links due to ON DELETE CASCADE
-        sb.table("nova_conversations").delete().eq("id", conversation_id).execute()
+        # S46 fix: use conversation_id column
+        sb.table("nova_conversations").delete().eq(
+            "conversation_id", conversation_id
+        ).execute()
         logger.info("Deleted conversation: %s", conversation_id)
         return True
     except Exception as e:
@@ -480,20 +484,22 @@ def get_or_create_conversation(
         }
 
     try:
-        # Try fetching first
+        # S46 fix: Use conversation_id column (not id which is auto-increment integer)
         result = (
             sb.table("nova_conversations")
             .select("*")
-            .eq("id", conversation_id)
+            .eq("conversation_id", conversation_id)
+            .order("id", desc=True)
+            .limit(1)
             .execute()
         )
         if result.data:
             return result.data[0]
 
-        # Does not exist -- create with the explicit ID and session token
+        # Does not exist -- create with the conversation_id
         new_token = token_hex(32)
         row_data: Dict[str, Any] = {
-            "id": conversation_id,
+            "conversation_id": conversation_id,
             "user_id": user_id,
             "title": title,
             "messages": [],
@@ -517,7 +523,7 @@ def get_or_create_conversation(
             insert_result = _retry_with_backoff(_insert_without_token)
 
         if insert_result.data:
-            logger.info("Created conversation with explicit ID: %s", conversation_id)
+            logger.info("Created conversation with ID: %s", conversation_id)
             return insert_result.data[0]
         return None
 
@@ -554,10 +560,11 @@ def verify_conversation_token(
         return True  # Allow if persistence unavailable
 
     try:
+        # S46 fix: use conversation_id column
         result = (
             sb.table("nova_conversations")
             .select("session_token")
-            .eq("id", conversation_id)
+            .eq("conversation_id", conversation_id)
             .execute()
         )
         if not result.data:
@@ -721,11 +728,14 @@ def append_message(
             existing_messages: List[Dict[str, Any]] = conv.get("messages") or []
             existing_messages.append(msg_obj)
 
+            # S46 fix: use conversation_id column (not integer id)
+            _conv_row_id = conv.get("id")
+
             def _update() -> Any:
                 return (
                     sb.table("nova_conversations")
                     .update({"messages": existing_messages})
-                    .eq("id", conversation_id)
+                    .eq("id", _conv_row_id)
                     .execute()
                 )
 
@@ -888,10 +898,11 @@ def load_conversation_messages(conversation_id: str) -> List[Dict[str, Any]]:
 
     # New schema: read from JSONB messages array
     try:
+        # S46 fix: use conversation_id column
         result = (
             sb.table("nova_conversations")
             .select("messages")
-            .eq("id", conversation_id)
+            .eq("conversation_id", conversation_id)
             .execute()
         )
         if result.data:
