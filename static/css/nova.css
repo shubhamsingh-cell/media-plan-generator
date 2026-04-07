@@ -1348,13 +1348,24 @@ a:hover {
     box-shadow var(--transition-fast);
 }
 .input-box:focus-within {
-  border-color: rgba(90, 84, 189, 0.5);
-  box-shadow:
-    0 0 0 3px rgba(90, 84, 189, 0.12),
-    0 0 20px rgba(90, 84, 189, 0.08);
+  border-color: rgba(90, 84, 189, 0.25);
+  box-shadow: 0 0 12px rgba(90, 84, 189, 0.06);
+  outline: none;
   transition:
     border-color 0.3s ease,
     box-shadow 0.3s ease;
+}
+/* Kill all focus outlines inside the chat input area */
+.input-box:focus-within *:focus,
+.input-box:focus-within *:focus-visible,
+.input-box *:focus,
+.input-box *:focus-visible,
+.chat-textarea:focus,
+.chat-textarea:focus-visible,
+#chat-input:focus,
+#chat-input:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
 }
 .chat-textarea {
   flex: 1;
