@@ -1045,7 +1045,7 @@
       '<div class="welcome-title">Good ' +
       getGreeting() +
       ". How can I help?</div>" +
-      '<div class="welcome-subtitle">Senior recruitment marketing analyst with access to real BLS, FRED, Adzuna, and O*NET data, 10,238+ publishers, 200+ occupation benchmarks, and 91 platform profiles.</div>' +
+      '<div class="welcome-subtitle">AI-powered recruitment marketing assistant with access to real BLS, FRED, Adzuna, and O*NET data, 10,238+ publishers, 200+ occupation benchmarks, and 91 platform profiles.</div>' +
       '<div class="suggestions-grid">' +
       '<button class="suggestion-card" data-query="Create a media plan for 50 software engineers in Austin, TX with a $200K budget">' +
       '<span class="suggestion-card-icon" aria-hidden="true">&#x1F4CB;</span>Create a media plan for 50 software engineers in Austin' +
