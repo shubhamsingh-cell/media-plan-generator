@@ -12,25 +12,30 @@ API: optimize_campaign(role, location, industry, budget, duration, goals) -> dic
 
 import datetime
 import logging
+import threading
 from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
 _feature_store = None
 _collar_intel = None
+_init_lock = threading.Lock()
 
 
 def _get_feature_store() -> Any:
-    """Lazy-load the FeatureStore singleton."""
+    """Lazy-load the FeatureStore singleton (thread-safe)."""
     global _feature_store
-    if _feature_store is None:
-        try:
-            from feature_store import get_feature_store
+    if _feature_store is not None:
+        return _feature_store
+    with _init_lock:
+        if _feature_store is None:
+            try:
+                from feature_store import get_feature_store
 
-            _feature_store = get_feature_store()
-            _feature_store.initialize()
-        except Exception as exc:
-            logger.warning("FeatureStore unavailable: %s", exc)
+                _feature_store = get_feature_store()
+                _feature_store.initialize()
+            except Exception as exc:
+                logger.warning("FeatureStore unavailable: %s", exc)
     return _feature_store
 
 
@@ -39,12 +44,14 @@ def _classify_collar(role: str, industry: str) -> Dict[str, Any]:
     global _collar_intel
     try:
         if _collar_intel is None:
-            import collar_intelligence as ci
+            with _init_lock:
+                if _collar_intel is None:
+                    import collar_intelligence as ci
 
-            _collar_intel = ci
+                    _collar_intel = ci
         return _collar_intel.classify_collar(role, industry)
-    except Exception:
-        pass
+    except (ImportError, AttributeError, TypeError) as exc:
+        logger.debug("collar_intelligence unavailable: %s", exc)
     return _collar_fallback(role)
 
 
@@ -278,6 +285,17 @@ def _optimize_impl(
     constraints: Dict[str, Any],
 ) -> Dict[str, Any]:
     """Internal implementation of campaign optimization."""
+    # Input validation
+    budget = max(budget, 0)
+    if budget < 100:
+        return {
+            "error": "Budget too small (minimum $100)",
+            "recommended_allocation": {},
+            "total_projected": {},
+            "confidence_overall": "LOW",
+        }
+    duration_months = max(1, min(duration_months, 24))
+
     now = datetime.datetime.now()
     month = now.month
     data_sources: List[str] = []
@@ -474,7 +492,7 @@ def _recs(
     recs: List[str] = []
     if alloc:
         top_k, top_v = max(alloc.items(), key=lambda x: x[1]["pct"])
-        cl = _COLLAR_LABELS.get(collar, "").lower()
+        cl = (_COLLAR_LABELS.get(collar) or "").lower()
         recs.append(
             f"Lead with {top_v['label']} ({top_v['pct']}% of budget) -- "
             f"highest fit score ({top_v['fit_score']}/100) for {cl} roles like \"{role}\"."
