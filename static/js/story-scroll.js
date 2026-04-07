@@ -89,14 +89,23 @@ function initStoryScroll() {
   progressFill.className = "story-progress-fill";
   progressWrap.appendChild(progressFill);
 
-  /* Step dots */
+  /* Step dots (clickable) */
   for (var d = 0; d < totalMoments; d++) {
     var stepDot = document.createElement("div");
     stepDot.className = "story-progress-dot";
     stepDot.style.top = (d / (totalMoments - 1)) * 100 + "%";
-    stepDot.dataset.step = d + 1;
+    stepDot.dataset.step = d;
+    stepDot.setAttribute("role", "button");
+    stepDot.setAttribute("tabindex", "0");
+    stepDot.setAttribute("aria-label", "Go to moment " + (d + 1));
     progressWrap.appendChild(stepDot);
   }
+
+  /* Wire vertical dot clicks */
+  progressWrap.addEventListener("click", function (e) {
+    var dot = e.target.closest(".story-progress-dot");
+    if (dot) scrollToMoment(parseInt(dot.dataset.step, 10));
+  });
 
   storySection.appendChild(progressWrap);
 
@@ -109,7 +118,101 @@ function initStoryScroll() {
     "</span>";
   storySection.appendChild(stepCounter);
 
-  /* ── Inject progress + counter styles ── */
+  /* ── Bottom navigation: dots + arrows + horizontal progress bar ── */
+  var bottomNav = document.createElement("nav");
+  bottomNav.className = "story-bottom-nav";
+  bottomNav.setAttribute("aria-label", "Story navigation");
+
+  /* Left arrow */
+  var arrowLeft = document.createElement("button");
+  arrowLeft.className = "story-arrow story-arrow--left";
+  arrowLeft.setAttribute("aria-label", "Previous moment");
+  arrowLeft.innerHTML =
+    '<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M12.5 15L7.5 10L12.5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  bottomNav.appendChild(arrowLeft);
+
+  /* Dot row */
+  var dotRow = document.createElement("div");
+  dotRow.className = "story-dot-row";
+  dotRow.setAttribute("role", "tablist");
+  dotRow.setAttribute("aria-label", "Story moments");
+  for (var bd = 0; bd < totalMoments; bd++) {
+    var bDot = document.createElement("button");
+    bDot.className = "story-nav-dot" + (bd === 0 ? " active" : "");
+    bDot.setAttribute("role", "tab");
+    bDot.setAttribute("aria-selected", bd === 0 ? "true" : "false");
+    bDot.setAttribute("aria-label", "Go to moment " + (bd + 1));
+    bDot.dataset.index = bd;
+    dotRow.appendChild(bDot);
+  }
+  bottomNav.appendChild(dotRow);
+
+  /* Right arrow */
+  var arrowRight = document.createElement("button");
+  arrowRight.className = "story-arrow story-arrow--right";
+  arrowRight.setAttribute("aria-label", "Next moment");
+  arrowRight.innerHTML =
+    '<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M7.5 5L12.5 10L7.5 15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  bottomNav.appendChild(arrowRight);
+
+  storySection.appendChild(bottomNav);
+
+  /* Horizontal progress bar at very bottom */
+  var hProgressWrap = document.createElement("div");
+  hProgressWrap.className = "story-h-progress";
+  hProgressWrap.setAttribute("aria-hidden", "true");
+  var hProgressFill = document.createElement("div");
+  hProgressFill.className = "story-h-progress-fill";
+  hProgressWrap.appendChild(hProgressFill);
+  storySection.appendChild(hProgressWrap);
+
+  /* Track current step for arrow navigation */
+  var currentNavStep = 0;
+
+  /* Helper: scroll to a specific moment index */
+  function scrollToMoment(index) {
+    if (index < 0 || index >= totalMoments) return;
+    var allST = ScrollTrigger.getAll();
+    var st = null;
+    for (var si = 0; si < allST.length; si++) {
+      if (allST[si].trigger === storySection && allST[si].pin) {
+        st = allST[si];
+        break;
+      }
+    }
+    if (!st) return;
+    var targetProgress = (index + 0.5) / totalMoments;
+    var targetScroll = st.start + (st.end - st.start) * targetProgress;
+    window.scrollTo({ top: targetScroll, behavior: "smooth" });
+  }
+
+  /* Wire arrow clicks */
+  arrowLeft.addEventListener("click", function () {
+    scrollToMoment(currentNavStep - 1);
+  });
+  arrowRight.addEventListener("click", function () {
+    scrollToMoment(currentNavStep + 1);
+  });
+
+  /* Wire dot clicks */
+  dotRow.addEventListener("click", function (e) {
+    var dot = e.target.closest(".story-nav-dot");
+    if (dot) scrollToMoment(parseInt(dot.dataset.index, 10));
+  });
+
+  /* Keyboard: left/right arrows when section is in view */
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+      var rect = storySection.getBoundingClientRect();
+      if (rect.top <= 0 && rect.bottom >= window.innerHeight * 0.5) {
+        e.preventDefault();
+        if (e.key === "ArrowLeft") scrollToMoment(currentNavStep - 1);
+        else scrollToMoment(currentNavStep + 1);
+      }
+    }
+  });
+
+  /* ── Inject progress + counter + nav styles ── */
   var progressStyle = document.createElement("style");
   progressStyle.textContent = [
     ".story-progress {",
@@ -126,6 +229,7 @@ function initStoryScroll() {
     "  position: absolute; left: 50%; width: 8px; height: 8px;",
     "  background: rgba(255,255,255,0.15); border-radius: 50%;",
     "  transform: translate(-50%, -50%); transition: background 0.3s, transform 0.3s, box-shadow 0.3s;",
+    "  cursor: pointer;",
     "}",
     ".story-progress-dot.active {",
     "  background: var(--accent, #5A54BD);",
@@ -140,8 +244,74 @@ function initStoryScroll() {
     "}",
     ".step-current { color: var(--text-primary, #e4e4e7); font-weight: 600; }",
     ".step-sep { opacity: 0.4; margin: 0 2px; }",
+
+    /* Bottom navigation */
+    ".story-bottom-nav {",
+    "  position: absolute; bottom: 48px; left: 50%; transform: translateX(-50%);",
+    "  display: flex; align-items: center; gap: 16px; z-index: 10;",
+    "}",
+    ".story-arrow {",
+    "  width: 36px; height: 36px; border-radius: 50%;",
+    "  border: 1px solid rgba(255,255,255,0.15);",
+    "  background: rgba(32, 32, 88, 0.5);",
+    "  color: var(--text-secondary, #a1a1aa);",
+    "  display: flex; align-items: center; justify-content: center;",
+    "  cursor: pointer; transition: all 0.25s ease;",
+    "  backdrop-filter: blur(8px);",
+    "}",
+    ".story-arrow:hover {",
+    "  border-color: var(--accent, #5A54BD);",
+    "  color: #fff;",
+    "  background: rgba(90, 84, 189, 0.3);",
+    "}",
+    ".story-arrow:focus-visible {",
+    "  outline: 2px solid var(--accent, #5A54BD);",
+    "  outline-offset: 2px;",
+    "}",
+    ".story-dot-row {",
+    "  display: flex; align-items: center; gap: 10px;",
+    "}",
+    ".story-nav-dot {",
+    "  width: 10px; height: 10px; border-radius: 50%;",
+    "  border: 1.5px solid rgba(255,255,255,0.2);",
+    "  background: transparent; cursor: pointer;",
+    "  transition: all 0.3s ease; padding: 0;",
+    "}",
+    ".story-nav-dot:hover {",
+    "  border-color: var(--accent, #5A54BD);",
+    "  background: rgba(90, 84, 189, 0.25);",
+    "}",
+    ".story-nav-dot.active {",
+    "  background: var(--accent, #5A54BD);",
+    "  border-color: var(--accent, #5A54BD);",
+    "  transform: scale(1.3);",
+    "  box-shadow: 0 0 10px rgba(90, 84, 189, 0.5);",
+    "}",
+    ".story-nav-dot:focus-visible {",
+    "  outline: 2px solid var(--accent, #5A54BD);",
+    "  outline-offset: 2px;",
+    "}",
+
+    /* Horizontal progress bar */
+    ".story-h-progress {",
+    "  position: absolute; bottom: 0; left: 0; right: 0;",
+    "  height: 3px; background: rgba(255,255,255,0.06);",
+    "  z-index: 10;",
+    "}",
+    ".story-h-progress-fill {",
+    "  height: 100%; width: 0%;",
+    "  background: linear-gradient(90deg, var(--accent, #5A54BD), var(--teal, #6BB3CD));",
+    "  border-radius: 0 2px 2px 0;",
+    "  transition: width 0.3s ease;",
+    "}",
+
     "@media (max-width: 1024px) {",
     "  .story-progress, .story-step-counter { display: none; }",
+    "  .story-bottom-nav { bottom: 24px; }",
+    "  .story-h-progress { display: none; }",
+    "}",
+    "@media (max-width: 767px) {",
+    "  .story-bottom-nav { display: none; }",
     "}",
   ].join("\n");
   document.head.appendChild(progressStyle);
@@ -189,20 +359,26 @@ function initStoryScroll() {
       scrub: 0.6,
       anticipatePin: 1,
       onUpdate: function (self) {
-        /* Update progress bar */
+        /* Update vertical progress bar */
         var progress = self.progress;
         progressFill.style.height = progress * 100 + "%";
+
+        /* Update horizontal progress bar */
+        hProgressFill.style.width = progress * 100 + "%";
 
         /* Update step counter + dots */
         var currentStep = Math.min(
           Math.floor(progress * totalMoments),
           totalMoments - 1,
         );
+        currentNavStep = currentStep;
+
         var currentEl = stepCounter.querySelector(".step-current");
         if (currentEl) {
           currentEl.textContent = String(currentStep + 1).padStart(2, "0");
         }
 
+        /* Vertical dots */
         var dots = progressWrap.querySelectorAll(".story-progress-dot");
         dots.forEach(function (dot, idx) {
           if (idx <= currentStep) {
@@ -211,6 +387,25 @@ function initStoryScroll() {
             dot.classList.remove("active");
           }
         });
+
+        /* Bottom nav dots */
+        var navDots = dotRow.querySelectorAll(".story-nav-dot");
+        navDots.forEach(function (nd, idx) {
+          if (idx === currentStep) {
+            nd.classList.add("active");
+            nd.setAttribute("aria-selected", "true");
+          } else {
+            nd.classList.remove("active");
+            nd.setAttribute("aria-selected", "false");
+          }
+        });
+
+        /* Arrow states */
+        arrowLeft.style.opacity = currentStep === 0 ? "0.3" : "1";
+        arrowLeft.disabled = currentStep === 0;
+        arrowRight.style.opacity =
+          currentStep === totalMoments - 1 ? "0.3" : "1";
+        arrowRight.disabled = currentStep === totalMoments - 1;
       },
     },
   });

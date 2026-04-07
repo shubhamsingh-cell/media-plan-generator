@@ -924,10 +924,17 @@
     if (keys.length === 0) {
       var empty = document.createElement("div");
       empty.style.cssText =
-        "padding:20px 12px;text-align:center;font-size:13px;color:var(--text-muted);";
-      empty.textContent = searchTerm
-        ? "No matching conversations"
-        : "No conversations yet";
+        "padding:32px 16px;text-align:center;color:var(--text-muted);";
+      if (searchTerm) {
+        empty.innerHTML =
+          '<p style="font-size:13px;">No matching conversations</p>';
+      } else {
+        empty.innerHTML =
+          '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.3;margin-bottom:12px;">' +
+          '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>' +
+          '<p style="font-size:13px;font-weight:500;margin-bottom:4px;color:var(--text-secondary);">No conversations yet</p>' +
+          '<p style="font-size:12px;line-height:1.4;">Click <strong>New Chat</strong> above to start a conversation with Nova.</p>';
+      }
       convList.appendChild(empty);
       return;
     }

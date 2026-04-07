@@ -711,11 +711,166 @@
           aria-hidden="true"
         ></div>
         <div id="module-frame">
+          <!-- Welcome screen (shown when no module selected) -->
+          <div class="platform-welcome" id="platform-welcome">
+            <div
+              style="
+                text-align: center;
+                padding: 4rem 1.5rem;
+                max-width: 520px;
+                margin: 0 auto;
+              "
+            >
+              <svg
+                width="56"
+                height="56"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                style="opacity: 0.25; margin-bottom: 1.25rem; color: #5a54bd"
+              >
+                <path
+                  d="M12 2a7 7 0 0 1 7 7c0 3-2 5.5-4 7l-1 4h-4l-1-4c-2-1.5-4-4-4-7a7 7 0 0 1 7-7z"
+                />
+                <line x1="10" y1="22" x2="14" y2="22" />
+              </svg>
+              <h2
+                style="
+                  font-size: 1.25rem;
+                  font-weight: 600;
+                  color: #e4e4e7;
+                  margin-bottom: 0.5rem;
+                "
+              >
+                Welcome to Nova Platform
+              </h2>
+              <p
+                style="
+                  font-size: 0.875rem;
+                  color: #71717a;
+                  line-height: 1.6;
+                  margin-bottom: 1.5rem;
+                "
+              >
+                Select a module from the sidebar to get started, or try one of
+                these quick actions.
+              </p>
+              <div
+                style="
+                  display: flex;
+                  flex-wrap: wrap;
+                  gap: 8px;
+                  justify-content: center;
+                "
+              >
+                <button
+                  onclick="NovaRouter.navigate('plan/campaign')"
+                  style="
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 6px;
+                    padding: 10px 16px;
+                    min-height: 44px;
+                    font-size: 0.8125rem;
+                    font-family: inherit;
+                    font-weight: 500;
+                    color: #e4e4e7;
+                    background: rgba(90, 84, 189, 0.12);
+                    border: 1px solid rgba(90, 84, 189, 0.25);
+                    border-radius: 8px;
+                    cursor: pointer;
+                    transition: all 0.15s;
+                  "
+                >
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <line x1="12" y1="5" x2="12" y2="19" />
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                  </svg>
+                  Create Campaign
+                </button>
+                <button
+                  onclick="NovaDrawer.open()"
+                  style="
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 6px;
+                    padding: 10px 16px;
+                    min-height: 44px;
+                    font-size: 0.8125rem;
+                    font-family: inherit;
+                    font-weight: 500;
+                    color: #e4e4e7;
+                    background: rgba(107, 179, 205, 0.1);
+                    border: 1px solid rgba(107, 179, 205, 0.2);
+                    border-radius: 8px;
+                    cursor: pointer;
+                    transition: all 0.15s;
+                  "
+                >
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path
+                      d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
+                    />
+                  </svg>
+                  Ask Nova AI
+                </button>
+                <button
+                  onclick="NovaRouter.navigate('intelligence/market')"
+                  style="
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 6px;
+                    padding: 10px 16px;
+                    min-height: 44px;
+                    font-size: 0.8125rem;
+                    font-family: inherit;
+                    font-weight: 500;
+                    color: #e4e4e7;
+                    background: rgba(255, 255, 255, 0.04);
+                    border: 1px solid rgba(255, 255, 255, 0.08);
+                    border-radius: 8px;
+                    cursor: pointer;
+                    transition: all 0.15s;
+                  "
+                >
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+                  </svg>
+                  Market Intelligence
+                </button>
+              </div>
+            </div>
+          </div>
           <!-- Skeleton placeholder (auto-hidden when content loads) -->
           <div
             class="skeleton-container"
             aria-label="Loading content"
             role="status"
+            style="display: none"
           >
             <span
               class="sr-only"
@@ -1203,6 +1358,7 @@
           .catch(function () {});
       });
     </script>
+    <script src="/static/js/nova-toast.js" defer></script>
     <script src="/static/back-to-suite.js" defer></script>
   </body>
 </html>

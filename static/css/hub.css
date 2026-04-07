@@ -294,13 +294,9 @@ html.lenis body {
   }
 }
 
+/* grain removed from HTML — was imperceptible at 0.03 opacity */
 .grain {
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  opacity: 0.03;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+  display: none;
 }
 
 /* ── Navigation ── */
@@ -572,7 +568,7 @@ html.lenis body {
   font-size: var(--text-lg);
   color: var(--text-secondary);
   line-height: var(--leading-normal);
-  max-width: 560px;
+  max-width: 38rem;
   margin: 0 auto var(--space-6);
 }
 .hero-actions {
@@ -954,6 +950,272 @@ html.lenis body {
   }
 }
 
+/* ── 3D Channel Carousel ── */
+.channel-carousel-wrapper {
+  position: relative;
+  width: 100%;
+  max-width: 960px;
+  margin: 48px auto 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.channel-carousel {
+  perspective: 900px;
+  width: 100%;
+  height: 160px;
+  position: relative;
+  overflow: visible;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.carousel-ring {
+  width: 160px;
+  height: 90px;
+  position: relative;
+  transform-style: preserve-3d;
+  animation: carousel-spin 30s linear infinite;
+}
+.carousel-ring:hover {
+  animation-play-state: paused;
+}
+.carousel-card {
+  position: absolute;
+  width: 140px;
+  height: 72px;
+  left: 50%;
+  top: 50%;
+  margin-left: -70px;
+  margin-top: -36px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  color: #fff;
+  background: var(--card-bg);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  cursor: default;
+  user-select: none;
+  transition: opacity 0.3s ease;
+}
+/* Position each card around the ring (12 cards, 30deg apart, 320px radius) */
+.carousel-card:nth-child(1) {
+  transform: rotateY(0deg) translateZ(320px);
+}
+.carousel-card:nth-child(2) {
+  transform: rotateY(30deg) translateZ(320px);
+}
+.carousel-card:nth-child(3) {
+  transform: rotateY(60deg) translateZ(320px);
+}
+.carousel-card:nth-child(4) {
+  transform: rotateY(90deg) translateZ(320px);
+}
+.carousel-card:nth-child(5) {
+  transform: rotateY(120deg) translateZ(320px);
+}
+.carousel-card:nth-child(6) {
+  transform: rotateY(150deg) translateZ(320px);
+}
+.carousel-card:nth-child(7) {
+  transform: rotateY(180deg) translateZ(320px);
+}
+.carousel-card:nth-child(8) {
+  transform: rotateY(210deg) translateZ(320px);
+}
+.carousel-card:nth-child(9) {
+  transform: rotateY(240deg) translateZ(320px);
+}
+.carousel-card:nth-child(10) {
+  transform: rotateY(270deg) translateZ(320px);
+}
+.carousel-card:nth-child(11) {
+  transform: rotateY(300deg) translateZ(320px);
+}
+.carousel-card:nth-child(12) {
+  transform: rotateY(330deg) translateZ(320px);
+}
+
+@keyframes carousel-spin {
+  from {
+    transform: rotateY(0deg);
+  }
+  to {
+    transform: rotateY(360deg);
+  }
+}
+
+/* Reflection glow under carousel */
+.carousel-reflection {
+  width: 60%;
+  height: 40px;
+  margin-top: -8px;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(90, 84, 189, 0.12) 0%,
+    rgba(90, 84, 189, 0.04) 40%,
+    transparent 70%
+  );
+  border-radius: 50%;
+  pointer-events: none;
+  filter: blur(6px);
+}
+
+/* Screen-reader accessible static list (hidden visually) */
+.carousel-static-list {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+  padding: 0;
+  margin: -1px;
+}
+
+/* Reduced motion: show a static grid instead of spinning */
+@media (prefers-reduced-motion: reduce) {
+  .carousel-ring {
+    animation: none;
+    transform: none;
+    transform-style: flat;
+    width: 100%;
+    height: auto;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+  }
+  .channel-carousel {
+    perspective: none;
+    height: auto;
+    padding: 16px 0;
+  }
+  .carousel-card {
+    position: static;
+    transform: none;
+    margin: 0;
+    width: 120px;
+    height: 56px;
+    font-size: 12px;
+    backface-visibility: visible;
+    -webkit-backface-visibility: visible;
+  }
+  .carousel-reflection {
+    display: none;
+  }
+}
+
+/* Responsive: smaller radius on tablets */
+@media (max-width: 768px) {
+  .carousel-card:nth-child(1) {
+    transform: rotateY(0deg) translateZ(220px);
+  }
+  .carousel-card:nth-child(2) {
+    transform: rotateY(30deg) translateZ(220px);
+  }
+  .carousel-card:nth-child(3) {
+    transform: rotateY(60deg) translateZ(220px);
+  }
+  .carousel-card:nth-child(4) {
+    transform: rotateY(90deg) translateZ(220px);
+  }
+  .carousel-card:nth-child(5) {
+    transform: rotateY(120deg) translateZ(220px);
+  }
+  .carousel-card:nth-child(6) {
+    transform: rotateY(150deg) translateZ(220px);
+  }
+  .carousel-card:nth-child(7) {
+    transform: rotateY(180deg) translateZ(220px);
+  }
+  .carousel-card:nth-child(8) {
+    transform: rotateY(210deg) translateZ(220px);
+  }
+  .carousel-card:nth-child(9) {
+    transform: rotateY(240deg) translateZ(220px);
+  }
+  .carousel-card:nth-child(10) {
+    transform: rotateY(270deg) translateZ(220px);
+  }
+  .carousel-card:nth-child(11) {
+    transform: rotateY(300deg) translateZ(220px);
+  }
+  .carousel-card:nth-child(12) {
+    transform: rotateY(330deg) translateZ(220px);
+  }
+  .carousel-card {
+    width: 110px;
+    height: 60px;
+    font-size: 11px;
+  }
+  .channel-carousel {
+    height: 130px;
+  }
+}
+
+/* Responsive: even smaller on phones */
+@media (max-width: 480px) {
+  .carousel-card:nth-child(1) {
+    transform: rotateY(0deg) translateZ(160px);
+  }
+  .carousel-card:nth-child(2) {
+    transform: rotateY(30deg) translateZ(160px);
+  }
+  .carousel-card:nth-child(3) {
+    transform: rotateY(60deg) translateZ(160px);
+  }
+  .carousel-card:nth-child(4) {
+    transform: rotateY(90deg) translateZ(160px);
+  }
+  .carousel-card:nth-child(5) {
+    transform: rotateY(120deg) translateZ(160px);
+  }
+  .carousel-card:nth-child(6) {
+    transform: rotateY(150deg) translateZ(160px);
+  }
+  .carousel-card:nth-child(7) {
+    transform: rotateY(180deg) translateZ(160px);
+  }
+  .carousel-card:nth-child(8) {
+    transform: rotateY(210deg) translateZ(160px);
+  }
+  .carousel-card:nth-child(9) {
+    transform: rotateY(240deg) translateZ(160px);
+  }
+  .carousel-card:nth-child(10) {
+    transform: rotateY(270deg) translateZ(160px);
+  }
+  .carousel-card:nth-child(11) {
+    transform: rotateY(300deg) translateZ(160px);
+  }
+  .carousel-card:nth-child(12) {
+    transform: rotateY(330deg) translateZ(160px);
+  }
+  .carousel-card {
+    width: 90px;
+    height: 48px;
+    font-size: 10px;
+    border-radius: 8px;
+  }
+  .channel-carousel {
+    height: 110px;
+  }
+  .channel-carousel-wrapper {
+    margin-top: 32px;
+  }
+}
+
 /* Scroll to discover prompt */
 .scroll-prompt {
   position: absolute;
@@ -1103,6 +1365,11 @@ html.lenis body {
   color: var(--text-muted);
   font-size: var(--text-xs);
   padding: 4px 12px;
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition:
@@ -1186,6 +1453,9 @@ html.lenis body {
   font-size: var(--text-base);
   color: var(--text-secondary);
   line-height: var(--leading-normal);
+  max-width: 38rem;
+  margin-left: auto;
+  margin-right: auto;
 }
 .moment-visual {
   width: 100%;
@@ -1647,23 +1917,10 @@ html.lenis body {
   animation-delay: 0s;
   animation-duration: 22s;
 }
-.products-orb--2 {
-  width: 450px;
-  height: 450px;
-  background: radial-gradient(circle, #6bb3cd 0%, transparent 70%);
-  bottom: -10%;
-  right: -5%;
-  animation-delay: -7s;
-  animation-duration: 18s;
-}
+/* orb--2 and orb--3 removed from HTML; keeping only orb--1 as layer 2 of 3 */
+.products-orb--2,
 .products-orb--3 {
-  width: 380px;
-  height: 380px;
-  background: radial-gradient(circle, #202058 0%, transparent 70%);
-  top: 40%;
-  left: 50%;
-  animation-delay: -12s;
-  animation-duration: 25s;
+  display: none !important;
 }
 
 .products-duo {
@@ -2126,6 +2383,7 @@ html.lenis body {
   line-height: 1.7;
   margin-bottom: 24px;
   flex: 1;
+  max-width: 38rem;
 }
 .product-hero-tools {
   display: flex;
@@ -2985,14 +3243,9 @@ html.lenis body {
   }
 }
 
-/* ── V2: Particle Canvas ── */
+/* ── V2: Particle Canvas (DISABLED — biggest CPU cost, rAF loop) ── */
 .particle-canvas {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 0;
-  pointer-events: none;
+  display: none !important;
 }
 
 /* ── V2: Holographic overlay on cards ── */
@@ -3037,63 +3290,14 @@ html.lenis body {
   }
 }
 
-/* ── V2: Spotlight cursor overlay ── */
+/* ── V2: Spotlight cursor overlay (DISABLED — subtle effect, not worth compositing) ── */
 .products-spotlight-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  background: rgba(0, 0, 0, 0.12);
-  opacity: 0;
-  transition: opacity 0.6s ease;
-  -webkit-mask-image: radial-gradient(
-    600px circle at var(--spot-x, 50%) var(--spot-y, 50%),
-    transparent 0%,
-    black 100%
-  );
-  mask-image: radial-gradient(
-    600px circle at var(--spot-x, 50%) var(--spot-y, 50%),
-    transparent 0%,
-    black 100%
-  );
-}
-.products-section:hover .products-spotlight-overlay {
-  opacity: 1;
+  display: none !important;
 }
 
-/* ── V2: SVG Flow Lines ── */
+/* ── V2: SVG Flow Lines (DISABLED — low-visibility dashed lines with animateMotion) ── */
 .flow-lines-svg {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 0;
-  pointer-events: none;
-  overflow: visible;
-}
-.flow-line {
-  fill: none;
-  stroke: rgba(255, 255, 255, 0.06);
-  stroke-width: 1.5;
-  stroke-dasharray: 6 8;
-  animation: flowDash 12s linear infinite;
-}
-.flow-line--reverse {
-  animation-direction: reverse;
-}
-@keyframes flowDash {
-  to {
-    stroke-dashoffset: -100;
-  }
-}
-/* Flow particle dots */
-.flow-dot {
-  fill: rgba(90, 84, 189, 0.35);
-}
-@media (max-width: 1024px) {
-  .flow-lines-svg {
-    display: none;
-  }
+  display: none !important;
 }
 
 /* ── V2: Card inner parallax layers ── */
@@ -3105,39 +3309,9 @@ html.lenis body {
   transform: translate(calc(var(--card-ry) * -0.6), calc(var(--card-rx) * 0.6));
 }
 
-/* ── V2: Morphing mesh gradient ── */
+/* ── V2: Morphing mesh gradient (DISABLED — blur(60px) at 0.15 opacity, imperceptible) ── */
 .morphing-mesh {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  opacity: 0.15;
-  background: linear-gradient(
-    45deg,
-    #5a54bd 0%,
-    #202058 25%,
-    #6bb3cd 50%,
-    #202058 75%,
-    #5a54bd 100%
-  );
-  background-size: 400% 400%;
-  animation: meshMorph 20s ease-in-out infinite;
-  filter: blur(60px);
-}
-@keyframes meshMorph {
-  0%,
-  100% {
-    background-position: 0% 50%;
-  }
-  25% {
-    background-position: 100% 0%;
-  }
-  50% {
-    background-position: 100% 100%;
-  }
-  75% {
-    background-position: 0% 100%;
-  }
+  display: none !important;
 }
 
 /* ── V2: Typing effect ── */

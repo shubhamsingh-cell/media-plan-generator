@@ -167,13 +167,13 @@
   <body>
     <a href="#main-content" class="skip-nav">Skip to main content</a>
 
-    <!-- Aurora background -->
+    <!-- Aurora background (kept as 1 of 3 animation layers) -->
     <div class="bg-mesh" aria-hidden="true">
       <div class="aurora-layer aurora-1"></div>
       <div class="aurora-layer aurora-2"></div>
       <div class="aurora-layer aurora-3"></div>
     </div>
-    <div class="grain" aria-hidden="true"></div>
+    <!-- grain removed: imperceptible at 0.03 opacity, wastes GPU compositing -->
 
     <!-- Navigation (updated CTAs per spec 2.1) -->
     <nav class="nav" role="navigation" aria-label="Main navigation">
@@ -227,28 +227,8 @@
         id="hero"
         style="position: relative; overflow: hidden"
       >
-        <!-- CSS radial glow via ::before pseudo-element (no Three.js needed) -->
-        <!-- Animated mesh gradient background -->
-        <div class="hero-gradient-mesh" aria-hidden="true"></div>
-        <!-- Lottie ambient animation -->
-        <lottie-player
-          src="https://lottie.host/4db68bbd-31f6-4cd8-84eb-189de081159a/IGmMCqhzpt.json"
-          background="transparent"
-          speed="0.5"
-          style="
-            width: 300px;
-            height: 300px;
-            position: absolute;
-            right: -50px;
-            top: -50px;
-            opacity: 0.15;
-            pointer-events: none;
-            z-index: 0;
-          "
-          loop
-          autoplay
-          aria-hidden="true"
-        ></lottie-player>
+        <!-- hero-gradient-mesh removed: redundant with aurora bg, saves 1 animation layer -->
+        <!-- Lottie hero ambient removed: opacity 0.15 imperceptible, saves CPU + network request -->
 
         <div class="hero-content" style="position: relative; z-index: 1">
           <span class="hero-eyebrow hero-anim">RECRUITMENT INTELLIGENCE</span>
@@ -407,6 +387,106 @@
               </div>
             </div>
           </div>
+        </div>
+
+        <!-- 3D Channel Carousel -->
+        <div
+          class="channel-carousel-wrapper hero-anim"
+          style="animation-delay: 1.2s"
+          aria-label="Job board channels we optimize across"
+        >
+          <div class="channel-carousel" aria-hidden="true">
+            <div class="carousel-ring">
+              <div
+                class="carousel-card"
+                style="--card-bg: #2164f3; --card-i: 0"
+              >
+                Indeed
+              </div>
+              <div
+                class="carousel-card"
+                style="--card-bg: #0a66c2; --card-i: 1"
+              >
+                LinkedIn
+              </div>
+              <div
+                class="carousel-card"
+                style="--card-bg: #24a94b; --card-i: 2"
+              >
+                ZipRecruiter
+              </div>
+              <div
+                class="carousel-card"
+                style="--card-bg: #0caa41; --card-i: 3"
+              >
+                Glassdoor
+              </div>
+              <div
+                class="carousel-card"
+                style="--card-bg: #4285f4; --card-i: 4"
+              >
+                Google Jobs
+              </div>
+              <div
+                class="carousel-card"
+                style="--card-bg: #1877f2; --card-i: 5"
+              >
+                Meta
+              </div>
+              <div
+                class="carousel-card"
+                style="--card-bg: #5a00b9; --card-i: 6"
+              >
+                Craigslist
+              </div>
+              <div
+                class="carousel-card"
+                style="--card-bg: #00438f; --card-i: 7"
+              >
+                CareerBuilder
+              </div>
+              <div
+                class="carousel-card"
+                style="--card-bg: #6e45a5; --card-i: 8"
+              >
+                Monster
+              </div>
+              <div
+                class="carousel-card"
+                style="--card-bg: #0096ff; --card-i: 9"
+              >
+                SimplyHired
+              </div>
+              <div
+                class="carousel-card"
+                style="--card-bg: #eb1c26; --card-i: 10"
+              >
+                Dice
+              </div>
+              <div
+                class="carousel-card"
+                style="--card-bg: #5a54bd; --card-i: 11"
+              >
+                Programmatic
+              </div>
+            </div>
+          </div>
+          <div class="carousel-reflection" aria-hidden="true"></div>
+          <!-- Accessible static list for screen readers and reduced-motion -->
+          <ul class="carousel-static-list" role="list">
+            <li>Indeed</li>
+            <li>LinkedIn</li>
+            <li>ZipRecruiter</li>
+            <li>Glassdoor</li>
+            <li>Google Jobs</li>
+            <li>Meta</li>
+            <li>Craigslist</li>
+            <li>CareerBuilder</li>
+            <li>Monster</li>
+            <li>SimplyHired</li>
+            <li>Dice</li>
+            <li>Programmatic</li>
+          </ul>
         </div>
 
         <!-- Scroll prompt removed: hero is no longer full-viewport -->
@@ -1001,22 +1081,13 @@
       <!-- SECTION 5: THREE PRODUCTS                   -->
       <!-- ========================================== -->
       <section class="products-section" id="platform" aria-label="Products">
-        <!-- V2: Morphing mesh gradient -->
-        <div class="morphing-mesh" aria-hidden="true"></div>
-        <!-- Floating glow orbs -->
+        <!-- morphing-mesh removed: blur(60px) animation at 0.15 opacity, imperceptible, wastes GPU -->
+        <!-- Keep 1 glow orb (layer 2 of 3) -->
         <div class="products-orb products-orb--1" aria-hidden="true"></div>
-        <div class="products-orb products-orb--2" aria-hidden="true"></div>
-        <div class="products-orb products-orb--3" aria-hidden="true"></div>
-        <!-- V2: Particle canvas -->
-        <canvas class="particle-canvas" aria-hidden="true"></canvas>
-        <!-- V2: Spotlight overlay -->
-        <div class="products-spotlight-overlay" aria-hidden="true"></div>
-        <!-- V2: Flow lines SVG (populated by JS) -->
-        <svg
-          class="flow-lines-svg"
-          aria-hidden="true"
-          preserveAspectRatio="none"
-        ></svg>
+        <!-- Extra orbs removed: 3 simultaneous blur(80px) animations excessive -->
+        <!-- particle-canvas removed: 40-particle rAF loop, biggest CPU cost -->
+        <!-- spotlight-overlay removed: subtle mouse-follow effect, not worth compositing cost -->
+        <!-- flow-lines-svg removed: SVG animateMotion + dashed lines, low visibility -->
         <div class="container">
           <div class="section-label reveal">The platform</div>
           <h2
@@ -4981,7 +5052,7 @@
         ];
         var modules = [
           "/static/js/animations.js?v=3.0.0",
-          "/static/js/story-scroll.js?v=3.0.0",
+          "/static/js/story-scroll.js?v=3.1.0",
           "/static/js/custom-cursor.js?v=2.0.0",
           "/static/js/hero-evolution.js?v=2.0.0",
           "/static/js/network-graph.js?v=2.0.0",
@@ -5067,6 +5138,7 @@
           });
       });
     </script>
+    <script src="/static/js/nova-toast.js" defer></script>
     <script src="/static/js/ripple.js" defer></script>
   </body>
 </html>
