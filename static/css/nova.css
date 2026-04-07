@@ -663,13 +663,13 @@ a:hover {
   display: flex;
   gap: 12px;
   margin-bottom: 24px;
-  animation: msg-slide-in var(--transition-normal) forwards;
+  animation: msg-slide-in 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
   opacity: 0;
 }
 @keyframes msg-slide-in {
   from {
     opacity: 0;
-    transform: translateY(12px);
+    transform: translateY(8px);
   }
   to {
     opacity: 1;
@@ -1109,6 +1109,14 @@ a:hover {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  background: linear-gradient(
+    135deg,
+    rgba(90, 84, 189, 0.08),
+    rgba(107, 179, 205, 0.08)
+  );
+  border: 1px solid rgba(90, 84, 189, 0.15);
+  border-radius: 16px 16px 16px 4px;
+  padding: 4px;
 }
 .thinking-dots-pill {
   display: flex;
@@ -1241,8 +1249,8 @@ a:hover {
     box-shadow var(--transition-fast);
 }
 .input-box:focus-within {
-  border-color: var(--accent-teal);
-  box-shadow: 0 0 0 3px rgba(107, 179, 205, 0.1);
+  border-color: #5a54bd;
+  box-shadow: 0 0 0 3px rgba(90, 84, 189, 0.12);
 }
 .chat-textarea {
   flex: 1;
@@ -1283,6 +1291,7 @@ a:hover {
 .send-btn:hover:not(:disabled) {
   background: #5ca3b8;
   transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(90, 84, 189, 0.3);
 }
 .send-btn:active:not(:disabled) {
   transform: scale(0.95);
@@ -2055,9 +2064,20 @@ a:hover {
   font-size: 0.78rem;
   line-height: 1.4;
   width: fit-content;
+  animation: nova-pill-fade 0.3s ease forwards;
   transition:
     opacity 0.3s ease,
     background-color 0.2s ease;
+}
+@keyframes nova-pill-fade {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 .nova-tool-pill-active {
@@ -2111,6 +2131,12 @@ a:hover {
   .nova-tool-spinner {
     animation: none;
     opacity: 0.7;
+  }
+  .nova-tool-pill {
+    animation: none !important;
+  }
+  .send-btn {
+    transition: none !important;
   }
 }
 
