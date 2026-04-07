@@ -1631,13 +1631,21 @@ def compute_channel_dollar_amounts(
             cpa = _safe_divide(dollars, max(projected_applications, 1), dollars)
             cost_per_hire = _safe_divide(dollars, max(projected_hires, 1), dollars)
 
-        # S39: Apply 35% safety margin to CPH for Programmatic & DSP and
-        # Global Job Boards -- these channels historically under-estimate
-        # cost-per-hire, leading to overly aggressive projections.
-        _CPH_SAFETY_MARGIN_CATEGORIES = {"programmatic", "job_board"}
-        if category in _CPH_SAFETY_MARGIN_CATEGORIES:
-            cost_per_hire *= 1.35
-            cpa *= 1.35
+        # S39/S46: Platform-differentiated safety margins for CPH/CPA
+        # Programmatic: 35% (third-party verification gaps, DSP markup)
+        # Social: 20% (platform attribution gaps, escalating CPA)
+        # Job boards: 10% (transparent pricing, lower risk)
+        _CPH_SAFETY_MARGINS = {
+            "programmatic": 1.35,
+            "social": 1.20,
+            "job_board": 1.10,
+            "search": 1.15,
+            "employer_branding": 1.10,
+        }
+        _margin = _CPH_SAFETY_MARGINS.get(category, 1.0)
+        if _margin > 1.0:
+            cost_per_hire *= _margin
+            cpa *= _margin
 
         roi = _score_roi(cost_per_hire, industry_avg_cph)
 

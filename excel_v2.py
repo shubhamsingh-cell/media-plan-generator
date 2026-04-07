@@ -2727,6 +2727,47 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
             elif isinstance(section_val, (str, int, float, bool)):
                 row = _write_kv_row(ws, row, section_label, _flatten_value(section_val))
 
+    # ── 7. Geographic CPC Variance ──
+    if len(locations) > 1:
+        try:
+            from feature_store import get_feature_store
+
+            fs = get_feature_store()
+            row += 2
+            row = _write_section_header(ws, row, "Geographic Cost Variance")
+
+            geo_headers = ["Location", "Cost Index", "CPC Adjustment", "Impact"]
+            row = _write_table_header(ws, row, geo_headers)
+
+            for idx, loc in enumerate(locations):
+                geo_idx = fs.get_geo_cost_index(loc)
+                if geo_idx >= 1.2:
+                    impact = "Premium market (+20%+ costs)"
+                elif geo_idx >= 1.05:
+                    impact = "Above-average costs"
+                elif geo_idx >= 0.95:
+                    impact = "Average market rate"
+                else:
+                    impact = "Below-average costs"
+                values = [
+                    loc,
+                    f"{geo_idx:.2f}x",
+                    f"{(geo_idx - 1) * 100:+.0f}%",
+                    impact,
+                ]
+                row = _write_table_row(ws, row, values, alternate=idx % 2 == 1)
+
+            row = _write_footnote(
+                ws,
+                row + 1,
+                "Cost indices are relative to the national average (1.00x). "
+                "Based on metro-area hiring cost data from Joveo, Indeed, and BLS.",
+            )
+        except ImportError:
+            logger.warning("feature_store not available; skipping geographic variance")
+        except Exception as exc:
+            logger.warning("Geographic CPC variance section failed: %s", exc)
+
     row += 2
     _write_attribution_footer(ws, row)
 
@@ -2822,6 +2863,28 @@ def _build_sheet_sources(ws, data: dict):
     qual_cell = ws.cell(row=row + 1, column=COL_START + 2, value=quality_msg)
     qual_cell.font = _FONT_BODY
     qual_cell.alignment = _ALIGN_WRAP
+
+    # KB data freshness indicator
+    kb_age_days = synthesized.get("_kb_age_days")
+    freshness_warning = synthesized.get("_data_freshness_warning")
+    if kb_age_days is not None:
+        ws.merge_cells(
+            start_row=row + 2,
+            start_column=COL_START + 2,
+            end_row=row + 2,
+            end_column=COL_END,
+        )
+        age_label = f"Knowledge Base Age: {kb_age_days:.0f} days"
+        if freshness_warning:
+            age_label += f"  --  {freshness_warning}"
+        age_cell = ws.cell(row=row + 2, column=COL_START + 2, value=age_label)
+        age_cell.alignment = _ALIGN_WRAP
+        if kb_age_days > 90:
+            age_cell.font = Font(name="Calibri", size=10, color=RED, italic=True)
+        elif kb_age_days > 60:
+            age_cell.font = Font(name="Calibri", size=10, color=AMBER, italic=True)
+        else:
+            age_cell.font = Font(name="Calibri", size=10, color=GREEN, italic=True)
 
     row += 4
 
@@ -3288,9 +3351,11 @@ def _build_sheet_roi_projections(ws, data: dict) -> None:
             3: 16,  # Budget Allocated
             4: 18,  # Projected Applications
             5: 16,  # Projected Hires
-            6: 16,  # Cost Per Hire
-            7: 18,  # Est. Time to Fill
-            8: 12,  # ROI Score
+            6: 14,  # Confidence
+            7: 20,  # Hire Range
+            8: 16,  # Cost Per Hire
+            9: 18,  # Est. Time to Fill
+            10: 12,  # ROI Score
         },
     )
 
@@ -3496,6 +3561,29 @@ def _build_sheet_roi_projections(ws, data: dict) -> None:
                 else:
                     roi_score = 1
 
+            # Determine data confidence level for this channel
+            _meta = ch_data.get("_meta", {})
+            source_count = _meta.get("source_count", 0)
+            kb_validated = _meta.get("kb_validated", False)
+            ch_confidence_raw = ch_data.get("confidence", "")
+            if source_count >= 2 or str(ch_confidence_raw).lower() == "high":
+                hire_confidence = "HIGH"
+                hire_variance = 0.10
+            elif (
+                kb_validated
+                or source_count >= 1
+                or str(ch_confidence_raw).lower() == "medium"
+            ):
+                hire_confidence = "MEDIUM"
+                hire_variance = 0.25
+            else:
+                hire_confidence = "LOW"
+                hire_variance = 0.40
+
+            hire_lo = max(0, int(projected_hires * (1 - hire_variance)))
+            hire_hi = int(projected_hires * (1 + hire_variance))
+            hire_range_str = f"{hire_lo} - {hire_hi}"
+
             roi_rows.append(
                 {
                     "name": ch_name.replace("_", " ").title(),
@@ -3507,6 +3595,8 @@ def _build_sheet_roi_projections(ws, data: dict) -> None:
                     "roi_score": roi_score,
                     "category": category,
                     "conversion_rate": conversion_rate,
+                    "hire_confidence": hire_confidence,
+                    "hire_range": hire_range_str,
                 }
             )
 
@@ -3564,6 +3654,8 @@ def _build_sheet_roi_projections(ws, data: dict) -> None:
         "Budget ($)",
         "Proj. Applications",
         "Proj. Hires",
+        "Confidence",
+        "Hire Range",
         "Cost Per Hire",
         "Time to Fill",
         "ROI Score",
@@ -3583,11 +3675,25 @@ def _build_sheet_roi_projections(ws, data: dict) -> None:
             score_font = Font(name="Calibri", bold=True, size=10, color=RED)
             score_fill = _FILL_RED_BG
 
+        # Color-code confidence level
+        hire_conf = roi_data.get("hire_confidence", "LOW")
+        if hire_conf == "HIGH":
+            conf_font = Font(name="Calibri", bold=True, size=10, color=GREEN)
+            conf_fill = _FILL_GREEN_BG
+        elif hire_conf == "MEDIUM":
+            conf_font = Font(name="Calibri", bold=True, size=10, color=AMBER)
+            conf_fill = _FILL_AMBER_BG
+        else:
+            conf_font = Font(name="Calibri", bold=True, size=10, color=RED)
+            conf_fill = _FILL_RED_BG
+
         values = [
             roi_data["name"],
             f"${roi_data['budget']:,.0f}",
             f"{roi_data['projected_apps']:,}",
             str(roi_data["projected_hires"]),
+            hire_conf,
+            roi_data.get("hire_range", ""),
             f"${roi_data['cost_per_hire']:,.0f}",
             f"{roi_data['time_to_fill']} days",
             f"{roi_score}/10",
@@ -3595,8 +3701,13 @@ def _build_sheet_roi_projections(ws, data: dict) -> None:
         alt_fill = _FILL_OFF_WHITE if idx % 2 == 0 else _FILL_WHITE
         row = _write_table_row(ws, row, values, alternate=(idx % 2 == 0))
 
+        # Override confidence cell styling
+        conf_cell = ws.cell(row=row - 1, column=COL_START + 4)
+        conf_cell.font = conf_font
+        conf_cell.fill = conf_fill
+
         # Override ROI score cell styling
-        roi_cell = ws.cell(row=row - 1, column=COL_START + 6)
+        roi_cell = ws.cell(row=row - 1, column=COL_START + 8)
         roi_cell.font = score_font
         roi_cell.fill = score_fill
 

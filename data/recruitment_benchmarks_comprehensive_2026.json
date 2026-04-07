@@ -75,7 +75,7 @@
       "reliability": "high",
       "data": [
         {"platform": "Indeed", "cpa_min_usd": 5.00, "cpa_max_usd": 30.00, "cpa_median_usd": 15.00, "notes": "Varies by role, location, competition. Sponsored jobs get 4.5x more visibility."},
-        {"platform": "LinkedIn", "cpa_min_usd": 1.00, "cpa_max_usd": 8.00, "cpa_us_avg_usd": 2.83, "notes": "For job-specific ads. Broader B2B lead gen CPA $150-400."},
+        {"platform": "LinkedIn", "cpa_min_usd": 30.00, "cpa_max_usd": 90.00, "cpa_us_avg_usd": 45.00, "notes": "Cost per qualified application. Job-ad CPC is $1.50-$8.00 but full CPA is $30-$90 factoring apply rates. Prior $1-$8 was CPC not CPA."},
         {"platform": "Programmatic (aggregated)", "cpa_min_usd": 10.00, "cpa_max_usd": 50.00, "cpa_median_usd": 20.00, "notes": "Industry example: same role can cost $200/30days (duration), $1 CPC, $20 CPA, or $500 CPH"},
         {"platform": "Facebook/Meta Jobs", "cpa_min_usd": 5.00, "cpa_max_usd": 35.00, "cpa_median_usd": 15.00, "notes": "Lead ad CPA avg $27.66. Job-specific lower."},
         {"platform": "Google Ads (recruitment)", "cpa_avg_usd": 71.00, "notes": "Employment Services vertical. Higher than job boards due to broader targeting."},
@@ -163,7 +163,7 @@
         {"platform": "LinkedIn Easy Apply", "click_to_apply_pct": 8.0, "notes": "Higher raw conversion but lower quality. 2-4% callback rate."},
         {"platform": "Company Career Sites", "click_to_apply_pct": 2.0, "range_pct": {"min": 2, "max": 5}, "notes": "Lower volume but 8-12% response rate (higher quality)."},
         {"platform": "ZipRecruiter", "click_to_apply_pct": 7.0, "notes": "AI matching drives 80% match rate. First candidate in 24 hours avg."},
-        {"platform": "Craigslist", "click_to_apply_pct": 55.0, "range_pct": {"min": 45, "max": 65}, "notes": "Based on CG Automation Apex data. Exceptionally high due to intent-driven traffic."},
+        {"platform": "Craigslist", "click_to_apply_pct": 12.0, "range_pct": {"min": 8, "max": 18}, "notes": "Industry standard for intent-driven gig/hourly traffic. Prior 55% was client-specific (CG Automation Apex) not generalizable."},
         {"platform": "Facebook Jobs", "click_to_apply_pct": 4.0, "notes": "Mobile-first apply flow"},
         {"platform": "Google Jobs", "click_to_apply_pct": 4.5, "notes": "Aggregator -- redirects to source"},
         {"platform": "Programmatic (aggregated)", "click_to_apply_pct": 5.19, "notes": "2025 overall benchmark across programmatic sources"}

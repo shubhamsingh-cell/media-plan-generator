@@ -38,7 +38,9 @@ from __future__ import annotations
 
 import logging
 import math
+import os
 import statistics
+import time
 from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
@@ -3395,6 +3397,21 @@ def synthesize(
     except Exception as exc:
         logger.warning("AI narrative generation skipped: %s", exc)
         synthesis["ai_narratives"] = {}
+
+    # Check KB data freshness
+    kb_file = os.path.join(
+        os.path.dirname(__file__),
+        "data",
+        "recruitment_benchmarks_comprehensive_2026.json",
+    )
+    if os.path.exists(kb_file):
+        kb_age_days = (time.time() - os.path.getmtime(kb_file)) / 86400
+        if kb_age_days > 90:
+            synthesis["_data_freshness_warning"] = (
+                f"Knowledge base data is {int(kb_age_days)} days old. "
+                "Recommend refreshing benchmarks."
+            )
+        synthesis["_kb_age_days"] = round(kb_age_days, 1)
 
     logger.info(
         "Synthesis complete -- overall confidence=%.2f, quality_tier=%s, ai_narratives=%s",
