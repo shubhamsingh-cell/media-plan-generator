@@ -4782,6 +4782,103 @@ _job_cleanup_thread = threading.Thread(
 _job_cleanup_thread.start()
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# REAL-TIME CPC/CPA MONITORING (S46)
+# Runs every 6 hours, compares live data against KB benchmarks
+# ═══════════════════════════════════════════════════════════════════════════════
+_cpc_alerts: list = []
+_cpc_alerts_lock = threading.Lock()
+
+
+def _monitor_cpc_changes() -> None:
+    """Background thread: compare live channel data against KB benchmarks every 6h."""
+    import time as _t
+
+    _t.sleep(60)  # Wait 60s after startup for data to load
+    while True:
+        try:
+            live_file = os.path.join(DATA_DIR, "channel_benchmarks_live.json")
+            kb_file = os.path.join(
+                DATA_DIR, "recruitment_benchmarks_comprehensive_2026.json"
+            )
+
+            if not os.path.exists(live_file) or not os.path.exists(kb_file):
+                _t.sleep(21600)  # 6 hours
+                continue
+
+            with open(live_file, encoding="utf-8") as f:
+                live_data = json.load(f)
+            with open(kb_file, encoding="utf-8") as f:
+                kb_data = json.load(f)
+
+            # Extract KB CPC benchmarks
+            kb_cpc: dict[str, float] = {}
+            cpc_section = (
+                kb_data.get("platform_benchmarks", {})
+                .get("cost_per_click", {})
+                .get("data", [])
+            ) or []
+            for item in cpc_section:
+                if isinstance(item, dict):
+                    platform = item.get("platform", "")
+                    median = item.get("cpc_median_usd") or item.get("cpc_max_usd") or 0
+                    if platform and median:
+                        kb_cpc[platform.lower()] = float(median)
+
+            # Compare live vs KB
+            new_alerts: list[dict] = []
+            for platform_key, platform_data in live_data.items():
+                if not isinstance(platform_data, dict):
+                    continue
+                live_cpc = platform_data.get("avg_cpc") or platform_data.get("cpc") or 0
+                if not live_cpc:
+                    continue
+
+                for kb_name, kb_val in kb_cpc.items():
+                    if (
+                        platform_key.lower() in kb_name
+                        or kb_name in platform_key.lower()
+                    ):
+                        change_pct = (
+                            ((float(live_cpc) - kb_val) / kb_val) * 100
+                            if kb_val > 0
+                            else 0
+                        )
+                        if abs(change_pct) >= 15:  # 15% threshold
+                            new_alerts.append(
+                                {
+                                    "platform": platform_key,
+                                    "metric": "CPC",
+                                    "kb_value": round(kb_val, 2),
+                                    "live_value": round(float(live_cpc), 2),
+                                    "change_pct": round(change_pct, 1),
+                                    "direction": "up" if change_pct > 0 else "down",
+                                    "timestamp": _t.strftime(
+                                        "%Y-%m-%dT%H:%M:%SZ", _t.gmtime()
+                                    ),
+                                    "severity": (
+                                        "high" if abs(change_pct) >= 30 else "medium"
+                                    ),
+                                }
+                            )
+                        break
+
+            with _cpc_alerts_lock:
+                _cpc_alerts.clear()
+                _cpc_alerts.extend(new_alerts)
+            if new_alerts:
+                logger.info("CPC monitor: %d alerts generated", len(new_alerts))
+            else:
+                logger.info("CPC monitor: no significant changes detected")
+
+        except Exception as exc:
+            logger.error("CPC monitor error: %s", exc, exc_info=True)
+
+        _t.sleep(21600)  # 6 hours
+
+
+threading.Thread(target=_monitor_cpc_changes, daemon=True, name="cpc-monitor").start()
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # TIERED API KEY RATE LIMITING
 # ═══════════════════════════════════════════════════════════════════════════════
 API_KEY_TIERS = {
@@ -11125,6 +11222,12 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     {"error": f"Benchmarking lookup failed: {e}", "sample_size": 0},
                     status_code=500,
                 )
+
+        # ── CPC/CPA Alerts (GET /api/cpc-alerts) ── S46
+        elif path == "/api/cpc-alerts":
+            with _cpc_alerts_lock:
+                alerts = list(_cpc_alerts)
+            self._send_json({"alerts": alerts, "count": len(alerts)})
 
         # ── Data Freshness Report (GET /api/data/freshness) ──
         elif path == "/api/data/freshness":
