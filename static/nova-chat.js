@@ -1824,7 +1824,7 @@
     // Footer
     var footer = document.createElement("div");
     footer.className = "nova-footer";
-    footer.textContent = "Powered by Nova \u00b7 Nova AI Suite";
+    footer.textContent = "Created by Shubham Singh Chandel";
     panel.appendChild(footer);
 
     // Add to container or body
