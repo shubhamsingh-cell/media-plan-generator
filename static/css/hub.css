@@ -617,8 +617,9 @@ html.lenis body {
   position: relative;
   z-index: 2;
   width: 100%;
-  max-width: 480px;
+  max-width: 400px;
   margin: 40px auto 0;
+  margin-bottom: 3rem;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -640,11 +641,11 @@ html.lenis body {
   z-index: -1;
 }
 
-/* Orbit container */
+/* Orbit container -- reduced 20% to prevent trust bar overlap */
 .ha-orbit-wrap {
   position: relative;
-  width: 360px;
-  height: 360px;
+  width: 290px;
+  height: 290px;
 }
 
 /* Shared ring styles */
@@ -656,26 +657,26 @@ html.lenis body {
   left: 50%;
 }
 .ha-ring--outer {
-  width: 340px;
-  height: 340px;
-  margin-left: -170px;
-  margin-top: -170px;
+  width: 272px;
+  height: 272px;
+  margin-left: -136px;
+  margin-top: -136px;
   border-color: rgba(107, 179, 205, 0.12);
   animation: ha-orbit-spin 30s linear infinite;
 }
 .ha-ring--mid {
-  width: 240px;
-  height: 240px;
-  margin-left: -120px;
-  margin-top: -120px;
+  width: 192px;
+  height: 192px;
+  margin-left: -96px;
+  margin-top: -96px;
   border-color: rgba(90, 84, 189, 0.18);
   animation: ha-orbit-spin 45s linear infinite reverse;
 }
 .ha-ring--inner {
-  width: 150px;
-  height: 150px;
-  margin-left: -75px;
-  margin-top: -75px;
+  width: 120px;
+  height: 120px;
+  margin-left: -60px;
+  margin-top: -60px;
   border-color: rgba(90, 84, 189, 0.25);
   animation: ha-orbit-spin 60s linear infinite;
 }
@@ -689,36 +690,44 @@ html.lenis body {
   }
 }
 
-/* Logos positioned on ring edge, counter-rotate to stay upright */
+/* Text chips positioned on ring edge, counter-rotate to stay upright */
 .ha-logo {
   position: absolute;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: rgba(8, 8, 15, 0.85);
-  padding: 2px;
-  opacity: 0.7;
   top: 50%;
   left: 50%;
-  margin-top: -12px;
-  margin-left: -12px;
-  object-fit: contain;
+  margin-top: -10px;
+  margin-left: -10px;
 }
 
-/* Fallback for broken logo images */
-.channel-logo-card img,
-.ha-logo {
+/* Text chip styling for orbit labels */
+.ha-logo-chip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  height: auto;
+  padding: 3px 8px;
+  border-radius: 999px;
   background: rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
-  object-fit: contain;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  font-family: var(--font-sans);
+  font-size: 9px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.75);
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+  opacity: 0.85;
 }
-.channel-logo-card img[src=""],
-.ha-logo[src=""] {
+
+/* Hide any residual broken images in carousel cards */
+.channel-logo-card img {
   display: none;
 }
 
-/* Position each logo at its angle on the ring using top/left offsets.
-   The ring rotates; logos counter-rotate to stay upright. */
+/* Position each chip at its angle on the ring using top/left offsets.
+   The ring rotates; chips counter-rotate to stay upright and readable. */
 .ha-ring--outer .ha-logo {
   animation: ha-unspin-cw 30s linear infinite;
 }
@@ -747,66 +756,66 @@ html.lenis body {
   }
 }
 
-/* Outer ring logos (r=170px from center) */
+/* Outer ring chips (r=136px from center, 5 logos at 72deg intervals) */
 .ha-ring--outer .ha-logo:nth-child(1) {
-  top: calc(50% - 170px);
+  top: calc(50% - 136px);
   left: 50%;
 }
 .ha-ring--outer .ha-logo:nth-child(2) {
-  top: calc(50% - 52.5px);
-  left: calc(50% + 161.8px);
+  top: calc(50% - 42px);
+  left: calc(50% + 129.4px);
 }
 .ha-ring--outer .ha-logo:nth-child(3) {
-  top: calc(50% + 137.5px);
-  left: calc(50% + 100px);
+  top: calc(50% + 110px);
+  left: calc(50% + 80px);
 }
 .ha-ring--outer .ha-logo:nth-child(4) {
-  top: calc(50% + 137.5px);
-  left: calc(50% - 100px);
+  top: calc(50% + 110px);
+  left: calc(50% - 80px);
 }
 .ha-ring--outer .ha-logo:nth-child(5) {
-  top: calc(50% - 52.5px);
-  left: calc(50% - 161.8px);
+  top: calc(50% - 42px);
+  left: calc(50% - 129.4px);
 }
 
-/* Middle ring logos (r=120px from center) */
+/* Middle ring chips (r=96px from center, 5 logos at 72deg intervals) */
 .ha-ring--mid .ha-logo:nth-child(1) {
-  top: calc(50% - 120px);
+  top: calc(50% - 96px);
   left: 50%;
 }
 .ha-ring--mid .ha-logo:nth-child(2) {
-  top: calc(50% - 37px);
-  left: calc(50% + 114.1px);
+  top: calc(50% - 29.6px);
+  left: calc(50% + 91.3px);
 }
 .ha-ring--mid .ha-logo:nth-child(3) {
-  top: calc(50% + 97px);
-  left: calc(50% + 70.5px);
+  top: calc(50% + 77.6px);
+  left: calc(50% + 56.4px);
 }
 .ha-ring--mid .ha-logo:nth-child(4) {
-  top: calc(50% + 97px);
-  left: calc(50% - 70.5px);
+  top: calc(50% + 77.6px);
+  left: calc(50% - 56.4px);
 }
 .ha-ring--mid .ha-logo:nth-child(5) {
-  top: calc(50% - 37px);
-  left: calc(50% - 114.1px);
+  top: calc(50% - 29.6px);
+  left: calc(50% - 91.3px);
 }
 
-/* Inner ring logos (r=75px from center, 4 logos at 90deg intervals) */
+/* Inner ring chips (r=60px from center, 4 logos at 90deg intervals) */
 .ha-ring--inner .ha-logo:nth-child(1) {
-  top: calc(50% - 75px);
+  top: calc(50% - 60px);
   left: 50%;
 }
 .ha-ring--inner .ha-logo:nth-child(2) {
   top: 50%;
-  left: calc(50% + 75px);
+  left: calc(50% + 60px);
 }
 .ha-ring--inner .ha-logo:nth-child(3) {
-  top: calc(50% + 75px);
+  top: calc(50% + 60px);
   left: 50%;
 }
 .ha-ring--inner .ha-logo:nth-child(4) {
   top: 50%;
-  left: calc(50% - 75px);
+  left: calc(50% - 60px);
 }
 
 /* Center core */
@@ -1037,16 +1046,14 @@ html.lenis body {
 .channel-logo-card {
   flex-shrink: 0;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  width: 120px;
-  height: 76px;
+  width: auto;
+  height: auto;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
-  padding: 10px 8px 8px;
+  border-radius: 999px;
+  padding: 8px 16px;
   text-decoration: none;
   transition: all 0.3s ease;
   cursor: pointer;
@@ -1059,42 +1066,30 @@ html.lenis body {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
 }
 .channel-logo-card--lg {
-  width: 140px;
-  height: 84px;
+  padding: 10px 20px;
 }
+/* Images removed -- all logos are text-only now */
 .channel-logo-card img {
-  max-width: 72px;
-  max-height: 32px;
-  width: auto;
-  height: auto;
-  object-fit: contain;
-  filter: grayscale(100%) brightness(1.8);
-  opacity: 0.7;
-  transition: all 0.3s ease;
+  display: none;
 }
 .channel-logo-card--lg img {
-  max-width: 84px;
-  max-height: 36px;
+  display: none;
 }
 .channel-logo-card:hover img,
 .channel-logo-card:focus-visible img {
-  filter: grayscale(0%) brightness(1);
-  opacity: 1;
+  display: none;
 }
 .channel-logo-card span {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(255, 255, 255, 0.6);
   letter-spacing: 0.02em;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
   transition: color 0.3s ease;
 }
 .channel-logo-card:hover span,
 .channel-logo-card:focus-visible span {
-  color: rgba(255, 255, 255, 0.9);
+  color: rgba(255, 255, 255, 0.95);
 }
 
 /* Screen-reader accessible static list (hidden visually) */
@@ -1125,10 +1120,6 @@ html.lenis body {
     mask-image: none;
     -webkit-mask-image: none;
   }
-  .channel-logo-card img {
-    filter: grayscale(0%) brightness(1);
-    opacity: 0.85;
-  }
 }
 
 /* Responsive: tablets */
@@ -1137,19 +1128,13 @@ html.lenis body {
     padding: 32px 0 24px;
   }
   .channel-logo-card {
-    width: 100px;
-    height: 66px;
+    padding: 6px 12px;
   }
   .channel-logo-card--lg {
-    width: 116px;
-    height: 72px;
-  }
-  .channel-logo-card img {
-    max-width: 60px;
-    max-height: 28px;
+    padding: 8px 16px;
   }
   .channel-logo-card span {
-    font-size: 9px;
+    font-size: 10px;
   }
 }
 
@@ -1166,21 +1151,13 @@ html.lenis body {
     gap: 10px;
   }
   .channel-logo-card {
-    width: 88px;
-    height: 60px;
-    border-radius: 8px;
-    padding: 8px 6px 6px;
+    padding: 5px 10px;
   }
   .channel-logo-card--lg {
-    width: 100px;
-    height: 64px;
-  }
-  .channel-logo-card img {
-    max-width: 52px;
-    max-height: 24px;
+    padding: 6px 14px;
   }
   .channel-logo-card span {
-    font-size: 8px;
+    font-size: 9px;
   }
 }
 
