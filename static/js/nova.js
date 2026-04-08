@@ -20,6 +20,41 @@
   var MAX_HISTORY = 20;
   var MAX_STORED_MESSAGES = 100;
 
+  // ── Nova branded SVG avatar (BLUE_VIOLET #5A54BD -> DOWNY_TEAL #6BB3CD) ──
+  function _novaAvatarSVG(size) {
+    var s = size || 32;
+    var fs = Math.round(s * 0.47);
+    var ty = Math.round(s * 0.67);
+    return (
+      '<svg width="' +
+      s +
+      '" height="' +
+      s +
+      '" viewBox="0 0 ' +
+      s +
+      " " +
+      s +
+      '" xmlns="http://www.w3.org/2000/svg">' +
+      '<defs><linearGradient id="nova-av-g" x1="0%" y1="0%" x2="100%" y2="100%">' +
+      '<stop offset="0%" stop-color="#5A54BD"/><stop offset="100%" stop-color="#6BB3CD"/>' +
+      "</linearGradient></defs>" +
+      '<circle cx="' +
+      s / 2 +
+      '" cy="' +
+      s / 2 +
+      '" r="' +
+      s / 2 +
+      '" fill="url(#nova-av-g)"/>' +
+      '<text x="' +
+      s / 2 +
+      '" y="' +
+      ty +
+      '" text-anchor="middle" fill="#fff" font-family="Inter,sans-serif" font-size="' +
+      fs +
+      '" font-weight="700">N</text></svg>'
+    );
+  }
+
   var state = {
     conversations: {},
     activeConvId: null,
@@ -777,18 +812,43 @@
     renderChat();
   }
 
+  // Greeting detection regex (used for sidebar filtering and deferred conversation creation)
+  var GREETING_RE =
+    /^(hi|hello|hey|good morning|good afternoon|good evening|howdy|sup|yo|hola|greetings|what'?s up|wassup|hiya)[\s!.,?]*$/i;
+
+  function isGreetingOnly(text) {
+    if (!text) return false;
+    return GREETING_RE.test(text.trim());
+  }
+
   // Auto-title from first user message (smart title generation)
   function generateSmartTitle(text) {
     if (!text) return "New Chat";
     var s = text.replace(/\s+/g, " ").trim();
-    // Strip common prefixes
+    // If the entire message is a greeting, fall back
+    if (isGreetingOnly(s)) return "New Chat";
+    // Strip common prefixes (including greeting openers)
     var prefixes = [
+      "hi, ",
+      "hi! ",
+      "hello, ",
+      "hello! ",
+      "hey, ",
+      "hey! ",
+      "good morning, ",
+      "good morning! ",
+      "good afternoon, ",
+      "good afternoon! ",
+      "good evening, ",
+      "good evening! ",
       "create a media plan for",
       "create a plan for",
       "create a",
       "generate a media plan for",
       "generate a plan for",
       "generate a",
+      "what's the best",
+      "what is the best",
       "what is the",
       "what are the",
       "what is",
@@ -807,6 +867,8 @@
       "i need to",
       "i need a",
       "i want a",
+      "i would like to",
+      "i'd like to",
       "please",
     ];
     var lower = s.toLowerCase();
@@ -859,13 +921,49 @@
 
   function updateConvTitle(conv) {
     if (!conv || conv.title !== "New Chat") return;
-    var firstUser = conv.messages.find(function (m) {
-      return m.role === "user";
-    });
-    if (firstUser) {
-      conv.title = generateSmartTitle(firstUser.content);
+    // Find the first substantive (non-greeting) user message for the title
+    var titleSource = null;
+    for (var i = 0; i < conv.messages.length; i++) {
+      var m = conv.messages[i];
+      if (m.role === "user" && !isGreetingOnly(m.content)) {
+        titleSource = m;
+        break;
+      }
+    }
+    // Fall back to first user message if all are greetings
+    if (!titleSource) {
+      titleSource = conv.messages.find(function (m) {
+        return m.role === "user";
+      });
+    }
+    if (titleSource) {
+      var newTitle = generateSmartTitle(titleSource.content);
+      if (newTitle === "New Chat") return; // Don't update if still generic
+      conv.title = newTitle;
       saveConversations();
       renderSidebar();
+      // Sync title to Supabase in the background
+      _syncTitleToSupabase(conv.id, newTitle);
+    }
+  }
+
+  // Fire-and-forget title sync to Supabase
+  function _syncTitleToSupabase(conversationId, title) {
+    try {
+      var headers = { "Content-Type": "application/json" };
+      if (window.__csrfToken) headers["X-CSRF-Token"] = window.__csrfToken;
+      fetch("/api/chat/title", {
+        method: "POST",
+        headers: headers,
+        body: JSON.stringify({
+          conversation_id: conversationId,
+          title: title,
+        }),
+      }).catch(function () {
+        // Silent fail -- localStorage is the source of truth
+      });
+    } catch (e) {
+      // Ignore -- best-effort sync
     }
   }
 
@@ -898,28 +996,23 @@
         return false;
       });
     }
-    // Hide single-message greeting-only conversations
-    var greetingWords = [
-      "hi",
-      "hello",
-      "hey",
-      "howdy",
-      "sup",
-      "yo",
-      "hola",
-      "greetings",
-    ];
+    // Hide conversations where ALL user messages are greetings
+    // (e.g. user said "Hi", bot replied, but no substantive message followed)
     keys = keys.filter(function (id) {
       var conv = state.conversations[id];
       var msgs = conv.messages || [];
-      if (msgs.length > 1) return true;
       if (msgs.length === 0) return false;
-      var firstMsg = (msgs[0].content || "")
-        .trim()
-        .toLowerCase()
-        .replace(/[!.,?]+$/, "")
-        .trim();
-      return greetingWords.indexOf(firstMsg) === -1;
+      // Check if there is at least one substantive user message
+      var hasSubstantive = false;
+      for (var gi = 0; gi < msgs.length; gi++) {
+        if (msgs[gi].role === "user" && !isGreetingOnly(msgs[gi].content)) {
+          hasSubstantive = true;
+          break;
+        }
+      }
+      // Keep the conversation if it's currently active (user is in it)
+      if (id === state.activeConvId) return true;
+      return hasSubstantive;
     });
     if (keys.length === 0) {
       var empty = document.createElement("div");
@@ -1118,7 +1211,11 @@
     // Avatar
     var avatar = document.createElement("div");
     avatar.className = "message-avatar " + (isUser ? "user" : "nova");
-    avatar.textContent = isUser ? "U" : "N";
+    if (isUser) {
+      avatar.textContent = "U";
+    } else {
+      avatar.innerHTML = _novaAvatarSVG(32);
+    }
     avatar.setAttribute("aria-hidden", "true");
 
     // Body
@@ -1341,7 +1438,9 @@
       "<span></span><span></span><span></span>" +
       "</div>";
     wrapper.innerHTML =
-      '<div class="message-avatar nova" aria-hidden="true">N</div>' +
+      '<div class="message-avatar nova" aria-hidden="true">' +
+      _novaAvatarSVG(32) +
+      "</div>" +
       '<div class="thinking-bubble">' +
       indicatorHtml +
       '<div class="thinking-text"><span id="thinking-text">' +
@@ -1863,7 +1962,12 @@
     }
     conv.messages.push(userMsg);
     conv.updatedAt = Date.now();
-    updateConvTitle(conv);
+
+    // S48: Smart title -- skip title update for greeting-only messages,
+    // but trigger it when the first substantive message arrives
+    if (!isGreetingOnly(text)) {
+      updateConvTitle(conv);
+    }
     saveConversations();
     renderSidebar();
     appendMessageDOM(userMsg, true);
@@ -1908,7 +2012,7 @@
       wrapper.id = "streaming-msg";
       var avatar = document.createElement("div");
       avatar.className = "message-avatar nova";
-      avatar.textContent = "N";
+      avatar.innerHTML = _novaAvatarSVG(32);
       avatar.setAttribute("aria-hidden", "true");
       var bodyEl = document.createElement("div");
       bodyEl.className = "message-body";

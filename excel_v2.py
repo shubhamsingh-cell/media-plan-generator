@@ -2108,7 +2108,7 @@ def _build_sheet_executive_summary(
     # (avoids circular import with app.py)
     exec_narrative = ""
     try:
-        from llm_router import LLMRouter, TASK_CAMPAIGN_PLAN
+        from llm_router import LLMRouter, TASK_PLAN_NARRATIVE
 
         _exec_router = LLMRouter()
         _narrative_prompt = (
@@ -2139,7 +2139,7 @@ def _build_sheet_executive_summary(
                 "and explain causal reasoning. Every sentence must contain a number "
                 "or specific insight. No fluff, no platitudes."
             ),
-            task_type=TASK_CAMPAIGN_PLAN,
+            task_type=TASK_PLAN_NARRATIVE,  # S48: Route narratives to Groq (fast prose)
             max_tokens=600,
         )
         exec_narrative = _exec_result.get("text") or ""
@@ -5789,6 +5789,151 @@ def _build_sheet_niche_board_matching(ws, data: dict) -> None:
     _write_attribution_footer(ws, row)
 
 
+def _build_sheet_international_benchmarks(
+    ws, data: dict, intl_benchmarks: dict
+) -> None:
+    """Build the International Benchmarks sheet showing country-level recruitment data.
+
+    Columns: Country, Region, Top Platforms, CPC Range (USD), CPA Range (USD),
+    CPH by Tier (USD), Regulatory Notes.
+    """
+    ws.title = "Intl Benchmarks"
+
+    # Column widths
+    for col_idx, width in [
+        (1, 3),
+        (2, 18),
+        (3, 10),
+        (4, 30),
+        (5, 16),
+        (6, 16),
+        (7, 22),
+        (8, 40),
+    ]:
+        ws.column_dimensions[get_column_letter(col_idx)].width = width
+
+    row = 2
+    # Section header
+    for col in range(COL_START, COL_END + 1):
+        c = ws.cell(row=row, column=col)
+        c.fill = _FILL_NAVY
+    ws.cell(
+        row=row, column=COL_START, value="International Recruitment Benchmarks"
+    ).font = _FONT_SECTION
+    ws.cell(row=row, column=COL_START).alignment = _ALIGN_LEFT
+    row += 1
+
+    # Subtitle
+    _region_label = ", ".join(
+        r.get("name", k.upper())
+        for k, r in (intl_benchmarks.get("regions") or {}).items()
+    )
+    ws.cell(
+        row=row,
+        column=COL_START,
+        value=f"Regions: {_region_label or 'Global'} | Source: {intl_benchmarks.get('source', 'International Benchmarks 2026')}",
+    ).font = _FONT_FOOTNOTE
+    row += 2
+
+    # Table header
+    headers = [
+        "Country",
+        "Region",
+        "Top Platforms",
+        "CPC Range (USD)",
+        "CPA Range (USD)",
+        "CPH by Tier (USD)",
+        "Regulatory Notes",
+    ]
+    for i, h in enumerate(headers):
+        c = ws.cell(row=row, column=COL_START + i, value=h)
+        c.font = _FONT_TABLE_HEADER
+        c.fill = _FILL_SAPPHIRE
+        c.alignment = _ALIGN_CENTER
+        c.border = _BORDER_THIN
+    row += 1
+
+    countries = intl_benchmarks.get("countries", {})
+    for _ck, _cv in sorted(countries.items(), key=lambda x: x[1].get("name", x[0])):
+        _name = _cv.get("name", _ck.replace("_", " ").title())
+        _region = (_cv.get("region") or "").upper()
+
+        # Top platforms (top 3)
+        _platforms = _cv.get("platforms", [])
+        _plat_names = ", ".join(p.get("name", "") for p in _platforms[:3])
+
+        # CPC range
+        _cpc_parts = []
+        for p in _platforms[:3]:
+            _cpc = p.get("cpc_usd", {})
+            if isinstance(_cpc, dict) and _cpc.get("min") is not None:
+                _cpc_parts.append(
+                    f"${_cpc.get('min', 0):.2f}-${_cpc.get('max', 0):.2f}"
+                )
+        _cpc_str = "; ".join(_cpc_parts[:2]) if _cpc_parts else "N/A"
+
+        # CPA range
+        _cpa_parts = []
+        for p in _platforms[:3]:
+            _cpa = p.get("cpa_usd", {})
+            if isinstance(_cpa, dict) and _cpa.get("min") is not None:
+                _cpa_parts.append(
+                    f"${_cpa.get('min', 0):.0f}-${_cpa.get('max', 0):.0f}"
+                )
+        _cpa_str = "; ".join(_cpa_parts[:2]) if _cpa_parts else "N/A"
+
+        # CPH by tier
+        _cph = _cv.get("cph_by_tier", {})
+        _cph_parts = []
+        for tier_key in ("entry_level", "professional", "senior", "executive"):
+            tier_data = _cph.get(tier_key, {})
+            if isinstance(tier_data, dict) and tier_data.get("usd"):
+                _label = tier_key.replace("_", " ").title()
+                _cph_parts.append(f"{_label}: ${tier_data['usd']:,}")
+        _cph_str = " | ".join(_cph_parts) if _cph_parts else "N/A"
+
+        # Regulatory
+        _reg = _cv.get("regulatory", {})
+        _reg_notes = []
+        _notice = _reg.get("notice_period_typical_days", {})
+        if isinstance(_notice, dict) and _notice.get("common"):
+            _reg_notes.append(f"Notice: {_notice['common']}d")
+        _key_regs = _reg.get("key_regulations", [])
+        if _key_regs:
+            _reg_notes.append(_key_regs[0][:80])
+        _reg_str = "; ".join(_reg_notes) if _reg_notes else "N/A"
+
+        # Write row
+        is_alt = (row % 2) == 0
+        _fill = _FILL_BLUE_PALE if is_alt else _FILL_WHITE
+        values = [_name, _region, _plat_names, _cpc_str, _cpa_str, _cph_str, _reg_str]
+        for i, val in enumerate(values):
+            c = ws.cell(row=row, column=COL_START + i, value=val)
+            c.font = _FONT_BODY
+            c.alignment = _ALIGN_WRAP
+            c.border = _BORDER_THIN
+            c.fill = _fill
+        row += 1
+
+    row += 1
+    # Footnote
+    ws.cell(
+        row=row,
+        column=COL_START,
+        value="All USD figures use March 2026 mid-market exchange rates. "
+        "CPC/CPA from top 3 platforms per country. CPH = Cost-Per-Hire by role tier. "
+        "Source: 28 industry reports aggregated in international_benchmarks_2026.json.",
+    ).font = _FONT_FOOTNOTE
+    ws.merge_cells(
+        start_row=row,
+        start_column=COL_START,
+        end_row=row,
+        end_column=COL_END,
+    )
+    row += 1
+    _write_attribution_footer(ws, row)
+
+
 def generate_excel_v2(
     data: dict,
     research_mod=None,
@@ -6072,6 +6217,23 @@ def _generate_excel_v2_inner(
                 row=2,
                 column=2,
                 value=f"Error generating Channel Recommendations sheet: {exc}",
+            ).font = _FONT_BODY
+
+    # ── Sheet 11: International Benchmarks (conditional -- only when intl data present) ──
+    intl_benchmarks = data.get("_intl_benchmarks")
+    if intl_benchmarks and intl_benchmarks.get("countries"):
+        ws11 = wb.create_sheet()
+        try:
+            _build_sheet_international_benchmarks(ws11, data, intl_benchmarks)
+        except Exception as exc:
+            logger.error(
+                "Sheet 11 (International Benchmarks) failed: %s", exc, exc_info=True
+            )
+            ws11.title = "Intl Benchmarks"
+            ws11.cell(
+                row=2,
+                column=2,
+                value=f"Error generating International Benchmarks sheet: {exc}",
             ).font = _FONT_BODY
 
     # ── Write to bytes ──

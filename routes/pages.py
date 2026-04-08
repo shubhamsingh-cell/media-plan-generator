@@ -161,6 +161,11 @@ _REDIRECT_ROUTES: dict[str, str] = {
     "/auto-qc/": "/hub",
     "/eval-framework": "/hub",
     "/eval-framework/": "/hub",
+    # Short aliases for platform sub-routes
+    "/compliance": "/platform/compliance",
+    "/compliance/": "/platform/compliance",
+    "/intelligence": "/platform/intelligence",
+    "/intelligence/": "/platform/intelligence",
 }
 
 

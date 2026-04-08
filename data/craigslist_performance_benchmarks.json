@@ -2,10 +2,17 @@
   "metadata": {
     "source": "CG Automation - Apex Craigslist Campaign Data",
     "date_range": "2025-12-11 to 2026-03-29",
-    "last_updated": "2026-04-04",
+    "last_updated": "2026-04-08",
     "total_posts": 98665,
     "locations": 397,
-    "categories": 8
+    "categories": 8,
+    "important_note": "apply_rate_pct values below are CLICK-TO-APPLY rates (applies/clicks), NOT impression-to-apply rates. These are client-specific (CG Automation Apex) and should NOT be used as general Craigslist apply rates in media plans. General CL impression-to-apply rates are 12-25% depending on role type."
+  },
+  "general_craigslist_apply_rates": {
+    "_description": "Realistic impression-to-apply rates for Craigslist by role type. Use THESE for media plan projections, not the CG-specific click-to-apply rates below.",
+    "professional": {"apply_rate_pct": 12, "notes": "White-collar/professional roles -- lower intent on CL"},
+    "hourly_gig": {"apply_rate_pct": 18, "notes": "Hourly and gig economy roles -- moderate intent"},
+    "blue_collar_trades": {"apply_rate_pct": 25, "notes": "Blue collar and trades -- high CL intent, CTA-driven"}
   },
   "craigslist_category_benchmarks": {
     "admin/office": {
@@ -15,7 +22,7 @@
       "avg_clicks": 88.4,
       "avg_applies": 52.1,
       "click_rate_pct": 20.77,
-      "apply_rate_pct": 58.91
+      "click_to_apply_rate_pct": 58.91
     },
     "computer gigs": {
       "posts": 8441,
@@ -24,7 +31,7 @@
       "avg_clicks": 5.2,
       "avg_applies": 3.2,
       "click_rate_pct": 8.87,
-      "apply_rate_pct": 60.72
+      "click_to_apply_rate_pct": 60.72
     },
     "creative gigs": {
       "posts": 19752,
@@ -33,7 +40,7 @@
       "avg_clicks": 10.7,
       "avg_applies": 6.1,
       "click_rate_pct": 11.34,
-      "apply_rate_pct": 56.68
+      "click_to_apply_rate_pct": 56.68
     },
     "crew gigs": {
       "posts": 5962,
@@ -42,7 +49,7 @@
       "avg_clicks": 6.3,
       "avg_applies": 3.8,
       "click_rate_pct": 10.75,
-      "apply_rate_pct": 59.88
+      "click_to_apply_rate_pct": 59.88
     },
     "domestic gigs": {
       "posts": 20324,
@@ -51,7 +58,7 @@
       "avg_clicks": 8.0,
       "avg_applies": 4.8,
       "click_rate_pct": 9.79,
-      "apply_rate_pct": 60.66
+      "click_to_apply_rate_pct": 60.66
     },
     "event gigs": {
       "posts": 11193,
@@ -60,7 +67,7 @@
       "avg_clicks": 9.0,
       "avg_applies": 5.3,
       "click_rate_pct": 11.48,
-      "apply_rate_pct": 58.36
+      "click_to_apply_rate_pct": 58.36
     },
     "labor gigs": {
       "posts": 21989,
@@ -69,7 +76,7 @@
       "avg_clicks": 8.1,
       "avg_applies": 4.9,
       "click_rate_pct": 9.09,
-      "apply_rate_pct": 60.5
+      "click_to_apply_rate_pct": 60.5
     },
     "talent gigs": {
       "posts": 10947,
@@ -78,7 +85,7 @@
       "avg_clicks": 10.2,
       "avg_applies": 5.7,
       "click_rate_pct": 10.57,
-      "apply_rate_pct": 56.08
+      "click_to_apply_rate_pct": 56.08
     }
   },
   "craigslist_location_benchmarks": {
@@ -479,6 +486,6 @@
     "Average media cost per post: $0.21, average impressions: 84, clicks: 8.6, applies: 5.1",
     "GIG template type dominates (99.9%) vs JOB (0.1%)",
     "Portland OR, Seattle, South Jersey, Atlanta are top-volume locations",
-    "Cross-channel insight: CL apply rate ~60% (clicks-to-applies) vs LinkedIn ~8-10% (views-to-applies) -- CL more efficient per click but lower reach"
+    "Cross-channel insight: CL click-to-apply rate ~60% (applies/clicks, CG Automation Apex data) vs LinkedIn ~8-10% (views-to-applies). NOTE: CL general impression-to-apply rate is 12-25% by role type (professional 12%, hourly/gig 18%, blue collar 25%) -- do NOT use the 55-60% click-to-apply rate as a general apply rate in media plans"
   ]
 }

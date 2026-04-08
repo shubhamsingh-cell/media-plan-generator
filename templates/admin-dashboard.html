@@ -1843,11 +1843,30 @@
         const storedKey = getStoredKey();
 
         if (urlKey) {
+          // S48: Validate URL key against admin endpoint before granting access
           adminKey = urlKey;
-          storeKey(urlKey);
-          // Clean URL
+          // Clean URL immediately to avoid key exposure in browser history
           window.history.replaceState({}, "", window.location.pathname);
-          showDashboard();
+          fetch("/api/admin/stats", {
+            headers: { Authorization: "Bearer " + urlKey },
+          })
+            .then(function (r) {
+              if (r.ok) return r.json();
+              throw new Error("Unauthorized");
+            })
+            .then(function (data) {
+              if (data) {
+                storeKey(urlKey);
+                showDashboard();
+              } else {
+                adminKey = "";
+                showAuthError("Invalid admin key from URL.");
+              }
+            })
+            .catch(function () {
+              adminKey = "";
+              showAuthError("Invalid admin key. Please enter a valid key.");
+            });
         } else if (storedKey) {
           adminKey = storedKey;
           // Verify key is still valid against admin endpoint
@@ -1880,6 +1899,7 @@
           });
       });
     </script>
+    <script src="/static/nova-auth-gate.js" defer></script>
     <script src="/static/back-to-suite.js" defer></script>
   </body>
 </html>

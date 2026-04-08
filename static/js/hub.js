@@ -1027,3 +1027,232 @@
     });
   }
 })();
+
+// ── Recent Activity Widget ──
+(function initRecentActivity() {
+  function _timeAgo(dateStr) {
+    try {
+      var d = new Date(dateStr);
+      var now = new Date();
+      var diff = Math.floor((now - d) / 1000);
+      if (diff < 60) return "just now";
+      if (diff < 3600) return Math.floor(diff / 60) + "m ago";
+      if (diff < 86400) return Math.floor(diff / 3600) + "h ago";
+      if (diff < 604800) return Math.floor(diff / 86400) + "d ago";
+      return d.toLocaleDateString();
+    } catch (e) {
+      return "";
+    }
+  }
+
+  function render() {
+    var container = document.getElementById("recentActivityContent");
+    if (!container) return;
+
+    var plans = [];
+    var chats = [];
+    try {
+      plans = JSON.parse(localStorage.getItem("nova_recent_plans") || "[]");
+    } catch (e) {}
+    try {
+      chats = JSON.parse(localStorage.getItem("nova_recent_chats") || "[]");
+    } catch (e) {}
+
+    plans = plans.slice(0, 5);
+    chats = chats.slice(0, 5);
+
+    if (plans.length === 0 && chats.length === 0) {
+      container.innerHTML =
+        '<div style="text-align: center; padding: 40px 20px; color: var(--text-muted); font-size: 14px; border: 1px dashed rgba(255,255,255,0.08); border-radius: 12px; background: rgba(17,17,17,0.4);">' +
+        '<svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1.5" style="margin:0 auto 16px" aria-hidden="true"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="10"/></svg>' +
+        '<div style="font-weight: 500; margin-bottom: 4px;">No recent activity</div>' +
+        "<div>Generate a media plan or chat with Nova to see your activity here.</div>" +
+        "</div>";
+      return;
+    }
+
+    var html = '<div style="display: flex; flex-direction: column; gap: 8px;">';
+
+    for (var i = 0; i < plans.length; i++) {
+      var p = plans[i];
+      html +=
+        '<a href="' +
+        (p.url || "/media-plan") +
+        '" style="' +
+        "display: flex; align-items: center; gap: 14px; padding: 14px 18px;" +
+        "background: rgba(32, 32, 88, 0.12); border: 1px solid rgba(255,255,255,0.05);" +
+        "border-radius: 10px; text-decoration: none; color: inherit;" +
+        "transition: border-color 0.2s, background 0.2s;" +
+        "\" onmouseenter=\"this.style.borderColor='rgba(90,84,189,0.25)';this.style.background='rgba(32,32,88,0.2)'\" onmouseleave=\"this.style.borderColor='rgba(255,255,255,0.05)';this.style.background='rgba(32,32,88,0.12)'\">" +
+        '<div style="width: 32px; height: 32px; border-radius: 8px; background: rgba(90,84,189,0.15); display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 14px;">&#128202;</div>' +
+        '<div style="flex: 1; min-width: 0;">' +
+        '<div style="font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">' +
+        (p.title || "Media Plan").replace(/</g, "&lt;") +
+        "</div>" +
+        '<div style="font-size: 11px; color: var(--text-muted);">' +
+        (p.industry || "").replace(/</g, "&lt;") +
+        (p.budget ? " &middot; " + p.budget.replace(/</g, "&lt;") : "") +
+        "</div>" +
+        "</div>" +
+        '<div style="font-size: 11px; color: var(--text-muted); flex-shrink: 0;">' +
+        _timeAgo(p.timestamp) +
+        "</div>" +
+        '<div style="font-size: 11px; color: var(--accent-light); flex-shrink: 0;">Open</div>' +
+        "</a>";
+    }
+
+    for (var j = 0; j < chats.length; j++) {
+      var c = chats[j];
+      html +=
+        '<a href="/nova" style="' +
+        "display: flex; align-items: center; gap: 14px; padding: 14px 18px;" +
+        "background: rgba(107, 179, 205, 0.06); border: 1px solid rgba(255,255,255,0.05);" +
+        "border-radius: 10px; text-decoration: none; color: inherit;" +
+        "transition: border-color 0.2s, background 0.2s;" +
+        "\" onmouseenter=\"this.style.borderColor='rgba(107,179,205,0.25)';this.style.background='rgba(107,179,205,0.1)'\" onmouseleave=\"this.style.borderColor='rgba(255,255,255,0.05)';this.style.background='rgba(107,179,205,0.06)'\">" +
+        '<div style="width: 32px; height: 32px; border-radius: 8px; background: rgba(107,179,205,0.15); display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 14px;">&#128172;</div>' +
+        '<div style="flex: 1; min-width: 0;">' +
+        '<div style="font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">' +
+        (c.title || "Nova Chat").replace(/</g, "&lt;") +
+        "</div>" +
+        '<div style="font-size: 11px; color: var(--text-muted);">Chatbot conversation</div>' +
+        "</div>" +
+        '<div style="font-size: 11px; color: var(--text-muted); flex-shrink: 0;">' +
+        _timeAgo(c.timestamp) +
+        "</div>" +
+        '<div style="font-size: 11px; color: var(--teal); flex-shrink: 0;">Open</div>' +
+        "</a>";
+    }
+
+    html += "</div>";
+    container.innerHTML = html;
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", render);
+  } else {
+    render();
+  }
+})();
+
+// ── Nova AI Chat Widget (floating bottom-right) ──
+window.addEventListener("load", function () {
+  var s = document.createElement("script");
+  s.src = "/static/nova-chat.js?v=3.5.4";
+  s.async = true;
+  s.onload = function () {
+    if (typeof NovaChat !== "undefined") {
+      NovaChat.init({ containerId: null });
+    }
+  };
+  document.body.appendChild(s);
+});
+
+// ── GSAP + ScrollTrigger (multi-CDN fallback: unpkg -> jsdelivr -> cdnjs) ──
+(function () {
+  var cdns = [
+    {
+      gsap: "https://unpkg.com/gsap@3.12.5/dist/gsap.min.js",
+      st: "https://unpkg.com/gsap@3.12.5/dist/ScrollTrigger.min.js",
+    },
+    {
+      gsap: "https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js",
+      st: "https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js",
+    },
+    {
+      gsap: "https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js",
+      st: "https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js",
+    },
+  ];
+  var modules = [
+    "/static/js/animations.js?v=3.0.0",
+    "/static/js/story-scroll.js?v=3.1.0",
+    "/static/js/custom-cursor.js?v=2.0.0",
+    "/static/js/hero-evolution.js?v=2.0.0",
+    "/static/js/network-graph.js?v=2.0.0",
+    "/static/js/role-cycling.js?v=2.0.0",
+    "/static/js/motion-engine.js?v=2.0.0",
+  ];
+
+  function loadScript(url) {
+    return new Promise(function (resolve, reject) {
+      var s = document.createElement("script");
+      s.src = url;
+      s.onload = resolve;
+      s.onerror = reject;
+      document.body.appendChild(s);
+    });
+  }
+
+  function loadModules() {
+    Promise.all(
+      modules.map(function (src) {
+        return loadScript(src);
+      }),
+    );
+  }
+
+  function tryLoadGSAP(idx) {
+    if (idx >= cdns.length) {
+      console.warn(
+        "[Nova] All GSAP CDNs failed — loading modules without GSAP",
+      );
+      loadModules();
+      return;
+    }
+    loadScript(cdns[idx].gsap)
+      .then(function () {
+        return loadScript(cdns[idx].st);
+      })
+      .then(function () {
+        console.debug("[Nova] GSAP loaded from CDN #" + (idx + 1));
+        loadModules();
+      })
+      .catch(function () {
+        console.warn(
+          "[Nova] GSAP CDN #" + (idx + 1) + " failed, trying next...",
+        );
+        tryLoadGSAP(idx + 1);
+      });
+  }
+
+  tryLoadGSAP(0);
+})();
+
+// ── Nova Auth: Google Sign-In via Supabase (optional, non-blocking) ──
+document.addEventListener("DOMContentLoaded", function () {
+  if (typeof NovaAuth === "undefined") return;
+  fetch("/api/config")
+    .then(function (r) {
+      return r.json();
+    })
+    .then(function (cfg) {
+      if (cfg && cfg.auth_enabled) {
+        NovaAuth.init({
+          supabaseUrl: cfg.supabase_url || "",
+          supabaseAnonKey: cfg.supabase_anon_key || "",
+          allowedDomains: ["joveo.com"],
+        });
+      }
+    })
+    .catch(function () {
+      // Auth init failure must never break the page
+    });
+});
+
+// ── Page exit transition ──
+document.addEventListener("DOMContentLoaded", function () {
+  document.querySelectorAll('a[href^="/"]').forEach(function (link) {
+    link.addEventListener("click", function (e) {
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+      e.preventDefault();
+      document.body.style.opacity = "0";
+      document.body.style.transform = "translateY(-10px)";
+      document.body.style.transition = "opacity 0.2s ease, transform 0.2s ease";
+      var href = link.href;
+      setTimeout(function () {
+        window.location.href = href;
+      }, 200);
+    });
+  });
+});

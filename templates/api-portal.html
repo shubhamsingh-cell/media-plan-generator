@@ -934,6 +934,39 @@
       .stagger-6 {
         transition-delay: 0.3s;
       }
+
+      /* ── Issue 9: Mobile "Back to Suite" overlaps "Your API Keys" ── */
+      @media (max-width: 768px) {
+        .page-wrapper {
+          padding-bottom: 80px;
+        }
+      }
+
+      /* ── Issue 15: API Portal mobile tab bar scroll fix ── */
+      @media (max-width: 640px) {
+        .tab-nav {
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+          white-space: nowrap;
+          scrollbar-width: none;
+          flex-wrap: nowrap;
+          mask-image: linear-gradient(to right, #000 85%, transparent 100%);
+          -webkit-mask-image: linear-gradient(
+            to right,
+            #000 85%,
+            transparent 100%
+          );
+        }
+        .tab-nav::-webkit-scrollbar {
+          display: none;
+        }
+        .tab-btn {
+          flex: none;
+          min-width: auto;
+          padding: 0.625rem 0.875rem;
+          font-size: 0.8125rem;
+        }
+      }
     </style>
     <!-- PostHog Analytics (loaded only if API key is configured server-side) -->
     <script>
@@ -2073,8 +2106,19 @@ print(response.json())</pre
         }
 
         // ── Init ──
-        loadKeys();
-        loadEndpoints();
+        // Only fetch keys/endpoints if user is authenticated (has nova_user_email cookie)
+        var isAuthenticated = document.cookie.split(";").some(function (c) {
+          return c.trim().indexOf("nova_user_email=") === 0;
+        });
+        if (isAuthenticated) {
+          loadKeys();
+          loadEndpoints();
+        } else {
+          keysTableContainer.innerHTML =
+            '<p style="color:var(--text-muted);font-size:0.875rem;">Sign in with your @joveo.com account to manage API keys.</p>';
+          endpointList.innerHTML =
+            '<p style="color:var(--text-muted);font-size:0.875rem;">Sign in to view available API endpoints.</p>';
+        }
       })();
 
       // Scroll reveal

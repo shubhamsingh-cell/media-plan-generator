@@ -116,6 +116,30 @@ TASK_CHAT_RESPONSE = "chat_response"  # Nova AI: conversational response
 TASK_ACTION_EXECUTE = "action_execute"  # Nova AI: action execution
 TASK_CONTEXT_SUMMARIZE = "context_summarize"  # Nova AI: context compression
 
+# S48: Specialized routing task types -- route different workloads to the
+# best free provider for that workload instead of funneling everything
+# through Gemini.  Each new type has a routing list optimized for the
+# provider's strengths (RPM capacity, latency, language ability, reasoning).
+TASK_CHATBOT_GREETING = (
+    "chatbot_greeting"  # Simple hi/hello -> Cloudflare (300 RPM, save Gemini)
+)
+TASK_CHATBOT_TOOL_CALL = (
+    "chatbot_tool_call"  # Tool invocation -> Gemini (best structured JSON)
+)
+TASK_PLAN_NARRATIVE = (
+    "plan_narrative"  # Plan text generation -> Groq (fast, good prose)
+)
+TASK_PLAN_STRUCTURED = (
+    "plan_structured"  # Budget/channel JSON -> Gemini (best structured)
+)
+TASK_INTELLIGENCE_SUMMARY = (
+    "intelligence_summary"  # Market summaries -> Cloudflare (volume)
+)
+TASK_TRANSLATION = "translation"  # International plans -> Mistral (EU) / Zhipu (CN)
+TASK_DEEP_REASONING = (
+    "deep_reasoning"  # Deep analysis -> DeepSeek R1 (reasoning chains)
+)
+
 # Provider IDs
 GEMINI = "gemini"
 GEMINI_FLASH_LITE = "gemini_flash_lite"
@@ -827,10 +851,15 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
 #   Claude Sonnet: complex multi-step tool_use chains
 #   Claude Opus 4.6: last resort, highest quality
 TASK_ROUTING: Dict[str, List[str]] = {
+    # S48: Routing optimized by RPM capacity + quality.
+    # Cloudflare (300 RPM) and Together (60 RPM) promoted from bottom to top-5 free tier.
+    # HuggingFace (10 RPM) stays last. Gemini 3.1 Flash stays #1.
     TASK_STRUCTURED: [
         GEMINI,
         GEMINI_FLASH_LITE,  # Lighter Gemini variant for simple structured queries
         MISTRAL,
+        CLOUDFLARE,  # S48: promoted -- 300 RPM, 10x other free providers
+        TOGETHER,  # S48: promoted -- 60 RPM, fast inference
         OPENROUTER_GEMMA,  # Gemma 3 27B -- strong structured output
         GROQ,
         ZHIPU,
@@ -841,12 +870,10 @@ TASK_ROUTING: Dict[str, List[str]] = {
         SAMBANOVA,
         SILICONFLOW,
         OPENROUTER_YI,
-        TOGETHER,
-        CLOUDFLARE,
         OPENROUTER_ARCEE,
         OPENROUTER_DEEPSEEK_R1,
-        HUGGINGFACE,
         OPENROUTER_LIQUID,
+        HUGGINGFACE,  # 10 RPM -- last free tier
         CLAUDE_HAIKU,
         GPT4O,
         CLAUDE,
@@ -856,7 +883,9 @@ TASK_ROUTING: Dict[str, List[str]] = {
         GEMINI,  # S29: Gemini #1 for simple/greeting queries -- free, fast, good enough
         CLAUDE_HAIKU,  # #2 paid fallback -- quality when Gemini is down
         GPT4O,  # #3 paid fallback
-        XIAOMI_MIMO,  # Free fallback tier starts here
+        CLOUDFLARE,  # S48: promoted -- 300 RPM, absorbs overflow when Gemini rate-limited
+        TOGETHER,  # S48: promoted -- 60 RPM
+        XIAOMI_MIMO,  # Free fallback tier continues
         GROQ,
         ZHIPU,
         CEREBRAS,
@@ -866,12 +895,10 @@ TASK_ROUTING: Dict[str, List[str]] = {
         SAMBANOVA,
         OPENROUTER_YI,
         SILICONFLOW,
-        TOGETHER,
         OPENROUTER_ARCEE,
-        CLOUDFLARE,
         OPENROUTER_GEMMA,
-        HUGGINGFACE,
         OPENROUTER_LIQUID,
+        HUGGINGFACE,  # 10 RPM -- last free tier
         CLAUDE,
         CLAUDE_OPUS,
     ],
@@ -881,6 +908,8 @@ TASK_ROUTING: Dict[str, List[str]] = {
         GPT4O,  # #3 paid fallback
         CLAUDE,  # #4 Sonnet for deep reasoning
         OPENROUTER_DEEPSEEK_R1,  # Free fallback tier
+        CLOUDFLARE,  # S48: promoted -- 300 RPM high-availability fallback
+        TOGETHER,  # S48: promoted -- 60 RPM
         XIAOMI_MIMO,
         SAMBANOVA,
         GROQ,
@@ -890,13 +919,11 @@ TASK_ROUTING: Dict[str, List[str]] = {
         OPENROUTER_ARCEE,
         MISTRAL,
         OPENROUTER_YI,
-        TOGETHER,
         NVIDIA_NIM,
         OPENROUTER_GEMMA,
         SILICONFLOW,
-        CLOUDFLARE,
         OPENROUTER_LIQUID,
-        HUGGINGFACE,
+        HUGGINGFACE,  # 10 RPM -- last free tier
         CLAUDE_OPUS,
     ],
     TASK_CODE: [
@@ -1158,6 +1185,160 @@ TASK_ROUTING: Dict[str, List[str]] = {
         CLAUDE_HAIKU,
         GPT4O,
         CLAUDE,
+    ],
+    # ── S48: Specialized Routing (distribute load across free providers) ──
+    # Route different workloads to the best free provider for that workload
+    # instead of funneling everything through Gemini.
+    #
+    # CAPACITY RULES (respected in all lists below):
+    #   SAFE primaries (generous free tiers):
+    #     Groq: 30 RPM, 14.4K RPD, 500K tok/day
+    #     Cerebras: 30 RPM, 1M tok/day
+    #     Gemini: 30 RPM, 1.5K RPD, 1M tok/day
+    #     Gemini Flash Lite: same as Gemini
+    #     Zhipu: unlimited free
+    #     SambaNova: 20 RPM, 1M tok/day
+    #   FALLBACK ONLY (limited capacity):
+    #     Cloudflare: ~200 queries/day (10K neurons)
+    #     Together: $25 credit then paid
+    #     Mistral: 1M tok/MONTH (not day)
+    #     OpenRouter*: 20 RPM SHARED across ALL OR variants
+    #
+    # Greetings: Groq is fastest (300ms) and has 14.4K RPD -- ideal for
+    # simple responses.  Gemini Flash Lite as backup (save full Gemini for
+    # substantive work).  Cloudflare is fallback only (limited daily quota).
+    TASK_CHATBOT_GREETING: [
+        GROQ,  # 300ms inference, 14.4K RPD -- saves Gemini for real queries
+        GEMINI_FLASH_LITE,  # Lightweight Gemini variant, generous free tier
+        CEREBRAS,  # Hot spare for Groq (same Llama 3.3 70B)
+        ZHIPU,  # Unlimited free
+        SAMBANOVA,  # 20 RPM, 1M tok/day
+        CLOUDFLARE,  # Fallback -- ~200 queries/day limit
+        GEMINI,
+        NVIDIA_NIM,
+        SILICONFLOW,
+        MISTRAL,  # Fallback -- 1M tok/month limit
+        TOGETHER,  # Fallback -- $25 credit limit
+        HUGGINGFACE,
+        CLAUDE_HAIKU,
+        GPT4O,
+    ],
+    # Tool calls: Gemini is the best free provider for structured JSON / function calling.
+    TASK_CHATBOT_TOOL_CALL: [
+        GEMINI,  # Best at structured JSON / function calling (30 RPM, 1.5K RPD)
+        GROQ,  # Good tool calling, 14.4K RPD
+        GEMINI_FLASH_LITE,
+        CEREBRAS,
+        SAMBANOVA,
+        NVIDIA_NIM,
+        ZHIPU,
+        MISTRAL,  # Fallback (1M tok/month)
+        TOGETHER,  # Fallback ($25 credit)
+        CLOUDFLARE,  # Fallback (~200/day)
+        OPENROUTER_QWEN,  # Fallback (20 RPM shared)
+        CLAUDE_HAIKU,
+        GPT4O,
+        CLAUDE,
+        CLAUDE_OPUS,
+    ],
+    # Plan narrative (exec summary, recommendations): Groq is 5x faster than
+    # Gemini for prose generation with equivalent quality on narrative tasks.
+    TASK_PLAN_NARRATIVE: [
+        GROQ,  # 300ms inference, excellent narrative quality (14.4K RPD)
+        CEREBRAS,  # Hot spare, same model (1M tok/day)
+        GEMINI,  # Strong fallback (1.5K RPD)
+        SAMBANOVA,  # Fast RDU inference (1M tok/day)
+        ZHIPU,  # Unlimited free
+        NVIDIA_NIM,
+        SILICONFLOW,
+        CLOUDFLARE,  # Fallback (~200/day)
+        TOGETHER,  # Fallback ($25 credit)
+        MISTRAL,  # Fallback (1M tok/month)
+        OPENROUTER,  # Fallback (20 RPM shared)
+        CLAUDE_HAIKU,
+        GPT4O,
+        CLAUDE,
+        CLAUDE_OPUS,
+    ],
+    # Plan structured (budget JSON, channel allocation): Gemini excels at
+    # structured output, math, and JSON generation.
+    TASK_PLAN_STRUCTURED: [
+        GEMINI,  # Best at structured JSON, math, budget calculations
+        GEMINI_FLASH_LITE,
+        GROQ,  # Good structured output (14.4K RPD)
+        CEREBRAS,  # 1M tok/day
+        SAMBANOVA,  # 1M tok/day
+        ZHIPU,
+        NVIDIA_NIM,
+        SILICONFLOW,
+        MISTRAL,  # Fallback (1M tok/month)
+        OPENROUTER_QWEN,  # Fallback (20 RPM shared)
+        OPENROUTER_GEMMA,  # Fallback (20 RPM shared)
+        TOGETHER,  # Fallback ($25 credit)
+        CLOUDFLARE,  # Fallback (~200/day)
+        CLAUDE_HAIKU,
+        GPT4O,
+        CLAUDE,
+        CLAUDE_OPUS,
+    ],
+    # Intelligence summaries: Gemini Flash Lite for lightweight summaries
+    # (free, fast), Groq as secondary.
+    TASK_INTELLIGENCE_SUMMARY: [
+        GEMINI_FLASH_LITE,  # Cheapest Gemini -- perfect for short summaries
+        GROQ,  # Fast inference (14.4K RPD)
+        CEREBRAS,  # Hot spare (1M tok/day)
+        GEMINI,
+        ZHIPU,  # Unlimited free
+        SAMBANOVA,  # 1M tok/day
+        NVIDIA_NIM,
+        SILICONFLOW,
+        CLOUDFLARE,  # Fallback (~200/day)
+        TOGETHER,  # Fallback ($25 credit)
+        MISTRAL,  # Fallback (1M tok/month)
+        OPENROUTER,  # Fallback (20 RPM shared)
+        HUGGINGFACE,
+        CLAUDE_HAIKU,
+        GPT4O,
+    ],
+    # Translation / multilingual: Gemini is actually the best free option
+    # for multilingual (trained on 40+ languages, generous quota).
+    # Zhipu for Chinese/CJK (unlimited free, native Chinese model).
+    # Mistral as fallback for EU languages (limited monthly quota).
+    TASK_TRANSLATION: [
+        GEMINI,  # Strong multilingual, generous free tier (1.5K RPD)
+        ZHIPU,  # GLM-4-Flash -- unlimited free, native Chinese model
+        GROQ,  # Llama 3.3 -- trained on multilingual data (14.4K RPD)
+        CEREBRAS,  # 1M tok/day
+        SAMBANOVA,  # 1M tok/day
+        NVIDIA_NIM,
+        SILICONFLOW,
+        MISTRAL,  # Fallback -- strong EU languages but 1M tok/month
+        CLOUDFLARE,  # Fallback (~200/day)
+        TOGETHER,  # Fallback ($25 credit)
+        OPENROUTER,  # Fallback (20 RPM shared)
+        CLAUDE_HAIKU,
+        GPT4O,
+        CLAUDE,
+        CLAUDE_OPUS,
+    ],
+    # Deep reasoning (competitor analysis, risk assessment, causal chains):
+    # Quality matters most here. Claude Haiku is best-in-class for reasoning.
+    # Gemini is strong free fallback. DeepSeek R1 as specialized free option.
+    TASK_DEEP_REASONING: [
+        CLAUDE_HAIKU,  # Quality matters for deep reasoning -- best per dollar
+        GEMINI,  # Strong reasoning (1.5K RPD)
+        GPT4O,  # Paid fallback
+        CLAUDE,  # Sonnet for deep reasoning
+        OPENROUTER_DEEPSEEK_R1,  # Fallback -- best reasoning chains (20 RPM shared)
+        GROQ,  # 14.4K RPD
+        CEREBRAS,  # 1M tok/day
+        SAMBANOVA,  # 1M tok/day
+        ZHIPU,  # Unlimited free
+        NVIDIA_NIM,
+        TOGETHER,  # Fallback ($25 credit)
+        MISTRAL,  # Fallback (1M tok/month)
+        CLOUDFLARE,  # Fallback (~200/day)
+        CLAUDE_OPUS,
     ],
 }
 
@@ -1672,6 +1853,34 @@ _CONTEXT_SUMMARIZE_KEYWORDS = re.compile(
     re.IGNORECASE,
 )
 
+# S48: Specialized routing keywords
+_GREETING_KEYWORDS = re.compile(
+    r"^(hi|hello|hey|hola|howdy|sup|yo|good\s+(morning|afternoon|evening|day)|"
+    r"bye|goodbye|see\s+you|thanks|thank\s+you|thx|ty|"
+    r"ok|okay|sure|got\s+it|cool|great|awesome|perfect|sounds\s+good)\b",
+    re.IGNORECASE,
+)
+_TRANSLATION_KEYWORDS = re.compile(
+    r"\b(translat|multilingual|internationa|locali[sz]|"
+    r"german|french|spanish|portuguese|italian|dutch|polish|swedish|"
+    r"chinese|mandarin|cantonese|japanese|korean|hindi|arabic|"
+    r"emea|apac|latam|language|multi.?lang|in\s+(german|french|spanish|chinese|japanese))\b",
+    re.IGNORECASE,
+)
+_DEEP_REASONING_KEYWORDS = re.compile(
+    r"\b(deep\s+analysis|root\s+cause|risk\s+assessment|causal|"
+    r"why\s+does|what\s+causes|chain\s+of|reasoning|explain\s+why|"
+    r"implications|systemic|macro.?economic\s+impact|second.?order|"
+    r"risk\s+factor|failure\s+mode|counter.?argument)\b",
+    re.IGNORECASE,
+)
+_INTELLIGENCE_SUMMARY_KEYWORDS = re.compile(
+    r"\b(quick\s+summary|brief\s+overview|highlight|snapshot|"
+    r"at\s+a\s+glance|key\s+points|top.?line|one.?liner|"
+    r"in\s+brief|short\s+summary|quick\s+take)\b",
+    re.IGNORECASE,
+)
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # CIRCUIT BREAKER + RATE TRACKER (per provider)
@@ -1845,6 +2054,10 @@ def classify_task(query: str, module: str = "") -> str:
     Supports both the original 8 task types and the v4.0 platform module
     task types. Module-specific keywords take priority when matched.
 
+    S48: Also detects specialized task types (greetings, translation,
+    deep reasoning, intelligence summaries) to distribute load across
+    free providers instead of funneling everything through Gemini.
+
     Args:
         query: User query string.
         module: Optional platform module hint (command_center, intelligence_hub, nova_ai).
@@ -1854,6 +2067,33 @@ def classify_task(query: str, module: str = "") -> str:
     """
     try:
         q = query.lower().strip()
+        words = q.split()
+
+        # S48: Fast-path for greetings -- route to Cloudflare (300 RPM)
+        # instead of wasting Gemini quota on "hi" / "hello" / "thanks".
+        # Only short messages (<=5 words) with no data keywords qualify.
+        if len(words) <= 5 and _GREETING_KEYWORDS.search(q):
+            _data_in_greeting = re.search(
+                r"\b(salary|cpa|cpc|budget|cost|hire|recruit|benchmark|"
+                r"plan|campaign|market|compare|data|report)\b",
+                q,
+                re.IGNORECASE,
+            )
+            if not _data_in_greeting:
+                return TASK_CHATBOT_GREETING
+
+        # S48: Translation / multilingual routing (Mistral for EU, Zhipu for CJK)
+        if _TRANSLATION_KEYWORDS.search(q):
+            return TASK_TRANSLATION
+
+        # S48: Deep reasoning (DeepSeek R1)
+        _deep_score = len(_DEEP_REASONING_KEYWORDS.findall(q))
+        if _deep_score >= 2:
+            return TASK_DEEP_REASONING
+
+        # S48: Intelligence summaries (Cloudflare for volume)
+        if _INTELLIGENCE_SUMMARY_KEYWORDS.search(q):
+            return TASK_INTELLIGENCE_SUMMARY
 
         # v4.0 platform module task types (highest priority -- most specific)
         module_scores = {
@@ -1956,6 +2196,60 @@ def select_provider(
             return pid
 
     return None
+
+
+def parallel_distribute(
+    n_calls: int,
+    task_type: str = TASK_CHATBOT_TOOL_CALL,
+) -> List[str]:
+    """Return a list of N provider IDs, distributed across available providers.
+
+    S48: When the chatbot calls 5-8 tools in parallel, spreading them
+    across providers prevents rate-limiting any single provider.  Uses
+    only providers with generous free tiers (Gemini, Groq, Cerebras) as
+    the primary distribution pool.
+
+    Args:
+        n_calls: Number of concurrent calls to distribute.
+        task_type: Task type for routing context.
+
+    Returns:
+        List of provider IDs, length == n_calls.  May repeat if fewer
+        providers are available than calls requested.
+    """
+    # S48: Only distribute across providers with generous free tiers
+    # to avoid exhausting limited providers.
+    _POOL_PRIORITY = [GEMINI, GROQ, CEREBRAS, SAMBANOVA, ZHIPU, GEMINI_FLASH_LITE]
+
+    available: List[str] = []
+    for pid in _POOL_PRIORITY:
+        config = PROVIDER_CONFIG.get(pid, {})
+        env_key = config.get("env_key") or ""
+        if not os.environ.get(env_key, "").strip():
+            continue
+        if _rate_tracker.is_rate_limited(pid):
+            continue
+        state = _provider_states.get(pid)
+        if state and state.is_available():
+            available.append(pid)
+
+    if not available:
+        # Fallback: use whatever select_provider returns, repeated
+        fallback = select_provider(task_type)
+        return [fallback or GEMINI] * n_calls
+
+    # Round-robin distribution across available providers
+    result = []
+    for i in range(n_calls):
+        result.append(available[i % len(available)])
+
+    logger.info(
+        "S48 parallel_distribute: %d calls across %d providers: %s",
+        n_calls,
+        len(available),
+        result,
+    )
+    return result
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

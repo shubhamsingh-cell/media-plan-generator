@@ -158,6 +158,27 @@ def _handle_health_ready(handler, path: str, parsed: Any) -> None:
     else:
         result = health_check_readiness()
     status_code = 200 if result.get("status") == "healthy" else 503
+
+    # Fire a deploy alert email when critical checks fail (non-blocking)
+    if status_code == 503:
+        try:
+            import threading as _th
+
+            from email_alerts import send_deploy_alert
+
+            _failed = result.get("failed_checks") or result.get("errors") or []
+            _summary = ", ".join(str(f) for f in _failed[:5]) if _failed else "unknown"
+            _th.Thread(
+                target=send_deploy_alert,
+                args=(
+                    "Readiness probe failed",
+                    f"Health readiness returned 503. Failed checks: {_summary}",
+                ),
+                daemon=True,
+            ).start()
+        except Exception:
+            pass  # Never let email failure affect the health response
+
     body = json.dumps(result).encode("utf-8")
     handler.send_response(status_code)
     handler.send_header("Content-Type", "application/json")

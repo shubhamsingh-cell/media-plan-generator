@@ -18,6 +18,58 @@ from typing import Any, Dict, List, Optional, Tuple
 logger = logging.getLogger(__name__)
 
 _benchmarks_data: Optional[Dict] = None
+_intl_benchmarks_data: Optional[Dict] = None
+
+
+def _load_intl_benchmarks() -> Dict:
+    """Load international benchmarks JSON once, cache in module global."""
+    global _intl_benchmarks_data
+    if _intl_benchmarks_data is not None:
+        return _intl_benchmarks_data
+    _path = os.path.join(
+        os.path.dirname(__file__),
+        "data",
+        "international_benchmarks_2026.json",
+    )
+    try:
+        with open(_path, "r", encoding="utf-8") as fh:
+            _intl_benchmarks_data = json.load(fh)
+    except (FileNotFoundError, json.JSONDecodeError) as exc:
+        logger.error("Failed to load intl benchmarks: %s", exc, exc_info=True)
+        _intl_benchmarks_data = {}
+    return _intl_benchmarks_data
+
+
+def _get_intl_cpc_for_location(location: str) -> Optional[Tuple[float, float]]:
+    """Return (median_cpc_usd, median_apply_rate) from intl benchmarks for a location.
+
+    Returns None if no match found.
+    """
+    intl = _load_intl_benchmarks()
+    countries = intl.get("countries", {})
+    loc_lower = (location or "").lower().strip()
+    for _ck, _cv in countries.items():
+        _cname = (_cv.get("name") or "").lower()
+        if _ck in loc_lower or _cname in loc_lower or loc_lower in _cname:
+            platforms = _cv.get("platforms", [])
+            if not platforms:
+                return None
+            # Weighted average CPC/apply_rate from top platforms
+            _cpcs = []
+            _ars = []
+            for p in platforms[:5]:
+                cpc_usd = p.get("cpc_usd", {})
+                if isinstance(cpc_usd, dict) and cpc_usd.get("median"):
+                    _cpcs.append(cpc_usd["median"])
+                ar = p.get("apply_rate_pct", 0)
+                if ar > 0:
+                    _ars.append(ar / 100.0)
+            if _cpcs:
+                avg_cpc = sum(_cpcs) / len(_cpcs)
+                avg_ar = sum(_ars) / len(_ars) if _ars else 0.05
+                return (round(avg_cpc, 2), round(avg_ar, 3))
+            return None
+    return None
 
 
 def _load_benchmarks() -> Dict:
@@ -196,6 +248,38 @@ def project_roi(
     cpc, apply_rate = _get_channel(channel)
     aph, cpa_lo, cpa_hi, cph_lo, cph_hi, ttf_lo, ttf_hi = _get_industry(industry)
 
+    # ── International location override: use intl benchmark CPC/apply rate ──
+    _has_intl_data = False
+    if locations:
+        _intl_cpcs: List[float] = []
+        _intl_ars: List[float] = []
+        for loc in locations:
+            intl_data = _get_intl_cpc_for_location(loc)
+            if intl_data:
+                _intl_cpcs.append(intl_data[0])
+                _intl_ars.append(intl_data[1])
+        if _intl_cpcs:
+            _has_intl_data = True
+            # Blend: if mixed US/intl locations, average both
+            _us_count = len(locations) - len(_intl_cpcs)
+            if _us_count > 0:
+                # Blend US CPC with intl CPC
+                _us_cpc = cpc
+                _intl_avg_cpc = sum(_intl_cpcs) / len(_intl_cpcs)
+                cpc = (_us_cpc * _us_count + _intl_avg_cpc * len(_intl_cpcs)) / len(
+                    locations
+                )
+                _intl_avg_ar = sum(_intl_ars) / len(_intl_ars)
+                apply_rate = (
+                    apply_rate * _us_count + _intl_avg_ar * len(_intl_ars)
+                ) / len(locations)
+            else:
+                # All international
+                cpc = sum(_intl_cpcs) / len(_intl_cpcs)
+                apply_rate = (
+                    sum(_intl_ars) / len(_intl_ars) if _intl_ars else apply_rate
+                )
+
     loc_m = _location_mult(locations)
     cpc_adj = cpc * loc_m
     cpa_lo_a, cpa_hi_a = cpa_lo * loc_m, cpa_hi * loc_m
@@ -221,6 +305,15 @@ def project_roi(
     )
 
     conf_score, conf_label, conf_basis = _confidence(channel, industry, role, locations)
+    # Slightly reduce confidence for international projections (less data certainty)
+    if _has_intl_data:
+        conf_score = max(0.40, conf_score - 0.05)
+        conf_label = (
+            "High"
+            if conf_score >= 0.80
+            else ("Medium" if conf_score >= 0.60 else "Low")
+        )
+        conf_basis += " | international benchmarks (38 countries)"
 
     # Recommendation
     h_int = max(1, round(hires))

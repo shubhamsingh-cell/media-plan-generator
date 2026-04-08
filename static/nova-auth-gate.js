@@ -2,22 +2,97 @@
  * Nova Auth Gate -- Sign in ONCE, never again
  * Shows login overlay only if no cached session exists.
  * After first sign-in, session is stored in localStorage permanently.
+ * Supports guest mode (read-only) for demos and prospects.
  */
 (function () {
   "use strict";
 
   var STORAGE_KEY = "nova_auth_user";
+  var GUEST_KEY = "nova_guest_mode";
+
+  function isGuestMode() {
+    try {
+      return sessionStorage.getItem(GUEST_KEY) === "true";
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function enterGuestMode() {
+    try {
+      sessionStorage.setItem(GUEST_KEY, "true");
+    } catch (_) {}
+    removeGate();
+    showGuestBanner();
+  }
+
+  function exitGuestMode() {
+    try {
+      sessionStorage.removeItem(GUEST_KEY);
+    } catch (_) {}
+    removeGuestBanner();
+  }
+
+  function showGuestBanner() {
+    if (document.getElementById("nova-guest-banner")) return;
+    var banner = document.createElement("div");
+    banner.id = "nova-guest-banner";
+    banner.style.cssText =
+      "position:fixed;top:0;left:0;right:0;z-index:999998;background:linear-gradient(90deg,#202058,#5A54BD);" +
+      "color:rgba(255,255,255,0.85);font-size:13px;font-family:Inter,system-ui,sans-serif;" +
+      "text-align:center;padding:8px 16px;display:flex;align-items:center;justify-content:center;gap:8px;";
+    banner.innerHTML =
+      "<span>Viewing as guest \u2014 some features are restricted.</span>" +
+      '<a id="nova-guest-signin-link" href="#" style="color:#7dd3fc;text-decoration:underline;font-weight:600;font-size:13px;">Sign in for full access</a>';
+    document.body.appendChild(banner);
+    // Push page content down so banner doesn't overlap
+    document.body.style.paddingTop =
+      (parseInt(getComputedStyle(document.body).paddingTop) || 0) +
+      banner.offsetHeight +
+      "px";
+    document
+      .getElementById("nova-guest-signin-link")
+      .addEventListener("click", function (e) {
+        e.preventDefault();
+        exitGuestMode();
+        document.body.style.paddingTop = "";
+        createGate();
+      });
+  }
+
+  function removeGuestBanner() {
+    var banner = document.getElementById("nova-guest-banner");
+    if (banner) {
+      document.body.style.paddingTop = "";
+      banner.remove();
+    }
+  }
 
   function isAuthenticated() {
+    // Check 0: Guest mode active (read-only access)
+    if (isGuestMode()) return true;
+
     // Check 1: NovaAuth already initialized and logged in
     if (typeof NovaAuth !== "undefined" && NovaAuth.isLoggedIn()) return true;
 
     // Check 2: localStorage has cached user (persists across refreshes)
+    // S48: Validate email is a real @joveo.com address, not just any truthy string
     try {
       var cached = localStorage.getItem(STORAGE_KEY);
       if (cached) {
         var user = JSON.parse(cached);
-        if (user && user.email) return true;
+        if (user && user.email && typeof user.email === "string") {
+          var emailLower = user.email.toLowerCase().trim();
+          // Must be a valid email format AND from @joveo.com domain
+          if (
+            /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailLower) &&
+            emailLower.endsWith("@joveo.com")
+          ) {
+            return true;
+          }
+          // Invalid or non-joveo email in cache -- purge it
+          localStorage.removeItem(STORAGE_KEY);
+        }
       }
     } catch (_) {}
 
@@ -158,10 +233,11 @@
     overlay.style.cssText =
       "position:fixed;top:0;left:0;right:0;bottom:0;z-index:999999;" +
       "background:linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%);" +
-      "display:flex;align-items:center;justify-content:center;flex-direction:column;";
+      "display:flex;align-items:center;justify-content:center;flex-direction:column;" +
+      "overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px;box-sizing:border-box;";
 
     overlay.innerHTML =
-      '<div style="text-align:center;max-width:420px;padding:40px;">' +
+      '<div style="text-align:center;max-width:420px;padding:40px 24px;margin:auto;">' +
       '  <div style="width:80px;height:80px;margin:0 auto 24px;border-radius:20px;background:linear-gradient(135deg,#5A54BD,#7B6FDE);display:flex;align-items:center;justify-content:center;box-shadow:0 8px 32px rgba(90,84,189,0.4);">' +
       '    <span style="font-size:40px;font-weight:800;color:white;font-family:Inter,system-ui,sans-serif;line-height:1;">N</span>' +
       "  </div>" +
@@ -174,8 +250,8 @@
       '  <button id="nova-gate-login-btn" style="' +
       "    background:white;color:#1a1a2e;border:none;padding:14px 32px;border-radius:12px;" +
       "    font-size:15px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;" +
-      '    gap:10px;font-family:Inter,sans-serif;transition:all 0.2s;box-shadow:0 4px 12px rgba(0,0,0,0.3);">' +
-      '    <svg viewBox="0 0 24 24" style="width:20px;height:20px;">' +
+      '    gap:10px;font-family:Inter,sans-serif;transition:all 0.2s;box-shadow:0 4px 12px rgba(0,0,0,0.3);width:100%;justify-content:center;">' +
+      '    <svg viewBox="0 0 24 24" style="width:20px;height:20px;flex-shrink:0;">' +
       '      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>' +
       '      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>' +
       '      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>' +
@@ -183,7 +259,14 @@
       "    </svg>" +
       "    Sign in with Google" +
       "  </button>" +
-      '  <p style="color:rgba(255,255,255,0.2);font-size:11px;margin-top:24px;font-family:Inter,sans-serif;">Nova AI Suite</p>' +
+      '  <div style="margin-top:16px;">' +
+      '    <a id="nova-gate-guest-btn" href="#" style="' +
+      "      color:rgba(255,255,255,0.4);font-size:13px;font-family:Inter,sans-serif;" +
+      '      text-decoration:none;transition:color 0.2s;">' +
+      "      Preview without signing in" +
+      "    </a>" +
+      "  </div>" +
+      '  <p style="color:rgba(255,255,255,0.15);font-size:11px;margin-top:24px;font-family:Inter,sans-serif;">Nova AI Suite</p>' +
       "</div>";
 
     document.body.appendChild(overlay);
@@ -265,11 +348,38 @@
           });
       });
     }
+
+    // Guest mode button
+    var guestBtn = document.getElementById("nova-gate-guest-btn");
+    if (guestBtn) {
+      guestBtn.onmouseover = function () {
+        this.style.color = "rgba(255,255,255,0.7)";
+      };
+      guestBtn.onmouseout = function () {
+        this.style.color = "rgba(255,255,255,0.4)";
+      };
+      guestBtn.addEventListener("click", function (e) {
+        e.preventDefault();
+        enterGuestMode();
+      });
+    }
+
+    // Escape key dismisses gate (enters guest mode)
+    overlay._escHandler = function (e) {
+      if (e.key === "Escape") {
+        enterGuestMode();
+      }
+    };
+    document.addEventListener("keydown", overlay._escHandler);
   }
 
   function removeGate() {
     var gate = document.getElementById("nova-auth-gate");
     if (gate) {
+      // Clean up Escape key listener
+      if (gate._escHandler) {
+        document.removeEventListener("keydown", gate._escHandler);
+      }
       gate.style.transition = "opacity 0.3s ease";
       gate.style.opacity = "0";
       setTimeout(function () {
@@ -283,10 +393,19 @@
     removeGate();
   });
 
-  // Run on DOM ready
+  // Initialize: show gate or guest banner
+  function init() {
+    if (isGuestMode()) {
+      // Already in guest mode from this session -- show banner, skip gate
+      showGuestBanner();
+    } else {
+      createGate();
+    }
+  }
+
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", createGate);
+    document.addEventListener("DOMContentLoaded", init);
   } else {
-    createGate();
+    init();
   }
 })();

@@ -460,7 +460,7 @@
             aria-required="true"
             aria-describedby="budgetRange-error"
           >
-            <option value="">Select total budget for full campaign</option>
+            <option value="">Select campaign budget</option>
             <option value="< $50,000">Under $50,000</option>
             <option value="$50,000 - $250,000">$50,000 - $250,000</option>
             <option value="$250,000 - $500,000">$250,000 - $500,000</option>
@@ -539,16 +539,10 @@
           ></div>
         </div>
         <div class="form-group">
-          <label for="campaignStartMonth"
-            >Campaign Start Month
-            <span
-              style="
-                font-weight: 400;
-                color: var(--text-muted);
-                font-size: 10px;
-              "
-              >(seasonal trends applied to this month)</span
-            ></label
+          <label
+            for="campaignStartMonth"
+            title="Seasonal hiring trends will be applied based on this month"
+            >Campaign Start Month</label
           >
           <select id="campaignStartMonth">
             <option value="">Current month (default)</option>
@@ -2519,6 +2513,75 @@
       <div id="planDashboardContent"></div>
     </div>
 
+    <!-- Output Format Selector -->
+    <div class="output-format-row" style="margin-bottom: 12px">
+      <label
+        style="
+          font-size: 13px;
+          color: rgba(255, 255, 255, 0.7);
+          margin-bottom: 6px;
+          display: block;
+        "
+        >Output Format</label
+      >
+      <div class="output-format-toggle" id="outputFormatToggle">
+        <button
+          type="button"
+          class="output-format-btn active"
+          data-format="local"
+          onclick="setOutputFormat('local')"
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+            <polyline points="7 10 12 15 17 10" />
+            <line x1="12" y1="15" x2="12" y2="3" />
+          </svg>
+          Download Excel + PPT
+        </button>
+        <button
+          type="button"
+          class="output-format-btn"
+          data-format="google"
+          onclick="setOutputFormat('google')"
+          id="outputFormatGoogleBtn"
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6" />
+            <polyline points="15 3 21 3 21 9" />
+            <line x1="10" y1="14" x2="21" y2="3" />
+          </svg>
+          Open in Google Sheets + Slides
+        </button>
+      </div>
+      <p
+        class="output-format-hint"
+        id="outputFormatHint"
+        style="
+          font-size: 11px;
+          color: rgba(255, 255, 255, 0.4);
+          margin: 4px 0 0;
+          display: none;
+        "
+      >
+        Plan will open directly in your Google Drive (requires Google
+        integration)
+      </p>
+    </div>
+
     <div class="btn-row">
       <button class="btn btn-secondary" onclick="prevStep()">
         &#8592; Back
@@ -2557,6 +2620,7 @@
         style="width: 100%"
       >
         <span
+          id="generateBtnLabel"
           style="
             display: flex;
             align-items: center;
@@ -2566,7 +2630,9 @@
         >
           <span>&#128640;</span>
           <span>Generate Media Plan</span>
-          <span style="font-size: 11px; opacity: 0.8; margin-left: 4px"
+          <span
+            class="generate-format-hint"
+            style="font-size: 11px; opacity: 0.8; margin-left: 4px"
             >(Excel + PPT)</span
           >
         </span>
@@ -2644,6 +2710,24 @@
       &times;
     </button>
     <h3>Compare Saved Plans</h3>
+    <div class="plan-compare-source-toggle" id="planCompareSourceToggle">
+      <button
+        type="button"
+        class="plan-compare-source-btn active"
+        data-source="local"
+        onclick="switchCompareSource('local')"
+      >
+        Local Plans
+      </button>
+      <button
+        type="button"
+        class="plan-compare-source-btn"
+        data-source="cloud"
+        onclick="switchCompareSource('cloud')"
+      >
+        Cloud Plans
+      </button>
+    </div>
     <div id="planCompareBody"></div>
   </div>
 </div>

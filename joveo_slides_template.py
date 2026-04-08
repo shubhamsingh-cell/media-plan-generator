@@ -248,7 +248,12 @@ def _footer_requests(slide_id: str) -> list[dict]:
     """Add Joveo footer (copyright text) to a slide."""
     fid = _uid()
     reqs = _text_box(slide_id, fid, 0.4, 6.9, 4.0, 0.4)
-    reqs.append(_insert_text(fid, "\u00a9 2026 Joveo, Inc. All Rights Reserved"))
+    reqs.append(
+        _insert_text(
+            fid,
+            "Created by Shubham Singh Chandel  ||  Powered by Joveo\u2019s Global Supply Team",
+        )
+    )
     reqs.append(_style_text(fid, size=8, color=PORT_GORE))
     return reqs
 
@@ -1246,7 +1251,7 @@ def _slide_thank_you(data: dict) -> tuple[str, list[dict]]:
 
 
 def build_joveo_slides(data: dict, presentation: dict) -> list[dict]:
-    """Build all 15 Joveo-branded slides as batchUpdate requests.
+    """Build 8 Joveo-branded slides as batchUpdate requests (executive pitch deck).
 
     Args:
         data: Media plan data dict with channels, budget, roles, etc.
@@ -1262,23 +1267,18 @@ def build_joveo_slides(data: dict, presentation: dict) -> list[dict]:
     if slides:
         requests_list.append({"deleteObject": {"objectId": slides[0]["objectId"]}})
 
-    # Build all 15 slides in order
+    # S48: Capped at 8 slides for executive pitch deck
+    # (methodology, campaign_mgmt, push_pull, benchmarking_2,
+    #  targeting, omnichannel, reporting moved to Excel)
     builders = [
-        _slide_title,
-        _slide_methodology,
-        _slide_campaign_mgmt,
-        _slide_requirements,
-        _slide_push_pull,
-        _slide_benchmarking_1,
-        _slide_benchmarking_2,
-        _slide_targeting,
-        _slide_media_plan_table,
-        _slide_scenario_planner,
-        _slide_omnichannel,
-        _slide_monitoring,
-        _slide_ad_platform_analysis,  # NEW slide
-        _slide_reporting,
-        _slide_thank_you,
+        _slide_title,  # 1. Cover
+        _slide_requirements,  # 2. Executive Summary
+        _slide_media_plan_table,  # 3. Channel Strategy
+        _slide_benchmarking_1,  # 4. Budget / ROI
+        _slide_ad_platform_analysis,  # 5. Competitive Landscape
+        _slide_scenario_planner,  # 6. Implementation Timeline
+        _slide_monitoring,  # 7. Risk / Confidence
+        _slide_thank_you,  # 8. Data Sources / Close
     ]
 
     for builder in builders:

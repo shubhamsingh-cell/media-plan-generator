@@ -6,9 +6,35 @@ radio stations, competitors, and career events by location and industry.
 
 from __future__ import annotations
 
+import logging
 import re
 import json
 import os
+
+logger = logging.getLogger(__name__)
+
+# ── International benchmarks (38 countries) -- loaded once at module level ──
+_intl_benchmarks_cache: dict | None = None
+
+
+def _load_intl_benchmarks() -> dict:
+    """Load international_benchmarks_2026.json once, cache in module global."""
+    global _intl_benchmarks_cache
+    if _intl_benchmarks_cache is not None:
+        return _intl_benchmarks_cache
+    _path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "data",
+        "international_benchmarks_2026.json",
+    )
+    try:
+        with open(_path, "r", encoding="utf-8") as fh:
+            _intl_benchmarks_cache = json.load(fh)
+    except (FileNotFoundError, json.JSONDecodeError) as exc:
+        logger.error("Failed to load intl benchmarks: %s", exc, exc_info=True)
+        _intl_benchmarks_cache = {}
+    return _intl_benchmarks_cache
+
 
 # ── Canonical taxonomy standardizer ──
 # Used to normalize country/location lookups via a single source of truth.
@@ -4556,7 +4582,7 @@ def get_location_info(location_str):
     country = _detect_country(location_str)
     if country and country != "United States":
         cd = COUNTRY_DATA[country]
-        return {
+        info = {
             "location": location_str,
             "state": None,
             "country": country,
@@ -4571,6 +4597,44 @@ def get_location_info(location_str):
             "top_boards": cd.get("top_boards") or "",
             "is_international": True,
         }
+        # Enrich with international benchmarks (38-country dataset)
+        try:
+            intl = _load_intl_benchmarks()
+            countries = intl.get("countries", {})
+            # Match by country name -> key (e.g. "India" -> "india")
+            _country_lower = country.lower().replace(" ", "_")
+            _matched = None
+            for _ck, _cv in countries.items():
+                _cname = (_cv.get("name") or "").lower()
+                if _ck == _country_lower or _cname == country.lower():
+                    _matched = _cv
+                    break
+            if _matched:
+                info["intl_market_size"] = _matched.get("market_size", {})
+                info["intl_platforms"] = _matched.get("platforms", [])
+                info["intl_cph_by_tier"] = _matched.get("cph_by_tier", {})
+                info["intl_regulatory"] = _matched.get("regulatory", {})
+                info["intl_seasonal_patterns"] = _matched.get("seasonal_patterns", {})
+                # Extract CPC range from top platforms (USD)
+                _cpc_vals = []
+                for _p in (_matched.get("platforms") or [])[:5]:
+                    _cpc_usd = _p.get("cpc_usd", {})
+                    if isinstance(_cpc_usd, dict) and _cpc_usd.get("median"):
+                        _cpc_vals.append(_cpc_usd["median"])
+                if _cpc_vals:
+                    info["intl_cpc_range_usd"] = {
+                        "min": round(min(_cpc_vals), 2),
+                        "max": round(max(_cpc_vals), 2),
+                        "median": round(sum(_cpc_vals) / len(_cpc_vals), 2),
+                    }
+        except Exception as _intl_err:
+            logger.error(
+                "Intl benchmark enrichment failed for %s: %s",
+                country,
+                _intl_err,
+                exc_info=True,
+            )
+        return info
 
     # US location handling
     state = _extract_state(location_str)

@@ -2259,6 +2259,10 @@ body:not(.no-transitions) .aurora-bg {
     min-width: 0;
     flex: 1;
   }
+  /* Issue 19: Hide keyboard shortcut indicator on mobile breadcrumb */
+  .topbar-search-kbd {
+    display: none;
+  }
   .dashboard-home {
     padding: 20px 16px;
   }

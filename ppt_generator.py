@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-Nova AI Suite branded PowerPoint generator for AI Media Planner.
+Joveo-branded PowerPoint generator for AI Media Planner.
 
-Generates a polished, data-driven 7-slide .pptx presentation using python-pptx.
-Uses brand identity: Port Gore navy (#202058), Blue Violet purple (#5A54BD),
-Downy teal (#6BB3CD), Tapestry pink (#B5669C), Raw Sienna bronze (#CE9047).
-Fonts: Poppins (titles) / Inter (body). Incorporates hero stats, section dividers,
-quality outcomes grids, channel attribution diagrams, and comparison panels.
+Generates a polished, data-driven .pptx presentation using python-pptx.
+Uses Joveo brand identity: Port Gore navy (#202058), Blue Violet purple (#5A54BD),
+Downy teal (#6BB3CD), Light Purple (#8B85E0), Light Teal (#A8D8EA), Gold (#FFD700).
+Fonts: Calibri (titles & body, widely available). Incorporates hero stats, section
+dividers, quality outcomes grids, channel attribution diagrams, and comparison panels.
 
 Note: This module does not directly import data_orchestrator.py. It receives
 orchestrated/enriched data transitively via app.py, which calls the orchestrator
@@ -65,18 +65,18 @@ except ImportError:
 
 
 # ---------------------------------------------------------------------------
-# Chart color palette (hex strings for matplotlib, matching Nova brand)
+# Chart color palette (hex strings for matplotlib, matching Joveo brand)
 # ---------------------------------------------------------------------------
 _CHART_COLORS = [
-    "#5A54BD",  # Blue Violet
-    "#6BB3CD",  # Downy Teal
-    "#CE9047",  # Raw Sienna Bronze
-    "#B5669C",  # Tapestry Pink
-    "#338721",  # Green
+    "#5A54BD",  # Blue Violet (Joveo primary accent)
+    "#6BB3CD",  # Downy Teal (Joveo secondary accent)
+    "#8B85E0",  # Light Purple (Joveo extended)
+    "#A8D8EA",  # Light Teal (Joveo extended)
+    "#FFD700",  # Gold (emphasis)
     "#202058",  # Port Gore Navy
-    "#8B5CF6",  # Purple accent
-    "#F59E0B",  # Amber accent
-    "#EC4899",  # Pink accent
+    "#CE9047",  # Bronze accent
+    "#338721",  # Green (positive)
+    "#B5669C",  # Pink accent
     "#14B8A6",  # Teal accent
 ]
 
@@ -323,44 +323,53 @@ def _proper_client_name(name: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Constants & Color Palette (Nova AI Suite brand identity)
-# Primary: Port Gore navy #202058  |  Secondary: Blue Violet #5A54BD
-# Accents: Teal #6BB3CD  |  Pink #B5669C  |  Bronze #CE9047
+# Constants & Color Palette (Joveo brand identity)
+# Primary: Port Gore #202058  |  Accent: Blue Violet #5A54BD
+# Secondary: Downy Teal #6BB3CD  |  Extended: Light Purple #8B85E0
+# Extended: Light Teal #A8D8EA  |  Emphasis: Gold #FFD700
 # ---------------------------------------------------------------------------
 
+# -- Joveo brand primaries --
 NAVY = RGBColor(0x20, 0x20, 0x58)  # Port Gore -- primary dark / headings
 BLUE = RGBColor(0x5A, 0x54, 0xBD)  # Blue Violet -- primary accent
 MEDIUM_BLUE = RGBColor(0x48, 0x43, 0x9E)  # Deeper purple accent
 LIGHT_BLUE = RGBColor(0xDD, 0xDB, 0xFF)  # Light purple background
 PALE_BLUE = RGBColor(0xB8, 0xB4, 0xF7)  # Medium purple accent fill
-SKY_BLUE = RGBColor(0xB3, 0xE0, 0xF0)  # Light blue (chart elements)
+SKY_BLUE = RGBColor(0xA8, 0xD8, 0xEA)  # Light teal (Joveo extended)
 
-TEAL = RGBColor(0x6B, 0xB3, 0xCD)  # Downy teal -- primary chart accent
-LIGHT_TEAL = RGBColor(0xB3, 0xE0, 0xF0)  # Light blue-teal
+# -- Joveo secondary --
+TEAL = RGBColor(0x6B, 0xB3, 0xCD)  # Downy Teal -- secondary accent
+LIGHT_TEAL = RGBColor(0xA8, 0xD8, 0xEA)  # Light teal (Joveo extended)
 PALE_TEAL = RGBColor(0xDA, 0xF5, 0xFF)  # Pale teal background
 
+# -- Neutrals --
 WHITE = RGBColor(0xFF, 0xFF, 0xFF)
 OFF_WHITE = RGBColor(0xFF, 0xFD, 0xF9)  # Floral White (page bg)
 WARM_WHITE = RGBColor(0xFF, 0xFD, 0xF9)  # Card backgrounds
 WARM_GRAY = RGBColor(0xEB, 0xE6, 0xE0)  # Borders, dividers
 MEDIUM_GRAY = RGBColor(0xD6, 0xCF, 0xC2)  # Subtle separators
 
+# -- Text colors --
 DARK_TEXT = RGBColor(0x20, 0x20, 0x58)  # Port Gore for body text
 MUTED_TEXT = RGBColor(0x59, 0x67, 0x80)  # Secondary text
 LIGHT_MUTED = RGBColor(0x8C, 0x96, 0xA8)  # Tertiary text
 
+# -- Semantic colors --
 GREEN = RGBColor(0x33, 0x87, 0x21)  # Positive / beating benchmark
 LIGHT_GREEN = RGBColor(0xE6, 0xF2, 0xE0)  # Green background
 AMBER = RGBColor(0xCE, 0x90, 0x47)  # Bronze -- trailing benchmark
 LIGHT_AMBER = RGBColor(0xFD, 0xDB, 0xB2)  # Light bronze background
 RED_ACCENT = RGBColor(0xB5, 0x66, 0x9C)  # Pink -- underperformance accent
+GOLD = RGBColor(0xFF, 0xD7, 0x00)  # Gold -- emphasis / highlights
 
-# Extended palette (used in specific places)
+# -- Joveo extended palette --
+JOVEO_LIGHT_PURPLE = RGBColor(0x8B, 0x85, 0xE0)  # Light purple accent
 JOVEO_BRONZE = RGBColor(0xCE, 0x90, 0x47)  # Bronze accent / CTAs
 JOVEO_PINK = RGBColor(0xB5, 0x66, 0x9C)  # Pink / magenta accent
 
-FONT_FAMILY = "Poppins"  # Brand title font
-FONT_BODY = "Inter"  # Brand body font
+# -- Fonts (Calibri: widely available, clean sans-serif) --
+FONT_FAMILY = "Calibri"  # Brand title font
+FONT_BODY = "Calibri"  # Brand body font
 
 # Slide dimensions (16:9 widescreen)
 SLIDE_WIDTH = Inches(13.333)
@@ -1762,19 +1771,32 @@ def _channel_categories_grouped(channels: Dict) -> Dict[str, List[Dict]]:
 
 
 def _add_footer(slide, today: str):
-    """Add the standard footer bar to a slide."""
+    """Add the standard Joveo-branded footer bar to a slide."""
     footer_top = Inches(6.95)
     _add_filled_rect(slide, Inches(0), footer_top, SLIDE_WIDTH, Inches(0.03), NAVY)
+    # Left-aligned date
     _add_textbox(
         slide,
         Inches(0.55),
         footer_top + Inches(0.08),
-        Inches(12.2),
+        Inches(4),
         Inches(0.3),
-        text=f"Powered by Nova AI Suite  |  AI Media Planner  |  {today}",
+        text=today,
         font_size=7,
         color=MUTED_TEXT,
-        alignment=PP_ALIGN.CENTER,
+        alignment=PP_ALIGN.LEFT,
+    )
+    # Right-aligned Joveo branding in Downy Teal
+    _add_textbox(
+        slide,
+        Inches(8.5),
+        footer_top + Inches(0.08),
+        Inches(4.5),
+        Inches(0.3),
+        text="Created by Shubham Singh Chandel  ||  Powered by Joveo's Global Supply Team",
+        font_size=7,
+        color=TEAL,
+        alignment=PP_ALIGN.RIGHT,
     )
 
 
@@ -1802,7 +1824,7 @@ def _add_top_band(slide, left_text: str, right_text: str, band_color=NAVY):
         text=right_text,
         font_size=12,
         bold=False,
-        color=RGBColor(0xA0, 0xB0, 0xCC),
+        color=RGBColor(0xA8, 0xD8, 0xEA),  # Light Teal (Joveo extended)
         alignment=PP_ALIGN.RIGHT,
     )
     return band_h
@@ -1948,8 +1970,8 @@ def _build_slide_cover(prs: Presentation, data: Dict):
     # Teal accent bar at top
     _add_filled_rect(slide, Inches(0), Inches(0), SLIDE_WIDTH, Inches(0.06), TEAL)
 
-    # Decorative teal accent shapes - left side
-    _add_filled_rect(slide, Inches(0.6), Inches(1.8), Inches(1.2), Inches(0.05), TEAL)
+    # Decorative Blue Violet accent bar - left side
+    _add_filled_rect(slide, Inches(0.6), Inches(1.8), Inches(1.2), Inches(0.05), BLUE)
 
     # Logo top-left (PNG, ~0.5" tall)
     _logo_path = os.path.join(os.path.dirname(__file__), "assets", "joveo-logo.png")
@@ -1961,7 +1983,7 @@ def _build_slide_cover(prs: Presentation, data: Dict):
         except Exception:
             pass  # Graceful fallback -- text label below still shows
 
-    # "AI MEDIA PLANNER" small label top-left (below logo)
+    # "AI MEDIA PLANNER" small label top-left (below logo) in Downy Teal
     _add_textbox(
         slide,
         Inches(0.6),
@@ -1971,7 +1993,7 @@ def _build_slide_cover(prs: Presentation, data: Dict):
         text="AI MEDIA PLANNER",
         font_size=14,
         bold=True,
-        color=TEAL,
+        color=TEAL,  # Downy Teal branding
     )
 
     # Main title - client name large
@@ -2000,7 +2022,7 @@ def _build_slide_cover(prs: Presentation, data: Dict):
         color=LIGHT_TEAL,
     )
 
-    # Industry subtitle
+    # Industry subtitle in light teal
     if industry_label:
         _add_textbox(
             slide,
@@ -2011,7 +2033,7 @@ def _build_slide_cover(prs: Presentation, data: Dict):
             text=industry_label,
             font_size=20,
             bold=False,
-            color=LIGHT_BLUE,
+            color=LIGHT_TEAL,  # Joveo Light Teal
         )
 
     # Company tagline from enrichment data (Wikipedia description)
@@ -2037,8 +2059,8 @@ def _build_slide_cover(prs: Presentation, data: Dict):
             color=LIGHT_MUTED,
         )
 
-    # Teal accent line under title area
-    _add_filled_rect(slide, Inches(0.6), Inches(5.0), Inches(3.0), Inches(0.05), TEAL)
+    # Blue Violet accent line under title area
+    _add_filled_rect(slide, Inches(0.6), Inches(5.0), Inches(3.0), Inches(0.05), BLUE)
 
     # Date and branding at bottom
     _add_textbox(
@@ -2057,10 +2079,10 @@ def _build_slide_cover(prs: Presentation, data: Dict):
         Inches(5.8),
         Inches(6),
         Inches(0.4),
-        text="Powered by Nova AI Suite",
+        text="Created by Shubham Singh Chandel  ||  Powered by Joveo's Global Supply Team",
         font_size=11,
         italic=True,
-        color=LIGHT_MUTED,
+        color=TEAL,  # Downy Teal for branding
     )
 
     # Right-side decorative element: large subtle circle
@@ -2073,17 +2095,17 @@ def _build_slide_cover(prs: Presentation, data: Dict):
         circle_size,
         MEDIUM_BLUE,
     )
-    # Make it semi-transparent via alpha adjustment on fill (purple tone)
-    circle.fill.fore_color.rgb = RGBColor(0x30, 0x2C, 0x78)
+    # Semi-transparent Blue Violet tone for decorative circle
+    circle.fill.fore_color.rgb = RGBColor(0x3A, 0x36, 0x7E)  # Muted Blue Violet
 
-    # Smaller overlapping accent circle (teal tone)
+    # Smaller overlapping accent circle (muted Downy Teal tone)
     _add_oval(
         slide,
         SLIDE_WIDTH - Inches(1.5),
         Inches(3.5),
         Inches(2.5),
         Inches(2.5),
-        RGBColor(0x3A, 0x6E, 0x80),
+        RGBColor(0x45, 0x7A, 0x8A),  # Muted Downy Teal
     )
 
     # Bottom teal bar
@@ -4165,6 +4187,113 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
 
     # Footer
     _add_footer(slide, today)
+
+
+def _embed_pie_chart_on_budget_slide(prs: Presentation, data: Dict) -> None:
+    """Embed a small budget pie chart onto the last slide (budget allocation).
+
+    S48: Instead of a separate pie chart slide, this places a compact
+    pie chart image in the bottom-right area of the budget allocation slide.
+    Called immediately after _build_slide_budget_allocation in generate_pptx.
+    """
+    if not prs.slides or len(prs.slides) == 0:
+        return
+
+    channels = _selected_channels(data)
+    if not channels:
+        return
+
+    budget_alloc = data.get("_budget_allocation", {})
+    ba_channel_alloc = (
+        budget_alloc.get("channel_allocations", {})
+        if isinstance(budget_alloc, dict)
+        else {}
+    )
+
+    labels: List[str] = []
+    sizes: List[float] = []
+
+    for ch_key, ch_data in channels.items():
+        label = ch_data.get("label", ch_key.replace("_", " ").title())
+        pct = ch_data.get("pct") or 0
+
+        ba_match = ba_channel_alloc.get(ch_key)
+        if not ba_match:
+            ch_label_lower = (ch_data.get("label") or "").lower()
+            for ba_key, ba_val in ba_channel_alloc.items():
+                if isinstance(ba_val, dict):
+                    ba_label = ba_val.get("label", ba_key).lower()
+                    if ba_label == ch_label_lower or ba_key.lower() == ch_key.lower():
+                        ba_match = ba_val
+                        break
+        if ba_match and isinstance(ba_match, dict):
+            real_pct = ba_match.get("percentage") or 0
+            if real_pct > 0:
+                pct = round(real_pct)
+
+        if pct > 0:
+            labels.append(label)
+            sizes.append(pct)
+
+    if not labels:
+        return
+
+    # Generate a compact pie chart (smaller than the standalone version)
+    try:
+        fig, ax = plt.subplots(figsize=(3.5, 2.8), dpi=150)
+        fig.patch.set_facecolor("#FFFDF9")
+
+        colors = _CHART_COLORS[: len(labels)]
+        while len(colors) < len(labels):
+            colors.append(_CHART_COLORS[len(colors) % len(_CHART_COLORS)])
+
+        wedges, texts, autotexts = ax.pie(
+            sizes,
+            labels=None,
+            autopct=lambda pct: f"{pct:.0f}%" if pct >= 5 else "",
+            startangle=90,
+            colors=colors,
+            pctdistance=0.75,
+            wedgeprops={"linewidth": 1, "edgecolor": "white"},
+        )
+
+        for autotext in autotexts:
+            autotext.set_fontsize(7)
+            autotext.set_fontweight("bold")
+            autotext.set_color("white")
+
+        legend_labels = [f"{lbl} ({sz:.0f}%)" for lbl, sz in zip(labels, sizes)]
+        ax.legend(
+            wedges,
+            legend_labels,
+            loc="center left",
+            bbox_to_anchor=(1.0, 0.5),
+            fontsize=6,
+            frameon=False,
+        )
+
+        plt.tight_layout()
+        buf = io.BytesIO()
+        fig.savefig(
+            buf, format="png", bbox_inches="tight", facecolor=fig.get_facecolor()
+        )
+        plt.close(fig)
+        buf.seek(0)
+        chart_bytes = buf.getvalue()
+    except Exception as exc:
+        logger.warning("Embedded pie chart generation failed: %s", exc)
+        return
+
+    # Place the chart on the last slide (budget allocation) -- bottom-right
+    budget_slide = prs.slides[len(prs.slides) - 1]
+    chart_stream = io.BytesIO(chart_bytes)
+    budget_slide.shapes.add_picture(
+        chart_stream,
+        Inches(8.8),  # right side
+        Inches(5.5),  # below table rows, above footer
+        Inches(4.2),  # width
+        Inches(1.9),  # height
+    )
 
 
 # ===================================================================
@@ -8565,12 +8694,9 @@ def generate_pptx(data: Dict[str, Any]) -> bytes:
         prs.slide_width = SLIDE_WIDTH
         prs.slide_height = SLIDE_HEIGHT
 
-        # ── 5-Slide Structure (v3: condensed for executive impact) ──
-        # Old 11-slide deck compressed to 5 high-density slides.
-        # All _build_slide_* functions preserved for backward compatibility
-        # and can be re-enabled via data["_ppt_extended"] = True.
-
-        extended = data.get("_ppt_extended", False)
+        # S48: Capped at 8 slides for executive pitch deck. Extended analysis lives in Excel.
+        # Slide order: Cover, Exec Summary, Channel Strategy, Budget+Pie,
+        #              Competitive Landscape, Timeline, Risk, Data Sources.
 
         # Slide 1: Premium cover / section divider
         _build_slide_cover(prs, data)
@@ -8602,22 +8728,8 @@ def generate_pptx(data: Dict[str, Any]) -> bytes:
         # Slide 3: Channel Strategy with benchmarks + attribution
         _build_slide_channel_strategy(prs, data)
 
-        # Slide 3b: Creative Testing Plan (A/B test recommendations)
-        _build_slide_creative_testing(prs, data)
-
-        if extended:
-            # Extended mode: include deeper analysis slides
-            _build_slide_market_analysis(prs, data)
-            _build_slide_location_analysis(prs, data)
-            _build_slide_competitive_landscape(prs, data)
-            _build_slide_workforce_trends(prs, data)
-
-        # Geopolitical Risk slide (shown when risk_level is not "low")
-        _geo = (data.get("_synthesized") or {}).get("geopolitical_context", {})
-        if isinstance(_geo, dict) and _geo.get("risk_level", "low") != "low":
-            _build_slide_geopolitical_risk(prs, data)
-
-        # Slide 4: Budget Allocation & ROI (or Quality Outcomes if no budget)
+        # Slide 4: Budget Allocation & ROI with embedded pie chart
+        #          (or Quality Outcomes as fallback when budget_allocation is empty)
         budget_alloc_data = data.get("_budget_allocation", {})
         if isinstance(budget_alloc_data, dict) and budget_alloc_data:
             _ba_has_data = (
@@ -8628,41 +8740,29 @@ def generate_pptx(data: Dict[str, Any]) -> bytes:
             )
             if _ba_has_data:
                 _build_slide_budget_allocation(prs, data)
+                # Embed pie chart onto the budget allocation slide (right side)
+                if _HAS_MATPLOTLIB:
+                    try:
+                        _embed_pie_chart_on_budget_slide(prs, data)
+                    except Exception as _pie_exc:
+                        logger.debug(
+                            "Embedded pie chart failed (non-fatal): %s", _pie_exc
+                        )
             else:
                 _build_slide_quality_outcomes(prs, data)
         else:
             _build_slide_quality_outcomes(prs, data)
 
-        # Chart Slides: Budget Pie Chart + Conversion Funnel
-        # Added as visual data slides between budget allocation and timeline.
-        if _HAS_MATPLOTLIB:
-            try:
-                _build_slide_budget_pie_chart(prs, data)
-            except Exception as _chart_exc:
-                logger.debug(
-                    "Budget pie chart slide failed (non-fatal): %s", _chart_exc
-                )
+        # Slide 5: Competitive Landscape (always shown)
+        _build_slide_competitive_landscape(prs, data)
 
-            try:
-                _build_slide_conversion_funnel(prs, data)
-            except Exception as _funnel_exc:
-                logger.debug(
-                    "Conversion funnel slide failed (non-fatal): %s", _funnel_exc
-                )
-
-        # Slide 5: Implementation Timeline + Competitive Context
+        # Slide 6: Implementation Timeline + Competitive Context
         _build_slide_comparison_timeline(prs, data)
 
-        # Gold Standard slides (Market Intelligence, Strategy, Timeline)
-        # Only added when _gold_standard data exists; each slide is
-        # individually wrapped in try/except inside the builder.
-        if data.get("_gold_standard"):
-            _build_slides_gold_standard(prs, data)
-
-        # Risk Analysis slide -- always included for C-suite readiness
+        # Slide 7: Risk Analysis -- always included for C-suite readiness
         _build_slide_risk_analysis(prs, data)
 
-        # Final Slide: Data Sources & Methodology
+        # Slide 8: Data Sources & Methodology
         _build_slide_data_sources(prs, data)
 
         buffer = io.BytesIO()

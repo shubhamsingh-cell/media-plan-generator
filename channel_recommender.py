@@ -6,11 +6,79 @@ budget constraints, and location factors into tiered recommendations with projec
 
 from __future__ import annotations
 
+import json
 import logging
 import math
+import os
 from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
+
+# ── International benchmarks (38 countries) -- loaded once at module level ──
+_intl_benchmarks_cache: Optional[Dict] = None
+
+
+def _load_intl_benchmarks() -> Dict:
+    """Load international_benchmarks_2026.json once, cache in module global."""
+    global _intl_benchmarks_cache
+    if _intl_benchmarks_cache is not None:
+        return _intl_benchmarks_cache
+    _path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "data",
+        "international_benchmarks_2026.json",
+    )
+    try:
+        with open(_path, "r", encoding="utf-8") as fh:
+            _intl_benchmarks_cache = json.load(fh)
+    except (FileNotFoundError, json.JSONDecodeError) as exc:
+        logger.error("Failed to load intl benchmarks: %s", exc, exc_info=True)
+        _intl_benchmarks_cache = {}
+    return _intl_benchmarks_cache
+
+
+def _get_intl_local_platforms(locations: List[str]) -> List[Dict[str, Any]]:
+    """Extract local platform recommendations from intl benchmarks for given locations.
+
+    Returns a list of dicts with keys: name, country, cpc_usd, cpa_usd, apply_rate_pct, notes.
+    """
+    intl = _load_intl_benchmarks()
+    countries = intl.get("countries", {})
+    results: List[Dict[str, Any]] = []
+    _seen: set = set()
+    for loc in locations:
+        loc_lower = (loc or "").lower().strip()
+        for _ck, _cv in countries.items():
+            _cname = (_cv.get("name") or "").lower()
+            if _ck in loc_lower or _cname in loc_lower or loc_lower in _cname:
+                for p in (_cv.get("platforms") or [])[:3]:
+                    _pname = p.get("name", "")
+                    if _pname and _pname not in _seen:
+                        _seen.add(_pname)
+                        _cpc = p.get("cpc_usd", {})
+                        _cpa = p.get("cpa_usd", {})
+                        results.append(
+                            {
+                                "name": _pname,
+                                "country": _cv.get("name", _ck),
+                                "cpc_usd": (
+                                    _cpc.get("median", 0)
+                                    if isinstance(_cpc, dict)
+                                    else 0
+                                ),
+                                "cpa_usd": (
+                                    _cpa.get("median", 0)
+                                    if isinstance(_cpa, dict)
+                                    else 0
+                                ),
+                                "apply_rate_pct": p.get("apply_rate_pct", 0),
+                                "notes": p.get("notes", ""),
+                                "type": p.get("type", "job_board"),
+                            }
+                        )
+                break
+    return results
+
 
 # Imports from existing modules (fail-safe)
 
@@ -436,7 +504,17 @@ def recommend_channels(
         f"~{total_hires:,} hires at ${avg_cpa:,.2f} avg CPA."
     )
 
-    return {
+    # ── International local platform recommendations ──
+    intl_local_platforms: List[Dict[str, Any]] = []
+    if locs:
+        try:
+            intl_local_platforms = _get_intl_local_platforms(locs)
+        except Exception as _intl_err:
+            logger.error(
+                "Failed to get intl local platforms: %s", _intl_err, exc_info=True
+            )
+
+    result: Dict[str, Any] = {
         "must_have": must_have,
         "should_have": should_have,
         "test_and_learn": test_and_learn,
@@ -456,6 +534,13 @@ def recommend_channels(
             "avg_cpa": avg_cpa,
         },
     }
+    if intl_local_platforms:
+        result["intl_local_platforms"] = intl_local_platforms
+        result["summary"] += (
+            f" Additionally, {len(intl_local_platforms)} local platform(s) recommended "
+            f"for international markets: {', '.join(p['name'] for p in intl_local_platforms[:5])}."
+        )
+    return result
 
 
 def format_recommendation_text(rec: Dict[str, Any]) -> str:

@@ -131,15 +131,18 @@ a:hover {
 .sidebar-brand-icon {
   width: 40px;
   height: 40px;
-  border-radius: var(--radius-sm);
-  background: linear-gradient(135deg, var(--accent-purple), var(--accent-teal));
+  border-radius: 50%;
+  background: transparent;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 700;
-  font-size: 16px;
-  color: #fff;
   flex-shrink: 0;
+  overflow: hidden;
+}
+.sidebar-brand-icon svg {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 .sidebar-brand-text {
   font-family: var(--font-display, "Space Grotesk", sans-serif);
@@ -758,28 +761,15 @@ a:hover {
   margin-top: 2px;
 }
 .message-avatar.nova {
-  background: linear-gradient(135deg, #202058 0%, #5a54bd 50%, #6bb3cd 100%);
-  color: #fff;
-  font-family: "Inter", sans-serif;
-  letter-spacing: -0.5px;
-  font-size: 14px;
+  background: transparent;
   box-shadow: 0 2px 8px rgba(90, 84, 189, 0.3);
-  position: relative;
+  padding: 0;
   overflow: hidden;
 }
-.message-avatar.nova::after {
-  content: "";
-  position: absolute;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: radial-gradient(
-    circle at 30% 30%,
-    rgba(107, 179, 205, 0.3) 0%,
-    transparent 60%
-  );
-  pointer-events: none;
+.message-avatar.nova svg {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 .message-avatar.user {
   background: var(--accent-purple);

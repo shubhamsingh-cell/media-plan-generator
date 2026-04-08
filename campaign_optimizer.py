@@ -69,15 +69,33 @@ _CH = {
     "niche_boards": ("Niche & Industry Boards", "niche_board", 2.00, 0.10),
 }
 
-# Platform safety margins for CPH/CPA projections (from budget_engine.py)
-_MARGINS = {
-    "programmatic": 1.35,
-    "social": 1.20,
-    "job_board": 1.10,
-    "search": 1.15,
-    "niche_board": 1.10,
-    "employer_branding": 1.10,
+# S48: Platform-differentiated safety margins for CPH/CPA projections.
+# Keyed by channel key first (platform-specific), then falls back to category.
+_PLATFORM_MARGINS = {
+    "indeed": 1.20,  # high data quality
+    "linkedin": 1.20,  # high data quality
+    "ziprecruiter": 1.20,  # high data quality
+    "glassdoor": 1.20,  # high data quality
+    "google_search": 1.25,  # moderate variability
+    "meta_facebook": 1.45,  # high variability (social)
+    "programmatic": 1.30,  # moderate variability
+    "niche_boards": 1.40,  # less data
 }
+# Category-level fallback margins
+_MARGINS = {
+    "job_board": 1.20,
+    "social": 1.45,
+    "programmatic": 1.30,
+    "search": 1.25,
+    "niche_board": 1.40,
+    "employer_branding": 1.20,
+}
+
+
+def _get_margin(ch_key: str, category: str) -> float:
+    """Return safety margin: platform-specific first, then category fallback."""
+    return _PLATFORM_MARGINS.get(ch_key, _MARGINS.get(category, 1.0))
+
 
 # Collar-to-channel fit scores -- imported from quick_plan.py (single source of truth)
 from quick_plan import _COLLAR_CHANNEL_FIT as _FIT
@@ -297,7 +315,7 @@ def _compute_allocations(
         clicks = int(_safe_div(ch_bud, adj_cpc))
         applies = int(clicks * ar)
         hires = max(0, int(applies * hire_rate))
-        margin = _MARGINS.get(cat, 1.0)
+        margin = _get_margin(ch_key, cat)
 
         alloc[ch_key] = {
             "label": label,

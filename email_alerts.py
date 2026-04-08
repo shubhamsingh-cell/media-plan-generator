@@ -671,6 +671,45 @@ def send_daily_digest(stats: Dict[str, Any]) -> None:
         _record_send()
 
 
+def send_deploy_alert(subject: str, body: str) -> None:
+    """Send a deploy-related alert email.
+
+    Args:
+        subject: Email subject line describing the deploy event.
+        body: Plain-text or HTML body with deploy details.
+
+    Intended to be called from the health check endpoint when critical
+    checks fail after a deploy, or from external deploy hooks.
+    Respects rate limiting and the enabled check. No deduplication so
+    each deploy event is reported.
+
+    From: noreply@joveo.com (or configured RESEND_FROM_EMAIL)
+    To: shubhamsingh@Joveo.com (or configured ALERT_EMAIL_TO)
+    """
+    if not _is_enabled():
+        logger.debug("email_alerts: disabled, skipping deploy alert")
+        return
+
+    if not _can_send():
+        return
+
+    html = _build_error_html(
+        title="Deploy Alert",
+        error_type="DeployNotification",
+        error_message=body,
+        context={
+            "Environment": os.environ.get("RENDER_SERVICE_NAME", "local"),
+            "Instance": os.environ.get(
+                "RENDER_INSTANCE_ID", os.environ.get("HOSTNAME", "unknown")
+            ),
+        },
+    )
+
+    prefixed_subject = f"[DEPLOY] {subject}"
+    if _send_email(_TO_EMAIL, prefixed_subject, html):
+        _record_send()
+
+
 def send_custom_alert(subject: str, html_body: str) -> None:
     """Send a generic alert email with custom subject and HTML body.
 

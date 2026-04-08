@@ -343,7 +343,11 @@ class DataMatrixMonitor:
             status = probe_result.get("status", "error")
             if status == "ok":
                 counts["ok"] += 1
-            elif status == "partial":
+            elif status in ("partial", "warning"):
+                # "warning" = degraded but functional (e.g. stale cache,
+                # unreachable Supabase with local fallback, API timeout).
+                # Count as partial (healthy) rather than error to prevent
+                # transient infrastructure issues from tanking the matrix %.
                 counts["partial"] += 1
             else:
                 counts["error"] += 1
@@ -1148,13 +1152,29 @@ class DataMatrixMonitor:
                 "healed": False,
             }
 
+        # Map source keys to actual file names when they differ from the
+        # default convention (<source>.json / enrichment_<source>.json).
+        # This prevents false "file missing" reports that inflate error counts.
+        _file_aliases: Dict[str, List[str]] = {
+            "fred_economic": ["fred_indicators.json"],
+            "adzuna_jobs": ["adzuna_benchmarks.json"],
+            "market_trends": ["market_trends_live.json", "seed_market_trends.json"],
+            "job_posting_volume": ["job_posting_volumes.json"],
+            "job_density": ["job_density_metros.json"],
+            "competitor_analysis": ["competitor_careers.json"],
+            "benchmark_drift_check": ["benchmark_drift_results.json"],
+        }
+
         now = time.time()
         for source, threshold_hours in FRESHNESS_THRESHOLDS.items():
             # Convention: data/<source>.json or data/enrichment_<source>.json
+            # plus any known aliases for renamed files.
             candidates = [
                 DATA_DIR / f"{source}.json",
                 DATA_DIR / f"enrichment_{source}.json",
             ]
+            for alias in _file_aliases.get(source, []):
+                candidates.append(DATA_DIR / alias)
             found = False
             for fpath in candidates:
                 if fpath.exists():

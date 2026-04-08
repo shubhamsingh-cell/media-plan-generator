@@ -22,8 +22,13 @@
     '<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>' +
     '<rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>' +
     "<span>Back to Suite</span>";
+  // On platform page, position below sidebar footer to avoid overlap (Issue 12)
+  var isPlatform = path === "/platform" || path === "/platform/";
+  var bottomPos = isPlatform ? "76px" : "20px";
   btn.style.cssText =
-    "position:fixed;bottom:20px;left:20px;z-index:9990;" +
+    "position:fixed;bottom:" +
+    bottomPos +
+    ";left:20px;z-index:9990;" +
     "display:flex;align-items:center;gap:8px;" +
     "padding:8px 16px;border-radius:10px;" +
     "background:rgba(20,20,40,0.85);backdrop-filter:blur(8px);" +

@@ -341,8 +341,10 @@ def _generate_narrative(
     router = _lazy_llm_router()
     if not router:
         return _narrative_template_fallback(data, product_context)
-    # Force campaign_plan task type for all plan narratives -- routes to Claude Haiku
-    task = task_type or getattr(router, "TASK_CAMPAIGN_PLAN", "campaign_plan")
+    # S48: Use TASK_PLAN_NARRATIVE for prose generation -- routes to Groq (fast,
+    # good narrative quality) instead of funneling through Gemini.  Falls back to
+    # Gemini/Cerebras if Groq is unavailable.
+    task = task_type or getattr(router, "TASK_PLAN_NARRATIVE", "plan_narrative")
     try:
         prompt = (
             f"Based on this data, write a strategic recommendation as if presenting "
@@ -1353,7 +1355,10 @@ def _generate_product_insights(
 
     def _call_llm_sync() -> str:
         """Run LLM call in thread for timeout control."""
-        task_type = getattr(router, "TASK_STRUCTURED", "structured")
+        # S48: Route insights to TASK_INTELLIGENCE_SUMMARY (Gemini Flash Lite)
+        # instead of TASK_STRUCTURED (full Gemini). Insights are short summaries
+        # that don't need the full model.
+        task_type = getattr(router, "TASK_INTELLIGENCE_SUMMARY", "intelligence_summary")
 
         # ── RAG: Retrieve relevant knowledge base context ──
         rag_context = ""
@@ -1701,6 +1706,7 @@ def load_knowledge_base() -> dict:
         "linkedin_performance": "linkedin_performance_benchmarks.json",
         "linkedin_industry_benchmarks": "linkedin_industry_benchmarks.json",
         "craigslist_performance": "craigslist_performance_benchmarks.json",
+        "international_benchmarks": "international_benchmarks_2026.json",
     }
 
     kb = {}
@@ -6038,6 +6044,11 @@ _ALLOWED_ORIGINS = {
     "http://127.0.0.1:10000",
     "http://127.0.0.1:5001",
     "https://media-plan-generator.onrender.com",
+    # S48: Embed widget origins for cross-product CORS
+    "https://cg-automation.onrender.com",
+    "https://geoviz-3d.vercel.app",
+    "https://nova.joveo.com",
+    "https://geoviz.joveo.com",
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -7528,7 +7539,8 @@ def _generate_creative_ads(data: dict) -> dict:
     if not router:
         return {"variants": [], "llm_available": False}
 
-    task_type = getattr(router, "TASK_NARRATIVE", "narrative")
+    # S48: Route ad copy (prose generation) to Groq via TASK_PLAN_NARRATIVE
+    task_type = getattr(router, "TASK_PLAN_NARRATIVE", "plan_narrative")
     prompt = (
         f"Generate 5 recruitment ad copy variants for:\n"
         f"Role: {job_title} at {company}\n"
@@ -7653,7 +7665,8 @@ def _generate_post_campaign_summary(data: dict) -> dict:
     if not router:
         return _post_campaign_template_fallback(data)
 
-    task_type = getattr(router, "TASK_CAMPAIGN_PLAN", "campaign_plan")
+    # S48: Route executive summaries to Groq via TASK_PLAN_NARRATIVE (fast prose)
+    task_type = getattr(router, "TASK_PLAN_NARRATIVE", "plan_narrative")
     prompt = f"Generate an executive summary of this recruitment campaign.\n\n"
     if macro_context_str:
         prompt += macro_context_str
@@ -8980,11 +8993,11 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
         self.send_header(
             "Content-Security-Policy",
             "default-src 'self'; "
-            "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://unpkg.com https://cdn.jsdelivr.net; "
+            "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://unpkg.com https://cdn.jsdelivr.net https://us-assets.i.posthog.com https://us.i.posthog.com; "
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
             "font-src https://fonts.gstatic.com; "
             "img-src 'self' data: blob:; "
-            "connect-src 'self' https://*.supabase.co https://*.sentry.io https://*.posthog.com; "
+            "connect-src 'self' https://*.supabase.co https://*.sentry.io https://*.posthog.com https://us.i.posthog.com; "
             "object-src 'none'; "
             "base-uri 'self'; "
             "form-action 'self';",
@@ -13648,6 +13661,63 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                 jid,
                             )
 
+                        # ── Inject international benchmarks for non-US plans ──
+                        _target_region_for_intl = (
+                            gen_data.get("target_region") or "us_only"
+                        )
+                        if _target_region_for_intl in (
+                            "global",
+                            "emea",
+                            "apac",
+                            "custom",
+                        ):
+                            try:
+                                _kb_intl = load_knowledge_base().get(
+                                    "international_benchmarks", {}
+                                )
+                                if _kb_intl:
+                                    _intl_countries = _kb_intl.get("countries", {})
+                                    _intl_regions = _kb_intl.get("regions", {})
+                                    # Filter to relevant countries for the region
+                                    _relevant_countries: dict = {}
+                                    if _target_region_for_intl == "emea":
+                                        _region_keys = ["emea"]
+                                    elif _target_region_for_intl == "apac":
+                                        _region_keys = ["apac"]
+                                    elif _target_region_for_intl == "custom":
+                                        _region_keys = list(_intl_regions.keys())
+                                    else:  # global
+                                        _region_keys = list(_intl_regions.keys())
+                                    for _rk in _region_keys:
+                                        _rcountries = _intl_regions.get(_rk, {}).get(
+                                            "countries", []
+                                        )
+                                        for _ck in _rcountries:
+                                            if _ck in _intl_countries:
+                                                _relevant_countries[_ck] = (
+                                                    _intl_countries[_ck]
+                                                )
+                                    gen_data["_intl_benchmarks"] = {
+                                        "countries": _relevant_countries,
+                                        "regions": {
+                                            k: v
+                                            for k, v in _intl_regions.items()
+                                            if k in _region_keys
+                                        },
+                                        "source": "international_benchmarks_2026 (38 countries)",
+                                    }
+                                    logger.info(
+                                        "Injected intl benchmarks: %d countries for region=%s",
+                                        len(_relevant_countries),
+                                        _target_region_for_intl,
+                                    )
+                            except Exception as _intl_err:
+                                logger.error(
+                                    "Failed to inject intl benchmarks: %s",
+                                    _intl_err,
+                                    exc_info=True,
+                                )
+
                         # Excel generation -- wrapped in 60s timeout to prevent
                         # indefinite hangs on LLM calls during cold starts
                         _excel_pool = ThreadPoolExecutor(
@@ -13700,10 +13770,13 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                             )
 
                         # PPT generation -- skip if caller only wants Excel
-                        # Accepted output_format values: "excel", "ppt", "all" (default)
+                        # Accepted output_format values: "excel", "ppt", "all", "google" (default: "all")
+                        # "google" behaves like "all" but signals the frontend to show Google links
                         _requested_format = (
                             (gen_data.get("output_format") or "all").lower().strip()
                         )
+                        if _requested_format == "google":
+                            _requested_format = "all"
                         client_name = re.sub(
                             r"_+",
                             "_",  # S27: Collapse multiple underscores
@@ -15034,6 +15107,51 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 )
             except Exception:
                 pass
+
+            # ── Inject international benchmarks for non-US plans (sync path) ──
+            _target_region_sync = data.get("target_region") or "us_only"
+            if _target_region_sync in ("global", "emea", "apac", "custom"):
+                try:
+                    _kb_intl_sync = load_knowledge_base().get(
+                        "international_benchmarks", {}
+                    )
+                    if _kb_intl_sync:
+                        _intl_countries_s = _kb_intl_sync.get("countries", {})
+                        _intl_regions_s = _kb_intl_sync.get("regions", {})
+                        _relevant_countries_s: dict = {}
+                        if _target_region_sync == "emea":
+                            _region_keys_s = ["emea"]
+                        elif _target_region_sync == "apac":
+                            _region_keys_s = ["apac"]
+                        else:
+                            _region_keys_s = list(_intl_regions_s.keys())
+                        for _rk_s in _region_keys_s:
+                            _rc_s = _intl_regions_s.get(_rk_s, {}).get("countries", [])
+                            for _ck_s in _rc_s:
+                                if _ck_s in _intl_countries_s:
+                                    _relevant_countries_s[_ck_s] = _intl_countries_s[
+                                        _ck_s
+                                    ]
+                        data["_intl_benchmarks"] = {
+                            "countries": _relevant_countries_s,
+                            "regions": {
+                                k: v
+                                for k, v in _intl_regions_s.items()
+                                if k in _region_keys_s
+                            },
+                            "source": "international_benchmarks_2026 (38 countries)",
+                        }
+                        logger.info(
+                            "Injected intl benchmarks (sync): %d countries for region=%s",
+                            len(_relevant_countries_s),
+                            _target_region_sync,
+                        )
+                except Exception as _intl_err_s:
+                    logger.error(
+                        "Failed to inject intl benchmarks (sync): %s",
+                        _intl_err_s,
+                        exc_info=True,
+                    )
 
             # ── Excel generation phase (timeout timer already started at request entry) ──
             try:
@@ -16378,6 +16496,45 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             self.send_header("Content-Length", str(len(resp_body)))
             self.end_headers()
             self.wfile.write(resp_body)
+
+        elif path == "/api/chat/title":
+            # ── S48: Update conversation title (client-side smart title sync) ──
+            try:
+                content_len = int(self.headers.get("Content-Length") or 0)
+            except (ValueError, TypeError):
+                content_len = 0
+            body = self.rfile.read(content_len) if content_len > 0 else b""
+            try:
+                data = json.loads(body) if body else {}
+            except json.JSONDecodeError:
+                data = {}
+            conv_id = (data.get("conversation_id") or "").strip()
+            new_title = (data.get("title") or "").strip()
+            if not conv_id or not new_title:
+                self._send_error(
+                    "Required: conversation_id and title",
+                    "VALIDATION_ERROR",
+                    400,
+                )
+                return
+            # Sanitize title (max 100 chars, strip HTML)
+            new_title = re.sub(r"<[^>]+>", "", new_title)[:100]
+            try:
+                from nova_persistence import update_conversation
+
+                update_conversation(conv_id, title=new_title)
+            except ImportError:
+                logger.debug("nova_persistence not available for title update")
+            except Exception as exc:
+                logger.error(
+                    "Failed to update title for %s: %s",
+                    conv_id,
+                    exc,
+                    exc_info=True,
+                )
+            self._send_json(
+                {"status": "ok", "conversation_id": conv_id, "title": new_title}
+            )
 
         elif path == "/api/chat/share":
             # ── Share conversation ──

@@ -1631,18 +1631,53 @@ def compute_channel_dollar_amounts(
             cpa = _safe_divide(dollars, max(projected_applications, 1), dollars)
             cost_per_hire = _safe_divide(dollars, max(projected_hires, 1), dollars)
 
-        # S39/S46: Platform-differentiated safety margins for CPH/CPA
-        # Programmatic: 35% (third-party verification gaps, DSP markup)
-        # Social: 20% (platform attribution gaps, escalating CPA)
-        # Job boards: 10% (transparent pricing, lower risk)
-        _CPH_SAFETY_MARGINS = {
-            "programmatic": 1.35,
-            "social": 1.20,
-            "job_board": 1.10,
-            "search": 1.15,
-            "employer_branding": 1.10,
+        # S39/S46/S48: Platform-differentiated safety margins for CPH/CPA
+        # Margins reflect data quality and variability per platform.
+        # Platform-specific margins override category defaults.
+        _PLATFORM_SAFETY_MARGINS = {
+            # High data quality platforms -> lower margin
+            "indeed": 1.20,
+            "linkedin": 1.20,
+            "ziprecruiter": 1.20,
+            "glassdoor": 1.20,
+            # Moderate variability
+            "programmatic": 1.30,
+            "google": 1.25,
+            "microsoft": 1.25,
+            # Niche boards -> less data
+            "niche": 1.40,
+            "careerbuilder": 1.40,
+            "diversity": 1.40,
+            # Social media -> high variability
+            "meta": 1.45,
+            "facebook": 1.45,
+            "instagram": 1.45,
+            "tiktok": 1.45,
+            "snapchat": 1.45,
+            "twitter": 1.45,
+            # Craigslist -> variable
+            "craigslist": 1.35,
         }
-        _margin = _CPH_SAFETY_MARGINS.get(category, 1.0)
+        # Category-level fallbacks when platform name not matched
+        _CATEGORY_SAFETY_MARGINS = {
+            "job_board": 1.20,  # Indeed/ZipRecruiter level
+            "social": 1.45,  # Meta/TikTok level
+            "programmatic": 1.30,
+            "search": 1.25,
+            "niche_board": 1.40,
+            "display": 1.35,
+            "employer_branding": 1.20,
+            "regional": 1.35,
+        }
+        # Try platform-specific margin first, fall back to category
+        _ch_lower = ch_name.lower() if ch_name else ""
+        _margin = 1.0
+        for _plat_key, _plat_margin in _PLATFORM_SAFETY_MARGINS.items():
+            if _plat_key in _ch_lower:
+                _margin = _plat_margin
+                break
+        if _margin == 1.0:
+            _margin = _CATEGORY_SAFETY_MARGINS.get(category, 1.0)
         if _margin > 1.0:
             cost_per_hire *= _margin
             cpa *= _margin

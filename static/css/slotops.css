@@ -346,6 +346,14 @@ h3 {
   font-weight: 700;
 }
 
+/* ── Tab Label Responsive Helpers ── */
+.tab-btn .tab-label-full {
+  display: inline;
+}
+.tab-btn .tab-label-short {
+  display: none;
+}
+
 /* ── Tab Locked State (Progressive Disclosure) ── */
 .tab-btn.locked {
   opacity: 0.35;
@@ -1937,5 +1945,45 @@ h3 {
   }
   .schedule-grid {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* Issue 8: SlotOps mobile tabs -- abbreviated readable names with scroll */
+  .tab-nav {
+    position: relative;
+    display: flex;
+    gap: 0.125rem;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    white-space: nowrap;
+    scrollbar-width: none;
+    /* Gradient fade on right edge as scroll indicator */
+    mask-image: linear-gradient(to right, #000 85%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, #000 85%, transparent 100%);
+  }
+  .tab-nav::-webkit-scrollbar {
+    display: none;
+  }
+  .tab-btn {
+    padding: 0.625rem 0.75rem;
+    font-size: 0.6875rem;
+    gap: 0.25rem;
+    flex-shrink: 0;
+  }
+  .tab-btn svg {
+    width: 14px;
+    height: 14px;
+  }
+  /* Abbreviate tab labels on small screens: hide full text, show via data-short */
+  .tab-btn .tab-label-full {
+    display: none;
+  }
+  .tab-btn .tab-label-short {
+    display: inline;
+  }
+
+  /* Issue 13: SlotOps mobile chat widget overlaps template link */
+  .upload-card,
+  .tab-panel[id="tab-command"] {
+    padding-bottom: 80px;
   }
 }

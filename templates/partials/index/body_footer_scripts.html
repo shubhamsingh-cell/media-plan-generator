@@ -133,6 +133,68 @@
   })();
 
   // ============================================
+  // Output Format Toggle (Item 17)
+  // ============================================
+  var _selectedOutputFormat = "local";
+  var _googleExportConfigured = false;
+
+  function setOutputFormat(format) {
+    _selectedOutputFormat = format;
+    var btns = document.querySelectorAll(".output-format-btn");
+    btns.forEach(function (btn) {
+      btn.classList.toggle("active", btn.dataset.format === format);
+    });
+    // Update hint text
+    var hint = document.getElementById("outputFormatHint");
+    if (hint) {
+      hint.style.display = format === "google" ? "block" : "none";
+    }
+    // Update generate button label
+    var formatHint = document.querySelector(".generate-format-hint");
+    if (formatHint) {
+      formatHint.textContent =
+        format === "google" ? "(Google Sheets + Slides)" : "(Excel + PPT)";
+    }
+  }
+
+  // Check if Google export is configured and enable/disable accordingly
+  (function checkGoogleExportAvailability() {
+    fetch("/api/export/status", {
+      method: "POST",
+      headers: {
+        "X-CSRF-Token":
+          typeof getCsrfToken === "function" ? getCsrfToken() : "",
+      },
+    })
+      .then(function (r) {
+        return r.json();
+      })
+      .then(function (data) {
+        if (data.configured) {
+          _googleExportConfigured = true;
+        } else {
+          // Disable the Google option
+          var gBtn = document.getElementById("outputFormatGoogleBtn");
+          if (gBtn) {
+            gBtn.classList.add("disabled");
+            gBtn.title =
+              "Google integration not configured. Contact admin to enable.";
+            gBtn.onclick = function (e) {
+              e.preventDefault();
+              showToast(
+                "Google Sheets/Slides integration is not configured on this server.",
+                "warning",
+              );
+            };
+          }
+        }
+      })
+      .catch(function () {
+        /* Google check failed -- keep default */
+      });
+  })();
+
+  // ============================================
   // PDF Export via /api/export/pdf endpoint
   // ============================================
   function exportPlanPDF() {
@@ -559,24 +621,93 @@
   }
 
   var _compareSelectedIds = [];
+  var _compareSource = "local"; // "local" or "cloud"
+  var _cloudPlansCache = null;
 
   function openPlanComparison() {
     var overlay = document.getElementById("planCompareOverlay");
-    var body = document.getElementById("planCompareBody");
-    var plans = JSON.parse(localStorage.getItem("nova_saved_plans") || "[]");
+    _compareSource = "local";
+    // Reset source toggle
+    var srcBtns = document.querySelectorAll(".plan-compare-source-btn");
+    srcBtns.forEach(function (b) {
+      b.classList.toggle("active", b.dataset.source === "local");
+    });
+    _loadComparisonPlans();
+    overlay.classList.add("open");
+  }
 
+  function switchCompareSource(source) {
+    _compareSource = source;
+    var srcBtns = document.querySelectorAll(".plan-compare-source-btn");
+    srcBtns.forEach(function (b) {
+      b.classList.toggle("active", b.dataset.source === source);
+    });
+    _compareSelectedIds = [];
+    _loadComparisonPlans();
+  }
+
+  function _loadComparisonPlans() {
+    var body = document.getElementById("planCompareBody");
+    if (_compareSource === "local") {
+      var plans = JSON.parse(localStorage.getItem("nova_saved_plans") || "[]");
+      if (plans.length === 0) {
+        body.innerHTML =
+          '<div class="plan-compare-empty">No local saved plans yet. Generate a plan and click "Save Plan" to start comparing.</div>';
+        return;
+      }
+      _compareSelectedIds = plans.slice(-3).map(function (p) {
+        return p.id;
+      });
+      renderComparisonView(plans);
+    } else {
+      // Load from cloud (Supabase)
+      body.innerHTML =
+        '<div class="plan-compare-empty" style="padding:20px;">Loading cloud plans...</div>';
+      if (_cloudPlansCache) {
+        _renderCloudPlans(_cloudPlansCache);
+        return;
+      }
+      fetch("/api/saved-plans")
+        .then(function (resp) {
+          if (!resp.ok) throw new Error("Failed to load");
+          return resp.json();
+        })
+        .then(function (result) {
+          var plans = (result.plans || []).map(function (p) {
+            return {
+              id: p.id,
+              name: p.plan_name || "Untitled",
+              date: p.created_at || new Date().toISOString(),
+              budget: p.budget ? "$" + Number(p.budget).toLocaleString() : "",
+              industry: p.industry || "",
+              location: p.location || "",
+              data: p.plan_data || {},
+              source: "cloud",
+            };
+          });
+          _cloudPlansCache = plans;
+          _renderCloudPlans(plans);
+        })
+        .catch(function (err) {
+          body.innerHTML =
+            '<div class="plan-compare-empty">Could not load cloud plans. ' +
+            (err.message || "") +
+            "</div>";
+        });
+    }
+  }
+
+  function _renderCloudPlans(plans) {
+    var body = document.getElementById("planCompareBody");
     if (plans.length === 0) {
       body.innerHTML =
-        '<div class="plan-compare-empty">No saved plans yet. Generate a plan and click "Save Plan" to start comparing.</div>';
-      overlay.classList.add("open");
+        '<div class="plan-compare-empty">No cloud-saved plans found. Generate a plan and save it to see plans here.</div>';
       return;
     }
-
     _compareSelectedIds = plans.slice(-3).map(function (p) {
       return p.id;
     });
     renderComparisonView(plans);
-    overlay.classList.add("open");
   }
 
   function closePlanComparison() {
@@ -601,12 +732,34 @@
       }
       _compareSelectedIds.push(id);
     }
-    var plans = JSON.parse(localStorage.getItem("nova_saved_plans") || "[]");
+    var plans =
+      _compareSource === "cloud"
+        ? _cloudPlansCache || []
+        : JSON.parse(localStorage.getItem("nova_saved_plans") || "[]");
     renderComparisonView(plans);
   }
 
   function deleteSavedPlan(id) {
     if (!confirm("Delete this saved plan?")) return;
+    if (_compareSource === "cloud") {
+      // Cloud plans: just remove from display (could add DELETE API later)
+      if (_cloudPlansCache) {
+        _cloudPlansCache = _cloudPlansCache.filter(function (p) {
+          return p.id !== id;
+        });
+      }
+      _compareSelectedIds = _compareSelectedIds.filter(function (sid) {
+        return sid !== id;
+      });
+      if (!_cloudPlansCache || _cloudPlansCache.length === 0) {
+        document.getElementById("planCompareBody").innerHTML =
+          '<div class="plan-compare-empty">No cloud plans remaining.</div>';
+      } else {
+        renderComparisonView(_cloudPlansCache);
+      }
+      showToast("Plan removed from view");
+      return;
+    }
     var plans = JSON.parse(localStorage.getItem("nova_saved_plans") || "[]");
     plans = plans.filter(function (p) {
       return p.id !== id;
@@ -768,6 +921,83 @@
     });
   }
 
+  /**
+   * Calculate a budget efficiency score (0-100) based on plan metrics.
+   * Factors: channel diversity, cost-per-hire efficiency, CPA efficiency, hire volume.
+   */
+  function _calcBudgetEfficiency(data) {
+    if (!data) return null;
+    var summary = data.summary || data.plan_summary || data;
+    var score = 0;
+    var factors = 0;
+
+    // Factor 1: Channel diversity (more channels = more diversified, up to 25 pts)
+    var channels =
+      summary.channels || summary.recommended_channels || data.channels || [];
+    if (Array.isArray(channels) && channels.length > 0) {
+      var chScore = Math.min(channels.length / 6, 1) * 25;
+      score += chScore;
+      factors++;
+    }
+
+    // Factor 2: Cost per hire relative to industry avg ($4700 US avg)
+    var hires = parseFloat(
+      String(summary.est_hires || summary.estimated_hires || "0").replace(
+        /[^0-9.]/g,
+        "",
+      ),
+    );
+    var spend = parseFloat(
+      String(
+        summary.total_spend || summary.total_budget || data.budget_range || "0",
+      ).replace(/[^0-9.]/g, ""),
+    );
+    if (hires > 0 && spend > 0) {
+      var cph = spend / hires;
+      // Lower CPH = better. $4700 avg, $1000 excellent, $10000+ poor
+      var cphScore = Math.max(0, Math.min(25, ((4700 - cph) / 3700) * 25 + 12));
+      score += cphScore;
+      factors++;
+    }
+
+    // Factor 3: Average CPA (lower is better)
+    if (Array.isArray(channels) && channels.length > 0) {
+      var cpaSum = 0,
+        cpaCnt = 0;
+      channels.forEach(function (c) {
+        var cpa = parseFloat(
+          String(c.cpa_range || c.avg_cpa || c.cpa || "").replace(
+            /[^0-9.]/g,
+            "",
+          ),
+        );
+        if (!isNaN(cpa) && cpa > 0) {
+          cpaSum += cpa;
+          cpaCnt++;
+        }
+      });
+      if (cpaCnt > 0) {
+        var avgCpa = cpaSum / cpaCnt;
+        // $5 excellent, $50+ poor for recruitment
+        var cpaScore = Math.max(0, Math.min(25, ((50 - avgCpa) / 45) * 25));
+        score += cpaScore;
+        factors++;
+      }
+    }
+
+    // Factor 4: Hire volume relative to budget (productivity, up to 25 pts)
+    if (hires > 0 && spend > 0) {
+      var hiresPerK = (hires / spend) * 1000;
+      // More hires per $1K = better. 0.5/K avg, 2/K excellent
+      var prodScore = Math.max(0, Math.min(25, (hiresPerK / 2) * 25));
+      score += prodScore;
+      factors++;
+    }
+
+    if (factors === 0) return null;
+    return Math.round(score);
+  }
+
   function renderComparisonView(plans) {
     var body = document.getElementById("planCompareBody");
     // Selector chips
@@ -922,6 +1152,39 @@
         '">' +
         cphVals[i] +
         "</td>";
+    });
+    html += "<td></td></tr>";
+
+    // Budget Efficiency Score
+    html += "<tr><td>Budget Efficiency</td>";
+    selected.forEach(function (p) {
+      var score = _calcBudgetEfficiency(p.data);
+      var badgeClass = score >= 70 ? "high" : score >= 40 ? "medium" : "low";
+      var label = score >= 70 ? "High" : score >= 40 ? "Medium" : "Low";
+      if (score === null) {
+        html += '<td style="color:rgba(255,255,255,0.3);">--</td>';
+      } else {
+        html +=
+          '<td><span class="efficiency-badge ' +
+          badgeClass +
+          '">' +
+          score +
+          "/100 " +
+          label +
+          "</span></td>";
+      }
+    });
+    html += "<td></td></tr>";
+
+    // Location row
+    html += "<tr><td>Location</td>";
+    selected.forEach(function (p) {
+      var loc =
+        p.location ||
+        (p.data && p.data.locations && Array.isArray(p.data.locations)
+          ? p.data.locations.join(", ")
+          : "--");
+      html += "<td>" + (loc || "--") + "</td>";
     });
     html += "<td></td></tr>";
 

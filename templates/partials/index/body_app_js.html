@@ -3412,6 +3412,11 @@
         document.getElementById("includeBudgetGuide").checked,
       target_region: getSelectedRegion().region,
       custom_countries: getSelectedRegion().custom_countries,
+      output_format:
+        typeof _selectedOutputFormat !== "undefined" &&
+        _selectedOutputFormat === "google"
+          ? "google"
+          : "all",
     };
 
     // ── Async generation with progress polling ──
@@ -3553,6 +3558,27 @@
         // Poll for async Google Sheets URL (created in background)
         if (_dlPlanId) {
           _pollSheetsUrl(_dlPlanId);
+        }
+
+        // If user selected Google output format, show prominent Google links
+        if (
+          typeof _selectedOutputFormat !== "undefined" &&
+          _selectedOutputFormat === "google"
+        ) {
+          // Show a toast directing user to the Google Sheets button
+          showToast(
+            "Plan generated. Google Sheets link will appear shortly -- look for the 'Open in Google Sheets' button above.",
+            "success",
+          );
+          // Make the Google Sheets button prominent immediately (it will get the URL via polling)
+          var _gSheetsBtn = document.getElementById("openSheetsBtn");
+          if (_gSheetsBtn) {
+            _gSheetsBtn.style.display = "";
+            _gSheetsBtn.style.animation = "none";
+            requestAnimationFrame(function () {
+              _gSheetsBtn.style.animation = "pulse-glow 1.5s ease-in-out 3";
+            });
+          }
         }
 
         // Auto-save campaign context for platform shell

@@ -2180,35 +2180,37 @@
 
           <div class="products-stats reveal" aria-label="Platform statistics">
             <div class="products-stat">
-              <div class="products-stat-number" data-count="23">0</div>
+              <div class="products-stat-number" data-count="23">23</div>
               <div class="products-stat-label">LLM providers</div>
             </div>
             <div class="products-stat">
-              <div class="products-stat-number" data-count="22">0</div>
+              <div class="products-stat-number" data-count="22">22</div>
               <div class="products-stat-label">Live APIs</div>
             </div>
             <div class="products-stat">
-              <div class="products-stat-number" data-count="60">0</div>
+              <div class="products-stat-number" data-count="60">60</div>
               <div class="products-stat-label">AI tools</div>
             </div>
             <div class="products-stat">
-              <div class="products-stat-number" data-count="108871">0</div>
+              <div class="products-stat-number" data-count="108871">
+                108,871
+              </div>
               <div class="products-stat-label">Jobs analyzed</div>
             </div>
             <div class="products-stat">
-              <div class="products-stat-number" data-count="76">0</div>
+              <div class="products-stat-number" data-count="76">76</div>
               <div class="products-stat-label">Countries</div>
             </div>
             <div class="products-stat">
-              <div class="products-stat-number" data-count="26">0</div>
+              <div class="products-stat-number" data-count="26">26</div>
               <div class="products-stat-label">Database tables</div>
             </div>
             <div class="products-stat">
-              <div class="products-stat-number" data-count="25">0</div>
+              <div class="products-stat-number" data-count="25">25</div>
               <div class="products-stat-label">KB documents</div>
             </div>
             <div class="products-stat">
-              <div class="products-stat-number" data-count="6">0</div>
+              <div class="products-stat-number" data-count="6">6</div>
               <div class="products-stat-label">Products</div>
             </div>
           </div>
@@ -2749,120 +2751,7 @@
           ></div>
         </div>
       </section>
-      <script>
-        (function initRecentActivity() {
-          function _timeAgo(dateStr) {
-            try {
-              var d = new Date(dateStr);
-              var now = new Date();
-              var diff = Math.floor((now - d) / 1000);
-              if (diff < 60) return "just now";
-              if (diff < 3600) return Math.floor(diff / 60) + "m ago";
-              if (diff < 86400) return Math.floor(diff / 3600) + "h ago";
-              if (diff < 604800) return Math.floor(diff / 86400) + "d ago";
-              return d.toLocaleDateString();
-            } catch (e) {
-              return "";
-            }
-          }
-
-          function render() {
-            var container = document.getElementById("recentActivityContent");
-            if (!container) return;
-
-            var plans = [];
-            var chats = [];
-            try {
-              plans = JSON.parse(
-                localStorage.getItem("nova_recent_plans") || "[]",
-              );
-            } catch (e) {}
-            try {
-              chats = JSON.parse(
-                localStorage.getItem("nova_recent_chats") || "[]",
-              );
-            } catch (e) {}
-
-            plans = plans.slice(0, 5);
-            chats = chats.slice(0, 5);
-
-            if (plans.length === 0 && chats.length === 0) {
-              container.innerHTML =
-                '<div style="text-align: center; padding: 40px 20px; color: var(--text-muted); font-size: 14px; border: 1px dashed rgba(255,255,255,0.08); border-radius: 12px; background: rgba(17,17,17,0.4);">' +
-                '<svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1.5" style="margin:0 auto 16px" aria-hidden="true"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="10"/></svg>' +
-                '<div style="font-weight: 500; margin-bottom: 4px;">No recent activity</div>' +
-                "<div>Generate a media plan or chat with Nova to see your activity here.</div>" +
-                "</div>";
-              return;
-            }
-
-            var html =
-              '<div style="display: flex; flex-direction: column; gap: 8px;">';
-
-            for (var i = 0; i < plans.length; i++) {
-              var p = plans[i];
-              html +=
-                '<a href="' +
-                (p.url || "/media-plan") +
-                '" style="' +
-                "display: flex; align-items: center; gap: 14px; padding: 14px 18px;" +
-                "background: rgba(32, 32, 88, 0.12); border: 1px solid rgba(255,255,255,0.05);" +
-                "border-radius: 10px; text-decoration: none; color: inherit;" +
-                "transition: border-color 0.2s, background 0.2s;" +
-                "\" onmouseenter=\"this.style.borderColor='rgba(90,84,189,0.25)';this.style.background='rgba(32,32,88,0.2)'\" onmouseleave=\"this.style.borderColor='rgba(255,255,255,0.05)';this.style.background='rgba(32,32,88,0.12)'\">" +
-                '<div style="width: 32px; height: 32px; border-radius: 8px; background: rgba(90,84,189,0.15); display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 14px;">&#128202;</div>' +
-                '<div style="flex: 1; min-width: 0;">' +
-                '<div style="font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">' +
-                (p.title || "Media Plan").replace(/</g, "&lt;") +
-                "</div>" +
-                '<div style="font-size: 11px; color: var(--text-muted);">' +
-                (p.industry || "").replace(/</g, "&lt;") +
-                (p.budget
-                  ? " &middot; " + p.budget.replace(/</g, "&lt;")
-                  : "") +
-                "</div>" +
-                "</div>" +
-                '<div style="font-size: 11px; color: var(--text-muted); flex-shrink: 0;">' +
-                _timeAgo(p.timestamp) +
-                "</div>" +
-                '<div style="font-size: 11px; color: var(--accent-light); flex-shrink: 0;">Open</div>' +
-                "</a>";
-            }
-
-            for (var j = 0; j < chats.length; j++) {
-              var c = chats[j];
-              html +=
-                '<a href="/nova" style="' +
-                "display: flex; align-items: center; gap: 14px; padding: 14px 18px;" +
-                "background: rgba(107, 179, 205, 0.06); border: 1px solid rgba(255,255,255,0.05);" +
-                "border-radius: 10px; text-decoration: none; color: inherit;" +
-                "transition: border-color 0.2s, background 0.2s;" +
-                "\" onmouseenter=\"this.style.borderColor='rgba(107,179,205,0.25)';this.style.background='rgba(107,179,205,0.1)'\" onmouseleave=\"this.style.borderColor='rgba(255,255,255,0.05)';this.style.background='rgba(107,179,205,0.06)'\">" +
-                '<div style="width: 32px; height: 32px; border-radius: 8px; background: rgba(107,179,205,0.15); display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 14px;">&#128172;</div>' +
-                '<div style="flex: 1; min-width: 0;">' +
-                '<div style="font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">' +
-                (c.title || "Nova Chat").replace(/</g, "&lt;") +
-                "</div>" +
-                '<div style="font-size: 11px; color: var(--text-muted);">Chatbot conversation</div>' +
-                "</div>" +
-                '<div style="font-size: 11px; color: var(--text-muted); flex-shrink: 0;">' +
-                _timeAgo(c.timestamp) +
-                "</div>" +
-                '<div style="font-size: 11px; color: var(--teal); flex-shrink: 0;">Open</div>' +
-                "</a>";
-            }
-
-            html += "</div>";
-            container.innerHTML = html;
-          }
-
-          if (document.readyState === "loading") {
-            document.addEventListener("DOMContentLoaded", render);
-          } else {
-            render();
-          }
-        })();
-      </script>
+      <!-- Recent Activity widget: moved to /static/js/hub.js -->
 
       <!-- HIDDEN: proof-section stats merged into CTA -->
       <!--
@@ -3117,6 +3006,14 @@
             <span class="footer-stat-label">AI tools</span>
           </div>
           <div class="footer-stat">
+            <span class="footer-stat-value">108,871</span>
+            <span class="footer-stat-label">Jobs analyzed</span>
+          </div>
+          <div class="footer-stat">
+            <span class="footer-stat-value">76</span>
+            <span class="footer-stat-label">Countries</span>
+          </div>
+          <div class="footer-stat">
             <span class="footer-stat-value">6</span>
             <span class="footer-stat-label">Products</span>
           </div>
@@ -3138,7 +3035,7 @@
     <!-- .footer-wrap -->
 
     <!-- ── Page Scripts (extracted to hub.js for cacheability, Fix #1) ── -->
-    <script src="/static/js/hub.js?v=1.0.0" defer></script>
+    <script src="/static/js/hub.js?v=2.0.0"></script>
 
     <!-- Legacy inline removed -- hamburger, observers, counters, bar anims,
          scroll handler, ripple, hero preview, page-enter, GSAP hero entrance,
@@ -3146,20 +3043,7 @@
          flow lines, typing effect, preview tooltips, GSAP ScrollTrigger anims,
          Lenis sync -- all now in /static/js/hub.js -->
 
-    <!-- Nova AI Chat Widget (floating bottom-right) -->
-    <script>
-      window.addEventListener("load", function () {
-        var s = document.createElement("script");
-        s.src = "/static/nova-chat.js?v=3.5.4";
-        s.async = true;
-        s.onload = function () {
-          if (typeof NovaChat !== "undefined") {
-            NovaChat.init({ containerId: null });
-          }
-        };
-        document.body.appendChild(s);
-      });
-    </script>
+    <!-- Nova AI Chat Widget: moved to /static/js/hub.js -->
     <!-- Lottie removed S47: CSS animations used instead -->
 
     <!-- Lenis smooth scroll -->
@@ -3168,78 +3052,7 @@
       defer
     ></script>
 
-    <!-- GSAP + ScrollTrigger (multi-CDN fallback: unpkg -> jsdelivr -> cdnjs) -->
-    <script>
-      (function () {
-        var cdns = [
-          {
-            gsap: "https://unpkg.com/gsap@3.12.5/dist/gsap.min.js",
-            st: "https://unpkg.com/gsap@3.12.5/dist/ScrollTrigger.min.js",
-          },
-          {
-            gsap: "https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js",
-            st: "https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js",
-          },
-          {
-            gsap: "https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js",
-            st: "https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js",
-          },
-        ];
-        var modules = [
-          "/static/js/animations.js?v=3.0.0",
-          "/static/js/story-scroll.js?v=3.1.0",
-          "/static/js/custom-cursor.js?v=2.0.0",
-          "/static/js/hero-evolution.js?v=2.0.0",
-          "/static/js/network-graph.js?v=2.0.0",
-          "/static/js/role-cycling.js?v=2.0.0",
-          "/static/js/motion-engine.js?v=2.0.0",
-        ];
-
-        function loadScript(url) {
-          return new Promise(function (resolve, reject) {
-            var s = document.createElement("script");
-            s.src = url;
-            s.onload = resolve;
-            s.onerror = reject;
-            document.body.appendChild(s);
-          });
-        }
-
-        function loadModules() {
-          Promise.all(
-            modules.map(function (src) {
-              return loadScript(src);
-            }),
-          );
-        }
-
-        function tryLoadGSAP(idx) {
-          if (idx >= cdns.length) {
-            console.warn(
-              "[Nova] All GSAP CDNs failed — loading modules without GSAP",
-            );
-            loadModules();
-            return;
-          }
-          loadScript(cdns[idx].gsap)
-            .then(function () {
-              return loadScript(cdns[idx].st);
-            })
-            .then(function () {
-              console.debug("[Nova] GSAP loaded from CDN #" + (idx + 1));
-              loadModules();
-            })
-            .catch(function () {
-              console.warn(
-                "[Nova] GSAP CDN #" + (idx + 1) + " failed, trying next...",
-              );
-              tryLoadGSAP(idx + 1);
-            });
-        }
-
-        tryLoadGSAP(0);
-      })();
-    </script>
+    <!-- GSAP + ScrollTrigger loader: moved to /static/js/hub.js -->
 
     <!-- Hero is always visible -- motion comes from hero-evolution.js background -->
 
@@ -3250,50 +3063,285 @@
     ></script>
     <script src="/static/nova-auth.js?v=1.0.0" defer></script>
     <script src="/static/nova-auth-gate.js?v=2.0.0" defer></script>
-    <script>
-      // Initialize NovaAuth after DOM + scripts are ready
-      // Fetches public Supabase config from /api/config (same pattern as PostHog)
-      document.addEventListener("DOMContentLoaded", function () {
-        if (typeof NovaAuth === "undefined") return;
-        fetch("/api/config")
-          .then(function (r) {
-            return r.json();
-          })
-          .then(function (cfg) {
-            if (cfg && cfg.auth_enabled) {
-              NovaAuth.init({
-                supabaseUrl: cfg.supabase_url || "",
-                supabaseAnonKey: cfg.supabase_anon_key || "",
-                allowedDomains: ["joveo.com"], // Empty = open to all. Set ["joveo.com"] to restrict.
-              });
-            }
-          })
-          .catch(function () {
-            // Auth init failure must never break the page
-          });
-      });
-    </script>
+    <!-- NovaAuth init: moved to /static/js/hub.js -->
     <script src="/static/js/nova-toast.js" defer></script>
     <script src="/static/js/ripple.js" defer></script>
-    <!-- Page exit transition -->
+    <!-- Page exit transition: moved to /static/js/hub.js -->
+
+    <!-- S48: First-visit onboarding tooltip tour (Item 22) -->
+    <style>
+      .onboard-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 9998;
+        background: rgba(8, 8, 15, 0.65);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        pointer-events: auto;
+      }
+      .onboard-overlay.active {
+        opacity: 1;
+      }
+      .onboard-highlight {
+        position: absolute;
+        z-index: 9999;
+        border-radius: 12px;
+        box-shadow:
+          0 0 0 4px var(--accent, #5a54bd),
+          0 0 24px rgba(90, 84, 189, 0.35);
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        pointer-events: none;
+      }
+      .onboard-tooltip {
+        position: absolute;
+        z-index: 10000;
+        background: var(--brand-port-gore, #202058);
+        border: 1px solid rgba(90, 84, 189, 0.4);
+        border-radius: 12px;
+        padding: 20px 24px;
+        max-width: 320px;
+        color: #e4e4e7;
+        font-family: var(--font-sans, Inter, sans-serif);
+        box-shadow:
+          0 8px 32px rgba(0, 0, 0, 0.5),
+          0 0 16px rgba(90, 84, 189, 0.2);
+        opacity: 0;
+        transform: translateY(8px);
+        transition:
+          opacity 0.3s ease,
+          transform 0.3s ease;
+      }
+      .onboard-tooltip.active {
+        opacity: 1;
+        transform: translateY(0);
+      }
+      .onboard-tooltip h4 {
+        font-size: 1rem;
+        font-weight: 700;
+        margin: 0 0 6px;
+        color: #fff;
+        font-family: var(--font-display, "Space Grotesk", sans-serif);
+      }
+      .onboard-tooltip p {
+        font-size: 0.8125rem;
+        line-height: 1.5;
+        margin: 0 0 16px;
+        color: #a1a1aa;
+      }
+      .onboard-tooltip .onboard-step {
+        font-size: 0.6875rem;
+        color: var(--accent-light, #7b75d4);
+        font-weight: 600;
+        margin-bottom: 8px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      .onboard-actions {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+      .onboard-actions .onboard-next {
+        background: var(--accent, #5a54bd);
+        color: #fff;
+        border: none;
+        padding: 8px 18px;
+        border-radius: 8px;
+        font-size: 0.8125rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+      .onboard-actions .onboard-next:hover {
+        background: var(--accent-light, #7b75d4);
+      }
+      .onboard-actions .onboard-skip {
+        background: none;
+        border: none;
+        color: #8a8a94;
+        font-size: 0.75rem;
+        cursor: pointer;
+        padding: 4px 8px;
+        transition: color 0.2s;
+      }
+      .onboard-actions .onboard-skip:hover {
+        color: #e4e4e7;
+      }
+      .onboard-dots {
+        display: flex;
+        gap: 6px;
+        margin-left: auto;
+      }
+      .onboard-dots span {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.2);
+        transition: background 0.2s;
+      }
+      .onboard-dots span.active {
+        background: var(--accent, #5a54bd);
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .onboard-overlay,
+        .onboard-highlight,
+        .onboard-tooltip {
+          transition: none;
+        }
+      }
+    </style>
     <script>
-      document.addEventListener("DOMContentLoaded", function () {
-        document.querySelectorAll('a[href^="/"]').forEach(function (link) {
-          link.addEventListener("click", function (e) {
-            if (window.matchMedia("(prefers-reduced-motion: reduce)").matches)
-              return;
-            e.preventDefault();
-            document.body.style.opacity = "0";
-            document.body.style.transform = "translateY(-10px)";
-            document.body.style.transition =
-              "opacity 0.2s ease, transform 0.2s ease";
-            var href = link.href;
-            setTimeout(function () {
-              window.location.href = href;
-            }, 200);
+      (function () {
+        if (localStorage.getItem("nova_onboarded") === "1") return;
+        if (window.matchMedia("(max-width:768px)").matches) return;
+        var steps = [
+          {
+            target: "#hero",
+            title: "Welcome to Nova AI Suite",
+            desc: "Your AI-powered recruitment intelligence platform with 6 products, 60 tools, and 22 live APIs.",
+            pos: "bottom",
+          },
+          {
+            target: ".product-hero-card.product-plan",
+            title: "Generate Media Plans",
+            desc: "Create optimized, data-driven recruitment media plans in under 30 seconds.",
+            pos: "right",
+          },
+          {
+            target: "#platform",
+            title: "Explore All Products",
+            desc: "Six products covering planning, intelligence, compliance, SlotOps, GeoViz 3D, and CG Automation.",
+            pos: "top",
+          },
+          {
+            target: null,
+            title: "Ask Nova AI",
+            desc: "Click the chat bubble in the bottom-right to ask Nova anything about recruitment marketing.",
+            pos: "manual",
+            manualRect: { bottom: 90, right: 24, width: 56, height: 56 },
+          },
+        ];
+        var current = 0,
+          overlay,
+          highlight,
+          tooltip;
+
+        function init() {
+          document.addEventListener("DOMContentLoaded", function () {
+            setTimeout(start, 1500);
           });
-        });
-      });
+        }
+
+        function start() {
+          overlay = document.createElement("div");
+          overlay.className = "onboard-overlay";
+          document.body.appendChild(overlay);
+          highlight = document.createElement("div");
+          highlight.className = "onboard-highlight";
+          document.body.appendChild(highlight);
+          tooltip = document.createElement("div");
+          tooltip.className = "onboard-tooltip";
+          document.body.appendChild(tooltip);
+          requestAnimationFrame(function () {
+            overlay.classList.add("active");
+            showStep(0);
+          });
+          overlay.addEventListener("click", function (e) {
+            if (e.target === overlay) finish();
+          });
+        }
+
+        function showStep(i) {
+          current = i;
+          var s = steps[i];
+          var rect;
+          if (s.target) {
+            var el = document.querySelector(s.target);
+            if (!el) {
+              finish();
+              return;
+            }
+            el.scrollIntoView({ behavior: "smooth", block: "center" });
+            rect = el.getBoundingClientRect();
+          } else if (s.manualRect) {
+            var vw = window.innerWidth,
+              vh = window.innerHeight;
+            rect = {
+              left: vw - s.manualRect.right - s.manualRect.width,
+              top: vh - s.manualRect.bottom - s.manualRect.height,
+              width: s.manualRect.width,
+              height: s.manualRect.height,
+            };
+          }
+          var pad = 8;
+          highlight.style.left = rect.left - pad + window.scrollX + "px";
+          highlight.style.top = rect.top - pad + window.scrollY + "px";
+          highlight.style.width = rect.width + pad * 2 + "px";
+          highlight.style.height = rect.height + pad * 2 + "px";
+
+          var dots = "";
+          for (var d = 0; d < steps.length; d++)
+            dots += '<span class="' + (d === i ? "active" : "") + '"></span>';
+          tooltip.innerHTML =
+            '<div class="onboard-step">Step ' +
+            (i + 1) +
+            " of " +
+            steps.length +
+            "</div><h4>" +
+            s.title +
+            "</h4><p>" +
+            s.desc +
+            '</p><div class="onboard-actions">' +
+            (i < steps.length - 1
+              ? '<button class="onboard-next">Next</button>'
+              : '<button class="onboard-next">Got it</button>') +
+            '<button class="onboard-skip">Skip</button><div class="onboard-dots">' +
+            dots +
+            "</div></div>";
+          tooltip.classList.remove("active");
+
+          var tl, tt;
+          if (s.pos === "bottom" || s.pos === "manual") {
+            tl = rect.left + window.scrollX;
+            tt = rect.top + rect.height + pad + 12 + window.scrollY;
+          } else if (s.pos === "right") {
+            tl = rect.left + rect.width + pad + 12 + window.scrollX;
+            tt = rect.top + window.scrollY;
+          } else {
+            tl = rect.left + window.scrollX;
+            tt = rect.top - pad - 12 + window.scrollY;
+          }
+          if (s.pos === "manual") {
+            tl = rect.left + window.scrollX - 280;
+            tt = rect.top + window.scrollY - 120;
+          }
+          tooltip.style.left =
+            Math.max(16, Math.min(tl, window.innerWidth - 340)) + "px";
+          tooltip.style.top = tt + "px";
+          requestAnimationFrame(function () {
+            tooltip.classList.add("active");
+          });
+
+          tooltip.querySelector(".onboard-next").onclick = function () {
+            if (i < steps.length - 1) showStep(i + 1);
+            else finish();
+          };
+          tooltip.querySelector(".onboard-skip").onclick = finish;
+        }
+
+        function finish() {
+          localStorage.setItem("nova_onboarded", "1");
+          if (overlay) overlay.classList.remove("active");
+          if (tooltip) tooltip.classList.remove("active");
+          setTimeout(function () {
+            if (overlay) overlay.remove();
+            if (highlight) highlight.remove();
+            if (tooltip) tooltip.remove();
+          }, 300);
+        }
+
+        init();
+      })();
     </script>
   </body>
 </html>

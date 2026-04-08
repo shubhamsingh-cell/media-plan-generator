@@ -4353,6 +4353,116 @@
     }
   }
 
+  /* ── Output Format Toggle ── */
+  .output-format-toggle {
+    display: flex;
+    gap: 0;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.03);
+  }
+  .output-format-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 16px;
+    background: transparent;
+    border: none;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 13px;
+    font-family: inherit;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+  }
+  .output-format-btn:hover {
+    color: rgba(255, 255, 255, 0.8);
+    background: rgba(255, 255, 255, 0.05);
+  }
+  .output-format-btn.active {
+    background: rgba(90, 84, 189, 0.2);
+    color: white;
+    border-color: rgba(90, 84, 189, 0.4);
+    box-shadow: inset 0 0 0 1px rgba(90, 84, 189, 0.3);
+  }
+  .output-format-btn.active svg {
+    stroke: var(--primary-light, #7c78ff);
+  }
+  .output-format-btn.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  @keyframes pulse-glow {
+    0%,
+    100% {
+      box-shadow: 0 0 0 0 rgba(90, 84, 189, 0);
+    }
+    50% {
+      box-shadow: 0 0 12px 4px rgba(90, 84, 189, 0.5);
+    }
+  }
+
+  /* ── Plan Comparison Source Toggle ── */
+  .plan-compare-source-toggle {
+    display: flex;
+    gap: 0;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    margin-bottom: 16px;
+    background: rgba(255, 255, 255, 0.03);
+  }
+  .plan-compare-source-btn {
+    flex: 1;
+    padding: 8px 16px;
+    background: transparent;
+    border: none;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 12px;
+    font-family: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .plan-compare-source-btn:hover {
+    color: rgba(255, 255, 255, 0.7);
+    background: rgba(255, 255, 255, 0.05);
+  }
+  .plan-compare-source-btn.active {
+    background: rgba(90, 84, 189, 0.2);
+    color: white;
+    box-shadow: inset 0 0 0 1px rgba(90, 84, 189, 0.3);
+  }
+
+  /* ── Budget Efficiency Score Badge ── */
+  .efficiency-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+  }
+  .efficiency-badge.high {
+    background: rgba(34, 197, 94, 0.15);
+    color: #4ade80;
+  }
+  .efficiency-badge.medium {
+    background: rgba(250, 204, 21, 0.15);
+    color: #fbbf24;
+  }
+  .efficiency-badge.low {
+    background: rgba(239, 68, 68, 0.15);
+    color: #f87171;
+  }
+
   /* ── Plan Comparison Modal ── */
   .plan-compare-overlay {
     display: none;
@@ -4703,6 +4813,7 @@
     .btn-share-plan,
     .btn-copy-plan,
     .btn-compare-plans,
+    .output-format-row,
     .saved-plans-section,
     .export-dropdown-wrap,
     .plan-clear-form,
