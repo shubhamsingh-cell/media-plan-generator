@@ -155,6 +155,11 @@ def _detect_schema() -> bool:
                     insert_data: Dict[str, Any] = {
                         "user_id": "__schema_test__",
                         "messages": [],
+                        # S49 FIX: Include user_message/assistant_response defaults
+                        # to satisfy NOT NULL constraints on old-schema tables that
+                        # haven't run the 001 migration yet.
+                        "user_message": "",
+                        "assistant_response": "",
                     }
                     # Try with conversation_id first (old table with S37 migration)
                     try:
@@ -591,6 +596,10 @@ def get_or_create_conversation(
             "user_id": user_id,
             "title": title,
             "messages": [],
+            # S49 FIX: Include old-schema fields with defaults so inserts
+            # succeed on tables that haven't run the 001 migration yet.
+            "user_message": "",
+            "assistant_response": "",
         }
         # If the table uses a 'conversation_id' TEXT column, set it.
         # If it uses 'id' UUID, do NOT set it (let DB auto-generate).
