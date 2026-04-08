@@ -824,6 +824,11 @@ def append_message(
             # Ensure the conversation row exists
             conv = get_or_create_conversation(conversation_id, user_id=user_id)
             if conv is None:
+                _log_persistence_error(
+                    "append_message",
+                    conversation_id,
+                    f"get_or_create returned None (col={_conversation_lookup_column})",
+                )
                 raise RuntimeError(
                     f"Could not get or create conversation {conversation_id}"
                 )
@@ -831,7 +836,7 @@ def append_message(
             existing_messages: List[Dict[str, Any]] = conv.get("messages") or []
             existing_messages.append(msg_obj)
 
-            # S46 fix: use conversation_id column (not integer id)
+            # Update by primary key 'id' (works for both integer and UUID PKs)
             _conv_row_id = conv.get("id")
 
             def _update() -> Any:
@@ -850,12 +855,14 @@ def append_message(
 
     except Exception as exc:
         logger.error(
-            "append_message(%s, %s) failed, queueing for retry: %s",
+            "append_message(%s, %s) failed (col=%s), queueing for retry: %s",
             conversation_id,
             role,
+            _conversation_lookup_column,
             exc,
             exc_info=True,
         )
+        _log_persistence_error("append_message", conversation_id, repr(exc))
         _enqueue_retry(conversation_id, msg_obj, user_id)
         return False
 
@@ -917,12 +924,12 @@ def _drain_retry_queue() -> None:
                     raise RuntimeError(f"Cannot get conversation {cid}")
                 msgs = conv.get("messages") or []
                 msgs.append(msg)
+                _drain_col = _conversation_lookup_column
+                _drain_pk = conv.get("id")
                 (
                     sb.table("nova_conversations")
                     .update({"messages": msgs})
-                    .eq(
-                        "conversation_id", cid
-                    )  # S47 fix: was .eq("id", cid) -- id is auto-increment int, not conversation_id string
+                    .eq("id", _drain_pk)
                     .execute()
                 )
             logger.info("Drained retry-queue message for %s", cid)
@@ -1003,11 +1010,11 @@ def load_conversation_messages(conversation_id: str) -> List[Dict[str, Any]]:
 
     # New schema: read from JSONB messages array
     try:
-        # S46 fix: use conversation_id column
+        _col = _conversation_lookup_column
         result = (
             sb.table("nova_conversations")
             .select("messages")
-            .eq("conversation_id", conversation_id)
+            .eq(_col, conversation_id)
             .execute()
         )
         if result.data:
@@ -1203,10 +1210,11 @@ def migrate_row_per_turn_data() -> Dict[str, Any]:
                         messages.append(asst_obj)
 
                 # Check if a document-model row already exists for this cid
+                _lkup = _conversation_lookup_column
                 existing = (
                     sb.table("nova_conversations")
                     .select("id,messages")
-                    .eq("conversation_id", cid)  # S47 fix: was .eq("id", cid)
+                    .eq(_lkup, cid)
                     .not_.is_("messages", "null")
                     .execute()
                 )
@@ -1557,3 +1565,49 @@ def health_check() -> bool:
     except Exception as e:
         logger.error("Supabase health check failed: %s", e, exc_info=True)
         return False
+
+
+def get_conversation_count() -> Dict[str, Any]:
+    """Return nova_conversations row count and schema diagnostics.
+
+    Used by the /api/health endpoint to surface P1-15 persistence status.
+
+    Returns:
+        Dict with 'row_count', 'schema', 'lookup_column', 'retry_queue_size',
+        and 'error_log_path'.
+    """
+    sb = _get_supabase()
+    result: Dict[str, Any] = {
+        "row_count": -1,
+        "schema": "unknown",
+        "lookup_column": _conversation_lookup_column,
+        "retry_queue_size": len(_retry_queue),
+        "error_log_path": str(_PERSISTENCE_LOG_FILE),
+    }
+    if not sb:
+        result["error"] = "supabase_unavailable"
+        return result
+
+    try:
+        # Count rows (Supabase supports head+count but supabase-py uses select)
+        count_result = (
+            sb.table("nova_conversations")
+            .select("id", count="exact")
+            .limit(0)
+            .execute()
+        )
+        result["row_count"] = (
+            count_result.count
+            if hasattr(count_result, "count") and count_result.count is not None
+            else -1
+        )
+        # If count attribute not available, fall back to a SELECT + len
+        if result["row_count"] == -1:
+            fallback = sb.table("nova_conversations").select("id").limit(500).execute()
+            result["row_count"] = len(fallback.data) if fallback.data else 0
+    except Exception as exc:
+        result["error"] = str(exc)
+        logger.error("get_conversation_count failed: %s", exc, exc_info=True)
+
+    result["schema"] = "document_model" if _schema_is_document_model else "row_per_turn"
+    return result

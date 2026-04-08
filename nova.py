@@ -412,6 +412,7 @@ _TOOL_ERROR_FALLBACK_MESSAGES: dict[str, str] = {
     "query_statcan": "Statistics Canada data is temporarily unavailable, but I can reference our international benchmarks for Canadian markets.",
     "query_careerjet": "CareerJet international job search is temporarily unavailable, but I can provide global job market insights from our knowledge base.",
     "query_bea": "Bureau of Economic Analysis data is temporarily unavailable. Try query_regional_economics for state-level GDP, income, and employment data.",
+    "score_creative_quality": "Creative quality scoring is temporarily unavailable, but I can share general guidance on improving ad creative quality for recruitment.",
 }
 
 # ── Source name display mapping ──────────────────────────────────────────────
@@ -1380,6 +1381,7 @@ _TOOL_LABELS: Dict[str, str] = {
     "query_statcan": "Querying Statistics Canada labor data",
     "query_careerjet": "Searching CareerJet international jobs",
     "query_bea": "Querying Bureau of Economic Analysis data",
+    "score_creative_quality": "Scoring ad creative quality",
 }
 
 # Thread-local storage for tool status queue.
@@ -5951,6 +5953,8 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             "query_statcan": self._query_statcan,
             "query_careerjet": self._query_careerjet,
             "query_bea": self._query_bea,
+            # S49: Creative Quality Score (P1-16)
+            "score_creative_quality": self._score_creative_quality,
         }
 
     def execute_tool(self, tool_name: str, tool_input: dict) -> str:
@@ -10969,6 +10973,32 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             logger.error("recommend_channels tool failed: %s", e, exc_info=True)
             return {"error": f"Channel recommendation failed: {e}"}
 
+    # S49: Creative Quality Score (P1-16)
+    # ------------------------------------------------------------------
+
+    def _score_creative_quality(self, params: dict) -> dict:
+        """Score ad creative quality based on plan data or user-provided details.
+
+        Args:
+            params: Dict with optional keys: salary_data, job_description,
+                    apply_method, has_visuals, mobile_optimized, industry,
+                    channels, roles, etc.
+
+        Returns:
+            Dict with score, grade, factors, recommendations, and source.
+        """
+        try:
+            from creative_quality_score import score_creative_quality
+
+            result = score_creative_quality(params)
+            result["source"] = "Creative Quality Engine (5-factor scoring model)"
+            return result
+        except ImportError:
+            return {"error": "creative_quality_score module not available"}
+        except Exception as e:
+            logger.error("score_creative_quality failed: %s", e, exc_info=True)
+            return {"error": f"Creative quality scoring failed: {e}"}
+
     # S42: SlotOps tools (LinkedIn Slot Optimization)
     # ------------------------------------------------------------------
 
@@ -13318,6 +13348,33 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 tool_label = "LinkedIn slot optimization"
             except ImportError:
                 pass
+
+        # --- S49: Creative Quality Score intent (P1-16) ---
+        if not tool_name and any(
+            kw in msg_lower
+            for kw in [
+                "creative quality",
+                "creative score",
+                "ad quality",
+                "ad score",
+                "score my ad",
+                "rate my job ad",
+                "job ad quality",
+                "posting quality",
+                "score my posting",
+            ]
+        ):
+            tool_name = "score_creative_quality"
+            tool_params = {"message": user_message}
+            # Pass any context from conversation that might help scoring
+            if conversation_history:
+                for _hist_msg in reversed(conversation_history):
+                    if isinstance(_hist_msg, dict) and _hist_msg.get("role") == "user":
+                        _hist_content = _hist_msg.get("content") or ""
+                        if len(_hist_content) > 50:
+                            tool_params["job_description"] = _hist_content[:2000]
+                            break
+            tool_label = "Creative quality scoring"
 
         # --- S48: Channel recommendation intent ---
         if not tool_name and any(
@@ -19432,6 +19489,7 @@ _TOOL_SOURCE_MAP: Dict[str, str] = {
     "analyze_employer_brand": "YouTube Data API",
     "estimate_meta_campaign": "Meta Ads (Facebook/Instagram)",
     "get_meta_benchmarks": "Meta Ads (Facebook/Instagram)",
+    "score_creative_quality": "Creative Quality Engine (5-factor scoring model)",
 }
 
 _FOLLOW_UP_TEMPLATES: Dict[str, List[str]] = {

@@ -5201,6 +5201,19 @@ def _build_health_response() -> dict:
         "chroma_rag_available": _chroma_rag_available,
     }
 
+    # P1-15: nova_conversations row count diagnostic
+    try:
+        from nova_persistence import get_conversation_count
+
+        _conv_health = _run_with_timeout(
+            get_conversation_count, timeout_sec=3.0, default={"error": "timeout"}
+        )
+        result["nova_conversations"] = _conv_health
+    except ImportError:
+        result["nova_conversations"] = {"error": "module_unavailable"}
+    except Exception as _conv_exc:
+        result["nova_conversations"] = {"error": str(_conv_exc)}
+
     # ---- Time-guarded module stats (skip if >5s elapsed) ----
     def _health_expired() -> bool:
         """Return True if the health check has exceeded its time budget."""
@@ -13739,6 +13752,28 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                 _slotops_err_a,
                             )
 
+                        # ── Creative Quality Score (P1-16, async path) ──
+                        try:
+                            from creative_quality_score import score_creative_quality
+
+                            gen_data["_creative_quality_score"] = (
+                                score_creative_quality(gen_data)
+                            )
+                            logger.info(
+                                "Async creative quality score: %s (%s)",
+                                gen_data["_creative_quality_score"].get("score"),
+                                gen_data["_creative_quality_score"].get("grade"),
+                            )
+                        except ImportError:
+                            logger.debug(
+                                "creative_quality_score not available -- skipping (async)"
+                            )
+                        except Exception as _cqs_err_a:
+                            logger.warning(
+                                "Async creative quality score failed (non-fatal): %s",
+                                _cqs_err_a,
+                            )
+
                         if time.time() > _gen_deadline:
                             raise TimeoutError(
                                 "Plan generation exceeded 2-minute time limit"
@@ -15277,6 +15312,23 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             except Exception as _slotops_err:
                 logger.warning(
                     "SlotOps LinkedIn benchmarks failed (non-fatal): %s", _slotops_err
+                )
+
+            # ── Creative Quality Score (P1-16) ──
+            try:
+                from creative_quality_score import score_creative_quality
+
+                data["_creative_quality_score"] = score_creative_quality(data)
+                logger.info(
+                    "Creative quality score: %s (%s)",
+                    data["_creative_quality_score"].get("score"),
+                    data["_creative_quality_score"].get("grade"),
+                )
+            except ImportError:
+                logger.debug("creative_quality_score not available -- skipping")
+            except Exception as _cqs_err:
+                logger.warning(
+                    "Creative quality score failed (non-fatal): %s", _cqs_err
                 )
 
             # ── Gold Standard Quality Gates ──

@@ -2708,6 +2708,49 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
             RGBColor(0x1A, 0x45, 0x70),
         )
 
+    # ── Creative Quality Score badge (P1-16) ──
+    cqs = data.get("_creative_quality_score")
+    if cqs and isinstance(cqs, dict) and cqs.get("score") is not None:
+        _cqs_score = cqs.get("score", 0)
+        _cqs_grade = cqs.get("grade", "N/A")
+        _cqs_color = (
+            GREEN
+            if _cqs_score >= 70
+            else BLUE if _cqs_score >= 50 else RGBColor(0xCC, 0x33, 0x33)
+        )
+        _add_rounded_rect(
+            slide,
+            Inches(10.8),
+            Inches(0.18),
+            Inches(2.3),
+            Inches(0.55),
+            _cqs_color,
+        )
+        _add_textbox(
+            slide,
+            Inches(10.8),
+            Inches(0.2),
+            Inches(2.3),
+            Inches(0.32),
+            text=f"Creative Score: {_cqs_score}/100",
+            font_size=11,
+            bold=True,
+            color=WHITE,
+            alignment=PP_ALIGN.CENTER,
+        )
+        _add_textbox(
+            slide,
+            Inches(10.8),
+            Inches(0.46),
+            Inches(2.3),
+            Inches(0.2),
+            text=f"Grade {_cqs_grade}",
+            font_size=8,
+            bold=False,
+            color=WHITE,
+            alignment=PP_ALIGN.CENTER,
+        )
+
     # Enrichment badge
     _add_enrichment_badge(slide, enriched)
 

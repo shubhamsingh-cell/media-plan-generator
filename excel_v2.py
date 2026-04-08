@@ -2349,6 +2349,61 @@ def _build_sheet_executive_summary(
                 cell.fill = _FILL_BLUE_PALE if idx % 2 else _FILL_WHITE
                 row += 1
 
+    # ── 7. Creative Quality Score (P1-16) ──
+    cqs = data.get("_creative_quality_score")
+    if cqs and isinstance(cqs, dict) and cqs.get("score") is not None:
+        row += 1
+        row = _write_section_header(ws, row, "Creative Quality Score")
+
+        cqs_score = cqs.get("score", 0)
+        cqs_grade = cqs.get("grade", "N/A")
+        ws.merge_cells(
+            start_row=row, start_column=COL_START, end_row=row, end_column=COL_END
+        )
+        badge_cell = ws.cell(
+            row=row,
+            column=COL_START,
+            value=f"  Overall: {cqs_score}/100 (Grade {cqs_grade})",
+        )
+        badge_cell.font = Font(name="Calibri", size=12, bold=True, color=SAPPHIRE)
+        badge_cell.alignment = _ALIGN_LEFT
+        row += 1
+
+        cqs_factors = cqs.get("factors", {})
+        for factor_name, factor_data in cqs_factors.items():
+            if isinstance(factor_data, dict):
+                label = factor_name.replace("_", " ").title()
+                pts = factor_data.get("score", 0)
+                mx = factor_data.get("max", 0)
+                ws.merge_cells(
+                    start_row=row,
+                    start_column=COL_START,
+                    end_row=row,
+                    end_column=COL_END,
+                )
+                ws.cell(
+                    row=row,
+                    column=COL_START,
+                    value=f"    {label}: {pts}/{mx}",
+                ).font = _FONT_BODY
+                row += 1
+
+        cqs_recs = cqs.get("recommendations") or []
+        if cqs_recs:
+            row = _write_subsection_header(ws, row, "Creative Recommendations")
+            for idx, rec in enumerate(cqs_recs[:5]):
+                ws.merge_cells(
+                    start_row=row,
+                    start_column=COL_START,
+                    end_row=row,
+                    end_column=COL_END,
+                )
+                cell = ws.cell(row=row, column=COL_START, value=f"  {idx + 1}. {rec}")
+                cell.font = _FONT_BODY
+                cell.alignment = _ALIGN_WRAP
+                cell.fill = _FILL_BLUE_PALE if idx % 2 else _FILL_WHITE
+                row += 1
+
     row += 2
     _write_attribution_footer(ws, row)
 
