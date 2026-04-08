@@ -15088,15 +15088,15 @@ When two or more tools return conflicting data for the same metric (e.g., differ
         # Always use 4096 for tool queries to prevent response truncation
         _tool_max_tokens = 4096
 
-        # S50: Aggressive budget reduction to hit <30s target.
-        # Budget math: 45s outer - 5s safety = 40s usable -> 20s tools + 12s synthesis + 8s enrichment.
-        # Each tool iteration: ~7-10s (LLM call + tool exec). 3 iters = ~25s.
-        _SYNTHESIS_RESERVE_S = 12.0  # S50: was 25 -- Haiku synthesizes in 8-12s
+        # S50: Balanced budget -- quality > speed. Give enough time for
+        # tools + Haiku synthesis while avoiding the old 110s worst case.
+        _SYNTHESIS_RESERVE_S = (
+            20.0  # S50: relaxed from 12 (Haiku needs 15-20s for quality)
+        )
         _loop_start = time.monotonic()
         if outer_deadline:
-            # Dynamic: use remaining time minus synthesis reserve
             _remaining = outer_deadline - time.time()
-            _LOOP_BUDGET_S = max(10.0, min(25.0, _remaining - _SYNTHESIS_RESERVE_S))
+            _LOOP_BUDGET_S = max(15.0, min(50.0, _remaining - _SYNTHESIS_RESERVE_S))
             logger.info(
                 "Tool loop: dynamic budget=%.1fs (remaining=%.1fs, reserve=%.0fs)",
                 _LOOP_BUDGET_S,
@@ -15104,7 +15104,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 _SYNTHESIS_RESERVE_S,
             )
         else:
-            _LOOP_BUDGET_S = 20.0  # S50: was 55 -- static fallback
+            _LOOP_BUDGET_S = 45.0  # S50: relaxed from 20 (quality over speed)
         # S24: Deadline-aware tool loop -- force synthesis before the outer
         # request timeout kills us with "I took too long to respond".
 
@@ -15952,7 +15952,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
         # enrichment already consumed 20-30s of the 90s outer budget).
         # S50: Tighter Claude loop budget to hit <30s target.
         _loop_start_c = time.monotonic()
-        _MAX_LOOP_CAP = 18.0 if _is_comparison_c else 25.0  # S50: was 35/50
+        _MAX_LOOP_CAP = 30.0 if _is_comparison_c else 45.0  # S50: relaxed for quality
         if outer_deadline:
             _remaining_c = outer_deadline - time.time()
             _LOOP_BUDGET_C = max(
