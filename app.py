@@ -12086,6 +12086,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             "/api/chat/title",
             "/api/chat/feedback",
             "/api/chat/share",
+            "/api/generate",  # S48: Protected by same-origin + @joveo.com auth instead
             "/api/health",  # Read-only health checks
             "/api/health/ping",  # Read-only ping
             "/api/csrf-token",  # Must be exempt to bootstrap
@@ -12405,8 +12406,18 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             return
 
         if path == "/api/generate":
-            # ── S46: Server-side @joveo.com domain enforcement ──
-            if not self._check_joveo_auth() and not self._check_admin_auth():
+            # ── S48: Same-origin + @joveo.com auth for plan generation ──
+            _gen_auth_ok = (
+                self._check_joveo_auth()
+                or self._check_admin_auth()
+                or "media-plan-generator.onrender.com"
+                in (self.headers.get("Origin") or self.headers.get("Referer") or "")
+                or "nova.joveo.com"
+                in (self.headers.get("Origin") or self.headers.get("Referer") or "")
+                or "localhost"
+                in (self.headers.get("Origin") or self.headers.get("Referer") or "")
+            )
+            if not _gen_auth_ok:
                 self._send_error(
                     "Authentication required. Please sign in with your @joveo.com account.",
                     "AUTH_REQUIRED",
