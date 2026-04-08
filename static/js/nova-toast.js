@@ -144,15 +144,10 @@
         return response;
       })
       .catch(function (err) {
-        if (err.name !== "AbortError" && Date.now() > _suppressUntil) {
-          // S50: Don't show "Connection lost" if WebSocket fell back to HTTP gracefully
-          if (!_wsHttpFallbackActive) {
-            _showDeduplicated(
-              "Connection lost. Check your network and retry.",
-              "error",
-            );
-          }
-        }
+        // S49: "Connection lost" toast REMOVED entirely.
+        // The WebSocket handshake failure was triggering this on every page load
+        // even though the chatbot works fine over HTTP. If the page loaded,
+        // the network is fine. Individual API errors are handled by their callers.
         throw err;
       });
   };
