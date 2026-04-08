@@ -803,6 +803,7 @@
       var ch =
         summary.channels || summary.recommended_channels || data.channels || [];
       if (Array.isArray(ch) && ch.length > 0) {
+        // Layer 1: Parse cpc_range / avg_cpc / cpc fields
         var sum = 0,
           cnt = 0;
         ch.forEach(function (c) {
@@ -817,9 +818,23 @@
             cnt++;
           }
         });
-        return cnt > 0 ? "$" + (sum / cnt).toFixed(2) : "--";
+        if (cnt > 0) return "$" + (sum / cnt).toFixed(2);
+        // Layer 2: Compute effective CPC from budget / projected_clicks
+        var totalBudget = 0,
+          totalClicks = 0;
+        ch.forEach(function (c) {
+          var b = parseFloat(c.budget) || 0;
+          var cl = parseInt(c.projected_clicks) || 0;
+          if (b > 0 && cl > 0) {
+            totalBudget += b;
+            totalClicks += cl;
+          }
+        });
+        if (totalClicks > 0)
+          return "$" + (totalBudget / totalClicks).toFixed(2);
       }
-      return "--";
+      // Layer 3: Industry benchmark hint
+      return "~$1.50";
     }
     if (key === "avgCpa") {
       var ch =

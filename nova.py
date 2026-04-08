@@ -10964,6 +10964,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 budget=params.get("budget") or 100_000,
                 locations=params.get("locations"),
                 goals=params.get("goals"),
+                collar_type=params.get("collar_type") or "",
             )
             # Add formatted text for LLM consumption
             rec["formatted_text"] = _format_recommendation_text(rec)

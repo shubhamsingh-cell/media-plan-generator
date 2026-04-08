@@ -182,6 +182,11 @@ INDUSTRY_NICHE_CHANNELS: Dict[str, List[str]] = {
         "Nurse.com",
         "PracticeLink",
         "JAMA Career Center",
+        "myCNAjobs.com",
+        "SeniorJobBank.com",
+        "AllNurses.com",
+        "NursingJobs.com",
+        "CareListings.com",
     ],
     "tech_engineering": [
         "GitHub Jobs",
@@ -249,6 +254,7 @@ INDUSTRY_NICHE_CHANNELS: Dict[str, List[str]] = {
 # ---------------------------------------------------------------------------
 ROLE_NICHE_BOARDS: Dict[str, Dict[str, Any]] = {
     "software_engineer": {
+        "industry": "tech_engineering",
         "keywords": [
             "software engineer",
             "developer",
@@ -293,6 +299,7 @@ ROLE_NICHE_BOARDS: Dict[str, Dict[str, Any]] = {
         ],
     },
     "data_science": {
+        "industry": "tech_engineering",
         "keywords": [
             "data scientist",
             "machine learning",
@@ -329,6 +336,7 @@ ROLE_NICHE_BOARDS: Dict[str, Dict[str, Any]] = {
         ],
     },
     "cybersecurity": {
+        "industry": "tech_engineering",
         "keywords": [
             "cybersecurity",
             "security engineer",
@@ -363,6 +371,7 @@ ROLE_NICHE_BOARDS: Dict[str, Dict[str, Any]] = {
         ],
     },
     "nursing": {
+        "industry": "healthcare_medical",
         "keywords": [
             "nurse",
             "rn",
@@ -403,9 +412,64 @@ ROLE_NICHE_BOARDS: Dict[str, Dict[str, Any]] = {
                 "url": "incrediblehealth.com",
                 "strength": "Employer-applies-to-nurse model",
             },
+            {
+                "name": "AllNurses.com",
+                "url": "allnurses.com",
+                "strength": "Largest nursing community, strong employer brand reach",
+            },
+            {
+                "name": "NursingJobs.com",
+                "url": "nursingjobs.com",
+                "strength": "Nursing-only job board, high-intent candidates",
+            },
+        ],
+    },
+    "senior_care": {
+        "industry": "healthcare_medical",
+        "keywords": [
+            "senior care",
+            "senior living",
+            "assisted living",
+            "memory care",
+            "long term care",
+            "ltc",
+            "home health aide",
+            "hha",
+            "caregiver",
+            "geriatric",
+            "elder care",
+            "residential care",
+        ],
+        "boards": [
+            {
+                "name": "myCNAjobs.com",
+                "url": "mycnajobs.com",
+                "strength": "CNA/caregiver-focused, senior care specialty",
+            },
+            {
+                "name": "SeniorJobBank.com",
+                "url": "seniorjobbank.com",
+                "strength": "Senior living industry job board",
+            },
+            {
+                "name": "Health eCareers",
+                "url": "healthecareers.com",
+                "strength": "Multi-specialty healthcare including senior care",
+            },
+            {
+                "name": "CareListings.com",
+                "url": "carelistings.com",
+                "strength": "Senior care and home health job board",
+            },
+            {
+                "name": "Vivian Health",
+                "url": "vivian.com",
+                "strength": "Healthcare staffing including senior care facilities",
+            },
         ],
     },
     "physician": {
+        "industry": "healthcare_medical",
         "keywords": [
             "physician",
             "doctor",
@@ -443,6 +507,7 @@ ROLE_NICHE_BOARDS: Dict[str, Dict[str, Any]] = {
         ],
     },
     "allied_health": {
+        "industry": "healthcare_medical",
         "keywords": [
             "therapist",
             "physical therapist",
@@ -473,6 +538,7 @@ ROLE_NICHE_BOARDS: Dict[str, Dict[str, Any]] = {
         ],
     },
     "executive": {
+        "industry": "general",
         "keywords": [
             "ceo",
             "cfo",
@@ -514,6 +580,7 @@ ROLE_NICHE_BOARDS: Dict[str, Dict[str, Any]] = {
         ],
     },
     "trucking": {
+        "industry": "transportation_logistics",
         "keywords": [
             "cdl",
             "truck driver",
@@ -550,6 +617,7 @@ ROLE_NICHE_BOARDS: Dict[str, Dict[str, Any]] = {
         ],
     },
     "warehouse": {
+        "industry": "transportation_logistics",
         "keywords": [
             "warehouse",
             "forklift",
@@ -586,6 +654,7 @@ ROLE_NICHE_BOARDS: Dict[str, Dict[str, Any]] = {
         ],
     },
     "accounting": {
+        "industry": "finance_banking",
         "keywords": [
             "accountant",
             "cpa",
@@ -616,6 +685,7 @@ ROLE_NICHE_BOARDS: Dict[str, Dict[str, Any]] = {
         ],
     },
     "sales": {
+        "industry": "general",
         "keywords": [
             "sales representative",
             "account executive",
@@ -646,6 +716,7 @@ ROLE_NICHE_BOARDS: Dict[str, Dict[str, Any]] = {
         ],
     },
     "marketing": {
+        "industry": "general",
         "keywords": [
             "marketing manager",
             "digital marketing",
@@ -675,6 +746,7 @@ ROLE_NICHE_BOARDS: Dict[str, Dict[str, Any]] = {
         ],
     },
     "construction": {
+        "industry": "construction_real_estate",
         "keywords": [
             "construction",
             "electrician",
@@ -711,6 +783,7 @@ ROLE_NICHE_BOARDS: Dict[str, Dict[str, Any]] = {
         ],
     },
     "education": {
+        "industry": "education",
         "keywords": [
             "teacher",
             "professor",
@@ -746,6 +819,7 @@ ROLE_NICHE_BOARDS: Dict[str, Dict[str, Any]] = {
         ],
     },
     "legal": {
+        "industry": "professional_services",
         "keywords": [
             "attorney",
             "lawyer",
@@ -774,16 +848,131 @@ ROLE_NICHE_BOARDS: Dict[str, Dict[str, Any]] = {
             },
         ],
     },
+    "localization": {
+        "industry": "general",
+        "keywords": [
+            "translator",
+            "interpreter",
+            "localization",
+            "translation",
+            "bilingual",
+            "multilingual",
+            "language specialist",
+            "voice talent",
+            "voice actor",
+            "voice over",
+            "voiceover",
+            "narration",
+        ],
+        "boards": [
+            {
+                "name": "ProZ.com",
+                "url": "proz.com",
+                "strength": "Largest translation community, 1M+ translators",
+            },
+            {
+                "name": "TranslatorsCafe.com",
+                "url": "translatorscafe.com",
+                "strength": "Translation and localization job board",
+            },
+            {
+                "name": "Voices.com",
+                "url": "voices.com",
+                "strength": "Voice talent marketplace, 4M+ voice actors",
+            },
+            {
+                "name": "Voice123.com",
+                "url": "voice123.com",
+                "strength": "Voice over talent platform",
+            },
+        ],
+    },
+}
+
+
+def _keyword_matches_role(kw: str, role_lower: str) -> bool:
+    """Check if keyword matches role with word-boundary awareness.
+
+    Short keywords (< 4 chars like 'rn', 'np', 'cna', 'md', 'vp') require
+    word-boundary matching to prevent false positives where 'rn' matches
+    inside 'frontend' or 'learning'.  Longer keywords use substring matching.
+    """
+    if kw in role_lower:
+        # Keyword found in role -- verify word boundary for short keywords
+        if len(kw) < 4:
+            # Require word boundary: keyword must appear as a standalone word
+            # e.g., "rn" matches "rn", "rn supervisor", "icu rn" but NOT "frontend"
+            return bool(
+                re.search(r"(?<![a-z])" + re.escape(kw) + r"(?![a-z])", role_lower)
+            )
+        return True
+    # Reverse check: role appears in keyword (e.g., role="nurse" matches kw="nurse practitioner")
+    # Only allow this for longer role strings to prevent short-token false positives
+    if len(role_lower) >= 4 and role_lower in kw:
+        return True
+    return False
+
+
+# Industry compatibility matrix: which board industries are allowed for which plan industries.
+# "general" boards are always allowed.  Categories not listed here are only matched when
+# the plan industry is compatible or unset.
+_INDUSTRY_COMPATIBILITY: Dict[str, set] = {
+    "healthcare_medical": {
+        "healthcare_medical",
+        "general",
+    },
+    "tech_engineering": {
+        "tech_engineering",
+        "general",
+    },
+    "finance_banking": {
+        "finance_banking",
+        "general",
+    },
+    "professional_services": {
+        "professional_services",
+        "finance_banking",
+        "general",
+    },
+    "transportation_logistics": {
+        "transportation_logistics",
+        "general",
+    },
+    "construction_real_estate": {
+        "construction_real_estate",
+        "general",
+    },
+    "education": {
+        "education",
+        "general",
+    },
+    "retail_consumer": {
+        "retail_consumer",
+        "general",
+    },
+    "hospitality_travel": {
+        "hospitality_travel",
+        "retail_consumer",
+        "general",
+    },
 }
 
 
 def _match_roles_to_niche_boards(
     roles: List[str],
+    industry: str = "",
 ) -> Dict[str, List[Dict[str, str]]]:
     """Cross-reference role titles against ROLE_NICHE_BOARDS to find specialty boards.
 
+    Uses word-boundary-aware matching for short keywords to prevent false
+    positives (e.g., 'rn' matching 'frontend').  When an industry is provided,
+    filters out boards from incompatible industries (e.g., tech boards for
+    healthcare plans).
+
     Args:
         roles: List of role title strings.
+        industry: Canonical industry key (e.g., 'healthcare_medical').
+            When provided, boards from incompatible industries are excluded.
 
     Returns:
         Dict mapping role title to list of recommended niche boards.
@@ -791,6 +980,16 @@ def _match_roles_to_niche_boards(
     """
     if not roles:
         return {}
+
+    # Determine which board industries are allowed for this plan industry
+    ind_lower = (industry or "").lower().strip().replace(" ", "_").replace("-", "_")
+    allowed_industries: Optional[set] = None
+    if ind_lower:
+        # Look up compatibility; if the industry has an explicit set, use it.
+        # Otherwise, allow boards from the same industry + "general".
+        allowed_industries = _INDUSTRY_COMPATIBILITY.get(ind_lower)
+        if allowed_industries is None:
+            allowed_industries = {ind_lower, "general"}
 
     results: Dict[str, List[Dict[str, str]]] = {}
 
@@ -800,9 +999,14 @@ def _match_roles_to_niche_boards(
         matched_categories: set = set()
 
         for category, config in ROLE_NICHE_BOARDS.items():
+            # Industry filter: skip categories whose industry is incompatible
+            board_industry = config.get("industry", "general")
+            if allowed_industries and board_industry not in allowed_industries:
+                continue
+
             keywords = config.get("keywords") or []
             for kw in keywords:
-                if kw in role_lower or role_lower in kw:
+                if _keyword_matches_role(kw, role_lower):
                     if category not in matched_categories:
                         matched_categories.add(category)
                         for board in config.get("boards") or []:
@@ -811,8 +1015,8 @@ def _match_roles_to_niche_boards(
 
         if matched_boards:
             # Deduplicate by board name
-            seen = set()
-            deduped = []
+            seen: set = set()
+            deduped: List[Dict[str, str]] = []
             for b in matched_boards:
                 if b["name"] not in seen:
                     seen.add(b["name"])
@@ -5597,6 +5801,7 @@ def _build_sheet_channel_recommendations(ws, data: dict) -> None:
             role=role,
             budget=budget,
             locations=locations,
+            collar_type=data.get("collar_type") or "",
         )
     except Exception as exc:
         logger.error(
@@ -5763,8 +5968,8 @@ def _build_sheet_niche_board_matching(ws, data: dict) -> None:
     )
     row += 1
 
-    # ── Role-Based Matches ──
-    role_matches = _match_roles_to_niche_boards(roles)
+    # ── Role-Based Matches (industry-aware to prevent cross-industry mismatches) ──
+    role_matches = _match_roles_to_niche_boards(roles, industry=industry)
 
     if role_matches:
         row = _write_subsection_header(ws, row, "Role-Specific Specialty Boards")

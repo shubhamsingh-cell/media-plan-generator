@@ -159,32 +159,134 @@ _INDUSTRY_PLATFORM_FIT: Dict[str, Dict[str, int]] = {
 # Grouped alias -> canonical key mapping (compressed)
 _INDUSTRY_ALIASES: Dict[str, str] = {}
 for _canon, _aliases in {
-    "transportation_logistics": "transportation logistics trucking delivery warehousing",
-    "tech_engineering": "technology tech software it",
-    "healthcare_medical": "healthcare medical nursing pharma biotech",
-    "retail_consumer": "retail ecommerce general general_entry_level",
-    "finance_banking": "finance banking",
-    "hospitality_travel": "hospitality travel",
-    "construction_real_estate": "construction real_estate",
-    "government_public_sector": "government public_sector",
-    "energy_utilities": "energy utilities",
-    "professional_services": "consulting legal",
-    "media_entertainment": "media entertainment",
-    "staffing_recruitment": "staffing",
-    "gig_economy": "gig",
-    "food_beverage": "restaurant food_service",
-    "aerospace_defense": "aerospace defense",
-    "blue_collar_trades": "blue_collar",
-    "manufacturing": "automotive manufacturing",
+    "transportation_logistics": "transportation logistics trucking delivery warehousing freight shipping supply_chain logistics_supply_chain",
+    "tech_engineering": "technology tech software it engineering saas cybersecurity fintech data_science ai machine_learning telecommunications",
+    "healthcare_medical": "healthcare medical nursing pharma biotech pharmaceutical senior_living senior_care assisted_living home_health hospice mental_health behavioral_health clinical dental veterinary pharma_biotech healthcare_medical",
+    "retail_consumer": "retail ecommerce consumer shopping",
+    "finance_banking": "finance banking financial_services accounting investment wealth_management",
+    "hospitality_travel": "hospitality travel hotel tourism hospitality_travel",
+    "construction_real_estate": "construction real_estate property_management construction_real_estate",
+    "government_public_sector": "government public_sector federal state municipal government_public_sector",
+    "energy_utilities": "energy utilities oil_gas renewable solar wind energy_utilities",
+    "professional_services": "consulting legal professional_services localization translation staffing_agency hr_services",
+    "media_entertainment": "media entertainment gaming publishing advertising media_entertainment",
+    "staffing_recruitment": "staffing recruitment staffing_recruitment talent_acquisition hr",
+    "gig_economy": "gig gig_economy freelance on_demand",
+    "food_beverage": "restaurant food_service food_beverage food beverage qsr fast_food",
+    "aerospace_defense": "aerospace defense military aerospace_defense",
+    "blue_collar_trades": "blue_collar trades skilled_trades",
+    "manufacturing": "manufacturing automotive assembly production plant industrial",
+    "nonprofit": "nonprofit non_profit ngo charity",
+    "education": "education university college school academic higher_education k12",
+    "insurance": "insurance underwriting claims",
+    "general_entry_level": "general general_entry_level entry_level hourly",
 }.items():
     for _a in _aliases.split():
         _INDUSTRY_ALIASES[_a] = _canon
 
+# Keyword fragments for substring matching (order matters -- more specific first)
+_INDUSTRY_KEYWORD_FRAGMENTS: List[Tuple[str, str]] = [
+    ("senior living", "healthcare_medical"),
+    ("senior care", "healthcare_medical"),
+    ("assisted living", "healthcare_medical"),
+    ("home health", "healthcare_medical"),
+    ("behavioral health", "healthcare_medical"),
+    ("mental health", "healthcare_medical"),
+    ("health care", "healthcare_medical"),
+    ("healthcare", "healthcare_medical"),
+    ("medical", "healthcare_medical"),
+    ("nursing", "healthcare_medical"),
+    ("pharma", "healthcare_medical"),
+    ("biotech", "healthcare_medical"),
+    ("clinical", "healthcare_medical"),
+    ("hospital", "healthcare_medical"),
+    ("trucking", "transportation_logistics"),
+    ("logistics", "transportation_logistics"),
+    ("supply chain", "transportation_logistics"),
+    ("transportation", "transportation_logistics"),
+    ("warehousing", "transportation_logistics"),
+    ("freight", "transportation_logistics"),
+    ("shipping", "transportation_logistics"),
+    ("delivery", "transportation_logistics"),
+    ("localization", "professional_services"),
+    ("translation", "professional_services"),
+    ("consulting", "professional_services"),
+    ("legal", "professional_services"),
+    ("technology", "tech_engineering"),
+    ("software", "tech_engineering"),
+    ("engineering", "tech_engineering"),
+    ("cybersecurity", "tech_engineering"),
+    ("fintech", "tech_engineering"),
+    ("saas", "tech_engineering"),
+    ("telecom", "tech_engineering"),
+    ("manufacturing", "manufacturing"),
+    ("automotive", "manufacturing"),
+    ("industrial", "manufacturing"),
+    ("production", "manufacturing"),
+    ("construction", "construction_real_estate"),
+    ("real estate", "construction_real_estate"),
+    ("property", "construction_real_estate"),
+    ("hospitality", "hospitality_travel"),
+    ("hotel", "hospitality_travel"),
+    ("travel", "hospitality_travel"),
+    ("tourism", "hospitality_travel"),
+    ("restaurant", "food_beverage"),
+    ("food service", "food_beverage"),
+    ("food & beverage", "food_beverage"),
+    ("qsr", "food_beverage"),
+    ("fast food", "food_beverage"),
+    ("finance", "finance_banking"),
+    ("banking", "finance_banking"),
+    ("accounting", "finance_banking"),
+    ("investment", "finance_banking"),
+    ("insurance", "insurance"),
+    ("retail", "retail_consumer"),
+    ("ecommerce", "retail_consumer"),
+    ("consumer", "retail_consumer"),
+    ("education", "education"),
+    ("university", "education"),
+    ("school", "education"),
+    ("government", "government_public_sector"),
+    ("public sector", "government_public_sector"),
+    ("federal", "government_public_sector"),
+    ("energy", "energy_utilities"),
+    ("utilities", "energy_utilities"),
+    ("oil", "energy_utilities"),
+    ("renewable", "energy_utilities"),
+    ("aerospace", "aerospace_defense"),
+    ("defense", "aerospace_defense"),
+    ("staffing", "staffing_recruitment"),
+    ("recruitment", "staffing_recruitment"),
+    ("nonprofit", "nonprofit"),
+    ("non-profit", "nonprofit"),
+    ("ngo", "nonprofit"),
+    ("gig", "gig_economy"),
+    ("freelance", "gig_economy"),
+    ("media", "media_entertainment"),
+    ("entertainment", "media_entertainment"),
+    ("gaming", "media_entertainment"),
+]
 
-def _resolve_industry(raw: str) -> str:
-    """Normalize a raw industry string to a canonical fit-key."""
+
+def _resolve_industry(raw: str, collar_type: str = "") -> str:
+    """Normalize a raw industry string to a canonical fit-key.
+
+    Resolution order:
+    1. Direct match against _INDUSTRY_PLATFORM_FIT keys
+    2. Exact alias lookup in _INDUSTRY_ALIASES
+    3. Substring/keyword matching against _INDUSTRY_KEYWORD_FRAGMENTS
+    4. Collar-type-based fallback (blue_collar -> blue_collar_trades, white -> professional_services)
+    5. Final fallback: professional_services (never retail_consumer unless input says retail)
+    """
     if not raw:
-        return "retail_consumer"
+        # No industry at all -- use collar_type as primary signal
+        collar_lower = (collar_type or "").lower().replace(" ", "_").replace("-", "_")
+        if "blue" in collar_lower:
+            return "blue_collar_trades"
+        if "clinical" in collar_lower or "licensed" in collar_lower:
+            return "healthcare_medical"
+        return "professional_services"
+
     normalized = (
         raw.lower()
         .strip()
@@ -194,9 +296,43 @@ def _resolve_industry(raw: str) -> str:
         .replace(" ", "_")
         .replace("__", "_")
     )
+
+    # 1. Direct match against platform fit keys
     if normalized in _INDUSTRY_PLATFORM_FIT:
         return normalized
-    return _INDUSTRY_ALIASES.get(normalized, "retail_consumer")
+
+    # 2. Exact alias lookup
+    alias_match = _INDUSTRY_ALIASES.get(normalized)
+    if alias_match:
+        return alias_match
+
+    # 3. Substring/keyword matching against the raw (lowered) input
+    raw_lower = raw.lower().strip()
+    for keyword, canon in _INDUSTRY_KEYWORD_FRAGMENTS:
+        if keyword in raw_lower:
+            return canon
+
+    # 4. Also try normalized form against aliases with partial matching
+    for alias_key, canon in _INDUSTRY_ALIASES.items():
+        if alias_key in normalized or normalized in alias_key:
+            return canon
+
+    # 5. Collar-type-based fallback
+    collar_lower = (collar_type or "").lower().replace(" ", "_").replace("-", "_")
+    if "blue" in collar_lower or "hourly" in collar_lower or "entry" in collar_lower:
+        return "blue_collar_trades"
+    if "clinical" in collar_lower or "licensed" in collar_lower:
+        return "healthcare_medical"
+    if "executive" in collar_lower or "leadership" in collar_lower:
+        return "professional_services"
+
+    # 6. Final fallback -- general, NOT retail
+    logger.warning(
+        "Industry '%s' could not be resolved to a known category; "
+        "falling back to 'professional_services'.",
+        raw,
+    )
+    return "professional_services"
 
 
 # Role-tier classifier (lightweight)
@@ -245,10 +381,49 @@ _GIG_KEYWORDS = {
 }
 
 
-def _classify_role_tier(role: str) -> str:
-    """Classify a role title into a tier key matching ROLE_TIER_MULTIPLIERS."""
+def _classify_role_tier(role: str, collar_type: str = "") -> str:
+    """Classify a role title into a tier key matching ROLE_TIER_MULTIPLIERS.
+
+    If *collar_type* is provided (e.g. from the plan data), it is used as
+    the fallback instead of defaulting to "Professional / White-Collar".
+    Role-title keyword matching still takes priority when keywords are found.
+    """
+    # Map collar_type strings from the plan to tier labels
+    _COLLAR_TO_TIER: Dict[str, str] = {
+        "blue_collar": "Hourly / Entry-Level",
+        "blue collar": "Hourly / Entry-Level",
+        "blue-collar": "Hourly / Entry-Level",
+        "hourly": "Hourly / Entry-Level",
+        "entry_level": "Hourly / Entry-Level",
+        "entry level": "Hourly / Entry-Level",
+        "white_collar": "Professional / White-Collar",
+        "white collar": "Professional / White-Collar",
+        "white-collar": "Professional / White-Collar",
+        "professional": "Professional / White-Collar",
+        "clinical": "Clinical / Licensed",
+        "licensed": "Clinical / Licensed",
+        "executive": "Executive / Leadership",
+        "leadership": "Executive / Leadership",
+        "trades": "Skilled Trades / Technical",
+        "skilled_trades": "Skilled Trades / Technical",
+        "gig": "Gig / Independent Contractor",
+    }
+
+    # Determine fallback from collar_type (if provided), else Professional
+    collar_lower = (collar_type or "").lower().strip()
+    fallback = _COLLAR_TO_TIER.get(collar_lower, "")
+    if not fallback:
+        # Try substring matching for compound collar_type values
+        for ck, ct in _COLLAR_TO_TIER.items():
+            if ck in collar_lower:
+                fallback = ct
+                break
+    if not fallback:
+        fallback = "Professional / White-Collar"
+
     if not role:
-        return "Professional / White-Collar"
+        return fallback
+
     r = role.lower()
     if any(kw in r for kw in _EXECUTIVE_KEYWORDS):
         return "Executive / Leadership"
@@ -270,10 +445,22 @@ def _classify_role_tier(role: str) -> str:
             "warehouse",
             "picker",
             "packer",
+            "cleaner",
+            "janitor",
+            "caregiver",
+            "aide",
+            "attendant",
+            "housekeeper",
+            "cook",
+            "dishwasher",
+            "laborer",
+            "loader",
+            "stocker",
         )
     ):
         return "Hourly / Entry-Level"
-    return "Professional / White-Collar"
+    # No keyword match -- use collar_type fallback instead of hardcoded white-collar
+    return fallback
 
 
 # CPC benchmarks per named ad channel
@@ -317,12 +504,31 @@ def recommend_channels(
     budget: Any = 100_000,
     locations: Optional[List[str]] = None,
     goals: Optional[List[str]] = None,
+    collar_type: str = "",
 ) -> Dict[str, Any]:
-    """Produce tiered channel recommendations for a recruitment campaign."""
+    """Produce tiered channel recommendations for a recruitment campaign.
+
+    Parameters
+    ----------
+    industry : str
+        Industry vertical string (free-form or canonical key).
+    role : str
+        Job title used for role-tier classification.
+    budget : Any
+        Total campaign budget (parsed via parse_budget).
+    locations : list[str] | None
+        Target locations for geo adjustments.
+    goals : list[str] | None
+        Campaign goals (e.g. volume, quality).
+    collar_type : str
+        Optional collar classification from plan data (e.g. "blue_collar",
+        "white_collar").  Used as fallback for both industry resolution
+        and role-tier classification when keywords are ambiguous.
+    """
     # ── Resolve inputs ──
-    ind_key = _resolve_industry(industry)
+    ind_key = _resolve_industry(industry, collar_type=collar_type)
     ind_label = INDUSTRY_LABEL_MAP.get(ind_key) or industry.replace("_", " ").title()
-    tier = _classify_role_tier(role)
+    tier = _classify_role_tier(role, collar_type=collar_type)
     budget_val = parse_budget(budget, default=100_000.0)
     locs = locations or []
     campaign_goals = goals or []
@@ -330,8 +536,9 @@ def recommend_channels(
     # ── Get fit scores for this industry ──
     fit_scores = dict(_INDUSTRY_PLATFORM_FIT.get(ind_key, {}))
     if not fit_scores:
-        # Fallback to retail_consumer as default
-        fit_scores = dict(_INDUSTRY_PLATFORM_FIT.get("retail_consumer", {}))
+        # ind_key didn't have a fit table (e.g. general_entry_level) -- use
+        # professional_services as a balanced fallback, NOT retail_consumer
+        fit_scores = dict(_INDUSTRY_PLATFORM_FIT.get("professional_services", {}))
 
     # ── Role-tier adjustments ──
     # Executive/professional roles: boost LinkedIn, lower TikTok/Snapchat

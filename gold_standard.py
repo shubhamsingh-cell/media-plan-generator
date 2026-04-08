@@ -102,6 +102,232 @@ _SUPPLY_TIERS: list[tuple[float, str]] = [
 ]
 
 # ---------------------------------------------------------------------------
+# Country-level salary multipliers (relative to US national average = 1.0).
+# Used as fallback when a location is a country name, not a US city.
+# ---------------------------------------------------------------------------
+_COUNTRY_SALARY_MULTIPLIERS: dict[str, float] = {
+    "canada": 0.85,
+    "india": 0.15,
+    "china": 0.25,
+    "japan": 0.80,
+    "germany": 0.90,
+    "united kingdom": 0.85,
+    "uk": 0.85,
+    "australia": 0.90,
+    "singapore": 0.95,
+    "brazil": 0.25,
+    "mexico": 0.20,
+    "philippines": 0.12,
+    "poland": 0.30,
+    "france": 0.85,
+    "netherlands": 0.88,
+    "south korea": 0.65,
+    "taiwan": 0.45,
+    "israel": 0.85,
+    "uae": 0.70,
+    "united arab emirates": 0.70,
+    "saudi arabia": 0.65,
+    "ireland": 0.88,
+    "spain": 0.55,
+    "italy": 0.60,
+    "sweden": 0.82,
+    "switzerland": 1.10,
+    "norway": 0.90,
+    "new zealand": 0.75,
+    "vietnam": 0.10,
+    "thailand": 0.12,
+    "indonesia": 0.10,
+    "malaysia": 0.20,
+    "colombia": 0.15,
+    "argentina": 0.12,
+    "chile": 0.25,
+    "south africa": 0.20,
+    "nigeria": 0.08,
+    "kenya": 0.08,
+    "egypt": 0.10,
+    "turkey": 0.18,
+    "romania": 0.25,
+    "czech republic": 0.35,
+    "czechia": 0.35,
+    "hungary": 0.28,
+    "portugal": 0.45,
+    "belgium": 0.85,
+    "austria": 0.88,
+    "denmark": 0.88,
+    "finland": 0.78,
+}
+
+# Country-level hiring difficulty (1-10 scale)
+_COUNTRY_HIRING_DIFFICULTY: dict[str, float] = {
+    "canada": 6.5,
+    "india": 3.5,
+    "china": 4.0,
+    "japan": 7.5,
+    "germany": 7.0,
+    "united kingdom": 6.8,
+    "uk": 6.8,
+    "australia": 6.5,
+    "singapore": 7.5,
+    "brazil": 4.0,
+    "mexico": 3.5,
+    "philippines": 3.0,
+    "poland": 5.0,
+    "france": 6.5,
+    "netherlands": 7.0,
+    "south korea": 6.5,
+    "taiwan": 5.5,
+    "israel": 7.5,
+    "uae": 5.0,
+    "united arab emirates": 5.0,
+    "saudi arabia": 4.5,
+    "ireland": 7.0,
+    "spain": 4.5,
+    "italy": 4.5,
+    "sweden": 6.5,
+    "switzerland": 8.0,
+    "norway": 6.5,
+    "new zealand": 6.0,
+    "vietnam": 3.0,
+    "thailand": 3.0,
+    "indonesia": 3.0,
+    "malaysia": 3.5,
+    "colombia": 3.5,
+    "argentina": 3.5,
+    "chile": 4.0,
+    "south africa": 3.5,
+    "nigeria": 2.5,
+    "kenya": 2.5,
+    "egypt": 3.0,
+    "turkey": 3.5,
+    "romania": 4.5,
+    "czech republic": 5.5,
+    "czechia": 5.5,
+    "hungary": 4.5,
+    "portugal": 4.5,
+    "belgium": 6.5,
+    "austria": 6.5,
+    "denmark": 7.0,
+    "finland": 6.5,
+}
+
+# Country-level cost-of-living indices (US = 100)
+_COUNTRY_COL_INDEX: dict[str, float] = {
+    "canada": 75.0,
+    "india": 25.0,
+    "china": 40.0,
+    "japan": 85.0,
+    "germany": 80.0,
+    "united kingdom": 80.0,
+    "uk": 80.0,
+    "australia": 82.0,
+    "singapore": 90.0,
+    "brazil": 35.0,
+    "mexico": 30.0,
+    "philippines": 22.0,
+    "poland": 40.0,
+    "france": 78.0,
+    "netherlands": 80.0,
+    "south korea": 70.0,
+    "taiwan": 55.0,
+    "israel": 80.0,
+    "uae": 65.0,
+    "united arab emirates": 65.0,
+    "saudi arabia": 55.0,
+    "ireland": 82.0,
+    "spain": 55.0,
+    "italy": 65.0,
+    "sweden": 78.0,
+    "switzerland": 120.0,
+    "norway": 95.0,
+    "new zealand": 72.0,
+    "vietnam": 22.0,
+    "thailand": 25.0,
+    "indonesia": 22.0,
+    "malaysia": 30.0,
+    "colombia": 25.0,
+    "argentina": 25.0,
+    "chile": 35.0,
+    "south africa": 30.0,
+    "nigeria": 20.0,
+    "kenya": 22.0,
+    "egypt": 20.0,
+    "turkey": 28.0,
+    "romania": 35.0,
+    "czech republic": 45.0,
+    "czechia": 45.0,
+    "hungary": 38.0,
+    "portugal": 50.0,
+    "belgium": 78.0,
+    "austria": 80.0,
+    "denmark": 85.0,
+    "finland": 78.0,
+}
+
+# ISO 2-letter country codes -> canonical country name (lowercase)
+_COUNTRY_CODE_MAP: dict[str, str] = {
+    "ca": "canada",
+    "in": "india",
+    "cn": "china",
+    "jp": "japan",
+    "de": "germany",
+    "gb": "united kingdom",
+    "au": "australia",
+    "sg": "singapore",
+    "br": "brazil",
+    "mx": "mexico",
+    "ph": "philippines",
+    "pl": "poland",
+    "fr": "france",
+    "nl": "netherlands",
+    "kr": "south korea",
+    "tw": "taiwan",
+    "il": "israel",
+    "ae": "uae",
+    "sa": "saudi arabia",
+    "ie": "ireland",
+    "es": "spain",
+    "it": "italy",
+    "se": "sweden",
+    "ch": "switzerland",
+    "no": "norway",
+    "nz": "new zealand",
+    "vn": "vietnam",
+    "th": "thailand",
+    "id": "indonesia",
+    "my": "malaysia",
+    "co": "colombia",
+    "ar": "argentina",
+    "cl": "chile",
+    "za": "south africa",
+    "ng": "nigeria",
+    "ke": "kenya",
+    "eg": "egypt",
+    "tr": "turkey",
+    "ro": "romania",
+    "cz": "czech republic",
+    "hu": "hungary",
+    "pt": "portugal",
+    "be": "belgium",
+    "at": "austria",
+    "dk": "denmark",
+    "fi": "finland",
+}
+
+
+def _resolve_country(location_key: str) -> str | None:
+    """Return canonical country name if *location_key* matches a known country.
+
+    Checks the country salary dict directly, then tries the 2-letter code map.
+    Returns None when the location is not a recognised country.
+    """
+    if location_key in _COUNTRY_SALARY_MULTIPLIERS:
+        return location_key
+    if location_key in _COUNTRY_CODE_MAP:
+        return _COUNTRY_CODE_MAP[location_key]
+    return None
+
+
+# ---------------------------------------------------------------------------
 # Per-role salary validation ranges (national, USD annual).
 # Used to clamp salary estimates when the enrichment source returns a salary
 # from a *different* role (e.g. Physician salary applied to Physician Assistant).
@@ -258,6 +484,19 @@ def enrich_city_level_data(data: dict) -> dict:
         multiplier = _CITY_SALARY_MULTIPLIERS.get(city_key, None)
         difficulty = _CITY_HIRING_DIFFICULTY.get(city_key, None)
 
+        # S49 FIX: Country-level fallback for international locations.
+        # When city_key is not a US city (multiplier is None), check if
+        # it matches a known country name or 2-letter country code.
+        # This prevents India/China/etc. from getting the US $75K default.
+        _resolved_country: str | None = None
+        _country_col: float | None = None
+        if multiplier is None:
+            _resolved_country = _resolve_country(city_key)
+            if _resolved_country is not None:
+                multiplier = _COUNTRY_SALARY_MULTIPLIERS[_resolved_country]
+                difficulty = _COUNTRY_HIRING_DIFFICULTY.get(_resolved_country, 5.5)
+                _country_col = _COUNTRY_COL_INDEX.get(_resolved_country)
+
         # S49 FIX (Issue 10): When no hardcoded multiplier/difficulty exists,
         # fall back to research.METRO_DATA for COLI-based differentiation
         # instead of flat defaults (1.0 / 5.5).  This ensures cities like
@@ -298,13 +537,20 @@ def enrich_city_level_data(data: dict) -> dict:
         # Prevents Physician salary from bleeding into PA/RN/etc. roles.
         est_salary = round(_clamp_salary_for_role(est_salary, multiplier, role_titles))
 
+        # Use country-specific COL when available; otherwise derive from
+        # the multiplier (which is accurate for US cities but misleading
+        # for countries where salary multiplier != COL relationship).
+        col_index = (
+            _country_col if _country_col is not None else round(multiplier * 100, 1)
+        )
+
         city_data[city_name] = {
             "salary_multiplier": multiplier,
             "estimated_salary": est_salary,
             "salary_range": f"${est_salary - 10_000:,.0f} - ${est_salary + 15_000:,.0f}",
             "hiring_difficulty": round(difficulty, 1),
             "supply_tier": supply_tier,
-            "cost_of_living_index": round(multiplier * 100, 1),
+            "cost_of_living_index": round(col_index, 1),
         }
 
     return city_data
