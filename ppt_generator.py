@@ -1696,6 +1696,14 @@ def _selected_channels(data: Dict) -> Dict[str, Dict[str, Any]]:
         if not has_explicit_cats:
             for key, meta in alloc_base.items():
                 selected[key] = dict(meta)
+            # S48 FIX: Apply geo-filter AFTER legacy fallback populates all channels.
+            # When channel_categories is empty (legacy/API path), the us_only check
+            # at the top correctly sets cats["apac_regional"] = False, but the empty
+            # cats dict triggers this fallback which re-includes ALL channels.
+            # We must strip APAC/EMEA here for US-only campaigns.
+            if us_only:
+                selected.pop("apac_regional", None)
+                selected.pop("emea_regional", None)
         else:
             # cats was provided but no True values matched alloc_base keys;
             # fall back to programmatic + global + social as minimum
@@ -2129,6 +2137,23 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
     if not isinstance(ba_metadata, dict):
         ba_metadata = {}
 
+    # S48 FIX: Compute hires from per-channel sum (source of truth) to ensure
+    # PPT hero stats match Excel Executive Summary and ROI Projections.
+    _ppt_channel_allocs = budget_alloc.get("channel_allocations", {})
+    if not isinstance(_ppt_channel_allocs, dict):
+        _ppt_channel_allocs = {}
+    _ppt_hires_sum = sum(
+        int(ch.get("projected_hires") or 0) for ch in _ppt_channel_allocs.values()
+    )
+    if _ppt_hires_sum == 0:
+        _ppt_hires_sum = int(ba_total_projected.get("hires") or 0)
+    _ppt_total_budget = ba_metadata.get("total_budget") or 0
+    _ppt_cph = (
+        round(_ppt_total_budget / max(_ppt_hires_sum, 1), 2)
+        if _ppt_hires_sum > 0
+        else 0
+    )
+
     # Off-white background
     _add_filled_rect(slide, Inches(0), Inches(0), SLIDE_WIDTH, SLIDE_HEIGHT, OFF_WHITE)
 
@@ -2443,11 +2468,11 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
     _set_font(r0, size=10, bold=True, color=GREEN)
     p0.space_after = Pt(4)
 
-    # Build thesis from data
+    # Build thesis from data -- S48: use per-channel-sum hires
     _thesis_parts: list[str] = []
     if ba_total_projected:
-        _proj_h = ba_total_projected.get("hires") or 0
-        _proj_cph = ba_total_projected.get("cost_per_hire") or 0
+        _proj_h = _ppt_hires_sum
+        _proj_cph = _ppt_cph
         if _proj_h > 0:
             _thesis_parts.append(f"This plan projects {int(_proj_h)} hires")
         if _proj_cph > 0:
@@ -2596,10 +2621,11 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
             pass
 
     # Add budget allocation metrics if available (projected hires, avg CPA)
+    # S48: use per-channel-sum hires for consistency
     if ba_total_projected:
-        projected_hires = ba_total_projected.get("hires") or 0
+        projected_hires = _ppt_hires_sum
         avg_cpa_val = ba_total_projected.get("cost_per_application") or 0
-        avg_cph_val = ba_total_projected.get("cost_per_hire") or 0
+        avg_cph_val = _ppt_cph
         if projected_hires and projected_hires > 0:
             secondary_metrics.append((str(int(projected_hires)), "Projected Hires"))
         if avg_cpa_val and avg_cpa_val > 0:
@@ -2779,7 +2805,21 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
         budget_alloc.get("metadata", {}) if isinstance(budget_alloc, dict) else {}
     )
     total_budget_val = budget_alloc_meta.get("total_budget") or 0
-    proj_hires_ch = (budget_alloc.get("total_projected", {}) or {}).get("hires") or 0
+    # S48 FIX: per-channel sum hires for consistency
+    _cs_ch_allocs = (
+        budget_alloc.get("channel_allocations", {})
+        if isinstance(budget_alloc, dict)
+        else {}
+    )
+    if not isinstance(_cs_ch_allocs, dict):
+        _cs_ch_allocs = {}
+    proj_hires_ch = sum(
+        int(ch.get("projected_hires") or 0) for ch in _cs_ch_allocs.values()
+    )
+    if proj_hires_ch == 0:
+        proj_hires_ch = (budget_alloc.get("total_projected", {}) or {}).get(
+            "hires"
+        ) or 0
     if total_budget_val > 0 and proj_hires_ch > 0:
         action_text = (
             f"{n_cats}-channel strategy allocates {_fmt_currency(total_budget_val, compact=True)} "
@@ -3365,9 +3405,22 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
 
     proj_clicks = ba_total_proj.get("clicks") or 0
     proj_apps = ba_total_proj.get("applications") or 0
-    projected_hires = ba_total_proj.get("hires") or 0
+    # S48 FIX: Compute hires from per-channel sum for consistency
+    _qo_ch_allocs = budget_alloc.get("channel_allocations", {}) if budget_alloc else {}
+    if not isinstance(_qo_ch_allocs, dict):
+        _qo_ch_allocs = {}
+    projected_hires = sum(
+        int(ch.get("projected_hires") or 0) for ch in _qo_ch_allocs.values()
+    )
+    if projected_hires == 0:
+        projected_hires = ba_total_proj.get("hires") or 0
     real_avg_cpa = ba_total_proj.get("cost_per_application") or 0
-    ba_avg_cph = ba_total_proj.get("cost_per_hire") or 0
+    _qo_budget = ba_metadata_qo.get("total_budget") or 0
+    ba_avg_cph = (
+        round(_qo_budget / max(projected_hires, 1), 2)
+        if projected_hires > 0
+        else (ba_total_proj.get("cost_per_hire") or 0)
+    )
 
     benchmarks = _get_benchmarks(industry, data)
     cpa_str = benchmarks.get("cpa", "$25")
@@ -3865,8 +3918,12 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
     proj_apps = ba_total_proj.get("applications") or 0
     apps_display = f"{int(proj_apps):,}" if proj_apps and proj_apps > 0 else "--"
 
-    # Projected Hires
-    proj_hires = ba_total_proj.get("hires") or 0
+    # Projected Hires -- S48: per-channel sum for consistency
+    proj_hires = sum(
+        int(ch.get("projected_hires") or 0) for ch in ba_channel_alloc.values()
+    )
+    if proj_hires == 0:
+        proj_hires = ba_total_proj.get("hires") or 0
     hires_display = f"{int(proj_hires):,}" if proj_hires and proj_hires > 0 else "--"
 
     hero_cards = [
@@ -4229,7 +4286,15 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
 
     if ba_total_proj_comp:
         proj_cpa = ba_total_proj_comp.get("cost_per_application") or 0
-        proj_hires = ba_total_proj_comp.get("hires") or 0
+        # S48 FIX: per-channel sum for consistency
+        if isinstance(ba_channel_alloc, dict) and ba_channel_alloc:
+            proj_hires = sum(
+                int(ch.get("projected_hires") or 0) for ch in ba_channel_alloc.values()
+            )
+        else:
+            proj_hires = 0
+        if proj_hires == 0:
+            proj_hires = ba_total_proj_comp.get("hires") or 0
         proj_apps = ba_total_proj_comp.get("applications") or 0
 
         # Get industry benchmark CPA for comparison
@@ -7620,8 +7685,17 @@ def _build_slide_risk_analysis(prs: Presentation, data: Dict) -> None:
             []
         )  # (category, risk, impact, mitigation)
 
-        proj_hires = total_proj.get("hires") or 0
-        cph = total_proj.get("cost_per_hire") or 0
+        # S48 FIX: per-channel sum for consistency
+        proj_hires = sum(
+            int(ch.get("projected_hires") or 0) for ch in channel_allocs.values()
+        )
+        if proj_hires == 0:
+            proj_hires = total_proj.get("hires") or 0
+        cph = (
+            round(total_budget / max(proj_hires, 1), 2)
+            if proj_hires > 0
+            else (total_proj.get("cost_per_hire") or 0)
+        )
 
         # 1. Budget risk
         if proj_hires > 0 and cph > 0 and total_budget > 0:
@@ -8305,9 +8379,11 @@ def _build_slide_conversion_funnel(prs: Presentation, data: Dict):
     if not isinstance(ba_channel_alloc, dict):
         ba_channel_alloc = {}
 
-    # Gather funnel metrics
+    # Gather funnel metrics -- S48: per-channel sum for consistency
     applications = int(ba_total_proj.get("applications") or 0)
-    hires = int(ba_total_proj.get("hires") or 0)
+    hires = sum(int(ch.get("projected_hires") or 0) for ch in ba_channel_alloc.values())
+    if hires == 0:
+        hires = int(ba_total_proj.get("hires") or 0)
 
     # Estimate impressions and clicks from budget if not provided
     total_budget = ba_metadata.get("total_budget") or 0

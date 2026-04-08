@@ -36,6 +36,42 @@
       }
     } catch (_) {}
 
+    // Check 3.5: Detect OAuth error in URL hash or query params
+    // Google OAuth / Supabase returns error info when auth fails
+    // (e.g., user not in GCP testing user list, consent screen errors)
+    try {
+      var _hashStr = window.location.hash
+        ? window.location.hash.substring(1)
+        : "";
+      var _searchStr = window.location.search
+        ? window.location.search.substring(1)
+        : "";
+      var _combinedParams = _hashStr + "&" + _searchStr;
+      if (_combinedParams.indexOf("error=") !== -1) {
+        var _errParams = {};
+        _combinedParams.split("&").forEach(function (p) {
+          var kv = p.split("=");
+          if (kv[0])
+            _errParams[kv[0]] = decodeURIComponent(kv[1] || "").replace(
+              /\+/g,
+              " ",
+            );
+        });
+        var _oauthError = _errParams["error"] || "";
+        var _oauthDesc = _errParams["error_description"] || "";
+        if (_oauthError) {
+          // Clean URL
+          history.replaceState(null, "", window.location.pathname);
+          // Store error for display in gate UI
+          window._novaOAuthError = {
+            error: _oauthError,
+            description: _oauthDesc,
+          };
+          console.error("[NovaAuth] OAuth error:", _oauthError, _oauthDesc);
+        }
+      }
+    } catch (_) {}
+
     // Check 4: Just came back from OAuth redirect (access_token in URL hash)
     if (
       window.location.hash &&
@@ -131,6 +167,10 @@
       "  </div>" +
       '  <h1 style="color:#e4e4e7;font-size:28px;font-weight:700;margin:0 0 8px;font-family:Inter,sans-serif;">Welcome to Nova AI</h1>' +
       '  <p style="color:rgba(255,255,255,0.5);font-size:15px;margin:0 0 32px;font-family:Inter,sans-serif;line-height:1.5;">AI-powered recruitment intelligence platform.<br>Sign in to access the suite.</p>' +
+      '  <div id="nova-gate-error" style="display:none;margin:0 0 20px;padding:12px 16px;border-radius:8px;background:rgba(255,80,80,0.12);border:1px solid rgba(255,80,80,0.25);text-align:left;">' +
+      '    <div style="color:#ff6b6b;font-size:13px;font-weight:600;margin-bottom:4px;font-family:Inter,sans-serif;">Sign-in failed</div>' +
+      '    <div id="nova-gate-error-msg" style="color:rgba(255,255,255,0.6);font-size:12px;line-height:1.4;font-family:Inter,sans-serif;"></div>' +
+      "  </div>" +
       '  <button id="nova-gate-login-btn" style="' +
       "    background:white;color:#1a1a2e;border:none;padding:14px 32px;border-radius:12px;" +
       "    font-size:15px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;" +
@@ -147,6 +187,40 @@
       "</div>";
 
     document.body.appendChild(overlay);
+
+    // Show OAuth error if detected (e.g., GCP testing mode, access_denied)
+    if (window._novaOAuthError) {
+      var errBox = document.getElementById("nova-gate-error");
+      var errMsg = document.getElementById("nova-gate-error-msg");
+      if (errBox && errMsg) {
+        var errCode = window._novaOAuthError.error || "unknown_error";
+        var errDesc = window._novaOAuthError.description || "";
+        var friendlyMsg = errDesc;
+        // Map common OAuth errors to user-friendly messages
+        if (errCode === "access_denied") {
+          friendlyMsg =
+            "Access was denied. Your Google account may not be authorized. " +
+            "Please contact the Nova admin to be added as an authorized user.";
+        } else if (
+          errCode === "server_error" ||
+          errCode === "temporarily_unavailable"
+        ) {
+          friendlyMsg =
+            "Google authentication is temporarily unavailable. Please try again in a few minutes.";
+        } else if (errCode === "invalid_request") {
+          friendlyMsg =
+            "Authentication request was invalid. Please clear your browser cache and try again.";
+        } else if (!friendlyMsg) {
+          friendlyMsg =
+            "An error occurred during sign-in (code: " +
+            errCode +
+            "). Please try again or contact admin.";
+        }
+        errMsg.textContent = friendlyMsg;
+        errBox.style.display = "block";
+      }
+      delete window._novaOAuthError;
+    }
 
     var btn = document.getElementById("nova-gate-login-btn");
     if (btn) {

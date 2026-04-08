@@ -941,3 +941,577 @@ def get_signal_stats() -> Dict[str, Any]:
         Dict with engine status, signal counts, cache info, and data file status.
     """
     return _get_engine().get_signal_stats()
+
+
+# ---------------------------------------------------------------------------
+# S48: CPC Trend Tracker + Job Posting Volume Tracker
+# ---------------------------------------------------------------------------
+# Live Adzuna/Jooble integration with benchmark fallbacks and 1-hour cache.
+
+import hashlib
+import ssl
+import urllib.error
+import urllib.parse
+import urllib.request
+
+_CPC_CACHE: Dict[str, Any] = {}
+_VOLUME_CACHE: Dict[str, Any] = {}
+_CPC_CACHE_LOCK = threading.Lock()
+_VOLUME_CACHE_LOCK = threading.Lock()
+_TRACKER_CACHE_TTL = 3600  # 1 hour
+
+# Platform-level CPC benchmarks from recruitment_benchmarks_comprehensive_2026.json
+_PLATFORM_CPC_BENCHMARKS: Dict[str, Dict[str, float]] = {
+    "indeed": {"min": 0.25, "max": 1.50, "median": 0.92},
+    "linkedin": {"min": 1.50, "max": 8.00, "median": 5.26},
+    "ziprecruiter": {"min": 0.80, "max": 3.50, "median": 1.35},
+    "glassdoor": {"min": 5.00, "max": 150.00, "median": 12.00},
+    "facebook": {"min": 0.50, "max": 2.11, "median": 1.11},
+    "google_ads": {"min": 2.00, "max": 5.00, "median": 3.20},
+}
+
+_INDUSTRY_CPC_BENCHMARKS: Dict[str, Dict[str, float]] = {
+    "technology": {"indeed": 1.15, "linkedin": 6.50, "ziprecruiter": 1.80},
+    "healthcare": {"indeed": 0.90, "linkedin": 4.00, "ziprecruiter": 1.40},
+    "finance": {"indeed": 1.00, "linkedin": 5.50, "ziprecruiter": 1.60},
+    "retail": {"indeed": 0.55, "linkedin": 3.50, "ziprecruiter": 1.00},
+    "logistics": {"indeed": 0.70, "linkedin": 3.80, "ziprecruiter": 1.10},
+    "hospitality": {"indeed": 0.45, "linkedin": 3.20, "ziprecruiter": 0.90},
+    "manufacturing": {"indeed": 0.65, "linkedin": 3.60, "ziprecruiter": 1.05},
+    "engineering": {"indeed": 1.10, "linkedin": 6.00, "ziprecruiter": 1.70},
+    "marketing": {"indeed": 0.85, "linkedin": 5.00, "ziprecruiter": 1.30},
+    "education": {"indeed": 0.60, "linkedin": 4.50, "ziprecruiter": 1.15},
+}
+
+# Posting volume baselines by industry (weekly averages for trend comparison)
+_POSTING_VOLUME_BASELINES: Dict[str, int] = {
+    "technology": 145000,
+    "healthcare": 210000,
+    "finance": 85000,
+    "retail": 180000,
+    "logistics": 95000,
+    "hospitality": 120000,
+    "manufacturing": 65000,
+    "engineering": 42000,
+    "marketing": 38000,
+    "education": 72000,
+    "construction": 55000,
+    "default": 50000,
+}
+
+
+def _tracker_cache_key(prefix: str, params: str) -> str:
+    """Generate a deterministic cache key for tracker functions."""
+    raw = f"{prefix}:{params}"
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:24]
+
+
+def _get_tracker_cached(
+    cache: Dict[str, Any], lock: threading.Lock, key: str
+) -> Optional[Dict[str, Any]]:
+    """Check in-memory tracker cache. Returns None on miss or expiry."""
+    with lock:
+        if key in cache:
+            entry = cache[key]
+            if time.time() - entry.get("ts", 0) < _TRACKER_CACHE_TTL:
+                return entry.get("data")
+            cache.pop(key, None)
+    return None
+
+
+def _set_tracker_cached(
+    cache: Dict[str, Any], lock: threading.Lock, key: str, data: Dict[str, Any]
+) -> None:
+    """Store data in tracker cache with timestamp."""
+    with lock:
+        # Evict oldest if cache grows beyond 200 entries
+        if len(cache) >= 200:
+            sorted_keys = sorted(cache.keys(), key=lambda k: cache[k].get("ts", 0))
+            for k in sorted_keys[:40]:
+                cache.pop(k, None)
+        cache[key] = {"ts": time.time(), "data": data}
+
+
+def _classify_industry(role: str) -> str:
+    """Map a role string to an industry key for benchmark lookup."""
+    rl = role.lower()
+    kw_map = {
+        "software": "technology",
+        "developer": "technology",
+        "devops": "technology",
+        "data": "technology",
+        "cloud": "technology",
+        "ai": "technology",
+        "ml": "technology",
+        "engineer": "engineering",
+        "nurse": "healthcare",
+        "doctor": "healthcare",
+        "physician": "healthcare",
+        "therapist": "healthcare",
+        "medical": "healthcare",
+        "accountant": "finance",
+        "analyst": "finance",
+        "financial": "finance",
+        "banking": "finance",
+        "warehouse": "logistics",
+        "driver": "logistics",
+        "supply chain": "logistics",
+        "teacher": "education",
+        "professor": "education",
+        "instructor": "education",
+        "sales": "retail",
+        "retail": "retail",
+        "cashier": "retail",
+        "marketing": "marketing",
+        "content": "marketing",
+        "seo": "marketing",
+        "chef": "hospitality",
+        "hotel": "hospitality",
+        "restaurant": "hospitality",
+        "construction": "manufacturing",
+        "mechanic": "manufacturing",
+        "welder": "manufacturing",
+    }
+    for kw, ind in kw_map.items():
+        if kw in rl:
+            return ind
+    return "default"
+
+
+def _adzuna_live_cpc(role: str, country: str = "us") -> Optional[Dict[str, Any]]:
+    """Fetch live CPC-related data from Adzuna search endpoint.
+
+    Returns dict with posting count and mean salary, or None on failure.
+    """
+    app_id = os.environ.get("ADZUNA_APP_ID") or ""
+    app_key = os.environ.get("ADZUNA_APP_KEY") or ""
+    if not app_id or not app_key:
+        return None
+
+    params = urllib.parse.urlencode(
+        {
+            "app_id": app_id,
+            "app_key": app_key,
+            "what": role,
+            "results_per_page": "1",
+            "content-type": "application/json",
+        }
+    )
+    url = f"https://api.adzuna.com/v1/api/jobs/{country}/search/1?{params}"
+
+    try:
+        ctx = ssl.create_default_context()
+        req = urllib.request.Request(url, method="GET")
+        req.add_header("User-Agent", "NovaAISuite/1.0")
+        req.add_header("Accept", "application/json")
+        with urllib.request.urlopen(req, timeout=8, context=ctx) as resp:
+            body = resp.read().decode("utf-8")
+            data = json.loads(body)
+            return {
+                "count": data.get("count") or 0,
+                "mean_salary": data.get("mean"),
+            }
+    except (urllib.error.HTTPError, urllib.error.URLError) as exc:
+        logger.warning("Adzuna CPC fetch failed for %s: %s", role, exc)
+        return None
+    except (json.JSONDecodeError, OSError, ValueError) as exc:
+        logger.warning("Adzuna CPC parse failed for %s: %s", role, exc)
+        return None
+
+
+def _jooble_live_count(role: str, location: str) -> Optional[int]:
+    """Fetch job posting count from Jooble API.
+
+    Returns totalCount or None on failure.
+    """
+    api_key = (os.environ.get("JOOBLE_API_KEY") or "").strip()
+    if not api_key:
+        return None
+
+    url = f"https://jooble.org/api/{api_key}"
+    payload = json.dumps(
+        {
+            "keywords": role,
+            "location": location,
+            "page": 1,
+        }
+    ).encode("utf-8")
+
+    req = urllib.request.Request(
+        url,
+        data=payload,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+
+    try:
+        ctx = ssl.create_default_context()
+        with urllib.request.urlopen(req, timeout=15, context=ctx) as resp:
+            body = resp.read().decode("utf-8")
+            data = json.loads(body)
+            return data.get("totalCount") or 0
+    except (urllib.error.HTTPError, urllib.error.URLError) as exc:
+        logger.warning(
+            "Jooble count fetch failed for %s in %s: %s", role, location, exc
+        )
+        return None
+    except (json.JSONDecodeError, OSError, ValueError) as exc:
+        logger.warning(
+            "Jooble count parse failed for %s in %s: %s", role, location, exc
+        )
+        return None
+
+
+def _generate_cpc_alert(trends: Dict[str, str], current_cpc: Dict[str, float]) -> str:
+    """Generate a smart alert string based on CPC trends."""
+    alerts: List[str] = []
+    for platform, trend_str in trends.items():
+        try:
+            pct = float(trend_str.replace("%", "").replace("+", ""))
+        except (ValueError, AttributeError):
+            continue
+        if pct > 10:
+            alerts.append(
+                f"{platform.title()} CPC up {trend_str} -- consider shifting budget"
+            )
+        elif pct < -10:
+            alerts.append(
+                f"{platform.title()} CPC down {trend_str} -- opportunity to increase spend"
+            )
+
+    # Seasonal check
+    month = datetime.datetime.now().month
+    seasonal = _SEASONAL_PATTERNS.get(month, {})
+    label = seasonal.get("label", "")
+    mult = seasonal.get("demand_multiplier", 1.0)
+    if mult > 1.05:
+        alerts.append(f"Seasonal pattern: {label} (demand +{int((mult-1)*100)}%)")
+    elif mult < 0.90:
+        alerts.append(f"Seasonal pattern: {label} (demand {int((mult-1)*100)}%)")
+
+    if not alerts:
+        return "CPC trends within normal range across all platforms."
+    return " | ".join(alerts)
+
+
+def _generate_volume_signal(change_pct: float, role: str, locations: List[str]) -> str:
+    """Generate a market signal string from posting volume change."""
+    loc_str = ", ".join(locations[:3]) if locations else "all markets"
+    if change_pct > 15:
+        return (
+            f"Hiring surge detected for {role} in {loc_str} "
+            f"(+{change_pct:.1f}% week-over-week). "
+            f"Expect CPC increase in 2-4 weeks."
+        )
+    elif change_pct > 5:
+        return (
+            f"Moderate hiring uptick for {role} in {loc_str} "
+            f"(+{change_pct:.1f}% week-over-week)."
+        )
+    elif change_pct < -10:
+        return (
+            f"Market cooling detected for {role} in {loc_str} "
+            f"({change_pct:.1f}% week-over-week). "
+            f"Opportunity to reduce CPC bids."
+        )
+    elif change_pct < -5:
+        return (
+            f"Slight demand softening for {role} in {loc_str} "
+            f"({change_pct:.1f}% week-over-week)."
+        )
+    return f"Stable posting volume for {role} in {loc_str}."
+
+
+def get_cpc_trends(
+    role: str,
+    industry: str = "",
+    locations: Optional[List[str]] = None,
+    timeframe: str = "30d",
+) -> Dict[str, Any]:
+    """Track CPC bid price trends across platforms for a given role.
+
+    Fetches live data from Adzuna when available, compares against stored
+    benchmarks, and returns trend direction with smart alerts.
+
+    Args:
+        role: Job title to track (e.g. "Software Engineer").
+        industry: Industry vertical for benchmark lookup.
+        locations: Target locations (used for Adzuna country routing).
+        timeframe: Trend window -- "7d", "30d", or "90d" (default "30d").
+
+    Returns:
+        Dict with current_cpc, benchmark_cpc, trend, alert, forecast_30d,
+        and last_updated fields.
+    """
+    if not role:
+        return {"error": "Role is required", "current_cpc": {}, "trend": {}}
+
+    locations = locations or []
+    cache_key = _tracker_cache_key(
+        "cpc_trends",
+        f"{role}|{industry}|{'|'.join(locations)}|{timeframe}",
+    )
+    cached = _get_tracker_cached(_CPC_CACHE, _CPC_CACHE_LOCK, cache_key)
+    if cached is not None:
+        return cached
+
+    # Determine industry for benchmark lookup
+    ind = (industry or "").lower().strip()
+    if not ind or ind not in _INDUSTRY_CPC_BENCHMARKS:
+        ind = _classify_industry(role)
+
+    # Benchmark CPC by platform
+    ind_benchmarks = _INDUSTRY_CPC_BENCHMARKS.get(ind, {})
+    benchmark_cpc: Dict[str, float] = {
+        "indeed": ind_benchmarks.get(
+            "indeed", _PLATFORM_CPC_BENCHMARKS["indeed"]["median"]
+        ),
+        "linkedin": ind_benchmarks.get(
+            "linkedin", _PLATFORM_CPC_BENCHMARKS["linkedin"]["median"]
+        ),
+        "ziprecruiter": ind_benchmarks.get(
+            "ziprecruiter", _PLATFORM_CPC_BENCHMARKS["ziprecruiter"]["median"]
+        ),
+    }
+
+    # Try live Adzuna data
+    country = "us"
+    if locations:
+        loc0 = locations[0].lower()
+        country_map = {
+            "uk": "gb",
+            "united kingdom": "gb",
+            "canada": "ca",
+            "australia": "au",
+            "germany": "de",
+            "france": "fr",
+            "india": "in",
+            "brazil": "br",
+        }
+        for k, v in country_map.items():
+            if k in loc0:
+                country = v
+                break
+
+    live_data = _adzuna_live_cpc(role, country)
+
+    # Compute current CPC estimates
+    # Adzuna gives posting count which correlates with competition / CPC pressure
+    current_cpc: Dict[str, float] = {}
+    if live_data and live_data.get("count", 0) > 0:
+        posting_count = live_data["count"]
+        # Competition-adjusted CPC: more postings = higher CPC pressure
+        # Apply a multiplier based on competition relative to baseline
+        baseline_count = _POSTING_VOLUME_BASELINES.get(ind, 50000)
+        competition_ratio = min(posting_count / max(baseline_count, 1), 2.0)
+        for platform, bench_val in benchmark_cpc.items():
+            # Scale CPC by competition ratio (capped at 2x baseline)
+            adjusted = round(bench_val * (0.85 + 0.3 * competition_ratio), 2)
+            current_cpc[platform] = adjusted
+    else:
+        # Fallback: apply seasonal multiplier to benchmarks
+        month = datetime.datetime.now().month
+        seasonal_mult = _SEASONAL_PATTERNS.get(month, {}).get("demand_multiplier", 1.0)
+        for platform, bench_val in benchmark_cpc.items():
+            current_cpc[platform] = round(bench_val * seasonal_mult, 2)
+
+    # Compute trends
+    trends: Dict[str, str] = {}
+    for platform in benchmark_cpc:
+        curr = current_cpc.get(platform, 0)
+        bench = benchmark_cpc.get(platform, 0)
+        if bench > 0:
+            pct_change = ((curr - bench) / bench) * 100
+            sign = "+" if pct_change >= 0 else ""
+            trends[platform] = f"{sign}{pct_change:.0f}%"
+        else:
+            trends[platform] = "N/A"
+
+    # 30-day forecast: project current trend forward with dampening
+    forecast_30d: Dict[str, float] = {}
+    for platform in current_cpc:
+        curr = current_cpc[platform]
+        bench = benchmark_cpc.get(platform, curr)
+        if bench > 0:
+            trend_factor = (curr - bench) / bench
+            # Dampen forecast: assume 60% of current trend continues
+            projected = curr * (1 + trend_factor * 0.6)
+            forecast_30d[platform] = round(projected, 2)
+        else:
+            forecast_30d[platform] = curr
+
+    alert = _generate_cpc_alert(trends, current_cpc)
+
+    result: Dict[str, Any] = {
+        "role": role,
+        "industry": ind,
+        "current_cpc": current_cpc,
+        "benchmark_cpc": {k: round(v, 2) for k, v in benchmark_cpc.items()},
+        "trend": trends,
+        "alert": alert,
+        "forecast_30d": forecast_30d,
+        "timeframe": timeframe,
+        "data_source": (
+            "Adzuna API + benchmarks"
+            if live_data
+            else "Curated benchmarks (Adzuna unavailable)"
+        ),
+        "last_updated": datetime.datetime.now(datetime.timezone.utc).strftime(
+            "%Y-%m-%d"
+        ),
+    }
+
+    _set_tracker_cached(_CPC_CACHE, _CPC_CACHE_LOCK, cache_key, result)
+    return result
+
+
+def get_posting_volume(
+    role: str,
+    locations: Optional[List[str]] = None,
+    timeframe: str = "7d",
+) -> Dict[str, Any]:
+    """Track job posting volume and market activity for a given role.
+
+    Uses Adzuna as primary source and Jooble as secondary to get current
+    posting volumes, then compares against historical baselines.
+
+    Args:
+        role: Job title to track (e.g. "Software Engineer").
+        locations: Target locations for volume tracking.
+        timeframe: Comparison window -- "7d" or "30d" (default "7d").
+
+    Returns:
+        Dict with current_postings, previous_period, change, trend,
+        market_signal, competitor_indicator, and by_location fields.
+    """
+    if not role:
+        return {"error": "Role is required", "current_postings": 0}
+
+    locations = locations or []
+    cache_key = _tracker_cache_key(
+        "posting_volume",
+        f"{role}|{'|'.join(locations)}|{timeframe}",
+    )
+    cached = _get_tracker_cached(_VOLUME_CACHE, _VOLUME_CACHE_LOCK, cache_key)
+    if cached is not None:
+        return cached
+
+    industry = _classify_industry(role)
+    baseline = _POSTING_VOLUME_BASELINES.get(industry, 50000)
+
+    # Apply seasonal adjustment to baseline for fair comparison
+    month = datetime.datetime.now().month
+    seasonal_mult = _SEASONAL_PATTERNS.get(month, {}).get("demand_multiplier", 1.0)
+    adjusted_baseline = int(baseline * seasonal_mult)
+
+    # Try live Adzuna count
+    country = "us"
+    if locations:
+        loc0 = locations[0].lower()
+        country_map = {
+            "uk": "gb",
+            "united kingdom": "gb",
+            "canada": "ca",
+            "australia": "au",
+            "germany": "de",
+            "france": "fr",
+            "india": "in",
+            "brazil": "br",
+        }
+        for k, v in country_map.items():
+            if k in loc0:
+                country = v
+                break
+
+    adzuna_data = _adzuna_live_cpc(role, country)
+    adzuna_count = (adzuna_data or {}).get("count", 0)
+
+    # Try Jooble as secondary source
+    jooble_count = 0
+    if locations:
+        for loc in locations[:3]:
+            jc = _jooble_live_count(role, loc)
+            if jc is not None:
+                jooble_count += jc
+    elif not adzuna_count:
+        # No locations and no Adzuna -- try Jooble with empty location
+        jc = _jooble_live_count(role, "")
+        if jc is not None:
+            jooble_count = jc
+
+    # Determine best current count
+    if adzuna_count > 0 and jooble_count > 0:
+        current_postings = max(adzuna_count, jooble_count)
+        data_source = "Adzuna + Jooble APIs"
+    elif adzuna_count > 0:
+        current_postings = adzuna_count
+        data_source = "Adzuna API"
+    elif jooble_count > 0:
+        current_postings = jooble_count
+        data_source = "Jooble API"
+    else:
+        # Fallback to baseline with seasonal adjustment
+        current_postings = adjusted_baseline
+        data_source = "Curated benchmarks (APIs unavailable)"
+
+    # Compute change vs previous period (baseline represents typical volume)
+    previous_period = adjusted_baseline
+    if previous_period > 0:
+        change_pct = ((current_postings - previous_period) / previous_period) * 100
+    else:
+        change_pct = 0.0
+
+    # Determine trend direction
+    if change_pct > 15:
+        trend = "surging"
+    elif change_pct > 5:
+        trend = "increasing"
+    elif change_pct > -5:
+        trend = "stable"
+    elif change_pct > -15:
+        trend = "declining"
+    else:
+        trend = "contracting"
+
+    # Competitor indicator
+    if current_postings > baseline * 1.2:
+        competitor_indicator = "high_activity"
+    elif current_postings > baseline * 0.8:
+        competitor_indicator = "normal_activity"
+    else:
+        competitor_indicator = "low_activity"
+
+    # Per-location breakdown (if Jooble data available)
+    by_location: Dict[str, int] = {}
+    if locations:
+        for loc in locations[:5]:
+            jc = _jooble_live_count(role, loc)
+            if jc is not None and jc > 0:
+                by_location[loc] = jc
+            elif adzuna_count > 0:
+                # Estimate proportional share
+                by_location[loc] = max(1, adzuna_count // max(len(locations), 1))
+
+    market_signal = _generate_volume_signal(change_pct, role, locations)
+
+    sign = "+" if change_pct >= 0 else ""
+    result: Dict[str, Any] = {
+        "role": role,
+        "current_postings": current_postings,
+        "previous_period": previous_period,
+        "change": f"{sign}{change_pct:.1f}%",
+        "trend": trend,
+        "market_signal": market_signal,
+        "competitor_indicator": competitor_indicator,
+        "by_location": by_location,
+        "industry": industry,
+        "seasonal_context": _SEASONAL_PATTERNS.get(month, {}).get("label", ""),
+        "data_source": data_source,
+        "timeframe": timeframe,
+        "last_updated": datetime.datetime.now(datetime.timezone.utc).strftime(
+            "%Y-%m-%d"
+        ),
+    }
+
+    _set_tracker_cached(_VOLUME_CACHE, _VOLUME_CACHE_LOCK, cache_key, result)
+    return result

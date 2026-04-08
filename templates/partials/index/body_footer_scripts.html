@@ -216,21 +216,346 @@
   // Item 4: Plan Comparison -- Save & Compare
   // ============================================
   function savePlanForComparison() {
+    // Save to localStorage for local comparison (existing behavior)
     var plans = JSON.parse(localStorage.getItem("nova_saved_plans") || "[]");
+    var planName = document.getElementById("clientName")?.value || "Unnamed";
+    var industry =
+      (typeof selectedIndustry !== "undefined" && selectedIndustry) || "";
+    var budgetVal = document.getElementById("budgetRange")?.value || "";
+    if (budgetVal === "__exact__") {
+      budgetVal = document.getElementById("exactBudget")?.value || "";
+    }
+    var locationStr =
+      typeof locations !== "undefined" && Array.isArray(locations)
+        ? locations.join(", ")
+        : "";
+
     plans.push({
       id: Date.now(),
-      name: document.getElementById("clientName")?.value || "Unnamed",
+      name: planName,
       date: new Date().toISOString(),
       data: _lastPlanPayload || {},
-      budget: document.getElementById("budgetRange")?.value || "",
+      budget: budgetVal,
       budget_period:
         document.getElementById("budgetPeriod")?.value || "campaign",
-      industry:
-        (typeof selectedIndustry !== "undefined" && selectedIndustry) || "",
+      industry: industry,
     });
     if (plans.length > 10) plans.shift();
     localStorage.setItem("nova_saved_plans", JSON.stringify(plans));
-    showToast("Plan saved for comparison");
+
+    // Persist to Supabase via /api/saved-plans
+    if (_lastPlanPayload) {
+      var headers = { "Content-Type": "application/json" };
+      var csrfToken = getCsrfToken();
+      if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
+
+      fetch("/api/saved-plans", {
+        method: "POST",
+        headers: headers,
+        body: JSON.stringify({
+          name: planName,
+          industry: industry,
+          location: locationStr,
+          budget: parseFloat(budgetVal.replace(/[^0-9.]/g, "")) || 0,
+          data: _lastPlanPayload,
+        }),
+      })
+        .then(function (resp) {
+          if (!resp.ok) throw new Error("Save failed (" + resp.status + ")");
+          return resp.json();
+        })
+        .then(function (result) {
+          if (result.saved) {
+            showToast("Plan saved to your account", "success");
+            // Refresh the saved plans list if panel is open
+            if (
+              document
+                .getElementById("savedPlansPanel")
+                ?.classList.contains("open")
+            ) {
+              loadSavedPlansList();
+            }
+          } else if (result.error) {
+            showToast("Saved locally. Cloud: " + result.error, "warning");
+          }
+        })
+        .catch(function (err) {
+          showToast("Plan saved locally for comparison", "info");
+          console.warn("Cloud save failed:", err);
+        });
+    } else {
+      showToast("Plan saved for comparison");
+    }
+  }
+
+  // ============================================
+  // Item 4b: My Saved Plans (Supabase persistence)
+  // ============================================
+  var _savedPlansLoaded = false;
+
+  function toggleSavedPlansPanel() {
+    var panel = document.getElementById("savedPlansPanel");
+    if (!panel) return;
+    var isOpen = panel.classList.contains("open");
+    if (isOpen) {
+      panel.classList.remove("open");
+    } else {
+      panel.classList.add("open");
+      if (!_savedPlansLoaded) {
+        loadSavedPlansList();
+      }
+    }
+  }
+
+  function loadSavedPlansList() {
+    var listEl = document.getElementById("savedPlansList");
+    if (!listEl) return;
+    listEl.innerHTML =
+      '<div class="saved-plans-loading">Loading saved plans...</div>';
+
+    fetch("/api/saved-plans")
+      .then(function (resp) {
+        if (!resp.ok) throw new Error("Failed to load (" + resp.status + ")");
+        return resp.json();
+      })
+      .then(function (result) {
+        var plans = result.plans || [];
+        _savedPlansLoaded = true;
+        if (plans.length === 0) {
+          listEl.innerHTML =
+            '<div class="saved-plans-empty">No saved plans yet. Generate a plan and click "Save Plan" to persist it.</div>';
+          return;
+        }
+        var html = "";
+        plans.forEach(function (p) {
+          var dateStr = p.created_at
+            ? new Date(p.created_at).toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+                year: "numeric",
+              })
+            : "";
+          var budgetStr = p.budget
+            ? "$" + Number(p.budget).toLocaleString()
+            : "";
+          html += '<div class="saved-plan-card" data-plan-id="' + p.id + '">';
+          html += '<div class="saved-plan-info">';
+          html +=
+            '<div class="saved-plan-name">' +
+            (p.plan_name || "Untitled") +
+            "</div>";
+          html += '<div class="saved-plan-meta">';
+          if (p.industry) html += "<span>" + p.industry + "</span>";
+          if (p.location) html += "<span>" + p.location + "</span>";
+          if (budgetStr) html += "<span>" + budgetStr + "</span>";
+          if (dateStr) html += "<span>" + dateStr + "</span>";
+          html += "</div>";
+          html += "</div>";
+          html +=
+            '<button class="saved-plan-load-btn" onclick="loadSavedPlan(' +
+            p.id +
+            ')">Load</button>';
+          html += "</div>";
+        });
+        listEl.innerHTML = html;
+      })
+      .catch(function (err) {
+        listEl.innerHTML =
+          '<div class="saved-plans-empty">Could not load saved plans. Please try again.</div>';
+        console.warn("Load saved plans error:", err);
+      });
+  }
+
+  function loadSavedPlan(planId) {
+    var listEl = document.getElementById("savedPlansList");
+    // Show loading state on the specific card
+    var cards = listEl?.querySelectorAll(".saved-plan-card") || [];
+    cards.forEach(function (card) {
+      if (card.dataset.planId == planId) {
+        var btn = card.querySelector(".saved-plan-load-btn");
+        if (btn) {
+          btn.disabled = true;
+          btn.textContent = "Loading...";
+        }
+      }
+    });
+
+    fetch("/api/saved-plans/" + planId)
+      .then(function (resp) {
+        if (!resp.ok) throw new Error("Failed to load plan");
+        return resp.json();
+      })
+      .then(function (plan) {
+        if (plan.error) {
+          showToast(plan.error, "error");
+          return;
+        }
+        var data = plan.plan_data || {};
+        // Populate form fields from saved plan data
+        _populateFormFromPlan(data, plan);
+        // Close the panel
+        var panel = document.getElementById("savedPlansPanel");
+        if (panel) panel.classList.remove("open");
+        showToast(
+          'Loaded plan: "' + (plan.plan_name || "Untitled") + '"',
+          "success",
+        );
+      })
+      .catch(function (err) {
+        showToast("Failed to load plan", "error");
+        console.error("Load plan error:", err);
+        // Reset button state
+        cards.forEach(function (card) {
+          if (card.dataset.planId == planId) {
+            var btn = card.querySelector(".saved-plan-load-btn");
+            if (btn) {
+              btn.disabled = false;
+              btn.textContent = "Load";
+            }
+          }
+        });
+      });
+  }
+
+  function _populateFormFromPlan(data, plan) {
+    // Helper to set value on an element if it exists
+    function setVal(id, val) {
+      var el = document.getElementById(id);
+      if (el && val !== undefined && val !== null) {
+        el.value = val;
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+    }
+
+    // Client / company name
+    setVal("clientName", data.client_name || plan.plan_name || "");
+    setVal("clientWebsite", data.client_website || "");
+    setVal("useCase", data.use_case || "");
+
+    // Industry -- trigger the industry selection UI
+    if (data.industry && typeof selectedIndustry !== "undefined") {
+      selectedIndustry = data.industry;
+      // Try to click the matching industry card
+      var industryCards = document.querySelectorAll(".industry-card");
+      industryCards.forEach(function (card) {
+        var cardKey = card.dataset.industry || card.dataset.key;
+        if (cardKey === data.industry) {
+          card.click();
+        }
+      });
+    }
+
+    // Budget
+    var budgetRange = data.budget_range || "";
+    if (budgetRange) {
+      var budgetSel = document.getElementById("budgetRange");
+      if (budgetSel) {
+        // Check if the value matches a dropdown option
+        var matched = false;
+        for (var i = 0; i < budgetSel.options.length; i++) {
+          if (budgetSel.options[i].value === budgetRange) {
+            budgetSel.value = budgetRange;
+            matched = true;
+            break;
+          }
+        }
+        if (!matched) {
+          // Set as exact budget
+          budgetSel.value = "__exact__";
+          budgetSel.dispatchEvent(new Event("change", { bubbles: true }));
+          if (typeof toggleExactBudget === "function") toggleExactBudget();
+          setVal("exactBudget", budgetRange);
+        } else {
+          budgetSel.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+      }
+    }
+
+    setVal("budgetPeriod", data.budget_period || "campaign");
+    setVal("campaignDuration", data.campaign_duration || "");
+    setVal("targetDemographic", data.target_demographic || "");
+
+    // Locations -- clear and repopulate
+    if (
+      data.locations &&
+      Array.isArray(data.locations) &&
+      data.locations.length > 0
+    ) {
+      // Clear existing locations
+      if (typeof locations !== "undefined") {
+        locations.length = 0;
+        var container = document.getElementById("locationsContainer");
+        if (container) {
+          container.querySelectorAll(".tag").forEach(function (tag) {
+            tag.remove();
+          });
+        }
+        // Add each location
+        data.locations.forEach(function (loc) {
+          if (typeof addTag === "function") {
+            addTag("locationsContainer", "locationInput", locations, loc);
+          } else {
+            locations.push(loc);
+          }
+        });
+      }
+    }
+
+    // Roles -- clear and repopulate
+    if (
+      data.target_roles &&
+      Array.isArray(data.target_roles) &&
+      data.target_roles.length > 0
+    ) {
+      if (typeof roles !== "undefined") {
+        roles.length = 0;
+        var rolesContainer = document.getElementById("rolesContainer");
+        if (rolesContainer) {
+          rolesContainer.querySelectorAll(".tag").forEach(function (tag) {
+            tag.remove();
+          });
+        }
+        data.target_roles.forEach(function (role) {
+          if (typeof addTag === "function") {
+            addTag("rolesContainer", "roleInput", roles, role);
+          } else {
+            roles.push(role);
+          }
+        });
+      }
+    }
+
+    // Hire volume
+    var hireVol = data.hire_volume || "";
+    if (hireVol) {
+      var hireSel = document.getElementById("hireVolume");
+      if (hireSel) {
+        var hireMatched = false;
+        for (var j = 0; j < hireSel.options.length; j++) {
+          if (hireSel.options[j].value === hireVol) {
+            hireSel.value = hireVol;
+            hireMatched = true;
+            break;
+          }
+        }
+        if (!hireMatched) {
+          hireSel.value = "__exact__";
+          hireSel.dispatchEvent(new Event("change", { bubbles: true }));
+          setVal("exactHires", hireVol);
+        } else {
+          hireSel.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+      }
+    }
+
+    // Requester info
+    setVal("requesterName", data.requester_name || "");
+    setVal("requesterEmail", data.requester_email || "");
+
+    // Navigate to Step 1 so user can review and re-generate
+    if (typeof goToStep === "function") {
+      goToStep(1);
+    }
   }
 
   var _compareSelectedIds = [];

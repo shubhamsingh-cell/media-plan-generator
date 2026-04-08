@@ -39,6 +39,7 @@ PUBLIC_ENDPOINTS = frozenset(
         "/health",
         "/ready",
         "/api/csrf-token",
+        "/api/config",
         "/api/dashboard/widgets",
         "/api/channels",
         "/api/health/data-matrix",

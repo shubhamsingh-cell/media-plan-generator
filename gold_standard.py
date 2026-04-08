@@ -542,6 +542,105 @@ _INDUSTRY_TOP_EMPLOYERS: dict[str, dict[str, list[str]]] = {
             "Digi International",
         ],
     },
+    "trucking": {
+        "_national": [
+            "Werner Enterprises",
+            "Schneider National",
+            "J.B. Hunt",
+            "Knight-Swift",
+            "Swift Transportation",
+            "Heartland Express",
+        ],
+        "dallas": ["Schneider", "Werner", "Covenant Transport", "CFI (Heartland)"],
+        "chicago": ["J.B. Hunt", "Schneider", "Werner", "Coyote Logistics"],
+        "atlanta": ["Covenant Transport", "Southeastern Freight Lines", "Old Dominion"],
+        "indianapolis": ["Celadon Group", "Heartland Express", "USA Truck"],
+        "nashville": ["Werner Enterprises", "Western Express", "US Xpress"],
+        "memphis": ["FedEx Freight", "Werner", "XPO Logistics", "Old Dominion"],
+        "kansas city": ["YRC Worldwide", "ABF Freight", "Crete Carrier"],
+        "omaha": ["Werner Enterprises", "Saia Inc.", "Heartland Express"],
+        "jacksonville": [
+            "Landstar",
+            "CSX Transportation",
+            "Southeastern Freight Lines",
+        ],
+        "phoenix": ["Knight-Swift", "Cerasis", "Load King"],
+        "los angeles": ["XPO Logistics", "NFI Industries", "Performance Team"],
+        "houston": ["Schneider", "Werner", "Daseke", "Covenant Transport"],
+    },
+    "staffing": {
+        "_national": [
+            "Robert Half",
+            "Adecco",
+            "ManpowerGroup",
+            "Kelly Services",
+            "Randstad",
+            "Hays",
+        ],
+        "new york": ["Robert Half", "Adecco", "Heidrick & Struggles", "Kforce"],
+        "chicago": ["ManpowerGroup", "Aerotek", "TrueBlue", "Spherion"],
+        "atlanta": ["Randstad", "Kelly Services", "Insight Global", "TEKsystems"],
+        "dallas": ["Robert Half", "Allegis Group", "Kforce", "Beacon Hill"],
+        "los angeles": ["Adecco", "Kelly Services", "AppleOne", "Volt Information"],
+    },
+    "hospitality": {
+        "_national": ["Marriott", "Hilton", "Hyatt", "IHG", "Wyndham", "AccorHotels"],
+        "las vegas": [
+            "MGM Resorts",
+            "Caesars Entertainment",
+            "Wynn Resorts",
+            "Las Vegas Sands",
+        ],
+        "new york": [
+            "Marriott",
+            "Hilton",
+            "Hyatt",
+            "Four Seasons",
+            "Mandarin Oriental",
+        ],
+        "miami": ["Royal Caribbean", "Carnival", "Four Seasons", "Fontainebleau"],
+        "orlando": ["Disney", "Universal", "SeaWorld", "Marriott Vacations"],
+        "los angeles": ["Hilton", "Marriott", "Four Seasons", "Montage"],
+        "chicago": ["Hyatt", "Marriott", "Hilton", "Four Seasons"],
+    },
+    "construction": {
+        "_national": [
+            "Turner Construction",
+            "Bechtel",
+            "Fluor",
+            "Skanska",
+            "AECOM",
+        ],
+        "new york": ["Turner Construction", "Skanska", "Lendlease", "AECOM Tishman"],
+        "dallas": [
+            "Balfour Beatty",
+            "Austin Industries",
+            "Rogers-O'Brien",
+            "Hensel Phelps",
+        ],
+        "chicago": [
+            "Walsh Group",
+            "Pepper Construction",
+            "Power Construction",
+            "Mortenson",
+        ],
+        "los angeles": ["AECOM", "Tutor Perini", "Clark Construction", "Swinerton"],
+        "houston": ["Kiewit", "Jacobs Engineering", "McDermott", "Zachry Group"],
+        "denver": ["Hensel Phelps", "Mortenson", "JE Dunn", "Saunders Construction"],
+        "atlanta": ["Holder Construction", "Brasfield & Gorrie", "Batson-Cook"],
+        "phoenix": ["Sundt Construction", "Ryan Companies", "Layton Construction"],
+    },
+    "general": {
+        "_national": [
+            "Amazon",
+            "Walmart",
+            "UPS",
+            "FedEx",
+            "Target",
+            "Home Depot",
+            "Costco",
+        ],
+    },
 }
 
 # Aliases for flexible industry matching (user input -> canonical key)
@@ -582,11 +681,59 @@ _INDUSTRY_ALIASES: dict[str, str] = {
     "renewables": "energy",
     "utilities": "energy",
     "supply chain": "logistics",
-    "transportation": "logistics",
     "shipping": "logistics",
-    "freight": "logistics",
     "edtech": "education",
     "higher education": "education",
+    # Trucking / transportation
+    "trucking": "trucking",
+    "truck": "trucking",
+    "truck driver": "trucking",
+    "truck driving": "trucking",
+    "cdl": "trucking",
+    "cdl driver": "trucking",
+    "over the road": "trucking",
+    "otr": "trucking",
+    "long haul": "trucking",
+    "flatbed": "trucking",
+    "tanker": "trucking",
+    "drayage": "trucking",
+    "ltl": "trucking",
+    "truckload": "trucking",
+    "freight": "trucking",
+    "transportation": "trucking",
+    "carrier": "trucking",
+    "fleet": "trucking",
+    "delivery": "logistics",
+    "warehousing": "logistics",
+    "warehouse": "logistics",
+    "distribution": "logistics",
+    # Staffing
+    "staffing": "staffing",
+    "staffing agency": "staffing",
+    "temp agency": "staffing",
+    "recruitment agency": "staffing",
+    "recruiting": "staffing",
+    "talent acquisition": "staffing",
+    # Hospitality
+    "hospitality": "hospitality",
+    "hotel": "hospitality",
+    "hotels": "hospitality",
+    "resort": "hospitality",
+    "restaurant": "hospitality",
+    "food service": "hospitality",
+    "travel": "hospitality",
+    "tourism": "hospitality",
+    "lodging": "hospitality",
+    # Construction
+    "construction": "construction",
+    "building": "construction",
+    "general contractor": "construction",
+    "infrastructure": "construction",
+    "civil engineering": "construction",
+    "heavy civil": "construction",
+    "roofing": "construction",
+    "plumbing": "construction",
+    "electrical contractor": "construction",
 }
 
 
@@ -1187,7 +1334,9 @@ def build_competitor_map(data: dict, city_data: dict) -> dict[str, Any]:
     # Resolve industry via alias table + substring matching
     resolved_key = _resolve_industry_key(raw_industry)
     industry_employers: dict[str, list[str]] = (
-        _INDUSTRY_TOP_EMPLOYERS.get(resolved_key, {}) if resolved_key else {}
+        _INDUSTRY_TOP_EMPLOYERS.get(resolved_key, {})
+        if resolved_key
+        else _INDUSTRY_TOP_EMPLOYERS.get("general", {})
     )
 
     national_competitors = industry_employers.get("_national", [])
@@ -1997,6 +2146,65 @@ _INDUSTRY_MONTHLY_EVENTS: dict[str, dict[int, list[str]]] = {
         11: ["Indoor project season", "Holiday shutdown planning"],
         12: ["Year-end maintenance", "Next year project staffing"],
     },
+    "trucking": {
+        1: ["New Year freight rebound", "CDL school Q1 graduations"],
+        2: ["Produce season planning", "DOT compliance audit cycle"],
+        3: ["Spring freight ramp-up", "CDL school Q1 grads enter market"],
+        4: [
+            "Produce season begins (reefer demand)",
+            "MATS (Mid-America Trucking Show)",
+        ],
+        5: ["Produce season peak begins", "Owner-operator recruitment push"],
+        6: ["Peak produce season (May-Sep)", "Summer driving demand surge"],
+        7: ["Peak freight season continues", "CDL school Q2 grads enter market"],
+        8: ["Back-to-school freight wave", "Fall peak season prep hiring"],
+        9: ["Peak freight season ramp (Oct-Dec)", "TMC Annual Meeting"],
+        10: ["Peak freight season (holiday goods)", "CDL school Q3 grads enter market"],
+        11: ["Holiday shipping surge", "ATA Management Conference"],
+        12: ["Holiday freight peak", "Year-end DOT compliance deadlines"],
+    },
+    "hospitality": {
+        1: ["Post-holiday staffing reset", "Winter travel season hiring"],
+        2: ["Spring break staffing prep", "Valentine's Day event surge"],
+        3: ["Spring break peak hiring", "Convention season begins"],
+        4: ["Summer season recruitment ramp", "HITEC hospitality tech"],
+        5: ["Memorial Day staffing", "Peak summer hiring push"],
+        6: ["Summer tourism peak begins", "NRA Show (National Restaurant)"],
+        7: ["Peak summer season", "Resort/seasonal staffing max"],
+        8: ["Back-to-school transition", "Fall event season prep"],
+        9: ["Fall conference season", "Shoulder season staffing"],
+        10: ["Holiday event planning staffing", "ILTM (luxury travel)"],
+        11: ["Holiday season hiring peak", "Thanksgiving staffing surge"],
+        12: ["Holiday party/event season", "New Year staffing prep"],
+    },
+    "education": {
+        1: ["Spring semester starts", "New Year job search surge"],
+        2: ["Spring career fairs", "AASA National Conference"],
+        3: ["SXSW EDU", "Spring hiring for fall positions"],
+        4: ["Teacher recruitment peak (fall contracts)", "AERA Annual Meeting"],
+        5: ["End-of-year staffing reviews", "May graduations"],
+        6: ["Summer program staffing", "ISTE conference"],
+        7: ["Fall hiring finalization", "Summer program peak"],
+        8: ["Back-to-school hiring surge", "New teacher orientation"],
+        9: ["Fall campus recruiting", "Academic year begins"],
+        10: ["EDUCAUSE conference", "Mid-semester staffing adjustments"],
+        11: ["Spring semester planning", "Adjunct recruitment cycle"],
+        12: ["Winter break prep", "Spring hiring pipeline building"],
+    },
+    "construction": {
+        1: ["New Year project planning", "Permit cycle begins"],
+        2: ["Pre-spring hiring ramp", "Apprenticeship program starts"],
+        3: ["Spring construction season launches", "World of Concrete"],
+        4: ["Peak construction hiring", "Infrastructure project starts"],
+        5: ["Peak season (full crew demand)", "Skilled trades job fairs"],
+        6: ["Peak season continues", "Union apprenticeship deadlines"],
+        7: ["Mid-year project staffing", "Summer heavy civil peak"],
+        8: ["Fall project planning", "Vocational school recruitment"],
+        9: ["Pre-winter project rush", "Trade certification exams"],
+        10: ["Winter prep / closeout hiring", "Year-end project completions"],
+        11: ["Indoor/maintenance project season", "Winter shutdown planning"],
+        12: ["Year-end punch list staffing", "Next year project planning"],
+    },
 }
 
 
@@ -2013,18 +2221,83 @@ def _get_industry_key(industry: str) -> str:
         return "retail"
     if "defense" in industry or "aerospace" in industry or "government" in industry:
         return "defense"
-    # Blue-collar / skilled trades / construction / manufacturing
+    # Trucking / transportation / logistics / freight / CDL drivers
+    if any(
+        kw in industry
+        for kw in (
+            "truck",
+            "trucking",
+            "cdl",
+            "freight",
+            "driver",
+            "transport",
+            "logistics",
+            "courier",
+            "delivery",
+            "shipping",
+            "warehouse",
+            "fleet",
+            "haulage",
+            "ltl",
+            "drayage",
+            "last_mile",
+        )
+    ):
+        return "trucking"
+    # Hospitality / restaurant / hotel / travel / food service
+    if any(
+        kw in industry
+        for kw in (
+            "hospital",  # hospitality (not hospital/healthcare -- checked above)
+            "hotel",
+            "restaurant",
+            "food_service",
+            "food service",
+            "travel",
+            "tourism",
+            "resort",
+            "lodging",
+            "catering",
+            "bar ",
+            "dining",
+        )
+    ):
+        return "hospitality"
+    # Education / academic / school / university
+    if any(
+        kw in industry
+        for kw in (
+            "educat",
+            "school",
+            "university",
+            "academic",
+            "college",
+            "k-12",
+            "k12",
+            "teaching",
+            "higher_ed",
+        )
+    ):
+        return "education"
+    # Construction (separate from general blue-collar)
     if any(
         kw in industry
         for kw in (
             "construct",
+            "building",
+            "civil_engineer",
+            "general_contract",
+        )
+    ):
+        return "construction"
+    # Blue-collar / skilled trades / manufacturing
+    if any(
+        kw in industry
+        for kw in (
             "manufactur",
             "skilled_trade",
             "blue_collar",
             "trade",
-            "warehouse",
-            "logistics",
-            "transport",
             "plumb",
             "electric",
             "hvac",
@@ -2083,60 +2356,67 @@ def build_activation_calendar(data: dict) -> dict[str, Any]:
         )
 
     # Industry-specific events summary (for reference)
-    industry_events: list[str] = []
-    if "tech" in industry:
-        industry_events = [
+    _INDUSTRY_EVENTS_SUMMARY: dict[str, list[str]] = {
+        "tech": [
             "CES (Jan)",
             "SXSW (Mar)",
             "Google I/O (May)",
             "AWS re:Invent (Dec)",
-        ]
-    elif "health" in industry:
-        industry_events = [
+        ],
+        "healthcare": [
             "HIMSS (Mar)",
             "AACN NTI (May)",
-            "ANA Policy Summit (Mar)",
             "Nursing Week (May)",
-        ]
-    elif "finance" in industry:
-        industry_events = [
+            "ANA Policy Summit (Mar)",
+        ],
+        "finance": [
             "Money 20/20 (Oct)",
             "Sibos (Oct)",
             "Tax season surge (Jan-Apr)",
-        ]
-    elif "retail" in industry:
-        industry_events = [
+        ],
+        "retail": [
             "NRF Big Show (Jan)",
             "Black Friday prep (Sep-Nov)",
             "Back-to-school (Jul-Aug)",
-        ]
-    elif "defense" in industry or "aerospace" in industry:
-        industry_events = ["AUSA (Oct)", "Sea-Air-Space (Apr)", "SHOT Show (Jan)"]
-    elif any(
-        kw in industry
-        for kw in (
-            "construct",
-            "manufactur",
-            "trade",
-            "warehouse",
-            "logistics",
-            "transport",
-            "plumb",
-            "electric",
-            "hvac",
-            "mechanic",
-            "weld",
-            "blue_collar",
-            "skilled_trade",
-        )
-    ):
-        industry_events = [
+        ],
+        "defense": [
+            "AUSA (Oct)",
+            "Sea-Air-Space (Apr)",
+            "SHOT Show (Jan)",
+        ],
+        "trucking": [
+            "MATS - Mid-America Trucking Show (Apr)",
+            "Peak freight season (Oct-Dec)",
+            "Produce season demand (May-Sep)",
+            "CDL school graduation cycles (quarterly)",
+            "DOT compliance deadlines (year-end)",
+        ],
+        "hospitality": [
+            "Spring break peak hiring (Mar)",
+            "NRA Show (Jun)",
+            "Summer tourism peak (Jun-Aug)",
+            "Holiday event season (Nov-Dec)",
+        ],
+        "education": [
+            "Teacher recruitment peak (Apr)",
+            "ISTE Conference (Jun)",
+            "Back-to-school hiring (Aug)",
+            "Fall campus recruiting (Sep-Nov)",
+        ],
+        "construction": [
+            "World of Concrete (Mar)",
+            "Peak construction season (Apr-Sep)",
+            "Apprenticeship program starts (Feb)",
+            "Pre-winter project rush (Sep-Oct)",
+        ],
+        "blue_collar_trades": [
             "Skilled trades job fairs (May)",
-            "Construction season peak (Apr-Sep)",
             "Apprenticeship program starts (Feb)",
             "Trade certification exams (Sep)",
             "Union apprenticeship deadlines (Jun)",
-        ]
+        ],
+    }
+    industry_events: list[str] = _INDUSTRY_EVENTS_SUMMARY.get(ind_key, [])
 
     # NOTE: Activation calendar uses hardcoded industry events above.
     # These are curated conference/event dates that rarely change year-to-year.

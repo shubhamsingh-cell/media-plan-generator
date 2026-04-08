@@ -43,6 +43,14 @@ from shared_utils import (
     INDUSTRY_LABEL_MAP,
 )
 
+# S48: Channel Recommender (optional)
+try:
+    from channel_recommender import recommend_channels as _recommend_channels_fn
+
+    _HAS_CHANNEL_RECOMMENDER = True
+except ImportError:
+    _HAS_CHANNEL_RECOMMENDER = False
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -1862,11 +1870,24 @@ def _build_sheet_executive_summary(
     # ── 3. Budget Allocation ──
     row = _write_section_header(ws, row, "Budget Allocation")
 
+    # S48 FIX: Compute header hires as SUM of per-channel hires to guarantee
+    # the header matches the channel rows below.  Derive cost_per_hire from
+    # that same total so all three numbers are internally consistent.
+    _header_hires = sum(
+        int(ch.get("projected_hires") or 0) for ch in channel_allocs.values()
+    )
+    # Fall back to budget engine total_projected only if channel_allocs is empty
+    if _header_hires == 0:
+        _header_hires = int(total_proj.get("hires") or 0)
+    _header_cph = (
+        round(budget_num / max(_header_hires, 1), 2) if _header_hires > 0 else 0
+    )
+
     # Hero metrics row: Total Budget | Projected Hires | Cost/Hire
     hero_metrics = [
         ("Total Budget", _fmt_currency(budget_num)),
-        ("Projected Hires", _fmt_number(total_proj.get("hires") or 0)),
-        ("Cost / Hire", _fmt_currency(total_proj.get("cost_per_hire") or 0)),
+        ("Projected Hires", _fmt_number(_header_hires)),
+        ("Cost / Hire", _fmt_currency(_header_cph)),
     ]
     for idx, (label, value) in enumerate(hero_metrics):
         col = COL_START + idx * 2
@@ -2099,8 +2120,8 @@ def _build_sheet_executive_summary(
             f"Roles: {', '.join(str(r) for r in roles[:5])}\n"
             f"Hire Volume: {hire_volume}\n"
             f"Duration: {duration}\n"
-            f"Projected Hires: {total_proj.get('hires') or 'TBD'}\n"
-            f"Cost/Hire: {_fmt_currency(total_proj.get('cost_per_hire') or 0)}\n"
+            f"Projected Hires: {_header_hires or 'TBD'}\n"
+            f"Cost/Hire: {_fmt_currency(_header_cph)}\n"
             f"Budget Grade: {sufficiency.get('grade') or 'N/A'}\n"
             f"Top Channels: {', '.join(list(channel_allocs.keys())[:5])}\n\n"
             f"Write as a senior recruitment strategist presenting to a VP of Talent Acquisition. "
@@ -2145,9 +2166,9 @@ def _build_sheet_executive_summary(
     row = _write_section_header(ws, row, "Risk Analysis")
     risk_items: list[tuple[str, str, str]] = []  # (risk, impact, mitigation)
 
-    # Budget risk
-    proj_hires = total_proj.get("hires") or 0
-    cph = total_proj.get("cost_per_hire") or 0
+    # Budget risk -- use consistent header values (S48)
+    proj_hires = _header_hires
+    cph = _header_cph
     if proj_hires > 0 and cph > 0:
         hires_at_20_pct_increase = int(budget_num / (cph * 1.2)) if cph > 0 else 0
         risk_items.append(
@@ -3078,8 +3099,57 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                 "Duke Energy",
                 "Southern Company",
             ],
+            "trucking": [
+                "Werner Enterprises",
+                "Schneider National",
+                "J.B. Hunt",
+                "Knight-Swift",
+                "Swift Transportation",
+            ],
+            "transportation": [
+                "Werner Enterprises",
+                "Schneider National",
+                "J.B. Hunt",
+                "Knight-Swift",
+                "UPS",
+            ],
+            "manufacturing": [
+                "General Electric",
+                "3M",
+                "Honeywell",
+                "Caterpillar",
+                "Deere & Co",
+            ],
+            "construction": [
+                "Turner Construction",
+                "Bechtel",
+                "Fluor",
+                "Skanska",
+                "AECOM",
+            ],
+            "staffing": [
+                "Robert Half",
+                "Adecco",
+                "ManpowerGroup",
+                "Kelly Services",
+                "Randstad",
+            ],
+            "government": [
+                "Lockheed Martin",
+                "Raytheon",
+                "Northrop Grumman",
+                "General Dynamics",
+                "Boeing",
+            ],
         }
+        # Industry-aware fallback: try exact key, then substring match
         fallback_names = _industry_top_employers.get(industry, [])
+        if not fallback_names:
+            _ind_lower = str(industry).lower()
+            for _fb_key, _fb_list in _industry_top_employers.items():
+                if _fb_key in _ind_lower or _ind_lower in _fb_key:
+                    fallback_names = _fb_list
+                    break
         if fallback_names:
             comp_analysis = [
                 {
@@ -4097,14 +4167,15 @@ def _build_sheet_roi_projections(ws, data: dict) -> None:
             conv_lo, conv_hi = _ROI_CONVERSION_RATES.get(category, (0.05, 0.10))
             conversion_rate = (conv_lo + conv_hi) / 2.0
 
-            projected_hires = max(0, int(projected_apps * conversion_rate))
-
-            # CRITICAL: Use upstream projected_hires when available to stay
-            # consistent with the Executive Summary sheet (which reads the
-            # same ch_data.get("projected_hires") value directly).
-            existing_hires = ch_data.get("projected_hires") or 0
-            if existing_hires > 0:
-                projected_hires = existing_hires
+            # S48 FIX: Use upstream projected_hires as THE source of truth
+            # to ensure ROI Projections total matches Executive Summary header.
+            # Only fall back to conversion-rate estimation when the budget
+            # engine truly did not set a value (key missing or None).
+            existing_hires = ch_data.get("projected_hires")
+            if existing_hires is not None and existing_hires >= 0:
+                projected_hires = int(existing_hires)
+            else:
+                projected_hires = max(0, int(projected_apps * conversion_rate))
 
             cost_per_hire = round(dollars / max(projected_hires, 1), 2)
 
@@ -4925,7 +4996,13 @@ def _build_sheet_rolling_forecast(ws, data: dict) -> None:
         total_budget = _safe_num(_pb(data.get("budget") or ""))
 
     total_apps = int(_safe_num(ba_total_proj.get("applications") or 0))
-    total_hires = int(_safe_num(ba_total_proj.get("hires") or 0))
+    # S48 FIX: Compute total_hires from per-channel sum (source of truth)
+    # to stay consistent with Executive Summary and ROI Projections sheets.
+    total_hires = sum(
+        int(ch.get("projected_hires") or 0) for ch in ba_channel_alloc.values()
+    )
+    if total_hires == 0:
+        total_hires = int(_safe_num(ba_total_proj.get("hires") or 0))
 
     # Ramp-up distribution: campaigns need time to optimize
     # Month 1: 25% (ramp-up, learning), Month 2: 35% (optimizing), Month 3: 40% (peak)
@@ -5396,6 +5473,162 @@ def _build_sheet_confidence_intervals(ws, data: dict) -> None:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
+def _build_sheet_channel_recommendations(ws, data: dict) -> None:
+    """Build Sheet 10: Channel Recommendations (S48).
+
+    Uses the channel_recommender engine to produce tiered channel recommendations
+    with CPC, CPA, projected outcomes, confidence, and rationale.
+    """
+    ws.title = "Channel Recommendations"
+    ws.sheet_properties.tabColor = "2563EB"
+
+    if not _HAS_CHANNEL_RECOMMENDER:
+        ws.cell(
+            row=2, column=2, value="Channel Recommender module not available."
+        ).font = _FONT_BODY
+        return
+
+    industry = data.get("industry") or "general_entry_level"
+    roles = data.get("roles") or data.get("job_titles") or []
+    role = roles[0] if roles else (data.get("role") or "")
+    budget = parse_budget(
+        data.get("budget") or data.get("budget_range"), default=100_000.0
+    )
+    locations = data.get("locations") or []
+
+    try:
+        rec = _recommend_channels_fn(
+            industry=industry,
+            role=role,
+            budget=budget,
+            locations=locations,
+        )
+    except Exception as exc:
+        logger.error(
+            "Channel recommender failed in Excel sheet: %s", exc, exc_info=True
+        )
+        ws.cell(
+            row=2, column=2, value=f"Error generating recommendations: {exc}"
+        ).font = _FONT_BODY
+        return
+
+    row = 1
+    meta = rec.get("metadata", {})
+
+    # ── Title ──
+    c = ws.cell(row=row, column=2, value="Channel Recommendations")
+    c.font = _FONT_SECTION
+    c.fill = _FILL_SAPPHIRE
+    for col in range(2, 10):
+        ws.cell(row=row, column=col).fill = _FILL_SAPPHIRE
+    row += 1
+
+    # ── Summary stats ──
+    for label, val in [
+        ("Industry", meta.get("industry_label", "")),
+        ("Role", meta.get("role", "Various")),
+        ("Role Tier", meta.get("role_tier", "")),
+        ("Budget", f"${meta.get('budget', 0):,.0f}"),
+        ("Proj. Applications", f"{meta.get('total_projected_applications', 0):,}"),
+        ("Proj. Hires", f"{meta.get('total_projected_hires', 0):,}"),
+        ("Avg CPA", f"${meta.get('avg_cpa', 0):,.2f}"),
+    ]:
+        ws.cell(row=row, column=2, value=label).font = _FONT_BODY_BOLD
+        ws.cell(row=row, column=3, value=val).font = _FONT_BODY
+        row += 1
+    row += 1
+
+    # ── Tier sections ──
+    headers = [
+        "Channel",
+        "Alloc %",
+        "Spend",
+        "CPC",
+        "CPA",
+        "Clicks",
+        "Apps",
+        "Hires",
+        "Confidence",
+        "Rationale",
+    ]
+    for tier_key, tier_title, fill in [
+        ("must_have", "MUST HAVE", _FILL_GREEN_BG),
+        ("should_have", "SHOULD HAVE", _FILL_BLUE_LIGHT),
+        ("test_and_learn", "TEST & LEARN", _FILL_AMBER_BG),
+        ("skip", "SKIP", _FILL_RED_BG),
+    ]:
+        channels = rec.get(tier_key, [])
+        if not channels:
+            continue
+
+        # Tier header
+        c = ws.cell(row=row, column=2, value=tier_title)
+        c.font = _FONT_SUBSECTION
+        c.fill = fill
+        for col in range(2, 12):
+            ws.cell(row=row, column=col).fill = fill
+        row += 1
+
+        # Column headers
+        for ci, hdr in enumerate(headers, start=2):
+            c = ws.cell(row=row, column=ci, value=hdr)
+            c.font = _FONT_TABLE_HEADER
+            c.fill = _FILL_NAVY
+            c.alignment = _ALIGN_CENTER
+        row += 1
+
+        # Channel rows
+        for ch in channels:
+            ws.cell(row=row, column=2, value=ch["channel"]).font = _FONT_BODY_BOLD
+            ws.cell(
+                row=row, column=3, value=f"{ch.get('allocation_pct', 0):.1f}%"
+            ).font = _FONT_BODY
+            ws.cell(
+                row=row, column=4, value=f"${ch.get('projected_spend', 0):,.0f}"
+            ).font = _FONT_BODY
+            ws.cell(
+                row=row, column=5, value=f"${ch.get('expected_cpc', 0):.2f}"
+            ).font = _FONT_BODY
+            ws.cell(
+                row=row, column=6, value=f"${ch.get('expected_cpa', 0):.2f}"
+            ).font = _FONT_BODY
+            ws.cell(row=row, column=7, value=ch.get("projected_clicks", 0)).font = (
+                _FONT_BODY
+            )
+            ws.cell(
+                row=row, column=8, value=ch.get("projected_applications", 0)
+            ).font = _FONT_BODY
+            ws.cell(row=row, column=9, value=ch.get("projected_hires", 0)).font = (
+                _FONT_BODY
+            )
+            ws.cell(row=row, column=10, value=ch.get("confidence", "").upper()).font = (
+                _FONT_BODY
+            )
+            ws.cell(row=row, column=11, value=ch.get("rationale", "")).font = (
+                _FONT_FOOTNOTE
+            )
+            ws.cell(row=row, column=11).alignment = _ALIGN_WRAP
+            row += 1
+        row += 1
+
+    # ── Summary line ──
+    ws.cell(row=row, column=2, value=rec.get("summary", "")).font = _FONT_FOOTNOTE
+    ws.merge_cells(start_row=row, start_column=2, end_row=row, end_column=11)
+    ws.cell(row=row, column=2).alignment = _ALIGN_WRAP
+    row += 2
+
+    ws.cell(
+        row=row,
+        column=2,
+        value="Source: Nova AI Channel Recommender Engine (20 industries, 10 ad platforms, tier-adjusted CPC/CPA)",
+    ).font = _FONT_FOOTNOTE
+
+    # ── Column widths ──
+    widths = {2: 28, 3: 10, 4: 14, 5: 10, 6: 10, 7: 10, 8: 10, 9: 10, 10: 12, 11: 50}
+    for col, w in widths.items():
+        ws.column_dimensions[get_column_letter(col)].width = w
+
+
 def _build_sheet_niche_board_matching(ws, data: dict) -> None:
     """Build Sheet 9: Role-Level Niche Board Matching.
 
@@ -5824,6 +6057,22 @@ def _generate_excel_v2_inner(
         ws9.cell(
             row=2, column=2, value=f"Error generating Niche Board Matching sheet: {exc}"
         ).font = _FONT_BODY
+
+    # ── Sheet 10: Channel Recommendations (S48) ──
+    if _HAS_CHANNEL_RECOMMENDER:
+        ws10 = wb.create_sheet()
+        try:
+            _build_sheet_channel_recommendations(ws10, data)
+        except Exception as exc:
+            logger.error(
+                "Sheet 10 (Channel Recommendations) failed: %s", exc, exc_info=True
+            )
+            ws10.title = "Channel Recommendations"
+            ws10.cell(
+                row=2,
+                column=2,
+                value=f"Error generating Channel Recommendations sheet: {exc}",
+            ).font = _FONT_BODY
 
     # ── Write to bytes ──
     output = io.BytesIO()

@@ -2289,11 +2289,38 @@ def calculate_budget_allocation(
     # S39: Enforce benchmark CPH floor -- plan CPH should never be below
     # the industry benchmark minimum.  This prevents plans from showing
     # e.g. $246 CPH when industry benchmarks say $400-$800.
+    # S48 FIX: When adjusting total_hires for CPH floor, also scale per-channel
+    # projected_hires proportionally so that SUM(channel hires) == total_hires.
+    # This eliminates the inconsistency where the header showed 10 hires but
+    # the channel rows summed to 56.
     _benchmark_cph_floor = _industry_avg_cph(industry) * 0.5  # 50% of avg as floor
     if avg_cost_per_hire < _benchmark_cph_floor and total_hires > 0:
         # Adjust hires down so CPH meets benchmark floor
         avg_cost_per_hire = _benchmark_cph_floor
-        total_hires = max(1, int(total_budget / _benchmark_cph_floor))
+        new_total_hires = max(1, int(total_budget / _benchmark_cph_floor))
+        # Scale per-channel hires proportionally to keep consistency
+        scale_factor = new_total_hires / total_hires if total_hires > 0 else 0
+        _remaining_hires = new_total_hires
+        _channels_with_hires = [
+            (name, ch)
+            for name, ch in channel_allocs.items()
+            if (ch.get("projected_hires") or 0) > 0
+        ]
+        for i, (ch_name, ch) in enumerate(_channels_with_hires):
+            old_ch_hires = ch.get("projected_hires") or 0
+            if i == len(_channels_with_hires) - 1:
+                # Last channel gets remainder to avoid rounding drift
+                new_ch_hires = _remaining_hires
+            else:
+                new_ch_hires = max(0, int(old_ch_hires * scale_factor))
+                _remaining_hires -= new_ch_hires
+            ch["projected_hires"] = new_ch_hires
+            # Recalculate per-channel cost_per_hire to stay consistent
+            ch_dollars = ch.get("dollar_amount") or 0
+            ch["cost_per_hire"] = round(
+                _safe_divide(ch_dollars, max(new_ch_hires, 1), ch_dollars), 2
+            )
+        total_hires = new_total_hires
 
     total_projected = {
         "clicks": total_clicks,

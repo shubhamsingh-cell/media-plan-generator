@@ -82,6 +82,17 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+# Channel recommender (S48)
+try:
+    from channel_recommender import (
+        recommend_channels as _recommend_channels,
+        format_recommendation_text as _format_recommendation_text,
+    )
+
+    _HAS_CHANNEL_RECOMMENDER = True
+except ImportError:
+    _HAS_CHANNEL_RECOMMENDER = False
+
 
 # ---------------------------------------------------------------------------
 # Cooperative cancellation for stream-timeout orphaned threads (S17)
@@ -389,6 +400,10 @@ _TOOL_ERROR_FALLBACK_MESSAGES: dict[str, str] = {
     "estimate_meta_campaign": "Meta/Facebook campaign estimates are temporarily unavailable, but I can provide social media recruitment benchmarks from our database.",
     "get_meta_benchmarks": "Meta advertising benchmarks couldn't be retrieved, but I can reference our cross-platform recruitment advertising data.",
     "optimize_campaign": "Campaign optimization encountered an issue, but I can provide optimization recommendations based on industry best practices.",
+    "analyze_supply_demand": "Supply/demand analysis encountered an issue, but I can provide general labor market tightness insights from our benchmark database.",
+    "recommend_channels": "Channel recommendations couldn't be generated, but I can provide general channel strategy guidance based on industry best practices.",
+    "track_cpc": "CPC tracking encountered an issue, but I can provide benchmark CPC data from our 28-source recruitment advertising database.",
+    "check_job_volume": "Job volume tracking encountered an issue, but I can provide posting volume estimates from our curated industry benchmarks.",
 }
 
 # ── Source name display mapping ──────────────────────────────────────────────
@@ -1333,6 +1348,8 @@ _TOOL_LABELS: Dict[str, str] = {
     "audit_career_page": "Auditing career page performance",
     "geocode_location": "Geocoding location coordinates",
     "optimize_campaign": "Optimizing campaign channel allocation",
+    "project_roi": "Projecting recruitment ROI with confidence intervals",
+    "compare_channel_roi": "Comparing multi-channel ROI allocation",
     "slotops_predict": "Predicting LinkedIn job performance",
     "slotops_optimize": "Optimizing LinkedIn slot allocation",
     "ga4_analytics": "Querying Google Analytics traffic data",
@@ -1340,6 +1357,10 @@ _TOOL_LABELS: Dict[str, str] = {
     "analyze_employer_brand": "Analyzing employer brand videos",
     "estimate_meta_campaign": "Estimating Meta campaign costs",
     "get_meta_benchmarks": "Fetching Meta Ads benchmarks",
+    "analyze_supply_demand": "Analyzing talent supply/demand ratio",
+    "recommend_channels": "Building channel recommendations",
+    "track_cpc": "Tracking CPC bid prices",
+    "check_job_volume": "Checking job posting volumes",
 }
 
 # Thread-local storage for tool status queue.
@@ -3610,6 +3631,9 @@ Before calling any tools, briefly plan which tools you need:
 - For employer branding video analysis: call analyze_employer_brand with the company name to assess YouTube recruitment video presence
 - For Facebook/Instagram ad cost estimates: call estimate_meta_campaign with budget, industry, job_category, and optional location
 - For Meta/Facebook recruitment ad benchmarks: call get_meta_benchmarks with industry and job_category for CPC/CPA/CTR data
+- For talent supply/demand, candidate availability, or labor market tightness: call analyze_supply_demand with role and locations array to get metro-level supply/demand scores, applications per posting, time-to-fill estimates, and actionable recommendations
+- For CPC/cost per click/bidding costs/ad pricing: call track_cpc with role, industry, locations to get current vs benchmark CPC across Indeed/LinkedIn/ZipRecruiter, trend direction, 30-day forecast, and smart alerts
+- For posting volume/how many jobs/market activity/hiring trends/market signals: call check_job_volume with role and locations to get current posting counts, week-over-week change, trend direction, and per-location breakdown
 - For any hiring question: ALWAYS also call query_h1b_salaries for competitive salary intelligence
 - For visualizing/rendering a plan as a canvas: call render_canvas with budget, channels, role, location, industry
 - For editing/adjusting a canvas (reallocate budget, add/remove channel): call edit_canvas with plan_id and edit details
@@ -5362,6 +5386,181 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                     "required": ["role", "budget"],
                 },
             },
+            # S48: ROI Projector with confidence intervals
+            {
+                "name": "project_roi",
+                "description": "Project recruitment ROI with confidence intervals. Given a channel, budget, industry, role, and locations, returns pessimistic/expected/optimistic hire forecasts, CPA, CPH, time-to-fill, and confidence scoring. Use when user asks 'if I spend $X on Indeed, how many hires', 'ROI projection', 'what will I get for $X', 'forecast hires', 'how many hires for this budget'.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "channel": {
+                            "type": "string",
+                            "description": "Advertising channel (e.g., 'Indeed', 'LinkedIn', 'Programmatic', 'Facebook', 'Google')",
+                        },
+                        "budget": {
+                            "type": "number",
+                            "description": "Campaign budget in USD",
+                        },
+                        "industry": {
+                            "type": "string",
+                            "description": "Industry vertical (e.g., 'healthcare', 'technology', 'retail')",
+                        },
+                        "role": {
+                            "type": "string",
+                            "description": "Target job role (e.g., 'Registered Nurse', 'CDL Driver')",
+                        },
+                        "locations": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Hiring locations for cost adjustment (e.g., ['Dallas, TX', 'Chicago, IL'])",
+                        },
+                    },
+                    "required": ["channel", "budget"],
+                },
+            },
+            {
+                "name": "compare_channel_roi",
+                "description": "Compare ROI across multiple channels and suggest optimal budget allocation. Splits total budget proportionally based on channel efficiency. Use when user asks 'compare channels', 'where should I spend my budget', 'best channel mix', 'multi-channel ROI', 'optimal allocation across platforms'.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "channels": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Channels to compare (e.g., ['Indeed', 'LinkedIn', 'Programmatic']). Defaults to major platforms.",
+                        },
+                        "total_budget": {
+                            "type": "number",
+                            "description": "Total budget to allocate across channels (USD)",
+                        },
+                        "industry": {
+                            "type": "string",
+                            "description": "Industry vertical",
+                        },
+                        "role": {
+                            "type": "string",
+                            "description": "Target job role",
+                        },
+                        "locations": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Hiring locations",
+                        },
+                        "optimize_for": {
+                            "type": "string",
+                            "enum": ["hires", "cost"],
+                            "description": "Optimize for maximum hires or minimum cost per hire. Default: 'hires'.",
+                        },
+                    },
+                    "required": ["total_budget"],
+                },
+            },
+            # ── S48: Supply/Demand Ratio Intelligence ────────────────────
+            {
+                "name": "analyze_supply_demand",
+                "description": "Analyze talent supply/demand ratio by metro area for a specific role. Returns a 1-10 score per location (1-3 = very tight/candidate's market, 4-6 = balanced, 7-10 = employer's market). Includes estimated applications per posting, time-to-fill, and actionable hiring recommendations. Use for talent availability, candidate market, labor market tightness, supply/demand questions.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "role": {
+                            "type": "string",
+                            "description": "Job title (e.g., 'Software Engineer', 'Registered Nurse', 'CDL Driver')",
+                        },
+                        "locations": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "List of metro areas or cities to compare (e.g., ['Austin, TX', 'San Francisco', 'Denver']). If empty, returns top 10 US metros.",
+                        },
+                    },
+                    "required": ["role"],
+                },
+            },
+            # ── S48: Channel Recommendations Engine ──────────────────────
+            {
+                "name": "recommend_channels",
+                "description": "Recommend the best recruitment advertising channels for a specific industry, role, and budget. Returns tiered recommendations (Must Have, Should Have, Test & Learn, Skip) with expected CPC, CPA, projected applications and hires, confidence levels, and rationale. Use when asked 'which channels', 'where should I post', 'best platforms', 'channel mix', 'media mix', 'recommend channels', or 'how to spend budget'.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "industry": {
+                            "type": "string",
+                            "description": "Industry vertical (e.g., 'healthcare', 'tech_engineering', 'retail', 'trucking').",
+                        },
+                        "role": {
+                            "type": "string",
+                            "description": "Job title (e.g., 'Registered Nurse', 'Software Engineer', 'CDL Driver').",
+                        },
+                        "budget": {
+                            "type": "number",
+                            "description": "Total campaign budget in USD (e.g., 50000).",
+                        },
+                        "locations": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Target locations (e.g., ['US', 'New York', 'California']).",
+                        },
+                        "goals": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Campaign goals (e.g., ['volume', 'quality', 'diversity']).",
+                        },
+                    },
+                    "required": ["industry"],
+                },
+            },
+            # S48: CPC Trend Tracker + Job Posting Volume
+            {
+                "name": "track_cpc",
+                "description": "Track CPC (cost per click) bid prices across Indeed, LinkedIn, ZipRecruiter for a specific role. Returns current vs benchmark CPC, trend direction, 30-day forecast, and smart alerts for CPC spikes. Use when asked about CPC, cost per click, bidding costs, ad pricing, or channel cost trends.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "role": {
+                            "type": "string",
+                            "description": "Job title (e.g., 'Software Engineer', 'CDL Driver')",
+                        },
+                        "industry": {
+                            "type": "string",
+                            "description": "Industry vertical (e.g., 'technology', 'healthcare')",
+                        },
+                        "locations": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Target locations (e.g., ['Austin, TX', 'Dallas'])",
+                        },
+                        "timeframe": {
+                            "type": "string",
+                            "enum": ["7d", "30d", "90d"],
+                            "description": "Trend window (default: 30d)",
+                        },
+                    },
+                    "required": ["role"],
+                },
+            },
+            {
+                "name": "check_job_volume",
+                "description": "Check current job posting volumes and market activity for a specific role. Returns posting counts, week-over-week change, trend direction, market signal (hiring surge/cooling), and per-location breakdown. Use when asked about posting volume, how many jobs, market activity, hiring trends, or market signals.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "role": {
+                            "type": "string",
+                            "description": "Job title (e.g., 'Software Engineer', 'Registered Nurse')",
+                        },
+                        "locations": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Target locations (e.g., ['Austin, TX', 'Houston, TX'])",
+                        },
+                        "timeframe": {
+                            "type": "string",
+                            "enum": ["7d", "30d"],
+                            "description": "Comparison window (default: 7d)",
+                        },
+                    },
+                    "required": ["role"],
+                },
+            },
         ]
 
     # ------------------------------------------------------------------
@@ -5449,11 +5648,21 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             "get_meta_benchmarks": self._get_meta_benchmarks,
             # S46: Campaign Optimization Engine
             "optimize_campaign": self._optimize_campaign,
+            # S48: ROI Projector
+            "project_roi": self._project_roi,
+            "compare_channel_roi": self._compare_channel_roi,
             # S42: SlotOps LinkedIn tools
             "slotops_predict": self._slotops_predict,
             "slotops_optimize": self._slotops_optimize,
             # S42: Google Analytics 4
             "ga4_analytics": self._ga4_analytics,
+            # S48: Supply/Demand Ratio Intelligence
+            "analyze_supply_demand": self._analyze_supply_demand,
+            # S48: CPC Trend Tracker + Job Posting Volume
+            "track_cpc": self._track_cpc,
+            "check_job_volume": self._check_job_volume,
+            # S48: Channel Recommendations Engine
+            "recommend_channels": self._recommend_channels_tool,
         }
 
     def execute_tool(self, tool_name: str, tool_input: dict) -> str:
@@ -10216,6 +10425,153 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 "source": "campaign_optimizer",
             }
 
+    # S48: ROI Projector tools
+    # ------------------------------------------------------------------
+
+    def _project_roi(self, params: dict) -> dict:
+        """Project recruitment ROI with confidence intervals for a single channel."""
+        try:
+            from roi_projector import project_roi
+
+            channel = params.get("channel") or "Indeed"
+            budget = float(params.get("budget") or 10000)
+            industry = params.get("industry") or "general"
+            role = params.get("role")
+            locations = params.get("locations")
+            if isinstance(locations, str):
+                locations = [loc.strip() for loc in locations.split(",")]
+
+            result = project_roi(
+                channel=channel,
+                budget=budget,
+                industry=industry,
+                role=role,
+                locations=locations,
+            )
+            return result
+        except ImportError:
+            return {
+                "error": "ROI projector module not available",
+                "source": "roi_projector",
+            }
+        except Exception as e:
+            logger.error("project_roi tool failed: %s", e, exc_info=True)
+            return {"error": f"ROI projection failed: {e}", "source": "roi_projector"}
+
+    def _compare_channel_roi(self, params: dict) -> dict:
+        """Compare ROI across multiple channels with optimal budget allocation."""
+        try:
+            from roi_projector import compare_channel_roi
+
+            channels = params.get("channels")
+            total_budget = float(
+                params.get("total_budget") or params.get("budget") or 10000
+            )
+            industry = params.get("industry") or "general"
+            role = params.get("role")
+            locations = params.get("locations")
+            optimize_for = params.get("optimize_for") or "hires"
+            if isinstance(locations, str):
+                locations = [loc.strip() for loc in locations.split(",")]
+
+            result = compare_channel_roi(
+                channels=channels,
+                total_budget=total_budget,
+                industry=industry,
+                role=role,
+                locations=locations,
+                optimize_for=optimize_for,
+            )
+            return result
+        except ImportError:
+            return {
+                "error": "ROI projector module not available",
+                "source": "roi_projector",
+            }
+        except Exception as e:
+            logger.error("compare_channel_roi tool failed: %s", e, exc_info=True)
+            return {
+                "error": f"Channel ROI comparison failed: {e}",
+                "source": "roi_projector",
+            }
+
+    # S48: Supply/Demand Ratio Intelligence
+    # ------------------------------------------------------------------
+
+    def _analyze_supply_demand(self, params: dict) -> dict:
+        """Analyze talent supply/demand ratio for a role across metro areas.
+
+        Args:
+            params: Dict with 'role' (required) and 'locations' (optional list).
+
+        Returns:
+            Supply/demand analysis dict with per-metro scores and recommendations.
+        """
+        role = (params.get("role") or "").strip()
+        locations = params.get("locations") or []
+        if not role:
+            return {
+                "error": "Role is required. Please specify a job title (e.g., 'Software Engineer', 'CDL Driver').",
+                "tool_error_graceful": True,
+                "source": "supply_demand_intelligence",
+            }
+        # Default to top 10 metros if no locations specified
+        if not locations:
+            locations = [
+                "Austin, TX",
+                "San Francisco, CA",
+                "Dallas, TX",
+                "Chicago, IL",
+                "Atlanta, GA",
+                "Denver, CO",
+                "Seattle, WA",
+                "Phoenix, AZ",
+                "Nashville, TN",
+                "Charlotte, NC",
+            ]
+        try:
+            from research import get_supply_demand_ratio
+
+            result = get_supply_demand_ratio(role, locations)
+            return result
+        except ImportError:
+            logger.error(
+                "research.get_supply_demand_ratio not available", exc_info=True
+            )
+            return {
+                "error": "Supply/demand analysis module not available",
+                "source": "supply_demand_intelligence",
+            }
+        except Exception as e:
+            logger.error("analyze_supply_demand failed: %s", e, exc_info=True)
+            return {
+                "error": f"Supply/demand analysis failed: {e}",
+                "source": "supply_demand_intelligence",
+            }
+
+    # S48: Channel Recommendations Engine
+    # ------------------------------------------------------------------
+
+    def _recommend_channels_tool(self, params: dict) -> dict:
+        """Return tiered channel recommendations for a recruitment campaign."""
+        try:
+            if not _HAS_CHANNEL_RECOMMENDER:
+                return {"error": "Channel recommender module not available"}
+            rec = _recommend_channels(
+                industry=params.get("industry") or "general",
+                role=params.get("role") or "",
+                budget=params.get("budget") or 100_000,
+                locations=params.get("locations"),
+                goals=params.get("goals"),
+            )
+            # Add formatted text for LLM consumption
+            rec["formatted_text"] = _format_recommendation_text(rec)
+            rec["source"] = "Channel Recommender (20 industries, 10 platforms)"
+            return rec
+        except Exception as e:
+            logger.error("recommend_channels tool failed: %s", e, exc_info=True)
+            return {"error": f"Channel recommendation failed: {e}"}
+
     # S42: SlotOps tools (LinkedIn Slot Optimization)
     # ------------------------------------------------------------------
 
@@ -10331,6 +10687,73 @@ When two or more tools return conflicting data for the same metric (e.g., differ
         except Exception as e:
             logger.error("ga4_analytics failed: %s", e, exc_info=True)
             return {"error": f"GA4 query failed: {e}", "source": "Google Analytics 4"}
+
+    # ------------------------------------------------------------------
+    # S48: CPC Trend Tracker + Job Posting Volume handlers
+    # ------------------------------------------------------------------
+
+    def _track_cpc(self, params: dict) -> dict:
+        """Track CPC bid prices across platforms for a given role."""
+        try:
+            import market_signals
+
+            role = (params.get("role") or "").strip()
+            if not role:
+                return {"error": "Role is required", "source": "CPC Trend Tracker"}
+
+            industry = (params.get("industry") or "").strip() or ""
+            locations = params.get("locations") or []
+            timeframe = (params.get("timeframe") or "30d").strip()
+
+            result = market_signals.get_cpc_trends(
+                role=role,
+                industry=industry,
+                locations=locations,
+                timeframe=timeframe,
+            )
+            result["source"] = "Nova CPC Trend Tracker"
+            return result
+        except ImportError:
+            logger.warning("market_signals module not available for track_cpc")
+            return {
+                "error": "CPC tracking module not available",
+                "source": "CPC Trend Tracker",
+            }
+        except Exception as e:
+            logger.error("track_cpc failed: %s", e, exc_info=True)
+            return {"error": f"CPC tracking failed: {e}", "source": "CPC Trend Tracker"}
+
+    def _check_job_volume(self, params: dict) -> dict:
+        """Check job posting volumes and market activity for a given role."""
+        try:
+            import market_signals
+
+            role = (params.get("role") or "").strip()
+            if not role:
+                return {"error": "Role is required", "source": "Job Volume Tracker"}
+
+            locations = params.get("locations") or []
+            timeframe = (params.get("timeframe") or "7d").strip()
+
+            result = market_signals.get_posting_volume(
+                role=role,
+                locations=locations,
+                timeframe=timeframe,
+            )
+            result["source"] = "Nova Job Volume Tracker"
+            return result
+        except ImportError:
+            logger.warning("market_signals module not available for check_job_volume")
+            return {
+                "error": "Job volume module not available",
+                "source": "Job Volume Tracker",
+            }
+        except Exception as e:
+            logger.error("check_job_volume failed: %s", e, exc_info=True)
+            return {
+                "error": f"Job volume check failed: {e}",
+                "source": "Job Volume Tracker",
+            }
 
     # ------------------------------------------------------------------
     # Chat orchestration
@@ -11580,6 +12003,16 @@ When two or more tools return conflicting data for the same metric (e.g., differ
     # the intent, call the tool directly, and use a cheap LLM to narrate.
 
     # Compiled intent patterns -- evaluated once at class load time.
+    _SUPPLY_DEMAND_INTENT = re.compile(
+        r"\b(supply\s*/?\s*demand|talent\s+availab\w*|candidate\s+(?:market|pool|supply|availab\w*)"
+        r"|labor\s+market(?:\s+(?:tight\w*|loos\w*|condition\w*|ratio|score|analys\w*))?"
+        r"|hiring\s+(?:difficult\w*|eas\w*|market)|hard\s+to\s+(?:hire|fill|recruit)"
+        r"|easy\s+to\s+(?:hire|fill|recruit)|talent\s+(?:short\w*|scarc\w*|surplus)"
+        r"|candidate.to.job\s+ratio|job.to.candidate\s+ratio"
+        r"|workforce\s+(?:short\w*|scarc\w*|availab\w*|supply)"
+        r"|supply.demand\s+(?:ratio|score|analys\w*|data))\b",
+        re.IGNORECASE,
+    )
     _GEOCODE_INTENT = re.compile(
         r"\b(geocode|coordinates?|lat\s*(?:/|,)?\s*l(?:ng|on)|latitude|longitude"
         r"|geo(?:\s*-?\s*)locate|where\s+is|location\s+of|map\s+coordinates?"
@@ -11612,11 +12045,34 @@ When two or more tools return conflicting data for the same metric (e.g., differ
         r"|slot\s+allocation|timezone\s+rotation)\b",
         re.IGNORECASE,
     )
+    _ROI_PROJECT_INTENT = re.compile(
+        r"\b(roi\s+(?:project|forecast|predict|estimat)|(?:project|forecast|predict|estimat)\w*\s+(?:roi|hires|hire)"
+        r"|if\s+(?:i|we)\s+spend|how\s+many\s+hires|what\s+(?:will|would|can)\s+(?:i|we)\s+get"
+        r"|expect\s+(?:how\s+many|\d+)\s+hires|spend\s+\$[\d,]+\s+on"
+        r"|budget\s+(?:of\s+)?\$[\d,]+\s+(?:on|for)|what\s+(?:roi|return)\s+(?:for|on|from)"
+        r"|confidence\s+interval|hire\s+forecast|recruitment\s+roi)\b",
+        re.IGNORECASE,
+    )
     _CAMPAIGN_OPTIMIZE_INTENT = re.compile(
         r"\b(optimiz\w+\s+(?:my\s+)?campaign|best\s+(?:way\s+)?(?:to\s+)?(?:spend|allocat)"
         r"|channel\s+(?:allocat|recommend|suggest|strateg)|how\s+(?:should|to)\s+(?:I\s+)?"
         r"(?:allocat|spend|distribut)\s+(?:my\s+)?budget"
         r"|recommend\s+channels?\s+for\s+hiring|media\s+mix\s+optimiz)\b",
+        re.IGNORECASE,
+    )
+    _CPC_TRACK_INTENT = re.compile(
+        r"\b(cpc|cost\s+per\s+click|bidding\s+(?:cost|price)|ad\s+cost"
+        r"|bid\s+price|cpc\s+trend|click\s+cost|advertising\s+cost"
+        r"|how\s+much\s+(?:does|do)\s+(?:it\s+)?cost\s+(?:to\s+)?(?:advertise|post)"
+        r"|platform\s+(?:cost|price|pricing)|channel\s+cost)\b",
+        re.IGNORECASE,
+    )
+    _JOB_VOLUME_INTENT = re.compile(
+        r"\b(posting\s+volume|job\s+(?:posting\s+)?(?:volume|count)"
+        r"|how\s+many\s+jobs|market\s+activity|hiring\s+(?:trend|surge|volume)"
+        r"|market\s+signal|job\s+market\s+(?:trend|activity|volume)"
+        r"|demand\s+(?:trend|signal|shift)|posting\s+(?:trend|activity)"
+        r"|job\s+openings?\s+(?:count|volume|trend))\b",
         re.IGNORECASE,
     )
 
@@ -11638,8 +12094,95 @@ When two or more tools return conflicting data for the same metric (e.g., differ
         tool_params: dict = {}
         tool_label: str = ""
 
+        # --- S48: Supply/demand intent ---
+        if self._SUPPLY_DEMAND_INTENT.search(msg_lower):
+            _sd_role = ""
+            _sd_locations: list = []
+            # Find role from known keywords
+            for _cat, _kws in _ROLE_KEYWORDS.items():
+                for _kw in _kws:
+                    if _kw in msg_lower:
+                        _sd_role = _kw.title()
+                        break
+                if _sd_role:
+                    break
+            # Extract city/metro names from the message
+            try:
+                from research import METRO_DATA as _SD_METRO
+
+                for _mk in _SD_METRO:
+                    _mk_clean = _mk.replace("_", " ")
+                    if _mk_clean in msg_lower:
+                        _sd_locations.append(_mk_clean.title())
+            except ImportError:
+                pass
+            # Also try capitalized city names from original message
+            _city_matches = re.findall(
+                r"\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*(?:,\s*[A-Z]{2})?)\b",
+                user_message,
+            )
+            _non_cities = {
+                "What",
+                "How",
+                "Where",
+                "The",
+                "For",
+                "Can",
+                "Please",
+                "Supply",
+                "Demand",
+                "Talent",
+                "Candidate",
+                "Market",
+                "Labor",
+                "Hiring",
+                "Software",
+                "Engineer",
+                "Nurse",
+                "Driver",
+                "CDL",
+                "Registered",
+                "Developer",
+                "Is",
+                "Are",
+                "Tell",
+                "Show",
+                "Give",
+                "Get",
+                "Compare",
+                "Analyze",
+            }
+            for _cm in _city_matches:
+                _cm_stripped = _cm.strip()
+                if (
+                    _cm_stripped
+                    and _cm_stripped not in _sd_locations
+                    and len(_cm_stripped) > 2
+                    and _cm_stripped.split()[0] not in _non_cities
+                ):
+                    _sd_locations.append(_cm_stripped)
+            # Default to top metros if none found
+            if not _sd_locations:
+                _sd_locations = [
+                    "Austin",
+                    "San Francisco",
+                    "Dallas",
+                    "Chicago",
+                    "Atlanta",
+                    "Denver",
+                    "Seattle",
+                    "Phoenix",
+                    "Nashville",
+                    "Charlotte",
+                ]
+            if not _sd_role:
+                _sd_role = "General"
+            tool_name = "analyze_supply_demand"
+            tool_params = {"role": _sd_role, "locations": _sd_locations[:10]}
+            tool_label = f"Supply/demand analysis for {_sd_role}"
+
         # --- Geocode intent ---
-        if self._GEOCODE_INTENT.search(msg_lower):
+        if not tool_name and self._GEOCODE_INTENT.search(msg_lower):
             # Extract the address/location from the message
             # Strip the intent keywords to isolate the address
             _addr = re.sub(
@@ -11804,6 +12347,76 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             except ImportError:
                 pass
 
+        # --- S48: Channel recommendation intent ---
+        if not tool_name and any(
+            kw in msg_lower
+            for kw in [
+                "recommend channel",
+                "which channel",
+                "where should i post",
+                "best platform",
+                "channel mix",
+                "media mix",
+                "recommend platform",
+                "which platform",
+                "where to advertise",
+                "channel recommendation",
+                "best channels for",
+                "where should we post",
+                "what channels",
+            ]
+        ):
+            tool_name = "recommend_channels"
+            tool_params = {"industry": "general"}
+            for _ik, _iv in [
+                ("healthcare", "healthcare_medical"),
+                ("medical", "healthcare_medical"),
+                ("nursing", "healthcare_medical"),
+                ("tech", "tech_engineering"),
+                ("software", "tech_engineering"),
+                ("engineering", "tech_engineering"),
+                ("retail", "retail_consumer"),
+                ("trucking", "transportation_logistics"),
+                ("logistics", "transportation_logistics"),
+                ("finance", "finance_banking"),
+                ("hospitality", "hospitality_travel"),
+                ("restaurant", "food_beverage"),
+                ("construction", "construction_real_estate"),
+                ("gig", "gig_economy"),
+                ("manufacturing", "manufacturing"),
+                ("education", "education"),
+                ("government", "government_public_sector"),
+                ("insurance", "insurance"),
+                ("staffing", "staffing_recruitment"),
+                ("aerospace", "aerospace_defense"),
+            ]:
+                if _ik in msg_lower:
+                    tool_params["industry"] = _iv
+                    break
+            _bm = re.search(r"\$[\d,]+(?:\.\d+)?[kKmM]?", user_message)
+            if _bm:
+                _bs = _bm.group().replace("$", "").replace(",", "")
+                if _bs[-1:].lower() == "k":
+                    tool_params["budget"] = float(_bs[:-1]) * 1_000
+                elif _bs[-1:].lower() == "m":
+                    tool_params["budget"] = float(_bs[:-1]) * 1_000_000
+                else:
+                    tool_params["budget"] = float(_bs)
+            for _rk in [
+                "nurse",
+                "driver",
+                "engineer",
+                "developer",
+                "manager",
+                "analyst",
+                "sales",
+                "recruiter",
+            ]:
+                if _rk in msg_lower:
+                    tool_params["role"] = _rk.title()
+                    break
+            tool_label = "Building channel recommendations"
+
         # --- S46: Campaign optimization intent ---
         if not tool_name and self._CAMPAIGN_OPTIMIZE_INTENT.search(msg_lower):
             tool_name = "optimize_campaign"
@@ -11821,6 +12434,100 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 else:
                     tool_params["budget"] = float(_bud_str)
             tool_label = "Campaign channel optimization"
+
+        # --- S48: ROI projection intent ---
+        if not tool_name and self._ROI_PROJECT_INTENT.search(msg_lower):
+            import re as _re
+
+            tool_params = {"message": user_message}
+            # Extract budget
+            _bud_match = _re.search(r"\$[\d,]+(?:\.\d+)?[kKmM]?", user_message)
+            if _bud_match:
+                _bud_str = _bud_match.group().replace("$", "").replace(",", "")
+                if _bud_str[-1:].lower() == "k":
+                    tool_params["budget"] = float(_bud_str[:-1]) * 1_000
+                elif _bud_str[-1:].lower() == "m":
+                    tool_params["budget"] = float(_bud_str[:-1]) * 1_000_000
+                else:
+                    tool_params["budget"] = float(_bud_str)
+            # Extract channel
+            for _ch_name in [
+                "indeed",
+                "linkedin",
+                "ziprecruiter",
+                "glassdoor",
+                "craigslist",
+                "facebook",
+                "meta",
+                "google",
+                "programmatic",
+            ]:
+                if _ch_name in msg_lower:
+                    tool_params["channel"] = _ch_name.title()
+                    break
+            # Decide single-channel vs multi-channel
+            if (
+                "compare" in msg_lower
+                or "across" in msg_lower
+                or "mix" in msg_lower
+                or "allocation" in msg_lower
+            ):
+                tool_name = "compare_channel_roi"
+                if "budget" in tool_params:
+                    tool_params["total_budget"] = tool_params.pop("budget")
+                tool_label = "Comparing multi-channel ROI"
+            elif "channel" in tool_params:
+                tool_name = "project_roi"
+                tool_label = f"Projecting ROI for {tool_params['channel']}"
+            elif "budget" in tool_params:
+                # Has budget but no specific channel -- compare across channels
+                tool_name = "compare_channel_roi"
+                tool_params["total_budget"] = tool_params.pop("budget")
+                tool_label = "Comparing multi-channel ROI"
+            else:
+                tool_name = None  # Not enough info, fall through to LLM
+
+        # --- S48: CPC track intent ---
+        if not tool_name and self._CPC_TRACK_INTENT.search(msg_lower):
+            tool_name = "track_cpc"
+            tool_params = {}
+            # Extract role from message (look for quoted text or common role patterns)
+            _role_match = re.search(
+                r"(?:for|of)\s+(\w[\w\s]{2,30}?)(?:\s+in\s+|\s+at\s+|\?|$)",
+                user_message,
+                re.IGNORECASE,
+            )
+            if _role_match:
+                tool_params["role"] = (_role_match.group(1) or "").strip()
+            if not tool_params.get("role"):
+                tool_params["role"] = "general"  # Default if no role detected
+            # Extract locations
+            _loc_patterns = re.findall(
+                r"([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*,\s*[A-Z]{2})", user_message
+            )
+            if _loc_patterns:
+                tool_params["locations"] = _loc_patterns[:5]
+            tool_label = "Tracking CPC bid prices"
+
+        # --- S48: Job volume intent ---
+        if not tool_name and self._JOB_VOLUME_INTENT.search(msg_lower):
+            tool_name = "check_job_volume"
+            tool_params = {}
+            _role_match = re.search(
+                r"(?:for|of)\s+(\w[\w\s]{2,30}?)(?:\s+in\s+|\s+at\s+|\?|$)",
+                user_message,
+                re.IGNORECASE,
+            )
+            if _role_match:
+                tool_params["role"] = (_role_match.group(1) or "").strip()
+            if not tool_params.get("role"):
+                tool_params["role"] = "general"
+            _loc_patterns = re.findall(
+                r"([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*,\s*[A-Z]{2})", user_message
+            )
+            if _loc_patterns:
+                tool_params["locations"] = _loc_patterns[:5]
+            tool_label = "Checking job posting volumes"
 
         if not tool_name:
             return None  # No direct dispatch -- fall through to normal routing
@@ -12642,6 +13349,9 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             "- For employer branding video analysis: call analyze_employer_brand with the company name to assess YouTube recruitment video presence\n"
             "- For Facebook/Instagram ad cost estimates: call estimate_meta_campaign with budget, industry, job_category, and optional location\n"
             "- For Meta/Facebook recruitment ad benchmarks: call get_meta_benchmarks with industry and job_category for CPC/CPA/CTR data\n"
+            "- For talent supply/demand, candidate availability, or labor market tightness: call analyze_supply_demand with role and locations array\n"
+            "- For CPC/cost per click/bidding costs/ad pricing: call track_cpc with role, industry, locations for current vs benchmark CPC, trends, 30-day forecast, and alerts\n"
+            "- For posting volume/how many jobs/market activity/hiring trends: call check_job_volume with role and locations for posting counts, WoW change, and per-location breakdown\n"
             "- For any hiring question: ALWAYS also call query_h1b_salaries for competitive salary intelligence\n"
             "- For visualizing a plan as a canvas: call render_canvas with budget, channels, role, location, industry\n"
             "- For editing a canvas (reallocate budget, add/remove channel): call edit_canvas with plan_id and edit details\n"
@@ -17400,6 +18110,8 @@ _TOOL_SOURCE_MAP: Dict[str, str] = {
     "get_ats_data": "ATS Integration Widget",
     "query_competitive_landscape": "Competitive Landscape",
     "scrape_url": "Web Scraper",
+    "track_cpc": "CPC Trend Tracker",
+    "check_job_volume": "Job Volume Tracker",
     "query_remote_jobs": "RemoteOK (Remote Job Market)",
     "query_labor_market_indicators": "FRED (Labor Market Indicators)",
     "query_skills_profile": "O*NET v2.0 (Skills Intelligence)",
@@ -17412,9 +18124,12 @@ _TOOL_SOURCE_MAP: Dict[str, str] = {
     "enrich_entity": "Google Knowledge Graph",
     "audit_career_page": "Google PageSpeed Insights",
     "geocode_location": "Google Maps",
+    "project_roi": "Nova ROI Projector (28 sources, 302M+ data points)",
+    "compare_channel_roi": "Nova ROI Projector (28 sources, 302M+ data points)",
     "slotops_predict": "SlotOps LinkedIn Baselines (89K jobs)",
     "slotops_optimize": "SlotOps LinkedIn Baselines (89K jobs)",
     "optimize_campaign": "Campaign Optimization Engine (66M+ views, 11M+ clicks)",
+    "recommend_channels": "Channel Recommender (20 industries, 10 platforms)",
     "translate_text": "Google Translate",
     "analyze_employer_brand": "YouTube Data API",
     "estimate_meta_campaign": "Meta Ads (Facebook/Instagram)",

@@ -367,8 +367,13 @@
   function signInWithGoogle() {
     var sb = _getSupabase();
     if (!sb) {
-      console.warn("[NovaAuth] Supabase not initialized");
-      _showAuthToast("Authentication not configured", "error");
+      console.warn(
+        "[NovaAuth] Supabase not initialized -- check /api/config response",
+      );
+      _showAuthToast(
+        "Authentication not configured. Please contact admin.",
+        "error",
+      );
       return Promise.reject(new Error("Supabase not initialized"));
     }
 
@@ -386,14 +391,26 @@
       .then(function (result) {
         if (result.error) {
           console.error("[NovaAuth] Google sign-in error:", result.error);
-          _showAuthToast("Sign-in failed: " + result.error.message, "error");
+          var errMsg = result.error.message || "Unknown error";
+          // Detect common GCP OAuth consent screen issues
+          if (
+            errMsg.indexOf("access_denied") !== -1 ||
+            errMsg.indexOf("unauthorized") !== -1
+          ) {
+            errMsg =
+              "Access denied. Your Google account may not be authorized. Contact your Nova admin.";
+          }
+          _showAuthToast("Sign-in failed: " + errMsg, "error");
           return result;
         }
         return result;
       })
       .catch(function (err) {
-        console.error("[NovaAuth] Google sign-in error:", err);
-        _showAuthToast("Sign-in failed", "error");
+        console.error("[NovaAuth] Google sign-in exception:", err);
+        _showAuthToast(
+          "Sign-in failed. Please try again or contact admin.",
+          "error",
+        );
         throw err;
       });
   }
@@ -443,6 +460,13 @@
     if (!sb) return;
 
     sb.auth.onAuthStateChange(function (event, session) {
+      // Log auth state changes for debugging
+      console.log("[NovaAuth] Auth state change:", event);
+
+      if (event === "TOKEN_REFRESHED") {
+        console.log("[NovaAuth] Token refreshed successfully");
+      }
+
       if (event === "SIGNED_IN" && session && session.user) {
         var user = session.user;
         var email = user.email || "";

@@ -4,6 +4,8 @@ Contains curated knowledge base of US labor market data, universities,
 radio stations, competitors, and career events by location and industry.
 """
 
+from __future__ import annotations
+
 import re
 import json
 import os
@@ -1727,6 +1729,209 @@ METRO_DATA = {
         "metro_name": "Boise City MSA",
         "major_employers": "Micron Technology, St. Luke's, HP, Albertsons, Boise State",
     },
+    # ── States without existing metro entries (added for state-to-MSA mapping) ──
+    "little_rock": {
+        "state": "AR",
+        "coli": 87,
+        "population": "748K metro",
+        "median_salary": 52000,
+        "unemployment": "3.2%",
+        "metro_name": "Little Rock-North Little Rock-Conway MSA",
+        "major_employers": "Dillard's, Windstream, Baptist Health, Walmart (nearby)",
+    },
+    "wilmington_de": {
+        "state": "DE",
+        "coli": 105,
+        "population": "720K metro",
+        "median_salary": 68000,
+        "unemployment": "3.8%",
+        "metro_name": "Wilmington-Newark MSA",
+        "major_employers": "DuPont, AstraZeneca, Bank of America, ChristianaCare",
+    },
+    "wichita": {
+        "state": "KS",
+        "coli": 88,
+        "population": "650K metro",
+        "median_salary": 55000,
+        "unemployment": "3.3%",
+        "metro_name": "Wichita MSA",
+        "major_employers": "Spirit AeroSystems, Textron Aviation, Koch Industries, Via Christi",
+    },
+    "portland_me": {
+        "state": "ME",
+        "coli": 112,
+        "population": "550K metro",
+        "median_salary": 62000,
+        "unemployment": "2.8%",
+        "metro_name": "Portland-South Portland MSA",
+        "major_employers": "IDEXX, WEX, MaineHealth, Unum, L.L. Bean (nearby)",
+    },
+    "jackson_ms": {
+        "state": "MS",
+        "coli": 84,
+        "population": "580K metro",
+        "median_salary": 48000,
+        "unemployment": "3.8%",
+        "metro_name": "Jackson MSA",
+        "major_employers": "University of MS Medical Center, Sanderson Farms, Entergy, Nissan",
+    },
+    "billings": {
+        "state": "MT",
+        "coli": 96,
+        "population": "184K metro",
+        "median_salary": 55000,
+        "unemployment": "2.5%",
+        "metro_name": "Billings MSA",
+        "major_employers": "Billings Clinic, St. Vincent Healthcare, ExxonMobil (refinery)",
+    },
+    "manchester_nh": {
+        "state": "NH",
+        "coli": 110,
+        "population": "420K metro",
+        "median_salary": 72000,
+        "unemployment": "2.5%",
+        "metro_name": "Manchester-Nashua MSA",
+        "major_employers": "BAE Systems, Dartmouth-Hitchcock, Fidelity, DEKA Research",
+    },
+    "newark": {
+        "state": "NJ",
+        "coli": 130,
+        "population": "2.6M metro",
+        "median_salary": 85000,
+        "unemployment": "4.0%",
+        "metro_name": "Newark-Northern NJ MSA",
+        "major_employers": "Prudential, Johnson & Johnson, Merck, Audible, PSEG",
+    },
+    "albuquerque": {
+        "state": "NM",
+        "coli": 95,
+        "population": "920K metro",
+        "median_salary": 55000,
+        "unemployment": "4.0%",
+        "metro_name": "Albuquerque MSA",
+        "major_employers": "Sandia National Labs, Kirtland AFB, UNM, Intel, Presbyterian",
+    },
+    "fargo": {
+        "state": "ND",
+        "coli": 92,
+        "population": "260K metro",
+        "median_salary": 58000,
+        "unemployment": "1.8%",
+        "metro_name": "Fargo-Moorhead MSA",
+        "major_employers": "Sanford Health, Microsoft, Bobcat, NDSU, Marvin",
+    },
+    "providence": {
+        "state": "RI",
+        "coli": 108,
+        "population": "1.6M metro",
+        "median_salary": 65000,
+        "unemployment": "3.5%",
+        "metro_name": "Providence-Warwick MSA",
+        "major_employers": "CVS Health, Hasbro, Citizens Financial, Brown University, Lifespan",
+    },
+    "charleston_sc": {
+        "state": "SC",
+        "coli": 104,
+        "population": "830K metro",
+        "median_salary": 60000,
+        "unemployment": "2.9%",
+        "metro_name": "Charleston-North Charleston MSA",
+        "major_employers": "Boeing, MUSC, Volvo, Bosch, Blackbaud",
+    },
+    "sioux_falls": {
+        "state": "SD",
+        "coli": 91,
+        "population": "285K metro",
+        "median_salary": 57000,
+        "unemployment": "2.0%",
+        "metro_name": "Sioux Falls MSA",
+        "major_employers": "Sanford Health, Avera Health, Citigroup, Wells Fargo, Smithfield",
+    },
+    "burlington_vt": {
+        "state": "VT",
+        "coli": 115,
+        "population": "225K metro",
+        "median_salary": 62000,
+        "unemployment": "2.2%",
+        "metro_name": "Burlington-South Burlington MSA",
+        "major_employers": "UVM Medical Center, GlobalFoundries, GE Aviation, Dealer.com",
+    },
+    "charleston_wv": {
+        "state": "WV",
+        "coli": 85,
+        "population": "305K metro",
+        "median_salary": 48000,
+        "unemployment": "4.5%",
+        "metro_name": "Charleston MSA",
+        "major_employers": "WVU Medicine, Charleston Area Medical Center, Dow Chemical, Toyota",
+    },
+    "cheyenne": {
+        "state": "WY",
+        "coli": 95,
+        "population": "100K metro",
+        "median_salary": 55000,
+        "unemployment": "2.8%",
+        "metro_name": "Cheyenne MSA",
+        "major_employers": "F.E. Warren AFB, State of Wyoming, Cheyenne Regional Medical",
+    },
+}
+
+# ── State-code to primary metro key mapping (all 50 US states + DC) ──
+# Used by get_location_info() when a bare state abbreviation is passed as
+# the location (e.g. "GA", "IL"). Maps to the largest / most representative
+# metro area in METRO_DATA for that state.
+_STATE_PRIMARY_METRO: dict[str, str] = {
+    "AL": "birmingham",
+    "AK": "anchorage",
+    "AZ": "phoenix",
+    "AR": "little_rock",
+    "CA": "los_angeles",
+    "CO": "denver",
+    "CT": "hartford",
+    "DE": "wilmington_de",
+    "FL": "miami",
+    "GA": "atlanta",
+    "HI": "honolulu",
+    "ID": "boise",
+    "IL": "chicago",
+    "IN": "indianapolis",
+    "IA": "des_moines",
+    "KS": "wichita",
+    "KY": "louisville",
+    "LA": "new_orleans",
+    "ME": "portland_me",
+    "MD": "baltimore",
+    "MA": "boston",
+    "MI": "detroit",
+    "MN": "minneapolis",
+    "MS": "jackson_ms",
+    "MO": "kansas_city",
+    "MT": "billings",
+    "NE": "omaha",
+    "NV": "las_vegas",
+    "NH": "manchester_nh",
+    "NJ": "newark",
+    "NM": "albuquerque",
+    "NY": "new_york",
+    "NC": "charlotte",
+    "ND": "fargo",
+    "OH": "columbus",
+    "OK": "oklahoma_city",
+    "OR": "portland",
+    "PA": "philadelphia",
+    "RI": "providence",
+    "SC": "charleston_sc",
+    "SD": "sioux_falls",
+    "TN": "nashville",
+    "TX": "dallas",
+    "UT": "salt_lake_city",
+    "VT": "burlington_vt",
+    "VA": "richmond",
+    "WA": "seattle",
+    "WV": "charleston_wv",
+    "WI": "milwaukee",
+    "WY": "cheyenne",
+    "DC": "washington_dc",
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -4282,10 +4487,18 @@ def _normalize(text):
 
 
 def _extract_state(location_str):
-    """Extract state abbreviation from location string like 'Portland, OR'."""
+    """Extract state abbreviation from location string like 'Portland, OR'.
+
+    The state code must either be the entire string (bare "GA") or be preceded
+    by a comma or whitespace ("Atlanta, GA").  This prevents false positives
+    like "CHATTANOOGA" matching "GA" at the end of the word.
+    """
     location_str = location_str.strip()
-    # Check for state abbreviation at end
-    m = re.search(r",?\s*([A-Z]{2})\s*$", location_str)
+    # Check for standalone state abbreviation (entire string is 2 uppercase letters)
+    if re.match(r"^[A-Z]{2}$", location_str) and location_str in STATE_DATA:
+        return location_str
+    # Check for state abbreviation after comma/space (e.g. "Portland, OR")
+    m = re.search(r"[,\s]\s*([A-Z]{2})\s*$", location_str)
     if m and m.group(1) in STATE_DATA:
         return m.group(1)
     # Check for full state name
@@ -4296,12 +4509,34 @@ def _extract_state(location_str):
 
 
 def _find_metro(location_str):
-    """Find matching metro area from location string."""
+    """Find matching metro area from location string.
+
+    IMPORTANT: Rejects bare 2-letter state abbreviations (e.g. "GA", "IL")
+    to prevent false substring matches like "ga" in "lasvegas" or "il" in
+    "philadelphia".  Callers should use ``_STATE_PRIMARY_METRO`` for
+    state-code -> metro resolution instead.
+    """
     norm = _normalize(location_str)
-    # Direct matches
+
+    # Guard: if the normalized input is <= 2 chars and looks like a US state
+    # abbreviation, skip substring matching entirely -- it would produce wrong
+    # results (e.g. "ga" matches "lasvegas", "il" matches "philadelphia").
+    _is_bare_state = len(norm) <= 2 and location_str.strip().upper() in STATE_DATA
+
+    # Direct matches -- require exact equality when input is very short
     for key, data in METRO_DATA.items():
-        if _normalize(key) in norm or norm in _normalize(key):
-            return key, data
+        key_norm = _normalize(key)
+        if _is_bare_state:
+            # Only allow exact match, never substring
+            if key_norm == norm:
+                return key, data
+        else:
+            if key_norm in norm or norm in key_norm:
+                return key, data
+
+    if _is_bare_state:
+        return None, None
+
     # City name matches
     city_part = re.sub(r",.*$", "", location_str).strip().lower()
     city_norm = _normalize(city_part)
@@ -4341,6 +4576,15 @@ def get_location_info(location_str):
     state = _extract_state(location_str)
     metro_key, metro = _find_metro(location_str)
 
+    # If _find_metro found nothing and we have a state code, resolve via the
+    # state-to-primary-metro mapping so bare codes like "GA" get Atlanta data
+    # instead of falling through to the generic statewide fallback.
+    if not metro and state and state in _STATE_PRIMARY_METRO:
+        _primary_key = _STATE_PRIMARY_METRO[state]
+        if _primary_key in METRO_DATA:
+            metro_key = _primary_key
+            metro = METRO_DATA[_primary_key]
+
     info = {
         "location": location_str,
         "state": state,
@@ -4373,6 +4617,518 @@ def get_location_info(location_str):
         info["major_employers"] = "Varies by area"
 
     return info
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# SUPPLY / DEMAND RATIO ENGINE (S48)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Industry classification for supply/demand adjustments
+_ROLE_TO_INDUSTRY: dict = {
+    "nursing": "healthcare",
+    "healthcare": "healthcare",
+    "engineering": "technology",
+    "technology": "technology",
+    "transportation": "trucking",
+    "retail": "retail",
+    "hospitality": "hospitality",
+    "finance": "finance",
+    "executive": "executive",
+    "hourly": "hourly",
+    "education": "education",
+    "construction": "construction",
+    "sales": "sales",
+    "marketing": "marketing",
+    "remote": "technology",
+    "veterinary": "healthcare",
+}
+
+# Metro-level industry tightness modifiers (negative = tighter, positive = easier)
+# Based on well-known talent concentration patterns.
+_METRO_INDUSTRY_MODIFIERS: dict = {
+    # Tech hubs -- very tight for technology roles
+    "san_francisco": {"technology": -2.5, "healthcare": -0.5},
+    "san_jose": {"technology": -2.8, "healthcare": -0.3},
+    "seattle": {"technology": -2.0, "healthcare": -0.5},
+    "austin": {"technology": -1.5, "healthcare": 0.0},
+    "boston": {"technology": -1.5, "healthcare": -1.0},
+    "new_york": {"technology": -1.0, "finance": -1.5, "healthcare": -0.5},
+    "denver": {"technology": -1.0, "healthcare": -0.3},
+    "raleigh": {"technology": -0.8, "healthcare": -0.3},
+    "washington_dc": {"technology": -0.5, "finance": -0.5, "executive": -1.0},
+    # Healthcare hubs -- tighter for healthcare
+    "rochester_mn": {"healthcare": -2.0},
+    "nashville": {"healthcare": -1.5},
+    "houston": {"healthcare": -1.0, "technology": 0.5},
+    "pittsburgh": {"healthcare": -1.0, "technology": 0.5},
+    "philadelphia": {"healthcare": -0.8},
+    "baltimore": {"healthcare": -0.8},
+    # Trucking corridors -- tighter along major routes
+    "chicago": {"trucking": -1.5, "technology": 0.5},
+    "dallas": {"trucking": -1.0, "technology": 0.3},
+    "atlanta": {"trucking": -1.0, "technology": 0.3},
+    "indianapolis": {"trucking": -1.2, "technology": 0.5},
+    "kansas_city": {"trucking": -1.0, "technology": 0.5},
+    "st_louis": {"trucking": -0.8, "technology": 0.5},
+    "columbus": {"trucking": -0.8, "technology": 0.5},
+    "jacksonville": {"trucking": -0.8, "technology": 0.5},
+    "memphis": {"trucking": -1.5},
+    # Easier metros for tech (lower cost, growing but less competition)
+    "phoenix": {"technology": 1.0, "healthcare": 0.0},
+    "tampa": {"technology": 1.0, "healthcare": 0.3},
+    "charlotte": {"technology": 0.8, "healthcare": 0.0},
+    "salt_lake_city": {"technology": 0.5, "healthcare": 0.0},
+    "las_vegas": {"hospitality": -1.5, "technology": 1.0},
+    "detroit": {"technology": 1.0, "construction": -0.5},
+    "oklahoma_city": {"trucking": 0.5, "technology": 1.5},
+    "san_antonio": {"trucking": 0.3, "technology": 1.0},
+}
+
+# National baseline: industry-level tightness (lower = tighter market)
+_INDUSTRY_BASE_SCORE: dict = {
+    "technology": 3.5,  # generally tight nationwide
+    "healthcare": 3.0,  # tight everywhere, shortage
+    "trucking": 3.5,  # chronic driver shortage
+    "finance": 5.0,  # moderate
+    "retail": 6.5,  # easier to fill
+    "hospitality": 6.0,  # seasonal, moderate
+    "hourly": 6.5,  # easier, high turnover
+    "education": 4.5,  # moderate, varies by specialty
+    "construction": 4.0,  # skilled trades shortage
+    "sales": 5.5,  # moderate
+    "marketing": 5.0,  # moderate
+    "executive": 3.0,  # always tight at senior level
+}
+
+# Time-to-fill baselines (days) by industry
+_INDUSTRY_TTF_BASE: dict = {
+    "technology": 44,
+    "healthcare": 49,
+    "trucking": 35,
+    "finance": 38,
+    "retail": 22,
+    "hospitality": 18,
+    "hourly": 15,
+    "education": 42,
+    "construction": 30,
+    "sales": 32,
+    "marketing": 36,
+    "executive": 62,
+}
+
+# Applications-per-posting baselines by industry
+_INDUSTRY_APPS_BASE: dict = {
+    "technology": 30,
+    "healthcare": 22,
+    "trucking": 18,
+    "finance": 45,
+    "retail": 60,
+    "hospitality": 50,
+    "hourly": 55,
+    "education": 35,
+    "construction": 20,
+    "sales": 40,
+    "marketing": 50,
+    "executive": 12,
+}
+
+
+def _classify_role_industry(role: str) -> str:
+    """Map a job title/role string to an industry category.
+
+    Uses the _ROLE_KEYWORDS dict (defined at module level in nova.py-compatible
+    format) and falls back to a simple keyword scan on _ROLE_TO_INDUSTRY.
+
+    Args:
+        role: Job title or role description.
+
+    Returns:
+        Industry category string (e.g., 'technology', 'healthcare').
+    """
+    role_lower = role.lower().strip()
+
+    # Direct keyword scan against our industry mapping
+    for category, industry in _ROLE_TO_INDUSTRY.items():
+        if category in role_lower:
+            return industry
+
+    # Broader keyword matching
+    _tech_kw = [
+        "engineer",
+        "developer",
+        "programmer",
+        "software",
+        "data",
+        "devops",
+        "sre",
+        "ml",
+        "ai",
+        "cloud",
+        "fullstack",
+        "frontend",
+        "backend",
+        "coder",
+    ]
+    _health_kw = [
+        "nurse",
+        "rn",
+        "lpn",
+        "cna",
+        "doctor",
+        "physician",
+        "therapist",
+        "pharmacist",
+        "medical",
+        "clinical",
+        "dental",
+        "paramedic",
+        "emt",
+        "surgeon",
+        "radiology",
+        "anesthesi",
+    ]
+    _truck_kw = [
+        "driver",
+        "trucker",
+        "cdl",
+        "otr",
+        "class a",
+        "class b",
+        "freight",
+        "delivery",
+        "courier",
+        "dispatcher",
+    ]
+    _exec_kw = [
+        "director",
+        "vp",
+        "vice president",
+        "c-suite",
+        "cfo",
+        "cto",
+        "ceo",
+        "chief",
+        "svp",
+        "evp",
+        "president",
+        "partner",
+    ]
+    _construction_kw = [
+        "carpenter",
+        "plumber",
+        "electrician",
+        "welder",
+        "mason",
+        "hvac",
+        "roofer",
+        "painter",
+        "foreman",
+    ]
+
+    for kw in _tech_kw:
+        if kw in role_lower:
+            return "technology"
+    for kw in _health_kw:
+        if kw in role_lower:
+            return "healthcare"
+    for kw in _truck_kw:
+        if kw in role_lower:
+            return "trucking"
+    for kw in _exec_kw:
+        if kw in role_lower:
+            return "executive"
+    for kw in _construction_kw:
+        if kw in role_lower:
+            return "construction"
+
+    # Default fallback -- general/moderate market
+    return "retail"
+
+
+def _score_label(score: float) -> str:
+    """Convert a 1-10 supply/demand score to a human-readable label.
+
+    Args:
+        score: Numeric score from 1.0 to 10.0.
+
+    Returns:
+        Label string describing market conditions.
+    """
+    if score <= 2.0:
+        return "Very Tight (Candidate's Market)"
+    if score <= 3.5:
+        return "Tight (Candidate's Market)"
+    if score <= 5.0:
+        return "Moderately Tight"
+    if score <= 6.5:
+        return "Balanced"
+    if score <= 8.0:
+        return "Employer-Favorable"
+    return "Employer's Market (Easy to Hire)"
+
+
+def _unemployment_to_supply_factor(unemployment_str: str) -> float:
+    """Convert unemployment rate string to a supply adjustment factor.
+
+    Higher unemployment = more supply = higher (easier) score.
+
+    Args:
+        unemployment_str: Unemployment rate like '3.5%' or '~3.5%'.
+
+    Returns:
+        Adjustment factor between -1.5 and +2.0.
+    """
+    try:
+        rate = float(unemployment_str.replace("%", "").replace("~", "").strip())
+    except (ValueError, AttributeError):
+        return 0.0
+
+    # National avg ~3.7%. Below = tight, above = loose.
+    if rate < 2.5:
+        return -1.5  # very tight labor market
+    if rate < 3.0:
+        return -1.0
+    if rate < 3.5:
+        return -0.5
+    if rate < 4.0:
+        return 0.0  # near national average
+    if rate < 4.5:
+        return 0.5
+    if rate < 5.5:
+        return 1.0
+    return 1.5  # high unemployment = easier hiring
+
+
+def _coli_adjustment(coli: int) -> float:
+    """Higher cost of living = harder to attract candidates (score goes down).
+
+    Args:
+        coli: Cost of living index (100 = national average).
+
+    Returns:
+        Adjustment factor between -1.0 and +0.5.
+    """
+    if coli >= 170:
+        return -1.0  # Very expensive -- hard to attract
+    if coli >= 140:
+        return -0.5
+    if coli >= 110:
+        return 0.0
+    if coli >= 95:
+        return 0.2
+    return 0.5  # Low cost area -- easier to attract
+
+
+def get_supply_demand_ratio(
+    role: str,
+    locations: list[str],
+) -> dict:
+    """Calculate supply/demand ratio for a role across multiple metro areas.
+
+    Combines unemployment rates, cost of living, industry-specific tightness,
+    and metro-level modifiers into a 1-10 score per location with actionable
+    hiring recommendations.
+
+    Args:
+        role: Job title or role description (e.g., 'Software Engineer', 'CDL Driver').
+        locations: List of location strings (e.g., ['Austin, TX', 'San Francisco']).
+
+    Returns:
+        Dict with 'role', 'industry', and 'metros' containing per-metro analysis:
+        {metro: {score, label, candidates_per_opening, time_to_fill_estimate,
+                 recommendation, unemployment, population, major_employers}}.
+    """
+    industry = _classify_role_industry(role)
+    base_score = _INDUSTRY_BASE_SCORE.get(industry, 5.0)
+    base_ttf = _INDUSTRY_TTF_BASE.get(industry, 35)
+    base_apps = _INDUSTRY_APPS_BASE.get(industry, 35)
+
+    metros_result: dict = {}
+    scored_metros: list = []
+
+    for loc in locations:
+        loc_info = get_location_info(loc)
+        metro_key, metro_data = _find_metro(loc)
+
+        # Start with industry base
+        score = base_score
+
+        # Apply unemployment-based supply adjustment
+        unemployment_str = loc_info.get("unemployment") or "3.7%"
+        score += _unemployment_to_supply_factor(unemployment_str)
+
+        # Apply cost-of-living adjustment
+        coli = loc_info.get("coli") or 100
+        score += _coli_adjustment(coli)
+
+        # Apply metro-specific industry modifier
+        if metro_key and metro_key in _METRO_INDUSTRY_MODIFIERS:
+            modifier = _METRO_INDUSTRY_MODIFIERS[metro_key].get(industry, 0.0)
+            score += modifier
+
+        # Clamp to 1.0 - 10.0
+        score = max(1.0, min(10.0, round(score, 1)))
+
+        # Derive applications and time-to-fill from score
+        # Score 1 = very tight -> few apps, long TTF
+        # Score 10 = very easy -> many apps, short TTF
+        score_ratio = score / 5.0  # 1.0 at midpoint
+        estimated_apps = max(5, round(base_apps * max(score_ratio, 0.25)))
+        # TTF: tight markets add 40-80% to base, easy markets reduce by 30-50%
+        ttf_multiplier = 1.0 + (1.0 - min(score_ratio, 2.0)) * 0.6
+        estimated_ttf = max(10, round(base_ttf * max(ttf_multiplier, 0.5)))
+
+        # Candidates per opening (derived from apps and conversion)
+        candidates_per_opening = round(estimated_apps / max(base_apps, 1) * 3.0, 1)
+        candidates_per_opening = max(0.3, candidates_per_opening)
+
+        # Build recommendation
+        label = _score_label(score)
+        recommendation = _build_recommendation(
+            score, industry, role, loc_info, metro_key, estimated_ttf, estimated_apps
+        )
+
+        metro_name = loc_info.get("metro_name") or loc
+        metro_entry = {
+            "score": score,
+            "label": label,
+            "candidates_per_opening": candidates_per_opening,
+            "applications_per_posting": estimated_apps,
+            "time_to_fill_estimate_days": estimated_ttf,
+            "recommendation": recommendation,
+            "unemployment": unemployment_str,
+            "median_salary": loc_info.get("median_salary") or 0,
+            "coli": coli,
+            "population": loc_info.get("population") or "",
+            "major_employers": loc_info.get("major_employers") or "",
+            "metro_name": metro_name,
+        }
+        metros_result[metro_name] = metro_entry
+        scored_metros.append((metro_name, score, metro_entry))
+
+    # Sort by score (tightest first) for ranked output
+    scored_metros.sort(key=lambda x: x[1])
+
+    # Build comparison summary if multiple locations
+    summary = ""
+    if len(scored_metros) >= 2:
+        tightest = scored_metros[0]
+        easiest = scored_metros[-1]
+        summary = (
+            f"Tightest market: {tightest[0]} ({tightest[1]}/10 -- {tightest[2]['label']}). "
+            f"Easiest market: {easiest[0]} ({easiest[1]}/10 -- {easiest[2]['label']}). "
+        )
+        diff = easiest[1] - tightest[1]
+        if diff >= 3.0:
+            summary += (
+                f"Significant gap of {diff:.1f} points. Consider shifting budget "
+                f"toward {easiest[0]} or offering premium compensation in {tightest[0]}."
+            )
+
+    return {
+        "source": "Joveo Supply/Demand Intelligence (METRO_DATA + BLS + JOLTS)",
+        "role": role,
+        "industry": industry,
+        "metros": metros_result,
+        "ranked": [
+            {"metro": m[0], "score": m[1], "label": m[2]["label"]}
+            for m in scored_metros
+        ],
+        "summary": summary,
+        "methodology": (
+            "Score combines: industry baseline tightness, metro unemployment rate, "
+            "cost-of-living index, and metro-specific industry concentration modifiers. "
+            "Scale: 1-3 = Very Tight (candidate's market), 4-6 = Balanced, 7-10 = Employer's market."
+        ),
+    }
+
+
+def _build_recommendation(
+    score: float,
+    industry: str,
+    role: str,
+    loc_info: dict,
+    metro_key: str | None,
+    ttf: int,
+    apps: int,
+) -> str:
+    """Generate actionable hiring recommendation based on score and context.
+
+    Args:
+        score: Supply/demand score (1-10).
+        industry: Industry category.
+        role: Job title.
+        loc_info: Location info dict from get_location_info.
+        metro_key: METRO_DATA key or None.
+        ttf: Estimated time-to-fill in days.
+        apps: Estimated applications per posting.
+
+    Returns:
+        Recommendation string with specific, actionable advice.
+    """
+    parts: list[str] = []
+    metro_name = loc_info.get("metro_name") or "this area"
+
+    if score <= 2.5:
+        parts.append(
+            f"Very competitive market for {role} in {metro_name}. "
+            f"Expect ~{apps} applications over ~{ttf} days."
+        )
+        parts.append(
+            "Consider: salary bump 10-15% above market, sign-on bonus, remote/hybrid option."
+        )
+        if industry == "technology":
+            parts.append(
+                "Explore adjacent metros (e.g., Austin, Raleigh, Denver) for broader talent pool."
+            )
+        elif industry == "healthcare":
+            parts.append(
+                "Consider travel nurse/locum programs, tuition reimbursement, or rural pipeline partnerships."
+            )
+        elif industry == "trucking":
+            parts.append(
+                "Increase per-mile rate or add home-time guarantees. Explore regional routes vs. OTR."
+            )
+    elif score <= 4.0:
+        parts.append(
+            f"Tight market for {role} in {metro_name}. "
+            f"Expect ~{apps} applications over ~{ttf} days."
+        )
+        parts.append(
+            "Competitive compensation and strong employer branding are critical."
+        )
+        if industry == "technology":
+            parts.append("Highlight remote/hybrid flexibility and career growth paths.")
+        elif industry == "healthcare":
+            parts.append(
+                "Emphasize scheduling flexibility, CEU reimbursement, and retention bonuses."
+            )
+    elif score <= 6.5:
+        parts.append(
+            f"Balanced market for {role} in {metro_name}. "
+            f"Expect ~{apps} applications over ~{ttf} days."
+        )
+        parts.append(
+            "Standard recruitment strategy should work. Focus on speed-to-hire to beat competitors."
+        )
+    elif score <= 8.0:
+        parts.append(
+            f"Favorable hiring conditions for {role} in {metro_name}. "
+            f"Expect ~{apps} applications over ~{ttf} days."
+        )
+        parts.append(
+            "Focus on quality screening -- you'll have volume. Invest in selection tools."
+        )
+    else:
+        parts.append(
+            f"Employer's market for {role} in {metro_name}. "
+            f"Expect ~{apps}+ applications over ~{ttf} days."
+        )
+        parts.append(
+            "High candidate volume expected. Prioritize quality of hire and employer brand consistency."
+        )
+
+    return " ".join(parts)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -4705,6 +5461,15 @@ def _filter_self_from_competitors(competitors_str, company_name):
 
 
 _INDUSTRY_COMPETITOR_FALLBACK: dict[str, list[str]] = {
+    "trucking": [
+        "Werner Enterprises",
+        "Schneider National",
+        "J.B. Hunt",
+        "Knight-Swift",
+        "Swift Transportation",
+        "Heartland Express",
+        "Old Dominion",
+    ],
     "transportation": [
         "UPS",
         "Amazon Logistics",
@@ -4788,6 +5553,30 @@ _INDUSTRY_COMPETITOR_FALLBACK: dict[str, list[str]] = {
         "Chegg",
         "Coursera",
         "Blackboard",
+    ],
+    "staffing": [
+        "Robert Half",
+        "Adecco",
+        "ManpowerGroup",
+        "Kelly Services",
+        "Randstad",
+        "Hays",
+    ],
+    "hospitality": [
+        "Marriott",
+        "Hilton",
+        "Hyatt",
+        "IHG",
+        "Wyndham",
+        "AccorHotels",
+    ],
+    "construction": [
+        "Turner Construction",
+        "Bechtel",
+        "Fluor",
+        "Skanska",
+        "AECOM",
+        "Jacobs Engineering",
     ],
 }
 

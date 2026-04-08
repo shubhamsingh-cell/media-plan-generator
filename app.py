@@ -9795,6 +9795,27 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
         if path.startswith("/fragment/"):
             fragment_name = path[len("/fragment/") :].strip("/")
             self._serve_fragment(fragment_name)
+
+        # ── Public Config Endpoint (auth gate + NovaAuth initialization) ──
+        elif path == "/api/config":
+            _sb_url = os.environ.get("SUPABASE_URL") or ""
+            _sb_anon = os.environ.get("SUPABASE_ANON_KEY") or ""
+            _auth_enabled = bool(_sb_url and _sb_anon)
+            if not _auth_enabled:
+                logger.warning(
+                    "[Auth Config] SUPABASE_URL or SUPABASE_ANON_KEY not set -- "
+                    "Google OAuth will not work. Set both env vars on Render."
+                )
+            self._send_json(
+                {
+                    "auth_enabled": _auth_enabled,
+                    "supabase_url": _sb_url if _auth_enabled else "",
+                    "supabase_anon_key": _sb_anon if _auth_enabled else "",
+                    "allowed_domains": ["joveo.com"],
+                    "provider": "google",
+                }
+            )
+
         elif path == "/api/csrf-token":
             # Cookie-based double-submit CSRF: generate token, set as cookie
             # AND return in JSON body.  JS stores the body copy and sends it
@@ -13710,7 +13731,27 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                 max_workers=1, thread_name_prefix="async-ppt"
                             )
                             try:
-                                _ppt_future = _ppt_pool.submit(generate_pptx, gen_data)
+                                # S48 FIX: Route through DeckGenerator for Joveo template + Google Slides
+                                # Previously called generate_pptx directly, bypassing Tier 1 (Google Slides)
+                                if _deck_generator is not None:
+
+                                    def _async_deck_gen(d):
+                                        """Wrapper: DeckGenerator returns (bytes, provider); we need just bytes."""
+                                        pptx_b, provider = _deck_generator.generate(d)
+                                        logger.info(
+                                            "Async PPT generated via %s (%d bytes)",
+                                            provider,
+                                            len(pptx_b),
+                                        )
+                                        return pptx_b
+
+                                    _ppt_future = _ppt_pool.submit(
+                                        _async_deck_gen, gen_data
+                                    )
+                                else:
+                                    _ppt_future = _ppt_pool.submit(
+                                        generate_pptx, gen_data
+                                    )
                                 pptx_bytes = _ppt_future.result(timeout=_ppt_timeout)
                             except TimeoutError:
                                 logger.warning(

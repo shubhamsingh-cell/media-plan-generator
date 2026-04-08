@@ -1,0 +1,503 @@
+"""Channel Recommendations Engine -- actionable channel mix for recruitment campaigns.
+
+Combines platform fit scores (20 industries x 10 channels), role-tier CPA multipliers,
+budget constraints, and location factors into tiered recommendations with projected ROI.
+"""
+
+from __future__ import annotations
+
+import logging
+import math
+from typing import Any, Dict, List, Optional, Tuple
+
+logger = logging.getLogger(__name__)
+
+# Imports from existing modules (fail-safe)
+
+try:
+    from ppt_generator import INDUSTRY_ALLOC_PROFILES, CHANNEL_ALLOC
+except Exception:  # May fail due to transitive import errors (research.py on <3.10)
+    INDUSTRY_ALLOC_PROFILES = {}
+    CHANNEL_ALLOC = {}
+
+try:
+    from budget_engine import (
+        BASE_BENCHMARKS,
+        ROLE_TIER_MULTIPLIERS,
+        HIRE_RATE_BY_TIER,
+        CHANNEL_NAME_TO_CATEGORY,
+    )
+except Exception:
+    BASE_BENCHMARKS = {"cpc": {}, "apply_rate": {}, "hire_rate": 0.02}
+    ROLE_TIER_MULTIPLIERS = {}
+    HIRE_RATE_BY_TIER = {"default": 0.02}
+    CHANNEL_NAME_TO_CATEGORY = {}
+
+try:
+    from shared_utils import INDUSTRY_LABEL_MAP, parse_budget
+except Exception:
+    INDUSTRY_LABEL_MAP = {}
+
+    def parse_budget(b: Any, *, default: float = 100_000.0) -> float:
+        """Stub budget parser."""
+        try:
+            return float(b)
+        except (TypeError, ValueError):
+            return default
+
+
+# Platform fit scores (compact).  Authoritative source: data_synthesizer.py.
+# Order: Google, Meta, LinkedIn, TikTok, Bing, Snap, X, Programmatic, Indeed, Zip
+_FIT_CHANNELS = [
+    "Google Ads",
+    "Meta (Facebook/Instagram)",
+    "LinkedIn Ads",
+    "TikTok Ads",
+    "Microsoft/Bing Ads",
+    "Snapchat Ads",
+    "X (Twitter) Ads",
+    "Programmatic Display (DSP)",
+    "Indeed Sponsored Jobs",
+    "ZipRecruiter Sponsored",
+]
+_FIT_RAW: Dict[str, Tuple[int, ...]] = {
+    "tech_engineering": (8, 5, 9, 3, 6, 2, 7, 7, 7, 5),
+    "healthcare_medical": (7, 6, 7, 3, 5, 2, 3, 8, 9, 8),
+    "retail_consumer": (7, 9, 3, 8, 4, 7, 4, 8, 9, 7),
+    "finance_banking": (8, 5, 9, 2, 7, 2, 5, 7, 7, 6),
+    "blue_collar_trades": (7, 8, 3, 6, 4, 5, 3, 8, 9, 8),
+    "hospitality_travel": (6, 8, 3, 8, 3, 7, 3, 7, 9, 8),
+    "transportation_logistics": (7, 6, 4, 4, 5, 3, 3, 8, 9, 8),
+    "manufacturing": (7, 7, 5, 4, 5, 3, 3, 8, 9, 8),
+    "construction_real_estate": (7, 7, 4, 5, 4, 4, 3, 8, 9, 8),
+    "government_public_sector": (6, 5, 8, 2, 6, 2, 4, 7, 8, 7),
+    "education": (7, 6, 8, 3, 5, 2, 4, 7, 8, 6),
+    "nonprofit": (8, 7, 7, 4, 5, 3, 5, 6, 8, 6),
+    "energy_utilities": (7, 5, 7, 2, 6, 2, 4, 8, 8, 7),
+    "professional_services": (8, 5, 9, 2, 7, 1, 5, 6, 7, 5),
+    "media_entertainment": (7, 8, 6, 8, 4, 6, 7, 7, 6, 4),
+    "insurance": (8, 5, 8, 2, 7, 2, 4, 7, 8, 7),
+    "staffing_recruitment": (8, 7, 7, 5, 5, 4, 4, 9, 9, 9),
+    "gig_economy": (6, 8, 2, 7, 3, 6, 4, 8, 8, 7),
+    "food_beverage": (6, 8, 2, 8, 3, 7, 3, 7, 9, 8),
+    "aerospace_defense": (7, 4, 9, 2, 6, 1, 5, 7, 7, 5),
+}
+_INDUSTRY_PLATFORM_FIT: Dict[str, Dict[str, int]] = {
+    ind: dict(zip(_FIT_CHANNELS, scores)) for ind, scores in _FIT_RAW.items()
+}
+
+# Industry alias resolver (mirrors data_synthesizer logic)
+
+# Grouped alias -> canonical key mapping (compressed)
+_INDUSTRY_ALIASES: Dict[str, str] = {}
+for _canon, _aliases in {
+    "transportation_logistics": "transportation logistics trucking delivery warehousing",
+    "tech_engineering": "technology tech software it",
+    "healthcare_medical": "healthcare medical nursing pharma biotech",
+    "retail_consumer": "retail ecommerce general general_entry_level",
+    "finance_banking": "finance banking",
+    "hospitality_travel": "hospitality travel",
+    "construction_real_estate": "construction real_estate",
+    "government_public_sector": "government public_sector",
+    "energy_utilities": "energy utilities",
+    "professional_services": "consulting legal",
+    "media_entertainment": "media entertainment",
+    "staffing_recruitment": "staffing",
+    "gig_economy": "gig",
+    "food_beverage": "restaurant food_service",
+    "aerospace_defense": "aerospace defense",
+    "blue_collar_trades": "blue_collar",
+    "manufacturing": "automotive manufacturing",
+}.items():
+    for _a in _aliases.split():
+        _INDUSTRY_ALIASES[_a] = _canon
+
+
+def _resolve_industry(raw: str) -> str:
+    """Normalize a raw industry string to a canonical fit-key."""
+    if not raw:
+        return "retail_consumer"
+    normalized = (
+        raw.lower()
+        .strip()
+        .replace(" & ", "_")
+        .replace(" and ", "_")
+        .replace("-", "_")
+        .replace(" ", "_")
+        .replace("__", "_")
+    )
+    if normalized in _INDUSTRY_PLATFORM_FIT:
+        return normalized
+    return _INDUSTRY_ALIASES.get(normalized, "retail_consumer")
+
+
+# Role-tier classifier (lightweight)
+
+_EXECUTIVE_KEYWORDS = {
+    "vp",
+    "director",
+    "chief",
+    "cxo",
+    "president",
+    "svp",
+    "evp",
+    "head of",
+    "partner",
+}
+_CLINICAL_KEYWORDS = {
+    "nurse",
+    "rn",
+    "lpn",
+    "physician",
+    "therapist",
+    "pharmacist",
+    "doctor",
+    "surgeon",
+    "dentist",
+}
+_TRADES_KEYWORDS = {
+    "technician",
+    "mechanic",
+    "electrician",
+    "plumber",
+    "welder",
+    "cdl",
+    "driver",
+    "forklift",
+    "hvac",
+}
+_GIG_KEYWORDS = {
+    "gig",
+    "freelance",
+    "contractor",
+    "courier",
+    "shopper",
+    "dasher",
+    "delivery",
+}
+
+
+def _classify_role_tier(role: str) -> str:
+    """Classify a role title into a tier key matching ROLE_TIER_MULTIPLIERS."""
+    if not role:
+        return "Professional / White-Collar"
+    r = role.lower()
+    if any(kw in r for kw in _EXECUTIVE_KEYWORDS):
+        return "Executive / Leadership"
+    if any(kw in r for kw in _CLINICAL_KEYWORDS):
+        return "Clinical / Licensed"
+    if any(kw in r for kw in _GIG_KEYWORDS):
+        return "Gig / Independent Contractor"
+    if any(kw in r for kw in _TRADES_KEYWORDS):
+        return "Skilled Trades / Technical"
+    # Hourly/entry-level signals
+    if any(
+        kw in r
+        for kw in (
+            "cashier",
+            "associate",
+            "crew",
+            "barista",
+            "server",
+            "warehouse",
+            "picker",
+            "packer",
+        )
+    ):
+        return "Hourly / Entry-Level"
+    return "Professional / White-Collar"
+
+
+# CPC benchmarks per named ad channel
+
+# (CPC, apply_rate) per channel
+_CHANNEL_BENCH: Dict[str, Tuple[float, float]] = {
+    "Indeed Sponsored Jobs": (0.85, 0.10),
+    "ZipRecruiter Sponsored": (0.95, 0.09),
+    "LinkedIn Ads": (2.83, 0.04),
+    "Google Ads": (2.50, 0.05),
+    "Meta (Facebook/Instagram)": (1.20, 0.03),
+    "Programmatic Display (DSP)": (0.65, 0.06),
+    "Microsoft/Bing Ads": (1.80, 0.04),
+    "TikTok Ads": (1.00, 0.02),
+    "Snapchat Ads": (0.90, 0.02),
+    "X (Twitter) Ads": (1.30, 0.03),
+}
+_CHANNEL_CPC = {k: v[0] for k, v in _CHANNEL_BENCH.items()}
+_CHANNEL_APPLY_RATE = {k: v[1] for k, v in _CHANNEL_BENCH.items()}
+
+# Channel rationale templates by channel
+_CHANNEL_RATIONALE: Dict[str, str] = {
+    "Indeed Sponsored Jobs": "Largest active job seeker audience; highest volume for {industry}.",
+    "ZipRecruiter Sponsored": "AI-matching drives qualified applicants at low CPA.",
+    "LinkedIn Ads": "Best for professional targeting with title/skills/company filters.",
+    "Google Ads": "High-intent candidates actively searching for {industry} jobs.",
+    "Meta (Facebook/Instagram)": "Massive passive-candidate reach; strong for hourly/local roles.",
+    "Programmatic Display (DSP)": "Broad reach at low CPC across 10K+ sites for volume hiring.",
+    "Microsoft/Bing Ads": "Lower competition CPC; strong for finance, government, B2B.",
+    "TikTok Ads": "Gen-Z workforce reach; strong for retail, hospitality, gig roles.",
+    "Snapchat Ads": "Effective for 18-24 demographic and entry-level positions.",
+    "X (Twitter) Ads": "Niche reach for tech, media, and employer brand campaigns.",
+}
+
+# Core engine
+
+
+def recommend_channels(
+    industry: str,
+    role: str = "",
+    budget: Any = 100_000,
+    locations: Optional[List[str]] = None,
+    goals: Optional[List[str]] = None,
+) -> Dict[str, Any]:
+    """Produce tiered channel recommendations for a recruitment campaign."""
+    # ── Resolve inputs ──
+    ind_key = _resolve_industry(industry)
+    ind_label = INDUSTRY_LABEL_MAP.get(ind_key) or industry.replace("_", " ").title()
+    tier = _classify_role_tier(role)
+    budget_val = parse_budget(budget, default=100_000.0)
+    locs = locations or []
+    campaign_goals = goals or []
+
+    # ── Get fit scores for this industry ──
+    fit_scores = dict(_INDUSTRY_PLATFORM_FIT.get(ind_key, {}))
+    if not fit_scores:
+        # Fallback to retail_consumer as default
+        fit_scores = dict(_INDUSTRY_PLATFORM_FIT.get("retail_consumer", {}))
+
+    # ── Role-tier adjustments ──
+    # Executive/professional roles: boost LinkedIn, lower TikTok/Snapchat
+    # Hourly/entry: boost Indeed, Meta, TikTok; lower LinkedIn
+    _tier_adjustments = {
+        "Executive / Leadership": {
+            "LinkedIn Ads": 2,
+            "Indeed Sponsored Jobs": -1,
+            "TikTok Ads": -2,
+            "Snapchat Ads": -2,
+        },
+        "Professional / White-Collar": {"LinkedIn Ads": 1, "Google Ads": 1},
+        "Clinical / Licensed": {
+            "Indeed Sponsored Jobs": 1,
+            "Google Ads": 1,
+            "TikTok Ads": -2,
+        },
+        "Skilled Trades / Technical": {
+            "Indeed Sponsored Jobs": 1,
+            "Meta (Facebook/Instagram)": 1,
+            "LinkedIn Ads": -2,
+        },
+        "Hourly / Entry-Level": {
+            "Indeed Sponsored Jobs": 2,
+            "Meta (Facebook/Instagram)": 2,
+            "TikTok Ads": 2,
+            "LinkedIn Ads": -3,
+        },
+        "Gig / Independent Contractor": {
+            "Meta (Facebook/Instagram)": 2,
+            "TikTok Ads": 2,
+            "LinkedIn Ads": -4,
+            "Snapchat Ads": 1,
+        },
+    }
+    for channel, adj in _tier_adjustments.get(tier, {}).items():
+        if channel in fit_scores:
+            fit_scores[channel] = max(1, min(10, fit_scores[channel] + adj))
+
+    # ── Location adjustments ──
+    # If locations suggest local/blue-collar, boost local-reach channels
+    _loc_lower = " ".join(locs).lower()
+    is_local = any(
+        kw in _loc_lower for kw in ("local", "city", "metro", "rural", "suburban")
+    )
+    if is_local:
+        for ch in (
+            "Meta (Facebook/Instagram)",
+            "Indeed Sponsored Jobs",
+            "Programmatic Display (DSP)",
+        ):
+            if ch in fit_scores:
+                fit_scores[ch] = min(10, fit_scores[ch] + 1)
+
+    # ── Budget constraint: small budgets concentrate on fewer channels ──
+    max_channels = 10
+    if budget_val <= 25_000:
+        max_channels = 3
+    elif budget_val <= 50_000:
+        max_channels = 5
+    elif budget_val <= 100_000:
+        max_channels = 7
+
+    # ── CPA multiplier for this tier ──
+    cpa_mult = ROLE_TIER_MULTIPLIERS.get(tier, 1.0)
+    hire_rate = HIRE_RATE_BY_TIER.get(tier) or HIRE_RATE_BY_TIER.get("default", 0.02)
+
+    # ── Score and rank channels ──
+    scored: List[Dict[str, Any]] = []
+    total_fit = sum(fit_scores.values()) or 1
+
+    for channel, fit in sorted(fit_scores.items(), key=lambda x: x[1], reverse=True):
+        cpc = _CHANNEL_CPC.get(channel, 1.00) * cpa_mult
+        apply_rate = _CHANNEL_APPLY_RATE.get(channel, 0.04)
+        cpa = cpc / apply_rate if apply_rate > 0 else cpc * 25
+
+        # Allocation % proportional to fit score
+        raw_pct = (fit / total_fit) * 100
+        spend = budget_val * (raw_pct / 100)
+        clicks = int(spend / cpc) if cpc > 0 else 0
+        applications = int(clicks * apply_rate)
+        hires = max(1, int(applications * hire_rate)) if applications > 0 else 0
+
+        # Confidence based on fit score
+        if fit >= 8:
+            confidence = "high"
+        elif fit >= 5:
+            confidence = "medium"
+        else:
+            confidence = "low"
+
+        rationale = _CHANNEL_RATIONALE.get(
+            channel, "Suitable for {industry} recruitment campaigns."
+        ).format(industry=ind_label)
+
+        scored.append(
+            {
+                "channel": channel,
+                "fit_score": fit,
+                "allocation_pct": round(raw_pct, 1),
+                "expected_cpc": round(cpc, 2),
+                "expected_cpa": round(cpa, 2),
+                "projected_spend": round(spend, 2),
+                "projected_clicks": clicks,
+                "projected_applications": applications,
+                "projected_hires": hires,
+                "confidence": confidence,
+                "rationale": rationale,
+            }
+        )
+
+    # ── Tier the channels ──
+    # Limit to max_channels worth of "active" channels
+    must_have: List[Dict[str, Any]] = []
+    should_have: List[Dict[str, Any]] = []
+    test_and_learn: List[Dict[str, Any]] = []
+    skip: List[Dict[str, Any]] = []
+
+    active_count = 0
+    for ch in scored:
+        fit = ch["fit_score"]
+        if fit >= 7 and active_count < max_channels:
+            ch["tier"] = "Must Have"
+            must_have.append(ch)
+            active_count += 1
+        elif fit >= 5 and active_count < max_channels:
+            ch["tier"] = "Should Have"
+            should_have.append(ch)
+            active_count += 1
+        elif fit >= 3:
+            ch["tier"] = "Test & Learn"
+            test_and_learn.append(ch)
+        else:
+            ch["tier"] = "Skip"
+            skip.append(ch)
+
+    # ── Re-normalize allocation % across active channels only ──
+    active = must_have + should_have
+    if active:
+        total_active_fit = sum(c["fit_score"] for c in active)
+        for ch in active:
+            ch["allocation_pct"] = round((ch["fit_score"] / total_active_fit) * 100, 1)
+            ch["projected_spend"] = round(budget_val * ch["allocation_pct"] / 100, 2)
+            cpc = ch["expected_cpc"]
+            apply_rate_val = _CHANNEL_APPLY_RATE.get(ch["channel"], 0.04)
+            ch["projected_clicks"] = int(ch["projected_spend"] / cpc) if cpc > 0 else 0
+            ch["projected_applications"] = int(ch["projected_clicks"] * apply_rate_val)
+            ch["projected_hires"] = (
+                max(1, int(ch["projected_applications"] * hire_rate))
+                if ch["projected_applications"] > 0
+                else 0
+            )
+
+    # Zero out allocation for test/skip
+    for ch in test_and_learn + skip:
+        ch["allocation_pct"] = 0.0
+        ch["projected_spend"] = 0.0
+
+    # ── Summary stats ──
+    total_apps = sum(c["projected_applications"] for c in active)
+    total_hires = sum(c["projected_hires"] for c in active)
+    total_clicks = sum(c["projected_clicks"] for c in active)
+    avg_cpa = round(budget_val / total_apps, 2) if total_apps > 0 else 0.0
+
+    summary = (
+        f"For {ind_label} hiring ({role or 'various roles'}), "
+        f"we recommend {len(must_have)} must-have and {len(should_have)} should-have channels "
+        f"across a ${budget_val:,.0f} budget. "
+        f"Expected: ~{total_clicks:,} clicks, ~{total_apps:,} applications, "
+        f"~{total_hires:,} hires at ${avg_cpa:,.2f} avg CPA."
+    )
+
+    return {
+        "must_have": must_have,
+        "should_have": should_have,
+        "test_and_learn": test_and_learn,
+        "skip": skip,
+        "summary": summary,
+        "metadata": {
+            "industry": ind_key,
+            "industry_label": ind_label,
+            "role": role or "Various",
+            "role_tier": tier,
+            "budget": budget_val,
+            "locations": locs,
+            "goals": campaign_goals,
+            "total_projected_clicks": total_clicks,
+            "total_projected_applications": total_apps,
+            "total_projected_hires": total_hires,
+            "avg_cpa": avg_cpa,
+        },
+    }
+
+
+def format_recommendation_text(rec: Dict[str, Any]) -> str:
+    """Format recommendation dict into markdown text for chatbot display."""
+    lines: List[str] = []
+    meta = rec.get("metadata", {})
+    lines.append(f"**Channel Recommendations: {meta.get('industry_label', '')}**")
+    lines.append(f"Role: {meta.get('role', 'Various')} ({meta.get('role_tier', '')})")
+    lines.append(f"Budget: ${meta.get('budget', 0):,.0f}")
+    lines.append("")
+
+    for tier_key, tier_label, emoji in [
+        ("must_have", "MUST HAVE", "!!"),
+        ("should_have", "SHOULD HAVE", "!"),
+        ("test_and_learn", "TEST & LEARN", "?"),
+    ]:
+        channels = rec.get(tier_key, [])
+        if not channels:
+            continue
+        lines.append(f"**{tier_label}** channels:")
+        for ch in channels:
+            alloc = ch.get("allocation_pct", 0)
+            alloc_str = (
+                f" -- {alloc:.0f}% of budget (${ch.get('projected_spend', 0):,.0f})"
+                if alloc > 0
+                else ""
+            )
+            lines.append(f"  {ch['channel']}{alloc_str}")
+            lines.append(
+                f"    CPC: ${ch['expected_cpc']:.2f} | CPA: ${ch['expected_cpa']:.2f} | "
+                f"Apps: ~{ch.get('projected_applications', 0):,} | "
+                f"Confidence: {ch['confidence']}"
+            )
+            lines.append(f"    Why: {ch['rationale']}")
+        lines.append("")
+
+    skip_channels = rec.get("skip", [])
+    if skip_channels:
+        lines.append(f"**SKIP** (poor fit for this campaign):")
+        for ch in skip_channels:
+            lines.append(f"  {ch['channel']} (fit score: {ch['fit_score']}/10)")
+        lines.append("")
+
+    lines.append(rec.get("summary", ""))
+    return "\n".join(lines)

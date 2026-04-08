@@ -674,8 +674,8 @@
           <button
             class="topbar-btn"
             title="Help"
-            onclick="window.open('/nova', '_blank')"
-            aria-label="Help - Ask Nova AI for assistance"
+            onclick="NovaHelp.open()"
+            aria-label="Help - Platform help and documentation"
           >
             <svg
               viewBox="0 0 24 24"
@@ -1218,6 +1218,374 @@
         </button>
       </div>
     </div>
+
+    <!-- ── HELP MODAL ── -->
+    <div
+      class="help-modal-overlay"
+      id="help-modal-overlay"
+      onclick="if (event.target === this) NovaHelp.close();"
+      role="dialog"
+      aria-label="Help and documentation"
+      aria-modal="true"
+    >
+      <div class="help-modal">
+        <div class="help-modal-header">
+          <h2>Nova Platform Help</h2>
+          <button
+            class="help-modal-close"
+            onclick="NovaHelp.close()"
+            aria-label="Close help"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              width="20"
+              height="20"
+            >
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+        <div class="help-modal-body">
+          <div class="help-section">
+            <h3>Quick Start</h3>
+            <div class="help-cards">
+              <button
+                class="help-card"
+                onclick="
+                  NovaHelp.close();
+                  NovaRouter.navigate('plan/campaign');
+                "
+              >
+                <div
+                  class="help-card-icon"
+                  style="background: rgba(90, 84, 189, 0.15); color: #7c78d8"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    width="22"
+                    height="22"
+                  >
+                    <line x1="12" y1="5" x2="12" y2="19" />
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                  </svg>
+                </div>
+                <div class="help-card-text">
+                  <strong>Create a Campaign</strong>
+                  <span>Build an AI-powered media plan</span>
+                </div>
+              </button>
+              <button
+                class="help-card"
+                onclick="
+                  NovaHelp.close();
+                  NovaDrawer.toggle();
+                "
+              >
+                <div
+                  class="help-card-icon"
+                  style="background: rgba(107, 179, 205, 0.15); color: #6bb3cd"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    width="22"
+                    height="22"
+                  >
+                    <path
+                      d="M12 2a7 7 0 0 1 7 7c0 3-2 5.5-4 7l-1 4h-4l-1-4c-2-1.5-4-4-4-7a7 7 0 0 1 7-7z"
+                    />
+                    <line x1="10" y1="22" x2="14" y2="22" />
+                  </svg>
+                </div>
+                <div class="help-card-text">
+                  <strong>Ask Nova AI</strong>
+                  <span>Chat with the AI assistant</span>
+                </div>
+              </button>
+              <button
+                class="help-card"
+                onclick="
+                  NovaHelp.close();
+                  window.open('/nova', '_blank');
+                "
+              >
+                <div
+                  class="help-card-icon"
+                  style="background: rgba(251, 191, 36, 0.12); color: #f59e0b"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    width="22"
+                    height="22"
+                  >
+                    <path
+                      d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
+                    />
+                  </svg>
+                </div>
+                <div class="help-card-text">
+                  <strong>Full Chatbot</strong>
+                  <span>Open Nova chatbot in a new tab</span>
+                </div>
+              </button>
+            </div>
+          </div>
+          <div class="help-section">
+            <h3>Keyboard Shortcuts</h3>
+            <div class="help-shortcuts">
+              <div class="help-shortcut">
+                <kbd>&#8984;K</kbd> <span>Command palette</span>
+              </div>
+              <div class="help-shortcut">
+                <kbd>&#8984;/</kbd> <span>Toggle Nova AI</span>
+              </div>
+              <div class="help-shortcut">
+                <kbd>&#8984;B</kbd> <span>Toggle sidebar</span>
+              </div>
+              <div class="help-shortcut">
+                <kbd>Esc</kbd> <span>Close panel / modal</span>
+              </div>
+            </div>
+          </div>
+          <div class="help-section">
+            <h3>Platform Modules</h3>
+            <p class="help-desc">
+              Use the sidebar or command palette (<kbd>&#8984;K</kbd>) to
+              navigate between modules. The platform includes campaign planning,
+              market intelligence, compliance, performance tracking, and more.
+            </p>
+          </div>
+          <div class="help-section">
+            <h3>Need More Help?</h3>
+            <p class="help-desc">
+              Open the <strong>Nova AI assistant</strong> (<kbd>&#8984;/</kbd>)
+              to ask any question about the platform, recruitment marketing, or
+              your campaigns.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <style>
+      .help-modal-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 960;
+        background: rgba(0, 0, 0, 0.55);
+        backdrop-filter: blur(4px);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        animation: helpFadeIn 0.15s ease;
+      }
+      .help-modal-overlay.open {
+        display: flex;
+      }
+      @keyframes helpFadeIn {
+        from {
+          opacity: 0;
+        }
+        to {
+          opacity: 1;
+        }
+      }
+      .help-modal {
+        background: var(--surface, #1a1a2e);
+        border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+        border-radius: 16px;
+        width: 540px;
+        max-width: 92vw;
+        max-height: 85vh;
+        overflow-y: auto;
+        box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
+      }
+      [data-theme="light"] .help-modal {
+        background: #fff;
+        border-color: rgba(0, 0, 0, 0.08);
+        box-shadow: 0 24px 80px rgba(0, 0, 0, 0.12);
+      }
+      .help-modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 20px 24px 16px;
+        border-bottom: 1px solid var(--border, rgba(255, 255, 255, 0.06));
+      }
+      .help-modal-header h2 {
+        font-size: 18px;
+        font-weight: 600;
+        margin: 0;
+      }
+      .help-modal-close {
+        background: none;
+        border: none;
+        color: inherit;
+        cursor: pointer;
+        padding: 6px;
+        border-radius: 8px;
+        opacity: 0.6;
+        transition: opacity 0.15s;
+      }
+      .help-modal-close:hover {
+        opacity: 1;
+      }
+      .help-modal-body {
+        padding: 20px 24px 24px;
+      }
+      .help-section {
+        margin-bottom: 20px;
+      }
+      .help-section:last-child {
+        margin-bottom: 0;
+      }
+      .help-section h3 {
+        font-size: 13px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        opacity: 0.5;
+        margin: 0 0 12px;
+      }
+      .help-cards {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .help-card {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        background: var(--surface-hover, rgba(255, 255, 255, 0.04));
+        border: 1px solid var(--border, rgba(255, 255, 255, 0.06));
+        border-radius: 10px;
+        padding: 12px 14px;
+        cursor: pointer;
+        text-align: left;
+        transition:
+          background 0.15s,
+          border-color 0.15s;
+        color: inherit;
+        width: 100%;
+      }
+      .help-card:hover {
+        background: var(--surface-active, rgba(255, 255, 255, 0.08));
+        border-color: rgba(90, 84, 189, 0.3);
+      }
+      [data-theme="light"] .help-card {
+        background: rgba(0, 0, 0, 0.02);
+        border-color: rgba(0, 0, 0, 0.06);
+      }
+      [data-theme="light"] .help-card:hover {
+        background: rgba(0, 0, 0, 0.04);
+      }
+      .help-card-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+      .help-card-text {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .help-card-text strong {
+        font-size: 14px;
+        font-weight: 600;
+      }
+      .help-card-text span {
+        font-size: 12px;
+        opacity: 0.55;
+      }
+      .help-shortcuts {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+      .help-shortcut {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 13px;
+      }
+      .help-shortcut kbd {
+        background: var(--surface-hover, rgba(255, 255, 255, 0.06));
+        border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+        border-radius: 5px;
+        padding: 2px 7px;
+        font-size: 12px;
+        font-family: inherit;
+        min-width: 28px;
+        text-align: center;
+      }
+      [data-theme="light"] .help-shortcut kbd {
+        background: rgba(0, 0, 0, 0.04);
+        border-color: rgba(0, 0, 0, 0.1);
+      }
+      .help-shortcut span {
+        opacity: 0.7;
+      }
+      .help-desc {
+        font-size: 13px;
+        line-height: 1.6;
+        opacity: 0.65;
+        margin: 0;
+      }
+      .help-desc kbd {
+        background: var(--surface-hover, rgba(255, 255, 255, 0.06));
+        border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+        border-radius: 4px;
+        padding: 1px 5px;
+        font-size: 11px;
+        font-family: inherit;
+      }
+      @media (max-width: 600px) {
+        .help-shortcuts {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+    <script>
+      var NovaHelp = {
+        open: function () {
+          var el = document.getElementById("help-modal-overlay");
+          if (el) {
+            el.classList.add("open");
+            el.style.display = "flex";
+          }
+        },
+        close: function () {
+          var el = document.getElementById("help-modal-overlay");
+          if (el) {
+            el.classList.remove("open");
+            el.style.display = "none";
+          }
+        },
+      };
+      document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape") {
+          var el = document.getElementById("help-modal-overlay");
+          if (el && el.classList.contains("open")) NovaHelp.close();
+        }
+      });
+    </script>
 
     <!-- ════════════════════════════════════════════════════════════════
      JAVASCRIPT

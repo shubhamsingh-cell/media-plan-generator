@@ -2467,6 +2467,51 @@
           Ask Nova About This Plan
         </button>
       </div>
+
+      <!-- My Saved Plans toggle + panel -->
+      <div class="saved-plans-section">
+        <button
+          class="saved-plans-toggle"
+          onclick="toggleSavedPlansPanel()"
+          type="button"
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path
+              d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"
+            />
+          </svg>
+          My Saved Plans
+          <svg
+            class="saved-plans-chevron"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </button>
+        <div class="saved-plans-panel" id="savedPlansPanel">
+          <div class="saved-plans-list" id="savedPlansList">
+            <div class="saved-plans-empty">
+              Click to load your saved plans from the cloud.
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Plan Summary Dashboard (populated by JS after generation) -->
