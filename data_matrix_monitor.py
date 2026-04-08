@@ -149,16 +149,6 @@ _TIER2_MODULE_CHECKS: Dict[str, Dict[str, str]] = {
         "check_attr": "EvalSuite",
         "description": "AI eval framework -- budget/collar/geographic/chat scoring",
     },
-    "data_contracts": {
-        "module": "data_contracts",
-        "check_attr": "validate_kb_file",
-        "description": "KB schema validation and enrichment output contracts",
-    },
-    "regression_detector": {
-        "module": "regression_detector",
-        "check_attr": "run_regression_check",
-        "description": "Reference scenario drift detection",
-    },
     "llm_router": {
         "module": "llm_router",
         "check_attr": "call_llm",

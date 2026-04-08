@@ -13567,6 +13567,47 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         else:
                             gen_data["_budget_allocation"] = {}
 
+                        # ── Inject SlotOps LinkedIn Benchmarks (async path) ──
+                        try:
+                            from slotops_engine import get_linkedin_benchmarks_for_plan
+
+                            _slotops_country_a = "United States"
+                            _locs_for_slotops_a = gen_data.get("locations") or []
+                            if _locs_for_slotops_a:
+                                _first_loc_a = (
+                                    _locs_for_slotops_a[0]
+                                    if isinstance(_locs_for_slotops_a, list)
+                                    else _locs_for_slotops_a
+                                )
+                                if isinstance(_first_loc_a, dict):
+                                    _slotops_country_a = (
+                                        _first_loc_a.get("country") or "United States"
+                                    )
+                                elif isinstance(_first_loc_a, str):
+                                    _parts_a = [
+                                        p.strip() for p in _first_loc_a.split(",")
+                                    ]
+                                    if len(_parts_a) >= 2:
+                                        _slotops_country_a = _parts_a[-1]
+                            _li_bench_a = get_linkedin_benchmarks_for_plan(
+                                _slotops_country_a
+                            )
+                            if _li_bench_a:
+                                gen_data["_slotops_linkedin_benchmarks"] = _li_bench_a
+                                logger.info(
+                                    "Async SlotOps LinkedIn benchmarks injected for %s",
+                                    _slotops_country_a,
+                                )
+                        except ImportError:
+                            logger.debug(
+                                "slotops_engine not available -- skipping LinkedIn benchmarks (async)"
+                            )
+                        except Exception as _slotops_err_a:
+                            logger.warning(
+                                "Async SlotOps LinkedIn benchmarks failed (non-fatal): %s",
+                                _slotops_err_a,
+                            )
+
                         if time.time() > _gen_deadline:
                             raise TimeoutError(
                                 "Plan generation exceeded 2-minute time limit"
@@ -15033,6 +15074,42 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     data["_budget_allocation"] = {}
             else:
                 data["_budget_allocation"] = {}
+
+            # ── Inject SlotOps LinkedIn Benchmarks (sync path) ──
+            # Pulls from 108K-job dataset: country apply rates, EA vs ATS, best days
+            try:
+                from slotops_engine import get_linkedin_benchmarks_for_plan
+
+                _slotops_country = "United States"
+                _locs_for_slotops = data.get("locations") or []
+                if _locs_for_slotops:
+                    _first_loc = (
+                        _locs_for_slotops[0]
+                        if isinstance(_locs_for_slotops, list)
+                        else _locs_for_slotops
+                    )
+                    if isinstance(_first_loc, dict):
+                        _slotops_country = _first_loc.get("country") or "United States"
+                    elif isinstance(_first_loc, str):
+                        parts = [p.strip() for p in _first_loc.split(",")]
+                        if len(parts) >= 2:
+                            _slotops_country = parts[-1]
+                _li_benchmarks = get_linkedin_benchmarks_for_plan(_slotops_country)
+                if _li_benchmarks:
+                    data["_slotops_linkedin_benchmarks"] = _li_benchmarks
+                    logger.info(
+                        "SlotOps LinkedIn benchmarks injected for %s (sample=%s)",
+                        _slotops_country,
+                        _li_benchmarks.get("sample_size", 0),
+                    )
+            except ImportError:
+                logger.debug(
+                    "slotops_engine not available -- skipping LinkedIn benchmarks"
+                )
+            except Exception as _slotops_err:
+                logger.warning(
+                    "SlotOps LinkedIn benchmarks failed (non-fatal): %s", _slotops_err
+                )
 
             # ── Gold Standard Quality Gates ──
             # Apply all 7 quality gates: city-level data, clearance segmentation,

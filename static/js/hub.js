@@ -52,11 +52,60 @@
       if (e.key === "ArrowRight" || e.key === "ArrowDown") {
         e.preventDefault();
         showMoment(currentMoment + 1);
+        resetAutoAdvance();
       } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
         e.preventDefault();
         showMoment(currentMoment - 1);
+        resetAutoAdvance();
       }
     });
+
+    // S48: Auto-advance story moments every 3s so users see all content
+    var storyTimer = null;
+    function startAutoAdvance() {
+      storyTimer = setInterval(function () {
+        var next = (currentMoment + 1) % moments.length;
+        showMoment(next);
+      }, 3000);
+    }
+    function resetAutoAdvance() {
+      if (storyTimer) clearInterval(storyTimer);
+      startAutoAdvance();
+    }
+
+    // Start when section is visible
+    var storyObs = new IntersectionObserver(
+      function (entries) {
+        entries.forEach(function (e) {
+          if (e.isIntersecting) {
+            startAutoAdvance();
+          } else {
+            if (storyTimer) clearInterval(storyTimer);
+          }
+        });
+      },
+      { threshold: 0.3 },
+    );
+    storyObs.observe(storyInner.closest(".story-scroll") || storyInner);
+
+    // Pause on hover
+    storyInner.addEventListener("mouseenter", function () {
+      if (storyTimer) clearInterval(storyTimer);
+    });
+    storyInner.addEventListener("mouseleave", function () {
+      startAutoAdvance();
+    });
+
+    // Update dots if they exist
+    var origShowMoment = showMoment;
+    showMoment = function (idx) {
+      if (idx < 0 || idx >= moments.length) return;
+      origShowMoment(idx);
+      var dots = document.querySelectorAll(".story-dot");
+      dots.forEach(function (d, i) {
+        d.classList.toggle("active", i === idx);
+      });
+    };
   }
 
   // ── Single consolidated IntersectionObserver (Fix #13) ──

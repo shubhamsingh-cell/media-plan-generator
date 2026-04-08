@@ -12,6 +12,14 @@ from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
+# Upstash Redis caching (L3 layer) -- lazy import, graceful fallback to disk
+try:
+    from upstash_cache import cache_get as _redis_get, cache_set as _redis_set
+
+    _REDIS_AVAILABLE = True
+except ImportError:
+    _REDIS_AVAILABLE = False
+
 _lock = threading.Lock()
 _baselines: dict[str, Any] = {}
 _optimize_count: int = 0
@@ -188,8 +196,16 @@ class RotationSchedule:
 
 
 # -- Baseline Loader ---------------------------------------------------------
+_REDIS_BASELINES_KEY = "slotops_baselines_v1"
+_REDIS_BASELINES_TTL = 3600  # 1 hour
+
+
 def load_baselines(path: Path | None = None) -> dict[str, Any]:
-    """Load slotops_baseline_data.json; thread-safe, cached after first call."""
+    """Load slotops_baseline_data.json; thread-safe, cached after first call.
+
+    Cache hierarchy: in-memory -> Upstash Redis (1h TTL) -> disk.
+    Redis avoids re-parsing the 7.2MB JSON file on every cold start.
+    """
     global _baselines
     if _baselines:
         return _baselines
@@ -197,10 +213,50 @@ def load_baselines(path: Path | None = None) -> dict[str, Any]:
     with _lock:
         if _baselines:
             return _baselines
+
+        # L2: Try Redis cache before hitting disk
+        if _REDIS_AVAILABLE:
+            try:
+                cached = _redis_get(_REDIS_BASELINES_KEY)
+                if (
+                    cached
+                    and isinstance(cached, dict)
+                    and cached.get("country_baselines")
+                ):
+                    _baselines = cached
+                    logger.info(
+                        "SlotOps baselines loaded from Redis cache (%d country entries)",
+                        len(cached.get("country_baselines", {})),
+                    )
+                    return _baselines
+            except Exception as redis_err:
+                logger.debug("SlotOps Redis cache miss or error: %s", redis_err)
+
+        # L3: Fall back to disk
         try:
             with open(resolved, "r", encoding="utf-8") as fh:
                 _baselines = json.load(fh)
             logger.info(f"SlotOps baselines loaded from {resolved}")
+
+            # Warm Redis cache for next cold start
+            if _REDIS_AVAILABLE:
+                try:
+                    _redis_set(
+                        _REDIS_BASELINES_KEY,
+                        _baselines,
+                        ttl_seconds=_REDIS_BASELINES_TTL,
+                        category="slotops",
+                    )
+                    logger.info(
+                        "SlotOps baselines cached to Redis (TTL=%ds)",
+                        _REDIS_BASELINES_TTL,
+                    )
+                except Exception as redis_write_err:
+                    logger.debug(
+                        "SlotOps Redis cache write failed (non-fatal): %s",
+                        redis_write_err,
+                    )
+
         except FileNotFoundError:
             logger.error(f"Baseline file not found: {resolved}", exc_info=True)
             _baselines = {}
@@ -2240,3 +2296,100 @@ def handle_slotops_analyze(body: dict[str, Any]) -> dict[str, Any]:
     except (TypeError, KeyError) as exc:
         logger.error(f"SlotOps analyze error: {exc}", exc_info=True)
         return {"ok": False, "error": str(exc)}
+
+
+# -- LinkedIn Benchmarks Summary for Media Plan Generator --------------------
+
+
+def get_linkedin_benchmarks_for_plan(country: str = "United States") -> dict[str, Any]:
+    """Return a compact LinkedIn benchmark summary for media plan generation.
+
+    Pulls from the 108K-job SlotOps baseline dataset to provide real
+    LinkedIn performance data that PPT and Excel generators can cite.
+
+    Args:
+        country: Target country name (default "United States").
+
+    Returns:
+        Dict with keys: country_apply_rate, ea_vs_ats, best_posting_days,
+        sample_size, easy_apply_lift, and source metadata.
+        Returns empty dict on any error (non-fatal).
+    """
+    try:
+        baselines = load_baselines()
+        if not baselines:
+            return {}
+
+        # --- Country-level apply rates ---
+        country_bl = (baselines.get("country_baselines") or {}).get(country) or {}
+        apply_rate_data = country_bl.get("apply_rate") or {}
+        sample_size = country_bl.get("sample_size") or 0
+
+        # --- Easy Apply vs ATS differential ---
+        ea_ats = baselines.get("easy_apply_vs_ats") or {}
+        ea_rates: list[float] = []
+        ats_rates: list[float] = []
+        ea_counts: int = 0
+        ats_counts: int = 0
+        for key, entry in ea_ats.items():
+            if f"|{country}|" not in key and not key.endswith(f"|{country}"):
+                # Filter to entries matching the target country
+                parts = key.split("|")
+                if len(parts) >= 2 and parts[1] != country:
+                    continue
+            avg_rate = entry.get("avg_apply_rate") or 0
+            count = entry.get("count") or 0
+            if key.endswith("|easy_apply") or key.endswith("|Easy Apply"):
+                ea_rates.append(avg_rate * count)
+                ea_counts += count
+            elif key.endswith("|ats") or key.endswith("|ATS"):
+                ats_rates.append(avg_rate * count)
+                ats_counts += count
+
+        ea_avg = round(sum(ea_rates) / ea_counts, 2) if ea_counts > 0 else 0
+        ats_avg = round(sum(ats_rates) / ats_counts, 2) if ats_counts > 0 else 0
+
+        # --- Best posting days from DOW patterns ---
+        dow_data = (baselines.get("dow_patterns") or {}).get(country) or {}
+        best_days: list[dict[str, Any]] = []
+        for day_name in BEST_POSTING_DAYS:
+            day_entry = dow_data.get(day_name) or {}
+            if day_entry:
+                best_days.append(
+                    {
+                        "day": day_name,
+                        "avg_apply_rate": day_entry.get("avg_apply_rate") or 0,
+                        "avg_views": day_entry.get("avg_views") or 0,
+                        "sample_size": day_entry.get("sample_size") or 0,
+                    }
+                )
+
+        return {
+            "source": "slotops_108k_linkedin_dataset",
+            "country": country,
+            "sample_size": sample_size,
+            "country_apply_rate": {
+                "avg": apply_rate_data.get("avg") or 0,
+                "median": apply_rate_data.get("median") or 0,
+                "p75": apply_rate_data.get("p75") or 0,
+            },
+            "ea_vs_ats": {
+                "easy_apply_avg_rate": ea_avg,
+                "easy_apply_sample": ea_counts,
+                "ats_avg_rate": ats_avg,
+                "ats_sample": ats_counts,
+                "easy_apply_lift_factor": EASY_APPLY_LIFT,
+                "recommendation": (
+                    "Easy Apply yields significantly higher apply rates; "
+                    "recommend enabling where available"
+                    if ea_avg > ats_avg
+                    else "ATS and Easy Apply perform comparably in this market"
+                ),
+            },
+            "best_posting_days": best_days,
+            "best_posting_days_summary": ", ".join(BEST_POSTING_DAYS),
+            "refresh_cadence_days": REFRESH_CADENCE_DAYS,
+        }
+    except Exception as exc:
+        logger.error("get_linkedin_benchmarks_for_plan failed: %s", exc, exc_info=True)
+        return {}

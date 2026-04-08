@@ -1350,6 +1350,7 @@ _TOOL_LABELS: Dict[str, str] = {
     "optimize_campaign": "Optimizing campaign channel allocation",
     "project_roi": "Projecting recruitment ROI with confidence intervals",
     "compare_channel_roi": "Comparing multi-channel ROI allocation",
+    "project_posting_decay": "Projecting posting visibility decay curve",
     "slotops_predict": "Predicting LinkedIn job performance",
     "slotops_optimize": "Optimizing LinkedIn slot allocation",
     "ga4_analytics": "Querying Google Analytics traffic data",
@@ -5458,6 +5459,29 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                     "required": ["total_budget"],
                 },
             },
+            # ── S48: Posting Decay Model (Anirudh's exponential fit) ─────
+            {
+                "name": "project_posting_decay",
+                "description": "Project how job posting visibility decays over time using exponential model. Returns decay curve, half-life, and repost recommendations. Use when asked 'when should I repost', 'how long does a posting last', 'ad decay', 'posting lifespan', 'impression decay', 'how quickly does a job post lose visibility'.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "channel": {
+                            "type": "string",
+                            "description": "Platform (e.g., 'Craigslist', 'Indeed', 'LinkedIn', 'Facebook')",
+                        },
+                        "duration_days": {
+                            "type": "integer",
+                            "description": "Number of days to project (default 30)",
+                        },
+                        "initial_impressions": {
+                            "type": "number",
+                            "description": "Starting daily impressions (default 1000)",
+                        },
+                    },
+                    "required": ["channel"],
+                },
+            },
             # ── S48: Supply/Demand Ratio Intelligence ────────────────────
             {
                 "name": "analyze_supply_demand",
@@ -5692,6 +5716,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             # S48: ROI Projector
             "project_roi": self._project_roi,
             "compare_channel_roi": self._compare_channel_roi,
+            "project_posting_decay": self._project_posting_decay,
             # S42: SlotOps LinkedIn tools
             "slotops_predict": self._slotops_predict,
             "slotops_optimize": self._slotops_optimize,
@@ -10539,6 +10564,33 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 "source": "roi_projector",
             }
 
+    def _project_posting_decay(self, params: dict) -> dict:
+        """Project posting visibility decay using exponential model."""
+        try:
+            from roi_projector import project_posting_decay
+
+            channel = params.get("channel") or "Indeed"
+            duration_days = int(params.get("duration_days") or 30)
+            initial_impressions = float(params.get("initial_impressions") or 1000)
+
+            result = project_posting_decay(
+                channel=channel,
+                duration_days=duration_days,
+                initial_impressions=initial_impressions,
+            )
+            return result
+        except ImportError:
+            return {
+                "error": "ROI projector module not available",
+                "source": "roi_projector",
+            }
+        except Exception as e:
+            logger.error("project_posting_decay tool failed: %s", e, exc_info=True)
+            return {
+                "error": f"Posting decay projection failed: {e}",
+                "source": "roi_projector",
+            }
+
     # S48: Supply/Demand Ratio Intelligence
     # ------------------------------------------------------------------
 
@@ -12224,6 +12276,14 @@ When two or more tools return conflicting data for the same metric (e.g., differ
         r"|confidence\s+interval|hire\s+forecast|recruitment\s+roi)\b",
         re.IGNORECASE,
     )
+    _POSTING_DECAY_INTENT = re.compile(
+        r"\b(posting\s+(?:decay|lifespan|visibility|life)|ad\s+decay|impression\s+decay"
+        r"|how\s+(?:long|quickly)\s+(?:does|do)\s+(?:a\s+)?(?:post|job|ad)\s+(?:last|stay|remain|lose)"
+        r"|when\s+(?:should\s+)?(?:i|we)\s+repost|repost\s+(?:when|timing|frequency)"
+        r"|half.?life|decay\s+(?:curve|model|rate)|visibility\s+(?:drop|decline|fade)"
+        r"|posting\s+(?:freshness|effectiveness)\s+(?:over|decline))\b",
+        re.IGNORECASE,
+    )
     _CAMPAIGN_OPTIMIZE_INTENT = re.compile(
         r"\b(optimiz\w+\s+(?:my\s+)?campaign|best\s+(?:way\s+)?(?:to\s+)?(?:spend|allocat)"
         r"|channel\s+(?:allocat|recommend|suggest|strateg)|how\s+(?:should|to)\s+(?:I\s+)?"
@@ -12618,6 +12678,28 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 else:
                     tool_params["budget"] = float(_bud_str)
             tool_label = "Campaign channel optimization"
+
+        # --- S48: Posting decay intent ---
+        if not tool_name and self._POSTING_DECAY_INTENT.search(msg_lower):
+            tool_name = "project_posting_decay"
+            tool_params = {}
+            # Extract channel
+            for _ch_name in [
+                "craigslist",
+                "indeed",
+                "linkedin",
+                "ziprecruiter",
+                "facebook",
+                "meta",
+                "google",
+                "programmatic",
+            ]:
+                if _ch_name in msg_lower:
+                    tool_params["channel"] = _ch_name.title()
+                    break
+            if "channel" not in tool_params:
+                tool_params["channel"] = "Indeed"  # default
+            tool_label = f"Projecting posting decay for {tool_params['channel']}"
 
         # --- S48: ROI projection intent ---
         if not tool_name and self._ROI_PROJECT_INTENT.search(msg_lower):
@@ -18358,6 +18440,7 @@ _TOOL_SOURCE_MAP: Dict[str, str] = {
     "geocode_location": "Google Maps",
     "project_roi": "Nova ROI Projector (28 sources, 302M+ data points)",
     "compare_channel_roi": "Nova ROI Projector (28 sources, 302M+ data points)",
+    "project_posting_decay": "Nova Decay Model (exponential fit, 98K CG posts + industry benchmarks)",
     "slotops_predict": "SlotOps LinkedIn Baselines (89K jobs)",
     "slotops_optimize": "SlotOps LinkedIn Baselines (89K jobs)",
     "optimize_campaign": "Campaign Optimization Engine (66M+ views, 11M+ clicks)",

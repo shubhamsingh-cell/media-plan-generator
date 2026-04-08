@@ -612,309 +612,303 @@ html.lenis body {
 }
 
 /* ── Hero Plan Artifact (THE visual center of gravity) ── */
+/* ── Hero Artifact: Orbit Ring Visualization ── */
 .hero-artifact {
   position: relative;
   z-index: 2;
   width: 100%;
-  max-width: 960px;
-  margin: 36px auto 0;
-  perspective: 1200px;
+  max-width: 480px;
+  margin: 40px auto 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 .ha-glow {
   position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 120%;
-  height: 120%;
+  width: 140%;
+  height: 140%;
   background: radial-gradient(
     ellipse,
-    rgba(90, 84, 189, 0.08) 0%,
-    transparent 60%
+    rgba(90, 84, 189, 0.1) 0%,
+    rgba(107, 179, 205, 0.04) 40%,
+    transparent 70%
   );
   pointer-events: none;
   z-index: -1;
 }
-.ha-frame {
-  display: grid;
-  grid-template-columns: 220px 1fr 320px;
-  gap: 2px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 20px;
-  overflow: hidden;
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.05),
-    0 30px 80px -10px rgba(0, 0, 0, 0.5),
-    0 0 100px -20px rgba(90, 84, 189, 0.12);
-  transform: rotateX(2deg);
-  transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
-}
-.ha-frame:hover {
-  transform: rotateX(0deg) scale(1.005);
-}
-.ha-phase {
-  padding: 28px 24px;
-  background: rgba(8, 8, 15, 0.9);
-}
 
-/* Input column */
-.ha-input-label,
-.ha-output-label {
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
-  color: var(--text-muted);
-  margin-bottom: 20px;
-}
-.ha-input-field {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  padding: 12px 14px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 10px;
-  margin-bottom: 10px;
-}
-.ha-field-icon {
-  display: none;
-}
-.ha-field-key {
-  font-size: 10px;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-weight: 600;
-}
-.ha-field-val {
-  font-size: 15px;
-  color: var(--text-primary);
-  font-weight: 600;
-}
-.ha-typing::after {
-  content: "|";
-  color: var(--accent-light);
-  animation: cursor-blink 1s step-end infinite;
-  margin-left: 1px;
-  font-weight: 300;
-}
-@keyframes cursor-blink {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0;
-  }
-}
-.ha-pulse-line {
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-top: 12px;
-}
-.ha-pulse-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 12px rgba(90, 84, 189, 0.5);
-  animation: ha-pulse 2s ease-in-out infinite;
-}
-@keyframes ha-pulse {
-  0%,
-  100% {
-    transform: scale(1);
-    opacity: 0.6;
-  }
-  50% {
-    transform: scale(1.4);
-    opacity: 1;
-  }
-}
-
-/* Intelligence column (center) */
-.ha-intel {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  border-left: 1px solid rgba(90, 84, 189, 0.15);
-  border-right: 1px solid rgba(90, 84, 189, 0.15);
-}
-.ha-intel-orb {
+/* Orbit container */
+.ha-orbit-wrap {
   position: relative;
-  width: 80px;
-  height: 80px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 20px;
+  width: 360px;
+  height: 360px;
 }
-.ha-orb-ring {
+
+/* Shared ring styles */
+.ha-ring {
   position: absolute;
-  inset: 0;
   border-radius: 50%;
-  border: 2px solid rgba(90, 84, 189, 0.3);
-  animation: ha-ring-spin 8s linear infinite;
-  background: radial-gradient(
-    circle,
-    rgba(90, 84, 189, 0.15) 0%,
-    transparent 70%
-  );
+  border: 1px solid rgba(90, 84, 189, 0.15);
+  top: 50%;
+  left: 50%;
 }
-@keyframes ha-ring-spin {
+.ha-ring--outer {
+  width: 340px;
+  height: 340px;
+  margin-left: -170px;
+  margin-top: -170px;
+  border-color: rgba(107, 179, 205, 0.12);
+  animation: ha-orbit-spin 30s linear infinite;
+}
+.ha-ring--mid {
+  width: 240px;
+  height: 240px;
+  margin-left: -120px;
+  margin-top: -120px;
+  border-color: rgba(90, 84, 189, 0.18);
+  animation: ha-orbit-spin 45s linear infinite reverse;
+}
+.ha-ring--inner {
+  width: 150px;
+  height: 150px;
+  margin-left: -75px;
+  margin-top: -75px;
+  border-color: rgba(90, 84, 189, 0.25);
+  animation: ha-orbit-spin 60s linear infinite;
+}
+
+@keyframes ha-orbit-spin {
   from {
     transform: rotate(0deg);
-    border-color: rgba(90, 84, 189, 0.3);
-  }
-  50% {
-    border-color: rgba(107, 179, 205, 0.4);
   }
   to {
     transform: rotate(360deg);
-    border-color: rgba(90, 84, 189, 0.3);
   }
 }
-.ha-orb-core {
-  position: relative;
-  z-index: 1;
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--accent-light);
-  font-family: var(--font-display);
-}
-.ha-intel-signals {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  justify-content: center;
-  max-width: 200px;
-}
-.ha-signal {
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--text-muted);
-  padding: 4px 10px;
-  border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(255, 255, 255, 0.02);
+
+/* Logos positioned on ring edge, counter-rotate to stay upright */
+.ha-logo {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(8, 8, 15, 0.85);
+  padding: 2px;
+  opacity: 0.7;
+  top: 50%;
+  left: 50%;
+  margin-top: -12px;
+  margin-left: -12px;
+  object-fit: contain;
 }
 
-/* Output column */
-.ha-output-metrics {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-  margin-bottom: 20px;
+/* Position each logo at its angle on the ring using top/left offsets.
+   The ring rotates; logos counter-rotate to stay upright. */
+.ha-ring--outer .ha-logo {
+  animation: ha-unspin-cw 30s linear infinite;
 }
-.ha-out-metric {
-  text-align: center;
-  padding: 10px 6px;
-  background: rgba(255, 255, 255, 0.02);
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+.ha-ring--mid .ha-logo {
+  animation: ha-unspin-ccw 45s linear infinite;
 }
-.ha-out-val {
-  display: block;
-  font-size: 20px;
-  font-weight: 700;
-  color: white;
-  font-family: var(--font-display);
-  font-variant-numeric: tabular-nums;
+.ha-ring--inner .ha-logo {
+  animation: ha-unspin-cw 60s linear infinite;
 }
-.ha-out-val.ha-accent {
-  color: var(--green);
+
+/* Counter-spin: CW rings need CCW counter, and vice-versa */
+@keyframes ha-unspin-cw {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(-360deg);
+  }
 }
-.ha-out-key {
-  font-size: 9px;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+@keyframes ha-unspin-ccw {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
-.ha-bars {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+
+/* Outer ring logos (r=170px from center) */
+.ha-ring--outer .ha-logo:nth-child(1) {
+  top: calc(50% - 170px);
+  left: 50%;
 }
-.ha-bar-row {
+.ha-ring--outer .ha-logo:nth-child(2) {
+  top: calc(50% - 52.5px);
+  left: calc(50% + 161.8px);
+}
+.ha-ring--outer .ha-logo:nth-child(3) {
+  top: calc(50% + 137.5px);
+  left: calc(50% + 100px);
+}
+.ha-ring--outer .ha-logo:nth-child(4) {
+  top: calc(50% + 137.5px);
+  left: calc(50% - 100px);
+}
+.ha-ring--outer .ha-logo:nth-child(5) {
+  top: calc(50% - 52.5px);
+  left: calc(50% - 161.8px);
+}
+
+/* Middle ring logos (r=120px from center) */
+.ha-ring--mid .ha-logo:nth-child(1) {
+  top: calc(50% - 120px);
+  left: 50%;
+}
+.ha-ring--mid .ha-logo:nth-child(2) {
+  top: calc(50% - 37px);
+  left: calc(50% + 114.1px);
+}
+.ha-ring--mid .ha-logo:nth-child(3) {
+  top: calc(50% + 97px);
+  left: calc(50% + 70.5px);
+}
+.ha-ring--mid .ha-logo:nth-child(4) {
+  top: calc(50% + 97px);
+  left: calc(50% - 70.5px);
+}
+.ha-ring--mid .ha-logo:nth-child(5) {
+  top: calc(50% - 37px);
+  left: calc(50% - 114.1px);
+}
+
+/* Inner ring logos (r=75px from center, 4 logos at 90deg intervals) */
+.ha-ring--inner .ha-logo:nth-child(1) {
+  top: calc(50% - 75px);
+  left: 50%;
+}
+.ha-ring--inner .ha-logo:nth-child(2) {
+  top: 50%;
+  left: calc(50% + 75px);
+}
+.ha-ring--inner .ha-logo:nth-child(3) {
+  top: calc(50% + 75px);
+  left: 50%;
+}
+.ha-ring--inner .ha-logo:nth-child(4) {
+  top: 50%;
+  left: calc(50% - 75px);
+}
+
+/* Center core */
+.ha-core {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
+  background: rgba(8, 8, 15, 0.95);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  box-shadow:
+    0 0 0 2px rgba(90, 84, 189, 0.4),
+    0 0 40px rgba(90, 84, 189, 0.15),
+    0 0 80px rgba(107, 179, 205, 0.08);
+  animation: ha-core-pulse 4s ease-in-out infinite;
 }
-.ha-bar-name {
-  font-size: 11px;
-  color: var(--text-muted);
-  width: 80px;
-  flex-shrink: 0;
-  text-align: right;
-  font-weight: 500;
+.ha-core::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #5a54bd, #6bb3cd);
+  z-index: -1;
+  opacity: 0.5;
 }
-.ha-bar-track {
-  flex: 1;
-  height: 6px;
-  background: rgba(255, 255, 255, 0.04);
-  border-radius: 3px;
-  overflow: hidden;
+@keyframes ha-core-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 2px rgba(90, 84, 189, 0.4),
+      0 0 40px rgba(90, 84, 189, 0.15),
+      0 0 80px rgba(107, 179, 205, 0.08);
+  }
+  50% {
+    box-shadow:
+      0 0 0 3px rgba(90, 84, 189, 0.5),
+      0 0 50px rgba(90, 84, 189, 0.2),
+      0 0 100px rgba(107, 179, 205, 0.12);
+  }
 }
-.hp-bar-fill {
-  height: 100%;
-  border-radius: 3px;
-  background: var(--bar-c, var(--accent));
-  width: 0%;
-  transition: width 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+.ha-core-label {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent-light);
+  letter-spacing: 0.02em;
 }
-.hp-bar-fill.animated {
-  width: var(--target-w);
-}
-.ha-bar-pct {
-  font-size: 11px;
-  color: var(--text-secondary);
-  width: 30px;
+
+/* Subtitle */
+.ha-orbit-sub {
+  margin-top: 20px;
+  font-size: 13px;
   font-weight: 600;
-  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  letter-spacing: 0.06em;
+  text-align: center;
 }
 
-/* Entrance animations */
-.hp-anim {
-  opacity: 0;
-  transform: translateY(8px);
-  transition:
-    opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1),
-    transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
-}
-.hp-anim.visible {
-  opacity: 1;
-  transform: translateY(0);
+/* Mobile badge (hidden on desktop) */
+.ha-mobile-badge {
+  display: none;
 }
 
-@media (max-width: 900px) {
-  .ha-frame {
-    grid-template-columns: 1fr;
+/* ── Responsive: Mobile ── */
+@media (max-width: 600px) {
+  .ha-orbit-wrap {
+    display: none;
   }
-  .ha-intel {
-    border-left: none;
-    border-right: none;
-    border-top: 1px solid rgba(90, 84, 189, 0.15);
-    border-bottom: 1px solid rgba(90, 84, 189, 0.15);
-    padding: 20px;
+  .ha-orbit-sub {
+    display: none;
   }
-}
-@media (max-width: 480px) {
-  .ha-output-metrics {
-    grid-template-columns: repeat(3, 1fr);
+  .ha-mobile-badge {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 20px;
+    border-radius: 999px;
+    border: 1px solid rgba(90, 84, 189, 0.25);
+    background: rgba(90, 84, 189, 0.06);
   }
-  .ha-bar-name {
-    width: 60px;
-    font-size: 10px;
+  .ha-mobile-badge-icon {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .ha-mobile-badge-text {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-muted);
+    letter-spacing: 0.03em;
   }
   .hero-artifact {
-    margin-top: 32px;
+    margin-top: 24px;
+  }
+}
+
+/* ── Reduced motion: static layout ── */
+@media (prefers-reduced-motion: reduce) {
+  .ha-ring,
+  .ha-ring--outer,
+  .ha-ring--mid,
+  .ha-ring--inner,
+  .ha-ring--outer .ha-logo,
+  .ha-ring--mid .ha-logo,
+  .ha-ring--inner .ha-logo,
+  .ha-core {
+    animation: none !important;
   }
 }
 
@@ -3008,16 +3002,6 @@ html.lenis body {
 @media (max-width: 640px) {
   .hero-headline {
     font-size: clamp(1.8rem, 5vw, 2.5rem);
-  }
-  .ha-phase {
-    padding: 20px 16px;
-  }
-  .ha-out-val {
-    font-size: 16px;
-  }
-  .ha-bar-name {
-    width: 65px;
-    font-size: 10px;
   }
   .hero-actions {
     width: 100%;
