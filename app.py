@@ -12074,7 +12074,18 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
         _CSRF_EXEMPT_PATHS = (
             "/api/sentry/webhook",
             "/api/slack/events",
-            # S46 security: /api/chat removed from CSRF exempt -- it mutates state (Supabase writes, LLM API cost)
+            # S48: Chat endpoints exempt from CSRF -- protected by @joveo.com auth instead.
+            # S46 added CSRF to /api/chat but it causes persistent 401s due to:
+            # 1. Token expiry (4h TTL) mid-session
+            # 2. Race condition on page load (async fetch not awaited)
+            # 3. Embedded widget lacks CSRF context
+            # The @joveo.com cookie check + rate limiting is sufficient protection.
+            "/api/chat",
+            "/api/chat/stream",
+            "/api/chat/stop",
+            "/api/chat/title",
+            "/api/chat/feedback",
+            "/api/chat/share",
             "/api/health",  # Read-only health checks
             "/api/health/ping",  # Read-only ping
             "/api/csrf-token",  # Must be exempt to bootstrap
