@@ -1412,16 +1412,17 @@ html.lenis body {
 /* ── SECTION 3: STORY SCROLL ── */
 .story-scroll {
   position: relative;
-  min-height: 100vh;
+  min-height: auto;
   overflow: hidden;
   z-index: 1;
+  padding: 4rem 0;
 }
 .story-scroll-inner {
   position: relative;
   max-width: 900px;
   margin: 0 auto;
   padding: 0 2rem;
-  height: 100vh;
+  min-height: 500px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1433,20 +1434,15 @@ html.lenis body {
   border-radius: var(--radius-md);
 }
 .story-moment {
-  position: absolute;
-  inset: 0;
-  display: flex;
+  display: none;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: var(--space-10);
-  opacity: 0;
-  pointer-events: none;
-  padding: 0 2rem;
+  padding: 2rem;
 }
 .story-moment.active {
-  opacity: 1;
-  pointer-events: auto;
+  display: flex;
 }
 .moment-text {
   text-align: center;
