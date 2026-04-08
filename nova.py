@@ -12219,7 +12219,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                         (
                             "Hey! I'm Nova -- your recruitment marketing data analyst, "
                             "created by Chandel at Joveo.\n\n"
-                            "I sit on top of **10,341+ supply partners**, **108K LinkedIn job "
+                            "I sit on top of **10,341+ supply partners**, **11M+ job "
                             "benchmarks**, and live data from **BLS, FRED, O*NET, and 22 APIs** "
                             "-- backed by **23 AI models** with intelligent fallback routing "
                             "and **44 knowledge bases** covering salaries, publishers, market "
