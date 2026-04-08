@@ -705,6 +705,18 @@ html.lenis body {
   object-fit: contain;
 }
 
+/* Fallback for broken logo images */
+.channel-logo-card img,
+.ha-logo {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  object-fit: contain;
+}
+.channel-logo-card img[src=""],
+.ha-logo[src=""] {
+  display: none;
+}
+
 /* Position each logo at its angle on the ring using top/left offsets.
    The ring rotates; logos counter-rotate to stay upright. */
 .ha-ring--outer .ha-logo {
