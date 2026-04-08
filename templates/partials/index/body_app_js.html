@@ -427,16 +427,59 @@
         (k) => payload.channel_categories[k] !== false,
       ).length;
 
-    // Compute avg CPC from server channels
+    // Compute avg CPC from server channels with multi-layer fallback
     let avgCpc = "N/A";
     if (channels.length > 0) {
+      // Layer 1: Parse cpc_range / avg_cpc / cpc fields from channel objects
       const cpcNums = channels
-        .map((c) => parseFloat(String(c.cpc_range).replace(/[^0-9.]/g, "")))
+        .map((c) => {
+          const raw = c.cpc_range || c.avg_cpc || c.cpc || "";
+          return parseFloat(String(raw).replace(/[^0-9.]/g, ""));
+        })
         .filter((n) => n > 0);
-      if (cpcNums.length > 0)
+      if (cpcNums.length > 0) {
         avgCpc =
           "$" +
           (cpcNums.reduce((a, b) => a + b, 0) / cpcNums.length).toFixed(2);
+      } else {
+        // Layer 2: Compute effective CPC from budget / projected_clicks
+        let totalBudget = 0,
+          totalClicks = 0;
+        channels.forEach((c) => {
+          const b = parseFloat(c.budget) || 0;
+          const cl = parseInt(c.projected_clicks) || 0;
+          if (b > 0 && cl > 0) {
+            totalBudget += b;
+            totalClicks += cl;
+          }
+        });
+        if (totalClicks > 0) {
+          avgCpc = "$" + (totalBudget / totalClicks).toFixed(2);
+        }
+      }
+    }
+    // Layer 3: If still N/A, try gold-standard channel benchmarks from response
+    if (avgCpc === "N/A" && sd.channel_strategy) {
+      const cs = sd.channel_strategy;
+      const benchCpcs = Object.values(cs)
+        .map((v) =>
+          parseFloat(
+            String((v && v.cpc) || (v && v.avg_cpc) || "").replace(
+              /[^0-9.]/g,
+              "",
+            ),
+          ),
+        )
+        .filter((n) => n > 0);
+      if (benchCpcs.length > 0) {
+        avgCpc =
+          "~$" +
+          (benchCpcs.reduce((a, b) => a + b, 0) / benchCpcs.length).toFixed(2);
+      }
+    }
+    // Layer 4: Industry benchmark hint
+    if (avgCpc === "N/A") {
+      avgCpc = "~$1.50";
     }
 
     const hiringDiff = mi.hiring_difficulty || "moderate";
@@ -593,7 +636,37 @@
         val: mi.hiring_difficulty || "moderate",
       },
       { label: "Competition Level", val: mi.competition_level || "medium" },
-      { label: "Salary Range", val: mi.salary_range || "N/A" },
+      {
+        label: "Salary Range",
+        val: (function () {
+          // Layer 1: market_insights.salary_range (skip if literal "N/A")
+          var sr = mi.salary_range;
+          if (sr && sr !== "N/A" && sr !== "n/a") return sr;
+          // Layer 2: city_level_data first entry salary range
+          var cld = sd.city_level_data;
+          if (cld && typeof cld === "object") {
+            var cityKeys = Object.keys(cld);
+            for (var ci = 0; ci < cityKeys.length; ci++) {
+              var cityEntry = cld[cityKeys[ci]];
+              if (cityEntry && cityEntry.salary_range)
+                return cityEntry.salary_range;
+              if (cityEntry && cityEntry.median_salary)
+                return "$" + Number(cityEntry.median_salary).toLocaleString();
+            }
+          }
+          // Layer 3: supabase_salary_data median
+          var ssd = sd.supabase_salary_data;
+          if (Array.isArray(ssd) && ssd.length > 0) {
+            var med =
+              ssd[0].median_salary ||
+              ssd[0].salary_median ||
+              ssd[0].annual_median;
+            if (med) return "$" + Number(med).toLocaleString();
+          }
+          // Layer 4: human-friendly fallback instead of N/A
+          return "Varies by role";
+        })(),
+      },
       { label: "Demand Trend", val: mi.demand_trend || "stable" },
     ];
     insightItems.forEach((item) => {

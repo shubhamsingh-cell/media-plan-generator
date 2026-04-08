@@ -1640,6 +1640,31 @@ def fuse_job_market_demand(
             posting_source_count = 1
             trend_dir = fallback_demand["trend"]
 
+        # --- BLS employment floor when posting APIs returned 0 but fallback
+        #     did not fire (because talent_pool or search_volume was non-zero) ---
+        if total_postings == 0 and not any(
+            s == "Industry Benchmark" for _, s in posting_volumes
+        ):
+            bls_employment = 0
+            ie = enriched.get("industry_employment") or {}
+            if isinstance(ie, dict):
+                bls_employment = _safe_int(
+                    ie.get("total_employed") or ie.get("employment") or 0
+                )
+            if bls_employment > 0:
+                # ~3% annual turnover rate is a conservative BLS-based proxy
+                # for approximate monthly-equivalent job postings
+                estimated_postings = max(int(bls_employment * 0.03), 500)
+                total_postings = estimated_postings
+                posting_volumes.append((estimated_postings, "BLS Employment Estimate"))
+                posting_source_count = len(posting_volumes)
+                logger.info(
+                    "BLS floor applied for role=%s: employment=%s -> estimated_postings=%s",
+                    role,
+                    bls_employment,
+                    estimated_postings,
+                )
+
         # --- Competition index ---
         _used_fallback = any(s == "Industry Benchmark" for _, s in posting_volumes)
         if not _used_fallback:

@@ -101,6 +101,105 @@ _SUPPLY_TIERS: list[tuple[float, str]] = [
     (0.0, "abundant"),
 ]
 
+# ---------------------------------------------------------------------------
+# Per-role salary validation ranges (national, USD annual).
+# Used to clamp salary estimates when the enrichment source returns a salary
+# from a *different* role (e.g. Physician salary applied to Physician Assistant).
+# Format: "keyword": (floor, ceiling)
+# ---------------------------------------------------------------------------
+_ROLE_SALARY_RANGES: dict[str, tuple[int, int]] = {
+    "physician assistant": (95_000, 155_000),
+    "nurse practitioner": (110_000, 145_000),
+    "registered nurse": (55_000, 120_000),
+    "physician": (180_000, 400_000),
+    "surgeon": (250_000, 600_000),
+    "software engineer": (90_000, 200_000),
+    "truck driver": (45_000, 85_000),
+    "cdl driver": (45_000, 85_000),
+    "data scientist": (100_000, 180_000),
+    "pharmacist": (120_000, 160_000),
+    "physical therapist": (70_000, 100_000),
+    "occupational therapist": (70_000, 95_000),
+    "dental hygienist": (60_000, 85_000),
+    "medical assistant": (30_000, 45_000),
+    "behavioral health": (45_000, 85_000),
+    "psychologist": (75_000, 130_000),
+    "social worker": (40_000, 70_000),
+}
+
+
+def _clamp_salary_for_role(
+    est_salary: float, multiplier: float, role_titles: list[str]
+) -> float:
+    """Validate *est_salary* against known role-specific ranges.
+
+    When the plan contains multiple roles, the enrichment pipeline may
+    return a salary from the *highest-paid* role (e.g. Physician) which
+    then gets blindly applied to every role including lower-paid ones
+    (e.g. Physician Assistant).
+
+    This function checks the estimated salary against each role's known
+    range (adjusted by the city multiplier).  If *any* matching role has
+    a range and the estimate exceeds it, the salary is clamped to the
+    midpoint of that role's range (scaled by the city multiplier).
+
+    When multiple roles match, the *lowest* matching ceiling wins so
+    that the conservative (more accurate) estimate is used.
+
+    Returns the (possibly clamped) salary as a float.
+    """
+    if not role_titles:
+        return est_salary
+
+    best_clamped: float | None = None
+
+    for title in role_titles:
+        title_lower = title.lower().strip()
+        # Try longest-match first so "physician assistant" matches before
+        # "physician".  _ROLE_SALARY_RANGES keys are ordered by insertion,
+        # so we sort candidates by key length descending.
+        matched_range: tuple[int, int] | None = None
+        for keyword in sorted(_ROLE_SALARY_RANGES, key=len, reverse=True):
+            if keyword in title_lower:
+                matched_range = _ROLE_SALARY_RANGES[keyword]
+                break
+
+        if matched_range is None:
+            continue
+
+        floor_adj = matched_range[0] * multiplier
+        ceil_adj = matched_range[1] * multiplier
+        # Allow 15% tolerance above ceiling before clamping
+        tolerance = 0.15
+        if est_salary > ceil_adj * (1 + tolerance):
+            midpoint = (matched_range[0] + matched_range[1]) / 2.0
+            clamped = round(midpoint * multiplier)
+            if best_clamped is None or clamped < best_clamped:
+                best_clamped = clamped
+            logger.debug(
+                "Salary clamp: role=%s est=$%,.0f > ceiling=$%,.0f "
+                "(+15%% tolerance), clamped to $%,.0f",
+                title,
+                est_salary,
+                ceil_adj,
+                clamped,
+            )
+        elif est_salary < floor_adj * (1 - tolerance):
+            midpoint = (matched_range[0] + matched_range[1]) / 2.0
+            clamped = round(midpoint * multiplier)
+            if best_clamped is None or clamped < best_clamped:
+                best_clamped = clamped
+            logger.debug(
+                "Salary clamp: role=%s est=$%,.0f < floor=$%,.0f "
+                "(-15%% tolerance), clamped to $%,.0f",
+                title,
+                est_salary,
+                floor_adj,
+                clamped,
+            )
+
+    return best_clamped if best_clamped is not None else est_salary
+
 
 def enrich_city_level_data(data: dict) -> dict:
     """Produce per-city salary, hiring difficulty, and supply segmentation.
@@ -129,6 +228,20 @@ def enrich_city_level_data(data: dict) -> dict:
             pass
     if national_avg_salary <= 0:
         national_avg_salary = 75_000.0  # Fallback US average
+
+    # S49 FIX: Extract role titles so we can validate salary per role.
+    # Without this, a Physician salary ($180K-$400K) gets copied to
+    # Physician Assistants ($95K-$155K) because the enrichment pipeline
+    # returns a single salary_range for all roles.
+    roles_raw = data.get("target_roles") or data.get("roles") or []
+    role_titles: list[str] = []
+    for r in (roles_raw if isinstance(roles_raw, list) else [str(roles_raw)]):
+        if isinstance(r, str) and r.strip():
+            role_titles.append(r.strip())
+        elif isinstance(r, dict):
+            t = str(r.get("title") or "").strip()
+            if t:
+                role_titles.append(t)
 
     city_data: dict[str, dict[str, Any]] = {}
 
@@ -180,6 +293,10 @@ def enrich_city_level_data(data: dict) -> dict:
                 break
 
         est_salary = round(national_avg_salary * multiplier)
+
+        # S49 FIX: Validate salary against role-specific known ranges.
+        # Prevents Physician salary from bleeding into PA/RN/etc. roles.
+        est_salary = round(_clamp_salary_for_role(est_salary, multiplier, role_titles))
 
         city_data[city_name] = {
             "salary_multiplier": multiplier,

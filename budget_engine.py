@@ -1718,8 +1718,16 @@ def compute_channel_dollar_amounts(
         if _margin == 1.0:
             _margin = _CATEGORY_SAFETY_MARGINS.get(category, 1.0)
         if _margin > 1.0:
-            cost_per_hire *= _margin
-            cpa *= _margin
+            # S49 FIX: Adjust projections DOWN so CPA/CPH math is self-consistent.
+            # Previously: cpa *= _margin (inflated CPA but left applications unchanged,
+            # causing 20-45% discrepancy when users verify dollars / applications != CPA).
+            # Now: reduce projected_applications and projected_hires by the margin factor
+            # so that dollars / adjusted_applications naturally yields the safety-buffered CPA.
+            projected_applications = max(1, int(projected_applications / _margin))
+            projected_hires = max(0, int(projected_hires / _margin))
+            # Recompute CPA and CPH from adjusted projections
+            cpa = _safe_divide(dollars, max(projected_applications, 1), dollars)
+            cost_per_hire = _safe_divide(dollars, max(projected_hires, 1), dollars)
 
         # S49 FIX (Issue 16): Pass projected_hires so zero-hire channels
         # get appropriately low ROI scores instead of inflated ones.
@@ -1734,6 +1742,36 @@ def compute_channel_dollar_amounts(
         elif projected_hires == 0 and dollars > 0:
             _efficiency_flag = "No Projected Hires"
 
+        # ── S49 FIX: Downgrade channel confidence from input data quality ──
+        # The CPC-based confidence above only reflects the CPC data source,
+        # NOT the quality of upstream inputs (salary, enrichment, etc.).
+        # A "high" CPC source with 40% enrichment confidence should NOT
+        # display as HIGH -- downgrade it.
+        _confidence_downgrade_reason = ""
+        if synthesized_data and isinstance(synthesized_data, dict):
+            # Path 1: confidence_scores.overall (0.0-1.0) from data_synthesizer
+            _input_conf = (synthesized_data.get("confidence_scores") or {}).get(
+                "overall"
+            )
+            # Path 2: enrichment_summary.confidence_score from api_enrichment
+            if _input_conf is None:
+                _input_conf = (synthesized_data.get("enrichment_summary") or {}).get(
+                    "confidence_score"
+                )
+            if isinstance(_input_conf, (int, float)):
+                if _input_conf < 0.3:
+                    if confidence != "low":
+                        _confidence_downgrade_reason = (
+                            f"Input data confidence {_input_conf:.0%} < 30%"
+                        )
+                    confidence = "low"
+                elif _input_conf < 0.5:
+                    if confidence == "high":
+                        _confidence_downgrade_reason = (
+                            f"Input data confidence {_input_conf:.0%} < 50%"
+                        )
+                        confidence = "medium"
+
         allocation_entry: Dict[str, Any] = {
             "dollar_amount": dollars,
             "percentage": round(pct, 1),
@@ -1747,11 +1785,16 @@ def compute_channel_dollar_amounts(
             "confidence": confidence or "low",
             "category": category,
             "efficiency_flag": _efficiency_flag,
+            "safety_margin": round(_margin, 2),
             # v3 fields
             "cpc_source": cpc_source,
             "apply_rate": round(apply_rate_adj, 4),
             "apply_rate_collar_adjusted": collar_mult != 1.0,
         }
+        if _confidence_downgrade_reason:
+            allocation_entry["confidence_downgrade_reason"] = (
+                _confidence_downgrade_reason
+            )
 
         # v3: Attach trend metadata when available
         if trend_meta:
@@ -1774,6 +1817,171 @@ def compute_channel_dollar_amounts(
         "yes" if _HAS_TREND_ENGINE else "no",
     )
     return allocations
+
+
+def rebalance_low_roi_channels(
+    channel_allocations: Dict[str, Dict],
+    total_budget: float,
+    roi_floor: int = 2,
+    alloc_cap_pct: float = 3.0,
+    spend_threshold_pct: float = 5.0,
+    recipient_roi_min: int = 6,
+) -> Dict[str, Dict]:
+    """Rebalance budget away from low-ROI channels to high-ROI channels.
+
+    After ``compute_channel_dollar_amounts`` produces per-channel ROI scores,
+    this post-processor identifies channels whose ROI is too low relative to
+    their budget share and redistributes the freed dollars to the strongest
+    performers.
+
+    Rules:
+        - A channel is a **donor** when its ``roi_score <= roi_floor`` AND its
+          allocation exceeds ``spend_threshold_pct`` percent of total budget.
+          Its allocation is capped at ``alloc_cap_pct`` percent.
+        - Freed budget is redistributed proportionally (by ROI score) to
+          channels whose ``roi_score >= recipient_roi_min``.
+        - Projected metrics (clicks, applications, hires, CPA, CPH) are
+          recomputed for every affected channel using its existing CPC and
+          apply rate so the numbers stay internally consistent.
+
+    Args:
+        channel_allocations: Output of ``compute_channel_dollar_amounts``.
+            **Modified in-place** and also returned for convenience.
+        total_budget: Total campaign budget in USD.
+        roi_floor: Maximum ROI score to qualify as a donor (inclusive).
+        alloc_cap_pct: Target cap for donor channels (percent of total budget).
+        spend_threshold_pct: Minimum allocation percent to trigger rebalancing.
+        recipient_roi_min: Minimum ROI score to qualify as a recipient.
+
+    Returns:
+        The (mutated) ``channel_allocations`` dict with updated dollar amounts,
+        percentages, and projected metrics for affected channels.
+    """
+    if not channel_allocations or total_budget <= 0:
+        return channel_allocations
+
+    cap_dollars = total_budget * (alloc_cap_pct / 100.0)
+    threshold_dollars = total_budget * (spend_threshold_pct / 100.0)
+
+    # Identify donors and recipients
+    freed_pool = 0.0
+    donors: Dict[str, float] = {}  # channel -> dollars freed
+    recipients: List[str] = []
+
+    for ch_name, ch_data in channel_allocations.items():
+        roi = ch_data.get("roi_score", 5)
+        dollars = ch_data.get("dollar_amount", 0)
+
+        if roi <= roi_floor and dollars > threshold_dollars:
+            freed = max(0.0, dollars - cap_dollars)
+            if freed > 0:
+                donors[ch_name] = freed
+                freed_pool += freed
+
+        elif roi >= recipient_roi_min and dollars > 0:
+            recipients.append(ch_name)
+
+    if freed_pool <= 0 or not recipients:
+        return channel_allocations
+
+    # Compute recipient weights (proportional to ROI score)
+    recipient_roi_sum = sum(
+        channel_allocations[r].get("roi_score", 5) for r in recipients
+    )
+    if recipient_roi_sum <= 0:
+        return channel_allocations
+
+    logger.info(
+        "Low-ROI rebalance: $%.0f freed from %d donor(s) -> %d recipient(s)",
+        freed_pool,
+        len(donors),
+        len(recipients),
+    )
+
+    # Apply reductions to donors
+    for ch_name, freed in donors.items():
+        ch = channel_allocations[ch_name]
+        old_dollars = ch.get("dollar_amount", 0)
+        new_dollars = round(old_dollars - freed, 2)
+        _recompute_channel_metrics(ch, new_dollars, total_budget)
+        logger.info(
+            "  Donor %s: $%.0f -> $%.0f (ROI %d)",
+            ch_name,
+            old_dollars,
+            new_dollars,
+            ch.get("roi_score", 0),
+        )
+
+    # Distribute freed pool to recipients
+    for ch_name in recipients:
+        ch = channel_allocations[ch_name]
+        roi = ch.get("roi_score", 5)
+        share = roi / recipient_roi_sum
+        bonus = freed_pool * share
+        old_dollars = ch.get("dollar_amount", 0)
+        new_dollars = round(old_dollars + bonus, 2)
+        _recompute_channel_metrics(ch, new_dollars, total_budget)
+        logger.info(
+            "  Recipient %s: $%.0f -> $%.0f (+$%.0f, ROI %d)",
+            ch_name,
+            old_dollars,
+            new_dollars,
+            bonus,
+            roi,
+        )
+
+    return channel_allocations
+
+
+def _recompute_channel_metrics(
+    ch: Dict[str, Any], new_dollars: float, total_budget: float
+) -> None:
+    """Recompute projected metrics for a channel after its dollar amount changes.
+
+    Updates the channel dict **in-place** with recalculated clicks,
+    applications, hires, CPA, CPH, and percentage.
+
+    Uses the channel's existing CPC, apply_rate, and hire_rate assumptions
+    so that the rebalanced numbers are consistent with the original model.
+    """
+    ch["dollar_amount"] = new_dollars
+    ch["percentage"] = round(_safe_divide(new_dollars, total_budget, 0.0) * 100.0, 1)
+
+    cpc = ch.get("cpc", 0.85)
+    apply_rate = ch.get("apply_rate", 0.05)
+
+    # Infer hire_rate from existing data when possible
+    old_apps = ch.get("projected_applications", 0)
+    old_hires = ch.get("projected_hires", 0)
+    if old_apps > 0 and old_hires > 0:
+        hire_rate = old_hires / old_apps
+    else:
+        hire_rate = 0.02  # default fallback
+
+    if cpc > 0:
+        clicks = max(0, int(new_dollars / cpc))
+        apps = max(0, int(clicks * apply_rate))
+        hires = max(0, int(apps * hire_rate))
+    else:
+        clicks = 0
+        apps = max(1, int(new_dollars / 50.0))
+        hires = max(0, int(apps * hire_rate * 2))
+
+    # Enforce per-channel CPH floor (same logic as primary path)
+    category = ch.get("category", "")
+    _ch_min_cph = _CHANNEL_MIN_CPH.get(category, 0)
+    if _ch_min_cph > 0 and new_dollars > 0 and hires > 0:
+        max_hires_at_floor = int(new_dollars / _ch_min_cph)
+        if hires > max_hires_at_floor:
+            hires = max(max_hires_at_floor, 0)
+
+    ch["projected_clicks"] = clicks
+    ch["projected_applications"] = apps
+    ch["projected_hires"] = hires
+    ch["cpa"] = round(_safe_divide(new_dollars, max(apps, 1), new_dollars), 2)
+    ch["cost_per_hire"] = round(
+        _safe_divide(new_dollars, max(hires, 1), new_dollars), 2
+    )
 
 
 def assess_budget_sufficiency(
@@ -2381,6 +2589,11 @@ def calculate_budget_allocation(
         location=primary_location,
         month=campaign_start_month,
     )
+
+    # Step 3.5: Auto-rebalance low-ROI channels
+    # Channels with ROI <= 2 and spending > 5% of budget get capped at 3%.
+    # Freed budget is redistributed proportionally to channels with ROI >= 6.
+    channel_allocs = rebalance_low_roi_channels(channel_allocs, total_budget)
 
     # Step 4: Aggregate projected totals
     total_clicks = sum(

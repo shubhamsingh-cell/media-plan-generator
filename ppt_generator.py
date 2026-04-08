@@ -6074,6 +6074,30 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
         if not isinstance(competitors, dict):
             competitors = {}
 
+        # Fallback: pull from gold standard competitor_mapping if synthesis is empty
+        if not competitors:
+            gold = data.get("_gold_standard") or {}
+            comp_map = gold.get("competitor_mapping") or {}
+            if isinstance(comp_map, dict) and comp_map:
+                seen: set = set()
+                for city_name, city_info in comp_map.items():
+                    if isinstance(city_name, str) and city_name.startswith("_"):
+                        continue
+                    if not isinstance(city_info, dict):
+                        continue
+                    for employer in (city_info.get("top_employers") or [])[:3]:
+                        emp_name = str(employer).strip()
+                        if emp_name and emp_name not in seen:
+                            seen.add(emp_name)
+                            competitors[emp_name] = {
+                                "domain": "",
+                                "description": f"Competing employer in {city_name}",
+                            }
+                        if len(competitors) >= 4:
+                            break
+                    if len(competitors) >= 4:
+                        break
+
         comp_card_top = section_top + Inches(0.5)
         comp_card_h = Inches(0.8)
         comp_card_gap = Inches(0.12)
@@ -8143,16 +8167,24 @@ def _build_slide_data_sources(prs: Presentation, data: Dict):
     _add_filled_rect(slide, Inches(0.55), bar_top, Inches(12.2), bar_h, NAVY)
     _add_filled_rect(slide, Inches(0.55), bar_top, Inches(12.2), Inches(0.03), TEAL)
 
+    # Exclude skipped APIs from succeeded count
+    truly_succeeded = set(apis_succeeded) - set(apis_skipped)
     hero_metrics = [
         (str(len(apis_called)), "APIs Called"),
-        (str(len(apis_succeeded)), "APIs Succeeded"),
+        (str(len(truly_succeeded)), "APIs Succeeded"),
         (str(len(apis_failed)), "APIs Failed"),
-        (
-            _fmt_pct(confidence_score, decimals=0) if confidence_score else "N/A",
-            "Confidence Score",
-        ),
-        (f"{total_time:.1f}s" if total_time else "N/A", "Fetch Time"),
     ]
+    if apis_skipped:
+        hero_metrics.append((str(len(apis_skipped)), "APIs Skipped"))
+    hero_metrics.extend(
+        [
+            (
+                _fmt_pct(confidence_score, decimals=0) if confidence_score else "N/A",
+                "Confidence Score",
+            ),
+            (f"{total_time:.1f}s" if total_time else "N/A", "Fetch Time"),
+        ]
+    )
 
     hero_w = Inches(2.44)
     for i, (val, label) in enumerate(hero_metrics):
@@ -8260,20 +8292,6 @@ def _build_slide_data_sources(prs: Presentation, data: Dict):
             else:
                 freshness = "Curated"
 
-            # Determine status display
-            if success:
-                status_display = "Succeeded"
-                status_color = GREEN
-            elif status_label == "empty":
-                status_display = "Skipped (no data)"
-                status_color = AMBER
-            elif status_label == "circuit_open":
-                status_display = "Circuit Broken"
-                status_color = RED_ACCENT
-            else:
-                status_display = "Failed"
-                status_color = RED_ACCENT
-
             # Estimate data points from enriched data keys
             data_points = "--"
             result_key_map = {
@@ -8299,6 +8317,31 @@ def _build_slide_data_sources(prs: Presentation, data: Dict):
                 elif isinstance(raw, list):
                     data_points = str(len(raw))
 
+            # Check if this API is in the skipped list
+            is_skipped = api_name in apis_skipped
+
+            # Determine status display
+            # success=True but no actual data returned means it was effectively skipped
+            has_data = (
+                detail.get("data_points", 0) not in (0, None, "--")
+                or data_points != "--"
+            )
+            if is_skipped or (success and not has_data):
+                status_display = "Skipped"
+                status_color = AMBER
+            elif success:
+                status_display = "Succeeded"
+                status_color = GREEN
+            elif status_label == "empty":
+                status_display = "Skipped (no data)"
+                status_color = AMBER
+            elif status_label == "circuit_open":
+                status_display = "Circuit Broken"
+                status_color = RED_ACCENT
+            else:
+                status_display = "Failed"
+                status_color = RED_ACCENT
+
             table_rows.append(
                 (
                     api_name,
@@ -8310,16 +8353,17 @@ def _build_slide_data_sources(prs: Presentation, data: Dict):
             )
     else:
         # Fallback: build rows from simple lists
+        # Check skipped BEFORE succeeded -- an API can appear in both
         all_apis = set(apis_called) if apis_called else set()
         for api_name in sorted(all_apis):
-            if api_name in apis_succeeded:
-                status_display = "Succeeded"
-                status_color = GREEN
-                freshness = "Live (real-time)"
-            elif api_name in apis_skipped:
+            if api_name in apis_skipped:
                 status_display = "Skipped"
                 status_color = AMBER
                 freshness = "--"
+            elif api_name in apis_succeeded:
+                status_display = "Succeeded"
+                status_color = GREEN
+                freshness = "Live (real-time)"
             elif api_name in apis_failed:
                 status_display = "Failed"
                 status_color = RED_ACCENT
