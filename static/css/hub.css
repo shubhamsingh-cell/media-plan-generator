@@ -961,128 +961,138 @@ html.lenis body {
   }
 }
 
-/* ── 3D Channel Carousel ── */
-.channel-carousel-wrapper {
+/* ── Channel Logo Marquee ── */
+.channel-logos-section {
+  padding: 48px 0 32px;
+  overflow: hidden;
   position: relative;
+}
+.channel-logos-label {
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.45);
+  margin: 0 0 28px;
+}
+.channel-logos-track {
   width: 100%;
-  max-width: 960px;
-  margin: 48px auto 0;
+  overflow: hidden;
+  mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    #000 8%,
+    #000 92%,
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    #000 8%,
+    #000 92%,
+    transparent 100%
+  );
+  margin-bottom: 16px;
+}
+.channel-logos-scroll {
+  display: flex;
+  gap: 16px;
+  width: max-content;
+  will-change: transform;
+}
+.channel-logos-scroll--left {
+  animation: channel-scroll-left 45s linear infinite;
+}
+.channel-logos-scroll--right {
+  animation: channel-scroll-right 50s linear infinite;
+}
+.channel-logos-track:hover .channel-logos-scroll {
+  animation-play-state: paused;
+}
+
+@keyframes channel-scroll-left {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+@keyframes channel-scroll-right {
+  0% {
+    transform: translateX(-50%);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+.channel-logo-card {
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
-}
-.channel-carousel {
-  perspective: 900px;
-  width: 100%;
-  height: 160px;
-  position: relative;
-  overflow: visible;
-  display: flex;
-  align-items: center;
   justify-content: center;
-}
-.carousel-ring {
-  width: 160px;
-  height: 90px;
-  position: relative;
-  transform-style: preserve-3d;
-  animation: carousel-spin 30s linear infinite;
-}
-.carousel-ring:hover {
-  animation-play-state: paused;
-}
-.carousel-card {
-  position: absolute;
-  width: 140px;
-  height: 72px;
-  left: 50%;
-  top: 50%;
-  margin-left: -70px;
-  margin-top: -36px;
+  gap: 6px;
+  width: 120px;
+  height: 76px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  font-size: 13px;
+  padding: 10px 8px 8px;
+  text-decoration: none;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+.channel-logo-card:hover,
+.channel-logo-card:focus-visible {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+.channel-logo-card--lg {
+  width: 140px;
+  height: 84px;
+}
+.channel-logo-card img {
+  max-width: 72px;
+  max-height: 32px;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  filter: grayscale(100%) brightness(1.8);
+  opacity: 0.7;
+  transition: all 0.3s ease;
+}
+.channel-logo-card--lg img {
+  max-width: 84px;
+  max-height: 36px;
+}
+.channel-logo-card:hover img,
+.channel-logo-card:focus-visible img {
+  filter: grayscale(0%) brightness(1);
+  opacity: 1;
+}
+.channel-logo-card span {
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.5);
   letter-spacing: 0.02em;
-  color: #fff;
-  background: var(--card-bg);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  box-shadow:
-    0 8px 24px rgba(0, 0, 0, 0.35),
-    inset 0 1px 0 rgba(255, 255, 255, 0.15);
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
-  cursor: default;
-  user-select: none;
-  transition: opacity 0.3s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  transition: color 0.3s ease;
 }
-/* Position each card around the ring (12 cards, 30deg apart, 320px radius) */
-.carousel-card:nth-child(1) {
-  transform: rotateY(0deg) translateZ(320px);
-}
-.carousel-card:nth-child(2) {
-  transform: rotateY(30deg) translateZ(320px);
-}
-.carousel-card:nth-child(3) {
-  transform: rotateY(60deg) translateZ(320px);
-}
-.carousel-card:nth-child(4) {
-  transform: rotateY(90deg) translateZ(320px);
-}
-.carousel-card:nth-child(5) {
-  transform: rotateY(120deg) translateZ(320px);
-}
-.carousel-card:nth-child(6) {
-  transform: rotateY(150deg) translateZ(320px);
-}
-.carousel-card:nth-child(7) {
-  transform: rotateY(180deg) translateZ(320px);
-}
-.carousel-card:nth-child(8) {
-  transform: rotateY(210deg) translateZ(320px);
-}
-.carousel-card:nth-child(9) {
-  transform: rotateY(240deg) translateZ(320px);
-}
-.carousel-card:nth-child(10) {
-  transform: rotateY(270deg) translateZ(320px);
-}
-.carousel-card:nth-child(11) {
-  transform: rotateY(300deg) translateZ(320px);
-}
-.carousel-card:nth-child(12) {
-  transform: rotateY(330deg) translateZ(320px);
-}
-
-@keyframes carousel-spin {
-  from {
-    transform: rotateY(0deg);
-  }
-  to {
-    transform: rotateY(360deg);
-  }
-}
-
-/* Reflection glow under carousel */
-.carousel-reflection {
-  width: 60%;
-  height: 40px;
-  margin-top: -8px;
-  background: radial-gradient(
-    ellipse at center,
-    rgba(90, 84, 189, 0.12) 0%,
-    rgba(90, 84, 189, 0.04) 40%,
-    transparent 70%
-  );
-  border-radius: 50%;
-  pointer-events: none;
-  filter: blur(6px);
+.channel-logo-card:hover span,
+.channel-logo-card:focus-visible span {
+  color: rgba(255, 255, 255, 0.9);
 }
 
 /* Screen-reader accessible static list (hidden visually) */
-.carousel-static-list {
+.channel-logos-sr-list {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -1094,136 +1104,77 @@ html.lenis body {
   margin: -1px;
 }
 
-/* Reduced motion: show a static grid instead of spinning */
+/* Reduced motion: show a static wrapped grid */
 @media (prefers-reduced-motion: reduce) {
-  .carousel-ring {
-    animation: none;
-    transform: none;
-    transform-style: flat;
-    width: 100%;
-    height: auto;
-    display: flex;
+  .channel-logos-scroll {
+    animation: none !important;
     flex-wrap: wrap;
     justify-content: center;
+    width: auto;
+    max-width: 1100px;
+    margin: 0 auto;
+    gap: 12px;
+  }
+  .channel-logos-track {
+    mask-image: none;
+    -webkit-mask-image: none;
+  }
+  .channel-logo-card img {
+    filter: grayscale(0%) brightness(1);
+    opacity: 0.85;
+  }
+}
+
+/* Responsive: tablets */
+@media (max-width: 768px) {
+  .channel-logos-section {
+    padding: 32px 0 24px;
+  }
+  .channel-logo-card {
+    width: 100px;
+    height: 66px;
+  }
+  .channel-logo-card--lg {
+    width: 116px;
+    height: 72px;
+  }
+  .channel-logo-card img {
+    max-width: 60px;
+    max-height: 28px;
+  }
+  .channel-logo-card span {
+    font-size: 9px;
+  }
+}
+
+/* Responsive: phones */
+@media (max-width: 480px) {
+  .channel-logos-section {
+    padding: 24px 0 16px;
+  }
+  .channel-logos-label {
+    font-size: 11px;
+    margin-bottom: 20px;
+  }
+  .channel-logos-scroll {
     gap: 10px;
   }
-  .channel-carousel {
-    perspective: none;
-    height: auto;
-    padding: 16px 0;
-  }
-  .carousel-card {
-    position: static;
-    transform: none;
-    margin: 0;
-    width: 120px;
-    height: 56px;
-    font-size: 12px;
-    backface-visibility: visible;
-    -webkit-backface-visibility: visible;
-  }
-  .carousel-reflection {
-    display: none;
-  }
-}
-
-/* Responsive: smaller radius on tablets */
-@media (max-width: 768px) {
-  .carousel-card:nth-child(1) {
-    transform: rotateY(0deg) translateZ(220px);
-  }
-  .carousel-card:nth-child(2) {
-    transform: rotateY(30deg) translateZ(220px);
-  }
-  .carousel-card:nth-child(3) {
-    transform: rotateY(60deg) translateZ(220px);
-  }
-  .carousel-card:nth-child(4) {
-    transform: rotateY(90deg) translateZ(220px);
-  }
-  .carousel-card:nth-child(5) {
-    transform: rotateY(120deg) translateZ(220px);
-  }
-  .carousel-card:nth-child(6) {
-    transform: rotateY(150deg) translateZ(220px);
-  }
-  .carousel-card:nth-child(7) {
-    transform: rotateY(180deg) translateZ(220px);
-  }
-  .carousel-card:nth-child(8) {
-    transform: rotateY(210deg) translateZ(220px);
-  }
-  .carousel-card:nth-child(9) {
-    transform: rotateY(240deg) translateZ(220px);
-  }
-  .carousel-card:nth-child(10) {
-    transform: rotateY(270deg) translateZ(220px);
-  }
-  .carousel-card:nth-child(11) {
-    transform: rotateY(300deg) translateZ(220px);
-  }
-  .carousel-card:nth-child(12) {
-    transform: rotateY(330deg) translateZ(220px);
-  }
-  .carousel-card {
-    width: 110px;
+  .channel-logo-card {
+    width: 88px;
     height: 60px;
-    font-size: 11px;
-  }
-  .channel-carousel {
-    height: 130px;
-  }
-}
-
-/* Responsive: even smaller on phones */
-@media (max-width: 480px) {
-  .carousel-card:nth-child(1) {
-    transform: rotateY(0deg) translateZ(160px);
-  }
-  .carousel-card:nth-child(2) {
-    transform: rotateY(30deg) translateZ(160px);
-  }
-  .carousel-card:nth-child(3) {
-    transform: rotateY(60deg) translateZ(160px);
-  }
-  .carousel-card:nth-child(4) {
-    transform: rotateY(90deg) translateZ(160px);
-  }
-  .carousel-card:nth-child(5) {
-    transform: rotateY(120deg) translateZ(160px);
-  }
-  .carousel-card:nth-child(6) {
-    transform: rotateY(150deg) translateZ(160px);
-  }
-  .carousel-card:nth-child(7) {
-    transform: rotateY(180deg) translateZ(160px);
-  }
-  .carousel-card:nth-child(8) {
-    transform: rotateY(210deg) translateZ(160px);
-  }
-  .carousel-card:nth-child(9) {
-    transform: rotateY(240deg) translateZ(160px);
-  }
-  .carousel-card:nth-child(10) {
-    transform: rotateY(270deg) translateZ(160px);
-  }
-  .carousel-card:nth-child(11) {
-    transform: rotateY(300deg) translateZ(160px);
-  }
-  .carousel-card:nth-child(12) {
-    transform: rotateY(330deg) translateZ(160px);
-  }
-  .carousel-card {
-    width: 90px;
-    height: 48px;
-    font-size: 10px;
     border-radius: 8px;
+    padding: 8px 6px 6px;
   }
-  .channel-carousel {
-    height: 110px;
+  .channel-logo-card--lg {
+    width: 100px;
+    height: 64px;
   }
-  .channel-carousel-wrapper {
-    margin-top: 32px;
+  .channel-logo-card img {
+    max-width: 52px;
+    max-height: 24px;
+  }
+  .channel-logo-card span {
+    font-size: 8px;
   }
 }
 
