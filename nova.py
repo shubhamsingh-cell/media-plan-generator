@@ -12217,39 +12217,16 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                     # S47: Expanded to 7 variations for better diversity
                     _greetings = [
                         (
-                            "Hey there! I'm Nova, your recruitment marketing intelligence assistant "
-                            "at Joveo. I can pull real data on publishers, benchmarks, budgets, salary "
-                            "trends, and more across 70+ countries. What would you like to explore?"
-                        ),
-                        (
-                            "Hi! I'm Nova, Joveo's AI assistant. I have access to "
-                            "live salary data, publisher benchmarks, market demand signals, and channel "
-                            "strategies across 200+ occupations. How can I help today?"
-                        ),
-                        (
-                            "Welcome! I'm Nova -- your AI-powered recruitment marketing assistant. "
-                            "I can help with media plans, salary benchmarks, channel comparisons, "
-                            "and hiring market analysis. What are you working on?"
-                        ),
-                        (
-                            "Hello! I'm Nova, built to help recruitment marketers make data-driven "
-                            "decisions. I can generate media plans, compare publishers, analyze "
-                            "salary trends, and forecast hiring costs. What can I help you with?"
-                        ),
-                        (
-                            "Hi there! I'm Nova, Joveo's recruitment intelligence engine. Whether "
-                            "you need CPC benchmarks, channel recommendations, or a full media plan, "
-                            "I have real-time data from 10,238+ supply partners. Fire away!"
-                        ),
-                        (
-                            "Hey! I'm Nova -- think of me as your recruitment marketing data analyst. "
-                            "I cover salary benchmarks, job board performance, budget optimization, "
-                            "and market trends across 70+ countries. What's on your mind?"
-                        ),
-                        (
-                            "Welcome to Nova! I'm your AI-powered recruitment assistant with access "
-                            "to real BLS salary data, CPC/CPA benchmarks, and publisher intelligence "
-                            "across 200+ occupations. Ready when you are -- what do you need?"
+                            "Welcome! I'm Nova, built by Chandel to make recruitment marketing "
+                            "smarter for everyone at Joveo.\n\n"
+                            "I sit on top of **10,341+ supply partners**, **108K LinkedIn job "
+                            "benchmarks**, and live data from **BLS, FRED, O*NET, and 22 APIs** "
+                            "-- backed by **23 AI models** with intelligent fallback routing "
+                            "and **44 knowledge bases** covering salaries, publishers, market "
+                            "trends, and competitive intel across **70+ countries**.\n\n"
+                            "Ask me anything about recruitment marketing -- salaries, CPCs, "
+                            "channel strategy, budget optimization, or competitive analysis. "
+                            "I'll back every answer with data."
                         ),
                     ]
                     # S27: Deterministic per-session greeting (not random each time)
