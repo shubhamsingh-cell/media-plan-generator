@@ -1888,7 +1888,7 @@ def _add_data_sources_footnote(slide, data: Dict, benchmarks: Dict):
         slide, Inches(0.55), Inches(7.0), Inches(12.2), Inches(0.01), WARM_GRAY
     )
     # Generic attribution -- no API/source names exposed to client
-    source_text = "Powered by Joveo Intelligence Engine | Multi-source validated data"
+    source_text = "Created by Shubham Singh Chandel | Joveo Global Supply Team"
     _add_textbox(
         slide,
         Inches(0.55),

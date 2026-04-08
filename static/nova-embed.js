@@ -467,7 +467,7 @@
       '<div class="nova-results" style="display:none"></div>' +
       "</div>" +
       '<div class="nova-panel-footer">' +
-      'Powered by <a href="' +
+      "Created by Shubham Singh Chandel</div><!-- " +
       (config.baseUrl || "https://media-plan-generator.onrender.com") +
       '" target="_blank" rel="noopener">Nova AI Suite</a>' +
       "</div>"

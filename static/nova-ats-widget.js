@@ -385,8 +385,7 @@
 
     var ft = document.createElement("div");
     ft.className = "ft";
-    ft.innerHTML =
-      '<span>Powered by</span><a href="https://media-plan-generator.onrender.com" target="_blank" rel="noopener">Nova AI Suite</a>';
+    ft.innerHTML = "Created by Shubham Singh Chandel";
     pan.appendChild(ft);
     _s.appendChild(pan);
   }
