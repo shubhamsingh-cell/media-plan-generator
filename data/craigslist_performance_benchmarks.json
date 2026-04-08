@@ -478,6 +478,34 @@
       "avg_clicks": 8.59
     }
   },
+  "craigslist_salary_benchmarks_by_category": {
+    "_description": "Typical hourly pay ranges for Craigslist gig categories. Use these when salary data is not available from the employer. Source: BLS OES + CG internal data. Including salary as the FIRST LINE of a CL post yields 3.8x more applications (Indeed 2025 data).",
+    "admin/office": {"hourly_low": 16, "hourly_high": 28, "display": "$16-$28/hr"},
+    "computer gigs": {"hourly_low": 25, "hourly_high": 55, "display": "$25-$55/hr"},
+    "creative gigs": {"hourly_low": 18, "hourly_high": 40, "display": "$18-$40/hr"},
+    "crew gigs": {"hourly_low": 15, "hourly_high": 25, "display": "$15-$25/hr"},
+    "domestic gigs": {"hourly_low": 15, "hourly_high": 25, "display": "$15-$25/hr"},
+    "event gigs": {"hourly_low": 16, "hourly_high": 30, "display": "$16-$30/hr"},
+    "labor gigs": {"hourly_low": 16, "hourly_high": 30, "display": "$16-$30/hr"},
+    "talent gigs": {"hourly_low": 18, "hourly_high": 45, "display": "$18-$45/hr"}
+  },
+  "craigslist_post_optimization": {
+    "_description": "Evidence-based post optimization guidelines for Craigslist job ads.",
+    "salary_first_line": {
+      "rule": "Always include compensation as the FIRST LINE of the post in bold",
+      "impact": "3.8x more applications when salary is visible in first line (Indeed 2025)",
+      "format_examples": ["Pay: $18-$25/hour", "Earn $150-$200/day", "Starting at $20/hr + tips"],
+      "fallback": "If employer salary unknown, use category benchmark from craigslist_salary_benchmarks_by_category"
+    },
+    "description_word_count": {
+      "optimal_range_words": [201, 400],
+      "optimal_apply_rate_pct": "8.0-8.5%",
+      "source": "Appcast 302M click dataset (2025-2026)",
+      "too_short_penalty": "Under 200 words: apply rate drops to 4-5% (insufficient detail)",
+      "too_long_penalty": "Over 400 words: apply rate drops to 5-6% (candidate abandonment)",
+      "recommendation": "Keep job description between 201-400 words for optimal apply rate"
+    }
+  },
   "key_insights": [
     "98,665 Craigslist posts across 397 US locations, 8 categories (Dec 2025-Mar 2026)",
     "Admin/Office has highest apply rate (52.1 avg applies) but smallest volume (57 posts)",
@@ -486,6 +514,8 @@
     "Average media cost per post: $0.21, average impressions: 84, clicks: 8.6, applies: 5.1",
     "GIG template type dominates (99.9%) vs JOB (0.1%)",
     "Portland OR, Seattle, South Jersey, Atlanta are top-volume locations",
-    "Cross-channel insight: CL click-to-apply rate ~60% (applies/clicks, CG Automation Apex data) vs LinkedIn ~8-10% (views-to-applies). NOTE: CL general impression-to-apply rate is 12-25% by role type (professional 12%, hourly/gig 18%, blue collar 25%) -- do NOT use the 55-60% click-to-apply rate as a general apply rate in media plans"
+    "Cross-channel insight: CL click-to-apply rate ~60% (applies/clicks, CG Automation Apex data) vs LinkedIn ~8-10% (views-to-applies). NOTE: CL general impression-to-apply rate is 12-25% by role type (professional 12%, hourly/gig 18%, blue collar 25%) -- do NOT use the 55-60% click-to-apply rate as a general apply rate in media plans",
+    "SALARY FIRST: Posts with salary in the first line get 3.8x more applications (Indeed 2025). Always lead with pay range.",
+    "GOLDILOCKS ZONE: 201-400 word descriptions yield 8-8.5% apply rate (Appcast 302M dataset). Under 200 or over 400 words significantly reduces applications."
   ]
 }

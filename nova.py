@@ -404,6 +404,12 @@ _TOOL_ERROR_FALLBACK_MESSAGES: dict[str, str] = {
     "recommend_channels": "Channel recommendations couldn't be generated, but I can provide general channel strategy guidance based on industry best practices.",
     "track_cpc": "CPC tracking encountered an issue, but I can provide benchmark CPC data from our 28-source recruitment advertising database.",
     "check_job_volume": "Job volume tracking encountered an issue, but I can provide posting volume estimates from our curated industry benchmarks.",
+    "get_creative_best_practices": "Creative best practices data couldn't be retrieved, but I can share general ad copy and job posting optimization tips.",
+    "query_eurostat": "Eurostat EU labor data is temporarily unavailable, but I can reference our international benchmarks for European markets.",
+    "query_uk_ons": "UK ONS labor data is temporarily unavailable, but I can reference our international benchmarks for UK hiring.",
+    "query_statcan": "Statistics Canada data is temporarily unavailable, but I can reference our international benchmarks for Canadian markets.",
+    "query_careerjet": "CareerJet international job search is temporarily unavailable, but I can provide global job market insights from our knowledge base.",
+    "query_bea": "Bureau of Economic Analysis data is temporarily unavailable. Try query_regional_economics for state-level GDP, income, and employment data.",
 }
 
 # ── Source name display mapping ──────────────────────────────────────────────
@@ -1364,6 +1370,12 @@ _TOOL_LABELS: Dict[str, str] = {
     "check_job_volume": "Checking job posting volumes",
     "query_linkup_postings": "Querying LinkUp job posting data",
     "query_revelio_workforce": "Querying Revelio Labs workforce analytics",
+    "get_creative_best_practices": "Loading creative best practices",
+    "query_eurostat": "Querying Eurostat EU labor data",
+    "query_uk_ons": "Querying UK ONS labor statistics",
+    "query_statcan": "Querying Statistics Canada labor data",
+    "query_careerjet": "Searching CareerJet international jobs",
+    "query_bea": "Querying Bureau of Economic Analysis data",
 }
 
 # Thread-local storage for tool status queue.
@@ -3599,6 +3611,7 @@ class Nova:
 3. **Only cite tool results.** Never invent CPC/CPA/CPH/salary numbers. Cite ranges as given (do not pick midpoints). If tools conflict, state both with sources. Precedence: Live API > joveo_2026_benchmarks > recruitment_benchmarks_deep > platform_intelligence_deep > General KB.
 3a. **CPH (Cost Per Hire) guardrails.** When generating media plans, the CPH you show MUST be realistic and consistent with benchmarks. RULES: (a) If your benchmark data shows CPH of $400-$800 for an industry, your media plan CPH MUST fall within that range -- never below the benchmark minimum. (b) Apply platform-differentiated safety margins to CPH: Indeed/LinkedIn/ZipRecruiter 20%, Google/Bing Search 25%, Programmatic/DSP 30%, Craigslist 35%, Niche boards 40%, Social media (Meta/TikTok/Snapchat) 45%. (c) If your calculated CPH is below the benchmark floor, use the benchmark floor as the minimum. Back-calculate projected hires from the benchmark CPH, not the other way around.
 3b. **Craigslist apply rate guardrail.** The craigslist_performance KB contains CG Automation Apex client data with ~55-60% click-to-apply rates. These are NOT general Craigslist apply rates. When discussing Craigslist in media plans, use realistic impression-to-apply rates: 12% for professional roles, 18% for hourly/gig, 25% for blue collar/trades. Never cite 55% as a Craigslist apply rate.
+3d. **Craigslist post optimization rules.** When advising on Craigslist job postings: (1) ALWAYS recommend including salary/compensation as the FIRST LINE in bold -- posts with salary in the first line get 3.8x more applications (Indeed 2025 data). Format: "Pay: $XX-$YY/hr" or "Earn $XXX-$XXX/day". If no employer salary data, use category benchmarks from craigslist_performance KB (admin $16-28/hr, computer $25-55/hr, creative $18-40/hr, crew/domestic $15-25/hr, event/labor $16-30/hr, talent $18-45/hr). (2) ALWAYS recommend keeping job descriptions in the 201-400 word Goldilocks zone -- this yields 8-8.5% apply rate per Appcast's 302M click dataset. Under 200 words drops to 4-5%; over 400 words drops to 5-6%.
 3c. **Trend alert guardrails.** Do NOT generate month-over-month or "spiked sharply" alerts for the current month if we are fewer than 7 days into it. For example, do not say "CPC has spiked sharply in April 2026" if today is April 3. Wait until at least 7 days of data are available before making monthly trend claims. For current-month observations, say "Early April data suggests..." instead of making definitive trend claims.
 4. **Be concise.** Keep responses between 150-300 words. Be direct and actionable. Use bullet points for lists. Only exceed 300 words when the user explicitly asks for detail or requests a full media plan.
 5. **Default to national data when location missing.** If the user does not specify a location, call tools with NO location filter to get US national/aggregate data. Provide that data immediately, then add: "This is US national data. Let me know your specific city or state for localized insights." When country IS specified, use local currency and local boards.
@@ -3638,6 +3651,12 @@ Before calling any tools, briefly plan which tools you need:
 - For talent supply/demand, candidate availability, or labor market tightness: call analyze_supply_demand with role and locations array to get metro-level supply/demand scores, applications per posting, time-to-fill estimates, and actionable recommendations
 - For CPC/cost per click/bidding costs/ad pricing: call track_cpc with role, industry, locations to get current vs benchmark CPC across Indeed/LinkedIn/ZipRecruiter, trend direction, 30-day forecast, and smart alerts
 - For posting volume/how many jobs/market activity/hiring trends/market signals: call check_job_volume with role and locations to get current posting counts, week-over-week change, trend direction, and per-location breakdown
+- For ad creative, job posting optimization, CL formatting, or best practices: call get_creative_best_practices with optional industry and posting_type for data-backed creative tips (salary-first = 3.8x apps, 201-400 words, 1-3 word titles, etc.)
+- For EU/European labor market data: call query_eurostat with indicator and country code for unemployment, employment, wages, or vacancy data
+- For UK labor market data: call query_uk_ons with dataset for British employment, unemployment, vacancies, or earnings
+- For Canadian labor market data: call query_statcan with table ID for job vacancies, employment, wages, or labor force statistics
+- For international job search across 60+ countries: call query_careerjet with role, location, and country code for global job counts and listings
+- For US economic data (GDP, income, employment): call query_bea with indicator and optional state. For state-level detail, prefer query_regional_economics.
 - For any hiring question: ALWAYS also call query_h1b_salaries for competitive salary intelligence
 - For visualizing/rendering a plan as a canvas: call render_canvas with budget, channels, role, location, industry
 - For editing/adjusting a canvas (reallocate budget, add/remove channel): call edit_canvas with plan_id and edit details
@@ -5631,6 +5650,132 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                     "required": [],
                 },
             },
+            # ── S49: Creative Best Practices (Item 14) ──────────────────
+            {
+                "name": "get_creative_best_practices",
+                "description": "Ad creative and job posting optimization best practices backed by competitive research. Returns data-driven tips: salary-first postings get 3.8x more apps, optimal word count (201-400), short titles (1-3 words = 6.22% apply rate), apply time under 5 min (12.5% rate), visual ads (+34% apps), mobile-first (65-89% traffic), human photos for blue-collar, compensation transparency. Includes industry-specific tips. Use when asked about creative, ad copy, job posting tips, how to write postings, best practices, optimize posting, improve ad, or CL format.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "industry": {
+                            "type": "string",
+                            "description": "Industry for context-specific tips (e.g., 'healthcare', 'trucking', 'tech', 'retail')",
+                        },
+                        "posting_type": {
+                            "type": "string",
+                            "enum": [
+                                "job_board",
+                                "craigslist",
+                                "social",
+                                "programmatic",
+                                "all",
+                            ],
+                            "description": "Type of posting for targeted advice. Default: 'all'.",
+                        },
+                    },
+                    "required": [],
+                },
+            },
+            # ── S49: International API tools (Item 22) ──────────────────
+            {
+                "name": "query_eurostat",
+                "description": "Query Eurostat for EU/EEA labor market data: unemployment rates, employment rates, wages, and job vacancies across European countries. Use for EU labor questions, European employment data, or European hiring market context.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "indicator": {
+                            "type": "string",
+                            "enum": [
+                                "unemployment",
+                                "employment",
+                                "wages",
+                                "vacancies",
+                            ],
+                            "description": "Labor market indicator. Default: 'unemployment'.",
+                        },
+                        "country": {
+                            "type": "string",
+                            "description": "2-letter EU country code (DE, FR, NL, IT, ES, etc.). Leave empty for all EU countries.",
+                        },
+                    },
+                    "required": [],
+                },
+            },
+            {
+                "name": "query_uk_ons",
+                "description": "Query UK Office for National Statistics (ONS) for British labor market data: employment, unemployment, vacancies, and average earnings. Use for UK jobs, ONS data, British labor market context.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "dataset": {
+                            "type": "string",
+                            "enum": [
+                                "employment",
+                                "unemployment",
+                                "vacancies",
+                                "earnings",
+                            ],
+                            "description": "ONS dataset to query. Default: 'employment'.",
+                        },
+                    },
+                    "required": [],
+                },
+            },
+            {
+                "name": "query_statcan",
+                "description": "Query Statistics Canada for Canadian labor market data: job vacancies by industry, employment by province, wages, and labor force characteristics. Use for Canada jobs, Canadian labor, StatCan data.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "table": {
+                            "type": "string",
+                            "description": "StatCan table ID (e.g., '14-10-0326-01' for job vacancies, '14-10-0287-01' for labor force). Default: '14-10-0326-01'.",
+                        },
+                    },
+                    "required": [],
+                },
+            },
+            {
+                "name": "query_careerjet",
+                "description": "Search CareerJet for international job postings across 60+ countries. Returns job counts, sample listings with titles, companies, locations, and salaries. Use for international job search, global job market, or country-specific posting volumes.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "role": {
+                            "type": "string",
+                            "description": "Job title to search (e.g., 'Software Engineer', 'Registered Nurse')",
+                        },
+                        "location": {
+                            "type": "string",
+                            "description": "City or region (e.g., 'London', 'Toronto', 'Berlin')",
+                        },
+                        "country": {
+                            "type": "string",
+                            "description": "2-letter country code (us, gb, de, fr, ca, au, etc.). Default: 'us'.",
+                        },
+                    },
+                    "required": ["role"],
+                },
+            },
+            {
+                "name": "query_bea",
+                "description": "Query Bureau of Economic Analysis for US economic data: GDP by state/industry, per capita personal income, employment by industry, and metro area income. Use for BEA data, GDP questions, economic analysis, or bureau of economic questions. For state-level detail, prefer query_regional_economics.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "indicator": {
+                            "type": "string",
+                            "enum": ["gdp", "income", "employment", "all"],
+                            "description": "Economic indicator. Default: 'all'.",
+                        },
+                        "state": {
+                            "type": "string",
+                            "description": "US state name or abbreviation (e.g., 'California', 'TX'). Leave empty for national data.",
+                        },
+                    },
+                    "required": [],
+                },
+            },
         ]
 
     # ------------------------------------------------------------------
@@ -5737,6 +5882,13 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             # S48: LinkUp + Revelio Labs external data (Item 23)
             "query_linkup_postings": self._query_linkup_postings,
             "query_revelio_workforce": self._query_revelio_workforce,
+            # S49: Creative Best Practices (Item 14) + International APIs (Item 22)
+            "get_creative_best_practices": self._get_creative_best_practices,
+            "query_eurostat": self._query_eurostat,
+            "query_uk_ons": self._query_uk_ons,
+            "query_statcan": self._query_statcan,
+            "query_careerjet": self._query_careerjet,
+            "query_bea": self._query_bea,
         }
 
     def execute_tool(self, tool_name: str, tool_input: dict) -> str:
@@ -10012,6 +10164,29 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 # Add first few locations as preview
                 if isinstance(action_plan, list) and action_plan:
                     summary["sample_locations"] = action_plan[:3]
+                # Always include post optimization tips
+                summary["post_optimization_tips"] = {
+                    "salary_first_line": (
+                        "CRITICAL: Include salary/pay range as the FIRST LINE of every CL post. "
+                        "Posts with salary in the first line get 3.8x more applications (Indeed 2025). "
+                        "Format: 'Pay: $XX-$YY/hr' or 'Earn $XXX-$XXX/day'."
+                    ),
+                    "word_count_goldilocks": (
+                        "Keep job descriptions between 201-400 words (Goldilocks zone). "
+                        "This range yields 8-8.5% apply rate per Appcast 302M click dataset. "
+                        "Under 200 words = 4-5% apply rate. Over 400 words = 5-6% apply rate."
+                    ),
+                    "salary_benchmarks_by_category": {
+                        "admin/office": "$16-$28/hr",
+                        "computer gigs": "$25-$55/hr",
+                        "creative gigs": "$18-$40/hr",
+                        "crew gigs": "$15-$25/hr",
+                        "domestic gigs": "$15-$25/hr",
+                        "event gigs": "$16-$30/hr",
+                        "labor gigs": "$16-$30/hr",
+                        "talent gigs": "$18-$45/hr",
+                    },
+                }
                 return summary
 
             # ── action: top_locations ──
@@ -10983,6 +11158,349 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             return {
                 "error": f"Revelio Labs API request failed: {e}",
                 "source": "Revelio Labs RPLS",
+            }
+
+    # ------------------------------------------------------------------
+    # S49: Creative Best Practices handler (Item 14)
+    # ------------------------------------------------------------------
+
+    def _get_creative_best_practices(self, args: dict) -> dict:
+        """Return data-driven ad creative and job posting optimization best practices.
+
+        Based on competitive research findings across recruitment marketing platforms.
+        All stats are hardcoded from validated industry research.
+        """
+        industry = (args.get("industry") or "").lower().strip()
+        posting_type = (args.get("posting_type") or "all").lower().strip()
+
+        best_practices = {
+            "key_findings": [
+                {
+                    "practice": "Salary in first line",
+                    "impact": "3.8x more applications",
+                    "detail": "Job postings that lead with compensation in the first line receive 3.8x more applications. Always show salary range upfront.",
+                },
+                {
+                    "practice": "Optimal word count: 201-400 words",
+                    "impact": "Highest apply rate",
+                    "detail": "Postings between 201-400 words outperform both shorter and longer ads. Keep descriptions focused and scannable.",
+                },
+                {
+                    "practice": "Short titles: 1-3 words",
+                    "impact": "6.22% apply rate",
+                    "detail": "Titles with 1-3 words achieve 6.22% apply rate vs. 4.5% for longer titles. Example: 'CDL Driver' beats 'Experienced Class A CDL Truck Driver Needed'.",
+                },
+                {
+                    "practice": "Apply time under 5 minutes",
+                    "impact": "12.5% apply rate (3.5x better)",
+                    "detail": "Applications under 5 minutes see 12.5% completion rate vs. 3.5% for longer processes. Minimize required fields.",
+                },
+                {
+                    "practice": "Visual ads",
+                    "impact": "+34% more applications",
+                    "detail": "Ads with images or video receive 34% more applications than text-only postings.",
+                },
+                {
+                    "practice": "Mobile-first design",
+                    "impact": "65-89% of traffic is mobile",
+                    "detail": "65% of job seekers use mobile (89% for blue-collar). Ensure apply flow works on phones with large tap targets.",
+                },
+                {
+                    "practice": "Human photos for blue-collar",
+                    "impact": "Higher engagement",
+                    "detail": "Real employee photos (not stock) increase trust and applications, especially for warehouse, trucking, and trades roles.",
+                },
+                {
+                    "practice": "Compensation transparency",
+                    "impact": "Always include pay range",
+                    "detail": "Transparency laws in 10+ US states mandate salary disclosure. Even where not required, showing pay increases apply rates 20-40%.",
+                },
+            ],
+            "source": "Nova AI Competitive Research (2025-2026)",
+        }
+
+        # Industry-specific tips
+        industry_tips: dict = {
+            "healthcare": [
+                "Lead with sign-on bonus amount and shift differential",
+                "Mention nurse-to-patient ratios -- top concern for RNs",
+                "Include license/certification requirements clearly (RN, LPN, CNA)",
+                "Highlight tuition reimbursement and continuing education",
+                "Use 'immediate start' language -- healthcare is always urgent",
+            ],
+            "trucking": [
+                "Lead with CPM (cents per mile) or weekly pay guarantee",
+                "Specify home time: daily, weekly, or regional",
+                "List truck type and equipment (2024+ models, APU, inverter)",
+                "Mention sign-on bonus with clear payment schedule",
+                "Include route type: dedicated, OTR, regional, local",
+            ],
+            "technology": [
+                "Lead with salary range and equity/RSU details",
+                "Mention remote/hybrid policy upfront -- top decision factor",
+                "List specific tech stack (not just 'modern technologies')",
+                "Include team size and reporting structure",
+                "Highlight growth opportunities: promotions, learning budget",
+            ],
+            "retail": [
+                "Lead with hourly rate and any shift premiums",
+                "Mention scheduling flexibility and advance schedule posting",
+                "Highlight employee discounts and benefits",
+                "Use simple language -- aim for 6th-grade reading level",
+                "Include store location and transit accessibility",
+            ],
+            "warehouse": [
+                "Lead with hourly rate and overtime opportunities",
+                "Mention shift options clearly (1st, 2nd, 3rd)",
+                "Include physical requirements transparently",
+                "Highlight climate control, safety record, break policy",
+                "Use 'no experience needed' if applicable -- expands pool 3x",
+            ],
+            "manufacturing": [
+                "Lead with pay rate and any skill-based premiums",
+                "Mention specific machinery/equipment experience",
+                "Include shift schedule and overtime policy",
+                "Highlight safety certifications and training provided",
+                "Use clear job titles matching trade terminology",
+            ],
+        }
+
+        if industry and industry in industry_tips:
+            best_practices["industry_tips"] = {
+                "industry": industry,
+                "tips": industry_tips[industry],
+            }
+        elif industry:
+            # Fuzzy match
+            for key in industry_tips:
+                if key in industry or industry in key:
+                    best_practices["industry_tips"] = {
+                        "industry": key,
+                        "tips": industry_tips[key],
+                    }
+                    break
+
+        # Posting-type-specific tips
+        posting_tips: dict = {
+            "craigslist": [
+                "Use ALL CAPS for salary/pay in title (e.g., '$22/HR CDL DRIVER')",
+                "Include neighborhood/area in title for local relevance",
+                "Repost every 48 hours -- CL visibility drops 70% after day 2",
+                "Use HTML formatting: bold pay, bullet points for requirements",
+                "Add 'compensation' tag -- CL filters flagged posts without it",
+                "Optimal CL title: [PAY] [JOB TITLE] - [AREA] (e.g., '$25/hr Warehouse - South Dallas')",
+            ],
+            "social": [
+                "Use video or carousel format -- 2-3x engagement vs. static",
+                "Lead with employee testimonial or 'day in the life'",
+                "Include clear CTA button ('Apply Now' not 'Learn More')",
+                "Target by interests and behaviors, not just job titles",
+                "A/B test creative every 7 days to combat ad fatigue",
+            ],
+            "programmatic": [
+                "Use dynamic title insertion matching search intent",
+                "Set apply-start as conversion event, not just click",
+                "Bid higher on mobile -- 65%+ of programmatic traffic",
+                "Use location-based bid modifiers for high-demand metros",
+                "Set frequency caps to avoid candidate fatigue (3-5 per week)",
+            ],
+            "job_board": [
+                "Use sponsored/featured placements for first 72 hours",
+                "Refresh postings weekly to maintain ranking",
+                "Include 'Easy Apply' where available -- 2.5x more applies",
+                "Tag with all relevant categories and skills",
+                "Use the platform's salary field -- boosts visibility in filters",
+            ],
+        }
+
+        if posting_type != "all" and posting_type in posting_tips:
+            best_practices["posting_type_tips"] = {
+                "type": posting_type,
+                "tips": posting_tips[posting_type],
+            }
+
+        return best_practices
+
+    # ------------------------------------------------------------------
+    # S49: International API handlers (Item 22)
+    # ------------------------------------------------------------------
+
+    def _query_eurostat(self, args: dict) -> dict:
+        """Query Eurostat for EU labor market data.
+
+        Wraps fetch_eurostat_data from api_enrichment.py.
+        Falls back gracefully if the API is unavailable.
+        """
+        indicator = (args.get("indicator") or "unemployment").lower().strip()
+        country = (args.get("country") or "").upper().strip()
+
+        try:
+            from api_enrichment import fetch_eurostat_data
+
+            result = fetch_eurostat_data(indicator=indicator, country=country)
+            if not result.get("error"):
+                result["tool"] = "query_eurostat"
+            return result
+        except ImportError:
+            logger.error("api_enrichment.fetch_eurostat_data not available")
+            return {
+                "error": "Eurostat integration not available",
+                "source": "eurostat",
+                "tool": "query_eurostat",
+            }
+        except Exception as exc:
+            logger.error(f"Eurostat query failed: {exc}", exc_info=True)
+            return {
+                "error": f"Eurostat API error: {str(exc)[:200]}",
+                "source": "eurostat",
+                "tool": "query_eurostat",
+            }
+
+    def _query_uk_ons(self, args: dict) -> dict:
+        """Query UK Office for National Statistics for British labor data.
+
+        Wraps fetch_uk_ons_data from api_enrichment.py.
+        """
+        dataset = (args.get("dataset") or "employment").lower().strip()
+
+        try:
+            from api_enrichment import fetch_uk_ons_data
+
+            result = fetch_uk_ons_data(dataset=dataset)
+            if not result.get("error"):
+                result["tool"] = "query_uk_ons"
+            return result
+        except ImportError:
+            logger.error("api_enrichment.fetch_uk_ons_data not available")
+            return {
+                "error": "UK ONS integration not available",
+                "source": "uk_ons",
+                "tool": "query_uk_ons",
+            }
+        except Exception as exc:
+            logger.error(f"UK ONS query failed: {exc}", exc_info=True)
+            return {
+                "error": f"UK ONS API error: {str(exc)[:200]}",
+                "source": "uk_ons",
+                "tool": "query_uk_ons",
+            }
+
+    def _query_statcan(self, args: dict) -> dict:
+        """Query Statistics Canada for Canadian labor market data.
+
+        Wraps fetch_statcan_data from api_enrichment.py.
+        """
+        table = (args.get("table") or "14-10-0326-01").strip()
+
+        try:
+            from api_enrichment import fetch_statcan_data
+
+            result = fetch_statcan_data(table=table)
+            if not result.get("error"):
+                result["tool"] = "query_statcan"
+            return result
+        except ImportError:
+            logger.error("api_enrichment.fetch_statcan_data not available")
+            return {
+                "error": "Statistics Canada integration not available",
+                "source": "statcan",
+                "tool": "query_statcan",
+            }
+        except Exception as exc:
+            logger.error(f"StatCan query failed: {exc}", exc_info=True)
+            return {
+                "error": f"StatCan API error: {str(exc)[:200]}",
+                "source": "statcan",
+                "tool": "query_statcan",
+            }
+
+    def _query_careerjet(self, args: dict) -> dict:
+        """Search CareerJet for international job postings.
+
+        Wraps fetch_careerjet_data from api_enrichment.py.
+        No API key required -- uses public affid-based access.
+        """
+        role = (args.get("role") or "").strip()
+        location = (args.get("location") or "").strip()
+        country = (args.get("country") or "us").lower().strip()
+
+        if not role:
+            return {
+                "error": "A 'role' (job title) is required for CareerJet search",
+                "source": "careerjet",
+                "tool": "query_careerjet",
+            }
+
+        try:
+            from api_enrichment import fetch_careerjet_data
+
+            result = fetch_careerjet_data(role=role, location=location, country=country)
+            if not result.get("error"):
+                result["tool"] = "query_careerjet"
+            return result
+        except ImportError:
+            logger.error("api_enrichment.fetch_careerjet_data not available")
+            return {
+                "error": "CareerJet integration not available",
+                "source": "careerjet",
+                "tool": "query_careerjet",
+            }
+        except Exception as exc:
+            logger.error(f"CareerJet query failed: {exc}", exc_info=True)
+            return {
+                "error": f"CareerJet API error: {str(exc)[:200]}",
+                "source": "careerjet",
+                "tool": "query_careerjet",
+            }
+
+    def _query_bea(self, args: dict) -> dict:
+        """Query Bureau of Economic Analysis for US economic data.
+
+        Delegates to query_regional_economics handler when possible,
+        or provides national-level BEA data.
+        """
+        indicator = (args.get("indicator") or "all").lower().strip()
+        state = (args.get("state") or "").strip()
+
+        # If state is provided, delegate to the existing BEA handler
+        if state:
+            return self._query_regional_economics(
+                {
+                    "state": state,
+                    "metric_type": indicator if indicator != "all" else "all",
+                }
+            )
+
+        # National-level BEA data (no state specified)
+        try:
+            from api_integrations import bea
+
+            result = bea.query_regional_economics(
+                state="US",
+                metro_fips="",
+                metric_type=indicator,
+            )
+            result["tool"] = "query_bea"
+            return result
+        except ImportError:
+            # Fallback: return curated national benchmarks
+            return {
+                "indicator": indicator,
+                "national_summary": {
+                    "gdp_growth_2025": "2.3% (BEA advance estimate)",
+                    "per_capita_income_2024": "$65,470",
+                    "unemployment_rate": "See query_labor_market_indicators for current rate",
+                    "note": "For state-level detail, use query_regional_economics with a state parameter.",
+                },
+                "source": "Bureau of Economic Analysis (curated)",
+                "tool": "query_bea",
+            }
+        except Exception as exc:
+            logger.error(f"BEA query failed: {exc}", exc_info=True)
+            return {
+                "error": f"BEA API error: {str(exc)[:200]}",
+                "source": "bea",
+                "tool": "query_bea",
             }
 
     # ------------------------------------------------------------------
@@ -12326,6 +12844,46 @@ When two or more tools return conflicting data for the same metric (e.g., differ
         r"|employee\s+(?:turnover|churn)\s+(?:data|rate|trend))\b",
         re.IGNORECASE,
     )
+    # S49: Creative best practices intent (Item 14)
+    _CREATIVE_INTENT = re.compile(
+        r"\b(creative\s+(?:best\s+)?practice|ad\s+copy|job\s+posting\s+tip"
+        r"|how\s+to\s+write\s+(?:a\s+)?(?:job|ad|posting)"
+        r"|best\s+practice\s+(?:for\s+)?(?:ad|posting|creative|job)"
+        r"|optimize\s+(?:my\s+)?(?:posting|ad|job\s+post)"
+        r"|improve\s+(?:my\s+)?(?:ad|posting|job\s+post|listing)"
+        r"|cl\s+format|craigslist\s+format"
+        r"|job\s+ad\s+(?:tip|advice|optimization|format)"
+        r"|posting\s+(?:optimization|best\s+practice)"
+        r"|ad\s+creative\s+(?:tip|advice|best))\b",
+        re.IGNORECASE,
+    )
+    # S49: International API intents (Item 22)
+    _EUROSTAT_INTENT = re.compile(
+        r"\b(eurostat|eu\s+labo[u]?r|european\s+(?:employment|labor|labour|job|hiring|unemployment)"
+        r"|eu\s+(?:employment|unemployment|job|hiring|wages?|vacanc))\b",
+        re.IGNORECASE,
+    )
+    _UK_ONS_INTENT = re.compile(
+        r"\b(uk\s+jobs?|ons\s+data|british\s+labo[u]?r|uk\s+(?:employment|unemployment|hiring|vacanc|earning)"
+        r"|united\s+kingdom\s+(?:labo[u]?r|employment|job|hiring))\b",
+        re.IGNORECASE,
+    )
+    _STATCAN_INTENT = re.compile(
+        r"\b(canada\s+jobs?|canadian\s+labo[u]?r|statcan|statistics\s+canada"
+        r"|canadian\s+(?:employment|unemployment|hiring|job|vacanc|wages?))\b",
+        re.IGNORECASE,
+    )
+    _CAREERJET_INTENT = re.compile(
+        r"\b(careerjet|international\s+jobs?|global\s+job\s+search"
+        r"|jobs?\s+in\s+(?:europe|asia|australia|africa|south\s+america|latin\s+america)"
+        r"|overseas\s+(?:job|hiring|recruitment))\b",
+        re.IGNORECASE,
+    )
+    _BEA_INTENT = re.compile(
+        r"\b(bea\s+(?:data|report|api)|bureau\s+of\s+economic\s+analysis"
+        r"|(?:state|national|regional)\s+gdp|economic\s+analysis\s+(?:data|report))\b",
+        re.IGNORECASE,
+    )
 
     def _try_direct_tool_dispatch(
         self,
@@ -12854,6 +13412,161 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             if _role_match and not tool_params.get("company"):
                 tool_params["role"] = (_role_match.group(1) or "").strip()
             tool_label = "Querying Revelio Labs workforce analytics"
+
+        # --- S49: Creative best practices intent (Item 14) ---
+        if not tool_name and self._CREATIVE_INTENT.search(msg_lower):
+            tool_name = "get_creative_best_practices"
+            tool_params = {}
+            # Detect industry context
+            for _ind_kw, _ind_val in [
+                ("healthcare", "healthcare"),
+                ("nursing", "healthcare"),
+                ("medical", "healthcare"),
+                ("trucking", "trucking"),
+                ("cdl", "trucking"),
+                ("driver", "trucking"),
+                ("logistics", "trucking"),
+                ("tech", "technology"),
+                ("software", "technology"),
+                ("engineering", "technology"),
+                ("retail", "retail"),
+                ("hospitality", "retail"),
+                ("restaurant", "retail"),
+                ("warehouse", "warehouse"),
+                ("manufacturing", "manufacturing"),
+            ]:
+                if _ind_kw in msg_lower:
+                    tool_params["industry"] = _ind_val
+                    break
+            if "craigslist" in msg_lower or "cl " in msg_lower:
+                tool_params["posting_type"] = "craigslist"
+            elif (
+                "social" in msg_lower
+                or "facebook" in msg_lower
+                or "instagram" in msg_lower
+            ):
+                tool_params["posting_type"] = "social"
+            tool_label = "Loading creative best practices"
+
+        # --- S49: Eurostat intent (Item 22) ---
+        if not tool_name and self._EUROSTAT_INTENT.search(msg_lower):
+            tool_name = "query_eurostat"
+            tool_params = {}
+            for _ind, _val in [
+                ("unemployment", "unemployment"),
+                ("employment", "employment"),
+                ("wages", "wages"),
+                ("wage", "wages"),
+                ("salary", "wages"),
+                ("vacanc", "vacancies"),
+            ]:
+                if _ind in msg_lower:
+                    tool_params["indicator"] = _val
+                    break
+            # Detect EU country code
+            _eu_codes = {
+                "germany": "DE",
+                "france": "FR",
+                "netherlands": "NL",
+                "spain": "ES",
+                "italy": "IT",
+                "poland": "PL",
+                "belgium": "BE",
+                "austria": "AT",
+                "sweden": "SE",
+                "denmark": "DK",
+                "finland": "FI",
+                "ireland": "IE",
+                "portugal": "PT",
+                "greece": "GR",
+                "czech": "CZ",
+                "romania": "RO",
+            }
+            for _name, _code in _eu_codes.items():
+                if _name in msg_lower:
+                    tool_params["country"] = _code
+                    break
+            tool_label = "Querying Eurostat EU labor data"
+
+        # --- S49: UK ONS intent (Item 22) ---
+        if not tool_name and self._UK_ONS_INTENT.search(msg_lower):
+            tool_name = "query_uk_ons"
+            tool_params = {}
+            for _ds_kw, _ds_val in [
+                ("unemployment", "unemployment"),
+                ("vacanc", "vacancies"),
+                ("earning", "earnings"),
+                ("wage", "earnings"),
+                ("salary", "earnings"),
+            ]:
+                if _ds_kw in msg_lower:
+                    tool_params["dataset"] = _ds_val
+                    break
+            tool_label = "Querying UK ONS labor statistics"
+
+        # --- S49: StatCan intent (Item 22) ---
+        if not tool_name and self._STATCAN_INTENT.search(msg_lower):
+            tool_name = "query_statcan"
+            tool_params = {}
+            if "vacanc" in msg_lower:
+                tool_params["table"] = "14-10-0326-01"
+            elif "wage" in msg_lower or "salary" in msg_lower:
+                tool_params["table"] = "14-10-0064-01"
+            elif "province" in msg_lower:
+                tool_params["table"] = "14-10-0287-01"
+            tool_label = "Querying Statistics Canada labor data"
+
+        # --- S49: CareerJet intent (Item 22) ---
+        if not tool_name and self._CAREERJET_INTENT.search(msg_lower):
+            tool_name = "query_careerjet"
+            tool_params = {}
+            _role_match = re.search(
+                r"(?:for|of)\s+(\w[\w\s]{2,30}?)(?:\s+(?:in|at|jobs?|positions?|\?|$))",
+                user_message,
+                re.IGNORECASE,
+            )
+            if _role_match:
+                tool_params["role"] = (_role_match.group(1) or "").strip()
+            if not tool_params.get("role"):
+                tool_params["role"] = "general"
+            # Detect country
+            _cj_countries = {
+                "uk": "gb",
+                "united kingdom": "gb",
+                "britain": "gb",
+                "england": "gb",
+                "germany": "de",
+                "france": "fr",
+                "canada": "ca",
+                "australia": "au",
+                "india": "in",
+                "japan": "jp",
+                "brazil": "br",
+                "mexico": "mx",
+                "netherlands": "nl",
+                "spain": "es",
+                "italy": "it",
+            }
+            for _cn, _cc in _cj_countries.items():
+                if _cn in msg_lower:
+                    tool_params["country"] = _cc
+                    break
+            tool_label = "Searching CareerJet international jobs"
+
+        # --- S49: BEA intent (Item 22) ---
+        if not tool_name and self._BEA_INTENT.search(msg_lower):
+            tool_name = "query_bea"
+            tool_params = {}
+            if "gdp" in msg_lower:
+                tool_params["indicator"] = "gdp"
+            elif "income" in msg_lower:
+                tool_params["indicator"] = "income"
+            elif "employment" in msg_lower:
+                tool_params["indicator"] = "employment"
+            _state_match = _detect_us_state(user_message)
+            if _state_match:
+                tool_params["state"] = _state_match
+            tool_label = "Querying Bureau of Economic Analysis data"
 
         if not tool_name:
             return None  # No direct dispatch -- fall through to normal routing
@@ -13683,6 +14396,12 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             "- For talent supply/demand, candidate availability, or labor market tightness: call analyze_supply_demand with role and locations array\n"
             "- For CPC/cost per click/bidding costs/ad pricing: call track_cpc with role, industry, locations for current vs benchmark CPC, trends, 30-day forecast, and alerts\n"
             "- For posting volume/how many jobs/market activity/hiring trends: call check_job_volume with role and locations for posting counts, WoW change, and per-location breakdown\n"
+            "- For ad creative, job posting optimization, CL formatting, or best practices: call get_creative_best_practices with optional industry for data-backed creative tips\n"
+            "- For EU/European labor market data: call query_eurostat with indicator and country code\n"
+            "- For UK labor market data: call query_uk_ons with dataset for British employment stats\n"
+            "- For Canadian labor market data: call query_statcan with table ID for Canadian labor stats\n"
+            "- For international job search (60+ countries): call query_careerjet with role, location, country code\n"
+            "- For US economic data (GDP, income): call query_bea with indicator and state\n"
             "- For any hiring question: ALWAYS also call query_h1b_salaries for competitive salary intelligence\n"
             "- For visualizing a plan as a canvas: call render_canvas with budget, channels, role, location, industry\n"
             "- For editing a canvas (reallocate budget, add/remove channel): call edit_canvas with plan_id and edit details\n"
