@@ -1722,6 +1722,10 @@
           _wsRetryCount = 0;
           _wsConn = testWs;
           _wsReady = true;
+          // S50: WS recovered -- clear HTTP fallback suppression
+          if (window.NovaToast && window.NovaToast.setWsFallbackActive) {
+            window.NovaToast.setWsFallbackActive(false);
+          }
           testWs.onclose = function () {
             _wsReady = false;
             _wsConn = null;
@@ -1751,6 +1755,10 @@
       // S47: Start retry cooldown when falling back to SSE
       if (_wsFailCount >= _WS_MAX_FAILS && !_wsRetryTimer) {
         _startWsRetryCooldown();
+      }
+      // S50: Tell toast system WS fell back to HTTP -- suppress misleading network toasts
+      if (window.NovaToast && window.NovaToast.setWsFallbackActive) {
+        window.NovaToast.setWsFallbackActive(true);
       }
       onReady(null);
       return;
@@ -1785,6 +1793,10 @@
       _wsConn.onopen = function () {
         _wsReady = true;
         _wsFailCount = 0;
+        // S50: WS connected -- clear HTTP fallback suppression
+        if (window.NovaToast && window.NovaToast.setWsFallbackActive) {
+          window.NovaToast.setWsFallbackActive(false);
+        }
         onReady(_wsConn);
       };
       _wsConn.onerror = function () {

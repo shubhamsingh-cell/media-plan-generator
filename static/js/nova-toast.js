@@ -108,10 +108,28 @@
     return el.innerHTML;
   }
 
+  // Deduplication: track recent toast messages to prevent stacking
+  var _recentMessages = {};
+  var _DEDUP_WINDOW_MS = 8000; // Suppress duplicate messages within 8s
+
+  function _showDeduplicated(message, type, duration) {
+    var now = Date.now();
+    if (
+      _recentMessages[message] &&
+      now - _recentMessages[message] < _DEDUP_WINDOW_MS
+    ) {
+      return; // Duplicate within window -- suppress
+    }
+    _recentMessages[message] = now;
+    show(message, type, duration);
+  }
+
   // Global fetch error interceptor (5s grace period on page load to avoid false alarms)
   var _originalFetch = window.fetch;
   var _pageLoadTime = Date.now();
   var _suppressUntil = _pageLoadTime + 5000;
+  // S50: Flag for WebSocket fallback -- suppress "Connection lost" when WS fails but HTTP works
+  var _wsHttpFallbackActive = false;
   window.fetch = function () {
     return _originalFetch
       .apply(this, arguments)
@@ -121,17 +139,29 @@
           response.status >= 500 &&
           Date.now() > _suppressUntil
         ) {
-          show("Server error. Please try again.", "error");
+          _showDeduplicated("Server error. Please try again.", "error");
         }
         return response;
       })
       .catch(function (err) {
         if (err.name !== "AbortError" && Date.now() > _suppressUntil) {
-          show("Connection lost. Check your network and retry.", "error");
+          // S50: Don't show "Connection lost" if WebSocket fell back to HTTP gracefully
+          if (!_wsHttpFallbackActive) {
+            _showDeduplicated(
+              "Connection lost. Check your network and retry.",
+              "error",
+            );
+          }
         }
         throw err;
       });
   };
 
-  window.NovaToast = { show: show };
+  window.NovaToast = {
+    show: show,
+    /** Set by nova.js when WebSocket falls back to HTTP -- suppresses misleading network toasts */
+    setWsFallbackActive: function (active) {
+      _wsHttpFallbackActive = !!active;
+    },
+  };
 })();

@@ -3647,7 +3647,132 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
             elif isinstance(section_val, (str, int, float, bool)):
                 row = _write_kv_row(ws, row, section_label, _flatten_value(section_val))
 
-    # ── 7. Geographic CPC Variance ──
+    # ── 7. LinkedIn Benchmarks (SlotOps 108K dataset) ──
+    li_intel = (data.get("_gold_standard") or {}).get("linkedin_intelligence", {})
+    if not li_intel:
+        # Fallback: check direct injection from slotops_engine
+        li_intel = data.get("_slotops_linkedin_benchmarks", {})
+
+    if li_intel and li_intel.get("country_apply_rate"):
+        row = _write_section_header(ws, row, "LinkedIn Benchmarks")
+        row = _write_footnote(
+            ws,
+            row,
+            f"Based on {_fmt_number(li_intel.get('total_jobs_analyzed', li_intel.get('sample_size', 108871)))} "
+            f"LinkedIn job postings across {li_intel.get('countries_covered', 76)} countries "
+            f"(Joveo SlotOps dataset)",
+        )
+        row += 1
+
+        # Country-level apply rates
+        country_ar = li_intel.get("country_apply_rate", {})
+        country_name = li_intel.get("country", "United States")
+        row = _write_subsection_header(ws, row, f"Apply Rates: {country_name}")
+        ar_fields = [
+            ("Average Apply Rate", f"{country_ar.get('avg', 0):.1f}%"),
+            ("Median Apply Rate", f"{country_ar.get('median', 0):.1f}%"),
+            ("75th Percentile", f"{country_ar.get('p75', 0):.1f}%"),
+        ]
+        p90 = country_ar.get("p90", 0)
+        if p90:
+            ar_fields.append(("90th Percentile", f"{p90:.1f}%"))
+        sample = li_intel.get("sample_size", 0)
+        if sample:
+            ar_fields.append(("Sample Size", _fmt_number(sample)))
+        avg_views = li_intel.get("avg_views", 0)
+        if avg_views:
+            ar_fields.append(("Avg Views per Posting", _fmt_number(avg_views)))
+        avg_days = li_intel.get("avg_days_open", 0)
+        if avg_days:
+            ar_fields.append(("Avg Days Open", f"{avg_days:.1f}"))
+        for key, val in ar_fields:
+            row = _write_kv_row(ws, row, key, val)
+        row += 1
+
+        # Easy Apply vs ATS
+        ea_ats = li_intel.get("ea_vs_ats", {})
+        if ea_ats and ea_ats.get("easy_apply_rate"):
+            ea_scope = ea_ats.get("scope", "global")
+            scope_label = f" ({country_name})" if ea_scope == "country" else " (Global)"
+            row = _write_subsection_header(ws, row, f"Easy Apply vs ATS{scope_label}")
+            headers = ["Apply Type", "Apply Rate", "Sample Size", "Lift Factor"]
+            row = _write_table_header(ws, row, headers)
+
+            ea_rate = ea_ats.get("easy_apply_rate", 0)
+            ats_rate = ea_ats.get("ats_rate", 0)
+            lift = ea_ats.get("lift_factor", 0)
+
+            row = _write_table_row(
+                ws,
+                row,
+                [
+                    "Easy Apply",
+                    f"{ea_rate:.1f}%",
+                    _fmt_number(ea_ats.get("easy_apply_sample", 0)),
+                    f"{lift:.2f}x" if lift else "",
+                ],
+                alternate=False,
+            )
+            row = _write_table_row(
+                ws,
+                row,
+                [
+                    "ATS (Standard)",
+                    f"{ats_rate:.1f}%",
+                    _fmt_number(ea_ats.get("ats_sample", 0)),
+                    "1.00x (baseline)",
+                ],
+                alternate=True,
+            )
+
+            rec = ea_ats.get("recommendation", "")
+            if rec:
+                row = _write_footnote(ws, row + 1, f"Recommendation: {rec}")
+            row += 1
+
+        # Best posting days
+        best_days = li_intel.get("best_posting_days", [])
+        if best_days:
+            row = _write_subsection_header(ws, row, "Optimal Posting Schedule")
+            row = _write_kv_row(ws, row, "Best Posting Days", ", ".join(best_days))
+            refresh = li_intel.get("refresh_cadence_days", [])
+            if refresh:
+                row = _write_kv_row(
+                    ws,
+                    row,
+                    "Recommended Refresh Cadence",
+                    f"Every {refresh[0]}-{refresh[-1]} days",
+                )
+            row += 1
+
+        # Role-specific benchmarks
+        role_benchmarks = li_intel.get("role_benchmarks", [])
+        if role_benchmarks:
+            row = _write_subsection_header(
+                ws, row, "Role-Specific LinkedIn Performance"
+            )
+            headers = [
+                "Target Role",
+                "Matched Title",
+                "Apply Rate",
+                "Avg Views",
+                "Sample",
+            ]
+            row = _write_table_header(ws, row, headers)
+            for idx, rb in enumerate(role_benchmarks):
+                values = [
+                    rb.get("role", ""),
+                    rb.get("matched_title", ""),
+                    f"{rb.get('apply_rate_avg', 0):.1f}%",
+                    _fmt_number(rb.get("avg_views", 0)),
+                    _fmt_number(rb.get("sample_size", 0)),
+                ]
+                row = _write_table_row(ws, row, values, alternate=idx % 2 == 1)
+            row += 1
+
+        row += 1
+
+    # ── 8. Geographic CPC Variance ──
     if len(locations) > 1:
         try:
             from feature_store import get_feature_store
@@ -4554,18 +4679,14 @@ def _build_sheet_roi_projections(ws, data: dict) -> None:
                     roi_score = 1
 
             # Determine data confidence level for this channel
-            _meta = ch_data.get("_meta", {})
-            source_count = _meta.get("source_count", 0)
-            kb_validated = _meta.get("kb_validated", False)
-            ch_confidence_raw = ch_data.get("confidence", "")
-            if source_count >= 2 or str(ch_confidence_raw).lower() == "high":
+            # S50 FIX: Use budget_engine's confidence as authoritative source.
+            # Previous logic re-computed from _meta.source_count which could
+            # override budget_engine's downgrade.
+            ch_confidence_raw = str(ch_data.get("confidence") or "").lower().strip()
+            if ch_confidence_raw == "high":
                 hire_confidence = "HIGH"
                 hire_variance = 0.10
-            elif (
-                kb_validated
-                or source_count >= 1
-                or str(ch_confidence_raw).lower() == "medium"
-            ):
+            elif ch_confidence_raw == "medium":
                 hire_confidence = "MEDIUM"
                 hire_variance = 0.25
             else:
@@ -5717,21 +5838,20 @@ def _build_sheet_confidence_intervals(ws, data: dict) -> None:
             continue
 
         # Determine confidence and variance
-        _meta = ch_data.get("_meta", {})
-        if not isinstance(_meta, dict):
-            _meta = {}
-        source_count = _meta.get("source_count", 0)
-        kb_validated = _meta.get("kb_validated", False)
-        ch_confidence_raw = ch_data.get("confidence", "")
+        # S50 FIX: Use the channel's confidence field from budget_engine as the
+        # authoritative source.  The S49 budget_engine confidence propagation
+        # already incorporates upstream data quality (enrichment_summary,
+        # confidence_scores) and CPC source quality.  The previous logic
+        # here re-computed confidence from _meta.source_count which could
+        # override budget_engine's downgrade (e.g. source_count >= 2 forced
+        # HIGH even when budget_engine correctly set "low" due to 50%
+        # enrichment confidence).
+        ch_confidence_raw = str(ch_data.get("confidence") or "").lower().strip()
 
-        if source_count >= 2 or str(ch_confidence_raw).lower() == "high":
+        if ch_confidence_raw == "high":
             confidence = "HIGH"
             variance = 0.15
-        elif (
-            kb_validated
-            or source_count >= 1
-            or str(ch_confidence_raw).lower() == "medium"
-        ):
+        elif ch_confidence_raw == "medium":
             confidence = "MEDIUM"
             variance = 0.20
         else:

@@ -1742,33 +1742,46 @@ def compute_channel_dollar_amounts(
         elif projected_hires == 0 and dollars > 0:
             _efficiency_flag = "No Projected Hires"
 
-        # ── S49 FIX: Downgrade channel confidence from input data quality ──
+        # ── S49/S50 FIX: Downgrade channel confidence from input data quality ──
         # The CPC-based confidence above only reflects the CPC data source,
         # NOT the quality of upstream inputs (salary, enrichment, etc.).
-        # A "high" CPC source with 40% enrichment confidence should NOT
+        # A "high" CPC source with 50% enrichment confidence should NOT
         # display as HIGH -- downgrade it.
+        #
+        # S50 fix: The S49 version had three bugs:
+        #   1. It checked confidence_scores.overall (synthesizer average) first,
+        #      which averages KB-fallback section scores (~0.6) and hides low
+        #      raw enrichment confidence. Now we check enrichment_summary FIRST
+        #      because that reflects actual API data quality.
+        #   2. Thresholds were too low: < 0.5 missed exactly 0.5 (50%).
+        #      Now: <= 0.5 -> low, <= 0.7 -> medium.
+        #   3. Only downgraded "high" to "medium" at < 0.5. Now properly
+        #      downgrades any confidence level when data quality is poor.
         _confidence_downgrade_reason = ""
         if synthesized_data and isinstance(synthesized_data, dict):
-            # Path 1: confidence_scores.overall (0.0-1.0) from data_synthesizer
-            _input_conf = (synthesized_data.get("confidence_scores") or {}).get(
-                "overall"
+            # Path 1 (preferred): enrichment_summary.confidence_score from
+            # api_enrichment -- this is the RAW API success ratio and the most
+            # accurate signal of upstream data quality.
+            _input_conf = (synthesized_data.get("enrichment_summary") or {}).get(
+                "confidence_score"
             )
-            # Path 2: enrichment_summary.confidence_score from api_enrichment
+            # Path 2 (fallback): confidence_scores.overall from data_synthesizer
+            # -- this averages section scores and can mask low enrichment quality.
             if _input_conf is None:
-                _input_conf = (synthesized_data.get("enrichment_summary") or {}).get(
-                    "confidence_score"
+                _input_conf = (synthesized_data.get("confidence_scores") or {}).get(
+                    "overall"
                 )
             if isinstance(_input_conf, (int, float)):
-                if _input_conf < 0.3:
+                if _input_conf <= 0.5:
                     if confidence != "low":
                         _confidence_downgrade_reason = (
-                            f"Input data confidence {_input_conf:.0%} < 30%"
+                            f"Input data confidence {_input_conf:.0%} <= 50%"
                         )
                     confidence = "low"
-                elif _input_conf < 0.5:
+                elif _input_conf <= 0.7:
                     if confidence == "high":
                         _confidence_downgrade_reason = (
-                            f"Input data confidence {_input_conf:.0%} < 50%"
+                            f"Input data confidence {_input_conf:.0%} <= 70%"
                         )
                         confidence = "medium"
 

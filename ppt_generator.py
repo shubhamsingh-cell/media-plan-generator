@@ -3198,6 +3198,35 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
             except (TypeError, AttributeError):
                 pass
 
+    # ── LinkedIn Intelligence (SlotOps 108K dataset) ──
+    li_intel = (data.get("_gold_standard") or {}).get("linkedin_intelligence", {})
+    if not li_intel:
+        li_intel = data.get("_slotops_linkedin_benchmarks", {})
+    if li_intel:
+        country_ar = li_intel.get("country_apply_rate", {})
+        ea_ats_data = li_intel.get("ea_vs_ats", {})
+        li_country = li_intel.get("country", "")
+        li_sample = li_intel.get("sample_size", 0)
+        if country_ar.get("avg"):
+            bench_rows.append(
+                (
+                    f"LinkedIn Apply Rate ({li_country})",
+                    f"{country_ar['avg']:.1f}% avg ({li_sample:,} jobs)",
+                )
+            )
+        if ea_ats_data.get("easy_apply_rate") and ea_ats_data.get("ats_rate"):
+            lift = ea_ats_data.get("lift_factor", 0)
+            bench_rows.append(
+                (
+                    "LinkedIn Easy Apply vs ATS",
+                    f"{ea_ats_data['easy_apply_rate']:.1f}% vs "
+                    f"{ea_ats_data['ats_rate']:.1f}% ({lift:.1f}x lift)",
+                )
+            )
+        best_days = li_intel.get("best_posting_days", [])
+        if best_days:
+            bench_rows.append(("LinkedIn Best Posting Days", ", ".join(best_days)))
+
     # Has ad platform data - use for 3-column table header
     has_ad_plat_data = bool(ad_plat)
 
@@ -8408,6 +8437,24 @@ def _build_slide_data_sources(prs: Presentation, data: Dict):
                     "--",
                 )
             )
+
+    # Add SlotOps LinkedIn dataset as a data source when used
+    _li_intel_ds = (data.get("_gold_standard") or {}).get("linkedin_intelligence", {})
+    if not _li_intel_ds:
+        _li_intel_ds = data.get("_slotops_linkedin_benchmarks", {})
+    if _li_intel_ds and _li_intel_ds.get("sample_size", 0) > 0:
+        _li_sample = _li_intel_ds.get(
+            "total_jobs_analyzed", _li_intel_ds.get("sample_size", 108871)
+        )
+        table_rows.append(
+            (
+                "SlotOps LinkedIn (108K jobs)",
+                ("Loaded", GREEN),
+                "Curated (Apr 2025-Apr 2026)",
+                "--",
+                f"{_li_sample:,}" if isinstance(_li_sample, int) else str(_li_sample),
+            )
+        )
 
     # If no API data at all, show a placeholder row
     if not table_rows:

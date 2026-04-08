@@ -3601,12 +3601,176 @@ def build_activation_calendar(data: dict) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# 8. LinkedIn Intelligence (SlotOps 108K Dataset)
+# ---------------------------------------------------------------------------
+
+
+def build_linkedin_intelligence(data: dict) -> dict[str, Any]:
+    """Build LinkedIn benchmark intelligence from the pre-aggregated SlotOps summary.
+
+    Sources data from the KB-loaded ``slotops_benchmarks`` section (14 KB summary
+    derived from 108,871 LinkedIn job postings across 76 countries).  Matches
+    the plan's target country and roles to provide contextual benchmarks.
+
+    Returns:
+        Dict with country_apply_rate, ea_vs_ats, best_posting_days,
+        role_benchmarks, and sample_size.  Empty dict if no data available.
+    """
+    kb = data.get("_knowledge_base", {})
+    slotops: dict = kb.get("slotops_benchmarks", {})
+
+    # Also check the direct injection from slotops_engine (async/sync path)
+    direct_bench: dict = data.get("_slotops_linkedin_benchmarks", {})
+
+    if not slotops and not direct_bench:
+        return {}
+
+    # Determine target country from plan locations
+    target_country = "United States"
+    locs = data.get("locations") or []
+    if locs:
+        first_loc = locs[0] if isinstance(locs, list) else locs
+        if isinstance(first_loc, dict):
+            target_country = first_loc.get("country") or "United States"
+        elif isinstance(first_loc, str):
+            parts = [p.strip() for p in first_loc.split(",")]
+            if len(parts) >= 2:
+                target_country = parts[-1]
+
+    result: dict[str, Any] = {
+        "source": "slotops_108k_linkedin_dataset",
+        "country": target_country,
+    }
+
+    # If we have the pre-aggregated KB summary, use it (preferred -- lightweight)
+    if slotops:
+        meta = slotops.get("metadata", {})
+        overall = slotops.get("overall_benchmarks", {})
+        ea_ats_global = slotops.get("easy_apply_vs_ats", {}).get("global", {})
+        ea_ats_by_country = slotops.get("easy_apply_vs_ats", {}).get("by_country", [])
+
+        result["total_jobs_analyzed"] = meta.get("total_jobs", 108871)
+        result["countries_covered"] = meta.get("countries", 76)
+        result["data_period"] = meta.get("date_range", {})
+
+        # Global benchmarks
+        result["global_apply_rate"] = overall.get("global_apply_rate_avg", 0)
+        result["best_posting_days"] = overall.get("best_posting_days", [])
+        result["refresh_cadence_days"] = overall.get("refresh_cadence_days", [])
+
+        # Country-specific apply rate (find in top_countries)
+        country_data = {}
+        for c in slotops.get("top_countries", []):
+            if c.get("country", "").lower() == target_country.lower():
+                country_data = c
+                break
+
+        if country_data:
+            result["sample_size"] = country_data.get("sample_size", 0)
+            result["country_apply_rate"] = {
+                "avg": country_data.get("apply_rate_avg", 0),
+                "median": country_data.get("apply_rate_median", 0),
+                "p75": country_data.get("apply_rate_p75", 0),
+                "p90": country_data.get("apply_rate_p90", 0),
+            }
+            result["avg_views"] = country_data.get("avg_views", 0)
+            result["avg_days_open"] = country_data.get("avg_days_open", 0)
+        else:
+            # Fallback to global
+            result["sample_size"] = overall.get("total_sample", 108871)
+            result["country_apply_rate"] = {
+                "avg": overall.get("global_apply_rate_avg", 0),
+                "median": 0,
+                "p75": 0,
+                "p90": 0,
+            }
+
+        # EA vs ATS -- country-specific if available, else global
+        country_ea = {}
+        for entry in ea_ats_by_country:
+            if entry.get("country", "").lower() == target_country.lower():
+                country_ea = entry
+                break
+
+        if country_ea:
+            result["ea_vs_ats"] = {
+                "easy_apply_rate": country_ea.get("easy_apply_rate", 0),
+                "easy_apply_sample": country_ea.get("easy_apply_sample", 0),
+                "ats_rate": country_ea.get("ats_rate", 0),
+                "ats_sample": country_ea.get("ats_sample", 0),
+                "lift_factor": country_ea.get("lift_factor", 0),
+                "scope": "country",
+            }
+        else:
+            result["ea_vs_ats"] = {
+                "easy_apply_rate": ea_ats_global.get("easy_apply_avg_rate", 0),
+                "easy_apply_sample": ea_ats_global.get("easy_apply_sample", 0),
+                "ats_rate": ea_ats_global.get("ats_avg_rate", 0),
+                "ats_sample": ea_ats_global.get("ats_sample", 0),
+                "lift_factor": ea_ats_global.get("lift_factor", 0),
+                "scope": "global",
+            }
+
+        result["ea_vs_ats"]["recommendation"] = (
+            f"Easy Apply yields {result['ea_vs_ats']['lift_factor']}x higher "
+            "apply rates than ATS; recommend enabling where available"
+            if result["ea_vs_ats"].get("lift_factor", 0) > 1
+            else "ATS and Easy Apply perform comparably in this market"
+        )
+
+        # DOW patterns
+        dow = slotops.get("day_of_week_patterns", {})
+        if dow:
+            result["day_of_week_performance"] = dow
+
+        # Role-matched benchmarks from top_functions
+        roles = data.get("roles") or data.get("target_roles") or []
+        if roles:
+            role_matches: list[dict] = []
+            top_funcs = slotops.get("top_functions", [])
+            for role in roles:
+                role_str = role if isinstance(role, str) else str(role)
+                role_lower = role_str.lower()
+                for func in top_funcs:
+                    title_lower = func.get("title", "").lower()
+                    if title_lower in role_lower or role_lower in title_lower:
+                        role_matches.append(
+                            {
+                                "role": role_str,
+                                "matched_title": func["title"],
+                                "apply_rate_avg": func.get("apply_rate_avg", 0),
+                                "apply_rate_median": func.get("apply_rate_median", 0),
+                                "avg_views": func.get("avg_views", 0),
+                                "sample_size": func.get("sample_size", 0),
+                            }
+                        )
+                        break
+            if role_matches:
+                result["role_benchmarks"] = role_matches
+
+    # Merge direct injection data (from slotops_engine) if KB summary missing fields
+    if direct_bench:
+        if "sample_size" not in result:
+            result["sample_size"] = direct_bench.get("sample_size", 0)
+        if "country_apply_rate" not in result:
+            result["country_apply_rate"] = direct_bench.get("country_apply_rate", {})
+        if "ea_vs_ats" not in result:
+            result["ea_vs_ats"] = direct_bench.get("ea_vs_ats", {})
+        if "best_posting_days" not in result:
+            result["best_posting_days"] = direct_bench.get(
+                "best_posting_days_summary", ""
+            ).split(", ")
+
+    return result
+
+
+# ---------------------------------------------------------------------------
 # Master orchestrator
 # ---------------------------------------------------------------------------
 
 
 def apply_all_quality_gates(data: dict) -> dict[str, Any]:
-    """Apply all 7 Gold Standard quality gates to the plan data.
+    """Apply all 8 Gold Standard quality gates to the plan data.
 
     Enriches ``data`` in-place with ``_gold_standard`` key containing
     all gate outputs.  Individual gates that fail are logged but do not
