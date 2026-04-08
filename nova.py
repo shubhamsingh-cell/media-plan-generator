@@ -12217,16 +12217,13 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                     # S47: Expanded to 7 variations for better diversity
                     _greetings = [
                         (
-                            "Hey! I'm Nova -- your recruitment marketing data analyst, "
-                            "created by Chandel at Joveo.\n\n"
-                            "I sit on top of **10,341+ supply partners**, **11M+ job "
-                            "benchmarks**, and live data from **BLS, FRED, O*NET, and 22 APIs** "
-                            "-- backed by **23 AI models** with intelligent fallback routing "
-                            "and **44 knowledge bases** covering salaries, publishers, market "
-                            "trends, and competitive intel across **70+ countries**.\n\n"
-                            "Ask me anything about recruitment marketing -- salaries, CPCs, "
-                            "channel strategy, budget optimization, or competitive analysis. "
-                            "I'll back every answer with data."
+                            "Hey! I'm Nova, built by Chandel -- your recruitment intelligence, "
+                            "illuminated.\n\n"
+                            "**10,341+ supply partners** | **11M+ job benchmarks** | "
+                            "**22 live APIs** | **23 AI models** | **44 knowledge bases** "
+                            "| **70+ countries**\n\n"
+                            "Whether it's a quick CPC lookup or a deep market analysis, "
+                            "I'm here with real data -- not guesses. What's on your mind?"
                         ),
                     ]
                     # S27: Deterministic per-session greeting (not random each time)
