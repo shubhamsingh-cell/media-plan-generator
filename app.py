@@ -13943,10 +13943,15 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
 
                         # PPT generation -- skip if caller only wants Excel
                         # Accepted output_format values: "excel", "ppt", "all", "google" (default: "all")
-                        # "google" behaves like "all" but signals the frontend to show Google links
+                        # S49 P2-8: "google" generates Excel+PPT bundle (same as "all"),
+                        # then additionally attempts async Google Sheets export. The frontend
+                        # checks /api/export/status to enable/disable the Google toggle --
+                        # button is greyed out when GOOGLE_SHEETS_CREDENTIALS / GOOGLE_SLIDES_CREDENTIALS_B64
+                        # is not configured.
                         _requested_format = (
                             (gen_data.get("output_format") or "all").lower().strip()
                         )
+                        _wants_google_export = _requested_format == "google"
                         if _requested_format == "google":
                             _requested_format = "all"
                         client_name = re.sub(

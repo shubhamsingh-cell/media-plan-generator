@@ -13,14 +13,44 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import threading
 import time
 import uuid
 from datetime import datetime, timedelta
+from pathlib import Path
 from secrets import token_hex
 from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# File-based error logging for persistence failures (P1-15 diagnostic)
+# ---------------------------------------------------------------------------
+_PERSISTENCE_LOG_DIR = Path(os.environ.get("NOVA_LOG_DIR", "/tmp"))
+_PERSISTENCE_LOG_FILE = _PERSISTENCE_LOG_DIR / "nova_persistence_errors.log"
+
+
+def _log_persistence_error(operation: str, conversation_id: str, error: str) -> None:
+    """Write persistence errors to a local file for debugging.
+
+    This supplements the standard logger -- errors are written to a dedicated
+    file so they survive log rotation and can be checked even when structured
+    logging is noisy.
+
+    Args:
+        operation: The operation that failed (e.g. 'append_message').
+        conversation_id: The conversation ID involved.
+        error: The error message or repr.
+    """
+    try:
+        ts = datetime.utcnow().isoformat() + "Z"
+        line = f"[{ts}] {operation} cid={conversation_id} err={error}\n"
+        with open(_PERSISTENCE_LOG_FILE, "a", encoding="utf-8") as f:
+            f.write(line)
+    except OSError:
+        pass  # best-effort; do not let logging errors cascade
+
 
 # Supabase imports (graceful fallback)
 try:
@@ -41,6 +71,12 @@ except ImportError:
 _schema_is_document_model: Optional[bool] = None
 _schema_detection_lock = threading.Lock()
 
+# Column name used to look up conversations by the widget-generated ID.
+# Old schema (pre-001 migration): "conversation_id" TEXT column.
+# New schema (001 migration): "id" UUID column -- but widget IDs are not UUIDs,
+# so a TEXT "conversation_id" column must be added or the lookup column detected.
+_conversation_lookup_column: str = "conversation_id"
+
 
 def _get_supabase():
     """Get or initialize Supabase client (lazy, thread-safe).
@@ -59,13 +95,16 @@ def _get_supabase():
 def _detect_schema() -> bool:
     """Detect whether nova_conversations uses the document model (new) or row-per-turn (old).
 
+    Also detects the correct column name for conversation lookups and caches it
+    in ``_conversation_lookup_column``.
+
     Checks once and caches the result. The new schema has a 'messages' JSONB column;
     the old schema has 'user_message' and 'assistant_response' columns.
 
     Returns:
         True if document model (new schema), False if row-per-turn (old schema).
     """
-    global _schema_is_document_model
+    global _schema_is_document_model, _conversation_lookup_column
 
     if _schema_is_document_model is not None:
         return _schema_is_document_model
@@ -88,34 +127,69 @@ def _detect_schema() -> bool:
             result = sb.table("nova_conversations").select("*").limit(1).execute()
             if result.data:
                 columns = set(result.data[0].keys())
+                # Detect lookup column: prefer 'conversation_id' if it exists,
+                # fall back to 'id' (001 migration UUID schema)
+                if "conversation_id" in columns:
+                    _conversation_lookup_column = "conversation_id"
+                else:
+                    _conversation_lookup_column = "id"
                 if "messages" in columns:
                     _schema_is_document_model = True
-                    logger.info("Detected document-model schema for nova_conversations")
+                    logger.info(
+                        "Detected document-model schema (lookup_col=%s)",
+                        _conversation_lookup_column,
+                    )
                 else:
                     _schema_is_document_model = False
-                    logger.info("Detected row-per-turn schema for nova_conversations")
+                    logger.info(
+                        "Detected row-per-turn schema (lookup_col=%s)",
+                        _conversation_lookup_column,
+                    )
             else:
-                # Empty table -- try inserting a test row with new schema fields
-                # If it works, we have the new schema
+                # Empty table -- try inserting a test row with new schema fields.
+                # Do NOT specify 'id' -- let the DB auto-generate it.
+                # Use 'conversation_id' column if it exists; otherwise insert
+                # without it and detect the resulting columns.
+                test_cid = f"__schema_test__{uuid.uuid4()}"
                 try:
-                    test_id = str(uuid.uuid4())
-                    sb.table("nova_conversations").insert(
-                        {
-                            "id": test_id,
-                            "user_id": "__schema_test__",
-                            "messages": [],
-                        }
-                    ).execute()
+                    insert_data: Dict[str, Any] = {
+                        "user_id": "__schema_test__",
+                        "messages": [],
+                    }
+                    # Try with conversation_id first (old table with S37 migration)
+                    try:
+                        ins_result = (
+                            sb.table("nova_conversations")
+                            .insert({**insert_data, "conversation_id": test_cid})
+                            .execute()
+                        )
+                        _conversation_lookup_column = "conversation_id"
+                    except Exception:
+                        # conversation_id column does not exist (001 migration)
+                        ins_result = (
+                            sb.table("nova_conversations").insert(insert_data).execute()
+                        )
+                        _conversation_lookup_column = "id"
+
                     # Clean up test row
-                    sb.table("nova_conversations").delete().eq("id", test_id).execute()
+                    if ins_result.data:
+                        _row_id = ins_result.data[0].get("id")
+                        if _row_id:
+                            sb.table("nova_conversations").delete().eq(
+                                "id", _row_id
+                            ).execute()
                     _schema_is_document_model = True
                     logger.info(
-                        "Detected document-model schema (empty table, insert test passed)"
+                        "Detected document-model schema (empty table, lookup_col=%s)",
+                        _conversation_lookup_column,
                     )
-                except Exception:
+                except Exception as ins_exc:
                     _schema_is_document_model = False
+                    _conversation_lookup_column = "conversation_id"
                     logger.info(
-                        "Detected row-per-turn schema (empty table, insert test failed)"
+                        "Detected row-per-turn schema (empty table, insert test "
+                        "failed: %s)",
+                        ins_exc,
                     )
 
         except Exception as exc:
@@ -123,6 +197,8 @@ def _detect_schema() -> bool:
                 "Schema detection failed: %s; assuming old schema", exc, exc_info=True
             )
             _schema_is_document_model = False
+            _conversation_lookup_column = "conversation_id"
+            _log_persistence_error("_detect_schema", "N/A", repr(exc))
 
         return _schema_is_document_model
 
@@ -133,9 +209,10 @@ def reset_schema_cache() -> None:
     Call this after running the migration SQL to switch from old to new schema
     without restarting the server.
     """
-    global _schema_is_document_model
+    global _schema_is_document_model, _conversation_lookup_column
     with _schema_detection_lock:
         _schema_is_document_model = None
+        _conversation_lookup_column = "conversation_id"
     logger.info("Schema detection cache reset; will re-detect on next operation")
 
 
@@ -254,19 +331,24 @@ def get_conversation(conversation_id: str) -> Optional[Dict[str, Any]]:
             return None
 
     try:
-        # S46 fix: use conversation_id column (id is auto-increment integer)
+        _col = _conversation_lookup_column
         result = (
             sb.table("nova_conversations")
             .select("*")
-            .eq("conversation_id", conversation_id)
+            .eq(_col, conversation_id)
             .limit(1)
             .execute()
         )
         return result.data[0] if result.data else None
     except Exception as e:
         logger.error(
-            "Error fetching conversation %s: %s", conversation_id, e, exc_info=True
+            "Error fetching conversation %s (col=%s): %s",
+            conversation_id,
+            _conversation_lookup_column,
+            e,
+            exc_info=True,
         )
+        _log_persistence_error("get_conversation", conversation_id, repr(e))
         return None
 
 
@@ -342,18 +424,23 @@ def update_conversation(
         return None
 
     try:
-        # S46 fix: use conversation_id column
+        _col = _conversation_lookup_column
         result = (
             sb.table("nova_conversations")
             .update(kwargs)
-            .eq("conversation_id", conversation_id)
+            .eq(_col, conversation_id)
             .execute()
         )
         return result.data[0] if result.data else None
     except Exception as e:
         logger.error(
-            "Error updating conversation %s: %s", conversation_id, e, exc_info=True
+            "Error updating conversation %s (col=%s): %s",
+            conversation_id,
+            _conversation_lookup_column,
+            e,
+            exc_info=True,
         )
+        _log_persistence_error("update_conversation", conversation_id, repr(e))
         return None
 
 
@@ -371,16 +458,15 @@ def delete_conversation(conversation_id: str) -> bool:
         return False
 
     try:
-        # S46 fix: use conversation_id column
-        sb.table("nova_conversations").delete().eq(
-            "conversation_id", conversation_id
-        ).execute()
+        _col = _conversation_lookup_column
+        sb.table("nova_conversations").delete().eq(_col, conversation_id).execute()
         logger.info("Deleted conversation: %s", conversation_id)
         return True
     except Exception as e:
         logger.error(
             "Error deleting conversation %s: %s", conversation_id, e, exc_info=True
         )
+        _log_persistence_error("delete_conversation", conversation_id, repr(e))
         return False
 
 
@@ -484,11 +570,11 @@ def get_or_create_conversation(
         }
 
     try:
-        # S46 fix: Use conversation_id column (not id which is auto-increment integer)
+        _col = _conversation_lookup_column
         result = (
             sb.table("nova_conversations")
             .select("*")
-            .eq("conversation_id", conversation_id)
+            .eq(_col, conversation_id)
             .order("id", desc=True)
             .limit(1)
             .execute()
@@ -496,14 +582,20 @@ def get_or_create_conversation(
         if result.data:
             return result.data[0]
 
-        # Does not exist -- create with the conversation_id
+        # Does not exist -- create a new row.
+        # Build row_data using the detected lookup column so the INSERT
+        # succeeds regardless of whether the table has 'conversation_id'
+        # (old + S37) or only 'id' (001 migration).
         new_token = token_hex(32)
         row_data: Dict[str, Any] = {
-            "conversation_id": conversation_id,
             "user_id": user_id,
             "title": title,
             "messages": [],
         }
+        # If the table uses a 'conversation_id' TEXT column, set it.
+        # If it uses 'id' UUID, do NOT set it (let DB auto-generate).
+        if _col == "conversation_id":
+            row_data["conversation_id"] = conversation_id
 
         def _insert_with_token() -> Any:
             return (
@@ -523,17 +615,28 @@ def get_or_create_conversation(
             insert_result = _retry_with_backoff(_insert_without_token)
 
         if insert_result.data:
-            logger.info("Created conversation with ID: %s", conversation_id)
+            logger.info(
+                "Created conversation (col=%s) cid=%s row_id=%s",
+                _col,
+                conversation_id,
+                insert_result.data[0].get("id"),
+            )
             return insert_result.data[0]
+
+        _log_persistence_error(
+            "get_or_create_conversation", conversation_id, "empty insert result"
+        )
         return None
 
     except Exception as exc:
         logger.error(
-            "get_or_create_conversation(%s) failed: %s",
+            "get_or_create_conversation(%s) failed (col=%s): %s",
             conversation_id,
+            _conversation_lookup_column,
             exc,
             exc_info=True,
         )
+        _log_persistence_error("get_or_create_conversation", conversation_id, repr(exc))
         return None
 
 
@@ -560,11 +663,11 @@ def verify_conversation_token(
         return True  # Allow if persistence unavailable
 
     try:
-        # S46 fix: use conversation_id column
+        _col = _conversation_lookup_column
         result = (
             sb.table("nova_conversations")
             .select("session_token")
-            .eq("conversation_id", conversation_id)
+            .eq(_col, conversation_id)
             .execute()
         )
         if not result.data:

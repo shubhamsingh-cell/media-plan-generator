@@ -8366,6 +8366,22 @@ def _build_slide_data_sources(prs: Presentation, data: Dict):
     # Thin rule line
     _add_rule_line(slide, 0.55, 7.0, 12.2, "D6CFC2")
 
+    # S49 P2-20: Research-backed key recommendations (compact, bottom section)
+    _research_recs = data.get("_research_recommendations") or []
+    if _research_recs:
+        _recs_text = "Key Insights: " + " | ".join(_research_recs[:5])
+        _add_textbox(
+            slide,
+            Inches(0.55),
+            Inches(6.65),
+            Inches(12.2),
+            Inches(0.35),
+            text=_recs_text,
+            font_size=7,
+            bold=False,
+            color=TEAL,
+        )
+
     meth_text = (
         "Methodology: Data sourced from real-time API integrations, Nova AI Suite's proprietary "
         "job board knowledge base (91+ platforms), trend engine (4-year history), and "
@@ -8669,6 +8685,16 @@ def generate_pptx(data: Dict[str, Any]) -> bytes:
             (item.get("name") or "" if isinstance(item, dict) else str(item)): True
             for item in cc
         }
+
+    # S49 P2-20: Inject research-backed recommendations into data for slides
+    try:
+        from research_constants import RESEARCH_FINDINGS_SHORT
+
+        _existing_recs = data.get("_research_recommendations") or []
+        if not _existing_recs:
+            data["_research_recommendations"] = RESEARCH_FINDINGS_SHORT
+    except ImportError:
+        pass
 
     # Industry label mapping (single source of truth in shared_utils.py)
     if not data.get("industry_label"):

@@ -1754,6 +1754,15 @@ def _build_sheet_executive_summary(
     warnings = budget_alloc.get("warnings") or []
     recommendations = budget_alloc.get("recommendations") or []
 
+    # S49 P2-20: Append research-backed recommendations from shared constants
+    try:
+        from research_constants import get_plan_recommendations_text
+
+        _research_recs = get_plan_recommendations_text()
+        recommendations = list(recommendations) + _research_recs
+    except ImportError:
+        pass
+
     synthesized = data.get("_synthesized", {})
     enriched = data.get("_enriched", {})
     tier_groups = data.get("_tier_groups", {})

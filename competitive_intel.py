@@ -2356,6 +2356,381 @@ def run_full_analysis(
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# COMPETITIVE THREAT ASSESSMENT (P1-3 / S49)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+# Average monthly recruitment ad spend estimates by company size / tier.
+# Source: Recruitment marketing competitive research 2025-2026.
+_SPEND_TIERS: Dict[str, Dict[str, Any]] = {
+    "enterprise": {
+        "label": "Enterprise (10K+ employees)",
+        "monthly_spend_low": 500_000,
+        "monthly_spend_high": 5_000_000,
+        "typical_channels": ["LinkedIn", "Indeed", "Programmatic", "Google Ads"],
+    },
+    "large": {
+        "label": "Large (1K-10K employees)",
+        "monthly_spend_low": 50_000,
+        "monthly_spend_high": 500_000,
+        "typical_channels": ["Indeed", "LinkedIn", "ZipRecruiter", "Programmatic"],
+    },
+    "mid": {
+        "label": "Mid-Market (100-1K employees)",
+        "monthly_spend_low": 10_000,
+        "monthly_spend_high": 100_000,
+        "typical_channels": ["Indeed", "ZipRecruiter", "Google Ads", "Craigslist"],
+    },
+    "small": {
+        "label": "Small (<100 employees)",
+        "monthly_spend_low": 1_000,
+        "monthly_spend_high": 15_000,
+        "typical_channels": ["Indeed", "Craigslist", "Facebook Jobs", "Google Ads"],
+    },
+}
+
+# Industry-level competitive intensity heuristics (1-10 scale).
+_INDUSTRY_THREAT_SCORES: Dict[str, float] = {
+    "healthcare_medical": 8.5,
+    "tech_engineering": 8.0,
+    "logistics_supply_chain": 7.5,
+    "blue_collar_trades": 7.0,
+    "retail_consumer": 6.5,
+    "finance_banking": 7.0,
+    "hospitality_travel": 6.0,
+    "construction_real_estate": 6.5,
+    "education": 5.0,
+    "general_entry_level": 5.5,
+    "pharma_biotech": 7.5,
+    "automotive": 6.5,
+    "energy_utilities": 6.0,
+    "manufacturing": 6.5,
+    "food_beverage": 6.0,
+    "insurance": 5.5,
+    "telecommunications": 6.0,
+    "aerospace_defense": 7.0,
+    "media_entertainment": 5.5,
+    "mental_health": 7.0,
+    "legal_services": 5.5,
+    "military_recruitment": 4.5,
+    "maritime_marine": 5.0,
+}
+
+# Well-known top competitors by industry vertical.
+_INDUSTRY_COMPETITORS: Dict[str, List[Dict[str, str]]] = {
+    "healthcare_medical": [
+        {
+            "name": "HCA Healthcare",
+            "size": "enterprise",
+            "focus": "Hospitals, acute care",
+        },
+        {
+            "name": "UnitedHealth Group",
+            "size": "enterprise",
+            "focus": "Insurance + care delivery",
+        },
+        {
+            "name": "CVS Health",
+            "size": "enterprise",
+            "focus": "Pharmacy, clinics, insurance",
+        },
+        {
+            "name": "Ascension Health",
+            "size": "large",
+            "focus": "Non-profit hospital system",
+        },
+    ],
+    "tech_engineering": [
+        {
+            "name": "Amazon",
+            "size": "enterprise",
+            "focus": "Cloud, logistics, retail tech",
+        },
+        {"name": "Google", "size": "enterprise", "focus": "Search, cloud, AI"},
+        {"name": "Meta", "size": "enterprise", "focus": "Social media, VR/AR"},
+        {
+            "name": "Microsoft",
+            "size": "enterprise",
+            "focus": "Cloud, enterprise software",
+        },
+    ],
+    "logistics_supply_chain": [
+        {
+            "name": "Amazon Logistics",
+            "size": "enterprise",
+            "focus": "Last-mile delivery",
+        },
+        {"name": "FedEx", "size": "enterprise", "focus": "Express, ground, freight"},
+        {
+            "name": "UPS",
+            "size": "enterprise",
+            "focus": "Package delivery, supply chain",
+        },
+        {"name": "XPO Logistics", "size": "large", "focus": "Contract logistics, LTL"},
+    ],
+    "retail_consumer": [
+        {"name": "Walmart", "size": "enterprise", "focus": "Mass retail, grocery"},
+        {"name": "Amazon", "size": "enterprise", "focus": "E-commerce, warehouse"},
+        {"name": "Target", "size": "enterprise", "focus": "General merchandise"},
+        {"name": "Costco", "size": "enterprise", "focus": "Wholesale, membership"},
+    ],
+    "blue_collar_trades": [
+        {
+            "name": "Waste Management",
+            "size": "large",
+            "focus": "Environmental services",
+        },
+        {
+            "name": "CenterPoint Energy",
+            "size": "large",
+            "focus": "Utilities, field services",
+        },
+        {"name": "ABM Industries", "size": "large", "focus": "Facility services"},
+        {"name": "Cintas", "size": "large", "focus": "Uniforms, facility services"},
+    ],
+    "finance_banking": [
+        {
+            "name": "JPMorgan Chase",
+            "size": "enterprise",
+            "focus": "Banking, asset management",
+        },
+        {
+            "name": "Bank of America",
+            "size": "enterprise",
+            "focus": "Consumer, commercial banking",
+        },
+        {"name": "Wells Fargo", "size": "enterprise", "focus": "Diversified banking"},
+        {"name": "Goldman Sachs", "size": "enterprise", "focus": "Investment banking"},
+    ],
+}
+
+
+def assess_competitive_threats(
+    industry: str,
+    role: str = "",
+    locations: Optional[List[str]] = None,
+) -> Dict[str, Any]:
+    """Assess competitive threats for a given industry, role, and location set.
+
+    Returns a structured threat assessment including:
+    - threat_score (1-10)
+    - top_competitors with spend estimates
+    - market_position analysis
+    - actionable recommendations
+
+    Args:
+        industry: Industry key (e.g., 'healthcare_medical', 'tech_engineering').
+        role: Target role for context (e.g., 'Registered Nurse').
+        locations: List of target locations (e.g., ['New York, NY', 'Dallas, TX']).
+
+    Returns:
+        Threat assessment dict with threat_score, competitors, position, recommendation.
+    """
+    locations = locations or []
+    industry_lower = industry.lower().replace(" ", "_")
+
+    # Normalize common industry aliases
+    _aliases: Dict[str, str] = {
+        "healthcare": "healthcare_medical",
+        "medical": "healthcare_medical",
+        "nursing": "healthcare_medical",
+        "tech": "tech_engineering",
+        "technology": "tech_engineering",
+        "software": "tech_engineering",
+        "it": "tech_engineering",
+        "trucking": "logistics_supply_chain",
+        "logistics": "logistics_supply_chain",
+        "transportation": "logistics_supply_chain",
+        "retail": "retail_consumer",
+        "consumer": "retail_consumer",
+        "warehouse": "blue_collar_trades",
+        "manufacturing": "blue_collar_trades",
+        "trades": "blue_collar_trades",
+        "finance": "finance_banking",
+        "banking": "finance_banking",
+        "construction": "construction_real_estate",
+    }
+    industry_key = _aliases.get(industry_lower, industry_lower)
+
+    # Base threat score from industry
+    base_score = _INDUSTRY_THREAT_SCORES.get(industry_key, 5.5)
+
+    # Location adjustment: major metros increase competition
+    _high_competition_metros = {
+        "new york",
+        "los angeles",
+        "chicago",
+        "houston",
+        "dallas",
+        "san francisco",
+        "seattle",
+        "boston",
+        "atlanta",
+        "denver",
+        "austin",
+        "miami",
+        "washington",
+        "dc",
+        "phoenix",
+    }
+    metro_boost = 0.0
+    for loc in locations:
+        loc_lower = loc.lower()
+        if any(metro in loc_lower for metro in _high_competition_metros):
+            metro_boost = max(metro_boost, 0.5)
+
+    # Role adjustment: high-demand roles increase threat
+    _high_demand_roles = [
+        "nurse",
+        "rn",
+        "lpn",
+        "cna",
+        "developer",
+        "engineer",
+        "driver",
+        "cdl",
+        "mechanic",
+        "electrician",
+        "plumber",
+        "data scientist",
+        "warehouse",
+        "picker",
+        "packer",
+        "technician",
+    ]
+    role_boost = 0.0
+    role_lower = role.lower()
+    if any(r in role_lower for r in _high_demand_roles):
+        role_boost = 0.5
+
+    threat_score = min(10.0, round(base_score + metro_boost + role_boost, 1))
+
+    # Get competitors for industry
+    competitors_raw = _INDUSTRY_COMPETITORS.get(industry_key, [])
+    if not competitors_raw:
+        # Fallback: use general competitors
+        competitors_raw = [
+            {
+                "name": "Indeed Aggregators",
+                "size": "enterprise",
+                "focus": "Job board aggregation",
+            },
+            {
+                "name": "LinkedIn Recruiter",
+                "size": "enterprise",
+                "focus": "Professional network",
+            },
+            {
+                "name": "Staffing Agencies",
+                "size": "large",
+                "focus": "Temp-to-perm staffing",
+            },
+        ]
+
+    # Enrich competitors with spend estimates
+    top_competitors: List[Dict[str, Any]] = []
+    for comp in competitors_raw[:5]:
+        size_tier = comp.get("size", "mid")
+        spend_info = _SPEND_TIERS.get(size_tier, _SPEND_TIERS["mid"])
+        top_competitors.append(
+            {
+                "name": comp["name"],
+                "size_tier": spend_info["label"],
+                "focus": comp.get("focus", ""),
+                "spend_estimate": f"${spend_info['monthly_spend_low']:,}-${spend_info['monthly_spend_high']:,}/mo",
+                "typical_channels": spend_info["typical_channels"],
+            }
+        )
+
+    # Market position assessment
+    if threat_score >= 8.0:
+        market_position = "highly_competitive"
+        position_label = "Highly Competitive"
+        position_detail = (
+            f"The {INDUSTRY_LABEL_MAP.get(industry_key, industry)} market is "
+            f"intensely competitive for talent. Expect aggressive bidding on "
+            f"job boards and high CPC/CPA across channels."
+        )
+    elif threat_score >= 6.0:
+        market_position = "moderately_competitive"
+        position_label = "Moderately Competitive"
+        position_detail = (
+            f"The {INDUSTRY_LABEL_MAP.get(industry_key, industry)} market has "
+            f"moderate competition. Strategic channel selection and compelling "
+            f"creative can provide an edge."
+        )
+    else:
+        market_position = "low_competition"
+        position_label = "Lower Competition"
+        position_detail = (
+            f"The {INDUSTRY_LABEL_MAP.get(industry_key, industry)} market has "
+            f"relatively lower hiring competition. Focus on efficiency and "
+            f"cost optimization to maximize ROI."
+        )
+
+    # Generate actionable recommendations
+    recommendations: List[str] = []
+
+    if threat_score >= 7.5:
+        recommendations.append(
+            "Differentiate with salary transparency and benefits-first job postings "
+            "(3.8x more applications when salary leads the posting)."
+        )
+        recommendations.append(
+            "Diversify beyond top-2 job boards. Niche boards and programmatic "
+            "channels often have 30-50% lower CPA in competitive markets."
+        )
+    if threat_score >= 6.0:
+        recommendations.append(
+            "Invest in employer branding content. Companies with strong employer "
+            "brands see 50% more qualified applicants and 28% lower turnover."
+        )
+    if metro_boost > 0:
+        recommendations.append(
+            f"Major metro location(s) detected ({', '.join(locations[:3])}). "
+            f"Consider geo-targeted campaigns with neighborhood-level targeting "
+            f"and commute-time messaging."
+        )
+    if role_boost > 0:
+        recommendations.append(
+            f"High-demand role '{role}' detected. Speed-to-apply is critical -- "
+            f"aim for <5 minute apply process (12.5% completion vs 3.5% for longer)."
+        )
+    recommendations.append(
+        "Monitor competitor posting volume weekly using Nova's job volume tracker "
+        "to identify windows of lower competition."
+    )
+
+    # Try enriching with live benchmark data
+    cpc_context = {}
+    if _HAS_BENCHMARK_REGISTRY:
+        try:
+            for ch in ["indeed", "linkedin", "google_search"]:
+                bench = get_channel_benchmark(ch, industry=industry_key)
+                if bench:
+                    cpc_context[ch] = {
+                        "cpc": bench.get("cpc"),
+                        "cpa": bench.get("cpa"),
+                    }
+        except Exception as exc:
+            logger.debug("Benchmark lookup for threat assessment failed: %s", exc)
+
+    return {
+        "threat_score": threat_score,
+        "threat_level": position_label,
+        "market_position": market_position,
+        "industry": INDUSTRY_LABEL_MAP.get(industry_key, industry),
+        "role": role or "General",
+        "locations": locations,
+        "top_competitors": top_competitors,
+        "position_detail": position_detail,
+        "recommendations": recommendations,
+        "channel_benchmarks": cpc_context if cpc_context else None,
+        "source": "Nova AI Competitive Intelligence Engine",
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # UTILITY HELPERS
 # ═══════════════════════════════════════════════════════════════════════════════
 

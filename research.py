@@ -5194,6 +5194,169 @@ def get_supply_demand_ratio(
     }
 
 
+# ── S49: Geographic Unit Economics Optimizer (Intelligence Gap #7) ────────
+
+
+def optimize_geographic_strategy(
+    role: str,
+    locations: list[str],
+    budget: float = 0,
+    industry: str = "",
+) -> dict:
+    """Rank metros by CPH efficiency and allocate budget across locations.
+
+    Args:
+        role: Job title (e.g., 'Software Engineer', 'CDL Driver').
+        locations: Metro areas to evaluate.
+        budget: Recruitment budget in USD (0 = skip allocation).
+        industry: Industry override (auto-detected from role if empty).
+
+    Returns:
+        Dict with ranked_locations, budget_allocation, avoid_locations, summary.
+    """
+    if not industry:
+        industry = _classify_role_industry(role)
+    # Industry base CPH
+    try:
+        from benchmark_registry import get_cost_per_hire
+
+        base_cph = get_cost_per_hire(industry)
+    except (ImportError, Exception):
+        _fb = {
+            "technology": 6200,
+            "healthcare": 9000,
+            "finance": 5500,
+            "retail": 2700,
+            "hospitality": 2200,
+            "education": 3200,
+            "trucking": 3800,
+            "construction": 3800,
+            "hourly": 2200,
+            "executive": 12000,
+        }
+        base_cph = _fb.get(industry, 4750.0)
+    # Supply/demand data for all locations
+    sd_metros: dict = get_supply_demand_ratio(role, locations).get("metros") or {}
+    # Score each location
+    scored: list[dict] = []
+    for loc in locations:
+        _mk, _md = _find_metro(loc)
+        loc_info = get_location_info(loc)
+        coli = loc_info.get("coli") or 100
+        estimated_cph = round(base_cph * (coli / 100))
+        metro_name = loc_info.get("metro_name") or loc
+        # Match supply/demand entry
+        sd_entry: dict = {}
+        for sd_key, sd_val in sd_metros.items():
+            if sd_key == metro_name or loc.lower() in sd_key.lower():
+                sd_entry = sd_val
+                break
+        supply_score = sd_entry.get("score") or 5.0
+        apply_rate = round(
+            min((sd_entry.get("applications_per_posting") or 35) / 100, 0.25), 3
+        )
+        efficiency = round((supply_score / max(estimated_cph, 1)) * 10000, 2)
+        scored.append(
+            {
+                "location": metro_name,
+                "estimated_cph": estimated_cph,
+                "apply_rate": apply_rate,
+                "supply_score": supply_score,
+                "efficiency": efficiency,
+                "coli": coli,
+                "population": loc_info.get("population") or "",
+                "unemployment": loc_info.get("unemployment") or "",
+                "major_employers": loc_info.get("major_employers") or "",
+            }
+        )
+    scored.sort(key=lambda x: x["efficiency"], reverse=True)
+    cphs = [s["estimated_cph"] for s in scored]
+    median_cph = sorted(cphs)[len(cphs) // 2] if cphs else base_cph
+    # Assign tiers
+    ranked: list[dict] = []
+    avoid_list: list[dict] = []
+    for i, entry in enumerate(scored):
+        cph_str = f"${entry['estimated_cph']:,}"
+        if entry["estimated_cph"] > median_cph * 2:
+            tier, rec = (
+                "avoid",
+                f"CPH {cph_str} exceeds 2x median (${median_cph:,}). High cost.",
+            )
+            avoid_list.append({"location": entry["location"], "reason": rec})
+        elif i < 3:
+            tier = "primary"
+            rec = f"Start here -- strong unit economics at {cph_str}/hire, {entry['supply_score']}/10 supply."
+        elif i < 6:
+            tier, rec = (
+                "secondary",
+                f"Solid alternative at {cph_str}/hire. Good expansion target.",
+            )
+        else:
+            tier, rec = "secondary", f"Viable at {cph_str}/hire but lower priority."
+        ranked.append(
+            {
+                "location": entry["location"],
+                "estimated_cph": entry["estimated_cph"],
+                "apply_rate": entry["apply_rate"],
+                "supply_score": entry["supply_score"],
+                "recommendation": rec,
+                "tier": tier,
+            }
+        )
+    # Budget allocation (proportional to efficiency, skip avoid-tier)
+    allocation: dict[str, dict] = {}
+    if budget > 0:
+        eligible = [e for e in scored if e["estimated_cph"] <= median_cph * 2]
+        total_eff = sum(e["efficiency"] for e in eligible) or 1.0
+        for entry in eligible:
+            pct = round((entry["efficiency"] / total_eff) * 100)
+            spend = round(budget * (pct / 100))
+            hires = max(1, round(spend / max(entry["estimated_cph"], 1)))
+            label = (
+                entry["location"].split(",")[0].strip()
+                if "," in entry["location"]
+                else entry["location"]
+            )
+            allocation[label] = {"pct": pct, "spend": spend, "expected_hires": hires}
+    # Build summary
+    primary = [r for r in ranked if r["tier"] == "primary"]
+    if primary and budget > 0:
+        parts, total_h = [], 0
+        for p in primary:
+            lbl = (
+                p["location"].split(",")[0].strip()
+                if "," in p["location"]
+                else p["location"]
+            )
+            a = allocation.get(lbl) or {}
+            parts.append(f"{lbl} ({a.get('pct', 0)}%)")
+            total_h += a.get("expected_hires", 0)
+        avg = round(sum(p["estimated_cph"] for p in primary) / len(primary))
+        summary = f"Recommended {len(primary)}-city strategy: {', '.join(parts)}. Expected ~{total_h} hires at ${avg:,} avg CPH."
+    elif primary:
+        b = primary[0]
+        summary = (
+            f"Best unit economics: {b['location']} at ${b['estimated_cph']:,}/hire "
+            f"({b['supply_score']}/10 supply). Avoid metros with CPH above ${median_cph * 2:,}."
+        )
+    else:
+        summary = "No metro data available for the requested locations."
+    return {
+        "source": "Joveo Geographic Unit Economics (METRO_DATA + BLS + Bayesian smoothing)",
+        "role": role,
+        "industry": industry,
+        "ranked_locations": ranked,
+        "budget_allocation": allocation,
+        "avoid_locations": avoid_list,
+        "summary": summary,
+        "methodology": (
+            "CPH estimated from industry baseline * COLI index. Supply score from Bayesian-smoothed "
+            "supply/demand model (unemployment, COLI, industry concentration). Efficiency = supply_score / CPH. "
+            "Tiers: primary (top 3 by efficiency), secondary (next 3), avoid (CPH > 2x median)."
+        ),
+    }
+
+
 def _build_recommendation(
     score: float,
     industry: str,

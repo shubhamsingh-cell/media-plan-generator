@@ -729,3 +729,6 @@
 {"ts": 1775218903.709305, "iso": "2026-04-03T12:21:43Z", "action": "api.access", "actor": "system", "resource": "/api/generate", "severity": "info", "ip_hash": "12ca17b49af2"}
 {"ts": 1775624063.193616, "iso": "2026-04-08T04:54:23Z", "action": "test.event", "actor": "test", "resource": "/test", "severity": "info", "ip_hash": ""}
 {"ts": 1775636378.946791, "iso": "2026-04-08T08:19:38Z", "action": "test.event", "actor": "test", "resource": "/test", "severity": "info", "ip_hash": ""}
+{"ts": 1775650629.7402081, "iso": "2026-04-08T12:17:09Z", "action": "test.event", "actor": "test", "resource": "/test", "severity": "info", "ip_hash": ""}
+{"ts": 1775650773.769989, "iso": "2026-04-08T12:19:33Z", "action": "test.event", "actor": "test", "resource": "/test", "severity": "info", "ip_hash": ""}
+{"ts": 1775650785.546036, "iso": "2026-04-08T12:19:45Z", "action": "test.event", "actor": "test", "resource": "/test", "severity": "info", "ip_hash": ""}

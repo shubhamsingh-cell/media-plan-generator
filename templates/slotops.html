@@ -660,6 +660,10 @@
                 </tbody>
               </table>
             </div>
+            <!-- Mobile card view (hidden on desktop, shown at <=768px via CSS) -->
+            <div class="mobile-card-list" id="mobile-slot-cards">
+              <!-- Populated by JS alongside table rendering -->
+            </div>
           </div>
         </section>
 
@@ -3635,6 +3639,86 @@
               "<td></td>" +
               "</tr>";
           });
+
+          // Mobile card view (mirrors table rows for <=768px)
+          var mobileWrap = $("#mobile-slot-cards");
+          if (mobileWrap) {
+            var mhtml = "";
+            filtered.forEach(function (sl) {
+              var j = sl.job;
+              var goDate = sl.goLiveDate ? fmtDateShort(sl.goLiveDate) : "--";
+              var applyRate = j.expectedAR.toFixed(1);
+              var statusClass =
+                j.status === "active"
+                  ? "active"
+                  : j.status === "queued"
+                    ? "queued"
+                    : "hold";
+              mhtml +=
+                '<div class="mobile-slot-card">' +
+                '<div class="mobile-card-header">' +
+                '<span class="mobile-card-title">#' +
+                sl.slotNum +
+                " &mdash; " +
+                escHtml(j.title || j.projectName || j.id) +
+                "</span>" +
+                '<span class="mobile-card-score">' +
+                applyRate +
+                "%</span>" +
+                "</div>" +
+                '<div class="mobile-card-meta">' +
+                '<span class="mobile-card-meta-item"><span class="mobile-card-meta-label">Country</span> ' +
+                (COUNTRY_NAMES[j.country] || j.country) +
+                "</span>" +
+                '<span class="mobile-card-meta-item"><span class="mobile-card-meta-label">Client</span> ' +
+                escHtml(j.client) +
+                "</span>" +
+                '<span class="mobile-card-meta-item"><span class="mobile-card-meta-label">Go-Live</span> ' +
+                goDate +
+                "</span>" +
+                '<span class="mobile-card-meta-item"><span class="mobile-card-meta-label">Applies</span> ' +
+                j.applies +
+                "</span>" +
+                "</div>" +
+                '<div style="display:flex;gap:0.5rem;align-items:center;">' +
+                '<span class="status-badge ' +
+                statusClass +
+                '">' +
+                j.status.toUpperCase() +
+                "</span>" +
+                '<button class="inline-action" data-action="rotate" data-slot="' +
+                sl.slotNum +
+                '" style="font-size:0.75rem;">Rotate</button>' +
+                '<button class="inline-action" data-action="extend" data-slot="' +
+                sl.slotNum +
+                '" style="font-size:0.75rem;">Extend</button>' +
+                "</div></div>";
+            });
+            nonSlotJobs.forEach(function (j) {
+              var statusClass = j.status === "queued" ? "queued" : "hold";
+              mhtml +=
+                '<div class="mobile-slot-card" style="opacity:0.7;">' +
+                '<div class="mobile-card-header">' +
+                '<span class="mobile-card-title">' +
+                escHtml(j.title || j.id) +
+                "</span>" +
+                "</div>" +
+                '<div class="mobile-card-meta">' +
+                '<span class="mobile-card-meta-item"><span class="mobile-card-meta-label">Country</span> ' +
+                (COUNTRY_NAMES[j.country] || j.country) +
+                "</span>" +
+                '<span class="mobile-card-meta-item"><span class="mobile-card-meta-label">Client</span> ' +
+                escHtml(j.client) +
+                "</span>" +
+                "</div>" +
+                '<span class="status-badge ' +
+                statusClass +
+                '">' +
+                j.status.toUpperCase() +
+                "</span></div>";
+            });
+            mobileWrap.innerHTML = mhtml;
+          }
 
           // Update sort indicators
           $$(".data-table thead th").forEach(function (th) {

@@ -401,10 +401,12 @@ _TOOL_ERROR_FALLBACK_MESSAGES: dict[str, str] = {
     "get_meta_benchmarks": "Meta advertising benchmarks couldn't be retrieved, but I can reference our cross-platform recruitment advertising data.",
     "optimize_campaign": "Campaign optimization encountered an issue, but I can provide optimization recommendations based on industry best practices.",
     "analyze_supply_demand": "Supply/demand analysis encountered an issue, but I can provide general labor market tightness insights from our benchmark database.",
+    "optimize_geography": "Geographic optimization encountered an issue, but I can provide general cost-per-hire estimates by metro from our benchmark database.",
     "recommend_channels": "Channel recommendations couldn't be generated, but I can provide general channel strategy guidance based on industry best practices.",
     "track_cpc": "CPC tracking encountered an issue, but I can provide benchmark CPC data from our 28-source recruitment advertising database.",
     "check_job_volume": "Job volume tracking encountered an issue, but I can provide posting volume estimates from our curated industry benchmarks.",
     "get_creative_best_practices": "Creative best practices data couldn't be retrieved, but I can share general ad copy and job posting optimization tips.",
+    "assess_competitive_threats": "Competitive threat assessment encountered an issue, but I can provide general competitive landscape insights for your industry.",
     "query_eurostat": "Eurostat EU labor data is temporarily unavailable, but I can reference our international benchmarks for European markets.",
     "query_uk_ons": "UK ONS labor data is temporarily unavailable, but I can reference our international benchmarks for UK hiring.",
     "query_statcan": "Statistics Canada data is temporarily unavailable, but I can reference our international benchmarks for Canadian markets.",
@@ -1365,12 +1367,14 @@ _TOOL_LABELS: Dict[str, str] = {
     "estimate_meta_campaign": "Estimating Meta campaign costs",
     "get_meta_benchmarks": "Fetching Meta Ads benchmarks",
     "analyze_supply_demand": "Analyzing talent supply/demand ratio",
+    "optimize_geography": "Optimizing geographic hiring strategy",
     "recommend_channels": "Building channel recommendations",
     "track_cpc": "Tracking CPC bid prices",
     "check_job_volume": "Checking job posting volumes",
     "query_linkup_postings": "Querying LinkUp job posting data",
     "query_revelio_workforce": "Querying Revelio Labs workforce analytics",
     "get_creative_best_practices": "Loading creative best practices",
+    "assess_competitive_threats": "Assessing competitive threats",
     "query_eurostat": "Querying Eurostat EU labor data",
     "query_uk_ons": "Querying UK ONS labor statistics",
     "query_statcan": "Querying Statistics Canada labor data",
@@ -3649,9 +3653,11 @@ Before calling any tools, briefly plan which tools you need:
 - For Facebook/Instagram ad cost estimates: call estimate_meta_campaign with budget, industry, job_category, and optional location
 - For Meta/Facebook recruitment ad benchmarks: call get_meta_benchmarks with industry and job_category for CPC/CPA/CTR data
 - For talent supply/demand, candidate availability, or labor market tightness: call analyze_supply_demand with role and locations array to get metro-level supply/demand scores, applications per posting, time-to-fill estimates, and actionable recommendations
+- For geographic hiring strategy, where to hire, best cities, cheapest to hire, location optimization, or per-hire cost by metro: call optimize_geography with role, locations array, optional budget and industry to get ranked metros by CPH efficiency, apply rates, supply tightness scores, tier recommendations (primary/secondary/avoid), and budget allocation
 - For CPC/cost per click/bidding costs/ad pricing: call track_cpc with role, industry, locations to get current vs benchmark CPC across Indeed/LinkedIn/ZipRecruiter, trend direction, 30-day forecast, and smart alerts
 - For posting volume/how many jobs/market activity/hiring trends/market signals: call check_job_volume with role and locations to get current posting counts, week-over-week change, trend direction, and per-location breakdown
 - For ad creative, job posting optimization, CL formatting, or best practices: call get_creative_best_practices with optional industry and posting_type for data-backed creative tips (salary-first = 3.8x apps, 201-400 words, 1-3 word titles, etc.)
+- For competitive threats, who's competing for talent, competitor spend, market competitiveness, or hiring competition: call assess_competitive_threats with industry (required), optional role and locations array for threat score (1-10), top competitors, spend estimates, and recommendations
 - For EU/European labor market data: call query_eurostat with indicator and country code for unemployment, employment, wages, or vacancy data
 - For UK labor market data: call query_uk_ons with dataset for British employment, unemployment, vacancies, or earnings
 - For Canadian labor market data: call query_statcan with table ID for job vacancies, employment, wages, or labor force statistics
@@ -5559,6 +5565,34 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                     "required": ["industry"],
                 },
             },
+            # S49: Geographic Unit Economics Optimizer (Gap #7)
+            {
+                "name": "optimize_geography",
+                "description": "Geographic unit economics optimizer. Ranks metro areas by cost-per-hire efficiency, apply rates, and supply tightness. Returns primary/secondary/avoid tiers and budget allocation. Use when asked 'where should I hire', 'best cities to recruit', 'cheapest to hire', 'geographic strategy', 'location optimization', 'per-hire cost by metro', or 'expand hiring to which cities'.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "role": {
+                            "type": "string",
+                            "description": "Job title (e.g., 'Software Engineer', 'Registered Nurse', 'CDL Driver')",
+                        },
+                        "locations": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Metro areas to evaluate (e.g., ['Austin, TX', 'San Francisco', 'Dallas']). If empty, defaults to top 10 US metros.",
+                        },
+                        "budget": {
+                            "type": "number",
+                            "description": "Total recruitment budget in USD for allocation across metros. 0 = skip allocation.",
+                        },
+                        "industry": {
+                            "type": "string",
+                            "description": "Industry override (e.g., 'technology', 'healthcare'). Auto-detected from role if empty.",
+                        },
+                    },
+                    "required": ["role"],
+                },
+            },
             # S48: CPC Trend Tracker + Job Posting Volume
             {
                 "name": "track_cpc",
@@ -5674,6 +5708,30 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                         },
                     },
                     "required": [],
+                },
+            },
+            # ── S49: Competitive Threat Assessment (P1-3) ──────────────
+            {
+                "name": "assess_competitive_threats",
+                "description": "Assess competitive hiring threats for an industry and role. Returns threat score (1-10), top competitors with estimated ad spend, market position analysis, and actionable recommendations. Use when asked about competitive threats, who's competing for talent, competitor spend, hiring competition level, or market competitiveness.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "industry": {
+                            "type": "string",
+                            "description": "Industry vertical (e.g., 'healthcare', 'tech', 'logistics', 'retail', 'finance')",
+                        },
+                        "role": {
+                            "type": "string",
+                            "description": "Target role for context (e.g., 'Registered Nurse', 'CDL Driver')",
+                        },
+                        "locations": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Target locations (e.g., ['New York, NY', 'Dallas, TX'])",
+                        },
+                    },
+                    "required": ["industry"],
                 },
             },
             # ── S49: International API tools (Item 22) ──────────────────
@@ -5874,6 +5932,8 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             "ga4_analytics": self._ga4_analytics,
             # S48: Supply/Demand Ratio Intelligence
             "analyze_supply_demand": self._analyze_supply_demand,
+            # S49: Geographic Unit Economics Optimizer (Gap #7)
+            "optimize_geography": self._optimize_geography,
             # S48: CPC Trend Tracker + Job Posting Volume
             "track_cpc": self._track_cpc,
             "check_job_volume": self._check_job_volume,
@@ -5884,6 +5944,8 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             "query_revelio_workforce": self._query_revelio_workforce,
             # S49: Creative Best Practices (Item 14) + International APIs (Item 22)
             "get_creative_best_practices": self._get_creative_best_practices,
+            # S49: Competitive Threat Assessment (P1-3)
+            "assess_competitive_threats": self._assess_competitive_threats,
             "query_eurostat": self._query_eurostat,
             "query_uk_ons": self._query_uk_ons,
             "query_statcan": self._query_statcan,
@@ -10827,6 +10889,63 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 "source": "supply_demand_intelligence",
             }
 
+    # S49: Geographic Unit Economics Optimizer (Intelligence Gap #7)
+    # ------------------------------------------------------------------
+
+    def _optimize_geography(self, params: dict) -> dict:
+        """Rank metros by CPH efficiency with tier assignments and budget allocation.
+
+        Args:
+            params: Dict with 'role' (required), 'locations', 'budget', 'industry'.
+
+        Returns:
+            Geographic optimization dict with ranked_locations, budget_allocation,
+            avoid_locations, and summary.
+        """
+        role = (params.get("role") or "").strip()
+        if not role:
+            return {
+                "error": "Role is required. Please specify a job title (e.g., 'Software Engineer', 'CDL Driver').",
+                "tool_error_graceful": True,
+                "source": "geographic_unit_economics",
+            }
+        locations = params.get("locations") or []
+        if not locations:
+            locations = [
+                "Austin, TX",
+                "Dallas, TX",
+                "San Francisco, CA",
+                "Denver, CO",
+                "Atlanta, GA",
+                "Chicago, IL",
+                "Phoenix, AZ",
+                "Nashville, TN",
+                "Seattle, WA",
+                "Charlotte, NC",
+            ]
+        budget = params.get("budget") or 0
+        industry = params.get("industry") or ""
+        try:
+            from research import optimize_geographic_strategy
+
+            result = optimize_geographic_strategy(role, locations, budget, industry)
+            result["source"] = "geographic_unit_economics"
+            return result
+        except ImportError:
+            logger.error(
+                "research.optimize_geographic_strategy not available", exc_info=True
+            )
+            return {
+                "error": "Geographic optimizer module not available",
+                "source": "geographic_unit_economics",
+            }
+        except Exception as e:
+            logger.error("optimize_geography failed: %s", e, exc_info=True)
+            return {
+                "error": f"Geographic optimization failed: {e}",
+                "source": "geographic_unit_economics",
+            }
+
     # S48: Channel Recommendations Engine
     # ------------------------------------------------------------------
 
@@ -11168,54 +11287,48 @@ When two or more tools return conflicting data for the same metric (e.g., differ
         """Return data-driven ad creative and job posting optimization best practices.
 
         Based on competitive research findings across recruitment marketing platforms.
-        All stats are hardcoded from validated industry research.
+        Uses shared research_constants module as single source of truth for top findings,
+        plus additional tips beyond the top 5.
         """
         industry = (args.get("industry") or "").lower().strip()
         posting_type = (args.get("posting_type") or "all").lower().strip()
 
+        # S49 P2-20: Import from shared research constants
+        try:
+            from research_constants import RESEARCH_FINDINGS
+
+            _shared_findings = [
+                {
+                    "practice": f["title"],
+                    "impact": f["stat"],
+                    "detail": f["detail"],
+                }
+                for f in RESEARCH_FINDINGS
+            ]
+        except ImportError:
+            _shared_findings = []
+
+        # Additional findings beyond the shared top 5
+        _extra_findings = [
+            {
+                "practice": "Optimal word count: 201-400 words",
+                "impact": "Highest apply rate",
+                "detail": "Postings between 201-400 words outperform both shorter and longer ads. Keep descriptions focused and scannable.",
+            },
+            {
+                "practice": "Human photos for blue-collar",
+                "impact": "Higher engagement",
+                "detail": "Real employee photos (not stock) increase trust and applications, especially for warehouse, trucking, and trades roles.",
+            },
+            {
+                "practice": "Compensation transparency",
+                "impact": "Always include pay range",
+                "detail": "Transparency laws in 10+ US states mandate salary disclosure. Even where not required, showing pay increases apply rates 20-40%.",
+            },
+        ]
+
         best_practices = {
-            "key_findings": [
-                {
-                    "practice": "Salary in first line",
-                    "impact": "3.8x more applications",
-                    "detail": "Job postings that lead with compensation in the first line receive 3.8x more applications. Always show salary range upfront.",
-                },
-                {
-                    "practice": "Optimal word count: 201-400 words",
-                    "impact": "Highest apply rate",
-                    "detail": "Postings between 201-400 words outperform both shorter and longer ads. Keep descriptions focused and scannable.",
-                },
-                {
-                    "practice": "Short titles: 1-3 words",
-                    "impact": "6.22% apply rate",
-                    "detail": "Titles with 1-3 words achieve 6.22% apply rate vs. 4.5% for longer titles. Example: 'CDL Driver' beats 'Experienced Class A CDL Truck Driver Needed'.",
-                },
-                {
-                    "practice": "Apply time under 5 minutes",
-                    "impact": "12.5% apply rate (3.5x better)",
-                    "detail": "Applications under 5 minutes see 12.5% completion rate vs. 3.5% for longer processes. Minimize required fields.",
-                },
-                {
-                    "practice": "Visual ads",
-                    "impact": "+34% more applications",
-                    "detail": "Ads with images or video receive 34% more applications than text-only postings.",
-                },
-                {
-                    "practice": "Mobile-first design",
-                    "impact": "65-89% of traffic is mobile",
-                    "detail": "65% of job seekers use mobile (89% for blue-collar). Ensure apply flow works on phones with large tap targets.",
-                },
-                {
-                    "practice": "Human photos for blue-collar",
-                    "impact": "Higher engagement",
-                    "detail": "Real employee photos (not stock) increase trust and applications, especially for warehouse, trucking, and trades roles.",
-                },
-                {
-                    "practice": "Compensation transparency",
-                    "impact": "Always include pay range",
-                    "detail": "Transparency laws in 10+ US states mandate salary disclosure. Even where not required, showing pay increases apply rates 20-40%.",
-                },
-            ],
+            "key_findings": _shared_findings + _extra_findings,
             "source": "Nova AI Competitive Research (2025-2026)",
         }
 
@@ -11320,6 +11433,45 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             }
 
         return best_practices
+
+    # ------------------------------------------------------------------
+    # S49: Competitive Threat Assessment handler (P1-3)
+    # ------------------------------------------------------------------
+
+    def _assess_competitive_threats(self, args: dict) -> dict:
+        """Assess competitive hiring threats for an industry/role/location.
+
+        Delegates to competitive_intel.assess_competitive_threats().
+        Returns threat_score, competitors, market position, recommendations.
+        """
+        industry = (args.get("industry") or "general_entry_level").strip()
+        role = (args.get("role") or "").strip()
+        locations = args.get("locations") or []
+        if isinstance(locations, str):
+            locations = [locations]
+
+        try:
+            from competitive_intel import assess_competitive_threats
+
+            result = assess_competitive_threats(
+                industry=industry,
+                role=role,
+                locations=locations,
+            )
+            result["tool"] = "assess_competitive_threats"
+            return result
+        except ImportError:
+            logger.error("competitive_intel.assess_competitive_threats not available")
+            return {
+                "error": "Competitive threat assessment module not available",
+                "tool": "assess_competitive_threats",
+            }
+        except Exception as exc:
+            logger.error(f"Competitive threat assessment failed: {exc}", exc_info=True)
+            return {
+                "error": f"Assessment failed: {exc}",
+                "tool": "assess_competitive_threats",
+            }
 
     # ------------------------------------------------------------------
     # S49: International API handlers (Item 22)
@@ -12844,6 +12996,17 @@ When two or more tools return conflicting data for the same metric (e.g., differ
         r"|employee\s+(?:turnover|churn)\s+(?:data|rate|trend))\b",
         re.IGNORECASE,
     )
+    # S49: Competitive threat assessment intent (P1-3)
+    _COMPETITIVE_THREAT_INTENT = re.compile(
+        r"\b(competitive\s+threat|who(?:'s|s|\s+is)\s+compet\w*"
+        r"|competitor\s+spend|hiring\s+competition"
+        r"|market\s+competit|threat\s+(?:score|assess|level)"
+        r"|competitive\s+landscape|talent\s+competition"
+        r"|who\s+(?:else\s+)?(?:is\s+)?hiring"
+        r"|competitors?\s+(?:for|in)\s+(?:talent|hiring)"
+        r"|how\s+competitive\s+is)\b",
+        re.IGNORECASE,
+    )
     # S49: Creative best practices intent (Item 14)
     _CREATIVE_INTENT = re.compile(
         r"\b(creative\s+(?:best\s+)?practice|ad\s+copy|job\s+posting\s+tip"
@@ -13413,6 +13576,49 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 tool_params["role"] = (_role_match.group(1) or "").strip()
             tool_label = "Querying Revelio Labs workforce analytics"
 
+        # --- S49: Competitive threat assessment intent (P1-3) ---
+        if not tool_name and self._COMPETITIVE_THREAT_INTENT.search(msg_lower):
+            tool_name = "assess_competitive_threats"
+            tool_params = {}
+            # Detect industry from message
+            for _ind_kw, _ind_val in [
+                ("healthcare", "healthcare_medical"),
+                ("nursing", "healthcare_medical"),
+                ("medical", "healthcare_medical"),
+                ("tech", "tech_engineering"),
+                ("software", "tech_engineering"),
+                ("engineering", "tech_engineering"),
+                ("trucking", "logistics_supply_chain"),
+                ("logistics", "logistics_supply_chain"),
+                ("driver", "logistics_supply_chain"),
+                ("retail", "retail_consumer"),
+                ("warehouse", "blue_collar_trades"),
+                ("manufacturing", "blue_collar_trades"),
+                ("trades", "blue_collar_trades"),
+                ("finance", "finance_banking"),
+                ("banking", "finance_banking"),
+                ("construction", "construction_real_estate"),
+                ("hospitality", "hospitality_travel"),
+            ]:
+                if _ind_kw in msg_lower:
+                    tool_params["industry"] = _ind_val
+                    break
+            if not tool_params.get("industry"):
+                tool_params["industry"] = "general_entry_level"
+            # Detect role
+            _role_m = re.search(
+                r"(?:for|hiring)\s+(\w[\w\s]{2,30}?)(?:\s+(?:in|at|role|\?|$))",
+                user_message,
+                re.IGNORECASE,
+            )
+            if _role_m:
+                tool_params["role"] = (_role_m.group(1) or "").strip()
+            # Detect locations
+            _loc = _detect_us_state(user_message) or _detect_country(msg_lower) or ""
+            if _loc:
+                tool_params["locations"] = [_loc]
+            tool_label = "Assessing competitive threats"
+
         # --- S49: Creative best practices intent (Item 14) ---
         if not tool_name and self._CREATIVE_INTENT.search(msg_lower):
             tool_name = "get_creative_best_practices"
@@ -13947,7 +14153,14 @@ When two or more tools return conflicting data for the same metric (e.g., differ
         Returns a response dict on success, or None to signal fallback to Claude.
         """
         try:
-            from llm_router import call_llm, classify_task, get_router_status
+            from llm_router import (
+                call_llm,
+                classify_task,
+                get_router_status,
+                parallel_distribute,
+                TASK_COMPLEX,
+                TASK_CHATBOT_TOOL_CALL,
+            )
         except ImportError:
             logger.debug("llm_router module not available, skipping free LLM path")
             return None
@@ -14397,6 +14610,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             "- For CPC/cost per click/bidding costs/ad pricing: call track_cpc with role, industry, locations for current vs benchmark CPC, trends, 30-day forecast, and alerts\n"
             "- For posting volume/how many jobs/market activity/hiring trends: call check_job_volume with role and locations for posting counts, WoW change, and per-location breakdown\n"
             "- For ad creative, job posting optimization, CL formatting, or best practices: call get_creative_best_practices with optional industry for data-backed creative tips\n"
+            "- For competitive threats, who's competing, competitor spend, or market competitiveness: call assess_competitive_threats with industry, optional role and locations\n"
             "- For EU/European labor market data: call query_eurostat with indicator and country code\n"
             "- For UK labor market data: call query_uk_ons with dataset for British employment stats\n"
             "- For Canadian labor market data: call query_statcan with table ID for Canadian labor stats\n"
@@ -14609,6 +14823,27 @@ When two or more tools return conflicting data for the same metric (e.g., differ
         else:
             task_type = TASK_CHATBOT_TOOL_CALL
 
+        # S49 P2-5: Use parallel_distribute() for multi-tool queries to spread
+        # LLM calls across providers and avoid rate-limiting any single one.
+        # Pre-select distributed providers for complex/comparison queries that
+        # will likely trigger 3+ tool rounds.
+        _distributed_providers: Optional[List[str]] = None
+        if (
+            _is_media_plan or _is_comparison or is_complex
+        ) and not _configured_preferred:
+            try:
+                _distributed_providers = parallel_distribute(
+                    n_calls=max_iterations,
+                    task_type=task_type,
+                )
+                logger.info(
+                    "S49 parallel_distribute: pre-allocated %d providers for multi-tool query: %s",
+                    len(_distributed_providers),
+                    _distributed_providers,
+                )
+            except Exception as _pd_exc:
+                logger.debug("parallel_distribute failed (non-critical): %s", _pd_exc)
+
         if _configured_preferred:
             # Paid providers available: use them first, free as fallback
             _tool_preferred = _configured_preferred + [
@@ -14695,11 +14930,17 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                         return None
                 else:
                     # First call: let router pick best available provider
+                    # S49 P2-5: Use distributed provider if available
                     import time as _time_mod
 
                     _iter_start = _time_mod.time()
+                    _force_dist = ""
+                    if _distributed_providers and iteration < len(
+                        _distributed_providers
+                    ):
+                        _force_dist = _distributed_providers[iteration]
                     print(
-                        f"[TOOL LOOP] iter={iteration} calling call_llm preferred={(_tool_preferred or [])[:3]} tools={len(clean_tools)}",
+                        f"[TOOL LOOP] iter={iteration} calling call_llm preferred={(_tool_preferred or [])[:3]} tools={len(clean_tools)} dist={_force_dist or 'none'}",
                         flush=True,
                     )
                     result = call_llm(
@@ -14710,7 +14951,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                         tools=clean_tools,
                         query_text=user_message,
                         preferred_providers=_tool_preferred,
-                        force_provider=ab_force_provider or "",
+                        force_provider=ab_force_provider or _force_dist or "",
                         timeout_budget=55.0,  # v4.3: tools need more time (5-10s each)
                     )
                     active_provider = (result or {}).get("provider")
@@ -19186,6 +19427,7 @@ _TOOL_SOURCE_MAP: Dict[str, str] = {
     "slotops_optimize": "SlotOps LinkedIn Baselines (89K jobs)",
     "optimize_campaign": "Campaign Optimization Engine (66M+ views, 11M+ clicks)",
     "recommend_channels": "Channel Recommender (20 industries, 10 platforms)",
+    "optimize_geography": "Geographic Unit Economics (76 metros, COLI + Bayesian smoothing)",
     "translate_text": "Google Translate",
     "analyze_employer_brand": "YouTube Data API",
     "estimate_meta_campaign": "Meta Ads (Facebook/Instagram)",
