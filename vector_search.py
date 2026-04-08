@@ -1324,6 +1324,19 @@ def index_knowledge_base() -> int:
         # S48: Real channel performance benchmarks (SlotOps 108K + CG 98K)
         "craigslist_performance_benchmarks.json",
         "linkedin_performance_benchmarks.json",
+        # S50: 15 previously unindexed data files
+        "adzuna_benchmarks.json",
+        "channel_benchmarks_live.json",
+        "competitor_careers.json",
+        "fred_indicators.json",
+        "google_trends.json",
+        "job_density_metros.json",
+        "job_posting_volumes.json",
+        "live_market_data.json",
+        "market_trends_live.json",
+        "platform_ad_specs.json",
+        "seasonal_hiring_trends.json",
+        "global_supply.json",
     ]
 
     documents: list[dict] = []

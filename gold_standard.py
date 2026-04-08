@@ -28,6 +28,29 @@ try:
 except ImportError:
     _RESEARCH_METRO_DATA = {}
 
+# S50: Seasonal hiring trends -- enriches activation calendar with
+# industry-specific peak/low multipliers from seasonal_hiring_trends.json.
+_SEASONAL_PATTERNS_GS: dict = {}
+
+
+def _load_seasonal_patterns_gs() -> dict:
+    """Load seasonal hiring trends. Cached after first call."""
+    global _SEASONAL_PATTERNS_GS
+    if _SEASONAL_PATTERNS_GS:
+        return _SEASONAL_PATTERNS_GS
+    import json as _json_mod
+    from pathlib import Path as _Path
+
+    _path = _Path(__file__).parent / "data" / "seasonal_hiring_trends.json"
+    try:
+        with open(_path, encoding="utf-8") as f:
+            raw = _json_mod.load(f)
+        _SEASONAL_PATTERNS_GS = raw.get("seasonal_patterns", {})
+    except (FileNotFoundError, _json_mod.JSONDecodeError, OSError):
+        pass  # non-critical, will use generic intensity weights
+    return _SEASONAL_PATTERNS_GS
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -3544,6 +3567,23 @@ def build_activation_calendar(data: dict) -> dict[str, Any]:
         }
         budget_weight = intensity_weights.get(month_info["hiring_intensity"], 1.0)
 
+        # S50: Overlay seasonal hiring multiplier from seasonal_hiring_trends.json.
+        # This provides more granular, industry-specific budget weighting than
+        # the generic hiring_intensity alone.
+        _seasonal_pats = _load_seasonal_patterns_gs()
+        _seasonal_mult = 1.0
+        _seasonal_label = "normal"
+        if _seasonal_pats and ind_key in _seasonal_pats:
+            _sp = _seasonal_pats[ind_key]
+            if month_num in (_sp.get("peak_months") or []):
+                _seasonal_mult = _sp.get("peak_multiplier", 1.15)
+                _seasonal_label = "peak"
+            elif month_num in (_sp.get("low_months") or []):
+                _seasonal_mult = _sp.get("low_multiplier", 0.85)
+                _seasonal_label = "low"
+            # Blend: average the generic intensity weight with seasonal multiplier
+            budget_weight = round((budget_weight + _seasonal_mult) / 2, 2)
+
         # Use industry-specific events when available, fall back to generic
         month_events = ind_monthly.get(month_num, month_info["events"])
 
@@ -3555,6 +3595,8 @@ def build_activation_calendar(data: dict) -> dict[str, Any]:
                 "season": month_info["season"],
                 "hiring_intensity": month_info["hiring_intensity"],
                 "budget_weight": budget_weight,
+                "seasonal_phase": _seasonal_label,
+                "seasonal_multiplier": _seasonal_mult,
                 "key_events": month_events,
                 "recommendation": month_info["recommendation"],
             }

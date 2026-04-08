@@ -5168,6 +5168,23 @@ def _build_slide_market_analysis(prs: Presentation, data: Dict):
                 macro_data = _rv["macro_economic"]
                 break
 
+        # KB fallback: read fred_indicators.json directly from knowledge base
+        if not macro_data:
+            _kb = data.get("_knowledge_base", {})
+            _fred_kb = _kb.get("fred_indicators", {}) if isinstance(_kb, dict) else {}
+            _fred_data = (
+                _fred_kb.get("data", _fred_kb) if isinstance(_fred_kb, dict) else {}
+            )
+            if isinstance(_fred_data, dict):
+                _flat: Dict[str, Any] = {}
+                for _fk, _fv in _fred_data.items():
+                    if isinstance(_fv, dict) and "value" in _fv:
+                        _flat[_fk] = _fv["value"]
+                    elif isinstance(_fv, (int, float)):
+                        _flat[_fk] = _fv
+                if _flat:
+                    macro_data = _flat
+
         macro_items = []
         if macro_data:
             unemp = macro_data.get("unemployment_rate")
@@ -5194,6 +5211,21 @@ def _build_slide_market_analysis(prs: Presentation, data: Dict):
                         f"{jolts}%" if isinstance(jolts, (int, float)) else str(jolts),
                     )
                 )
+            # S50: Additional FRED indicators when primary 3 slots not full
+            if len(macro_items) < 3:
+                _job_openings = macro_data.get("job_openings")
+                if _job_openings is not None and isinstance(
+                    _job_openings, (int, float)
+                ):
+                    macro_items.append(("Job Openings (000s)", f"{_job_openings:,.0f}"))
+            if len(macro_items) < 3:
+                _ahe = macro_data.get("avg_hourly_earnings")
+                if _ahe is not None and isinstance(_ahe, (int, float)):
+                    macro_items.append(("Avg Hourly Earnings", f"${_ahe:.2f}"))
+            if len(macro_items) < 3:
+                _ffr = macro_data.get("fed_funds_rate")
+                if _ffr is not None and isinstance(_ffr, (int, float)):
+                    macro_items.append(("Fed Funds Rate", f"{_ffr}%"))
 
         if not macro_items:
             macro_items = [

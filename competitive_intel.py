@@ -78,7 +78,11 @@ def _generate_competitive_narrative(competitor_data: Dict[str, Any]) -> str:
     router = _lazy_llm_router_ci()
     if not router:
         return ""
-    task_type = getattr(router, "TASK_RESEARCH", "research")
+    # S50: Route competitive summaries to TASK_INTELLIGENCE_SUMMARY (Gemini Flash
+    # Lite -- free, fast, ideal for short 3-sentence summaries) instead of
+    # TASK_RESEARCH (Claude Haiku -- expensive, overkill for summary length).
+    # 10s timeout for non-blocking plan generation.
+    task_type = getattr(router, "TASK_INTELLIGENCE_SUMMARY", "intelligence_summary")
     try:
         # S27: Increased from 2000 to 5000 chars to preserve competitor data integrity
         data_snapshot_raw = json.dumps(competitor_data, indent=2, default=str)
@@ -107,6 +111,7 @@ def _generate_competitive_narrative(competitor_data: Dict[str, Any]) -> str:
             ),
             task_type=task_type,
             max_tokens=300,
+            timeout_budget=10.0,
         )
         return result.get("text") or ""
     except Exception as e:

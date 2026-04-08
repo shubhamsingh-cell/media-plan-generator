@@ -65,6 +65,22 @@ KB_FILES: dict[str, str] = {
     # S48: Real channel performance benchmarks (SlotOps 108K + CG 98K)
     "craigslist_benchmarks": "craigslist_performance_benchmarks.json",
     "linkedin_benchmarks": "linkedin_performance_benchmarks.json",
+    # S50: 15 previously unindexed data files
+    "adzuna_benchmarks": "adzuna_benchmarks.json",
+    "channel_benchmarks_live": "channel_benchmarks_live.json",
+    "channels_db": "channels_db.json",
+    "competitor_careers": "competitor_careers.json",
+    "fred_indicators": "fred_indicators.json",
+    "google_trends": "google_trends.json",
+    "h1b_salary_intelligence": "h1b_salary_intelligence.json",
+    "job_density_metros": "job_density_metros.json",
+    "job_posting_volumes": "job_posting_volumes.json",
+    "joveo_publishers": "joveo_publishers.json",
+    "live_market_data": "live_market_data.json",
+    "market_trends_live": "market_trends_live.json",
+    "platform_ad_specs": "platform_ad_specs.json",
+    "seasonal_hiring_trends": "seasonal_hiring_trends.json",
+    "global_supply": "global_supply.json",
 }
 
 # Maximum file age (in days) before a startup warning is logged.

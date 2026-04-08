@@ -1365,6 +1365,26 @@ MODULE_LLM_PREFERENCES: Dict[str, Dict[str, Any]] = {
         "preferred_providers": [CLAUDE_HAIKU, GEMINI, GPT4O],
         "description": "v4.1: Quality-first -- Haiku for chat, Gemini fallback",
     },
+    # S50: Plan generator task-specific routing (mirrors chatbot's per-task routing).
+    # Maps each plan-gen sub-task to the best-fit model based on output format and
+    # quality requirements. All calls capped at 10s timeout_budget.
+    "plan_generator": {
+        "default_task": TASK_PLAN_NARRATIVE,
+        "narrative_task": TASK_PLAN_NARRATIVE,  # Prose -> Groq (fast, good narrative)
+        "structured_task": TASK_PLAN_STRUCTURED,  # JSON output -> Gemini (best structured)
+        "verification_task": TASK_VERIFICATION,  # Fact-check -> Claude Haiku (quality)
+        "summary_task": TASK_INTELLIGENCE_SUMMARY,  # Short summaries -> Gemini Flash Lite (free)
+        "preferred_providers": [GROQ, GEMINI, CEREBRAS],
+        "timeout_budget": 10.0,
+        "description": (
+            "S50: Task-specific routing for plan generation pipeline. "
+            "Narrative/prose -> Groq (300ms, free). "
+            "Structured JSON -> Gemini (best JSON output, free). "
+            "Verification -> Claude Haiku (quality-first). "
+            "Short summaries -> Gemini Flash Lite (cheapest free). "
+            "All calls 10s timeout to avoid blocking."
+        ),
+    },
 }
 
 

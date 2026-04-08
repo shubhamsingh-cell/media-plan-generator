@@ -17,9 +17,12 @@ The caller (app.py or data_orchestrator.py) passes in any enrichment
 data it has already fetched.
 """
 
+import json
 import logging
 import datetime
 import math
+import os
+from pathlib import Path
 from typing import Dict, List, Any, Optional, Tuple
 
 logger = logging.getLogger(__name__)
@@ -38,6 +41,142 @@ try:
     _HAS_COLLAR_INTEL = True
 except ImportError:
     _HAS_COLLAR_INTEL = False
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# LIVE DATA LOADERS -- channel_benchmarks_live.json & adzuna_benchmarks.json
+# ═══════════════════════════════════════════════════════════════════════════════
+_DATA_DIR = Path(__file__).parent / "data"
+_channel_bench_live_cache: Optional[Dict[str, Any]] = None
+_adzuna_bench_cache: Optional[Dict[str, Any]] = None
+
+
+def _load_channel_benchmarks_live() -> Dict[str, Any]:
+    """Load channel_benchmarks_live.json once, cache at module level.
+
+    Returns a dict keyed by channel slug (e.g. 'indeed', 'linkedin') with
+    CPC range (min/max) and CPA estimate (min/max) from live scrape data.
+    """
+    global _channel_bench_live_cache
+    if _channel_bench_live_cache is not None:
+        return _channel_bench_live_cache
+    _channel_bench_live_cache = {}
+    fpath = _DATA_DIR / "channel_benchmarks_live.json"
+    try:
+        if fpath.exists():
+            with open(fpath, "r", encoding="utf-8") as f:
+                raw = json.load(f)
+            for entry in raw.get("data", []):
+                ch = (entry.get("channel") or "").lower().strip()
+                if not ch:
+                    continue
+                meta = entry.get("metadata") or {}
+                cpc_range = meta.get("cpc_range") or {}
+                cpa_range = meta.get("cpa_estimate") or {}
+                cpc_min = cpc_range.get("min")
+                cpc_max = cpc_range.get("max")
+                cpa_min = cpa_range.get("min")
+                cpa_max = cpa_range.get("max")
+                # Compute typical CPC as geometric mean of min/max (less skewed than arithmetic)
+                typical_cpc = None
+                if cpc_min and cpc_max and cpc_min > 0 and cpc_max > 0:
+                    typical_cpc = round(math.sqrt(cpc_min * cpc_max), 2)
+                typical_cpa = None
+                if cpa_min and cpa_max and cpa_min > 0 and cpa_max > 0:
+                    typical_cpa = round(math.sqrt(cpa_min * cpa_max), 2)
+                _channel_bench_live_cache[ch] = {
+                    "cpc_min": cpc_min,
+                    "cpc_max": cpc_max,
+                    "cpc_typical": typical_cpc,
+                    "cpa_min": cpa_min,
+                    "cpa_max": cpa_max,
+                    "cpa_typical": typical_cpa,
+                    "model": meta.get("model") or entry.get("pricing_model") or "",
+                    "board_name": meta.get("board_name") or ch.title(),
+                }
+            if _channel_bench_live_cache:
+                logger.info(
+                    "Loaded channel_benchmarks_live: %d boards",
+                    len(_channel_bench_live_cache),
+                )
+    except (json.JSONDecodeError, OSError) as exc:
+        logger.error(
+            "Failed to load channel_benchmarks_live.json: %s", exc, exc_info=True
+        )
+    return _channel_bench_live_cache
+
+
+def _load_adzuna_benchmarks() -> Dict[str, Any]:
+    """Load adzuna_benchmarks.json once, cache at module level.
+
+    Returns a dict keyed by lowercased role name with job counts (US/GB/CA)
+    and salary histogram data -- useful for demand-weighted CPC adjustments.
+    """
+    global _adzuna_bench_cache
+    if _adzuna_bench_cache is not None:
+        return _adzuna_bench_cache
+    _adzuna_bench_cache = {}
+    fpath = _DATA_DIR / "adzuna_benchmarks.json"
+    try:
+        if fpath.exists():
+            with open(fpath, "r", encoding="utf-8") as f:
+                raw = json.load(f)
+            roles = raw.get("data", {}).get("roles", {})
+            for rname, rdata in roles.items():
+                us_count = 0
+                for k, v in rdata.items():
+                    if k.startswith("count_") and isinstance(v, dict):
+                        us_count += v.get("count", 0)
+                salary_hist = {}
+                for k, v in rdata.items():
+                    if k.startswith("salary_histogram") and isinstance(v, dict):
+                        salary_hist = v.get("histogram", {})
+                _adzuna_bench_cache[rname.lower()] = {
+                    "total_postings": us_count,
+                    "salary_histogram": salary_hist,
+                    "role": rname,
+                }
+            if _adzuna_bench_cache:
+                logger.info(
+                    "Loaded adzuna_benchmarks: %d roles", len(_adzuna_bench_cache)
+                )
+    except (json.JSONDecodeError, OSError) as exc:
+        logger.error("Failed to load adzuna_benchmarks.json: %s", exc, exc_info=True)
+    return _adzuna_bench_cache
+
+
+# Map channel_benchmarks_live.json slugs to BASE_BENCHMARKS category keys.
+_LIVE_CHANNEL_TO_CATEGORY: Dict[str, str] = {
+    "indeed": "job_board",
+    "linkedin": "social",
+    "ziprecruiter": "job_board",
+    "glassdoor": "job_board",
+    "monster": "job_board",
+    "careerbuilder": "job_board",
+}
+
+
+def _extract_cpc_from_live_benchmarks(category: str) -> Optional[float]:
+    """Try to get a CPC for a category from channel_benchmarks_live.json.
+
+    Averages the typical CPCs of all live-benchmark channels that map to
+    the requested category.  Returns None if no live data available.
+    """
+    live = _load_channel_benchmarks_live()
+    if not live:
+        return None
+    cpcs: List[float] = []
+    for slug, cat in _LIVE_CHANNEL_TO_CATEGORY.items():
+        if cat == category:
+            entry = live.get(slug, {})
+            typical = entry.get("cpc_typical")
+            if typical and typical > 0:
+                cpcs.append(typical)
+    if cpcs:
+        avg = round(sum(cpcs) / len(cpcs), 2)
+        return avg
+    return None
+
 
 # ── Canonical taxonomy standardizer ──
 # Used to normalize industry keys before CPH lookups.
@@ -1614,11 +1753,18 @@ def compute_channel_dollar_amounts(
         dollars = round(total_budget * pct / 100.0, 2)
         category = _category_for_channel(ch_name)
 
-        # ── CPC Resolution Cascade (v3): synthesized > trend_engine > KB > static ──
+        # ── CPC Resolution Cascade (v4): synthesized > live_bench > trend_engine > KB > static ──
         cpc = _extract_cpc_from_synthesized(category, synthesized_data)
         cpc_source = "synthesized"
         confidence = "high"
         trend_meta: Dict[str, Any] = {}
+
+        if cpc is None:
+            # v4: Try live channel benchmarks (channel_benchmarks_live.json)
+            cpc = _extract_cpc_from_live_benchmarks(category)
+            if cpc is not None:
+                cpc_source = "live_benchmark"
+                confidence = "high"
 
         if cpc is None:
             # v3: Try trend_engine with full context
@@ -3591,7 +3737,10 @@ def simulate_channel_swap(
             # Assign freed budget to the new channel
             add_dollars = freed_budget if freed_budget > 0 else 0.0
             add_category = _category_for_channel(add_channel)
-            add_cpc = BASE_BENCHMARKS["cpc"].get(add_category, 0.85)
+            # v4: Prefer live benchmark CPC over static
+            add_cpc = _extract_cpc_from_live_benchmarks(add_category)
+            if add_cpc is None:
+                add_cpc = BASE_BENCHMARKS["cpc"].get(add_category, 0.85)
             add_apply_rate = BASE_BENCHMARKS["apply_rate"].get(add_category, 0.05)
             hire_rate_val = BASE_BENCHMARKS.get("hire_rate", 0.02)
 

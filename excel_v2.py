@@ -54,6 +54,147 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
+# Seasonal Hiring Trends -- loaded once from data/seasonal_hiring_trends.json
+# Used to adjust 90-day forecast phasing based on industry seasonality.
+# ---------------------------------------------------------------------------
+_SEASONAL_PATTERNS: dict = {}
+
+
+def _load_seasonal_patterns() -> dict:
+    """Load seasonal hiring trends from JSON. Cached after first call."""
+    global _SEASONAL_PATTERNS
+    if _SEASONAL_PATTERNS:
+        return _SEASONAL_PATTERNS
+    import json
+    from pathlib import Path
+
+    _path = Path(__file__).parent / "data" / "seasonal_hiring_trends.json"
+    try:
+        with open(_path, encoding="utf-8") as f:
+            raw = json.load(f)
+        _SEASONAL_PATTERNS = raw.get("seasonal_patterns", {})
+        logger.info(
+            "Seasonal hiring patterns loaded: %d industries", len(_SEASONAL_PATTERNS)
+        )
+    except FileNotFoundError:
+        logger.warning("Seasonal hiring data not found: %s", _path)
+    except (json.JSONDecodeError, OSError) as exc:
+        logger.error("Failed to load seasonal hiring data: %s", exc, exc_info=True)
+    return _SEASONAL_PATTERNS
+
+
+def _seasonal_monthly_phasing(industry: str, campaign_start_month: int) -> list[float]:
+    """Compute 3-month budget phasing adjusted for seasonal hiring patterns.
+
+    Falls back to the standard ramp-up curve [0.25, 0.35, 0.40] when no
+    seasonal data is available for the given industry.
+
+    Args:
+        industry: Raw industry string from form input.
+        campaign_start_month: 1-12, the month the campaign begins.
+
+    Returns:
+        List of 3 floats summing to 1.0 representing monthly budget shares.
+    """
+    default_phasing = [0.25, 0.35, 0.40]
+    patterns = _load_seasonal_patterns()
+    if not patterns or not industry:
+        return default_phasing
+
+    # Normalize industry to match seasonal_hiring_trends.json keys
+    ind_lower = industry.lower().strip()
+    # Direct and substring matching
+    matched_key = ""
+    for key in patterns:
+        if key in ind_lower or ind_lower in key:
+            matched_key = key
+            break
+    # Broader keyword mapping for common industry names
+    if not matched_key:
+        _industry_map = {
+            "tech": "technology",
+            "software": "technology",
+            "it ": "technology",
+            "information technology": "technology",
+            "saas": "technology",
+            "health": "healthcare",
+            "medical": "healthcare",
+            "pharma": "healthcare",
+            "hospital": "healthcare",
+            "nursing": "healthcare",
+            "retail": "retail",
+            "ecommerce": "retail",
+            "e-commerce": "retail",
+            "hospitality": "hospitality",
+            "hotel": "hospitality",
+            "restaurant": "hospitality",
+            "food service": "hospitality",
+            "construction": "construction",
+            "building": "construction",
+            "education": "education",
+            "university": "education",
+            "school": "education",
+            "finance": "finance",
+            "banking": "finance",
+            "insurance": "finance",
+            "financial": "finance",
+            "manufactur": "manufacturing",
+            "industrial": "manufacturing",
+            "logistics": "logistics",
+            "warehouse": "logistics",
+            "supply chain": "logistics",
+            "shipping": "logistics",
+            "freight": "logistics",
+            "staffing": "staffing",
+            "recruiting": "staffing",
+            "temp agency": "staffing",
+            "transport": "transportation",
+            "trucking": "transportation",
+            "driving": "transportation",
+            "cdl": "transportation",
+            "government": "government",
+            "federal": "government",
+            "public sector": "government",
+        }
+        for keyword, seasonal_key in _industry_map.items():
+            if keyword in ind_lower:
+                matched_key = seasonal_key
+                break
+
+    if not matched_key or matched_key not in patterns:
+        return default_phasing
+
+    pattern = patterns[matched_key]
+    peak_months = set(pattern.get("peak_months", []))
+    low_months = set(pattern.get("low_months", []))
+    peak_mult = pattern.get("peak_multiplier", 1.15)
+    low_mult = pattern.get("low_multiplier", 0.85)
+
+    # Build raw weights for the 3 campaign months
+    raw_weights = []
+    for i in range(3):
+        m = ((campaign_start_month - 1 + i) % 12) + 1
+        if m in peak_months:
+            raw_weights.append(peak_mult)
+        elif m in low_months:
+            raw_weights.append(low_mult)
+        else:
+            raw_weights.append(1.0)
+
+    # Apply standard ramp-up curve as a base, then modulate by seasonal weights.
+    # This preserves the ramp-up shape (month 1 < month 2 < month 3) while
+    # shifting budget toward peak hiring months.
+    base = [0.25, 0.35, 0.40]
+    adjusted = [b * w for b, w in zip(base, raw_weights)]
+
+    # Normalize to sum to 1.0
+    total = sum(adjusted)
+    if total <= 0:
+        return default_phasing
+    return [round(a / total, 4) for a in adjusted]
+
+
+# ---------------------------------------------------------------------------
 # Design Tokens -- Sapphire Blue palette
 # ---------------------------------------------------------------------------
 NAVY = "0F172A"
@@ -2344,6 +2485,7 @@ def _build_sheet_executive_summary(
             f"(4) recommended next steps with timeline. "
             f"Be specific, cite data from above, no generic statements."
         )
+        # S50: 10s timeout for plan-gen LLM calls to avoid blocking Excel generation.
         _exec_result = _exec_router.call_llm(
             messages=[{"role": "user", "content": _narrative_prompt}],
             system_prompt=(
@@ -2354,6 +2496,7 @@ def _build_sheet_executive_summary(
             ),
             task_type=TASK_PLAN_NARRATIVE,  # S48: Route narratives to Groq (fast prose)
             max_tokens=600,
+            timeout_budget=10.0,
         )
         exec_narrative = _exec_result.get("text") or ""
     except ImportError:
@@ -3262,6 +3405,58 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
 
         row = _write_table_row(ws, row, values, alternate=idx % 2 == 1)
 
+    # ── 2b. Macro Economic Context (FRED indicators) ──
+    _fred_macro = {}
+    # Try synthesized macro_economic from first role's job_market_demand
+    _jmd = synthesized.get("job_market_demand", {})
+    if isinstance(_jmd, dict):
+        for _jmd_v in _jmd.values():
+            if isinstance(_jmd_v, dict) and _jmd_v.get("macro_economic"):
+                _fred_macro = _jmd_v["macro_economic"]
+                break
+    # KB fallback: fred_indicators.json
+    if not _fred_macro:
+        _kb = data.get("_knowledge_base", {})
+        _fred_kb = _kb.get("fred_indicators", {}) if isinstance(_kb, dict) else {}
+        _fred_data_raw = (
+            _fred_kb.get("data", _fred_kb) if isinstance(_fred_kb, dict) else {}
+        )
+        if isinstance(_fred_data_raw, dict):
+            for _fk, _fv in _fred_data_raw.items():
+                if _fk in ("source", "_refreshed_at", "_refreshed_iso"):
+                    continue
+                if isinstance(_fv, dict) and "value" in _fv:
+                    _fred_macro[_fk] = _fv["value"]
+                elif isinstance(_fv, (int, float)):
+                    _fred_macro[_fk] = _fv
+
+    if _fred_macro:
+        row += 1
+        row = _write_subsection_header(ws, row, "Macro Economic Context (FRED)")
+        _fred_display = [
+            ("Unemployment Rate", "unemployment_rate", "%"),
+            ("Job Openings (000s)", "job_openings", "K"),
+            ("Avg Hourly Earnings", "avg_hourly_earnings", "$"),
+            ("Fed Funds Rate", "fed_funds_rate", "%"),
+            ("CPI Index", "cpi_inflation", ""),
+        ]
+        for _label, _key, _unit in _fred_display:
+            _val = _fred_macro.get(_key)
+            if _val is not None:
+                if _unit == "%":
+                    _val_str = f"{_val}%"
+                elif _unit == "$":
+                    _val_str = (
+                        f"${_val:,.2f}" if isinstance(_val, (int, float)) else str(_val)
+                    )
+                elif _unit == "K":
+                    _val_str = (
+                        f"{_val:,.0f}" if isinstance(_val, (int, float)) else str(_val)
+                    )
+                else:
+                    _val_str = f"{_val:,.2f}" if isinstance(_val, float) else str(_val)
+                row = _write_kv_row(ws, row, _label, _val_str)
+
     row += 2
 
     # ── 3. Competitive Landscape ──
@@ -3552,6 +3747,16 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
     # ── 5. Market Demand ──
     market_demand = synthesized.get("job_market_demand", {})
 
+    # S50: Load Google Trends from KB for search interest enrichment
+    _gt_roles_for_demand: Dict[str, dict] = {}
+    _kb_for_gt = data.get("_knowledge_base", {})
+    if isinstance(_kb_for_gt, dict):
+        _gt_kb_raw = _kb_for_gt.get("google_trends", {})
+        if isinstance(_gt_kb_raw, dict):
+            _gt_data_raw = _gt_kb_raw.get("data", _gt_kb_raw)
+            if isinstance(_gt_data_raw, dict):
+                _gt_roles_for_demand = _gt_data_raw.get("roles", {})
+
     if market_demand:
         row = _write_section_header(ws, row, "Market Demand by Role")
 
@@ -3562,6 +3767,7 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
             "Competition",
             "Temperature",
             "Trend",
+            "Search Interest",
         ]
         row = _write_table_header(ws, row, headers)
 
@@ -3578,6 +3784,40 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
         ):
             if isinstance(demand, dict):
                 role_name = demand.get("role", demand.get("title", role_key))
+
+                # S50: Extract search interest from Google Trends
+                _search_interest_str = ""
+                _st = demand.get("search_trend", {})
+                if isinstance(_st, dict) and _st.get("current_interest"):
+                    _ci = _st["current_interest"]
+                    _td = _st.get("trend_direction", "")
+                    _tc = _st.get("trend_change_pct")
+                    _search_interest_str = f"{_ci}/100"
+                    if _td:
+                        _search_interest_str += f" ({_td}"
+                        if _tc is not None:
+                            _search_interest_str += f" {_tc:+.1f}%"
+                        _search_interest_str += ")"
+                # KB fallback: match role to GT roles dict
+                if not _search_interest_str and _gt_roles_for_demand:
+                    _rn_str = str(role_name) if role_name else str(role_key)
+                    _rn_lower = _rn_str.lower()
+                    for _gtk, _gtv in _gt_roles_for_demand.items():
+                        if isinstance(_gtv, dict) and (
+                            _rn_lower in _gtk.lower() or _gtk.lower() in _rn_lower
+                        ):
+                            _ci = _gtv.get("current_interest")
+                            _td = _gtv.get("trend_direction", "")
+                            _tc = _gtv.get("trend_change_pct")
+                            if _ci is not None:
+                                _search_interest_str = f"{_ci}/100"
+                                if _td:
+                                    _search_interest_str += f" ({_td}"
+                                    if _tc is not None:
+                                        _search_interest_str += f" {_tc:+.1f}%"
+                                    _search_interest_str += ")"
+                            break
+
                 values = [
                     role_name if isinstance(role_name, str) else str(role_name),
                     _fmt_number(
@@ -3595,6 +3835,7 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                     _flatten_value(
                         demand.get("trend", demand.get("trend_direction") or "")
                     ),
+                    _search_interest_str or "N/A",
                 ]
                 row = _write_table_row(ws, row, values, alternate=idx % 2 == 1)
 
@@ -5434,9 +5675,6 @@ def _build_sheet_rolling_forecast(ws, data: dict) -> None:
     if total_hires == 0:
         total_hires = int(_safe_num(ba_total_proj.get("hires") or 0))
 
-    # Ramp-up distribution: campaigns need time to optimize
-    # Month 1: 25% (ramp-up, learning), Month 2: 35% (optimizing), Month 3: 40% (peak)
-    monthly_pcts = [0.25, 0.35, 0.40]
     today = datetime.date.today()
 
     # S49 FIX (Issue 18): Use campaign_start_month from form data instead of
@@ -5449,6 +5687,13 @@ def _build_sheet_rolling_forecast(ws, data: dict) -> None:
         _campaign_start_month = 0
     if _campaign_start_month < 1 or _campaign_start_month > 12:
         _campaign_start_month = today.month  # fallback to current month
+
+    # S50: Seasonal-aware budget phasing replaces the flat 25/35/40 ramp-up.
+    # Uses seasonal_hiring_trends.json to shift budget toward peak hiring months
+    # for the campaign's industry, while preserving the ramp-up base shape.
+    # Falls back to [0.25, 0.35, 0.40] when no seasonal data is available.
+    _industry_raw = str(data.get("industry") or "")
+    monthly_pcts = _seasonal_monthly_phasing(_industry_raw, _campaign_start_month)
 
     # Determine the forecast start year: if campaign month is in the past
     # relative to current date, assume it starts this year anyway (form input);

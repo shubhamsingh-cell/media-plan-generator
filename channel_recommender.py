@@ -482,8 +482,8 @@ _PLATFORM_TO_CATEGORY_DISPLAY: Dict[str, str] = {
 
 # CPC benchmarks per named ad channel
 
-# (CPC, apply_rate) per channel
-_CHANNEL_BENCH: Dict[str, Tuple[float, float]] = {
+# (CPC, apply_rate) per channel -- static defaults, overlaid by live data below
+_CHANNEL_BENCH_STATIC: Dict[str, Tuple[float, float]] = {
     "Indeed Sponsored Jobs": (0.85, 0.10),
     "ZipRecruiter Sponsored": (0.95, 0.09),
     "LinkedIn Ads": (2.83, 0.04),
@@ -495,6 +495,63 @@ _CHANNEL_BENCH: Dict[str, Tuple[float, float]] = {
     "Snapchat Ads": (0.90, 0.02),
     "X (Twitter) Ads": (1.30, 0.03),
 }
+
+
+# ── Live benchmark overlay (channel_benchmarks_live.json) ──
+# Maps live JSON slugs to channel_recommender platform names.
+_LIVE_SLUG_TO_PLATFORM: Dict[str, str] = {
+    "indeed": "Indeed Sponsored Jobs",
+    "linkedin": "LinkedIn Ads",
+    "ziprecruiter": "ZipRecruiter Sponsored",
+    "glassdoor": "Google Ads",  # Glassdoor CPC proxies search/display
+    "monster": "Indeed Sponsored Jobs",  # Monster CPCs close to Indeed
+}
+
+
+def _overlay_live_benchmarks() -> Dict[str, Tuple[float, float]]:
+    """Return _CHANNEL_BENCH_STATIC overlaid with channel_benchmarks_live.json CPCs.
+
+    Live data provides CPC ranges; we use the geometric mean of min/max
+    as the typical CPC.  Apply rates are kept from static defaults since
+    live data does not include them.
+    """
+    result = dict(_CHANNEL_BENCH_STATIC)
+    live_path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "data",
+        "channel_benchmarks_live.json",
+    )
+    try:
+        with open(live_path, "r", encoding="utf-8") as fh:
+            raw = json.load(fh)
+        for entry in raw.get("data", []):
+            slug = (entry.get("channel") or "").lower().strip()
+            platform = _LIVE_SLUG_TO_PLATFORM.get(slug)
+            if not platform or platform not in result:
+                continue
+            meta = entry.get("metadata") or {}
+            cpc_range = meta.get("cpc_range") or {}
+            cpc_min = cpc_range.get("min")
+            cpc_max = cpc_range.get("max")
+            if cpc_min and cpc_max and cpc_min > 0 and cpc_max > 0:
+                import math as _m
+
+                live_cpc = round(_m.sqrt(cpc_min * cpc_max), 2)
+                _, static_ar = result[platform]
+                result[platform] = (live_cpc, static_ar)
+                logger.info(
+                    "channel_recommender: overlaid %s CPC %.2f from live data (was %.2f)",
+                    platform,
+                    live_cpc,
+                    _CHANNEL_BENCH_STATIC[platform][0],
+                )
+    except (FileNotFoundError, json.JSONDecodeError, OSError) as exc:
+        logger.debug("channel_recommender: live benchmark overlay skipped: %s", exc)
+    return result
+
+
+# Build the effective benchmark table -- live overlay on static defaults
+_CHANNEL_BENCH: Dict[str, Tuple[float, float]] = _overlay_live_benchmarks()
 _CHANNEL_CPC = {k: v[0] for k, v in _CHANNEL_BENCH.items()}
 _CHANNEL_APPLY_RATE = {k: v[1] for k, v in _CHANNEL_BENCH.items()}
 
@@ -792,6 +849,20 @@ def recommend_channels(
                 "Failed to get intl local platforms: %s", _intl_err, exc_info=True
             )
 
+    # ── Joveo publisher network enrichment ──
+    joveo_publisher_info: Dict[str, Any] = {}
+    try:
+        joveo_publisher_info = _enrich_with_joveo_publishers(locs)
+    except Exception as _jp_err:
+        logger.debug("Joveo publisher enrichment skipped: %s", _jp_err)
+
+    # ── Global supply enrichment for international locations ──
+    global_supply_info: Dict[str, Any] = {}
+    try:
+        global_supply_info = _enrich_with_global_supply(locs)
+    except Exception as _gs_err:
+        logger.debug("Global supply enrichment skipped: %s", _gs_err)
+
     result: Dict[str, Any] = {
         "must_have": must_have,
         "should_have": should_have,
@@ -818,6 +889,154 @@ def recommend_channels(
             f" Additionally, {len(intl_local_platforms)} local platform(s) recommended "
             f"for international markets: {', '.join(p['name'] for p in intl_local_platforms[:5])}."
         )
+    if joveo_publisher_info:
+        result["joveo_publisher_network"] = joveo_publisher_info
+    if global_supply_info:
+        result["global_supply_intelligence"] = global_supply_info
+    return result
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# JOVEO PUBLISHER NETWORK ENRICHMENT (joveo_publishers.json)
+# ═══════════════════════════════════════════════════════════════════════════════
+_joveo_publishers_cache: Optional[Dict] = None
+
+
+def _load_joveo_publishers() -> Dict:
+    """Load joveo_publishers.json once, cache at module level."""
+    global _joveo_publishers_cache
+    if _joveo_publishers_cache is not None:
+        return _joveo_publishers_cache
+    _path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "data", "joveo_publishers.json"
+    )
+    try:
+        with open(_path, "r", encoding="utf-8") as fh:
+            _joveo_publishers_cache = json.load(fh)
+    except (FileNotFoundError, json.JSONDecodeError) as exc:
+        logger.debug("Failed to load joveo_publishers.json: %s", exc)
+        _joveo_publishers_cache = {}
+    return _joveo_publishers_cache
+
+
+def _enrich_with_joveo_publishers(locations: List[str]) -> Dict[str, Any]:
+    """Enrich channel recommendations with Joveo publisher network data.
+
+    Returns publisher counts by category and relevant country-specific publishers.
+    """
+    pubs = _load_joveo_publishers()
+    if not pubs:
+        return {}
+
+    result: Dict[str, Any] = {
+        "total_active_publishers": pubs.get("total_active_publishers", 0),
+    }
+
+    by_category = pubs.get("by_category", {})
+    if by_category:
+        result["publishers_by_category"] = {
+            cat: len(names) for cat, names in by_category.items()
+        }
+
+    by_country = pubs.get("by_country", {})
+    if locations and by_country:
+        matched_countries: Dict[str, List[str]] = {}
+        for loc in locations:
+            loc_lower = (loc or "").lower().strip()
+            for country_name, country_pubs in by_country.items():
+                if (
+                    loc_lower in country_name.lower()
+                    or country_name.lower() in loc_lower
+                ):
+                    matched_countries[country_name] = country_pubs[:10]  # top 10
+                    break
+        if matched_countries:
+            result["location_publishers"] = {
+                country: {
+                    "publisher_count": len(pubs_list),
+                    "sample_publishers": pubs_list,
+                }
+                for country, pubs_list in matched_countries.items()
+            }
+
+    return result
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# GLOBAL SUPPLY ENRICHMENT (global_supply.json)
+# ═══════════════════════════════════════════════════════════════════════════════
+_global_supply_cache: Optional[Dict] = None
+
+
+def _load_global_supply() -> Dict:
+    """Load global_supply.json once, cache at module level."""
+    global _global_supply_cache
+    if _global_supply_cache is not None:
+        return _global_supply_cache
+    _path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "data", "global_supply.json"
+    )
+    try:
+        with open(_path, "r", encoding="utf-8") as fh:
+            _global_supply_cache = json.load(fh)
+    except (FileNotFoundError, json.JSONDecodeError) as exc:
+        logger.debug("Failed to load global_supply.json: %s", exc)
+        _global_supply_cache = {}
+    return _global_supply_cache
+
+
+def _enrich_with_global_supply(locations: List[str]) -> Dict[str, Any]:
+    """Enrich channel recommendations with global supply intelligence.
+
+    Returns country-specific board info, DEI boards, and billing models
+    for locations that match the supply data.
+    """
+    supply = _load_global_supply()
+    if not supply:
+        return {}
+
+    country_boards = supply.get("country_job_boards", {})
+    dei_boards = supply.get("dei_boards_by_country", {})
+    niche_boards = supply.get("niche_industry_boards", {})
+    billing_models = supply.get("billing_models", {})
+
+    result: Dict[str, Any] = {
+        "available_countries": len(country_boards),
+    }
+
+    if not locations:
+        return result
+
+    matched: Dict[str, Dict[str, Any]] = {}
+    for loc in locations:
+        loc_lower = (loc or "").lower().strip()
+        for country_name, country_data in country_boards.items():
+            if loc_lower in country_name.lower() or country_name.lower() in loc_lower:
+                boards = country_data.get("boards", [])
+                entry: Dict[str, Any] = {
+                    "total_boards": len(boards),
+                    "tier_1_boards": [
+                        b.get("name")
+                        for b in boards
+                        if (b.get("tier") or "").lower() == "tier 1"
+                    ],
+                    "monthly_spend": country_data.get("monthly_spend", "N/A"),
+                    "key_metros": country_data.get("key_metros", []),
+                }
+                # DEI boards for the country
+                country_dei = dei_boards.get(country_name, [])
+                if country_dei:
+                    entry["dei_boards"] = country_dei[:10]
+                matched[country_name] = entry
+                break
+
+    if matched:
+        result["country_intelligence"] = matched
+
+    # Include billing model guidance
+    if billing_models:
+        result["billing_models"] = billing_models
+
     return result
 
 

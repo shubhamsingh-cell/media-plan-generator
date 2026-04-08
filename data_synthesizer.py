@@ -74,6 +74,16 @@ try:
 except ImportError:
     _GS_ROLE_SALARY_RANGES: dict = {}
 
+# S50: H-1B/LCA salary intelligence -- high-reliability government-sourced
+# salary data from DOL certified filings, used as validation layer in
+# fuse_salary_intelligence().
+try:
+    from h1b_data import query_h1b_salaries as _query_h1b_salaries
+
+    _HAS_H1B_DATA = True
+except ImportError:
+    _HAS_H1B_DATA = False
+
 
 # ---------------------------------------------------------------------------
 # Source reliability weights (higher = more trustworthy)
@@ -120,6 +130,9 @@ SOURCE_WEIGHTS: Dict[str, float] = {
     "Jooble API": 0.60,
     "Jooble Market Benchmarks": 0.50,
     "CurrencyRates": 0.70,
+    # H-1B/LCA certified filings (government-sourced, high reliability)
+    "DOL H-1B/LCA": 0.90,
+    "H-1B LCA Data": 0.90,
     # Knowledge base fallback
     "KB Benchmark": 0.40,
     "KB Fallback": 0.30,
@@ -1270,6 +1283,36 @@ def fuse_salary_intelligence(
                         )
                         break  # Use first location with salary data
 
+        # --- H-1B/LCA salary data (DOL certified filings) ---
+        # High-reliability government source. Use as validation/cross-check
+        # when available, or as primary data when other sources are sparse.
+        if _HAS_H1B_DATA:
+            try:
+                # Extract first location for metro-level query
+                _locations_raw = input_data.get("locations") or []
+                _first_loc = ""
+                if isinstance(_locations_raw, list) and _locations_raw:
+                    _loc0 = _locations_raw[0]
+                    if isinstance(_loc0, str):
+                        _first_loc = _loc0
+                    elif isinstance(_loc0, dict):
+                        _first_loc = str(_loc0.get("city") or _loc0.get("name") or "")
+
+                h1b_result = _query_h1b_salaries(role, _first_loc)
+                if not h1b_result.get("error"):
+                    # Prefer metro-specific data, fall back to national
+                    h1b_metro = h1b_result.get("metro", {})
+                    h1b_national = h1b_result.get("national", {})
+                    h1b_median = (
+                        h1b_metro.get("median_salary")
+                        or h1b_national.get("median_salary")
+                        or 0
+                    )
+                    if h1b_median and h1b_median > 0:
+                        salary_points.append((float(h1b_median), 0.90, "DOL H-1B/LCA"))
+            except Exception as _h1b_exc:
+                logger.debug("H-1B salary lookup skipped for %s: %s", role, _h1b_exc)
+
         # --- Fallback: Use knowledge base benchmarks if no API data ---
         if not salary_points:
             kb_benchmarks = kb.get("benchmarks", {}) if isinstance(kb, dict) else {}
@@ -1772,22 +1815,76 @@ def fuse_job_market_demand(
                     ),
                 }
 
-    # --- Enrich from Google Trends (previously orphaned) ---
+    # --- Enrich from Google Trends (API enriched OR KB fallback) ---
     _gtrends = enriched.get("search_trends", enriched.get("google_trends_data", {}))
+    # KB fallback: google_trends.json stores data under data.roles.{Role}
+    if (not _gtrends or not isinstance(_gtrends, dict)) and kb:
+        _gt_kb = kb.get("google_trends", {})
+        if isinstance(_gt_kb, dict):
+            _gt_data = _gt_kb.get("data", _gt_kb)
+            _gt_roles = _gt_data.get("roles", {}) if isinstance(_gt_data, dict) else {}
+            if _gt_roles:
+                _gtrends = {"roles": _gt_roles}
     if isinstance(_gtrends, dict) and _gtrends:
+        # Normalize: handle both {roles: {Name: {...}}} and flat formats
+        _gt_roles_map = _gtrends.get("roles", {})
         for _rk, _rv in result.items():
-            if isinstance(_rv, dict) and not _rv.get("search_trend"):
+            if not isinstance(_rv, dict):
+                continue
+            if _rv.get("search_trend"):
+                continue
+            # Try exact match then fuzzy match against GT role keys
+            _matched_gt = None
+            if isinstance(_gt_roles_map, dict):
+                _matched_gt = _gt_roles_map.get(_rk)
+                if not _matched_gt:
+                    _rk_lower = _rk.lower()
+                    for _gtk, _gtv in _gt_roles_map.items():
+                        if _rk_lower in _gtk.lower() or _gtk.lower() in _rk_lower:
+                            _matched_gt = _gtv
+                            break
+            if isinstance(_matched_gt, dict):
+                _rv["search_trend"] = {
+                    "current_interest": _matched_gt.get("current_interest"),
+                    "peak_interest": _matched_gt.get("peak_interest"),
+                    "trend_direction": _matched_gt.get("trend_direction"),
+                    "trend_change_pct": _matched_gt.get("trend_change_pct"),
+                    "source": _matched_gt.get("source", "google_trends"),
+                }
+            else:
+                # Fallback: pass the whole GT dict for downstream consumers
                 _rv["search_trend"] = _gtrends
 
-    # --- Enrich from FRED indicators (previously orphaned) ---
+    # --- Enrich from FRED indicators (API enriched OR KB fallback) ---
     _fred = enriched.get("fred_indicators", enriched.get("fred_data", {}))
-    if isinstance(_fred, dict) and _fred:
+    # KB fallback: fred_indicators.json stores data under data.{indicator}.value
+    if (not _fred or not isinstance(_fred, dict)) and kb:
+        _fred_kb = kb.get("fred_indicators", {})
+        if isinstance(_fred_kb, dict):
+            _fred = _fred_kb.get("data", _fred_kb)
+    # Normalize nested FRED structure: {unemployment_rate: {value: 4.4}} -> flat
+    _fred_flat: Dict[str, Any] = {}
+    if isinstance(_fred, dict):
+        for _fk, _fv in _fred.items():
+            if _fk in ("source", "_refreshed_at", "_refreshed_iso"):
+                continue
+            if isinstance(_fv, dict) and "value" in _fv:
+                _fred_flat[_fk] = _fv["value"]
+            elif isinstance(_fv, (int, float)):
+                _fred_flat[_fk] = _fv
+    if _fred_flat:
         for _rk, _rv in result.items():
             if isinstance(_rv, dict):
                 _rv["macro_economic"] = {
-                    "unemployment_rate": _fred.get("unemployment_rate"),
-                    "labor_force_participation": _fred.get("labor_force_participation"),
-                    "job_openings_rate": _fred.get("job_openings_rate"),
+                    "unemployment_rate": _fred_flat.get("unemployment_rate"),
+                    "labor_force_participation": _fred_flat.get(
+                        "labor_force_participation"
+                    ),
+                    "job_openings_rate": _fred_flat.get("job_openings_rate"),
+                    "job_openings": _fred_flat.get("job_openings"),
+                    "avg_hourly_earnings": _fred_flat.get("avg_hourly_earnings"),
+                    "fed_funds_rate": _fred_flat.get("fed_funds_rate"),
+                    "cpi_inflation": _fred_flat.get("cpi_inflation"),
                 }
 
     logger.info("Job market demand fused for %d roles", len(result))
@@ -4647,11 +4744,13 @@ Respond with ONLY the JSON object, no markdown formatting or code blocks."""
         _narrative_max_tokens = 8192 if (_n_roles >= 3 or _n_locs >= 3) else 1024
 
         # S48: Route plan narratives to Groq (fast prose) via TASK_PLAN_NARRATIVE
+        # S50: 10s timeout for plan-gen LLM calls to avoid blocking the pipeline.
         result = call_llm(
             messages=[{"role": "user", "content": prompt}],
             system_prompt="You are a senior recruitment marketing strategist. Return ONLY valid JSON.",
             max_tokens=_narrative_max_tokens,
             task_type=TASK_PLAN_NARRATIVE,
+            timeout_budget=10.0,
         )
 
         text = (result or {}).get("text") or ""

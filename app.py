@@ -344,6 +344,7 @@ def _generate_narrative(
     # S48: Use TASK_PLAN_NARRATIVE for prose generation -- routes to Groq (fast,
     # good narrative quality) instead of funneling through Gemini.  Falls back to
     # Gemini/Cerebras if Groq is unavailable.
+    # S50: 10s timeout for all plan-gen LLM calls to avoid blocking the pipeline.
     task = task_type or getattr(router, "TASK_PLAN_NARRATIVE", "plan_narrative")
     try:
         prompt = (
@@ -364,6 +365,7 @@ def _generate_narrative(
             ),
             task_type=task,
             max_tokens=max_tokens,
+            timeout_budget=10.0,
         )
         text = result.get("text") or ""
         if text:
@@ -1232,11 +1234,14 @@ def _copilot_suggest_brief(partial: str, context: dict) -> list[dict]:
             f"Return ONLY a JSON array of objects with keys: text, confidence (0-1), reason (one sentence).\n"
             f"Example: {example_json}"
         )
+        # S50: TASK_PLAN_STRUCTURED for JSON output (Gemini best at structured),
+        # 10s timeout to avoid blocking brief typing experience.
         result = router.call_llm(
             messages=[{"role": "user", "content": prompt}],
             system_prompt="Return only valid JSON array. No markdown, no explanation.",
-            task_type=getattr(router, "TASK_CONTEXT_SUMMARIZE", "context_summarize"),
+            task_type=getattr(router, "TASK_PLAN_STRUCTURED", "plan_structured"),
             max_tokens=300,
+            timeout_budget=10.0,
         )
         response_text = result.get("text") or ""
         # Parse JSON from response
@@ -1406,6 +1411,7 @@ def _generate_product_insights(
             "Each insight should be 1-2 sentences. Focus on practical recommendations "
             "a recruitment media planner can act on immediately."
         )
+        # S50: 10s timeout_budget matches _INSIGHTS_LLM_TIMEOUT thread timeout
         result = router.call_llm(
             messages=[{"role": "user", "content": prompt}],
             system_prompt=(
@@ -1414,6 +1420,7 @@ def _generate_product_insights(
             ),
             task_type=task_type,
             max_tokens=max_tokens,
+            timeout_budget=10.0,
         )
         return result.get("text") or ""
 
@@ -1708,6 +1715,22 @@ def load_knowledge_base() -> dict:
         "craigslist_performance": "craigslist_performance_benchmarks.json",
         "international_benchmarks": "international_benchmarks_2026.json",
         "slotops_benchmarks": "slotops_benchmarks_summary.json",
+        # S50: 15 previously unindexed data files
+        "adzuna_benchmarks": "adzuna_benchmarks.json",
+        "channel_benchmarks_live": "channel_benchmarks_live.json",
+        "channels_db": "channels_db.json",
+        "competitor_careers": "competitor_careers.json",
+        "fred_indicators": "fred_indicators.json",
+        "google_trends": "google_trends.json",
+        "h1b_salary_intelligence": "h1b_salary_intelligence.json",
+        "job_density_metros": "job_density_metros.json",
+        "job_posting_volumes": "job_posting_volumes.json",
+        "joveo_publishers": "joveo_publishers.json",
+        "live_market_data": "live_market_data.json",
+        "market_trends_live": "market_trends_live.json",
+        "platform_ad_specs": "platform_ad_specs.json",
+        "seasonal_hiring_trends": "seasonal_hiring_trends.json",
+        "global_supply": "global_supply.json",
     }
 
     kb = {}
@@ -2809,6 +2832,7 @@ try:
     logger.info("google_maps_integration loaded successfully")
 except ImportError:
     _has_google_maps = False
+    geocode_address = batch_geocode = places_autocomplete = maps_status = None
 
 try:
     from google_knowledge_graph import (
@@ -2822,6 +2846,7 @@ try:
     logger.info("google_knowledge_graph loaded successfully")
 except ImportError:
     _has_knowledge_graph = False
+    enrich_company = enrich_job_title = enrich_location = kg_status = None
 
 try:
     from google_bigquery_integration import (
@@ -3724,6 +3749,8 @@ OR
 {{"verified": false, "issues": ["issue1", "issue2"], "severity": "minor|major"}}"""
 
     try:
+        # S50: 10s timeout for verification -- structured JSON, Gemini preferred.
+        # Falls back through TASK_VERIFICATION chain if Gemini unavailable.
         result = call_llm(
             messages=[{"role": "user", "content": prompt}],
             system_prompt="You are a recruitment advertising data verifier. Return ONLY valid JSON.",
@@ -3731,6 +3758,7 @@ OR
             task_type=TASK_VERIFICATION,
             query_text="verify media plan data",
             preferred_providers=["gemini"],
+            timeout_budget=10.0,
         )
         if result and (result.get("text") or result.get("content")):
             content = result.get("text") or result.get("content") or ""
@@ -7258,6 +7286,8 @@ def _analyze_compliance(data: dict) -> dict:
     )
 
     try:
+        # S50: 10s timeout + TASK_PLAN_STRUCTURED for JSON output (Gemini best
+        # at structured compliance JSON). Falls back through chain.
         result = router.call_llm(
             messages=[{"role": "user", "content": prompt}],
             system_prompt=(
@@ -7265,8 +7295,9 @@ def _analyze_compliance(data: dict) -> dict:
                 "Analyze job postings for legal compliance issues. "
                 "Always return valid JSON. Be thorough but practical."
             ),
-            task_type=task_type,
+            task_type=getattr(router, "TASK_PLAN_STRUCTURED", task_type),
             max_tokens=1024,
+            timeout_budget=10.0,
         )
         response_text = result.get("text") or ""
 
@@ -7429,6 +7460,10 @@ def _audit_complianceguard(data: dict) -> dict:
     )
 
     try:
+        # S50: Route compliance audits to TASK_PLAN_STRUCTURED (Gemini -- best
+        # structured JSON output). 10s timeout for non-fix mode; fix mode gets
+        # 15s because it includes a full rewrite.
+        _compliance_timeout = 15.0 if fix_mode else 10.0
         result = router.call_llm(
             messages=[{"role": "user", "content": prompt}],
             system_prompt=(
@@ -7437,8 +7472,9 @@ def _audit_complianceguard(data: dict) -> dict:
                 "Transparency Directive, EU Employment Equality Directive) regulations. "
                 "Analyze job postings thoroughly. Always return valid JSON."
             ),
-            task_type=task_type,
+            task_type=getattr(router, "TASK_PLAN_STRUCTURED", task_type),
             max_tokens=2048 if fix_mode else 1536,
+            timeout_budget=_compliance_timeout,
         )
         response_text: str = result.get("text") or ""
 
@@ -7554,7 +7590,10 @@ def _generate_creative_ads(data: dict) -> dict:
         return {"variants": [], "llm_available": False}
 
     # S48: Route ad copy (prose generation) to Groq via TASK_PLAN_NARRATIVE
-    task_type = getattr(router, "TASK_PLAN_NARRATIVE", "plan_narrative")
+    # S50: Output is JSON array -- use TASK_PLAN_STRUCTURED (Gemini) for reliable
+    # structured output. Prose quality inside the JSON values is still good with
+    # Gemini. 10s timeout to avoid blocking creative generation.
+    task_type = getattr(router, "TASK_PLAN_STRUCTURED", "plan_structured")
     prompt = (
         f"Generate 5 recruitment ad copy variants for:\n"
         f"Role: {job_title} at {company}\n"
@@ -7587,6 +7626,7 @@ def _generate_creative_ads(data: dict) -> dict:
             ),
             task_type=task_type,
             max_tokens=800,
+            timeout_budget=10.0,
         )
         response_text = result.get("text") or ""
 
@@ -7680,7 +7720,9 @@ def _generate_post_campaign_summary(data: dict) -> dict:
         return _post_campaign_template_fallback(data)
 
     # S48: Route executive summaries to Groq via TASK_PLAN_NARRATIVE (fast prose)
-    task_type = getattr(router, "TASK_PLAN_NARRATIVE", "plan_narrative")
+    # S50: Output is JSON with prose values -- use TASK_PLAN_STRUCTURED (Gemini)
+    # for reliable JSON structure, 10s timeout.
+    task_type = getattr(router, "TASK_PLAN_STRUCTURED", "plan_structured")
     prompt = f"Generate an executive summary of this recruitment campaign.\n\n"
     if macro_context_str:
         prompt += macro_context_str
@@ -7706,6 +7748,7 @@ def _generate_post_campaign_summary(data: dict) -> dict:
             ),
             task_type=task_type,
             max_tokens=800,
+            timeout_budget=10.0,
         )
         response_text = result.get("text") or ""
 
@@ -8331,14 +8374,18 @@ def _generate_ab_test_with_claude(
 
     # ── Try LLM Router first (free providers) ──
     try:
-        from llm_router import call_llm, TASK_NARRATIVE
+        # S50: Route A/B copy to TASK_PLAN_STRUCTURED (Gemini -- best JSON output)
+        # instead of TASK_NARRATIVE (Claude Haiku -- expensive for ad copy).
+        # 10s timeout for non-blocking A/B generation.
+        from llm_router import call_llm, TASK_PLAN_STRUCTURED
 
         messages = [{"role": "user", "content": prompt}]
         llm_result = call_llm(
             messages=messages,
             system_prompt=system_prompt,
-            task_type=TASK_NARRATIVE,
+            task_type=TASK_PLAN_STRUCTURED,
             max_tokens=500,
+            timeout_budget=10.0,
         )
         content_text = (
             llm_result.get("text") or ""
@@ -14893,6 +14940,347 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     },
                 )
 
+            # ── Additional enrichment callables (S50: wire configured APIs) ──
+
+            def _call_onet() -> "tuple[str, Optional[dict]]":
+                """Fetch O*NET skills, knowledge, and occupation details for ALL roles."""
+                if not (
+                    _api_integrations_available and _api_onet and _roles_normalized
+                ):
+                    return ("onet_skills", None)
+                per_role: list[dict[str, Any]] = []
+                for _ri in _roles_normalized[:3]:  # Cap at 3 roles to stay fast
+                    _soc = _ri.get("soc") or ""
+                    _title = _ri.get("title") or ""
+                    try:
+                        # If no SOC code, try to look up by title
+                        if not _soc:
+                            occs = _api_onet.search_occupations(_title)
+                            if occs and isinstance(occs, list) and occs:
+                                _soc = (
+                                    (occs[0].get("code") or "")
+                                    if isinstance(occs[0], dict)
+                                    else ""
+                                )
+                        if not _soc:
+                            continue
+                        skills = _api_onet.get_skills(_soc)
+                        knowledge = _api_onet.get_knowledge(_soc)
+                        details = _api_onet.get_occupation_details(_soc)
+                        entry: dict[str, Any] = {"role": _title, "soc": _soc}
+                        if skills:
+                            entry["skills"] = skills[:10]  # Top 10 skills
+                        if knowledge:
+                            entry["knowledge"] = knowledge[:10]
+                        if details and isinstance(details, dict):
+                            entry["title_onet"] = details.get("title") or _title
+                            entry["description"] = (details.get("description") or "")[
+                                :500
+                            ]
+                        if len(entry) > 2:  # Has data beyond role+soc
+                            per_role.append(entry)
+                    except (
+                        urllib.error.URLError,
+                        OSError,
+                        ValueError,
+                        TypeError,
+                    ) as exc:
+                        logger.error(
+                            f"O*NET enrichment for role '{_title}' (SOC {_soc}) failed: {exc}",
+                            exc_info=True,
+                        )
+                if not per_role:
+                    return ("onet_skills", None)
+                logger.info(
+                    f"Enriched /api/generate with O*NET data for {len(per_role)} role(s)"
+                )
+                return ("onet_skills", {"per_role": per_role})
+
+            def _call_jooble() -> "tuple[str, Optional[dict]]":
+                """Fetch Jooble international job postings (skip for US-only plans)."""
+                if not (
+                    _api_integrations_available and _api_jooble and _roles_normalized
+                ):
+                    return ("jooble_international", None)
+                # Only call Jooble for international locations
+                _locs_lower = " ".join(
+                    str(l).lower()
+                    for l in (_locs_for_api if isinstance(_locs_for_api, list) else [])
+                )
+                _us_only_keywords = {"us", "usa", "united states", "america"}
+                _loc_words = set(_locs_lower.replace(",", " ").split())
+                # If ALL location words are US-only, skip Jooble
+                if _loc_words and _loc_words.issubset(
+                    _us_only_keywords
+                    | {
+                        "al",
+                        "ak",
+                        "az",
+                        "ar",
+                        "ca",
+                        "co",
+                        "ct",
+                        "de",
+                        "fl",
+                        "ga",
+                        "hi",
+                        "id",
+                        "il",
+                        "in",
+                        "ia",
+                        "ks",
+                        "ky",
+                        "la",
+                        "me",
+                        "md",
+                        "ma",
+                        "mi",
+                        "mn",
+                        "ms",
+                        "mo",
+                        "mt",
+                        "ne",
+                        "nv",
+                        "nh",
+                        "nj",
+                        "nm",
+                        "ny",
+                        "nc",
+                        "nd",
+                        "oh",
+                        "ok",
+                        "or",
+                        "pa",
+                        "ri",
+                        "sc",
+                        "sd",
+                        "tn",
+                        "tx",
+                        "ut",
+                        "vt",
+                        "va",
+                        "wa",
+                        "wv",
+                        "wi",
+                        "wy",
+                    }
+                ):
+                    return ("jooble_international", None)
+                per_role: list[dict[str, Any]] = []
+                for _ri in _roles_normalized[:3]:
+                    try:
+                        _loc_str = ""
+                        if isinstance(_locs_for_api, list) and _locs_for_api:
+                            _first = _locs_for_api[0]
+                            _loc_str = (
+                                _first if isinstance(_first, str) else str(_first)
+                            )
+                        result = _api_jooble.search_jobs(_ri["title"], _loc_str)
+                        if result and isinstance(result, dict):
+                            total = result.get("totalCount") or 0
+                            per_role.append(
+                                {"role": _ri["title"], "total_count": total}
+                            )
+                    except (
+                        urllib.error.URLError,
+                        OSError,
+                        ValueError,
+                        TypeError,
+                    ) as exc:
+                        logger.error(
+                            f"Jooble enrichment for role '{_ri['title']}' failed: {exc}",
+                            exc_info=True,
+                        )
+                if not per_role:
+                    return ("jooble_international", None)
+                total = sum(r.get("total_count") or 0 for r in per_role)
+                logger.info(
+                    f"Enriched /api/generate with Jooble data for {len(per_role)} role(s) ({total} intl postings)"
+                )
+                return ("jooble_international", {"total": total, "per_role": per_role})
+
+            def _call_bea() -> "tuple[str, Optional[dict]]":
+                """Fetch BEA GDP/income data for the campaign state."""
+                if not (_api_integrations_available and _api_bea):
+                    return ("bea_economics", None)
+                try:
+                    result: dict[str, Any] = {}
+                    # State-level GDP
+                    gdp = _api_bea.get_gdp_by_state_all(year="LAST5")
+                    if gdp and isinstance(gdp, dict):
+                        result["gdp_by_state"] = gdp
+                    # Personal income by state
+                    income = _api_bea.get_personal_income_all_states(year="LAST5")
+                    if income and isinstance(income, dict):
+                        result["personal_income"] = income
+                    if not result:
+                        return ("bea_economics", None)
+                    logger.info("Enriched /api/generate with BEA economic data")
+                    return ("bea_economics", result)
+                except (urllib.error.URLError, OSError, ValueError, TypeError) as exc:
+                    logger.error(f"BEA enrichment failed: {exc}", exc_info=True)
+                    return ("bea_economics", None)
+
+            def _call_census() -> "tuple[str, Optional[dict]]":
+                """Fetch Census workforce demographics for the campaign state."""
+                if not (_api_integrations_available and _api_census and _state_code):
+                    return ("census_demographics", None)
+                try:
+                    from api_integrations import _resolve_state_fips
+
+                    _fips = _resolve_state_fips(_state_code)
+                    if not _fips:
+                        return ("census_demographics", None)
+                    result: dict[str, Any] = {}
+                    profile = _api_census.get_workforce_profile(_state_code)
+                    if profile and isinstance(profile, dict):
+                        result["workforce_profile"] = profile
+                    demographics = _api_census.get_demographics(_fips)
+                    if demographics and isinstance(demographics, dict):
+                        result["demographics"] = demographics
+                    if not result:
+                        return ("census_demographics", None)
+                    logger.info(
+                        f"Enriched /api/generate with Census data for state={_state_code}"
+                    )
+                    return ("census_demographics", result)
+                except (
+                    urllib.error.URLError,
+                    OSError,
+                    ValueError,
+                    TypeError,
+                    ImportError,
+                ) as exc:
+                    logger.error(f"Census enrichment failed: {exc}", exc_info=True)
+                    return ("census_demographics", None)
+
+            def _call_usajobs() -> "tuple[str, Optional[dict]]":
+                """Fetch USAJobs federal listings (only for government/public sector)."""
+                if not (
+                    _api_integrations_available and _api_usajobs and _roles_normalized
+                ):
+                    return ("usajobs_federal", None)
+                # Only call for government-adjacent industries
+                _industry_lower = str(data.get("industry") or "").lower()
+                _gov_keywords = {
+                    "government",
+                    "public",
+                    "federal",
+                    "defense",
+                    "military",
+                    "healthcare",
+                    "education",
+                }
+                if not any(kw in _industry_lower for kw in _gov_keywords):
+                    return ("usajobs_federal", None)
+                per_role: list[dict[str, Any]] = []
+                for _ri in _roles_normalized[:3]:
+                    try:
+                        count = _api_usajobs.get_job_count(_ri["title"])
+                        if count:
+                            per_role.append(
+                                {"role": _ri["title"], "federal_openings": count}
+                            )
+                    except (
+                        urllib.error.URLError,
+                        OSError,
+                        ValueError,
+                        TypeError,
+                    ) as exc:
+                        logger.error(
+                            f"USAJobs enrichment for role '{_ri['title']}' failed: {exc}",
+                            exc_info=True,
+                        )
+                if not per_role:
+                    return ("usajobs_federal", None)
+                total = sum(r.get("federal_openings") or 0 for r in per_role)
+                logger.info(
+                    f"Enriched /api/generate with USAJobs data for {len(per_role)} role(s) ({total} openings)"
+                )
+                return ("usajobs_federal", {"total": total, "per_role": per_role})
+
+            def _call_knowledge_graph() -> "tuple[str, Optional[dict]]":
+                """Fetch Google Knowledge Graph entity data for company and roles."""
+                if not _has_knowledge_graph:
+                    return ("knowledge_graph", None)
+                try:
+                    result: dict[str, Any] = {}
+                    _client_name = data.get("client_name") or ""
+                    if _client_name:
+                        company_kg = enrich_company(_client_name)
+                        if (
+                            company_kg
+                            and isinstance(company_kg, dict)
+                            and company_kg.get("name")
+                        ):
+                            result["company"] = company_kg
+                    # Enrich first role for occupation context
+                    if _roles_normalized:
+                        role_kg = enrich_job_title(_roles_normalized[0]["title"])
+                        if (
+                            role_kg
+                            and isinstance(role_kg, dict)
+                            and role_kg.get("name")
+                        ):
+                            result["primary_role"] = role_kg
+                    # Enrich first location for geo context
+                    if isinstance(_locs_for_api, list) and _locs_for_api:
+                        _loc_val = _locs_for_api[0]
+                        _loc_str_kg = (
+                            _loc_val if isinstance(_loc_val, str) else str(_loc_val)
+                        )
+                        loc_kg = enrich_location(_loc_str_kg)
+                        if loc_kg and isinstance(loc_kg, dict) and loc_kg.get("name"):
+                            result["primary_location"] = loc_kg
+                    if not result:
+                        return ("knowledge_graph", None)
+                    logger.info(
+                        f"Enriched /api/generate with Knowledge Graph data ({list(result.keys())})"
+                    )
+                    return ("knowledge_graph", result)
+                except (urllib.error.URLError, OSError, ValueError, TypeError) as exc:
+                    logger.error(
+                        f"Knowledge Graph enrichment failed: {exc}", exc_info=True
+                    )
+                    return ("knowledge_graph", None)
+
+            def _call_google_maps() -> "tuple[str, Optional[dict]]":
+                """Geocode campaign locations for coordinate/timezone enrichment."""
+                if not (_has_google_maps and _locs_for_api):
+                    return ("google_maps_geo", None)
+                try:
+                    locs_to_geocode: list[str] = []
+                    for _loc in (
+                        _locs_for_api if isinstance(_locs_for_api, list) else []
+                    ):
+                        if isinstance(_loc, str) and _loc.strip():
+                            locs_to_geocode.append(_loc.strip())
+                        elif isinstance(_loc, dict):
+                            _parts_g = [
+                                _loc.get("city") or "",
+                                _loc.get("state") or "",
+                                _loc.get("country") or "",
+                            ]
+                            _joined = ", ".join(filter(None, _parts_g))
+                            if _joined:
+                                locs_to_geocode.append(_joined)
+                    if not locs_to_geocode:
+                        return ("google_maps_geo", None)
+                    geocoded = batch_geocode(locs_to_geocode[:5])  # Cap at 5 locations
+                    if geocoded and isinstance(geocoded, list):
+                        valid = [
+                            g for g in geocoded if isinstance(g, dict) and g.get("lat")
+                        ]
+                        if valid:
+                            logger.info(
+                                f"Enriched /api/generate with Google Maps geocoding for {len(valid)} location(s)"
+                            )
+                            return ("google_maps_geo", {"locations": valid})
+                    return ("google_maps_geo", None)
+                except (urllib.error.URLError, OSError, ValueError, TypeError) as exc:
+                    logger.error(f"Google Maps enrichment failed: {exc}", exc_info=True)
+                    return ("google_maps_geo", None)
+
             # -- Dispatch all enrichment tasks concurrently (20s combined timeout) --
             _enrich_tasks = [
                 _call_enrich_data,
@@ -14900,6 +15288,13 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 _call_bls,
                 _call_fred,
                 _call_jobspy,
+                _call_onet,
+                _call_jooble,
+                _call_bea,
+                _call_census,
+                _call_usajobs,
+                _call_knowledge_graph,
+                _call_google_maps,
             ]
             # ── TIMEOUT CHECK: Before enrichment phase (expensive) ──
             if _gen_timeout_flag.is_set():
@@ -14923,12 +15318,12 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             # Threads stuck on semaphore.acquire() or slow API calls will block the
             # entire response. Use manual pool with shutdown(wait=False) instead.
             _enrich_pool = ThreadPoolExecutor(
-                max_workers=5, thread_name_prefix="gen-enrich"
+                max_workers=8, thread_name_prefix="gen-enrich"
             )
             try:
                 with _span_fn(
                     "enrich_parallel",
-                    "Parallel API enrichment (5 sources, 20s timeout)",
+                    "Parallel API enrichment (12 sources, 20s timeout)",
                 ):
                     futures = {
                         _enrich_pool.submit(fn): fn.__doc__ or fn.__name__

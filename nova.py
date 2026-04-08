@@ -3455,6 +3455,11 @@ class Nova:
             # S48: Real channel performance benchmarks (SlotOps 108K + CG 98K)
             "craigslist_benchmarks": "craigslist_performance_benchmarks.json",
             "linkedin_benchmarks": "linkedin_performance_benchmarks.json",
+            # S50: Live data wiring -- scraped benchmarks, trend articles, Adzuna
+            "channel_benchmarks_live": "channel_benchmarks_live.json",
+            "market_trends_live": "market_trends_live.json",
+            "live_market_data": "live_market_data.json",
+            "adzuna_benchmarks": "adzuna_benchmarks.json",
         }
         for _cache_key, _rf_name in _research_files.items():
             _rf_path = os.path.join(str(DATA_DIR), _rf_name)
@@ -4496,7 +4501,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             },
             {
                 "name": "query_market_trends",
-                "description": "Get CPC/CPA trend data with seasonal patterns and year-over-year changes. Returns 4-year historical trends, seasonal multipliers by collar type, and projected costs. Use when user asks about CPC trends, seasonal hiring patterns, 'when is the cheapest time to advertise', or cost forecasting.",
+                "description": "Get CPC/CPA trend data with seasonal patterns and year-over-year changes. Returns 4-year historical trends, seasonal multipliers by collar type, projected costs, live channel CPC benchmarks (Indeed/LinkedIn/ZipRecruiter/Glassdoor/Monster), and curated market trend articles from 15+ sources. Use when user asks about CPC trends, seasonal hiring patterns, 'when is the cheapest time to advertise', cost forecasting, or recruitment market trends.",
                 "input_schema": {
                     "type": "object",
                     "properties": {
@@ -7127,6 +7132,54 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             except Exception as e:
                 logger.debug("Orchestrator enrich_market_demand failed: %s", e)
 
+        # v4: Enrich with Adzuna benchmark data (posting counts, salary histograms)
+        try:
+            _az_path = os.path.join(str(DATA_DIR), "adzuna_benchmarks.json")
+            if os.path.exists(_az_path):
+                with open(_az_path, "r", encoding="utf-8") as _az_f:
+                    _az_raw = json.load(_az_f)
+                _az_roles = _az_raw.get("data", {}).get("roles", {})
+                if _az_roles and role:
+                    _role_lower = role.lower().strip()
+                    # Try exact then fuzzy match
+                    _az_match = None
+                    for _rn, _rd in _az_roles.items():
+                        if _rn.lower() == _role_lower:
+                            _az_match = (_rn, _rd)
+                            break
+                    if not _az_match:
+                        for _rn, _rd in _az_roles.items():
+                            if _role_lower in _rn.lower() or _rn.lower() in _role_lower:
+                                _az_match = (_rn, _rd)
+                                break
+                    if _az_match:
+                        _az_name, _az_data = _az_match
+                        _az_counts: Dict[str, int] = {}
+                        for _k, _v in _az_data.items():
+                            if _k.startswith("count_") and isinstance(_v, dict):
+                                _country = _k.replace("count_", "").upper()
+                                _az_counts[_country] = _v.get("count", 0)
+                        _az_salary = {}
+                        for _k, _v in _az_data.items():
+                            if _k.startswith("salary_histogram") and isinstance(
+                                _v, dict
+                            ):
+                                _az_salary = _v.get("histogram", {})
+                        if _az_counts:
+                            result["adzuna_demand"] = {
+                                "matched_role": _az_name,
+                                "posting_counts_by_country": _az_counts,
+                                "total_postings": sum(_az_counts.values()),
+                                "data_freshness": "live",
+                                "source": "Adzuna API",
+                            }
+                            if _az_salary:
+                                result["adzuna_demand"][
+                                    "salary_distribution"
+                                ] = _az_salary
+        except Exception as _az_err:
+            logger.debug("Adzuna benchmark enrichment failed: %s", _az_err)
+
         return result
 
     def _query_budget_projection(self, params: dict) -> dict:
@@ -7665,7 +7718,11 @@ When two or more tools return conflicting data for the same metric (e.g., differ
         return result
 
     def _query_market_trends(self, params: dict) -> dict:
-        """Get CPC/CPA trend data with seasonal patterns and structured confidence."""
+        """Get CPC/CPA trend data with seasonal patterns and structured confidence.
+
+        v4: Also includes live market trend articles from market_trends_live.json
+        and AI-generated market summary for richer context.
+        """
         platform = params.get("platform", "google").strip()
         industry = (params.get("industry") or "").strip()
         metric = params.get("metric", "cpc").strip()
@@ -7746,6 +7803,69 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                         }
             except Exception as e:
                 logger.debug("Seasonal lookup failed: %s", e)
+
+        # v4: Inject live market trend articles and AI summary from market_trends_live.json
+        try:
+            _mtr_path = os.path.join(str(DATA_DIR), "market_trends_live.json")
+            if os.path.exists(_mtr_path):
+                with open(_mtr_path, "r", encoding="utf-8") as _mtr_f:
+                    _mtr_data = json.load(_mtr_f)
+                _articles = _mtr_data.get("articles", [])
+                _ai_summary = _mtr_data.get("ai_market_summary", "")
+                _fetched_at = _mtr_data.get("fetched_at", "")
+                if _articles:
+                    # Deduplicate by URL
+                    _seen_urls: set = set()
+                    _unique_articles = []
+                    for art in _articles:
+                        url = art.get("url", "")
+                        if url and url not in _seen_urls:
+                            _seen_urls.add(url)
+                            _unique_articles.append(
+                                {
+                                    "title": art.get("title", ""),
+                                    "summary": art.get("summary", ""),
+                                    "source": art.get("source", ""),
+                                    "url": url,
+                                }
+                            )
+                    result["market_trend_articles"] = _unique_articles[:10]
+                    result["market_trend_articles_count"] = len(_unique_articles)
+                if _ai_summary:
+                    result["ai_market_summary"] = _ai_summary
+                if _fetched_at:
+                    result["trends_fetched_at"] = _fetched_at
+        except Exception as _mtr_err:
+            logger.debug("market_trends_live injection failed: %s", _mtr_err)
+
+        # v4: Inject live CPC benchmark data from channel_benchmarks_live.json
+        try:
+            _cbl_path = os.path.join(str(DATA_DIR), "channel_benchmarks_live.json")
+            if os.path.exists(_cbl_path):
+                with open(_cbl_path, "r", encoding="utf-8") as _cbl_f:
+                    _cbl_data = json.load(_cbl_f)
+                _bench_entries = _cbl_data.get("data", [])
+                if _bench_entries:
+                    _live_cpcs: Dict[str, Any] = {}
+                    for _be in _bench_entries:
+                        _ch = _be.get("channel", "")
+                        _meta = _be.get("metadata") or {}
+                        _cpc_r = _meta.get("cpc_range") or {}
+                        _cpa_r = _meta.get("cpa_estimate") or {}
+                        if _ch:
+                            _live_cpcs[_ch] = {
+                                "cpc_range": _cpc_r,
+                                "cpa_range": _cpa_r,
+                                "model": _meta.get("model", ""),
+                                "last_updated": _meta.get("last_updated", ""),
+                            }
+                    if _live_cpcs:
+                        result["live_channel_benchmarks"] = _live_cpcs
+                        result["live_benchmarks_source"] = (
+                            "channel_benchmarks_live.json"
+                        )
+        except Exception as _cbl_err:
+            logger.debug("channel_benchmarks_live injection failed: %s", _cbl_err)
 
         return result
 
@@ -11197,16 +11317,21 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             return {"error": f"CPC tracking failed: {e}", "source": "CPC Trend Tracker"}
 
     def _check_job_volume(self, params: dict) -> dict:
-        """Check job posting volumes and market activity for a given role."""
+        """Check job posting volumes and market activity for a given role.
+
+        v4: Falls back to adzuna_benchmarks.json for posting count data
+        when the market_signals API is unavailable.
+        """
+        role = (params.get("role") or "").strip()
+        if not role:
+            return {"error": "Role is required", "source": "Job Volume Tracker"}
+
+        locations = params.get("locations") or []
+        timeframe = (params.get("timeframe") or "7d").strip()
+
+        result: Optional[Dict[str, Any]] = None
         try:
             import market_signals
-
-            role = (params.get("role") or "").strip()
-            if not role:
-                return {"error": "Role is required", "source": "Job Volume Tracker"}
-
-            locations = params.get("locations") or []
-            timeframe = (params.get("timeframe") or "7d").strip()
 
             result = market_signals.get_posting_volume(
                 role=role,
@@ -11214,19 +11339,67 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 timeframe=timeframe,
             )
             result["source"] = "Nova Job Volume Tracker"
-            return result
         except ImportError:
             logger.warning("market_signals module not available for check_job_volume")
-            return {
-                "error": "Job volume module not available",
-                "source": "Job Volume Tracker",
-            }
         except Exception as e:
             logger.error("check_job_volume failed: %s", e, exc_info=True)
+
+        # v4: Fallback to Adzuna benchmarks if live API didn't return data
+        if result is None or not result.get("total_postings"):
+            try:
+                _az_data = self._data_cache.get("adzuna_benchmarks", {})
+                _az_roles = _az_data.get("data", {}).get("roles", {})
+                if _az_roles:
+                    _role_lower = role.lower().strip()
+                    _match = None
+                    for _rn, _rd in _az_roles.items():
+                        if _rn.lower() == _role_lower:
+                            _match = (_rn, _rd)
+                            break
+                    if not _match:
+                        for _rn, _rd in _az_roles.items():
+                            if _role_lower in _rn.lower() or _rn.lower() in _role_lower:
+                                _match = (_rn, _rd)
+                                break
+                    if _match:
+                        _rname, _rdata = _match
+                        _counts: Dict[str, int] = {}
+                        for _k, _v in _rdata.items():
+                            if _k.startswith("count_") and isinstance(_v, dict):
+                                _country = _k.replace("count_", "").upper()
+                                _counts[_country] = _v.get("count", 0)
+                        _total = sum(_counts.values())
+                        _sal_hist = {}
+                        for _k, _v in _rdata.items():
+                            if _k.startswith("salary_histogram") and isinstance(
+                                _v, dict
+                            ):
+                                _sal_hist = _v.get("histogram", {})
+
+                        if result is None:
+                            result = {}
+                        result["adzuna_benchmark_data"] = {
+                            "matched_role": _rname,
+                            "posting_counts_by_country": _counts,
+                            "total_postings": _total,
+                            "salary_distribution": _sal_hist if _sal_hist else None,
+                            "data_source": "Adzuna Benchmarks (cached)",
+                            "data_freshness": _az_data.get("_refreshed_iso", ""),
+                        }
+                        if not result.get("total_postings"):
+                            result["total_postings"] = _total
+                        result.setdefault(
+                            "source", "Nova Job Volume Tracker (Adzuna fallback)"
+                        )
+            except Exception as _az_err:
+                logger.debug("Adzuna benchmark fallback failed: %s", _az_err)
+
+        if result is None:
             return {
-                "error": f"Job volume check failed: {e}",
+                "error": "Job volume data unavailable",
                 "source": "Job Volume Tracker",
             }
+        return result
 
     # ------------------------------------------------------------------
     # S48: LinkUp API + Revelio Labs (Item 23)
