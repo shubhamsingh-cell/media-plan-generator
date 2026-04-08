@@ -1556,7 +1556,14 @@ def _get_industry_comparison(
 
 
 def _is_us_only_campaign(data: Dict) -> bool:
-    """Check if all campaign locations are within the United States."""
+    """Check if all campaign locations are within the United States.
+    Also respects the target_region field from the region selector."""
+    # Check explicit target_region first (set by region selector UI)
+    target_region = (data.get("target_region") or "").lower().strip()
+    if target_region == "us_only":
+        return True
+    if target_region in ("global", "emea", "apac", "custom"):
+        return False
     locations = data.get("locations") or []
     if not locations:
         return True  # No locations specified -- assume domestic

@@ -13336,12 +13336,90 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                     "apac_regional": 3,
                                     "emea_regional": 2,
                                 }
+                                # CRITICAL: dict.copy() to avoid mutating shared INDUSTRY_ALLOC_PROFILES
                                 if INDUSTRY_ALLOC_PROFILES is not None:
-                                    channel_pcts = INDUSTRY_ALLOC_PROFILES.get(
-                                        _ind_key_ba, _DEFAULT_ALLOC_BA
+                                    channel_pcts = dict(
+                                        INDUSTRY_ALLOC_PROFILES.get(
+                                            _ind_key_ba, _DEFAULT_ALLOC_BA
+                                        )
                                     )
                                 else:
-                                    channel_pcts = _DEFAULT_ALLOC_BA
+                                    channel_pcts = dict(_DEFAULT_ALLOC_BA)
+
+                                # ── Strip APAC/EMEA channels based on target_region (async path) ──
+                                _target_region_async = (
+                                    gen_data.get("target_region") or "us_only"
+                                )
+                                _locs_raw_async = gen_data.get("locations") or []
+                                _all_us_async = _target_region_async == "us_only"
+                                if not _all_us_async and _target_region_async not in (
+                                    "global",
+                                    "emea",
+                                    "apac",
+                                    "custom",
+                                ):
+                                    # Infer from locations if region not explicitly set
+                                    _all_us_async = True
+                                    if _locs_raw_async:
+                                        for _loc_a in (
+                                            _locs_raw_async
+                                            if isinstance(_locs_raw_async, list)
+                                            else [_locs_raw_async]
+                                        ):
+                                            _loc_str_a = str(
+                                                _loc_a.get("country")
+                                                if isinstance(_loc_a, dict)
+                                                else _loc_a
+                                            ).lower()
+                                            if _loc_str_a and _loc_str_a not in (
+                                                "us",
+                                                "usa",
+                                                "united states",
+                                                "",
+                                            ):
+                                                _all_us_async = False
+                                                break
+
+                                if isinstance(channel_pcts, dict):
+                                    if (
+                                        _all_us_async
+                                        or _target_region_async == "us_only"
+                                    ):
+                                        _intl_pct_a = channel_pcts.pop(
+                                            "apac_regional", 0
+                                        ) + channel_pcts.pop("emea_regional", 0)
+                                        if _intl_pct_a > 0:
+                                            _top_ch_a = max(
+                                                channel_pcts,
+                                                key=lambda k: channel_pcts[k],
+                                            )
+                                            channel_pcts[_top_ch_a] = (
+                                                channel_pcts[_top_ch_a] + _intl_pct_a
+                                            )
+                                            logger.info(
+                                                "Async US-only plan (region=%s): redistributed %d%% from APAC/EMEA to %s",
+                                                _target_region_async,
+                                                _intl_pct_a,
+                                                _top_ch_a,
+                                            )
+                                    elif _target_region_async == "emea":
+                                        _apac_pct_a = channel_pcts.pop(
+                                            "apac_regional", 0
+                                        )
+                                        if _apac_pct_a > 0:
+                                            channel_pcts["emea_regional"] = (
+                                                channel_pcts.get("emea_regional", 0)
+                                                + _apac_pct_a
+                                            )
+                                    elif _target_region_async == "apac":
+                                        _emea_pct_a = channel_pcts.pop(
+                                            "emea_regional", 0
+                                        )
+                                        if _emea_pct_a > 0:
+                                            channel_pcts["apac_regional"] = (
+                                                channel_pcts.get("apac_regional", 0)
+                                                + _emea_pct_a
+                                            )
 
                                 _bstr_ba = str(
                                     gen_data.get("budget")
@@ -14606,10 +14684,12 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         "emea_regional": 2,
                     }
                     # Use the expanded 17-industry profiles from ppt_generator if available,
-                    # falling back to the default allocation
+                    # falling back to the default allocation.
+                    # CRITICAL: dict.copy() to avoid mutating the shared INDUSTRY_ALLOC_PROFILES
+                    # (the region-stripping .pop() calls below would permanently corrupt the shared dict)
                     if INDUSTRY_ALLOC_PROFILES is not None:
-                        channel_pcts = INDUSTRY_ALLOC_PROFILES.get(
-                            _ind_key_ba, _DEFAULT_ALLOC_BA
+                        channel_pcts = dict(
+                            INDUSTRY_ALLOC_PROFILES.get(_ind_key_ba, _DEFAULT_ALLOC_BA)
                         )
                     else:
                         # Inline fallback if ppt_generator is not importable (5 industries)
@@ -14665,8 +14745,10 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                 "emea_regional": 1,
                             },
                         }
-                        channel_pcts = _INDUSTRY_ALLOC_BA_FALLBACK.get(
-                            _ind_key_ba, _DEFAULT_ALLOC_BA
+                        channel_pcts = dict(
+                            _INDUSTRY_ALLOC_BA_FALLBACK.get(
+                                _ind_key_ba, _DEFAULT_ALLOC_BA
+                            )
                         )
 
                     # Strip APAC/EMEA channels based on target_region or location inference

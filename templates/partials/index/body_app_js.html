@@ -1327,10 +1327,41 @@
     var regionSel = document.getElementById("regionSelector");
     var customWrap = document.getElementById("customCountriesWrap");
     if (!regionSel || !customWrap) return;
-    regionSel.addEventListener("change", function () {
-      customWrap.style.display =
-        regionSel.value === "custom" ? "block" : "none";
-    });
+    function _syncRegionChannels() {
+      var region = regionSel.value;
+      customWrap.style.display = region === "custom" ? "block" : "none";
+      // Auto-toggle APAC/EMEA channel cards and checkboxes based on region
+      var apacCard = document.getElementById("apacChannelCard");
+      var emeaCard = document.getElementById("emeaChannelCard");
+      var chApac = document.getElementById("chApac");
+      var chEmea = document.getElementById("chEmea");
+      if (region === "us_only") {
+        // US-only: hide and uncheck international channels
+        if (apacCard) apacCard.style.display = "none";
+        if (emeaCard) emeaCard.style.display = "none";
+        if (chApac) chApac.checked = false;
+        if (chEmea) chEmea.checked = false;
+      } else if (region === "emea") {
+        if (apacCard) apacCard.style.display = "none";
+        if (emeaCard) emeaCard.style.display = "";
+        if (chApac) chApac.checked = false;
+        if (chEmea) chEmea.checked = true;
+      } else if (region === "apac") {
+        if (apacCard) apacCard.style.display = "";
+        if (emeaCard) emeaCard.style.display = "none";
+        if (chApac) chApac.checked = true;
+        if (chEmea) chEmea.checked = false;
+      } else {
+        // global or custom: show both
+        if (apacCard) apacCard.style.display = "";
+        if (emeaCard) emeaCard.style.display = "";
+        if (chApac) chApac.checked = true;
+        if (chEmea) chEmea.checked = true;
+      }
+    }
+    regionSel.addEventListener("change", _syncRegionChannels);
+    // Initialize on page load
+    _syncRegionChannels();
   }
 
   function getSelectedRegion() {
