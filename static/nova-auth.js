@@ -83,9 +83,25 @@
       try {
         localStorage.setItem(AUTH_CONFIG.storageKey, JSON.stringify(user));
       } catch (_) {}
+      // S48: Always sync nova_user_email cookie for backend auth
+      try {
+        var email = user.email || "";
+        if (email) {
+          document.cookie =
+            "nova_user_email=" +
+            encodeURIComponent(email) +
+            ";path=/;max-age=" +
+            60 * 60 * 24 * 30 +
+            ";SameSite=Lax";
+        }
+      } catch (_) {}
     } else {
       try {
         localStorage.removeItem(AUTH_CONFIG.storageKey);
+      } catch (_) {}
+      // Clear cookie on logout
+      try {
+        document.cookie = "nova_user_email=;path=/;max-age=0";
       } catch (_) {}
     }
     _notifyListeners(user ? "login" : "logout", user);
@@ -97,6 +113,16 @@
       var cached = localStorage.getItem(AUTH_CONFIG.storageKey);
       if (cached) {
         _currentUser = JSON.parse(cached);
+        // S48: Sync cookie from cache for returning users
+        var email = _currentUser.email || "";
+        if (email) {
+          document.cookie =
+            "nova_user_email=" +
+            encodeURIComponent(email) +
+            ";path=/;max-age=" +
+            60 * 60 * 24 * 30 +
+            ";SameSite=Lax";
+        }
         return _currentUser;
       }
     } catch (_) {}
@@ -493,6 +519,18 @@
         };
 
         _setUser(userData);
+
+        // S48 FIX: Set nova_user_email cookie so backend _check_joveo_auth() works.
+        // Without this cookie, /api/generate returns 401 even for signed-in users.
+        try {
+          document.cookie =
+            "nova_user_email=" +
+            encodeURIComponent(email) +
+            ";path=/;max-age=" +
+            60 * 60 * 24 * 30 +
+            ";SameSite=Lax";
+        } catch (_) {}
+
         _showAuthToast(
           "Welcome, " + (userData.name || userData.email) + "!",
           "success",
@@ -502,6 +540,10 @@
         _notifyBackend(userData, session.access_token);
       } else if (event === "SIGNED_OUT") {
         _setUser(null);
+        // Clear the auth cookie on sign-out
+        try {
+          document.cookie = "nova_user_email=;path=/;max-age=0";
+        } catch (_) {}
       }
     });
   }
