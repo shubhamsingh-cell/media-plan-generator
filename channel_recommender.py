@@ -717,8 +717,8 @@ def recommend_channels(
 
         scored.append(
             {
-                "channel": channel,
-                "category": _PLATFORM_TO_CATEGORY_DISPLAY.get(channel, "Other"),
+                "channel": _PLATFORM_TO_CATEGORY_DISPLAY.get(channel, "Other"),
+                "platform": channel,
                 "fit_score": fit,
                 "allocation_pct": round(raw_pct, 1),
                 "expected_cpc": round(cpc, 2),
@@ -1065,9 +1065,9 @@ def format_recommendation_text(rec: Dict[str, Any]) -> str:
                 if alloc > 0
                 else ""
             )
-            cat = ch.get("category", "")
-            cat_suffix = f" [{cat}]" if cat else ""
-            lines.append(f"  {ch['channel']}{cat_suffix}{alloc_str}")
+            plat = ch.get("platform", "")
+            plat_suffix = f" [{plat}]" if plat else ""
+            lines.append(f"  {ch['channel']}{plat_suffix}{alloc_str}")
             lines.append(
                 f"    CPC: ${ch['expected_cpc']:.2f} | CPA: ${ch['expected_cpa']:.2f} | "
                 f"Apps: ~{ch.get('projected_applications', 0):,} | "
@@ -1080,7 +1080,11 @@ def format_recommendation_text(rec: Dict[str, Any]) -> str:
     if skip_channels:
         lines.append(f"**SKIP** (poor fit for this campaign):")
         for ch in skip_channels:
-            lines.append(f"  {ch['channel']} (fit score: {ch['fit_score']}/10)")
+            plat = ch.get("platform", "")
+            plat_tag = f" [{plat}]" if plat else ""
+            lines.append(
+                f"  {ch['channel']}{plat_tag} (fit score: {ch['fit_score']}/10)"
+            )
         lines.append("")
 
     lines.append(rec.get("summary", ""))

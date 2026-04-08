@@ -6265,7 +6265,7 @@ def _build_sheet_channel_recommendations(ws, data: dict) -> None:
     # ── Tier sections ──
     headers = [
         "Channel",
-        "Category",
+        "Platform",
         "Alloc %",
         "Spend",
         "CPC",
@@ -6305,7 +6305,7 @@ def _build_sheet_channel_recommendations(ws, data: dict) -> None:
         # Channel rows
         for ch in channels:
             ws.cell(row=row, column=2, value=ch["channel"]).font = _FONT_BODY_BOLD
-            ws.cell(row=row, column=3, value=ch.get("category", "")).font = _FONT_BODY
+            ws.cell(row=row, column=3, value=ch.get("platform", "")).font = _FONT_BODY
             ws.cell(
                 row=row, column=4, value=f"{ch.get('allocation_pct', 0):.1f}%"
             ).font = _FONT_BODY

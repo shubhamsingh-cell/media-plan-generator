@@ -5992,26 +5992,28 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 pass  # Non-critical, skip if queue is full
 
         try:
-            # Per-tool timeout: 10s max to prevent a single stuck tool
-            # from blocking the entire parallel batch (which has 15s aggregate).
+            # Per-tool timeout: 5s max to prevent a single stuck tool
+            # from blocking the entire parallel batch.
             from concurrent.futures import ThreadPoolExecutor as _TPE_Tool
             from concurrent.futures import TimeoutError as _ToolTimeout
 
-            # S27: Dynamic per-tool timeout -- share global budget instead of fixed 10s
-            # S32: Reduced 10s -> 8s to fit more tools within 90s outer budget
-            _PER_TOOL_TIMEOUT: int = 8  # default fallback
+            # S50: Reduced 8s -> 5s to hit <30s total response target.
+            # Most tools complete in 1-3s; 5s is generous for API calls.
+            _PER_TOOL_TIMEOUT: int = 5  # S50: was 8
 
+            _tool_t0 = time.monotonic()
             with _TPE_Tool(max_workers=1) as _tool_pool:
                 _tool_fut = _tool_pool.submit(handler, tool_input)
                 try:
                     result = _tool_fut.result(timeout=_PER_TOOL_TIMEOUT)
                 except _ToolTimeout:
                     _tool_fut.cancel()
+                    _tool_elapsed = time.monotonic() - _tool_t0
                     logger.error(
-                        "Tool %s timed out after %ds",
+                        "PERF: tool %s timed out after %.2fs (limit=%ds)",
                         tool_name,
+                        _tool_elapsed,
                         _PER_TOOL_TIMEOUT,
-                        exc_info=True,
                     )
                     if _sq is not None:
                         try:
@@ -6038,6 +6040,14 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                     )
 
             result_json = json.dumps(result, default=str)
+
+            # S50: Per-tool PERF timing log for latency debugging
+            _tool_elapsed = time.monotonic() - _tool_t0
+            logger.info(
+                "PERF: tool %s took %.2fs",
+                tool_name,
+                _tool_elapsed,
+            )
 
             # Emit tool_complete event with brief summary
             if _sq is not None:
@@ -12567,17 +12577,21 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 outer_deadline=outer_deadline,
                 partial_accumulator=partial_accumulator,
             )
-            # v4.3 QUALITY GATE: If response has zero tools_used, retry with Gemini forced
-            # S24: Skip retry if already past 50s to avoid timeout
+            # S50: REMOVED zero-tools Gemini retry and auto-retry cascade.
+            # These retries could add 30-60s of latency by re-running the entire
+            # tool loop with a different provider. Instead, accept the first result
+            # (even with fewer tools) or fall through to Claude immediately.
+            # The internal tool loop already retries once for tool-min enforcement.
             _elapsed_total = time.time() - _t0
             if (
                 free_tool_result
                 and not free_tool_result.get("tools_used")
-                and _elapsed_total < 50.0
+                and _elapsed_total < 15.0
             ):
+                # S50: Only retry ONCE with gemini if we're still under 15s.
+                # This prevents the 50s+ retry cascades from before.
                 logger.warning(
-                    "NOVA QUALITY GATE: Response has zero tools (provider=%s, %.1fs elapsed), "
-                    "retrying with gemini forced",
+                    "NOVA QUALITY GATE: zero tools (provider=%s, %.1fs), single gemini retry",
                     free_tool_result.get("llm_provider", "unknown"),
                     _elapsed_total,
                 )
@@ -12588,14 +12602,11 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                         enrichment_context,
                         is_complex=True,
                         ab_force_provider="gemini",
+                        outer_deadline=outer_deadline,
                         partial_accumulator=partial_accumulator,
                     )
                     if _retry_result and _retry_result.get("tools_used"):
                         free_tool_result = _retry_result
-                        logger.info(
-                            "NOVA QUALITY GATE: Gemini retry succeeded with %d tools",
-                            len(_retry_result.get("tools_used") or []),
-                        )
                 except Exception as _qg_err:
                     logger.warning(
                         "NOVA QUALITY GATE: Gemini retry failed: %s", _qg_err
@@ -12603,9 +12614,10 @@ When two or more tools return conflicting data for the same metric (e.g., differ
 
             if free_tool_result:
                 logger.info(
-                    "NOVA MODE: LLM with tools responded successfully (provider=%s, tools=%d)",
+                    "NOVA MODE: LLM with tools responded (provider=%s, tools=%d, %.1fs)",
                     free_tool_result.get("llm_provider", "unknown"),
                     len(free_tool_result.get("tools_used") or []),
+                    time.time() - _t0,
                 )
                 _nova_metrics.record_latency((time.time() - _t0) * 1000)
                 _nova_metrics.record_chat("tool")
@@ -12632,53 +12644,11 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 return _append_follow_ups_to_response(
                     free_tool_result, user_message, session_id=_session_id
                 )
-            # S27: Auto-retry with different provider before falling to Claude
-            _elapsed_retry = time.time() - _t0
-            if _elapsed_retry < 50.0:
-                _retry_providers = ["gemini", "gpt4o", "claude_haiku"]
-                _used_provider = _ab_variant or ""
-                for _rp in _retry_providers:
-                    if _rp == _used_provider:
-                        continue
-                    logger.warning(
-                        "NOVA MODE: Auto-retry with %s (%.1fs elapsed)",
-                        _rp,
-                        _elapsed_retry,
-                    )
-                    try:
-                        free_tool_result = self._chat_with_free_llm_tools(
-                            user_message,
-                            conversation_history,
-                            enrichment_context,
-                            is_complex=_is_complex,
-                            ab_force_provider=_rp,
-                            outer_deadline=outer_deadline,
-                            partial_accumulator=partial_accumulator,
-                        )
-                        if (
-                            free_tool_result
-                            and (free_tool_result.get("response") or "").strip()
-                        ):
-                            logger.info("NOVA MODE: Auto-retry with %s succeeded", _rp)
-                            free_tool_result = _enrich_response_quality(
-                                _sanitize_refusal_language(
-                                    _filter_competitor_names(free_tool_result)
-                                ),
-                                user_message,
-                            )
-                            return _append_follow_ups_to_response(
-                                free_tool_result,
-                                user_message,
-                                session_id=_session_id,
-                            )
-                    except Exception as _ar_err:
-                        logger.warning(
-                            "NOVA MODE: Auto-retry with %s failed: %s",
-                            _rp,
-                            _ar_err,
-                        )
-                        continue
-            logger.info("NOVA MODE: All auto-retries exhausted, falling back to Claude")
+            # S50: Skip auto-retry cascade -- fall through to Claude immediately
+            logger.info(
+                "NOVA MODE: Free LLM tools returned None after %.1fs, falling to Claude",
+                time.time() - _t0,
+            )
 
         # Path C: Claude API -- LAST RESORT paid fallback
         _check_cancellation(cancel_event)
@@ -12695,7 +12665,10 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                     api_key,
                     outer_deadline=outer_deadline,
                 )
-                logger.info("NOVA MODE: Claude API response received successfully")
+                logger.info(
+                    "PERF: Claude API response in %.2fs",
+                    time.time() - _t0,
+                )
                 _nova_metrics.record_latency((time.time() - _t0) * 1000)
                 _nova_metrics.record_chat("claude")
                 result = _enrich_response_quality(
@@ -15053,14 +15026,16 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             kw in user_message.lower()
             for kw in ("compare", "vs", "versus", "comparison", "better for")
         )
+        # S50: Reduced iterations to hit <30s target. Each iteration = LLM call
+        # (5-10s) + tool execution (5s). 3 iterations = ~30-45s max.
         if _is_media_plan:
-            max_iterations = 6  # Media plans need many tools
+            max_iterations = 4  # S50: was 6 -- 4 is enough for plan tools
         elif _is_comparison:
-            max_iterations = 4  # Comparisons: 2-3 data calls + synthesis
+            max_iterations = 3  # S50: was 4
         elif is_complex:
-            max_iterations = 5  # Complex but not comparison
+            max_iterations = 3  # S50: was 5
         else:
-            max_iterations = 4  # Standard queries
+            max_iterations = 3  # S50: was 4
         active_provider = None  # Lock to same provider for multi-turn
 
         task_type = classify_task(user_message)
@@ -15113,21 +15088,15 @@ When two or more tools return conflicting data for the same metric (e.g., differ
         # Always use 4096 for tool queries to prevent response truncation
         _tool_max_tokens = 4096
 
-        # S25: Dynamic loop budget -- compute from outer deadline to ensure
-        # enrichment + tool loop + synthesis all fit within the outer timeout.
-        # S27: Reduced synthesis reserve 25s -> 20s (Haiku consistently synthesizes
-        # in 15-18s). Raised max loop cap 50 -> 55 to give complex 8-tool queries
-        # more room. This fixes Test B (50-nurse Phoenix) first-run timeout.
-        # S40: Outer timeout raised 90s -> 110s (gunicorn kill=120s).
-        # Synthesis reserve 25s gives LLM enough time for 6+ tool context.
-        # Tool loop cap 70s allows 8+ tools at 8s each comfortably.
-        # Budget math: 110s outer - 5s safety = 105s usable -> 70s tools + 25s synthesis + 10s enrichment.
-        _SYNTHESIS_RESERVE_S = 25.0
+        # S50: Aggressive budget reduction to hit <30s target.
+        # Budget math: 45s outer - 5s safety = 40s usable -> 20s tools + 12s synthesis + 8s enrichment.
+        # Each tool iteration: ~7-10s (LLM call + tool exec). 3 iters = ~25s.
+        _SYNTHESIS_RESERVE_S = 12.0  # S50: was 25 -- Haiku synthesizes in 8-12s
         _loop_start = time.monotonic()
         if outer_deadline:
             # Dynamic: use remaining time minus synthesis reserve
             _remaining = outer_deadline - time.time()
-            _LOOP_BUDGET_S = max(20.0, min(70.0, _remaining - _SYNTHESIS_RESERVE_S))
+            _LOOP_BUDGET_S = max(10.0, min(25.0, _remaining - _SYNTHESIS_RESERVE_S))
             logger.info(
                 "Tool loop: dynamic budget=%.1fs (remaining=%.1fs, reserve=%.0fs)",
                 _LOOP_BUDGET_S,
@@ -15135,7 +15104,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 _SYNTHESIS_RESERVE_S,
             )
         else:
-            _LOOP_BUDGET_S = 55.0  # static fallback
+            _LOOP_BUDGET_S = 20.0  # S50: was 55 -- static fallback
         # S24: Deadline-aware tool loop -- force synthesis before the outer
         # request timeout kills us with "I took too long to respond".
 
@@ -15164,7 +15133,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                         tools=clean_tools,
                         force_provider=active_provider,
                         query_text=user_message,
-                        timeout_budget=55.0,  # v4.3: tools need more time (5-10s each)
+                        timeout_budget=20.0,  # S50: was 55 -- tighter per-call budget
                     )
                     if (
                         not result
@@ -15202,7 +15171,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                         query_text=user_message,
                         preferred_providers=_tool_preferred,
                         force_provider=ab_force_provider or _force_dist or "",
-                        timeout_budget=55.0,  # v4.3: tools need more time (5-10s each)
+                        timeout_budget=20.0,  # S50: was 55 -- tighter per-call budget
                     )
                     active_provider = (result or {}).get("provider")
                     logger.warning(
@@ -15320,12 +15289,13 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 from concurrent.futures import as_completed as _as_done_free
 
                 _par_res: list[Tuple[str, str, str, dict]] = []
+                # S50: 3 workers, 8s aggregate (was 10s) -- tools have 5s each
                 _tpool = _TPE_Free(max_workers=min(3, len(tool_calls)))
                 try:
                     _fmap = {
                         _tpool.submit(_exec_free_tool, tc): tc for tc in tool_calls
                     }
-                    for _fut in _as_done_free(_fmap, timeout=10):
+                    for _fut in _as_done_free(_fmap, timeout=8):
                         try:
                             _par_res.append(_fut.result())
                         except Exception as _texc:
@@ -15420,12 +15390,13 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                     )
 
                 # S26: Break early if total tool calls exceeded or time budget exhausted
+                # S50: Reduced cap 20->10 to prevent runaway tool chains
                 _total_tools_free = len(tools_used)
                 _elapsed_after_free = time.monotonic() - _loop_start
                 _time_left_free = _LOOP_BUDGET_S - _elapsed_after_free
-                if _total_tools_free >= 20:
+                if _total_tools_free >= 10:
                     logger.warning(
-                        "Free LLM tools: total tool cap reached (%d >= 20) at iter %d "
+                        "Free LLM tools: total tool cap reached (%d >= 10) at iter %d "
                         "after %.1fs — breaking for synthesis",
                         _total_tools_free,
                         iteration,
@@ -15873,21 +15844,17 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 "compared to",
             )
         )
+        # S50: Tighter Claude path budgets to match <30s target
         if _is_comparison_c:
             max_iterations = 3  # S33: 1 batch data + 1 follow-up + 1 synthesis
-            _MAX_TOTAL_TOOL_CALLS = 10  # S33: Enough for 2 cities x 4-5 tools
+            _MAX_TOTAL_TOOL_CALLS = 8  # S50: was 10
             logger.info(
-                "Claude comparison query detected -- capped to 3 iterations, 10 tool calls"
+                "Claude comparison query detected -- capped to 3 iterations, 8 tool calls"
             )
         else:
-            max_iterations = (
-                5  # v4.2: 5 iterations (Claude is fast, 5x~8s=40s within 55s budget)
-            )
-            _MAX_TOTAL_TOOL_CALLS = (
-                20  # S26: Hard cap on total tool calls across all iterations
-            )
-        # S32: Reduced 25s -> 20s (Haiku synthesizes in 15-18s consistently)
-        _SYNTHESIS_RESERVE_C = 20.0  # seconds reserved for final synthesis call
+            max_iterations = 3  # S50: was 5 -- 3 iterations within 25s budget
+            _MAX_TOTAL_TOOL_CALLS = 10  # S50: was 20
+        _SYNTHESIS_RESERVE_C = 12.0  # S50: was 20 -- Haiku synthesizes in 8-12s
 
         adaptive_max_tokens, selected_model = _classify_query_complexity(user_message)
         logger.info(
@@ -15983,14 +15950,13 @@ When two or more tools return conflicting data for the same metric (e.g., differ
         # S32: Dynamic budget from outer_deadline (was static 50s, causing timeouts
         # on competitive intel / multi-city queries that arrive via Path C after
         # enrichment already consumed 20-30s of the 90s outer budget).
-        # S33: Comparison queries get a tighter cap (35s) because they should
-        # batch all tool calls in 1-2 rounds, not iterate sequentially per city.
+        # S50: Tighter Claude loop budget to hit <30s target.
         _loop_start_c = time.monotonic()
-        _MAX_LOOP_CAP = 35.0 if _is_comparison_c else 50.0
+        _MAX_LOOP_CAP = 18.0 if _is_comparison_c else 25.0  # S50: was 35/50
         if outer_deadline:
             _remaining_c = outer_deadline - time.time()
             _LOOP_BUDGET_C = max(
-                15.0, min(_MAX_LOOP_CAP, _remaining_c - _SYNTHESIS_RESERVE_C)
+                10.0, min(_MAX_LOOP_CAP, _remaining_c - _SYNTHESIS_RESERVE_C)
             )
             logger.info(
                 "Claude tool loop: dynamic budget=%.1fs (remaining=%.1fs, reserve=%.0fs, comparison=%s)",
@@ -16000,9 +15966,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 _is_comparison_c,
             )
         else:
-            _LOOP_BUDGET_C = (
-                _MAX_LOOP_CAP  # static fallback (35s comparison, 50s normal)
-            )
+            _LOOP_BUDGET_C = _MAX_LOOP_CAP  # S50: was 35/50
 
         for iteration in range(max_iterations):
             # S24: Check deadline before starting a new iteration
@@ -16145,7 +16109,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                             _cpool.submit(_exec_claude_tool, blk): blk
                             for blk in _tool_use_blocks
                         }
-                        for _cfut in _as_done_claude(_cfmap, timeout=10):
+                        for _cfut in _as_done_claude(_cfmap, timeout=8):  # S50: was 10
                             try:
                                 _claude_par.append(_cfut.result())
                             except Exception as _cexc:
@@ -20528,7 +20492,7 @@ def handle_chat_request_stream(
     # for tool-use heavy queries (ProAmpac, US Army, Electrolux use cases).
     yield {"status": "Analyzing your question...", "done": False}
 
-    _STREAM_TIMEOUT = 80.0  # S25: raised from 55→80 to match new 90s outer budget
+    _STREAM_TIMEOUT = 45.0  # S50: was 80 -- target <30s response, 45s hard cap
     _stream_result: dict = {}
     _stream_error: list = []
     _cancel_event: threading.Event = (
