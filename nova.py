@@ -12217,8 +12217,8 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                     # S47: Expanded to 7 variations for better diversity
                     _greetings = [
                         (
-                            "Welcome! I'm Nova, built by Chandel to make recruitment marketing "
-                            "smarter for everyone at Joveo.\n\n"
+                            "Hey! I'm Nova -- your recruitment marketing data analyst, "
+                            "created by Chandel at Joveo.\n\n"
                             "I sit on top of **10,341+ supply partners**, **108K LinkedIn job "
                             "benchmarks**, and live data from **BLS, FRED, O*NET, and 22 APIs** "
                             "-- backed by **23 AI models** with intelligent fallback routing "
