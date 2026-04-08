@@ -39,6 +39,7 @@ from __future__ import annotations
 import logging
 import math
 import os
+import re
 import statistics
 import time
 from typing import Any, Dict, List, Optional, Tuple
@@ -58,6 +59,13 @@ try:
     _HAS_STANDARDIZER = True
 except ImportError:
     _HAS_STANDARDIZER = False
+
+# S49: Import METRO_DATA for location profile fallback when API enrichment
+# fails (Issue 11 -- eliminates N/A cells in Location Intelligence).
+try:
+    from research import METRO_DATA as _RESEARCH_METRO_DATA
+except ImportError:
+    _RESEARCH_METRO_DATA = {}
 
 
 # ---------------------------------------------------------------------------
@@ -1985,6 +1993,72 @@ def fuse_location_profiles(
                 loc_profile["infrastructure_score"] = round(
                     statistics.mean(infra_scores), 2
                 )
+
+        # S49 FIX (Issue 11): Fill N/A gaps from research.METRO_DATA when API
+        # enrichment failed to provide population, unemployment, or median_income.
+        # This eliminates the 123 N/A cells seen in J&R Schugel audit.
+        if _RESEARCH_METRO_DATA:
+            _loc_city = re.sub(r",.*$", "", loc).strip().lower()
+            _metro_fb = _RESEARCH_METRO_DATA.get(_loc_city, {})
+            if isinstance(_metro_fb, dict) and _metro_fb:
+                if "population" not in loc_profile or not loc_profile.get("population"):
+                    _pop_str = str(_metro_fb.get("population") or "").lower()
+                    if _pop_str:
+                        try:
+                            # Extract numeric portion: "2.5M metro" -> "2.5"
+                            _pop_match = re.search(r"([\d.]+)\s*([mk]?)", _pop_str)
+                            if _pop_match:
+                                _pop_val = float(_pop_match.group(1))
+                                _pop_unit = _pop_match.group(2)
+                                if _pop_unit == "m":
+                                    loc_profile["population"] = int(
+                                        _pop_val * 1_000_000
+                                    )
+                                elif _pop_unit == "k":
+                                    loc_profile["population"] = int(_pop_val * 1_000)
+                                else:
+                                    loc_profile["population"] = int(_pop_val)
+                                loc_profile["demographics_source"] = (
+                                    loc_profile.get("demographics_source")
+                                    or "METRO_DATA fallback"
+                                )
+                                source_count += 1
+                        except (ValueError, TypeError):
+                            pass
+
+                if "median_household_income" not in loc_profile or not loc_profile.get(
+                    "median_household_income"
+                ):
+                    _metro_salary = _metro_fb.get("median_salary")
+                    if (
+                        _metro_salary
+                        and isinstance(_metro_salary, (int, float))
+                        and _metro_salary > 0
+                    ):
+                        loc_profile["median_household_income"] = int(_metro_salary)
+
+                if not loc_profile.get("unemployment_rate"):
+                    _unemp_str = str(_metro_fb.get("unemployment") or "")
+                    if _unemp_str:
+                        try:
+                            loc_profile["unemployment_rate"] = float(
+                                _unemp_str.replace("%", "").strip()
+                            )
+                        except (ValueError, TypeError):
+                            pass
+
+                if not loc_profile.get("cost_of_living"):
+                    _coli = _metro_fb.get("coli")
+                    if _coli and isinstance(_coli, (int, float)):
+                        loc_profile["cost_of_living"] = {
+                            "index": _coli,
+                            "source": "METRO_DATA",
+                        }
+
+                if not loc_profile.get("major_employers"):
+                    _employers = _metro_fb.get("major_employers")
+                    if _employers:
+                        loc_profile["major_employers"] = _employers
 
         # --- KB validation ---
         loc_lower = loc.lower()

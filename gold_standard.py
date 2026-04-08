@@ -22,6 +22,11 @@ import logging
 import re
 from typing import Any
 
+try:
+    from research import METRO_DATA as _RESEARCH_METRO_DATA
+except ImportError:
+    _RESEARCH_METRO_DATA = {}
+
 logger = logging.getLogger(__name__)
 
 
@@ -137,8 +142,35 @@ def enrich_city_level_data(data: dict) -> dict:
             continue
 
         city_key = city_name.lower()
-        multiplier = _CITY_SALARY_MULTIPLIERS.get(city_key, 1.0)
-        difficulty = _CITY_HIRING_DIFFICULTY.get(city_key, 5.5)
+        multiplier = _CITY_SALARY_MULTIPLIERS.get(city_key, None)
+        difficulty = _CITY_HIRING_DIFFICULTY.get(city_key, None)
+
+        # S49 FIX (Issue 10): When no hardcoded multiplier/difficulty exists,
+        # fall back to research.METRO_DATA for COLI-based differentiation
+        # instead of flat defaults (1.0 / 5.5).  This ensures cities like
+        # Dallas (COLI 108) differ from SF (COLI 170) in salary estimates.
+        _metro_entry = _RESEARCH_METRO_DATA.get(city_key, {})
+        if multiplier is None:
+            _metro_coli = _metro_entry.get("coli")
+            if (
+                _metro_coli
+                and isinstance(_metro_coli, (int, float))
+                and _metro_coli > 0
+            ):
+                multiplier = _metro_coli / 100.0
+            else:
+                multiplier = 1.0
+
+        if difficulty is None:
+            # Derive difficulty from metro unemployment rate:
+            # lower unemployment = harder to hire (inverse relationship)
+            _metro_unemp_str = str(_metro_entry.get("unemployment") or "")
+            try:
+                _metro_unemp = float(_metro_unemp_str.replace("%", "").strip())
+                # Map: 2% unemployment -> difficulty 7.5, 5% -> 5.0, 8% -> 3.0
+                difficulty = max(2.0, min(9.5, 10.0 - _metro_unemp))
+            except (ValueError, TypeError):
+                difficulty = 5.5
 
         # Determine supply tier
         supply_tier = "balanced"
@@ -1742,6 +1774,29 @@ _NON_TRADITIONAL_CHANNELS: dict[str, dict[str, Any]] = {
         "type": "campus",
         "reach": "campus",
         "best_for": ["intern", "junior"],
+        # S49: Handshake is a college/campus platform -- irrelevant for
+        # blue-collar, trucking, CDL, or driver roles.
+        "exclude_collar": ["blue_collar", "trucking", "cdl", "driver"],
+    },
+    # S49: Trucking/CDL-specific niche boards (replacements for Handshake
+    # when role is blue-collar trucking/driving).
+    "TruckersReport Jobs": {
+        "type": "niche_board",
+        "reach": "niche",
+        "best_for": ["trucking", "cdl", "driver", "hourly"],
+        "industry": "logistics_transportation",
+    },
+    "CDLjobs.com": {
+        "type": "niche_board",
+        "reach": "niche",
+        "best_for": ["trucking", "cdl", "driver", "hourly"],
+        "industry": "logistics_transportation",
+    },
+    "DriveMyWay": {
+        "type": "niche_board",
+        "reach": "niche",
+        "best_for": ["trucking", "cdl", "driver", "hourly"],
+        "industry": "logistics_transportation",
     },
     "Hired.com": {
         "type": "marketplace",
@@ -1821,18 +1876,67 @@ def build_channel_strategy(
         if relevance > 0 or not seniority_levels:
             trad_picks.append({"name": name, "relevance_score": relevance, **info})
 
+    # S49 FIX (Issue 12): Detect blue-collar / trucking / CDL / driver roles
+    # so we can exclude irrelevant campus platforms like Handshake.
+    _TRUCKING_KEYWORDS = {
+        "truck",
+        "trucker",
+        "trucking",
+        "cdl",
+        "driver",
+        "otr",
+        "freight",
+        "hauling",
+        "delivery",
+        "courier",
+        "chauffeur",
+        "forklift",
+        "warehouse",
+        "dock",
+        "loader",
+    }
+    _roles_raw = data.get("target_roles") or data.get("roles") or []
+    if isinstance(_roles_raw, str):
+        _roles_raw = [_roles_raw]
+    _all_roles_lower = " ".join(
+        str(r.get("title") if isinstance(r, dict) else r) for r in _roles_raw
+    ).lower()
+    _industry_lower = industry.lower()
+    _is_blue_collar_trucking = bool(
+        _TRUCKING_KEYWORDS & set(_all_roles_lower.split())
+        or "trucking" in _industry_lower
+        or "transportation" in _industry_lower
+        or "logistics" in _industry_lower
+    )
+
     # Pick relevant non-traditional channels
     nontrad_picks: list[dict[str, Any]] = []
     for name, info in _NON_TRADITIONAL_CHANNELS.items():
+        # S49: Skip channels that have an exclude_collar list matching the role profile
+        if _is_blue_collar_trucking and info.get("exclude_collar"):
+            continue
+
         # Match by industry
         ch_industry = info.get("industry") or ""
         industry_match = (
             ch_industry in industry or industry in ch_industry if ch_industry else True
         )
+        # For trucking-specific channels, always include if role is trucking
+        if (
+            _is_blue_collar_trucking
+            and info.get("industry") == "logistics_transportation"
+        ):
+            industry_match = True
         # Match by seniority
         seniority_match = (
             any(s in info["best_for"] for s in seniority_levels) or not seniority_levels
         )
+        # Trucking-specific boards match "hourly" which blue-collar roles have
+        if _is_blue_collar_trucking and any(
+            bf in ("trucking", "cdl", "driver", "hourly")
+            for bf in info.get("best_for", [])
+        ):
+            seniority_match = True
         if industry_match and seniority_match:
             nontrad_picks.append({"name": name, **info})
 

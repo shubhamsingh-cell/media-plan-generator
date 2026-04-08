@@ -733,16 +733,19 @@ INDUSTRY_ALLOC_PROFILES: Dict[str, Dict[str, int]] = {
         "apac_regional": 3,
         "emea_regional": 2,
     },
-    # Logistics/supply chain: programmatic + regional, moderate niche
+    # Logistics/supply chain/trucking: niche CDL boards dominate for
+    # trucking/transportation (CDLjobs, TruckersReport, DriveMyWay),
+    # programmatic for volume, regional for local routes.
+    # S49 Issue 15: Raised niche_boards from 12% to 35% for trucking alignment.
     "logistics_supply_chain": {
-        "programmatic_dsp": 35,
-        "global_boards": 20,
-        "niche_boards": 12,
+        "programmatic_dsp": 25,
+        "global_boards": 15,
+        "niche_boards": 35,  # CDLjobs, TruckersReport, DriveMyWay
         "social_media": 10,
-        "regional_boards": 15,
+        "regional_boards": 10,
         "employer_branding": 5,
-        "apac_regional": 2,
-        "emea_regional": 1,
+        "apac_regional": 0,
+        "emea_regional": 0,
     },
     # Insurance: niche + professional boards
     "insurance": {
@@ -8702,20 +8705,32 @@ def generate_pptx(data: Dict[str, Any]) -> bytes:
         _build_slide_cover(prs, data)
 
         # Quality warning disclaimer on cover slide (when enrichment degraded)
+        # S49 Issue 17: Severity-scaled prefix -- "Caution" for minimal data,
+        # "Warning" for limited data, "Note" for moderate degradation.
         _quality_warn = data.get("quality_warning") or ""
         if _quality_warn and prs.slides:
             try:
                 _cover_slide = prs.slides[0]
+                # Determine severity prefix and color from warning text
+                if "Minimal data" in _quality_warn:
+                    _warn_prefix = "Caution"
+                    _warn_color = "FF4444"  # Red for severe
+                elif "Limited data" in _quality_warn:
+                    _warn_prefix = "Warning"
+                    _warn_color = "FF8C00"  # Dark orange for moderate
+                else:
+                    _warn_prefix = "Note"
+                    _warn_color = "FFD700"  # Gold for mild
                 _add_textbox(
                     _cover_slide,
                     Inches(0.6),
                     Inches(7.0),
                     Inches(10),
                     Inches(0.3),
-                    text=f"Note: {_quality_warn}",
+                    text=f"{_warn_prefix}: {_quality_warn}",
                     font_size=7,
                     italic=True,
-                    color="FFD700",  # Gold/warning color
+                    color=_warn_color,
                 )
             except Exception as _qw_err:
                 logger.debug(

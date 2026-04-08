@@ -5008,14 +5008,46 @@ def _build_sheet_rolling_forecast(ws, data: dict) -> None:
     # Month 1: 25% (ramp-up, learning), Month 2: 35% (optimizing), Month 3: 40% (peak)
     monthly_pcts = [0.25, 0.35, 0.40]
     today = datetime.date.today()
+
+    # S49 FIX (Issue 18): Use campaign_start_month from form data instead of
+    # today's month so the forecast aligns with the activation timeline.
+    # e.g. if campaign starts May, forecast = May/Jun/Jul (not Apr/May/Jun).
+    _csm_raw = data.get("campaign_start_month") or 0
+    try:
+        _campaign_start_month = int(_csm_raw) if _csm_raw else 0
+    except (ValueError, TypeError):
+        _campaign_start_month = 0
+    if _campaign_start_month < 1 or _campaign_start_month > 12:
+        _campaign_start_month = today.month  # fallback to current month
+
+    # Determine the forecast start year: if campaign month is in the past
+    # relative to current date, assume it starts this year anyway (form input);
+    # otherwise use current year.
+    _forecast_year = today.year
+
     month_labels = []
     for i in range(3):
-        m = today.month + i
-        y = today.year
+        m = _campaign_start_month + i
+        y = _forecast_year
         if m > 12:
             m -= 12
             y += 1
         month_labels.append(datetime.date(y, m, 1).strftime("%B %Y"))
+
+    # Compute forecast period start/end from campaign start month
+    _forecast_start = datetime.date(_forecast_year, _campaign_start_month, 1)
+    _forecast_end_m = _campaign_start_month + 2
+    _forecast_end_y = _forecast_year
+    if _forecast_end_m > 12:
+        _forecast_end_m -= 12
+        _forecast_end_y += 1
+    # Last day of the 3rd month
+    if _forecast_end_m == 12:
+        _forecast_end = datetime.date(_forecast_end_y, 12, 31)
+    else:
+        _forecast_end = datetime.date(
+            _forecast_end_y, _forecast_end_m + 1, 1
+        ) - datetime.timedelta(days=1)
 
     row = 2
 
@@ -5023,12 +5055,11 @@ def _build_sheet_rolling_forecast(ws, data: dict) -> None:
     row = _write_section_header(ws, row, "90-Day Rolling Forecast")
 
     # ── Campaign Period ──
-    end_date = today + datetime.timedelta(days=90)
     row = _write_kv_row(
         ws,
         row,
         "Forecast Period",
-        f"{today.strftime('%b %d, %Y')} - {end_date.strftime('%b %d, %Y')}",
+        f"{_forecast_start.strftime('%b %d, %Y')} - {_forecast_end.strftime('%b %d, %Y')}",
     )
     row += 1
 

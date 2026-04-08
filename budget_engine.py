@@ -213,6 +213,26 @@ _INDUSTRY_MIN_CPH = {
     "general": 2000,
 }
 
+# S49: Per-channel minimum CPH floors (USD).
+# Prevents unrealistically low cost-per-hire projections for individual
+# channels.  E.g. Programmatic DSP at $0.80 CPC with 2% hire rate can
+# mathematically produce $515/hire, but real-world DSP hires cost $800+.
+_CHANNEL_MIN_CPH: Dict[str, float] = {
+    "programmatic": 800,
+    "social": 600,
+    "search": 700,
+    "display": 750,
+    "job_board": 500,
+    "niche_board": 600,
+    "regional": 400,
+    "career_site": 300,
+    "employer_branding": 400,
+    "referral": 200,
+    "events": 500,
+    "staffing": 1000,
+    "email": 300,
+}
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -673,13 +693,21 @@ def estimate_cph_from_salary(annual_salary: float) -> float:
     return round(annual_salary * 0.044, 2)
 
 
-def _score_roi(cost_per_hire: float, industry_avg: float) -> int:
+def _score_roi(
+    cost_per_hire: float, industry_avg: float, projected_hires: int = -1
+) -> int:
     """
     Score ROI on a 1-10 scale.
 
     10 = cost_per_hire is <=20% of the industry average (exceptional).
      1 = cost_per_hire is >=3x the industry average (terrible).
+
+    S49 FIX (Issue 16): If projected_hires == 0, the channel produces no
+    hires so ROI is capped at 2 regardless of cost_per_hire ratio.
+    A channel spending money with zero projected hires is low-efficiency.
     """
+    if projected_hires == 0:
+        return 1  # zero hires = worst ROI regardless of spend
     if industry_avg <= 0 or cost_per_hire <= 0:
         return 5  # unknown
     ratio = cost_per_hire / industry_avg
@@ -1631,6 +1659,17 @@ def compute_channel_dollar_amounts(
             cpa = _safe_divide(dollars, max(projected_applications, 1), dollars)
             cost_per_hire = _safe_divide(dollars, max(projected_hires, 1), dollars)
 
+        # S49 FIX (Issue 9): Enforce per-channel minimum CPH floor.
+        # Prevents unrealistically low hire projections (e.g. Programmatic DSP
+        # at $515/hire when real-world floor is $800).  Cap projected_hires so
+        # that cost_per_hire >= channel minimum.
+        _ch_min_cph = _CHANNEL_MIN_CPH.get(category, 0)
+        if _ch_min_cph > 0 and dollars > 0 and projected_hires > 0:
+            max_hires_at_floor = int(dollars / _ch_min_cph)
+            if projected_hires > max_hires_at_floor:
+                projected_hires = max(max_hires_at_floor, 0)
+                cost_per_hire = _safe_divide(dollars, max(projected_hires, 1), dollars)
+
         # S39/S46/S48: Platform-differentiated safety margins for CPH/CPA
         # Margins reflect data quality and variability per platform.
         # Platform-specific margins override category defaults.
@@ -1682,7 +1721,18 @@ def compute_channel_dollar_amounts(
             cost_per_hire *= _margin
             cpa *= _margin
 
-        roi = _score_roi(cost_per_hire, industry_avg_cph)
+        # S49 FIX (Issue 16): Pass projected_hires so zero-hire channels
+        # get appropriately low ROI scores instead of inflated ones.
+        roi = _score_roi(
+            cost_per_hire, industry_avg_cph, projected_hires=projected_hires
+        )
+
+        # S49 FIX (Issue 16): Flag channels spending >$1000 with 0 hires
+        _efficiency_flag = ""
+        if projected_hires == 0 and dollars > 1000:
+            _efficiency_flag = "Low Efficiency"
+        elif projected_hires == 0 and dollars > 0:
+            _efficiency_flag = "No Projected Hires"
 
         allocation_entry: Dict[str, Any] = {
             "dollar_amount": dollars,
@@ -1696,6 +1746,7 @@ def compute_channel_dollar_amounts(
             "roi_score": roi,
             "confidence": confidence or "low",
             "category": category,
+            "efficiency_flag": _efficiency_flag,
             # v3 fields
             "cpc_source": cpc_source,
             "apply_rate": round(apply_rate_adj, 4),
@@ -1898,6 +1949,19 @@ def assess_budget_sufficiency(
         recommendations.append(
             f"Channels with low ROI scores ({', '.join(low_roi_channels)}) "
             f"may benefit from budget reallocation to higher-performing channels."
+        )
+
+    # S49 Issue 16: Flag channels with low efficiency (spending >$1000, 0 hires)
+    low_eff_channels = [
+        name
+        for name, ch in channel_allocations.items()
+        if ch.get("efficiency_flag") == "Low Efficiency"
+    ]
+    if low_eff_channels:
+        recommendations.append(
+            f"Low Efficiency alert: {', '.join(low_eff_channels)} "
+            f"projected 0 hires despite >$1,000 spend. Consider reallocating "
+            f"this budget to channels with measurable hiring outcomes."
         )
 
     if total_budget > avg_cph * total_openings * 1.5:
@@ -2121,6 +2185,13 @@ def optimize_allocation(
             new_clicks = 0
             new_apps = max(1, int(new_dollars / 50.0))
             new_hires = max(0, int(new_apps * hire_rate * 2))
+
+        # S49: Apply per-channel CPH floor in optimizer path (same as primary)
+        _opt_min_cph = _CHANNEL_MIN_CPH.get(category, 0)
+        if _opt_min_cph > 0 and new_dollars > 0 and new_hires > 0:
+            _opt_max_hires = int(new_dollars / _opt_min_cph)
+            if new_hires > _opt_max_hires:
+                new_hires = max(_opt_max_hires, 0)
 
         optimized_metric_total += {
             "projected_hires": new_hires,

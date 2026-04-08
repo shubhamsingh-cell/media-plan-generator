@@ -12531,6 +12531,119 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 elif _arr_val is not None and not isinstance(_arr_val, list):
                     data[_arr_field] = [str(_arr_val)]
 
+            # ── S49 FIX (Issue 14): Normalize common location misspellings ──
+            # Applied early so all downstream enrichment, PPT, and Excel
+            # receive correct city names.
+            _LOCATION_CORRECTIONS = {
+                "ithica": "Ithaca",
+                "harrisburgh": "Harrisburg",
+                "murfeesboro": "Murfreesboro",
+                "pittsburg": "Pittsburgh",
+                "albuquerque": "Albuquerque",
+                "cincinatti": "Cincinnati",
+                "colombus": "Columbus",
+                "detriot": "Detroit",
+                "houstan": "Houston",
+                "philladelphia": "Philadelphia",
+                "phoneix": "Phoenix",
+                "sacremento": "Sacramento",
+                "seatle": "Seattle",
+                "tuscon": "Tucson",
+                "milwakee": "Milwaukee",
+                "minnapolis": "Minneapolis",
+                "indianpolis": "Indianapolis",
+                "nashvile": "Nashville",
+                "lousville": "Louisville",
+                "baltamore": "Baltimore",
+                "richmand": "Richmond",
+                "charlote": "Charlotte",
+                "ralegh": "Raleigh",
+                "memhpis": "Memphis",
+                "knoxvile": "Knoxville",
+                "cleavland": "Cleveland",
+                "bufalo": "Buffalo",
+                "rochestor": "Rochester",
+                "siracuse": "Syracuse",
+                "sprinfield": "Springfield",
+                "talahassee": "Tallahassee",
+                "jackonville": "Jacksonville",
+            }
+
+            def _correct_location_spelling(loc_str: str) -> str:
+                """Fix common city misspellings while preserving state/country suffix."""
+                if not loc_str or not isinstance(loc_str, str):
+                    return loc_str
+                parts = [p.strip() for p in loc_str.split(",")]
+                city_part = parts[0]
+                city_lower = city_part.lower().strip()
+                corrected = _LOCATION_CORRECTIONS.get(city_lower)
+                if corrected:
+                    parts[0] = corrected
+                    return ", ".join(parts)
+                return loc_str
+
+            _locs = data.get("locations") or []
+            if isinstance(_locs, list):
+                data["locations"] = [
+                    _correct_location_spelling(l) if isinstance(l, str) else l
+                    for l in _locs
+                ]
+
+            # ── S49 FIX (Issue 13): Override "remote" work_environment for
+            # trucking/transportation/delivery roles.  OTR trucking is NOT
+            # remote work -- drivers are physically on the road.
+            _FIELD_WORK_INDUSTRIES = {
+                "trucking",
+                "transportation",
+                "logistics",
+                "delivery",
+                "freight",
+                "shipping",
+                "courier",
+                "warehousing",
+                "supply_chain",
+            }
+            _FIELD_WORK_ROLES = {
+                "driver",
+                "trucker",
+                "cdl",
+                "otr",
+                "delivery",
+                "courier",
+                "forklift",
+                "warehouse",
+                "dock",
+                "loader",
+                "freight",
+                "hauler",
+                "chauffeur",
+            }
+            _we_raw = _safe_str(data.get("work_environment") or "").strip().lower()
+            if _we_raw == "remote":
+                _ind_lower = (
+                    _safe_str(data.get("industry") or "")
+                    .strip()
+                    .lower()
+                    .replace("-", "_")
+                )
+                _roles_for_we = data.get("target_roles") or data.get("roles") or []
+                if isinstance(_roles_for_we, str):
+                    _roles_for_we = [_roles_for_we]
+                _roles_text = " ".join(
+                    str(r.get("title") if isinstance(r, dict) else r).lower()
+                    for r in _roles_for_we
+                )
+                _industry_is_field = bool(
+                    _FIELD_WORK_INDUSTRIES & set(_ind_lower.split("_"))
+                )
+                _role_is_field = bool(_FIELD_WORK_ROLES & set(_roles_text.split()))
+                if _industry_is_field or _role_is_field:
+                    data["work_environment"] = "field"
+                    data["_work_env_override_note"] = (
+                        "Work environment changed from 'remote' to 'field': "
+                        "this role involves physical on-site or on-road work."
+                    )
+
             # ── Region selector: validate and normalize ──
             _valid_regions = {"us_only", "global", "emea", "apac", "custom"}
             target_region = (
@@ -12979,7 +13092,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         else:
                             gen_data["_enriched"] = {}
 
-                        # ── Fix 25: Detect silent enrichment quality degradation ──
+                        # ── Fix 25 + S49 Issue 17: Detect enrichment quality degradation ──
+                        # Scale warning text with confidence level so PPT disclaimer
+                        # is stronger when data quality is worse.
                         _enr = gen_data.get("_enriched") or {}
                         _enr_summary = (
                             _enr.get("enrichment_summary", {})
@@ -12987,21 +13102,39 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                             else {}
                         )
                         _enr_succeeded = _enr_summary.get("apis_succeeded") or []
+                        _enr_confidence = float(
+                            _enr_summary.get("confidence_score", 0)
+                            if isinstance(_enr_summary, dict)
+                            else 0
+                        )
                         if not _enr or (
                             isinstance(_enr_succeeded, list) and len(_enr_succeeded) < 3
                         ):
-                            gen_data["quality_warning"] = (
-                                "Some market data sources were unavailable. "
-                                "Plan uses benchmark estimates."
-                            )
+                            # S49: Tiered warning based on confidence score
+                            if _enr_confidence < 0.40:
+                                gen_data["quality_warning"] = (
+                                    "Minimal data available. Plan is heavily estimated. "
+                                    "Recommend API enrichment before executing."
+                                )
+                            elif _enr_confidence < 0.60:
+                                gen_data["quality_warning"] = (
+                                    "Limited data available. This plan uses estimated benchmarks. "
+                                    "Results may vary significantly."
+                                )
+                            else:
+                                gen_data["quality_warning"] = (
+                                    "Some market data sources were unavailable. "
+                                    "Plan uses benchmark estimates."
+                                )
                             logger.warning(
-                                "Enrichment quality degraded for job %s: %d APIs succeeded (min 3)",
+                                "Enrichment quality degraded for job %s: %d APIs succeeded (min 3), confidence=%.2f",
                                 jid,
                                 (
                                     len(_enr_succeeded)
                                     if isinstance(_enr_succeeded, list)
                                     else 0
                                 ),
+                                _enr_confidence,
                             )
 
                         with _generation_jobs_lock:
@@ -14672,7 +14805,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             if _market_ctx:
                 data["market_context"] = _market_ctx
 
-            # ── Fix 25: Detect silent enrichment quality degradation ──
+            # ── Fix 25 + S49 Issue 17: Detect enrichment quality degradation ──
+            # Scale warning text with confidence level so PPT disclaimer
+            # is stronger when data quality is worse.
             _enr_sync = data.get("_enriched") or {}
             _enr_sync_summary = (
                 _enr_sync.get("enrichment_summary", {})
@@ -14680,20 +14815,38 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 else {}
             )
             _enr_sync_succeeded = _enr_sync_summary.get("apis_succeeded") or []
+            _enr_sync_confidence = float(
+                _enr_sync_summary.get("confidence_score", 0)
+                if isinstance(_enr_sync_summary, dict)
+                else 0
+            )
             if not _enr_sync or (
                 isinstance(_enr_sync_succeeded, list) and len(_enr_sync_succeeded) < 3
             ):
-                data["quality_warning"] = (
-                    "Some market data sources were unavailable. "
-                    "Plan uses benchmark estimates."
-                )
+                # S49: Tiered warning based on confidence score
+                if _enr_sync_confidence < 0.40:
+                    data["quality_warning"] = (
+                        "Minimal data available. Plan is heavily estimated. "
+                        "Recommend API enrichment before executing."
+                    )
+                elif _enr_sync_confidence < 0.60:
+                    data["quality_warning"] = (
+                        "Limited data available. This plan uses estimated benchmarks. "
+                        "Results may vary significantly."
+                    )
+                else:
+                    data["quality_warning"] = (
+                        "Some market data sources were unavailable. "
+                        "Plan uses benchmark estimates."
+                    )
                 logger.warning(
-                    "Enrichment quality degraded: %d APIs succeeded (min 3)",
+                    "Enrichment quality degraded: %d APIs succeeded (min 3), confidence=%.2f",
                     (
                         len(_enr_sync_succeeded)
                         if isinstance(_enr_sync_succeeded, list)
                         else 0
                     ),
+                    _enr_sync_confidence,
                 )
 
             logger.info(
@@ -14845,7 +14998,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                             INDUSTRY_ALLOC_PROFILES.get(_ind_key_ba, _DEFAULT_ALLOC_BA)
                         )
                     else:
-                        # Inline fallback if ppt_generator is not importable (5 industries)
+                        # Inline fallback if ppt_generator is not importable (6 industries)
                         _INDUSTRY_ALLOC_BA_FALLBACK = {
                             "healthcare_medical": {
                                 "programmatic_dsp": 22,
@@ -14896,6 +15049,18 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                 "employer_branding": 3,
                                 "apac_regional": 1,
                                 "emea_regional": 1,
+                            },
+                            # S49 Issue 15: Transportation/logistics/trucking
+                            # niche CDL boards (CDLjobs, TruckersReport, DriveMyWay) dominate
+                            "logistics_supply_chain": {
+                                "programmatic_dsp": 25,
+                                "global_boards": 15,
+                                "niche_boards": 35,
+                                "social_media": 10,
+                                "regional_boards": 10,
+                                "employer_branding": 5,
+                                "apac_regional": 0,
+                                "emea_regional": 0,
                             },
                         }
                         channel_pcts = dict(
