@@ -625,6 +625,16 @@ def _slide_benchmarking_1(data: dict) -> tuple[str, list[dict]]:
             comp_text += f"- {c}\n"
     else:
         comp_text += "Competitor data will be populated during engagement."
+    # S48: Inject Appcast trucking creative alert if present (Anirudh)
+    _creative_alert = ""
+    if competitor and isinstance(competitor, dict):
+        for _ck, _cv in competitor.items():
+            if isinstance(_cv, dict) and _cv.get("competitive_creative_alert"):
+                _creative_alert = _cv["competitive_creative_alert"]
+                break
+    if _creative_alert:
+        comp_text += f"\n{_creative_alert}"
+
     reqs.append(_insert_text(b_box, comp_text))
     reqs.append(_style_text(b_box, size=11, color=DARK_TEXT))
     reqs.append(_shape_border(b_box, BLUE_VIOLET, 1.0))

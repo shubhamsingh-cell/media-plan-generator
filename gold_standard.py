@@ -1414,6 +1414,44 @@ def build_competitor_map(data: dict, city_data: dict) -> dict[str, Any]:
             "hiring_intensity": "moderate",
         }
 
+    # S48: Appcast trucking creative alert (Anirudh)
+    # When industry is trucking/transportation/logistics/CDL/driver/fleet,
+    # inject competitive creative alert into every city entry + national.
+    try:
+        _trucking_keywords = (
+            "truck",
+            "trucking",
+            "transport",
+            "logistics",
+            "cdl",
+            "driver",
+            "fleet",
+            "freight",
+            "delivery",
+            "courier",
+        )
+        _raw_ind_lower = raw_industry.lower()
+        _is_trucking = any(kw in _raw_ind_lower for kw in _trucking_keywords)
+        if not _is_trucking and resolved_key in ("trucking", "logistics"):
+            _is_trucking = True
+
+        if _is_trucking:
+            _appcast_alert = (
+                "Competitor Creative Alert: Appcast is running high-converting "
+                "visual driver ads with real driver photos, daily earnings "
+                "($200-$400/day), benefit cards, and map pins. Plain text job "
+                "posts underperform visual ads by 2-3x in click-through rate "
+                "for blue-collar roles. Recommendation: Invest in visual ad "
+                "creative with compensation transparency and human photos."
+            )
+            for _city_key in competitor_map:
+                if isinstance(competitor_map[_city_key], dict):
+                    competitor_map[_city_key][
+                        "competitive_creative_alert"
+                    ] = _appcast_alert
+    except Exception as e:
+        logger.error("Appcast trucking alert injection failed: %s", e, exc_info=True)
+
     return competitor_map
 
 

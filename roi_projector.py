@@ -157,6 +157,60 @@ def _safe_div(n: float, d: float, default: float = 0.0) -> float:
     return n / d if d else default
 
 
+# ---------------------------------------------------------------------------
+# S48: Interview conversion rates by industry (Anirudh)
+# Application-to-interview (first touch) conversion rate.
+# ---------------------------------------------------------------------------
+_INTERVIEW_RATES: Dict[str, float] = {
+    "healthcare": 0.20,
+    "technology": 0.15,
+    "trucking": 0.30,
+    "retail": 0.25,
+    "finance": 0.18,
+    "hospitality": 0.28,
+    "construction": 0.25,
+    "manufacturing": 0.22,
+    "education": 0.20,
+    "staffing": 0.30,
+    "government": 0.15,
+    "logistics": 0.25,
+    "gig": 0.30,
+    "blue_collar": 0.28,
+    "pharma": 0.15,
+    "energy": 0.18,
+    "insurance": 0.18,
+    "automotive": 0.22,
+    "aerospace": 0.15,
+    "legal": 0.15,
+    "marketing": 0.20,
+    "general": 0.20,
+}
+
+# ---------------------------------------------------------------------------
+# S48: Trickle-type industry auto-detection (Anirudh)
+# Industries where applications arrive gradually (Uber-model) vs. burst.
+# ---------------------------------------------------------------------------
+_TRICKLE_INDUSTRIES: set = {
+    "trucking",
+    "gig",
+    "logistics",
+    "blue_collar",
+}
+_TRICKLE_KEYWORDS: set = {
+    "delivery",
+    "rideshare",
+    "uber",
+    "lyft",
+    "doordash",
+    "instacart",
+    "gig",
+    "courier",
+    "last mile",
+    "last_mile",
+    "trickle",
+}
+
+
 def _norm(s: str) -> str:
     return (
         (s or "").strip().lower().replace(" ", "_").replace("/", "_").replace("-", "_")
@@ -312,16 +366,65 @@ def _confidence(
 # ---------------------------------------------------------------------------
 
 
+def _detect_posting_model(
+    posting_model: Optional[str],
+    industry: str,
+    role: Optional[str] = None,
+) -> str:
+    """Detect posting model: 'survey' (burst Day 1) or 'trickle' (gradual).
+
+    Auto-detects from industry/role when not explicitly specified.
+
+    Args:
+        posting_model: Explicit model choice, or None for auto-detect.
+        industry: Industry vertical string.
+        role: Optional role title for keyword matching.
+
+    Returns:
+        'survey' or 'trickle'.
+    """
+    if posting_model and posting_model.lower() in ("survey", "trickle"):
+        return posting_model.lower()
+
+    # Auto-detect from industry
+    ind_norm = _norm(industry)
+    resolved = _INDUSTRY_ALIASES.get(ind_norm, ind_norm)
+    if resolved in _TRICKLE_INDUSTRIES:
+        return "trickle"
+
+    # Auto-detect from role keywords
+    if role:
+        role_lower = role.lower()
+        if any(kw in role_lower for kw in _TRICKLE_KEYWORDS):
+            return "trickle"
+
+    return "survey"
+
+
 def project_roi(
     channel: str,
     budget: float,
     industry: str = "general",
     role: Optional[str] = None,
     locations: Optional[List[str]] = None,
+    posting_model: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Project ROI for a single channel/budget/industry combination."""
+    """Project ROI for a single channel/budget/industry combination.
+
+    Args:
+        channel: Advertising channel (e.g., 'Indeed', 'LinkedIn').
+        budget: Campaign budget in USD.
+        industry: Industry vertical (e.g., 'healthcare', 'technology').
+        role: Target job role for additional calibration.
+        locations: Hiring locations for cost adjustment.
+        posting_model: 'survey' (burst Day 1) or 'trickle' (gradual).
+            Auto-detected from industry when not specified.
+    """
     if budget <= 0:
         return {"error": "Budget must be positive", "channel": channel}
+
+    # S48: Detect posting model (Anirudh)
+    model = _detect_posting_model(posting_model, industry, role)
 
     cpc, apply_rate = _get_channel(channel)
     aph, cpa_lo, cpa_hi, cph_lo, cph_hi, ttf_lo, ttf_hi = _get_industry(industry)
@@ -366,7 +469,11 @@ def project_roi(
     apps = clicks * apply_rate
     hires = _safe_div(apps, aph)
 
-    var = 0.25 if _norm(channel) in ("indeed", "linkedin", "ziprecruiter") else 0.30
+    # S48: Posting model affects variance and confidence intervals (Anirudh)
+    if model == "trickle":
+        var = 0.40  # wider CI for trickle/gradual applications
+    else:
+        var = 0.25 if _norm(channel) in ("indeed", "linkedin", "ziprecruiter") else 0.30
     h_pes, h_opt = max(0, hires * (1 - var)), hires * (1 + var)
 
     cpa_exp = max(cpa_lo_a, min(cpa_hi_a, _safe_div(budget, apps, cpa_hi_a)))
@@ -393,6 +500,31 @@ def project_roi(
         )
         conf_basis += " | international benchmarks (38 countries)"
 
+    # S48: CPIFT -- Cost Per Interview/First Touch (Anirudh)
+    ind_norm_for_interview = _INDUSTRY_ALIASES.get(_norm(industry), _norm(industry))
+    interview_rate = _INTERVIEW_RATES.get(
+        ind_norm_for_interview, _INTERVIEW_RATES["general"]
+    )
+    cpift_exp = round(_safe_div(cpa_exp, interview_rate, cpa_exp * 5), 2)
+    cpift_pes = round(_safe_div(cpa_pes, interview_rate, cpa_pes * 5), 2)
+    cpift_opt = round(_safe_div(cpa_opt, interview_rate, cpa_opt * 5), 2)
+
+    # S48: Posting model narrative and adjustments (Anirudh)
+    if model == "trickle":
+        model_note = (
+            "Trickle-type posting -- applications arrive gradually. "
+            "Patience required; repost at day 14."
+        )
+        # Apply Bayesian smoothing to hire projections for trickle model
+        # Pull toward industry baseline hire count (reduces extreme estimates)
+        _baseline_hires = _safe_div(budget, (cph_lo + cph_hi) / 2, 1.0)
+        _k_proj = 5.0  # prior strength for projection smoothing
+        hires = (hires * 3.0 + _k_proj * _baseline_hires) / (3.0 + _k_proj)
+        h_pes = max(0, hires * (1 - var))
+        h_opt = hires * (1 + var)
+    else:
+        model_note = "Survey-type posting with strong Day 1 application volume."
+
     # Recommendation
     h_int = max(1, round(hires))
     strength = (
@@ -408,7 +540,9 @@ def project_roi(
         eff = "CPH is in line with market benchmarks"
     rec = (
         f"{strength}. {channel} is projected to deliver ~{h_int} hires "
-        f"at ${budget:,.0f} for {industry.replace('_', ' ').title()}. {eff}. Confidence: {conf_label}."
+        f"at ${budget:,.0f} for {industry.replace('_', ' ').title()}. {eff}. "
+        f"Expected cost per interview: ${cpift_exp:,.2f}. "
+        f"{model_note} Confidence: {conf_label}."
     )
 
     return {
@@ -417,6 +551,7 @@ def project_roi(
         "industry": industry,
         "role": role,
         "locations": locations or [],
+        "posting_model": model,
         "projections": {
             "pessimistic": {
                 "hires": max(1, round(h_pes)),
@@ -433,6 +568,13 @@ def project_roi(
                 "cpa": round(cpa_opt, 2),
                 "time_to_fill": ttf_lo,
             },
+        },
+        "cpift": {
+            "expected": cpift_exp,
+            "pessimistic": cpift_pes,
+            "optimistic": cpift_opt,
+            "interview_rate": interview_rate,
+            "note": f"Application-to-interview rate: {interview_rate:.0%} ({industry})",
         },
         "confidence": {"level": conf_score, "label": conf_label, "basis": conf_basis},
         "roi_metrics": {
@@ -451,6 +593,12 @@ def project_roi(
             "cpc_used": round(cpc_adj, 2),
             "apply_rate_used": round(apply_rate, 3),
             "location_cost_multiplier": round(loc_m, 2),
+        },
+        "posting_model_detail": {
+            "model": model,
+            "note": model_note,
+            "confidence_interval_pct": round(var * 100),
+            "decay_lambda_modifier": 0.7 if model == "trickle" else 1.0,
         },
         "recommendation": rec,
         "source": "Nova ROI Projector (28 industry sources, 302M+ data points)",

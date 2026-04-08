@@ -4983,6 +4983,74 @@ def _coli_adjustment(coli: int) -> float:
     return 0.5  # Low cost area -- easier to attract
 
 
+def _parse_population_millions(pop_str: str) -> float:
+    """Parse a population string like '4.7M metro' or '382K metro' into millions.
+
+    Args:
+        pop_str: Population string from METRO_DATA (e.g., '4.7M metro', '382K metro').
+
+    Returns:
+        Population in millions (e.g., 4.7, 0.382). Returns 0.0 on parse failure.
+    """
+    import re as _re_pop
+
+    try:
+        # Use regex to match "4.7M" or "382K" without false-matching "M" in "metro"
+        _pop_match = _re_pop.match(r"([\d,.]+)\s*([MmKk])", pop_str.strip())
+        if _pop_match:
+            _num = float(_pop_match.group(1).replace(",", ""))
+            _sfx = _pop_match.group(2).upper()
+            if _sfx == "M":
+                return _num
+            if _sfx == "K":
+                return _num / 1000.0
+        # Fallback: extract bare number
+        num = "".join(c for c in pop_str if c.isdigit() or c == ".")
+        if num:
+            val = float(num)
+            return val / 1_000_000 if val > 1000 else val
+    except (ValueError, IndexError):
+        pass
+    return 0.0
+
+
+def _bayesian_smooth_score(
+    metro_score: float,
+    national_baseline: float,
+    population_millions: float,
+    prior_strength: float = 30.0,
+) -> tuple[float, bool]:
+    """Apply Bayesian shrinkage to a metro score when data is sparse.
+
+    For small metros (population < 500K), pulls the metro-level estimate
+    toward the national baseline to reduce noise from sparse data.
+
+    Formula: smoothed = (n * metro_score + k * baseline) / (n + k)
+    where n = population / 100K (proxy for data volume), k = prior strength.
+
+    Args:
+        metro_score: Raw metro-level score (1.0-10.0).
+        national_baseline: National industry baseline score.
+        population_millions: Metro population in millions.
+        prior_strength: Prior strength parameter k (default 30).
+
+    Returns:
+        Tuple of (smoothed_score, was_smoothed_bool).
+    """
+    # Only smooth for small metros (pop < 0.5M = 500K)
+    if population_millions >= 0.5:
+        return metro_score, False
+
+    # n = proxy for data volume (population / 100K)
+    n = population_millions * 10.0  # population_millions * 1M / 100K = * 10
+    n = max(n, 0.1)  # floor to avoid division instability
+
+    smoothed = (n * metro_score + prior_strength * national_baseline) / (
+        n + prior_strength
+    )
+    return round(smoothed, 1), True
+
+
 def get_supply_demand_ratio(
     role: str,
     locations: list[str],
@@ -4992,6 +5060,10 @@ def get_supply_demand_ratio(
     Combines unemployment rates, cost of living, industry-specific tightness,
     and metro-level modifiers into a 1-10 score per location with actionable
     hiring recommendations.
+
+    For small metros (population < 500K), applies Bayesian shrinkage to pull
+    estimates toward the national baseline, reducing noise from sparse data
+    (Anirudh S48 recommendation).
 
     Args:
         role: Job title or role description (e.g., 'Software Engineer', 'CDL Driver').
@@ -5033,6 +5105,20 @@ def get_supply_demand_ratio(
         # Clamp to 1.0 - 10.0
         score = max(1.0, min(10.0, round(score, 1)))
 
+        # S48: Bayesian smoothing for sparse metros (Anirudh)
+        # Small metros (pop < 500K) get pulled toward national baseline
+        smoothed = False
+        if metro_data:
+            pop_str = metro_data.get("population") or ""
+            pop_millions = _parse_population_millions(pop_str)
+            score, smoothed = _bayesian_smooth_score(
+                metro_score=score,
+                national_baseline=base_score,
+                population_millions=pop_millions,
+            )
+            # Re-clamp after smoothing
+            score = max(1.0, min(10.0, score))
+
         # Derive applications and time-to-fill from score
         # Score 1 = very tight -> few apps, long TTF
         # Score 10 = very easy -> many apps, short TTF
@@ -5053,7 +5139,7 @@ def get_supply_demand_ratio(
         )
 
         metro_name = loc_info.get("metro_name") or loc
-        metro_entry = {
+        metro_entry: dict = {
             "score": score,
             "label": label,
             "candidates_per_opening": candidates_per_opening,
@@ -5066,6 +5152,7 @@ def get_supply_demand_ratio(
             "population": loc_info.get("population") or "",
             "major_employers": loc_info.get("major_employers") or "",
             "metro_name": metro_name,
+            "smoothed": smoothed,
         }
         metros_result[metro_name] = metro_entry
         scored_metros.append((metro_name, score, metro_entry))

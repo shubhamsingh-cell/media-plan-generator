@@ -5418,6 +5418,11 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                             "items": {"type": "string"},
                             "description": "Hiring locations for cost adjustment (e.g., ['Dallas, TX', 'Chicago, IL'])",
                         },
+                        "posting_model": {
+                            "type": "string",
+                            "enum": ["survey", "trickle"],
+                            "description": "Posting model: 'survey' (burst Day 1 volume, default) or 'trickle' (Uber-type, gradual applications). Auto-detected from industry when not specified.",
+                        },
                     },
                     "required": ["channel", "budget"],
                 },
@@ -10507,6 +10512,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             industry = params.get("industry") or "general"
             role = params.get("role")
             locations = params.get("locations")
+            posting_model = params.get("posting_model")
             if isinstance(locations, str):
                 locations = [loc.strip() for loc in locations.split(",")]
 
@@ -10516,6 +10522,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 industry=industry,
                 role=role,
                 locations=locations,
+                posting_model=posting_model,
             )
             return result
         except ImportError:
@@ -12731,6 +12738,21 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 if _ch_name in msg_lower:
                     tool_params["channel"] = _ch_name.title()
                     break
+            # S48: Detect posting model from message (Anirudh)
+            _trickle_kw = (
+                "trickle",
+                "uber model",
+                "uber-type",
+                "slow application",
+                "gradual application",
+                "low steady",
+                "uber style",
+            )
+            if any(kw in msg_lower for kw in _trickle_kw):
+                tool_params["posting_model"] = "trickle"
+            elif "survey" in msg_lower and "model" in msg_lower:
+                tool_params["posting_model"] = "survey"
+
             # Decide single-channel vs multi-channel
             if (
                 "compare" in msg_lower
