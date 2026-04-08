@@ -1244,10 +1244,10 @@ TASK_ROUTING: Dict[str, List[str]] = {
     # Plan narrative (exec summary, recommendations): Groq is 5x faster than
     # Gemini for prose generation with equivalent quality on narrative tasks.
     TASK_PLAN_NARRATIVE: [
-        GROQ,  # 300ms inference, excellent narrative quality (14.4K RPD)
-        CEREBRAS,  # Hot spare, same model (1M tok/day)
+        CLAUDE_HAIKU,  # S49: Quality-first for prose -- best narrative quality
         GEMINI,  # Strong fallback (1.5K RPD)
-        SAMBANOVA,  # Fast RDU inference (1M tok/day)
+        GROQ,  # Fast fallback, good prose (14.4K RPD)
+        CEREBRAS,  # Hot spare, same model (1M tok/day)
         ZHIPU,  # Unlimited free
         NVIDIA_NIM,
         SILICONFLOW,
