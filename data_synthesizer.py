@@ -3447,6 +3447,477 @@ def _build_meta_platform_entry(
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# ENTITY VALIDATION -- catch wrong-company descriptions from Wikipedia/Clearbit
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Words to strip when comparing company names to descriptions
+_ENTITY_STRIP_SUFFIXES = frozenset(
+    {
+        "inc",
+        "inc.",
+        "llc",
+        "llc.",
+        "ltd",
+        "ltd.",
+        "corp",
+        "corp.",
+        "corporation",
+        "company",
+        "co",
+        "co.",
+        "plc",
+        "plc.",
+        "gmbh",
+        "ag",
+        "sa",
+        "nv",
+        "bv",
+        "pty",
+        "group",
+        "holdings",
+        "international",
+        "global",
+        "the",
+        "a",
+        "an",
+        "of",
+        "and",
+        "&",
+    }
+)
+
+# Industry mismatch keywords -- if the description contains these but
+# the plan industry clearly does NOT match, flag as mismatch.
+_INDUSTRY_MISMATCH_MAP: Dict[str, List[str]] = {
+    "video game": [
+        "localization",
+        "translation",
+        "staffing",
+        "healthcare",
+        "financial",
+        "insurance",
+        "logistics",
+        "manufacturing",
+    ],
+    "anime": [
+        "localization",
+        "translation",
+        "staffing",
+        "healthcare",
+        "financial",
+        "insurance",
+        "logistics",
+        "manufacturing",
+    ],
+    "manga": [
+        "localization",
+        "translation",
+        "staffing",
+        "healthcare",
+        "financial",
+        "insurance",
+        "logistics",
+        "manufacturing",
+    ],
+    "record label": [
+        "technology",
+        "software",
+        "healthcare",
+        "staffing",
+        "localization",
+        "financial",
+        "insurance",
+    ],
+    "professional wrestler": [
+        "technology",
+        "software",
+        "healthcare",
+        "localization",
+        "financial",
+        "staffing",
+    ],
+    "television series": [
+        "technology",
+        "software",
+        "healthcare",
+        "localization",
+        "financial",
+        "staffing",
+    ],
+    "film": [
+        "technology",
+        "software",
+        "healthcare",
+        "localization",
+        "financial",
+        "staffing",
+        "logistics",
+    ],
+    "musical group": [
+        "technology",
+        "software",
+        "healthcare",
+        "localization",
+        "financial",
+        "staffing",
+    ],
+    "fictional": [
+        "technology",
+        "software",
+        "healthcare",
+        "localization",
+        "financial",
+        "staffing",
+        "logistics",
+    ],
+}
+
+
+def _normalize_name_tokens(name: str) -> set:
+    """Extract meaningful tokens from a company name, lowercased.
+
+    Strips common suffixes like Inc, LLC, Corp so that
+    'WeLocalize Inc.' becomes {'welocalize'}.
+    """
+    tokens = re.split(r"[\s\-_.,/&]+", name.lower())
+    return {t for t in tokens if t and t not in _ENTITY_STRIP_SUFFIXES}
+
+
+def _validate_entity_description(
+    company_name: str,
+    description: str,
+    industry: str,
+) -> Tuple[bool, str]:
+    """Check if a fetched description actually belongs to the expected company.
+
+    Returns:
+        (is_valid, reason)  -- is_valid=True means description looks correct.
+        When is_valid=False, ``reason`` explains why.
+    """
+    if not description or not company_name:
+        return True, ""
+
+    desc_lower = description.lower()
+    name_tokens = _normalize_name_tokens(company_name)
+    industry_lower = industry.lower() if industry else ""
+
+    # --- Check 1: first-sentence entity match ---
+    # The first sentence of a Wikipedia article usually names the entity.
+    first_sentence = description.split(".")[0] if "." in description else description
+    first_lower = first_sentence.lower()
+    first_tokens = set(re.split(r"[\s\-_.,/&()\"']+", first_lower))
+
+    # At least one meaningful company-name token should appear in the first
+    # sentence.  E.g. "WeLocalize" should appear if the article is truly
+    # about WeLocalize.
+    has_name_overlap = bool(name_tokens & first_tokens)
+
+    # Also accept if the description starts with a token that is a substring
+    # of the company name (handles cases like "Welocalize" vs "WeLoc").
+    if not has_name_overlap:
+        for tok in name_tokens:
+            if len(tok) >= 4 and tok in first_lower:
+                has_name_overlap = True
+                break
+
+    if not has_name_overlap and name_tokens:
+        return False, (
+            f"Entity mismatch: first sentence does not mention "
+            f"any token from '{company_name}'. First sentence: "
+            f"'{first_sentence[:120]}'"
+        )
+
+    # --- Check 2: industry mismatch keywords ---
+    if industry_lower:
+        for mismatch_kw, blocked_industries in _INDUSTRY_MISMATCH_MAP.items():
+            if mismatch_kw in desc_lower:
+                for blocked in blocked_industries:
+                    if blocked in industry_lower:
+                        return False, (
+                            f"Industry mismatch: description contains "
+                            f"'{mismatch_kw}' but plan industry is "
+                            f"'{industry}'"
+                        )
+
+    return True, ""
+
+
+def _safe_fallback_description(company_name: str, industry: str) -> str:
+    """Generate a safe generic description when entity validation fails."""
+    if industry:
+        return f"{company_name} is a company in the {industry} industry."
+    return f"{company_name} is a company."
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# LOCATION PLAUSIBILITY VALIDATION (S50)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Reverse map: full state name -> 2-letter abbreviation (lowercase keys)
+_STATE_NAME_TO_ABBR: Dict[str, str] = {}
+try:
+    from api_enrichment import US_STATE_NAMES as _AE_STATE_NAMES
+
+    for _abbr, _full in _AE_STATE_NAMES.items():
+        _STATE_NAME_TO_ABBR[_full.lower()] = _abbr
+        _STATE_NAME_TO_ABBR[_abbr.lower()] = _abbr
+except ImportError:
+    pass
+
+# Region groupings for proximity checks. If a company operates in
+# "us_northeast", nearby regions are less suspicious than distant ones.
+_REGION_NEIGHBORS: Dict[str, set] = {
+    "us_northeast": {"us_southeast", "us_midwest"},
+    "us_southeast": {"us_northeast", "us_south", "us_midwest"},
+    "us_midwest": {"us_northeast", "us_southeast", "us_southwest", "us_west"},
+    "us_southwest": {"us_midwest", "us_west", "us_south"},
+    "us_west": {"us_southwest", "us_midwest"},
+    "us_south": {"us_southeast", "us_southwest", "us_midwest"},
+}
+
+
+def _extract_state_abbr(location_str: str) -> Optional[str]:
+    """Extract a US state abbreviation from a freeform location string.
+
+    Handles formats like:
+        "Virginia", "VA", "Richmond, VA", "Virginia, United States",
+        "New York City, NY", "CT/MA/NH"
+
+    Returns the FIRST matched state abbreviation or None.
+    """
+    if not location_str:
+        return None
+    loc_lower = location_str.strip().lower()
+
+    # Direct full-name match
+    if loc_lower in _STATE_NAME_TO_ABBR:
+        return _STATE_NAME_TO_ABBR[loc_lower]
+
+    # Try each comma-separated or slash-separated segment
+    for sep in [",", "/"]:
+        for part in loc_lower.split(sep):
+            part = part.strip()
+            if part in _STATE_NAME_TO_ABBR:
+                return _STATE_NAME_TO_ABBR[part]
+
+    # Try last token (often the state in "City, ST" format)
+    tokens = loc_lower.replace(",", " ").split()
+    for tok in reversed(tokens):
+        tok = tok.strip()
+        if tok in _STATE_NAME_TO_ABBR:
+            return _STATE_NAME_TO_ABBR[tok]
+
+    return None
+
+
+def _extract_hq_state(hq_string: str) -> Optional[str]:
+    """Extract state abbreviation from a Wikipedia-style HQ string.
+
+    Examples:
+        "Farmington, Connecticut" -> "CT"
+        "Seattle, WA" -> "WA"
+        "New York City" -> "NY"
+    """
+    return _extract_state_abbr(hq_string)
+
+
+def _get_region_for_state(state_abbr: str) -> Optional[str]:
+    """Return the US region key for a state abbreviation."""
+    try:
+        from standardizer import REGION_MAP as _STD_REGION_MAP
+
+        return _STD_REGION_MAP.get(state_abbr.upper())
+    except ImportError:
+        pass
+    return None
+
+
+def _validate_location_plausibility(
+    input_data: Dict[str, Any],
+    enriched: Dict[str, Any],
+    synthesis: Dict[str, Any],
+) -> List[Dict[str, Any]]:
+    """Check whether user-specified locations are plausible for the company.
+
+    This is a SOFT check -- it flags suspicious locations as warnings,
+    never blocks plan generation. Warnings help analysts catch obvious
+    mismatches like specifying Virginia for a company that only operates
+    in New England.
+
+    Data sources checked:
+        1. Wikipedia HQ (enriched["company_metadata"]["headquarters"])
+        2. Competitive intelligence company profile
+        3. Wikipedia description text (mentions of states/regions)
+
+    Returns:
+        List of warning dicts, each with keys:
+            location, reason, severity ("low"/"medium"/"high"),
+            company_hq (if known), suggestion
+    """
+    warnings: List[Dict[str, Any]] = []
+
+    user_locations = input_data.get("locations") or []
+    if isinstance(user_locations, str):
+        user_locations = [s.strip() for s in user_locations.split(",") if s.strip()]
+    if not user_locations:
+        return warnings
+
+    company_name = input_data.get("company_name") or input_data.get("client_name") or ""
+    if not company_name:
+        return warnings
+
+    # --- Gather company location signals ---
+    # 1. Wikipedia HQ
+    company_hq: Optional[str] = None
+    wiki_meta = enriched.get("company_metadata", enriched.get("clearbit_data", {}))
+    if isinstance(wiki_meta, dict):
+        company_hq = wiki_meta.get("headquarters") or None
+
+    # Also check synthesis competitive intelligence
+    comp_intel = synthesis.get("competitive_intelligence", {})
+    if isinstance(comp_intel, dict):
+        wiki_section = comp_intel.get("company_wikipedia", {})
+        if isinstance(wiki_section, dict) and not company_hq:
+            company_hq = wiki_section.get("headquarters") or None
+
+    # 2. Wikipedia description -- scan for state mentions
+    description_states: set = set()
+    wiki_info = enriched.get("company_info", enriched.get("wikipedia_data", {}))
+    desc_text = ""
+    if isinstance(wiki_info, dict):
+        desc_text = wiki_info.get("description") or ""
+    if isinstance(wiki_meta, dict) and not desc_text:
+        desc_text = wiki_meta.get("extract", wiki_meta.get("description") or "")
+
+    if desc_text:
+        desc_lower = desc_text.lower()
+        for full_name, abbr in _STATE_NAME_TO_ABBR.items():
+            # Only match full state names (not 2-letter abbreviations) to
+            # avoid false positives from common words
+            if len(full_name) > 2 and full_name in desc_lower:
+                description_states.add(abbr)
+
+    # 3. HQ state
+    hq_state: Optional[str] = None
+    hq_region: Optional[str] = None
+    if company_hq:
+        hq_state = _extract_hq_state(company_hq)
+        if hq_state:
+            hq_region = _get_region_for_state(hq_state)
+            description_states.add(hq_state)
+
+    # If we have zero location signals, skip -- nothing to compare against
+    if not description_states and not company_hq:
+        return warnings
+
+    # --- Collect known operating regions from signals ---
+    known_regions: set = set()
+    for st in description_states:
+        rgn = _get_region_for_state(st)
+        if rgn:
+            known_regions.add(rgn)
+
+    # --- Check each user-specified location ---
+    has_international = False
+    has_us = False
+
+    for loc in user_locations:
+        loc_str = str(loc) if not isinstance(loc, str) else loc
+        user_state = _extract_state_abbr(loc_str)
+        if user_state:
+            has_us = True
+        else:
+            # Might be international or a city without state
+            has_international = True
+
+    # Only validate US state locations when we have US-based signals
+    if not description_states:
+        return warnings
+
+    for loc in user_locations:
+        loc_str = str(loc) if not isinstance(loc, str) else loc
+        user_state = _extract_state_abbr(loc_str)
+
+        if not user_state:
+            # International location or unresolvable -- do not flag
+            continue
+
+        # If user state is in known states, no warning
+        if user_state in description_states:
+            continue
+
+        # Check region proximity
+        user_region = _get_region_for_state(user_state)
+        if user_region and known_regions:
+            if user_region in known_regions:
+                # Same region as known operations -- no warning
+                continue
+
+            # Check if it's a neighboring region (lower severity)
+            is_neighbor = False
+            for kr in known_regions:
+                neighbors = _REGION_NEIGHBORS.get(kr, set())
+                if user_region in neighbors:
+                    is_neighbor = True
+                    break
+
+            if is_neighbor:
+                severity = "low"
+                reason = (
+                    f"{loc_str} is in a neighboring region ({user_region}) "
+                    f"but not in {company_name}'s known operating area."
+                )
+            else:
+                severity = "medium"
+                reason = (
+                    f"{loc_str} ({user_region}) appears outside "
+                    f"{company_name}'s known operating region"
+                )
+                if company_hq:
+                    reason += f" (HQ: {company_hq})"
+                reason += "."
+        else:
+            severity = "medium"
+            reason = (
+                f"{loc_str} does not match any known operating location "
+                f"for {company_name}"
+            )
+            if company_hq:
+                reason += f" (HQ: {company_hq})"
+            reason += "."
+
+        # Build known-states display string
+        known_display = []
+        try:
+            from api_enrichment import US_STATE_NAMES as _display_names
+
+            for st in sorted(description_states):
+                known_display.append(_display_names.get(st, st))
+        except ImportError:
+            known_display = sorted(description_states)
+
+        warnings.append(
+            {
+                "location": loc_str,
+                "user_state": user_state,
+                "reason": reason,
+                "severity": severity,
+                "company_hq": company_hq or "Unknown",
+                "known_states": sorted(description_states),
+                "known_states_display": (
+                    ", ".join(known_display) if known_display else "N/A"
+                ),
+                "suggestion": (
+                    f"Verify that {company_name} operates in {loc_str}. "
+                    f"Known locations: {', '.join(known_display) if known_display else 'N/A'}."
+                ),
+            }
+        )
+
+    return warnings
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # FUSE: COMPETITIVE INTELLIGENCE
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -3511,6 +3982,26 @@ def fuse_competitive_intelligence(
             company_profile["recent_filings_count"] = len(filings)
         if sec_data.get("ticker"):
             source_count += 1
+
+    # --- Entity validation: catch wrong-company descriptions ---
+    _desc = company_profile.get("description") or ""
+    _summary = company_profile.get("summary") or ""
+    _text_to_check = _desc or _summary
+    if _text_to_check and company_name:
+        is_valid, mismatch_reason = _validate_entity_description(
+            company_name, _text_to_check, industry
+        )
+        if not is_valid:
+            logger.warning(
+                "Entity validation FAILED for '%s': %s",
+                company_name,
+                mismatch_reason,
+            )
+            fallback = _safe_fallback_description(company_name, industry)
+            company_profile["description"] = fallback
+            company_profile["summary"] = fallback
+            company_profile["_entity_mismatch"] = True
+            company_profile["_entity_mismatch_reason"] = mismatch_reason
 
     result["company_profile"] = company_profile
 
@@ -3591,8 +4082,21 @@ def fuse_competitive_intelligence(
     # --- Enrich from company_metadata API (Wikipedia, previously orphaned) ---
     _cmeta = enriched.get("company_metadata", {})
     if isinstance(_cmeta, dict) and _cmeta:
+        _wiki_desc = _cmeta.get("extract", _cmeta.get("description") or "")
+        # Validate Wikipedia description against company name
+        if _wiki_desc and company_name:
+            _wiki_valid, _wiki_reason = _validate_entity_description(
+                company_name, _wiki_desc, industry
+            )
+            if not _wiki_valid:
+                logger.warning(
+                    "Entity validation FAILED for company_wikipedia '%s': %s",
+                    company_name,
+                    _wiki_reason,
+                )
+                _wiki_desc = _safe_fallback_description(company_name, industry)
         result["company_wikipedia"] = {
-            "description": _cmeta.get("extract", _cmeta.get("description") or ""),
+            "description": _wiki_desc,
             "founded": _cmeta.get("founded"),
             "headquarters": _cmeta.get("headquarters"),
             "url": _cmeta.get("url"),
@@ -3972,6 +4476,19 @@ def synthesize(
 
     # Data quality assessment from enrichment metadata
     synthesis["data_quality"] = _assess_data_quality(enriched)
+
+    # S50: Location plausibility validation -- soft warnings when user-
+    # specified locations don't overlap with the company's known operating
+    # area (from Wikipedia HQ, Clearbit, or company intelligence).
+    try:
+        loc_warnings = _validate_location_plausibility(input_data, enriched, synthesis)
+        if loc_warnings:
+            synthesis.setdefault("_validation", {})["location_warnings"] = loc_warnings
+            logger.info(
+                "Location plausibility: %d warning(s) generated", len(loc_warnings)
+            )
+    except Exception as exc:
+        logger.warning("Location plausibility check skipped: %s", exc)
 
     # AI-powered narrative synthesis (optional, requires ANTHROPIC_API_KEY)
     # Always sets the key (empty dict if skipped) for consistent API shape.

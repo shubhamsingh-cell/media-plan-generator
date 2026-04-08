@@ -693,7 +693,49 @@ def analyze_company(company_name: str) -> Dict[str, Any]:
 
                 if key == "company_info":
                     if result.get("description"):
-                        profile["description"] = result["description"]
+                        # Validate entity: check the first sentence
+                        # mentions the company name to catch wrong-entity
+                        # returns (e.g. "Square Co." video game dev for
+                        # a localization company).
+                        _desc = result["description"]
+                        _first = (
+                            _desc.split(".")[0].lower()
+                            if "." in _desc
+                            else _desc.lower()
+                        )
+                        _name_tokens = {
+                            t
+                            for t in re.split(r"[\s\-_.,/&]+", company_name.lower())
+                            if t
+                            and len(t) > 2
+                            and t
+                            not in {
+                                "inc",
+                                "llc",
+                                "ltd",
+                                "corp",
+                                "the",
+                                "and",
+                                "company",
+                                "co",
+                            }
+                        }
+                        _has_match = (
+                            any(tok in _first for tok in _name_tokens)
+                            if _name_tokens
+                            else True
+                        )
+                        if _has_match:
+                            profile["description"] = _desc
+                        else:
+                            logger.warning(
+                                "Entity mismatch in competitive_intel for '%s': "
+                                "first sentence '%s' does not mention company name tokens %s",
+                                company_name,
+                                _first[:120],
+                                _name_tokens,
+                            )
+                            profile["_entity_mismatch"] = True
                     if result.get("logo_url"):
                         profile["logo_url"] = result["logo_url"]
                     profile["sources"].append("Wikipedia/Clearbit")

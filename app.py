@@ -1707,6 +1707,7 @@ def load_knowledge_base() -> dict:
         "linkedin_industry_benchmarks": "linkedin_industry_benchmarks.json",
         "craigslist_performance": "craigslist_performance_benchmarks.json",
         "international_benchmarks": "international_benchmarks_2026.json",
+        "slotops_benchmarks": "slotops_benchmarks_summary.json",
     }
 
     kb = {}
@@ -13947,6 +13948,34 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                     exc_info=True,
                                 )
 
+                        # ── Cross-validation post-processing (async path) ──
+                        # Detects internal inconsistencies in the enriched plan
+                        # and auto-corrects where safe.  Non-fatal: failures
+                        # here never block Excel/PPT generation.
+                        try:
+                            from plan_validator import validate_plan
+
+                            _val_result = validate_plan(gen_data)
+                            logger.info(
+                                "Plan validation (async): %d finding(s), %d auto-corrected",
+                                _val_result.get("total_findings", 0),
+                                _val_result.get("auto_corrections", 0),
+                            )
+                        except ImportError:
+                            logger.debug("plan_validator not available -- skipping")
+                        except Exception as _val_err:
+                            logger.warning(
+                                "Plan validation failed (async, non-fatal): %s",
+                                _val_err,
+                                exc_info=True,
+                            )
+                            gen_data["_validation"] = {
+                                "findings": [],
+                                "checks_run": 0,
+                                "checks_failed": 1,
+                                "error": str(_val_err),
+                            }
+
                         # Excel generation -- wrapped in 60s timeout to prevent
                         # indefinite hangs on LLM calls during cold starts
                         _excel_pool = ThreadPoolExecutor(
@@ -15471,6 +15500,34 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         _intl_err_s,
                         exc_info=True,
                     )
+
+            # ── Cross-validation post-processing (sync path) ──
+            # Detects internal inconsistencies in the enriched plan and
+            # auto-corrects where safe.  Non-fatal: failures here never
+            # block Excel/PPT generation.
+            try:
+                from plan_validator import validate_plan
+
+                _val_result_sync = validate_plan(data)
+                logger.info(
+                    "Plan validation (sync): %d finding(s), %d auto-corrected",
+                    _val_result_sync.get("total_findings", 0),
+                    _val_result_sync.get("auto_corrections", 0),
+                )
+            except ImportError:
+                logger.debug("plan_validator not available -- skipping")
+            except Exception as _val_err_sync:
+                logger.warning(
+                    "Plan validation failed (sync, non-fatal): %s",
+                    _val_err_sync,
+                    exc_info=True,
+                )
+                data["_validation"] = {
+                    "findings": [],
+                    "checks_run": 0,
+                    "checks_failed": 1,
+                    "error": str(_val_err_sync),
+                }
 
             # ── Excel generation phase (timeout timer already started at request entry) ──
             try:

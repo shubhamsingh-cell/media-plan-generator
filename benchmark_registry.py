@@ -257,6 +257,39 @@ CHANNEL_BENCHMARKS: dict[str, dict[str, Any]] = {
         "pricing_model": "CPC/CPM",
         "category": "social_media",
     },
+    # Craigslist -- Source: CG Automation 98,665 posts across 397 US locations
+    # (Dec 2025-Mar 2026). CL uses flat post pricing ($3-$75 per post depending
+    # on market and category; many gig posts $0-$5). CPC/CPA computed from
+    # avg_media_cost=$0.21, avg_clicks=8.6, avg_applies=5.1 per post.
+    # General impression-to-apply rates: professional 12%, hourly/gig 18%,
+    # blue collar/trades 25%. Click-to-apply ~59% (CG Apex client-specific).
+    # Updated 2026-04-08 from craigslist_performance_benchmarks.json.
+    "craigslist": {
+        "cpc": 0.024,
+        "cpa": 0.041,
+        "cpa_min": 0.02,
+        "cpa_max": 5.00,
+        "apply_rate": 0.18,
+        "ctr": 0.102,
+        "cpm": 2.50,
+        "quality_score": 6.0,
+        "monthly_reach": 50_000_000,
+        "pricing_model": "flat_post_fee",
+        "category": "classified_board",
+        "data_source_detail": "CG Automation 98K posts (Dec 2025-Mar 2026)",
+        "avg_post_cost": 0.21,
+        "avg_impressions_per_post": 84,
+        "avg_clicks_per_post": 8.6,
+        "avg_applies_per_post": 5.1,
+        "click_to_apply_rate": 0.59,
+        "top_categories": [
+            "labor gigs",
+            "domestic gigs",
+            "creative gigs",
+            "event gigs",
+            "talent gigs",
+        ],
+    },
 }
 
 

@@ -69,6 +69,188 @@ _CITY_SALARY_MULTIPLIERS: dict[str, float] = {
     "richmond": 0.99,
     "sacramento": 1.10,
     "san antonio": 0.92,
+    # S50 FIX (Issue 19): Additional metros for location differentiation.
+    # Northeast
+    "hartford": 1.10,
+    "new haven": 1.05,
+    "stamford": 1.30,
+    "bridgeport": 1.05,
+    "manchester": 0.95,  # NH
+    "concord": 0.93,  # NH
+    "nashua": 1.00,
+    "providence": 1.02,
+    "burlington": 1.00,  # VT
+    "portland me": 1.02,  # ME (disambiguate from Portland OR)
+    "bangor": 0.88,
+    "albany": 0.98,
+    "buffalo": 0.90,
+    "syracuse": 0.92,
+    "rochester": 0.93,  # NY
+    "newark": 1.20,
+    "jersey city": 1.25,
+    "trenton": 1.05,
+    "wilmington": 1.05,  # DE
+    "baltimore": 1.08,
+    # Southeast
+    "virginia beach": 1.00,
+    "norfolk": 0.98,
+    "charleston": 1.02,  # SC
+    "columbia": 0.94,  # SC
+    "greenville": 0.95,  # SC
+    "jacksonville": 0.97,
+    "savannah": 0.93,
+    "birmingham": 0.90,
+    "montgomery": 0.87,
+    "memphis": 0.92,
+    "knoxville": 0.92,
+    "chattanooga": 0.90,
+    "little rock": 0.88,
+    "new orleans": 0.95,
+    "baton rouge": 0.92,
+    "jackson": 0.85,  # MS
+    # Midwest
+    "milwaukee": 1.00,
+    "madison": 1.04,
+    "des moines": 0.95,
+    "omaha": 0.94,
+    "wichita": 0.88,
+    "tulsa": 0.90,
+    "oklahoma city": 0.90,
+    "cincinnati": 0.97,
+    "cleveland": 0.93,
+    "dayton": 0.90,
+    "grand rapids": 0.92,
+    "ann arbor": 1.05,
+    "lexington": 0.92,
+    "louisville": 0.93,
+    # West
+    "albuquerque": 0.90,
+    "tucson": 0.90,
+    "el paso": 0.85,
+    "boise": 0.98,
+    "spokane": 0.95,
+    "las vegas": 0.97,
+    "reno": 1.02,
+    "honolulu": 1.25,
+    "anchorage": 1.15,
+    "colorado springs": 1.05,
+    "san jose": 1.42,
+    "fresno": 0.92,
+    "bakersfield": 0.88,
+    "stockton": 0.90,
+    "riverside": 0.98,
+    "irvine": 1.25,
+    "oxnard": 1.05,
+}
+
+# S50 FIX (Issue 19): State-level fallback multipliers for locations that
+# don't match a specific city.  Keyed by lowercase 2-letter state code.
+_STATE_SALARY_MULTIPLIERS: dict[str, float] = {
+    "ca": 1.22,
+    "ny": 1.20,
+    "wa": 1.18,
+    "ma": 1.18,
+    "ct": 1.10,
+    "nj": 1.15,
+    "md": 1.10,
+    "va": 1.08,
+    "co": 1.10,
+    "il": 1.05,
+    "mn": 1.05,
+    "or": 1.08,
+    "dc": 1.25,
+    "hi": 1.20,
+    "ak": 1.12,
+    "pa": 1.02,
+    "nh": 0.98,
+    "ri": 1.00,
+    "vt": 0.96,
+    "me": 0.95,
+    "de": 1.02,
+    "tx": 1.02,
+    "fl": 0.98,
+    "ga": 1.00,
+    "nc": 1.00,
+    "az": 0.96,
+    "nv": 0.96,
+    "ut": 1.00,
+    "oh": 0.94,
+    "mi": 0.94,
+    "wi": 0.96,
+    "ia": 0.92,
+    "mo": 0.92,
+    "in": 0.92,
+    "tn": 0.96,
+    "sc": 0.94,
+    "al": 0.88,
+    "ky": 0.90,
+    "la": 0.90,
+    "ok": 0.88,
+    "ks": 0.90,
+    "ne": 0.92,
+    "ar": 0.86,
+    "ms": 0.84,
+    "wv": 0.85,
+    "nm": 0.90,
+    "id": 0.92,
+    "mt": 0.90,
+    "wy": 0.92,
+    "sd": 0.88,
+    "nd": 0.92,
+}
+
+_STATE_HIRING_DIFFICULTY: dict[str, float] = {
+    "ca": 7.5,
+    "ny": 7.2,
+    "wa": 7.5,
+    "ma": 7.2,
+    "ct": 6.5,
+    "nj": 6.5,
+    "md": 6.2,
+    "va": 6.5,
+    "co": 7.0,
+    "il": 6.2,
+    "mn": 6.0,
+    "or": 6.5,
+    "dc": 7.0,
+    "hi": 6.0,
+    "ak": 5.5,
+    "pa": 5.5,
+    "nh": 5.0,
+    "ri": 5.2,
+    "vt": 5.0,
+    "me": 4.8,
+    "de": 5.0,
+    "tx": 5.8,
+    "fl": 5.5,
+    "ga": 5.8,
+    "nc": 6.0,
+    "az": 5.2,
+    "nv": 5.0,
+    "ut": 6.2,
+    "oh": 5.0,
+    "mi": 4.8,
+    "wi": 5.2,
+    "ia": 4.5,
+    "mo": 4.8,
+    "in": 4.5,
+    "tn": 5.5,
+    "sc": 5.2,
+    "al": 4.5,
+    "ky": 4.5,
+    "la": 4.5,
+    "ok": 4.2,
+    "ks": 4.5,
+    "ne": 4.5,
+    "ar": 4.2,
+    "ms": 4.0,
+    "wv": 4.0,
+    "nm": 4.8,
+    "id": 5.0,
+    "mt": 4.5,
+    "wy": 4.2,
+    "sd": 4.0,
+    "nd": 4.2,
 }
 
 # Hiring difficulty by metro (1-10 scale, 10 = hardest)
@@ -91,6 +273,78 @@ _CITY_HIRING_DIFFICULTY: dict[str, float] = {
     "philadelphia": 5.8,
     "detroit": 4.5,
     "tampa": 5.2,
+    # S50 FIX (Issue 19): Additional metros
+    # Northeast
+    "hartford": 6.5,
+    "new haven": 6.0,
+    "stamford": 7.0,
+    "bridgeport": 5.5,
+    "manchester": 5.0,
+    "concord": 4.8,
+    "nashua": 5.5,
+    "providence": 5.5,
+    "burlington": 5.2,
+    "portland me": 5.0,
+    "bangor": 4.0,
+    "albany": 5.2,
+    "buffalo": 4.5,
+    "syracuse": 4.8,
+    "rochester": 4.8,
+    "newark": 6.5,
+    "jersey city": 7.0,
+    "trenton": 5.2,
+    "wilmington": 5.5,
+    "baltimore": 6.0,
+    # Southeast
+    "virginia beach": 5.5,
+    "norfolk": 5.2,
+    "charleston": 5.8,
+    "columbia": 5.0,
+    "greenville": 5.2,
+    "jacksonville": 5.2,
+    "savannah": 4.8,
+    "birmingham": 4.8,
+    "montgomery": 4.2,
+    "memphis": 5.0,
+    "knoxville": 5.2,
+    "chattanooga": 5.0,
+    "little rock": 4.2,
+    "new orleans": 5.2,
+    "baton rouge": 4.8,
+    "jackson": 4.0,
+    # Midwest
+    "milwaukee": 5.5,
+    "madison": 6.0,
+    "des moines": 5.0,
+    "omaha": 5.0,
+    "wichita": 4.2,
+    "tulsa": 4.5,
+    "oklahoma city": 4.5,
+    "cincinnati": 5.5,
+    "cleveland": 5.0,
+    "dayton": 4.5,
+    "grand rapids": 5.0,
+    "ann arbor": 6.5,
+    "lexington": 5.0,
+    "louisville": 5.2,
+    # West
+    "albuquerque": 4.8,
+    "tucson": 4.5,
+    "el paso": 4.2,
+    "boise": 5.5,
+    "spokane": 5.0,
+    "las vegas": 5.0,
+    "reno": 5.5,
+    "honolulu": 6.0,
+    "anchorage": 5.5,
+    "colorado springs": 6.0,
+    "san jose": 8.5,
+    "fresno": 4.5,
+    "bakersfield": 4.0,
+    "stockton": 4.2,
+    "riverside": 5.0,
+    "irvine": 7.0,
+    "oxnard": 5.0,
 }
 
 # Supply classification labels
@@ -334,9 +588,12 @@ def _resolve_country(location_key: str) -> str | None:
 # Format: "keyword": (floor, ceiling)
 # ---------------------------------------------------------------------------
 _ROLE_SALARY_RANGES: dict[str, tuple[int, int]] = {
+    # Longest-match-first matters: compound titles before base keywords.
     "physician assistant": (95_000, 155_000),
     "nurse practitioner": (110_000, 145_000),
     "registered nurse": (55_000, 120_000),
+    "licensed practical nurse": (40_000, 60_000),
+    "licensed vocational nurse": (40_000, 60_000),
     "physician": (180_000, 400_000),
     "surgeon": (250_000, 600_000),
     "software engineer": (90_000, 200_000),
@@ -351,6 +608,21 @@ _ROLE_SALARY_RANGES: dict[str, tuple[int, int]] = {
     "behavioral health": (45_000, 85_000),
     "psychologist": (75_000, 130_000),
     "social worker": (40_000, 70_000),
+    # Healthcare operations & aide roles
+    "care director": (85_000, 130_000),
+    "director of nursing": (80_000, 120_000),
+    "nursing director": (80_000, 120_000),
+    "nurse manager": (75_000, 110_000),
+    "cna": (30_000, 42_000),
+    "certified nursing assistant": (30_000, 42_000),
+    "home health aide": (25_000, 35_000),
+    "caregiver": (28_000, 40_000),
+    "med tech": (35_000, 55_000),
+    "medical technologist": (50_000, 75_000),
+    "respiratory therapist": (55_000, 85_000),
+    "speech language pathologist": (65_000, 100_000),
+    "dietitian": (50_000, 75_000),
+    "radiologic technologist": (55_000, 80_000),
 }
 
 
@@ -473,10 +745,17 @@ def enrich_city_level_data(data: dict) -> dict:
 
     for loc in (locations_raw if isinstance(locations_raw, list) else []):
         city_name = ""
+        _state_code = ""  # S50 FIX (Issue 19): capture state code
         if isinstance(loc, str):
-            city_name = loc.split(",")[0].strip()
+            _parts = loc.split(",")
+            city_name = _parts[0].strip()
+            if len(_parts) >= 2:
+                _state_code = _parts[1].strip().lower().rstrip(".")
+                # Handle "Hartford, CT 06103" -- strip zip
+                _state_code = re.sub(r"\s*\d+.*$", "", _state_code)
         elif isinstance(loc, dict):
             city_name = str(loc.get("city") or loc.get("name") or "").strip()
+            _state_code = str(loc.get("state") or "").strip().lower()
         if not city_name:
             continue
 
@@ -496,6 +775,19 @@ def enrich_city_level_data(data: dict) -> dict:
                 multiplier = _COUNTRY_SALARY_MULTIPLIERS[_resolved_country]
                 difficulty = _COUNTRY_HIRING_DIFFICULTY.get(_resolved_country, 5.5)
                 _country_col = _COUNTRY_COL_INDEX.get(_resolved_country)
+
+        # S50 FIX (Issue 19): State-level fallback before research/flat defaults.
+        # When a city isn't in our metro lookup but we know its state, use the
+        # state-level multiplier/difficulty so locations within the same state
+        # get differentiated data instead of identical 1.0 / 5.5 defaults.
+        if multiplier is None and _state_code and len(_state_code) == 2:
+            _st_mult = _STATE_SALARY_MULTIPLIERS.get(_state_code)
+            if _st_mult is not None:
+                multiplier = _st_mult
+        if difficulty is None and _state_code and len(_state_code) == 2:
+            _st_diff = _STATE_HIRING_DIFFICULTY.get(_state_code)
+            if _st_diff is not None:
+                difficulty = _st_diff
 
         # S49 FIX (Issue 10): When no hardcoded multiplier/difficulty exists,
         # fall back to research.METRO_DATA for COLI-based differentiation
@@ -544,6 +836,45 @@ def enrich_city_level_data(data: dict) -> dict:
             _country_col if _country_col is not None else round(multiplier * 100, 1)
         )
 
+        # -----------------------------------------------------------
+        # Per-role salary breakdown.
+        # For each role in the plan, compute a city-adjusted salary
+        # range using _ROLE_SALARY_RANGES.  Roles that do not match
+        # any known keyword fall back to the generic est_salary.
+        # -----------------------------------------------------------
+        per_role_salary: dict[str, dict[str, Any]] = {}
+        for title in role_titles:
+            title_lower = title.lower().strip()
+            matched_range: tuple[int, int] | None = None
+            matched_keyword: str = ""
+            for keyword in sorted(_ROLE_SALARY_RANGES, key=len, reverse=True):
+                if keyword in title_lower:
+                    matched_range = _ROLE_SALARY_RANGES[keyword]
+                    matched_keyword = keyword
+                    break
+
+            if matched_range is not None:
+                role_min = round(matched_range[0] * multiplier)
+                role_max = round(matched_range[1] * multiplier)
+                role_median = round(
+                    (matched_range[0] + matched_range[1]) / 2.0 * multiplier
+                )
+                source = f"_ROLE_SALARY_RANGES[{matched_keyword}]"
+            else:
+                # No specific range known -- use generic city estimate
+                role_min = est_salary - 10_000
+                role_max = est_salary + 15_000
+                role_median = est_salary
+                source = "generic_enrichment"
+
+            per_role_salary[title] = {
+                "min": role_min,
+                "median": role_median,
+                "max": role_max,
+                "multiplier": round(multiplier, 2),
+                "source": source,
+            }
+
         city_data[city_name] = {
             "salary_multiplier": multiplier,
             "estimated_salary": est_salary,
@@ -551,6 +882,7 @@ def enrich_city_level_data(data: dict) -> dict:
             "hiring_difficulty": round(difficulty, 1),
             "supply_tier": supply_tier,
             "cost_of_living_index": round(col_index, 1),
+            "per_role_salary": per_role_salary,
         }
 
     return city_data
@@ -2204,6 +2536,325 @@ _NON_TRADITIONAL_CHANNELS: dict[str, dict[str, Any]] = {
 }
 
 
+# S50 FIX (Issue 18): Industry/collar/seniority-aware channel relevance scoring.
+# Replaces the binary 1/2 seniority-only scoring with a 1-5 scale that
+# accounts for industry vertical, collar type, and role seniority.
+
+# Channel strength profiles: maps (channel, factor_type) -> score contribution.
+# factor_type is one of: industry affinity, collar affinity, seniority match.
+_CHANNEL_INDUSTRY_AFFINITY: dict[str, dict[str, float]] = {
+    "Indeed": {
+        "healthcare": 1.5,
+        "retail": 1.5,
+        "hospitality": 1.5,
+        "manufacturing": 1.5,
+        "logistics": 1.5,
+        "trucking": 1.2,
+        "construction": 1.2,
+        "education": 1.0,
+        "technology": 0.5,
+        "finance": 0.5,
+        "defense": 0.8,
+        "_default": 1.0,
+    },
+    "LinkedIn": {
+        "technology": 1.5,
+        "finance": 1.5,
+        "consulting": 1.5,
+        "defense": 1.2,
+        "education": 1.0,
+        "healthcare": 0.8,
+        "retail": 0.3,
+        "hospitality": 0.3,
+        "trucking": 0.2,
+        "construction": 0.3,
+        "manufacturing": 0.5,
+        "_default": 1.0,
+    },
+    "ZipRecruiter": {
+        "retail": 1.2,
+        "hospitality": 1.2,
+        "healthcare": 1.0,
+        "logistics": 1.0,
+        "trucking": 1.0,
+        "construction": 1.0,
+        "manufacturing": 1.0,
+        "technology": 0.5,
+        "finance": 0.5,
+        "_default": 0.8,
+    },
+    "Glassdoor": {
+        "technology": 1.5,
+        "finance": 1.2,
+        "consulting": 1.2,
+        "healthcare": 1.0,
+        "education": 1.0,
+        "defense": 0.8,
+        "retail": 0.5,
+        "trucking": 0.3,
+        "construction": 0.3,
+        "_default": 0.8,
+    },
+    "CareerBuilder": {
+        "retail": 1.0,
+        "hospitality": 1.0,
+        "healthcare": 0.8,
+        "manufacturing": 0.8,
+        "logistics": 0.8,
+        "trucking": 0.8,
+        "technology": 0.3,
+        "finance": 0.3,
+        "_default": 0.6,
+    },
+    "Monster": {
+        "retail": 0.8,
+        "hospitality": 0.8,
+        "healthcare": 0.6,
+        "manufacturing": 0.8,
+        "logistics": 0.6,
+        "trucking": 0.5,
+        "technology": 0.3,
+        "finance": 0.3,
+        "_default": 0.5,
+    },
+}
+
+# Collar-type affinity: how well each channel serves blue/white collar roles
+_CHANNEL_COLLAR_AFFINITY: dict[str, dict[str, float]] = {
+    "Indeed": {"blue_collar": 1.5, "white_collar": 1.0, "_default": 1.2},
+    "LinkedIn": {"blue_collar": 0.2, "white_collar": 1.5, "_default": 1.0},
+    "ZipRecruiter": {"blue_collar": 1.2, "white_collar": 0.8, "_default": 1.0},
+    "Glassdoor": {"blue_collar": 0.3, "white_collar": 1.3, "_default": 0.8},
+    "CareerBuilder": {"blue_collar": 1.0, "white_collar": 0.5, "_default": 0.7},
+    "Monster": {"blue_collar": 0.8, "white_collar": 0.4, "_default": 0.5},
+}
+
+# Seniority-match scoring (replaces the old binary count)
+_CHANNEL_SENIORITY_WEIGHT: dict[str, dict[str, float]] = {
+    "Indeed": {
+        "hourly": 1.5,
+        "junior": 1.3,
+        "mid": 1.0,
+        "senior": 0.4,
+        "executive": 0.2,
+        "intern": 1.0,
+    },
+    "LinkedIn": {
+        "hourly": 0.2,
+        "junior": 0.3,
+        "mid": 1.0,
+        "senior": 1.5,
+        "executive": 1.5,
+        "intern": 0.3,
+    },
+    "ZipRecruiter": {
+        "hourly": 1.3,
+        "junior": 1.2,
+        "mid": 1.0,
+        "senior": 0.5,
+        "executive": 0.2,
+        "intern": 0.8,
+    },
+    "Glassdoor": {
+        "hourly": 0.3,
+        "junior": 0.5,
+        "mid": 1.2,
+        "senior": 1.3,
+        "executive": 1.0,
+        "intern": 0.3,
+    },
+    "CareerBuilder": {
+        "hourly": 1.2,
+        "junior": 1.0,
+        "mid": 0.6,
+        "senior": 0.2,
+        "executive": 0.1,
+        "intern": 0.5,
+    },
+    "Monster": {
+        "hourly": 0.8,
+        "junior": 0.8,
+        "mid": 0.6,
+        "senior": 0.2,
+        "executive": 0.1,
+        "intern": 0.5,
+    },
+}
+
+
+def _detect_collar_type(industry: str, roles_text: str) -> str:
+    """Determine collar type from industry and role keywords.
+
+    Returns 'blue_collar', 'white_collar', or '' (unknown).
+    """
+    _blue_keywords = {
+        "truck",
+        "driver",
+        "cdl",
+        "warehouse",
+        "forklift",
+        "mechanic",
+        "welder",
+        "plumber",
+        "electrician",
+        "hvac",
+        "technician",
+        "labor",
+        "custodian",
+        "janitor",
+        "cook",
+        "dishwasher",
+        "housekeeper",
+        "construction",
+        "carpenter",
+        "mason",
+        "roofer",
+        "painter",
+        "assembly",
+        "machine operator",
+        "factory",
+        "dock",
+        "loader",
+    }
+    _blue_industries = {
+        "trucking",
+        "logistics",
+        "transportation",
+        "construction",
+        "manufacturing",
+        "skilled_trade",
+        "blue_collar",
+        "warehouse",
+        "food_service",
+        "hospitality",
+        "retail",
+    }
+    _white_keywords = {
+        "engineer",
+        "developer",
+        "analyst",
+        "manager",
+        "director",
+        "consultant",
+        "architect",
+        "designer",
+        "scientist",
+        "researcher",
+        "attorney",
+        "lawyer",
+        "accountant",
+        "financial",
+        "marketing",
+        "product",
+        "program",
+        "project",
+        "executive",
+        "vp",
+        "chief",
+    }
+    _white_industries = {
+        "technology",
+        "finance",
+        "consulting",
+        "legal",
+        "banking",
+        "insurance",
+        "biotech",
+        "pharmaceutical",
+        "software",
+    }
+
+    combined = f"{industry} {roles_text}".lower()
+    blue_score = sum(1 for kw in _blue_keywords if kw in combined)
+    blue_score += sum(2 for ind in _blue_industries if ind in industry.lower())
+    white_score = sum(1 for kw in _white_keywords if kw in combined)
+    white_score += sum(2 for ind in _white_industries if ind in industry.lower())
+
+    if blue_score > white_score:
+        return "blue_collar"
+    if white_score > blue_score:
+        return "white_collar"
+    return ""
+
+
+def _resolve_industry_channel_key(industry: str) -> str:
+    """Map raw industry to a simplified key for channel affinity lookup."""
+    ind = industry.lower()
+    if any(kw in ind for kw in ("health", "nurs", "medical", "hospital", "clinic")):
+        return "healthcare"
+    if any(kw in ind for kw in ("tech", "software", "it_", "saas", "ai ", "data")):
+        return "technology"
+    if any(kw in ind for kw in ("financ", "bank", "insurance", "invest")):
+        return "finance"
+    if any(kw in ind for kw in ("retail", "ecommerce", "consumer", "store")):
+        return "retail"
+    if any(
+        kw in ind for kw in ("hotel", "restaurant", "food_service", "travel", "tourism")
+    ):
+        return "hospitality"
+    if any(
+        kw in ind for kw in ("truck", "cdl", "freight", "driver", "courier", "delivery")
+    ):
+        return "trucking"
+    if any(kw in ind for kw in ("transport", "logistics", "warehouse", "shipping")):
+        return "logistics"
+    if any(kw in ind for kw in ("construct", "building", "civil")):
+        return "construction"
+    if any(kw in ind for kw in ("manufactur", "factory", "assembly", "industrial")):
+        return "manufacturing"
+    if any(kw in ind for kw in ("defense", "aerospace", "government", "military")):
+        return "defense"
+    if any(kw in ind for kw in ("educat", "school", "university", "academic")):
+        return "education"
+    if any(kw in ind for kw in ("consult", "advisory", "professional_service")):
+        return "consulting"
+    return ""
+
+
+def _score_channel_relevance(
+    channel_name: str,
+    industry: str,
+    collar_type: str,
+    seniority_levels: list[str],
+) -> float:
+    """Compute a 1-5 relevance score for a traditional channel.
+
+    Factors (weighted):
+      - Industry affinity (40%): how well the channel serves this industry
+      - Collar type affinity (30%): blue-collar vs white-collar alignment
+      - Seniority match (30%): average seniority fit across all plan roles
+
+    Returns a float rounded to 1 decimal, clamped to [1.0, 5.0].
+    """
+    ind_key = _resolve_industry_channel_key(industry)
+
+    # Industry affinity (0-1.5 raw -> scaled to 0-2.0 contribution)
+    ind_map = _CHANNEL_INDUSTRY_AFFINITY.get(channel_name, {})
+    ind_raw = ind_map.get(ind_key, ind_map.get("_default", 0.8))
+    ind_score = ind_raw * (2.0 / 1.5)  # normalize 1.5 max -> 2.0
+
+    # Collar affinity (0-1.5 raw -> scaled to 0-1.5 contribution)
+    collar_map = _CHANNEL_COLLAR_AFFINITY.get(channel_name, {})
+    collar_raw = collar_map.get(collar_type, collar_map.get("_default", 0.8))
+    collar_score = collar_raw
+
+    # Seniority match (average weight across all seniority levels)
+    sen_map = _CHANNEL_SENIORITY_WEIGHT.get(channel_name, {})
+    if seniority_levels:
+        sen_raw = sum(sen_map.get(s, 0.5) for s in seniority_levels) / len(
+            seniority_levels
+        )
+    else:
+        sen_raw = 0.8  # no seniority info -> moderate default
+    sen_score = sen_raw
+
+    # Weighted combination: industry 40%, collar 30%, seniority 30%
+    combined = ind_score * 0.40 + collar_score * 0.30 + sen_score * 0.30
+    # Scale to 1-5 range (raw range is roughly 0.2 - 2.0, center ~1.0)
+    scaled = combined * 2.5
+    return round(max(1.0, min(5.0, scaled)), 1)
+
+
 def build_channel_strategy(
     data: dict, difficulty_results: list[dict]
 ) -> dict[str, Any]:
@@ -2232,11 +2883,23 @@ def build_channel_strategy(
             seniority_levels.append(raw)
     seniority_levels = list(set(seniority_levels))  # dedup
 
-    # Pick relevant traditional channels
+    # S50 FIX (Issue 18): Detect collar type for channel relevance scoring
+    _roles_raw = data.get("target_roles") or data.get("roles") or []
+    if isinstance(_roles_raw, str):
+        _roles_raw = [_roles_raw]
+    _roles_text = " ".join(
+        str(r.get("title") if isinstance(r, dict) else r) for r in _roles_raw
+    )
+    collar_type = _detect_collar_type(industry, _roles_text)
+
+    # Pick relevant traditional channels -- S50: use multi-factor scoring
     trad_picks: list[dict[str, Any]] = []
     for name, info in _TRADITIONAL_CHANNELS.items():
-        relevance = sum(1 for s in seniority_levels if s in info["best_for"])
-        if relevance > 0 or not seniority_levels:
+        relevance = _score_channel_relevance(
+            name, industry, collar_type, seniority_levels
+        )
+        # Include channel if relevance >= 1.5 or if no seniority data (safe default)
+        if relevance >= 1.5 or not seniority_levels:
             trad_picks.append({"name": name, "relevance_score": relevance, **info})
 
     # S49 FIX (Issue 12): Detect blue-collar / trucking / CDL / driver roles
@@ -3047,20 +3710,37 @@ def apply_all_quality_gates(data: dict) -> dict[str, Any]:
     except Exception as e:
         logger.error("Gold Standard Gate 7 (calendar) failed: %s", e, exc_info=True)
 
+    # Gate 8: LinkedIn Intelligence (SlotOps 108K dataset)
+    try:
+        li_intel = build_linkedin_intelligence(data)
+        if li_intel:
+            gold["linkedin_intelligence"] = li_intel
+            logger.info(
+                "Gold Standard Gate 8: LinkedIn intelligence -- "
+                "apply rate %.1f%%, EA lift %.1fx, sample %d",
+                li_intel.get("country_apply_rate", {}).get("avg", 0),
+                li_intel.get("ea_vs_ats", {}).get("lift_factor", 0),
+                li_intel.get("sample_size", 0),
+            )
+    except Exception as e:
+        logger.error(
+            "Gold Standard Gate 8 (LinkedIn intelligence) failed: %s", e, exc_info=True
+        )
+
     # Check if industry resolved to generic fallback and flag it
     raw_industry = str(data.get("industry") or "general_entry_level")
     resolved_key = _resolve_industry_key(raw_industry)
     if not resolved_key:
         gold["industry_fallback"] = True
 
-    # Compute aggregate quality score: gates_passed / 7
+    # Compute aggregate quality score: gates_passed / 8
     gates_passed = len(gold) - (1 if "industry_fallback" in gold else 0)
-    gold["quality_score"] = round(gates_passed / 7, 2)
+    gold["quality_score"] = round(gates_passed / 8, 2)
 
     # Store on data for downstream consumers (Excel/PPT generators)
     data["_gold_standard"] = gold
     logger.info(
-        "Gold Standard: %d of 7 gates produced data (%s), quality_score=%.2f",
+        "Gold Standard: %d of 8 gates produced data (%s), quality_score=%.2f",
         gates_passed,
         ", ".join(
             k for k in gold.keys() if k not in ("industry_fallback", "quality_score")

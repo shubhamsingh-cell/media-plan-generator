@@ -1943,6 +1943,33 @@ def _add_data_sources_footnote(slide, data: Dict, benchmarks: Dict):
             color=AMBER,
         )
 
+    # S50: Location plausibility warning footnote
+    synthesized = data.get("_synthesized", {})
+    loc_warnings = (
+        synthesized.get("_validation", {}).get("location_warnings") or []
+        if isinstance(synthesized, dict)
+        else []
+    )
+    if loc_warnings:
+        warn_locs = [w.get("location", "") for w in loc_warnings if w.get("location")]
+        if warn_locs:
+            warn_text = (
+                f"Location advisory: {', '.join(warn_locs[:3])} may not align "
+                f"with company's known operating area. See Excel for details."
+            )
+            y_offset = Inches(7.18) if not intl_disclaimer else Inches(7.30)
+            _add_textbox(
+                slide,
+                Inches(0.55),
+                y_offset,
+                Inches(10),
+                Inches(0.2),
+                text=warn_text,
+                font_size=6,
+                italic=True,
+                color=AMBER,
+            )
+
 
 def _format_salary(amount):
     """Format a salary number into human-readable string like $85K or $125K."""

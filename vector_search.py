@@ -1321,6 +1321,9 @@ def index_knowledge_base() -> int:
         "h1b_salary_intelligence.json",
         # Cross-product recruitment benchmarks (S45 deep research -- 28 sources)
         "recruitment_benchmarks_comprehensive_2026.json",
+        # S48: Real channel performance benchmarks (SlotOps 108K + CG 98K)
+        "craigslist_performance_benchmarks.json",
+        "linkedin_performance_benchmarks.json",
     ]
 
     documents: list[dict] = []

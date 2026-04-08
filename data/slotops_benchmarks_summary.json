@@ -1,0 +1,596 @@
+{
+  "metadata": {
+    "source": "slotops_108k_linkedin_dataset",
+    "description": "Pre-aggregated LinkedIn job performance benchmarks from 108,871 job postings across 76 countries and 962 titles. Sourced from Joveo's LinkedIn data.",
+    "total_jobs": 108871,
+    "countries": 76,
+    "titles": 2121,
+    "easy_apply_entries": 7614,
+    "date_range": {
+      "start": "2025-04-16 00:00:00",
+      "end": "2026-04-02 00:00:00"
+    },
+    "generated_at": "2026-04-03T19:46:51.788568",
+    "summary_generated": "2026-04-08"
+  },
+  "overall_benchmarks": {
+    "global_apply_rate_avg": 8.56,
+    "global_avg_views": 130.5,
+    "total_sample": 108871,
+    "best_posting_days": [
+      "Tuesday",
+      "Wednesday",
+      "Thursday"
+    ],
+    "refresh_cadence_days": [
+      8,
+      9,
+      10
+    ]
+  },
+  "easy_apply_vs_ats": {
+    "global": {
+      "easy_apply_avg_rate": 17.55,
+      "easy_apply_sample": 6708,
+      "ats_avg_rate": 8.7,
+      "ats_sample": 310079,
+      "lift_factor": 2.02,
+      "recommendation": "Easy Apply yields 2.02x higher apply rates than ATS; recommend enabling where available"
+    },
+    "by_country": [
+      {
+        "country": "United States",
+        "easy_apply_rate": 17.01,
+        "easy_apply_sample": 1205,
+        "ats_rate": 9.41,
+        "ats_sample": 44794,
+        "lift_factor": 1.81
+      },
+      {
+        "country": "United Kingdom",
+        "easy_apply_rate": 19.83,
+        "easy_apply_sample": 288,
+        "ats_rate": 8.94,
+        "ats_sample": 26045,
+        "lift_factor": 2.22
+      },
+      {
+        "country": "Canada",
+        "easy_apply_rate": 22.88,
+        "easy_apply_sample": 210,
+        "ats_rate": 8.56,
+        "ats_sample": 13424,
+        "lift_factor": 2.67
+      },
+      {
+        "country": "Germany",
+        "easy_apply_rate": 20.41,
+        "easy_apply_sample": 235,
+        "ats_rate": 8.89,
+        "ats_sample": 9427,
+        "lift_factor": 2.3
+      },
+      {
+        "country": "Australia",
+        "easy_apply_rate": 19.94,
+        "easy_apply_sample": 194,
+        "ats_rate": 7.37,
+        "ats_sample": 9147,
+        "lift_factor": 2.71
+      },
+      {
+        "country": "New Zealand",
+        "easy_apply_rate": 19.85,
+        "easy_apply_sample": 151,
+        "ats_rate": 8.44,
+        "ats_sample": 7920,
+        "lift_factor": 2.35
+      },
+      {
+        "country": "Brazil",
+        "easy_apply_rate": 9.21,
+        "easy_apply_sample": 746,
+        "ats_rate": 8.76,
+        "ats_sample": 6830,
+        "lift_factor": 1.05
+      },
+      {
+        "country": "Ireland",
+        "easy_apply_rate": 20.81,
+        "easy_apply_sample": 277,
+        "ats_rate": 7.18,
+        "ats_sample": 6508,
+        "lift_factor": 2.9
+      },
+      {
+        "country": "India",
+        "easy_apply_rate": 25.57,
+        "easy_apply_sample": 201,
+        "ats_rate": 19.47,
+        "ats_sample": 5699,
+        "lift_factor": 1.31
+      },
+      {
+        "country": "NAMER",
+        "easy_apply_rate": 21.07,
+        "easy_apply_sample": 77,
+        "ats_rate": 11.72,
+        "ats_sample": 4982,
+        "lift_factor": 1.8
+      },
+      {
+        "country": "Mexico",
+        "easy_apply_rate": 16.1,
+        "easy_apply_sample": 10,
+        "ats_rate": 7.71,
+        "ats_sample": 4812,
+        "lift_factor": 2.09
+      },
+      {
+        "country": "Netherlands",
+        "easy_apply_rate": 14.96,
+        "easy_apply_sample": 25,
+        "ats_rate": 4.8,
+        "ats_sample": 4480,
+        "lift_factor": 3.12
+      },
+      {
+        "country": "France",
+        "easy_apply_rate": 0,
+        "easy_apply_sample": 0,
+        "ats_rate": 5.66,
+        "ats_sample": 3744,
+        "lift_factor": 0.0
+      },
+      {
+        "country": "Italy",
+        "easy_apply_rate": 0,
+        "easy_apply_sample": 0,
+        "ats_rate": 5.36,
+        "ats_sample": 3185,
+        "lift_factor": 0.0
+      }
+    ]
+  },
+  "top_countries": [
+    {
+      "country": "United States",
+      "sample_size": 23539,
+      "apply_rate_avg": 9.14,
+      "apply_rate_median": 6.0,
+      "apply_rate_p75": 14.0,
+      "apply_rate_p90": 22.0,
+      "avg_views": 81.8,
+      "avg_apply_clicks": 13.3,
+      "avg_days_open": 3.6
+    },
+    {
+      "country": "United Kingdom",
+      "sample_size": 13530,
+      "apply_rate_avg": 8.1,
+      "apply_rate_median": 5.0,
+      "apply_rate_p75": 13.0,
+      "apply_rate_p90": 21.0,
+      "avg_views": 43.8,
+      "avg_apply_clicks": 5.6,
+      "avg_days_open": 3.1
+    },
+    {
+      "country": "Canada",
+      "sample_size": 7130,
+      "apply_rate_avg": 8.51,
+      "apply_rate_median": 7.0,
+      "apply_rate_p75": 13.0,
+      "apply_rate_p90": 19.0,
+      "avg_views": 52.8,
+      "avg_apply_clicks": 6.5,
+      "avg_days_open": 2.6
+    },
+    {
+      "country": "Australia",
+      "sample_size": 4916,
+      "apply_rate_avg": 7.64,
+      "apply_rate_median": 6.0,
+      "apply_rate_p75": 11.0,
+      "apply_rate_p90": 17.0,
+      "avg_views": 31.3,
+      "avg_apply_clicks": 2.6,
+      "avg_days_open": 2.7
+    },
+    {
+      "country": "Germany",
+      "sample_size": 4905,
+      "apply_rate_avg": 8.9,
+      "apply_rate_median": 5.0,
+      "apply_rate_p75": 13.0,
+      "apply_rate_p90": 23.0,
+      "avg_views": 28.4,
+      "avg_apply_clicks": 2.9,
+      "avg_days_open": 2.7
+    },
+    {
+      "country": "New Zealand",
+      "sample_size": 4247,
+      "apply_rate_avg": 8.48,
+      "apply_rate_median": 7.0,
+      "apply_rate_p75": 13.0,
+      "apply_rate_p90": 20.0,
+      "avg_views": 21.8,
+      "avg_apply_clicks": 1.9,
+      "avg_days_open": 2.9
+    },
+    {
+      "country": "Brazil",
+      "sample_size": 3835,
+      "apply_rate_avg": 8.56,
+      "apply_rate_median": 8.0,
+      "apply_rate_p75": 12.0,
+      "apply_rate_p90": 18.0,
+      "avg_views": 90.0,
+      "avg_apply_clicks": 11.7,
+      "avg_days_open": 3.3
+    },
+    {
+      "country": "Ireland",
+      "sample_size": 3618,
+      "apply_rate_avg": 7.91,
+      "apply_rate_median": 7.0,
+      "apply_rate_p75": 11.0,
+      "apply_rate_p90": 17.0,
+      "avg_views": 36.5,
+      "avg_apply_clicks": 3.2,
+      "avg_days_open": 2.8
+    },
+    {
+      "country": "India",
+      "sample_size": 3033,
+      "apply_rate_avg": 19.14,
+      "apply_rate_median": 19.0,
+      "apply_rate_p75": 27.0,
+      "apply_rate_p90": 33.0,
+      "avg_views": 268.3,
+      "avg_apply_clicks": 62.5,
+      "avg_days_open": 2.3
+    },
+    {
+      "country": "NAMER",
+      "sample_size": 2592,
+      "apply_rate_avg": 11.8,
+      "apply_rate_median": 11.0,
+      "apply_rate_p75": 17.0,
+      "apply_rate_p90": 23.0,
+      "avg_views": 290.8,
+      "avg_apply_clicks": 51.9,
+      "avg_days_open": 2.8
+    },
+    {
+      "country": "Mexico",
+      "sample_size": 2473,
+      "apply_rate_avg": 7.48,
+      "apply_rate_median": 6.0,
+      "apply_rate_p75": 11.0,
+      "apply_rate_p90": 18.0,
+      "avg_views": 39.9,
+      "avg_apply_clicks": 4.0,
+      "avg_days_open": 3.0
+    },
+    {
+      "country": "Netherlands",
+      "sample_size": 2336,
+      "apply_rate_avg": 4.83,
+      "apply_rate_median": 3.0,
+      "apply_rate_p75": 7.0,
+      "apply_rate_p90": 13.0,
+      "avg_views": 35.2,
+      "avg_apply_clicks": 2.1,
+      "avg_days_open": 3.2
+    },
+    {
+      "country": "France",
+      "sample_size": 1929,
+      "apply_rate_avg": 5.48,
+      "apply_rate_median": 4.0,
+      "apply_rate_p75": 8.0,
+      "apply_rate_p90": 13.0,
+      "avg_views": 35.6,
+      "avg_apply_clicks": 2.3,
+      "avg_days_open": 2.3
+    },
+    {
+      "country": "Italy",
+      "sample_size": 1647,
+      "apply_rate_avg": 5.37,
+      "apply_rate_median": 4.0,
+      "apply_rate_p75": 7.0,
+      "apply_rate_p90": 13.0,
+      "avg_views": 48.8,
+      "avg_apply_clicks": 2.7,
+      "avg_days_open": 2.3
+    },
+    {
+      "country": "Singapore",
+      "sample_size": 1574,
+      "apply_rate_avg": 7.99,
+      "apply_rate_median": 6.0,
+      "apply_rate_p75": 11.0,
+      "apply_rate_p90": 18.0,
+      "avg_views": 47.1,
+      "avg_apply_clicks": 5.1,
+      "avg_days_open": 2.6
+    },
+    {
+      "country": "Latin America",
+      "sample_size": 1562,
+      "apply_rate_avg": 11.38,
+      "apply_rate_median": 11.0,
+      "apply_rate_p75": 16.0,
+      "apply_rate_p90": 20.0,
+      "avg_views": 692.2,
+      "avg_apply_clicks": 113.9,
+      "avg_days_open": 2.8
+    },
+    {
+      "country": "Colombia",
+      "sample_size": 1410,
+      "apply_rate_avg": 8.71,
+      "apply_rate_median": 7.0,
+      "apply_rate_p75": 12.0,
+      "apply_rate_p90": 18.0,
+      "avg_views": 46.4,
+      "avg_apply_clicks": 4.5,
+      "avg_days_open": 2.5
+    },
+    {
+      "country": "APAC",
+      "sample_size": 1408,
+      "apply_rate_avg": 12.66,
+      "apply_rate_median": 13.0,
+      "apply_rate_p75": 17.0,
+      "apply_rate_p90": 21.0,
+      "avg_views": 1691.3,
+      "avg_apply_clicks": 306.3,
+      "avg_days_open": 2.9
+    },
+    {
+      "country": "China",
+      "sample_size": 1360,
+      "apply_rate_avg": 10.31,
+      "apply_rate_median": 8.0,
+      "apply_rate_p75": 14.0,
+      "apply_rate_p90": 23.1,
+      "avg_views": 21.3,
+      "avg_apply_clicks": 2.0,
+      "avg_days_open": 2.6
+    },
+    {
+      "country": "European Union",
+      "sample_size": 1325,
+      "apply_rate_avg": 7.15,
+      "apply_rate_median": 6.0,
+      "apply_rate_p75": 10.0,
+      "apply_rate_p90": 14.0,
+      "avg_views": 603.7,
+      "avg_apply_clicks": 87.2,
+      "avg_days_open": 2.8
+    }
+  ],
+  "top_functions": [
+    {
+      "title": "Software Engineer",
+      "sample_size": 5555,
+      "apply_rate_avg": 9.87,
+      "apply_rate_median": 8.0,
+      "apply_rate_p75": 15.0,
+      "avg_views": 458.7,
+      "avg_days_open": 2.7
+    },
+    {
+      "title": "Managing Director",
+      "sample_size": 3574,
+      "apply_rate_avg": 4.4,
+      "apply_rate_median": 0.0,
+      "apply_rate_p75": 7.0,
+      "avg_views": 21.5,
+      "avg_days_open": 2.0
+    },
+    {
+      "title": "Driver",
+      "sample_size": 2625,
+      "apply_rate_avg": 6.72,
+      "apply_rate_median": 3.0,
+      "apply_rate_p75": 11.0,
+      "avg_views": 38.6,
+      "avg_days_open": 4.6
+    },
+    {
+      "title": "Language Specialist",
+      "sample_size": 2165,
+      "apply_rate_avg": 8.73,
+      "apply_rate_median": 5.0,
+      "apply_rate_p75": 13.0,
+      "avg_views": 41.8,
+      "avg_days_open": 2.7
+    },
+    {
+      "title": "Radiologist",
+      "sample_size": 2122,
+      "apply_rate_avg": 6.59,
+      "apply_rate_median": 0.0,
+      "apply_rate_p75": 10.0,
+      "avg_views": 10.0,
+      "avg_days_open": 2.2
+    },
+    {
+      "title": "Radiology Professional",
+      "sample_size": 1935,
+      "apply_rate_avg": 5.18,
+      "apply_rate_median": 0.0,
+      "apply_rate_p75": 8.0,
+      "avg_views": 22.4,
+      "avg_days_open": 2.4
+    },
+    {
+      "title": "Delivery Driver",
+      "sample_size": 1930,
+      "apply_rate_avg": 6.05,
+      "apply_rate_median": 2.0,
+      "apply_rate_p75": 9.0,
+      "avg_views": 29.0,
+      "avg_days_open": 4.6
+    },
+    {
+      "title": "Content Specialist",
+      "sample_size": 1869,
+      "apply_rate_avg": 10.9,
+      "apply_rate_median": 9.0,
+      "apply_rate_p75": 15.0,
+      "avg_views": 82.6,
+      "avg_days_open": 3.0
+    },
+    {
+      "title": "Voice Over Artist",
+      "sample_size": 1752,
+      "apply_rate_avg": 8.67,
+      "apply_rate_median": 7.0,
+      "apply_rate_p75": 12.0,
+      "avg_views": 49.3,
+      "avg_days_open": 2.5
+    },
+    {
+      "title": "Expert",
+      "sample_size": 1522,
+      "apply_rate_avg": 6.32,
+      "apply_rate_median": 5.0,
+      "apply_rate_p75": 9.0,
+      "avg_views": 54.7,
+      "avg_days_open": 2.9
+    },
+    {
+      "title": "Consultant",
+      "sample_size": 1453,
+      "apply_rate_avg": 9.35,
+      "apply_rate_median": 7.0,
+      "apply_rate_p75": 13.0,
+      "avg_views": 256.2,
+      "avg_days_open": 3.0
+    },
+    {
+      "title": "Medical Doctor",
+      "sample_size": 1371,
+      "apply_rate_avg": 10.66,
+      "apply_rate_median": 9.0,
+      "apply_rate_p75": 17.0,
+      "avg_views": 57.0,
+      "avg_days_open": 2.6
+    },
+    {
+      "title": "Writer",
+      "sample_size": 1331,
+      "apply_rate_avg": 9.39,
+      "apply_rate_median": 7.0,
+      "apply_rate_p75": 13.0,
+      "avg_views": 155.6,
+      "avg_days_open": 2.4
+    },
+    {
+      "title": "Medical Specialist",
+      "sample_size": 1108,
+      "apply_rate_avg": 7.71,
+      "apply_rate_median": 6.0,
+      "apply_rate_p75": 13.0,
+      "avg_views": 179.5,
+      "avg_days_open": 2.4
+    },
+    {
+      "title": "Writing Specialist",
+      "sample_size": 950,
+      "apply_rate_avg": 13.29,
+      "apply_rate_median": 12.0,
+      "apply_rate_p75": 19.0,
+      "avg_views": 483.8,
+      "avg_days_open": 2.7
+    },
+    {
+      "title": "Legal Specialist",
+      "sample_size": 902,
+      "apply_rate_avg": 6.86,
+      "apply_rate_median": 6.0,
+      "apply_rate_p75": 11.0,
+      "avg_views": 61.0,
+      "avg_days_open": 2.8
+    },
+    {
+      "title": "Medical Consultant",
+      "sample_size": 873,
+      "apply_rate_avg": 5.91,
+      "apply_rate_median": 5.0,
+      "apply_rate_p75": 8.0,
+      "avg_views": 62.2,
+      "avg_days_open": 2.2
+    },
+    {
+      "title": "Content Moderator",
+      "sample_size": 837,
+      "apply_rate_avg": 9.89,
+      "apply_rate_median": 8.0,
+      "apply_rate_p75": 13.0,
+      "avg_views": 43.8,
+      "avg_days_open": 2.6
+    },
+    {
+      "title": "Healthcare Specialist",
+      "sample_size": 806,
+      "apply_rate_avg": 6.44,
+      "apply_rate_median": 5.5,
+      "apply_rate_p75": 10.0,
+      "avg_views": 250.9,
+      "avg_days_open": 2.4
+    },
+    {
+      "title": "Supply Chain Associate",
+      "sample_size": 711,
+      "apply_rate_avg": 4.21,
+      "apply_rate_median": 2.0,
+      "apply_rate_p75": 6.0,
+      "avg_views": 35.4,
+      "avg_days_open": 4.6
+    }
+  ],
+  "day_of_week_patterns": {
+    "Monday": {
+      "avg_apply_rate": 8.04,
+      "avg_views": 178.9,
+      "countries_reporting": 65
+    },
+    "Tuesday": {
+      "avg_apply_rate": 8.41,
+      "avg_views": 181.2,
+      "countries_reporting": 65
+    },
+    "Wednesday": {
+      "avg_apply_rate": 8.14,
+      "avg_views": 212.0,
+      "countries_reporting": 66
+    },
+    "Thursday": {
+      "avg_apply_rate": 8.14,
+      "avg_views": 109.7,
+      "countries_reporting": 57
+    },
+    "Friday": {
+      "avg_apply_rate": 8.33,
+      "avg_views": 126.0,
+      "countries_reporting": 64
+    },
+    "Saturday": {
+      "avg_apply_rate": 8.62,
+      "avg_views": 119.1,
+      "countries_reporting": 58
+    },
+    "Sunday": {
+      "avg_apply_rate": 9.09,
+      "avg_views": 299.3,
+      "countries_reporting": 65
+    }
+  }
+}

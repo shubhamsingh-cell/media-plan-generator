@@ -505,6 +505,7 @@ def recommend_channels(
     locations: Optional[List[str]] = None,
     goals: Optional[List[str]] = None,
     collar_type: str = "",
+    main_plan_total_hires: int = 0,
 ) -> Dict[str, Any]:
     """Produce tiered channel recommendations for a recruitment campaign.
 
@@ -524,6 +525,12 @@ def recommend_channels(
         Optional collar classification from plan data (e.g. "blue_collar",
         "white_collar").  Used as fallback for both industry resolution
         and role-tier classification when keywords are ambiguous.
+    main_plan_total_hires : int
+        Total projected hires from the main budget engine.  When provided
+        (> 0), the recommender normalizes its per-channel hire projections
+        so the sum matches the main plan.  This eliminates the discrepancy
+        between the Channel Recommendations sheet and the Executive Summary
+        (e.g. 1,317 vs 380 hires on the same budget).
     """
     # ── Resolve inputs ──
     ind_key = _resolve_industry(industry, collar_type=collar_type)
@@ -696,6 +703,52 @@ def recommend_channels(
     for ch in test_and_learn + skip:
         ch["allocation_pct"] = 0.0
         ch["projected_spend"] = 0.0
+
+    # ── Normalize hire projections to match main budget engine ──
+    # The channel recommender uses its own CPC/apply-rate/hire-rate constants
+    # without the safety margins, CPH floors, and collar adjustments that the
+    # main budget engine applies.  This causes a significant discrepancy
+    # (e.g. 1,317 vs 380 hires on the same $2M budget).
+    # When main_plan_total_hires is provided, scale all per-channel hires
+    # proportionally so the Channel Recommendations sheet matches the
+    # Executive Summary.
+    _raw_total_hires = sum(c["projected_hires"] for c in active)
+    if (
+        main_plan_total_hires > 0
+        and _raw_total_hires > 0
+        and abs(_raw_total_hires - main_plan_total_hires) / _raw_total_hires > 0.20
+    ):
+        _scale = main_plan_total_hires / _raw_total_hires
+        logger.info(
+            "Channel recommender hire normalization: raw=%d, main_plan=%d, "
+            "scale=%.3f (%.0f%% adjustment)",
+            _raw_total_hires,
+            main_plan_total_hires,
+            _scale,
+            (1 - _scale) * 100,
+        )
+        _remaining = main_plan_total_hires
+        _channels_with_hires = [c for c in active if c["projected_hires"] > 0]
+        for i, ch in enumerate(_channels_with_hires):
+            if i == len(_channels_with_hires) - 1:
+                # Last channel gets remainder to avoid rounding drift
+                ch["projected_hires"] = max(0, _remaining)
+            else:
+                new_hires = max(0, int(ch["projected_hires"] * _scale))
+                ch["projected_hires"] = new_hires
+                _remaining -= new_hires
+        # Also scale applications proportionally for CPA consistency
+        _raw_total_apps = sum(c["projected_applications"] for c in active)
+        if _raw_total_apps > 0 and _scale < 1.0:
+            for ch in active:
+                ch["projected_applications"] = max(
+                    1, int(ch["projected_applications"] * _scale)
+                )
+            # Recalculate per-channel CPA from adjusted applications
+            for ch in active:
+                spend = ch.get("projected_spend", 0)
+                apps = ch.get("projected_applications", 1)
+                ch["expected_cpa"] = round(spend / max(apps, 1), 2)
 
     # ── Summary stats ──
     total_apps = sum(c["projected_applications"] for c in active)

@@ -4013,6 +4013,77 @@ def _build_sheet_sources(ws, data: dict):
 
     row += 2
 
+    # ── 4b. Location Plausibility Warnings (S50) ──
+    loc_warnings = synthesized.get("_validation", {}).get("location_warnings") or []
+    if loc_warnings:
+        row = _write_section_header(ws, row, "Location Plausibility Warnings")
+
+        # Explanation note
+        ws.merge_cells(
+            start_row=row, start_column=COL_START, end_row=row, end_column=COL_END
+        )
+        note = ws.cell(
+            row=row,
+            column=COL_START,
+            value=(
+                "The following locations may not align with the company's known "
+                "operating area. These are advisory warnings -- they do not block "
+                "plan generation. Please verify before finalizing."
+            ),
+        )
+        note.font = _FONT_FOOTNOTE
+        note.alignment = _ALIGN_WRAP
+        row += 2
+
+        headers = ["Location", "Severity", "Reason", "Known Locations", "Suggestion"]
+        row = _write_table_header(ws, row, headers)
+
+        for idx, warn in enumerate(loc_warnings):
+            severity = (warn.get("severity") or "medium").capitalize()
+
+            if severity == "High":
+                sev_fill = _FILL_RED_BG
+                sev_font = Font(name="Calibri", bold=True, size=10, color=RED)
+            elif severity == "Medium":
+                sev_fill = _FILL_AMBER_BG
+                sev_font = Font(name="Calibri", bold=True, size=10, color=AMBER)
+            else:
+                sev_fill = _FILL_BLUE_PALE
+                sev_font = Font(name="Calibri", size=10, color=SAPPHIRE)
+
+            values = [
+                warn.get("location", ""),
+                severity,
+                (warn.get("reason") or "")[:80],
+                (warn.get("known_states_display") or "N/A")[:60],
+                (warn.get("suggestion") or "")[:80],
+            ]
+            fills_list = [None, sev_fill, None, None, None]
+            fonts_list = [None, sev_font, None, None, None]
+            row = _write_table_row(
+                ws,
+                row,
+                values,
+                alternate=idx % 2 == 1,
+                fills=fills_list,
+                fonts=fonts_list,
+            )
+
+        # Company HQ line
+        first_hq = loc_warnings[0].get("company_hq") or "Unknown"
+        row += 1
+        ws.merge_cells(
+            start_row=row, start_column=COL_START, end_row=row, end_column=COL_END
+        )
+        hq_cell = ws.cell(
+            row=row,
+            column=COL_START,
+            value=f"Company HQ (from Wikipedia/Clearbit): {first_hq}",
+        )
+        hq_cell.font = _FONT_FOOTNOTE
+        hq_cell.alignment = _ALIGN_WRAP
+        row += 2
+
     # ── 5. Methodology Notes ──
     row = _write_section_header(ws, row, "Methodology & Data Hierarchy")
 
@@ -4773,6 +4844,55 @@ def _build_sheet_quality_intelligence(
                 "Hiring difficulty: 1 (easy) to 10 (hardest).",
             )
             row += 1
+
+            # ── Per-Role Salary Breakdown (additive section) ──
+            # Check if any city has per_role_salary data
+            has_role_salary = any(
+                info.get("per_role_salary") for info in city_data.values()
+            )
+            if has_role_salary:
+                row = _write_subsection_header(
+                    ws, row, "Per-Role Salary Breakdown by City"
+                )
+                row = _write_table_header(
+                    ws,
+                    row,
+                    [
+                        "City",
+                        "Role",
+                        "Min Salary",
+                        "Median Salary",
+                        "Max Salary",
+                        "City Multiplier",
+                        "Source",
+                    ],
+                )
+                alt_idx = 0
+                for city_name, info in city_data.items():
+                    role_salary: dict = info.get("per_role_salary") or {}
+                    for role_name, sal in role_salary.items():
+                        row = _write_table_row(
+                            ws,
+                            row,
+                            [
+                                city_name,
+                                role_name,
+                                f"${sal.get('min', 0):,.0f}",
+                                f"${sal.get('median', 0):,.0f}",
+                                f"${sal.get('max', 0):,.0f}",
+                                f"{sal.get('multiplier', 1.0):.2f}x",
+                                str(sal.get("source") or "N/A"),
+                            ],
+                            alternate=alt_idx % 2 == 1,
+                        )
+                        alt_idx += 1
+                row = _write_footnote(
+                    ws,
+                    row,
+                    "Per-role salaries adjusted by city multiplier. "
+                    "Generic roles use the blended enrichment estimate.",
+                )
+                row += 1
     except Exception as exc:
         logger.error(
             "Quality Intelligence: city-level section failed: %s", exc, exc_info=True
@@ -5795,6 +5915,13 @@ def _build_sheet_channel_recommendations(ws, data: dict) -> None:
     )
     locations = data.get("locations") or []
 
+    # S50 FIX: Pass the main plan's total hires so Channel Recommendations
+    # normalizes its projections to match the Executive Summary.
+    # Eliminates the 3.47x discrepancy (e.g. 1,317 vs 380 hires on $2M).
+    _ba = data.get("_budget_allocation", {})
+    _ba_total_proj = _ba.get("total_projected", {})
+    _main_plan_hires = int(_ba_total_proj.get("hires") or 0)
+
     try:
         rec = _recommend_channels_fn(
             industry=industry,
@@ -5802,6 +5929,7 @@ def _build_sheet_channel_recommendations(ws, data: dict) -> None:
             budget=budget,
             locations=locations,
             collar_type=data.get("collar_type") or "",
+            main_plan_total_hires=_main_plan_hires,
         )
     except Exception as exc:
         logger.error(

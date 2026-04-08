@@ -5,7 +5,7 @@ backed by 88,954 job postings across 73 countries and 885 title families.
 """
 
 from __future__ import annotations
-import csv, io, json, logging, math, threading, time
+import csv, hashlib, io, json, logging, math, threading, time
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import Any, Optional
@@ -198,6 +198,9 @@ class RotationSchedule:
 # -- Baseline Loader ---------------------------------------------------------
 _REDIS_BASELINES_KEY = "slotops_baselines_v1"
 _REDIS_BASELINES_TTL = 3600  # 1 hour
+_REDIS_INDUSTRY_BENCH_KEY = "slotops_industry_bench_v1"
+_REDIS_INDUSTRY_BENCH_TTL = 86400  # 24 hours (19KB, rarely changes)
+_REDIS_PREDICTION_TTL = 3600  # 1 hour per-job prediction cache
 
 
 def load_baselines(path: Path | None = None) -> dict[str, Any]:
@@ -267,17 +270,53 @@ def load_baselines(path: Path | None = None) -> dict[str, Any]:
 
 
 def load_industry_benchmarks() -> dict[str, Any]:
-    """Load external LinkedIn industry benchmarks; thread-safe, cached."""
+    """Load external LinkedIn industry benchmarks; thread-safe, cached.
+
+    Cache hierarchy: in-memory -> Upstash Redis (24h TTL) -> disk.
+    """
     global _industry_benchmarks
     if _industry_benchmarks:
         return _industry_benchmarks
     with _lock:
         if _industry_benchmarks:
             return _industry_benchmarks
+
+        # L2: Try Redis cache before hitting disk
+        if _REDIS_AVAILABLE:
+            try:
+                cached = _redis_get(_REDIS_INDUSTRY_BENCH_KEY)
+                if cached and isinstance(cached, dict):
+                    _industry_benchmarks = cached
+                    logger.info("LinkedIn industry benchmarks loaded from Redis cache")
+                    return _industry_benchmarks
+            except Exception as redis_err:
+                logger.debug("Industry benchmarks Redis cache miss: %s", redis_err)
+
+        # L3: Fall back to disk
         try:
             with open(_INDUSTRY_BENCH_PATH, "r", encoding="utf-8") as fh:
                 _industry_benchmarks = json.load(fh)
-            logger.info("LinkedIn industry benchmarks loaded")
+            logger.info("LinkedIn industry benchmarks loaded from disk")
+
+            # Warm Redis cache for next cold start
+            if _REDIS_AVAILABLE:
+                try:
+                    _redis_set(
+                        _REDIS_INDUSTRY_BENCH_KEY,
+                        _industry_benchmarks,
+                        ttl_seconds=_REDIS_INDUSTRY_BENCH_TTL,
+                        category="slotops",
+                    )
+                    logger.info(
+                        "Industry benchmarks cached to Redis (TTL=%ds)",
+                        _REDIS_INDUSTRY_BENCH_TTL,
+                    )
+                except Exception as redis_write_err:
+                    logger.debug(
+                        "Industry benchmarks Redis write failed (non-fatal): %s",
+                        redis_write_err,
+                    )
+
         except FileNotFoundError:
             logger.warning("Industry benchmarks file not found; using defaults")
             _industry_benchmarks = {}
@@ -726,6 +765,44 @@ def build_rotation_schedule(
     return schedule
 
 
+def _prediction_cache_key(job: Job) -> str:
+    """Build a deterministic Redis cache key for a job prediction.
+
+    Key components: country, title, application method, workplace type.
+    These are the only fields that affect prediction output.
+    """
+    raw = f"{job.country}|{job.standardized_title or job.title}|{job.application_method}|{job.workplace_type}"
+    digest = hashlib.md5(raw.encode("utf-8")).hexdigest()[:12]
+    return f"slotops:pred:{digest}"
+
+
+def predict_performance_cached(job: Job) -> dict[str, Any]:
+    """Predict with per-job Redis caching (1h TTL). Falls back to compute."""
+    if _REDIS_AVAILABLE:
+        key = _prediction_cache_key(job)
+        try:
+            cached = _redis_get(key)
+            if cached and isinstance(cached, dict) and "expected_apply_rate" in cached:
+                return cached
+        except Exception:
+            pass  # Fall through to compute
+
+    result = predict_performance(job)
+
+    if _REDIS_AVAILABLE:
+        try:
+            _redis_set(
+                _prediction_cache_key(job),
+                result,
+                ttl_seconds=_REDIS_PREDICTION_TTL,
+                category="slotops",
+            )
+        except Exception:
+            pass  # Non-fatal: cache write failure
+
+    return result
+
+
 def predict_performance(job: Job) -> dict[str, Any]:
     """Predict apply rate, views, applications, best day/month, confidence."""
     bl = load_baselines()
@@ -969,7 +1046,7 @@ def handle_slotops_optimize(body: dict[str, Any]) -> dict[str, Any]:
         total_views = 0.0
         total_apps = 0.0
         for s, j in scored[:30]:
-            pred = predict_performance(j)
+            pred = predict_performance_cached(j)
             ext = get_industry_context(
                 j.industry, j.function, j.country, j.workplace_type
             )
@@ -1054,7 +1131,7 @@ def handle_slotops_predict(body: dict[str, Any]) -> dict[str, Any]:
             jobs = _jobs_from_dicts(batch)
         else:
             return {"ok": False, "error": "Provide 'job' or 'jobs' in request body"}
-        preds = [predict_performance(j) for j in jobs]
+        preds = [predict_performance_cached(j) for j in jobs]
         ms = _timed("predict", t0)
         return {
             "ok": True,

@@ -721,6 +721,17 @@ html.lenis body {
   opacity: 0.85;
 }
 
+/* Self-hosted SVG logos inside orbit chips */
+.chip-logo {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  margin-right: 4px;
+  flex-shrink: 0;
+  vertical-align: middle;
+  pointer-events: none;
+}
+
 /* Hide any residual broken images in carousel cards */
 .channel-logo-card img {
   display: none;

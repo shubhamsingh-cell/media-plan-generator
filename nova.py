@@ -3452,6 +3452,9 @@ class Nova:
             "international_sources": "international_sources.json",
             "international_benchmarks": "international_benchmarks_2026.json",
             "seasonal_hiring_trends": "seasonal_hiring_trends.json",
+            # S48: Real channel performance benchmarks (SlotOps 108K + CG 98K)
+            "craigslist_benchmarks": "craigslist_performance_benchmarks.json",
+            "linkedin_benchmarks": "linkedin_performance_benchmarks.json",
         }
         for _cache_key, _rf_name in _research_files.items():
             _rf_path = os.path.join(str(DATA_DIR), _rf_name)
@@ -6563,6 +6566,37 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                         "global_insights": intl_bench.get("global_insights", {}),
                         "source": "international_benchmarks_2026 (38 countries)",
                     }
+
+        # Cross-reference CG Automation Craigslist benchmarks (98K posts)
+        _cl_terms = ("craigslist", "cl ", "classified", "gig posting")
+        _cl_match = platform and any(t in platform for t in _cl_terms)
+        if not _cl_match:
+            _cl_match = any(
+                t in (metric or "") or t in (topic or "") for t in _cl_terms
+            )
+        if _cl_match:
+            _cl_bench = self._data_cache.get("craigslist_benchmarks", {})
+            if _cl_bench:
+                result["craigslist_benchmarks"] = {
+                    "source": "CG Automation",
+                    "dataset": "98,665 posts across 397 US locations (Dec 2025-Mar 2026)",
+                    "category_benchmarks": _cl_bench.get(
+                        "craigslist_category_benchmarks", {}
+                    ),
+                    "general_apply_rates": _cl_bench.get(
+                        "general_craigslist_apply_rates", {}
+                    ),
+                    "salary_benchmarks": _cl_bench.get(
+                        "craigslist_salary_benchmarks_by_category", {}
+                    ),
+                    "post_optimization": _cl_bench.get(
+                        "craigslist_post_optimization", {}
+                    ),
+                    "day_of_week_patterns": _cl_bench.get(
+                        "craigslist_day_of_week_patterns", {}
+                    ),
+                    "key_insights": _cl_bench.get("key_insights", []),
+                }
 
         # Merge vector search results into response
         if _vector_results:
@@ -10419,13 +10453,16 @@ When two or more tools return conflicting data for the same metric (e.g., differ
         """Handler for audit_career_page tool.
 
         Audits a career page URL for performance, accessibility, SEO,
-        and Core Web Vitals using Google PageSpeed Insights.
+        and Core Web Vitals. Uses a multi-strategy fallback chain:
+        PageSpeed Insights -> direct fetch -> Jina Reader -> benchmark-based.
+        Sites that block bots (e.g., Microsoft, Amazon) get benchmark-based
+        recommendations instead of an error.
         """
         url = (params.get("url") or "").strip()
         strategy = (params.get("strategy") or "mobile").strip().lower()
 
         if not url:
-            return {"error": "url is required", "source": "Google PageSpeed Insights"}
+            return {"error": "url is required", "source": "Career Page Audit"}
 
         if strategy not in ("mobile", "desktop"):
             strategy = "mobile"
@@ -10434,20 +10471,28 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             from google_search_pagespeed import audit_career_page as _pagespeed_audit
 
             result = _pagespeed_audit(url, strategy=strategy)
-            result["source"] = "Google PageSpeed Insights"
+            # Set source based on which audit method succeeded
+            audit_method = result.get("audit_method") or "pagespeed_insights"
+            source_label = {
+                "pagespeed_insights": "Google PageSpeed Insights",
+                "direct_fetch": "Direct Fetch Analysis",
+                "jina_reader": "Jina Reader Analysis",
+                "benchmark_based": "Industry Benchmark Analysis",
+            }.get(audit_method, "Career Page Audit")
+            result["source"] = source_label
             result["strategy"] = strategy
             return result
         except ImportError:
             logger.error("google_search_pagespeed module not available", exc_info=True)
             return {
                 "error": "PageSpeed module not available",
-                "source": "Google PageSpeed Insights",
+                "source": "Career Page Audit",
             }
         except Exception as e:
             logger.error("audit_career_page failed for %r: %s", url, e, exc_info=True)
             return {
-                "error": f"PageSpeed audit failed: {e}",
-                "source": "Google PageSpeed Insights",
+                "error": f"Career page audit failed: {e}",
+                "source": "Career Page Audit",
             }
 
     # ------------------------------------------------------------------
