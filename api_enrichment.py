@@ -2007,7 +2007,7 @@ def fetch_metro_salary_data(location: str, soc_code: str = "") -> Dict[str, Any]
         ValueError,
         OSError,
     ) as e:
-        logger.error(
+        _api_logger.error(
             "BLS metro salary fetch failed for %s: %s", location, e, exc_info=True
         )
         return {}
@@ -16065,7 +16065,7 @@ def fetch_careerjet_data(
             for j in jobs[:5]
         ]
 
-        logger.info(f"CareerJet: {job_count} jobs for '{safe_role}' in {country}")
+        _api_logger.info(f"CareerJet: {job_count} jobs for '{safe_role}' in {country}")
         return {
             "job_count": job_count,
             "sample_jobs": sample,
@@ -16074,7 +16074,7 @@ def fetch_careerjet_data(
         }
 
     except (urllib.error.URLError, OSError, json.JSONDecodeError, ValueError) as e:
-        logger.error(f"CareerJet API failed: {e}", exc_info=True)
+        _api_logger.error(f"CareerJet API failed: {e}", exc_info=True)
         return {"job_count": 0, "source": "careerjet", "error": str(e)}
 
 
@@ -16135,11 +16135,11 @@ def fetch_eurostat_data(
             sorted_vals = sorted(values.items(), key=lambda x: int(x[0]), reverse=True)
             result["latest_values"] = {k: v for k, v in sorted_vals[:20]}
 
-        logger.info(f"Eurostat: {len(values)} data points for {indicator}")
+        _api_logger.info(f"Eurostat: {len(values)} data points for {indicator}")
         return result
 
     except (urllib.error.URLError, OSError, json.JSONDecodeError, ValueError) as e:
-        logger.error(f"Eurostat API failed: {e}", exc_info=True)
+        _api_logger.error(f"Eurostat API failed: {e}", exc_info=True)
         return {"indicator": indicator, "source": "eurostat", "error": str(e)}
 
 
@@ -16202,11 +16202,13 @@ def fetch_uk_ons_data(
             "source": "uk_ons",
         }
 
-        logger.info(f"UK ONS: {len(recent_monthly)} monthly observations for {dataset}")
+        _api_logger.info(
+            f"UK ONS: {len(recent_monthly)} monthly observations for {dataset}"
+        )
         return result
 
     except (urllib.error.URLError, OSError, json.JSONDecodeError, ValueError) as e:
-        logger.error(f"UK ONS API failed: {e}", exc_info=True)
+        _api_logger.error(f"UK ONS API failed: {e}", exc_info=True)
         return {"dataset": dataset, "source": "uk_ons", "error": str(e)}
 
 
@@ -16281,18 +16283,20 @@ def fetch_statcan_data(
                         if isinstance(values, list)
                         else list(values.items())[:10]
                     )
-                logger.info(f"StatCan: {len(values)} data points for table {table}")
+                _api_logger.info(
+                    f"StatCan: {len(values)} data points for table {table}"
+                )
         except (urllib.error.URLError, OSError):
             # Fallback: return metadata only
             result["note"] = (
                 "Data download requires CSV/SDMX format. Metadata available."
             )
-            logger.info(f"StatCan: metadata only for table {table}")
+            _api_logger.info(f"StatCan: metadata only for table {table}")
 
         return result
 
     except (urllib.error.URLError, OSError, json.JSONDecodeError, ValueError) as e:
-        logger.error(f"StatCan API failed: {e}", exc_info=True)
+        _api_logger.error(f"StatCan API failed: {e}", exc_info=True)
         return {"table": table, "source": "statcan", "error": str(e)}
 
 
