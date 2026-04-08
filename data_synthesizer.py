@@ -67,6 +67,13 @@ try:
 except ImportError:
     _RESEARCH_METRO_DATA = {}
 
+# S50: Import _ROLE_SALARY_RANGES from gold_standard for per-role salary
+# differentiation when API sources return identical data for all roles.
+try:
+    from gold_standard import _ROLE_SALARY_RANGES as _GS_ROLE_SALARY_RANGES
+except ImportError:
+    _GS_ROLE_SALARY_RANGES: dict = {}
+
 
 # ---------------------------------------------------------------------------
 # Source reliability weights (higher = more trustworthy)
@@ -4421,6 +4428,58 @@ def synthesize(
     except Exception as exc:
         logger.error("fuse_salary_intelligence failed: %s", exc, exc_info=True)
         synthesis["salary_intelligence"] = {}
+
+    # S50 FIX 1: Build per_role_salaries from _ROLE_SALARY_RANGES so downstream
+    # consumers (Excel per-role table, gold_standard) get differentiated salary
+    # data even when API enrichment returns identical values for all roles.
+    try:
+        _roles_for_salary = (
+            input_data.get("roles") or input_data.get("target_roles") or []
+        )
+        if isinstance(_roles_for_salary, str):
+            _roles_for_salary = [
+                r.strip() for r in _roles_for_salary.split(",") if r.strip()
+            ]
+        _roles_for_salary = [
+            r.get("title") or "" if isinstance(r, dict) else r
+            for r in _roles_for_salary
+        ]
+        _roles_for_salary = [
+            r for r in _roles_for_salary if isinstance(r, str) and r.strip()
+        ]
+
+        _per_role_salaries: Dict[str, Dict[str, Any]] = {}
+        for _role_title in _roles_for_salary:
+            _role_lower = _role_title.lower().strip()
+            _matched = False
+            for _kw in sorted(_GS_ROLE_SALARY_RANGES, key=len, reverse=True):
+                if _kw in _role_lower:
+                    _floor, _ceil = _GS_ROLE_SALARY_RANGES[_kw]
+                    _per_role_salaries[_role_title] = {
+                        "min": _floor,
+                        "median": round((_floor + _ceil) / 2),
+                        "max": _ceil,
+                        "source": f"_ROLE_SALARY_RANGES[{_kw}]",
+                    }
+                    _matched = True
+                    break
+            if not _matched:
+                # Fall back to fuse_salary_intelligence result for this role
+                _sal_intel = synthesis.get("salary_intelligence", {}).get(
+                    _role_title, {}
+                )
+                if _sal_intel and _sal_intel.get("median"):
+                    _per_role_salaries[_role_title] = {
+                        "min": _sal_intel.get("min") or _sal_intel["median"] - 10000,
+                        "median": _sal_intel["median"],
+                        "max": _sal_intel.get("max") or _sal_intel["median"] + 15000,
+                        "source": ", ".join((_sal_intel.get("sources") or [])[:2])
+                        or "enrichment",
+                    }
+        if _per_role_salaries:
+            synthesis["per_role_salaries"] = _per_role_salaries
+    except Exception as exc:
+        logger.error("per_role_salaries build failed: %s", exc, exc_info=True)
 
     try:
         synthesis["job_market_demand"] = fuse_job_market_demand(

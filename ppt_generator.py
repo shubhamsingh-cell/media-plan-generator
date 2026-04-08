@@ -1871,15 +1871,8 @@ def _add_enrichment_badge(slide, enriched):
 
 
 def _add_data_sources_footnote(slide, data: Dict, benchmarks: Dict):
-    """Add a thin ruled footnote line with data source attribution."""
-    sources_parts = []
+    """Add a thin ruled footnote line with confidence indicator (no API names)."""
     conf = benchmarks.get("confidence", "curated")
-    if conf == "live_api":
-        sources_parts.append("Live API data")
-    elif conf == "trend_engine":
-        sources_parts.append("Trend Engine (4-year history)")
-    sources_parts.append(f"Appcast {datetime.date.today().year}")
-    sources_parts.append("SHRM Benchmarks")
 
     # International disclaimer -- detect non-US campaigns
     is_us_only = _is_us_only_campaign(data)
@@ -1890,19 +1883,12 @@ def _add_data_sources_footnote(slide, data: Dict, benchmarks: Dict):
             "International markets may vary significantly."
         )
 
-    enriched = data.get("_enriched", {})
-    if enriched:
-        summary = enriched.get("enrichment_summary", {})
-        apis = summary.get("apis_succeeded") or []
-        if apis:
-            sources_parts.extend(apis[:3])
-
     # Thin ruled line
     _add_filled_rect(
         slide, Inches(0.55), Inches(7.0), Inches(12.2), Inches(0.01), WARM_GRAY
     )
-    # Source text
-    source_text = "Data Sources: " + " | ".join(sources_parts)
+    # Generic attribution -- no API/source names exposed to client
+    source_text = "Powered by Joveo Intelligence Engine | Multi-source validated data"
     _add_textbox(
         slide,
         Inches(0.55),
@@ -3305,9 +3291,7 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
 
     # Source - adjust position based on actual number of rows
     source_top = table_top + row_h * (len(bench_rows) + 1) + Inches(0.05)
-    source_text = f"Sources: Appcast {datetime.date.today().year}, Recruitics TMI, SHRM {datetime.date.today().year}"
-    if job_market:
-        source_text += ", Adzuna Job Market API"
+    source_text = f"Sources: Industry benchmarks {datetime.date.today().year}, validated recruitment data"
     if ad_plat:
         source_text += ", Nova AI Suite Ad Platform Intelligence"
     _add_textbox(
@@ -3936,10 +3920,9 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
         try:
             first_role = list(salary_data.keys())[0]
             median = salary_data[first_role].get("median") or 0
-            source = salary_data[first_role].get("source", "BLS")
             if median > 0:
                 insight_text += (
-                    f" Market salary data ({source}) shows {_format_salary(median)} "
+                    f" Market salary data shows {_format_salary(median)} "
                     f"median for {first_role}, enabling precise budget calibration."
                 )
         except (IndexError, KeyError, TypeError):
@@ -5503,7 +5486,7 @@ def _build_slide_market_analysis(prs: Presentation, data: Dict):
             Inches(6.7),
             Inches(12.2),
             Inches(0.2),
-            text="Sources: BLS OES, O*NET, FRED, Google Trends, Adzuna, Industry Knowledge Base",
+            text="Sources: Government labor statistics, industry benchmarks, market intelligence",
             font_size=7,
             italic=True,
             color=MUTED_TEXT,
@@ -5817,7 +5800,7 @@ def _build_slide_location_analysis(prs: Presentation, data: Dict):
             Inches(6.7),
             Inches(12.2),
             Inches(0.2),
-            text="Sources: US Census Bureau, GeoNames, Teleport, DataUSA, World Bank, IMF",
+            text="Sources: Government census data, geographic intelligence, international economic data",
             font_size=7,
             italic=True,
             color=MUTED_TEXT,
@@ -6070,10 +6053,37 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
         # KB benchmark fallback data (from _knowledge_base)
         ttf = hiring_trends.get("avg_time_to_fill")
         if ttf:
-            trend_items.append(f"Avg Time-to-Fill: {ttf}")
+            if isinstance(ttf, dict):
+                # Format dict: prefer average_days, then join key-value pairs (skip notes)
+                avg_d = ttf.get("average_days") or ttf.get("average") or ""
+                parts = []
+                if avg_d:
+                    parts.append(
+                        f"{avg_d} days"
+                        if isinstance(avg_d, (int, float))
+                        else str(avg_d)
+                    )
+                for k, v in ttf.items():
+                    if k in ("average_days", "average", "notes") or not v:
+                        continue
+                    label = k.replace("_", " ").title()
+                    parts.append(f"{label}: {v}")
+                ttf_str = " | ".join(parts[:4]) if parts else str(ttf)
+            else:
+                ttf_str = str(ttf)
+            trend_items.append(f"Avg Time-to-Fill: {ttf_str}")
         oar = hiring_trends.get("offer_acceptance_rate")
         if oar:
-            trend_items.append(f"Offer Acceptance: {oar}")
+            oar_str = (
+                str(oar)
+                if not isinstance(oar, dict)
+                else " | ".join(
+                    f"{k.replace('_', ' ').title()}: {v}"
+                    for k, v in oar.items()
+                    if k != "notes" and v
+                )
+            )
+            trend_items.append(f"Offer Acceptance: {oar_str}")
         top_src = hiring_trends.get("top_sources")
         if isinstance(top_src, dict) and top_src:
             src_items = [f"{k}: {v}" for k, v in list(top_src.items())[:3]]
@@ -6153,6 +6163,55 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
                             break
                     if len(competitors) >= 4:
                         break
+
+        # S50 FIX 5: Additional fallback -- check direct competitors field
+        # and gold_standard.competitors_list when competitor_mapping is also empty.
+        if not competitors:
+            _direct_comps = data.get("competitors") or []
+            if isinstance(_direct_comps, list) and _direct_comps:
+                for _dc in _direct_comps[:4]:
+                    _dc_name = (
+                        str(_dc).strip()
+                        if isinstance(_dc, str)
+                        else (
+                            str(_dc.get("name", "")).strip()
+                            if isinstance(_dc, dict)
+                            else ""
+                        )
+                    )
+                    if _dc_name:
+                        competitors[_dc_name] = {
+                            "domain": (
+                                _dc.get("domain", "") if isinstance(_dc, dict) else ""
+                            ),
+                            "description": (
+                                _dc.get("description", "Competitor")
+                                if isinstance(_dc, dict)
+                                else "Competitor"
+                            ),
+                        }
+            elif isinstance(_direct_comps, dict) and _direct_comps:
+                competitors = dict(list(_direct_comps.items())[:4])
+
+        if not competitors:
+            gold = data.get("_gold_standard") or {}
+            _gs_comp_list = gold.get("competitors_list") or []
+            if isinstance(_gs_comp_list, list) and _gs_comp_list:
+                for _gc in _gs_comp_list[:4]:
+                    _gc_name = (
+                        str(_gc).strip()
+                        if isinstance(_gc, str)
+                        else (
+                            str(_gc.get("name", "")).strip()
+                            if isinstance(_gc, dict)
+                            else ""
+                        )
+                    )
+                    if _gc_name:
+                        competitors[_gc_name] = {
+                            "domain": "",
+                            "description": "Industry competitor",
+                        }
 
         comp_card_top = section_top + Inches(0.5)
         comp_card_h = Inches(0.8)
@@ -6269,7 +6328,7 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
             Inches(6.7),
             Inches(12.2),
             Inches(0.2),
-            text="Sources: Wikipedia, Clearbit, SEC EDGAR, BLS QCEW, Industry Knowledge Base",
+            text="Sources: Public company filings, industry employment data, curated knowledge base",
             font_size=7,
             italic=True,
             color=MUTED_TEXT,
@@ -7225,7 +7284,7 @@ def _build_slide_creative_testing(prs: Presentation, data: Dict) -> None:
             Inches(6.7),
             Inches(12.2),
             Inches(0.2),
-            text="Source: Nova AI Suite Creative Testing Engine | Industry Benchmarks from Google Ads & Meta Ads data",
+            text="Source: Nova AI Suite Creative Testing Engine | Industry ad platform benchmarks",
             font_size=7,
             italic=True,
             color=MUTED_TEXT,
@@ -8964,8 +9023,8 @@ def generate_pptx(data: Dict[str, Any]) -> bytes:
         # Slide 7: Risk Analysis -- always included for C-suite readiness
         _build_slide_risk_analysis(prs, data)
 
-        # Slide 8: Data Sources & Methodology
-        _build_slide_data_sources(prs, data)
+        # Slide 8: Data Sources & Methodology -- REMOVED from client deck (S50)
+        # _build_slide_data_sources(prs, data)  # kept for internal debugging
 
         buffer = io.BytesIO()
         prs.save(buffer)

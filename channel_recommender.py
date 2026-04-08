@@ -463,6 +463,23 @@ def _classify_role_tier(role: str, collar_type: str = "") -> str:
     return fallback
 
 
+# Map platform names to the budget engine's display category names.
+# These match the friendly names in CHANNEL_NAME_TO_CATEGORY from budget_engine.py
+# so the Channel Recommendations sheet uses the same taxonomy as the main plan.
+_PLATFORM_TO_CATEGORY_DISPLAY: Dict[str, str] = {
+    "Google Ads": "Search/SEM",
+    "Meta (Facebook/Instagram)": "Social Media Channels",
+    "LinkedIn Ads": "Social Media Channels",
+    "TikTok Ads": "Social Media Channels",
+    "Microsoft/Bing Ads": "Search/SEM",
+    "Snapchat Ads": "Social Media Channels",
+    "X (Twitter) Ads": "Social Media Channels",
+    "Programmatic Display (DSP)": "Programmatic & DSP",
+    "Indeed Sponsored Jobs": "Global Job Boards",
+    "ZipRecruiter Sponsored": "Global Job Boards",
+}
+
+
 # CPC benchmarks per named ad channel
 
 # (CPC, apply_rate) per channel
@@ -644,6 +661,7 @@ def recommend_channels(
         scored.append(
             {
                 "channel": channel,
+                "category": _PLATFORM_TO_CATEGORY_DISPLAY.get(channel, "Other"),
                 "fit_score": fit,
                 "allocation_pct": round(raw_pct, 1),
                 "expected_cpc": round(cpc, 2),
@@ -828,7 +846,9 @@ def format_recommendation_text(rec: Dict[str, Any]) -> str:
                 if alloc > 0
                 else ""
             )
-            lines.append(f"  {ch['channel']}{alloc_str}")
+            cat = ch.get("category", "")
+            cat_suffix = f" [{cat}]" if cat else ""
+            lines.append(f"  {ch['channel']}{cat_suffix}{alloc_str}")
             lines.append(
                 f"    CPC: ${ch['expected_cpc']:.2f} | CPA: ${ch['expected_cpa']:.2f} | "
                 f"Apps: ~{ch.get('projected_applications', 0):,} | "

@@ -22,10 +22,15 @@ logger = logging.getLogger(__name__)
 # Import role salary ranges from gold_standard (fallback to empty dict)
 # ---------------------------------------------------------------------------
 try:
-    from gold_standard import _ROLE_SALARY_RANGES, _COUNTRY_SALARY_MULTIPLIERS
+    from gold_standard import (
+        _ROLE_SALARY_RANGES,
+        _COUNTRY_SALARY_MULTIPLIERS,
+        _ROLE_SALARY_KEYWORDS_SORTED,
+    )
 except ImportError:
     _ROLE_SALARY_RANGES: dict[str, tuple[int, int]] = {}
     _COUNTRY_SALARY_MULTIPLIERS: dict[str, float] = {}
+    _ROLE_SALARY_KEYWORDS_SORTED: list[str] = []
     logger.warning(
         "gold_standard import failed -- salary/country checks will be limited"
     )
@@ -145,8 +150,10 @@ def _check_salary_vs_role(data: dict) -> list[dict[str, Any]]:
 
         for title in role_titles:
             title_lower = title.lower().strip()
+            # PERF: Use pre-sorted keyword list from gold_standard instead
+            # of sorting on every (city, role) iteration
             matched_range: tuple[int, int] | None = None
-            for keyword in sorted(_ROLE_SALARY_RANGES, key=len, reverse=True):
+            for keyword in _ROLE_SALARY_KEYWORDS_SORTED:
                 if keyword in title_lower:
                     matched_range = _ROLE_SALARY_RANGES[keyword]
                     break

@@ -13072,6 +13072,10 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                             _gen_deadline_secs,
                         )
 
+                        # PERF: Pipeline timing instrumentation for profiling
+                        _pipeline_t0 = time.time()
+                        _step_timings: dict = {}
+
                         with _generation_jobs_lock:
                             if jid in _generation_jobs:
                                 _generation_jobs[jid]["progress_pct"] = 10
@@ -13091,6 +13095,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         # defeating the timeout. Instead, create pool, submit, get result,
                         # and shutdown(wait=False) to avoid blocking on semaphore.
                         enriched = {}
+                        _t_enrich = time.time()
                         if enrich_data is not None:
                             _enrich_pool = ThreadPoolExecutor(
                                 max_workers=1, thread_name_prefix="async-enrich"
@@ -13127,6 +13132,11 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                 _enrich_pool.shutdown(wait=False, cancel_futures=True)
                         else:
                             gen_data["_enriched"] = {}
+
+                        _step_timings["enrichment"] = round(time.time() - _t_enrich, 2)
+                        logger.info(
+                            "PERF: Enrichment took %.2fs", _step_timings["enrichment"]
+                        )
 
                         # ── Fix 25 + S49 Issue 17: Detect enrichment quality degradation ──
                         # Scale warning text with confidence level so PPT disclaimer
@@ -13439,6 +13449,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                 return data_synthesize(enriched, _kb, gen_data)
                             return {}
 
+                        _t_synth = time.time()
                         _synth_pool = ThreadPoolExecutor(
                             max_workers=1, thread_name_prefix="async-synth"
                         )
@@ -13461,6 +13472,10 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                             gen_data["_knowledge_base"] = kb
                         finally:
                             _synth_pool.shutdown(wait=False, cancel_futures=True)
+                        _step_timings["synthesis"] = round(time.time() - _t_synth, 2)
+                        logger.info(
+                            "PERF: Synthesis took %.2fs", _step_timings["synthesis"]
+                        )
 
                         # Copy geopolitical context from enriched to synthesized
                         # (PPT/Excel read from _synthesized; enrichment stores it in _enriched)
@@ -13522,6 +13537,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                 ] = "Computing budget allocation..."
 
                         # Budget Allocation (Phase 4 -- same as sync path)
+                        _t_budget = time.time()
                         if calculate_budget_allocation is not None:
                             try:
                                 _ind_key_ba = gen_data.get(
@@ -13734,7 +13750,16 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         else:
                             gen_data["_budget_allocation"] = {}
 
+                        _step_timings["budget_allocation"] = round(
+                            time.time() - _t_budget, 2
+                        )
+                        logger.info(
+                            "PERF: Budget allocation took %.2fs",
+                            _step_timings["budget_allocation"],
+                        )
+
                         # ── Inject SlotOps LinkedIn Benchmarks (async path) ──
+                        _t_slotops = time.time()
                         try:
                             from slotops_engine import get_linkedin_benchmarks_for_plan
 
@@ -13775,6 +13800,14 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                 _slotops_err_a,
                             )
 
+                        _step_timings["slotops_inject"] = round(
+                            time.time() - _t_slotops, 2
+                        )
+                        logger.info(
+                            "PERF: SlotOps inject took %.2fs",
+                            _step_timings["slotops_inject"],
+                        )
+
                         # ── Creative Quality Score (P1-16, async path) ──
                         try:
                             from creative_quality_score import score_creative_quality
@@ -13812,6 +13845,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         # ── Gold Standard Quality Gates (async path) ──
                         # Wrapped in ThreadPoolExecutor with 30s timeout to
                         # prevent hanging at 70% "Verifying plan data..."
+                        _t_gs = time.time()
                         try:
                             from gold_standard import apply_all_quality_gates
 
@@ -13844,6 +13878,11 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                 exc_info=True,
                             )
                             gen_data["_gold_standard"] = {}
+                        _step_timings["gold_standard"] = round(time.time() - _t_gs, 2)
+                        logger.info(
+                            "PERF: Gold Standard gates took %.2fs",
+                            _step_timings["gold_standard"],
+                        )
 
                         # ── Deadline check BETWEEN quality gates and verification ──
                         if time.time() > _gen_deadline:
@@ -13857,6 +13896,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         else:
                             # Gemini/LLM verification of key plan data points
                             # Also wrapped with 30s timeout to prevent hangs
+                            _t_verify = time.time()
                             try:
                                 _vf_pool = ThreadPoolExecutor(max_workers=1)
                                 _vf_future = _vf_pool.submit(
@@ -13882,6 +13922,13 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                     "status": "skipped",
                                     "reason": "verification_error",
                                 }
+                            _step_timings["verification"] = round(
+                                time.time() - _t_verify, 2
+                            )
+                            logger.info(
+                                "PERF: Verification took %.2fs",
+                                _step_timings["verification"],
+                            )
 
                         if time.time() > _gen_deadline:
                             # S27: Instead of raising, set flag and continue with truncated output
@@ -13952,6 +13999,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         # Detects internal inconsistencies in the enriched plan
                         # and auto-corrects where safe.  Non-fatal: failures
                         # here never block Excel/PPT generation.
+                        _t_validator = time.time()
                         try:
                             from plan_validator import validate_plan
 
@@ -13975,9 +14023,17 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                 "checks_failed": 1,
                                 "error": str(_val_err),
                             }
+                        _step_timings["plan_validator"] = round(
+                            time.time() - _t_validator, 2
+                        )
+                        logger.info(
+                            "PERF: Plan validation took %.2fs",
+                            _step_timings["plan_validator"],
+                        )
 
                         # Excel generation -- wrapped in 60s timeout to prevent
                         # indefinite hangs on LLM calls during cold starts
+                        _t_excel = time.time()
                         _excel_pool = ThreadPoolExecutor(
                             max_workers=1, thread_name_prefix="async-excel"
                         )
@@ -14014,6 +14070,11 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                             )
                         finally:
                             _excel_pool.shutdown(wait=False, cancel_futures=True)
+
+                        _step_timings["excel"] = round(time.time() - _t_excel, 2)
+                        logger.info(
+                            "PERF: Excel generation took %.2fs", _step_timings["excel"]
+                        )
 
                         with _generation_jobs_lock:
                             if jid in _generation_jobs:
@@ -14103,6 +14164,17 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                 _ppt_pool.shutdown(wait=False, cancel_futures=True)
                         elif _requested_format == "excel":
                             logger.info("Skipping PPT generation (output_format=excel)")
+
+                        # PERF: Log total pipeline timing summary
+                        _pipeline_total = round(time.time() - _pipeline_t0, 2)
+                        _step_timings["total"] = _pipeline_total
+                        logger.info(
+                            "PERF: Pipeline complete in %.2fs | %s",
+                            _pipeline_total,
+                            " | ".join(
+                                f"{k}={v:.2f}s" for k, v in _step_timings.items()
+                            ),
+                        )
 
                         if pptx_bytes:
                             zip_buffer = io.BytesIO()
@@ -15012,6 +15084,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 return
 
             # ── Phase 3: Data Synthesis ──
+            _t_synth_sync = time.time()
             if data_synthesize is not None:
                 try:
                     with _span_fn("synthesize", "Data synthesis (fuse enriched + KB)"):
@@ -15030,6 +15103,10 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     data["_synthesized"] = {}
             else:
                 data["_synthesized"] = {}
+
+            logger.info(
+                "PERF [sync]: Synthesis took %.2fs", time.time() - _t_synth_sync
+            )
 
             # ── Copy geopolitical context from enriched to synthesized ──
             # PPT/Excel read from _synthesized, but geopolitical_context is produced
@@ -15067,6 +15144,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             data["naics_code"] = industry_profile.get("naics", "00")
 
             # ── Phase 4: Budget Allocation ──
+            _t_budget_sync = time.time()
             if calculate_budget_allocation is not None:
                 try:
                     _ind_key_ba = data.get("industry", "general_entry_level")
@@ -15329,6 +15407,11 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             else:
                 data["_budget_allocation"] = {}
 
+            logger.info(
+                "PERF [sync]: Budget allocation took %.2fs",
+                time.time() - _t_budget_sync,
+            )
+
             # ── Inject SlotOps LinkedIn Benchmarks (sync path) ──
             # Pulls from 108K-job dataset: country apply rates, EA vs ATS, best days
             try:
@@ -15387,6 +15470,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             # competitor mapping, difficulty framework, channel strategy with splits,
             # multi-tier budget breakdowns, and activation event calendars.
             # Wrapped in ThreadPoolExecutor with 30s timeout to prevent hangs.
+            _t_gs_sync = time.time()
             try:
                 from gold_standard import apply_all_quality_gates
 
@@ -15416,6 +15500,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     "Gold Standard gates failed (non-fatal): %s", _gs_err, exc_info=True
                 )
                 data["_gold_standard"] = {}
+            logger.info(
+                "PERF [sync]: Gold Standard gates took %.2fs", time.time() - _t_gs_sync
+            )
 
             # ── Gemini/LLM verification of plan data (same as async path) ──
             # Wrapped in ThreadPoolExecutor with 30s timeout to prevent hangs.

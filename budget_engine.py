@@ -705,12 +705,20 @@ def _score_roi(
     S49 FIX (Issue 16): If projected_hires == 0, the channel produces no
     hires so ROI is capped at 2 regardless of cost_per_hire ratio.
     A channel spending money with zero projected hires is low-efficiency.
+
+    S50 FIX 3: If CPH > 5x industry average, cap ROI at 3/10.
+    A channel with $10K CPH against a $2K industry avg should NOT score 8/10.
     """
     if projected_hires == 0:
         return 1  # zero hires = worst ROI regardless of spend
     if industry_avg <= 0 or cost_per_hire <= 0:
         return 5  # unknown
     ratio = cost_per_hire / industry_avg
+
+    # S50 FIX 3: Hard cap -- absurdly expensive channels cannot score well
+    if ratio >= 5.0:
+        return min(3, int(_clamp(round(10 - (ratio - 0.2) * (9 / 2.8)), 1, 3)))
+
     # Linear mapping: ratio 0.2 -> 10, ratio 3.0 -> 1
     score = 10 - (ratio - 0.2) * (9 / 2.8)
     return int(_clamp(round(score), 1, 10))
@@ -968,51 +976,56 @@ def compute_role_weighted_spend(
 # Channel scoring weights by factor
 _CHANNEL_BASE_SCORES: Dict[str, Dict[str, float]] = {
     # channel_key: {factor: base_score 0-100}
+    # S50 FIX 4: Rebalanced programmatic vs niche scores.
+    # Previous: programmatic blue_collar=85, entry=90 -> ~40% budget share.
+    # Niche blue_collar=40, entry=30 -> ~8% budget share.
+    # Fix: Programmatic still leads for blue-collar volume but with narrower
+    # gap so niche boards get proportional allocation (~12-15% vs ~25-30%).
     "programmatic_dsp": {
-        "blue_collar": 85,
-        "white_collar": 60,
-        "grey_collar": 72,
-        "tier_1": 70,
-        "tier_2": 80,
-        "tier_3": 90,
-        "entry": 90,
-        "mid": 70,
-        "senior": 45,
-        "exec": 20,
-        "small_budget": 80,
-        "medium_budget": 85,
-        "large_budget": 75,
-        "high_competition": 80,
-        "medium_competition": 75,
-        "low_competition": 65,
+        "blue_collar": 75,  # was 85: good for volume but not dominant
+        "white_collar": 55,
+        "grey_collar": 65,
+        "tier_1": 65,
+        "tier_2": 75,
+        "tier_3": 85,
+        "entry": 78,  # was 90: still strong for entry but not overwhelming
+        "mid": 68,
+        "senior": 40,
+        "exec": 15,
+        "small_budget": 75,
+        "medium_budget": 80,
+        "large_budget": 72,
+        "high_competition": 75,
+        "medium_competition": 70,
+        "low_competition": 60,
     },
     "global_boards": {
-        "blue_collar": 70,
+        "blue_collar": 72,
         "white_collar": 75,
-        "grey_collar": 72,
+        "grey_collar": 73,
         "tier_1": 80,
-        "tier_2": 70,
-        "tier_3": 55,
-        "entry": 75,
+        "tier_2": 72,
+        "tier_3": 58,
+        "entry": 78,
         "mid": 80,
         "senior": 65,
         "exec": 40,
-        "small_budget": 70,
-        "medium_budget": 75,
-        "large_budget": 70,
-        "high_competition": 70,
-        "medium_competition": 72,
+        "small_budget": 72,
+        "medium_budget": 76,
+        "large_budget": 72,
+        "high_competition": 72,
+        "medium_competition": 73,
         "low_competition": 75,
     },
     "niche_boards": {
-        "blue_collar": 40,
+        "blue_collar": 50,  # was 40: niche boards (Indeed industry, CDL boards) matter
         "white_collar": 85,
-        "grey_collar": 65,
+        "grey_collar": 68,
         "tier_1": 80,
-        "tier_2": 70,
-        "tier_3": 50,
-        "entry": 30,
-        "mid": 70,
+        "tier_2": 72,
+        "tier_3": 55,
+        "entry": 45,  # was 30: entry-level niche boards (Craigslist, local) still relevant
+        "mid": 72,
         "senior": 90,
         "exec": 85,
         "small_budget": 90,

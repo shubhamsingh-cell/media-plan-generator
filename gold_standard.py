@@ -20,6 +20,7 @@ enrichment and budget allocation, before Excel/PPT generation.
 import datetime
 import logging
 import re
+import time as _time_mod
 from typing import Any
 
 try:
@@ -625,6 +626,28 @@ _ROLE_SALARY_RANGES: dict[str, tuple[int, int]] = {
     "radiologic technologist": (55_000, 80_000),
 }
 
+# PERF: Pre-compute the longest-match-first sorted keyword list ONCE at module
+# load instead of sorting on every call to _clamp_salary_for_role and
+# per_role_salary.  With ~36 keywords, sorted() is cheap per call but this
+# runs N_cities x N_roles times -- the pre-sort eliminates ~100+ sorts per plan.
+_ROLE_SALARY_KEYWORDS_SORTED: list[str] = sorted(
+    _ROLE_SALARY_RANGES, key=len, reverse=True
+)
+
+
+def _match_role_to_salary_range(
+    title_lower: str,
+) -> tuple[tuple[int, int], str] | tuple[None, str]:
+    """Return (range, matched_keyword) for a role title using pre-sorted keywords.
+
+    Uses the pre-computed _ROLE_SALARY_KEYWORDS_SORTED for O(k) lookup
+    instead of sorting on every call.  Returns (None, "") when no match found.
+    """
+    for keyword in _ROLE_SALARY_KEYWORDS_SORTED:
+        if keyword in title_lower:
+            return _ROLE_SALARY_RANGES[keyword], keyword
+    return None, ""
+
 
 def _clamp_salary_for_role(
     est_salary: float, multiplier: float, role_titles: list[str]
@@ -653,14 +676,8 @@ def _clamp_salary_for_role(
 
     for title in role_titles:
         title_lower = title.lower().strip()
-        # Try longest-match first so "physician assistant" matches before
-        # "physician".  _ROLE_SALARY_RANGES keys are ordered by insertion,
-        # so we sort candidates by key length descending.
-        matched_range: tuple[int, int] | None = None
-        for keyword in sorted(_ROLE_SALARY_RANGES, key=len, reverse=True):
-            if keyword in title_lower:
-                matched_range = _ROLE_SALARY_RANGES[keyword]
-                break
+        # PERF: Use pre-sorted keyword list instead of sorting on every call
+        matched_range, _kw = _match_role_to_salary_range(title_lower)
 
         if matched_range is None:
             continue
@@ -742,6 +759,14 @@ def enrich_city_level_data(data: dict) -> dict:
                 role_titles.append(t)
 
     city_data: dict[str, dict[str, Any]] = {}
+
+    # PERF: Pre-compute role -> salary range mapping ONCE for all cities.
+    # The same role titles are matched against _ROLE_SALARY_RANGES for every
+    # city.  Caching the match result avoids N_cities * N_roles keyword scans.
+    _role_range_cache: dict[str, tuple[tuple[int, int] | None, str]] = {}
+    for _rt in role_titles:
+        _rt_lower = _rt.lower().strip()
+        _role_range_cache[_rt] = _match_role_to_salary_range(_rt_lower)
 
     for loc in (locations_raw if isinstance(locations_raw, list) else []):
         city_name = ""
@@ -844,14 +869,8 @@ def enrich_city_level_data(data: dict) -> dict:
         # -----------------------------------------------------------
         per_role_salary: dict[str, dict[str, Any]] = {}
         for title in role_titles:
-            title_lower = title.lower().strip()
-            matched_range: tuple[int, int] | None = None
-            matched_keyword: str = ""
-            for keyword in sorted(_ROLE_SALARY_RANGES, key=len, reverse=True):
-                if keyword in title_lower:
-                    matched_range = _ROLE_SALARY_RANGES[keyword]
-                    matched_keyword = keyword
-                    break
+            # PERF: Use cached role-to-range mapping instead of scanning per city
+            matched_range, matched_keyword = _role_range_cache[title]
 
             if matched_range is not None:
                 role_min = round(matched_range[0] * multiplier)
@@ -2082,6 +2101,24 @@ def build_competitor_map(data: dict, city_data: dict) -> dict[str, Any]:
     for city_name in city_data:
         city_key = city_name.lower()
         local_competitors = industry_employers.get(city_key, [])
+
+        # S50 FIX 2: Fuzzy city match for single-city plans.
+        # When city has state suffix ("Baltimore, MD") or doesn't exactly match,
+        # try substring matching against known city keys in the industry dict.
+        if not local_competitors:
+            _city_base = city_key.split(",")[0].strip()
+            for _emp_city_key in industry_employers:
+                if _emp_city_key.startswith("_"):
+                    continue
+                if _city_base in _emp_city_key or _emp_city_key in _city_base:
+                    local_competitors = industry_employers[_emp_city_key]
+                    break
+
+        # S50 FIX 2 continued: If still no local competitors and no national
+        # competitors (industry not in dict), fall back to "general" employers.
+        if not local_competitors and not national_competitors:
+            _general_emps = _INDUSTRY_TOP_EMPLOYERS.get("general", {})
+            national_competitors = _general_emps.get("_national", [])
 
         # Merge local-first + national, dedup -- local employers appear first
         # S27: Prepend "(National)" when competitors are industry-level only (no city-specific data)
@@ -3783,8 +3820,10 @@ def apply_all_quality_gates(data: dict) -> dict[str, Any]:
         The consolidated gold_standard dict (also stored at data['_gold_standard']).
     """
     gold: dict[str, Any] = {}
+    _gate_timings: dict[str, float] = {}
 
     # Gate 1: City-level supply-demand
+    _gt1 = _time_mod.time()
     try:
         city_data = enrich_city_level_data(data)
         if city_data:
@@ -3796,8 +3835,10 @@ def apply_all_quality_gates(data: dict) -> dict[str, Any]:
         logger.error(
             "Gold Standard Gate 1 (city-level data) failed: %s", e, exc_info=True
         )
+    _gate_timings["gate1_city"] = round(_time_mod.time() - _gt1, 3)
 
     # Gate 2: Security clearance segmentation
+    _gt2 = _time_mod.time()
     try:
         clearance = detect_clearance_requirements(data)
         if clearance:
@@ -3808,8 +3849,10 @@ def apply_all_quality_gates(data: dict) -> dict[str, Any]:
             )
     except Exception as e:
         logger.error("Gold Standard Gate 2 (clearance) failed: %s", e, exc_info=True)
+    _gate_timings["gate2_clearance"] = round(_time_mod.time() - _gt2, 3)
 
     # Gate 3: Competitor mapping
+    _gt3 = _time_mod.time()
     try:
         city_data_for_competitors = gold.get("city_level_data") or {}
         competitor_map = build_competitor_map(data, city_data_for_competitors)
@@ -3821,8 +3864,10 @@ def apply_all_quality_gates(data: dict) -> dict[str, Any]:
             )
     except Exception as e:
         logger.error("Gold Standard Gate 3 (competitors) failed: %s", e, exc_info=True)
+    _gate_timings["gate3_competitor"] = round(_time_mod.time() - _gt3, 3)
 
     # Gate 4: Difficulty level framework
+    _gt4 = _time_mod.time()
     try:
         difficulty_results = classify_difficulty(data)
         if difficulty_results:
@@ -3833,8 +3878,10 @@ def apply_all_quality_gates(data: dict) -> dict[str, Any]:
             )
     except Exception as e:
         logger.error("Gold Standard Gate 4 (difficulty) failed: %s", e, exc_info=True)
+    _gate_timings["gate4_difficulty"] = round(_time_mod.time() - _gt4, 3)
 
     # Gate 5: Channel strategy with splits
+    _gt5 = _time_mod.time()
     try:
         difficulty_for_channels = gold.get("difficulty_framework") or []
         channel_strategy = build_channel_strategy(data, difficulty_for_channels)
@@ -3851,8 +3898,10 @@ def apply_all_quality_gates(data: dict) -> dict[str, Any]:
         logger.error(
             "Gold Standard Gate 5 (channel strategy) failed: %s", e, exc_info=True
         )
+    _gate_timings["gate5_channel"] = round(_time_mod.time() - _gt5, 3)
 
     # Gate 6: Multi-tier budget breakdowns
+    _gt6 = _time_mod.time()
     try:
         budget_tiers = compute_budget_tiers(data)
         if budget_tiers and "error" not in budget_tiers:
@@ -3860,8 +3909,10 @@ def apply_all_quality_gates(data: dict) -> dict[str, Any]:
             logger.info("Gold Standard Gate 6: Budget tiers computed")
     except Exception as e:
         logger.error("Gold Standard Gate 6 (budget tiers) failed: %s", e, exc_info=True)
+    _gate_timings["gate6_budget"] = round(_time_mod.time() - _gt6, 3)
 
     # Gate 7: Activation event calendar
+    _gt7 = _time_mod.time()
     try:
         calendar = build_activation_calendar(data)
         if calendar:
@@ -3873,8 +3924,10 @@ def apply_all_quality_gates(data: dict) -> dict[str, Any]:
             )
     except Exception as e:
         logger.error("Gold Standard Gate 7 (calendar) failed: %s", e, exc_info=True)
+    _gate_timings["gate7_calendar"] = round(_time_mod.time() - _gt7, 3)
 
     # Gate 8: LinkedIn Intelligence (SlotOps 108K dataset)
+    _gt8 = _time_mod.time()
     try:
         li_intel = build_linkedin_intelligence(data)
         if li_intel:
@@ -3890,6 +3943,15 @@ def apply_all_quality_gates(data: dict) -> dict[str, Any]:
         logger.error(
             "Gold Standard Gate 8 (LinkedIn intelligence) failed: %s", e, exc_info=True
         )
+    _gate_timings["gate8_linkedin"] = round(_time_mod.time() - _gt8, 3)
+
+    # PERF: Log per-gate timing breakdown
+    _gs_total = sum(_gate_timings.values())
+    logger.info(
+        "PERF: Gold Standard gates total=%.3fs | %s",
+        _gs_total,
+        " | ".join(f"{k}={v:.3f}s" for k, v in _gate_timings.items()),
+    )
 
     # Check if industry resolved to generic fallback and flag it
     raw_industry = str(data.get("industry") or "general_entry_level")

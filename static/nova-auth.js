@@ -165,10 +165,22 @@
       if (loginBtn) loginBtn.style.display = "none";
       if (userInfo) userInfo.style.display = "flex";
       if (userAvatar) {
-        userAvatar.src =
-          user.avatar_url || user.user_metadata?.avatar_url || "";
-        userAvatar.alt = user.name || user.email || "User";
-        userAvatar.style.display = userAvatar.src ? "block" : "none";
+        var avatarUrl = user.avatar_url || user.user_metadata?.avatar_url || "";
+        var avatarName =
+          user.name ||
+          user.user_metadata?.full_name ||
+          user.email?.split("@")[0] ||
+          "User";
+        if (avatarUrl) {
+          userAvatar.src = avatarUrl;
+          userAvatar.alt = avatarName;
+          userAvatar.style.display = "block";
+          userAvatar.onerror = function () {
+            _replaceWithInitialAvatar(userAvatar, avatarName);
+          };
+        } else {
+          _replaceWithInitialAvatar(userAvatar, avatarName);
+        }
       }
       if (userName) {
         userName.textContent =
@@ -205,13 +217,35 @@
         user.user_metadata?.full_name ||
         user.email?.split("@")[0] ||
         "";
-      chatHeader.innerHTML =
-        '<img class="nova-chat-auth-avatar" src="' +
-        (user.avatar_url || user.user_metadata?.avatar_url || "") +
-        '" alt="" style="width:24px;height:24px;border-radius:50%;margin-right:6px;">' +
-        '<span style="font-size:12px;opacity:0.8;">' +
-        _escapeHtml(name) +
-        "</span>";
+      var avatarUrl = user.avatar_url || user.user_metadata?.avatar_url || "";
+
+      // Clear previous content
+      chatHeader.innerHTML = "";
+
+      // Build avatar: try <img> with onerror fallback, or initial directly
+      if (avatarUrl) {
+        var img = document.createElement("img");
+        img.className = "nova-chat-auth-avatar";
+        img.src = avatarUrl;
+        img.alt = "";
+        img.style.cssText =
+          "width:24px;height:24px;border-radius:50%;margin-right:6px;";
+        img.onerror = function () {
+          _replaceWithInitialAvatar(img, name);
+        };
+        chatHeader.appendChild(img);
+      } else {
+        chatHeader.insertAdjacentHTML(
+          "beforeend",
+          _initialAvatarHTML(name, 24),
+        );
+      }
+
+      // Name label
+      var nameSpan = document.createElement("span");
+      nameSpan.style.cssText = "font-size:12px;opacity:0.8;";
+      nameSpan.textContent = name;
+      chatHeader.appendChild(nameSpan);
       chatHeader.style.display = "flex";
     } else {
       chatHeader.innerHTML = "";
@@ -223,6 +257,55 @@
     var div = document.createElement("div");
     div.appendChild(document.createTextNode(str));
     return div.innerHTML;
+  }
+
+  /**
+   * Replace an <img> element with a text-initial avatar circle.
+   * Used as fallback when Google OAuth photo URL is broken or missing.
+   */
+  function _replaceWithInitialAvatar(imgEl, name) {
+    var initial = (name || "U").charAt(0).toUpperCase();
+    var size = imgEl.offsetWidth || parseInt(imgEl.style.width) || 32;
+    var span = document.createElement("span");
+    span.textContent = initial;
+    span.style.cssText =
+      "width:" +
+      size +
+      "px;height:" +
+      size +
+      "px;border-radius:50%;" +
+      "background:#5A54BD;color:#fff;display:inline-flex;align-items:center;" +
+      "justify-content:center;font-size:" +
+      Math.round(size * 0.45) +
+      "px;" +
+      "font-weight:600;flex-shrink:0;";
+    span.setAttribute("aria-hidden", "true");
+    if (imgEl.parentNode) {
+      imgEl.parentNode.replaceChild(span, imgEl);
+    }
+  }
+
+  /**
+   * Build an inline initial-avatar HTML string for contexts where we
+   * inject via innerHTML (e.g. chat widget header).
+   */
+  function _initialAvatarHTML(name, size) {
+    var initial = _escapeHtml((name || "U").charAt(0).toUpperCase());
+    var s = size || 24;
+    return (
+      '<span style="width:' +
+      s +
+      "px;height:" +
+      s +
+      "px;border-radius:50%;" +
+      "background:#5A54BD;color:#fff;display:inline-flex;align-items:center;" +
+      "justify-content:center;font-size:" +
+      Math.round(s * 0.45) +
+      "px;" +
+      'font-weight:600;flex-shrink:0;margin-right:6px;" aria-hidden="true">' +
+      initial +
+      "</span>"
+    );
   }
 
   // ---------------------------------------------------------------------------
