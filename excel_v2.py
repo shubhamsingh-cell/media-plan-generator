@@ -3432,7 +3432,7 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
 
     if _fred_macro:
         row += 1
-        row = _write_subsection_header(ws, row, "Macro Economic Context (FRED)")
+        row = _write_subsection_header(ws, row, "Macro Economic Context")
         _fred_display = [
             ("Unemployment Rate", "unemployment_rate", "%"),
             ("Job Openings (000s)", "job_openings", "K"),

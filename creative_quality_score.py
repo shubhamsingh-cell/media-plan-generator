@@ -44,6 +44,11 @@ def _detect_platforms(data: dict) -> List[str]:
     if isinstance(channels, str):
         channels = [channels]
 
+    # Also check budget allocation channel names (e.g., "social_media", "global_boards")
+    ba = data.get("_budget_allocation", {}).get("channel_allocations", {})
+    if isinstance(ba, dict):
+        channels.extend(list(ba.keys()))
+
     # Also check synthesized ad_platform_analysis
     synth = data.get("_synthesized", {})
     if isinstance(synth, dict):
@@ -57,10 +62,16 @@ def _detect_platforms(data: dict) -> List[str]:
         "facebook": "facebook",
         "meta": "facebook",
         "instagram": "facebook",
+        "social": "facebook",  # social_media category -> Facebook specs
         "tiktok": "tiktok",
         "google": "google",
+        "search": "google",  # search/SEM category -> Google specs
         "indeed": "indeed",
         "glassdoor": "glassdoor",
+        "job_board": "indeed",  # job_board category -> Indeed specs
+        "global_board": "indeed",
+        "programmatic": "google",  # programmatic -> Google display specs
+        "niche": "indeed",  # niche boards -> Indeed-like specs
     }
     seen = set()
     for ch in channels:

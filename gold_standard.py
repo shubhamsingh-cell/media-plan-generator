@@ -967,7 +967,7 @@ def enrich_city_level_data(data: dict) -> dict:
                 role_median = round(
                     (matched_range[0] + matched_range[1]) / 2.0 * multiplier
                 )
-                source = f"_ROLE_SALARY_RANGES[{matched_keyword}]"
+                source = "Industry Benchmark"
             else:
                 # No specific range known -- use generic city estimate
                 role_min = est_salary - 10_000

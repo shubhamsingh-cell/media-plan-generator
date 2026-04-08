@@ -699,9 +699,14 @@ def recommend_channels(
         # Allocation % proportional to fit score
         raw_pct = (fit / total_fit) * 100
         spend = budget_val * (raw_pct / 100)
-        clicks = int(spend / cpc) if cpc > 0 else 0
+        clicks = int(spend / cpc) if cpc > 0 and spend > 0 else 0
         applications = int(clicks * apply_rate)
-        hires = max(1, int(applications * hire_rate)) if applications > 0 else 0
+        # S49: Zero-budget channels MUST project 0 hires (math integrity)
+        hires = (
+            max(1, int(applications * hire_rate))
+            if applications > 0 and spend > 0
+            else 0
+        )
 
         # Confidence based on fit score
         if fit >= 8:
