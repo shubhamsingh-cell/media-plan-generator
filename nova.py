@@ -1278,6 +1278,7 @@ TOOLS_ESSENTIAL: set[str] = {
     "query_workforce_trends",  # Workforce trend data
     "track_cpc",  # CPC monitoring
     "check_job_volume",  # Job posting volume data
+    "query_kb_deep",  # S50: Deep KB query across 32 datasets
 }
 
 # Providers that get the full 82-tool set
@@ -1341,6 +1342,7 @@ _TOOL_LABELS: Dict[str, str] = {
     "query_collar_strategy": "Analyzing collar strategy",
     "query_market_trends": "Checking market trends",
     "query_role_decomposition": "Decomposing role requirements",
+    "query_kb_deep": "Searching deep knowledge base",
     "simulate_what_if": "Running what-if simulation",
     "query_skills_gap": "Analyzing skills gap",
     "query_geopolitical_risk": "Assessing geopolitical risk",
@@ -5875,6 +5877,88 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                     "required": [],
                 },
             },
+            # S50: Deep KB query tool -- provides structured access to 32 KB datasets
+            # that previously had no dedicated tool. Instead of 32 separate tools
+            # (which would bloat the system prompt), this single tool routes to the
+            # correct dataset based on the topic parameter.
+            {
+                "name": "query_kb_deep",
+                "description": (
+                    "Deep knowledge base query across 32 specialized recruitment datasets. "
+                    "Use when the user asks about topics not covered by other specific tools, "
+                    "or when you need detailed industry data, compliance info, HR tech landscape, "
+                    "labor market outlook, seasonal trends, employer rankings, publisher benchmarks, "
+                    "or recruitment strategy intelligence. Returns structured data from the "
+                    "specified dataset with search filtering."
+                ),
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "dataset": {
+                            "type": "string",
+                            "enum": [
+                                "recruitment_strategy",
+                                "regional_hiring",
+                                "platform_intelligence",
+                                "hr_tech_landscape",
+                                "publisher_benchmarks",
+                                "recruitment_marketing_trends",
+                                "labor_market_outlook",
+                                "salary_benchmarks_detailed",
+                                "ad_benchmarks_recruitment",
+                                "industry_hiring_patterns",
+                                "top_employers_by_city",
+                                "compliance_regulations",
+                                "agency_rpo_market",
+                                "joveo_2026_benchmarks",
+                                "joveo_cpa_benchmarks",
+                                "linkedin_benchmarks",
+                                "adzuna_benchmarks",
+                                "channel_benchmarks_live",
+                                "competitor_careers",
+                                "fred_indicators",
+                                "google_trends",
+                                "h1b_salary_intelligence",
+                                "job_density_metros",
+                                "job_posting_volumes",
+                                "live_market_data",
+                                "market_trends_live",
+                                "platform_ad_specs",
+                                "seasonal_hiring_trends",
+                                "core",
+                            ],
+                            "description": (
+                                "Dataset to query. Key datasets: "
+                                "recruitment_strategy (hiring strategies, sourcing methods), "
+                                "regional_hiring (141KB, US regional hiring intelligence), "
+                                "platform_intelligence (104KB, job board deep-dive analytics), "
+                                "hr_tech_landscape (HR tech vendors, adoption, market trends), "
+                                "labor_market_outlook (employment forecasts, economic projections), "
+                                "industry_hiring_patterns (hiring patterns by industry vertical), "
+                                "top_employers_by_city (top employers ranked by metro area), "
+                                "compliance_regulations (employment law, EEOC, OFCCP, state rules), "
+                                "agency_rpo_market (staffing agencies, RPO providers, market data), "
+                                "joveo_cpa_benchmarks (304 CPA categories from Joveo programmatic data), "
+                                "linkedin_benchmarks (86KB, LinkedIn slot/performance data from 108K jobs), "
+                                "competitor_careers (23KB, career page analysis for 31 major employers), "
+                                "seasonal_hiring_trends (monthly/quarterly hiring patterns), "
+                                "job_density_metros (25KB, employment density for 45 US metros), "
+                                "salary_benchmarks_detailed (detailed salary ranges by role/location), "
+                                "h1b_salary_intelligence (H-1B visa salary data)."
+                            ),
+                        },
+                        "search_term": {
+                            "type": "string",
+                            "description": "Optional keyword to filter results within the dataset (case-insensitive substring match).",
+                        },
+                        "section": {
+                            "type": "string",
+                            "description": "Optional section/key within the dataset to drill into (e.g., 'benchmarks', 'by_industry', 'by_metro').",
+                        },
+                    },
+                    "required": ["dataset"],
+                },
+            },
         ]
 
     # ------------------------------------------------------------------
@@ -5994,6 +6078,8 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             "query_bea": self._query_bea,
             # S49: Creative Quality Score (P1-16)
             "score_creative_quality": self._score_creative_quality,
+            # S50: Deep KB query (32 datasets)
+            "query_kb_deep": self._query_kb_deep,
         }
 
     def execute_tool(self, tool_name: str, tool_input: dict) -> str:
@@ -6497,6 +6583,228 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             result["countries_covered"] = len(by_country)
 
         return result
+
+    def _query_kb_deep(self, params: dict) -> dict:
+        """Deep knowledge base query across 32 specialized datasets.
+
+        Provides structured access to KB sections that don't have their own
+        dedicated tool. Routes to the correct dataset based on the ``dataset``
+        parameter, applies optional search_term filtering, and returns
+        structured data with source attribution.
+
+        Args:
+            params: Dict with ``dataset`` (required), optional ``search_term``
+                and ``section``.
+
+        Returns:
+            Dict with matched data, source, and metadata.
+        """
+        dataset = (params.get("dataset") or "").strip()
+        search_term = (params.get("search_term") or "").strip().lower()
+        section = (params.get("section") or "").strip()
+
+        if not dataset:
+            return {
+                "error": "dataset parameter is required",
+                "available_datasets": [
+                    "recruitment_strategy",
+                    "regional_hiring",
+                    "platform_intelligence",
+                    "hr_tech_landscape",
+                    "labor_market_outlook",
+                    "industry_hiring_patterns",
+                    "top_employers_by_city",
+                    "compliance_regulations",
+                    "agency_rpo_market",
+                    "joveo_2026_benchmarks",
+                    "joveo_cpa_benchmarks",
+                    "linkedin_benchmarks",
+                    "competitor_careers",
+                    "seasonal_hiring_trends",
+                    "job_density_metros",
+                    "salary_benchmarks_detailed",
+                    "h1b_salary_intelligence",
+                    "core",
+                ],
+            }
+
+        kb = self._kb or {}
+        data = kb.get(dataset)
+
+        if data is None:
+            return {
+                "error": f"Dataset '{dataset}' not found in knowledge base",
+                "source": "Nova Knowledge Base",
+            }
+
+        result: dict = {
+            "dataset": dataset,
+            "source": f"Nova Knowledge Base ({dataset})",
+            "data_freshness": "curated",
+        }
+
+        # If section is specified, drill into that key
+        working_data = data
+        if section and isinstance(data, dict):
+            if section in data:
+                working_data = data[section]
+                result["section"] = section
+            else:
+                # Try case-insensitive key match
+                _section_lower = section.lower()
+                for k in data:
+                    if k.lower() == _section_lower:
+                        working_data = data[k]
+                        result["section"] = k
+                        break
+                else:
+                    result["available_sections"] = list(data.keys())[:30]
+                    result["note"] = (
+                        f"Section '{section}' not found. Available sections listed."
+                    )
+                    # Still return top-level summary
+                    working_data = data
+
+        # Apply search term filtering
+        if search_term:
+            matches = self._deep_search_kb_data(
+                working_data, search_term, max_results=20
+            )
+            result["search_term"] = search_term
+            result["match_count"] = len(matches)
+            result["matches"] = matches
+            if not matches:
+                result["note"] = (
+                    f"No matches for '{search_term}' in {dataset}. Try a broader term."
+                )
+        else:
+            # Return structured summary of the dataset
+            if isinstance(working_data, dict):
+                # Return top-level keys with value summaries
+                summary: dict = {}
+                for k, v in list(working_data.items())[:25]:
+                    if isinstance(v, dict):
+                        summary[k] = f"{{dict with {len(v)} keys}}"
+                    elif isinstance(v, list):
+                        summary[k] = f"[list with {len(v)} items]"
+                    elif isinstance(v, str) and len(v) > 200:
+                        summary[k] = v[:200] + "..."
+                    else:
+                        summary[k] = v
+                result["data"] = summary
+                result["total_keys"] = len(working_data)
+            elif isinstance(working_data, list):
+                result["data"] = working_data[:15]
+                result["total_items"] = len(working_data)
+                if len(working_data) > 15:
+                    result["note"] = (
+                        f"Showing first 15 of {len(working_data)} items. Use search_term to filter."
+                    )
+            else:
+                result["data"] = working_data
+
+        # Add metadata if available
+        if isinstance(data, dict):
+            meta = data.get("metadata") or data.get("meta") or {}
+            if meta and isinstance(meta, dict):
+                result["metadata"] = {
+                    k: v
+                    for k, v in meta.items()
+                    if k
+                    in (
+                        "last_updated",
+                        "source",
+                        "version",
+                        "description",
+                        "total_records",
+                    )
+                }
+
+        return result
+
+    def _deep_search_kb_data(
+        self, data: object, search_term: str, max_results: int = 20, _path: str = ""
+    ) -> list:
+        """Recursively search through KB data for a search term.
+
+        Walks dicts and lists, collecting matching key-value pairs or list
+        items where the search term appears in the key or string value.
+
+        Args:
+            data: The data structure to search (dict, list, or scalar).
+            search_term: Lowercase search term.
+            max_results: Maximum matches to return.
+            _path: Internal path tracker for result context.
+
+        Returns:
+            List of dicts with path, key, value for each match.
+        """
+        matches: list = []
+        if len(matches) >= max_results:
+            return matches
+
+        if isinstance(data, dict):
+            for k, v in data.items():
+                if len(matches) >= max_results:
+                    break
+                k_str = str(k).lower()
+                if search_term in k_str:
+                    # Key matches -- include the value summary
+                    _val_summary = v
+                    if isinstance(v, dict):
+                        _val_summary = {sk: sv for sk, sv in list(v.items())[:5]}
+                    elif isinstance(v, list):
+                        _val_summary = v[:5]
+                    elif isinstance(v, str) and len(v) > 300:
+                        _val_summary = v[:300] + "..."
+                    matches.append(
+                        {
+                            "path": f"{_path}.{k}" if _path else k,
+                            "key": k,
+                            "value": _val_summary,
+                        }
+                    )
+                elif isinstance(v, str) and search_term in v.lower():
+                    matches.append(
+                        {
+                            "path": f"{_path}.{k}" if _path else k,
+                            "key": k,
+                            "value": v[:300] + "..." if len(v) > 300 else v,
+                        }
+                    )
+                elif isinstance(v, (dict, list)):
+                    sub = self._deep_search_kb_data(
+                        v,
+                        search_term,
+                        max_results - len(matches),
+                        f"{_path}.{k}" if _path else k,
+                    )
+                    matches.extend(sub)
+
+        elif isinstance(data, list):
+            for i, item in enumerate(data):
+                if len(matches) >= max_results:
+                    break
+                if isinstance(item, str) and search_term in item.lower():
+                    matches.append(
+                        {
+                            "path": f"{_path}[{i}]",
+                            "value": item[:300] + "..." if len(item) > 300 else item,
+                        }
+                    )
+                elif isinstance(item, dict):
+                    # Check if any value in the dict matches
+                    _item_str = json.dumps(item)[:500].lower()
+                    if search_term in _item_str:
+                        _summary = {sk: sv for sk, sv in list(item.items())[:6]}
+                        matches.append(
+                            {
+                                "path": f"{_path}[{i}]",
+                                "value": _summary,
+                            }
+                        )
+
+        return matches
 
     def _query_knowledge_base(self, params: dict) -> dict:
         """Query recruitment industry knowledge base.
