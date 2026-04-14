@@ -326,7 +326,7 @@ CLAUDE_MODEL_COMPLEX = (
 _CACHE_VERSION = "v3"  # S21: invalidate all pre-fix cached responses
 RESPONSE_CACHE_TTL = 7 * 86400  # 7 days
 RESPONSE_CACHE_FILE = DATA_DIR / "nova_response_cache.json"
-MAX_RESPONSE_CACHE_SIZE = 200
+MAX_RESPONSE_CACHE_SIZE = 80  # S50: was 200 -- reduced to prevent OOM kills
 _response_cache: Dict[str, Any] = {}
 _response_cache_lock = threading.Lock()
 
@@ -1250,6 +1250,7 @@ _PARTIAL_MATCH_THRESHOLD = 0.35
 # Free LLMs (Gemini, Groq, Mistral, etc.) have smaller context windows and
 # struggle with 56 tool definitions. Paid LLMs (Claude, GPT-4o) handle them fine.
 TOOLS_ESSENTIAL: set[str] = {
+    # Core data tools (original 11)
     "query_knowledge_base",
     "query_salary_data",
     "query_h1b_salaries",
@@ -1261,9 +1262,25 @@ TOOLS_ESSENTIAL: set[str] = {
     "query_channels",
     "query_hiring_insights",
     "suggest_smart_defaults",
+    # S50: Added 14 high-impact tools previously missing from free LLMs.
+    # These cover the most common query types that were silently failing.
+    "query_publishers",  # CDLlife, Dice, Monster -- publisher name search
+    "query_platform_deep",  # Indeed vs LinkedIn CPC/CPA comparisons
+    "query_recruitment_benchmarks",  # Industry benchmark queries
+    "query_global_supply",  # Joveo supply network data
+    "query_employer_brand",  # Employer brand analysis
+    "query_remote_jobs",  # Remote work queries
+    "recommend_channels",  # Channel strategy recommendations
+    "query_external_benchmarks",  # External benchmark data
+    "get_benchmarks",  # General benchmark retrieval
+    "analyze_competitors",  # Competitive analysis
+    "query_collar_strategy",  # Blue collar vs white collar
+    "query_workforce_trends",  # Workforce trend data
+    "track_cpc",  # CPC monitoring
+    "check_job_volume",  # Job posting volume data
 }
 
-# Providers that get the full 33-tool set
+# Providers that get the full 82-tool set
 _PAID_TOOL_PROVIDERS: set[str] = {
     "claude_haiku",
     "claude",
@@ -1279,8 +1296,8 @@ def get_tools_for_provider(
 ) -> list[dict]:
     """Return the appropriate tool set based on provider tier.
 
-    Paid providers (Claude, GPT-4o) get all 57 tools.
-    Free providers get the essential 10 to fit smaller context windows.
+    Paid providers (Claude, GPT-4o) get all 82+ tools.
+    Free providers get the essential 25 to fit smaller context windows.
     """
     if provider_name and provider_name.lower() in _PAID_TOOL_PROVIDERS:
         return all_tools
@@ -2567,16 +2584,30 @@ def _append_follow_ups_to_response(
     result["follow_ups"] = follow_ups
     result["query_type"] = query_type
 
-    # Only append follow-up text if the response doesn't already contain them
+    # S50 FIX: Check if _enrich_response (System B) already added generic follow-ups.
+    # If it did, REPLACE them with our personalized ones (System A) instead of skipping.
+    # Previously, System B ran first and the marker check here caused System A to
+    # silently skip, meaning returning users never got personalized follow-ups.
     response_text = result.get("response") or ""
-    if "you might also want to know" in response_text.lower():
-        return result
 
     if follow_ups:
         follow_up_block = "\n\n**You might also want to know:**\n"
         for fu in follow_ups:
             follow_up_block += f"- {fu}\n"
-        result["response"] = response_text.rstrip() + follow_up_block
+
+        # If generic follow-ups already exist, replace them with personalized ones
+        _marker = "you might also want to know"
+        if _marker in response_text.lower():
+            _marker_idx = response_text.lower().index(_marker)
+            # Find the start of the follow-up section (go back to find the newlines/bold)
+            _section_start = response_text.rfind("\n", 0, _marker_idx)
+            if _section_start == -1:
+                _section_start = _marker_idx
+            result["response"] = (
+                response_text[:_section_start].rstrip() + follow_up_block
+            )
+        else:
+            result["response"] = response_text.rstrip() + follow_up_block
 
     return result
 
@@ -6319,11 +6350,56 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                         if not any(m["name"] == pub for m in matches):
                             matches.append({"name": pub, "category": f"Country: {cty}"})
 
-            # Fallback: search channels_db if no matches in joveo_publishers
+            # Fallback 1: search channels_db if no matches in joveo_publishers
             if not matches and channels_db:
                 matches = _search_channels_db(channels_db, search_term)
                 if matches:
                     result["source"] = "Joveo Channel Database"
+
+            # S50 Fallback 2: search global supply repository (2.6MB, rich per-publisher data)
+            if not matches:
+                try:
+                    expanded_repo = self._data_cache.get("expanded_supply_repo", {})
+                    if expanded_repo:
+                        # Search top_publishers list
+                        for pub in expanded_repo.get("top_publishers_p0_p1", []):
+                            if (
+                                isinstance(pub, dict)
+                                and search_term in (pub.get("name") or "").lower()
+                            ):
+                                matches.append(
+                                    {
+                                        "name": pub.get("name", ""),
+                                        "category": pub.get(
+                                            "job_categories", "Global Supply"
+                                        ),
+                                        "region": pub.get("region", ""),
+                                        "priority": pub.get("priority", ""),
+                                        "source": "global_supply_repository",
+                                    }
+                                )
+                        # Search by_region publishers
+                        if not matches:
+                            for region_key, region_data in expanded_repo.get(
+                                "by_region", {}
+                            ).items():
+                                for pub in region_data.get("publishers") or []:
+                                    if (
+                                        isinstance(pub, dict)
+                                        and search_term
+                                        in (pub.get("name") or "").lower()
+                                    ):
+                                        matches.append(
+                                            {
+                                                "name": pub.get("name", ""),
+                                                "category": f"Region: {region_key}",
+                                                "source": "global_supply_repository",
+                                            }
+                                        )
+                        if matches:
+                            result["source"] = "Joveo Global Supply Repository"
+                except Exception as _gsr_err:
+                    logger.debug("Global supply repo search failed: %s", _gsr_err)
 
             result["search_results"] = matches
             result["search_term"] = search_term
@@ -6350,8 +6426,57 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 result["publishers"] = pubs_list
                 result["count"] = len(pubs_list)
             else:
-                result["message"] = f"No category match for: {category}"
-                result["available_categories"] = list(by_category.keys())
+                # S50 FIX: When category doesn't match joveo_publishers categories
+                # (e.g., "logistics", "trucking", "healthcare"), search channels_db
+                # which has industry-mapped data under job_categories and
+                # niche_by_industry sections.
+                _industry_matches = []
+                if channels_db:
+                    _cat_lower = category.lower()
+                    # Search job_categories section
+                    for _jc_key, _jc_data in channels_db.get(
+                        "job_categories", {}
+                    ).items():
+                        if _cat_lower in _jc_key.lower() or (
+                            isinstance(_jc_data, dict)
+                            and _cat_lower
+                            in (_jc_data.get("description") or "").lower()
+                        ):
+                            _rec_channels = _jc_data.get("recommended_channels", {})
+                            _primary = _rec_channels.get("primary", [])
+                            _secondary = _rec_channels.get("secondary", [])
+                            _industry_matches.extend(
+                                {"name": p, "category": _jc_key, "tier": "primary"}
+                                for p in _primary
+                            )
+                            _industry_matches.extend(
+                                {"name": p, "category": _jc_key, "tier": "secondary"}
+                                for p in _secondary
+                            )
+                    # Search niche_by_industry section
+                    for _ni_key, _ni_pubs in (
+                        channels_db.get("traditional_channels", {})
+                        .get("niche_by_industry", {})
+                        .items()
+                    ):
+                        if _cat_lower in _ni_key.lower() and isinstance(_ni_pubs, list):
+                            _industry_matches.extend(
+                                {
+                                    "name": p,
+                                    "category": f"niche/{_ni_key}",
+                                    "tier": "niche",
+                                }
+                                for p in _ni_pubs
+                            )
+                if _industry_matches:
+                    result["category"] = category
+                    result["publishers"] = [m["name"] for m in _industry_matches]
+                    result["detailed_matches"] = _industry_matches
+                    result["count"] = len(_industry_matches)
+                    result["source"] = "Joveo Channel Database (industry-mapped)"
+                else:
+                    result["message"] = f"No category match for: {category}"
+                    result["available_categories"] = list(by_category.keys())
 
         elif country_resolved:
             # Filter by country
@@ -12093,7 +12218,12 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 _is_pure_greeting = False
         # Only treat as greeting if no data keywords are present
         if _is_pure_greeting:
+            # S50 FIX: Expanded data words to prevent greeting false positives.
+            # Previously "hello nurse staffing" and "hey what about Indeed"
+            # were caught as greetings because "nurse", "staffing", "indeed"
+            # were not in the data words list.
             _data_words = {
+                # Original terms
                 "cpa",
                 "cpc",
                 "salary",
@@ -12110,6 +12240,49 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 "allocat",
                 "campaign",
                 "role",
+                # S50: Job titles and verticals
+                "nurse",
+                "nursing",
+                "driver",
+                "engineer",
+                "developer",
+                "mechanic",
+                "welder",
+                "trucking",
+                "healthcare",
+                "logistics",
+                "staffing",
+                "talent",
+                "candidate",
+                "applicant",
+                "sourcing",
+                # S50: Job boards and platforms
+                "indeed",
+                "linkedin",
+                "ziprecruiter",
+                "glassdoor",
+                "cdl",
+                "monster",
+                "dice",
+                "snagajob",
+                "careerbuilder",
+                "jooble",
+                # S50: Recruitment terms
+                "posting",
+                "jobs",
+                "remote",
+                "visa",
+                "compliance",
+                "diversity",
+                "supply",
+                "publisher",
+                "channel",
+                "media",
+                "plan",
+                "demand",
+                "market",
+                "programmatic",
+                "apply",
             }
             if not any(dw in _msg_lower for dw in _data_words):
                 _nova_metrics.record_rule_based()
@@ -14330,31 +14503,49 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             if re.search(pattern, q):
                 return True
 
-        # Short queries (<4 words) with NO keywords AND no question words -> likely conversational
-        # e.g., "ok thanks" (3 words), "got it" (2 words)
-        # But NOT "how is the market" (has question word) or "tell me about retention"
+        # S50 FIX: Previous logic classified ALL <4 word queries without keywords
+        # as conversational, which broke job titles (nurse, driver), industries
+        # (trucking, healthcare), job boards (CDLlife, Dice), certifications
+        # (CDL, RN, HVAC), companies (Amazon, UPS), and geographies (Texas).
+        # Now only KNOWN acknowledgment phrases are conversational. Everything
+        # else defaults to tools (SAFE default, matching the design principle
+        # stated at line 14289).
         words = q.split()
-        _question_starters = {
-            "how",
-            "what",
-            "which",
-            "where",
-            "when",
-            "why",
-            "who",
-            "tell",
-            "show",
-            "give",
-            "compare",
-            "explain",
-            "describe",
+        _ACKNOWLEDGMENT_PHRASES = {
+            "ok",
+            "okay",
+            "thanks",
+            "thank",
+            "cool",
+            "great",
+            "nice",
+            "got it",
+            "understood",
+            "sure",
+            "yes",
+            "no",
+            "yep",
+            "nope",
+            "alright",
+            "fine",
+            "perfect",
+            "awesome",
+            "noted",
+            "k",
+            "ty",
+            "thx",
+            "roger",
+            "ack",
+            "done",
+            "cheers",
+            "good",
+            "right",
         }
-        if (
-            len(words) < 4
-            and keyword_hits == 0
-            and not (words and words[0] in _question_starters)
-        ):
-            return True
+        if len(words) <= 3 and keyword_hits == 0:
+            # Only treat as conversational if ALL words are acknowledgment tokens
+            _all_ack = all(w in _ACKNOWLEDGMENT_PHRASES for w in words)
+            if _all_ack:
+                return True
 
         # DEFAULT: NOT conversational -> use tools (SAFE default)
         return False
@@ -14758,6 +14949,13 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             "AND query_market_demand(role='Registered Nurse') immediately -- even without location.\n"
             "- Do NOT search publishers for role names -- that returns irrelevant boards.\n"
             "- Infer the user wants: salary data, CPC/CPA benchmarks, and market demand.\n\n"
+            "**JOB BOARD / PUBLISHER QUERIES**: When the user asks about a SPECIFIC JOB BOARD "
+            "or PUBLISHER by name (e.g., 'what about CDLlife', 'tell me about Indeed', "
+            "'how is ZipRecruiter'), call query_publishers(search_term='<name>') AND "
+            "query_channels() to look up that platform. Also call query_knowledge_base(topic='platforms') "
+            "for benchmarks. Common job boards: Indeed, LinkedIn, ZipRecruiter, Glassdoor, CDLlife, "
+            "CDL Jobs, Snagajob, JobGet, CareerBuilder, Monster, Dice, Hired, FlexJobs. "
+            "These are NOT roles -- they are platforms/publishers.\n\n"
             "When the query is a ROLE (with or without location):\n"
             "1. Call query_salary_data for compensation data\n"
             "2. Call query_market_demand for hiring demand\n"
@@ -15126,6 +15324,12 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                     # Continue with same provider for multi-turn tool conversation.
                     # If forced provider fails, bail immediately rather than retrying --
                     # the conversation state is tied to this specific provider.
+                    # S50 FIX: Dynamic timeout based on remaining loop budget.
+                    # Previous fixed 20s meant a single slow provider could eat
+                    # the entire budget with no room for fallback.
+                    _remaining_budget = max(
+                        8.0, _LOOP_BUDGET_S - (time.monotonic() - _loop_start)
+                    )
                     result = call_llm(
                         messages=messages,
                         system_prompt=system_prompt,
@@ -15133,7 +15337,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                         tools=clean_tools,
                         force_provider=active_provider,
                         query_text=user_message,
-                        timeout_budget=20.0,  # S50: was 55 -- tighter per-call budget
+                        timeout_budget=min(15.0, _remaining_budget),
                     )
                     if (
                         not result
@@ -15162,6 +15366,10 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                         f"[TOOL LOOP] iter={iteration} calling call_llm preferred={(_tool_preferred or [])[:3]} tools={len(clean_tools)} dist={_force_dist or 'none'}",
                         flush=True,
                     )
+                    # S50 FIX: Dynamic timeout based on remaining loop budget.
+                    _remaining_budget_first = max(
+                        8.0, _LOOP_BUDGET_S - (time.monotonic() - _loop_start)
+                    )
                     result = call_llm(
                         messages=messages,
                         system_prompt=system_prompt,
@@ -15171,7 +15379,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                         query_text=user_message,
                         preferred_providers=_tool_preferred,
                         force_provider=ab_force_provider or _force_dist or "",
-                        timeout_budget=20.0,  # S50: was 55 -- tighter per-call budget
+                        timeout_budget=min(15.0, _remaining_budget_first),
                     )
                     active_provider = (result or {}).get("provider")
                     logger.warning(
@@ -15255,6 +15463,15 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                     # Propagate tool status queue to worker thread
                     if _parent_tool_q is not None:
                         _set_tool_status_queue(_parent_tool_q)
+                    try:
+                        return _exec_free_tool_inner(tc_item)
+                    finally:
+                        # S50 FIX: Clean up thread-local queue to prevent leaking
+                        # across reused ThreadPoolExecutor worker threads
+                        _set_tool_status_queue(None)
+
+                def _exec_free_tool_inner(tc_item: dict) -> Tuple[str, str, str, dict]:
+                    """Inner tool execution logic."""
                     _tid = tc_item.get("id") or ""
                     _tfn = tc_item.get("function", {})
                     _tname = _tfn.get("name") or ""
@@ -15328,13 +15545,17 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                     has_data = False
                     try:
                         result_parsed = json.loads(_trc)
-                        if "source" in result_parsed:
-                            sources.add(result_parsed["source"])
-                        if "sources_used" in result_parsed:
-                            for _su in result_parsed["sources_used"] or []:
-                                if isinstance(_su, str):
-                                    sources.add(_su)
                         has_data = not result_parsed.get("error")
+                        # S50 FIX: Only add sources from tools that actually
+                        # returned data. Previously, failed tools with source
+                        # fields inflated the sources list and confidence score.
+                        if has_data:
+                            if "source" in result_parsed:
+                                sources.add(result_parsed["source"])
+                            if "sources_used" in result_parsed:
+                                for _su in result_parsed["sources_used"] or []:
+                                    if isinstance(_su, str):
+                                        sources.add(_su)
                         tool_call_details.append(
                             {
                                 "tool": _tname,
@@ -17743,12 +17964,14 @@ _BLOCKED_PATTERNS = [
         _security_re.IGNORECASE,
     ),
     _security_re.compile(
-        r"(vulnerabilit|exploit|penetration\s*test|security\s*flaw|attack\s*vector|bypass)",
+        r"(vulnerabilit|exploit|penetration\s*test|security\s*flaw|attack\s*vector)",
         _security_re.IGNORECASE,
     ),
-    # Architecture / infrastructure
+    # Architecture / infrastructure -- S50 FIX: Scoped to Nova/system only.
+    # Previously "the database of job postings" and "bypass standard channels"
+    # were blocked. Now requires explicit Nova/system reference.
     _security_re.compile(
-        r"(your|the|nova.s?)\s*(architecture|infrastructure|hosting|deployment|tech\s*stack|backend|server|database)",
+        r"(your|nova.s?)\s*(architecture|infrastructure|hosting|deployment|tech\s*stack|backend|server|database)",
         _security_re.IGNORECASE,
     ),
     _security_re.compile(
@@ -17769,8 +17992,10 @@ _BLOCKED_PATTERNS = [
         r"(confidence\s*scor|grounding\s*scor|quality\s*scor).{0,20}(work|calculat|comput|determin|built|made)",
         _security_re.IGNORECASE,
     ),
+    # S50 FIX: Removed "your process" and "how you work" from this pattern.
+    # "Explain how you work out the CPA" is a legitimate query about CPA calculation.
     _security_re.compile(
-        r"explain.{0,20}(confidence|grounding|scoring|your\s*protocol|your\s*process|how\s*you\s*work)",
+        r"explain.{0,20}(confidence\s*scor|grounding\s*scor|scoring\s*algorithm|your\s*internal\s*logic)",
         _security_re.IGNORECASE,
     ),
     # Prompt / instructions / model
@@ -17786,9 +18011,11 @@ _BLOCKED_PATTERNS = [
         r"(reverse\s*engineer|decompile|extract.*prompt|reveal.*internal|expose.*logic)",
         _security_re.IGNORECASE,
     ),
-    # Self-disclosure traps
+    # Self-disclosure traps -- S50 FIX: Allow users to ask about Nova's capabilities
+    # ("what tools do you have", "what data sources do you use for salary") while
+    # blocking internal logic extraction ("how does your internal logic work").
     _security_re.compile(
-        r"(tell\s*me|describe|explain).{0,20}(how\s*you\s*work|your\s*internal|your\s*logic|your\s*tools|your\s*data\s*sources)",
+        r"(tell\s*me|describe|explain).{0,20}(your\s*internal|your\s*logic|your\s*source\s*code)",
         _security_re.IGNORECASE,
     ),
     _security_re.compile(
@@ -17808,8 +18035,12 @@ _BLOCKED_PATTERNS = [
         r"(what|why)\s+(is|are|was)\s+(causing|making)\s+(you|nova)\s+(to\s+)?(hallucinate|fail|crash|lie|make\s*up|fabricat)",
         _security_re.IGNORECASE,
     ),
+    # S50 FIX: Removed overly broad "your process/methodology" pattern.
+    # Users legitimately ask "what is your methodology for CPC benchmarks?"
+    # or "explain your process for generating a media plan". Only block
+    # when combined with internal/scoring/prompt terms.
     _security_re.compile(
-        r"(your\s*protocol|your\s*process|your\s*pipeline|your\s*workflow|your\s*methodology)\b",
+        r"(your\s*(?:internal|hidden|secret)\s*(?:protocol|process|pipeline|workflow))\b",
         _security_re.IGNORECASE,
     ),
     _security_re.compile(
@@ -18019,11 +18250,16 @@ _REFUSAL_REPLACEMENTS = [
         ),
         "Here's what I can share on this topic:",
     ),
+    # S50 FIX: Previous pattern `[^.]*\.?` consumed the ENTIRE sentence including
+    # useful qualifiers like "but based on 2024-2026 trend data, here are..."
+    # Now only strips the "Unfortunately, I don't/cannot" prefix clause, preserving
+    # any content after "but", "however", or comma-separated continuation.
     (
         re.compile(
-            r"Unfortunately,? I (?:don't|do not|can(?:'t|not)) [^.]*\.?", re.IGNORECASE
+            r"Unfortunately,? I (?:don't|do not|can(?:'t|not)) [^,.]*?(?=,|\.|but |however )",
+            re.IGNORECASE,
         ),
-        "Based on available data:",
+        "Based on available data",
     ),
 ]
 
@@ -19799,8 +20035,11 @@ def _enrich_markdown_formatting(text: str) -> str:
     """
     has_markdown = "**" in text or "###" in text or "| " in text or "```" in text
 
-    text = _RE_DOLLAR_AMOUNT.sub(r"**$\1**", text)
-    text = _RE_PERCENTAGE.sub(r"**\1%**", text)
+    # S50 FIX: Only bold values that are NOT already inside bold markers.
+    # Use negative lookbehind/lookahead to skip already-bolded content.
+    # This prevents double-bolding when _enrich_response_quality runs first.
+    text = re.sub(r"(?<!\*)\$(\d[\d,]*(?:\.\d+)?)(?!\*)", r"**$\1**", text)
+    text = re.sub(r"(?<!\*)(\d+(?:\.\d+)?)%(?!\*)", r"**\1%**", text)
     text = _RE_DAY_DURATION.sub(r"**\1 \2**", text)
     text = text.replace("****", "**")
     # S27: Fix broken bold around comma-separated numbers
@@ -20171,10 +20410,23 @@ def _sanitize_history(raw_history, message: str = "") -> list:
         content = entry.get("content")
         if not isinstance(content, str) or not content.strip():
             continue
+        # S50 FIX: Basic injection defense -- strip known prompt injection
+        # patterns from history content. These patterns attempt to override
+        # the system prompt or extract internal instructions.
+        _content_clean = content[:4000]
+        _INJECTION_PATTERNS = [
+            r"(?i)ignore (?:all )?(?:previous|prior|above) (?:instructions|prompts?|rules)",
+            r"(?i)you are now (?:a |an )?(?:different|new|unrestricted)",
+            r"(?i)(?:forget|disregard|override) (?:your |the )?(?:system|original|initial) (?:prompt|instructions|rules)",
+            r"(?i)(?:repeat|print|output|show|reveal|display) (?:your |the )?(?:system|original|initial) (?:prompt|instructions)",
+            r"(?i)act as (?:if|though) you (?:have|had) no (?:rules|restrictions|guidelines)",
+        ]
+        for _inj_pat in _INJECTION_PATTERNS:
+            _content_clean = re.sub(_inj_pat, "[filtered]", _content_clean)
         sanitized.append(
             {
                 "role": role,
-                "content": content[:4000],
+                "content": _content_clean,
             }
         )
 
@@ -20410,7 +20662,10 @@ def handle_chat_request(
     except ChatCancelledException:
         logger.info("Chat request cancelled by stream timeout for: %s", message[:80])
         return {
-            "response": "",
+            "response": (
+                "My response was interrupted before I could finish. "
+                "Please try your question again -- I'll route it to a faster provider."
+            ),
             "sources": [],
             "confidence": 0.0,
             "tools_used": [],
@@ -20594,6 +20849,13 @@ def handle_chat_request_stream(
         response = _stream_result
 
     full_response = response.get("response") or ""
+    # S50: Safety net -- never yield a completely empty response to the frontend.
+    # This catches edge cases: OOM kills mid-request, thread death, empty dict result.
+    if not full_response.strip():
+        full_response = (
+            "I wasn't able to complete my analysis in time. "
+            "Please try your question again -- I'll route it to a faster provider."
+        )
     sources = response.get("sources") or []
     # S47: Preserve None confidence (means "don't show badge" on frontend)
     confidence = response.get("confidence")

@@ -341,7 +341,7 @@ _rate_tracker = _RateTracker()
 # RESPONSE CACHE (Semantic Dedup)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-_CACHE_MAX_SIZE = 200
+_CACHE_MAX_SIZE = 80  # S50: was 200 -- reduced to prevent OOM kills
 _CACHE_TTL_SECONDS = 900.0  # 15 minutes (default for general queries)
 _CACHE_TTL_REALTIME_SECONDS = 300.0  # 5 minutes (real-time / volatile data queries)
 # Legacy alias kept for backward compatibility with get_stats()

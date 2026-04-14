@@ -154,47 +154,49 @@ def _run_deferred_startup() -> None:
     except Exception as ve:
         logger.warning("[wsgi] Vector index setup failed: %s", ve)
 
-    # Data Refresh Pipeline
-    try:
-        from data_refresh import start_data_refresh
+    # S50 MEMORY FIX: Disabled non-essential background services to prevent OOM kills.
+    # These ran background threads consuming memory without benefiting core products.
+    # Re-enable by uncommenting when Render plan is upgraded or memory is freed.
 
-        start_data_refresh()
-        logger.info("[wsgi] Data refresh pipeline started")
-    except ImportError:
-        pass
-    except Exception as e:
-        logger.warning("[wsgi] Data refresh failed: %s", e)
+    # [DISABLED S50] Data Refresh Pipeline -- background threads refreshing data periodically
+    # try:
+    #     from data_refresh import start_data_refresh
+    #     start_data_refresh()
+    #     logger.info("[wsgi] Data refresh pipeline started")
+    # except (ImportError, Exception):
+    #     pass
+    logger.info("[wsgi] Data refresh pipeline SKIPPED (S50 memory optimization)")
 
-    # Proactive Health Checker
-    try:
-        from sentry_integration import start_proactive_health as _start_proactive_health
+    # [DISABLED S50] Proactive Health Checker -- background health monitoring
+    # try:
+    #     from sentry_integration import start_proactive_health as _start_proactive_health
+    #     _start_proactive_health()
+    #     logger.info("[wsgi] Proactive health checker started")
+    # except ImportError:
+    #     pass
+    logger.info("[wsgi] Proactive health checker SKIPPED (S50 memory optimization)")
 
-        _start_proactive_health()
-        logger.info("[wsgi] Proactive health checker started")
-    except ImportError:
-        pass
+    # [DISABLED S50] Proactive Intelligence Engine -- background intelligence service
+    # try:
+    #     from nova_proactive import start_proactive_engine
+    #     start_proactive_engine()
+    #     logger.info("[wsgi] Proactive intelligence engine started")
+    # except ImportError:
+    #     pass
+    logger.info(
+        "[wsgi] Proactive intelligence engine SKIPPED (S50 memory optimization)"
+    )
 
-    # Proactive Intelligence Engine
-    try:
-        from nova_proactive import start_proactive_engine
+    # [DISABLED S50] Feature Store -- in-memory feature store
+    # try:
+    #     from feature_store import get_feature_store
+    #     get_feature_store().initialize()
+    #     logger.info("[wsgi] Feature store initialized")
+    # except (ImportError, Exception):
+    #     pass
+    logger.info("[wsgi] Feature store SKIPPED (S50 memory optimization)")
 
-        start_proactive_engine()
-        logger.info("[wsgi] Proactive intelligence engine started")
-    except ImportError:
-        pass
-
-    # Feature Store Init
-    try:
-        from feature_store import get_feature_store
-
-        get_feature_store().initialize()
-        logger.info("[wsgi] Feature store initialized")
-    except ImportError:
-        pass
-    except Exception as _fs_err:
-        logger.warning("[wsgi] Feature store init failed: %s", _fs_err)
-
-    # API Key Authentication Init
+    # API Key Authentication Init -- KEEP (essential for auth)
     try:
         from auth import init as _init_auth
 
@@ -217,12 +219,13 @@ def _run_deferred_startup() -> None:
     except ImportError:
         logger.debug("[wsgi] Slack alerts not available")
 
-    try:
-        import calendar_sync as _cs_preload
-
-        logger.info("[wsgi] Calendar sync preloaded")
-    except ImportError:
-        logger.debug("[wsgi] Calendar sync not available")
+    # [DISABLED S50] Calendar sync -- not used by core products
+    # try:
+    #     import calendar_sync as _cs_preload
+    #     logger.info("[wsgi] Calendar sync preloaded")
+    # except ImportError:
+    #     logger.debug("[wsgi] Calendar sync not available")
+    logger.info("[wsgi] Calendar sync SKIPPED (S50 memory optimization)")
 
     # Mark deploy warmup as complete
     try:
