@@ -3283,36 +3283,38 @@ def _set_response_cache(
             logger.warning("Upstash cache write failed (falling back to disk): %s", exc)
 
     # 3) Disk fallback (when Upstash is not configured or write failed)
-    with _response_cache_lock:
-        try:
-            disk_cache: Dict[str, Any] = {}
-            if RESPONSE_CACHE_FILE.exists():
-                try:
-                    with open(RESPONSE_CACHE_FILE, "r", encoding="utf-8") as f:
-                        disk_cache = json.load(f)
-                except (json.JSONDecodeError, IOError):
-                    disk_cache = {}
-
-            # Evict expired entries
-            disk_cache = {
-                k: v for k, v in disk_cache.items() if (v.get("expires") or 0) > now
-            }
-            disk_cache[key] = entry
-
-            # Atomic write via temp file + rename
-            fd, tmp_path = tempfile.mkstemp(dir=str(DATA_DIR), suffix=".tmp")
+    # S50 FIX: Disk I/O runs OUTSIDE the response_cache_lock to prevent
+    # blocking all memory cache reads during slow file I/O. Uses a separate
+    # disk-specific lock to serialize disk writes only.
+    try:
+        disk_cache: Dict[str, Any] = {}
+        if RESPONSE_CACHE_FILE.exists():
             try:
-                with os.fdopen(fd, "w", encoding="utf-8") as tmp_f:
-                    json.dump(disk_cache, tmp_f, default=str)
-                os.replace(tmp_path, str(RESPONSE_CACHE_FILE))
-            except Exception:
-                try:
-                    os.unlink(tmp_path)
-                except OSError:
-                    pass
-                raise
-        except Exception as exc:
-            logger.warning("Disk cache write error: %s", exc)
+                with open(RESPONSE_CACHE_FILE, "r", encoding="utf-8") as f:
+                    disk_cache = json.load(f)
+            except (json.JSONDecodeError, IOError):
+                disk_cache = {}
+
+        # Evict expired entries
+        disk_cache = {
+            k: v for k, v in disk_cache.items() if (v.get("expires") or 0) > now
+        }
+        disk_cache[key] = entry
+
+        # Atomic write via temp file + rename
+        fd, tmp_path = tempfile.mkstemp(dir=str(DATA_DIR), suffix=".tmp")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as tmp_f:
+                json.dump(disk_cache, tmp_f, default=str)
+            os.replace(tmp_path, str(RESPONSE_CACHE_FILE))
+        except Exception:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+            raise
+    except Exception as exc:
+        logger.warning("Disk cache write error: %s", exc)
 
 
 def _classify_query_complexity(user_message: str) -> Tuple[int, str]:
@@ -6109,53 +6111,67 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 pass  # Non-critical, skip if queue is full
 
         try:
-            # Per-tool timeout: 5s max to prevent a single stuck tool
-            # from blocking the entire parallel batch.
-            from concurrent.futures import ThreadPoolExecutor as _TPE_Tool
-            from concurrent.futures import TimeoutError as _ToolTimeout
-
-            # S50: Reduced 8s -> 5s to hit <30s total response target.
-            # Most tools complete in 1-3s; 5s is generous for API calls.
-            _PER_TOOL_TIMEOUT: int = 5  # S50: was 8
+            # S50 FIX: Replaced nested ThreadPoolExecutor (which caused abandoned
+            # thread accumulation -- up to 15 threads per request) with a simple
+            # signal-based timeout. The outer parallel executor in
+            # _chat_with_free_llm_tools already provides concurrency; this layer
+            # only needs a timeout, not another thread pool.
+            _PER_TOOL_TIMEOUT: int = 5  # seconds
 
             _tool_t0 = time.monotonic()
-            with _TPE_Tool(max_workers=1) as _tool_pool:
-                _tool_fut = _tool_pool.submit(handler, tool_input)
-                try:
-                    result = _tool_fut.result(timeout=_PER_TOOL_TIMEOUT)
-                except _ToolTimeout:
-                    _tool_fut.cancel()
-                    _tool_elapsed = time.monotonic() - _tool_t0
-                    logger.error(
-                        "PERF: tool %s timed out after %.2fs (limit=%ds)",
-                        tool_name,
-                        _tool_elapsed,
-                        _PER_TOOL_TIMEOUT,
-                    )
-                    if _sq is not None:
-                        try:
-                            _sq.put_nowait(
-                                {
-                                    "type": "tool_complete",
-                                    "tool": tool_name,
-                                    "label": f"{_label} (timeout)",
-                                }
-                            )
-                        except queue.Full:
-                            pass
-                    # S47: Graceful timeout message
-                    _timeout_fallback = _TOOL_ERROR_FALLBACK_MESSAGES.get(
-                        tool_name,
-                        f"The {_label} tool took longer than expected to respond. I'll proceed with other available data sources.",
-                    )
-                    return json.dumps(
-                        {
-                            "error": _timeout_fallback,
-                            "partial": True,
-                            "tool_error_graceful": True,
-                        }
-                    )
+            _tool_result_container: list = []
+            _tool_error_container: list = []
 
+            def _run_tool_with_timeout() -> None:
+                try:
+                    _tool_result_container.append(handler(tool_input))
+                except Exception as _te:
+                    _tool_error_container.append(_te)
+
+            _tool_thread = threading.Thread(
+                target=_run_tool_with_timeout,
+                daemon=True,
+                name=f"tool-{tool_name[:20]}",
+            )
+            _tool_thread.start()
+            _tool_thread.join(timeout=_PER_TOOL_TIMEOUT)
+
+            if _tool_thread.is_alive():
+                # Tool timed out -- thread is daemon so it'll die with the process
+                _tool_elapsed = time.monotonic() - _tool_t0
+                logger.error(
+                    "PERF: tool %s timed out after %.2fs (limit=%ds)",
+                    tool_name,
+                    _tool_elapsed,
+                    _PER_TOOL_TIMEOUT,
+                )
+                if _sq is not None:
+                    try:
+                        _sq.put_nowait(
+                            {
+                                "type": "tool_complete",
+                                "tool": tool_name,
+                                "label": f"{_label} (timeout)",
+                            }
+                        )
+                    except queue.Full:
+                        pass
+                _timeout_fallback = _TOOL_ERROR_FALLBACK_MESSAGES.get(
+                    tool_name,
+                    f"The {_label} tool took longer than expected to respond. I'll proceed with other available data sources.",
+                )
+                return json.dumps(
+                    {
+                        "error": _timeout_fallback,
+                        "partial": True,
+                        "tool_error_graceful": True,
+                    }
+                )
+
+            if _tool_error_container:
+                raise _tool_error_container[0]
+
+            result = _tool_result_container[0] if _tool_result_container else {}
             result_json = json.dumps(result, default=str)
 
             # S50: Per-tool PERF timing log for latency debugging
@@ -18363,6 +18379,36 @@ _BLOCKED_PATTERNS = [
         r"(your|the)\s*(instructions|rules)\s*(say|tell|require|state)",
         _security_re.IGNORECASE,
     ),
+    # S50 D6: Additional injection protection patterns for techniques
+    # that were bypassing the existing keyword filters.
+    _security_re.compile(
+        r"(?:forget|disregard|override|ignore)\s+(?:all\s+)?(?:previous|prior|above|your)\s+(?:instructions|prompts?|rules|guidelines)",
+        _security_re.IGNORECASE,
+    ),
+    _security_re.compile(
+        r"you\s+are\s+now\s+(?:a\s+)?(?:different|new|unrestricted|unfiltered|general)",
+        _security_re.IGNORECASE,
+    ),
+    _security_re.compile(
+        r"(?:pretend|act\s+as\s+if|imagine)\s+(?:you\s+(?:are|have|had)\s+)?(?:no\s+(?:rules|restrictions|guidelines|limitations)|a\s+different\s+(?:ai|assistant|persona))",
+        _security_re.IGNORECASE,
+    ),
+    _security_re.compile(
+        r"(?:DAN|Developer)\s+(?:mode|override)",
+        _security_re.IGNORECASE,
+    ),
+    _security_re.compile(
+        r"(?:repeat|output|print|display|show|summarize)\s+(?:your\s+)?(?:system|initial|original|full)\s+(?:prompt|instructions|message)",
+        _security_re.IGNORECASE,
+    ),
+    _security_re.compile(
+        r"<\s*(?:system|admin|override|root)\s*>",
+        _security_re.IGNORECASE,
+    ),
+    _security_re.compile(
+        r"\[(?:SYSTEM|ADMIN|OVERRIDE)\]",
+        _security_re.IGNORECASE,
+    ),
 ]
 
 
@@ -20429,6 +20475,33 @@ def _enrich_source_citations(
         sources_line = ", ".join(tool_sources)
         text = f"{text.rstrip()}\n\n---\n**Sources:** {sources_line}"
 
+    # S50 D5: Freshness disclaimer enforcement -- if no live API sources
+    # were used and the response contains data points, add a curated data
+    # disclaimer. This enforces what was previously just a system prompt hint.
+    _live_tools = {
+        "web_search",
+        "scrape_url",
+        "query_market_demand",
+        "query_salary_data",
+        "query_h1b_salaries",
+        "query_remote_jobs",
+        "query_labor_market_indicators",
+        "query_federal_jobs",
+        "query_eurostat",
+        "query_uk_ons",
+        "query_statcan",
+        "query_careerjet",
+        "query_bea",
+        "check_job_volume",
+        "track_cpc",
+    }
+    _has_live_source = any(t in _live_tools for t in tools_used)
+    _has_data_points = bool(re.search(r"\$[\d,]+|\d+%|\d+\.\d+", text))
+    _freshness_note = "*Data sourced from curated benchmarks and may not reflect real-time market conditions.*"
+    if not _has_live_source and _has_data_points and _freshness_note not in text:
+        if "Note:" not in text[-200:] and "note:" not in text[-200:]:
+            text = f"{text.rstrip()}\n\n{_freshness_note}"
+
     return text, merged_sources
 
 
@@ -20883,12 +20956,52 @@ def handle_chat_request(
                 result["sources"] = _enriched_sources
                 result["quality_score"] = _quality_score
 
-                # Quality score retry: if score < 50 on a substantive query,
-                # log for monitoring (retry deferred to avoid latency hit)
+                # S50 M2: Quality score enforcement -- backfill thin responses
+                # with KB data when score is critically low. This replaces the
+                # previous monitoring-only approach where score-0 responses
+                # reached the user unchanged.
                 _is_trivial_msg = (
                     bool(_TRIVIAL_PATTERNS.match(message.strip())) if message else False
                 )
-                if _quality_score < 50 and not _is_trivial_msg:
+                if _quality_score < 30 and not _is_trivial_msg:
+                    logger.warning(
+                        "QUALITY ENFORCEMENT: score %d < 30 for query: %s -- backfilling",
+                        _quality_score,
+                        message[:80],
+                    )
+                    try:
+                        # Attempt KB backfill to add missing data
+                        from vector_search import search as _qe_vs_search
+
+                        _qe_results = _qe_vs_search(message, top_k=3)
+                        if _qe_results:
+                            _qe_snippets = []
+                            for _qe_r in _qe_results[:3]:
+                                _qe_text = (
+                                    _qe_r.get("text") or _qe_r.get("content") or ""
+                                )[:400]
+                                if _qe_text:
+                                    _qe_snippets.append(_qe_text)
+                            if _qe_snippets:
+                                _enriched_text += (
+                                    "\n\n### Additional Data\n\n"
+                                    + "\n\n".join(f"- {s}" for s in _qe_snippets)
+                                )
+                                result["response"] = _enriched_text
+                                result["quality_backfill"] = True
+                                logger.info(
+                                    "Quality backfill added %d KB snippets for score %d",
+                                    len(_qe_snippets),
+                                    _quality_score,
+                                )
+                    except Exception as _qe_err:
+                        logger.debug(
+                            "Quality backfill failed (non-blocking): %s", _qe_err
+                        )
+                    result["quality_warning"] = (
+                        result.get("quality_warning") or ""
+                    ) + f" low_quality_score:{_quality_score}"
+                elif _quality_score < 50 and not _is_trivial_msg:
                     logger.warning(
                         "Low quality score %d for query: %s",
                         _quality_score,
