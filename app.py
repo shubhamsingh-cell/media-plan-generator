@@ -9509,7 +9509,12 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                     # Check cancellation
                     if cancel_event.is_set():
                         ws_conn.send_json(
-                            {"token": "", "done": True, "cancelled": True}
+                            {
+                                "token": "",
+                                "done": True,
+                                "cancelled": True,
+                                "full_response": "Your request was cancelled.",
+                            }
                         )
                         continue
 
@@ -17018,7 +17023,12 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 # Check for cancellation before LLM call
                 if cancel_event.is_set():
                     _cancel_evt = json.dumps(
-                        {"token": "", "done": True, "cancelled": True}
+                        {
+                            "token": "",
+                            "done": True,
+                            "cancelled": True,
+                            "full_response": "Your request was cancelled.",
+                        }
                     )
                     self.wfile.write(f"data: {_cancel_evt}\n\n".encode())
                     self.wfile.flush()

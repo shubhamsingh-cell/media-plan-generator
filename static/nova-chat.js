@@ -3007,6 +3007,15 @@
                 });
               }
               var finalContent = metadata.full_response || fullText;
+              // Client-side safety net: never render a blank response in the widget
+              if (!finalContent || !finalContent.trim()) {
+                finalContent =
+                  "I'm having trouble with that request. Please try rephrasing — for example:\n\n" +
+                  '- *"What are the best job boards for nurses in Texas?"*\n' +
+                  '- *"Create a media plan for 20 software engineers in Austin"*\n' +
+                  '- *"What salary should I offer for a Data Scientist in NYC?"*\n\n' +
+                  "I specialize in recruitment marketing — channel recommendations, media plans, salary benchmarks, and hiring costs.";
+              }
               var finalSources = metadata.sources || [];
               var finalConfidence = metadata.confidence || 0;
               var finalMsgId = metadata.message_id || "";
@@ -3267,6 +3276,15 @@
 
               // Fix: Update streaming element IN PLACE instead of remove+recreate (avoids flash)
               var finalContent = metadata.full_response || fullText;
+              // Client-side safety net: never render a blank response in the widget
+              if (!finalContent || !finalContent.trim()) {
+                finalContent =
+                  "I'm having trouble with that request. Please try rephrasing — for example:\n\n" +
+                  '- *"What are the best job boards for nurses in Texas?"*\n' +
+                  '- *"Create a media plan for 20 software engineers in Austin"*\n' +
+                  '- *"What salary should I offer for a Data Scientist in NYC?"*\n\n' +
+                  "I specialize in recruitment marketing — channel recommendations, media plans, salary benchmarks, and hiring costs.";
+              }
               var finalSources = metadata.sources || [];
               var finalConfidence = metadata.confidence || 0;
               var finalBreakdown = null;
