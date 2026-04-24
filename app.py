@@ -5757,12 +5757,27 @@ except ImportError:
     logger.warning("monitoring alert bridge not available")
 
 # Data enrichment engine (hourly freshness checks)
+# Opt-in via ENABLE_DATA_ENRICHMENT=1 to avoid $8-15/mo of redundant external-API
+# fan-out (BLS/FRED/Adzuna/Census/Firecrawl/etc.) that is already cached in the
+# Supabase L3 layer. Manual/admin runs can still call start_enrichment() directly.
 try:
     from data_enrichment import start_enrichment
 
-    start_enrichment()
-    _data_enrichment_available = True
-    logger.info("Data enrichment engine started (hourly freshness checks)")
+    _enable_data_enrichment = (
+        os.environ.get("ENABLE_DATA_ENRICHMENT") or ""
+    ).strip().lower() in {"1", "true", "yes", "on"}
+    if _enable_data_enrichment:
+        start_enrichment()
+        _data_enrichment_available = True
+        logger.info("data_enrichment: ENABLED (hourly external API fan-out)")
+    else:
+        # Module is importable and usable for on-demand/admin runs, but the
+        # background scheduler is not started. Flip ENABLE_DATA_ENRICHMENT=1
+        # on Render to re-enable hourly refreshes.
+        _data_enrichment_available = False
+        logger.info(
+            "data_enrichment: DISABLED (set ENABLE_DATA_ENRICHMENT=1 to enable)"
+        )
 except ImportError as _de_err:
     logger.warning("data_enrichment not available: %s", _de_err)
     _data_enrichment_available = False
