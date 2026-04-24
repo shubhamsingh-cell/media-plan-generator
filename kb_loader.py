@@ -87,6 +87,24 @@ KB_FILES: dict[str, str] = {
     # listing queries so Nova matches Claude.ai chat-quality for supply
     # partner lookups.
     "healthcare_supply_map_us": "healthcare_supply_map_us.json",
+    # S52: Derived healthcare indexes built from the same 3 source xlsx files
+    # as healthcare_supply_map_us. Each serves a different product query
+    # pattern:
+    #   - partner_specialty_crosswalk: "what partners cover RNs/cardiology/PT?"
+    #   - partner_url_registry:        O(1) lookup by normalized URL key
+    #   - category_to_partners:        "list all diversity-focused partners"
+    "partner_specialty_crosswalk": "partner_specialty_crosswalk.json",
+    "partner_url_registry": "partner_url_registry.json",
+    "category_to_partners": "category_to_partners.json",
+    # S54: Web-researched authoritative benchmark KBs (47 distinct sources:
+    # Appcast 2024, BLS OES, Medscape, SHRM, LinkedIn Talent Insights, JOLTS,
+    # Joveo 2026 internal, C2ER COLI, Merritt Hawkins, Nurse.com salary
+    # reports). Covers 12 verticals x 40 US metros x 7 channels + 100 top
+    # employers + 49 healthcare roles. Reusable across Nova chat, media plan
+    # generator, and all Plan/Intelligence/Compliance products.
+    "recruitment_benchmarks_2026_deep": "recruitment_benchmarks_2026_deep.json",
+    "employer_career_intelligence_2026": "employer_career_intelligence_2026.json",
+    "healthcare_specialty_pay_2026": "healthcare_specialty_pay_2026.json",
 }
 
 # Maximum file age (in days) before a startup warning is logged.

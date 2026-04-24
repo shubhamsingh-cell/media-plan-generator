@@ -193,6 +193,131 @@ _cleanup_thread.start()
 
 
 # ---------------------------------------------------------------------------
+# Multi-turn tool-state memory (Feature B). Cache: conversation_id ->
+# [{"turn": int, "tools": {tool: json_str}, "tools_used": [...], "ts": float}].
+# Keeps last 3 turns per conversation, capped at 15 KB.
+# ---------------------------------------------------------------------------
+_conversation_tool_cache: Dict[str, List[Dict[str, Any]]] = {}
+_conversation_tool_cache_lock = threading.Lock()
+_MAX_TURNS_CACHED = 3
+_MAX_CACHE_BYTES = 15 * 1024
+
+
+def _get_conversation_tool_cache(conversation_id: str) -> List[Dict[str, Any]]:
+    """Return a shallow-copy list of cached turns for a conversation."""
+    if not conversation_id:
+        return []
+    with _conversation_tool_cache_lock:
+        return list(_conversation_tool_cache.get(conversation_id) or [])
+
+
+def _append_conversation_tool_turn(
+    conversation_id: str, tools_map: Dict[str, str], tools_used: List[str]
+) -> None:
+    """Append one turn; keep last 3, drop oldest while over 15 KB."""
+    if not conversation_id or not tools_map:
+        return
+    with _conversation_tool_cache_lock:
+        turns = _conversation_tool_cache.get(conversation_id) or []
+        next_turn = (turns[-1]["turn"] + 1) if turns else 1
+        turns.append(
+            {
+                "turn": next_turn,
+                "tools": tools_map,
+                "tools_used": list(tools_used or []),
+                "ts": time.time(),
+            }
+        )
+        turns = turns[-_MAX_TURNS_CACHED:]
+        while (
+            turns
+            and sum(
+                len(k) + len(str(v or ""))
+                for t in turns
+                for k, v in (t.get("tools") or {}).items()
+            )
+            > _MAX_CACHE_BYTES
+        ):
+            turns.pop(0)
+        _conversation_tool_cache[conversation_id] = turns
+
+
+def _build_prior_tool_context(turns: List[Dict[str, Any]]) -> str:
+    """Return markdown for prior-turn tool outputs (1200 chars/tool)."""
+    if not turns:
+        return ""
+    parts: List[str] = []
+    for t in turns:
+        _lines = [
+            f"### Turn {t.get('turn', 0)} tools: {', '.join(t.get('tools_used') or []) or 'none'}"
+        ]
+        for _name, _val in (t.get("tools") or {}).items():
+            _s = str(_val or "")
+            if len(_s) > 1200:
+                _s = _s[:1200] + "... [truncated]"
+            _lines.append(f"- {_name}: {_s}")
+        parts.append("\n".join(_lines))
+    return "\n\n".join(parts)
+
+
+def _persist_conversation_tool_state_async(
+    conversation_id: str,
+    turn: int,
+    tools_used: List[str],
+    tools_map: Dict[str, str],
+) -> None:
+    """Fire-and-forget upsert to nova_conversation_state. Never raises.
+
+    Schema: conversation_id text PK, turn int, tools_used jsonb,
+    tools_map jsonb, updated_at timestamptz default now().
+    """
+    if not conversation_id:
+        return
+
+    def _worker() -> None:
+        try:
+            _url = os.environ.get("SUPABASE_URL") or ""
+            _key = (
+                os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+                or os.environ.get("SUPABASE_KEY")
+                or ""
+            )
+            if not _url or not _key:
+                return
+            import urllib.request
+
+            _req = urllib.request.Request(
+                f"{_url.rstrip('/')}/rest/v1/nova_conversation_state"
+                "?on_conflict=conversation_id",
+                data=json.dumps(
+                    {
+                        "conversation_id": conversation_id,
+                        "turn": int(turn or 0),
+                        "tools_used": tools_used or [],
+                        "tools_map": tools_map or {},
+                    }
+                ).encode("utf-8"),
+                headers={
+                    "apikey": _key,
+                    "Authorization": f"Bearer {_key}",
+                    "Content-Type": "application/json",
+                    "Prefer": "resolution=merge-duplicates,return=minimal",
+                },
+                method="POST",
+            )
+            with urllib.request.urlopen(_req, timeout=5) as _resp:
+                _resp.read()
+        except Exception as _exc:
+            logger.warning(
+                "nova_conversation_state persist failed (non-blocking): %s", _exc
+            )
+
+    threading.Thread(
+        target=_worker, name=f"nova-convstate-{conversation_id[:8]}", daemon=True
+    ).start()
+
+
+# ---------------------------------------------------------------------------
 # Unified data orchestrator (lazy import to avoid circular deps)
 # ---------------------------------------------------------------------------
 _orchestrator = None
@@ -1403,6 +1528,52 @@ _TOOL_LABELS: Dict[str, str] = {
     "score_creative_quality": "Scoring ad creative quality",
 }
 
+
+_TOOL_LIST_KEYS = (
+    ("partners", "partners"),
+    ("publishers", "publishers"),
+    ("boards", "job boards"),
+    ("country_boards", "country boards"),
+    ("dei_boards", "DEI boards"),
+    ("results", "results"),
+    ("jobs", "jobs"),
+    ("postings", "postings"),
+    ("records", "records"),
+    ("channels", "channels"),
+    ("vendors", "vendors"),
+    ("benchmarks", "benchmarks"),
+    ("snippets", "snippets"),
+)
+
+
+def _summarize_tool_result(tool_name: str, result: Any) -> str:
+    """Return a 3-10 word summary of a tool result for Feature A progress events."""
+    try:
+        if result is None:
+            return "no data"
+        if not isinstance(result, dict):
+            return (str(result)[:60]) or "completed"
+        if result.get("error"):
+            return "no data returned"
+        for _k, _label in _TOOL_LIST_KEYS:
+            _v = result.get(_k)
+            if isinstance(_v, list) and _v:
+                return f"found {len(_v)} {_label}"
+            if isinstance(_v, dict):
+                _inner = _v.get("boards") or _v.get("items") or []
+                if isinstance(_inner, list) and _inner:
+                    return f"found {len(_inner)} {_label}"
+        for _k, _lbl in (("cpa", "CPA"), ("cpc", "CPC"), ("median", "median")):
+            if isinstance(result.get(_k), (int, float)):
+                return f"{_lbl} value returned"
+        _src = result.get("source") or ""
+        if _src:
+            return f"data from {str(_src).split(' ')[0][:30]}"
+        return "completed"
+    except Exception:
+        return ""
+
+
 # Thread-local storage for tool status queue.
 # When handle_chat_request_stream starts, it sets a queue on the current
 # request thread. execute_tool checks for this queue and pushes status
@@ -1418,6 +1589,37 @@ def _get_tool_status_queue() -> "queue.Queue[Dict[str, Any]] | None":
 def _set_tool_status_queue(q: "queue.Queue[Dict[str, Any]] | None") -> None:
     """Set the tool status queue for the current thread."""
     _tool_status_local.queue = q
+
+
+# Thread-local bridge for Feature B: lets execute_tool record {tool: json}
+# results for the parent chat() call without signature changes to downstream.
+_turn_tool_capture_local = threading.local()
+
+
+def _get_turn_tool_capture() -> "Optional[Dict[str, Any]]":
+    return getattr(_turn_tool_capture_local, "state", None)
+
+
+def _set_turn_tool_capture(state: "Optional[Dict[str, Any]]") -> None:
+    _turn_tool_capture_local.state = state
+
+
+def _record_turn_tool_result(tool_name: str, result_json: str) -> None:
+    """Append a tool result to the current-turn capture dict (defensive)."""
+    if not tool_name:
+        return
+    _state = _get_turn_tool_capture()
+    if _state is None:
+        return
+    try:
+        _tools = _state.setdefault("tools", {})
+        if tool_name not in _tools:
+            _tools[tool_name] = result_json or ""
+        _used = _state.setdefault("tools_used", [])
+        if tool_name not in _used:
+            _used.append(tool_name)
+    except Exception:
+        pass
 
 
 # ---------------------------------------------------------------------------
@@ -6182,6 +6384,9 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 _tool_elapsed,
             )
 
+            # Feature B: Capture successful tool outputs for multi-turn reuse
+            _record_turn_tool_result(tool_name, result_json)
+
             # Emit tool_complete event with brief summary
             if _sq is not None:
                 _complete_label = _label
@@ -6199,6 +6404,23 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                     )
                 except queue.Full:
                     pass
+
+                # Feature A: plan-then-act progress event -- 3-10 word summary
+                try:
+                    _summary = _summarize_tool_result(tool_name, result)
+                except Exception:
+                    _summary = ""
+                if _summary:
+                    try:
+                        _sq.put_nowait(
+                            {
+                                "type": "progress",
+                                "tool": tool_name,
+                                "summary": _summary,
+                            }
+                        )
+                    except queue.Full:
+                        pass
 
             return result_json
         except Exception as e:
@@ -12367,6 +12589,109 @@ When two or more tools return conflicting data for the same metric (e.g., differ
     # Chat orchestration
     # ------------------------------------------------------------------
 
+    def _generate_query_plan(self, user_message: str) -> str:
+        """Return a 1-2 sentence execution plan for the user query.
+
+        Fast-path pattern matching: vertical + location + intent keywords build
+        the plan locally with NO LLM round-trip. Falls back to a generic
+        one-sentence plan if nothing matches. Defensive -- never raises.
+        """
+        if not user_message or not user_message.strip():
+            return ""
+        _msg = user_message.lower()
+        # Vertical detection
+        _VERTICALS = [
+            ("nursing", ["nurse", "nursing", " rn ", "lpn", "cna"]),
+            ("healthcare", ["healthcare", "medical", "clinician", "physician"]),
+            ("trucking", ["truck", "cdl", "driver"]),
+            ("gig", ["gig", "delivery", "rideshare"]),
+            ("warehouse", ["warehouse", "forklift", "picker"]),
+            ("retail", ["retail", "cashier", "store associate"]),
+            ("tech", ["software", "developer", "engineer", "data scien"]),
+            ("hospitality", ["hospitality", "hotel", "server", "barista"]),
+            ("manufacturing", ["manufacturing", "factory", "machinist"]),
+            ("construction", ["construction", "electrician", "plumber"]),
+            ("security", ["security guard", "security officer"]),
+        ]
+        _vertical = next(
+            (lbl for lbl, kws in _VERTICALS if any(k in _msg for k in kws)), ""
+        )
+        # Location detection (rough)
+        _LOCATIONS = [
+            "texas",
+            "california",
+            "new york",
+            "florida",
+            "ohio",
+            "illinois",
+            "pennsylvania",
+            "georgia",
+            "michigan",
+            "virginia",
+            "washington",
+            "united states",
+            "usa",
+            "canada",
+            "uk",
+            "united kingdom",
+            "india",
+            "germany",
+            "france",
+            "australia",
+            "japan",
+        ]
+        _location = next((loc for loc in _LOCATIONS if loc in _msg), "")
+        _location_s = (
+            _location.title() if _location and len(_location) > 3 else _location.upper()
+        )
+        # Intent flags
+        _has_cpa = any(k in _msg for k in ("cpa", "cost per applicant"))
+        _has_cpc = any(k in _msg for k in ("cpc", "cost per click"))
+        _has_salary = any(k in _msg for k in ("salary", "pay", "compensation", "wage"))
+        _has_plan = any(
+            k in _msg for k in ("media plan", "budget", "allocate", "channel mix")
+        )
+        _has_supply = any(
+            k in _msg for k in ("supply", "publisher", "partner", "job board", "source")
+        )
+        _has_compare = any(
+            k in _msg for k in ("compare", " vs ", "versus", "difference")
+        )
+        _has_trend = any(k in _msg for k in ("trend", "forecast", "outlook"))
+        _subject = (
+            f"{_vertical} in {_location_s}".strip()
+            if _vertical and _location
+            else (_vertical or (f"in {_location_s}" if _location else ""))
+        ).strip()
+        # Plan synthesis (no LLM)
+        if _has_plan and _subject:
+            return (
+                f"I'll pull supply partners and benchmarks for {_subject}, "
+                "cross-reference CPA and channel data, then build the budget allocation."
+            )
+        if _has_supply and _subject:
+            return (
+                f"I'll check the supply repository for {_subject}, cross-reference "
+                "with CPA benchmarks, then synthesize the top partners."
+            )
+        if _has_cpa and _subject:
+            return f"I'll query CPA benchmarks for {_subject}, then ground the estimate with supply data."
+        if _has_cpc and _subject:
+            return f"I'll pull CPC benchmarks for {_subject} across channels and compare them."
+        if _has_salary and _subject:
+            return (
+                f"I'll look up salary data for {_subject} from BLS, O*NET, and Adzuna."
+            )
+        if _has_compare:
+            return "I'll gather data on each option in parallel, then produce a side-by-side comparison."
+        if _has_trend and _subject:
+            return f"I'll check recent market demand signals for {_subject} and summarize the trend."
+        if _subject:
+            return f"I'll gather data on {_subject} from Joveo supply and the KB, then answer."
+        if _has_cpa or _has_cpc or _has_salary or _has_plan:
+            return "I'll pull the relevant benchmarks and channel data, then synthesize a grounded answer."
+        return "I'll route this to the right data sources and return a grounded answer with sources."
+
     def chat(
         self,
         user_message: str,
@@ -12418,6 +12743,18 @@ When two or more tools return conflicting data for the same metric (e.g., differ
 
         # Extract session ID for personalization (S18)
         _session_id = _extract_session_id(conversation_history)
+
+        # Feature B: Multi-turn tool-state memory setup.
+        # Initialize a thread-local capture dict for this turn's tool outputs
+        # and stash the conversation_id so downstream code (_chat_with_claude,
+        # dynamic_parts builder) can read prior-turn cached outputs without
+        # needing signature changes.
+        _turn_state: Dict[str, Any] = {
+            "conversation_id": session_id or "",
+            "tools": {},  # filled by _record_turn_tool_result
+            "tools_used": [],
+        }
+        _set_turn_tool_capture(_turn_state)
 
         # --- Security filter: block internal/technical/exploit questions ---
         if _is_blocked_question(user_message):
@@ -15061,6 +15398,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             "llm_provider": "rule_based_fast_path",
             "llm_model": "deterministic_lookup",
             "fast_path": "supply_listing",
+            "quality_score": 90,
         }
 
     def _try_direct_tool_dispatch(
@@ -17758,6 +18096,27 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 dynamic_parts.append(
                     f"## CONVERSATION MEMORY\nKey context from this conversation so far:\n{memory_summary}"
                 )
+
+        # Feature B: Inject prior-turn tool outputs for this conversation
+        # so the LLM can reuse cached data instead of re-fetching.
+        try:
+            _turn_state = _get_turn_tool_capture() or {}
+            _conv_id = str(_turn_state.get("conversation_id") or "")
+            if _conv_id:
+                _prior_turns = _get_conversation_tool_cache(_conv_id)
+                _prior_block = _build_prior_tool_context(_prior_turns)
+                if _prior_block:
+                    dynamic_parts.append(
+                        "## PREVIOUS-TURN TOOL RESULTS\n"
+                        "The following tool outputs are from the previous turns of "
+                        "this same conversation. When the user asks a follow-up that "
+                        "references the same entities (vertical, role, location, "
+                        "timeframe, budget), REUSE these results instead of re-calling "
+                        "the same tools. Only call a tool again if the user changes a "
+                        "parameter that invalidates the cached data.\n\n" + _prior_block
+                    )
+        except Exception as _prior_err:
+            logger.debug("Prior-turn tool context injection skipped: %s", _prior_err)
 
         # Gold Standard quality gates for plan-related queries
         gold_standard_ctx = _run_gold_standard_for_chat(
@@ -22196,6 +22555,161 @@ def _sanitize_history(raw_history, message: str = "") -> list:
     return sanitized[-_dynamic_max:]
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# TRANSPARENCY HELPERS -- "Why this answer?" panel data
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Map of human-friendly source labels (as returned by tools / fast paths)
+# to the underlying KB filenames in ``data/``. Lower-case substring match.
+# When a source string contains one of these substrings, the associated
+# filename(s) are added to ``kb_files_queried``. This gives the frontend a
+# direct, auditable link between the displayed sources and the physical KB
+# files that were consulted.
+_SOURCE_TO_KB_FILES: Dict[str, List[str]] = {
+    "joveo publisher network": ["joveo_publishers.json"],
+    "joveo publishers": ["joveo_publishers.json"],
+    "joveo channel database": ["channels_db.json"],
+    "joveo channels": ["channels_db.json"],
+    "joveo global supply": ["joveo_global_supply_repository.json"],
+    "joveo global supply repository": ["joveo_global_supply_repository.json"],
+    "global supply": ["global_supply.json"],
+    "healthcare supply map": ["healthcare_supply_map_us.json"],
+    "joveo 2026 benchmarks": ["joveo_2026_benchmarks.json"],
+    "joveo benchmarks": [
+        "joveo_2026_benchmarks.json",
+        "joveo_cpa_benchmarks_2026.json",
+    ],
+    "joveo cpa": ["joveo_cpa_benchmarks_2026.json"],
+    "joveo healthcare supply map": ["healthcare_supply_map_us.json"],
+    "recruitment industry kb": ["recruitment_industry_knowledge.json"],
+    "recruitment industry knowledge": ["recruitment_industry_knowledge.json"],
+    "recruitment benchmarks": [
+        "recruitment_benchmarks_deep.json",
+        "recruitment_benchmarks_comprehensive_2026.json",
+    ],
+    "recruitment strategy": ["recruitment_strategy_intelligence.json"],
+    "regional hiring": ["regional_hiring_intelligence.json"],
+    "supply ecosystem": ["supply_ecosystem_intelligence.json"],
+    "workforce trends": ["workforce_trends_intelligence.json"],
+    "industry white papers": ["industry_white_papers.json"],
+    "google ads benchmarks": ["google_ads_2025_benchmarks.json"],
+    "external benchmarks": ["external_benchmarks_2025.json"],
+    "client media plans": ["client_media_plans_kb.json"],
+    "international sources": ["international_sources.json"],
+    "international benchmarks": ["international_benchmarks_2026.json"],
+    "hr tech landscape": ["hr_tech_landscape_2026.json"],
+    "publisher benchmarks": ["publisher_benchmarks_2026.json"],
+    "recruitment marketing trends": ["recruitment_marketing_trends_2026.json"],
+    "labor market outlook": ["labor_market_outlook_2026.json"],
+    "salary benchmarks": ["salary_benchmarks_detailed_2026.json"],
+    "ad benchmarks": ["ad_benchmarks_recruitment_2026.json"],
+    "industry hiring patterns": ["industry_hiring_patterns_2026.json"],
+    "top employers": ["top_employers_by_city_2026.json"],
+    "compliance regulations": ["compliance_regulations_2026.json"],
+    "agency/rpo": ["agency_rpo_market_2026.json"],
+    "agency rpo": ["agency_rpo_market_2026.json"],
+    "craigslist": ["craigslist_performance_benchmarks.json"],
+    "linkedin performance": ["linkedin_performance_benchmarks.json"],
+    "linkedin benchmarks": ["linkedin_performance_benchmarks.json"],
+    "adzuna": ["adzuna_benchmarks.json"],
+    "channel benchmarks": ["channel_benchmarks_live.json"],
+    "competitor careers": ["competitor_careers.json"],
+    "fred": ["fred_indicators.json"],
+    "google trends": ["google_trends.json"],
+    "h1b": ["h1b_salary_intelligence.json"],
+    "h-1b": ["h1b_salary_intelligence.json"],
+    "job density": ["job_density_metros.json"],
+    "job posting volume": ["job_posting_volumes.json"],
+    "live market data": ["live_market_data.json"],
+    "market trends": ["market_trends_live.json"],
+    "platform ad specs": ["platform_ad_specs.json"],
+    "seasonal hiring": ["seasonal_hiring_trends.json"],
+    "appcast": ["ad_benchmarks_recruitment_2026.json"],
+    "indeed public": ["publisher_benchmarks_2026.json"],
+    "linkedin talent insights": ["publisher_benchmarks_2026.json"],
+    "bls": ["fred_indicators.json"],
+    "bls metro wage": ["fred_indicators.json"],
+    "rtx aerospace": ["client_plans/rtx_aerospace_defense_benchmarks.json"],
+    "rtx usa": ["client_plans/rtx_usa_media_plan.json"],
+}
+
+
+def _map_sources_to_kb_files(sources: Optional[List[str]]) -> List[str]:
+    """Map displayed source labels to underlying KB filenames.
+
+    Performs a case-insensitive substring match against
+    ``_SOURCE_TO_KB_FILES``.  Returns a de-duplicated, stable-ordered list of
+    KB filenames actually represented by the source labels.  Returns an empty
+    list when ``sources`` is empty or no known mappings match -- the frontend
+    then simply omits that line of the "Why this answer?" panel.
+
+    Args:
+        sources: List of source labels attached to a Nova response.
+
+    Returns:
+        Ordered list of unique KB filenames (e.g.
+        ``["joveo_publishers.json", "channels_db.json"]``).
+    """
+    if not sources:
+        return []
+
+    seen: set[str] = set()
+    ordered: List[str] = []
+    for raw in sources:
+        if not isinstance(raw, str):
+            continue
+        src_lower = raw.lower()
+        for key, filenames in _SOURCE_TO_KB_FILES.items():
+            if key in src_lower:
+                for fn in filenames:
+                    if fn not in seen:
+                        seen.add(fn)
+                        ordered.append(fn)
+    return ordered
+
+
+def _attach_transparency_fields(
+    result: Optional[dict],
+    timing_ms: Optional[float] = None,
+) -> dict:
+    """Enrich a Nova response dict with fields for the transparency panel.
+
+    Adds ``kb_files_queried`` (derived from ``sources``) and, when provided,
+    ``timing_ms`` (total wall-clock milliseconds from query start to response
+    ready). Never overwrites existing non-empty values -- this function is
+    safe to call multiple times on the same dict.
+
+    Args:
+        result: The response dict from ``Nova.chat`` / ``handle_chat_request``.
+        timing_ms: Optional wall-clock timing in milliseconds.
+
+    Returns:
+        The same dict (mutated in place) with transparency fields attached.
+        Returns an empty dict if ``result`` is None / not a dict.
+    """
+    if not isinstance(result, dict):
+        return {}
+
+    # kb_files_queried -- derived from sources
+    if not result.get("kb_files_queried"):
+        try:
+            result["kb_files_queried"] = _map_sources_to_kb_files(
+                result.get("sources") or []
+            )
+        except Exception as _kb_err:
+            logger.debug("kb_files_queried mapping failed: %s", _kb_err)
+            result["kb_files_queried"] = []
+
+    # timing_ms -- total wall-clock
+    if timing_ms is not None and not result.get("timing_ms"):
+        try:
+            result["timing_ms"] = int(round(float(timing_ms)))
+        except (TypeError, ValueError):
+            pass
+
+    return result
+
+
 def handle_chat_request(
     request_data: dict,
     cancel_event: Optional[threading.Event] = None,
@@ -22263,6 +22777,11 @@ def handle_chat_request(
 
     iq = _get_iq()
 
+    # Transparency panel: total wall-clock timing from request start to
+    # response-ready. Measured around the full pipeline (iq.chat + enrichment)
+    # so the timing_ms reported to the client matches what they perceive.
+    _t_req_start = time.time()
+
     try:
         _conv_id = (request_data.get("conversation_id") or "").strip() or None
         result = iq.chat(
@@ -22292,7 +22811,7 @@ def handle_chat_request(
                 _n_tried,
                 message[:80],
             )
-            return {
+            _fail_resp = {
                 "response": (
                     f"I'm temporarily unable to process your request. "
                     f"Tried {_n_tried} AI provider{'s' if _n_tried != 1 else ''}. "
@@ -22305,6 +22824,10 @@ def handle_chat_request(
                 "error_type": _last_err,
                 "providers_tried": _n_tried,
             }
+            _attach_transparency_fields(
+                _fail_resp, timing_ms=(time.time() - _t_req_start) * 1000
+            )
+            return _fail_resp
 
         # Quality gate: validate response before returning
         is_valid, quality_reason = validate_response_quality(_resp_text, message)
@@ -22459,10 +22982,59 @@ def handle_chat_request(
         except Exception as _prof_err:
             logger.debug("User profile update failed (non-blocking): %s", _prof_err)
 
+        # Feature B: Persist this turn's tool outputs into the multi-turn
+        # cache (in-memory + Supabase). The thread-local capture was
+        # populated by _record_turn_tool_result during Nova.chat().
+        try:
+            _conv_id_cache = (request_data.get("conversation_id") or "").strip()
+            _turn_state = _get_turn_tool_capture() or {}
+            _captured_tools: Dict[str, str] = dict(_turn_state.get("tools") or {})
+            _captured_used: List[str] = list(_turn_state.get("tools_used") or [])
+
+            # Merge caller-supplied last_turn_tool_outputs (optional; lets the
+            # frontend/back-channel pre-seed prior state without Supabase round-trip)
+            _caller_outputs = request_data.get("last_turn_tool_outputs")
+            if isinstance(_caller_outputs, dict):
+                for _tk, _tv in _caller_outputs.items():
+                    if not isinstance(_tk, str):
+                        continue
+                    _serialized = (
+                        _tv if isinstance(_tv, str) else json.dumps(_tv, default=str)
+                    )
+                    _captured_tools.setdefault(_tk, _serialized)
+                    if _tk not in _captured_used:
+                        _captured_used.append(_tk)
+
+            if _conv_id_cache and _captured_tools:
+                _append_conversation_tool_turn(
+                    _conv_id_cache, _captured_tools, _captured_used
+                )
+                _turns_now = _get_conversation_tool_cache(_conv_id_cache)
+                _latest_turn_no = _turns_now[-1]["turn"] if _turns_now else 1
+                _persist_conversation_tool_state_async(
+                    _conv_id_cache,
+                    _latest_turn_no,
+                    _captured_used,
+                    _captured_tools,
+                )
+        except Exception as _cache_err:
+            logger.debug(
+                "Tool state cache update failed (non-blocking): %s", _cache_err
+            )
+        finally:
+            # Always clear thread-local so it never leaks to the next request
+            _set_turn_tool_capture(None)
+
+        # Transparency panel: attach timing_ms + kb_files_queried so the
+        # "Why this answer?" footer can render without extra round-trips.
+        _attach_transparency_fields(
+            result, timing_ms=(time.time() - _t_req_start) * 1000
+        )
         return result
     except ChatCancelledException:
+        _set_turn_tool_capture(None)  # Feature B: clear thread-local on cancel
         logger.info("Chat request cancelled by stream timeout for: %s", message[:80])
-        return {
+        _cancel_resp = {
             "response": (
                 "My response was interrupted before I could finish. "
                 "Please try your question again -- I'll route it to a faster provider."
@@ -22472,9 +23044,14 @@ def handle_chat_request(
             "tools_used": [],
             "error": "cancelled",
         }
+        _attach_transparency_fields(
+            _cancel_resp, timing_ms=(time.time() - _t_req_start) * 1000
+        )
+        return _cancel_resp
     except Exception as e:
+        _set_turn_tool_capture(None)  # Feature B: clear thread-local on error
         logger.error("Chat request failed: %s", e, exc_info=True)
-        return {
+        _err_resp = {
             "response": (
                 "I'm temporarily unable to process your request. "
                 "An internal error occurred. "
@@ -22486,6 +23063,10 @@ def handle_chat_request(
             "error": "internal_error",
             "error_type": type(e).__name__,
         }
+        _attach_transparency_fields(
+            _err_resp, timing_ms=(time.time() - _t_req_start) * 1000
+        )
+        return _err_resp
 
 
 def handle_chat_request_stream(
@@ -22548,6 +23129,18 @@ def handle_chat_request_stream(
     # for tool-use heavy queries (ProAmpac, US Army, Electrolux use cases).
     yield {"status": "Analyzing your question...", "done": False}
 
+    # Feature A: Plan-then-act -- yield a 1-2 sentence plan BEFORE tool execution
+    # so the user sees the intended approach while the backend is thinking.
+    # The plan is built from keyword heuristics (fast-path, no LLM call) so this
+    # adds negligible latency. Failures fall through silently.
+    try:
+        _iq_plan = _get_iq()
+        _plan_text = _iq_plan._generate_query_plan(message) or ""
+        if _plan_text:
+            yield {"type": "plan", "plan": _plan_text, "done": False}
+    except Exception as _plan_err:
+        logger.debug("Plan emission skipped: %s", _plan_err)
+
     # S51 FIX: 45s was too aggressive for complex multi-constraint queries
     # (e.g. "list all job boards and supply partners for healthcare in US").
     # Such queries required 3 LLM iterations with per-iteration Claude urlopen
@@ -22602,13 +23195,22 @@ def handle_chat_request_stream(
     while _chat_thread.is_alive() and time.time() < _deadline:
         try:
             evt = _tool_q.get(timeout=0.3)
-            if evt.get("type") == "_done":
+            _etype = evt.get("type")
+            if _etype == "_done":
                 break
-            if evt.get("type") in ("tool_start", "tool_complete"):
+            if _etype in ("tool_start", "tool_complete"):
                 yield {
-                    "type": evt["type"],
+                    "type": _etype,
                     "tool": evt.get("tool", ""),
                     "label": evt.get("label", ""),
+                    "done": False,
+                }
+            elif _etype == "progress":
+                # Feature A: per-tool progress summary ("Found 24 partners")
+                yield {
+                    "type": "progress",
+                    "tool": evt.get("tool", ""),
+                    "summary": evt.get("summary", ""),
                     "done": False,
                 }
         except queue.Empty:
@@ -22671,6 +23273,22 @@ def handle_chat_request_stream(
     llm_provider = response.get("llm_provider") or ""
     llm_model = response.get("llm_model") or ""
     quality_score = response.get("quality_score") or 0
+    # Transparency panel fields. ``timing_ms`` / ``kb_files_queried`` are
+    # attached by ``handle_chat_request`` via ``_attach_transparency_fields``;
+    # we mirror them here so both streaming paths (WS + SSE) and both
+    # ``done: True`` yields (fast path + non-streaming) carry them to the
+    # frontend without requiring separate queries.
+    fast_path = response.get("fast_path") or ""
+    kb_files_queried = response.get("kb_files_queried") or []
+    timing_ms = response.get("timing_ms")
+    if timing_ms is None:
+        # Timeout / exception paths never hit _attach_transparency_fields --
+        # fall back to deriving the KB files from ``sources`` directly so the
+        # panel still renders useful data.
+        try:
+            kb_files_queried = _map_sources_to_kb_files(sources) or kb_files_queried
+        except Exception:
+            pass
 
     # Emit tool-use progress so the frontend can show what data was gathered
     if tools_used:
@@ -22728,6 +23346,10 @@ def handle_chat_request_stream(
             "llm_model": llm_model or "",
             "streamed": True,
             "quality_score": quality_score,
+            # Transparency panel payload for "Why this answer?" footer.
+            "fast_path": fast_path,
+            "kb_files_queried": kb_files_queried,
+            "timing_ms": timing_ms,
             "token_usage": {
                 "message_tokens": _msg_tokens,
                 "response_tokens": _resp_tokens,
@@ -22759,6 +23381,10 @@ def handle_chat_request_stream(
         "llm_model": llm_model or "",
         "streamed": False,
         "quality_score": quality_score,
+        # Transparency panel payload for "Why this answer?" footer.
+        "fast_path": fast_path,
+        "kb_files_queried": kb_files_queried,
+        "timing_ms": timing_ms,
         "token_usage": {
             "message_tokens": _msg_tokens,
             "response_tokens": _resp_tokens,

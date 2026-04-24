@@ -2106,6 +2106,11 @@
         msg.confidence_breakdown,
       );
 
+      // "Why this answer?" transparency panel (collapsed by default).
+      // Rendered for both live responses and restored history messages so
+      // users can inspect provenance even after a page reload.
+      addTransparencyToElement(msgEl, msg);
+
       // Confidence Pulse: animate stat values with pulsing rings
       applyConfidencePulse(msgEl, msg.confidence);
     } else {
@@ -2657,6 +2662,247 @@
   }
 
   // ---------------------------------------------------------------------------
+  // "Why this answer?" TRANSPARENCY PANEL
+  //
+  // Collapsible footer under each Nova response showing latency, LLM chain,
+  // tools fired, confidence, sources, and KB files consulted. Accessible via
+  // aria-expanded + role="region". Styles injected once.
+  // ---------------------------------------------------------------------------
+  var _widgetWhyPanelIdCounter = 0;
+
+  function _widgetEnsureTransparencyStyles() {
+    if (document.getElementById("nova-widget-transparency-styles")) return;
+    var style = document.createElement("style");
+    style.id = "nova-widget-transparency-styles";
+    style.textContent = [
+      ".nova-why-wrap { margin-top: 8px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }",
+      ".nova-why-toggle {",
+      "  background: none; border: 1px solid rgba(255,255,255,0.10);",
+      "  border-radius: 999px; color: #a1a1aa;",
+      "  font-size: 11px; font-weight: 500; padding: 3px 10px; cursor: pointer;",
+      "  transition: color 140ms ease, border-color 140ms ease, background 140ms ease;",
+      "  letter-spacing: 0.2px; display: inline-flex; align-items: center; gap: 6px;",
+      "}",
+      ".nova-why-toggle:hover { color: #6BB3CD; border-color: rgba(107,179,205,0.35); background: rgba(107,179,205,0.06); }",
+      ".nova-why-toggle:focus-visible { outline: 2px solid rgba(107,179,205,0.6); outline-offset: 2px; }",
+      '.nova-why-toggle::after { content: "\\25B8"; font-size: 9px; opacity: 0.7; transition: transform 160ms ease; }',
+      '.nova-why-toggle[aria-expanded="true"]::after { transform: rotate(90deg); opacity: 1; }',
+      ".nova-why-panel {",
+      "  margin-top: 6px; padding: 10px 12px;",
+      "  background: linear-gradient(180deg, rgba(32,32,88,0.30) 0%, rgba(15,15,26,0.55) 100%);",
+      "  border: 1px solid rgba(90,84,189,0.22); border-left: 3px solid #5A54BD;",
+      "  border-radius: 10px; font-size: 11.5px; line-height: 1.55; color: #c0c0cc;",
+      "}",
+      ".nova-why-row { display: flex; gap: 10px; padding: 3px 0; align-items: flex-start; }",
+      ".nova-why-row + .nova-why-row { border-top: 1px solid rgba(255,255,255,0.04); padding-top: 5px; margin-top: 3px; }",
+      ".nova-why-label { flex: 0 0 82px; color: #6BB3CD; font-weight: 600; font-size: 10.5px; letter-spacing: 0.3px; text-transform: uppercase; }",
+      ".nova-why-value { flex: 1 1 auto; min-width: 0; word-break: break-word; }",
+      ".nova-why-chip { display: inline-block; padding: 1px 7px; margin: 1px 4px 1px 0; background: rgba(107,179,205,0.10); color: #a9d3e0; border: 1px solid rgba(107,179,205,0.18); border-radius: 999px; font-size: 10px; font-weight: 500; font-family: 'SF Mono', Menlo, ui-monospace, monospace; }",
+      ".nova-why-fastpath { display: inline-block; padding: 1px 8px; background: rgba(52,211,153,0.12); color: #34D399; border: 1px solid rgba(52,211,153,0.25); border-radius: 999px; font-size: 10px; font-weight: 600; letter-spacing: 0.3px; }",
+      ".nova-why-empty { opacity: 0.55; font-style: italic; }",
+      "@media (prefers-reduced-motion: reduce) { .nova-why-toggle, .nova-why-toggle::after { transition: none; } }",
+      "",
+    ].join("\n");
+    document.head.appendChild(style);
+  }
+
+  function _widgetFormatLatency(ms) {
+    if (ms == null || isNaN(ms)) return null;
+    var n = Number(ms);
+    if (n < 1000) return Math.round(n) + "ms";
+    return (n / 1000).toFixed(n < 10000 ? 2 : 1) + "s";
+  }
+
+  function _widgetFormatToolsUsed(tools) {
+    if (!tools || !tools.length) return null;
+    var counts = {};
+    tools.forEach(function (t) {
+      var k = String(t || "").trim();
+      if (!k) return;
+      counts[k] = (counts[k] || 0) + 1;
+    });
+    var keys = Object.keys(counts);
+    if (!keys.length) return null;
+    return keys.map(function (k) {
+      return counts[k] > 1 ? k + " \u00d7" + counts[k] : k;
+    });
+  }
+
+  function _widgetHasAnyTransparencyData(msg) {
+    if (!msg) return false;
+    if (msg.timing_ms != null) return true;
+    if (msg.fast_path) return true;
+    if (msg.llm_provider || msg.llm_model) return true;
+    if (msg.tools_used && msg.tools_used.length) return true;
+    if (msg.kb_files_queried && msg.kb_files_queried.length) return true;
+    if (msg.sources && msg.sources.length) return true;
+    if (typeof msg.confidence === "number" && msg.confidence > 0) return true;
+    return false;
+  }
+
+  function _widgetBuildWhyPanel(msg) {
+    _widgetEnsureTransparencyStyles();
+
+    var wrap = document.createElement("div");
+    wrap.className = "nova-why-wrap";
+
+    _widgetWhyPanelIdCounter++;
+    var panelId = "nova-widget-why-panel-" + _widgetWhyPanelIdCounter;
+
+    var toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = "nova-why-toggle";
+    toggle.setAttribute("aria-expanded", "false");
+    toggle.setAttribute("aria-controls", panelId);
+    toggle.textContent = "Why this answer?";
+
+    var panel = document.createElement("div");
+    panel.className = "nova-why-panel";
+    panel.id = panelId;
+    panel.setAttribute("role", "region");
+    panel.setAttribute("aria-label", "Why this answer");
+    panel.setAttribute("hidden", "hidden");
+
+    // Latency
+    var latencyStr = _widgetFormatLatency(msg.timing_ms);
+    var rowLatency = document.createElement("div");
+    rowLatency.className = "nova-why-row";
+    rowLatency.innerHTML =
+      '<div class="nova-why-label">Latency</div>' +
+      '<div class="nova-why-value">' +
+      (latencyStr
+        ? escapeHtml(latencyStr) + " total"
+        : '<span class="nova-why-empty">not recorded</span>') +
+      "</div>";
+    panel.appendChild(rowLatency);
+
+    // LLM
+    var rowLlm = document.createElement("div");
+    rowLlm.className = "nova-why-row";
+    var llmHtml =
+      '<div class="nova-why-label">LLM</div><div class="nova-why-value">';
+    if (msg.fast_path) {
+      llmHtml +=
+        '<span class="nova-why-fastpath">Deterministic fast path</span>' +
+        ' <span class="nova-why-chip" style="margin-left:6px;">' +
+        escapeHtml(String(msg.fast_path)) +
+        "</span>";
+    } else if (msg.llm_provider || msg.llm_model) {
+      var llmName =
+        (msg.llm_provider || "") + (msg.llm_model ? " / " + msg.llm_model : "");
+      llmHtml +=
+        '<span class="nova-why-chip">' + escapeHtml(llmName) + "</span>";
+    } else {
+      llmHtml += '<span class="nova-why-empty">provider not reported</span>';
+    }
+    llmHtml += "</div>";
+    rowLlm.innerHTML = llmHtml;
+    panel.appendChild(rowLlm);
+
+    // Tools
+    var toolsList = _widgetFormatToolsUsed(msg.tools_used);
+    var rowTools = document.createElement("div");
+    rowTools.className = "nova-why-row";
+    if (toolsList && toolsList.length) {
+      rowTools.innerHTML =
+        '<div class="nova-why-label">Tools</div>' +
+        '<div class="nova-why-value"><div>' +
+        escapeHtml(String(toolsList.length)) +
+        " tool" +
+        (toolsList.length === 1 ? "" : "s") +
+        ' fired</div><div style="margin-top:4px;">' +
+        toolsList
+          .map(function (t) {
+            return '<span class="nova-why-chip">' + escapeHtml(t) + "</span>";
+          })
+          .join("") +
+        "</div></div>";
+    } else {
+      rowTools.innerHTML =
+        '<div class="nova-why-label">Tools</div>' +
+        '<div class="nova-why-value"><span class="nova-why-empty">no tools called</span></div>';
+    }
+    panel.appendChild(rowTools);
+
+    // Confidence
+    var conf = msg.confidence;
+    if (typeof conf === "number" && conf > 0) {
+      var rowConf = document.createElement("div");
+      rowConf.className = "nova-why-row";
+      var pct = Math.round(conf * 100);
+      rowConf.innerHTML =
+        '<div class="nova-why-label">Confidence</div>' +
+        '<div class="nova-why-value">' +
+        escapeHtml(pct + "%") +
+        (msg.quality_score
+          ? ' <span class="nova-why-chip">quality ' +
+            escapeHtml(String(msg.quality_score)) +
+            "/100</span>"
+          : "") +
+        "</div>";
+      panel.appendChild(rowConf);
+    }
+
+    // Sources
+    var sources = msg.sources || [];
+    if (sources.length) {
+      var rowSrc = document.createElement("div");
+      rowSrc.className = "nova-why-row";
+      rowSrc.innerHTML =
+        '<div class="nova-why-label">Sources</div>' +
+        '<div class="nova-why-value">' +
+        sources
+          .map(function (s) {
+            return '<span class="nova-why-chip">' + escapeHtml(s) + "</span>";
+          })
+          .join("") +
+        "</div>";
+      panel.appendChild(rowSrc);
+    }
+
+    // KB files
+    var kbFiles = msg.kb_files_queried || [];
+    if (kbFiles.length) {
+      var rowKb = document.createElement("div");
+      rowKb.className = "nova-why-row";
+      rowKb.innerHTML =
+        '<div class="nova-why-label">KB files</div>' +
+        '<div class="nova-why-value">' +
+        kbFiles
+          .map(function (f) {
+            return '<span class="nova-why-chip">' + escapeHtml(f) + "</span>";
+          })
+          .join("") +
+        "</div>";
+      panel.appendChild(rowKb);
+    }
+
+    toggle.addEventListener("click", function () {
+      var expanded = toggle.getAttribute("aria-expanded") === "true";
+      toggle.setAttribute("aria-expanded", String(!expanded));
+      if (expanded) {
+        panel.setAttribute("hidden", "hidden");
+      } else {
+        panel.removeAttribute("hidden");
+      }
+    });
+
+    wrap.appendChild(toggle);
+    wrap.appendChild(panel);
+    return wrap;
+  }
+
+  function addTransparencyToElement(msgEl, msg) {
+    if (!msgEl || !msg) return;
+    if (!_widgetHasAnyTransparencyData(msg)) return;
+    try {
+      msgEl.appendChild(_widgetBuildWhyPanel(msg));
+    } catch (_e) {
+      /* non-blocking */
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // Regenerate last assistant response
   // ---------------------------------------------------------------------------
   function regenerateLastResponse() {
@@ -3019,6 +3265,16 @@
               var finalSources = metadata.sources || [];
               var finalConfidence = metadata.confidence || 0;
               var finalMsgId = metadata.message_id || "";
+              // Transparency panel payload -- captured so re-renders (history
+              // rehydration) can still display the "Why this answer?" footer.
+              var finalToolsUsed = metadata.tools_used || [];
+              var finalLlmProvider = metadata.llm_provider || "";
+              var finalLlmModel = metadata.llm_model || "";
+              var finalFastPath = metadata.fast_path || "";
+              var finalQualityScore = metadata.quality_score || 0;
+              var finalKbFiles = metadata.kb_files_queried || [];
+              var finalTimingMs =
+                metadata.timing_ms != null ? metadata.timing_ms : null;
               if (metadata.session_token) {
                 try {
                   localStorage.setItem(
@@ -3040,6 +3296,19 @@
               wsStreamEl.innerHTML = renderMarkdown(finalContent);
               addActionButtonsToElement(wsStreamEl, finalContent);
               addMetaToElement(wsStreamEl, finalSources, finalConfidence, null);
+              // Attach live transparency panel to the streaming element so the
+              // user sees it immediately without waiting for a history reload.
+              addTransparencyToElement(wsStreamEl, {
+                sources: finalSources,
+                confidence: finalConfidence,
+                tools_used: finalToolsUsed,
+                llm_provider: finalLlmProvider,
+                llm_model: finalLlmModel,
+                fast_path: finalFastPath,
+                quality_score: finalQualityScore,
+                kb_files_queried: finalKbFiles,
+                timing_ms: finalTimingMs,
+              });
               applyConfidencePulse(wsStreamEl, finalConfidence);
               var wsColEl = wsStreamEl.parentNode;
               if (wsColEl) {
@@ -3062,6 +3331,13 @@
                 sources: finalSources,
                 confidence: finalConfidence,
                 message_id: finalMsgId,
+                tools_used: finalToolsUsed,
+                llm_provider: finalLlmProvider,
+                llm_model: finalLlmModel,
+                fast_path: finalFastPath,
+                quality_score: finalQualityScore,
+                kb_files_queried: finalKbFiles,
+                timing_ms: finalTimingMs,
               });
               saveHistory(state.messages);
               state.isLoading = false;
@@ -3289,6 +3565,15 @@
               var finalConfidence = metadata.confidence || 0;
               var finalBreakdown = null;
               var finalMsgId = metadata.message_id || "";
+              // Transparency panel payload
+              var finalToolsUsed = metadata.tools_used || [];
+              var finalLlmProvider = metadata.llm_provider || "";
+              var finalLlmModel = metadata.llm_model || "";
+              var finalFastPath = metadata.fast_path || "";
+              var finalQualityScore = metadata.quality_score || 0;
+              var finalKbFiles = metadata.kb_files_queried || [];
+              var finalTimingMs =
+                metadata.timing_ms != null ? metadata.timing_ms : null;
 
               // Store session token if returned by server (Issue 4)
               if (metadata.session_token) {
@@ -3331,6 +3616,19 @@
                 finalBreakdown,
               );
 
+              // "Why this answer?" transparency panel (collapsed by default)
+              addTransparencyToElement(streamEl, {
+                sources: finalSources,
+                confidence: finalConfidence,
+                tools_used: finalToolsUsed,
+                llm_provider: finalLlmProvider,
+                llm_model: finalLlmModel,
+                fast_path: finalFastPath,
+                quality_score: finalQualityScore,
+                kb_files_queried: finalKbFiles,
+                timing_ms: finalTimingMs,
+              });
+
               // Confidence Pulse: animate stat values with pulsing rings
               applyConfidencePulse(streamEl, finalConfidence);
 
@@ -3353,7 +3651,8 @@
               if (streamRowEl) streamRowEl.removeAttribute("id");
               streamEl.removeAttribute("id");
 
-              // Persist message to state + storage
+              // Persist message to state + storage (includes transparency
+              // fields so re-renders after reload keep the panel accurate)
               var msgObj = {
                 role: "assistant",
                 content: finalContent,
@@ -3361,6 +3660,13 @@
                 confidence: finalConfidence,
                 confidence_breakdown: finalBreakdown,
                 message_id: finalMsgId,
+                tools_used: finalToolsUsed,
+                llm_provider: finalLlmProvider,
+                llm_model: finalLlmModel,
+                fast_path: finalFastPath,
+                quality_score: finalQualityScore,
+                kb_files_queried: finalKbFiles,
+                timing_ms: finalTimingMs,
               };
               state.messages.push(msgObj);
               saveHistory(state.messages);
@@ -3409,6 +3715,13 @@
                     sources: data.sources || [],
                     confidence: data.confidence || 0,
                     confidence_breakdown: data.confidence_breakdown || null,
+                    tools_used: data.tools_used || [],
+                    llm_provider: data.llm_provider || "",
+                    llm_model: data.llm_model || "",
+                    fast_path: data.fast_path || "",
+                    quality_score: data.quality_score || 0,
+                    kb_files_queried: data.kb_files_queried || [],
+                    timing_ms: data.timing_ms != null ? data.timing_ms : null,
                   });
                 })
                 .catch(function (fallbackErr) {
@@ -3499,6 +3812,13 @@
             sources: result.sources || [],
             confidence: result.confidence || 0,
             confidence_breakdown: result.confidence_breakdown || null,
+            tools_used: result.tools_used || [],
+            llm_provider: result.llm_provider || "",
+            llm_model: result.llm_model || "",
+            fast_path: result.fast_path || "",
+            quality_score: result.quality_score || 0,
+            kb_files_queried: result.kb_files_queried || [],
+            timing_ms: result.timing_ms != null ? result.timing_ms : null,
           });
         })
         .catch(function (err) {

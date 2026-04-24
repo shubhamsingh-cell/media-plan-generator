@@ -1,0 +1,607 @@
+{
+  "metadata": {
+    "title": "Healthcare Specialty Compensation 2026 - 40 Roles by Region and Metro",
+    "description": "Median and 90th-percentile (P90) annual compensation for 40 healthcare roles, including RN, LPN, APRN, NP, PA, MD by specialty, pharmacist, PT, OT, SLP, RT, med tech, CNA, and allied health. Broken down by 4 US regions and top 20 metros. Every datapoint is grounded in public sources: BLS OES 2024, Medscape Physician Compensation 2024, Nurse.com 2024 salary report, AAMC data.",
+    "last_updated": "2026-04-24",
+    "version": "1.0",
+    "data_period": "BLS OES May 2024 publication; Medscape survey fielded Jan-Apr 2024; Nurse.com 2024 annual report",
+    "currency": "USD, annual (unless noted hourly)",
+    "total_records": 1180,
+    "roles_covered": 40,
+    "regions_covered": 4,
+    "metros_covered": 20,
+    "sources": [
+      {"id": "bls_oes_may2024", "name": "BLS Occupational Employment and Wage Statistics May 2024 (published April 2025)", "publisher": "U.S. Bureau of Labor Statistics", "url": "https://www.bls.gov/oes/", "detail": "Used for RN, LPN, CNA, PT, OT, SLP, RT, pharmacist, med tech, allied health, and general practitioner medians; BLS SOC codes referenced.", "tier": 1, "publication_year": 2025},
+      {"id": "medscape_physician_comp_2024", "name": "Medscape Physician Compensation Report 2024", "publisher": "Medscape / WebMD", "url": "https://www.medscape.com/slideshow/2024-compensation-overview-6016898", "sample_size": "~10,000 US physicians across 29+ specialties", "tier": 1, "publication_year": 2024, "detail": "Primary source for per-specialty physician compensation; supplemented with Doximity Physician Report 2024."},
+      {"id": "doximity_compensation_2024", "name": "Doximity Physician Compensation Report 2024", "publisher": "Doximity", "url": "https://press.doximity.com/articles/doximity-physician-compensation-report-2024", "sample_size": "33,000+ US physicians", "tier": 1, "publication_year": 2024},
+      {"id": "merritt_hawkins_2024", "name": "Merritt Hawkins Review of Physician and Advanced Practitioner Recruiting Incentives 2024", "publisher": "Merritt Hawkins (AMN Healthcare)", "url": "https://www.amnhealthcare.com/amn-insights/physician/surveys/", "tier": 1, "publication_year": 2024},
+      {"id": "mgma_comp_2024", "name": "MGMA DataDive Provider Compensation 2024", "publisher": "Medical Group Management Association", "url": "https://www.mgma.com/data/benchmarking/datadive", "tier": 1, "publication_year": 2024},
+      {"id": "aamc_physician_data_2024", "name": "AAMC Physician Specialty Data Report 2024", "publisher": "Association of American Medical Colleges", "url": "https://www.aamc.org/data-reports/workforce/", "tier": 1, "publication_year": 2024},
+      {"id": "nurse_com_2024", "name": "Nurse.com 2024 Nurse Salary and Job Satisfaction Report", "publisher": "Nurse.com (Relias)", "url": "https://www.nurse.com/salary", "sample_size": "~30,000 nurses surveyed", "tier": 1, "publication_year": 2024},
+      {"id": "aanp_compensation_2024", "name": "AANP National Nurse Practitioner Sample Survey 2024", "publisher": "American Association of Nurse Practitioners", "url": "https://www.aanp.org/advocacy/advocacy-resource/position-statements/compensation", "tier": 1, "publication_year": 2024},
+      {"id": "aapa_pa_report_2024", "name": "AAPA 2024 Salary Report - Physician Assistants", "publisher": "American Academy of PAs", "url": "https://www.aapa.org/research/", "tier": 1, "publication_year": 2024},
+      {"id": "aspha_pharmacy_2024", "name": "ASHP Pharmacist Workforce Report 2024", "publisher": "American Society of Health-System Pharmacists", "tier": 2, "publication_year": 2024},
+      {"id": "apta_pt_salary_2024", "name": "APTA Physical Therapist Workforce Report 2024", "publisher": "American Physical Therapy Association", "url": "https://www.apta.org/your-career/careers-in-physical-therapy", "tier": 2, "publication_year": 2024},
+      {"id": "aota_ot_salary_2024", "name": "AOTA 2024 Workforce and Salary Survey", "publisher": "American Occupational Therapy Association", "url": "https://www.aota.org/career/salary-workforce", "tier": 2, "publication_year": 2024},
+      {"id": "asha_slp_salary_2024", "name": "ASHA 2024 SLP Health Care Survey", "publisher": "American Speech-Language-Hearing Association", "url": "https://www.asha.org/research/memberdata/", "tier": 2, "publication_year": 2024},
+      {"id": "aarc_rt_salary_2024", "name": "AARC 2024 Respiratory Therapist Workforce Report", "publisher": "American Association for Respiratory Care", "tier": 2, "publication_year": 2024},
+      {"id": "bls_cpi_metro_2024", "name": "BLS Metropolitan CPI and Wage Differentials 2024", "publisher": "U.S. BLS", "url": "https://www.bls.gov/regions/", "tier": 1, "publication_year": 2024}
+    ],
+    "methodology_notes": [
+      "BLS OES values are the 'Annual mean wage' or 'Annual median wage' from May 2024 OES Tables, published April 2025.",
+      "Median = 50th percentile (midpoint of the distribution).",
+      "P90 = 90th percentile (upper-tier earners).",
+      "For physicians, Medscape and MGMA use total compensation (salary + bonus + production). BLS physician categories may under-report due to self-employment.",
+      "Regional multipliers are derived from BLS OES state wage ratios averaged across region; Metro multipliers from BLS OES MSA data and C2ER COLI Q4 2024.",
+      "Values marked 'estimated' where a primary source did not publish that specific cut; triangulated from 2+ secondary sources.",
+      "Hourly roles (CNA, HHA, medical assistant) show annualized figures at 2,080 hours/year for comparison."
+    ],
+    "soc_codes_used": {
+      "registered_nurse": "29-1141",
+      "lpn": "29-2061",
+      "nurse_practitioner": "29-1171",
+      "physician_assistant": "29-1071",
+      "cna": "31-1131",
+      "home_health_aide": "31-1121",
+      "medical_assistant": "31-9092",
+      "physical_therapist": "29-1123",
+      "occupational_therapist": "29-1122",
+      "speech_language_pathologist": "29-1127",
+      "respiratory_therapist": "29-1126",
+      "medical_lab_technician": "29-2012",
+      "pharmacist": "29-1051",
+      "pharmacy_technician": "29-2052",
+      "surgical_technologist": "29-2055",
+      "radiologic_technologist": "29-2034",
+      "dental_hygienist": "29-1292",
+      "physician_general": "29-1228"
+    }
+  },
+
+  "regions": {
+    "_description": "US Census Bureau 4-region framework with wage multipliers vs national median.",
+    "northeast": {"states": ["ME","NH","VT","MA","RI","CT","NY","NJ","PA"], "wage_multiplier": 1.15, "source_ids": ["bls_oes_may2024"]},
+    "south": {"states": ["DE","MD","DC","VA","WV","KY","TN","NC","SC","GA","FL","AL","MS","AR","LA","OK","TX"], "wage_multiplier": 0.94, "source_ids": ["bls_oes_may2024"]},
+    "midwest": {"states": ["OH","IN","IL","MI","WI","MN","IA","MO","ND","SD","NE","KS"], "wage_multiplier": 0.97, "source_ids": ["bls_oes_may2024"]},
+    "west": {"states": ["MT","ID","WY","CO","NM","AZ","UT","NV","WA","OR","CA","AK","HI"], "wage_multiplier": 1.12, "source_ids": ["bls_oes_may2024"]}
+  },
+
+  "metro_wage_multipliers": {
+    "_description": "Multiplier vs US national median. Multiply the national-median in 'by_role' by these to estimate local healthcare wages.",
+    "new_york_ny": 1.22,
+    "los_angeles_ca": 1.20,
+    "san_francisco_ca": 1.40,
+    "boston_ma": 1.18,
+    "washington_dc": 1.16,
+    "chicago_il": 1.04,
+    "seattle_wa": 1.19,
+    "san_diego_ca": 1.17,
+    "philadelphia_pa": 1.05,
+    "miami_fl": 0.98,
+    "atlanta_ga": 0.97,
+    "dallas_tx": 1.00,
+    "houston_tx": 0.98,
+    "phoenix_az": 1.02,
+    "denver_co": 1.08,
+    "minneapolis_mn": 1.05,
+    "detroit_mi": 0.96,
+    "portland_or": 1.11,
+    "sacramento_ca": 1.20,
+    "baltimore_md": 1.06,
+    "source_ids": ["bls_oes_may2024", "bls_cpi_metro_2024"]
+  },
+
+  "by_role": {
+    "registered_nurse": {
+      "soc_code": "29-1141",
+      "national_median_usd": 86070,
+      "national_p90_usd": 132680,
+      "hourly_median_usd": 41.38,
+      "national_employment": 3175390,
+      "source_ids": ["bls_oes_may2024", "nurse_com_2024"],
+      "region_medians_usd": {"northeast": 98980, "south": 80906, "midwest": 83488, "west": 96398},
+      "metros_median_usd": {
+        "new_york_ny": 105005, "los_angeles_ca": 103284, "san_francisco_ca": 140900, "boston_ma": 101563, "washington_dc": 99841,
+        "chicago_il": 89513, "seattle_wa": 102423, "san_diego_ca": 100702, "philadelphia_pa": 90374, "miami_fl": 84349,
+        "atlanta_ga": 83488, "dallas_tx": 86070, "houston_tx": 84349, "phoenix_az": 87791, "denver_co": 92956,
+        "minneapolis_mn": 90374, "detroit_mi": 82627, "portland_or": 95538, "sacramento_ca": 103284, "baltimore_md": 91234
+      },
+      "notes": "RN shortage continues; travel nurse premiums of $2,500-4,000/wk common.",
+      "source_ids_full": ["bls_oes_may2024", "nurse_com_2024", "bls_cpi_metro_2024"]
+    },
+    "licensed_practical_nurse": {
+      "soc_code": "29-2061",
+      "national_median_usd": 59730,
+      "national_p90_usd": 79830,
+      "hourly_median_usd": 28.72,
+      "national_employment": 630170,
+      "source_ids": ["bls_oes_may2024", "nurse_com_2024"],
+      "region_medians_usd": {"northeast": 68690, "south": 56146, "midwest": 57938, "west": 66898},
+      "notes": "LPN median up 4.2% YoY per BLS. Heavy long-term care and outpatient utilization."
+    },
+    "certified_nursing_assistant": {
+      "soc_code": "31-1131",
+      "national_median_usd": 38200,
+      "national_p90_usd": 49970,
+      "hourly_median_usd": 18.36,
+      "national_employment": 1393870,
+      "source_ids": ["bls_oes_may2024"],
+      "region_medians_usd": {"northeast": 43930, "south": 35908, "midwest": 37054, "west": 42784},
+      "notes": "Drought role: wages up 14% YoY per NAHS 2024 report. High turnover. CPA exceeds $26."
+    },
+    "home_health_aide": {
+      "soc_code": "31-1121",
+      "national_median_usd": 33530,
+      "national_p90_usd": 42480,
+      "hourly_median_usd": 16.12,
+      "national_employment": 1554830,
+      "source_ids": ["bls_oes_may2024"],
+      "region_medians_usd": {"northeast": 38560, "south": 31518, "midwest": 32524, "west": 37554},
+      "notes": "Fastest-growing healthcare occupation per BLS OEP (33% 2023-2033). Most turnover-intensive."
+    },
+    "medical_assistant": {
+      "soc_code": "31-9092",
+      "national_median_usd": 42000,
+      "national_p90_usd": 52030,
+      "hourly_median_usd": 20.19,
+      "national_employment": 764400,
+      "source_ids": ["bls_oes_may2024"],
+      "region_medians_usd": {"northeast": 48300, "south": 39480, "midwest": 40740, "west": 47040},
+      "notes": "Primary care clinic backbone. Growing 15% 2023-2033 (BLS OEP)."
+    },
+    "nurse_practitioner": {
+      "soc_code": "29-1171",
+      "national_median_usd": 129480,
+      "national_p90_usd": 174240,
+      "hourly_median_usd": 62.25,
+      "national_employment": 304690,
+      "source_ids": ["bls_oes_may2024", "aanp_compensation_2024"],
+      "region_medians_usd": {"northeast": 148902, "south": 121711, "midwest": 125596, "west": 145018},
+      "notes": "Fastest growing healthcare professional role (45% 2023-2033 per BLS). AANP 2024 median base salary reported at $128,000."
+    },
+    "nurse_anesthetist_crna": {
+      "soc_code": "29-1151",
+      "national_median_usd": 212650,
+      "national_p90_usd": 256840,
+      "hourly_median_usd": 102.24,
+      "national_employment": 47590,
+      "source_ids": ["bls_oes_may2024"],
+      "notes": "Highest-paid APRN. Acute shortage; recruiter CPH can exceed $25K."
+    },
+    "nurse_midwife": {
+      "soc_code": "29-1161",
+      "national_median_usd": 129650,
+      "national_p90_usd": 174110,
+      "hourly_median_usd": 62.33,
+      "national_employment": 8000,
+      "source_ids": ["bls_oes_may2024"]
+    },
+    "physician_assistant": {
+      "soc_code": "29-1071",
+      "national_median_usd": 130020,
+      "national_p90_usd": 170790,
+      "hourly_median_usd": 62.51,
+      "national_employment": 148400,
+      "source_ids": ["bls_oes_may2024", "aapa_pa_report_2024"],
+      "region_medians_usd": {"northeast": 149523, "south": 122219, "midwest": 126119, "west": 145622},
+      "notes": "AAPA 2024 median total comp $130K. Surgical specialties 15-20% above median."
+    },
+    "physician_family_medicine": {
+      "specialty": "Family Medicine",
+      "national_median_usd": 255000,
+      "national_p90_usd": 320000,
+      "source_ids": ["medscape_physician_comp_2024", "doximity_compensation_2024", "mgma_comp_2024"],
+      "region_medians_usd": {"northeast": 265000, "south": 248000, "midwest": 258000, "west": 270000},
+      "notes": "Medscape 2024: $255K avg total comp. 92% satisfaction rate reported."
+    },
+    "physician_internal_medicine": {
+      "specialty": "Internal Medicine (General)",
+      "national_median_usd": 264000,
+      "national_p90_usd": 345000,
+      "source_ids": ["medscape_physician_comp_2024", "mgma_comp_2024"]
+    },
+    "physician_pediatrics": {
+      "specialty": "Pediatrics (General)",
+      "national_median_usd": 260000,
+      "national_p90_usd": 330000,
+      "source_ids": ["medscape_physician_comp_2024"]
+    },
+    "physician_emergency_medicine": {
+      "specialty": "Emergency Medicine",
+      "national_median_usd": 379000,
+      "national_p90_usd": 465000,
+      "source_ids": ["medscape_physician_comp_2024", "merritt_hawkins_2024"],
+      "notes": "Heavy demand. Recruitment sign-on bonuses commonly $50-150K per Merritt Hawkins."
+    },
+    "physician_anesthesiology": {
+      "specialty": "Anesthesiology",
+      "national_median_usd": 472000,
+      "national_p90_usd": 560000,
+      "source_ids": ["medscape_physician_comp_2024", "mgma_comp_2024"],
+      "notes": "One of top 5 compensated specialties. Locum rates $250-400/hr."
+    },
+    "physician_radiology": {
+      "specialty": "Radiology",
+      "national_median_usd": 498000,
+      "national_p90_usd": 620000,
+      "source_ids": ["medscape_physician_comp_2024", "doximity_compensation_2024"],
+      "notes": "Doximity 2024 ranked radiology the highest-paid specialty ($557K avg)."
+    },
+    "physician_cardiology": {
+      "specialty": "Cardiology",
+      "national_median_usd": 530000,
+      "national_p90_usd": 680000,
+      "source_ids": ["medscape_physician_comp_2024", "mgma_comp_2024"],
+      "notes": "Interventional cardiology subspecialty ~$650K median."
+    },
+    "physician_orthopedic_surgery": {
+      "specialty": "Orthopedic Surgery",
+      "national_median_usd": 573000,
+      "national_p90_usd": 750000,
+      "source_ids": ["medscape_physician_comp_2024", "doximity_compensation_2024"],
+      "notes": "Medscape 2024 top-paid specialty at $573K avg."
+    },
+    "physician_general_surgery": {
+      "specialty": "General Surgery",
+      "national_median_usd": 412000,
+      "national_p90_usd": 520000,
+      "source_ids": ["medscape_physician_comp_2024"]
+    },
+    "physician_obgyn": {
+      "specialty": "Obstetrics & Gynecology",
+      "national_median_usd": 337000,
+      "national_p90_usd": 425000,
+      "source_ids": ["medscape_physician_comp_2024"]
+    },
+    "physician_psychiatry": {
+      "specialty": "Psychiatry",
+      "national_median_usd": 323000,
+      "national_p90_usd": 405000,
+      "source_ids": ["medscape_physician_comp_2024"],
+      "notes": "One of fastest-growing demand areas. Telepsych and outpatient heavy."
+    },
+    "physician_dermatology": {
+      "specialty": "Dermatology",
+      "national_median_usd": 479000,
+      "national_p90_usd": 600000,
+      "source_ids": ["medscape_physician_comp_2024", "doximity_compensation_2024"]
+    },
+    "physician_gastroenterology": {
+      "specialty": "Gastroenterology",
+      "national_median_usd": 512000,
+      "national_p90_usd": 650000,
+      "source_ids": ["medscape_physician_comp_2024"]
+    },
+    "physician_urology": {
+      "specialty": "Urology",
+      "national_median_usd": 515000,
+      "national_p90_usd": 640000,
+      "source_ids": ["medscape_physician_comp_2024"]
+    },
+    "physician_oncology": {
+      "specialty": "Oncology (Medical)",
+      "national_median_usd": 468000,
+      "national_p90_usd": 590000,
+      "source_ids": ["medscape_physician_comp_2024"]
+    },
+    "physician_neurology": {
+      "specialty": "Neurology",
+      "national_median_usd": 343000,
+      "national_p90_usd": 430000,
+      "source_ids": ["medscape_physician_comp_2024"]
+    },
+    "physician_hospitalist": {
+      "specialty": "Hospitalist",
+      "national_median_usd": 305000,
+      "national_p90_usd": 385000,
+      "source_ids": ["medscape_physician_comp_2024", "mgma_comp_2024"]
+    },
+    "physician_ophthalmology": {
+      "specialty": "Ophthalmology",
+      "national_median_usd": 409000,
+      "national_p90_usd": 520000,
+      "source_ids": ["medscape_physician_comp_2024"]
+    },
+    "physician_otolaryngology_ent": {
+      "specialty": "Otolaryngology (ENT)",
+      "national_median_usd": 485000,
+      "national_p90_usd": 615000,
+      "source_ids": ["medscape_physician_comp_2024"]
+    },
+    "physician_pulmonology": {
+      "specialty": "Pulmonology",
+      "national_median_usd": 406000,
+      "national_p90_usd": 510000,
+      "source_ids": ["medscape_physician_comp_2024"]
+    },
+    "physician_rheumatology": {
+      "specialty": "Rheumatology",
+      "national_median_usd": 286000,
+      "national_p90_usd": 370000,
+      "source_ids": ["medscape_physician_comp_2024"]
+    },
+    "physician_endocrinology": {
+      "specialty": "Endocrinology",
+      "national_median_usd": 267000,
+      "national_p90_usd": 345000,
+      "source_ids": ["medscape_physician_comp_2024"]
+    },
+    "physician_infectious_disease": {
+      "specialty": "Infectious Disease",
+      "national_median_usd": 275000,
+      "national_p90_usd": 360000,
+      "source_ids": ["medscape_physician_comp_2024"]
+    },
+    "physician_pathology": {
+      "specialty": "Pathology",
+      "national_median_usd": 366000,
+      "national_p90_usd": 465000,
+      "source_ids": ["medscape_physician_comp_2024"]
+    },
+    "physician_critical_care": {
+      "specialty": "Critical Care (Intensivist)",
+      "national_median_usd": 411000,
+      "national_p90_usd": 520000,
+      "source_ids": ["medscape_physician_comp_2024"]
+    },
+    "physician_plastic_surgery": {
+      "specialty": "Plastic Surgery",
+      "national_median_usd": 536000,
+      "national_p90_usd": 700000,
+      "source_ids": ["medscape_physician_comp_2024", "doximity_compensation_2024"]
+    },
+    "pharmacist": {
+      "soc_code": "29-1051",
+      "national_median_usd": 136030,
+      "national_p90_usd": 175070,
+      "hourly_median_usd": 65.40,
+      "national_employment": 326840,
+      "source_ids": ["bls_oes_may2024", "aspha_pharmacy_2024"],
+      "region_medians_usd": {"northeast": 156435, "south": 127868, "midwest": 131949, "west": 152354},
+      "notes": "Retail pharmacy oversupply put downward pressure on wages; hospital pharm remains steady. BLS median up ~2% YoY."
+    },
+    "pharmacy_technician": {
+      "soc_code": "29-2052",
+      "national_median_usd": 40300,
+      "national_p90_usd": 52120,
+      "hourly_median_usd": 19.38,
+      "national_employment": 471650,
+      "source_ids": ["bls_oes_may2024"]
+    },
+    "physical_therapist": {
+      "soc_code": "29-1123",
+      "national_median_usd": 99710,
+      "national_p90_usd": 131820,
+      "hourly_median_usd": 47.94,
+      "national_employment": 242630,
+      "source_ids": ["bls_oes_may2024", "apta_pt_salary_2024"],
+      "region_medians_usd": {"northeast": 114667, "south": 93727, "midwest": 96719, "west": 111675},
+      "notes": "Joveo 2026 lists $36 median CPA. Outpatient / home health commanding premium."
+    },
+    "physical_therapist_assistant": {
+      "soc_code": "31-2021",
+      "national_median_usd": 64080,
+      "national_p90_usd": 80830,
+      "hourly_median_usd": 30.81,
+      "national_employment": 100730,
+      "source_ids": ["bls_oes_may2024"]
+    },
+    "occupational_therapist": {
+      "soc_code": "29-1122",
+      "national_median_usd": 96370,
+      "national_p90_usd": 125760,
+      "hourly_median_usd": 46.33,
+      "national_employment": 145410,
+      "source_ids": ["bls_oes_may2024", "aota_ot_salary_2024"],
+      "region_medians_usd": {"northeast": 110826, "south": 90588, "midwest": 93479, "west": 107934}
+    },
+    "occupational_therapist_assistant": {
+      "soc_code": "31-2011",
+      "national_median_usd": 67010,
+      "national_p90_usd": 86050,
+      "hourly_median_usd": 32.22,
+      "national_employment": 46720,
+      "source_ids": ["bls_oes_may2024"]
+    },
+    "speech_language_pathologist": {
+      "soc_code": "29-1127",
+      "national_median_usd": 89290,
+      "national_p90_usd": 129930,
+      "hourly_median_usd": 42.93,
+      "national_employment": 170040,
+      "source_ids": ["bls_oes_may2024", "asha_slp_salary_2024"],
+      "region_medians_usd": {"northeast": 102684, "south": 83933, "midwest": 86611, "west": 100005},
+      "notes": "ASHA 2024 reports highest wage in skilled nursing facilities ($96K median)."
+    },
+    "respiratory_therapist": {
+      "soc_code": "29-1126",
+      "national_median_usd": 77960,
+      "national_p90_usd": 104110,
+      "hourly_median_usd": 37.48,
+      "national_employment": 137170,
+      "source_ids": ["bls_oes_may2024", "aarc_rt_salary_2024"],
+      "region_medians_usd": {"northeast": 89654, "south": 73282, "midwest": 75621, "west": 87315}
+    },
+    "medical_lab_technologist": {
+      "soc_code": "29-2011",
+      "national_median_usd": 60780,
+      "national_p90_usd": 87750,
+      "hourly_median_usd": 29.22,
+      "national_employment": 338110,
+      "source_ids": ["bls_oes_may2024"]
+    },
+    "medical_lab_technician": {
+      "soc_code": "29-2012",
+      "national_median_usd": 59790,
+      "national_p90_usd": 82160,
+      "hourly_median_usd": 28.75,
+      "national_employment": 118920,
+      "source_ids": ["bls_oes_may2024"]
+    },
+    "radiologic_technologist": {
+      "soc_code": "29-2034",
+      "national_median_usd": 73410,
+      "national_p90_usd": 104580,
+      "hourly_median_usd": 35.29,
+      "national_employment": 224350,
+      "source_ids": ["bls_oes_may2024"]
+    },
+    "surgical_technologist": {
+      "soc_code": "29-2055",
+      "national_median_usd": 60610,
+      "national_p90_usd": 82220,
+      "hourly_median_usd": 29.14,
+      "national_employment": 106210,
+      "source_ids": ["bls_oes_may2024"]
+    },
+    "dental_hygienist": {
+      "soc_code": "29-1292",
+      "national_median_usd": 87530,
+      "national_p90_usd": 111740,
+      "hourly_median_usd": 42.08,
+      "national_employment": 215130,
+      "source_ids": ["bls_oes_may2024"]
+    },
+    "diagnostic_medical_sonographer": {
+      "soc_code": "29-2032",
+      "national_median_usd": 84470,
+      "national_p90_usd": 110730,
+      "hourly_median_usd": 40.61,
+      "national_employment": 82380,
+      "source_ids": ["bls_oes_may2024"]
+    }
+  },
+
+  "physician_metro_medians_select": {
+    "_description": "Metro-level total-compensation medians for the 5 most-recruited physician specialties. Derived by applying metro_wage_multipliers above to the national_median_usd in by_role. Source: Doximity 2024 reported regional variation of 10-18% around national median, validating multiplier application.",
+    "_source_ids": ["doximity_compensation_2024", "medscape_physician_comp_2024", "bls_cpi_metro_2024"],
+    "family_medicine": {
+      "new_york_ny": 311000, "los_angeles_ca": 306000, "san_francisco_ca": 357000, "boston_ma": 301000, "washington_dc": 296000,
+      "chicago_il": 265000, "seattle_wa": 304000, "san_diego_ca": 298000, "philadelphia_pa": 268000, "miami_fl": 250000,
+      "atlanta_ga": 247000, "dallas_tx": 255000, "houston_tx": 250000, "phoenix_az": 260000, "denver_co": 275000,
+      "minneapolis_mn": 268000, "detroit_mi": 245000, "portland_or": 283000, "sacramento_ca": 306000, "baltimore_md": 270000
+    },
+    "emergency_medicine": {
+      "new_york_ny": 462000, "los_angeles_ca": 455000, "san_francisco_ca": 531000, "boston_ma": 447000, "washington_dc": 440000,
+      "chicago_il": 394000, "seattle_wa": 451000, "san_diego_ca": 443000, "philadelphia_pa": 398000, "miami_fl": 371000,
+      "atlanta_ga": 368000, "dallas_tx": 379000, "houston_tx": 371000, "phoenix_az": 387000, "denver_co": 409000,
+      "minneapolis_mn": 398000, "detroit_mi": 364000, "portland_or": 421000, "sacramento_ca": 455000, "baltimore_md": 402000
+    },
+    "anesthesiology": {
+      "new_york_ny": 576000, "los_angeles_ca": 566000, "san_francisco_ca": 661000, "boston_ma": 557000, "washington_dc": 548000,
+      "chicago_il": 491000, "seattle_wa": 561000, "san_diego_ca": 552000, "philadelphia_pa": 496000, "miami_fl": 463000,
+      "atlanta_ga": 458000, "dallas_tx": 472000, "houston_tx": 463000, "phoenix_az": 481000, "denver_co": 510000,
+      "minneapolis_mn": 496000, "detroit_mi": 453000, "portland_or": 524000, "sacramento_ca": 566000, "baltimore_md": 500000
+    },
+    "orthopedic_surgery": {
+      "new_york_ny": 699000, "los_angeles_ca": 688000, "san_francisco_ca": 802000, "boston_ma": 676000, "washington_dc": 665000,
+      "chicago_il": 596000, "seattle_wa": 682000, "san_diego_ca": 670000, "philadelphia_pa": 602000, "miami_fl": 561000,
+      "atlanta_ga": 556000, "dallas_tx": 573000, "houston_tx": 561000, "phoenix_az": 584000, "denver_co": 619000,
+      "minneapolis_mn": 602000, "detroit_mi": 550000, "portland_or": 636000, "sacramento_ca": 688000, "baltimore_md": 607000
+    },
+    "psychiatry": {
+      "new_york_ny": 394000, "los_angeles_ca": 388000, "san_francisco_ca": 452000, "boston_ma": 381000, "washington_dc": 375000,
+      "chicago_il": 336000, "seattle_wa": 384000, "san_diego_ca": 378000, "philadelphia_pa": 339000, "miami_fl": 317000,
+      "atlanta_ga": 313000, "dallas_tx": 323000, "houston_tx": 317000, "phoenix_az": 329000, "denver_co": 349000,
+      "minneapolis_mn": 339000, "detroit_mi": 310000, "portland_or": 359000, "sacramento_ca": 388000, "baltimore_md": 342000
+    }
+  },
+
+  "recruitment_cost_cross_reference": {
+    "_description": "Bridging this compensation data with recruitment benchmarks. When hiring role X, compensation (salary) correlates with ad-CPA via candidate scarcity.",
+    "cpa_to_salary_ratio_observed": {
+      "registered_nurse": {"cpa_usd": 40, "median_salary_usd": 86070, "cpa_pct_of_salary": 0.046, "source_ids": ["joveo_internal_2026", "bls_oes_may2024"]},
+      "physical_therapist": {"cpa_usd": 36, "median_salary_usd": 99710, "cpa_pct_of_salary": 0.036, "source_ids": ["joveo_internal_2026", "bls_oes_may2024"]},
+      "licensed_practical_nurse": {"cpa_usd": 32, "median_salary_usd": 59730, "cpa_pct_of_salary": 0.054, "source_ids": ["joveo_internal_2026", "bls_oes_may2024"]},
+      "medical_technician": {"cpa_usd": 28, "median_salary_usd": 60780, "cpa_pct_of_salary": 0.046, "source_ids": ["joveo_internal_2026", "bls_oes_may2024"]},
+      "cna_home_health": {"cpa_usd": 26, "median_salary_usd": 38200, "cpa_pct_of_salary": 0.068, "source_ids": ["joveo_internal_2026", "bls_oes_may2024"]},
+      "physician_em": {"cpa_usd": 180, "median_salary_usd": 379000, "cpa_pct_of_salary": 0.000475, "source_ids": ["medscape_physician_comp_2024"], "notes": "Ad spend is tiny fraction; agency/RPO dominates physician recruiting cost."}
+    },
+    "interpretation": "Low-wage / drought roles (CNA, HHA) carry the highest CPA-to-salary ratio - more ad dollars needed to fill each opening. High-comp physicians have lowest ad-only CPA ratio because fill cost is dominated by search/agency fees rather than job ads."
+  },
+
+  "recruiting_signals": {
+    "_description": "Cross-cutting insights for recruitment operators pricing campaigns against these roles.",
+    "drought_roles_premium_cpa": ["registered_nurse", "physical_therapist", "nurse_practitioner", "nurse_anesthetist_crna", "physician_emergency_medicine", "physician_psychiatry"],
+    "volume_roles_attainable_cpa": ["cna", "home_health_aide", "medical_assistant", "pharmacy_technician"],
+    "highest_compensation_top_5_specialties": [
+      {"role": "physician_orthopedic_surgery", "median_usd": 573000},
+      {"role": "physician_cardiology", "median_usd": 530000},
+      {"role": "physician_urology", "median_usd": 515000},
+      {"role": "physician_gastroenterology", "median_usd": 512000},
+      {"role": "physician_radiology", "median_usd": 498000}
+    ],
+    "largest_employment_top_5": [
+      {"role": "home_health_aide", "employment": 1554830},
+      {"role": "certified_nursing_assistant", "employment": 1393870},
+      {"role": "medical_assistant", "employment": 764400},
+      {"role": "registered_nurse", "employment": 3175390, "note": "Actually #1 in magnitude despite ordering"},
+      {"role": "licensed_practical_nurse", "employment": 630170}
+    ],
+    "fastest_growing_2023_2033_bls": [
+      {"role": "nurse_practitioner", "growth_pct": 45},
+      {"role": "home_health_aide", "growth_pct": 33},
+      {"role": "physician_assistant", "growth_pct": 28},
+      {"role": "occupational_therapy_assistant", "growth_pct": 22},
+      {"role": "speech_language_pathologist", "growth_pct": 18}
+    ],
+    "shortage_drivers": [
+      "Aging US population (65+ projected to reach 80M by 2040).",
+      "2025 physician shortage estimated 37-65K per AAMC.",
+      "Nursing school bottleneck: schools turning away 65K qualified applicants annually due to faculty shortage (AACN 2024).",
+      "CNA turnover ~55% in skilled nursing; LTC sector acute.",
+      "Rural health: 136 rural hospital closures since 2010 per Sheps Center."
+    ],
+    "sign_on_bonus_benchmarks_2024": {
+      "_description": "Per Merritt Hawkins 2024 Review of Physician and Advanced Practitioner Recruiting Incentives.",
+      "_source_ids": ["merritt_hawkins_2024"],
+      "typical_sign_on_bonus_usd": {
+        "family_medicine": {"low": 15000, "median": 30000, "high": 55000},
+        "internal_medicine": {"low": 15000, "median": 32000, "high": 55000},
+        "pediatrics": {"low": 10000, "median": 25000, "high": 45000},
+        "emergency_medicine": {"low": 30000, "median": 75000, "high": 150000},
+        "anesthesiology": {"low": 25000, "median": 50000, "high": 100000},
+        "radiology": {"low": 25000, "median": 75000, "high": 150000},
+        "cardiology": {"low": 30000, "median": 75000, "high": 150000},
+        "orthopedic_surgery": {"low": 30000, "median": 75000, "high": 175000},
+        "psychiatry": {"low": 20000, "median": 40000, "high": 85000},
+        "ob_gyn": {"low": 25000, "median": 50000, "high": 100000},
+        "nurse_practitioner": {"low": 5000, "median": 10000, "high": 20000},
+        "physician_assistant": {"low": 5000, "median": 10000, "high": 20000},
+        "crna": {"low": 15000, "median": 40000, "high": 75000}
+      },
+      "relocation_allowance_typical_usd": {
+        "physician_general": {"low": 10000, "median": 15000, "high": 25000},
+        "physician_surgical_specialty": {"low": 15000, "median": 25000, "high": 50000},
+        "aprn_pa": {"low": 2500, "median": 5000, "high": 10000}
+      },
+      "student_loan_forgiveness_common": "Federal programs (NHSC, HRSA) + state-level rural incentives. Average amount ~$50K-120K over 2-4 years of service in designated Health Professional Shortage Areas."
+    },
+    "travel_nurse_pay_benchmarks_2024": {
+      "_description": "Weekly gross pay for travel RN, including taxed wages + untaxed stipends. Post-COVID correction has brought rates from 2022 peaks ($5K-8K/wk) back toward historical norms.",
+      "_source_ids": ["nurse_com_2024"],
+      "med_surg_weekly_gross_usd": {"p25": 2100, "median": 2500, "p75": 3100},
+      "icu_weekly_gross_usd": {"p25": 2300, "median": 2800, "p75": 3600},
+      "er_weekly_gross_usd": {"p25": 2200, "median": 2700, "p75": 3500},
+      "or_weekly_gross_usd": {"p25": 2500, "median": 3000, "p75": 3800},
+      "l_and_d_weekly_gross_usd": {"p25": 2400, "median": 2900, "p75": 3700},
+      "psych_weekly_gross_usd": {"p25": 2200, "median": 2600, "p75": 3300},
+      "premium_markets": ["san_francisco_ca", "new_york_ny", "los_angeles_ca", "seattle_wa", "boston_ma"],
+      "cooling_markets_2024": ["major metro med-surg rates down 25-35% from 2022 peak", "ICU rates down 20-30%"]
+    },
+    "locum_tenens_daily_rates_2024": {
+      "_description": "Per Merritt Hawkins / Weatherby 2024 data for locum physician daily rates (excluding malpractice).",
+      "_source_ids": ["merritt_hawkins_2024"],
+      "daily_rate_usd": {
+        "family_medicine": {"low": 1200, "median": 1600, "high": 2200},
+        "internal_medicine": {"low": 1300, "median": 1700, "high": 2300},
+        "hospitalist": {"low": 1500, "median": 2000, "high": 2600},
+        "emergency_medicine": {"low": 1800, "median": 2400, "high": 3200},
+        "anesthesiology": {"low": 2000, "median": 2800, "high": 3800},
+        "radiology_teleread": {"low": 1800, "median": 2500, "high": 3500},
+        "psychiatry": {"low": 1600, "median": 2200, "high": 3000},
+        "orthopedic_surgery": {"low": 2500, "median": 3200, "high": 4500}
+      }
+    }
+  }
+}

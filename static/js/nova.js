@@ -1189,6 +1189,295 @@
     });
   }
 
+  // ========================================================================
+  // "Why this answer?" TRANSPARENCY PANEL
+  //
+  // Renders a collapsed-by-default footer under each Nova response showing:
+  //   - Total wall-clock latency (metadata.timing_ms)
+  //   - LLM chain (provider + model) or "Deterministic fast path"
+  //   - Tools fired (metadata.tools_used)
+  //   - Confidence score
+  //   - Sources list
+  //   - KB files queried (derived server-side from sources)
+  //
+  // Accessible: <button aria-expanded> + <div role="region">.
+  // Styles injected once via _ensureTransparencyStyles() so the main nova.css
+  // file does not need to grow.
+  // ========================================================================
+  var _transparencyPanelIdCounter = 0;
+
+  function _ensureTransparencyStyles() {
+    if (document.getElementById("nova-transparency-styles")) return;
+    var style = document.createElement("style");
+    style.id = "nova-transparency-styles";
+    style.textContent = [
+      ".nova-why-wrap { margin-top: 10px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }",
+      ".nova-why-toggle {",
+      "  background: none; border: 1px solid var(--border-color, rgba(255,255,255,0.08));",
+      "  border-radius: 999px; color: var(--text-secondary, #a1a1aa);",
+      "  font-size: 11px; font-weight: 500; padding: 4px 11px; cursor: pointer;",
+      "  transition: color 140ms ease, border-color 140ms ease, background 140ms ease;",
+      "  letter-spacing: 0.2px; display: inline-flex; align-items: center; gap: 6px;",
+      "}",
+      ".nova-why-toggle:hover {",
+      "  color: #6BB3CD; border-color: rgba(107,179,205,0.35);",
+      "  background: rgba(107,179,205,0.06);",
+      "}",
+      ".nova-why-toggle:focus-visible { outline: 2px solid rgba(107,179,205,0.6); outline-offset: 2px; }",
+      '.nova-why-toggle::after { content: "\\25B8"; font-size: 9px; opacity: 0.7; transition: transform 160ms ease; }',
+      '.nova-why-toggle[aria-expanded="true"]::after { transform: rotate(90deg); opacity: 1; }',
+      ".nova-why-panel {",
+      "  margin-top: 8px; padding: 12px 14px;",
+      "  background: linear-gradient(180deg, rgba(32,32,88,0.30) 0%, rgba(15,15,26,0.55) 100%);",
+      "  border: 1px solid rgba(90,84,189,0.22); border-left: 3px solid #5A54BD;",
+      "  border-radius: 10px; font-size: 12px; line-height: 1.55;",
+      "  color: var(--text-secondary, #c0c0cc);",
+      "}",
+      ".nova-why-row { display: flex; gap: 10px; padding: 3px 0; align-items: flex-start; }",
+      ".nova-why-row + .nova-why-row { border-top: 1px solid rgba(255,255,255,0.04); padding-top: 6px; margin-top: 4px; }",
+      ".nova-why-label {",
+      "  flex: 0 0 96px; color: #6BB3CD; font-weight: 600;",
+      "  font-size: 11px; letter-spacing: 0.3px; text-transform: uppercase;",
+      "}",
+      ".nova-why-value { flex: 1 1 auto; min-width: 0; word-break: break-word; }",
+      ".nova-why-chip {",
+      "  display: inline-block; padding: 1px 7px; margin: 1px 4px 1px 0;",
+      "  background: rgba(107,179,205,0.10); color: #a9d3e0;",
+      "  border: 1px solid rgba(107,179,205,0.18); border-radius: 999px;",
+      "  font-size: 10.5px; font-weight: 500; font-family: 'SF Mono', Menlo, ui-monospace, monospace;",
+      "}",
+      ".nova-why-chip-mono { font-family: 'SF Mono', Menlo, ui-monospace, monospace; }",
+      ".nova-why-fastpath {",
+      "  display: inline-block; padding: 1px 8px;",
+      "  background: rgba(52,211,153,0.12); color: #34D399;",
+      "  border: 1px solid rgba(52,211,153,0.25); border-radius: 999px;",
+      "  font-size: 10.5px; font-weight: 600; letter-spacing: 0.3px;",
+      "}",
+      ".nova-why-empty { opacity: 0.55; font-style: italic; }",
+      "@media (prefers-reduced-motion: reduce) {",
+      "  .nova-why-toggle, .nova-why-toggle::after { transition: none; }",
+      "}",
+      '[data-theme="light"] .nova-why-panel {',
+      "  background: linear-gradient(180deg, rgba(32,32,88,0.04) 0%, rgba(107,179,205,0.05) 100%);",
+      "  border-color: rgba(90,84,189,0.25); color: #334;",
+      "}",
+      '[data-theme="light"] .nova-why-label { color: #5A54BD; }',
+      '[data-theme="light"] .nova-why-chip { background: rgba(90,84,189,0.06); color: #202058; border-color: rgba(90,84,189,0.15); }',
+      "",
+    ].join("\n");
+    document.head.appendChild(style);
+  }
+
+  function _novaFormatLatency(ms) {
+    if (ms == null || isNaN(ms)) return null;
+    var n = Number(ms);
+    if (n < 1000) return Math.round(n) + "ms";
+    return (n / 1000).toFixed(n < 10000 ? 2 : 1) + "s";
+  }
+
+  function _novaFormatToolsUsed(tools) {
+    if (!tools || !tools.length) return null;
+    // Aggregate duplicates with counts
+    var counts = {};
+    tools.forEach(function (t) {
+      var k = String(t || "").trim();
+      if (!k) return;
+      counts[k] = (counts[k] || 0) + 1;
+    });
+    var keys = Object.keys(counts);
+    if (!keys.length) return null;
+    return keys.map(function (k) {
+      return counts[k] > 1 ? k + " \u00d7" + counts[k] : k;
+    });
+  }
+
+  function buildWhyThisAnswerPanel(msg) {
+    _ensureTransparencyStyles();
+
+    var wrap = document.createElement("div");
+    wrap.className = "nova-why-wrap";
+
+    // Unique id for aria-controls
+    _transparencyPanelIdCounter++;
+    var panelId = "nova-why-panel-" + _transparencyPanelIdCounter;
+
+    var toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = "nova-why-toggle";
+    toggle.setAttribute("aria-expanded", "false");
+    toggle.setAttribute("aria-controls", panelId);
+    toggle.textContent = "Why this answer?";
+
+    var panel = document.createElement("div");
+    panel.className = "nova-why-panel";
+    panel.id = panelId;
+    panel.setAttribute("role", "region");
+    panel.setAttribute("aria-label", "Why this answer");
+    panel.setAttribute("hidden", "hidden");
+
+    // --- Latency row ---
+    var latencyStr = _novaFormatLatency(msg.timing_ms);
+    var rowLatency = document.createElement("div");
+    rowLatency.className = "nova-why-row";
+    rowLatency.innerHTML =
+      '<div class="nova-why-label">Latency</div>' +
+      '<div class="nova-why-value">' +
+      (latencyStr
+        ? escapeHtml(latencyStr) + " total"
+        : '<span class="nova-why-empty">not recorded</span>') +
+      "</div>";
+    panel.appendChild(rowLatency);
+
+    // --- LLM row ---
+    var rowLlm = document.createElement("div");
+    rowLlm.className = "nova-why-row";
+    var llmLabel = document.createElement("div");
+    llmLabel.className = "nova-why-label";
+    llmLabel.textContent = "LLM";
+    var llmVal = document.createElement("div");
+    llmVal.className = "nova-why-value";
+    if (msg.fast_path) {
+      var fpChip = document.createElement("span");
+      fpChip.className = "nova-why-fastpath";
+      fpChip.textContent = "Deterministic fast path";
+      llmVal.appendChild(fpChip);
+      var fpDetail = document.createElement("span");
+      fpDetail.className = "nova-why-chip nova-why-chip-mono";
+      fpDetail.style.marginLeft = "6px";
+      fpDetail.textContent = String(msg.fast_path);
+      llmVal.appendChild(fpDetail);
+    } else if (msg.llm_provider || msg.llm_model) {
+      var llmName =
+        (msg.llm_provider || "") + (msg.llm_model ? " / " + msg.llm_model : "");
+      var llmChip = document.createElement("span");
+      llmChip.className = "nova-why-chip nova-why-chip-mono";
+      llmChip.textContent = llmName;
+      llmVal.appendChild(llmChip);
+    } else {
+      var llmEmpty = document.createElement("span");
+      llmEmpty.className = "nova-why-empty";
+      llmEmpty.textContent = "provider not reported";
+      llmVal.appendChild(llmEmpty);
+    }
+    rowLlm.appendChild(llmLabel);
+    rowLlm.appendChild(llmVal);
+    panel.appendChild(rowLlm);
+
+    // --- Tools row ---
+    var toolsList = _novaFormatToolsUsed(msg.tools_used);
+    var rowTools = document.createElement("div");
+    rowTools.className = "nova-why-row";
+    var toolsLabel = document.createElement("div");
+    toolsLabel.className = "nova-why-label";
+    toolsLabel.textContent = "Tools";
+    var toolsVal = document.createElement("div");
+    toolsVal.className = "nova-why-value";
+    if (toolsList && toolsList.length) {
+      toolsVal.innerHTML =
+        "<div>" +
+        escapeHtml(String(toolsList.length)) +
+        " tool" +
+        (toolsList.length === 1 ? "" : "s") +
+        ' fired</div><div style="margin-top:4px;">' +
+        toolsList
+          .map(function (t) {
+            return '<span class="nova-why-chip">' + escapeHtml(t) + "</span>";
+          })
+          .join("") +
+        "</div>";
+    } else {
+      toolsVal.innerHTML =
+        '<span class="nova-why-empty">no tools called</span>';
+    }
+    rowTools.appendChild(toolsLabel);
+    rowTools.appendChild(toolsVal);
+    panel.appendChild(rowTools);
+
+    // --- Confidence row ---
+    var conf = msg.confidence;
+    if (typeof conf === "number" && conf > 0) {
+      var rowConf = document.createElement("div");
+      rowConf.className = "nova-why-row";
+      var pct = Math.round(conf * 100);
+      rowConf.innerHTML =
+        '<div class="nova-why-label">Confidence</div>' +
+        '<div class="nova-why-value">' +
+        escapeHtml(pct + "%") +
+        (msg.quality_score
+          ? ' <span class="nova-why-chip">quality ' +
+            escapeHtml(String(msg.quality_score)) +
+            "/100</span>"
+          : "") +
+        "</div>";
+      panel.appendChild(rowConf);
+    }
+
+    // --- Sources row ---
+    var sources = msg.sources || [];
+    if (sources.length) {
+      var rowSrc = document.createElement("div");
+      rowSrc.className = "nova-why-row";
+      rowSrc.innerHTML =
+        '<div class="nova-why-label">Sources</div>' +
+        '<div class="nova-why-value">' +
+        sources
+          .map(function (s) {
+            return '<span class="nova-why-chip">' + escapeHtml(s) + "</span>";
+          })
+          .join("") +
+        "</div>";
+      panel.appendChild(rowSrc);
+    }
+
+    // --- KB files row ---
+    var kbFiles = msg.kb_files_queried || [];
+    if (kbFiles.length) {
+      var rowKb = document.createElement("div");
+      rowKb.className = "nova-why-row";
+      rowKb.innerHTML =
+        '<div class="nova-why-label">KB files</div>' +
+        '<div class="nova-why-value">' +
+        kbFiles
+          .map(function (f) {
+            return (
+              '<span class="nova-why-chip nova-why-chip-mono">' +
+              escapeHtml(f) +
+              "</span>"
+            );
+          })
+          .join("") +
+        "</div>";
+      panel.appendChild(rowKb);
+    }
+
+    // Toggle behaviour
+    toggle.addEventListener("click", function () {
+      var expanded = toggle.getAttribute("aria-expanded") === "true";
+      toggle.setAttribute("aria-expanded", String(!expanded));
+      if (expanded) {
+        panel.setAttribute("hidden", "hidden");
+      } else {
+        panel.removeAttribute("hidden");
+      }
+    });
+
+    wrap.appendChild(toggle);
+    wrap.appendChild(panel);
+    return wrap;
+  }
+
+  function _hasAnyTransparencyData(msg) {
+    if (!msg) return false;
+    if (msg.timing_ms != null) return true;
+    if (msg.fast_path) return true;
+    if (msg.llm_provider || msg.llm_model) return true;
+    if (msg.tools_used && msg.tools_used.length) return true;
+    if (msg.kb_files_queried && msg.kb_files_queried.length) return true;
+    if (msg.sources && msg.sources.length) return true;
+    if (typeof msg.confidence === "number" && msg.confidence > 0) return true;
+    return false;
+  }
+
   function appendMessageDOM(msg, animate) {
     // Remove welcome screen if present
     var ws = document.getElementById("welcome-screen");
@@ -1370,6 +1659,15 @@
         });
 
       body.appendChild(actions);
+
+      // "Why this answer?" transparency panel (collapsed by default)
+      if (_hasAnyTransparencyData(msg)) {
+        try {
+          body.appendChild(buildWhyThisAnswerPanel(msg));
+        } catch (_whyErr) {
+          /* non-blocking: transparency panel is a progressive enhancement */
+        }
+      }
 
       // TTS (text-to-speech) button row
       var ttsRow = document.createElement("div");
@@ -2082,6 +2380,13 @@
         suggested_followups: metadata.suggested_followups || [],
         timestamp: Date.now(),
         token_usage: metadata.token_usage || null,
+        // Transparency panel metadata (kept on msg so re-renders keep panel)
+        llm_provider: metadata.llm_provider || "",
+        llm_model: metadata.llm_model || "",
+        fast_path: metadata.fast_path || "",
+        quality_score: metadata.quality_score || 0,
+        kb_files_queried: metadata.kb_files_queried || [],
+        timing_ms: metadata.timing_ms != null ? metadata.timing_ms : null,
       };
       conv.messages.push(assistantMsg);
       conv.updatedAt = Date.now();

@@ -1,0 +1,5817 @@
+{
+  "metadata": {
+    "title": "Partner Specialty Crosswalk (US Healthcare)",
+    "description": "Inverted index: specialty/role slug -> list of recommended or in-repo healthcare supply partners covering that specialty. Built from 3 source xlsx files by tokenizing the 'Specialties / Roles Covered' column with alias normalization (e.g. RNs/Registered Nurses -> 'rn'). Used by Nova fast-path lookups to answer 'what partners should I use for cardiologists?' style questions.",
+    "version": "1.0.0",
+    "last_updated": "2026-04-24",
+    "country": "US",
+    "industry": "healthcare",
+    "source_files": [
+      "Healthcare_Supply_Map_US.xlsx (176 rows)",
+      "Healthcare_Supply_Partners_US.xlsx (262 rows)",
+      "Healthcare_Supply_Recommendations.xlsx (152 rows)"
+    ],
+    "total_specialties": 319,
+    "total_unique_partners": 267,
+    "schema": {
+      "top_level_keys": "lowercase specialty slug (e.g. 'rn', 'md_cardiology', 'pt')",
+      "value_per_key": "list of {name, url, status, priority, category, why_it_matters, specialties}",
+      "status_values": [
+        "In Repo",
+        "Recommended"
+      ],
+      "priority_values": [
+        "High",
+        "Medium",
+        "Standard",
+        "-"
+      ]
+    }
+  },
+  "aba": [
+    {
+      "name": "BACB / ABA Jobs",
+      "url": "bacb.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Mental / Behavioral Health",
+      "why_it_matters": "Critical for ABA.",
+      "specialties": "BCBAs, RBTs, behavior analysts"
+    }
+  ],
+  "academic_nursing": [
+    {
+      "name": "AACN Nursing (Academic)",
+      "url": "careers.aacnnursing.org",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Nursing Academic",
+      "why_it_matters": "American Association of Colleges of Nursing.",
+      "specialties": "Nursing faculty, educators; Nursing faculty, nursing educators, academic nursing"
+    }
+  ],
+  "addiction": [
+    {
+      "name": "NAADAC Career Center",
+      "url": "careers.naadac.org",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Mental / Behavioral Health",
+      "why_it_matters": "Association for Addiction Professionals.",
+      "specialties": "Addiction/SUD counselors"
+    }
+  ],
+  "admin": [
+    {
+      "name": "AbsolutelyHealthCare",
+      "url": "absolutelyhealthcare.com",
+      "status": "In Repo",
+      "priority": "-",
+      "category": "Healthcare Generalist",
+      "why_it_matters": "Long-running healthcare-only board.",
+      "specialties": "Nursing, allied health, physician, admin"
+    },
+    {
+      "name": "ACHE CareerEDGE",
+      "url": "ache.org/career-resource-center",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Healthcare Admin / Leadership",
+      "why_it_matters": "American College of Healthcare Executives.",
+      "specialties": "Healthcare execs, admins, CEOs, COOs, CNOs; Healthcare execs, administrators, CEOs, COOs"
+    },
+    {
+      "name": "CareerVitals",
+      "url": "careervitals.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Healthcare Generalist",
+      "why_it_matters": "Distributes to 80+ niche healthcare boards.",
+      "specialties": "All healthcare; All healthcare roles - nurses, physicians, therapists, admin"
+    },
+    {
+      "name": "MGMA Career Center",
+      "url": "mgma.com/career-center",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Practice Management",
+      "why_it_matters": "Medical Group Mgmt Association.",
+      "specialties": "Practice managers, admins"
+    },
+    {
+      "name": "Modern Healthcare Career Center",
+      "url": "careers.modernhealthcare.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Healthcare Media",
+      "why_it_matters": "Leading trade publication.",
+      "specialties": "Execs, admin, leadership; Healthcare execs, admin, leadership"
+    },
+    {
+      "name": "HospitalRecruiting.com",
+      "url": "hospitalrecruiting.com",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Physician Generalist",
+      "why_it_matters": "Different from 'Hospital Careers'. Worth confirming whether it's already covered.",
+      "specialties": "Physicians, APPs, nurses, allied; Physicians, APPs, nurses, allied health, admin"
+    },
+    {
+      "name": "Indeed",
+      "url": "indeed.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "General Job Board",
+      "why_it_matters": "~250M+ monthly visitors; largest US reach; CPC model; free + sponsored listings",
+      "specialties": "All healthcare verticals - nurses, physicians, allied health, caregivers, admin"
+    },
+    {
+      "name": "Ladders",
+      "url": "theladders.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "General Job Board",
+      "why_it_matters": "Jobs paying $100K+; healthcare leadership roles",
+      "specialties": "Healthcare executives, CMOs, CNOs, administrators"
+    },
+    {
+      "name": "LinkedIn Jobs",
+      "url": "linkedin.com/jobs",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "General Job Board",
+      "why_it_matters": "~930M members; strong for white-collar healthcare and leadership",
+      "specialties": "Physicians, executives, admin, advanced practice, specialty RNs"
+    },
+    {
+      "name": "Monster Healthcare",
+      "url": "monster.com/jobs/search?q=healthcare",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Healthcare Generalist Board",
+      "why_it_matters": "Healthcare sub-vertical of Monster",
+      "specialties": "Medical assistants, admins, therapists, techs"
+    }
+  ],
+  "affirming_therapists": [
+    {
+      "name": "Inclusive Therapists Jobs",
+      "url": "inclusivetherapists.com/jobs",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Mental / Behavioral Health",
+      "why_it_matters": "DEI-oriented mental health.",
+      "specialties": "BIPOC/LGBTQ+ therapists; BIPOC/LGBTQ+ affirming therapists"
+    }
+  ],
+  "allied": [
+    {
+      "name": "CompHealth",
+      "url": "comphealth.com",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Locum Tenens",
+      "why_it_matters": "Full-service; part of CHG Healthcare.",
+      "specialties": "Physicians, APPs, allied - locum + perm; Physicians, APPs, allied health; Physicians, APPs, allied health - locum + perm"
+    }
+  ],
+  "allied_health": [
+    {
+      "name": "AbsolutelyHealthCare",
+      "url": "absolutelyhealthcare.com",
+      "status": "In Repo",
+      "priority": "-",
+      "category": "Healthcare Generalist",
+      "why_it_matters": "Long-running healthcare-only board.",
+      "specialties": "Nursing, allied health, physician, admin"
+    },
+    {
+      "name": "Health eCareers",
+      "url": "healthecareers.com",
+      "status": "In Repo",
+      "priority": "-",
+      "category": "Healthcare Generalist",
+      "why_it_matters": "Multi-specialty. (You listed this 3x in your repo - de-duplicate.)",
+      "specialties": "Physicians, nurses, allied health, executives, APPs"
+    },
+    {
+      "name": "Health Jobs / HealthJobs",
+      "url": "healthjobs.com",
+      "status": "In Repo",
+      "priority": "-",
+      "category": "Healthcare Generalist",
+      "why_it_matters": "Broad healthcare coverage. (You listed this 2x in your repo - de-duplicate.)",
+      "specialties": "Nurses, allied health, physicians"
+    },
+    {
+      "name": "Vivian Health",
+      "url": "vivian.com",
+      "status": "In Repo",
+      "priority": "-",
+      "category": "Travel Healthcare",
+      "why_it_matters": "1.9M+ HCPs; largest travel marketplace.",
+      "specialties": "Travel nurses, allied, per diem, staff; Travel nurses, allied health, staff, per diem, local contract"
+    },
+    {
+      "name": "Aya Healthcare",
+      "url": "ayahealthcare.com",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Travel Healthcare",
+      "why_it_matters": "Largest US travel nursing agency.",
+      "specialties": "Travel RNs, allied, locums; Travel RNs, allied health, locums"
+    },
+    {
+      "name": "CompHealth",
+      "url": "comphealth.com",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Locum Tenens",
+      "why_it_matters": "Full-service; part of CHG Healthcare.",
+      "specialties": "Physicians, APPs, allied - locum + perm; Physicians, APPs, allied health; Physicians, APPs, allied health - locum + perm"
+    },
+    {
+      "name": "Trusted Health",
+      "url": "trustedhealth.com",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Travel Healthcare",
+      "why_it_matters": "Tech-forward travel platform.",
+      "specialties": "Travel nurses, allied; Travel nurses, allied health"
+    },
+    {
+      "name": "American Mobile (AMN)",
+      "url": "americanmobile.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Travel Healthcare",
+      "why_it_matters": "AMN Healthcare division.",
+      "specialties": "Travel nurses, APPs, allied"
+    },
+    {
+      "name": "Cross Country Healthcare",
+      "url": "crosscountryhealthcare.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Travel Healthcare",
+      "why_it_matters": "Major travel staffing firm.",
+      "specialties": "Travel RNs, allied; Travel RNs, allied health"
+    },
+    {
+      "name": "HealthJobsNationwide",
+      "url": "healthjobsnationwide.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Healthcare Generalist",
+      "why_it_matters": "~90K monthly visitors.",
+      "specialties": "Physicians, nurses, allied, execs; Physicians, nurses, allied health, executives; Physicians, nurses, allied, executives"
+    },
+    {
+      "name": "Medical Solutions",
+      "url": "medicalsolutions.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Travel Healthcare",
+      "why_it_matters": "Long-running travel staffing.",
+      "specialties": "Travel nursing + allied; Travel nursing and allied"
+    },
+    {
+      "name": "MedJobsCafe",
+      "url": "medjobscafe.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Healthcare Generalist",
+      "why_it_matters": "Part of JobsCafe network.",
+      "specialties": "Nurses, physicians, allied; Nurses, physicians, allied health"
+    },
+    {
+      "name": "VA Careers",
+      "url": "vacareers.va.gov",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Government Healthcare",
+      "why_it_matters": "Largest integrated US health system.",
+      "specialties": "All VA healthcare; All VA healthcare roles: physicians, nurses, allied, mental health; All VA healthcare: physicians, nurses, allied, mental health"
+    },
+    {
+      "name": "BluePipes",
+      "url": "bluepipes.com",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Travel Healthcare",
+      "why_it_matters": "Community + jobs.",
+      "specialties": "Travel nurses, allied"
+    },
+    {
+      "name": "HospitalRecruiting.com",
+      "url": "hospitalrecruiting.com",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Physician Generalist",
+      "why_it_matters": "Different from 'Hospital Careers'. Worth confirming whether it's already covered.",
+      "specialties": "Physicians, APPs, nurses, allied; Physicians, APPs, nurses, allied health, admin"
+    },
+    {
+      "name": "Indeed",
+      "url": "indeed.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "General Job Board",
+      "why_it_matters": "~250M+ monthly visitors; largest US reach; CPC model; free + sponsored listings",
+      "specialties": "All healthcare verticals - nurses, physicians, allied health, caregivers, admin"
+    },
+    {
+      "name": "PRN Healthcare",
+      "url": "prnhealthcare.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Travel / Gig / PRN",
+      "why_it_matters": "PRN-focused staffing agency",
+      "specialties": "RNs, allied health"
+    },
+    {
+      "name": "Workingnurse.com / HealthCareersNetwork",
+      "url": "workingnurse.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Healthcare Generalist Board",
+      "why_it_matters": "Regional healthcare publisher",
+      "specialties": "Nurses + allied health (Southern California focus)"
+    }
+  ],
+  "ambulatory": [
+    {
+      "name": "AAACN Career Center",
+      "url": "aaacn.org",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Nursing Specialty Society",
+      "why_it_matters": "American Academy of Ambulatory Care Nursing.",
+      "specialties": "Ambulatory/outpatient nurses"
+    }
+  ],
+  "analytics": [
+    {
+      "name": "AcademyHealth Career Center",
+      "url": "academyhealth.org/careers",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Allied Health Job Board",
+      "why_it_matters": "Health policy and research",
+      "specialties": "Health policy, research, analytics"
+    }
+  ],
+  "app": [
+    {
+      "name": "Health eCareers",
+      "url": "healthecareers.com",
+      "status": "In Repo",
+      "priority": "-",
+      "category": "Healthcare Generalist",
+      "why_it_matters": "Multi-specialty. (You listed this 3x in your repo - de-duplicate.)",
+      "specialties": "Physicians, nurses, allied health, executives, APPs"
+    },
+    {
+      "name": "CompHealth",
+      "url": "comphealth.com",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Locum Tenens",
+      "why_it_matters": "Full-service; part of CHG Healthcare.",
+      "specialties": "Physicians, APPs, allied - locum + perm; Physicians, APPs, allied health; Physicians, APPs, allied health - locum + perm"
+    },
+    {
+      "name": "DocCafe",
+      "url": "doccafe.com",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Physician Generalist",
+      "why_it_matters": "Established 2001. Multi-specialty perm + locum.",
+      "specialties": "Physicians, dentists, APPs"
+    },
+    {
+      "name": "LocumTenens.com",
+      "url": "locumtenens.com",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Locum Tenens",
+      "why_it_matters": "Largest locums platform. Critical for clients with locum needs.",
+      "specialties": "Locum physicians, APPs, CRNAs"
+    },
+    {
+      "name": "PracticeMatch",
+      "url": "practicematch.com",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Physician Generalist",
+      "why_it_matters": "Complements PracticeLink. Candidate matching + CRM. Enterprise-preferred.",
+      "specialties": "Physicians, APPs"
+    },
+    {
+      "name": "American Mobile (AMN)",
+      "url": "americanmobile.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Travel Healthcare",
+      "why_it_matters": "AMN Healthcare division.",
+      "specialties": "Travel nurses, APPs, allied"
+    },
+    {
+      "name": "Jackson Physician Search",
+      "url": "jacksonphysiciansearch.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Locum Tenens",
+      "why_it_matters": "Retained search firm with online listings.",
+      "specialties": "Physicians, APPs"
+    },
+    {
+      "name": "HospitalRecruiting.com",
+      "url": "hospitalrecruiting.com",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Physician Generalist",
+      "why_it_matters": "Different from 'Hospital Careers'. Worth confirming whether it's already covered.",
+      "specialties": "Physicians, APPs, nurses, allied; Physicians, APPs, nurses, allied health, admin"
+    }
+  ],
+  "apps": [
+    {
+      "name": "Weatherby Healthcare",
+      "url": "weatherbyhealthcare.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Locum Tenens",
+      "why_it_matters": "CHG Healthcare division; complements CompHealth.",
+      "specialties": "Physicians, APPs - locum + perm"
+    }
+  ],
+  "apps_np": [
+    {
+      "name": "PracticeLink",
+      "url": "practicelink.com",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Physician Generalist",
+      "why_it_matters": "#1 US physician board. 35K+ active jobs, 8K+ health systems. Must-have.",
+      "specialties": "Physicians, NPs, PAs - all specialties; Physicians, APPs (NP/PA) across all specialties"
+    }
+  ],
+  "aprn": [
+    {
+      "name": "American Nurses Association (ANA)",
+      "url": "nursingworld.org/careercenter",
+      "status": "In Repo",
+      "priority": "-",
+      "category": "Nursing",
+      "why_it_matters": "Official ANA career center.",
+      "specialties": "RN, APRN, specialty nurses"
+    },
+    {
+      "name": "NBNA Career Center",
+      "url": "nbna.org/careers",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Diversity Healthcare",
+      "why_it_matters": "National Black Nurses Association.",
+      "specialties": "Black RNs, APRNs"
+    },
+    {
+      "name": "NursingCenter (Lippincott)",
+      "url": "nursingcenter.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Nursing Board",
+      "why_it_matters": "Lippincott/Wolters Kluwer network.",
+      "specialties": "RNs, APRNs, specialty; RNs, APRNs, specialty nurses"
+    },
+    {
+      "name": "LinkedIn Jobs",
+      "url": "linkedin.com/jobs",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "General Job Board",
+      "why_it_matters": "~930M members; strong for white-collar healthcare and leadership",
+      "specialties": "Physicians, executives, admin, advanced practice, specialty RNs"
+    }
+  ],
+  "asian_american": [
+    {
+      "name": "AAPINA",
+      "url": "aapina.org",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Diversity Healthcare",
+      "why_it_matters": "AAPI Nurses Association.",
+      "specialties": "Asian American/Pacific Islander nurses"
+    }
+  ],
+  "assistants": [
+    {
+      "name": "ADA CareerCenter",
+      "url": "careercenter.ada.org",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Dental",
+      "why_it_matters": "Official ADA career center.",
+      "specialties": "Dentists, hygienists, assistants, specialists"
+    },
+    {
+      "name": "DentalPost",
+      "url": "dentalpost.net",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Dental",
+      "why_it_matters": "Largest US dental board. 850K pros.",
+      "specialties": "Dentists, hygienists, assistants, office; Dentists, hygienists, assistants, office staff"
+    },
+    {
+      "name": "iHireVeterinary",
+      "url": "ihireveterinary.com",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Veterinary",
+      "why_it_matters": "iHire vet vertical.",
+      "specialties": "Vets, vet techs; Vets, vet techs, assistants"
+    }
+  ],
+  "assistants_gig": [
+    {
+      "name": "Cloud Dentistry",
+      "url": "clouddentistry.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Dental",
+      "why_it_matters": "On-demand dental staffing.",
+      "specialties": "Dental (gig/temp); Dentists, hygienists, assistants (gig/temp)"
+    }
+  ],
+  "assistants_temp": [
+    {
+      "name": "TempMee",
+      "url": "tempmee.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Dental",
+      "why_it_matters": "On-demand dental temp.",
+      "specialties": "Dental hygienists, assistants - temp; Dental hygienists, assistants - temp/gig"
+    }
+  ],
+  "assisted_living": [
+    {
+      "name": "AHCA/NCAL Careers",
+      "url": "careers.ahcancal.org",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Senior Living / LTC",
+      "why_it_matters": "American Health Care Assoc / Assisted Living.",
+      "specialties": "SNF + assisted living; SNF and assisted living staff"
+    },
+    {
+      "name": "LeadingAge Career Center",
+      "url": "leadingage.org/careers",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Senior Living / LTC",
+      "why_it_matters": "Nonprofit aging services association.",
+      "specialties": "SNF, assisted living, CCRC; SNF, assisted living, CCRC staff"
+    }
+  ],
+  "assisted_living_staff": [
+    {
+      "name": "AHCA/NCAL Careers",
+      "url": "careers.ahcancal.org",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Senior Living / LTC",
+      "why_it_matters": "American Health Care Assoc / Assisted Living.",
+      "specialties": "SNF + assisted living; SNF and assisted living staff"
+    }
+  ],
+  "audiology": [
+    {
+      "name": "ASHA Career Portal",
+      "url": "careers.asha.org",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Allied Health (Therapy)",
+      "why_it_matters": "American Speech-Language-Hearing Association.",
+      "specialties": "SLPs, audiologists"
+    },
+    {
+      "name": "AAA Career Center",
+      "url": "audiology.org/careers",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Allied Health (Audiology)",
+      "why_it_matters": "American Academy of Audiology.",
+      "specialties": "Audiologists"
+    },
+    {
+      "name": "AudiologyOnline Careers",
+      "url": "audiologyonline.com/careers",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Allied Health Job Board",
+      "why_it_matters": "Audiology vertical",
+      "specialties": "Audiologists"
+    }
+  ],
+  "auditors": [
+    {
+      "name": "AAPC Career Connect",
+      "url": "aapc.com/careercenter",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Medical Coding / Billing",
+      "why_it_matters": "Am. Academy of Professional Coders.",
+      "specialties": "Coders, billers, auditors; Medical coders, billers, auditors"
+    }
+  ],
+  "behavior_analysts": [
+    {
+      "name": "BACB / ABA Jobs",
+      "url": "bacb.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Mental / Behavioral Health",
+      "why_it_matters": "Critical for ABA.",
+      "specialties": "BCBAs, RBTs, behavior analysts"
+    }
+  ],
+  "bh": [
+    {
+      "name": "IHS Jobs",
+      "url": "ihs.gov/jobs",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Government Healthcare",
+      "why_it_matters": "Federal Indian health service.",
+      "specialties": "Indian Health Service; IHS physicians, nurses, dental, BH; Indian Health Service physicians, nurses, dental, BH"
+    }
+  ],
+  "bh_techs": [
+    {
+      "name": "BehavioralHealthJobs.com",
+      "url": "behavioralhealthjobs.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Mental / Behavioral Health",
+      "why_it_matters": "Behavioral health + addiction.",
+      "specialties": "SUD counselors, BH techs; SUD counselors, BH techs, mental health professionals"
+    }
+  ],
+  "billers": [
+    {
+      "name": "AAPC Career Connect",
+      "url": "aapc.com/careercenter",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Medical Coding / Billing",
+      "why_it_matters": "Am. Academy of Professional Coders.",
+      "specialties": "Coders, billers, auditors; Medical coders, billers, auditors"
+    }
+  ],
+  "bipoc": [
+    {
+      "name": "Inclusive Therapists Jobs",
+      "url": "inclusivetherapists.com/jobs",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Mental / Behavioral Health",
+      "why_it_matters": "DEI-oriented mental health.",
+      "specialties": "BIPOC/LGBTQ+ therapists; BIPOC/LGBTQ+ affirming therapists"
+    }
+  ],
+  "black_physicians": [
+    {
+      "name": "National Medical Association (NMA)",
+      "url": "nmanet.org/career",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Diversity Healthcare",
+      "why_it_matters": "Largest Black physician organization.",
+      "specialties": "Black physicians"
+    }
+  ],
+  "black_rns": [
+    {
+      "name": "NBNA Career Center",
+      "url": "nbna.org/careers",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Diversity Healthcare",
+      "why_it_matters": "National Black Nurses Association.",
+      "specialties": "Black RNs, APRNs"
+    }
+  ],
+  "broader_diverse_talent": [
+    {
+      "name": "DiversityJobs.com (Healthcare)",
+      "url": "diversityjobs.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Diversity-Focused",
+      "why_it_matters": "Syndicates to niche sites",
+      "specialties": "All healthcare + broader diverse talent"
+    }
+  ],
+  "caas": [
+    {
+      "name": "AANA (Nurse Anesthetists)",
+      "url": "aana.com",
+      "status": "In Repo",
+      "priority": "-",
+      "category": "Physician Specialty",
+      "why_it_matters": "American Association of Nurse Anesthesiology.",
+      "specialties": "CRNAs, CAAs; Certified Registered Nurse Anesthetists"
+    }
+  ],
+  "candidates_with_disabilities_across_healthcare": [
+    {
+      "name": "abilityJOBS",
+      "url": "abilityjobs.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Diversity-Focused",
+      "why_it_matters": "Largest disability-focused board",
+      "specialties": "Candidates with disabilities across healthcare"
+    }
+  ],
+  "caregiver": [
+    {
+      "name": "Care.com",
+      "url": "care.com",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Home Care / Caregiver",
+      "why_it_matters": "Largest consumer care marketplace.",
+      "specialties": "Caregivers, home + senior care; Caregivers, home care, in-home senior care"
+    },
+    {
+      "name": "myCNAjobs",
+      "url": "mycnajobs.com",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Home Care / Caregiver",
+      "why_it_matters": "Primary CNA/caregiver-specific board.",
+      "specialties": "CNAs, HHAs, caregivers, PCAs; CNAs, HHAs, caregivers, companions, PCAs"
+    },
+    {
+      "name": "CareGuide / CareRecruit",
+      "url": "careguide.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Home Care / Caregiver",
+      "why_it_matters": "Multi-vertical care platform",
+      "specialties": "Caregivers, HHAs, senior care"
+    },
+    {
+      "name": "Honor Home Care Careers",
+      "url": "joinhonor.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Home Care / Caregiver",
+      "why_it_matters": "Honor caregiver network",
+      "specialties": "Caregivers, HHAs"
+    },
+    {
+      "name": "Indeed",
+      "url": "indeed.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "General Job Board",
+      "why_it_matters": "~250M+ monthly visitors; largest US reach; CPC model; free + sponsored listings",
+      "specialties": "All healthcare verticals - nurses, physicians, allied health, caregivers, admin"
+    }
+  ],
+  "case_management": [
+    {
+      "name": "FlexJobs",
+      "url": "flexjobs.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "General Job Board",
+      "why_it_matters": "Curated remote and flexible roles",
+      "specialties": "Remote nursing, telehealth, case management, utilization review, medical coding"
+    }
+  ],
+  "ccrc": [
+    {
+      "name": "LeadingAge Career Center",
+      "url": "leadingage.org/careers",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Senior Living / LTC",
+      "why_it_matters": "Nonprofit aging services association.",
+      "specialties": "SNF, assisted living, CCRC; SNF, assisted living, CCRC staff"
+    }
+  ],
+  "ccrc_staff": [
+    {
+      "name": "LeadingAge Career Center",
+      "url": "leadingage.org/careers",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Senior Living / LTC",
+      "why_it_matters": "Nonprofit aging services association.",
+      "specialties": "SNF, assisted living, CCRC; SNF, assisted living, CCRC staff"
+    }
+  ],
+  "cdc": [
+    {
+      "name": "USAJOBS (healthcare)",
+      "url": "usajobs.gov",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Government Healthcare",
+      "why_it_matters": "Official federal portal.",
+      "specialties": "Federal healthcare - VA, IHS, NIH, CDC, DoD; All federal healthcare roles incl. VA, IHS, CDC, NIH, DoD; All federal healthcare roles - VA, IHS, NIH, CDC, DoD"
+    }
+  ],
+  "cdi": [
+    {
+      "name": "AHIMA Career Center",
+      "url": "ahima.org/careers",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Healthcare Admin / HIM",
+      "why_it_matters": "American Health Info Mgmt Association.",
+      "specialties": "HIM, coders, CDI, compliance"
+    }
+  ],
+  "ceos": [
+    {
+      "name": "ACHE CareerEDGE",
+      "url": "ache.org/career-resource-center",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Healthcare Admin / Leadership",
+      "why_it_matters": "American College of Healthcare Executives.",
+      "specialties": "Healthcare execs, admins, CEOs, COOs, CNOs; Healthcare execs, administrators, CEOs, COOs"
+    }
+  ],
+  "certified_athletic_trainers": [
+    {
+      "name": "NATA Career Center",
+      "url": "nata.org/career-center",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Allied Health (AT)",
+      "why_it_matters": "National Athletic Trainers' Association.",
+      "specialties": "Certified Athletic Trainers"
+    }
+  ],
+  "certified_medical_assistants": [
+    {
+      "name": "AAMA Career Center",
+      "url": "aama-ntl.org",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Allied Health (Medical Asst.)",
+      "why_it_matters": "American Association of Medical Assistants.",
+      "specialties": "Certified Medical Assistants"
+    }
+  ],
+  "chain": [
+    {
+      "name": "NACDS Career Center",
+      "url": "nacds.org/careers",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Pharmacy",
+      "why_it_matters": "Chain Drug Stores association.",
+      "specialties": "Chain and retail pharmacy; Chain pharmacy and retail pharmacy"
+    }
+  ],
+  "chain_pharmacy": [
+    {
+      "name": "NACDS Career Center",
+      "url": "nacds.org/careers",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Pharmacy",
+      "why_it_matters": "Chain Drug Stores association.",
+      "specialties": "Chain and retail pharmacy; Chain pharmacy and retail pharmacy"
+    }
+  ],
+  "chaplains": [
+    {
+      "name": "HospiceJobs.com",
+      "url": "hospicejobs.com",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Home Health / Hospice",
+      "why_it_matters": "Hospice-specific.",
+      "specialties": "Hospice nurses, SWs, aides, chaplains; Hospice nurses, social workers, aides, chaplains"
+    }
+  ],
+  "clinical": [
+    {
+      "name": "PharmiWeb / PharmiWeb.jobs",
+      "url": "pharmiweb.jobs",
+      "status": "In Repo",
+      "priority": "-",
+      "category": "Pharmacy / Life Sciences",
+      "why_it_matters": "Pharma community + jobs. (You listed this 2x - de-duplicate.)",
+      "specialties": "Pharma, biotech, regulatory, clinical"
+    },
+    {
+      "name": "APhA CareerPharm",
+      "url": "aphanet.org/careerpharm",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Pharmacy",
+      "why_it_matters": "American Pharmacists Association.",
+      "specialties": "Pharmacists (community + clinical)"
+    }
+  ],
+  "clinical_it": [
+    {
+      "name": "HIMSS JobMine",
+      "url": "himss.org/jobmine",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Healthcare IT / Informatics",
+      "why_it_matters": "Health Information Management Systems Society.",
+      "specialties": "Clinical IT, informatics, EHR/EMR; Clinical IT, informatics, EHR, HIT; Clinical IT, informatics, EHR/EMR, HIT"
+    },
+    {
+      "name": "HealthcareITNews Career Center",
+      "url": "healthcareitnews.com",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Healthcare Media",
+      "why_it_matters": "HIT-focused.",
+      "specialties": "Clinical IT, informatics; Clinical IT, informatics, HIT"
+    }
+  ],
+  "clinical_laboratory_scientists": [
+    {
+      "name": "ASCLS Career Center",
+      "url": "ascls.org/careers",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Allied Health (Lab)",
+      "why_it_matters": "American Society for Clinical Laboratory Science.",
+      "specialties": "MLS, MLTs; Clinical laboratory scientists; Medical lab scientists, MLTs"
+    }
+  ],
+  "clinical_research": [
+    {
+      "name": "BioSpace",
+      "url": "biospace.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Pharmacy / Life Sciences",
+      "why_it_matters": "Major life sciences site. Different audience from PharmiWeb.",
+      "specialties": "Pharma, biotech, clinical research, regulatory"
+    },
+    {
+      "name": "Medzilla",
+      "url": "medzilla.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Healthcare Generalist Board",
+      "why_it_matters": "Niche: life sciences and pharma",
+      "specialties": "Biotech, pharma, clinical research, medical device"
+    }
+  ],
+  "clinical_research_coordinators": [
+    {
+      "name": "ClinicalResearchJobs.org",
+      "url": "clinicalresearchjobs.org",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Pharmacy / Life Sciences",
+      "why_it_matters": "Clinical research niche.",
+      "specialties": "CRCs, CRAs, monitors; Clinical research coordinators, monitors, CRAs"
+    }
+  ],
+  "clinical_researchers": [
+    {
+      "name": "NIH Careers",
+      "url": "hr.nih.gov/jobs",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Government / Public Sector",
+      "why_it_matters": "Nat'l Institutes of Health",
+      "specialties": "Clinical researchers, RNs, physicians"
+    }
+  ],
+  "cmos": [
+    {
+      "name": "Ladders",
+      "url": "theladders.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "General Job Board",
+      "why_it_matters": "Jobs paying $100K+; healthcare leadership roles",
+      "specialties": "Healthcare executives, CMOs, CNOs, administrators"
+    }
+  ],
+  "cna": [
+    {
+      "name": "NurseRecruiter",
+      "url": "nurserecruiter.com",
+      "status": "In Repo",
+      "priority": "-",
+      "category": "Nursing",
+      "why_it_matters": "General nursing recruitment.",
+      "specialties": "RN, LPN, CNA, travel"
+    },
+    {
+      "name": "CareRev",
+      "url": "carerev.com",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Gig / PRN Healthcare",
+      "why_it_matters": "41 states; hospital shift marketplace.",
+      "specialties": "RNs, CNAs, MAs, techs; RNs, CNAs, medical assistants, techs"
+    },
+    {
+      "name": "myCNAjobs",
+      "url": "mycnajobs.com",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Home Care / Caregiver",
+      "why_it_matters": "Primary CNA/caregiver-specific board.",
+      "specialties": "CNAs, HHAs, caregivers, PCAs; CNAs, HHAs, caregivers, companions, PCAs"
+    },
+    {
+      "name": "ShiftKey",
+      "url": "shiftkey.com",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Gig / PRN Healthcare",
+      "why_it_matters": "Largest PRN platform.",
+      "specialties": "CNAs, LPNs, RNs, surgical/rad techs"
+    },
+    {
+      "name": "ShiftMed",
+      "url": "shiftmed.com",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Gig / PRN Healthcare",
+      "why_it_matters": "100K+ HCPs. W-2 model.",
+      "specialties": "CNAs, RNs, LPNs (W-2)"
+    },
+    {
+      "name": "CareInHomes",
+      "url": "careinhomes.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Home Care / Caregiver",
+      "why_it_matters": "Home care + CNA aggregator.",
+      "specialties": "CNAs, HHAs"
+    },
+    {
+      "name": "Clipboard Health",
+      "url": "clipboardhealth.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Gig / PRN Healthcare",
+      "why_it_matters": "SNF/LTC-heavy PRN.",
+      "specialties": "CNAs, LPNs, RNs"
+    },
+    {
+      "name": "Connect RN",
+      "url": "connectrn.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Gig / PRN Healthcare",
+      "why_it_matters": "Nursing shift marketplace.",
+      "specialties": "RNs, LPNs, CNAs"
+    },
+    {
+      "name": "HHAcareers",
+      "url": "hhacareers.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Home Care / Caregiver",
+      "why_it_matters": "Home health focus.",
+      "specialties": "HHAs, CNAs, home health; HHAs, CNAs, home health staff"
+    },
+    {
+      "name": "IntelyCare",
+      "url": "intelycare.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Nursing Board",
+      "why_it_matters": "W-2 PRN platform. Strong for SNF/LTC.",
+      "specialties": "CNAs, LPNs, RNs - post-acute/SNF; CNAs, LPNs, RNs - post-acute/SNF focus"
+    },
+    {
+      "name": "Nursa",
+      "url": "nursa.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Gig / PRN Healthcare",
+      "why_it_matters": "Per-diem marketplace.",
+      "specialties": "CNAs, LPNs, RNs"
+    },
+    {
+      "name": "Gale Healthcare",
+      "url": "galehealthcare.com",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Gig / PRN Healthcare",
+      "why_it_matters": "Daily-pay nurse shifts.",
+      "specialties": "CNAs, LPNs, RNs"
+    },
+    {
+      "name": "NurseDash",
+      "url": "nursedash.com",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Gig / PRN Healthcare",
+      "why_it_matters": "Shift-based marketplace.",
+      "specialties": "RNs, LPNs, CNAs"
+    },
+    {
+      "name": "Jobcase",
+      "url": "jobcase.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "General Job Board",
+      "why_it_matters": "Hourly / frontline worker community",
+      "specialties": "Hourly healthcare, CNAs, patient care, retail health"
+    },
+    {
+      "name": "Kare (now part of ShiftMed ecosystem)",
+      "url": "kare.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Travel / Gig / PRN",
+      "why_it_matters": "On-demand healthcare staffing",
+      "specialties": "Nurses, CNAs"
+    },
+    {
+      "name": "Snagajob",
+      "url": "snagajob.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "General Job Board",
+      "why_it_matters": "~100M+ shift workers; strong for healthcare hourly",
+      "specialties": "CNAs, HHAs, hourly hospital staff, medical receptionists"
+    },
+    {
+      "name": "Talroo",
+      "url": "talroo.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Programmatic / Aggregator Partner",
+      "why_it_matters": "Strong for hourly and high-volume healthcare",
+      "specialties": "Frontline healthcare, CNAs, hourly hospital, home care"
+    }
+  ],
+  "cnos": [
+    {
+      "name": "ACHE CareerEDGE",
+      "url": "ache.org/career-resource-center",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Healthcare Admin / Leadership",
+      "why_it_matters": "American College of Healthcare Executives.",
+      "specialties": "Healthcare execs, admins, CEOs, COOs, CNOs; Healthcare execs, administrators, CEOs, COOs"
+    },
+    {
+      "name": "Ladders",
+      "url": "theladders.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "General Job Board",
+      "why_it_matters": "Jobs paying $100K+; healthcare leadership roles",
+      "specialties": "Healthcare executives, CMOs, CNOs, administrators"
+    }
+  ],
+  "companions": [
+    {
+      "name": "myCNAjobs",
+      "url": "mycnajobs.com",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Home Care / Caregiver",
+      "why_it_matters": "Primary CNA/caregiver-specific board.",
+      "specialties": "CNAs, HHAs, caregivers, PCAs; CNAs, HHAs, caregivers, companions, PCAs"
+    },
+    {
+      "name": "Sittercity / HomePay",
+      "url": "sittercity.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Home Care / Caregiver",
+      "why_it_matters": "Family-hired caregiver platform",
+      "specialties": "Senior care, companions"
+    }
+  ],
+  "compliance": [
+    {
+      "name": "AHIMA Career Center",
+      "url": "ahima.org/careers",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Healthcare Admin / HIM",
+      "why_it_matters": "American Health Info Mgmt Association.",
+      "specialties": "HIM, coders, CDI, compliance"
+    }
+  ],
+  "coos": [
+    {
+      "name": "ACHE CareerEDGE",
+      "url": "ache.org/career-resource-center",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Healthcare Admin / Leadership",
+      "why_it_matters": "American College of Healthcare Executives.",
+      "specialties": "Healthcare execs, admins, CEOs, COOs, CNOs; Healthcare execs, administrators, CEOs, COOs"
+    }
+  ],
+  "counselor": [
+    {
+      "name": "PsychologyJobs.com",
+      "url": "psychologyjobs.com",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Mental / Behavioral Health",
+      "why_it_matters": "Leading mental health board.",
+      "specialties": "Psychologists, psychiatrists, counselors, SWs; Psychologists, psychiatrists, counselors, social workers"
+    },
+    {
+      "name": "iHireMentalHealth",
+      "url": "ihirementalhealth.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Mental / Behavioral Health",
+      "why_it_matters": "iHire vertical.",
+      "specialties": "Therapists, counselors, psychiatrists; Therapists, counselors, psychiatrists, LCSWs"
+    },
+    {
+      "name": "Therapy Den",
+      "url": "therapyden.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Mental Health Job Board",
+      "why_it_matters": "Inclusive therapist network",
+      "specialties": "Therapists, counselors"
+    }
+  ],
+  "county_health": [
+    {
+      "name": "State/Local Government Job Boards (e.g., GovernmentJobs.com)",
+      "url": "governmentjobs.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Government / Public Sector",
+      "why_it_matters": "Aggregator of state/local gov listings",
+      "specialties": "Public health, state hospital, county health"
+    }
+  ],
+  "cras": [
+    {
+      "name": "ClinicalResearchJobs.org",
+      "url": "clinicalresearchjobs.org",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Pharmacy / Life Sciences",
+      "why_it_matters": "Clinical research niche.",
+      "specialties": "CRCs, CRAs, monitors; Clinical research coordinators, monitors, CRAs"
+    }
+  ],
+  "crcs": [
+    {
+      "name": "ClinicalResearchJobs.org",
+      "url": "clinicalresearchjobs.org",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Pharmacy / Life Sciences",
+      "why_it_matters": "Clinical research niche.",
+      "specialties": "CRCs, CRAs, monitors; Clinical research coordinators, monitors, CRAs"
+    }
+  ],
+  "critical_care_nurses": [
+    {
+      "name": "AACN (Critical Care)",
+      "url": "aacn.org/career-center",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Nursing Specialty Society",
+      "why_it_matters": "American Association of Critical-Care Nurses. NOTE: different org from AACN academic.",
+      "specialties": "ICU / critical care nurses"
+    }
+  ],
+  "crna": [
+    {
+      "name": "AANA (Nurse Anesthetists)",
+      "url": "aana.com",
+      "status": "In Repo",
+      "priority": "-",
+      "category": "Physician Specialty",
+      "why_it_matters": "American Association of Nurse Anesthesiology.",
+      "specialties": "CRNAs, CAAs; Certified Registered Nurse Anesthetists"
+    },
+    {
+      "name": "ASA Career Center",
+      "url": "careers.asahq.org",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Physician Specialty Society",
+      "why_it_matters": "American Society of Anesthesiologists. Complements your AANA.",
+      "specialties": "Anesthesiologists; Anesthesiologists, CRNAs"
+    },
+    {
+      "name": "LocumTenens.com",
+      "url": "locumtenens.com",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Locum Tenens",
+      "why_it_matters": "Largest locums platform. Critical for clients with locum needs.",
+      "specialties": "Locum physicians, APPs, CRNAs"
+    }
+  ],
+  "ct": [
+    {
+      "name": "ASRT Career Center",
+      "url": "asrt.org/careercenter",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Allied Health (Imaging)",
+      "why_it_matters": "American Society of Radiologic Technologists.",
+      "specialties": "Rad techs, sonographers, MRI, CT; Radiologic technologists, sonographers; Rad techs, sonographers, MRI, CT, radiation therapy"
+    },
+    {
+      "name": "iHireRadiology",
+      "url": "ihireradiology.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Allied Health (Imaging)",
+      "why_it_matters": "iHire radiology vertical.",
+      "specialties": "Rad techs, sonographers, MRI, CT"
+    }
+  ],
+  "dental": [
+    {
+      "name": "ADA CareerCenter",
+      "url": "careercenter.ada.org",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Dental",
+      "why_it_matters": "Official ADA career center.",
+      "specialties": "Dentists, hygienists, assistants, specialists"
+    },
+    {
+      "name": "DentalPost",
+      "url": "dentalpost.net",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Dental",
+      "why_it_matters": "Largest US dental board. 850K pros.",
+      "specialties": "Dentists, hygienists, assistants, office; Dentists, hygienists, assistants, office staff"
+    },
+    {
+      "name": "DocCafe",
+      "url": "doccafe.com",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Physician Generalist",
+      "why_it_matters": "Established 2001. Multi-specialty perm + locum.",
+      "specialties": "Physicians, dentists, APPs"
+    },
+    {
+      "name": "Cloud Dentistry",
+      "url": "clouddentistry.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Dental",
+      "why_it_matters": "On-demand dental staffing.",
+      "specialties": "Dental (gig/temp); Dentists, hygienists, assistants (gig/temp)"
+    },
+    {
+      "name": "DentistJobCafe",
+      "url": "dentistjobcafe.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Dental",
+      "why_it_matters": "Dentist-specific board.",
+      "specialties": "Dentists, specialists"
+    },
+    {
+      "name": "IHS Jobs",
+      "url": "ihs.gov/jobs",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Government Healthcare",
+      "why_it_matters": "Federal Indian health service.",
+      "specialties": "Indian Health Service; IHS physicians, nurses, dental, BH; Indian Health Service physicians, nurses, dental, BH"
+    },
+    {
+      "name": "Stynt",
+      "url": "stynt.com",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Gig / PRN Healthcare",
+      "why_it_matters": "Multi-vertical gig platform.",
+      "specialties": "Nursing, dental, medical; Nursing, dental, medical staff"
+    },
+    {
+      "name": "USPHS Commissioned Corps",
+      "url": "usphs.gov",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Government Healthcare",
+      "why_it_matters": "Uniformed service for public health.",
+      "specialties": "Physicians, nurses, dentists, pharmacists"
+    }
+  ],
+  "dental_assisting_national_board_certified_das": [
+    {
+      "name": "DANB Career Center",
+      "url": "danb.org",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Dental Job Board",
+      "why_it_matters": "Dental Assisting Nat'l Board",
+      "specialties": "Dental Assisting National Board-certified DAs"
+    }
+  ],
+  "dental_dso_jobs": [
+    {
+      "name": "JoinDSO",
+      "url": "joindso.com",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Dental",
+      "why_it_matters": "DSO hiring.",
+      "specialties": "Dental DSO jobs"
+    }
+  ],
+  "dental_gig": [
+    {
+      "name": "Cloud Dentistry",
+      "url": "clouddentistry.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Dental",
+      "why_it_matters": "On-demand dental staffing.",
+      "specialties": "Dental (gig/temp); Dentists, hygienists, assistants (gig/temp)"
+    }
+  ],
+  "dental_hygienist": [
+    {
+      "name": "ADA CareerCenter",
+      "url": "careercenter.ada.org",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Dental",
+      "why_it_matters": "Official ADA career center.",
+      "specialties": "Dentists, hygienists, assistants, specialists"
+    },
+    {
+      "name": "DentalPost",
+      "url": "dentalpost.net",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Dental",
+      "why_it_matters": "Largest US dental board. 850K pros.",
+      "specialties": "Dentists, hygienists, assistants, office; Dentists, hygienists, assistants, office staff"
+    },
+    {
+      "name": "Cloud Dentistry",
+      "url": "clouddentistry.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Dental",
+      "why_it_matters": "On-demand dental staffing.",
+      "specialties": "Dental (gig/temp); Dentists, hygienists, assistants (gig/temp)"
+    },
+    {
+      "name": "TempMee",
+      "url": "tempmee.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Dental",
+      "why_it_matters": "On-demand dental temp.",
+      "specialties": "Dental hygienists, assistants - temp; Dental hygienists, assistants - temp/gig"
+    },
+    {
+      "name": "ADHA Career Center",
+      "url": "adha.org/careercenter",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Dental (Specialty)",
+      "why_it_matters": "American Dental Hygienists' Association.",
+      "specialties": "Dental hygienists"
+    }
+  ],
+  "dental_sales_reps": [
+    {
+      "name": "DentReps",
+      "url": "dentreps.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Dental Job Board",
+      "why_it_matters": "Dental-specific niche",
+      "specialties": "Dental sales reps, all dental"
+    }
+  ],
+  "diagnostic_medical_sonographers": [
+    {
+      "name": "SDMS Career Center",
+      "url": "sdms.org/careers",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Allied Health (Imaging)",
+      "why_it_matters": "Society of Diagnostic Medical Sonography.",
+      "specialties": "Diagnostic medical sonographers"
+    }
+  ],
+  "dietary_techs": [
+    {
+      "name": "AND Career Center",
+      "url": "eatrightcareers.org",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Allied Health (Dietetics)",
+      "why_it_matters": "Academy of Nutrition and Dietetics.",
+      "specialties": "RDs, RDNs; RDs, RDNs, dietary techs"
+    }
+  ],
+  "dietitian": [
+    {
+      "name": "AND Career Center",
+      "url": "eatrightcareers.org",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Allied Health (Dietetics)",
+      "why_it_matters": "Academy of Nutrition and Dietetics.",
+      "specialties": "RDs, RDNs; RDs, RDNs, dietary techs"
+    }
+  ],
+  "digital_health": [
+    {
+      "name": "Rock Health Jobs",
+      "url": "rockhealth.com/jobs",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Digital Health / Startups",
+      "why_it_matters": "Rock Health ecosystem.",
+      "specialties": "Digital health roles"
+    },
+    {
+      "name": "Built In (Healthtech verticals)",
+      "url": "builtin.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Other / Emerging",
+      "why_it_matters": "Healthtech startup hiring",
+      "specialties": "Digital health, health tech startups"
+    },
+    {
+      "name": "Wellfound (AngelList Talent)",
+      "url": "wellfound.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Other / Emerging",
+      "why_it_matters": "Strong for digital health / telemedicine startups",
+      "specialties": "Healthcare startups, digital health, health tech"
+    }
+  ],
+  "direct_care": [
+    {
+      "name": "Caring Support",
+      "url": "caringsupport.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Healthcare Generalist",
+      "why_it_matters": "Growing healthcare platform.",
+      "specialties": "All healthcare, direct care; All healthcare, esp. direct care"
+    }
+  ],
+  "disabled_healthcare_professionals": [
+    {
+      "name": "DisabilityTalent / DisabledPerson.com",
+      "url": "disabledperson.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Diversity-Focused",
+      "why_it_matters": "Disability hiring network",
+      "specialties": "Disabled healthcare professionals"
+    }
+  ],
+  "diverse_nursing_talent_pool": [
+    {
+      "name": "NursingDiversity.com",
+      "url": "nursingdiversity.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Nursing Job Board",
+      "why_it_matters": "Diversity-focused nurse recruitment",
+      "specialties": "Diverse nursing talent pool"
+    }
+  ],
+  "diverse_rns": [
+    {
+      "name": "DiversityNursing.com",
+      "url": "diversitynursing.com",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Diversity Healthcare",
+      "why_it_matters": "Complements Minority Nurse.",
+      "specialties": "Diverse RNs, LPNs, NPs"
+    }
+  ],
+  "diverse_rns_1m": [
+    {
+      "name": "Minority Nurse",
+      "url": "minoritynurse.com",
+      "status": "In Repo",
+      "priority": "-",
+      "category": "Nursing (Diversity)",
+      "why_it_matters": "Largest diversity nursing board. (You listed this 2x in your repo - de-duplicate.)",
+      "specialties": "Diverse RNs - 1M+ unique nurses/year; RNs - 1M+ unique nurses, diversity focus"
+    }
+  ],
+  "diversity_focus": [
+    {
+      "name": "Minority Nurse",
+      "url": "minoritynurse.com",
+      "status": "In Repo",
+      "priority": "-",
+      "category": "Nursing (Diversity)",
+      "why_it_matters": "Largest diversity nursing board. (You listed this 2x in your repo - de-duplicate.)",
+      "specialties": "Diverse RNs - 1M+ unique nurses/year; RNs - 1M+ unique nurses, diversity focus"
+    }
+  ],
+  "dod": [
+    {
+      "name": "USAJOBS (healthcare)",
+      "url": "usajobs.gov",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Government Healthcare",
+      "why_it_matters": "Official federal portal.",
+      "specialties": "Federal healthcare - VA, IHS, NIH, CDC, DoD; All federal healthcare roles incl. VA, IHS, CDC, NIH, DoD; All federal healthcare roles - VA, IHS, NIH, CDC, DoD"
+    }
+  ],
+  "ed_nurses": [
+    {
+      "name": "ENA Career Center",
+      "url": "careers.ena.org",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Nursing Specialty Society",
+      "why_it_matters": "Emergency Nurses Association - critical for ER campaigns.",
+      "specialties": "ER/ED nurses"
+    }
+  ],
+  "educators": [
+    {
+      "name": "AACN Nursing (Academic)",
+      "url": "careers.aacnnursing.org",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Nursing Academic",
+      "why_it_matters": "American Association of Colleges of Nursing.",
+      "specialties": "Nursing faculty, educators; Nursing faculty, nursing educators, academic nursing"
+    },
+    {
+      "name": "FacultyNurse.com",
+      "url": "facultynurse.com",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Nursing Board",
+      "why_it_matters": "Academic nursing niche.",
+      "specialties": "Nursing faculty, educators"
+    }
+  ],
+  "ehr": [
+    {
+      "name": "HIMSS JobMine",
+      "url": "himss.org/jobmine",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Healthcare IT / Informatics",
+      "why_it_matters": "Health Information Management Systems Society.",
+      "specialties": "Clinical IT, informatics, EHR/EMR; Clinical IT, informatics, EHR, HIT; Clinical IT, informatics, EHR/EMR, HIT"
+    },
+    {
+      "name": "Dice",
+      "url": "dice.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "General Job Board",
+      "why_it_matters": "Strong for clinical informatics and HIT",
+      "specialties": "Health IT, healthcare data, EHR/EMR roles"
+    }
+  ],
+  "emergency_medicine_physicians": [
+    {
+      "name": "ACEP Career Center",
+      "url": "careers.acep.org",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Physician Specialty Society",
+      "why_it_matters": "American College of Emergency Physicians.",
+      "specialties": "Emergency medicine physicians; ER physicians"
+    }
+  ],
+  "emr": [
+    {
+      "name": "HIMSS JobMine",
+      "url": "himss.org/jobmine",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Healthcare IT / Informatics",
+      "why_it_matters": "Health Information Management Systems Society.",
+      "specialties": "Clinical IT, informatics, EHR/EMR; Clinical IT, informatics, EHR, HIT; Clinical IT, informatics, EHR/EMR, HIT"
+    },
+    {
+      "name": "Dice",
+      "url": "dice.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "General Job Board",
+      "why_it_matters": "Strong for clinical informatics and HIT",
+      "specialties": "Health IT, healthcare data, EHR/EMR roles"
+    }
+  ],
+  "ems": [
+    {
+      "name": "NAEMT Career Center",
+      "url": "naemt.org/jobs",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Allied Health (EMS)",
+      "why_it_matters": "National Association of EMTs.",
+      "specialties": "EMTs, paramedics"
+    },
+    {
+      "name": "EMS1 Jobs",
+      "url": "ems1.com/careers",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Allied Health (EMS)",
+      "why_it_matters": "Lexipol-owned EMS jobs.",
+      "specialties": "EMTs, paramedics"
+    }
+  ],
+  "epidemiologists": [
+    {
+      "name": "CDC Careers",
+      "url": "jobs.cdc.gov",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Government / Public Sector",
+      "why_it_matters": "Centers for Disease Control",
+      "specialties": "Epidemiologists, public health nurses, etc."
+    }
+  ],
+  "er": [
+    {
+      "name": "ENA Career Center",
+      "url": "careers.ena.org",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Nursing Specialty Society",
+      "why_it_matters": "Emergency Nurses Association - critical for ER campaigns.",
+      "specialties": "ER/ED nurses"
+    }
+  ],
+  "er_physicians": [
+    {
+      "name": "ACEP Career Center",
+      "url": "careers.acep.org",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Physician Specialty Society",
+      "why_it_matters": "American College of Emergency Physicians.",
+      "specialties": "Emergency medicine physicians; ER physicians"
+    }
+  ],
+  "esp_direct_care": [
+    {
+      "name": "Caring Support",
+      "url": "caringsupport.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Healthcare Generalist",
+      "why_it_matters": "Growing healthcare platform.",
+      "specialties": "All healthcare, direct care; All healthcare, esp. direct care"
+    }
+  ],
+  "execs": [
+    {
+      "name": "HealthJobsNationwide",
+      "url": "healthjobsnationwide.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Healthcare Generalist",
+      "why_it_matters": "~90K monthly visitors.",
+      "specialties": "Physicians, nurses, allied, execs; Physicians, nurses, allied health, executives; Physicians, nurses, allied, executives"
+    },
+    {
+      "name": "Modern Healthcare Career Center",
+      "url": "careers.modernhealthcare.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Healthcare Media",
+      "why_it_matters": "Leading trade publication.",
+      "specialties": "Execs, admin, leadership; Healthcare execs, admin, leadership"
+    }
+  ],
+  "executives": [
+    {
+      "name": "Health eCareers",
+      "url": "healthecareers.com",
+      "status": "In Repo",
+      "priority": "-",
+      "category": "Healthcare Generalist",
+      "why_it_matters": "Multi-specialty. (You listed this 3x in your repo - de-duplicate.)",
+      "specialties": "Physicians, nurses, allied health, executives, APPs"
+    },
+    {
+      "name": "HealthJobsNationwide",
+      "url": "healthjobsnationwide.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Healthcare Generalist",
+      "why_it_matters": "~90K monthly visitors.",
+      "specialties": "Physicians, nurses, allied, execs; Physicians, nurses, allied health, executives; Physicians, nurses, allied, executives"
+    },
+    {
+      "name": "Modern Healthcare Career Center",
+      "url": "careers.modernhealthcare.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Healthcare Media",
+      "why_it_matters": "Leading trade publication.",
+      "specialties": "Execs, admin, leadership; Healthcare execs, admin, leadership"
+    },
+    {
+      "name": "Health Leaders Media Career Center",
+      "url": "healthleadersmedia.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Other / Emerging",
+      "why_it_matters": "Healthcare leadership publication",
+      "specialties": "Healthcare executives"
+    },
+    {
+      "name": "Ladders",
+      "url": "theladders.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "General Job Board",
+      "why_it_matters": "Jobs paying $100K+; healthcare leadership roles",
+      "specialties": "Healthcare executives, CMOs, CNOs, administrators"
+    },
+    {
+      "name": "LinkedIn Jobs",
+      "url": "linkedin.com/jobs",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "General Job Board",
+      "why_it_matters": "~930M members; strong for white-collar healthcare and leadership",
+      "specialties": "Physicians, executives, admin, advanced practice, specialty RNs"
+    }
+  ],
+  "family_medicine_physicians": [
+    {
+      "name": "AAFP CareerLink",
+      "url": "careerlink.aafp.org",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Physician Specialty Society",
+      "why_it_matters": "American Academy of Family Physicians.",
+      "specialties": "Family medicine physicians"
+    }
+  ],
+  "federal_healthcare_va": [
+    {
+      "name": "USAJOBS (healthcare)",
+      "url": "usajobs.gov",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Government Healthcare",
+      "why_it_matters": "Official federal portal.",
+      "specialties": "Federal healthcare - VA, IHS, NIH, CDC, DoD; All federal healthcare roles incl. VA, IHS, CDC, NIH, DoD; All federal healthcare roles - VA, IHS, NIH, CDC, DoD"
+    }
+  ],
+  "frontline_healthcare": [
+    {
+      "name": "Talroo",
+      "url": "talroo.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Programmatic / Aggregator Partner",
+      "why_it_matters": "Strong for hourly and high-volume healthcare",
+      "specialties": "Frontline healthcare, CNAs, hourly hospital, home care"
+    }
+  ],
+  "general_dentists": [
+    {
+      "name": "AGD Career Center",
+      "url": "agd.org/careercenter",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Dental Job Board",
+      "why_it_matters": "Academy of General Dentistry",
+      "specialties": "General dentists"
+    }
+  ],
+  "gig": [
+    {
+      "name": "TempMee",
+      "url": "tempmee.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Dental",
+      "why_it_matters": "On-demand dental temp.",
+      "specialties": "Dental hygienists, assistants - temp; Dental hygienists, assistants - temp/gig"
+    }
+  ],
+  "hard_to_hire_healthcare": [
+    {
+      "name": "RedDot Media",
+      "url": "reddotmedia.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Programmatic / Aggregator Partner",
+      "why_it_matters": "Focused on quality applications",
+      "specialties": "Hard-to-hire healthcare"
+    }
+  ],
+  "health_policy": [
+    {
+      "name": "AcademyHealth Career Center",
+      "url": "academyhealth.org/careers",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Allied Health Job Board",
+      "why_it_matters": "Health policy and research",
+      "specialties": "Health policy, research, analytics"
+    }
+  ],
+  "health_system_pharmacists": [
+    {
+      "name": "ASHP CareerPharm",
+      "url": "ashp.org/careerpharm",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Pharmacy",
+      "why_it_matters": "Primary hospital pharmacy channel.",
+      "specialties": "Hospital/health-system pharmacists"
+    }
+  ],
+  "health_tech": [
+    {
+      "name": "Remote.co",
+      "url": "remote.co",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "General Job Board",
+      "why_it_matters": "Curated remote healthcare roles",
+      "specialties": "Telemedicine, remote RN, health tech"
+    },
+    {
+      "name": "Wellfound (AngelList Talent)",
+      "url": "wellfound.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Other / Emerging",
+      "why_it_matters": "Strong for digital health / telemedicine startups",
+      "specialties": "Healthcare startups, digital health, health tech"
+    }
+  ],
+  "health_tech_startups": [
+    {
+      "name": "Built In (Healthtech verticals)",
+      "url": "builtin.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Other / Emerging",
+      "why_it_matters": "Healthtech startup hiring",
+      "specialties": "Digital health, health tech startups"
+    }
+  ],
+  "healthcare_data": [
+    {
+      "name": "Dice",
+      "url": "dice.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "General Job Board",
+      "why_it_matters": "Strong for clinical informatics and HIT",
+      "specialties": "Health IT, healthcare data, EHR/EMR roles"
+    }
+  ],
+  "healthcare_execs": [
+    {
+      "name": "ACHE CareerEDGE",
+      "url": "ache.org/career-resource-center",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Healthcare Admin / Leadership",
+      "why_it_matters": "American College of Healthcare Executives.",
+      "specialties": "Healthcare execs, admins, CEOs, COOs, CNOs; Healthcare execs, administrators, CEOs, COOs"
+    },
+    {
+      "name": "Modern Healthcare Career Center",
+      "url": "careers.modernhealthcare.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Healthcare Media",
+      "why_it_matters": "Leading trade publication.",
+      "specialties": "Execs, admin, leadership; Healthcare execs, admin, leadership"
+    }
+  ],
+  "healthcare_finance": [
+    {
+      "name": "Becker's Hospital Review Career Center",
+      "url": "beckershospitalreview.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Healthcare Media",
+      "why_it_matters": "Major healthcare publication.",
+      "specialties": "Healthcare leadership, finance, ops"
+    },
+    {
+      "name": "HFMA Career Center",
+      "url": "hfma.org/careers",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Healthcare Finance",
+      "why_it_matters": "Healthcare Financial Mgmt Association.",
+      "specialties": "Finance, revenue cycle, CFOs; Healthcare finance, revenue cycle, CFOs"
+    }
+  ],
+  "healthcare_hr_professionals": [
+    {
+      "name": "ASHHRA",
+      "url": "ashhra.org",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Healthcare HR",
+      "why_it_matters": "Am. Society for Healthcare HR Admin.",
+      "specialties": "Healthcare HR professionals"
+    }
+  ],
+  "healthcare_industry": [
+    {
+      "name": "Fierce Healthcare Jobs",
+      "url": "fiercehealthcare.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Healthcare Media",
+      "why_it_matters": "Industry publication career pages.",
+      "specialties": "Healthcare industry, biotech, pharma"
+    }
+  ],
+  "healthcare_it": [
+    {
+      "name": "Dice",
+      "url": "dice.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "General Job Board",
+      "why_it_matters": "Strong for clinical informatics and HIT",
+      "specialties": "Health IT, healthcare data, EHR/EMR roles"
+    }
+  ],
+  "healthcare_leadership": [
+    {
+      "name": "Becker's Hospital Review Career Center",
+      "url": "beckershospitalreview.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Healthcare Media",
+      "why_it_matters": "Major healthcare publication.",
+      "specialties": "Healthcare leadership, finance, ops"
+    }
+  ],
+  "healthcare_providers": [
+    {
+      "name": "GLMA Career Center",
+      "url": "glma.org",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Diversity Healthcare",
+      "why_it_matters": "Health Professionals Advancing LGBTQ+ Equality.",
+      "specialties": "LGBTQ+ healthcare providers"
+    }
+  ],
+  "healthcare_recruiters": [
+    {
+      "name": "NAHCR",
+      "url": "nahcr.com/careers",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Healthcare Recruiting",
+      "why_it_matters": "Nat'l Assoc. for Health Care Recruitment.",
+      "specialties": "Healthcare recruiters/TA"
+    }
+  ],
+  "healthcare_saas": [
+    {
+      "name": "We Work Remotely",
+      "url": "weworkremotely.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "General Job Board",
+      "why_it_matters": "Large remote talent pool",
+      "specialties": "Telehealth, remote case management, healthcare SaaS"
+    }
+  ],
+  "healthcare_startups": [
+    {
+      "name": "Wellfound (AngelList Talent)",
+      "url": "wellfound.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Other / Emerging",
+      "why_it_matters": "Strong for digital health / telemedicine startups",
+      "specialties": "Healthcare startups, digital health, health tech"
+    }
+  ],
+  "him": [
+    {
+      "name": "AHIMA Career Center",
+      "url": "ahima.org/careers",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Healthcare Admin / HIM",
+      "why_it_matters": "American Health Info Mgmt Association.",
+      "specialties": "HIM, coders, CDI, compliance"
+    },
+    {
+      "name": "HIMSS JobMine",
+      "url": "himss.org/jobmine",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Healthcare IT / Informatics",
+      "why_it_matters": "Health Information Management Systems Society.",
+      "specialties": "Clinical IT, informatics, EHR/EMR; Clinical IT, informatics, EHR, HIT; Clinical IT, informatics, EHR/EMR, HIT"
+    },
+    {
+      "name": "HealthcareITNews Career Center",
+      "url": "healthcareitnews.com",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Healthcare Media",
+      "why_it_matters": "HIT-focused.",
+      "specialties": "Clinical IT, informatics; Clinical IT, informatics, HIT"
+    }
+  ],
+  "hispanic": [
+    {
+      "name": "NAHN Career Center",
+      "url": "nahnnet.org",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Diversity Healthcare",
+      "why_it_matters": "National Association of Hispanic Nurses.",
+      "specialties": "Hispanic/Latino nurses"
+    }
+  ],
+  "hispanic_physicians": [
+    {
+      "name": "NHMA (Hispanic Medical)",
+      "url": "nhmamd.org",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Diversity Healthcare",
+      "why_it_matters": "National Hispanic Medical Association.",
+      "specialties": "Hispanic physicians"
+    }
+  ],
+  "hit": [
+    {
+      "name": "HIMSS JobMine",
+      "url": "himss.org/jobmine",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Healthcare IT / Informatics",
+      "why_it_matters": "Health Information Management Systems Society.",
+      "specialties": "Clinical IT, informatics, EHR/EMR; Clinical IT, informatics, EHR, HIT; Clinical IT, informatics, EHR/EMR, HIT"
+    },
+    {
+      "name": "HealthcareITNews Career Center",
+      "url": "healthcareitnews.com",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Healthcare Media",
+      "why_it_matters": "HIT-focused.",
+      "specialties": "Clinical IT, informatics; Clinical IT, informatics, HIT"
+    }
+  ],
+  "home": [
+    {
+      "name": "Care.com",
+      "url": "care.com",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Home Care / Caregiver",
+      "why_it_matters": "Largest consumer care marketplace.",
+      "specialties": "Caregivers, home + senior care; Caregivers, home care, in-home senior care"
+    }
+  ],
+  "home_care": [
+    {
+      "name": "Care.com",
+      "url": "care.com",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Home Care / Caregiver",
+      "why_it_matters": "Largest consumer care marketplace.",
+      "specialties": "Caregivers, home + senior care; Caregivers, home care, in-home senior care"
+    },
+    {
+      "name": "NAHC Career Center",
+      "url": "nahc.org/careers",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Home Health / Hospice",
+      "why_it_matters": "Nat'l Assoc. for Home Care & Hospice.",
+      "specialties": "Home health, hospice workers; Home health staff, hospice workers"
+    },
+    {
+      "name": "HHAcareers",
+      "url": "hhacareers.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Home Care / Caregiver",
+      "why_it_matters": "Home health focus.",
+      "specialties": "HHAs, CNAs, home health; HHAs, CNAs, home health staff"
+    },
+    {
+      "name": "SeniorCareJobs / AgingCare Jobs",
+      "url": "agingcare.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Home Care / Caregiver",
+      "why_it_matters": "AgingCare careers",
+      "specialties": "Home care, senior-focused"
+    },
+    {
+      "name": "Talroo",
+      "url": "talroo.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Programmatic / Aggregator Partner",
+      "why_it_matters": "Strong for hourly and high-volume healthcare",
+      "specialties": "Frontline healthcare, CNAs, hourly hospital, home care"
+    }
+  ],
+  "home_health_aide": [
+    {
+      "name": "myCNAjobs",
+      "url": "mycnajobs.com",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Home Care / Caregiver",
+      "why_it_matters": "Primary CNA/caregiver-specific board.",
+      "specialties": "CNAs, HHAs, caregivers, PCAs; CNAs, HHAs, caregivers, companions, PCAs"
+    },
+    {
+      "name": "CareInHomes",
+      "url": "careinhomes.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Home Care / Caregiver",
+      "why_it_matters": "Home care + CNA aggregator.",
+      "specialties": "CNAs, HHAs"
+    },
+    {
+      "name": "HHAcareers",
+      "url": "hhacareers.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Home Care / Caregiver",
+      "why_it_matters": "Home health focus.",
+      "specialties": "HHAs, CNAs, home health; HHAs, CNAs, home health staff"
+    },
+    {
+      "name": "HospiceJobs.com",
+      "url": "hospicejobs.com",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Home Health / Hospice",
+      "why_it_matters": "Hospice-specific.",
+      "specialties": "Hospice nurses, SWs, aides, chaplains; Hospice nurses, social workers, aides, chaplains"
+    },
+    {
+      "name": "CareGuide / CareRecruit",
+      "url": "careguide.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Home Care / Caregiver",
+      "why_it_matters": "Multi-vertical care platform",
+      "specialties": "Caregivers, HHAs, senior care"
+    },
+    {
+      "name": "Honor Home Care Careers",
+      "url": "joinhonor.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Home Care / Caregiver",
+      "why_it_matters": "Honor caregiver network",
+      "specialties": "Caregivers, HHAs"
+    },
+    {
+      "name": "Snagajob",
+      "url": "snagajob.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "General Job Board",
+      "why_it_matters": "~100M+ shift workers; strong for healthcare hourly",
+      "specialties": "CNAs, HHAs, hourly hospital staff, medical receptionists"
+    }
+  ],
+  "home_health_staff": [
+    {
+      "name": "NAHC Career Center",
+      "url": "nahc.org/careers",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Home Health / Hospice",
+      "why_it_matters": "Nat'l Assoc. for Home Care & Hospice.",
+      "specialties": "Home health, hospice workers; Home health staff, hospice workers"
+    },
+    {
+      "name": "HHAcareers",
+      "url": "hhacareers.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Home Care / Caregiver",
+      "why_it_matters": "Home health focus.",
+      "specialties": "HHAs, CNAs, home health; HHAs, CNAs, home health staff"
+    }
+  ],
+  "hospice": [
+    {
+      "name": "NHPCO Career Center",
+      "url": "nhpco.org/careers",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Home Health / Hospice",
+      "why_it_matters": "Nat'l Hospice and Palliative Care Org.",
+      "specialties": "Hospice + palliative care; Hospice and palliative care"
+    }
+  ],
+  "hospice_nurses": [
+    {
+      "name": "HospiceJobs.com",
+      "url": "hospicejobs.com",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Home Health / Hospice",
+      "why_it_matters": "Hospice-specific.",
+      "specialties": "Hospice nurses, SWs, aides, chaplains; Hospice nurses, social workers, aides, chaplains"
+    }
+  ],
+  "hospice_workers": [
+    {
+      "name": "NAHC Career Center",
+      "url": "nahc.org/careers",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Home Health / Hospice",
+      "why_it_matters": "Nat'l Assoc. for Home Care & Hospice.",
+      "specialties": "Home health, hospice workers; Home health staff, hospice workers"
+    }
+  ],
+  "hospital": [
+    {
+      "name": "ASHP CareerPharm",
+      "url": "ashp.org/careerpharm",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Pharmacy",
+      "why_it_matters": "Primary hospital pharmacy channel.",
+      "specialties": "Hospital/health-system pharmacists"
+    }
+  ],
+  "hosts_ihirenursing": [
+    {
+      "name": "iHire (healthcare verticals)",
+      "url": "ihire.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Healthcare Generalist Board",
+      "why_it_matters": "Network of healthcare micro-verticals",
+      "specialties": "Hosts iHireNursing, iHireDental, iHireMedTechs, iHireMentalHealth, iHirePharmacy, iHireTherapy, iHireOptometry, iHireVeterinary"
+    }
+  ],
+  "hourly_healthcare": [
+    {
+      "name": "Jobcase",
+      "url": "jobcase.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "General Job Board",
+      "why_it_matters": "Hourly / frontline worker community",
+      "specialties": "Hourly healthcare, CNAs, patient care, retail health"
+    }
+  ],
+  "hourly_hospital": [
+    {
+      "name": "Talroo",
+      "url": "talroo.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Programmatic / Aggregator Partner",
+      "why_it_matters": "Strong for hourly and high-volume healthcare",
+      "specialties": "Frontline healthcare, CNAs, hourly hospital, home care"
+    }
+  ],
+  "hourly_hospital_staff": [
+    {
+      "name": "Snagajob",
+      "url": "snagajob.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "General Job Board",
+      "why_it_matters": "~100M+ shift workers; strong for healthcare hourly",
+      "specialties": "CNAs, HHAs, hourly hospital staff, medical receptionists"
+    }
+  ],
+  "icu": [
+    {
+      "name": "AACN (Critical Care)",
+      "url": "aacn.org/career-center",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Nursing Specialty Society",
+      "why_it_matters": "American Association of Critical-Care Nurses. NOTE: different org from AACN academic.",
+      "specialties": "ICU / critical care nurses"
+    }
+  ],
+  "ihiredental": [
+    {
+      "name": "iHire (healthcare verticals)",
+      "url": "ihire.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Healthcare Generalist Board",
+      "why_it_matters": "Network of healthcare micro-verticals",
+      "specialties": "Hosts iHireNursing, iHireDental, iHireMedTechs, iHireMentalHealth, iHirePharmacy, iHireTherapy, iHireOptometry, iHireVeterinary"
+    }
+  ],
+  "ihiremedtechs": [
+    {
+      "name": "iHire (healthcare verticals)",
+      "url": "ihire.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Healthcare Generalist Board",
+      "why_it_matters": "Network of healthcare micro-verticals",
+      "specialties": "Hosts iHireNursing, iHireDental, iHireMedTechs, iHireMentalHealth, iHirePharmacy, iHireTherapy, iHireOptometry, iHireVeterinary"
+    }
+  ],
+  "ihirementalhealth": [
+    {
+      "name": "iHire (healthcare verticals)",
+      "url": "ihire.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Healthcare Generalist Board",
+      "why_it_matters": "Network of healthcare micro-verticals",
+      "specialties": "Hosts iHireNursing, iHireDental, iHireMedTechs, iHireMentalHealth, iHirePharmacy, iHireTherapy, iHireOptometry, iHireVeterinary"
+    }
+  ],
+  "ihireoptometry": [
+    {
+      "name": "iHire (healthcare verticals)",
+      "url": "ihire.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Healthcare Generalist Board",
+      "why_it_matters": "Network of healthcare micro-verticals",
+      "specialties": "Hosts iHireNursing, iHireDental, iHireMedTechs, iHireMentalHealth, iHirePharmacy, iHireTherapy, iHireOptometry, iHireVeterinary"
+    }
+  ],
+  "ihirepharmacy": [
+    {
+      "name": "iHire (healthcare verticals)",
+      "url": "ihire.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Healthcare Generalist Board",
+      "why_it_matters": "Network of healthcare micro-verticals",
+      "specialties": "Hosts iHireNursing, iHireDental, iHireMedTechs, iHireMentalHealth, iHirePharmacy, iHireTherapy, iHireOptometry, iHireVeterinary"
+    }
+  ],
+  "ihiretherapy": [
+    {
+      "name": "iHire (healthcare verticals)",
+      "url": "ihire.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Healthcare Generalist Board",
+      "why_it_matters": "Network of healthcare micro-verticals",
+      "specialties": "Hosts iHireNursing, iHireDental, iHireMedTechs, iHireMentalHealth, iHirePharmacy, iHireTherapy, iHireOptometry, iHireVeterinary"
+    }
+  ],
+  "ihireveterinary": [
+    {
+      "name": "iHire (healthcare verticals)",
+      "url": "ihire.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Healthcare Generalist Board",
+      "why_it_matters": "Network of healthcare micro-verticals",
+      "specialties": "Hosts iHireNursing, iHireDental, iHireMedTechs, iHireMentalHealth, iHirePharmacy, iHireTherapy, iHireOptometry, iHireVeterinary"
+    }
+  ],
+  "ihs": [
+    {
+      "name": "USAJOBS (healthcare)",
+      "url": "usajobs.gov",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Government Healthcare",
+      "why_it_matters": "Official federal portal.",
+      "specialties": "Federal healthcare - VA, IHS, NIH, CDC, DoD; All federal healthcare roles incl. VA, IHS, CDC, NIH, DoD; All federal healthcare roles - VA, IHS, NIH, CDC, DoD"
+    }
+  ],
+  "ihs_physicians": [
+    {
+      "name": "IHS Jobs",
+      "url": "ihs.gov/jobs",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Government Healthcare",
+      "why_it_matters": "Federal Indian health service.",
+      "specialties": "Indian Health Service; IHS physicians, nurses, dental, BH; Indian Health Service physicians, nurses, dental, BH"
+    }
+  ],
+  "im_subspecialties": [
+    {
+      "name": "ACP CareerConnection",
+      "url": "acponline.org/career-connection",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Physician Specialty Society",
+      "why_it_matters": "American College of Physicians.",
+      "specialties": "Internal medicine + IM subspecialties; Internists, IM subspecialties; Internal medicine physicians, IM subspecialties"
+    }
+  ],
+  "imaging": [
+    {
+      "name": "ASRT Career Center",
+      "url": "asrt.org/careercenter",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Allied Health (Imaging)",
+      "why_it_matters": "American Society of Radiologic Technologists.",
+      "specialties": "Rad techs, sonographers, MRI, CT; Radiologic technologists, sonographers; Rad techs, sonographers, MRI, CT, radiation therapy"
+    },
+    {
+      "name": "ShiftKey",
+      "url": "shiftkey.com",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Gig / PRN Healthcare",
+      "why_it_matters": "Largest PRN platform.",
+      "specialties": "CNAs, LPNs, RNs, surgical/rad techs"
+    },
+    {
+      "name": "iHireRadiology",
+      "url": "ihireradiology.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Allied Health (Imaging)",
+      "why_it_matters": "iHire radiology vertical.",
+      "specialties": "Rad techs, sonographers, MRI, CT"
+    }
+  ],
+  "in_home_senior_care": [
+    {
+      "name": "Care.com",
+      "url": "care.com",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Home Care / Caregiver",
+      "why_it_matters": "Largest consumer care marketplace.",
+      "specialties": "Caregivers, home + senior care; Caregivers, home care, in-home senior care"
+    }
+  ],
+  "indian": [
+    {
+      "name": "NAINA",
+      "url": "nainausa.com",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Diversity Healthcare",
+      "why_it_matters": "Nat'l Assoc. of Indian Nurses of America.",
+      "specialties": "Indian/South Asian nurses in US"
+    }
+  ],
+  "indian_health_service": [
+    {
+      "name": "IHS Jobs",
+      "url": "ihs.gov/jobs",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Government Healthcare",
+      "why_it_matters": "Federal Indian health service.",
+      "specialties": "Indian Health Service; IHS physicians, nurses, dental, BH; Indian Health Service physicians, nurses, dental, BH"
+    }
+  ],
+  "indian_health_service_physicians": [
+    {
+      "name": "IHS Jobs",
+      "url": "ihs.gov/jobs",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Government Healthcare",
+      "why_it_matters": "Federal Indian health service.",
+      "specialties": "Indian Health Service; IHS physicians, nurses, dental, BH; Indian Health Service physicians, nurses, dental, BH"
+    }
+  ],
+  "infection_preventionists": [
+    {
+      "name": "APIC Career Center",
+      "url": "apic.org/careers",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Infection Prevention",
+      "why_it_matters": "Assoc. Professionals in Infection Control.",
+      "specialties": "Infection preventionists"
+    }
+  ],
+  "internal_medicine_physicians": [
+    {
+      "name": "ACP CareerConnection",
+      "url": "acponline.org/career-connection",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Physician Specialty Society",
+      "why_it_matters": "American College of Physicians.",
+      "specialties": "Internal medicine + IM subspecialties; Internists, IM subspecialties; Internal medicine physicians, IM subspecialties"
+    }
+  ],
+  "jobs": [
+    {
+      "name": "The Gypsy Nurse",
+      "url": "thegypsynurse.com",
+      "status": "In Repo",
+      "priority": "-",
+      "category": "Travel Healthcare",
+      "why_it_matters": "Travel nursing community.",
+      "specialties": "Travel nurses community + jobs"
+    }
+  ],
+  "lab_medicine": [
+    {
+      "name": "ASCP Career Center",
+      "url": "careers.ascp.org",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Physician Specialty Society",
+      "why_it_matters": "American Society for Clinical Pathology.",
+      "specialties": "Pathologists, lab medicine"
+    }
+  ],
+  "latino_nurses": [
+    {
+      "name": "NAHN Career Center",
+      "url": "nahnnet.org",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Diversity Healthcare",
+      "why_it_matters": "National Association of Hispanic Nurses.",
+      "specialties": "Hispanic/Latino nurses"
+    }
+  ],
+  "legal_nurse_consultants": [
+    {
+      "name": "AALNC Career Center (Legal Nurse)",
+      "url": "aalnc.org",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Association Career Center",
+      "why_it_matters": "Am. Assoc. of Legal Nurse Consultants",
+      "specialties": "Legal nurse consultants"
+    }
+  ],
+  "lgbtq": [
+    {
+      "name": "GLMA Career Center",
+      "url": "glma.org",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Diversity Healthcare",
+      "why_it_matters": "Health Professionals Advancing LGBTQ+ Equality.",
+      "specialties": "LGBTQ+ healthcare providers"
+    },
+    {
+      "name": "Inclusive Therapists Jobs",
+      "url": "inclusivetherapists.com/jobs",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Mental / Behavioral Health",
+      "why_it_matters": "DEI-oriented mental health.",
+      "specialties": "BIPOC/LGBTQ+ therapists; BIPOC/LGBTQ+ affirming therapists"
+    }
+  ],
+  "licensed_professional_counselors": [
+    {
+      "name": "ACA Career Central",
+      "url": "aca.careerwebsite.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Mental / Behavioral Health",
+      "why_it_matters": "American Counseling Association.",
+      "specialties": "Licensed Professional Counselors"
+    }
+  ],
+  "life_sciences": [
+    {
+      "name": "PharmiWeb / PharmiWeb.jobs",
+      "url": "pharmiweb.jobs",
+      "status": "In Repo",
+      "priority": "-",
+      "category": "Pharmacy / Life Sciences",
+      "why_it_matters": "Pharma community + jobs. (You listed this 2x - de-duplicate.)",
+      "specialties": "Pharma, biotech, regulatory, clinical"
+    },
+    {
+      "name": "BioSpace",
+      "url": "biospace.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Pharmacy / Life Sciences",
+      "why_it_matters": "Major life sciences site. Different audience from PharmiWeb.",
+      "specialties": "Pharma, biotech, clinical research, regulatory"
+    },
+    {
+      "name": "Fierce Healthcare Jobs",
+      "url": "fiercehealthcare.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Healthcare Media",
+      "why_it_matters": "Industry publication career pages.",
+      "specialties": "Healthcare industry, biotech, pharma"
+    },
+    {
+      "name": "Medzilla",
+      "url": "medzilla.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Healthcare Generalist Board",
+      "why_it_matters": "Niche: life sciences and pharma",
+      "specialties": "Biotech, pharma, clinical research, medical device"
+    }
+  ],
+  "lmfts": [
+    {
+      "name": "AAMFT Career Center",
+      "url": "aamft.org/careers",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Mental / Behavioral Health",
+      "why_it_matters": "American Assoc. for Marriage & Family Therapy.",
+      "specialties": "MFTs, LMFTs"
+    }
+  ],
+  "local_contract": [
+    {
+      "name": "Vivian Health",
+      "url": "vivian.com",
+      "status": "In Repo",
+      "priority": "-",
+      "category": "Travel Healthcare",
+      "why_it_matters": "1.9M+ HCPs; largest travel marketplace.",
+      "specialties": "Travel nurses, allied, per diem, staff; Travel nurses, allied health, staff, per diem, local contract"
+    }
+  ],
+  "locum_lite": [
+    {
+      "name": "FlexMD / Moonlighting.com",
+      "url": "moonlighting.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Other / Emerging",
+      "why_it_matters": "Physician moonlighting platform",
+      "specialties": "Physicians - moonlighting/locum-lite"
+    }
+  ],
+  "locum_physicians": [
+    {
+      "name": "LocumTenens.com",
+      "url": "locumtenens.com",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Locum Tenens",
+      "why_it_matters": "Largest locums platform. Critical for clients with locum needs.",
+      "specialties": "Locum physicians, APPs, CRNAs"
+    }
+  ],
+  "locums": [
+    {
+      "name": "Aya Healthcare",
+      "url": "ayahealthcare.com",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Travel Healthcare",
+      "why_it_matters": "Largest US travel nursing agency.",
+      "specialties": "Travel RNs, allied, locums; Travel RNs, allied health, locums"
+    }
+  ],
+  "lpn": [
+    {
+      "name": "Nurse.com",
+      "url": "nurse.com",
+      "status": "In Repo",
+      "priority": "-",
+      "category": "Nursing",
+      "why_it_matters": "2.8M+ registered nurses.",
+      "specialties": "RNs, LPNs, NPs, specialty nurses"
+    },
+    {
+      "name": "NurseRecruiter",
+      "url": "nurserecruiter.com",
+      "status": "In Repo",
+      "priority": "-",
+      "category": "Nursing",
+      "why_it_matters": "General nursing recruitment.",
+      "specialties": "RN, LPN, CNA, travel"
+    },
+    {
+      "name": "ShiftKey",
+      "url": "shiftkey.com",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Gig / PRN Healthcare",
+      "why_it_matters": "Largest PRN platform.",
+      "specialties": "CNAs, LPNs, RNs, surgical/rad techs"
+    },
+    {
+      "name": "ShiftMed",
+      "url": "shiftmed.com",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Gig / PRN Healthcare",
+      "why_it_matters": "100K+ HCPs. W-2 model.",
+      "specialties": "CNAs, RNs, LPNs (W-2)"
+    },
+    {
+      "name": "Clipboard Health",
+      "url": "clipboardhealth.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Gig / PRN Healthcare",
+      "why_it_matters": "SNF/LTC-heavy PRN.",
+      "specialties": "CNAs, LPNs, RNs"
+    },
+    {
+      "name": "Connect RN",
+      "url": "connectrn.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Gig / PRN Healthcare",
+      "why_it_matters": "Nursing shift marketplace.",
+      "specialties": "RNs, LPNs, CNAs"
+    },
+    {
+      "name": "IntelyCare",
+      "url": "intelycare.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Nursing Board",
+      "why_it_matters": "W-2 PRN platform. Strong for SNF/LTC.",
+      "specialties": "CNAs, LPNs, RNs - post-acute/SNF; CNAs, LPNs, RNs - post-acute/SNF focus"
+    },
+    {
+      "name": "Nursa",
+      "url": "nursa.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Gig / PRN Healthcare",
+      "why_it_matters": "Per-diem marketplace.",
+      "specialties": "CNAs, LPNs, RNs"
+    },
+    {
+      "name": "DiversityNursing.com",
+      "url": "diversitynursing.com",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Diversity Healthcare",
+      "why_it_matters": "Complements Minority Nurse.",
+      "specialties": "Diverse RNs, LPNs, NPs"
+    },
+    {
+      "name": "Gale Healthcare",
+      "url": "galehealthcare.com",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Gig / PRN Healthcare",
+      "why_it_matters": "Daily-pay nurse shifts.",
+      "specialties": "CNAs, LPNs, RNs"
+    },
+    {
+      "name": "NurseDash",
+      "url": "nursedash.com",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Gig / PRN Healthcare",
+      "why_it_matters": "Shift-based marketplace.",
+      "specialties": "RNs, LPNs, CNAs"
+    },
+    {
+      "name": "NurseJobBoard.com",
+      "url": "nursejobboard.com",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Nursing Board",
+      "why_it_matters": "Sponsored-job model.",
+      "specialties": "RNs, LPNs, specialty; RNs, LPNs, specialty nurses"
+    },
+    {
+      "name": "Nursing Spectrum / NurseWeek (Relias)",
+      "url": "nursingspectrum.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Nursing Job Board",
+      "why_it_matters": "Relias-owned nursing network",
+      "specialties": "RNs, LPNs"
+    },
+    {
+      "name": "NursingALD (Nursing Advocates/Licensure Network)",
+      "url": "nursingald.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Nursing Job Board",
+      "why_it_matters": "State board of nursing affiliated publications",
+      "specialties": "RNs, LPNs"
+    }
+  ],
+  "md_anesthesiology": [
+    {
+      "name": "ASA Career Center",
+      "url": "careers.asahq.org",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Physician Specialty Society",
+      "why_it_matters": "American Society of Anesthesiologists. Complements your AANA.",
+      "specialties": "Anesthesiologists; Anesthesiologists, CRNAs"
+    }
+  ],
+  "md_dermatology": [
+    {
+      "name": "AAD JobBank",
+      "url": "jobs.aad.org",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Physician Specialty Society",
+      "why_it_matters": "American Academy of Dermatology.",
+      "specialties": "Dermatologists"
+    }
+  ],
+  "md_hospitalist": [
+    {
+      "name": "SHM Career Center",
+      "url": "hospitalmedicine.org",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Physician Specialty Society",
+      "why_it_matters": "Society of Hospital Medicine.",
+      "specialties": "Hospitalists"
+    }
+  ],
+  "md_internal_medicine": [
+    {
+      "name": "ACP CareerConnection",
+      "url": "acponline.org/career-connection",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Physician Specialty Society",
+      "why_it_matters": "American College of Physicians.",
+      "specialties": "Internal medicine + IM subspecialties; Internists, IM subspecialties; Internal medicine physicians, IM subspecialties"
+    }
+  ],
+  "md_obgyn": [
+    {
+      "name": "ACOG Career Connection",
+      "url": "careers.acog.org",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Physician Specialty Society",
+      "why_it_matters": "American College of OB-GYNs.",
+      "specialties": "OB-GYNs"
+    }
+  ],
+  "md_psychiatry": [
+    {
+      "name": "APA JobCentral (Psychiatry)",
+      "url": "jobs.psychiatry.org",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Mental / Behavioral Health",
+      "why_it_matters": "American Psychiatric Association.",
+      "specialties": "Psychiatrists, PMHNPs; Psychiatrists, PMHNPs, psych social workers"
+    },
+    {
+      "name": "PsychologyJobs.com",
+      "url": "psychologyjobs.com",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Mental / Behavioral Health",
+      "why_it_matters": "Leading mental health board.",
+      "specialties": "Psychologists, psychiatrists, counselors, SWs; Psychologists, psychiatrists, counselors, social workers"
+    },
+    {
+      "name": "iHireMentalHealth",
+      "url": "ihirementalhealth.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Mental / Behavioral Health",
+      "why_it_matters": "iHire vertical.",
+      "specialties": "Therapists, counselors, psychiatrists; Therapists, counselors, psychiatrists, LCSWs"
+    }
+  ],
+  "med_device": [
+    {
+      "name": "MedReps",
+      "url": "medreps.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Medical Sales",
+      "why_it_matters": "Niche: sales-only. Valuable for med device.",
+      "specialties": "Medical/pharma sales, med device; Medical sales, pharma sales, med device"
+    }
+  ],
+  "medical": [
+    {
+      "name": "MedReps",
+      "url": "medreps.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Medical Sales",
+      "why_it_matters": "Niche: sales-only. Valuable for med device.",
+      "specialties": "Medical/pharma sales, med device; Medical sales, pharma sales, med device"
+    },
+    {
+      "name": "Stynt",
+      "url": "stynt.com",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Gig / PRN Healthcare",
+      "why_it_matters": "Multi-vertical gig platform.",
+      "specialties": "Nursing, dental, medical; Nursing, dental, medical staff"
+    }
+  ],
+  "medical_assistant": [
+    {
+      "name": "CareRev",
+      "url": "carerev.com",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Gig / PRN Healthcare",
+      "why_it_matters": "41 states; hospital shift marketplace.",
+      "specialties": "RNs, CNAs, MAs, techs; RNs, CNAs, medical assistants, techs"
+    },
+    {
+      "name": "iHireMedicalAssistants",
+      "url": "ihiremedicalassistants.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Allied Health (Medical Asst.)",
+      "why_it_matters": "iHire vertical.",
+      "specialties": "Medical assistants"
+    },
+    {
+      "name": "Monster Healthcare",
+      "url": "monster.com/jobs/search?q=healthcare",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Healthcare Generalist Board",
+      "why_it_matters": "Healthcare sub-vertical of Monster",
+      "specialties": "Medical assistants, admins, therapists, techs"
+    }
+  ],
+  "medical_coders": [
+    {
+      "name": "AAPC Career Connect",
+      "url": "aapc.com/careercenter",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Medical Coding / Billing",
+      "why_it_matters": "Am. Academy of Professional Coders.",
+      "specialties": "Coders, billers, auditors; Medical coders, billers, auditors"
+    }
+  ],
+  "medical_coding": [
+    {
+      "name": "AHIMA Career Center",
+      "url": "ahima.org/careers",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Healthcare Admin / HIM",
+      "why_it_matters": "American Health Info Mgmt Association.",
+      "specialties": "HIM, coders, CDI, compliance"
+    },
+    {
+      "name": "AAPC Career Connect",
+      "url": "aapc.com/careercenter",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Medical Coding / Billing",
+      "why_it_matters": "Am. Academy of Professional Coders.",
+      "specialties": "Coders, billers, auditors; Medical coders, billers, auditors"
+    },
+    {
+      "name": "FlexJobs",
+      "url": "flexjobs.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "General Job Board",
+      "why_it_matters": "Curated remote and flexible roles",
+      "specialties": "Remote nursing, telehealth, case management, utilization review, medical coding"
+    }
+  ],
+  "medical_device": [
+    {
+      "name": "Medzilla",
+      "url": "medzilla.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Healthcare Generalist Board",
+      "why_it_matters": "Niche: life sciences and pharma",
+      "specialties": "Biotech, pharma, clinical research, medical device"
+    }
+  ],
+  "medical_lab_scientists": [
+    {
+      "name": "ASCLS Career Center",
+      "url": "ascls.org/careers",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Allied Health (Lab)",
+      "why_it_matters": "American Society for Clinical Laboratory Science.",
+      "specialties": "MLS, MLTs; Clinical laboratory scientists; Medical lab scientists, MLTs"
+    }
+  ],
+  "medical_lab_techs": [
+    {
+      "name": "iHireMedTechs",
+      "url": "ihiremedtechs.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Allied Health (Lab)",
+      "why_it_matters": "Lab science focus.",
+      "specialties": "MLS, MLTs, phlebotomists; Medical lab techs, MLS, phlebotomists"
+    }
+  ],
+  "medical_news_subscribers": [
+    {
+      "name": "MedPage Today Jobs",
+      "url": "medpagetoday.com/career",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Other / Emerging",
+      "why_it_matters": "Physician news site with jobs",
+      "specialties": "Physicians, medical news subscribers"
+    }
+  ],
+  "medical_receptionists": [
+    {
+      "name": "Snagajob",
+      "url": "snagajob.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "General Job Board",
+      "why_it_matters": "~100M+ shift workers; strong for healthcare hourly",
+      "specialties": "CNAs, HHAs, hourly hospital staff, medical receptionists"
+    }
+  ],
+  "medical_sales": [
+    {
+      "name": "MedReps",
+      "url": "medreps.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Medical Sales",
+      "why_it_matters": "Niche: sales-only. Valuable for med device.",
+      "specialties": "Medical/pharma sales, med device; Medical sales, pharma sales, med device"
+    }
+  ],
+  "medical_staff": [
+    {
+      "name": "Stynt",
+      "url": "stynt.com",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Gig / PRN Healthcare",
+      "why_it_matters": "Multi-vertical gig platform.",
+      "specialties": "Nursing, dental, medical; Nursing, dental, medical staff"
+    }
+  ],
+  "medical_staff_services_professionals": [
+    {
+      "name": "NAMSS Career Center (Medical Staff Services)",
+      "url": "namss.org",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Diversity-Focused",
+      "why_it_matters": "Nat'l Assoc. Medical Staff Services",
+      "specialties": "Medical staff services professionals"
+    }
+  ],
+  "medics_to_rn": [
+    {
+      "name": "HireVeterans / RecruitMilitary",
+      "url": "recruitmilitary.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Diversity-Focused",
+      "why_it_matters": "Largest military/veteran job board",
+      "specialties": "Veteran healthcare workers, medics-to-RN"
+    }
+  ],
+  "mental_health": [
+    {
+      "name": "VA Careers",
+      "url": "vacareers.va.gov",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Government Healthcare",
+      "why_it_matters": "Largest integrated US health system.",
+      "specialties": "All VA healthcare; All VA healthcare roles: physicians, nurses, allied, mental health; All VA healthcare: physicians, nurses, allied, mental health"
+    }
+  ],
+  "mental_health_professionals": [
+    {
+      "name": "BehavioralHealthJobs.com",
+      "url": "behavioralhealthjobs.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Mental / Behavioral Health",
+      "why_it_matters": "Behavioral health + addiction.",
+      "specialties": "SUD counselors, BH techs; SUD counselors, BH techs, mental health professionals"
+    }
+  ],
+  "mfts": [
+    {
+      "name": "AAMFT Career Center",
+      "url": "aamft.org/careers",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Mental / Behavioral Health",
+      "why_it_matters": "American Assoc. for Marriage & Family Therapy.",
+      "specialties": "MFTs, LMFTs"
+    }
+  ],
+  "midwife": [
+    {
+      "name": "ACNM Career Center",
+      "url": "midwife.org/careers",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Physician Specialty Society",
+      "why_it_matters": "American College of Nurse-Midwives.",
+      "specialties": "Certified Nurse-Midwives"
+    }
+  ],
+  "mls": [
+    {
+      "name": "ASCLS Career Center",
+      "url": "ascls.org/careers",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Allied Health (Lab)",
+      "why_it_matters": "American Society for Clinical Laboratory Science.",
+      "specialties": "MLS, MLTs; Clinical laboratory scientists; Medical lab scientists, MLTs"
+    },
+    {
+      "name": "iHireMedTechs",
+      "url": "ihiremedtechs.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Allied Health (Lab)",
+      "why_it_matters": "Lab science focus.",
+      "specialties": "MLS, MLTs, phlebotomists; Medical lab techs, MLS, phlebotomists"
+    }
+  ],
+  "mlts": [
+    {
+      "name": "ASCLS Career Center",
+      "url": "ascls.org/careers",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Allied Health (Lab)",
+      "why_it_matters": "American Society for Clinical Laboratory Science.",
+      "specialties": "MLS, MLTs; Clinical laboratory scientists; Medical lab scientists, MLTs"
+    },
+    {
+      "name": "iHireMedTechs",
+      "url": "ihiremedtechs.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Allied Health (Lab)",
+      "why_it_matters": "Lab science focus.",
+      "specialties": "MLS, MLTs, phlebotomists; Medical lab techs, MLS, phlebotomists"
+    }
+  ],
+  "monitors": [
+    {
+      "name": "ClinicalResearchJobs.org",
+      "url": "clinicalresearchjobs.org",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Pharmacy / Life Sciences",
+      "why_it_matters": "Clinical research niche.",
+      "specialties": "CRCs, CRAs, monitors; Clinical research coordinators, monitors, CRAs"
+    }
+  ],
+  "moonlighting": [
+    {
+      "name": "KevinMD / White Coat Jobs",
+      "url": "kevinmd.com",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Healthcare Media",
+      "why_it_matters": "Physician blogging site.",
+      "specialties": "Physicians - moonlighting/unconventional; Physicians - esp. unconventional roles, moonlighting; Physicians - esp. unconventional, moonlighting"
+    }
+  ],
+  "mri": [
+    {
+      "name": "ASRT Career Center",
+      "url": "asrt.org/careercenter",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Allied Health (Imaging)",
+      "why_it_matters": "American Society of Radiologic Technologists.",
+      "specialties": "Rad techs, sonographers, MRI, CT; Radiologic technologists, sonographers; Rad techs, sonographers, MRI, CT, radiation therapy"
+    },
+    {
+      "name": "iHireRadiology",
+      "url": "ihireradiology.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Allied Health (Imaging)",
+      "why_it_matters": "iHire radiology vertical.",
+      "specialties": "Rad techs, sonographers, MRI, CT"
+    }
+  ],
+  "msws": [
+    {
+      "name": "NASW JobLink",
+      "url": "joblink.socialworkers.org",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Mental / Behavioral Health",
+      "why_it_matters": "National Association of Social Workers.",
+      "specialties": "Social workers, LCSWs, MSWs"
+    }
+  ],
+  "multi_specialty_100": [
+    {
+      "name": "HEALTHeCAREERS Network",
+      "url": "healthecareers.com/network",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Healthcare Generalist Board",
+      "why_it_matters": "Network of association career centers",
+      "specialties": "Multi-specialty - 100+ partner associations"
+    }
+  ],
+  "native_american_nurses": [
+    {
+      "name": "NANAINA",
+      "url": "nanainanurses.org",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Diversity Healthcare",
+      "why_it_matters": "Nat'l Alaska Native Am. Indian Nurses Assoc.",
+      "specialties": "Native American nurses"
+    }
+  ],
+  "neurosurgeons": [
+    {
+      "name": "AANS Career Center",
+      "url": "careers.aans.org",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Physician Specialty Society",
+      "why_it_matters": "American Association of Neurological Surgeons.",
+      "specialties": "Neurosurgeons"
+    }
+  ],
+  "nicu": [
+    {
+      "name": "AWHONN Career Center",
+      "url": "awhonn.careerwebsite.com",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Nursing Specialty Society",
+      "why_it_matters": "Association of Women's Health OB & Neonatal Nurses.",
+      "specialties": "L&D, postpartum, NICU, women's health; L&D, postpartum, NICU, women's health nurses"
+    }
+  ],
+  "nih": [
+    {
+      "name": "USAJOBS (healthcare)",
+      "url": "usajobs.gov",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Government Healthcare",
+      "why_it_matters": "Official federal portal.",
+      "specialties": "Federal healthcare - VA, IHS, NIH, CDC, DoD; All federal healthcare roles incl. VA, IHS, CDC, NIH, DoD; All federal healthcare roles - VA, IHS, NIH, CDC, DoD"
+    }
+  ],
+  "np": [
+    {
+      "name": "Nurse.com",
+      "url": "nurse.com",
+      "status": "In Repo",
+      "priority": "-",
+      "category": "Nursing",
+      "why_it_matters": "2.8M+ registered nurses.",
+      "specialties": "RNs, LPNs, NPs, specialty nurses"
+    },
+    {
+      "name": "PracticeLink",
+      "url": "practicelink.com",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Physician Generalist",
+      "why_it_matters": "#1 US physician board. 35K+ active jobs, 8K+ health systems. Must-have.",
+      "specialties": "Physicians, NPs, PAs - all specialties; Physicians, APPs (NP/PA) across all specialties"
+    },
+    {
+      "name": "AANP Career Link",
+      "url": "aanp.org/careers",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Physician Specialty Society",
+      "why_it_matters": "American Association of Nurse Practitioners.",
+      "specialties": "Nurse Practitioners"
+    },
+    {
+      "name": "DiversityNursing.com",
+      "url": "diversitynursing.com",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Diversity Healthcare",
+      "why_it_matters": "Complements Minority Nurse.",
+      "specialties": "Diverse RNs, LPNs, NPs"
+    }
+  ],
+  "nps_across_50_states": [
+    {
+      "name": "NursingJobCafe",
+      "url": "nursingjobcafe.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Nursing Board",
+      "why_it_matters": "20+ years. ~2.5M annual views.",
+      "specialties": "RNs, NPs across 50 states; RNs, NPs - all 50 states"
+    }
+  ],
+  "nps_all_50_states": [
+    {
+      "name": "NursingJobCafe",
+      "url": "nursingjobcafe.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Nursing Board",
+      "why_it_matters": "20+ years. ~2.5M annual views.",
+      "specialties": "RNs, NPs across 50 states; RNs, NPs - all 50 states"
+    }
+  ],
+  "nurse": [
+    {
+      "name": "AbsolutelyHealthCare",
+      "url": "absolutelyhealthcare.com",
+      "status": "In Repo",
+      "priority": "-",
+      "category": "Healthcare Generalist",
+      "why_it_matters": "Long-running healthcare-only board.",
+      "specialties": "Nursing, allied health, physician, admin"
+    },
+    {
+      "name": "Health eCareers",
+      "url": "healthecareers.com",
+      "status": "In Repo",
+      "priority": "-",
+      "category": "Healthcare Generalist",
+      "why_it_matters": "Multi-specialty. (You listed this 3x in your repo - de-duplicate.)",
+      "specialties": "Physicians, nurses, allied health, executives, APPs"
+    },
+    {
+      "name": "Health Jobs / HealthJobs",
+      "url": "healthjobs.com",
+      "status": "In Repo",
+      "priority": "-",
+      "category": "Healthcare Generalist",
+      "why_it_matters": "Broad healthcare coverage. (You listed this 2x in your repo - de-duplicate.)",
+      "specialties": "Nurses, allied health, physicians"
+    },
+    {
+      "name": "HealthJobsNationwide",
+      "url": "healthjobsnationwide.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Healthcare Generalist",
+      "why_it_matters": "~90K monthly visitors.",
+      "specialties": "Physicians, nurses, allied, execs; Physicians, nurses, allied health, executives; Physicians, nurses, allied, executives"
+    },
+    {
+      "name": "MedJobsCafe",
+      "url": "medjobscafe.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Healthcare Generalist",
+      "why_it_matters": "Part of JobsCafe network.",
+      "specialties": "Nurses, physicians, allied; Nurses, physicians, allied health"
+    },
+    {
+      "name": "VA Careers",
+      "url": "vacareers.va.gov",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Government Healthcare",
+      "why_it_matters": "Largest integrated US health system.",
+      "specialties": "All VA healthcare; All VA healthcare roles: physicians, nurses, allied, mental health; All VA healthcare: physicians, nurses, allied, mental health"
+    },
+    {
+      "name": "HospitalRecruiting.com",
+      "url": "hospitalrecruiting.com",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Physician Generalist",
+      "why_it_matters": "Different from 'Hospital Careers'. Worth confirming whether it's already covered.",
+      "specialties": "Physicians, APPs, nurses, allied; Physicians, APPs, nurses, allied health, admin"
+    },
+    {
+      "name": "IHS Jobs",
+      "url": "ihs.gov/jobs",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Government Healthcare",
+      "why_it_matters": "Federal Indian health service.",
+      "specialties": "Indian Health Service; IHS physicians, nurses, dental, BH; Indian Health Service physicians, nurses, dental, BH"
+    },
+    {
+      "name": "Stynt",
+      "url": "stynt.com",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Gig / PRN Healthcare",
+      "why_it_matters": "Multi-vertical gig platform.",
+      "specialties": "Nursing, dental, medical; Nursing, dental, medical staff"
+    },
+    {
+      "name": "USPHS Commissioned Corps",
+      "url": "usphs.gov",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Government Healthcare",
+      "why_it_matters": "Uniformed service for public health.",
+      "specialties": "Physicians, nurses, dentists, pharmacists"
+    },
+    {
+      "name": "Kare (now part of ShiftMed ecosystem)",
+      "url": "kare.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Travel / Gig / PRN",
+      "why_it_matters": "On-demand healthcare staffing",
+      "specialties": "Nurses, CNAs"
+    },
+    {
+      "name": "Workingnurse.com / HealthCareersNetwork",
+      "url": "workingnurse.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Healthcare Generalist Board",
+      "why_it_matters": "Regional healthcare publisher",
+      "specialties": "Nurses + allied health (Southern California focus)"
+    }
+  ],
+  "nursing_community_with_job_listings": [
+    {
+      "name": "Nurses.com (NurseTogether)",
+      "url": "nursestogether.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Nursing Job Board",
+      "why_it_matters": "Nurse community platform",
+      "specialties": "Nursing community with job listings"
+    }
+  ],
+  "nursing_educators": [
+    {
+      "name": "AACN Nursing (Academic)",
+      "url": "careers.aacnnursing.org",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Nursing Academic",
+      "why_it_matters": "American Association of Colleges of Nursing.",
+      "specialties": "Nursing faculty, educators; Nursing faculty, nursing educators, academic nursing"
+    }
+  ],
+  "nursing_faculty": [
+    {
+      "name": "AACN Nursing (Academic)",
+      "url": "careers.aacnnursing.org",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Nursing Academic",
+      "why_it_matters": "American Association of Colleges of Nursing.",
+      "specialties": "Nursing faculty, educators; Nursing faculty, nursing educators, academic nursing"
+    },
+    {
+      "name": "FacultyNurse.com",
+      "url": "facultynurse.com",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Nursing Board",
+      "why_it_matters": "Academic nursing niche.",
+      "specialties": "Nursing faculty, educators"
+    }
+  ],
+  "of_us_physicians": [
+    {
+      "name": "Doximity",
+      "url": "doximity.com",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Physician Generalist",
+      "why_it_matters": "Largest medical network in US. Physician-only - can't replicate reach.",
+      "specialties": "Physicians (80%+ of US physicians); Physicians (80%+ of US physicians are members)"
+    }
+  ],
+  "of_us_physicians_are_members": [
+    {
+      "name": "Doximity",
+      "url": "doximity.com",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Physician Generalist",
+      "why_it_matters": "Largest medical network in US. Physician-only - can't replicate reach.",
+      "specialties": "Physicians (80%+ of US physicians); Physicians (80%+ of US physicians are members)"
+    }
+  ],
+  "office": [
+    {
+      "name": "DentalPost",
+      "url": "dentalpost.net",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Dental",
+      "why_it_matters": "Largest US dental board. 850K pros.",
+      "specialties": "Dentists, hygienists, assistants, office; Dentists, hygienists, assistants, office staff"
+    }
+  ],
+  "office_staff": [
+    {
+      "name": "DentalPost",
+      "url": "dentalpost.net",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Dental",
+      "why_it_matters": "Largest US dental board. 850K pros.",
+      "specialties": "Dentists, hygienists, assistants, office; Dentists, hygienists, assistants, office staff"
+    }
+  ],
+  "oncology_nurses": [
+    {
+      "name": "ONS Career Center",
+      "url": "ons.org",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Nursing Specialty Society",
+      "why_it_matters": "Oncology Nursing Society.",
+      "specialties": "Oncology nurses"
+    }
+  ],
+  "ops": [
+    {
+      "name": "Becker's Hospital Review Career Center",
+      "url": "beckershospitalreview.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Healthcare Media",
+      "why_it_matters": "Major healthcare publication.",
+      "specialties": "Healthcare leadership, finance, ops"
+    }
+  ],
+  "opticians": [
+    {
+      "name": "iHireOptometry",
+      "url": "ihireoptometry.com",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Allied Health (Optometry)",
+      "why_it_matters": "iHire vertical.",
+      "specialties": "Optometrists, opticians"
+    }
+  ],
+  "optometry": [
+    {
+      "name": "AOA Career Center",
+      "url": "aoa.org/careers",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Allied Health (Optometry)",
+      "why_it_matters": "American Optometric Association.",
+      "specialties": "Optometrists"
+    },
+    {
+      "name": "iHireOptometry",
+      "url": "ihireoptometry.com",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Allied Health (Optometry)",
+      "why_it_matters": "iHire vertical.",
+      "specialties": "Optometrists, opticians"
+    }
+  ],
+  "orthodontists": [
+    {
+      "name": "AAO Career Center",
+      "url": "aaoinfo.org/careers",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Dental (Specialty)",
+      "why_it_matters": "American Association of Orthodontists.",
+      "specialties": "Orthodontists, staff"
+    }
+  ],
+  "orthopedic_surgeons": [
+    {
+      "name": "AAOS (Orthopaedic Surgeons)",
+      "url": "jobs.aaos.org",
+      "status": "In Repo",
+      "priority": "-",
+      "category": "Physician Specialty",
+      "why_it_matters": "American Academy of Orthopaedic Surgeons.",
+      "specialties": "Orthopedic surgeons"
+    }
+  ],
+  "ot": [
+    {
+      "name": "AOTA CareerLink",
+      "url": "careers.aota.org",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Allied Health (Therapy)",
+      "why_it_matters": "American Occupational Therapy Association.",
+      "specialties": "OTs, OTAs"
+    },
+    {
+      "name": "iHireTherapy",
+      "url": "ihiretherapy.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Allied Health (Therapy)",
+      "why_it_matters": "iHire network - distributes to partner sites.",
+      "specialties": "PT, OT, SLP"
+    },
+    {
+      "name": "TherapyJobs.com",
+      "url": "therapyjobs.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Allied Health (Therapy)",
+      "why_it_matters": "Generalist therapy board.",
+      "specialties": "PT, OT, SLP"
+    },
+    {
+      "name": "OT Jobs (OccupationalTherapy.com)",
+      "url": "occupationaltherapy.com/careers",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Allied Health Job Board",
+      "why_it_matters": "OT-focused jobs",
+      "specialties": "OTs"
+    }
+  ],
+  "otas": [
+    {
+      "name": "AOTA CareerLink",
+      "url": "careers.aota.org",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Allied Health (Therapy)",
+      "why_it_matters": "American Occupational Therapy Association.",
+      "specialties": "OTs, OTAs"
+    }
+  ],
+  "outpatient_nurses": [
+    {
+      "name": "AAACN Career Center",
+      "url": "aaacn.org",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Nursing Specialty Society",
+      "why_it_matters": "American Academy of Ambulatory Care Nursing.",
+      "specialties": "Ambulatory/outpatient nurses"
+    }
+  ],
+  "pa": [
+    {
+      "name": "AAPA (Physician Assistants)",
+      "url": "aapa.org/career-central",
+      "status": "In Repo",
+      "priority": "-",
+      "category": "Physician Specialty",
+      "why_it_matters": "American Academy of PAs.",
+      "specialties": "Physician Assistants"
+    },
+    {
+      "name": "PracticeLink",
+      "url": "practicelink.com",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Physician Generalist",
+      "why_it_matters": "#1 US physician board. 35K+ active jobs, 8K+ health systems. Must-have.",
+      "specialties": "Physicians, NPs, PAs - all specialties; Physicians, APPs (NP/PA) across all specialties"
+    }
+  ],
+  "pa_across_all_specialties": [
+    {
+      "name": "PracticeLink",
+      "url": "practicelink.com",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Physician Generalist",
+      "why_it_matters": "#1 US physician board. 35K+ active jobs, 8K+ health systems. Must-have.",
+      "specialties": "Physicians, NPs, PAs - all specialties; Physicians, APPs (NP/PA) across all specialties"
+    }
+  ],
+  "pacific_islander_nurses": [
+    {
+      "name": "AAPINA",
+      "url": "aapina.org",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Diversity Healthcare",
+      "why_it_matters": "AAPI Nurses Association.",
+      "specialties": "Asian American/Pacific Islander nurses"
+    }
+  ],
+  "palliative_care": [
+    {
+      "name": "NHPCO Career Center",
+      "url": "nhpco.org/careers",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Home Health / Hospice",
+      "why_it_matters": "Nat'l Hospice and Palliative Care Org.",
+      "specialties": "Hospice + palliative care; Hospice and palliative care"
+    }
+  ],
+  "partner_associations": [
+    {
+      "name": "HEALTHeCAREERS Network",
+      "url": "healthecareers.com/network",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Healthcare Generalist Board",
+      "why_it_matters": "Network of association career centers",
+      "specialties": "Multi-specialty - 100+ partner associations"
+    }
+  ],
+  "pathologists": [
+    {
+      "name": "ASCP Career Center",
+      "url": "careers.ascp.org",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Physician Specialty Society",
+      "why_it_matters": "American Society for Clinical Pathology.",
+      "specialties": "Pathologists, lab medicine"
+    }
+  ],
+  "patient_access": [
+    {
+      "name": "AAHAM",
+      "url": "aaham.org",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Healthcare Admin",
+      "why_it_matters": "Am. Assoc. of Healthcare Admin Mgmt.",
+      "specialties": "Revenue cycle, patient access"
+    }
+  ],
+  "patient_care": [
+    {
+      "name": "Jobcase",
+      "url": "jobcase.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "General Job Board",
+      "why_it_matters": "Hourly / frontline worker community",
+      "specialties": "Hourly healthcare, CNAs, patient care, retail health"
+    }
+  ],
+  "pcas": [
+    {
+      "name": "myCNAjobs",
+      "url": "mycnajobs.com",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Home Care / Caregiver",
+      "why_it_matters": "Primary CNA/caregiver-specific board.",
+      "specialties": "CNAs, HHAs, caregivers, PCAs; CNAs, HHAs, caregivers, companions, PCAs"
+    }
+  ],
+  "pediatrician": [
+    {
+      "name": "AAP CareerLink",
+      "url": "career.aap.org",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Physician Specialty Society",
+      "why_it_matters": "American Academy of Pediatrics.",
+      "specialties": "Pediatricians"
+    }
+  ],
+  "per_diem": [
+    {
+      "name": "Vivian Health",
+      "url": "vivian.com",
+      "status": "In Repo",
+      "priority": "-",
+      "category": "Travel Healthcare",
+      "why_it_matters": "1.9M+ HCPs; largest travel marketplace.",
+      "specialties": "Travel nurses, allied, per diem, staff; Travel nurses, allied health, staff, per diem, local contract"
+    }
+  ],
+  "perioperative_nurses": [
+    {
+      "name": "AORN CareerCenter",
+      "url": "aorn.org/career-center",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Nursing Specialty Society",
+      "why_it_matters": "Only real channel for OR nurse specialty.",
+      "specialties": "OR / perioperative nurses"
+    }
+  ],
+  "perm": [
+    {
+      "name": "CompHealth",
+      "url": "comphealth.com",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Locum Tenens",
+      "why_it_matters": "Full-service; part of CHG Healthcare.",
+      "specialties": "Physicians, APPs, allied - locum + perm; Physicians, APPs, allied health; Physicians, APPs, allied health - locum + perm"
+    },
+    {
+      "name": "Weatherby Healthcare",
+      "url": "weatherbyhealthcare.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Locum Tenens",
+      "why_it_matters": "CHG Healthcare division; complements CompHealth.",
+      "specialties": "Physicians, APPs - locum + perm"
+    }
+  ],
+  "perm_dental_staff": [
+    {
+      "name": "Dental Staffing",
+      "url": "dental-staffing.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Dental Job Board",
+      "why_it_matters": "Focused on dental staffing",
+      "specialties": "Temp/perm dental staff"
+    }
+  ],
+  "pharma": [
+    {
+      "name": "PharmiWeb / PharmiWeb.jobs",
+      "url": "pharmiweb.jobs",
+      "status": "In Repo",
+      "priority": "-",
+      "category": "Pharmacy / Life Sciences",
+      "why_it_matters": "Pharma community + jobs. (You listed this 2x - de-duplicate.)",
+      "specialties": "Pharma, biotech, regulatory, clinical"
+    },
+    {
+      "name": "BioSpace",
+      "url": "biospace.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Pharmacy / Life Sciences",
+      "why_it_matters": "Major life sciences site. Different audience from PharmiWeb.",
+      "specialties": "Pharma, biotech, clinical research, regulatory"
+    },
+    {
+      "name": "Fierce Healthcare Jobs",
+      "url": "fiercehealthcare.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Healthcare Media",
+      "why_it_matters": "Industry publication career pages.",
+      "specialties": "Healthcare industry, biotech, pharma"
+    },
+    {
+      "name": "Medzilla",
+      "url": "medzilla.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Healthcare Generalist Board",
+      "why_it_matters": "Niche: life sciences and pharma",
+      "specialties": "Biotech, pharma, clinical research, medical device"
+    }
+  ],
+  "pharma_diversity_audience": [
+    {
+      "name": "NHCN (National Health Care Network)",
+      "url": "verify url",
+      "status": "In Repo",
+      "priority": "-",
+      "category": "Healthcare Generalist",
+      "why_it_matters": "Confirm exact partner - multiple entities use this name.",
+      "specialties": "All healthcare; Pharma diversity audience"
+    }
+  ],
+  "pharma_sales": [
+    {
+      "name": "MedReps",
+      "url": "medreps.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Medical Sales",
+      "why_it_matters": "Niche: sales-only. Valuable for med device.",
+      "specialties": "Medical/pharma sales, med device; Medical sales, pharma sales, med device"
+    }
+  ],
+  "pharmaceutical_industry": [
+    {
+      "name": "Pharmaceutical Careers (PharmaCareers.com)",
+      "url": "pharmacareers.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Pharmacy / Life Sciences",
+      "why_it_matters": "Pharma industry niche",
+      "specialties": "Pharmaceutical industry roles"
+    }
+  ],
+  "pharmacist": [
+    {
+      "name": "iHirePharmacy",
+      "url": "ihirepharmacy.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Pharmacy",
+      "why_it_matters": "iHire pharmacy vertical.",
+      "specialties": "Pharmacists, pharmacy techs"
+    },
+    {
+      "name": "RxCareerCenter",
+      "url": "rxcareercenter.com",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Pharmacy",
+      "why_it_matters": "Pharmacy-specific board.",
+      "specialties": "Pharmacists, techs"
+    },
+    {
+      "name": "USPHS Commissioned Corps",
+      "url": "usphs.gov",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Government Healthcare",
+      "why_it_matters": "Uniformed service for public health.",
+      "specialties": "Physicians, nurses, dentists, pharmacists"
+    },
+    {
+      "name": "Rx-Recruiters / PharmacyWeek",
+      "url": "pharmacyweek.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Pharmacy / Life Sciences",
+      "why_it_matters": "Pharmacy publication + jobs",
+      "specialties": "Pharmacists"
+    }
+  ],
+  "pharmacists_community": [
+    {
+      "name": "APhA CareerPharm",
+      "url": "aphanet.org/careerpharm",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Pharmacy",
+      "why_it_matters": "American Pharmacists Association.",
+      "specialties": "Pharmacists (community + clinical)"
+    }
+  ],
+  "pharmacy_industry": [
+    {
+      "name": "RXinsider",
+      "url": "rxinsider.com",
+      "status": "In Repo",
+      "priority": "-",
+      "category": "Pharmacy / Life Sciences",
+      "why_it_matters": "Pharmacy publisher + career resources.",
+      "specialties": "Pharmacy industry roles"
+    }
+  ],
+  "pharmacy_tech": [
+    {
+      "name": "iHirePharmacy",
+      "url": "ihirepharmacy.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Pharmacy",
+      "why_it_matters": "iHire pharmacy vertical.",
+      "specialties": "Pharmacists, pharmacy techs"
+    }
+  ],
+  "phlebotomists": [
+    {
+      "name": "iHireMedTechs",
+      "url": "ihiremedtechs.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Allied Health (Lab)",
+      "why_it_matters": "Lab science focus.",
+      "specialties": "MLS, MLTs, phlebotomists; Medical lab techs, MLS, phlebotomists"
+    }
+  ],
+  "physiatrists": [
+    {
+      "name": "AAPM&R (Physical Med & Rehab)",
+      "url": "aapmr.org",
+      "status": "In Repo",
+      "priority": "-",
+      "category": "Physician Specialty",
+      "why_it_matters": "American Academy of Physical Medicine and Rehabilitation.",
+      "specialties": "Physiatrists"
+    }
+  ],
+  "physician": [
+    {
+      "name": "AbsolutelyHealthCare",
+      "url": "absolutelyhealthcare.com",
+      "status": "In Repo",
+      "priority": "-",
+      "category": "Healthcare Generalist",
+      "why_it_matters": "Long-running healthcare-only board.",
+      "specialties": "Nursing, allied health, physician, admin"
+    },
+    {
+      "name": "Health eCareers",
+      "url": "healthecareers.com",
+      "status": "In Repo",
+      "priority": "-",
+      "category": "Healthcare Generalist",
+      "why_it_matters": "Multi-specialty. (You listed this 3x in your repo - de-duplicate.)",
+      "specialties": "Physicians, nurses, allied health, executives, APPs"
+    },
+    {
+      "name": "Health Jobs / HealthJobs",
+      "url": "healthjobs.com",
+      "status": "In Repo",
+      "priority": "-",
+      "category": "Healthcare Generalist",
+      "why_it_matters": "Broad healthcare coverage. (You listed this 2x in your repo - de-duplicate.)",
+      "specialties": "Nurses, allied health, physicians"
+    },
+    {
+      "name": "JAMA Career Center",
+      "url": "jamacareercenter.com",
+      "status": "In Repo",
+      "priority": "-",
+      "category": "Physician",
+      "why_it_matters": "JAMA Network career center.",
+      "specialties": "Physicians - all specialties"
+    },
+    {
+      "name": "MDsearch.com",
+      "url": "mdsearch.com",
+      "status": "In Repo",
+      "priority": "-",
+      "category": "Physician",
+      "why_it_matters": "Free basic + paid boost.",
+      "specialties": "Physicians - all specialties"
+    },
+    {
+      "name": "CompHealth",
+      "url": "comphealth.com",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Locum Tenens",
+      "why_it_matters": "Full-service; part of CHG Healthcare.",
+      "specialties": "Physicians, APPs, allied - locum + perm; Physicians, APPs, allied health; Physicians, APPs, allied health - locum + perm"
+    },
+    {
+      "name": "DocCafe",
+      "url": "doccafe.com",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Physician Generalist",
+      "why_it_matters": "Established 2001. Multi-specialty perm + locum.",
+      "specialties": "Physicians, dentists, APPs"
+    },
+    {
+      "name": "NEJM CareerCenter",
+      "url": "nejmcareercenter.org",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Physician Generalist",
+      "why_it_matters": "Premium brand. Academic + hospital physicians.",
+      "specialties": "Physicians - all specialties; Physicians - strong NE US penetration"
+    },
+    {
+      "name": "PracticeLink",
+      "url": "practicelink.com",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Physician Generalist",
+      "why_it_matters": "#1 US physician board. 35K+ active jobs, 8K+ health systems. Must-have.",
+      "specialties": "Physicians, NPs, PAs - all specialties; Physicians, APPs (NP/PA) across all specialties"
+    },
+    {
+      "name": "PracticeMatch",
+      "url": "practicematch.com",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Physician Generalist",
+      "why_it_matters": "Complements PracticeLink. Candidate matching + CRM. Enterprise-preferred.",
+      "specialties": "Physicians, APPs"
+    },
+    {
+      "name": "CareerVitals",
+      "url": "careervitals.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Healthcare Generalist",
+      "why_it_matters": "Distributes to 80+ niche healthcare boards.",
+      "specialties": "All healthcare; All healthcare roles - nurses, physicians, therapists, admin"
+    },
+    {
+      "name": "HealthJobsNationwide",
+      "url": "healthjobsnationwide.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Healthcare Generalist",
+      "why_it_matters": "~90K monthly visitors.",
+      "specialties": "Physicians, nurses, allied, execs; Physicians, nurses, allied health, executives; Physicians, nurses, allied, executives"
+    },
+    {
+      "name": "Jackson Physician Search",
+      "url": "jacksonphysiciansearch.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Locum Tenens",
+      "why_it_matters": "Retained search firm with online listings.",
+      "specialties": "Physicians, APPs"
+    },
+    {
+      "name": "MedJobsCafe",
+      "url": "medjobscafe.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Healthcare Generalist",
+      "why_it_matters": "Part of JobsCafe network.",
+      "specialties": "Nurses, physicians, allied; Nurses, physicians, allied health"
+    },
+    {
+      "name": "Weatherby Healthcare",
+      "url": "weatherbyhealthcare.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Locum Tenens",
+      "why_it_matters": "CHG Healthcare division; complements CompHealth.",
+      "specialties": "Physicians, APPs - locum + perm"
+    },
+    {
+      "name": "HospitalRecruiting.com",
+      "url": "hospitalrecruiting.com",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Physician Generalist",
+      "why_it_matters": "Different from 'Hospital Careers'. Worth confirming whether it's already covered.",
+      "specialties": "Physicians, APPs, nurses, allied; Physicians, APPs, nurses, allied health, admin"
+    },
+    {
+      "name": "USPHS Commissioned Corps",
+      "url": "usphs.gov",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Government Healthcare",
+      "why_it_matters": "Uniformed service for public health.",
+      "specialties": "Physicians, nurses, dentists, pharmacists"
+    },
+    {
+      "name": "Indeed",
+      "url": "indeed.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "General Job Board",
+      "why_it_matters": "~250M+ monthly visitors; largest US reach; CPC model; free + sponsored listings",
+      "specialties": "All healthcare verticals - nurses, physicians, allied health, caregivers, admin"
+    },
+    {
+      "name": "LinkedIn Jobs",
+      "url": "linkedin.com/jobs",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "General Job Board",
+      "why_it_matters": "~930M members; strong for white-collar healthcare and leadership",
+      "specialties": "Physicians, executives, admin, advanced practice, specialty RNs"
+    },
+    {
+      "name": "MedPage Today Jobs",
+      "url": "medpagetoday.com/career",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Other / Emerging",
+      "why_it_matters": "Physician news site with jobs",
+      "specialties": "Physicians, medical news subscribers"
+    },
+    {
+      "name": "NIH Careers",
+      "url": "hr.nih.gov/jobs",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Government / Public Sector",
+      "why_it_matters": "Nat'l Institutes of Health",
+      "specialties": "Clinical researchers, RNs, physicians"
+    },
+    {
+      "name": "PhysicianJobBoard.com",
+      "url": "physicianjobboard.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Physician / APP Job Board",
+      "why_it_matters": "Niche physician board",
+      "specialties": "Physicians"
+    }
+  ],
+  "physicians_80": [
+    {
+      "name": "Doximity",
+      "url": "doximity.com",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Physician Generalist",
+      "why_it_matters": "Largest medical network in US. Physician-only - can't replicate reach.",
+      "specialties": "Physicians (80%+ of US physicians); Physicians (80%+ of US physicians are members)"
+    }
+  ],
+  "physicians_esp_unconventional": [
+    {
+      "name": "KevinMD / White Coat Jobs",
+      "url": "kevinmd.com",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Healthcare Media",
+      "why_it_matters": "Physician blogging site.",
+      "specialties": "Physicians - moonlighting/unconventional; Physicians - esp. unconventional roles, moonlighting; Physicians - esp. unconventional, moonlighting"
+    }
+  ],
+  "physicians_in_california": [
+    {
+      "name": "California Medical Association (CMADocs)",
+      "url": "cmadocs.org",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Regional Healthcare",
+      "why_it_matters": "CA state physician society",
+      "specialties": "Physicians in California"
+    }
+  ],
+  "physicians_in_florida": [
+    {
+      "name": "Florida Medical Association",
+      "url": "flmedical.org",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Regional Healthcare",
+      "why_it_matters": "FL state physician society",
+      "specialties": "Physicians in Florida"
+    }
+  ],
+  "physicians_in_texas": [
+    {
+      "name": "Texas Medical Association Career Center",
+      "url": "careers.texmed.org",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Regional Healthcare",
+      "why_it_matters": "State physician society",
+      "specialties": "Physicians in Texas"
+    }
+  ],
+  "physicians_moonlighting": [
+    {
+      "name": "KevinMD / White Coat Jobs",
+      "url": "kevinmd.com",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Healthcare Media",
+      "why_it_matters": "Physician blogging site.",
+      "specialties": "Physicians - moonlighting/unconventional; Physicians - esp. unconventional roles, moonlighting; Physicians - esp. unconventional, moonlighting"
+    },
+    {
+      "name": "FlexMD / Moonlighting.com",
+      "url": "moonlighting.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Other / Emerging",
+      "why_it_matters": "Physician moonlighting platform",
+      "specialties": "Physicians - moonlighting/locum-lite"
+    }
+  ],
+  "physicians_nationwide": [
+    {
+      "name": "PhysicianCareer.com",
+      "url": "physiciancareer.com",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Physician Generalist",
+      "why_it_matters": "Additional volume partner.",
+      "specialties": "Physicians nationwide"
+    }
+  ],
+  "physicians_strong_ne_us_penetration": [
+    {
+      "name": "NEJM CareerCenter",
+      "url": "nejmcareercenter.org",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Physician Generalist",
+      "why_it_matters": "Premium brand. Academic + hospital physicians.",
+      "specialties": "Physicians - all specialties; Physicians - strong NE US penetration"
+    }
+  ],
+  "pmhnps": [
+    {
+      "name": "APA JobCentral (Psychiatry)",
+      "url": "jobs.psychiatry.org",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Mental / Behavioral Health",
+      "why_it_matters": "American Psychiatric Association.",
+      "specialties": "Psychiatrists, PMHNPs; Psychiatrists, PMHNPs, psych social workers"
+    }
+  ],
+  "postpartum": [
+    {
+      "name": "AWHONN Career Center",
+      "url": "awhonn.careerwebsite.com",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Nursing Specialty Society",
+      "why_it_matters": "Association of Women's Health OB & Neonatal Nurses.",
+      "specialties": "L&D, postpartum, NICU, women's health; L&D, postpartum, NICU, women's health nurses"
+    }
+  ],
+  "psych_social_workers": [
+    {
+      "name": "APA JobCentral (Psychiatry)",
+      "url": "jobs.psychiatry.org",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Mental / Behavioral Health",
+      "why_it_matters": "American Psychiatric Association.",
+      "specialties": "Psychiatrists, PMHNPs; Psychiatrists, PMHNPs, psych social workers"
+    }
+  ],
+  "psychology": [
+    {
+      "name": "APA PsycCareers (Psychology)",
+      "url": "psyccareers.com",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Mental / Behavioral Health",
+      "why_it_matters": "American Psychological Association. Different org from above.",
+      "specialties": "Psychologists, researchers"
+    },
+    {
+      "name": "PsychologyJobs.com",
+      "url": "psychologyjobs.com",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Mental / Behavioral Health",
+      "why_it_matters": "Leading mental health board.",
+      "specialties": "Psychologists, psychiatrists, counselors, SWs; Psychologists, psychiatrists, counselors, social workers"
+    }
+  ],
+  "pt": [
+    {
+      "name": "APTA Career Center",
+      "url": "careers.apta.org",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Allied Health (Therapy)",
+      "why_it_matters": "American Physical Therapy Association.",
+      "specialties": "PTs, PTAs"
+    },
+    {
+      "name": "iHireTherapy",
+      "url": "ihiretherapy.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Allied Health (Therapy)",
+      "why_it_matters": "iHire network - distributes to partner sites.",
+      "specialties": "PT, OT, SLP"
+    },
+    {
+      "name": "TherapyJobs.com",
+      "url": "therapyjobs.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Allied Health (Therapy)",
+      "why_it_matters": "Generalist therapy board.",
+      "specialties": "PT, OT, SLP"
+    },
+    {
+      "name": "PTJobs.com",
+      "url": "ptjobs.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Allied Health Job Board",
+      "why_it_matters": "PT-focused board",
+      "specialties": "Physical therapists"
+    }
+  ],
+  "ptas": [
+    {
+      "name": "APTA Career Center",
+      "url": "careers.apta.org",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Allied Health (Therapy)",
+      "why_it_matters": "American Physical Therapy Association.",
+      "specialties": "PTs, PTAs"
+    }
+  ],
+  "public_health": [
+    {
+      "name": "State/Local Government Job Boards (e.g., GovernmentJobs.com)",
+      "url": "governmentjobs.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Government / Public Sector",
+      "why_it_matters": "Aggregator of state/local gov listings",
+      "specialties": "Public health, state hospital, county health"
+    }
+  ],
+  "public_health_nurses": [
+    {
+      "name": "CDC Careers",
+      "url": "jobs.cdc.gov",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Government / Public Sector",
+      "why_it_matters": "Centers for Disease Control",
+      "specialties": "Epidemiologists, public health nurses, etc."
+    }
+  ],
+  "quality_improvement_professionals": [
+    {
+      "name": "NAHQ Career Center",
+      "url": "nahq.org",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Healthcare Quality",
+      "why_it_matters": "Nat'l Assoc. for Healthcare Quality.",
+      "specialties": "Quality improvement pros; Quality improvement professionals"
+    }
+  ],
+  "quality_improvement_pros": [
+    {
+      "name": "NAHQ Career Center",
+      "url": "nahq.org",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Healthcare Quality",
+      "why_it_matters": "Nat'l Assoc. for Healthcare Quality.",
+      "specialties": "Quality improvement pros; Quality improvement professionals"
+    }
+  ],
+  "radiation_therapy": [
+    {
+      "name": "ASRT Career Center",
+      "url": "asrt.org/careercenter",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Allied Health (Imaging)",
+      "why_it_matters": "American Society of Radiologic Technologists.",
+      "specialties": "Rad techs, sonographers, MRI, CT; Radiologic technologists, sonographers; Rad techs, sonographers, MRI, CT, radiation therapy"
+    }
+  ],
+  "radiology_administrators": [
+    {
+      "name": "AHRA Career Center (Radiology Admin)",
+      "url": "ahraonline.org",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Association Career Center",
+      "why_it_matters": "Assoc. for Medical Imaging Mgmt",
+      "specialties": "Radiology administrators"
+    }
+  ],
+  "rbts": [
+    {
+      "name": "BACB / ABA Jobs",
+      "url": "bacb.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Mental / Behavioral Health",
+      "why_it_matters": "Critical for ABA.",
+      "specialties": "BCBAs, RBTs, behavior analysts"
+    }
+  ],
+  "rdns": [
+    {
+      "name": "AND Career Center",
+      "url": "eatrightcareers.org",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Allied Health (Dietetics)",
+      "why_it_matters": "Academy of Nutrition and Dietetics.",
+      "specialties": "RDs, RDNs; RDs, RDNs, dietary techs"
+    }
+  ],
+  "regulatory": [
+    {
+      "name": "PharmiWeb / PharmiWeb.jobs",
+      "url": "pharmiweb.jobs",
+      "status": "In Repo",
+      "priority": "-",
+      "category": "Pharmacy / Life Sciences",
+      "why_it_matters": "Pharma community + jobs. (You listed this 2x - de-duplicate.)",
+      "specialties": "Pharma, biotech, regulatory, clinical"
+    },
+    {
+      "name": "BioSpace",
+      "url": "biospace.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Pharmacy / Life Sciences",
+      "why_it_matters": "Major life sciences site. Different audience from PharmiWeb.",
+      "specialties": "Pharma, biotech, clinical research, regulatory"
+    }
+  ],
+  "remote_case_management": [
+    {
+      "name": "We Work Remotely",
+      "url": "weworkremotely.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "General Job Board",
+      "why_it_matters": "Large remote talent pool",
+      "specialties": "Telehealth, remote case management, healthcare SaaS"
+    }
+  ],
+  "remote_nursing": [
+    {
+      "name": "FlexJobs",
+      "url": "flexjobs.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "General Job Board",
+      "why_it_matters": "Curated remote and flexible roles",
+      "specialties": "Remote nursing, telehealth, case management, utilization review, medical coding"
+    }
+  ],
+  "remote_rn": [
+    {
+      "name": "Remote.co",
+      "url": "remote.co",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "General Job Board",
+      "why_it_matters": "Curated remote healthcare roles",
+      "specialties": "Telemedicine, remote RN, health tech"
+    }
+  ],
+  "research": [
+    {
+      "name": "AcademyHealth Career Center",
+      "url": "academyhealth.org/careers",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Allied Health Job Board",
+      "why_it_matters": "Health policy and research",
+      "specialties": "Health policy, research, analytics"
+    }
+  ],
+  "researchers": [
+    {
+      "name": "APA PsycCareers (Psychology)",
+      "url": "psyccareers.com",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Mental / Behavioral Health",
+      "why_it_matters": "American Psychological Association. Different org from above.",
+      "specialties": "Psychologists, researchers"
+    }
+  ],
+  "retail_health": [
+    {
+      "name": "Jobcase",
+      "url": "jobcase.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "General Job Board",
+      "why_it_matters": "Hourly / frontline worker community",
+      "specialties": "Hourly healthcare, CNAs, patient care, retail health"
+    }
+  ],
+  "retail_pharmacy": [
+    {
+      "name": "NACDS Career Center",
+      "url": "nacds.org/careers",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Pharmacy",
+      "why_it_matters": "Chain Drug Stores association.",
+      "specialties": "Chain and retail pharmacy; Chain pharmacy and retail pharmacy"
+    }
+  ],
+  "revenue_cycle": [
+    {
+      "name": "HFMA Career Center",
+      "url": "hfma.org/careers",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Healthcare Finance",
+      "why_it_matters": "Healthcare Financial Mgmt Association.",
+      "specialties": "Finance, revenue cycle, CFOs; Healthcare finance, revenue cycle, CFOs"
+    },
+    {
+      "name": "AAHAM",
+      "url": "aaham.org",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Healthcare Admin",
+      "why_it_matters": "Am. Assoc. of Healthcare Admin Mgmt.",
+      "specialties": "Revenue cycle, patient access"
+    }
+  ],
+  "rn": [
+    {
+      "name": "American Nurses Association (ANA)",
+      "url": "nursingworld.org/careercenter",
+      "status": "In Repo",
+      "priority": "-",
+      "category": "Nursing",
+      "why_it_matters": "Official ANA career center.",
+      "specialties": "RN, APRN, specialty nurses"
+    },
+    {
+      "name": "Incredible Health",
+      "url": "incrediblehealth.com",
+      "status": "In Repo",
+      "priority": "-",
+      "category": "Nursing",
+      "why_it_matters": "AI-powered permanent nurse hiring platform.",
+      "specialties": "RNs and specialty nurses"
+    },
+    {
+      "name": "Nurse.com",
+      "url": "nurse.com",
+      "status": "In Repo",
+      "priority": "-",
+      "category": "Nursing",
+      "why_it_matters": "2.8M+ registered nurses.",
+      "specialties": "RNs, LPNs, NPs, specialty nurses"
+    },
+    {
+      "name": "NurseRecruiter",
+      "url": "nurserecruiter.com",
+      "status": "In Repo",
+      "priority": "-",
+      "category": "Nursing",
+      "why_it_matters": "General nursing recruitment.",
+      "specialties": "RN, LPN, CNA, travel"
+    },
+    {
+      "name": "CareRev",
+      "url": "carerev.com",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Gig / PRN Healthcare",
+      "why_it_matters": "41 states; hospital shift marketplace.",
+      "specialties": "RNs, CNAs, MAs, techs; RNs, CNAs, medical assistants, techs"
+    },
+    {
+      "name": "ShiftKey",
+      "url": "shiftkey.com",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Gig / PRN Healthcare",
+      "why_it_matters": "Largest PRN platform.",
+      "specialties": "CNAs, LPNs, RNs, surgical/rad techs"
+    },
+    {
+      "name": "ShiftMed",
+      "url": "shiftmed.com",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Gig / PRN Healthcare",
+      "why_it_matters": "100K+ HCPs. W-2 model.",
+      "specialties": "CNAs, RNs, LPNs (W-2)"
+    },
+    {
+      "name": "Clipboard Health",
+      "url": "clipboardhealth.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Gig / PRN Healthcare",
+      "why_it_matters": "SNF/LTC-heavy PRN.",
+      "specialties": "CNAs, LPNs, RNs"
+    },
+    {
+      "name": "Connect RN",
+      "url": "connectrn.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Gig / PRN Healthcare",
+      "why_it_matters": "Nursing shift marketplace.",
+      "specialties": "RNs, LPNs, CNAs"
+    },
+    {
+      "name": "Nursa",
+      "url": "nursa.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Gig / PRN Healthcare",
+      "why_it_matters": "Per-diem marketplace.",
+      "specialties": "CNAs, LPNs, RNs"
+    },
+    {
+      "name": "NursingCenter (Lippincott)",
+      "url": "nursingcenter.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Nursing Board",
+      "why_it_matters": "Lippincott/Wolters Kluwer network.",
+      "specialties": "RNs, APRNs, specialty; RNs, APRNs, specialty nurses"
+    },
+    {
+      "name": "NursingJobCafe",
+      "url": "nursingjobcafe.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Nursing Board",
+      "why_it_matters": "20+ years. ~2.5M annual views.",
+      "specialties": "RNs, NPs across 50 states; RNs, NPs - all 50 states"
+    },
+    {
+      "name": "DailyNurse",
+      "url": "dailynurse.com",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Nursing Board",
+      "why_it_matters": "Nursing publication + career center.",
+      "specialties": "RNs, specialty nurses"
+    },
+    {
+      "name": "Gale Healthcare",
+      "url": "galehealthcare.com",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Gig / PRN Healthcare",
+      "why_it_matters": "Daily-pay nurse shifts.",
+      "specialties": "CNAs, LPNs, RNs"
+    },
+    {
+      "name": "NurseDash",
+      "url": "nursedash.com",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Gig / PRN Healthcare",
+      "why_it_matters": "Shift-based marketplace.",
+      "specialties": "RNs, LPNs, CNAs"
+    },
+    {
+      "name": "NurseJobBoard.com",
+      "url": "nursejobboard.com",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Nursing Board",
+      "why_it_matters": "Sponsored-job model.",
+      "specialties": "RNs, LPNs, specialty; RNs, LPNs, specialty nurses"
+    },
+    {
+      "name": "NIH Careers",
+      "url": "hr.nih.gov/jobs",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Government / Public Sector",
+      "why_it_matters": "Nat'l Institutes of Health",
+      "specialties": "Clinical researchers, RNs, physicians"
+    },
+    {
+      "name": "Nursing Spectrum / NurseWeek (Relias)",
+      "url": "nursingspectrum.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Nursing Job Board",
+      "why_it_matters": "Relias-owned nursing network",
+      "specialties": "RNs, LPNs"
+    },
+    {
+      "name": "NursingALD (Nursing Advocates/Licensure Network)",
+      "url": "nursingald.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Nursing Job Board",
+      "why_it_matters": "State board of nursing affiliated publications",
+      "specialties": "RNs, LPNs"
+    },
+    {
+      "name": "PRN Healthcare",
+      "url": "prnhealthcare.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Travel / Gig / PRN",
+      "why_it_matters": "PRN-focused staffing agency",
+      "specialties": "RNs, allied health"
+    }
+  ],
+  "rns_1m": [
+    {
+      "name": "Minority Nurse",
+      "url": "minoritynurse.com",
+      "status": "In Repo",
+      "priority": "-",
+      "category": "Nursing (Diversity)",
+      "why_it_matters": "Largest diversity nursing board. (You listed this 2x in your repo - de-duplicate.)",
+      "specialties": "Diverse RNs - 1M+ unique nurses/year; RNs - 1M+ unique nurses, diversity focus"
+    }
+  ],
+  "rns_post_acute": [
+    {
+      "name": "IntelyCare",
+      "url": "intelycare.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Nursing Board",
+      "why_it_matters": "W-2 PRN platform. Strong for SNF/LTC.",
+      "specialties": "CNAs, LPNs, RNs - post-acute/SNF; CNAs, LPNs, RNs - post-acute/SNF focus"
+    }
+  ],
+  "rns_with_ceu_integration": [
+    {
+      "name": "RN.com",
+      "url": "rn.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Nursing Job Board",
+      "why_it_matters": "CE-integrated nurse job board",
+      "specialties": "RNs with CEU integration"
+    }
+  ],
+  "rt": [
+    {
+      "name": "AARC Career Center",
+      "url": "aarc.org/careers",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Allied Health (Respiratory)",
+      "why_it_matters": "American Association for Respiratory Care.",
+      "specialties": "Respiratory therapists"
+    },
+    {
+      "name": "RTJobs.com",
+      "url": "rtjobs.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Allied Health Job Board",
+      "why_it_matters": "RT focus",
+      "specialties": "Respiratory therapists"
+    }
+  ],
+  "senior_care": [
+    {
+      "name": "Care.com",
+      "url": "care.com",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Home Care / Caregiver",
+      "why_it_matters": "Largest consumer care marketplace.",
+      "specialties": "Caregivers, home + senior care; Caregivers, home care, in-home senior care"
+    },
+    {
+      "name": "CareGuide / CareRecruit",
+      "url": "careguide.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Home Care / Caregiver",
+      "why_it_matters": "Multi-vertical care platform",
+      "specialties": "Caregivers, HHAs, senior care"
+    },
+    {
+      "name": "Sittercity / HomePay",
+      "url": "sittercity.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Home Care / Caregiver",
+      "why_it_matters": "Family-hired caregiver platform",
+      "specialties": "Senior care, companions"
+    }
+  ],
+  "senior_focused": [
+    {
+      "name": "SeniorCareJobs / AgingCare Jobs",
+      "url": "agingcare.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Home Care / Caregiver",
+      "why_it_matters": "AgingCare careers",
+      "specialties": "Home care, senior-focused"
+    }
+  ],
+  "slp": [
+    {
+      "name": "ASHA Career Portal",
+      "url": "careers.asha.org",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Allied Health (Therapy)",
+      "why_it_matters": "American Speech-Language-Hearing Association.",
+      "specialties": "SLPs, audiologists"
+    },
+    {
+      "name": "iHireTherapy",
+      "url": "ihiretherapy.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Allied Health (Therapy)",
+      "why_it_matters": "iHire network - distributes to partner sites.",
+      "specialties": "PT, OT, SLP"
+    },
+    {
+      "name": "TherapyJobs.com",
+      "url": "therapyjobs.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Allied Health (Therapy)",
+      "why_it_matters": "Generalist therapy board.",
+      "specialties": "PT, OT, SLP"
+    },
+    {
+      "name": "SLPJobs.com / ASHA",
+      "url": "slpjobs.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Allied Health Job Board",
+      "why_it_matters": "Speech pathology jobs",
+      "specialties": "SLPs"
+    }
+  ],
+  "snf": [
+    {
+      "name": "AHCA/NCAL Careers",
+      "url": "careers.ahcancal.org",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Senior Living / LTC",
+      "why_it_matters": "American Health Care Assoc / Assisted Living.",
+      "specialties": "SNF + assisted living; SNF and assisted living staff"
+    },
+    {
+      "name": "LeadingAge Career Center",
+      "url": "leadingage.org/careers",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Senior Living / LTC",
+      "why_it_matters": "Nonprofit aging services association.",
+      "specialties": "SNF, assisted living, CCRC; SNF, assisted living, CCRC staff"
+    },
+    {
+      "name": "IntelyCare",
+      "url": "intelycare.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Nursing Board",
+      "why_it_matters": "W-2 PRN platform. Strong for SNF/LTC.",
+      "specialties": "CNAs, LPNs, RNs - post-acute/SNF; CNAs, LPNs, RNs - post-acute/SNF focus"
+    }
+  ],
+  "snf_focus": [
+    {
+      "name": "IntelyCare",
+      "url": "intelycare.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Nursing Board",
+      "why_it_matters": "W-2 PRN platform. Strong for SNF/LTC.",
+      "specialties": "CNAs, LPNs, RNs - post-acute/SNF; CNAs, LPNs, RNs - post-acute/SNF focus"
+    }
+  ],
+  "social_work": [
+    {
+      "name": "NASW JobLink",
+      "url": "joblink.socialworkers.org",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Mental / Behavioral Health",
+      "why_it_matters": "National Association of Social Workers.",
+      "specialties": "Social workers, LCSWs, MSWs"
+    },
+    {
+      "name": "PsychologyJobs.com",
+      "url": "psychologyjobs.com",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Mental / Behavioral Health",
+      "why_it_matters": "Leading mental health board.",
+      "specialties": "Psychologists, psychiatrists, counselors, SWs; Psychologists, psychiatrists, counselors, social workers"
+    },
+    {
+      "name": "iHireMentalHealth",
+      "url": "ihirementalhealth.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Mental / Behavioral Health",
+      "why_it_matters": "iHire vertical.",
+      "specialties": "Therapists, counselors, psychiatrists; Therapists, counselors, psychiatrists, LCSWs"
+    },
+    {
+      "name": "HospiceJobs.com",
+      "url": "hospicejobs.com",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Home Health / Hospice",
+      "why_it_matters": "Hospice-specific.",
+      "specialties": "Hospice nurses, SWs, aides, chaplains; Hospice nurses, social workers, aides, chaplains"
+    },
+    {
+      "name": "SocialWorkJobBank",
+      "url": "socialworkjobbank.com",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Mental / Behavioral Health",
+      "why_it_matters": "Social work niche.",
+      "specialties": "Social workers; Social workers across healthcare settings"
+    }
+  ],
+  "social_workers_across_healthcare_settings": [
+    {
+      "name": "SocialWorkJobBank",
+      "url": "socialworkjobbank.com",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Mental / Behavioral Health",
+      "why_it_matters": "Social work niche.",
+      "specialties": "Social workers; Social workers across healthcare settings"
+    }
+  ],
+  "south_asian_nurses_in_us": [
+    {
+      "name": "NAINA",
+      "url": "nainausa.com",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Diversity Healthcare",
+      "why_it_matters": "Nat'l Assoc. of Indian Nurses of America.",
+      "specialties": "Indian/South Asian nurses in US"
+    }
+  ],
+  "specialists": [
+    {
+      "name": "ADA CareerCenter",
+      "url": "careercenter.ada.org",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Dental",
+      "why_it_matters": "Official ADA career center.",
+      "specialties": "Dentists, hygienists, assistants, specialists"
+    },
+    {
+      "name": "DentistJobCafe",
+      "url": "dentistjobcafe.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Dental",
+      "why_it_matters": "Dentist-specific board.",
+      "specialties": "Dentists, specialists"
+    }
+  ],
+  "specialty": [
+    {
+      "name": "NursingCenter (Lippincott)",
+      "url": "nursingcenter.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Nursing Board",
+      "why_it_matters": "Lippincott/Wolters Kluwer network.",
+      "specialties": "RNs, APRNs, specialty; RNs, APRNs, specialty nurses"
+    },
+    {
+      "name": "NurseJobBoard.com",
+      "url": "nursejobboard.com",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Nursing Board",
+      "why_it_matters": "Sponsored-job model.",
+      "specialties": "RNs, LPNs, specialty; RNs, LPNs, specialty nurses"
+    }
+  ],
+  "specialty_nurses": [
+    {
+      "name": "American Nurses Association (ANA)",
+      "url": "nursingworld.org/careercenter",
+      "status": "In Repo",
+      "priority": "-",
+      "category": "Nursing",
+      "why_it_matters": "Official ANA career center.",
+      "specialties": "RN, APRN, specialty nurses"
+    },
+    {
+      "name": "Incredible Health",
+      "url": "incrediblehealth.com",
+      "status": "In Repo",
+      "priority": "-",
+      "category": "Nursing",
+      "why_it_matters": "AI-powered permanent nurse hiring platform.",
+      "specialties": "RNs and specialty nurses"
+    },
+    {
+      "name": "Nurse.com",
+      "url": "nurse.com",
+      "status": "In Repo",
+      "priority": "-",
+      "category": "Nursing",
+      "why_it_matters": "2.8M+ registered nurses.",
+      "specialties": "RNs, LPNs, NPs, specialty nurses"
+    },
+    {
+      "name": "NursingCenter (Lippincott)",
+      "url": "nursingcenter.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Nursing Board",
+      "why_it_matters": "Lippincott/Wolters Kluwer network.",
+      "specialties": "RNs, APRNs, specialty; RNs, APRNs, specialty nurses"
+    },
+    {
+      "name": "DailyNurse",
+      "url": "dailynurse.com",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Nursing Board",
+      "why_it_matters": "Nursing publication + career center.",
+      "specialties": "RNs, specialty nurses"
+    },
+    {
+      "name": "NurseJobBoard.com",
+      "url": "nursejobboard.com",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Nursing Board",
+      "why_it_matters": "Sponsored-job model.",
+      "specialties": "RNs, LPNs, specialty; RNs, LPNs, specialty nurses"
+    }
+  ],
+  "specialty_rns": [
+    {
+      "name": "LinkedIn Jobs",
+      "url": "linkedin.com/jobs",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "General Job Board",
+      "why_it_matters": "~930M members; strong for white-collar healthcare and leadership",
+      "specialties": "Physicians, executives, admin, advanced practice, specialty RNs"
+    }
+  ],
+  "staff": [
+    {
+      "name": "Vivian Health",
+      "url": "vivian.com",
+      "status": "In Repo",
+      "priority": "-",
+      "category": "Travel Healthcare",
+      "why_it_matters": "1.9M+ HCPs; largest travel marketplace.",
+      "specialties": "Travel nurses, allied, per diem, staff; Travel nurses, allied health, staff, per diem, local contract"
+    },
+    {
+      "name": "AAO Career Center",
+      "url": "aaoinfo.org/careers",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Dental (Specialty)",
+      "why_it_matters": "American Association of Orthodontists.",
+      "specialties": "Orthodontists, staff"
+    }
+  ],
+  "state_hospital": [
+    {
+      "name": "State/Local Government Job Boards (e.g., GovernmentJobs.com)",
+      "url": "governmentjobs.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Government / Public Sector",
+      "why_it_matters": "Aggregator of state/local gov listings",
+      "specialties": "Public health, state hospital, county health"
+    }
+  ],
+  "subspecialty_surgeons": [
+    {
+      "name": "ACS Career Center",
+      "url": "facs.org/careercenter",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Physician Specialty Society",
+      "why_it_matters": "American College of Surgeons. Complements your AAOS.",
+      "specialties": "General + subspecialty surgeons; General and subspecialty surgeons"
+    }
+  ],
+  "sud_counselors": [
+    {
+      "name": "BehavioralHealthJobs.com",
+      "url": "behavioralhealthjobs.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Mental / Behavioral Health",
+      "why_it_matters": "Behavioral health + addiction.",
+      "specialties": "SUD counselors, BH techs; SUD counselors, BH techs, mental health professionals"
+    },
+    {
+      "name": "NAADAC Career Center",
+      "url": "careers.naadac.org",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Mental / Behavioral Health",
+      "why_it_matters": "Association for Addiction Professionals.",
+      "specialties": "Addiction/SUD counselors"
+    }
+  ],
+  "surgeon": [
+    {
+      "name": "ShiftKey",
+      "url": "shiftkey.com",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Gig / PRN Healthcare",
+      "why_it_matters": "Largest PRN platform.",
+      "specialties": "CNAs, LPNs, RNs, surgical/rad techs"
+    }
+  ],
+  "sws": [
+    {
+      "name": "PsychologyJobs.com",
+      "url": "psychologyjobs.com",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Mental / Behavioral Health",
+      "why_it_matters": "Leading mental health board.",
+      "specialties": "Psychologists, psychiatrists, counselors, SWs; Psychologists, psychiatrists, counselors, social workers"
+    },
+    {
+      "name": "HospiceJobs.com",
+      "url": "hospicejobs.com",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Home Health / Hospice",
+      "why_it_matters": "Hospice-specific.",
+      "specialties": "Hospice nurses, SWs, aides, chaplains; Hospice nurses, social workers, aides, chaplains"
+    }
+  ],
+  "ta": [
+    {
+      "name": "NAHCR",
+      "url": "nahcr.com/careers",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Healthcare Recruiting",
+      "why_it_matters": "Nat'l Assoc. for Health Care Recruitment.",
+      "specialties": "Healthcare recruiters/TA"
+    }
+  ],
+  "techs": [
+    {
+      "name": "CareRev",
+      "url": "carerev.com",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Gig / PRN Healthcare",
+      "why_it_matters": "41 states; hospital shift marketplace.",
+      "specialties": "RNs, CNAs, MAs, techs; RNs, CNAs, medical assistants, techs"
+    },
+    {
+      "name": "RxCareerCenter",
+      "url": "rxcareercenter.com",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Pharmacy",
+      "why_it_matters": "Pharmacy-specific board.",
+      "specialties": "Pharmacists, techs"
+    },
+    {
+      "name": "Monster Healthcare",
+      "url": "monster.com/jobs/search?q=healthcare",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Healthcare Generalist Board",
+      "why_it_matters": "Healthcare sub-vertical of Monster",
+      "specialties": "Medical assistants, admins, therapists, techs"
+    }
+  ],
+  "telehealth": [
+    {
+      "name": "FlexJobs",
+      "url": "flexjobs.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "General Job Board",
+      "why_it_matters": "Curated remote and flexible roles",
+      "specialties": "Remote nursing, telehealth, case management, utilization review, medical coding"
+    },
+    {
+      "name": "We Work Remotely",
+      "url": "weworkremotely.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "General Job Board",
+      "why_it_matters": "Large remote talent pool",
+      "specialties": "Telehealth, remote case management, healthcare SaaS"
+    }
+  ],
+  "telemedicine": [
+    {
+      "name": "Remote.co",
+      "url": "remote.co",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "General Job Board",
+      "why_it_matters": "Curated remote healthcare roles",
+      "specialties": "Telemedicine, remote RN, health tech"
+    }
+  ],
+  "temp": [
+    {
+      "name": "Cloud Dentistry",
+      "url": "clouddentistry.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Dental",
+      "why_it_matters": "On-demand dental staffing.",
+      "specialties": "Dental (gig/temp); Dentists, hygienists, assistants (gig/temp)"
+    },
+    {
+      "name": "Dental Staffing",
+      "url": "dental-staffing.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Dental Job Board",
+      "why_it_matters": "Focused on dental staffing",
+      "specialties": "Temp/perm dental staff"
+    }
+  ],
+  "therapist": [
+    {
+      "name": "CareerVitals",
+      "url": "careervitals.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Healthcare Generalist",
+      "why_it_matters": "Distributes to 80+ niche healthcare boards.",
+      "specialties": "All healthcare; All healthcare roles - nurses, physicians, therapists, admin"
+    },
+    {
+      "name": "iHireMentalHealth",
+      "url": "ihirementalhealth.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Mental / Behavioral Health",
+      "why_it_matters": "iHire vertical.",
+      "specialties": "Therapists, counselors, psychiatrists; Therapists, counselors, psychiatrists, LCSWs"
+    },
+    {
+      "name": "Inclusive Therapists Jobs",
+      "url": "inclusivetherapists.com/jobs",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Mental / Behavioral Health",
+      "why_it_matters": "DEI-oriented mental health.",
+      "specialties": "BIPOC/LGBTQ+ therapists; BIPOC/LGBTQ+ affirming therapists"
+    },
+    {
+      "name": "Monster Healthcare",
+      "url": "monster.com/jobs/search?q=healthcare",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Healthcare Generalist Board",
+      "why_it_matters": "Healthcare sub-vertical of Monster",
+      "specialties": "Medical assistants, admins, therapists, techs"
+    },
+    {
+      "name": "Therapy Den",
+      "url": "therapyden.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Mental Health Job Board",
+      "why_it_matters": "Inclusive therapist network",
+      "specialties": "Therapists, counselors"
+    }
+  ],
+  "travel": [
+    {
+      "name": "NurseRecruiter",
+      "url": "nurserecruiter.com",
+      "status": "In Repo",
+      "priority": "-",
+      "category": "Nursing",
+      "why_it_matters": "General nursing recruitment.",
+      "specialties": "RN, LPN, CNA, travel"
+    }
+  ],
+  "travel_nurse": [
+    {
+      "name": "Vivian Health",
+      "url": "vivian.com",
+      "status": "In Repo",
+      "priority": "-",
+      "category": "Travel Healthcare",
+      "why_it_matters": "1.9M+ HCPs; largest travel marketplace.",
+      "specialties": "Travel nurses, allied, per diem, staff; Travel nurses, allied health, staff, per diem, local contract"
+    },
+    {
+      "name": "Trusted Health",
+      "url": "trustedhealth.com",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Travel Healthcare",
+      "why_it_matters": "Tech-forward travel platform.",
+      "specialties": "Travel nurses, allied; Travel nurses, allied health"
+    },
+    {
+      "name": "American Mobile (AMN)",
+      "url": "americanmobile.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Travel Healthcare",
+      "why_it_matters": "AMN Healthcare division.",
+      "specialties": "Travel nurses, APPs, allied"
+    },
+    {
+      "name": "Medical Solutions",
+      "url": "medicalsolutions.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Travel Healthcare",
+      "why_it_matters": "Long-running travel staffing.",
+      "specialties": "Travel nursing + allied; Travel nursing and allied"
+    },
+    {
+      "name": "BluePipes",
+      "url": "bluepipes.com",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Travel Healthcare",
+      "why_it_matters": "Community + jobs.",
+      "specialties": "Travel nurses, allied"
+    }
+  ],
+  "travel_nurses_community": [
+    {
+      "name": "The Gypsy Nurse",
+      "url": "thegypsynurse.com",
+      "status": "In Repo",
+      "priority": "-",
+      "category": "Travel Healthcare",
+      "why_it_matters": "Travel nursing community.",
+      "specialties": "Travel nurses community + jobs"
+    }
+  ],
+  "travel_nurses_pay_transparency_marketplace": [
+    {
+      "name": "Wanderly",
+      "url": "wanderly.us",
+      "status": "In Repo",
+      "priority": "-",
+      "category": "Travel Healthcare",
+      "why_it_matters": "Travel nursing marketplace.",
+      "specialties": "Travel nurses - pay transparency marketplace"
+    }
+  ],
+  "travel_rns": [
+    {
+      "name": "Aya Healthcare",
+      "url": "ayahealthcare.com",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Travel Healthcare",
+      "why_it_matters": "Largest US travel nursing agency.",
+      "specialties": "Travel RNs, allied, locums; Travel RNs, allied health, locums"
+    },
+    {
+      "name": "Cross Country Healthcare",
+      "url": "crosscountryhealthcare.com",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Travel Healthcare",
+      "why_it_matters": "Major travel staffing firm.",
+      "specialties": "Travel RNs, allied; Travel RNs, allied health"
+    },
+    {
+      "name": "TravelNurseSource",
+      "url": "travelnursesource.com",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Travel Healthcare",
+      "why_it_matters": "Travel-specific aggregator.",
+      "specialties": "Travel RNs"
+    },
+    {
+      "name": "TravelNursing.com",
+      "url": "travelnursing.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Travel / Gig / PRN",
+      "why_it_matters": "Travel nursing aggregator",
+      "specialties": "Travel RNs"
+    }
+  ],
+  "unclear_confirm_actual_partner": [
+    {
+      "name": "DEI (generic)",
+      "url": "verify partner",
+      "status": "In Repo",
+      "priority": "-",
+      "category": "Diversity (Generic)",
+      "why_it_matters": "You listed 'DEI' generically - confirm which DEI partner this is.",
+      "specialties": "Unclear - confirm actual partner"
+    }
+  ],
+  "unconventional": [
+    {
+      "name": "KevinMD / White Coat Jobs",
+      "url": "kevinmd.com",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Healthcare Media",
+      "why_it_matters": "Physician blogging site.",
+      "specialties": "Physicians - moonlighting/unconventional; Physicians - esp. unconventional roles, moonlighting; Physicians - esp. unconventional, moonlighting"
+    }
+  ],
+  "unique_nurses": [
+    {
+      "name": "Minority Nurse",
+      "url": "minoritynurse.com",
+      "status": "In Repo",
+      "priority": "-",
+      "category": "Nursing (Diversity)",
+      "why_it_matters": "Largest diversity nursing board. (You listed this 2x in your repo - de-duplicate.)",
+      "specialties": "Diverse RNs - 1M+ unique nurses/year; RNs - 1M+ unique nurses, diversity focus"
+    }
+  ],
+  "urologists": [
+    {
+      "name": "AUA Career Center",
+      "url": "auanet.org/careers",
+      "status": "Recommended",
+      "priority": "Medium",
+      "category": "Physician Specialty Society",
+      "why_it_matters": "American Urological Association.",
+      "specialties": "Urologists"
+    }
+  ],
+  "us_physicians_seeking_international": [
+    {
+      "name": "Hippocratic Adventures",
+      "url": "hippocraticadventures.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Other / Emerging",
+      "why_it_matters": "International/nontraditional physician jobs",
+      "specialties": "US physicians seeking international roles"
+    }
+  ],
+  "utilization_review": [
+    {
+      "name": "FlexJobs",
+      "url": "flexjobs.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "General Job Board",
+      "why_it_matters": "Curated remote and flexible roles",
+      "specialties": "Remote nursing, telehealth, case management, utilization review, medical coding"
+    }
+  ],
+  "vet_techs": [
+    {
+      "name": "AVMA Career Center",
+      "url": "avma.org/careercenter",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Veterinary",
+      "why_it_matters": "American Veterinary Medical Association.",
+      "specialties": "Veterinarians, vet techs; Vets, vet techs"
+    },
+    {
+      "name": "iHireVeterinary",
+      "url": "ihireveterinary.com",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Veterinary",
+      "why_it_matters": "iHire vet vertical.",
+      "specialties": "Vets, vet techs; Vets, vet techs, assistants"
+    }
+  ],
+  "veteran_healthcare_professionals": [
+    {
+      "name": "Military Hire",
+      "url": "militaryhire.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Diversity-Focused",
+      "why_it_matters": "Military skills translator included",
+      "specialties": "Veteran healthcare professionals"
+    }
+  ],
+  "veteran_healthcare_workers": [
+    {
+      "name": "HireVeterans / RecruitMilitary",
+      "url": "recruitmilitary.com",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Diversity-Focused",
+      "why_it_matters": "Largest military/veteran job board",
+      "specialties": "Veteran healthcare workers, medics-to-RN"
+    }
+  ],
+  "veterans_transitioning_to_healthcare": [
+    {
+      "name": "Hire Heroes USA",
+      "url": "hireheroesusa.org",
+      "status": "Recommended",
+      "priority": "-",
+      "category": "Diversity-Focused",
+      "why_it_matters": "Pre-screened vet candidates",
+      "specialties": "Veterans transitioning to healthcare"
+    }
+  ],
+  "veterinary": [
+    {
+      "name": "AVMA Career Center",
+      "url": "avma.org/careercenter",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Veterinary",
+      "why_it_matters": "American Veterinary Medical Association.",
+      "specialties": "Veterinarians, vet techs; Vets, vet techs"
+    },
+    {
+      "name": "iHireVeterinary",
+      "url": "ihireveterinary.com",
+      "status": "Recommended",
+      "priority": "Standard",
+      "category": "Veterinary",
+      "why_it_matters": "iHire vet vertical.",
+      "specialties": "Vets, vet techs; Vets, vet techs, assistants"
+    }
+  ],
+  "w_2": [
+    {
+      "name": "ShiftMed",
+      "url": "shiftmed.com",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Gig / PRN Healthcare",
+      "why_it_matters": "100K+ HCPs. W-2 model.",
+      "specialties": "CNAs, RNs, LPNs (W-2)"
+    }
+  ],
+  "women_s_health": [
+    {
+      "name": "AWHONN Career Center",
+      "url": "awhonn.careerwebsite.com",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Nursing Specialty Society",
+      "why_it_matters": "Association of Women's Health OB & Neonatal Nurses.",
+      "specialties": "L&D, postpartum, NICU, women's health; L&D, postpartum, NICU, women's health nurses"
+    }
+  ],
+  "women_s_health_nurses": [
+    {
+      "name": "AWHONN Career Center",
+      "url": "awhonn.careerwebsite.com",
+      "status": "Recommended",
+      "priority": "High",
+      "category": "Nursing Specialty Society",
+      "why_it_matters": "Association of Women's Health OB & Neonatal Nurses.",
+      "specialties": "L&D, postpartum, NICU, women's health; L&D, postpartum, NICU, women's health nurses"
+    }
+  ],
+  "year": [
+    {
+      "name": "Minority Nurse",
+      "url": "minoritynurse.com",
+      "status": "In Repo",
+      "priority": "-",
+      "category": "Nursing (Diversity)",
+      "why_it_matters": "Largest diversity nursing board. (You listed this 2x in your repo - de-duplicate.)",
+      "specialties": "Diverse RNs - 1M+ unique nurses/year; RNs - 1M+ unique nurses, diversity focus"
+    }
+  ]
+}
