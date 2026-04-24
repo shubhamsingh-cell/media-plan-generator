@@ -72,6 +72,15 @@ def start_request_tracking() -> None:
     _tracking_state.keys = set()
 
 
+# Public-alias API matching the spec names requested by the transparency
+# panel fix. These are thin wrappers so callers can write
+# ``kb_loader.start_tracking()`` / ``kb_loader.get_tracked_reads()`` without
+# having to remember the slightly longer internal names.
+def start_tracking() -> None:
+    """Alias for ``start_request_tracking`` -- clears any prior read set."""
+    start_request_tracking()
+
+
 def record_read(key: Any) -> None:
     """Record that ``key`` was read from the KB on this thread.
 
@@ -103,6 +112,11 @@ def get_read_keys() -> set[str]:
     return set(keys)  # defensive copy
 
 
+def get_tracked_reads() -> set[str]:
+    """Alias for ``get_read_keys`` -- returns empty set if tracking off."""
+    return get_read_keys()
+
+
 def stop_request_tracking() -> None:
     """Clear the thread-local tracking set.
 
@@ -114,6 +128,80 @@ def stop_request_tracking() -> None:
         del _tracking_state.keys
     except AttributeError:
         pass
+
+
+def stop_tracking() -> None:
+    """Alias for ``stop_request_tracking``."""
+    stop_request_tracking()
+
+
+def keys_to_filenames(keys: set[str] | list[str]) -> list[str]:
+    """Map tracked KB keys to their on-disk filenames.
+
+    Resolves through ``KB_ALIASES`` first so legacy callers that hit an
+    alias key (e.g. ``"knowledge_base"``) report the primary filename
+    (``recruitment_industry_knowledge.json``) instead of a missing key.
+
+    Args:
+        keys: Iterable of KB keys captured by ``get_tracked_reads``.
+
+    Returns:
+        Sorted, de-duplicated list of KB filenames. Unknown / derived keys
+        (e.g. backward-compat leaves like ``"salary_trends"`` that come from
+        inside ``"core"``) are silently dropped so the panel only shows
+        physical files that genuinely back the answer.
+    """
+    if not keys:
+        return []
+    out: set[str] = set()
+    for k in keys:
+        if not isinstance(k, str) or not k or k.startswith("_"):
+            continue
+        primary = KB_ALIASES.get(k, k)
+        filename = KB_FILES.get(primary)
+        if filename:
+            out.add(filename)
+    return sorted(out)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# TRACKED DICT -- auto-records every read into the request-scoped set
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# Nova's ``self._data_cache`` is just a reference to the singleton returned
+# by ``load_knowledge_base()``. Making that singleton a ``TrackedDict``
+# means every existing ``self._data_cache.get("joveo_publishers")`` and
+# ``self._data_cache["channels_db"]`` call site automatically feeds the
+# tracker -- zero callsite changes, zero drift risk.
+#
+# ``record_read`` is a no-op when tracking wasn't started on the thread, so
+# startup code (``_rebuild_backward_compat``, ``_apply_aliases``,
+# ``_validate_freshness``) doesn't pollute any request's read set.
+class TrackedDict(dict):
+    """``dict`` subclass that feeds every read into ``record_read``.
+
+    Overrides only the read paths used by the codebase today (``d[k]``,
+    ``d.get(k)``, ``k in d``). Writes are left alone. Unknown keys still
+    raise ``KeyError`` exactly like a normal dict -- we record the attempt
+    *before* the lookup fails so the transparency panel can show "Nova
+    looked for X but the file wasn't loaded". Internal bookkeeping keys
+    (``_freshness_warnings``, ``_nova_client_plans_merged``, etc.) are
+    filtered out by ``record_read`` itself.
+    """
+
+    __slots__ = ()
+
+    def __getitem__(self, key: Any) -> Any:
+        record_read(key)
+        return super().__getitem__(key)
+
+    def get(self, key: Any, default: Any = None) -> Any:  # type: ignore[override]
+        record_read(key)
+        return super().get(key, default)
+
+    def __contains__(self, key: Any) -> bool:  # type: ignore[override]
+        record_read(key)
+        return super().__contains__(key)
 
 
 # Set to True once the reload thread has been started (prevents duplicates).
@@ -440,7 +528,11 @@ def load_knowledge_base() -> dict[str, Any]:
         if _knowledge_base is not None:
             return _knowledge_base
 
-        kb: dict[str, Any] = {}
+        # TrackedDict records every kb.get / kb[k] access into a per-request
+        # thread-local set (see "REQUEST-SCOPED READ TRACKING" above). During
+        # load the request tracker hasn't been started on this thread, so
+        # all the setup reads below silently no-op through ``record_read``.
+        kb: dict[str, Any] = TrackedDict()
         loaded_count = 0
         for section_key, filename in KB_FILES.items():
             fpath = os.path.join(_DATA_DIR, filename)

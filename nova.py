@@ -22866,114 +22866,17 @@ def _sanitize_history(raw_history, message: str = "") -> list:
 # ═══════════════════════════════════════════════════════════════════════════════
 # TRANSPARENCY HELPERS -- "Why this answer?" panel data
 # ═══════════════════════════════════════════════════════════════════════════════
-
-# Map of human-friendly source labels (as returned by tools / fast paths)
-# to the underlying KB filenames in ``data/``. Lower-case substring match.
-# When a source string contains one of these substrings, the associated
-# filename(s) are added to ``kb_files_queried``. This gives the frontend a
-# direct, auditable link between the displayed sources and the physical KB
-# files that were consulted.
-_SOURCE_TO_KB_FILES: Dict[str, List[str]] = {
-    "joveo publisher network": ["joveo_publishers.json"],
-    "joveo publishers": ["joveo_publishers.json"],
-    "joveo channel database": ["channels_db.json"],
-    "joveo channels": ["channels_db.json"],
-    "joveo global supply": ["joveo_global_supply_repository.json"],
-    "joveo global supply repository": ["joveo_global_supply_repository.json"],
-    "global supply": ["global_supply.json"],
-    "healthcare supply map": ["healthcare_supply_map_us.json"],
-    "joveo 2026 benchmarks": ["joveo_2026_benchmarks.json"],
-    "joveo benchmarks": [
-        "joveo_2026_benchmarks.json",
-        "joveo_cpa_benchmarks_2026.json",
-    ],
-    "joveo cpa": ["joveo_cpa_benchmarks_2026.json"],
-    "joveo healthcare supply map": ["healthcare_supply_map_us.json"],
-    "recruitment industry kb": ["recruitment_industry_knowledge.json"],
-    "recruitment industry knowledge": ["recruitment_industry_knowledge.json"],
-    "recruitment benchmarks": [
-        "recruitment_benchmarks_deep.json",
-        "recruitment_benchmarks_comprehensive_2026.json",
-    ],
-    "recruitment strategy": ["recruitment_strategy_intelligence.json"],
-    "regional hiring": ["regional_hiring_intelligence.json"],
-    "supply ecosystem": ["supply_ecosystem_intelligence.json"],
-    "workforce trends": ["workforce_trends_intelligence.json"],
-    "industry white papers": ["industry_white_papers.json"],
-    "google ads benchmarks": ["google_ads_2025_benchmarks.json"],
-    "external benchmarks": ["external_benchmarks_2025.json"],
-    "client media plans": ["client_media_plans_kb.json"],
-    "international sources": ["international_sources.json"],
-    "international benchmarks": ["international_benchmarks_2026.json"],
-    "hr tech landscape": ["hr_tech_landscape_2026.json"],
-    "publisher benchmarks": ["publisher_benchmarks_2026.json"],
-    "recruitment marketing trends": ["recruitment_marketing_trends_2026.json"],
-    "labor market outlook": ["labor_market_outlook_2026.json"],
-    "salary benchmarks": ["salary_benchmarks_detailed_2026.json"],
-    "ad benchmarks": ["ad_benchmarks_recruitment_2026.json"],
-    "industry hiring patterns": ["industry_hiring_patterns_2026.json"],
-    "top employers": ["top_employers_by_city_2026.json"],
-    "compliance regulations": ["compliance_regulations_2026.json"],
-    "agency/rpo": ["agency_rpo_market_2026.json"],
-    "agency rpo": ["agency_rpo_market_2026.json"],
-    "craigslist": ["craigslist_performance_benchmarks.json"],
-    "linkedin performance": ["linkedin_performance_benchmarks.json"],
-    "linkedin benchmarks": ["linkedin_performance_benchmarks.json"],
-    "adzuna": ["adzuna_benchmarks.json"],
-    "channel benchmarks": ["channel_benchmarks_live.json"],
-    "competitor careers": ["competitor_careers.json"],
-    "fred": ["fred_indicators.json"],
-    "google trends": ["google_trends.json"],
-    "h1b": ["h1b_salary_intelligence.json"],
-    "h-1b": ["h1b_salary_intelligence.json"],
-    "job density": ["job_density_metros.json"],
-    "job posting volume": ["job_posting_volumes.json"],
-    "live market data": ["live_market_data.json"],
-    "market trends": ["market_trends_live.json"],
-    "platform ad specs": ["platform_ad_specs.json"],
-    "seasonal hiring": ["seasonal_hiring_trends.json"],
-    "appcast": ["ad_benchmarks_recruitment_2026.json"],
-    "indeed public": ["publisher_benchmarks_2026.json"],
-    "linkedin talent insights": ["publisher_benchmarks_2026.json"],
-    "bls": ["fred_indicators.json"],
-    "bls metro wage": ["fred_indicators.json"],
-    "rtx aerospace": ["client_plans/rtx_aerospace_defense_benchmarks.json"],
-    "rtx usa": ["client_plans/rtx_usa_media_plan.json"],
-}
-
-
-def _map_sources_to_kb_files(sources: Optional[List[str]]) -> List[str]:
-    """Map displayed source labels to underlying KB filenames.
-
-    Performs a case-insensitive substring match against
-    ``_SOURCE_TO_KB_FILES``.  Returns a de-duplicated, stable-ordered list of
-    KB filenames actually represented by the source labels.  Returns an empty
-    list when ``sources`` is empty or no known mappings match -- the frontend
-    then simply omits that line of the "Why this answer?" panel.
-
-    Args:
-        sources: List of source labels attached to a Nova response.
-
-    Returns:
-        Ordered list of unique KB filenames (e.g.
-        ``["joveo_publishers.json", "channels_db.json"]``).
-    """
-    if not sources:
-        return []
-
-    seen: set[str] = set()
-    ordered: List[str] = []
-    for raw in sources:
-        if not isinstance(raw, str):
-            continue
-        src_lower = raw.lower()
-        for key, filenames in _SOURCE_TO_KB_FILES.items():
-            if key in src_lower:
-                for fn in filenames:
-                    if fn not in seen:
-                        seen.add(fn)
-                        ordered.append(fn)
-    return ordered
+#
+# The previous implementation used a static label map (``_SOURCE_TO_KB_FILES``)
+# that guessed KB filenames from response ``sources`` strings. That produced
+# fabricated attribution -- 39 of 54 mapped KB keys had zero real ``kb.get``
+# call sites, so the panel claimed files were opened when the request never
+# touched them. That map has been deleted.
+#
+# ``kb_files_queried`` is now populated in ``handle_chat_request`` directly
+# from the per-request read tracker in ``kb_loader`` -- only files whose
+# top-level key was actually read through the shared KB dict during this
+# turn are attributed. See ``kb_loader.TrackedDict`` + ``get_tracked_reads``.
 
 
 def _attach_transparency_fields(
@@ -22982,10 +22885,11 @@ def _attach_transparency_fields(
 ) -> dict:
     """Enrich a Nova response dict with fields for the transparency panel.
 
-    Adds ``kb_files_queried`` (derived from ``sources``) and, when provided,
-    ``timing_ms`` (total wall-clock milliseconds from query start to response
-    ready). Never overwrites existing non-empty values -- this function is
-    safe to call multiple times on the same dict.
+    Adds ``timing_ms`` (total wall-clock milliseconds from query start to
+    response ready) when provided. ``kb_files_queried`` is no longer derived
+    here -- the caller in ``handle_chat_request`` attaches the real set of
+    KB files read via ``kb_loader.get_tracked_reads()`` before calling this
+    helper, and we simply pass it through untouched.
 
     Args:
         result: The response dict from ``Nova.chat`` / ``handle_chat_request``.
@@ -22998,15 +22902,11 @@ def _attach_transparency_fields(
     if not isinstance(result, dict):
         return {}
 
-    # kb_files_queried -- derived from sources
-    if not result.get("kb_files_queried"):
-        try:
-            result["kb_files_queried"] = _map_sources_to_kb_files(
-                result.get("sources") or []
-            )
-        except Exception as _kb_err:
-            logger.debug("kb_files_queried mapping failed: %s", _kb_err)
-            result["kb_files_queried"] = []
+    # kb_files_queried -- real tracker output only. If the caller didn't
+    # attach it (e.g. legacy error path), we leave it empty rather than
+    # fabricating filenames from the source labels.
+    if "kb_files_queried" not in result:
+        result["kb_files_queried"] = []
 
     # timing_ms -- total wall-clock
     if timing_ms is not None and not result.get("timing_ms"):
@@ -23090,6 +22990,18 @@ def handle_chat_request(
     # so the timing_ms reported to the client matches what they perceive.
     _t_req_start = time.time()
 
+    # Start per-request KB read tracking. Every kb.get / kb[k] call during
+    # this turn (via the shared TrackedDict returned by
+    # ``kb_loader.load_knowledge_base``) records its key into a thread-local
+    # set. We harvest the set after ``iq.chat`` returns and attach the
+    # resulting list of real filenames to the response so the "Why this
+    # answer?" panel shows only files that were genuinely opened. The old
+    # static label-map (``_SOURCE_TO_KB_FILES``) was fabricating attribution;
+    # this replaces it with ground truth.
+    import kb_loader as _kb_loader  # local import -- no cost after first call
+
+    _kb_loader.start_tracking()
+
     try:
         _conv_id = (request_data.get("conversation_id") or "").strip() or None
         result = iq.chat(
@@ -23132,6 +23044,11 @@ def handle_chat_request(
                 "error_type": _last_err,
                 "providers_tried": _n_tried,
             }
+            # Even on "all providers failed" we harvest real KB reads so the
+            # panel shows which files Nova touched before falling over.
+            _fail_resp["kb_files_queried"] = _kb_loader.keys_to_filenames(
+                _kb_loader.get_tracked_reads()
+            )
             _attach_transparency_fields(
                 _fail_resp, timing_ms=(time.time() - _t_req_start) * 1000
             )
@@ -23336,6 +23253,14 @@ def handle_chat_request(
 
         # Transparency panel: attach timing_ms + kb_files_queried so the
         # "Why this answer?" footer can render without extra round-trips.
+        # kb_files_queried comes from the real read tracker (ground truth),
+        # not the old static source-label map. Any kb.get / kb[k] call made
+        # during this turn was recorded on the thread-local set; we turn
+        # those keys into filenames here.
+        if isinstance(result, dict):
+            result["kb_files_queried"] = _kb_loader.keys_to_filenames(
+                _kb_loader.get_tracked_reads()
+            )
         _attach_transparency_fields(
             result, timing_ms=(time.time() - _t_req_start) * 1000
         )
@@ -23353,6 +23278,9 @@ def handle_chat_request(
             "tools_used": [],
             "error": "cancelled",
         }
+        _cancel_resp["kb_files_queried"] = _kb_loader.keys_to_filenames(
+            _kb_loader.get_tracked_reads()
+        )
         _attach_transparency_fields(
             _cancel_resp, timing_ms=(time.time() - _t_req_start) * 1000
         )
@@ -23372,10 +23300,21 @@ def handle_chat_request(
             "error": "internal_error",
             "error_type": type(e).__name__,
         }
+        _err_resp["kb_files_queried"] = _kb_loader.keys_to_filenames(
+            _kb_loader.get_tracked_reads()
+        )
         _attach_transparency_fields(
             _err_resp, timing_ms=(time.time() - _t_req_start) * 1000
         )
         return _err_resp
+    finally:
+        # Always clear thread-local tracking so pooled worker threads don't
+        # leak a growing read-set across requests. ``stop_tracking`` is
+        # idempotent and raises nothing.
+        try:
+            _kb_loader.stop_tracking()
+        except Exception:
+            pass
 
 
 def handle_chat_request_stream(
@@ -23590,14 +23529,12 @@ def handle_chat_request_stream(
     fast_path = response.get("fast_path") or ""
     kb_files_queried = response.get("kb_files_queried") or []
     timing_ms = response.get("timing_ms")
-    if timing_ms is None:
-        # Timeout / exception paths never hit _attach_transparency_fields --
-        # fall back to deriving the KB files from ``sources`` directly so the
-        # panel still renders useful data.
-        try:
-            kb_files_queried = _map_sources_to_kb_files(sources) or kb_files_queried
-        except Exception:
-            pass
+    # NOTE: If ``handle_chat_request`` ran (even on error), it already attached
+    # the real tracked read set to ``response["kb_files_queried"]``. There is
+    # no longer any ``_map_sources_to_kb_files`` fallback -- the static map
+    # fabricated attribution and has been removed. If the inner handler never
+    # ran (e.g. hard thread crash upstream), an empty list here is the
+    # honest answer.
 
     # Emit tool-use progress so the frontend can show what data was gathered
     if tools_used:
