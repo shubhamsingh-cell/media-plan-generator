@@ -81,6 +81,12 @@ KB_FILES: dict[str, str] = {
     "platform_ad_specs": "platform_ad_specs.json",
     "seasonal_hiring_trends": "seasonal_hiring_trends.json",
     "global_supply": "global_supply.json",
+    # S52: Healthcare supply map (US) -- 350 partners across 64 categories,
+    # merged from Claude-authored audit (master map + comprehensive partners
+    # + recommendations + gap analysis). Drives the fast-path for healthcare
+    # listing queries so Nova matches Claude.ai chat-quality for supply
+    # partner lookups.
+    "healthcare_supply_map_us": "healthcare_supply_map_us.json",
 }
 
 # Maximum file age (in days) before a startup warning is logged.

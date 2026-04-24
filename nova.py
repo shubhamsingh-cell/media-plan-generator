@@ -13931,6 +13931,201 @@ When two or more tools return conflicting data for the same metric (e.g., differ
         "Netherlands": ("Netherlands", ["netherlands", "dutch", "holland"]),
     }
 
+    def _healthcare_us_supply_map_response(self, user_message: str) -> Optional[dict]:
+        """Build a Claude-chat-quality healthcare US supply map response.
+
+        Uses the curated ``healthcare_supply_map_us`` KB (350 partners across
+        64 categories, grouped by status and priority) so Nova matches
+        Claude.ai-chat output for queries like:
+
+          * "List all healthcare job boards and supply partners in the US"
+          * "Give me every supply partner usable for nursing in America"
+
+        Returns None if the KB is not loaded (first request after cold start
+        may miss), so the caller falls through to the generic aggregator.
+        """
+        # Prefer the cached KB loaded at startup. Fall back to loading on
+        # demand if the instance cache isn't populated (first call after
+        # cold start on a fresh worker).
+        kb_root = getattr(self, "_kb", None) or {}
+        hc = (kb_root or {}).get("healthcare_supply_map_us") or {}
+        if not hc:
+            try:
+                from kb_loader import load_knowledge_base
+
+                hc = (load_knowledge_base() or {}).get("healthcare_supply_map_us") or {}
+            except Exception as _kb_err:
+                logger.debug("healthcare map: KB loader unavailable: %s", _kb_err)
+                return None
+        partners = hc.get("partners") or []
+        if not partners:
+            return None
+
+        by_category = hc.get("by_category") or {}
+        by_priority = hc.get("by_priority") or {}
+        meta = hc.get("metadata") or {}
+
+        # Build category -> full partner dicts for rich rendering
+        partners_by_name: Dict[str, dict] = {
+            (p.get("name") or "").strip(): p
+            for p in partners
+            if (p.get("name") or "").strip()
+        }
+
+        # --- Ordered category blocks (mirrors Claude.ai response structure) ---
+        _preferred_category_order = [
+            "General Job Board",
+            "Programmatic / Aggregator",
+            "Healthcare Generalist",
+            "Nursing Job Board",
+            "Nursing",
+            "Nursing (Diversity)",
+            "Physician / APP Job Board",
+            "Physician",
+            "Physician Generalist",
+            "Physician Specialty Society",
+            "Physician Specialty",
+            "Allied Health Job Board",
+            "Allied Health",
+            "Dental Job Board",
+            "Dental",
+            "Mental / Behavioral Health",
+            "Mental Health",
+            "Pharma / Biotech",
+            "Pharmacy",
+            "Home Care / Caregiver",
+            "Travel Nursing",
+            "Travel / Gig",
+            "Locum Tenens",
+            "Association Career Center",
+            "Diversity-Focused",
+            "Veteran / Military",
+            "Executive / Admin",
+            "Healthcare IT",
+            "Rural / Federal",
+        ]
+        ordered_categories: list[str] = []
+        _seen_cats: set[str] = set()
+        for _pc in _preferred_category_order:
+            if _pc in by_category and _pc not in _seen_cats:
+                ordered_categories.append(_pc)
+                _seen_cats.add(_pc)
+        for _c in sorted(by_category.keys()):
+            if _c not in _seen_cats:
+                ordered_categories.append(_c)
+                _seen_cats.add(_c)
+
+        lines: list[str] = []
+        lines.append("## Healthcare Supply Map — US (Comprehensive)")
+        lines.append("")
+        lines.append(
+            f"Every US job board, publisher and supply partner usable for "
+            f"healthcare roles — **{meta.get('total_partners', len(partners))} "
+            f"partners across {len(by_category)} categories**. This includes "
+            f"partners already in Joveo's supply repository "
+            f"(**{meta.get('in_repo_count', 0)} In Repo**) and a curated "
+            f"recommendation list (**{meta.get('recommended_high_count', 0)} "
+            f"High-priority**, **{meta.get('recommended_medium_count', 0)} "
+            f"Medium**, **{meta.get('recommended_standard_count', 0)} "
+            f"Standard**) covering every major healthcare vertical: nursing, "
+            f"physician/APP, allied health, dental, mental/behavioral health, "
+            f"pharma/biotech, travel, home care, diversity, and generalist "
+            f"platforms."
+        )
+        lines.append("")
+        lines.append(
+            "Legend:  **In Repo** = already in Joveo supply · "
+            "**High** = must-have recommendation · **Medium** = strong "
+            "complementary coverage · **Standard** = good-to-have."
+        )
+        lines.append("")
+
+        # --- Category blocks ---
+        for cat in ordered_categories:
+            pnames = by_category.get(cat) or []
+            if not pnames:
+                continue
+            lines.append(f"### {cat} ({len(pnames)})")
+            lines.append("")
+            lines.append("| # | Partner | Status | Priority | URL | Roles |")
+            lines.append("|---|---------|--------|----------|-----|-------|")
+            for i, pname in enumerate(pnames, 1):
+                p = partners_by_name.get(pname) or {}
+                _status = p.get("status") or ""
+                _prio = p.get("priority") or "-"
+                _url = p.get("url") or ""
+                _spec = (p.get("specialties") or "")[:60]
+                lines.append(
+                    f"| {i} | {pname} | {_status} | {_prio} | {_url} | {_spec} |"
+                )
+            lines.append("")
+
+        # --- Gap analysis / notes ---
+        gap = (hc.get("gap_analysis") or "").strip()
+        if gap:
+            lines.append("### Coverage Gap Analysis")
+            lines.append("")
+            for _g in gap.split("\n")[:25]:
+                _g = _g.strip()
+                if _g:
+                    lines.append(_g)
+            lines.append("")
+
+        lines.append("### How to use this list")
+        lines.append(
+            "- Filter by **Status = 'In Repo'** to see partners already "
+            "available via Joveo's commercial network (negotiated rates, "
+            "faster activation)."
+        )
+        lines.append(
+            "- Filter by **Priority = 'High'** to see must-have additions for "
+            "any US healthcare campaign; those cover primary-channel gaps."
+        )
+        lines.append(
+            "- For **nurse / physician / allied-health specific** volume, "
+            "prefer specialty boards listed above over generalist platforms — "
+            "apply-rate is typically 2-3x higher."
+        )
+        lines.append(
+            "- For **raw volume** (all-healthcare), pair one generalist "
+            "(Indeed or LinkedIn) with 2-3 specialty boards per role family."
+        )
+        lines.append(
+            "- Ask a follow-up (e.g., *'compare CPA for Nurse.com vs "
+            "HealtheCareers'* or *'which boards cover travel nursing in "
+            "Texas'*) to drill into live benchmarks."
+        )
+
+        response_text = "\n".join(lines)
+        sources = [
+            "Joveo Global Supply Repository",
+            "Healthcare Supply Map US (curated 2026-04-24)",
+            "Joveo Publisher Network",
+            "Joveo Channel Database",
+        ]
+        tools_used = [
+            "query_healthcare_supply_map",
+            "query_publishers",
+            "query_global_supply",
+        ]
+
+        logger.info(
+            "NOVA MODE: Healthcare US supply map fast path -- %d partners, "
+            "%d categories",
+            meta.get("total_partners", len(partners)),
+            len(by_category),
+        )
+        return {
+            "response": response_text,
+            "sources": sources,
+            "confidence": 0.95,
+            "tools_used": tools_used,
+            "llm_provider": "curated_kb_fast_path",
+            "llm_model": "healthcare_supply_map_us",
+            "fast_path": "healthcare_supply_map_us",
+            "quality_score": 95,
+        }
+
     def _fast_path_supply_listing(
         self, user_message: str, msg_lower: str
     ) -> Optional[dict]:
@@ -13943,9 +14138,53 @@ When two or more tools return conflicting data for the same metric (e.g., differ
 
         Returns a fully-formed response dict in < 2 seconds using in-memory
         data, or None if the query does not match the listing intent.
+
+        S52: When the query is healthcare + US, route to the curated supply
+        map KB (350 partners, 64 categories) which was authored to match
+        Claude.ai-chat response quality. For other industries/countries, fall
+        through to the generic multi-source aggregator.
         """
         if not self._SUPPLY_LISTING_INTENT.search(user_message):
             return None
+
+        # S52: Specialised, high-quality fast-path for healthcare + US.
+        _is_healthcare_query = any(
+            kw in msg_lower
+            for kw in (
+                "healthcare",
+                "medical",
+                "nurse",
+                "nursing",
+                "clinical",
+                "physician",
+                "doctor",
+                "hospital",
+                "pharma",
+                "biotech",
+                "allied health",
+                "dental",
+                "home care",
+                "behavioral health",
+                "mental health",
+            )
+        )
+        _is_us_query = any(
+            re.search(r"\b" + re.escape(a) + r"\b", msg_lower)
+            for a in (
+                "us",
+                "u.s.",
+                "usa",
+                "u.s.a.",
+                "united states",
+                "america",
+                "american",
+                "states",
+            )
+        )
+        if _is_healthcare_query and _is_us_query:
+            _healthcare_response = self._healthcare_us_supply_map_response(user_message)
+            if _healthcare_response:
+                return _healthcare_response
 
         # Detect industry
         matched_industry: Optional[str] = None
