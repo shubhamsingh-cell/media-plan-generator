@@ -1187,6 +1187,53 @@ def _resolve_doc(doc_id: str) -> dict | None:
     return None
 
 
+def search_bounded(query: str, top_k: int = 5, timeout_s: float = 3.0) -> list[dict]:
+    """Same as search() but with a hard wall-clock timeout.
+
+    S56 FIX: The embed_text() call hits Voyage AI which has a 10 RPM free-tier
+    limit and a 6.5s min delay between requests. Under concurrency the queue
+    stalls and search() blocks 60+ seconds -- enough to silently consume the
+    entire outer request budget on every caller (Nova chat, media plan
+    generator, tools, quality enrichment, data orchestrator). This wrapper
+    runs search() in a daemon thread and abandons it if it does not return
+    within ``timeout_s``, returning []. Grounding context is a "nice to have"
+    -- callers degrade gracefully to no-context operation.
+
+    Args:
+        query: Natural language search query.
+        top_k: Number of top results to return.
+        timeout_s: Hard wall-clock timeout. Default 3s covers cache hits +
+            warm Qdrant paths. Slow/throttled embeddings are abandoned.
+
+    Returns:
+        List of result dicts on success, [] on timeout or any failure.
+    """
+    if not query:
+        return []
+    _holder: list[dict] = []
+
+    def _run() -> None:
+        try:
+            _r = search(query, top_k=top_k)
+            if _r:
+                _holder.extend(_r)
+        except Exception:
+            pass
+
+    _t = threading.Thread(target=_run, daemon=True, name="vs-bounded")
+    _t.start()
+    _t.join(timeout=timeout_s)
+    if _t.is_alive():
+        logger.info(
+            "search_bounded: timeout %.1fs hit for query=%.40s -- abandoning, "
+            "caller will proceed without grounding",
+            timeout_s,
+            query[:40],
+        )
+        return []
+    return _holder
+
+
 def search(query: str, top_k: int = 5) -> list[dict]:
     """Hybrid search across indexed documents (vector + BM25 via RRF).
 

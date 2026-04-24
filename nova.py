@@ -144,9 +144,6 @@ def _bounded_vector_search(query: str, top_k: int = 3, timeout_s: float = 3.0) -
         List of snippet dicts, or [] on timeout / failure.
     """
     try:
-        from concurrent.futures import ThreadPoolExecutor
-        from concurrent.futures import TimeoutError as _VSTimeout
-
         from vector_search import search as _vs_search
     except Exception:
         return []
@@ -161,20 +158,21 @@ def _bounded_vector_search(query: str, top_k: int = 3, timeout_s: float = 3.0) -
         except Exception:
             pass
 
-    try:
-        with ThreadPoolExecutor(max_workers=1) as _ex:
-            fut = _ex.submit(_run)
-            try:
-                fut.result(timeout=timeout_s)
-            except _VSTimeout:
-                logger.info(
-                    "vector_search: bounded timeout hit (%.1fs) for query=%.40s -- "
-                    "skipping grounding, LLM will still run",
-                    timeout_s,
-                    query,
-                )
-                return []
-    except Exception:
+    # S55 FIX: Use bare threading.Thread + join(timeout) so a hung inner
+    # search cannot block us. Earlier version used ThreadPoolExecutor via
+    # `with` which calls shutdown(wait=True) on exit and waited out the
+    # full 60s Voyage-AI stall anyway -- defeating the whole point of the
+    # timeout. A daemon thread simply gets abandoned on timeout.
+    _t = threading.Thread(target=_run, daemon=True, name="bounded-vs")
+    _t.start()
+    _t.join(timeout=timeout_s)
+    if _t.is_alive():
+        logger.info(
+            "vector_search: bounded timeout hit (%.1fs) for query=%.40s -- "
+            "skipping grounding, LLM will still run",
+            timeout_s,
+            query[:40] if query else "",
+        )
         return []
     return _result_holder
 
@@ -7129,10 +7127,11 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             ).strip()
             or "recruitment benchmarks"
         )
+        # S56: Use bounded wrapper so Voyage rate-limit can't hang the caller
         try:
-            from vector_search import search as _vsearch
+            from vector_search import search_bounded as _vsearch
 
-            _vr = _vsearch(_vs_query, top_k=3)
+            _vr = _vsearch(_vs_query, top_k=3, timeout_s=3.0)
             if isinstance(_vr, list):
                 _vector_results = _vr
                 logger.info(
@@ -10063,11 +10062,11 @@ When two or more tools return conflicting data for the same metric (e.g., differ
         if not query:
             return {"results": [], "error": "No query provided"}
 
-        # Try vector search
+        # Try vector search (S56: bounded 3s -- don't hang caller on Voyage rate-limit)
         try:
-            from vector_search import search as vector_search_fn
+            from vector_search import search_bounded as vector_search_fn
 
-            results = vector_search_fn(query, top_k=top_k)
+            results = vector_search_fn(query, top_k=top_k, timeout_s=3.0)
             if results:
                 return {"results": results, "source": "vector_search", "query": query}
         except Exception as e:
@@ -22457,9 +22456,10 @@ def _fetch_kb_context_for_query(query: str) -> str:
         Formatted string of KB facts, or empty string.
     """
     try:
-        from vector_search import search as vector_search_fn
+        # S56: bounded -- don't let Voyage rate-limit stall quality enrichment
+        from vector_search import search_bounded as vector_search_fn
 
-        results = vector_search_fn(query, top_k=3)
+        results = vector_search_fn(query, top_k=3, timeout_s=3.0)
         if results:
             lines: List[str] = []
             for r in results[:3]:
@@ -22925,9 +22925,10 @@ def handle_chat_request(
                     )
                     try:
                         # Attempt KB backfill to add missing data
-                        from vector_search import search as _qe_vs_search
+                        # S56: bounded -- Voyage rate-limit can't stall this
+                        from vector_search import search_bounded as _qe_vs_search
 
-                        _qe_results = _qe_vs_search(message, top_k=3)
+                        _qe_results = _qe_vs_search(message, top_k=3, timeout_s=3.0)
                         if _qe_results:
                             _qe_snippets = []
                             for _qe_r in _qe_results[:3]:

@@ -1344,14 +1344,15 @@ def _register_default_handlers(orch: DataOrchestrator) -> None:
     except ImportError:
         logger.info("DataOrchestrator: tavily_search not available")
 
-    # ── Vector Search ──
+    # ── Vector Search (S56: bounded to prevent Voyage rate-limit hang) ──
     try:
-        from vector_search import search as vector_search_fn
+        from vector_search import search_bounded as vector_search_fn
 
         def _vector_handler(query: str, context: Dict) -> Optional[Any]:
-            """Search knowledge base via vector similarity."""
+            """Search knowledge base via vector similarity (3s bounded)."""
             top_k = context.get("top_k", 5)
-            return vector_search_fn(query, top_k=top_k)
+            timeout_s = context.get("vector_timeout_s", 3.0)
+            return vector_search_fn(query, top_k=top_k, timeout_s=timeout_s)
 
         orch.register_source(DataSourceType.VECTOR_SEARCH, _vector_handler)
     except ImportError:
