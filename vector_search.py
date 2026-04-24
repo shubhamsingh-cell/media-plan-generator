@@ -107,7 +107,18 @@ _EMBEDDING_CACHE_FILE = (
     if _PERSISTENT_DISK.exists()
     else Path(__file__).resolve().parent / "data" / ".embedding_cache.json"
 )
-_EMBEDDING_CACHE_MAX = 10_000  # hard cap on in-memory entries (LRU)
+# S63 OOM FIX: cap lowered 10,000 -> 2,000 entries.
+# Rationale: each entry is a 512-dim Python float list (~16.4 KB resident --
+# list overhead + 512 * sys.getsizeof(float)). At the old 10K cap the cache
+# could reach ~164 MB resident; the April 2026 prod audit observed 31 MB
+# with no obvious ceiling. KB chunk embeddings live in _index separately,
+# so this cache only holds user-query embeddings -- a 2K working set gives
+# near-100% hit rate for typical Nova chat traffic (~200-500 distinct
+# queries/day) while bounding worst-case resident memory to ~33 MB.
+_EMBEDDING_CACHE_MAX = 2_000  # hard cap on in-memory entries (LRU)
+# Conservative per-entry bytes estimate for telemetry (512-dim fp list +
+# Python object overhead). Used for the estimated_memory_mb stat.
+_EMBEDDING_CACHE_BYTES_PER_ENTRY = 16_400
 _FLUSH_INTERVAL_S = 60.0  # max seconds between background flushes
 _FLUSH_DIRTY_THRESHOLD = 50  # force flush when this many dirty writes accumulate
 
@@ -2020,9 +2031,20 @@ def get_status() -> dict:
         "embedding_cache_size": cache_size,
         "embedding_cache_loaded": _embedding_cache_loaded,
         # S58 OOM FIX: detailed LRU + flush metrics for /api/health/vector.
+        # S63: added estimated_memory_mb so we can alert on cache bloat
+        # before it turns into OOM (cap of 2000 * 16.4KB ≈ 33MB worst case).
         "embedding_cache": {
             "size": cache_size,
             "max_size": _EMBEDDING_CACHE_MAX,
+            "estimated_memory_mb": round(
+                (cache_size * _EMBEDDING_CACHE_BYTES_PER_ENTRY) / (1024 * 1024),
+                2,
+            ),
+            "estimated_memory_mb_at_cap": round(
+                (_EMBEDDING_CACHE_MAX * _EMBEDDING_CACHE_BYTES_PER_ENTRY)
+                / (1024 * 1024),
+                2,
+            ),
             "hits": hits,
             "misses": misses,
             "hit_rate": hit_rate,
