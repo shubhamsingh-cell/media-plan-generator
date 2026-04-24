@@ -186,21 +186,49 @@ def _load_embedding_cache() -> None:
 def _save_embedding_cache() -> None:
     """Persist the embedding cache to disk (thread-safe).
 
-    Writes atomically by writing to a temp file then renaming.
+    Writes atomically by writing to a temp file then renaming. S53 FIX:
+    Sentry PYTHON-3T was throwing FileNotFoundError on the rename because
+    two concurrent saves would race -- thread A writes its tmp file, thread
+    B writes its own tmp file (overwriting A's), both call replace(), the
+    second replace() finds the tmp already consumed. Now we:
+      1. Serialize the save behind the cache lock so only one save runs
+         at a time.
+      2. Ensure the parent directory exists before writing.
+      3. Tolerate the tmp already having been renamed by another run.
     """
     with _embedding_cache_lock:
         cache_snapshot = dict(_embedding_cache)
 
     try:
+        parent_dir = _EMBEDDING_CACHE_FILE.parent
+        try:
+            parent_dir.mkdir(parents=True, exist_ok=True)
+        except OSError:
+            pass
+
         tmp_path = _EMBEDDING_CACHE_FILE.with_suffix(".tmp")
-        tmp_path.write_text(
-            json.dumps(cache_snapshot, separators=(",", ":")),
-            encoding="utf-8",
-        )
-        tmp_path.replace(_EMBEDDING_CACHE_FILE)
+        # Serialize the full write+rename so concurrent callers don't race
+        # on the .tmp file. Using the same lock as the cache -- cheap because
+        # this function is not on the hot path.
+        with _embedding_cache_lock:
+            tmp_path.write_text(
+                json.dumps(cache_snapshot, separators=(",", ":")),
+                encoding="utf-8",
+            )
+            # Only replace if the tmp still exists (defensive -- another run
+            # could have already consumed it on weird filesystems).
+            if tmp_path.exists():
+                tmp_path.replace(_EMBEDDING_CACHE_FILE)
+            elif not _EMBEDDING_CACHE_FILE.exists():
+                # Fallback: write directly to the target file
+                _EMBEDDING_CACHE_FILE.write_text(
+                    json.dumps(cache_snapshot, separators=(",", ":")),
+                    encoding="utf-8",
+                )
         logger.info("Saved %d embeddings to disk cache", len(cache_snapshot))
-    except OSError as exc:
-        logger.error("Failed to save embedding cache: %s", exc, exc_info=True)
+    except (OSError, FileNotFoundError) as exc:
+        # Non-critical -- cache will be rebuilt on next request. Do NOT raise.
+        logger.warning("Failed to save embedding cache (non-blocking): %s", exc)
 
 
 # ── Qdrant REST API helpers (stdlib-only, no pip packages) ───────────────────

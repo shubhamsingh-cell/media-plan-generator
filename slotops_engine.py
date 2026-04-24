@@ -2015,7 +2015,7 @@ def handle_slotops_insights(body: dict[str, Any]) -> dict[str, Any]:
             "ok": True,
             "report": report,
             "computation_ms": ms,
-            "model": "gemini-3.1-flash-lite-preview",
+            "model": "gemini-2.5-flash-lite",
         }
     except Exception as exc:
         logger.error(f"SlotOps insights error: {exc}", exc_info=True)

@@ -525,11 +525,14 @@ _response_cache = _ResponseCache()
 # Provider configs: endpoint, model, auth header, rate limits
 PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
     GEMINI: {
-        "name": "Gemini 3.1 Flash",
+        "name": "Gemini 2.5 Flash",
         "api_style": "gemini",  # Google-specific format
-        # S29: Upgraded from 3 Flash to 3.1 Flash (latest, best quality)
-        "endpoint": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-preview:generateContent",
-        "model": "gemini-3.1-flash-preview",
+        # S53 FIX: "gemini-3.1-flash-preview" does not exist in v1beta API --
+        # Sentry issue PYTHON-3V was throwing 404 "models/gemini-3.1-flash-preview
+        # is not found for API version v1beta". Reverted to the GA "gemini-2.5-flash"
+        # which is the latest stable free-tier Gemini model.
+        "endpoint": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+        "model": "gemini-2.5-flash",
         "env_key": "GEMINI_API_KEY",
         "rpm_limit": 30,
         "rpd_limit": 1500,
@@ -537,11 +540,12 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         "max_tokens": 8192,
     },
     GEMINI_FLASH_LITE: {
-        "name": "Gemini 3.1 Flash Lite",
+        "name": "Gemini 2.5 Flash Lite",
         "api_style": "gemini",
-        # S25: Upgraded from 2.5 Flash Lite to 3.1 Flash Lite (4x cheaper, 1.9x faster)
-        "endpoint": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent",
-        "model": "gemini-3.1-flash-lite-preview",
+        # S53 FIX: "gemini-3.1-flash-lite-preview" is not a real model ID -- 404
+        # in Sentry. Using "gemini-2.5-flash-lite" instead (GA, lowest cost tier).
+        "endpoint": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent",
+        "model": "gemini-2.5-flash-lite",
         "env_key": "GEMINI_API_KEY",
         "rpm_limit": 30,
         "rpd_limit": 1500,
