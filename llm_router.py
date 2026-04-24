@@ -858,16 +858,20 @@ TASK_ROUTING: Dict[str, List[str]] = {
     # S48: Routing optimized by RPM capacity + quality.
     # Cloudflare (300 RPM) and Together (60 RPM) promoted from bottom to top-5 free tier.
     # HuggingFace (10 RPM) stays last. Gemini 3.1 Flash stays #1.
+    # S55-revise: Non-chatbot task -- Gemini #1 (free), Haiku as fallback for
+    # quality. Per user: use Google free tier maximally outside chatbot.
     TASK_STRUCTURED: [
-        GEMINI,
-        GEMINI_FLASH_LITE,  # Lighter Gemini variant for simple structured queries
+        GEMINI,  # Free, excellent structured JSON output
+        GEMINI_FLASH_LITE,  # Lighter Gemini variant for simple queries
+        CLAUDE_HAIKU,  # Quality fallback when Gemini rate-limited / down
+        GPT4O,  # Paid fallback
         MISTRAL,
-        CLOUDFLARE,  # S48: promoted -- 300 RPM, 10x other free providers
-        TOGETHER,  # S48: promoted -- 60 RPM, fast inference
-        OPENROUTER_GEMMA,  # Gemma 3 27B -- strong structured output
+        CLOUDFLARE,
+        TOGETHER,
+        OPENROUTER_GEMMA,
         GROQ,
         ZHIPU,
-        OPENROUTER_QWEN,  # Spaced: non-OR providers between OR variants
+        OPENROUTER_QWEN,
         CEREBRAS,
         NVIDIA_NIM,
         OPENROUTER,
@@ -877,17 +881,15 @@ TASK_ROUTING: Dict[str, List[str]] = {
         OPENROUTER_ARCEE,
         OPENROUTER_DEEPSEEK_R1,
         OPENROUTER_LIQUID,
-        HUGGINGFACE,  # 10 RPM -- last free tier
-        CLAUDE_HAIKU,
-        GPT4O,
+        HUGGINGFACE,
         CLAUDE,
         CLAUDE_OPUS,
     ],
     TASK_CONVERSATIONAL: [
-        GEMINI,  # S29: Gemini #1 for simple/greeting queries -- free, fast, good enough
-        CLAUDE_HAIKU,  # #2 paid fallback -- quality when Gemini is down
+        CLAUDE_HAIKU,  # S55: Quality-first -- user chat deserves Claude
+        GEMINI,  # #2 free fallback
         GPT4O,  # #3 paid fallback
-        CLOUDFLARE,  # S48: promoted -- 300 RPM, absorbs overflow when Gemini rate-limited
+        CLOUDFLARE,  # S48: promoted -- 300 RPM, absorbs overflow
         TOGETHER,  # S48: promoted -- 60 RPM
         XIAOMI_MIMO,  # Free fallback tier continues
         GROQ,
@@ -931,11 +933,13 @@ TASK_ROUTING: Dict[str, List[str]] = {
         CLAUDE_OPUS,
     ],
     TASK_CODE: [
-        GEMINI,
-        OPENROUTER_QWEN,  # Qwen3 Coder -- code specialist, top priority OR variant
+        GEMINI,  # Free, strong code-gen quality
+        OPENROUTER_QWEN,  # Qwen3 Coder -- code specialist, top free variant
+        CLAUDE_HAIKU,  # Quality fallback for tricky / critical code
+        GPT4O,  # Paid fallback
         MISTRAL,
         GROQ,
-        OPENROUTER,  # Spaced: non-OR providers between OR variants
+        OPENROUTER,
         ZHIPU,
         CEREBRAS,
         OPENROUTER_DEEPSEEK_R1,
@@ -947,8 +951,6 @@ TASK_ROUTING: Dict[str, List[str]] = {
         OPENROUTER_GEMMA,
         CLOUDFLARE,
         HUGGINGFACE,
-        CLAUDE_HAIKU,
-        GPT4O,
         CLAUDE,
         CLAUDE_OPUS,
     ],
@@ -1059,8 +1061,9 @@ TASK_ROUTING: Dict[str, List[str]] = {
         CLAUDE_OPUS,
     ],
     TASK_BUDGET_OPTIMIZE: [
-        GEMINI,  # S29: Gemini #1 -- strong at math
-        CLAUDE_HAIKU,  # S29: Haiku #2 -- reliable fallback
+        GEMINI,  # Free, strong at budget math + allocation
+        CLAUDE_HAIKU,  # Quality fallback for complex multi-channel optimization
+        GPT4O,  # Paid fallback
         OPENROUTER_GEMMA,
         GROQ,
         CEREBRAS,
@@ -1069,13 +1072,14 @@ TASK_ROUTING: Dict[str, List[str]] = {
         SAMBANOVA,
         TOGETHER,
         SILICONFLOW,
-        CLAUDE_HAIKU,
-        GPT4O,
         CLAUDE,
         CLAUDE_OPUS,
     ],
     TASK_COMPLIANCE_CHECK: [
-        GEMINI,
+        CLAUDE_HAIKU,  # S55: Quality-first -- compliance CAN'T be wrong
+        GEMINI,  # #2 free fallback
+        GPT4O,  # #3 paid fallback
+        CLAUDE,  # #4 Sonnet for complex regulatory cases
         OPENROUTER_GEMMA,
         MISTRAL,
         GROQ,
@@ -1083,9 +1087,6 @@ TASK_ROUTING: Dict[str, List[str]] = {
         CEREBRAS,
         OPENROUTER_DEEPSEEK_R1,
         SAMBANOVA,
-        CLAUDE_HAIKU,
-        GPT4O,
-        CLAUDE,
         CLAUDE_OPUS,
     ],
     # Intelligence Hub: prefer structured data / analysis providers
@@ -1109,21 +1110,23 @@ TASK_ROUTING: Dict[str, List[str]] = {
         CLAUDE_OPUS,
     ],
     TASK_COMPETITOR_SCAN: [
-        OPENROUTER_DEEPSEEK_R1,
-        GEMINI,
+        GEMINI,  # Free, strong at web-scale competitive synthesis
+        OPENROUTER_DEEPSEEK_R1,  # Reasoning-heavy free fallback
+        CLAUDE_HAIKU,  # Quality fallback for nuanced positioning analysis
+        GPT4O,  # Paid fallback
         OPENROUTER,
         GROQ,
         ZHIPU,
         SAMBANOVA,
         MISTRAL,
         TOGETHER,
-        CLAUDE_HAIKU,
-        GPT4O,
         CLAUDE,
         CLAUDE_OPUS,
     ],
     TASK_TALENT_MAP: [
-        GEMINI,
+        GEMINI,  # Free, good at structured talent data synthesis
+        CLAUDE_HAIKU,  # Quality fallback when Gemini unavailable
+        GPT4O,  # Paid fallback
         GROQ,
         CEREBRAS,
         ZHIPU,
@@ -1132,8 +1135,6 @@ TASK_ROUTING: Dict[str, List[str]] = {
         NVIDIA_NIM,
         TOGETHER,
         SILICONFLOW,
-        CLAUDE_HAIKU,
-        GPT4O,
         CLAUDE,
         CLAUDE_OPUS,
     ],
@@ -1157,8 +1158,12 @@ TASK_ROUTING: Dict[str, List[str]] = {
         CLAUDE,
         CLAUDE_OPUS,
     ],
+    # Actions: KEEP Haiku #1 -- actions mutate state / send external requests;
+    # accuracy matters more than throughput. Critical per user policy.
     TASK_ACTION_EXECUTE: [
-        GEMINI,
+        CLAUDE_HAIKU,  # Safety-critical -- actions cannot be re-done
+        GEMINI,  # #2 free fallback
+        GPT4O,  # #3 paid fallback
         GROQ,
         CEREBRAS,
         MISTRAL,
@@ -1167,15 +1172,14 @@ TASK_ROUTING: Dict[str, List[str]] = {
         SAMBANOVA,
         TOGETHER,
         OPENROUTER_QWEN,
-        CLAUDE_HAIKU,
-        GPT4O,
         CLAUDE,
         CLAUDE_OPUS,
     ],
     TASK_CONTEXT_SUMMARIZE: [
-        GEMINI,  # S29: Gemini #1 for summarization -- free, excellent compression
-        CLAUDE_HAIKU,  # S29: Haiku #2 -- reliable fallback
+        GEMINI,  # Free, excellent compression
         GEMINI_FLASH_LITE,
+        CLAUDE_HAIKU,  # Quality fallback when Gemini unavailable
+        GPT4O,
         GROQ,
         CEREBRAS,
         ZHIPU,
@@ -1186,8 +1190,6 @@ TASK_ROUTING: Dict[str, List[str]] = {
         SILICONFLOW,
         CLOUDFLARE,
         OPENROUTER,
-        CLAUDE_HAIKU,
-        GPT4O,
         CLAUDE,
     ],
     # ── S48: Specialized Routing (distribute load across free providers) ──
@@ -1227,10 +1229,18 @@ TASK_ROUTING: Dict[str, List[str]] = {
         CLAUDE_HAIKU,
         GPT4O,
     ],
-    # Tool calls: Gemini is the best free provider for structured JSON / function calling.
+    # S55: Chat tool calls -- HAIKU #1. This was the #1 root cause of the
+    # "I'm having trouble" canned deflection bug. Previously Gemini was #1
+    # and Haiku was at position #12; when Gemini 404'd due to bad model IDs
+    # (S53 fix) the cascade burned 45-60s hitting dead providers before
+    # finally reaching Haiku. Now Haiku is first, Gemini is fast-cheap
+    # fallback. Matches user's "quality-first, no cost constraints"
+    # preference.
     TASK_CHATBOT_TOOL_CALL: [
-        GEMINI,  # Best at structured JSON / function calling (30 RPM, 1.5K RPD)
-        GROQ,  # Good tool calling, 14.4K RPD
+        CLAUDE_HAIKU,  # S55: Quality-first -- best chat+tool quality in industry
+        GEMINI,  # #2 free fallback -- good at structured JSON
+        GPT4O,  # #3 paid fallback
+        GROQ,  # #4 fast free fallback (14.4K RPD)
         GEMINI_FLASH_LITE,
         CEREBRAS,
         SAMBANOVA,
@@ -1240,8 +1250,6 @@ TASK_ROUTING: Dict[str, List[str]] = {
         TOGETHER,  # Fallback ($25 credit)
         CLOUDFLARE,  # Fallback (~200/day)
         OPENROUTER_QWEN,  # Fallback (20 RPM shared)
-        CLAUDE_HAIKU,
-        GPT4O,
         CLAUDE,
         CLAUDE_OPUS,
     ],
@@ -1264,45 +1272,45 @@ TASK_ROUTING: Dict[str, List[str]] = {
         CLAUDE,
         CLAUDE_OPUS,
     ],
-    # Plan structured (budget JSON, channel allocation): Gemini excels at
-    # structured output, math, and JSON generation.
+    # Plan structured (budget JSON): Gemini excels at JSON + math, free.
+    # Haiku as fallback when Gemini rate-limited.
     TASK_PLAN_STRUCTURED: [
-        GEMINI,  # Best at structured JSON, math, budget calculations
+        GEMINI,  # Free, best structured JSON + budget math
         GEMINI_FLASH_LITE,
-        GROQ,  # Good structured output (14.4K RPD)
-        CEREBRAS,  # 1M tok/day
-        SAMBANOVA,  # 1M tok/day
+        CLAUDE_HAIKU,  # Quality fallback when Gemini unavailable
+        GPT4O,  # Paid fallback
+        GROQ,
+        CEREBRAS,
+        SAMBANOVA,
         ZHIPU,
         NVIDIA_NIM,
         SILICONFLOW,
-        MISTRAL,  # Fallback (1M tok/month)
-        OPENROUTER_QWEN,  # Fallback (20 RPM shared)
-        OPENROUTER_GEMMA,  # Fallback (20 RPM shared)
-        TOGETHER,  # Fallback ($25 credit)
-        CLOUDFLARE,  # Fallback (~200/day)
-        CLAUDE_HAIKU,
-        GPT4O,
+        MISTRAL,
+        OPENROUTER_QWEN,
+        OPENROUTER_GEMMA,
+        TOGETHER,
+        CLOUDFLARE,
         CLAUDE,
         CLAUDE_OPUS,
     ],
-    # Intelligence summaries: Gemini Flash Lite for lightweight summaries
-    # (free, fast), Groq as secondary.
+    # Intelligence summaries: Gemini Flash Lite primary (free, cheapest),
+    # full Gemini as secondary, Haiku as quality fallback.
     TASK_INTELLIGENCE_SUMMARY: [
         GEMINI_FLASH_LITE,  # Cheapest Gemini -- perfect for short summaries
-        GROQ,  # Fast inference (14.4K RPD)
-        CEREBRAS,  # Hot spare (1M tok/day)
-        GEMINI,
-        ZHIPU,  # Unlimited free
-        SAMBANOVA,  # 1M tok/day
+        GEMINI,  # Full Gemini for longer summaries
+        CLAUDE_HAIKU,  # Quality fallback
+        GPT4O,  # Paid fallback
+        GROQ,
+        CEREBRAS,
+        ZHIPU,
+        SAMBANOVA,
         NVIDIA_NIM,
         SILICONFLOW,
-        CLOUDFLARE,  # Fallback (~200/day)
-        TOGETHER,  # Fallback ($25 credit)
-        MISTRAL,  # Fallback (1M tok/month)
-        OPENROUTER,  # Fallback (20 RPM shared)
+        CLOUDFLARE,
+        TOGETHER,
+        MISTRAL,
+        OPENROUTER,
         HUGGINGFACE,
-        CLAUDE_HAIKU,
-        GPT4O,
     ],
     # Translation / multilingual: Gemini is actually the best free option
     # for multilingual (trained on 40+ languages, generous quota).

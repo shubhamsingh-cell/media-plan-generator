@@ -116,6 +116,69 @@ def _check_cancellation(cancel_event: Optional[threading.Event]) -> None:
         raise ChatCancelledException("Chat request cancelled by stream timeout")
 
 
+def _bounded_vector_search(query: str, top_k: int = 3, timeout_s: float = 3.0) -> list:
+    """Run vector_search.search with a hard wall-clock timeout.
+
+    S55 FIX: The chat pipeline called vector_search synchronously before each
+    LLM call.  Voyage AI (the embeddings provider) has a 10 RPM free-tier
+    rate limit with 6.5s minimum delay between requests.  Under even modest
+    concurrency the embedding queue stalls and vector_search blocks for
+    60+ seconds -- which silently consumes the entire outer stream budget
+    and leaves the LLM never being called.  That is why even simple typo
+    queries like "healtchare" hung 76s and returned an empty response:
+    they never reached an LLM that could trivially fix the typo.
+
+    This wrapper runs the search in a daemon thread and abandons it if it
+    does not return within ``timeout_s``.  The result is used as an
+    enhancement -- empty list just means "no grounding snippets", which
+    is the same as the search module being absent.
+
+    Args:
+        query: User message to embed + search.
+        top_k: Number of snippets to fetch.
+        timeout_s: Hard wall-clock timeout. 3s comfortably covers cache hits
+            + warm Qdrant paths; slow/throttled paths are skipped so the
+            LLM still gets called.
+
+    Returns:
+        List of snippet dicts, or [] on timeout / failure.
+    """
+    try:
+        from concurrent.futures import ThreadPoolExecutor
+        from concurrent.futures import TimeoutError as _VSTimeout
+
+        from vector_search import search as _vs_search
+    except Exception:
+        return []
+
+    _result_holder: list = []
+
+    def _run() -> None:
+        try:
+            r = _vs_search(query, top_k=top_k)
+            if r:
+                _result_holder.extend(r)
+        except Exception:
+            pass
+
+    try:
+        with ThreadPoolExecutor(max_workers=1) as _ex:
+            fut = _ex.submit(_run)
+            try:
+                fut.result(timeout=timeout_s)
+            except _VSTimeout:
+                logger.info(
+                    "vector_search: bounded timeout hit (%.1fs) for query=%.40s -- "
+                    "skipping grounding, LLM will still run",
+                    timeout_s,
+                    query,
+                )
+                return []
+    except Exception:
+        return []
+    return _result_holder
+
+
 # Thread registry: tracks active chat threads for monitoring/cleanup.
 # Maps thread_ident -> {"thread": Thread, "start": float, "query": str}
 _chat_thread_registry: Dict[int, Dict[str, Any]] = {}
@@ -16711,24 +16774,20 @@ When two or more tools return conflicting data for the same metric (e.g., differ
         if gold_standard_ctx:
             system_prompt += gold_standard_ctx
 
-        # Auto-ground with vector search
-        try:
-            from vector_search import search as _vs_search
-
-            vs_results = _vs_search(user_message, top_k=3)
-            if vs_results:
-                context_snippets = []
-                for r in vs_results[:3]:
-                    snippet = (r.get("text") or r.get("content") or "")[:500]
-                    if snippet:
-                        context_snippets.append(snippet)
-                if context_snippets:
-                    system_prompt += (
-                        "\n\nRelevant context from knowledge base:\n"
-                        + "\n---\n".join(context_snippets)
-                    )
-        except Exception:
-            pass  # Vector search is optional enhancement
+        # Auto-ground with vector search (bounded 3s -- S55: Voyage AI
+        # rate limit was silently hanging chat calls for 60+ seconds).
+        vs_results = _bounded_vector_search(user_message, top_k=3, timeout_s=3.0)
+        if vs_results:
+            context_snippets = []
+            for r in vs_results[:3]:
+                snippet = (r.get("text") or r.get("content") or "")[:500]
+                if snippet:
+                    context_snippets.append(snippet)
+            if context_snippets:
+                system_prompt += (
+                    "\n\nRelevant context from knowledge base:\n"
+                    + "\n---\n".join(context_snippets)
+                )
 
         # Inject persistent memory (cross-session context)
         try:
@@ -17095,24 +17154,20 @@ When two or more tools return conflicting data for the same metric (e.g., differ
         if gold_standard_ctx:
             system_prompt += gold_standard_ctx
 
-        # Auto-ground with vector search
-        try:
-            from vector_search import search as _vs_search
-
-            vs_results = _vs_search(user_message, top_k=3)
-            if vs_results:
-                context_snippets = []
-                for r in vs_results[:3]:
-                    snippet = (r.get("text") or r.get("content") or "")[:500]
-                    if snippet:
-                        context_snippets.append(snippet)
-                if context_snippets:
-                    system_prompt += (
-                        "\n\nRelevant context from knowledge base:\n"
-                        + "\n---\n".join(context_snippets)
-                    )
-        except Exception:
-            pass  # Vector search is optional enhancement
+        # Auto-ground with vector search (bounded 3s -- S55: Voyage AI
+        # rate limit was silently hanging chat calls for 60+ seconds).
+        vs_results = _bounded_vector_search(user_message, top_k=3, timeout_s=3.0)
+        if vs_results:
+            context_snippets = []
+            for r in vs_results[:3]:
+                snippet = (r.get("text") or r.get("content") or "")[:500]
+                if snippet:
+                    context_snippets.append(snippet)
+            if context_snippets:
+                system_prompt += (
+                    "\n\nRelevant context from knowledge base:\n"
+                    + "\n---\n".join(context_snippets)
+                )
 
         # Inject persistent memory (cross-session context)
         try:
@@ -18125,24 +18180,20 @@ When two or more tools return conflicting data for the same metric (e.g., differ
         if gold_standard_ctx:
             dynamic_parts.append(gold_standard_ctx)
 
-        # Auto-ground with vector search
-        try:
-            from vector_search import search as _vs_search
-
-            vs_results = _vs_search(user_message, top_k=3)
-            if vs_results:
-                context_snippets = []
-                for r in vs_results[:3]:
-                    snippet = (r.get("text") or r.get("content") or "")[:500]
-                    if snippet:
-                        context_snippets.append(snippet)
-                if context_snippets:
-                    dynamic_parts.append(
-                        "## KNOWLEDGE BASE CONTEXT\nRelevant context from knowledge base:\n"
-                        + "\n---\n".join(context_snippets)
-                    )
-        except Exception:
-            pass  # Vector search is optional enhancement
+        # Auto-ground with vector search (bounded 3s -- S55: Voyage AI
+        # rate limit was silently hanging chat calls for 60+ seconds).
+        vs_results = _bounded_vector_search(user_message, top_k=3, timeout_s=3.0)
+        if vs_results:
+            context_snippets = []
+            for r in vs_results[:3]:
+                snippet = (r.get("text") or r.get("content") or "")[:500]
+                if snippet:
+                    context_snippets.append(snippet)
+            if context_snippets:
+                dynamic_parts.append(
+                    "## KNOWLEDGE BASE CONTEXT\nRelevant context from knowledge base:\n"
+                    + "\n---\n".join(context_snippets)
+                )
 
         # Inject persistent memory (cross-session context)
         try:
