@@ -5909,6 +5909,16 @@ _rate_limit_lock = threading.Lock()
 _RATE_LIMIT_WINDOW = 60  # seconds
 _RATE_LIMIT_MAX = 30  # requests per window per IP (raised for chat UX)
 
+# Per-user rate limit layer (on top of per-IP). Keyed by lowercase email.
+# Higher cap than per-IP so a single heavy-testing engineer is not throttled,
+# but an authenticated user who blows through cannot take down the whole
+# office NAT egress IP bucket for their colleagues.
+# Shares _rate_limit_lock for thread safety (no separate lock needed).
+_user_rate_limit_store: dict = defaultdict(list)
+_USER_RATE_LIMIT_MAX = int(
+    os.environ.get("USER_RATE_LIMIT_MAX", "120")
+)  # requests per _RATE_LIMIT_WINDOW per authenticated user
+
 # Global rate limit for /api/chat to prevent distributed API cost abuse
 _GLOBAL_CHAT_RATE_LIMIT_MAX = int(
     os.environ.get("GLOBAL_CHAT_RATE_LIMIT", "120")
@@ -9508,6 +9518,86 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
 
         return False
 
+    def _extract_authenticated_email(self) -> str:
+        """Return the lowercase @joveo.com email if the request carries a verified
+        session (HMAC-verified JWT or HMAC-signed cookie), else empty string.
+
+        This mirrors the decoding logic in ``_check_joveo_auth`` but returns the
+        identity instead of a bool so the rate limiter can key per-user.  Fails
+        closed: if signatures do not verify, returns "".
+        """
+        import base64
+        import hmac as _hmac_mod
+        import hashlib as _hashlib_mod
+
+        # Path A: HMAC-verified Supabase JWT
+        auth_header = self.headers.get("Authorization") or ""
+        if auth_header.startswith("Bearer "):
+            token = auth_header[7:]
+            jwt_secret = (os.environ.get("SUPABASE_JWT_SECRET") or "").strip()
+            if jwt_secret:
+                try:
+                    parts = token.split(".")
+                    if len(parts) == 3:
+                        header_b64, payload_b64, sig_b64 = parts
+                        signing_input = f"{header_b64}.{payload_b64}".encode("ascii")
+                        expected_sig = _hmac_mod.new(
+                            jwt_secret.encode("utf-8"),
+                            signing_input,
+                            _hashlib_mod.sha256,
+                        ).digest()
+                        actual_sig = base64.urlsafe_b64decode(
+                            sig_b64 + "=" * (4 - len(sig_b64) % 4)
+                        )
+                        if _hmac_mod.compare_digest(expected_sig, actual_sig):
+                            payload_padded = payload_b64 + "=" * (
+                                4 - len(payload_b64) % 4
+                            )
+                            decoded = json.loads(
+                                base64.urlsafe_b64decode(payload_padded)
+                            )
+                            _exp = decoded.get("exp")
+                            if not (
+                                isinstance(_exp, (int, float)) and _exp < time.time()
+                            ):
+                                email = (decoded.get("email") or "").lower().strip()
+                                if email.endswith("@joveo.com"):
+                                    return email
+                except Exception as _jwt_err:
+                    logger.debug("JWT email extract failed: %s", _jwt_err)
+
+        # Path B: HMAC-signed (or legacy when STRICT_AUTH off) cookie
+        cookie = self.headers.get("Cookie") or ""
+        raw_cookie = _parse_cookie_value(cookie, "nova_user_email") or ""
+        session_secret = (os.environ.get("SESSION_SIGNING_SECRET") or "").strip()
+        strict_auth = (os.environ.get("STRICT_AUTH") or "").strip().lower() in (
+            "1",
+            "true",
+            "yes",
+            "on",
+        )
+        if raw_cookie:
+            if session_secret and "|" in raw_cookie:
+                try:
+                    email_part, sig_part = raw_cookie.rsplit("|", 1)
+                    expected = _hmac_mod.new(
+                        session_secret.encode("utf-8"),
+                        email_part.lower().strip().encode("utf-8"),
+                        _hashlib_mod.sha256,
+                    ).hexdigest()
+                    if _hmac_mod.compare_digest(expected, sig_part.lower()):
+                        email_lower = email_part.lower().strip()
+                        if email_lower.endswith("@joveo.com"):
+                            return email_lower
+                except Exception as _cookie_err:
+                    logger.debug("Cookie email extract failed: %s", _cookie_err)
+            if not strict_auth:
+                email_lower = raw_cookie.lower().strip()
+                if email_lower.endswith("@joveo.com"):
+                    return email_lower
+
+        return ""
+
     def _check_rate_limit(self):
         """Tiered rate limiting: API key tier limits take precedence over per-IP limits.
 
@@ -9553,17 +9643,54 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 # If key is invalid/revoked, fall through to IP-based limiting
 
         # ── Fallback: per-IP rate limiting (original behavior) ──
+        # Also layer per-user limiting on top for authenticated @joveo.com
+        # users, because the entire Joveo office shares one NAT egress IP
+        # and one heavy-testing engineer must not starve colleagues out of
+        # the shared per-IP bucket.
         client_ip = self._get_client_ip()
+        user_email = self._extract_authenticated_email()  # "" if not authed
+
         with _rate_limit_lock:
             # Purge expired timestamps for this IP
             _rate_limit_store[client_ip] = [
                 t for t in _rate_limit_store[client_ip] if now - t < _RATE_LIMIT_WINDOW
             ]
             if len(_rate_limit_store[client_ip]) >= _RATE_LIMIT_MAX:
+                logger.info(
+                    "RATE-LIMIT (per-IP) exceeded: ip=%s count=%d cap=%d",
+                    client_ip,
+                    len(_rate_limit_store[client_ip]),
+                    _RATE_LIMIT_MAX,
+                )
                 return False
+
+            # Per-user check (only for authenticated @joveo.com users)
+            if user_email:
+                _user_rate_limit_store[user_email] = [
+                    t
+                    for t in _user_rate_limit_store[user_email]
+                    if now - t < _RATE_LIMIT_WINDOW
+                ]
+                if len(_user_rate_limit_store[user_email]) >= _USER_RATE_LIMIT_MAX:
+                    logger.info(
+                        "RATE-LIMIT (per-user) exceeded: email=%s count=%d cap=%d "
+                        "(ip=%s ok at %d/%d)",
+                        user_email,
+                        len(_user_rate_limit_store[user_email]),
+                        _USER_RATE_LIMIT_MAX,
+                        client_ip,
+                        len(_rate_limit_store[client_ip]),
+                        _RATE_LIMIT_MAX,
+                    )
+                    return False
+
+            # Both buckets (IP, and user if authed) have capacity -- record.
             _rate_limit_store[client_ip].append(now)
-            # Periodic cleanup: evict IPs with no recent requests.
-            # Run cleanup when store exceeds 500 IPs (not 1000) to stay lean.
+            if user_email:
+                _user_rate_limit_store[user_email].append(now)
+
+            # Periodic cleanup: evict stale IPs and users with no recent requests.
+            # Run cleanup when either store exceeds 500 entries to stay lean.
             if len(_rate_limit_store) > 500:
                 stale = [
                     ip
@@ -9572,6 +9699,14 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                 ]
                 for ip in stale:
                     _rate_limit_store.pop(ip, None)
+            if len(_user_rate_limit_store) > 500:
+                stale_users = [
+                    email
+                    for email, ts in list(_user_rate_limit_store.items())
+                    if not ts or now - max(ts) > _RATE_LIMIT_WINDOW * 2
+                ]
+                for email in stale_users:
+                    _user_rate_limit_store.pop(email, None)
         return True
 
     def _check_global_chat_rate_limit(self):
