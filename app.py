@@ -213,7 +213,15 @@ except ImportError:
 # ═══════════════════════════════════════════════════════════════════════════════
 try:
     from vector_search import (
-        search as _vector_search,
+        # S61 FIX: use search_bounded (3s wall-clock cap) instead of raw
+        # search().  The typo-hang RCA (claudedocs/s56_typo_hang_rca.md)
+        # proved _enrich_chat_context was the bug: its
+        # ThreadPoolExecutor(... ) as pool: context manager calls
+        # shutdown(wait=True) on exit, which waits for the inner
+        # _enrich_vector to finish. Raw search() can block up to 60s on
+        # Voyage-AI rate-limit sleep, so the `fut.result(timeout=8)`
+        # did nothing. search_bounded abandons via daemon thread.
+        search_bounded as _vector_search,
         index_knowledge_base as _vector_index_kb,
     )
 
@@ -6641,22 +6649,36 @@ def _enrich_chat_context(data: dict, message: str) -> dict:
         _enrich_vector,
     ]
 
+    # S61 FIX: do NOT use `with ThreadPoolExecutor(...) as pool:` here.
+    # The context-manager __exit__ calls shutdown(wait=True), which blocks
+    # until ALL submitted tasks finish -- exactly what caused the typo-query
+    # hang (claudedocs/s56_typo_hang_rca.md). A single slow enrichment
+    # (Tavily throttle, JobSpy scrape, Adzuna 502) would leave the SSE
+    # handler unable to yield its first byte for up to 60s, and the
+    # per-task `fut.result(timeout=8)` did nothing to unblock it.
+    # Now we shutdown(wait=False, cancel_futures=True) so slow tasks are
+    # abandoned after the 8s per-task budget.
+    pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix="chat-enrich")
     try:
-        with ThreadPoolExecutor(
-            max_workers=4, thread_name_prefix="chat-enrich"
-        ) as pool:
-            futures = [pool.submit(fn) for fn in enrichment_fns]
-            for fut in futures:
-                try:
-                    fut.result(timeout=8)
-                except TimeoutError:
-                    logger.warning("Chat enrichment task timed out (8s)")
-                except Exception as exc:
-                    logger.error("Chat enrichment task error: %s", exc, exc_info=True)
+        futures = [pool.submit(fn) for fn in enrichment_fns]
+        for fut in futures:
+            try:
+                fut.result(timeout=8)
+            except TimeoutError:
+                logger.warning("Chat enrichment task timed out (8s)")
+            except Exception as exc:
+                logger.error("Chat enrichment task error: %s", exc, exc_info=True)
     except Exception as exc:
         logger.error(
             "ThreadPoolExecutor failed for chat enrichment: %s", exc, exc_info=True
         )
+    finally:
+        # cancel_futures available in Python 3.9+. Fall back gracefully if
+        # running on an older interpreter.
+        try:
+            pool.shutdown(wait=False, cancel_futures=True)
+        except TypeError:
+            pool.shutdown(wait=False)
 
     if _chat_api_ctx:
         data["_api_context"] = _chat_api_ctx
