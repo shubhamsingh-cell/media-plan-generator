@@ -1,0 +1,43 @@
+# Render deploy ignore -- S64 cost optimization
+# See claudedocs/s62_cost_audit.md for rationale.
+#
+# Rule of thumb: anything that's regeneratable on Render OR historical
+# snapshots that don't need to be re-uploaded on every deploy goes here.
+# This saves slug size, deploy time, and per-GB egress charges.
+
+# Embedding cache -- regenerated from Voyage AI on first request; 30 MB
+# shipping on every deploy is waste.
+data/.embedding_cache.json
+data/.embedding_cache.tmp
+
+# KB backups -- historical snapshots. Not needed at runtime (loader reads
+# the live data/*.json files). 17 MB.
+data/backups/
+
+# Generated docs (Excel / PPT bundles) -- produced by the generator into
+# this dir during tests. 3.7 MB. Never read on deploy.
+data/generated_docs/
+
+# Legacy session archives -- 528 KB of old state, nothing reads it at
+# runtime.
+archive/
+
+# Claude-specific internal docs -- audit reports produced this session.
+# Valuable in the repo but not needed in the deployed slug.
+claudedocs/
+
+# Agent output / dev-session state
+.claude/
+tasks/
+/tmp/
+*.pyc
+__pycache__/
+
+# Local test artifacts
+tests/screenshots/
+tests/baselines/
+
+# Misc dev files
+*.DS_Store
+.env
+.env.local
