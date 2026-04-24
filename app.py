@@ -5179,7 +5179,13 @@ def _build_health_response() -> dict:
             except Exception:
                 return (name, False)
 
-        with _HealthPool(max_workers=len(_mod_missing)) as _hp:
+        # S61 FIX: do NOT use `with _HealthPool(...) as _hp:`.  The
+        # context-manager __exit__ blocks on shutdown(wait=True), so a
+        # single slow import locks the health check (stress test measured
+        # /api/health at 8.5s, burning 17% of each worker's capacity).
+        # Use finally + shutdown(wait=False, cancel_futures=True).
+        _hp = _HealthPool(max_workers=len(_mod_missing))
+        try:
             _futs = {_hp.submit(_try_import, m): m for m in _mod_missing}
             for _fut in _futs:
                 try:
@@ -5191,6 +5197,11 @@ def _build_health_response() -> dict:
                         )
                 except TimeoutError:
                     _modules[_futs[_fut]] = "down"
+        finally:
+            try:
+                _hp.shutdown(wait=False, cancel_futures=True)
+            except TypeError:
+                _hp.shutdown(wait=False)
 
     # ---- LLM provider info for dashboard ----
     _llm_info: dict = {}
@@ -5294,22 +5305,37 @@ def _build_health_response() -> dict:
             as_completed as _as_done,
         )
 
-        with _StatusPool(max_workers=len(_status_checks)) as _sp:
+        # S61 FIX: same pattern -- context manager's shutdown(wait=True)
+        # was making /api/health wait for all status checks even when the
+        # 3.5s deadline elapsed.
+        _sp = _StatusPool(max_workers=len(_status_checks))
+        try:
             _sfuts = {
                 _sp.submit(fn): (name, default)
                 for name, (fn, default) in _status_checks.items()
             }
-            for _sfut in _as_done(_sfuts, timeout=3.5):
-                _sname, _sdefault = _sfuts[_sfut]
-                try:
-                    result[_sname] = _sfut.result(timeout=0.1)
-                except TimeoutError:
-                    result[_sname] = _sdefault
-                except Exception as _status_err:
-                    logger.warning(
-                        f"Health status check '{_sname}' failed: {_status_err}"
-                    )
-                    result[_sname] = _sdefault
+            try:
+                for _sfut in _as_done(_sfuts, timeout=3.5):
+                    _sname, _sdefault = _sfuts[_sfut]
+                    try:
+                        result[_sname] = _sfut.result(timeout=0.1)
+                    except TimeoutError:
+                        result[_sname] = _sdefault
+                    except Exception as _status_err:
+                        logger.warning(
+                            f"Health status check '{_sname}' failed: {_status_err}"
+                        )
+                        result[_sname] = _sdefault
+            except TimeoutError:
+                # _as_done timed out -- mark remaining checks as default and move on
+                for _fut2, (_sname2, _sdefault2) in _sfuts.items():
+                    if _sname2 not in result:
+                        result[_sname2] = _sdefault2
+        finally:
+            try:
+                _sp.shutdown(wait=False, cancel_futures=True)
+            except TypeError:
+                _sp.shutdown(wait=False)
 
     if _health_expired():
         result["warning"] = (
