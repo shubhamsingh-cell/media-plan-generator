@@ -3706,6 +3706,361 @@ def _call_single_provider(
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# PARALLEL CONSENSUS (S55 -- Feature 4)
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# For complex / high-stakes queries, run the primary LLM (Claude Haiku) and 2
+# free-tier models (Gemini 2.5 Flash + Groq Llama 3.3 70B) in parallel on the
+# same prompt.  Compare numeric outputs within a 10% tolerance:
+#   - All three agree on key numbers  -> confidence = 0.95
+#   - Numbers disagree                -> surface disagreement note in footer
+#   - Recommendations diverge         -> show both + attribute each
+#
+# Wall-clock budget 25s.  Uses `as_completed` with timeout so slow providers
+# don't stall the fast ones.  Graceful degradation: if only 1 of 3 returns,
+# the single response is used (matches the normal single-provider path).
+
+
+# Regex that extracts numbers with optional $ / % suffix from free text.
+# Matches: 123, $1,234, 12.5%, $0.92, 5000000
+_CONSENSUS_NUMBER_RE = re.compile(
+    r"\$?\s*(\d{1,3}(?:,\d{3})+|\d+(?:\.\d+)?)\s*(%|K|M|B)?", re.IGNORECASE
+)
+
+
+def _extract_numbers_for_consensus(text: str) -> List[float]:
+    """Extract comparable numeric values from a response.
+
+    Normalizes values so K/M/B suffixes and commas don't break comparison.
+    Percentage values are kept as-is (distinct magnitude from raw counts).
+    Returns a sorted list of floats for stable set comparison.
+    """
+    if not text:
+        return []
+    out: List[float] = []
+    for match in _CONSENSUS_NUMBER_RE.finditer(text):
+        raw, suffix = match.group(1), (match.group(2) or "").upper()
+        try:
+            val = float(raw.replace(",", ""))
+        except ValueError:
+            continue
+        if suffix == "K":
+            val *= 1_000
+        elif suffix == "M":
+            val *= 1_000_000
+        elif suffix == "B":
+            val *= 1_000_000_000
+        # Skip trivially small numbers (e.g., bullet numbers "1.", "2.") by
+        # requiring at least 2 chars or a suffix/percent — avoids pairing
+        # ordinal list markers with real data values.
+        if len(raw) < 2 and not suffix:
+            continue
+        out.append(val)
+    return sorted(out)
+
+
+def _numbers_within_tolerance(
+    a: List[float], b: List[float], tolerance: float = 0.10
+) -> Tuple[bool, List[Tuple[float, float]]]:
+    """Check whether two sets of extracted numbers agree within tolerance.
+
+    For each value in `a`, find the closest value in `b` and check if the
+    relative difference is <= tolerance.  Values with no close match on either
+    side are reported as disagreements.
+
+    Returns (all_agree, disagreements) where disagreements is a list of
+    (value_a, value_b) pairs that exceeded the tolerance threshold.
+    """
+    if not a and not b:
+        return True, []
+    if not a or not b:
+        # One side has no numbers at all — can't form consensus on numbers.
+        return False, []
+
+    disagreements: List[Tuple[float, float]] = []
+    # Only compare the top-N largest numbers in each set to avoid noise from
+    # bullet indices and citation markers.  The largest values are the
+    # substantive ones (salaries, budgets, percentages).
+    a_top = sorted(a, reverse=True)[:8]
+    b_top = sorted(b, reverse=True)[:8]
+
+    for val in a_top:
+        if val == 0:
+            continue
+        # Find closest in b_top
+        closest = min(b_top, key=lambda x: abs(x - val))
+        denom = max(abs(val), abs(closest), 1e-9)
+        rel_diff = abs(val - closest) / denom
+        if rel_diff > tolerance:
+            disagreements.append((val, closest))
+    return (len(disagreements) == 0), disagreements
+
+
+def _format_number_for_display(val: float) -> str:
+    """Format a float back into a compact human-readable string."""
+    if val >= 1_000_000_000 and val % 1_000_000 == 0:
+        return f"{val / 1_000_000_000:.1f}B"
+    if val >= 1_000_000 and val % 1_000 == 0:
+        return f"{val / 1_000_000:.1f}M"
+    if val >= 10_000:
+        return f"{val:,.0f}"
+    if val == int(val):
+        return str(int(val))
+    return f"{val:,.2f}"
+
+
+# Default consensus panel: Claude Haiku (paid primary) + 2 free fallbacks.
+_CONSENSUS_DEFAULT_PROVIDERS: List[str] = [CLAUDE_HAIKU, GEMINI, GROQ]
+
+
+def _parallel_consensus(
+    messages: List[Dict],
+    system_prompt: str = "",
+    tools: Optional[List[Dict]] = None,
+    max_tokens: int = 4096,
+    task_type: str = "",
+    timeout: float = 25.0,
+    providers: Optional[List[str]] = None,
+) -> Dict[str, Any]:
+    """Run the same prompt on multiple providers in parallel and compare outputs.
+
+    Used for complex / high-stakes queries where we want disagreement detection
+    between the primary Claude Haiku response and 2 free-tier cross-checks
+    (Gemini 2.5 Flash + Groq Llama 3.3 70B).
+
+    Contract:
+        - Fires up to 3 provider calls via `call_llm(force_provider=...)`.
+        - Waits up to `timeout` seconds for the batch; providers missing the
+          window are simply excluded from consensus (the others still return).
+        - Primary provider's text is the returned `text`.  Confidence 0.95 when
+          all numbers converge within 10%; 0.80 when numbers diverge (a footer
+          note is appended to `text` describing the disagreement).
+        - Graceful degradation: if only 1 of 3 returns, its response is used as
+          a normal single-provider result with `degraded=True` flag set.
+
+    Args:
+        messages: Conversation messages as passed to call_llm.
+        system_prompt: System prompt as passed to call_llm.
+        tools: Optional tool definitions.  Tools are NOT recommended here
+            because tool use is stateful across turns; the parallel fan-out is
+            intended for the *final synthesis* step after all tool calls have
+            completed.
+        max_tokens: Output token cap per provider.
+        task_type: Forwarded to call_llm for classification/routing metadata.
+        timeout: Wall-clock budget for the parallel batch in seconds.
+        providers: Override the default 3-provider panel.  Useful for tests.
+
+    Returns:
+        {
+            "text": str,                      # Primary provider's response
+            "confidence": float,              # 0.95 on consensus, 0.80 on split
+            "disagreements": list[str],       # Human-readable notes
+            "attributions": dict[str, str],   # provider_id -> response text
+            "providers_used": list[str],      # Providers that returned
+            "provider": str,                  # Primary provider_id
+            "provider_name": str,             # Primary provider name
+            "degraded": bool,                 # True if < 3 providers returned
+            "latency_ms": float,              # Wall-clock for the batch
+        }
+    """
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    panel = list(providers or _CONSENSUS_DEFAULT_PROVIDERS)
+    if not panel:
+        return {
+            "text": "",
+            "confidence": 0.0,
+            "disagreements": [],
+            "attributions": {},
+            "providers_used": [],
+            "provider": "",
+            "provider_name": "",
+            "degraded": True,
+            "latency_ms": 0.0,
+            "error": "No providers configured",
+        }
+
+    def _one_call(pid: str) -> Tuple[str, Dict[str, Any]]:
+        try:
+            res = call_llm(
+                messages=messages,
+                system_prompt=system_prompt,
+                max_tokens=max_tokens,
+                task_type=task_type,
+                tools=tools,
+                force_provider=pid,
+                use_cache=False,  # always fresh for consensus
+                priority=RequestPriority.HIGH,
+                timeout_budget=timeout,
+            )
+            return pid, res or {}
+        except Exception as exc:  # noqa: BLE001 -- return error payload
+            logger.warning(
+                "Parallel consensus: %s failed: %s", pid, exc, exc_info=False
+            )
+            return pid, {"text": "", "error": str(exc)}
+
+    start = time.time()
+    results: Dict[str, Dict[str, Any]] = {}
+    with ThreadPoolExecutor(max_workers=len(panel)) as pool:
+        futures = {pool.submit(_one_call, pid): pid for pid in panel}
+        try:
+            for fut in as_completed(futures, timeout=timeout):
+                try:
+                    pid, payload = fut.result(timeout=0.1)
+                    if payload and (payload.get("text") or "").strip():
+                        results[pid] = payload
+                except Exception as exc:  # noqa: BLE001
+                    logger.debug("Parallel consensus future failed: %s", exc)
+        except TimeoutError:
+            # Some providers didn't finish; collect any that did.
+            for fut, pid in futures.items():
+                if fut.done():
+                    try:
+                        pid2, payload = fut.result(timeout=0.1)
+                        if payload and (payload.get("text") or "").strip():
+                            results.setdefault(pid2, payload)
+                    except Exception:  # noqa: BLE001
+                        pass
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Parallel consensus aggregation error: %s", exc)
+
+    latency_ms = round((time.time() - start) * 1000, 1)
+
+    # Primary is the first provider in the panel that returned; prefer the
+    # explicit first entry (Claude Haiku) when available.
+    primary_pid = ""
+    for pid in panel:
+        if pid in results:
+            primary_pid = pid
+            break
+
+    if not primary_pid:
+        return {
+            "text": "",
+            "confidence": 0.0,
+            "disagreements": ["All providers failed or timed out."],
+            "attributions": {},
+            "providers_used": [],
+            "provider": "",
+            "provider_name": "",
+            "degraded": True,
+            "latency_ms": latency_ms,
+            "error": "No providers returned",
+        }
+
+    primary = results[primary_pid]
+    primary_text = (primary.get("text") or "").strip()
+    primary_name = (
+        primary.get("provider_name")
+        or PROVIDER_CONFIG.get(primary_pid, {}).get("name")
+        or primary_pid
+    )
+    attributions: Dict[str, str] = {
+        pid: (payload.get("text") or "").strip() for pid, payload in results.items()
+    }
+
+    # Graceful degradation: only 1 provider returned.  Skip consensus math,
+    # return the primary as-is with degraded=True.
+    if len(results) < 2:
+        logger.info(
+            "Parallel consensus degraded: only %d/%d providers returned (primary=%s, %.0fms)",
+            len(results),
+            len(panel),
+            primary_pid,
+            latency_ms,
+        )
+        return {
+            "text": primary_text,
+            "confidence": max(0.7, float(primary.get("confidence") or 0.7)),
+            "disagreements": [],
+            "attributions": attributions,
+            "providers_used": [primary_pid],
+            "provider": primary_pid,
+            "provider_name": primary_name,
+            "degraded": True,
+            "latency_ms": latency_ms,
+        }
+
+    # Compare numeric outputs pairwise against the primary.
+    primary_nums = _extract_numbers_for_consensus(primary_text)
+    disagreements: List[str] = []
+    number_conflict = False
+    for pid, payload in results.items():
+        if pid == primary_pid:
+            continue
+        other_text = (payload.get("text") or "").strip()
+        other_nums = _extract_numbers_for_consensus(other_text)
+        agree, conflicts = _numbers_within_tolerance(
+            primary_nums, other_nums, tolerance=0.10
+        )
+        if not agree and conflicts:
+            number_conflict = True
+            primary_label = primary_name
+            other_label = (
+                payload.get("provider_name")
+                or PROVIDER_CONFIG.get(pid, {}).get("name")
+                or pid
+            )
+            # Report only the largest disagreement to keep the footer short.
+            top = sorted(
+                conflicts,
+                key=lambda pair: max(abs(pair[0]), abs(pair[1])),
+                reverse=True,
+            )[:1]
+            for pval, oval in top:
+                disagreements.append(
+                    f"{primary_label} says {_format_number_for_display(pval)}, "
+                    f"{other_label} says {_format_number_for_display(oval)}"
+                )
+        elif not agree and not conflicts:
+            # One side had no numbers at all; that's a structural difference,
+            # not a numeric conflict.  Don't downgrade confidence for this.
+            logger.debug(
+                "Parallel consensus: %s vs %s had no comparable numbers",
+                primary_pid,
+                pid,
+            )
+
+    # Assemble final text.  On disagreement, append a short footer so the user
+    # knows the answer isn't unanimous.
+    final_text = primary_text
+    if number_conflict and disagreements:
+        footer = (
+            "\n\n> **Note:** Cross-check detected a disagreement on key numbers — "
+            + "; ".join(disagreements[:2])
+            + ". The primary answer above reflects "
+            + primary_name
+            + "; range reflects both sources."
+        )
+        final_text = primary_text + footer
+
+    confidence = 0.80 if number_conflict else 0.95
+
+    logger.info(
+        "Parallel consensus: %d/%d providers, primary=%s, conflict=%s, conf=%.2f, %.0fms",
+        len(results),
+        len(panel),
+        primary_pid,
+        number_conflict,
+        confidence,
+        latency_ms,
+    )
+
+    return {
+        "text": final_text,
+        "confidence": confidence,
+        "disagreements": disagreements,
+        "attributions": attributions,
+        "providers_used": list(results.keys()),
+        "provider": primary_pid,
+        "provider_name": primary_name,
+        "degraded": len(results) < len(panel),
+        "latency_ms": latency_ms,
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # STATUS & DIAGNOSTICS
 # ═══════════════════════════════════════════════════════════════════════════════
 

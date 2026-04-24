@@ -105,6 +105,29 @@ KB_FILES: dict[str, str] = {
     "recruitment_benchmarks_2026_deep": "recruitment_benchmarks_2026_deep.json",
     "employer_career_intelligence_2026": "employer_career_intelligence_2026.json",
     "healthcare_specialty_pay_2026": "healthcare_specialty_pay_2026.json",
+    # S56 unification: files previously loaded only by nova._data_cache.
+    # Registered here so the central loader, hot-reload watcher, freshness
+    # checker, and transparency tooling all cover them too.
+    "linkedin_guidewire": "linkedin_guidewire_data.json",
+    "international_benchmarks": "international_benchmarks_2026.json",
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# S56 unification: alias map for callers that historically used different
+# keys on nova._data_cache than kb_loader uses.  Keeping aliases here (rather
+# than forcing callers to change) makes the change a pure additive fix with
+# zero risk to existing tools.
+#
+# Reads on the alias key (e.g. ``kb["knowledge_base"]``) resolve to the
+# primary KB_FILES entry (e.g. ``kb["core"]``).
+# ─────────────────────────────────────────────────────────────────────────────
+KB_ALIASES: dict[str, str] = {
+    # nova._data_cache["knowledge_base"] loaded recruitment_industry_knowledge.json,
+    # which kb_loader already loads under the "core" key.
+    "knowledge_base": "core",
+    # nova._data_cache["expanded_supply_repo"] loaded joveo_global_supply_repository.json,
+    # which kb_loader already loads under the "global_supply_repository" key.
+    "expanded_supply_repo": "global_supply_repository",
 }
 
 # Maximum file age (in days) before a startup warning is logged.
@@ -136,6 +159,22 @@ def _rebuild_backward_compat(kb: dict[str, Any]) -> None:
     for k, v in core.items():
         if k not in kb:
             kb[k] = v
+
+
+def _apply_aliases(kb: dict[str, Any]) -> None:
+    """Populate ``KB_ALIASES`` keys so legacy callers keep working.
+
+    Each alias points to the same in-memory object as its primary key so
+    hot-reloads (which swap section values inside ``_knowledge_base``) remain
+    visible through the alias name.  Aliases never overwrite an existing
+    top-level key -- if a caller somehow wrote to an alias directly, we
+    respect that.
+    """
+    for alias, primary in KB_ALIASES.items():
+        if alias in kb:
+            continue
+        if primary in kb:
+            kb[alias] = kb[primary]
 
 
 def _validate_freshness(kb: dict[str, Any]) -> None:
@@ -334,6 +373,7 @@ def load_knowledge_base() -> dict[str, Any]:
                 logger.error("KB load error for %s: %s", filename, e)
 
         _rebuild_backward_compat(kb)
+        _apply_aliases(kb)
         _validate_freshness(kb)
 
         # ── File-level freshness check (P3: data quality) ──
@@ -472,6 +512,7 @@ def _check_and_reload() -> None:
 
         # Rebuild backward-compat keys and freshness after any section change
         _rebuild_backward_compat(kb_updated)
+        _apply_aliases(kb_updated)
         _validate_freshness(kb_updated)
 
         # Atomic swap of the entire KB dict reference
@@ -575,6 +616,7 @@ def _check_supabase_kb_freshness() -> None:
             kb_updated[_last_sync_key] = newest_ts
 
             _rebuild_backward_compat(kb_updated)
+            _apply_aliases(kb_updated)
             _knowledge_base = kb_updated
 
         logger.info(

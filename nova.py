@@ -14638,11 +14638,48 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             metric = "cpc"
             metric_label = "Cost Per Click (CPC)"
 
+        # S57: Exact substring first, then fuzzy-match against misspellings.
+        # Without this, the whole fast path silently falls through whenever
+        # the user makes a typo (observed live: "healtchare" instead of
+        # "healthcare" hung 50s in the slow LLM path). difflib is stdlib
+        # and O(N*M) where N,M are tiny -- <1 ms.
         matched_vertical: Optional[str] = None
         for vert, vert_kws in self._VERTICAL_KEYWORDS_BM.items():
             if any(kw in msg_lower for kw in vert_kws):
                 matched_vertical = vert
                 break
+        if not matched_vertical:
+            try:
+                import difflib
+
+                words = re.findall(r"[a-z]{4,}", msg_lower)
+                for vert, vert_kws in self._VERTICAL_KEYWORDS_BM.items():
+                    for kw in vert_kws:
+                        kw_clean = kw.strip()
+                        if len(kw_clean) < 4:
+                            continue
+                        for w in words:
+                            # Ratio threshold 0.82 catches 1-2 char typos in
+                            # 6+ letter words without matching unrelated words.
+                            if (
+                                difflib.SequenceMatcher(None, w, kw_clean).ratio()
+                                >= 0.82
+                            ):
+                                matched_vertical = vert
+                                logger.info(
+                                    "Benchmark fast-path fuzzy-matched %s -> %s "
+                                    "(vertical=%s)",
+                                    w,
+                                    kw_clean,
+                                    vert,
+                                )
+                                break
+                        if matched_vertical:
+                            break
+                    if matched_vertical:
+                        break
+            except Exception as _fuzzy_err:
+                logger.debug("Fuzzy match failed (non-fatal): %s", _fuzzy_err)
         if not matched_vertical:
             return None
 
@@ -18710,6 +18747,65 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                     elif confidence_breakdown["overall"] < 0.75:
                         confidence_breakdown["grade"] = "C"
 
+                # S55 Feature 4: Parallel disagreement detection.
+                # For complex / high-stakes queries (deep reasoning or
+                # comparisons), run Gemini + Groq in parallel on the same
+                # synthesis prompt so we can cross-check the numbers Claude
+                # produced.  On convergence we bump confidence to 0.95; on
+                # disagreement we append a footer to response_text noting
+                # the conflict.  Simple queries still use the fast single-
+                # call path -- this block only activates on the expensive
+                # tier so we don't 3x cost on "hi nova".
+                consensus_meta: Optional[dict] = None
+                try:
+                    _allow_consensus = (
+                        _is_comparison_c or _should_use_parallel_consensus(user_message)
+                    )
+                    if _allow_consensus and response_text and len(response_text) > 80:
+                        _cons_result = _run_parallel_consensus_for_chat(
+                            user_message=user_message,
+                            primary_text=response_text,
+                            tool_results_raw=tool_results_raw,
+                            system_content=system_content,
+                            task_type_hint=(
+                                "deep_reasoning" if not _is_comparison_c else "complex"
+                            ),
+                        )
+                        if _cons_result:
+                            response_text = _cons_result.get("text") or response_text
+                            consensus_meta = {
+                                "providers_used": _cons_result.get("providers_used")
+                                or [],
+                                "disagreements": _cons_result.get("disagreements")
+                                or [],
+                                "degraded": bool(_cons_result.get("degraded")),
+                                "latency_ms": _cons_result.get("latency_ms") or 0,
+                            }
+                            # Cap confidence based on consensus outcome.  Only
+                            # bump UP on full consensus; on disagreement hold
+                            # at the lower of (breakdown, 0.80).
+                            _cons_conf = float(_cons_result.get("confidence") or 0.0)
+                            if (
+                                _cons_conf >= 0.95
+                                and not consensus_meta["disagreements"]
+                            ):
+                                # All providers converged -- strong signal.
+                                confidence_breakdown["overall"] = max(
+                                    confidence_breakdown["overall"], 0.95
+                                )
+                                if confidence_breakdown["overall"] >= 0.90:
+                                    confidence_breakdown["grade"] = "A"
+                            elif _cons_conf and consensus_meta["disagreements"]:
+                                confidence_breakdown["overall"] = min(
+                                    confidence_breakdown["overall"], 0.80
+                                )
+                except Exception as _cons_err:
+                    logger.warning(
+                        "Parallel consensus skipped: %s",
+                        _cons_err,
+                        exc_info=False,
+                    )
+
                 _result = {
                     "response": response_text,
                     "sources": list(sources),
@@ -18721,6 +18817,8 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                     "verification_status": verification_status,
                     "verification_score": round(verification_score, 2),
                 }
+                if consensus_meta:
+                    _result["consensus"] = consensus_meta
                 # Store result for request coalescing
                 try:
                     if _coalescer and _is_leader and _qhash:
@@ -21592,6 +21690,177 @@ Return ONLY valid JSON:
         logger.warning("Gemini verification failed: %s", e)
 
     return response_text, 0.5, "error"
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PARALLEL CONSENSUS HELPERS (S55 -- Feature 4)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Keywords that trigger cross-provider consensus checking.  Tuned to match
+# queries where number accuracy matters (benchmarks, salaries, budgets) and
+# where hallucinated figures would be most damaging.
+_CONSENSUS_TRIGGER_PATTERNS = (
+    "benchmark",
+    "cpa",
+    "cpc",
+    "cost per",
+    "salary",
+    "compensation",
+    "pay range",
+    "budget",
+    "allocation",
+    "spend",
+    "roi",
+    "forecast",
+    "projection",
+    "compare",
+    "versus",
+    " vs ",
+    "difference between",
+)
+
+
+def _should_use_parallel_consensus(user_message: str) -> bool:
+    """Decide whether a query warrants the 3-provider parallel panel.
+
+    Only high-stakes / number-heavy queries justify the 3x cost.  Greetings,
+    short questions, and non-numeric chat stay on the single-provider fast
+    path.  We require BOTH (a) a trigger keyword and (b) a minimum length so
+    simple chatter like "what's a good CPC?" doesn't fan out to 3 providers.
+    """
+    if not user_message:
+        return False
+    msg = user_message.lower()
+    if len(msg) < 25:
+        return False
+    # Need at least one numeric/benchmark keyword to qualify as high-stakes.
+    return any(pat in msg for pat in _CONSENSUS_TRIGGER_PATTERNS)
+
+
+def _summarize_tool_results_for_consensus(
+    tool_results_raw: list, char_cap: int = 4000
+) -> str:
+    """Compact tool output summary for the parallel consensus prompt.
+
+    Pulls each tool's name + truncated JSON into a single string so Gemini
+    and Groq see the same grounding data Claude did.  Char-capped so the
+    combined prompt stays under the free-tier context limits.
+    """
+    if not tool_results_raw:
+        return ""
+    lines: List[str] = []
+    remaining = char_cap
+    for item in tool_results_raw:
+        if remaining <= 0:
+            break
+        try:
+            if isinstance(item, dict):
+                tool_name = (
+                    item.get("tool") or item.get("name") or item.get("tool_name") or ""
+                )
+                payload = item.get("result") or item.get("data") or item
+            else:
+                tool_name = ""
+                payload = item
+            snippet = json.dumps(payload, default=str)[:1200]
+        except Exception:  # noqa: BLE001
+            snippet = str(item)[:1200]
+        block = f"[{tool_name}] {snippet}" if tool_name else snippet
+        lines.append(block[:remaining])
+        remaining -= len(block) + 2
+    return "\n\n".join(lines)
+
+
+def _run_parallel_consensus_for_chat(
+    user_message: str,
+    primary_text: str,
+    tool_results_raw: list,
+    system_content: Any,
+    task_type_hint: str = "",
+) -> Optional[dict]:
+    """Run 3-provider parallel consensus on the final synthesis prompt.
+
+    The primary (Claude Haiku) has already produced `primary_text`; we now ask
+    the same synthesis question of Gemini 2.5 Flash and Groq Llama 3.3 70B in
+    parallel so we can detect disagreement on numeric claims.  The returned
+    text is either unchanged (on consensus) or has a short footer appended
+    describing the conflict.
+
+    Returns None on any failure so the caller can fall through to the
+    single-provider path without losing the response.
+    """
+    try:
+        from llm_router import _parallel_consensus
+    except ImportError as exc:
+        logger.debug("Parallel consensus unavailable: %s", exc)
+        return None
+
+    # Build a compact synthesis prompt that contains the user question, the
+    # tool data, and the primary's answer.  The parallel panel rewrites their
+    # own answer from scratch so we can compare independent views.
+    tool_summary = _summarize_tool_results_for_consensus(tool_results_raw)
+    synthesis_user = (
+        f"User question: {user_message}\n\n"
+        + (
+            f"Source data gathered from tools:\n{tool_summary}\n\n"
+            if tool_summary
+            else ""
+        )
+        + "Answer the user's question using ONLY the source data above. "
+        + "Include specific numbers (CPCs, salaries, budgets, percentages) with "
+        + "citations to the source. Use markdown tables for tabular data. Do NOT "
+        + "add commentary beyond what the data supports."
+    )
+
+    # Collapse system_content (which may be a list of cache-control blocks for
+    # the Anthropic path) into a plain string for providers that don't support
+    # the structured format.
+    if isinstance(system_content, list):
+        sys_prompt = "\n\n".join(
+            (item.get("text") or "")
+            for item in system_content
+            if isinstance(item, dict)
+        )
+    else:
+        sys_prompt = str(system_content or "")
+
+    messages = [{"role": "user", "content": synthesis_user}]
+
+    try:
+        result = _parallel_consensus(
+            messages=messages,
+            system_prompt=sys_prompt,
+            tools=None,  # synthesis only -- no tool calls in the panel
+            max_tokens=2048,
+            task_type=task_type_hint or "complex",
+            timeout=25.0,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Parallel consensus call failed: %s", exc, exc_info=False)
+        return None
+
+    # If the primary provider in the panel returned text, trust the footer
+    # logic from _parallel_consensus.  Otherwise fall back to the caller's
+    # primary_text with no modification.
+    if not (result and (result.get("text") or "").strip()):
+        return None
+
+    # Preserve the caller's primary_text if the panel only produced a much
+    # shorter answer (e.g., Gemini returned a 1-liner while Claude returned
+    # a full response).  Splice any disagreement footer onto the primary.
+    panel_text = (result.get("text") or "").strip()
+    disagreements = result.get("disagreements") or []
+    if disagreements and len(panel_text) < len(primary_text) * 0.5:
+        # Panel primary was too short; keep Claude's answer and just attach
+        # the disagreement note.
+        footer = (
+            "\n\n> **Note:** Cross-check detected a disagreement on key numbers — "
+            + "; ".join(disagreements[:2])
+            + ". The figures above reflect the primary analysis; range "
+            + "reflects multiple sources."
+        )
+        result["text"] = primary_text + footer
+    return result
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

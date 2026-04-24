@@ -643,6 +643,374 @@
     return h;
   }
 
+  // ========================================================================
+  // AUTO-VISUALIZATION (S55 -- Feature 5)
+  // Scan rendered messages for markdown tables and auto-render a Chart.js
+  // chart above each table.  Donut for categorical distributions (Status,
+  // Priority, Category), bar for numeric comparisons.  Skips tables that
+  // don't have a chartable shape.
+  // ========================================================================
+  var _novaChartJsLoading = null;
+
+  // Categorical column names that trigger donut charts (case-insensitive).
+  var _NOVA_CATEGORICAL_COLS = [
+    "status",
+    "priority",
+    "category",
+    "type",
+    "tier",
+    "stage",
+    "region",
+  ];
+
+  // Load Chart.js lazily from jsdelivr the first time a chart is needed.
+  // The CSP (app.py line 9057) already allows cdn.jsdelivr.net.  Returns a
+  // promise that resolves with window.Chart (or rejects on failure).
+  function _loadChartJs() {
+    if (typeof window.Chart !== "undefined") {
+      return Promise.resolve(window.Chart);
+    }
+    if (_novaChartJsLoading) return _novaChartJsLoading;
+    _novaChartJsLoading = new Promise(function (resolve, reject) {
+      var s = document.createElement("script");
+      s.src =
+        "https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js";
+      s.async = true;
+      s.onload = function () {
+        if (typeof window.Chart !== "undefined") resolve(window.Chart);
+        else reject(new Error("Chart.js loaded but window.Chart is undefined"));
+      };
+      s.onerror = function () {
+        _novaChartJsLoading = null;
+        reject(new Error("Chart.js load failed"));
+      };
+      document.head.appendChild(s);
+    });
+    return _novaChartJsLoading;
+  }
+
+  // Parse a markdown table out of raw text.  Returns {headers, rows} with the
+  // separator row stripped, or null if no table is present.
+  function _extractTableData(markdown) {
+    if (!markdown || typeof markdown !== "string") return null;
+    var tableRegex = /^(\|.+\|)\n(\|[-:\| ]+\|)\n((?:\|.+\|\n?)+)/gm;
+    var match = tableRegex.exec(markdown);
+    if (!match) return null;
+
+    function _splitRow(row) {
+      return row
+        .split("|")
+        .filter(function (c) {
+          return c.trim() !== "";
+        })
+        .map(function (c) {
+          return c.trim();
+        });
+    }
+
+    var headers = _splitRow(match[1]);
+    var rawRows = match[3].trim().split("\n");
+    var rows = rawRows.map(_splitRow).filter(function (r) {
+      return r.length === headers.length;
+    });
+    if (headers.length < 2 || rows.length < 2) return null;
+    return { headers: headers, rows: rows };
+  }
+
+  // Collect every markdown table in the message, not just the first.
+  function _extractAllTables(markdown) {
+    if (!markdown || typeof markdown !== "string") return [];
+    var tableRegex = /^(\|.+\|)\n(\|[-:\| ]+\|)\n((?:\|.+\|\n?)+)/gm;
+    var out = [];
+    var m;
+    function _splitRow(row) {
+      return row
+        .split("|")
+        .filter(function (c) {
+          return c.trim() !== "";
+        })
+        .map(function (c) {
+          return c.trim();
+        });
+    }
+    while ((m = tableRegex.exec(markdown)) !== null) {
+      var headers = _splitRow(m[1]);
+      var rows = m[3]
+        .trim()
+        .split("\n")
+        .map(_splitRow)
+        .filter(function (r) {
+          return r.length === headers.length;
+        });
+      if (headers.length >= 2 && rows.length >= 2) {
+        out.push({ headers: headers, rows: rows });
+      }
+    }
+    return out;
+  }
+
+  // Parse a cell value as a number, stripping currency symbols, commas, and
+  // percent signs.  Returns NaN if not numeric.
+  function _parseNumericCell(val) {
+    if (val === null || val === undefined) return NaN;
+    var s = String(val).trim();
+    // Remove leading currency / trailing percent / commas / K/M/B suffix.
+    var mult = 1;
+    if (/k$/i.test(s)) mult = 1e3;
+    else if (/m$/i.test(s)) mult = 1e6;
+    else if (/b$/i.test(s)) mult = 1e9;
+    s = s
+      .replace(/[\$,€£¥%]/g, "")
+      .replace(/[KkMmBb]$/, "")
+      .trim();
+    var n = parseFloat(s);
+    return isNaN(n) ? NaN : n * mult;
+  }
+
+  // Decide what kind of chart(s) fit this table.
+  // Returns an array of {type, labels, data, title, colIndex} (possibly empty).
+  // Up to 2 categorical donuts per table (e.g. Status + Priority side-by-side),
+  // otherwise a single bar chart for numeric-last-column tables.
+  function _decideChartShapes(tableData) {
+    if (!tableData) return [];
+    var headers = tableData.headers;
+    var rows = tableData.rows;
+    if (rows.length < 2 || rows.length > 40) return [];
+
+    var shapes = [];
+
+    // 1) Categorical donuts: up to 2 distinct categorical columns.
+    for (var i = 0; i < headers.length && shapes.length < 2; i++) {
+      var hLower = headers[i].toLowerCase();
+      var isCategorical = _NOVA_CATEGORICAL_COLS.some(function (kw) {
+        return hLower === kw || hLower.indexOf(kw) !== -1;
+      });
+      if (!isCategorical) continue;
+      var counts = {};
+      rows.forEach(function (r) {
+        var v = (r[i] || "").toString().replace(/\*\*/g, "").trim();
+        if (!v || v === "-" || v === "—") return;
+        counts[v] = (counts[v] || 0) + 1;
+      });
+      var labels = Object.keys(counts);
+      if (labels.length >= 2 && labels.length <= 8) {
+        shapes.push({
+          type: "donut",
+          labels: labels,
+          data: labels.map(function (l) {
+            return counts[l];
+          }),
+          title: headers[i] + " distribution",
+          colIndex: i,
+        });
+      }
+    }
+
+    if (shapes.length > 0) return shapes;
+
+    // 2) Bar: if the last column is numeric, plot first column as labels
+    // and last column as values.  Works for "Metric | Value" style tables.
+    var lastCol = headers.length - 1;
+    var numericCount = 0;
+    var numericValues = [];
+    for (var r = 0; r < rows.length; r++) {
+      var n = _parseNumericCell(rows[r][lastCol]);
+      numericValues.push(n);
+      if (!isNaN(n)) numericCount += 1;
+    }
+    if (numericCount >= Math.max(2, Math.ceil(rows.length * 0.7))) {
+      shapes.push({
+        type: "bar",
+        labels: rows.map(function (r) {
+          return (r[0] || "").toString().replace(/\*\*/g, "").trim();
+        }),
+        data: numericValues.map(function (n) {
+          return isNaN(n) ? 0 : n;
+        }),
+        title: headers[0] + " by " + headers[lastCol],
+        colIndex: lastCol,
+      });
+    }
+
+    return shapes;
+  }
+
+  // Build and attach a Chart.js chart above `tableEl`.  Uses brand colors.
+  function _buildAutoChart(shape, tableEl) {
+    if (!shape || !tableEl || !tableEl.parentNode) return;
+    var reduced =
+      window.matchMedia &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    // Brand palette: PORT_GORE, BLUE_VIOLET, DOWNY_TEAL + shades.
+    var palette = [
+      "#5A54BD",
+      "#6BB3CD",
+      "#7C6FE0",
+      "#8FC8E0",
+      "#202058",
+      "#A695E8",
+      "#B8D9E8",
+      "#4A44A0",
+    ];
+
+    // Collapsible wrapper so charts don't overwhelm the response.
+    var wrap = document.createElement("div");
+    wrap.className = "nova-auto-chart-wrap";
+    wrap.style.cssText =
+      "margin:10px 0;border:1px solid rgba(107,179,205,0.18);" +
+      "border-radius:10px;background:rgba(32,32,88,0.04);overflow:hidden;";
+
+    var header = document.createElement("button");
+    header.type = "button";
+    header.className = "nova-auto-chart-toggle";
+    header.setAttribute("aria-expanded", "true");
+    header.style.cssText =
+      "width:100%;display:flex;justify-content:space-between;align-items:center;" +
+      "padding:8px 12px;background:none;border:none;cursor:pointer;" +
+      "font-size:12px;font-weight:600;color:#5A54BD;font-family:inherit;";
+    header.innerHTML =
+      "<span>Chart: " +
+      escapeHtml(shape.title) +
+      "</span>" +
+      '<span class="nova-chart-chevron" aria-hidden="true" ' +
+      'style="transition:transform .2s;">▾</span>';
+
+    var body = document.createElement("div");
+    body.className = "nova-auto-chart-body";
+    body.style.cssText = "padding:8px 12px 12px;";
+
+    var canvas = document.createElement("canvas");
+    canvas.setAttribute("role", "img");
+    canvas.setAttribute(
+      "aria-label",
+      shape.title +
+        ": " +
+        shape.labels
+          .map(function (l, i) {
+            return l + " " + shape.data[i];
+          })
+          .join(", "),
+    );
+    canvas.style.cssText = "max-height:260px;width:100% !important;";
+    body.appendChild(canvas);
+
+    wrap.appendChild(header);
+    wrap.appendChild(body);
+
+    // Insert ABOVE the table in the DOM.
+    tableEl.parentNode.insertBefore(wrap, tableEl);
+
+    // Toggle collapse.
+    header.addEventListener("click", function () {
+      var expanded = header.getAttribute("aria-expanded") === "true";
+      header.setAttribute("aria-expanded", String(!expanded));
+      body.style.display = expanded ? "none" : "block";
+      var chev = header.querySelector(".nova-chart-chevron");
+      if (chev)
+        chev.style.transform = expanded ? "rotate(-90deg)" : "rotate(0)";
+    });
+
+    // Render chart.
+    _loadChartJs()
+      .then(function (Chart) {
+        try {
+          var cfg;
+          if (shape.type === "donut") {
+            cfg = {
+              type: "doughnut",
+              data: {
+                labels: shape.labels,
+                datasets: [
+                  {
+                    data: shape.data,
+                    backgroundColor: shape.labels.map(function (_, i) {
+                      return palette[i % palette.length];
+                    }),
+                    borderWidth: 0,
+                  },
+                ],
+              },
+              options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: reduced ? false : { duration: 400 },
+                plugins: {
+                  legend: {
+                    position: "right",
+                    labels: { font: { size: 11 }, boxWidth: 12 },
+                  },
+                  tooltip: { enabled: true },
+                },
+                cutout: "55%",
+              },
+            };
+          } else {
+            cfg = {
+              type: "bar",
+              data: {
+                labels: shape.labels,
+                datasets: [
+                  {
+                    label: shape.title,
+                    data: shape.data,
+                    backgroundColor: palette[0],
+                    borderRadius: 4,
+                  },
+                ],
+              },
+              options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: reduced ? false : { duration: 400 },
+                plugins: {
+                  legend: { display: false },
+                  tooltip: { enabled: true },
+                },
+                scales: {
+                  x: { ticks: { font: { size: 10 } } },
+                  y: { beginAtZero: true, ticks: { font: { size: 10 } } },
+                },
+              },
+            };
+          }
+          // eslint-disable-next-line no-new
+          new Chart(canvas.getContext("2d"), cfg);
+        } catch (e) {
+          // On render failure, hide the wrapper so the table still renders.
+          if (wrap.parentNode) wrap.parentNode.removeChild(wrap);
+        }
+      })
+      .catch(function () {
+        if (wrap.parentNode) wrap.parentNode.removeChild(wrap);
+      });
+  }
+
+  // Public entry: scan a freshly-rendered message container and attach charts
+  // above any chartable tables it contains.  Uses the RAW message text to
+  // find tables (so we don't have to parse the already-escaped HTML) and
+  // matches them to table elements in order of appearance.
+  function _maybeRenderAutoCharts(contentEl, rawText) {
+    if (!contentEl || !rawText) return;
+    try {
+      var tables = _extractAllTables(rawText);
+      if (!tables.length) return;
+      var tableEls = contentEl.querySelectorAll("table");
+      if (!tableEls.length) return;
+      var limit = Math.min(tables.length, tableEls.length);
+      for (var i = 0; i < limit; i++) {
+        var shapes = _decideChartShapes(tables[i]);
+        // Build each shape as its own collapsible panel above the table, in
+        // order so Status renders above Priority (matching header order).
+        for (var j = shapes.length - 1; j >= 0; j--) {
+          _buildAutoChart(shapes[j], tableEls[i]);
+        }
+      }
+    } catch (e) {
+      // Non-blocking: auto-viz is progressive enhancement.
+    }
+  }
+
   // Copy code block handler
   window.__novaCopyCode = function (btn) {
     var pre = btn.closest(".code-block-wrapper").querySelector("pre code");
@@ -1523,6 +1891,11 @@
       content.textContent = msg.content;
     } else {
       content.innerHTML = renderMarkdown(msg.content);
+      // S55 Feature 5: Auto-render charts above any chartable tables.
+      // Runs asynchronously (Chart.js is lazy-loaded) and is non-blocking
+      // so the message renders immediately; charts appear once the CDN
+      // script resolves.
+      _maybeRenderAutoCharts(content, msg.content);
     }
 
     body.appendChild(sender);
