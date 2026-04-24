@@ -17051,6 +17051,23 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 _event_time_lock = (
                     threading.Lock()
                 )  # protects _last_event_time across threads
+                # S51 FIX: serialize concurrent writes to self.wfile between the
+                # keepalive thread and the main generator thread. Without this
+                # lock, a keepalive event can be interleaved mid-write with a
+                # token/done event, corrupting the SSE stream so the client
+                # never parses the final full_response and falls back to the
+                # canned "I'm having trouble" client-side message.
+                _wfile_lock = threading.Lock()
+
+                def _sse_write(payload: str) -> bool:
+                    """Write one SSE event atomically. Returns False on disconnect."""
+                    try:
+                        with _wfile_lock:
+                            self.wfile.write(f"data: {payload}\n\n".encode())
+                            self.wfile.flush()
+                        return True
+                    except (BrokenPipeError, ConnectionResetError, OSError):
+                        return False
 
                 # Background keepalive sender: emits {"keepalive": true} every 15s
                 # while no tokens are flowing (prevents client timeout during tool-use)
@@ -17066,15 +17083,11 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         with _event_time_lock:
                             _elapsed = time.time() - _last_event_time
                         if _elapsed >= _KEEPALIVE_INTERVAL:
-                            try:
-                                ka_evt = json.dumps({"keepalive": True})
-                                self.wfile.write(f"data: {ka_evt}\n\n".encode())
-                                self.wfile.flush()
-                                with _event_time_lock:
-                                    _last_event_time = time.time()
-                            except (BrokenPipeError, ConnectionResetError, OSError):
+                            if not _sse_write(json.dumps({"keepalive": True})):
                                 logger.debug("SSE keepalive: client disconnected")
                                 break
+                            with _event_time_lock:
+                                _last_event_time = time.time()
 
                 _ka_thread = threading.Thread(
                     target=_send_keepalives, daemon=True, name="sse-keepalive"
@@ -17082,17 +17095,13 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 _ka_thread.start()
 
                 # ── Immediate status event so frontend shows progress ──
-                try:
-                    _status_evt = json.dumps(
-                        {"type": "status", "status": "Thinking..."}
-                    )
-                    self.wfile.write(f"data: {_status_evt}\n\n".encode())
-                    self.wfile.flush()
-                    with _event_time_lock:
-                        _last_event_time = time.time()
-                except (BrokenPipeError, ConnectionResetError, OSError):
+                if not _sse_write(
+                    json.dumps({"type": "status", "status": "Thinking..."})
+                ):
                     _keepalive_stop.set()
                     return
+                with _event_time_lock:
+                    _last_event_time = time.time()
 
                 try:
                     with _chat_span_fn("nova.chat.stream", "Nova SSE streaming chat"):
@@ -17101,17 +17110,17 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         ):
                             # Check cancellation on each chunk
                             if cancel_event.is_set():
-                                cancel_evt = json.dumps(
-                                    {
-                                        "token": "",
-                                        "done": True,
-                                        "cancelled": True,
-                                        "full_response": full_response,
-                                        "sources": sources,
-                                    }
+                                _sse_write(
+                                    json.dumps(
+                                        {
+                                            "token": "",
+                                            "done": True,
+                                            "cancelled": True,
+                                            "full_response": full_response,
+                                            "sources": sources,
+                                        }
+                                    )
                                 )
-                                self.wfile.write(f"data: {cancel_evt}\n\n".encode())
-                                self.wfile.flush()
                                 return
 
                             if chunk.get("done"):
@@ -17129,41 +17138,38 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                 _token_usage = chunk.get("token_usage") or {}
                             elif chunk.get("type") in ("tool_start", "tool_complete"):
                                 # S18: Real-time tool status -- forward to client
-                                _tool_evt = json.dumps(
-                                    {
-                                        "type": chunk["type"],
-                                        "tool": chunk.get("tool", ""),
-                                        "label": chunk.get("label", ""),
-                                        "done": False,
-                                    }
-                                )
-                                try:
-                                    self.wfile.write(f"data: {_tool_evt}\n\n".encode())
-                                    self.wfile.flush()
-                                    with _event_time_lock:
-                                        _last_event_time = time.time()
-                                except (BrokenPipeError, ConnectionResetError, OSError):
+                                if not _sse_write(
+                                    json.dumps(
+                                        {
+                                            "type": chunk["type"],
+                                            "tool": chunk.get("tool", ""),
+                                            "label": chunk.get("label", ""),
+                                            "done": False,
+                                        }
+                                    )
+                                ):
                                     break
+                                with _event_time_lock:
+                                    _last_event_time = time.time()
                             elif chunk.get("status"):
                                 # Status/progress event -- forward to client
-                                status_evt = json.dumps(
-                                    {"status": chunk["status"], "done": False}
-                                )
-                                try:
-                                    self.wfile.write(f"data: {status_evt}\n\n".encode())
-                                    self.wfile.flush()
-                                    with _event_time_lock:
-                                        _last_event_time = time.time()
-                                except (BrokenPipeError, ConnectionResetError, OSError):
+                                if not _sse_write(
+                                    json.dumps(
+                                        {"status": chunk["status"], "done": False}
+                                    )
+                                ):
                                     break
+                                with _event_time_lock:
+                                    _last_event_time = time.time()
                             else:
                                 # Token chunk -- stream to client immediately
                                 token = chunk.get("token") or ""
                                 if token:
                                     full_response += token
-                                    event = json.dumps({"token": token, "done": False})
-                                    self.wfile.write(f"data: {event}\n\n".encode())
-                                    self.wfile.flush()
+                                    if not _sse_write(
+                                        json.dumps({"token": token, "done": False})
+                                    ):
+                                        break
                                     with _event_time_lock:
                                         _last_event_time = time.time()
                 finally:
@@ -17181,6 +17187,19 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     logger.error("Stream follow-up gen failed: %s", _sfq, exc_info=True)
 
                 # ── Final event with metadata ──
+                # S51 FIX: If the pipeline completed but produced no text, emit
+                # a concrete server-side fallback instead of empty, so the client
+                # widget does NOT fall back to the generic "I'm having trouble"
+                # canned message. The widget only shows that message when both
+                # full_response and accumulated tokens are empty.
+                if not (full_response or "").strip():
+                    full_response = (
+                        "I couldn't complete this query in time. "
+                        "This can happen on complex multi-constraint questions. "
+                        "Try breaking it into steps -- for example: "
+                        '"List healthcare job boards in the US" then ask a '
+                        "follow-up for supply partners."
+                    )
                 final = json.dumps(
                     {
                         "token": "",
@@ -17196,8 +17215,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         "token_usage": _token_usage,
                     }
                 )
-                self.wfile.write(f"data: {final}\n\n".encode())
-                self.wfile.flush()
+                _sse_write(final)
 
                 # Store in idempotency cache so retries get a clean JSON response
                 try:
@@ -17226,18 +17244,19 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 )
             except Exception as stream_err:
                 logger.error("SSE streaming error: %s", stream_err, exc_info=True)
-                try:
-                    err_evt = json.dumps(
+                _sse_write(
+                    json.dumps(
                         {
                             "token": "",
                             "done": True,
+                            "full_response": (
+                                "I hit an internal error processing your request. "
+                                "Please try again in a moment."
+                            ),
                             "error": "An error occurred processing your request.",
                         }
                     )
-                    self.wfile.write(f"data: {err_evt}\n\n".encode())
-                    self.wfile.flush()
-                except (BrokenPipeError, ConnectionResetError, OSError):
-                    pass
+                )
             finally:
                 # Persist to Supabase asynchronously -- in finally so
                 # BrokenPipeError / ConnectionResetError doesn't skip it

@@ -2056,12 +2056,21 @@
 
       var responseContent = metadata.full_response || fullText;
       if (!responseContent || !responseContent.trim()) {
+        // S51 FIX: Previous text blamed the user ("try rephrasing") but the
+        // real cause is almost always a server-side timeout or a corrupted
+        // SSE event (keepalive/main-thread race fixed server-side in S51).
+        // The new text explains what happened, offers a retry button, and
+        // narrows the possibilities rather than implying user error.
         responseContent =
-          "I'm having trouble with that request. Try rephrasing -- for example:\n\n" +
-          '- *"Create a media plan for [job title] jobs"*\n' +
-          '- *"What are the benchmarks for [industry]?"*\n' +
-          '- *"What\'s the average salary for [role] in [city]?"*\n\n' +
-          "I specialize in recruitment marketing -- media plans, salary benchmarks, channel recommendations, and hiring costs!";
+          "I couldn't finish this request within the response window. " +
+          "This can happen on complex multi-constraint questions. " +
+          "Two things that usually fix it:\n\n" +
+          "- Retry the exact same question (second run is cached + faster)\n" +
+          "- Break it into smaller asks -- ask for one country or one industry at a time\n\n" +
+          "Example follow-ups that respond fast:\n\n" +
+          '- *"List all healthcare job boards in the US"*\n' +
+          '- *"Compare Indeed vs HealtheCareers apply rate"*\n' +
+          '- *"Nursing CPA benchmarks Texas"*';
       }
       var assistantMsg = {
         role: "assistant",

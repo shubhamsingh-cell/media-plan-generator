@@ -12921,6 +12921,22 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 _intelligent_cache_set(user_message, _quick, history)
                 return _filter_competitor_names(_quick)
 
+        # --- S51: Supply listing fast path (0 LLM tokens, < 2s) ---
+        # Broad listing queries like "list all healthcare job boards in US" or
+        # "share all supply partners for tech in India" previously triggered
+        # 3-4 LLM iterations with redundant tool calls, often exceeding the
+        # 45s stream timeout and falling back to the client-side canned
+        # "I'm having trouble" message. Now handled deterministically by
+        # aggregating joveo_publishers + channels_db + global supply repo.
+        _supply_listing = self._fast_path_supply_listing(user_message, _msg_lower)
+        if _supply_listing:
+            _nova_metrics.record_chat("fast_path_supply_listing")
+            _nova_metrics.record_latency((time.time() - _t0) * 1000)
+            if cache_key:
+                _set_response_cache(cache_key, _supply_listing)
+            _intelligent_cache_set(user_message, _supply_listing, history)
+            return _filter_competitor_names(_supply_listing)
+
         # --- S40: Direct tool dispatch for single-tool queries ---
         # Certain queries map unambiguously to a specific tool. LLMs often fail
         # to call these tools (geocode_location, audit_career_page, etc.) because
@@ -13740,6 +13756,502 @@ When two or more tools return conflicting data for the same metric (e.g., differ
         r"|(?:state|national|regional)\s+gdp|economic\s+analysis\s+(?:data|report))\b",
         re.IGNORECASE,
     )
+
+    # S51 FIX: Fast-path for broad listing queries like "list all job boards /
+    # publishers / supply partners for healthcare / tech in US". These queries
+    # previously triggered 3-4 LLM iterations with redundant tool calls, often
+    # exceeding the 45s stream timeout and falling back to the client-side
+    # "I'm having trouble with that request" canned message. Now we detect the
+    # intent deterministically and aggregate from all three data sources in
+    # under 2 seconds: joveo_publishers.json (1238 publishers), channels_db.json
+    # (industry-mapped channels), and joveo_global_supply_repository.json
+    # (187 top P0/P1 publishers with country metadata).
+    _SUPPLY_LISTING_INTENT = re.compile(
+        r"\b(list|share|give|show|provide|tell\s+me|send\s+me|what\s+are|"
+        r"all\s+(?:the\s+)?(?:active\s+)?)\b"
+        r".{0,200}?"
+        r"\b(job\s*board|publisher|supply\s*partner|vendor|channel|supplier|"
+        r"platform|source|network|board)s?\b",
+        re.IGNORECASE | re.DOTALL,
+    )
+    _SUPPLY_LISTING_INDUSTRY_KEYWORDS = {
+        "healthcare": (
+            "Health",
+            "healthcare_clinical",
+            "healthcare_medical",
+            [
+                "healthcare",
+                "medical",
+                "nurse",
+                "nursing",
+                "clinical",
+                "physician",
+                "doctor",
+                "hospital",
+                "pharma",
+                "biotech",
+                "rn ",
+                " rn",
+            ],
+        ),
+        "technology": (
+            "Tech",
+            "technology_it",
+            "tech_engineering",
+            [
+                "tech",
+                "technology",
+                "software",
+                "engineer",
+                "developer",
+                "coder",
+                "programmer",
+                "it ",
+                " it,",
+                "data scientist",
+            ],
+        ),
+        "finance": (
+            None,
+            None,
+            "finance_banking",
+            [
+                "finance",
+                "banking",
+                "financial",
+                "accountant",
+                "investment",
+                "wealth",
+                "insurance",
+            ],
+        ),
+        "retail": (
+            None,
+            None,
+            "retail_consumer",
+            ["retail", "consumer", "merchandis", "cashier", "store"],
+        ),
+        "hospitality": (
+            None,
+            "hospitality_food_service",
+            "hospitality_travel",
+            [
+                "hospitality",
+                "restaurant",
+                "hotel",
+                "chef",
+                "waiter",
+                "server",
+                "food service",
+            ],
+        ),
+        "logistics": (
+            None,
+            "transportation_logistics",
+            "logistics_supply_chain",
+            [
+                "logistics",
+                "trucking",
+                "driver",
+                "cdl",
+                "warehouse",
+                "supply chain",
+                "freight",
+                "delivery",
+            ],
+        ),
+        "skilled_trades": (
+            None,
+            "skilled_trades",
+            "blue_collar_trades",
+            [
+                "trades",
+                "blue collar",
+                "welder",
+                "electrician",
+                "plumber",
+                "mechanic",
+                "construction",
+                "technician",
+            ],
+        ),
+        "education": (
+            None,
+            "education_academia",
+            "early_career_campus",
+            [
+                "education",
+                "teacher",
+                "professor",
+                "school",
+                "university",
+                "academic",
+                "campus",
+            ],
+        ),
+        "government": (
+            "Govt",
+            "government_public_sector",
+            "military_government",
+            ["government", "govt", "federal", "military", "defense", "public sector"],
+        ),
+        "dei": (
+            "DEI",
+            None,
+            "diversity_dei",
+            [
+                "dei",
+                "diversity",
+                "inclusion",
+                "minority",
+                "veteran",
+                "women",
+                "lgbt",
+                "lgbtq",
+                "black",
+                "hispanic",
+                "latino",
+            ],
+        ),
+    }
+    _SUPPLY_LISTING_COUNTRY_ALIASES = {
+        "United States": (
+            "United States",
+            ["us", "u.s.", "usa", "u.s.a.", "united states", "america", "american"],
+        ),
+        "United Kingdom": (
+            "United Kingdom",
+            ["uk", "u.k.", "united kingdom", "britain", "england"],
+        ),
+        "Canada": ("Canada", ["canada", "canadian"]),
+        "Germany": ("Germany", ["germany", "german", "deutschland"]),
+        "France": ("France", ["france", "french"]),
+        "India": ("India", ["india", "indian"]),
+        "Australia": ("Australia", ["australia", "australian", "aussie"]),
+        "Netherlands": ("Netherlands", ["netherlands", "dutch", "holland"]),
+    }
+
+    def _fast_path_supply_listing(
+        self, user_message: str, msg_lower: str
+    ) -> Optional[dict]:
+        """Deterministic fast path for broad listing queries.
+
+        Handles patterns like:
+          * "List all job boards and publishers for healthcare in US"
+          * "Share all supply partners serving tech jobs"
+          * "What are the publishers for nursing roles in the United States"
+
+        Returns a fully-formed response dict in < 2 seconds using in-memory
+        data, or None if the query does not match the listing intent.
+        """
+        if not self._SUPPLY_LISTING_INTENT.search(user_message):
+            return None
+
+        # Detect industry
+        matched_industry: Optional[str] = None
+        health_cat_key: Optional[str] = None
+        channels_jc_key: Optional[str] = None
+        channels_niche_key: Optional[str] = None
+        for _ind, (
+            _pub_cat,
+            _jc_key,
+            _niche_key,
+            _kws,
+        ) in self._SUPPLY_LISTING_INDUSTRY_KEYWORDS.items():
+            if any(kw in msg_lower for kw in _kws):
+                matched_industry = _ind
+                health_cat_key = _pub_cat
+                channels_jc_key = _jc_key
+                channels_niche_key = _niche_key
+                break
+
+        # Detect country
+        matched_country_display: Optional[str] = None
+        country_key: Optional[str] = None
+        for _c_display, (
+            _c_key,
+            _aliases,
+        ) in self._SUPPLY_LISTING_COUNTRY_ALIASES.items():
+            if any(
+                re.search(r"\b" + re.escape(a) + r"\b", msg_lower) for a in _aliases
+            ):
+                matched_country_display = _c_display
+                country_key = _c_key
+                break
+
+        # If neither industry nor country was detected, the query is too
+        # abstract for the fast path -- let the LLM path handle it.
+        if not matched_industry and not country_key:
+            return None
+
+        publishers_data = self._data_cache.get("joveo_publishers") or {}
+        channels_db = self._data_cache.get("channels_db") or {}
+        expanded_repo = self._data_cache.get("expanded_supply_repo") or {}
+
+        # --- Collect publishers from joveo_publishers.json ---
+        by_category = publishers_data.get("by_category") or {}
+        by_country = publishers_data.get("by_country") or {}
+        global_pubs = publishers_data.get("global_publishers") or []
+
+        industry_specific: list[str] = []
+        if health_cat_key and health_cat_key in by_category:
+            industry_specific = list(by_category[health_cat_key])
+
+        # Universal / cross-industry publishers that work for every category
+        universal_pubs = list(by_category.get("Universal") or [])
+        classified_pubs = list(by_category.get("Classifieds") or [])
+        programmatic_pubs = list(by_category.get("DSP") or [])
+        community_pubs = list(by_category.get("Community Hiring") or [])
+        free_pubs = list(by_category.get("Free") or [])
+
+        country_specific: list[str] = []
+        if country_key and country_key in by_country:
+            country_specific = list(by_country[country_key])
+
+        # --- Collect from channels_db job_categories ---
+        jc_primary: list[str] = []
+        jc_secondary: list[str] = []
+        if channels_jc_key:
+            _jc = (channels_db.get("job_categories") or {}).get(channels_jc_key) or {}
+            _rec = _jc.get("recommended_channels") or {}
+            jc_primary = list(_rec.get("primary") or [])
+            jc_secondary = list(_rec.get("secondary") or [])
+
+        niche_channels: list[str] = []
+        if channels_niche_key:
+            _trad = channels_db.get("traditional_channels") or {}
+            _niche = _trad.get("niche_by_industry") or {}
+            _nc = _niche.get(channels_niche_key)
+            if isinstance(_nc, list):
+                niche_channels = list(_nc)
+            elif isinstance(_nc, dict):
+                # Some niches are dicts with publisher -> description mappings
+                niche_channels = list(_nc.keys())
+
+        # --- Collect from expanded supply repository (top P0/P1 partners) ---
+        repo_partners: list[dict] = []
+        for _p in expanded_repo.get("top_publishers_p0_p1") or []:
+            if not isinstance(_p, dict):
+                continue
+            _p_name = (_p.get("name") or "").strip()
+            if not _p_name:
+                continue
+            _p_countries = (_p.get("countries") or "").lower()
+            _p_type = (_p.get("job_type") or "").lower()
+            _p_region = (_p.get("region") or "").lower()
+
+            # Country filter: include if country matches, region matches,
+            # or "Global" (covers all countries)
+            _country_ok = True
+            if country_key:
+                _c_lower = country_key.lower()
+                _country_ok = (
+                    _c_lower in _p_countries
+                    or _p_region == "global"
+                    or (
+                        country_key == "United States"
+                        and ("amer" in _p_region or "us" in _p_countries)
+                    )
+                )
+            if not _country_ok:
+                continue
+
+            # Industry filter: permissive -- include if job_type is generic,
+            # or matches the industry keyword
+            if matched_industry:
+                _ind_match = False
+                _industry_kws = self._SUPPLY_LISTING_INDUSTRY_KEYWORDS[
+                    matched_industry
+                ][3]
+                if any(kw in _p_type for kw in _industry_kws):
+                    _ind_match = True
+                elif _p_type in ("", "multi-industry", "general", "all"):
+                    _ind_match = True
+                elif "blue collar" in _p_type and matched_industry in (
+                    "logistics",
+                    "skilled_trades",
+                    "hospitality",
+                ):
+                    _ind_match = True
+                elif "white collar" in _p_type and matched_industry in (
+                    "technology",
+                    "finance",
+                ):
+                    _ind_match = True
+                if not _ind_match and matched_industry in (
+                    "healthcare",
+                    "technology",
+                ):
+                    # Per-user intent: INCLUDE general-purpose partners that
+                    # can run healthcare campaigns even if not specialized.
+                    _ind_match = True
+                if not _ind_match:
+                    continue
+
+            repo_partners.append(
+                {
+                    "name": _p_name,
+                    "priority": _p.get("priority", ""),
+                    "region": _p.get("region", ""),
+                    "countries": _p.get("countries", ""),
+                    "job_type": _p.get("job_type", ""),
+                    "pricing": _p.get("pricing", ""),
+                    "status": _p.get("status", ""),
+                }
+            )
+
+        # --- Dedupe and merge ---
+        def _norm(name: str) -> str:
+            return re.sub(r"[^a-z0-9]+", "", name.lower())
+
+        seen: set[str] = set()
+
+        def _dedupe_add(dst: list[str], items: list[str]) -> None:
+            for _x in items:
+                if not isinstance(_x, str):
+                    continue
+                _k = _norm(_x)
+                if _k and _k not in seen:
+                    seen.add(_k)
+                    dst.append(_x)
+
+        industry_specialised: list[str] = []
+        _dedupe_add(industry_specialised, industry_specific)
+        _dedupe_add(industry_specialised, niche_channels)
+        _dedupe_add(industry_specialised, jc_primary)
+
+        general_multi_industry: list[str] = []
+        _dedupe_add(general_multi_industry, universal_pubs)
+        _dedupe_add(general_multi_industry, country_specific)
+        _dedupe_add(general_multi_industry, jc_secondary)
+        _dedupe_add(general_multi_industry, classified_pubs)
+        _dedupe_add(general_multi_industry, programmatic_pubs)
+        _dedupe_add(general_multi_industry, free_pubs)
+        _dedupe_add(general_multi_industry, community_pubs)
+        _dedupe_add(general_multi_industry, global_pubs[:40])
+
+        joveo_network_partners: list[dict] = []
+        for _rp in repo_partners:
+            _k = _norm(_rp["name"])
+            if _k and _k not in seen:
+                seen.add(_k)
+                joveo_network_partners.append(_rp)
+
+        total_count = (
+            len(industry_specialised)
+            + len(general_multi_industry)
+            + len(joveo_network_partners)
+        )
+        if total_count < 5:
+            # Not enough data for a satisfying answer -- fall through to LLM
+            return None
+
+        # --- Format response ---
+        _ind_label = (matched_industry or "general").replace("_", " ").title()
+        _country_label = matched_country_display or "global"
+
+        lines: list[str] = []
+        lines.append(f"## {_ind_label} Supply Partners — {_country_label}")
+        lines.append("")
+        lines.append(
+            f"Below is a consolidated list of every job board, publisher and "
+            f"supply partner in Joveo's knowledge base that can run "
+            f"{_ind_label.lower()} campaigns in {_country_label}. The list "
+            f"combines industry-specialised boards, general multi-industry "
+            f"platforms that handle {_ind_label.lower()} as one of many "
+            f"verticals, and the top P0/P1 partners from the global supply "
+            f"repository."
+        )
+        lines.append("")
+
+        if industry_specialised:
+            lines.append(
+                f"### {_ind_label}-Specialised Boards " f"({len(industry_specialised)})"
+            )
+            for _p in industry_specialised[:60]:
+                lines.append(f"- {_p}")
+            lines.append("")
+
+        if general_multi_industry:
+            lines.append(
+                f"### General & Multi-Industry Platforms (can run "
+                f"{_ind_label.lower()} jobs) — {len(general_multi_industry)}"
+            )
+            for _p in general_multi_industry[:80]:
+                lines.append(f"- {_p}")
+            lines.append("")
+
+        if joveo_network_partners:
+            lines.append(
+                f"### Top P0/P1 Supply Partners in Joveo Network "
+                f"({len(joveo_network_partners)})"
+            )
+            lines.append(
+                "| Partner | Priority | Region | Countries | Job Type | " "Pricing |"
+            )
+            lines.append(
+                "|---------|----------|--------|-----------|----------|---------|"
+            )
+            for _rp in joveo_network_partners[:60]:
+                lines.append(
+                    f"| {_rp['name']} | {_rp['priority']} | "
+                    f"{_rp['region']} | {_rp['countries'][:40]} | "
+                    f"{_rp['job_type'][:30]} | {_rp['pricing'][:20]} |"
+                )
+            lines.append("")
+
+        lines.append("### Notes on this list")
+        lines.append(
+            f"- Total partners surfaced: **{total_count}** "
+            f"(deduplicated across 3 data sources)"
+        )
+        lines.append(
+            "- Industry-specialised boards deliver the highest apply-rate and "
+            "lowest CPA for this vertical but carry lower volume."
+        )
+        lines.append(
+            "- General multi-industry platforms (Indeed, ZipRecruiter, "
+            "LinkedIn, etc.) deliver the largest volume and should still "
+            f"be used for {_ind_label.lower()} campaigns. They accept jobs "
+            "from every category."
+        )
+        lines.append(
+            "- P0/P1 partners are priority supply sources already onboarded "
+            "in Joveo's commercial network with negotiated rates."
+        )
+        lines.append(
+            '- Ask a follow-up (e.g., "which of these are best for nurses '
+            'in Texas" or "compare CPA for Indeed vs HealtheCareers") to '
+            "drill down with live benchmarks."
+        )
+
+        response_text = "\n".join(lines)
+        sources = [
+            "Joveo Publisher Network",
+            "Joveo Channel Database",
+            "Joveo Global Supply Repository",
+        ]
+        tools_used = [
+            "query_publishers",
+            "query_channels",
+            "query_global_supply",
+        ]
+
+        logger.info(
+            "NOVA MODE: Supply listing fast path -- %s/%s, %d partners",
+            matched_industry,
+            matched_country_display,
+            total_count,
+        )
+        return {
+            "response": response_text,
+            "sources": sources,
+            "confidence": 0.9,
+            "tools_used": tools_used,
+            "llm_provider": "rule_based_fast_path",
+            "llm_model": "deterministic_lookup",
+            "fast_path": "supply_listing",
+        }
 
     def _try_direct_tool_dispatch(
         self,
@@ -16586,7 +17098,11 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                     },
                 )
 
-                with urllib.request.urlopen(req, timeout=50) as resp:
+                # S51 FIX: was 50 -- a single slow Claude call could eat the
+                # entire 45s stream budget. 25s is enough for Haiku (typical
+                # 2-8s per iteration) while leaving slack for tool execution
+                # and other iterations within the outer stream timeout.
+                with urllib.request.urlopen(req, timeout=25) as resp:
                     resp_data = json.loads(resp.read().decode("utf-8"))
             except urllib.error.HTTPError as http_err:
                 logger.error("Claude API HTTP error (iter %d): %s", iteration, http_err)
@@ -16624,6 +17140,40 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 _tool_use_blocks = [
                     b for b in content_blocks if b.get("type") == "tool_use"
                 ]
+
+                # S51 FIX: Dedupe identical tool calls within a single iteration.
+                # Claude occasionally emits the same tool with the same input
+                # twice in one turn (observed: query_publishers fired 2-3x per
+                # iter on complex queries like "list all healthcare job boards
+                # and supply partners in US"). Running identical calls wastes
+                # 3-5s per duplicate and bloats the tool_use UI with repeats.
+                # Dedupe by (tool_name, json(input)) and replicate the single
+                # result into every duplicate tool_use_id so the follow-up
+                # message still has a matching tool_result for each block.
+                _dedupe_key_to_primary: dict = {}
+                _dedupe_duplicates: list[Tuple[str, str]] = []  # (dup_id, primary_id)
+                _tool_use_blocks_unique: list = []
+                for _b in _tool_use_blocks:
+                    _bk = (
+                        _b.get("name", ""),
+                        json.dumps(_b.get("input", {}), sort_keys=True, default=str),
+                    )
+                    if _bk in _dedupe_key_to_primary:
+                        _dedupe_duplicates.append(
+                            (_b.get("id") or "", _dedupe_key_to_primary[_bk])
+                        )
+                    else:
+                        _dedupe_key_to_primary[_bk] = _b.get("id") or ""
+                        _tool_use_blocks_unique.append(_b)
+                if _dedupe_duplicates:
+                    logger.info(
+                        "Claude tools: dedup -- %d/%d blocks were duplicates, "
+                        "executing %d unique",
+                        len(_dedupe_duplicates),
+                        len(_tool_use_blocks),
+                        len(_tool_use_blocks_unique),
+                    )
+                    _tool_use_blocks = _tool_use_blocks_unique
 
                 # S18: Capture parent thread's tool status queue for worker threads
                 _parent_tool_q_claude = _get_tool_status_queue()
@@ -16760,6 +17310,26 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                             "content": tool_content,
                         }
                     )
+
+                # S51 FIX: Replicate tool_result for any duplicate tool_use
+                # blocks we collapsed earlier. Anthropic's API requires every
+                # tool_use_id in the assistant message to have a matching
+                # tool_result in the next user message, otherwise it returns
+                # 400 invalid_request_error.
+                if _dedupe_duplicates:
+                    _primary_id_to_content = {
+                        _tr["tool_use_id"]: _tr["content"] for _tr in tool_results
+                    }
+                    for _dup_id, _primary_id in _dedupe_duplicates:
+                        _reused = _primary_id_to_content.get(_primary_id)
+                        if _reused is not None:
+                            tool_results.append(
+                                {
+                                    "type": "tool_result",
+                                    "tool_use_id": _dup_id,
+                                    "content": _reused,
+                                }
+                            )
 
                 # Add assistant message with tool_use blocks and tool results
                 messages.append({"role": "assistant", "content": content_blocks})
@@ -21168,7 +21738,14 @@ def handle_chat_request_stream(
     # for tool-use heavy queries (ProAmpac, US Army, Electrolux use cases).
     yield {"status": "Analyzing your question...", "done": False}
 
-    _STREAM_TIMEOUT = 45.0  # S50: was 80 -- target <30s response, 45s hard cap
+    # S51 FIX: 45s was too aggressive for complex multi-constraint queries
+    # (e.g. "list all job boards and supply partners for healthcare in US").
+    # Such queries required 3 LLM iterations with per-iteration Claude urlopen
+    # timeouts of 50s each, easily blowing past the 45s outer cap and leaving
+    # the widget with an empty response that fell back to the canned
+    # "I'm having trouble" message. 75s matches the gunicorn request timeout
+    # headroom while still being much tighter than the previous 110s/300s.
+    _STREAM_TIMEOUT = 75.0
     _stream_result: dict = {}
     _stream_error: list = []
     _cancel_event: threading.Event = (
