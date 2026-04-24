@@ -42,9 +42,13 @@ _start_time: float = 0.0  # set when start() is called
 _check_count: int = 0  # number of completed check cycles
 
 # Configurable check definitions: list of (name, path) tuples
+# S63 FIX: Swapped /api/health (8s deep check) -> /api/health/ping (instant).
+# /api/health has an 8-second internal time-box (routes/health.py:77), which
+# frequently raced the QC 10s probe timeout and produced false-positive
+# "Health score 0.0" alerts. Ping is designed for liveness.
 _check_definitions: list[tuple[str, str]] = [
     ("homepage", "/"),
-    ("health", "/api/health"),
+    ("health", "/api/health/ping"),
     ("health_ready", "/api/health/ready"),
     ("channels", "/api/channels"),
     ("dashboard_widgets", "/api/dashboard/widgets"),
@@ -61,21 +65,32 @@ def _is_warming_up() -> bool:
     return elapsed < warmup_window or _check_count < _WARMUP_GRACE_CHECKS
 
 
-def _probe(path: str, timeout: int = 10) -> tuple[bool, float]:
-    """Probe a local endpoint. Returns (ok, latency_ms)."""
+def _probe(path: str, timeout: int = 15) -> tuple[bool, float]:
+    """Probe a local endpoint. Returns (ok, latency_ms).
+
+    S63: timeout raised 10s -> 15s to buffer above /api/health's internal
+    8s time-box. One silent retry on first failure to absorb transient stalls.
+    """
     import os
 
     base = f"http://127.0.0.1:{os.environ.get('PORT', '10000')}"
     url = f"{base}{path}"
-    start = time.monotonic()
-    try:
-        with urllib.request.urlopen(url, timeout=timeout) as resp:
-            _ = resp.read()
-            latency = (time.monotonic() - start) * 1000
-            return resp.status == 200, latency
-    except Exception:
-        latency = (time.monotonic() - start) * 1000
-        return False, latency
+
+    for attempt in (1, 2):
+        start = time.monotonic()
+        try:
+            with urllib.request.urlopen(url, timeout=timeout) as resp:
+                _ = resp.read()
+                latency = (time.monotonic() - start) * 1000
+                if resp.status == 200:
+                    return True, latency
+        except Exception:
+            pass
+        if attempt == 1:
+            time.sleep(0.5)  # brief pause before retry
+
+    latency = (time.monotonic() - start) * 1000
+    return False, latency
 
 
 def set_check_definitions(definitions: list[tuple[str, str]]) -> None:
@@ -170,35 +185,48 @@ def _check_cycle() -> dict[str, Any]:
 def _alert_if_needed(results: dict[str, Any]) -> None:
     """Send alert if health is degraded or critical.
 
-    Suppresses alerts during the warmup window -- startup failures are
-    expected and would generate noisy false-positive CRITICAL alerts.
+    S63: Requires 2 consecutive failing cycles before alerting, and emits
+    a stable subject (no score value) so the alert_manager 4h dedup window
+    actually suppresses duplicates instead of firing on every flap.
     """
     # Never alert during warmup
     if results.get("warming_up", False):
         return
 
-    if results["overall"] in ("degraded", "critical"):
-        try:
-            import sys as _sys
+    if results["overall"] not in ("degraded", "critical"):
+        return
 
-            if "alert_manager" in _sys.modules:
-                am = _sys.modules["alert_manager"]
-                if hasattr(am, "send_alert"):
-                    failed_checks = [
-                        name
-                        for name, check in results["checks"].items()
-                        if not check["ok"]
-                    ]
-                    severity = (
-                        "CRITICAL" if results["overall"] == "critical" else "WARNING"
-                    )
-                    am.send_alert(
-                        subject=f"[Nova QC] {severity}: Health score {results['health_score']}",
-                        body=f"Failed checks: {', '.join(failed_checks)}\nScore: {results['health_score']}",
-                        severity=severity,
-                    )
-        except Exception as e:
-            logger.error("Auto-QC alert failed: %s", e, exc_info=True)
+    # S63: Require 2 consecutive non-healthy cycles before alerting.
+    # Prevents single-probe flaps from paging.
+    with _lock:
+        recent = list(_check_history)[-2:]
+    if len(recent) < 2:
+        return
+    if any(r.get("overall") not in ("degraded", "critical") for r in recent):
+        return
+
+    try:
+        import sys as _sys
+
+        if "alert_manager" in _sys.modules:
+            am = _sys.modules["alert_manager"]
+            if hasattr(am, "send_alert"):
+                failed_checks = [
+                    name for name, check in results["checks"].items() if not check["ok"]
+                ]
+                severity = "CRITICAL" if results["overall"] == "critical" else "WARNING"
+                # S63: Stable subject -- drop the score so dedup catches repeats.
+                am.send_alert(
+                    subject=f"[Nova QC] {severity}: {len(failed_checks)} check(s) failing",
+                    body=(
+                        f"Failed checks: {', '.join(failed_checks) or 'none'}\n"
+                        f"Score: {results['health_score']}\n"
+                        f"Two consecutive failing cycles confirmed."
+                    ),
+                    severity=severity,
+                )
+    except Exception as e:
+        logger.warning("Auto-QC alert failed: %s", e)
 
 
 def _run_loop() -> None:

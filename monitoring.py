@@ -2348,7 +2348,10 @@ class MonitoringAlertBridge:
         self._running = False
         self._thread: Optional[threading.Thread] = None
         self._alert_cooldowns: dict[str, float] = {}  # alert_key -> last_fired_ts
-        self._cooldown_period = 300  # 5 min between same alerts
+        # S63: raised 300s -> 1800s (30 min). 5-min cooldown meant the same
+        # SLO violation could email 12 times/hour during an ongoing incident.
+        # 30 min matches typical incident response cadence.
+        self._cooldown_period = 1800  # 30 min between same alerts
         self._lock = threading.Lock()
         self._last_known_version: str = VERSION  # deploy detection
 
@@ -2430,12 +2433,13 @@ class MonitoringAlertBridge:
                 status = module_data.get("status", "healthy")
 
                 # Critical: health score below 40
+                # S63: stable subjects (no score value) -> dedup suppresses flaps.
                 if score < 40:
                     alert_key = f"health_critical_{module_id}"
                     if self._should_alert(alert_key):
                         self._fire_alert(
                             "CRITICAL",
-                            f"[Nova] CRITICAL: {module_id} health score {score}/100",
+                            f"[Nova] CRITICAL: {module_id} unhealthy",
                             f"Module {module_id} health has dropped to {score}/100 "
                             f"(status: {status}). Immediate investigation required.",
                         )
@@ -2446,7 +2450,7 @@ class MonitoringAlertBridge:
                     if self._should_alert(alert_key):
                         self._fire_alert(
                             "WARNING",
-                            f"[Nova] DEGRADED: {module_id} health score {score}/100",
+                            f"[Nova] DEGRADED: {module_id}",
                             f"Module {module_id} health has degraded to {score}/100 "
                             f"(status: {status}). Monitor closely.",
                         )
@@ -2467,23 +2471,28 @@ class MonitoringAlertBridge:
                         # Use severity from SLO definition (default: WARNING)
                         slo_def = SLO_TARGETS.get(slo_name, {})
                         severity = slo_def.get("severity", "warning").upper()
+                        # S63: stable subject (no varying values) so alert_manager
+                        # dedup actually catches repeats across cycles.
                         self._fire_alert(
                             severity,
                             f"[Nova] SLO Violation: {slo_name}",
-                            f"SLO '{slo_name}' is non-compliant. "
-                            f"Current: {current}, Target: {target}.",
+                            f"SLO '{slo_name}' is non-compliant.\n"
+                            f"Current: {current}\nTarget: {target}\n"
+                            f"Check /api/health for details.",
                         )
 
             # Check error rate across all endpoints (error_rate is a percentage)
             metrics = collector.get_metrics()
             if isinstance(metrics, dict):
                 error_rate_pct = metrics.get("error_rate_pct", 0)
+                # S63: Stable subjects (no varying percentages) so dedup works.
+                # The exact rate goes in the body, not the subject.
                 if error_rate_pct > 10:  # >10% error rate
                     alert_key = "global_error_rate"
                     if self._should_alert(alert_key):
                         self._fire_alert(
                             "CRITICAL",
-                            f"[Nova] High error rate: {error_rate_pct:.1f}%",
+                            "[Nova] High error rate (>10%)",
                             f"Global error rate is {error_rate_pct:.1f}% "
                             f"(threshold: 10%). Check /api/health/integrations "
                             f"for failing services.",
@@ -2493,7 +2502,7 @@ class MonitoringAlertBridge:
                     if self._should_alert(alert_key):
                         self._fire_alert(
                             "WARNING",
-                            f"[Nova] Elevated error rate: {error_rate_pct:.1f}%",
+                            "[Nova] Elevated error rate (>5%)",
                             f"Global error rate is {error_rate_pct:.1f}% "
                             f"(threshold: 5%).",
                         )

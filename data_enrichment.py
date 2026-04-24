@@ -2032,24 +2032,40 @@ class DataEnrichmentEngine:
         )
 
         # Alert on enrichment failures
+        # S63: Single-source failures fired DAILY for weeks because one source
+        # (e.g. a rate-limited API) kept flapping. Only alert when multiple
+        # sources fail OR the cycle-level failure rate exceeds 30%. Single-source
+        # failures are logged (see the cycle summary above) but not emailed.
         failed_count = results.get("failed") or 0
-        if failed_count > 0:
-            # Use the tracked failed source names from this cycle
+        checked_count = results.get("checked") or 0
+        failure_rate = (failed_count / checked_count) if checked_count > 0 else 0.0
+        should_alert = failed_count >= 2 or failure_rate >= 0.30
+        if should_alert:
             recent_failures = (
                 failed_source_names if failed_source_names else ["unknown"]
             )
+            # S63: stable subject (no count) -> dedup catches repeated cycles.
             send_alert(
-                subject=f"Data Enrichment: {failed_count} source(s) failed",
+                subject="Data Enrichment: multiple sources failed",
                 body=(
-                    f"<p><b>{failed_count}</b> enrichment source(s) failed after retries.</p>"
+                    f"<p><b>{failed_count}</b> enrichment source(s) failed after retries "
+                    f"({failure_rate * 100:.0f}% of {checked_count} checked).</p>"
                     f"<p>Failed sources: {', '.join(recent_failures)}</p>"
-                    f"<p>Checked: {results.get('checked') or 0} | "
+                    f"<p>Checked: {checked_count} | "
                     f"Refreshed: {results.get('refreshed') or 0} | "
                     f"Skipped: {results.get('skipped') or 0}</p>"
                     f"<p>Elapsed: {elapsed}s</p>"
                     f"<p>Check: <code>/api/health/enrichment</code></p>"
                 ),
                 severity="critical" if failed_count >= 3 else "warning",
+            )
+        elif failed_count > 0:
+            logger.info(
+                "Data enrichment: %d source(s) failed (%.0f%%) -- below alert "
+                "threshold of 2 failures / 30%%. Sources: %s",
+                failed_count,
+                failure_rate * 100,
+                ", ".join(failed_source_names) if failed_source_names else "unknown",
             )
 
         return results

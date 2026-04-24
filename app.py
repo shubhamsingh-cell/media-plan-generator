@@ -1489,7 +1489,70 @@ if _SENTRY_DSN:
             - Transient network errors (connection reset, DNS)
             - API integration test failures -- expected when keys missing
             - Startup failures during warmup period
+            - S63: exception-class filter (TimeoutError, ConnectionError, etc.)
+              -- existing string matching missed most of these because they
+              arrive as exception events, not message events.
             """
+            # S63: Exception-class filter. Hit BEFORE string matching so we
+            # catch events that have no meaningful .message (most of the 4,179
+            # errors consuming the Joveo Sentry quota).
+            exc_info = hint.get("exc_info") if hint else None
+            if exc_info and len(exc_info) >= 2:
+                exc_type = exc_info[0]
+                exc_value = exc_info[1]
+                exc_str = str(exc_value or "").lower()
+
+                # Drop all transient network/timeout exceptions outright --
+                # these are handled by retry/circuit breakers and are not bugs.
+                import socket as _socket
+
+                if (
+                    exc_type
+                    and isinstance(exc_type, type)
+                    and issubclass(
+                        exc_type,
+                        (TimeoutError, ConnectionError, _socket.timeout),
+                    )
+                ):
+                    return None
+
+                # Drop urllib HTTPError 4xx (client/config issues, not bugs).
+                exc_name = exc_type.__name__ if exc_type else ""
+                if exc_name == "HTTPError" and any(
+                    code in exc_str for code in ("400", "401", "403", "404", "429")
+                ):
+                    return None
+
+                # Drop flaky JSON decode errors from upstream APIs returning HTML.
+                if exc_name in ("JSONDecodeError", "ValueError") and any(
+                    kw in exc_str
+                    for kw in ("expecting value", "no json", "<html", "<!doctype")
+                ):
+                    return None
+
+            # S63: Logger-name filter. These modules have retry + fallback
+            # semantics; their errors are operational, not bugs. The log line
+            # still appears in the Sentry breadcrumb trail attached to real
+            # events, so signal is preserved for debugging.
+            _noisy_loggers = {
+                "llm_router",
+                "data_matrix_monitor",
+                "auto_qc",
+                "data_enrichment",
+                "vector_search",
+                "firecrawl_enrichment",
+                "tavily_search",
+                "calendar_sync",
+                "market_signals",
+                "nova_proactive",
+            }
+            logger_name = (event.get("logger") or "").split(".")[0].lower()
+            if logger_name in _noisy_loggers and event.get("level") in (
+                "error",
+                "warning",
+            ):
+                return None
+
             message = (event.get("message") or "").lower()
             logentry = ((event.get("logentry") or {}).get("message") or "").lower()
             combined = f"{message} {logentry}"

@@ -45,7 +45,11 @@ _API_KEY: str = os.environ.get("RESEND_API_KEY") or ""
 _ALERT_EMAIL: str = os.environ.get("ALERT_EMAIL") or "shubhamsingh@joveo.com"
 
 _HOURLY_LIMIT = 10
-_DEDUP_WINDOW = 3600.0  # 1 hour in seconds
+# S63: Extended 3600s (1h) -> 14400s (4h). Ongoing incidents were re-paging
+# every hour for the same subject because dedup expired. 4h matches typical
+# incident triage + ack cycle. Real new alerts still break through via new
+# subjects; identical subjects hold.
+_DEDUP_WINDOW = 14400.0  # 4 hours in seconds
 _SEND_TIMEOUT = 15  # HTTP timeout for Resend API
 
 _LOG_FILE = Path("/tmp/nova_alerts.log")
