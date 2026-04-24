@@ -9237,15 +9237,17 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
     def _check_joveo_auth(self) -> bool:
         """Check if request is from an authenticated @joveo.com user or has valid API key.
 
-        Three authentication paths:
+        Three authentication paths (S58 hardened after security audit):
           1. X-Nova-Api-Key header (for embedded widgets on CG/GeoViz)
-          2. Supabase JWT with @joveo.com email (base64 payload decode, no crypto)
-          3. Cookie-based session (nova_user_email set by auth gate)
+          2. Supabase JWT with @joveo.com email (HMAC-verified)
+          3. Cookie-based session signed with SESSION_SIGNING_SECRET
 
         Returns:
             True if the request is authorized, False otherwise.
         """
         import base64
+        import hmac as _hmac_mod
+        import hashlib as _hashlib_mod
 
         # Path 1: API key bypass (for embedded widgets on CG/GeoViz)
         api_key = self.headers.get("X-Nova-Api-Key") or ""
@@ -9254,29 +9256,94 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             if api_key.strip() in [k.strip() for k in allowed_keys if k.strip()]:
                 return True
 
-        # Path 2: Supabase JWT with @joveo.com email
+        # Path 2: Supabase JWT with @joveo.com email.  S58 FIX: previously the
+        # payload was decoded without HMAC verification, so any attacker could
+        # forge `Bearer x.<base64({"email":"x@joveo.com"})>.x` and bypass.  Now
+        # we require a SUPABASE_JWT_SECRET env var and verify the signature.
+        # If the secret is not configured, we FAIL CLOSED (reject the token)
+        # rather than trusting it like the old code did.
         auth_header = self.headers.get("Authorization") or ""
         if auth_header.startswith("Bearer "):
             token = auth_header[7:]
-            try:
-                # JWT format: header.payload.signature -- decode payload
-                parts = token.split(".")
-                if len(parts) >= 2:
-                    payload = parts[1]
-                    # Add padding for base64
-                    payload += "=" * (4 - len(payload) % 4)
-                    decoded = json.loads(base64.urlsafe_b64decode(payload))
-                    email = (decoded.get("email") or "").lower().strip()
-                    if email.endswith("@joveo.com"):
-                        return True
-            except Exception:
-                pass
+            jwt_secret = (os.environ.get("SUPABASE_JWT_SECRET") or "").strip()
+            if jwt_secret:
+                try:
+                    parts = token.split(".")
+                    if len(parts) == 3:
+                        header_b64, payload_b64, sig_b64 = parts
+                        signing_input = f"{header_b64}.{payload_b64}".encode("ascii")
+                        expected_sig = _hmac_mod.new(
+                            jwt_secret.encode("utf-8"),
+                            signing_input,
+                            _hashlib_mod.sha256,
+                        ).digest()
+                        # Normalize base64url padding
+                        actual_sig = base64.urlsafe_b64decode(
+                            sig_b64 + "=" * (4 - len(sig_b64) % 4)
+                        )
+                        if _hmac_mod.compare_digest(expected_sig, actual_sig):
+                            payload_padded = payload_b64 + "=" * (
+                                4 - len(payload_b64) % 4
+                            )
+                            decoded = json.loads(
+                                base64.urlsafe_b64decode(payload_padded)
+                            )
+                            # Verify token not expired (iat + exp claims)
+                            _exp = decoded.get("exp")
+                            if isinstance(_exp, (int, float)) and _exp < time.time():
+                                logger.info("JWT expired (exp=%s)", _exp)
+                            else:
+                                email = (decoded.get("email") or "").lower().strip()
+                                if email.endswith("@joveo.com"):
+                                    return True
+                except Exception as _jwt_err:
+                    logger.debug("JWT verify failed: %s", _jwt_err)
+            # If SUPABASE_JWT_SECRET is unset, refuse to validate unsigned
+            # JWT claims (fail closed).
 
-        # Path 3: Check cookie-based session
+        # Path 3: Cookie-based session.  S58 FIX: previously any attacker
+        # could set Cookie: nova_user_email=x@joveo.com and bypass.  Now,
+        # when SESSION_SIGNING_SECRET is set, we require an HMAC-signed
+        # cookie: email|hex(HMAC-SHA256(secret, email)).
+        #
+        # GRACEFUL MIGRATION: if SESSION_SIGNING_SECRET is unset OR
+        # STRICT_AUTH is not enabled, we also accept the legacy unsigned
+        # cookie and log a warning.  Operator flips STRICT_AUTH=1 after
+        # verifying the signed-cookie flow works end-to-end.  This avoids
+        # breaking every logged-in session the minute this deploys.
         cookie = self.headers.get("Cookie") or ""
-        session_email = _parse_cookie_value(cookie, "nova_user_email")
-        if session_email and session_email.lower().strip().endswith("@joveo.com"):
-            return True
+        raw_cookie = _parse_cookie_value(cookie, "nova_user_email") or ""
+        session_secret = (os.environ.get("SESSION_SIGNING_SECRET") or "").strip()
+        strict_auth = (os.environ.get("STRICT_AUTH") or "").strip().lower() in (
+            "1",
+            "true",
+            "yes",
+            "on",
+        )
+        if raw_cookie:
+            if session_secret and "|" in raw_cookie:
+                try:
+                    email_part, sig_part = raw_cookie.rsplit("|", 1)
+                    expected = _hmac_mod.new(
+                        session_secret.encode("utf-8"),
+                        email_part.lower().strip().encode("utf-8"),
+                        _hashlib_mod.sha256,
+                    ).hexdigest()
+                    if _hmac_mod.compare_digest(expected, sig_part.lower()):
+                        if email_part.lower().strip().endswith("@joveo.com"):
+                            return True
+                except Exception as _cookie_err:
+                    logger.debug("Cookie HMAC verify failed: %s", _cookie_err)
+            if not strict_auth:
+                email_lower = raw_cookie.lower().strip()
+                if email_lower.endswith("@joveo.com"):
+                    logger.warning(
+                        "LEGACY-COOKIE-AUTH: unsigned nova_user_email "
+                        "accepted for %s -- set STRICT_AUTH=1 after "
+                        "cookie-issuance migration",
+                        email_lower,
+                    )
+                    return True
 
         # Path 4: Allow embedded widgets from known Joveo product domains
         # This is the fallback when NOVA_API_KEYS is not configured yet.
@@ -9388,7 +9455,44 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
         When the client sends a chat message (JSON), streams the Nova
         response back as individual WebSocket text frames -- same JSON
         event format as the SSE endpoint so the client parser is shared.
+
+        S58 FIX: Previously this endpoint had ZERO authentication --
+        anyone on the internet could connect and exhaust Anthropic
+        credits. Now it enforces the same @joveo.com auth that SSE uses
+        AND validates Origin against an allowlist to block CSWSH.
         """
+        # ── Auth check BEFORE handshake so attackers cannot even upgrade ──
+        if not self._check_joveo_auth():
+            logger.warning(
+                "WS /ws/chat: auth rejected (client=%s, origin=%s)",
+                self._get_client_ip(),
+                self.headers.get("Origin") or "",
+            )
+            self.send_error(401, "Authentication required")
+            return
+
+        # ── Origin allowlist: block CSWSH from arbitrary third-party sites ──
+        origin = (self.headers.get("Origin") or "").lower()
+        _allowed_ws_origins = {
+            "https://media-plan-generator.onrender.com",
+            "https://nova.joveo.com",
+            "https://cg-automation.onrender.com",
+            "https://geoviz-3d.vercel.app",
+            "https://geoviz.joveo.com",
+            "http://localhost:5000",
+            "http://127.0.0.1:5000",
+        }
+        if origin and origin not in _allowed_ws_origins:
+            logger.warning("WS /ws/chat: Origin rejected: %s", origin)
+            self.send_error(403, "Origin not allowed")
+            return
+
+        # ── Per-connection rate limit: cap concurrent WS per IP ──
+        if not self._check_rate_limit():
+            logger.warning("WS /ws/chat: rate-limited for %s", self._get_client_ip())
+            self.send_error(429, "Too many requests")
+            return
+
         try:
             from websocket_handler import ws_handshake
         except ImportError:
