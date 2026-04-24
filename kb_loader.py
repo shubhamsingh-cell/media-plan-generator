@@ -28,6 +28,94 @@ _kb_lock = threading.Lock()
 # can detect which files changed without re-reading every file.
 _file_mtimes: dict[str, float] = {}
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# REQUEST-SCOPED READ TRACKING (S56 P0 -- "Transparency Panel Lie" fix)
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# The "Why this answer?" panel used to populate ``kb_files_queried`` from a
+# static label map (``_SOURCE_TO_KB_FILES``) in nova.py. That map fabricated
+# attribution -- it claimed KB files were read when the request path never
+# opened them. This module now records the set of top-level KB keys actually
+# accessed during the current chat turn via ``kb.get(...)`` / ``kb[...]``.
+#
+# API:
+#   start_request_tracking() -> None       # init thread-local set for this turn
+#   record_read(key: str)    -> None       # called on every kb dict access
+#   get_read_keys()          -> set[str]   # snapshot of keys read this turn
+#   stop_request_tracking()  -> None       # clear thread-local
+#
+# Usage pattern (in handle_chat_request):
+#     kb_loader.start_request_tracking()
+#     try:
+#         ... run the turn ...
+#         read_keys = kb_loader.get_read_keys()
+#         kb_files_queried = kb_loader.keys_to_filenames(read_keys)
+#     finally:
+#         kb_loader.stop_request_tracking()
+#
+# Thread-safety: each request runs on its own thread (WSGI worker / SSE thread),
+# so ``threading.local()`` gives us automatic per-request isolation without
+# locks. ``set.add`` is O(1) and atomic, so tracking adds no measurable
+# latency. If ``start_request_tracking`` was never called on this thread,
+# ``record_read`` is a no-op (graceful degradation).
+
+_tracking_state = threading.local()
+
+
+def start_request_tracking() -> None:
+    """Begin recording KB reads for the current thread / request.
+
+    Call this at the top of each chat-request handler. Subsequent
+    ``record_read(key)`` calls will populate a per-thread set until
+    ``stop_request_tracking()`` is called.
+    """
+    _tracking_state.keys = set()
+
+
+def record_read(key: Any) -> None:
+    """Record that ``key`` was read from the KB on this thread.
+
+    Safe to call without prior ``start_request_tracking()`` -- it becomes a
+    no-op so background jobs, startup code, and tests never raise.
+
+    Args:
+        key: A top-level KB key (e.g. ``"joveo_publishers"``,
+            ``"salary_benchmarks_detailed"``). Non-string keys and keys
+            starting with ``_`` (internal bookkeeping like
+            ``_freshness_warnings``) are filtered out.
+    """
+    if not isinstance(key, str) or not key or key.startswith("_"):
+        return
+    keys = getattr(_tracking_state, "keys", None)
+    if keys is None:
+        return  # Tracking not started on this thread -- no-op.
+    keys.add(key)
+
+
+def get_read_keys() -> set[str]:
+    """Return a snapshot of keys read on this thread since tracking started.
+
+    Returns an empty set if tracking was never started.
+    """
+    keys = getattr(_tracking_state, "keys", None)
+    if keys is None:
+        return set()
+    return set(keys)  # defensive copy
+
+
+def stop_request_tracking() -> None:
+    """Clear the thread-local tracking set.
+
+    Call this in a ``finally:`` block so it always runs, even on exception.
+    After this returns, ``record_read`` calls on this thread become no-ops
+    again until the next ``start_request_tracking()``.
+    """
+    try:
+        del _tracking_state.keys
+    except AttributeError:
+        pass
+
+
 # Set to True once the reload thread has been started (prevents duplicates).
 _reload_thread_started: bool = False
 
@@ -515,8 +603,19 @@ def _check_and_reload() -> None:
         _apply_aliases(kb_updated)
         _validate_freshness(kb_updated)
 
-        # Atomic swap of the entire KB dict reference
-        _knowledge_base = kb_updated
+        # S56 unification: mutate the live dict in place rather than swapping
+        # the module-level reference. External holders (e.g. Nova, which now
+        # shares ``_data_cache`` with this singleton) see the updated values
+        # without needing a fresh ``load_knowledge_base()`` call.
+        #
+        # The lock above guarantees readers see a consistent snapshot while
+        # we swap values. Hot-reload only adds/updates keys; it never drops
+        # them, so clearing first + updating is equivalent to a full rebuild
+        # on the same dict object.
+        live_kb = _knowledge_base  # non-None here (guarded above)
+        if live_kb is not None:
+            live_kb.clear()
+            live_kb.update(kb_updated)
 
 
 def _check_supabase_kb_freshness() -> None:
@@ -617,7 +716,12 @@ def _check_supabase_kb_freshness() -> None:
 
             _rebuild_backward_compat(kb_updated)
             _apply_aliases(kb_updated)
-            _knowledge_base = kb_updated
+            # S56 unification: in-place update so external holders see the
+            # Supabase merge without needing to re-fetch the KB reference.
+            live_kb = _knowledge_base  # non-None here (guarded above)
+            if live_kb is not None:
+                live_kb.clear()
+                live_kb.update(kb_updated)
 
         logger.info(
             "KB Supabase sync: merged %d new rows from knowledge_base table (newest=%s)",

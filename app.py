@@ -5636,13 +5636,16 @@ except ImportError as _dm_err:
     logger.warning("data_matrix_monitor not available: %s", _dm_err)
     _data_matrix = None
 
-# Autonomous QC engine (twice-daily tests + weekly self-upgrade)
+# Autonomous QC engine (twice-daily tests). S57 audit: the "weekly
+# self-upgrade" feature was never implemented -- log message and docstring
+# corrected to reflect what the engine actually does (periodic health
+# sampling). Adding real self-upgrade is a separate initiative.
 try:
     from auto_qc import get_auto_qc
 
     _auto_qc = get_auto_qc()
     _auto_qc.start_background()
-    logger.info("AutoQC engine started (tests every 12h, self-upgrade weekly)")
+    logger.info("AutoQC engine started (health checks every 12h)")
 except ImportError as _aqc_err:
     logger.warning("auto_qc not available: %s", _aqc_err)
     _auto_qc = None

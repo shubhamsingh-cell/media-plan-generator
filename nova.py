@@ -3698,6 +3698,9 @@ class Nova:
     """
 
     def __init__(self):
+        # Replaced by a reference to the shared kb_loader dict in
+        # ``_load_data_sources``; the empty dict here is just a type-safe
+        # default in case loading fails before assignment.
         self._data_cache: Dict[str, Any] = {}
         self._load_data_sources()
 
@@ -3710,109 +3713,94 @@ class Nova:
     # ------------------------------------------------------------------
 
     def _load_data_sources(self):
-        """Load all static data sources into memory."""
-        data_files = {
-            "global_supply": "global_supply.json",
-            "channels_db": "channels_db.json",
-            "joveo_publishers": "joveo_publishers.json",
-            "knowledge_base": "recruitment_industry_knowledge.json",
-            "linkedin_guidewire": "linkedin_guidewire_data.json",
-        }
-        for key, filename in data_files.items():
-            filepath = DATA_DIR / filename
-            try:
-                with open(filepath, "r", encoding="utf-8") as f:
-                    self._data_cache[key] = json.load(f)
-                logger.info("Loaded %s from %s", key, filepath)
-            except FileNotFoundError:
-                logger.warning("Data file not found: %s", filepath)
-                self._data_cache[key] = {}
-            except json.JSONDecodeError as exc:
-                logger.error("JSON parse error in %s: %s", filepath, exc)
-                self._data_cache[key] = {}
-            except Exception as exc:
-                logger.error("Failed to load %s: %s", key, exc)
-                self._data_cache[key] = {}
+        """Load all static data sources into memory.
 
-        # Load research intelligence files
-        _research_files = {
-            "platform_intelligence": "platform_intelligence_deep.json",
-            "recruitment_benchmarks": "recruitment_benchmarks_deep.json",
-            "recruitment_strategy": "recruitment_strategy_intelligence.json",
-            "regional_hiring": "regional_hiring_intelligence.json",
-            "supply_ecosystem": "supply_ecosystem_intelligence.json",
-            "workforce_trends": "workforce_trends_intelligence.json",
-            "white_papers": "industry_white_papers.json",
-            "joveo_2026_benchmarks": "joveo_2026_benchmarks.json",
-            "google_ads_benchmarks": "google_ads_2025_benchmarks.json",
-            "external_benchmarks": "external_benchmarks_2025.json",
-            "client_media_plans": "client_media_plans_kb.json",
-            "international_sources": "international_sources.json",
-            "international_benchmarks": "international_benchmarks_2026.json",
-            "seasonal_hiring_trends": "seasonal_hiring_trends.json",
-            # S48: Real channel performance benchmarks (SlotOps 108K + CG 98K)
-            "craigslist_benchmarks": "craigslist_performance_benchmarks.json",
-            "linkedin_benchmarks": "linkedin_performance_benchmarks.json",
-            # S50: Live data wiring -- scraped benchmarks, trend articles, Adzuna
-            "channel_benchmarks_live": "channel_benchmarks_live.json",
-            "market_trends_live": "market_trends_live.json",
-            "live_market_data": "live_market_data.json",
-            "adzuna_benchmarks": "adzuna_benchmarks.json",
-        }
-        for _cache_key, _rf_name in _research_files.items():
-            _rf_path = os.path.join(str(DATA_DIR), _rf_name)
-            try:
-                with open(_rf_path, "r", encoding="utf-8") as _rf:
-                    self._data_cache[_cache_key] = json.load(_rf)
-                    logger.info("Nova loaded %s", _cache_key)
-            except Exception as _rf_err:
-                self._data_cache[_cache_key] = {}
+        S56 unification: route every KB file through ``kb_loader.load_knowledge_base``
+        so Nova's chat tools see the full KB_FILES inventory. Previously ~20
+        of 54 files were re-loaded into a separate ``_data_cache`` and the
+        remaining ~34 were invisible to every ``self._data_cache.get(...)``
+        call site, even though ``kb_loader`` had already pulled them into
+        memory.
 
-        # Load expanded supply repository (S30: 2.7MB, new supply partners)
-        _esp_path = os.path.join(str(DATA_DIR), "joveo_global_supply_repository.json")
-        try:
-            if os.path.exists(_esp_path):
-                with open(_esp_path, "r", encoding="utf-8") as _ef:
-                    self._data_cache["expanded_supply_repo"] = json.load(_ef)
-                    _esp_len = (
-                        len(self._data_cache["expanded_supply_repo"])
-                        if isinstance(
-                            self._data_cache["expanded_supply_repo"], (list, dict)
-                        )
-                        else 0
-                    )
-                    logger.info(
-                        "Nova loaded expanded_supply_repo: %d entries", _esp_len
-                    )
-        except (FileNotFoundError, json.JSONDecodeError, OSError) as _esp_err:
-            logger.warning("Could not load expanded supply repo: %s", _esp_err)
-            self._data_cache["expanded_supply_repo"] = {}
+        ``self._data_cache`` is now a reference to the shared, hot-reloaded
+        KB dict. All existing ``self._data_cache.get("X")`` callers keep
+        working because ``kb_loader`` registers aliases (``knowledge_base``
+        -> ``core``, ``expanded_supply_repo`` -> ``global_supply_repository``)
+        for keys that previously diverged between the two loaders.
+        """
+        from kb_loader import load_knowledge_base
 
-        # Load client plans directory (S30: RTX + other reference plans)
+        # Share the kb_loader singleton so hot-reload updates propagate to
+        # Nova's chat tools automatically. No disk reads happen here on the
+        # second+ construction -- ``load_knowledge_base()`` is cached.
+        kb = load_knowledge_base()
+        if not isinstance(kb, dict):
+            logger.error(
+                "kb_loader returned non-dict (%s); falling back to empty",
+                type(kb),
+            )
+            kb = {}
+        self._data_cache = kb
+
+        # Post-load merge: client_plans/*.json files are individually
+        # registered in ``KB_FILES`` (``rtx_media_plan``,
+        # ``rtx_aerospace_benchmarks``), but the ``query_client_plans``
+        # tool reads them from ``client_media_plans["plans"]``. Merge them
+        # there too. Guarded with a flag so concurrent Nova instances don't
+        # redo the merge -- the underlying dict is process-wide.
+        if not self._data_cache.get("_nova_client_plans_merged"):
+            self._merge_client_plans_into_shared_kb()
+            self._data_cache["_nova_client_plans_merged"] = True
+
+        logger.info(
+            "Nova data sources initialised via kb_loader: %d keys available",
+            sum(1 for k in self._data_cache if not k.startswith("_")),
+        )
+
+    def _merge_client_plans_into_shared_kb(self) -> None:
+        """Merge ``data/client_plans/*.json`` into ``client_media_plans['plans']``.
+
+        Per-file entries are already exposed as top-level keys
+        (``rtx_media_plan``, ``rtx_aerospace_benchmarks``) by ``kb_loader``,
+        but the ``query_client_plans`` tool expects them under the
+        ``client_media_plans.plans`` dict for name-based lookup, so we
+        additionally splice them in there.
+        """
         _cp_dir = os.path.join(str(DATA_DIR), "client_plans")
         try:
-            if os.path.isdir(_cp_dir):
-                _cp_data: Dict[str, Any] = {}
-                for _cp_fname in os.listdir(_cp_dir):
-                    if _cp_fname.endswith(".json"):
-                        _cp_fpath = os.path.join(_cp_dir, _cp_fname)
-                        with open(_cp_fpath, "r", encoding="utf-8") as _cpf:
-                            _cp_key = _cp_fname.replace(".json", "")
-                            _cp_data[_cp_key] = json.load(_cpf)
-                if _cp_data:
-                    # Merge into existing client_media_plans for the query_client_plans tool
-                    existing_plans = self._data_cache.get("client_media_plans", {})
-                    existing_plan_dict = existing_plans.get("plans", {})
-                    existing_plan_dict.update(_cp_data)
-                    existing_plans["plans"] = existing_plan_dict
-                    self._data_cache["client_media_plans"] = existing_plans
-                    logger.info(
-                        "Nova loaded %d client plan files from data/client_plans/: %s",
-                        len(_cp_data),
-                        ", ".join(_cp_data.keys()),
+            if not os.path.isdir(_cp_dir):
+                return
+            _cp_data: Dict[str, Any] = {}
+            for _cp_fname in os.listdir(_cp_dir):
+                if not _cp_fname.endswith(".json"):
+                    continue
+                _cp_fpath = os.path.join(_cp_dir, _cp_fname)
+                try:
+                    with open(_cp_fpath, "r", encoding="utf-8") as _cpf:
+                        _cp_key = _cp_fname.replace(".json", "")
+                        _cp_data[_cp_key] = json.load(_cpf)
+                except (FileNotFoundError, json.JSONDecodeError, OSError) as _per_err:
+                    logger.warning(
+                        "Could not load client plan %s: %s", _cp_fname, _per_err
                     )
+            if not _cp_data:
+                return
+            existing_plans = self._data_cache.get("client_media_plans") or {}
+            if not isinstance(existing_plans, dict):
+                existing_plans = {}
+            existing_plan_dict = existing_plans.get("plans") or {}
+            if not isinstance(existing_plan_dict, dict):
+                existing_plan_dict = {}
+            existing_plan_dict.update(_cp_data)
+            existing_plans["plans"] = existing_plan_dict
+            self._data_cache["client_media_plans"] = existing_plans
+            logger.info(
+                "Nova merged %d client_plans/*.json into client_media_plans.plans: %s",
+                len(_cp_data),
+                ", ".join(_cp_data.keys()),
+            )
         except (FileNotFoundError, json.JSONDecodeError, OSError) as _cp_err:
-            logger.warning("Could not load client plans directory: %s", _cp_err)
+            logger.warning("Could not walk client plans directory: %s", _cp_err)
 
     # ------------------------------------------------------------------
     # System prompt (for Claude API mode) -- modular design

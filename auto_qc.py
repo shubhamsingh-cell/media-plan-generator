@@ -32,7 +32,11 @@ _WARMUP_GRACE_CHECKS = 5  # first N checks suppress alerts (server still loading
 _running = False
 _thread: Optional[threading.Thread] = None
 _last_results: dict[str, Any] = {}
-_lock = threading.Lock()
+# S57 FIX: RLock (reentrant) instead of Lock. get_status() acquires _lock
+# then calls get_sla_report() which re-acquires it -- this deadlocked
+# /api/health/auto-qc in production (verified: 30s timeout with 0 bytes
+# returned on every request to this endpoint). Single-line fix.
+_lock = threading.RLock()
 _check_history: deque = deque(maxlen=1440)  # 24h at 60s intervals
 _start_time: float = 0.0  # set when start() is called
 _check_count: int = 0  # number of completed check cycles
