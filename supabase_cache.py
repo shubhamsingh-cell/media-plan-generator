@@ -64,6 +64,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import random
 import ssl
 import threading
 import time
@@ -852,8 +853,21 @@ def start_cleanup_thread(interval_hours: int = 6) -> Optional[threading.Thread]:
 
     interval_seconds = interval_hours * 3600
 
+    # S62 anti-reconvergence: jitter the first sleep so this 6h cleanup doesn't
+    # perpetually align with the other multi-hour timers (data_matrix_monitor
+    # 12h, qdrant_ping 12h, kb_backup 24h) that all bootstrap at T=0.
+    _initial_jitter = random.SystemRandom().uniform(0.0, float(interval_seconds))
+
     def _cleanup_loop():
-        _log_info(f"Cleanup thread started (interval: {interval_hours}h)")
+        _log_info(
+            f"Cleanup thread started (interval: {interval_hours}h, "
+            f"first run in {_initial_jitter / 3600.0:.1f}h jittered)"
+        )
+        # Initial jittered wait before the first cleanup pass. stop_event.wait
+        # still responds immediately if someone calls stop_cleanup_thread().
+        if _cleanup_stop_event.wait(timeout=_initial_jitter):
+            _log_info("Cleanup thread stopped (during initial jitter)")
+            return
         while not _cleanup_stop_event.is_set():
             try:
                 deleted = cache_cleanup()

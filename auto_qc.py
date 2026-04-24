@@ -15,6 +15,7 @@ Startup behavior:
 """
 
 import logging
+import random
 import threading
 import time
 import urllib.request
@@ -250,6 +251,18 @@ def _run_loop() -> None:
 
     if not _running:
         return
+
+    # S62 anti-reconvergence: small jitter (0..interval) before the first
+    # probe so the 60s probe cycle doesn't perpetually align with other
+    # periodic threads that bootstrapped at the same moment.
+    _rng = random.SystemRandom()
+    _jitter = _rng.uniform(0.0, float(_CHECK_INTERVAL))
+    logger.info(
+        "[AutoQC] First check in %.1fs (jittered from %ds base)",
+        _jitter,
+        _CHECK_INTERVAL,
+    )
+    time.sleep(_jitter)
 
     logger.info("[AutoQC] Grace period complete, starting health checks")
 

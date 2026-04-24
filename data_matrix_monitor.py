@@ -23,6 +23,7 @@ import importlib
 import json
 import logging
 import os
+import random
 import shutil
 import sys
 import threading
@@ -418,9 +419,27 @@ class DataMatrixMonitor:
     # ── Background loop ───────────────────────────────────────────────────
 
     def _background_loop(self) -> None:
-        """Sleep -> check -> heal -> repeat (daemon thread)."""
+        """Sleep -> check -> heal -> repeat (daemon thread).
+
+        S62 anti-reconvergence: add a uniform-random jitter in
+        [0, _CHECK_INTERVAL) to the initial delay so multiple 12h timers that
+        all bootstrap at T=0 don't fire together every 12h. Two workers (or
+        two timers) starting at the same moment land at different points in
+        their period and stay offset forever.
+        """
         logger.info("DataMatrixMonitor: background loop started")
-        time.sleep(_INITIAL_DELAY)
+        # Jittered startup: _INITIAL_DELAY warmup + random offset up to one full
+        # interval. SystemRandom() avoids predictable jitter across workers.
+        _rng = random.SystemRandom()
+        _jitter = _rng.uniform(0.0, float(_CHECK_INTERVAL))
+        _initial_sleep = _INITIAL_DELAY + _jitter
+        logger.info(
+            "DataMatrixMonitor: next run in %.1fh (jittered: %.1fh from 12h base + %ds warmup)",
+            _initial_sleep / 3600.0,
+            _jitter / 3600.0,
+            _INITIAL_DELAY,
+        )
+        time.sleep(_initial_sleep)
         while True:
             try:
                 self.run_check()

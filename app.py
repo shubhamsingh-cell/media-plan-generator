@@ -5831,11 +5831,19 @@ def _scheduled_kb_backup() -> None:
 
 
 if os.path.isdir(DATA_DIR):
-    _kb_backup_timer = threading.Timer(_KB_BACKUP_INTERVAL, _scheduled_kb_backup)
+    # S62 anti-reconvergence: first KB backup fires at a random offset in
+    # [0, _KB_BACKUP_INTERVAL) so the 24h timer doesn't land on the same
+    # wall-clock minute as other long timers (qdrant_ping 12h,
+    # data_matrix_monitor 12h). secrets.SystemRandom avoids predictable jitter.
+    _kb_backup_jitter = secrets.SystemRandom().uniform(0.0, float(_KB_BACKUP_INTERVAL))
+    _kb_backup_timer = threading.Timer(_kb_backup_jitter, _scheduled_kb_backup)
     _kb_backup_timer.daemon = True
     _kb_backup_timer.name = "kb-backup"
     _kb_backup_timer.start()
-    logger.info("KB backup scheduler started (every 24h)")
+    logger.info(
+        "KB backup scheduler started (first run in %.1fh, jittered from 24h base)",
+        _kb_backup_jitter / 3600.0,
+    )
 else:
     logger.warning("KB backup scheduler not started (data/ directory not found)")
 
@@ -5871,13 +5879,24 @@ def _scheduled_qdrant_ping() -> None:
 
 
 if os.environ.get("QDRANT_URL") and os.environ.get("QDRANT_API_KEY"):
+    # S62 anti-reconvergence: the first ping used to fire at T+60s deterministically,
+    # then every 12h. With two workers plus the data_matrix_monitor (also 12h), all
+    # three reconverged every 12h at the same instant. Jitter the first-ping delay
+    # to a uniform random point in [60s, 60s + _QDRANT_PING_INTERVAL); once offset,
+    # the 12h period keeps the threads staggered forever.
+    _qdrant_first_ping_delay = 60.0 + secrets.SystemRandom().uniform(
+        0.0, float(_QDRANT_PING_INTERVAL)
+    )
     _qdrant_ping_timer = threading.Timer(
-        60.0, _scheduled_qdrant_ping
-    )  # first ping after 60s
+        _qdrant_first_ping_delay, _scheduled_qdrant_ping
+    )
     _qdrant_ping_timer.daemon = True
     _qdrant_ping_timer.name = "qdrant-ping"
     _qdrant_ping_timer.start()
-    logger.info("Qdrant keep-alive scheduler started (every 12h)")
+    logger.info(
+        "Qdrant keep-alive scheduler started (first ping in %.1fh, jittered from 12h base)",
+        _qdrant_first_ping_delay / 3600.0,
+    )
 
 
 # Simple in-memory rate limiter
@@ -9761,6 +9780,10 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                     model_used = ""
                     message_id = str(uuid.uuid4())
                     _token_usage: dict = {}
+                    # S62: Transparency panel fields forwarded from done chunk.
+                    _ws_fast_path = ""
+                    _ws_kb_files_queried: list = []
+                    _ws_timing_ms = None
 
                     # Send initial status
                     ws_conn.send_json({"type": "status", "status": "Thinking..."})
@@ -9813,6 +9836,16 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                                 tools_used = chunk.get("tools_used") or tools_used
                                 model_used = chunk.get("llm_provider") or model_used
                                 _token_usage = chunk.get("token_usage") or {}
+                                # S62: Pull transparency panel fields from
+                                # handle_chat_request_stream's done chunk so
+                                # the final WS event can carry them to the
+                                # frontend (fast_path + kb_files_queried +
+                                # timing_ms were being dropped here).
+                                _ws_fast_path = chunk.get("fast_path") or ""
+                                _ws_kb_files_queried = (
+                                    chunk.get("kb_files_queried") or []
+                                )
+                                _ws_timing_ms = chunk.get("timing_ms")
                             elif chunk.get("type") in ("tool_start", "tool_complete"):
                                 # S18: Real-time tool status via WebSocket
                                 if not ws_conn.send_json(
@@ -9870,6 +9903,13 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                             "suggested_followups": _ws_followups,
                             "session_token": _conv_session_token,
                             "token_usage": _token_usage,
+                            # S62: Transparency panel payload for "Why this
+                            # answer?" footer. Forwarded from the Nova stream
+                            # done chunk so the WS client sees real values
+                            # instead of None / [] on fast-path responses.
+                            "fast_path": _ws_fast_path,
+                            "kb_files_queried": _ws_kb_files_queried,
+                            "timing_ms": _ws_timing_ms,
                         }
                     )
 
@@ -17279,6 +17319,10 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 model_used = ""
                 message_id = str(uuid.uuid4())
                 _token_usage: dict = {}
+                # S62: Transparency panel fields forwarded from done chunk.
+                _sse_fast_path = ""
+                _sse_kb_files_queried: list = []
+                _sse_timing_ms = None
                 _last_event_time = time.time()
                 _KEEPALIVE_INTERVAL = 15  # seconds between keepalive heartbeats
                 _event_time_lock = (
@@ -17369,6 +17413,16 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                 tools_used = chunk.get("tools_used") or tools_used
                                 model_used = chunk.get("llm_provider") or model_used
                                 _token_usage = chunk.get("token_usage") or {}
+                                # S62: Pull transparency panel fields from the
+                                # Nova done chunk so the final SSE event can
+                                # forward them to the client. Without this the
+                                # panel saw fast_path=None and kb_files_queried=[]
+                                # even when the fast-path had actually fired.
+                                _sse_fast_path = chunk.get("fast_path") or ""
+                                _sse_kb_files_queried = (
+                                    chunk.get("kb_files_queried") or []
+                                )
+                                _sse_timing_ms = chunk.get("timing_ms")
                             elif chunk.get("type") in ("tool_start", "tool_complete"):
                                 # S18: Real-time tool status -- forward to client
                                 if not _sse_write(
@@ -17446,6 +17500,14 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         "suggested_followups": _stream_followups,
                         "session_token": _conv_session_token,
                         "token_usage": _token_usage,
+                        # S62: Transparency panel payload -- forwarded from
+                        # Nova stream done chunk so the "Why this answer?"
+                        # footer shows the real fast-path marker and KB files
+                        # that were consulted (empty list is the honest answer
+                        # when the fast-path used hardcoded dicts).
+                        "fast_path": _sse_fast_path,
+                        "kb_files_queried": _sse_kb_files_queried,
+                        "timing_ms": _sse_timing_ms,
                     }
                 )
                 _sse_write(final)
