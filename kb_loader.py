@@ -14,6 +14,7 @@ import datetime
 import json
 import logging
 import os
+import random
 import threading
 import time
 from pathlib import Path
@@ -838,11 +839,25 @@ def _reload_loop() -> None:
 
     Runs forever on a daemon thread so it doesn't prevent process exit.
     Checks file mtimes every 5 minutes and Supabase every 30 minutes.
+
+    S62 anti-reconvergence: sleep a random fraction of one KB_RELOAD_INTERVAL
+    before entering the periodic loop so multiple periodic threads that all
+    bootstrap at T=0 don't fire on the same wall-clock second forever.
     """
     _supabase_check_counter = 0
     _supabase_checks_per_interval = (
         KB_SUPABASE_SYNC_INTERVAL_SECONDS // KB_RELOAD_INTERVAL_SECONDS
     )
+
+    # Jittered startup in [0, interval) to spread reload cycles off other timers.
+    _rng = random.SystemRandom()
+    _jitter = _rng.uniform(0.0, float(KB_RELOAD_INTERVAL_SECONDS))
+    logger.info(
+        "KB hot-reload: next run in %.1fmin (jittered from %dmin base)",
+        _jitter / 60.0,
+        KB_RELOAD_INTERVAL_SECONDS // 60,
+    )
+    time.sleep(_jitter)
 
     while True:
         time.sleep(KB_RELOAD_INTERVAL_SECONDS)

@@ -45,6 +45,7 @@ All functions:
 
 from __future__ import annotations
 
+import atexit
 import collections
 import hashlib
 import json
@@ -86,15 +87,46 @@ _voyage_last_request: float = 0.0  # monotonic timestamp of last API call
 # ── Embedding disk cache ─────────────────────────────────────────────────────
 # Caches Voyage AI embeddings to disk so server restarts don't re-compute them.
 # Cache is keyed by a hash of the text content, stored as JSON.
+#
+# S58 OOM FIX: Previously an unbounded dict with a per-write daemon thread that
+# flushed to disk on every new embedding. Cache grew to 30MB on disk and
+# unbounded in memory, causing OOM on Render Standard tier. Now:
+#   1. OrderedDict bounded to _EMBEDDING_CACHE_MAX (10,000) entries with
+#      least-recently-used eviction on overflow.
+#   2. Single background timer thread that flushes at most every
+#      _FLUSH_INTERVAL_S (60s) OR when _FLUSH_DIRTY_THRESHOLD (50) dirty
+#      entries accumulate -- whichever comes first.
+#   3. atexit hook does a final flush so we don't lose in-flight writes on
+#      process exit.
+#   4. On load, trims any pre-existing fat cache to the most-recent
+#      _EMBEDDING_CACHE_MAX entries (JSON preserves insertion order in
+#      Python 3.7+), so we recover from the current 30MB file on first boot.
 _PERSISTENT_DISK = Path("/data/persistent")
 _EMBEDDING_CACHE_FILE = (
     _PERSISTENT_DISK / ".embedding_cache.json"
     if _PERSISTENT_DISK.exists()
     else Path(__file__).resolve().parent / "data" / ".embedding_cache.json"
 )
-_embedding_cache: dict[str, list[float]] = {}
+_EMBEDDING_CACHE_MAX = 10_000  # hard cap on in-memory entries (LRU)
+_FLUSH_INTERVAL_S = 60.0  # max seconds between background flushes
+_FLUSH_DIRTY_THRESHOLD = 50  # force flush when this many dirty writes accumulate
+
+# OrderedDict preserves insertion order; we move_to_end() on read/write so the
+# oldest entry is always first -- popitem(last=False) then evicts LRU.
+_embedding_cache: "collections.OrderedDict[str, list[float]]" = (
+    collections.OrderedDict()
+)
 _embedding_cache_lock = threading.Lock()
 _embedding_cache_loaded = False
+
+# Flush coordinator state. All access guarded by _embedding_cache_lock.
+_cache_dirty_count: int = 0  # number of writes since last successful flush
+_cache_last_flush: float = 0.0  # monotonic() of last flush completion
+_cache_evictions: int = 0  # total LRU evictions since process start
+_cache_hits: int = 0  # cumulative cache hits (for hit-rate metric)
+_cache_misses: int = 0  # cumulative cache misses (for hit-rate metric)
+_flush_thread_started: bool = False
+_flush_thread_stop = threading.Event()
 
 # ── Qdrant Configuration ────────────────────────────────────────────────────
 _QDRANT_URL: str = os.environ.get("QDRANT_URL") or ""
@@ -153,6 +185,12 @@ def _load_embedding_cache() -> None:
 
     Reads .embedding_cache.json from the data/ directory. If the file
     does not exist or is corrupt, starts with an empty cache.
+
+    S58 OOM FIX: If the on-disk cache exceeds _EMBEDDING_CACHE_MAX entries
+    (historical 30MB+ files), truncate to the most-recent max entries. Python
+    preserves dict insertion order since 3.7, and json.loads honors that for
+    ``object_pairs_hook``-free loads, so "most-recent" means the tail of the
+    JSON object. The trim is logged so operators can see the recovery.
     """
     global _embedding_cache, _embedding_cache_loaded
 
@@ -168,36 +206,96 @@ def _load_embedding_cache() -> None:
                 raw = _EMBEDDING_CACHE_FILE.read_text(encoding="utf-8")
                 loaded = json.loads(raw)
                 if isinstance(loaded, dict):
-                    _embedding_cache = loaded
+                    original_count = len(loaded)
+                    # Build an OrderedDict preserving load order. If the
+                    # file was bigger than our cap, keep only the newest
+                    # _EMBEDDING_CACHE_MAX entries (the tail).
+                    items = list(loaded.items())
+                    if original_count > _EMBEDDING_CACHE_MAX:
+                        items = items[-_EMBEDDING_CACHE_MAX:]
+                        logger.info(
+                            "Trimmed cache from %d to %d entries on load",
+                            original_count,
+                            _EMBEDDING_CACHE_MAX,
+                        )
+                    _embedding_cache = collections.OrderedDict(items)
                     logger.info(
-                        "Loaded %d cached embeddings from disk", len(_embedding_cache)
+                        "Loaded %d cached embeddings from disk",
+                        len(_embedding_cache),
                     )
             except (json.JSONDecodeError, OSError) as exc:
                 logger.warning(
                     "Failed to load embedding cache, starting fresh: %s", exc
                 )
-                _embedding_cache = {}
+                _embedding_cache = collections.OrderedDict()
         else:
             logger.debug("No embedding cache file found, starting fresh")
 
         _embedding_cache_loaded = True
 
 
+def _cache_put_locked(key: str, value: list[float]) -> None:
+    """Insert/update a cache entry under LRU semantics.
+
+    MUST be called with _embedding_cache_lock held. Touches the key so it
+    becomes the most-recently-used, then evicts LRU entries until the cache
+    fits within _EMBEDDING_CACHE_MAX. Each write marks the cache dirty so
+    the flush timer will pick it up.
+    """
+    global _cache_dirty_count, _cache_evictions
+
+    if key in _embedding_cache:
+        _embedding_cache.move_to_end(key, last=True)
+        _embedding_cache[key] = value
+    else:
+        _embedding_cache[key] = value
+
+    # Evict LRU (front of OrderedDict) while over cap. Normally this is
+    # at most 1 eviction per insert, but we loop to stay correct if the
+    # cap is reduced at runtime.
+    while len(_embedding_cache) > _EMBEDDING_CACHE_MAX:
+        _embedding_cache.popitem(last=False)
+        _cache_evictions += 1
+
+    _cache_dirty_count += 1
+
+
+def _cache_get_locked(key: str) -> list[float] | None:
+    """Fetch a cache entry and mark it most-recently-used.
+
+    MUST be called with _embedding_cache_lock held. Returns None on miss.
+    Updates hit/miss counters for the /api/health/vector metrics.
+    """
+    global _cache_hits, _cache_misses
+
+    value = _embedding_cache.get(key)
+    if value is None:
+        _cache_misses += 1
+        return None
+    _embedding_cache.move_to_end(key, last=True)
+    _cache_hits += 1
+    return value
+
+
 def _save_embedding_cache() -> None:
     """Persist the embedding cache to disk (thread-safe).
 
-    Writes atomically by writing to a temp file then renaming. S53 FIX:
-    Sentry PYTHON-3T was throwing FileNotFoundError on the rename because
-    two concurrent saves would race -- thread A writes its tmp file, thread
-    B writes its own tmp file (overwriting A's), both call replace(), the
-    second replace() finds the tmp already consumed. Now we:
-      1. Serialize the save behind the cache lock so only one save runs
-         at a time.
-      2. Ensure the parent directory exists before writing.
-      3. Tolerate the tmp already having been renamed by another run.
+    Writes atomically by writing to a temp file then renaming. Serializes
+    the write under _embedding_cache_lock so:
+      1. Reads (_cache_get_locked) don't see a partially-written cache.
+      2. Two concurrent saves can't race on the .tmp file (Sentry PYTHON-3T).
+
+    Clears the dirty counter and stamps _cache_last_flush on success so the
+    background flush timer can pace itself.
     """
+    global _cache_dirty_count, _cache_last_flush
+
     with _embedding_cache_lock:
+        # Snapshot as a plain dict (OrderedDict serializes identically, but
+        # dict() is slightly cheaper and json.dumps doesn't care about the
+        # type -- insertion order is preserved either way on 3.7+).
         cache_snapshot = dict(_embedding_cache)
+        snapshot_size = len(cache_snapshot)
 
     try:
         parent_dir = _EMBEDDING_CACHE_FILE.parent
@@ -208,8 +306,9 @@ def _save_embedding_cache() -> None:
 
         tmp_path = _EMBEDDING_CACHE_FILE.with_suffix(".tmp")
         # Serialize the full write+rename so concurrent callers don't race
-        # on the .tmp file. Using the same lock as the cache -- cheap because
-        # this function is not on the hot path.
+        # on the .tmp file. Shares the cache lock because this function is
+        # off the hot path (called at most once per _FLUSH_INTERVAL_S) and
+        # it guarantees readers see a consistent file.
         with _embedding_cache_lock:
             tmp_path.write_text(
                 json.dumps(cache_snapshot, separators=(",", ":")),
@@ -225,10 +324,69 @@ def _save_embedding_cache() -> None:
                     json.dumps(cache_snapshot, separators=(",", ":")),
                     encoding="utf-8",
                 )
-        logger.info("Saved %d embeddings to disk cache", len(cache_snapshot))
+            # Reset dirty counter + stamp flush time while we still hold
+            # the lock so a concurrent writer can't mis-count.
+            _cache_dirty_count = 0
+            _cache_last_flush = time.monotonic()
+        logger.info("Saved %d embeddings to disk cache", snapshot_size)
     except (OSError, FileNotFoundError) as exc:
         # Non-critical -- cache will be rebuilt on next request. Do NOT raise.
         logger.warning("Failed to save embedding cache (non-blocking): %s", exc)
+
+
+def _flush_loop() -> None:
+    """Background timer thread: flush cache on interval or dirty threshold.
+
+    Wakes every _FLUSH_INTERVAL_S; also woken early by _flush_thread_stop
+    during shutdown. Only flushes when there are dirty writes -- idle
+    processes don't spin the disk.
+    """
+    while not _flush_thread_stop.is_set():
+        # Wait up to _FLUSH_INTERVAL_S; returns True immediately on stop.
+        if _flush_thread_stop.wait(timeout=_FLUSH_INTERVAL_S):
+            break
+        with _embedding_cache_lock:
+            dirty = _cache_dirty_count
+        if dirty > 0:
+            _save_embedding_cache()
+
+
+def _ensure_flush_thread() -> None:
+    """Start the background flush thread once (idempotent).
+
+    Called from embed_batch() on first cache write. Kept lazy so importing
+    this module from a tool that never embeds doesn't spawn a thread.
+    """
+    global _flush_thread_started
+    with _embedding_cache_lock:
+        if _flush_thread_started:
+            return
+        _flush_thread_started = True
+
+    t = threading.Thread(target=_flush_loop, daemon=True, name="embed-cache-flush")
+    t.start()
+
+
+def _atexit_flush() -> None:
+    """Final flush on process exit. Registered via atexit.
+
+    Signals the flush loop to stop so it doesn't race with us, then writes
+    one last time if anything is dirty. Kept minimal because atexit runs
+    during interpreter shutdown when a lot of infrastructure is already
+    gone.
+    """
+    _flush_thread_stop.set()
+    try:
+        with _embedding_cache_lock:
+            dirty = _cache_dirty_count
+        if dirty > 0:
+            _save_embedding_cache()
+    except Exception:
+        # Interpreter may be tearing down -- never raise from atexit.
+        pass
+
+
+atexit.register(_atexit_flush)
 
 
 # ── Qdrant REST API helpers (stdlib-only, no pip packages) ───────────────────
@@ -488,7 +646,7 @@ def embed_batch(texts: list[str]) -> list[list[float]] | None:
     with _embedding_cache_lock:
         for idx, text in enumerate(truncated):
             key = _text_cache_key(text)
-            cached = _embedding_cache.get(key)
+            cached = _cache_get_locked(key)
             if cached is not None:
                 result_embeddings[idx] = cached
             else:
@@ -665,20 +823,37 @@ def embed_batch(texts: list[str]) -> list[list[float]] | None:
 
     # Merge new embeddings into result array and update cache
     cache_updated = False
+    force_flush = False
     with _embedding_cache_lock:
         for local_idx, original_idx in enumerate(uncached_indices):
             embedding = new_embeddings[local_idx]
             result_embeddings[original_idx] = embedding
-            # Save to cache
+            # Save to cache under LRU bound (evicts oldest on overflow,
+            # bumps dirty counter for the flush timer).
             key = _text_cache_key(truncated[original_idx])
-            _embedding_cache[key] = embedding
+            _cache_put_locked(key, embedding)
             cache_updated = True
 
-    # Persist cache to disk in background if we computed new embeddings
+        # Check whether we've crossed the dirty-threshold while still
+        # holding the lock -- avoids a double-flush under concurrency.
+        if _cache_dirty_count >= _FLUSH_DIRTY_THRESHOLD:
+            force_flush = True
+
     if cache_updated:
-        threading.Thread(
-            target=_save_embedding_cache, daemon=True, name="save-embed-cache"
-        ).start()
+        # Start the background flush timer on first write. Idempotent.
+        _ensure_flush_thread()
+
+        # S58 OOM FIX: we no longer spawn a thread on every single write.
+        # The timer flushes every _FLUSH_INTERVAL_S. But if we blew past
+        # the dirty threshold, flush right now in a one-shot background
+        # thread so we don't lose data if the process is killed before
+        # the next timer tick.
+        if force_flush:
+            threading.Thread(
+                target=_save_embedding_cache,
+                daemon=True,
+                name="save-embed-cache-burst",
+            ).start()
 
     # Verify all slots are filled
     final: list[list[float]] = []
@@ -1797,8 +1972,32 @@ def _tfidf_search(query: str, top_k: int = 5) -> list[dict]:
 
 
 def get_status() -> dict:
-    """Return status dict for health/diagnostics endpoints."""
+    """Return status dict for health/diagnostics endpoints.
+
+    Exposes embedding cache metrics under ``embedding_cache`` so
+    ``/api/health/vector`` can observe LRU behavior: current size, cap,
+    cumulative hits/misses, computed hit_rate, eviction count, dirty
+    count, last flush timestamp (seconds since last flush, or None if
+    never flushed), and loaded flag.
+    """
     has_key = bool(_get_api_key())
+
+    # Snapshot cache counters under the lock so the numbers are internally
+    # consistent (size/hits/misses all from the same moment).
+    with _embedding_cache_lock:
+        cache_size = len(_embedding_cache)
+        hits = _cache_hits
+        misses = _cache_misses
+        evictions = _cache_evictions
+        dirty = _cache_dirty_count
+        last_flush = _cache_last_flush
+
+    total_lookups = hits + misses
+    hit_rate = round(hits / total_lookups, 4) if total_lookups > 0 else 0.0
+    seconds_since_flush = (
+        round(time.monotonic() - last_flush, 2) if last_flush > 0 else None
+    )
+
     return {
         "voyage_configured": has_key,
         "index_size": len(_index),
@@ -1817,7 +2016,22 @@ def get_status() -> dict:
         ),
         "tfidf_index_size": len(_tfidf_index),
         "tfidf_built": _tfidf_built,
-        "embedding_cache_size": len(_embedding_cache),
+        # Legacy flat keys (preserved for existing dashboards).
+        "embedding_cache_size": cache_size,
         "embedding_cache_loaded": _embedding_cache_loaded,
+        # S58 OOM FIX: detailed LRU + flush metrics for /api/health/vector.
+        "embedding_cache": {
+            "size": cache_size,
+            "max_size": _EMBEDDING_CACHE_MAX,
+            "hits": hits,
+            "misses": misses,
+            "hit_rate": hit_rate,
+            "evictions": evictions,
+            "dirty_count": dirty,
+            "flush_interval_s": _FLUSH_INTERVAL_S,
+            "dirty_threshold": _FLUSH_DIRTY_THRESHOLD,
+            "seconds_since_last_flush": seconds_since_flush,
+            "loaded": _embedding_cache_loaded,
+        },
         "model": _VOYAGE_MODEL,
     }
