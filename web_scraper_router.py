@@ -2,12 +2,14 @@
 web_scraper_router.py -- Multi-tier web scraping fallback system (v3).
 
 Provides a unified interface for web scraping and search with automatic
-fallback across 6 tiers.  When one tier fails (402 credit exhausted,
+fallback across 5 tiers.  When one tier fails (402 credit exhausted,
 429 rate limited, or network error), the router transparently falls
 through to the next available tier.
 
-Tier 1:   Firecrawl      -- Full-featured scrape/search/map (API key required, paid)
-Tier 1.5: Apify          -- Website Content Crawler actor (APIFY_API_TOKEN, cheerio)
+S72: Firecrawl removed (was Tier 1, exhausted credits, 0/500 budget).
+Apify is now Tier 1; Jina is Tier 2.
+
+Tier 1:   Apify          -- Website Content Crawler actor (APIFY_API_TOKEN, cheerio)
 Tier 2:   Jina AI Reader -- Free markdown reader (GET https://r.jina.ai/{url}, no key)
 Tier 3:   Tavily Extract -- URL content extraction (TAVILY_API_KEY, 1K credits/month)
 Tier 4:   LLM-assisted   -- stdlib fetch raw HTML -> LLM router extracts structured content
@@ -55,8 +57,6 @@ logger = logging.getLogger(__name__)
 # CONFIGURATION
 # =============================================================================
 
-FIRECRAWL_API_KEY: str = os.environ.get("FIRECRAWL_API_KEY") or ""
-FIRECRAWL_BASE_URL: str = "https://api.firecrawl.dev/v1"
 APIFY_API_TOKEN: str = os.environ.get("APIFY_API_TOKEN") or ""
 JINA_API_KEY: str = os.environ.get("JINA_API_KEY") or ""
 TAVILY_API_KEY: str = os.environ.get("TAVILY_API_KEY") or ""
@@ -316,7 +316,7 @@ class CircuitBreaker:
 
 
 # Per-tier circuit breakers (module-level singletons)
-_cb_firecrawl = CircuitBreaker("firecrawl")
+# S72: _cb_firecrawl removed -- module deleted.
 _cb_apify = CircuitBreaker("apify")
 _cb_jina = CircuitBreaker("jina")
 _cb_tavily = CircuitBreaker("tavily")
@@ -497,7 +497,6 @@ class TierUsageTracker:
 
     # Approximate per-call costs in USD
     TIER_COSTS: dict[str, float] = {
-        "firecrawl": 0.001,
         "apify": 0.002,
         "jina": 0.0005,
         "tavily": 0.001,
@@ -629,145 +628,8 @@ def _search_result(
 
 
 # =============================================================================
-# TIER 1: FIRECRAWL (paid, full-featured scrape/search/map)
+# TIER 1: (was FIRECRAWL -- removed in S72; Apify is now Tier 1)
 # =============================================================================
-
-
-def _firecrawl_scrape(url: str) -> Optional[dict[str, Any]]:
-    """Scrape a URL using Firecrawl's /scrape endpoint.
-
-    Args:
-        url: The URL to scrape.
-
-    Returns:
-        Normalized scrape result or None on failure.
-    """
-    if not FIRECRAWL_API_KEY:
-        return None
-    if not _cb_firecrawl.is_available:
-        return None
-
-    t0 = time.monotonic()
-    payload = {
-        "url": url,
-        "formats": ["markdown"],
-        "onlyMainContent": True,
-    }
-    body = json.dumps(payload).encode("utf-8")
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {FIRECRAWL_API_KEY}",
-    }
-    req = urllib.request.Request(
-        f"{FIRECRAWL_BASE_URL}/scrape",
-        data=body,
-        headers=headers,
-        method="POST",
-    )
-
-    try:
-        ctx = _build_ssl_context()
-        with urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT, context=ctx) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-
-        if not data.get("success"):
-            _cb_firecrawl.record_failure("API returned success=false")
-            return None
-
-        resp_data = data.get("data") or {}
-        content = resp_data.get("markdown") or ""
-        title = resp_data.get("metadata", {}).get("title") or ""
-        _cb_firecrawl.record_success()
-        elapsed = (time.monotonic() - t0) * 1000
-        return _scrape_result(content, url, "firecrawl", title, latency_ms=elapsed)
-
-    except urllib.error.HTTPError as exc:
-        if exc.code in (402, 429):
-            _cb_firecrawl.trip(f"HTTP {exc.code}: {exc.reason}")
-            logger.warning(
-                f"Firecrawl scrape HTTP {exc.code} for {url}: {exc.reason} (falling through to backup tiers)",
-            )
-        else:
-            _cb_firecrawl.record_failure(f"HTTP {exc.code}: {exc.reason}")
-            logger.warning(f"Firecrawl scrape HTTP {exc.code} for {url}: {exc.reason}")
-    except (urllib.error.URLError, json.JSONDecodeError, OSError) as exc:
-        _cb_firecrawl.record_failure(str(exc))
-        logger.warning(f"Firecrawl scrape error for {url}: {exc}")
-    return None
-
-
-def _firecrawl_search(
-    query: str, num_results: int = 5
-) -> Optional[list[dict[str, Any]]]:
-    """Search using Firecrawl's /search endpoint.
-
-    Args:
-        query: Search query string.
-        num_results: Max number of results to return.
-
-    Returns:
-        List of normalized search results or None on failure.
-    """
-    if not FIRECRAWL_API_KEY:
-        return None
-    if not _cb_firecrawl.is_available:
-        return None
-
-    payload = {
-        "query": query,
-        "limit": num_results,
-    }
-    body = json.dumps(payload).encode("utf-8")
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {FIRECRAWL_API_KEY}",
-    }
-    req = urllib.request.Request(
-        f"{FIRECRAWL_BASE_URL}/search",
-        data=body,
-        headers=headers,
-        method="POST",
-    )
-
-    try:
-        ctx = _build_ssl_context()
-        with urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT, context=ctx) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-
-        if not data.get("success"):
-            _cb_firecrawl.record_failure("Search returned success=false")
-            return None
-
-        raw_results = data.get("data") or []
-        results: list[dict[str, Any]] = []
-        for item in raw_results[:num_results]:
-            meta = item.get("metadata") or {}
-            results.append(
-                _search_result(
-                    title=meta.get("title") or "",
-                    url=item.get("url") or meta.get("sourceURL") or "",
-                    snippet=meta.get("description")
-                    or (item.get("markdown") or "")[:300],
-                    provider="firecrawl",
-                )
-            )
-        _cb_firecrawl.record_success()
-        return results
-
-    except urllib.error.HTTPError as exc:
-        if exc.code in (402, 429):
-            _cb_firecrawl.trip(f"HTTP {exc.code}: {exc.reason}")
-            logger.warning(
-                f"Firecrawl search HTTP {exc.code}: {exc.reason} (falling through to backup tiers)",
-            )
-        else:
-            _cb_firecrawl.record_failure(f"HTTP {exc.code}: {exc.reason}")
-            logger.warning(f"Firecrawl search HTTP {exc.code}: {exc.reason}")
-    except (urllib.error.URLError, json.JSONDecodeError, OSError) as exc:
-        _cb_firecrawl.record_failure(str(exc))
-        logger.warning(f"Firecrawl search error: {exc}")
-    return None
-
 
 # =============================================================================
 # TIER 1.5: APIFY WEBSITE CONTENT CRAWLER (API key required)
@@ -1610,9 +1472,8 @@ def scrape_url(
 ) -> dict[str, Any]:
     """Scrape a URL using the best available provider with automatic fallback.
 
-    Tries each tier in order:
-        1.   Firecrawl (paid, highest quality)
-        1.5  Apify Website Content Crawler (API key, cheerio-based)
+    Tries each tier in order (S72: Firecrawl removed):
+        1.   Apify Website Content Crawler (API key, cheerio-based)
         2.   Jina AI Reader (free, good markdown)
         3.   Tavily Extract (API key, good content extraction)
         4.   LLM-assisted (free LLM + stdlib fetch, context-aware extraction)
@@ -1703,13 +1564,11 @@ def scrape_url(
     if accepted:
         return accepted
 
-    # -- Tier 3: Firecrawl (demoted -- no credits, use as backup) --
-    accepted = _accept_result(_firecrawl_scrape(url), "firecrawl", "Tier 3 (Firecrawl)")
-    if accepted:
-        return accepted
+    # S72: Tier 3 (Firecrawl) removed -- module deleted, credits exhausted.
+    # Tavily directly follows Jina now.
 
-    # -- Tier 4: Tavily Extract --
-    accepted = _accept_result(_tavily_scrape(url), "tavily", "Tier 4 (Tavily)")
+    # -- Tier 3: Tavily Extract --
+    accepted = _accept_result(_tavily_scrape(url), "tavily", "Tier 3 (Tavily)")
     if accepted:
         return accepted
 
@@ -1769,7 +1628,7 @@ def search_web(
 ) -> list[dict[str, Any]]:
     """Search the web using the best available provider with automatic fallback.
 
-    Tries each tier in order: Firecrawl -> Jina -> Tavily.
+    Tries each tier in order: Jina -> Tavily (S72: Firecrawl removed).
     Falls through on any failure. Returns empty list only if ALL tiers fail.
 
     Args:
@@ -1794,15 +1653,9 @@ def search_web(
             logger.info(f"search_web: cache HIT for query={query[:50]}")
             return cached
 
-    # Tier 1: Firecrawl
-    results = _firecrawl_search(query, num_results)
-    if results:
-        logger.info(f"search_web: Tier 1 (Firecrawl) returned {len(results)} results")
-        if use_cache:
-            _cache_put(_cache_key(f"{query}:{num_results}", "search"), results)
-        return results
+    # S72: Tier 1 (Firecrawl) removed -- module deleted, credits exhausted.
 
-    # Tier 2: Jina Search
+    # Tier 1: Jina Search
     results = _jina_search(query, num_results)
     if results:
         logger.info(f"search_web: Tier 2 (Jina) returned {len(results)} results")
@@ -1903,16 +1756,9 @@ def get_scraper_status() -> dict[str, Any]:
         pass
 
     tiers = [
+        # S72: Firecrawl entry removed -- module deleted, credits exhausted.
         {
             "tier": 1,
-            "provider": "firecrawl",
-            "has_api_key": bool(FIRECRAWL_API_KEY),
-            "capabilities": ["scrape", "search", "map"],
-            "free_tier": "500 credits/month",
-            **_cb_firecrawl.get_stats(),
-        },
-        {
-            "tier": 1.5,
             "provider": "apify",
             "has_api_key": bool(APIFY_API_TOKEN),
             "capabilities": ["scrape"],
@@ -1999,7 +1845,7 @@ def reset_circuit_breakers() -> dict[str, str]:
         Confirmation dict.
     """
     for cb in (
-        _cb_firecrawl,
+        # S72: _cb_firecrawl removed
         _cb_apify,
         _cb_jina,
         _cb_tavily,

@@ -652,13 +652,7 @@ class TestAutoDiscovery(unittest.TestCase):
             self.assertIsNotNone(t, f"{p} missing")
             self.assertTrue(t.is_configured)
 
-    @patch.dict(os.environ, {"FIRECRAWL_API_KEY": "fc-test123"})
-    def test_firecrawl_discovered(self) -> None:
-        r = ResilienceRouter()
-        t = next(
-            (t for t in r._tiers["web_scraping"] if t.provider == "firecrawl"), None
-        )
-        self.assertTrue(t.is_configured)
+    # S72: test_firecrawl_discovered removed -- Firecrawl tier deleted.
 
     @patch.dict(os.environ, {}, clear=True)
     def test_cloud_tiers_unconfigured_without_env(self) -> None:
@@ -666,8 +660,12 @@ class TestAutoDiscovery(unittest.TestCase):
         t = next((t for t in r._tiers["database"] if t.provider == "supabase"), None)
         self.assertFalse(t.is_configured)
 
-    def test_web_scraping_six_tiers(self) -> None:
-        self.assertEqual(len(ResilienceRouter()._tiers["web_scraping"]), 6)
+    def test_web_scraping_three_tiers(self) -> None:
+        # S72: Firecrawl removed; resilience router lists Jina, Tavily, urllib.
+        # The full Apify+Jina+Tavily+LLM+Cache+stdlib chain lives inside
+        # web_scraper_router.py; this resilience-router view summarises the
+        # external-facing fallback tiers only.
+        self.assertEqual(len(ResilienceRouter()._tiers["web_scraping"]), 3)
 
     def test_deck_generation_three_tiers(self) -> None:
         self.assertEqual(len(ResilienceRouter()._tiers["deck_generation"]), 3)

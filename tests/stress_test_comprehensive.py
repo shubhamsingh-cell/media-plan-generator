@@ -196,7 +196,7 @@ def test_backend_apis() -> None:
         ("/api/health", "Detailed Health Check"),
         ("/api/csrf-token", "CSRF Token"),
         ("/api/health/ready", "Readiness Probe"),
-        ("/api/firecrawl/status", "Firecrawl Status"),
+        # S72: /api/firecrawl/status returns a stub now; not worth probing.
         ("/api/market-pulse/news", "Market Pulse News"),
         ("/api/channels", "Channels List"),
         ("/api/docs/openapi.json", "OpenAPI Spec"),
@@ -965,7 +965,7 @@ def test_nova_chatbot() -> None:
 # TEST SUITE 5: INTEGRATION HEALTH
 # ═══════════════════════════════════════════════════════════════════════════════
 def test_integration_health() -> None:
-    """Test Supabase, PostHog, Firecrawl, enrichment integrations."""
+    """Test Supabase, PostHog, enrichment integrations (S72: Firecrawl removed)."""
     print("\n" + "=" * 70)
     print("TEST SUITE 5: INTEGRATION HEALTH")
     print("=" * 70)
@@ -1042,17 +1042,8 @@ def test_integration_health() -> None:
             f"Health check returned non-JSON: {type(body).__name__}",
         )
 
-    # Firecrawl status
-    status, body, elapsed = http_get("/api/firecrawl/status")
-    print(f"  /api/firecrawl/status -> {status} ({elapsed*1000:.0f}ms)")
-    if isinstance(body, dict):
-        fc_available = body.get("available") or body.get("status")
-        record(
-            "PASS" if fc_available else "LOW",
-            "Integration",
-            "Firecrawl",
-            f"Firecrawl status: {fc_available}",
-        )
+    # S72: Firecrawl status removed -- module deleted. Endpoint still exists
+    # but returns a permanent "removed" stub for backwards compatibility.
 
     # CORS check
     print("  Testing CORS headers...")

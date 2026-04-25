@@ -70,18 +70,13 @@ def _internal_error_msg() -> str:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# FIRECRAWL WEB DATA ENRICHMENT (lazy import)
+# WEB DATA ENRICHMENT (S72: Firecrawl removed -- module deleted)
 # ═══════════════════════════════════════════════════════════════════════════════
-try:
-    from firecrawl_enrichment import (
-        analyze_competitor_careers,
-        fetch_recruitment_news,
-        get_firecrawl_status,
-    )
-
-    _firecrawl_available = True
-except ImportError:
-    _firecrawl_available = False
+# The firecrawl_enrichment module was deleted in S72 (credits exhausted, 0/500).
+# The flag is kept as a permanent False so the dozen `if _firecrawl_available`
+# guards scattered through the file fall through cleanly to their already-
+# defined fallback paths (Tavily / Apify / Jina / Supabase / API integrations).
+_firecrawl_available = False
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # SENTRY WEBHOOK INTEGRATION (self-healing bridge)
@@ -11644,17 +11639,17 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             except Exception as e:
                 logger.error("Market Pulse GET error: %s", e, exc_info=True)
                 self._send_json({"ok": False, "error": _internal_error_msg()})
-        # ── Firecrawl Status ──
+        # ── Firecrawl Status (S72: removed; endpoint kept for backwards compat) ──
         elif path == "/api/firecrawl/status":
-            if _firecrawl_available:
-                self._send_json(get_firecrawl_status())
-            else:
-                self._send_json(
-                    {
-                        "configured": False,
-                        "error": "firecrawl_enrichment module not available",
-                    }
-                )
+            self._send_json(
+                {
+                    "configured": False,
+                    "removed": True,
+                    "removed_in": "S72",
+                    "reason": "Firecrawl module deleted (credits exhausted). "
+                    "Use /api/scraper/status for active scraper tiers.",
+                }
+            )
         # ── Web Scraper Router Status (multi-tier) ──
         elif path == "/api/scraper/status":
             try:
@@ -11696,26 +11691,23 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             except Exception as e:
                 logger.error("Sentry issues endpoint error: %s", e, exc_info=True)
                 self._send_json({"error": _internal_error_msg()}, status_code=500)
-        # ── Market Pulse News via Firecrawl ──
+        # ── Market Pulse News (S72: Firecrawl primary removed; Tavily-only) ──
         elif path == "/api/market-pulse/news":
             try:
-                if not _firecrawl_available:
-                    self._send_json(
-                        {
-                            "ok": False,
-                            "error": "Firecrawl not available",
-                            "articles": [],
-                        }
-                    )
-                else:
-                    qs = urllib.parse.parse_qs(parsed.query)
-                    topic = qs.get("topic", ["recruitment advertising"])[0]
-                    articles = fetch_recruitment_news(topic=topic)
-                    _mp_news_resp: dict = {
-                        "ok": True,
-                        "articles": articles,
-                        "count": len(articles),
-                    }
+                qs = urllib.parse.parse_qs(parsed.query)
+                topic = qs.get("topic", ["recruitment advertising"])[0]
+                # S72: fetch_recruitment_news (Firecrawl) deleted. Start with
+                # an empty articles list and let Tavily / FRED / BEA / Supabase
+                # populate the response in the enrichment block below.
+                articles: list = []
+                _mp_news_resp: dict = {
+                    "ok": True,
+                    "articles": articles,
+                    "count": 0,
+                    "primary_source": "disabled",
+                    "note": "Firecrawl news removed in S72; using Tavily + econ data.",
+                }
+                if True:  # preserve indentation of downstream enrichment block
                     # ── API Integrations: Market Pulse News enrichment ──
                     if _api_integrations_available:
                         _mp_econ: dict = {}
@@ -11800,7 +11792,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                             )
                     self._send_json(_mp_news_resp)
             except Exception as e:
-                logger.error("Firecrawl news error: %s", e, exc_info=True)
+                logger.error("Market pulse news error: %s", e, exc_info=True)
                 self._send_json(
                     {"ok": False, "error": _internal_error_msg(), "articles": []}
                 )
@@ -18933,32 +18925,10 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         f"Duration: {data.get('duration_weeks', 4)} weeks",
                     )
 
-                # Enrich with Firecrawl platform ad specs
-                if isinstance(result, dict):
-                    try:
-                        from firecrawl_enrichment import (
-                            scrape_platform_ad_specs as _fc_ad_specs,
-                        )
-
-                        ad_specs: dict = {}
-                        for platform_name in ("facebook", "linkedin", "tiktok"):
-                            try:
-                                specs = _fc_ad_specs(platform_name)
-                                if specs:
-                                    ad_specs[platform_name] = specs
-                            except (ValueError, TypeError, OSError) as spec_err:
-                                logger.error(
-                                    f"Firecrawl ad specs error for {platform_name}: {spec_err}",
-                                    exc_info=True,
-                                )
-                        if ad_specs:
-                            result["platform_ad_specs"] = ad_specs
-                    except Exception as specs_err:
-                        logger.error(
-                            "Firecrawl ad specs enrichment for social plan failed: %s",
-                            specs_err,
-                            exc_info=True,
-                        )
+                # S72: Firecrawl platform ad specs enrichment removed (module deleted).
+                # Static specs in data/platform_ad_specs.json cover the same surface;
+                # Magic UI / 21st.dev component generation also picks up specs at
+                # render time, so the social plan still ships with correct dimensions.
 
                 self._send_json(result)
             except Exception as e:
@@ -19212,30 +19182,10 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         exc_info=True,
                     )
 
-                # Enrich with Firecrawl live job density by location
-                try:
-                    from firecrawl_enrichment import (
-                        scrape_job_density_by_location as _fc_density,
-                    )
-
-                    hm_role = data.get("role") or ""
-                    hm_locations = data.get("locations") or []
-                    if isinstance(hm_locations, str):
-                        hm_locations = [hm_locations]
-                    hm_loc_strs = [
-                        loc if isinstance(loc, str) else str(loc)
-                        for loc in hm_locations[:15]
-                    ]
-                    if hm_role and hm_loc_strs:
-                        density_data = _fc_density(role=hm_role, locations=hm_loc_strs)
-                        if density_data and density_data.get("source") != "error":
-                            result["live_job_density"] = density_data
-                except Exception as density_err:
-                    logger.error(
-                        "Firecrawl job density enrichment for heatmap failed: %s",
-                        density_err,
-                        exc_info=True,
-                    )
+                # S72: Firecrawl live job density removed (module deleted).
+                # Adzuna + Jooble + USAJobs (in api_integrations) provide density
+                # signals through the talent-heatmap baseline path; this Firecrawl
+                # overlay was the supplementary live source.
 
                 self._send_json(result)
             except Exception as e:
@@ -19708,24 +19658,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                             exc_info=True,
                         )
 
-                    # Enrich with Firecrawl job posting volume
-                    try:
-                        from firecrawl_enrichment import (
-                            scrape_job_posting_volume as _fc_volume,
-                        )
-
-                        hs_role = result.get("role") or result.get("job_title") or ""
-                        hs_loc = result.get("location") or ""
-                        if hs_role:
-                            volume_data = _fc_volume(role=hs_role, location=hs_loc)
-                            if volume_data and volume_data.get("source") != "error":
-                                result["job_posting_volume"] = volume_data
-                    except Exception as vol_err:
-                        logger.error(
-                            "Firecrawl job volume enrichment for HireSignal failed: %s",
-                            vol_err,
-                            exc_info=True,
-                        )
+                    # S72: Firecrawl job posting volume removed (module deleted).
+                    # Adzuna and BLS JOLTS (in api_integrations) provide posting
+                    # volume in the HireSignal baseline path.
 
                     # Enrich with Supabase supply repository data
                     if _supabase_data_available:
@@ -20213,22 +20148,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                             exc_info=True,
                         )
 
-                # Enrich with Firecrawl recent compliance law updates
-                if isinstance(result, dict):
-                    try:
-                        from firecrawl_enrichment import (
-                            scrape_compliance_updates as _fc_compliance,
-                        )
-
-                        law_updates = _fc_compliance()
-                        if law_updates:
-                            result["recent_law_updates"] = law_updates
-                    except Exception as comp_err:
-                        logger.error(
-                            "Firecrawl compliance updates enrichment failed: %s",
-                            comp_err,
-                            exc_info=True,
-                        )
+                # S72: Firecrawl compliance law updates removed (module deleted).
+                # Static compliance rules in Supabase compliance_rules table cover
+                # the same surface (already loaded above via get_compliance_rules).
 
                 self._send_json(result)
                 # ── PostHog: Track compliance audit ──

@@ -161,7 +161,7 @@ _READ_PREFIXES: tuple[str, ...] = (
     "/api/integrations/status",
     "/api/rate-limits",
     "/api/elevenlabs/health",
-    "/api/firecrawl/status",
+    "/api/firecrawl/status",  # S72: returns a "removed" stub (kept for back-compat)
     "/api/scraper/status",
     "/api/resilience",
     "/api/dashboard",

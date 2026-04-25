@@ -1032,24 +1032,16 @@ class ResilienceRouter:
         ]
 
         # 7. WEB SCRAPING (delegates to web_scraper_router.py)
-        firecrawl_key = (os.environ.get("FIRECRAWL_API_KEY") or "").strip()
+        # S72: Firecrawl tier removed (module deleted, credits exhausted).
+        # Apify (handled inside web_scraper_router) is now the paid Tier 1;
+        # this resilience-router view summarizes the free / fallback tiers.
         jina_key = (os.environ.get("JINA_API_KEY") or "").strip()
         tavily_key = (os.environ.get("TAVILY_API_KEY") or "").strip()
         self._tiers["web_scraping"] = [
             ServiceTier(
-                "Firecrawl",
-                "firecrawl",
-                1,
-                bool(firecrawl_key),
-                max_failures=3,
-                cooldown_seconds=3600,
-                cost_label="paid",
-                rate_limit_info="500 credits/mo",
-            ),
-            ServiceTier(
                 "Jina AI Reader",
                 "jina",
-                2,
+                1,
                 True,
                 max_failures=5,
                 cooldown_seconds=600,
@@ -1059,7 +1051,7 @@ class ResilienceRouter:
             ServiceTier(
                 "Tavily Search",
                 "tavily",
-                3,
+                2,
                 bool(tavily_key),
                 max_failures=3,
                 cooldown_seconds=1800,
@@ -1069,7 +1061,7 @@ class ResilienceRouter:
             ServiceTier(
                 "Direct urllib",
                 "urllib",
-                4,
+                3,
                 True,
                 max_failures=10,
                 cooldown_seconds=120,

@@ -494,17 +494,19 @@ def _handle_vendor_iq_pricing(handler: Any, path: str, parsed: Any) -> None:
         body = handler.rfile.read(content_len) if content_len > 0 else b"{}"
         data = json.loads(body)
         vendors_requested = data.get("vendors") or ["indeed", "linkedin", "glassdoor"]
-        from firecrawl_enrichment import scrape_job_board_pricing as _fc_pricing
 
-        vendors_result: dict = {}
-        for vendor_name in vendors_requested:
-            try:
-                vendors_result[vendor_name] = _fc_pricing(vendor_name)
-            except (ValueError, TypeError, OSError) as ve:
-                logger.error(
-                    f"VendorIQ pricing error for {vendor_name}: {ve}", exc_info=True
-                )
-                vendors_result[vendor_name] = {"error": str(ve), "source": "error"}
+        # S72: Firecrawl scrape_job_board_pricing removed (module deleted).
+        # Live pricing is no longer available; the Supabase vendor_profiles
+        # block below still returns useful data, so we return an empty
+        # vendors_result and let the frontend show "live pricing unavailable".
+        vendors_result: dict = {
+            v: {
+                "error": "live_pricing_disabled",
+                "source": "disabled",
+                "note": "Firecrawl removed in S72; consult Supabase vendor profiles below.",
+            }
+            for v in vendors_requested
+        }
 
         # Enrich with Supabase vendor profiles and benchmarks
         _supabase_data_available = getattr(_app, "_supabase_data_available", False)
@@ -575,12 +577,17 @@ def _handle_payscale_salary(handler: Any, path: str, parsed: Any) -> None:
         content_len = int(handler.headers.get("Content-Length") or 0)
         body = handler.rfile.read(content_len) if content_len > 0 else b"{}"
         data = json.loads(body)
-        from firecrawl_enrichment import scrape_salary_data as _fc_salary
 
-        result = _fc_salary(
-            role=data.get("role") or "",
-            location=data.get("location") or "",
-        )
+        # S72: Firecrawl scrape_salary_data removed (module deleted).
+        # The Supabase salary_data block below + API-integrations block (BLS/
+        # Adzuna) still provide salary signal, so we start with an empty
+        # PayScale result and let downstream enrichment populate it.
+        result: dict = {
+            "role": data.get("role") or "",
+            "location": data.get("location") or "",
+            "source": "disabled",
+            "note": "PayScale (Firecrawl) removed in S72; using Supabase + BLS only.",
+        }
 
         # Enrich with Supabase salary data
         _supabase_data_available = getattr(_app, "_supabase_data_available", False)

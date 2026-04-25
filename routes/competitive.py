@@ -37,7 +37,13 @@ def handle_competitive_post_routes(handler: Any, path: str, parsed: Any) -> bool
 
 
 def _handle_competitive_scrape(handler: Any, path: str, parsed: Any) -> None:
-    """POST /api/competitive/scrape -- career page scrape via Firecrawl."""
+    """POST /api/competitive/scrape -- career page scrape (S72: scraper removed).
+
+    The previous implementation called firecrawl_enrichment.analyze_competitor_careers,
+    which has been deleted with the rest of the Firecrawl module. The endpoint
+    still serves the Tavily / Jooble / JobSpy enrichments below as graceful
+    fallbacks so the frontend continues to render *something*.
+    """
     try:
         content_len = int(handler.headers.get("Content-Length") or 0)
         body = handler.rfile.read(content_len) if content_len > 0 else b"{}"
@@ -48,37 +54,19 @@ def _handle_competitive_scrape(handler: Any, path: str, parsed: Any) -> None:
             return
 
         _app = sys.modules.get("app") or sys.modules.get("__main__")
-        _firecrawl_available = getattr(_app, "_firecrawl_available", False)
-
-        if not _firecrawl_available:
-            handler._send_json({"error": "Firecrawl not available", "status": "error"})
-            return
-
-        analyze_competitor_careers = getattr(_app, "analyze_competitor_careers", None)
-        if not analyze_competitor_careers:
-            handler._send_json(
-                {"error": "Career page analysis not available", "status": "error"},
-                status_code=503,
-            )
-            return
-        try:
-            result = analyze_competitor_careers(company_domain=domain)
-        except Exception as _scrape_err:
-            logger.error(
-                "Career page scrape failed for %s: %s",
-                domain,
-                _scrape_err,
-                exc_info=True,
-            )
-            handler._send_json(
-                {
-                    "error": f"Could not analyze {domain}. The site may be blocking automated access.",
-                    "status": "error",
-                    "domain": domain,
-                },
-                status_code=200,  # 200 with error status so frontend handles gracefully
-            )
-            return
+        # S72: analyze_competitor_careers was Firecrawl-only; module deleted.
+        # Skip the primary scrape and let the downstream enrichments populate
+        # `result` instead. If every enrichment also fails, we still return 200
+        # with an explanatory note rather than a hard error.
+        result: dict = {
+            "domain": domain,
+            "primary_source": "disabled",
+            "note": "Career-page scraping removed in S72. Returning enrichment-only data.",
+        }
+        # S72: primary career-page scrape removed (was firecrawl_enrichment.
+        # analyze_competitor_careers). `result` was pre-populated above with
+        # a "disabled" stub; the enrichments below add Jooble + JobSpy +
+        # Tavily data so the frontend still renders signal.
 
         # Enrich with Jooble market data
         _api_integrations_available = getattr(

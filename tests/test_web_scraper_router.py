@@ -248,53 +248,7 @@ class TestHTMLTextExtractor:
 # =============================================================================
 
 
-class TestFirecrawlTier:
-    """Tests for Firecrawl tier functions."""
-
-    def setup_method(self) -> None:
-        """Reset circuit breaker before each test."""
-        router._cb_firecrawl.reset()
-
-    @patch.object(router, "FIRECRAWL_API_KEY", "")
-    def test_no_api_key_returns_none(self) -> None:
-        """Should return None if no API key is configured."""
-        result = router._firecrawl_scrape("https://example.com")
-        assert result is None
-
-    @patch.object(router, "FIRECRAWL_API_KEY", "test-key")
-    @patch("urllib.request.urlopen")
-    def test_successful_scrape(self, mock_urlopen: MagicMock) -> None:
-        """Should return normalized result on successful scrape."""
-        response_data = {
-            "success": True,
-            "data": {
-                "markdown": "# Test Content\nHello world",
-                "metadata": {"title": "Test Page"},
-            },
-        }
-        mock_resp = MagicMock()
-        mock_resp.read.return_value = json.dumps(response_data).encode("utf-8")
-        mock_resp.__enter__ = MagicMock(return_value=mock_resp)
-        mock_resp.__exit__ = MagicMock(return_value=False)
-        mock_urlopen.return_value = mock_resp
-
-        result = router._firecrawl_scrape("https://example.com")
-        assert result is not None
-        assert result["provider"] == "firecrawl"
-        assert "Hello world" in result["content"]
-
-    @patch.object(router, "FIRECRAWL_API_KEY", "test-key")
-    @patch("urllib.request.urlopen")
-    def test_402_trips_circuit_breaker(self, mock_urlopen: MagicMock) -> None:
-        """402 error should trip the circuit breaker."""
-        from urllib.error import HTTPError
-
-        mock_urlopen.side_effect = HTTPError(
-            "https://api.firecrawl.dev/v1/scrape", 402, "Payment Required", {}, None
-        )
-        result = router._firecrawl_scrape("https://example.com")
-        assert result is None
-        assert router._cb_firecrawl.is_available is False
+# S72: TestFirecrawlTier removed -- Firecrawl tier and module deleted.
 
 
 class TestJinaTier:
@@ -464,32 +418,48 @@ class TestScrapeUrlFallback:
         assert result["provider"] == "none"
         assert result["content"] == ""
 
-    @patch("web_scraper_router._firecrawl_scrape")
-    def test_tier1_success_short_circuits(self, mock_fc: MagicMock) -> None:
-        """When tier 1 succeeds, lower tiers should not be called."""
-        mock_fc.return_value = _scrape_result(
-            "Firecrawl content", "https://example.com", "firecrawl"
+    # S72: Firecrawl was Tier 1; module deleted. Apify is Tier 1 now, Jina Tier 2.
+
+    # _accept_result requires content quality >= 0.3 (~200+ chars of real
+    # prose), so the mock payloads need to be substantial enough to pass.
+    _GOOD_CONTENT = (
+        "This is a long-form article about recruitment advertising "
+        "trends in 2026. Programmatic job advertising spend is up "
+        "12% year over year, with healthcare and skilled trades "
+        "leading the growth. Indeed CPC averages $0.92 across the "
+        "United States, with regional variation ranging from $0.55 "
+        "in rural markets to $1.85 in coastal metro areas. LinkedIn "
+        "remains the dominant platform for executive and technology "
+        "roles, while TikTok has emerged as a surprisingly effective "
+        "channel for early-career and gig-economy hiring."
+    )
+
+    @patch("web_scraper_router._apify_scrape")
+    def test_tier1_success_short_circuits(self, mock_ap: MagicMock) -> None:
+        """When tier 1 (Apify) succeeds, lower tiers should not be called."""
+        mock_ap.return_value = _scrape_result(
+            self._GOOD_CONTENT, "https://example.com", "apify"
         )
 
         with patch("web_scraper_router._jina_scrape") as mock_jina:
             result = scrape_url("https://example.com")
-            assert result["provider"] == "firecrawl"
+            assert result["provider"] == "apify"
             mock_jina.assert_not_called()
 
-    @patch("web_scraper_router._firecrawl_scrape", return_value=None)
+    @patch("web_scraper_router._apify_scrape", return_value=None)
     @patch("web_scraper_router._jina_scrape")
     def test_falls_through_to_tier2(
-        self, mock_jina: MagicMock, mock_fc: MagicMock
+        self, mock_jina: MagicMock, mock_ap: MagicMock
     ) -> None:
-        """When tier 1 fails, should try tier 2."""
+        """When tier 1 (Apify) fails, should try tier 2 (Jina)."""
         mock_jina.return_value = _scrape_result(
-            "Jina content", "https://example.com", "jina"
+            self._GOOD_CONTENT, "https://example.com", "jina"
         )
 
         result = scrape_url("https://example.com")
         assert result["provider"] == "jina"
 
-    @patch("web_scraper_router._firecrawl_scrape", return_value=None)
+    @patch("web_scraper_router._apify_scrape", return_value=None)
     @patch("web_scraper_router._jina_scrape", return_value=None)
     @patch("web_scraper_router._tavily_scrape", return_value=None)
     @patch("web_scraper_router._llm_assisted_scrape", return_value=None)
@@ -502,7 +472,7 @@ class TestScrapeUrlFallback:
         mock_llm: MagicMock,
         mock_tavily: MagicMock,
         mock_jina: MagicMock,
-        mock_fc: MagicMock,
+        mock_ap: MagicMock,
     ) -> None:
         """When all tiers fail, should return provider='none'."""
         result = scrape_url("https://example.com")
@@ -528,23 +498,24 @@ class TestSearchWebFallback:
         results = search_web("")
         assert results == []
 
-    @patch("web_scraper_router._firecrawl_search")
-    def test_tier1_success(self, mock_fc: MagicMock) -> None:
-        """When tier 1 returns results, should use them."""
-        mock_fc.return_value = [
-            _search_result("Result 1", "https://example.com", "snippet", "firecrawl")
+    # S72: Firecrawl search tier removed; Jina is now Tier 1.
+
+    @patch("web_scraper_router._jina_search")
+    def test_tier1_success(self, mock_jina: MagicMock) -> None:
+        """When tier 1 (Jina) returns results, should use them."""
+        mock_jina.return_value = [
+            _search_result("Result 1", "https://example.com", "snippet", "jina")
         ]
         results = search_web("test query")
         assert len(results) == 1
-        assert results[0]["provider"] == "firecrawl"
+        assert results[0]["provider"] == "jina"
 
-    @patch("web_scraper_router._firecrawl_search", return_value=None)
     @patch("web_scraper_router._jina_search", return_value=None)
     @patch("web_scraper_router._tavily_search")
     def test_falls_through_to_tier3(
-        self, mock_tavily: MagicMock, mock_jina: MagicMock, mock_fc: MagicMock
+        self, mock_tavily: MagicMock, mock_jina: MagicMock
     ) -> None:
-        """When tiers 1-2 fail, should try tier 3."""
+        """When tier 1 (Jina) fails, should try tier 2 (Tavily)."""
         mock_tavily.return_value = [
             _search_result(
                 "Tavily Result", "https://example.com", "tavily snippet", "tavily"
@@ -554,14 +525,12 @@ class TestSearchWebFallback:
         assert len(results) == 1
         assert results[0]["provider"] == "tavily"
 
-    @patch("web_scraper_router._firecrawl_search", return_value=None)
     @patch("web_scraper_router._jina_search", return_value=None)
     @patch("web_scraper_router._tavily_search", return_value=None)
     def test_all_tiers_fail(
         self,
         mock_tavily: MagicMock,
         mock_jina: MagicMock,
-        mock_fc: MagicMock,
     ) -> None:
         """When all tiers fail, should return empty list."""
         results = search_web("test query")
@@ -583,6 +552,8 @@ class TestGetScraperStatus:
 
     def test_status_structure(self) -> None:
         """Status should have expected top-level keys."""
+        # S72: Firecrawl tier removed; total stays at 6 because Apify took
+        # over the Tier 1 slot (was Tier 1.5 before).
         status = get_scraper_status()
         assert "total_tiers" in status
         assert status["total_tiers"] == 6
@@ -603,11 +574,11 @@ class TestGetScraperStatus:
             assert "available" in tier
 
     def test_tier_order(self) -> None:
-        """Tiers should be in priority order."""
+        """Tiers should be in priority order (S72: firecrawl removed; apify is Tier 1)."""
         status = get_scraper_status()
         providers = [t["provider"] for t in status["tiers"]]
         assert providers == [
-            "firecrawl",
+            "apify",
             "jina",
             "tavily",
             "llm_assisted",
@@ -632,32 +603,18 @@ class TestResetCircuitBreakers:
     """Tests for reset_circuit_breakers()."""
 
     def test_reset_all(self) -> None:
-        """Should reset all breakers to initial state."""
-        router._cb_firecrawl.trip("test")
+        """Should reset all breakers to initial state.
+
+        S72: _cb_firecrawl removed (Firecrawl module deleted); use _cb_apify
+        as the Tier 1 representative.
+        """
+        router._cb_apify.trip("test")
         router._cb_jina.trip("test")
         result = reset_circuit_breakers()
         assert result["status"] == "all_circuit_breakers_reset"
-        assert router._cb_firecrawl.is_available is True
+        assert router._cb_apify.is_available is True
         assert router._cb_jina.is_available is True
 
 
-# =============================================================================
-# Integration: firecrawl_enrichment uses router
-# =============================================================================
-
-
-class TestFirecrawlEnrichmentIntegration:
-    """Test that firecrawl_enrichment.py properly imports the router."""
-
-    def test_router_imported(self) -> None:
-        """firecrawl_enrichment should have _router_available flag."""
-        import firecrawl_enrichment
-
-        assert hasattr(firecrawl_enrichment, "_router_available")
-
-    def test_firecrawl_status_includes_router(self) -> None:
-        """get_firecrawl_status should include router_available key."""
-        import firecrawl_enrichment
-
-        status = firecrawl_enrichment.get_firecrawl_status()
-        assert "router_available" in status
+# S72: TestFirecrawlEnrichmentIntegration removed -- firecrawl_enrichment.py
+# was deleted. Router integration is exercised via the orchestrator tests above.
