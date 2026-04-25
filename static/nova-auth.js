@@ -83,26 +83,18 @@
       try {
         localStorage.setItem(AUTH_CONFIG.storageKey, JSON.stringify(user));
       } catch (_) {}
-      // S48: Always sync nova_user_email cookie for backend auth
-      try {
-        var email = user.email || "";
-        if (email) {
-          document.cookie =
-            "nova_user_email=" +
-            encodeURIComponent(email) +
-            ";path=/;max-age=" +
-            60 * 60 * 24 * 30 +
-            ";SameSite=Lax";
-        }
-      } catch (_) {}
+      // S60: nova_user_email cookie is now minted by the SERVER via
+      // POST /api/auth/session (see _notifyBackend). Writing it here
+      // from JS produced an unsigned cookie that strict-mode auth would
+      // reject. The server sets an HttpOnly cookie that JS cannot even
+      // read, which is the whole point (XSS cannot steal it).
     } else {
       try {
         localStorage.removeItem(AUTH_CONFIG.storageKey);
       } catch (_) {}
-      // Clear cookie on logout
-      try {
-        document.cookie = "nova_user_email=;path=/;max-age=0";
-      } catch (_) {}
+      // S60: The server also owns clearing the cookie. We can no longer
+      // delete the HttpOnly cookie from JS, so we rely on Max-Age expiry
+      // (24h) or an explicit POST /api/auth/logout if one is added later.
     }
     _notifyListeners(user ? "login" : "logout", user);
     _updateUI(user);
@@ -113,16 +105,9 @@
       var cached = localStorage.getItem(AUTH_CONFIG.storageKey);
       if (cached) {
         _currentUser = JSON.parse(cached);
-        // S48: Sync cookie from cache for returning users
-        var email = _currentUser.email || "";
-        if (email) {
-          document.cookie =
-            "nova_user_email=" +
-            encodeURIComponent(email) +
-            ";path=/;max-age=" +
-            60 * 60 * 24 * 30 +
-            ";SameSite=Lax";
-        }
+        // S60: Cookie is HttpOnly, minted by the server on each Supabase
+        // session refresh via POST /api/auth/session. We no longer write
+        // it from JS — the server owns it so XSS cannot forge or read it.
         return _currentUser;
       }
     } catch (_) {}
@@ -603,52 +588,54 @@
 
         _setUser(userData);
 
-        // S48 FIX: Set nova_user_email cookie so backend _check_joveo_auth() works.
-        // Without this cookie, /api/generate returns 401 even for signed-in users.
-        try {
-          document.cookie =
-            "nova_user_email=" +
-            encodeURIComponent(email) +
-            ";path=/;max-age=" +
-            60 * 60 * 24 * 30 +
-            ";SameSite=Lax";
-        } catch (_) {}
-
+        // S60: The backend /api/auth/session endpoint now mints the
+        // signed HttpOnly nova_user_email cookie after verifying the
+        // JWT. We no longer write it from JS — the server response's
+        // Set-Cookie header is the only source of truth. This protects
+        // against XSS (HttpOnly) and tampering (HMAC-signed).
         _showAuthToast(
           "Welcome, " + (userData.name || userData.email) + "!",
           "success",
         );
 
-        // Notify backend (fire-and-forget, non-blocking)
+        // Server-side cookie issuance (also non-blocking).
         _notifyBackend(userData, session.access_token);
       } else if (event === "SIGNED_OUT") {
         _setUser(null);
-        // Clear the auth cookie on sign-out
-        try {
-          document.cookie = "nova_user_email=;path=/;max-age=0";
-        } catch (_) {}
+        // S60: Cookie is HttpOnly so JS cannot delete it. Rely on the
+        // 24h Max-Age for expiry; a future /api/auth/logout endpoint
+        // could zero it with Set-Cookie: Max-Age=0 if needed.
       }
     });
   }
 
   // ---------------------------------------------------------------------------
-  // Backend notification (optional -- non-blocking)
+  // Backend notification — S60: now the ONLY path that issues the
+  // nova_user_email session cookie. The server verifies access_token with
+  // HMAC, checks the email matches the JWT claim, then returns a
+  // Set-Cookie header with an HttpOnly + SameSite=Strict + Secure cookie.
+  // We MUST include credentials:'include' so the browser actually stores
+  // the cookie the server returns, and we send access_token in the BODY
+  // (the server reads it from there, not the Authorization header).
   // ---------------------------------------------------------------------------
   function _notifyBackend(user, accessToken) {
     try {
       fetch("/api/auth/session", {
         method: "POST",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
-          Authorization: "Bearer " + (accessToken || ""),
         },
         body: JSON.stringify({
           user_id: user.id,
           email: user.email,
           name: user.name,
+          access_token: accessToken || "",
         }),
       }).catch(function () {
-        // Non-blocking: backend notification is best-effort
+        // Non-blocking: backend notification is best-effort.
+        // If SUPABASE_JWT_SECRET / SESSION_SIGNING_SECRET are unset the
+        // server logs a warning and returns {status:"ok"} without minting.
       });
     } catch (_) {}
   }

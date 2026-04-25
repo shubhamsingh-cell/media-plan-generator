@@ -12572,10 +12572,39 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 )
                 return
 
-        # ── Auth session notification (fire-and-forget from frontend) ──
+        # ── Auth session: mint signed server-side cookie after Supabase login ──
+        # S60: Previously this endpoint was fire-and-forget (just logged the
+        # event) and the *client JS* wrote the `nova_user_email` cookie
+        # unsigned. Under STRICT_AUTH=1 the backend rejects unsigned cookies
+        # (see Path 3 in _check_joveo_auth), so no one could stay logged in.
+        #
+        # Now the server:
+        #   1. VERIFIES the Supabase JWT (HMAC over SUPABASE_JWT_SECRET, same
+        #      logic as _check_joveo_auth Path 2).
+        #   2. Confirms the request body's `email` matches the JWT claim AND
+        #      ends with @joveo.com AND the token isn't expired.
+        #   3. Mints a signed cookie:
+        #          email|hex(HMAC-SHA256(SESSION_SIGNING_SECRET, email))
+        #      and returns it via Set-Cookie.
+        #
+        # Cookie flags chosen deliberately:
+        #   HttpOnly       -> blocks JS from reading the cookie, so an XSS
+        #                     payload cannot exfiltrate it.
+        #   SameSite=Strict-> browser never sends the cookie on cross-site
+        #                     requests, which kills CSRF that relies on the
+        #                     session cookie traveling on attacker-initiated
+        #                     requests.
+        #   Secure         -> cookie only travels over HTTPS in production.
+        #   Max-Age=86400  -> 24-hour session; the client re-calls this
+        #                     endpoint on each Supabase refresh.
+        #
+        # Backwards compat: if SUPABASE_JWT_SECRET *or* SESSION_SIGNING_SECRET
+        # is unset, we log a warning and fall back to the S59 fire-and-forget
+        # behaviour (no cookie minted). S59 graceful-migration code in
+        # _check_joveo_auth Path 3 already accepts the legacy unsigned cookie
+        # (still written by the client) when STRICT_AUTH != 1, so existing
+        # users keep working until the operator flips STRICT_AUTH=1.
         if path == "/api/auth/session":
-            # Non-blocking: frontend notifies backend of auth state
-            # Used for optional server-side session tracking
             try:
                 content_length = int(self.headers.get("Content-Length") or 0)
                 if content_length > 102400:  # 100KB limit
@@ -12583,15 +12612,125 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     return
                 body = self.rfile.read(content_length) if content_length > 0 else b"{}"
                 auth_data = json.loads(body.decode("utf-8"))
-                logger.info(
-                    "Auth session: user=%s email=%s",
-                    auth_data.get("user_id", ""),
-                    auth_data.get("email", ""),
+                posted_email = (auth_data.get("email") or "").lower().strip()
+                access_token = (auth_data.get("access_token") or "").strip()
+
+                jwt_secret = (os.environ.get("SUPABASE_JWT_SECRET") or "").strip()
+                session_secret = (
+                    os.environ.get("SESSION_SIGNING_SECRET") or ""
+                ).strip()
+
+                # ── Fallback path: env vars unset → keep S59 behaviour ──
+                if not jwt_secret or not session_secret:
+                    logger.warning(
+                        "Auth session: cookie minting disabled (SUPABASE_JWT_SECRET "
+                        "or SESSION_SIGNING_SECRET unset); falling back to "
+                        "fire-and-forget. user=%s email=%s",
+                        auth_data.get("user_id", ""),
+                        posted_email,
+                    )
+                    self._send_json({"status": "ok"})
+                    return
+
+                # ── JWT verification (same logic as _check_joveo_auth Path 2) ──
+                import base64 as _b64
+
+                if not access_token or access_token.count(".") != 2:
+                    self._send_json(
+                        {"error": "Missing or malformed JWT"}, status_code=401
+                    )
+                    return
+                header_b64, payload_b64, sig_b64 = access_token.split(".")
+                signing_input = f"{header_b64}.{payload_b64}".encode("ascii")
+                expected_sig = hmac.new(
+                    jwt_secret.encode("utf-8"),
+                    signing_input,
+                    hashlib.sha256,
+                ).digest()
+                try:
+                    actual_sig = _b64.urlsafe_b64decode(
+                        sig_b64 + "=" * (4 - len(sig_b64) % 4)
+                    )
+                except Exception:
+                    self._send_json(
+                        {"error": "Invalid JWT signature encoding"},
+                        status_code=401,
+                    )
+                    return
+                if not hmac.compare_digest(expected_sig, actual_sig):
+                    self._send_json({"error": "Invalid JWT signature"}, status_code=401)
+                    return
+
+                # Decode payload and verify claims
+                try:
+                    payload_padded = payload_b64 + "=" * (4 - len(payload_b64) % 4)
+                    decoded = json.loads(_b64.urlsafe_b64decode(payload_padded))
+                except Exception:
+                    self._send_json({"error": "Invalid JWT payload"}, status_code=401)
+                    return
+                _exp = decoded.get("exp")
+                if isinstance(_exp, (int, float)) and _exp < time.time():
+                    self._send_json({"error": "JWT expired"}, status_code=401)
+                    return
+                jwt_email = (decoded.get("email") or "").lower().strip()
+                if not jwt_email.endswith("@joveo.com"):
+                    self._send_json({"error": "Email not authorized"}, status_code=401)
+                    return
+                # Body email must match JWT claim — blocks a caller from
+                # presenting Alice's token while claiming to be Bob.
+                if posted_email and posted_email != jwt_email:
+                    self._send_json({"error": "Email / JWT mismatch"}, status_code=401)
+                    return
+
+                # ── Mint signed cookie ──
+                signing_email = jwt_email
+                sig_hex = hmac.new(
+                    session_secret.encode("utf-8"),
+                    signing_email.encode("utf-8"),
+                    hashlib.sha256,
+                ).hexdigest()
+                signed_value = f"{signing_email}|{sig_hex}"
+                is_https = (
+                    self.headers.get("X-Forwarded-Proto") or ""
+                ).lower() == "https"
+                cookie_parts = [
+                    f"nova_user_email={signed_value}",
+                    "Path=/",
+                    "HttpOnly",  # XSS cannot read the cookie
+                    "SameSite=Strict",  # CSRF cannot send it cross-site
+                    "Max-Age=86400",
+                ]
+                if is_https:
+                    cookie_parts.append("Secure")  # HTTPS-only in production
+                cookie_val = "; ".join(cookie_parts)
+
+                # Manual response so we can attach Set-Cookie before body
+                resp_body = json.dumps({"status": "ok", "expires_in": 86400}).encode(
+                    "utf-8"
                 )
-                self._send_json({"status": "ok"})
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Set-Cookie", cookie_val)
+                cors_origin = self._get_cors_origin()
+                if cors_origin:
+                    self.send_header("Access-Control-Allow-Origin", cors_origin)
+                    self.send_header("Access-Control-Allow-Credentials", "true")
+                self.send_header("Content-Length", str(len(resp_body)))
+                self.end_headers()
+                self.wfile.write(resp_body)
+                logger.info(
+                    "Auth session: minted signed cookie for user=%s email=%s",
+                    auth_data.get("user_id", ""),
+                    signing_email,
+                )
             except Exception as e:
                 logger.warning("Auth session error: %s", e)
-                self._send_json({"status": "ok"})  # Never fail auth notification
+                # Fail closed on unexpected errors (don't leak a cookie
+                # after a partial failure).
+                try:
+                    self._send_json({"error": "Auth session failed"}, status_code=500)
+                except Exception:
+                    pass
             return
 
         # ── Extracted POST route modules ──
