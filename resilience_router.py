@@ -2271,52 +2271,8 @@ def reset_router() -> None:
 
 
 # =============================================================================
-# CONVENIENCE FACADE (Phase 6: makes resilience routing easy for product code)
+# SUMMARY FACADE
 # =============================================================================
-
-
-def resilient_fetch(service: str, operation: str, **kwargs: Any) -> Any:
-    """One-line resilient service call with automatic fallback.
-
-    Usage:
-        result = resilient_fetch("caching", "get", key="my_key")
-        result = resilient_fetch("database", "query", table="users")
-        result = resilient_fetch("email", "send", to="user@example.com", subject="Hi", body="Hello")
-        result = resilient_fetch("analytics", "track", event="page_view")
-        result = resilient_fetch("web_scraping", "scrape", url="https://example.com")
-
-    Falls through service tiers automatically on failure.
-    Returns None if all tiers exhausted or service/operation is unknown.
-
-    Args:
-        service: Service category (caching, database, email, analytics, errors, logging,
-                 web_scraping, deck_generation).
-        operation: Operation name (get, set, query, send, track, etc.).
-        **kwargs: Operation-specific keyword arguments.
-
-    Returns:
-        Operation result, or None on total failure.
-    """
-    router = get_router()
-    try:
-        return router.execute(service, operation, **kwargs)
-    except ValueError as e:
-        logger.warning(
-            "[ResilienceFacade] Invalid service/operation %s.%s: %s",
-            service,
-            operation,
-            e,
-        )
-        return None
-    except Exception as e:
-        logger.error(
-            "[ResilienceFacade] All tiers exhausted for %s.%s: %s",
-            service,
-            operation,
-            e,
-            exc_info=True,
-        )
-        return None
 
 
 def get_resilience_summary() -> Dict[str, Any]:

@@ -31,9 +31,6 @@ STARTUP_GRACE_SECONDS: float = 300.0  # Suppress anomaly alerts for 5 min after 
 
 # Well-known metric names
 METRIC_REQUEST_LATENCY = "request_latency_ms"
-METRIC_ERROR_RATE = "error_rate_pct"
-METRIC_MEMORY_USAGE = "memory_usage_mb"
-METRIC_RESPONSE_SIZE = "response_size_bytes"
 
 
 # ---------------------------------------------------------------------------

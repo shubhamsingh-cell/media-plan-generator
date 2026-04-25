@@ -169,7 +169,7 @@ class TestResilience(unittest.TestCase):
         """Resilience router imports without error."""
         import resilience_router
 
-        self.assertTrue(hasattr(resilience_router, "resilient_fetch"))
+        self.assertTrue(hasattr(resilience_router, "get_router"))
         self.assertTrue(hasattr(resilience_router, "get_resilience_summary"))
 
     def test_summary(self) -> None:
