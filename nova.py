@@ -609,8 +609,10 @@ _SOURCE_DISPLAY_NAMES: dict[str, str] = {
     "recruitment_benchmarks_deep (22 industries)": "Joveo 2026 Recruitment Benchmarks (22 Industries)",
     "channels_db": "Joveo Channel Intelligence",
     "client_media_plans_kb": "Joveo Client Portfolio",
-    "client_media_plans_kb (6 reference plans, 532 channels)": "Joveo Client Portfolio (6 Plans, 532 Channels)",
-    "client_media_plans_kb (6 reference plans)": "Joveo Client Portfolio (6 Reference Plans)",
+    # NOTE: "532 channels" is from data/client_media_plans_kb.json
+    # aggregate_patterns.total_unique_channels_identified (verified 2026-04-24).
+    "client_media_plans_kb (7 reference plans, 532 channels)": "Joveo Client Portfolio (7 Plans, 532 Channels)",
+    "client_media_plans_kb (7 reference plans)": "Joveo Client Portfolio (7 Reference Plans)",
     "platform_intelligence": "Platform Intelligence Database",
     "recruitment_industry_knowledge": "Recruitment Industry Knowledge Base",
     "recruitment_strategy_intelligence": "Recruitment Strategy Intelligence",
@@ -9726,7 +9728,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 )
                 or 0,
                 "key_patterns": aggregate.get("key_patterns") or [],
-                "source": "client_media_plans_kb (6 reference plans, 532 channels)",
+                "source": "client_media_plans_kb (7 reference plans, 532 channels)",
             }
 
         # Industry filter
@@ -9789,7 +9791,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             "total_unique_channels": aggregate.get("total_unique_channels_identified")
             or 0,
             "key_patterns": aggregate.get("key_patterns") or [][:5],
-            "source": "client_media_plans_kb (6 reference plans)",
+            "source": "client_media_plans_kb (7 reference plans)",
         }
 
     def _suggest_smart_defaults(self, args: dict) -> dict:
