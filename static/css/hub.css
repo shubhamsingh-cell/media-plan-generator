@@ -515,7 +515,7 @@ html.lenis body {
   align-items: center;
   justify-content: flex-start;
   text-align: center;
-  padding: 120px 2rem 60px;
+  padding: 160px 2rem 80px;
   overflow: hidden;
   z-index: 1;
 }

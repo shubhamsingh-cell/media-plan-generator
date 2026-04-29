@@ -1215,7 +1215,6 @@ window.addEventListener("load", function () {
   ];
   var modules = [
     "/static/js/animations.js?v=3.0.0",
-    "/static/js/story-scroll.js?v=3.1.0",
     "/static/js/custom-cursor.js?v=2.0.0",
     "/static/js/hero-evolution.js?v=2.0.0",
     "/static/js/network-graph.js?v=2.0.0",
