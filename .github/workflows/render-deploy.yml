@@ -1,0 +1,75 @@
+name: Deploy to Render
+
+# Bypass for the broken Render GitHub App auto-deploy. Calls the Render REST
+# API on every push to main, polls until the deploy reaches a terminal state,
+# and fails the job if the deploy fails. Also exposed via workflow_dispatch
+# so we can re-run a deploy without pushing.
+#
+# Required repo secret: RENDER_API_KEY  (Render dashboard -> Account Settings ->
+# API Keys). Service ID is hardcoded below for the media-plan-generator service.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: render-deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Trigger Render deploy
+        id: trigger
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          SERVICE_ID: srv-d6lk06k50q8c73bcpo40
+        run: |
+          set -euo pipefail
+          if [ -z "${RENDER_API_KEY:-}" ]; then
+            echo "::error::RENDER_API_KEY secret is not set on this repo. Add it under Settings -> Secrets and variables -> Actions."
+            exit 1
+          fi
+          resp=$(curl -sS -X POST \
+            -H "Authorization: Bearer $RENDER_API_KEY" \
+            -H "Content-Type: application/json" \
+            "https://api.render.com/v1/services/$SERVICE_ID/deploys" \
+            -d '{"clearCache":"do_not_clear"}')
+          echo "API response: $resp"
+          deploy_id=$(printf '%s' "$resp" | python3 -c "import sys,json; print(json.load(sys.stdin).get('id',''))" 2>/dev/null || true)
+          if [ -z "$deploy_id" ]; then
+            echo "::error::Could not parse deploy id from Render response"
+            exit 1
+          fi
+          echo "deploy_id=$deploy_id" >> "$GITHUB_OUTPUT"
+          echo "::notice title=Render deploy triggered::$deploy_id"
+
+      - name: Poll until deploy reaches terminal state
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          SERVICE_ID: srv-d6lk06k50q8c73bcpo40
+          DEPLOY_ID: ${{ steps.trigger.outputs.deploy_id }}
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 50); do
+            status=$(curl -sS -H "Authorization: Bearer $RENDER_API_KEY" \
+              "https://api.render.com/v1/services/$SERVICE_ID/deploys/$DEPLOY_ID" | \
+              python3 -c "import sys,json; print(json.load(sys.stdin).get('status',''))")
+            echo "[tick $i] status=$status"
+            case "$status" in
+              live)
+                echo "::notice title=Deploy live::$DEPLOY_ID"
+                exit 0
+                ;;
+              build_failed|update_failed|canceled|deactivated)
+                echo "::error title=Deploy $status::$DEPLOY_ID"
+                exit 1
+                ;;
+            esac
+            sleep 12
+          done
+          echo "::error::Timed out waiting for deploy $DEPLOY_ID"
+          exit 1
