@@ -62,3 +62,11 @@ def app_source() -> str:
     if pages_path.exists():
         source += "\n" + pages_path.read_text(encoding="utf-8")
     return source
+
+
+def pytest_configure(config) -> None:  # noqa: ANN001
+    """Register custom markers used by individual test modules."""
+    config.addinivalue_line(
+        "markers",
+        "live: live-network smoke tests; auto-skipped when API keys are absent",
+    )

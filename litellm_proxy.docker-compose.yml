@@ -1,0 +1,79 @@
+# ════════════════════════════════════════════════════════════════════════════
+# LiteLLM Proxy -- unified OpenAI-format gateway (optional layer)
+# ════════════════════════════════════════════════════════════════════════════
+#
+# Joveo's existing llm_router.py already does multi-provider routing,
+# circuit-breaking, and caching. This LiteLLM Proxy is an OPTIONAL gateway
+# that gives us, for free:
+#   - One OpenAI-format endpoint for ALL providers (no provider-specific code).
+#   - Built-in cost tracking (matches Langfuse usage analytics nicely).
+#   - Built-in rate limiting (RPM / TPM caps per virtual key).
+#   - Streaming + non-streaming on every model.
+#   - Native Langfuse callback (every request auto-traced).
+#
+# Deployment targets:
+#   - A separate Render private service (recommended)
+#   - User's local Docker for dev / load testing
+#
+# Quick start (local):
+#   1) Set ANTHROPIC_API_KEY / GEMINI_API_KEY / OPENAI_API_KEY / VOYAGE_API_KEY
+#      and LITELLM_MASTER_KEY in your shell or in .env
+#   2) docker compose -f litellm_proxy.docker-compose.yml up -d
+#   3) curl http://localhost:4000/health
+#   4) Test: curl http://localhost:4000/v1/chat/completions \
+#         -H "Authorization: Bearer $LITELLM_MASTER_KEY" \
+#         -H "Content-Type: application/json" \
+#         -d '{"model":"claude-haiku-4-5","messages":[{"role":"user","content":"ping"}]}'
+#
+# Render deploy:
+#   - Use a private service so only Nova internal traffic can hit it.
+#   - Mount litellm_config.yaml via Render's "Secret Files" feature
+#     at /app/config.yaml.
+#   - Wire LANGFUSE_HOST / LANGFUSE_PUBLIC_KEY / LANGFUSE_SECRET_KEY into
+#     the env so the Langfuse callback fires automatically.
+#
+# Generating LITELLM_MASTER_KEY:
+#   openssl rand -hex 24
+#
+# ════════════════════════════════════════════════════════════════════════════
+
+services:
+  litellm-proxy:
+    image: ghcr.io/berriai/litellm:main-latest
+    container_name: litellm-proxy
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    command:
+      - "--config"
+      - "/app/config.yaml"
+      - "--port"
+      - "4000"
+      - "--num_workers"
+      - "2"
+    volumes:
+      # Mount the routing config (read-only).
+      - ./litellm_config.yaml:/app/config.yaml:ro
+    environment:
+      # ── LiteLLM master key (clients must send this as Bearer token) ──
+      # GENERATE: openssl rand -hex 24
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-CHANGE_ME_litellm_master_key_openssl_rand_hex_24}
+      # ── Provider credentials (forwarded to underlying SDKs) ──
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      VOYAGE_API_KEY: ${VOYAGE_API_KEY:-}
+      # ── Langfuse callback (enables auto-tracing of every request) ──
+      LANGFUSE_HOST: ${LANGFUSE_HOST:-}
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
+      # ── Telemetry off ──
+      LITELLM_TELEMETRY: "False"
+      LITELLM_LOG: "INFO"
+    healthcheck:
+      # LiteLLM exposes /health/liveliness which doesn't require a master key.
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:4000/health/liveliness || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s

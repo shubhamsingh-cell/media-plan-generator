@@ -1,0 +1,118 @@
+# ════════════════════════════════════════════════════════════════════════════
+# LiteLLM Proxy config -- Joveo Nova AI Suite
+# ════════════════════════════════════════════════════════════════════════════
+#
+# Purpose: a thin OpenAI-format gateway in front of the providers Joveo
+# already pays for. Joveo's llm_router.py keeps doing the smart fallback /
+# circuit-breaking; LiteLLM is here for unified format + automatic Langfuse
+# tracing on every request.
+#
+# Reference: https://docs.litellm.ai/docs/proxy/configs
+#
+# Conventions used below:
+#   - model_name        what callers send to /v1/chat/completions
+#   - litellm_params    how LiteLLM dispatches downstream
+#   - rpm / tpm         requests-per-minute / tokens-per-minute caps
+#   - input/output_cost cost per token (USD); LiteLLM uses these for
+#                       its own usage analytics, independent of Langfuse.
+#
+# Cost numbers below match the LLM_GLOBAL_RESEARCH_2026.md prices used by
+# llm_router.py. Update if the provider repricing diverges.
+# ════════════════════════════════════════════════════════════════════════════
+
+model_list:
+  # ── Claude Haiku 4.5 (PRIMARY for substantive Nova queries) ──
+  - model_name: claude-haiku-4-5
+    litellm_params:
+      model: anthropic/claude-haiku-4-5
+      api_key: os.environ/ANTHROPIC_API_KEY
+      timeout: 60
+      stream_timeout: 60
+      max_retries: 2
+      rpm: 240          # well under Anthropic tier-2 cap
+      tpm: 200000
+      input_cost_per_token: 0.00000025   # $0.25 / 1M input tokens
+      output_cost_per_token: 0.00000125  # $1.25 / 1M output tokens
+
+  # ── Gemini 3 Flash preview (free fallback, fast) ──
+  - model_name: gemini-3-flash-preview
+    litellm_params:
+      model: gemini/gemini-3-flash-preview
+      api_key: os.environ/GEMINI_API_KEY
+      timeout: 45
+      stream_timeout: 45
+      max_retries: 2
+      rpm: 60
+      tpm: 1000000
+      input_cost_per_token: 0.00000050   # $0.50 / 1M input
+      output_cost_per_token: 0.00000300  # $3.00 / 1M output
+
+  # ── GPT-5.4-mini (cost-efficient OpenAI replacement for GPT-4o) ──
+  - model_name: gpt-5.4-mini
+    litellm_params:
+      model: openai/gpt-5.4-mini
+      api_key: os.environ/OPENAI_API_KEY
+      timeout: 60
+      stream_timeout: 60
+      max_retries: 2
+      rpm: 500
+      tpm: 2000000
+      input_cost_per_token: 0.00000075   # $0.75 / 1M input
+      output_cost_per_token: 0.00000600  # $6.00 / 1M output
+
+  # ── Voyage embeddings (RAG / semantic search) ──
+  - model_name: voyage-3
+    litellm_params:
+      model: voyage/voyage-3
+      api_key: os.environ/VOYAGE_API_KEY
+      timeout: 30
+      max_retries: 3
+      rpm: 300
+      tpm: 1000000
+      input_cost_per_token: 0.00000006   # $0.06 / 1M tokens
+
+  - model_name: voyage-3-lite
+    litellm_params:
+      model: voyage/voyage-3-lite
+      api_key: os.environ/VOYAGE_API_KEY
+      timeout: 30
+      max_retries: 3
+      rpm: 300
+      tpm: 1000000
+      input_cost_per_token: 0.00000002   # $0.02 / 1M tokens
+
+# ════════════════════════════════════════════════════════════════════════════
+# Router-level defaults
+# ════════════════════════════════════════════════════════════════════════════
+router_settings:
+  routing_strategy: simple-shuffle
+  num_retries: 2
+  timeout: 60
+  allowed_fails: 3                # circuit-break after 3 consecutive fails
+  cooldown_time: 60               # 60s before re-enabling a failing provider
+  retry_after: 5
+
+# ════════════════════════════════════════════════════════════════════════════
+# General LiteLLM settings -- callbacks (Langfuse), logging, budgets
+# ════════════════════════════════════════════════════════════════════════════
+litellm_settings:
+  set_verbose: false
+  drop_params: true               # silently drop unsupported params per provider
+  request_timeout: 60
+  # Auto-trace every request to Langfuse (LITELLM picks up env vars).
+  success_callback: ["langfuse"]
+  failure_callback: ["langfuse"]
+  # Hard daily budget -- LiteLLM will reject calls above this.
+  max_budget: 100.0               # USD per day (proxy-wide)
+  budget_duration: "24h"
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  # Health endpoint allowlist: keep /health/liveliness public so Render
+  # can probe; everything else requires a virtual key.
+  health_check_interval: 60
+  disable_spend_logs: false
+  background_health_checks: true
+  alerting: ["slack"]
+  alert_types: ["llm_exceptions", "budget_alerts", "outage_alerts"]
+  alerting_threshold: 300         # seconds slow before alert fires

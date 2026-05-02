@@ -71,6 +71,16 @@ logger = logging.getLogger(__name__)
 # ── Configuration ────────────────────────────────────────────────────────────
 _VOYAGE_API_URL = "https://api.voyageai.com/v1/embeddings"
 _VOYAGE_MODEL = "voyage-3-lite"  # Good balance of quality/speed/cost
+# S50 NOTE (May 2026): voyage-4-large/lite is industry's first shared-embedding-
+# space pair (~6x cheaper queries via voyage-4-lite, +14.05% over OpenAI v3-large
+# per Voyage Jan 2026 benchmarks). MIGRATION REQUIRES Qdrant reindex because
+# voyage-3 and voyage-4 are different embedding spaces. To migrate:
+#   1. Set VOYAGE_MODEL=voyage-4-lite in env
+#   2. Run scripts/migrate_voyage_4.py (see file for steps)
+#   3. Verify recall@5 vs old index before cutover
+_VOYAGE_RERANK_URL = "https://api.voyageai.com/v1/rerank"
+_VOYAGE_RERANK_MODEL = "rerank-2.5-lite"  # +12.7% MAIR vs Cohere v3.5, same $0.05/1M
+_VOYAGE_RERANK_TIMEOUT = 10  # seconds (rerank is faster than embedding)
 _VOYAGE_TIMEOUT = 20  # seconds
 _VOYAGE_API_KEY: str | None = None
 _VOYAGE_MAX_BATCH = 32  # Reduced from 128 to avoid 429s on startup bursts
@@ -1041,11 +1051,93 @@ def build_index(documents: list[dict]) -> None:
     )
 
 
-def _rerank_results(results: list[dict], query: str, top_k: int = 3) -> list[dict]:
-    """Rerank search results using keyword overlap scoring.
+def _rerank_with_voyage(
+    results: list[dict], query: str, top_k: int = 3
+) -> list[dict] | None:
+    """Rerank using Voyage AI rerank-2.5-lite (+12.7% MAIR vs Cohere v3.5).
 
-    Simple but effective: combines vector similarity with keyword overlap
-    for hybrid-like search without a separate sparse index.
+    Uses cross-encoder relevance scoring over query x document pairs.
+    Returns None on any failure so the caller falls back to keyword overlap.
+
+    Cost: $0.05 per 1M tokens (same as Cohere). Latency: ~600ms.
+    Same VOYAGE_API_KEY as embeddings. 32K context window per document.
+
+    Args:
+        results: Candidate result dicts (must have text/content).
+        query: User query.
+        top_k: Number of top results to return.
+
+    Returns:
+        Reranked list of result dicts, or None if API unavailable/errored.
+    """
+    if not results or not query:
+        return results
+
+    api_key = _get_api_key()
+    if not api_key:
+        return None
+
+    documents: list[str] = []
+    for r in results:
+        text = r.get("text") or r.get("content") or ""
+        # Voyage rerank requires non-empty docs
+        documents.append(text[:8000] if text else " ")
+
+    if not any(d.strip() for d in documents):
+        return None
+
+    body = {
+        "query": query,
+        "documents": documents,
+        "model": _VOYAGE_RERANK_MODEL,
+        "top_k": min(top_k, len(documents)),
+        "truncation": True,
+    }
+
+    try:
+        req = urllib.request.Request(
+            _VOYAGE_RERANK_URL,
+            data=json.dumps(body).encode("utf-8"),
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            method="POST",
+        )
+        with urllib.request.urlopen(
+            req, timeout=_VOYAGE_RERANK_TIMEOUT, context=_VOYAGE_SSL_CTX
+        ) as resp:
+            payload = json.loads(resp.read())
+    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError) as exc:
+        logger.warning("Voyage rerank network error, falling back: %s", exc)
+        return None
+    except (json.JSONDecodeError, ValueError) as exc:
+        logger.warning("Voyage rerank parse error, falling back: %s", exc)
+        return None
+
+    ranked_entries = payload.get("data") or payload.get("results") or []
+    if not ranked_entries:
+        return None
+
+    out: list[dict] = []
+    for entry in ranked_entries:
+        idx = entry.get("index")
+        if isinstance(idx, int) and 0 <= idx < len(results):
+            r = dict(results[idx])
+            score = entry.get("relevance_score", entry.get("score", 0.0))
+            r["rerank_score"] = round(float(score or 0.0), 4)
+            r["rerank_method"] = "voyage_rerank_2_5_lite"
+            out.append(r)
+
+    return out[:top_k] if out else None
+
+
+def _rerank_results(results: list[dict], query: str, top_k: int = 3) -> list[dict]:
+    """Rerank search results.
+
+    PRIMARY: Voyage AI rerank-2.5-lite (+12.7% MAIR vs Cohere v3.5).
+    FALLBACK: keyword overlap scoring (original logic, used when Voyage
+    rerank API is unavailable or errors).
 
     Args:
         results: List of search result dicts (must have text/content and score/similarity).
@@ -1058,6 +1150,12 @@ def _rerank_results(results: list[dict], query: str, top_k: int = 3) -> list[dic
     if not results:
         return results
 
+    # Try Voyage rerank-2.5-lite first (cross-encoder, much higher quality)
+    voyage_ranked = _rerank_with_voyage(results, query, top_k=top_k)
+    if voyage_ranked is not None:
+        return voyage_ranked
+
+    # Fallback: keyword overlap scoring (original logic)
     query_terms = set(query.lower().split())
 
     for result in results:
@@ -1074,6 +1172,7 @@ def _rerank_results(results: list[dict], query: str, top_k: int = 3) -> list[dic
         # Weighted combination: 60% vector + 40% keyword
         result["combined_score"] = round(vector_score * 0.6 + keyword_score * 0.4, 4)
         result["keyword_overlap"] = overlap
+        result["rerank_method"] = "keyword_overlap_fallback"
 
     # Sort by combined score
     results.sort(key=lambda x: x.get("combined_score", 0), reverse=True)

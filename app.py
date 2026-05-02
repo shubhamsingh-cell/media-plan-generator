@@ -1467,6 +1467,245 @@ def _generate_product_insights(
 # ═══════════════════════════════════════════════════════════════════════════════
 # SENTRY ERROR TRACKING
 # ═══════════════════════════════════════════════════════════════════════════════
+
+# ── Sentry PII / secret redaction (S50, May 2026) ────────────────────────────
+# These constants and helpers are defined at module scope (independent of the
+# SENTRY_DSN gate) so tests can import them without initialising the SDK.
+#
+# Defence-in-depth on top of `send_default_pii=False`: explicit secret values
+# can still leak via `sentry_sdk.set_extra(...)`, stack-trace local vars,
+# breadcrumb messages, request URLs, or auth headers. We scrub them before
+# the event ever reaches Sentry.
+import re as _re  # local alias to avoid shadowing any later `re` import
+
+# Set of environment-variable names whose VALUES must never appear in a Sentry
+# event. We redact by both key (when the value is sent under the same name)
+# and by value (when the value appears anywhere else in the event).
+_SENSITIVE_ENV_VARS: frozenset[str] = frozenset(
+    {
+        # Existing Nova LLM / tool keys
+        "ANTHROPIC_API_KEY",
+        "OPENAI_API_KEY",
+        "GEMINI_API_KEY",
+        "GOOGLE_API_KEY",
+        "GROQ_API_KEY",
+        "CEREBRAS_API_KEY",
+        "ZHIPU_API_KEY",
+        "MISTRAL_API_KEY",
+        "SAMBANOVA_API_KEY",
+        "SILICONFLOW_API_KEY",
+        "NVIDIA_NIM_API_KEY",
+        "CLOUDFLARE_API_KEY",
+        "TOGETHER_API_KEY",
+        "HUGGINGFACE_API_KEY",
+        "OPENROUTER_API_KEY",
+        "TAVILY_API_KEY",
+        "JINA_API_KEY",
+        "FIRECRAWL_API_KEY",
+        "APIFY_API_TOKEN",
+        "PERPLEXITY_API_KEY",
+        # Data sources
+        "ADZUNA_APP_ID",
+        "ADZUNA_APP_KEY",
+        "JOOBLE_API_KEY",
+        "USAJOBS_API_KEY",
+        "BLS_API_KEY",
+        "FRED_API_KEY",
+        "BEA_API_KEY",
+        "CENSUS_API_KEY",
+        "ONET_API_KEY",
+        "CAREERONESTOP_API_KEY",
+        "CAREERONESTOP_USER_ID",
+        "GEONAMES_USERNAME",
+        # Google / Meta / Render / Slack / Sentry / Supabase / Render
+        "GOOGLE_MAPS_API_KEY",
+        "GOOGLE_ADS_DEVELOPER_TOKEN",
+        "GOOGLE_SLIDES_CREDENTIALS_B64",
+        "META_ACCESS_TOKEN",
+        "RENDER_API_KEY",
+        "SLACK_WEBHOOK_URL",
+        "CG_SLACK_WEBHOOK_URL",
+        "SLACK_ALERTS_WEBHOOK_URL",
+        "SENTRY_AUTH_TOKEN",
+        "SENTRY_WEBHOOK_SECRET",
+        "SUPABASE_KEY",
+        "SUPABASE_SERVICE_ROLE_KEY",
+        "SUPABASE_ANON_KEY",
+        "UPSTASH_REDIS_REST_TOKEN",
+        "POSTHOG_API_KEY",
+        "RESEND_API_KEY",
+        "ELEVENLABS_API_KEY",
+        "NOVA_ADMIN_KEY",
+        "NOVA_API_KEYS",
+        # S50 NEW (May 2026) -- observability stack
+        "LANGFUSE_PUBLIC_KEY",
+        "LANGFUSE_SECRET_KEY",
+        "LANGFUSE_HOST",
+        "LITELLM_API_KEY",
+        "LITELLM_MASTER_KEY",
+        # S50 NEW -- dev infra (Crawl4AI / Stagehand / Browserbase)
+        "CRAWL4AI_API_KEY",
+        "CRAWL4AI_API_TOKEN",
+        "CRAWL4AI_BASE_URL",
+        "STAGEHAND_API_KEY",
+        "STAGEHAND_API_URL",
+        "BROWSERBASE_API_KEY",
+        "BROWSERBASE_PROJECT_ID",
+        # S50 NEW -- payments / enrichment APIs already stubbed in code
+        "STRIPE_SECRET_KEY",
+        "STRIPE_PUBLISHABLE_KEY",
+        "STRIPE_WEBHOOK_SECRET",
+        "PDL_API_KEY",
+        "CRUNCHBASE_API_KEY",
+        # S50 NEW -- model-name overrides (not strictly secret but no value in
+        # leaking infra config to Sentry)
+        "OPENROUTER_GPT_OSS_MODEL",
+        "CLAUDE_SONNET_MODEL",
+        "CLAUDE_OPUS_MODEL",
+        "CLAUDE_MODEL_COMPLEX",
+        "OPENAI_MODEL",
+        "GEMINI_DISABLE_THINKING",
+        "OPENROUTER_MODEL",
+        "MISTRAL_MODEL",
+        "CEREBRAS_SCOUT_MODEL",
+        "APP_FALLBACK_SONNET_MODEL",
+    }
+)
+
+# Substring fragments (lowercase) that mark a key/header name as sensitive.
+# Used to redact arbitrary dict keys that don't appear in _SENSITIVE_ENV_VARS
+# (e.g. nested structs from third-party libs, "Authorization" headers, etc.).
+_SENSITIVE_KEY_FRAGMENTS: tuple[str, ...] = (
+    "api_key",
+    "apikey",
+    "api-key",
+    "access_token",
+    "accesstoken",
+    "access-token",
+    "secret",
+    "password",
+    "passwd",
+    "authorization",
+    "auth_token",
+    "bearer",
+    "private_key",
+    "client_secret",
+    "webhook_secret",
+    "session_token",
+    "csrf",
+    "cookie",
+)
+
+_REDACTED: str = "***REDACTED***"
+
+# URL/header regex patterns -- compile once at import time.
+_URL_QUERY_REDACT_RE = _re.compile(
+    r"(?i)([?&](?:api[_-]?key|apikey|access[_-]?token|user[_-]?key|"
+    r"token|key|secret|password|auth|signature|sig|"
+    r"langfuse_public_key|langfuse_secret_key|"
+    r"litellm_master_key|litellm_api_key|"
+    r"stripe_secret_key|stripe_webhook_secret|"
+    r"pdl_api_key|crunchbase_api_key|"
+    r"browserbase_api_key|stagehand_api_key)=)[^&\s\"']+"
+)
+
+# Authorization: Bearer xxx  /  Authorization: Basic xxx
+_AUTH_HEADER_RE = _re.compile(
+    r"(?i)(authorization\s*:\s*(?:bearer|basic|token)\s+)[^\s\"',;]+"
+)
+
+# Basic-auth credentials embedded in URLs:  https://user:password@host/...
+_BASIC_AUTH_URL_RE = _re.compile(r"(?i)(https?://)([^:/\s]+):([^@/\s]+)(@)")
+
+
+def _is_sensitive_key(name: object) -> bool:
+    """Return True if *name* looks like a secret-bearing key/header name."""
+    if not isinstance(name, str):
+        return False
+    if name in _SENSITIVE_ENV_VARS:
+        return True
+    lower = name.lower()
+    return any(frag in lower for frag in _SENSITIVE_KEY_FRAGMENTS)
+
+
+def _collect_sensitive_values() -> set[str]:
+    """Snapshot the current process env for known-sensitive vars.
+
+    Values longer than 7 chars are returned -- shorter strings are too likely
+    to false-positive against ordinary text. Called fresh per event so newly
+    rotated keys are caught.
+    """
+    seen: set[str] = set()
+    for name in _SENSITIVE_ENV_VARS:
+        try:
+            val = os.environ.get(name) or ""
+        except Exception:
+            continue
+        val = val.strip()
+        if len(val) >= 8:
+            seen.add(val)
+    return seen
+
+
+def _redact_string(text: str, secret_values: set[str]) -> str:
+    """Apply URL, header, and value-based redaction to a single string."""
+    if not text or not isinstance(text, str):
+        return text
+    out = _URL_QUERY_REDACT_RE.sub(r"\1" + _REDACTED, text)
+    out = _AUTH_HEADER_RE.sub(r"\1" + _REDACTED, out)
+    out = _BASIC_AUTH_URL_RE.sub(r"\1\2:" + _REDACTED + r"\4", out)
+    # Substitute any literal secret value we know about. This catches cases
+    # where a key value lands in an arbitrary string (e.g. a stack-trace
+    # local var repr, an exception message, a breadcrumb).
+    for val in secret_values:
+        if val and val in out:
+            out = out.replace(val, _REDACTED)
+    return out
+
+
+def _redact_obj(obj: object, secret_values: set[str], depth: int = 0) -> object:
+    """Recursively redact sensitive keys + values within a Sentry event tree.
+
+    Bounded recursion (depth <= 12) protects against pathological cycles.
+    Mutates dicts/lists in place where possible to keep memory low.
+    """
+    if depth > 12:
+        return obj
+    if isinstance(obj, dict):
+        for key in list(obj.keys()):
+            if _is_sensitive_key(key):
+                obj[key] = _REDACTED
+            else:
+                obj[key] = _redact_obj(obj[key], secret_values, depth + 1)
+        return obj
+    if isinstance(obj, list):
+        for i, item in enumerate(obj):
+            obj[i] = _redact_obj(item, secret_values, depth + 1)
+        return obj
+    if isinstance(obj, tuple):
+        return tuple(_redact_obj(item, secret_values, depth + 1) for item in obj)
+    if isinstance(obj, str):
+        return _redact_string(obj, secret_values)
+    return obj
+
+
+def _redact_sentry_event(event: "dict | None") -> "dict | None":
+    """Top-level entry point: scrub a Sentry event dict in place.
+
+    Safe on None / non-dict input. Never raises -- redaction failures must
+    NEVER suppress the event (the noise filter handles drop semantics).
+    """
+    if not isinstance(event, dict):
+        return event
+    try:
+        secret_values = _collect_sensitive_values()
+        _redact_obj(event, secret_values, 0)
+    except Exception:
+        # Defensive: never let scrub failures break Sentry reporting.
+        pass
+    return event
+
+
 _SENTRY_DSN = (os.environ.get("SENTRY_DSN") or "").strip()
 if _SENTRY_DSN:
     try:
@@ -1632,7 +1871,10 @@ if _SENTRY_DSN:
             ):
                 return None
 
-            return event
+            # 8. S50 PII/secret redaction. Scrub any sensitive values that
+            #    leaked into extras / breadcrumbs / stack-trace locals /
+            #    request URL or headers BEFORE the event reaches Sentry.
+            return _redact_sentry_event(event)
 
         sentry_sdk.init(
             dsn=_SENTRY_DSN,
@@ -5894,6 +6136,27 @@ if os.environ.get("QDRANT_URL") and os.environ.get("QDRANT_API_KEY"):
     )
 
 
+# ── Social ads metrics sync (Meta + Google Ads -> Supabase) ───────────────
+# Replaces Supermetrics->Sheets pipeline. Opt-in via ENABLE_SOCIAL_METRICS_SYNC=1.
+# Default 6h interval, jittered first-run; disabled by default to avoid surprise
+# API quota usage. Backed by social_campaign_metrics + social_metrics_sync_log
+# Supabase tables (see scripts/create_social_campaign_metrics_table.sql).
+try:
+    from social_metrics_sync import start_background_sync as _start_social_sync
+
+    _social_sync_started = _start_social_sync()
+    if _social_sync_started:
+        logger.info("social_metrics_sync: ENABLED (background sync running)")
+    else:
+        logger.info(
+            "social_metrics_sync: DISABLED (set ENABLE_SOCIAL_METRICS_SYNC=1 to enable)"
+        )
+except ImportError as _sm_err:
+    logger.warning("social_metrics_sync not available: %s", _sm_err)
+except Exception as _sm_err:
+    logger.error("social_metrics_sync failed to start: %s", _sm_err, exc_info=True)
+
+
 # Simple in-memory rate limiter
 from collections import defaultdict
 
@@ -8564,10 +8827,16 @@ def _generate_ab_test_with_claude(
         logger.error("LLM Router A/B test failed: %s", e, exc_info=True)
 
     # ── Fallback: direct Anthropic API ──
+    # S50 (May 2026): bumped from claude-sonnet-4-20250514 to claude-sonnet-4-6.
+    # This bypasses the LLM router entirely so the model string lives here.
+    # Override via env if needed: APP_FALLBACK_SONNET_MODEL.
     try:
+        _fallback_sonnet = (
+            os.environ.get("APP_FALLBACK_SONNET_MODEL") or "claude-sonnet-4-6"
+        )
         req_body = json.dumps(
             {
-                "model": "claude-sonnet-4-20250514",
+                "model": _fallback_sonnet,
                 "max_tokens": 500,
                 "messages": [{"role": "user", "content": prompt}],
             }
@@ -11234,6 +11503,162 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     return
                 self._send_json({"plan_id": _pr_id, **_pr_entry["data"]})
         # ── Google Sheets URL for a generated plan ──
+        # ── Campaign Intelligence live metrics (replaces Google Sheet fetch) ──
+        # Drop-in for the Campaign Intelligence tool that previously tried to
+        # fetch a Google Sheet directly (CORS-blocked) or via the Railway MCP
+        # server (failed: dev token on Test Access). Reads from the
+        # social_campaign_metrics table populated by social_metrics_sync.
+        # Query params:
+        #   platform       meta | google_ads | both          (default: both)
+        #   start_date     YYYY-MM-DD                         (default: 30d ago)
+        #   end_date       YYYY-MM-DD                         (default: yesterday)
+        #   campaign_filter substring (case-insensitive ilike) (default: none)
+        #   top_n          number of top campaigns by spend   (default: 10, max 100)
+        #   format         json | csv                         (default: json)
+        elif path == "/api/campaign-intel/metrics":
+            if not self._check_joveo_auth():
+                self._send_json(
+                    {
+                        "error": "Unauthorized. Requires @joveo.com auth or X-Nova-Api-Key."
+                    },
+                    status_code=401,
+                )
+                return
+            _ci_qs = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            _ci_platform = (_ci_qs.get("platform") or ["both"])[0].strip().lower()
+            _ci_start = (_ci_qs.get("start_date") or [""])[0].strip() or None
+            _ci_end = (_ci_qs.get("end_date") or [""])[0].strip() or None
+            _ci_filter = (_ci_qs.get("campaign_filter") or [""])[0].strip() or None
+            try:
+                _ci_top_n = max(1, min(int((_ci_qs.get("top_n") or ["10"])[0]), 100))
+            except (TypeError, ValueError):
+                _ci_top_n = 10
+            _ci_fmt = (_ci_qs.get("format") or ["json"])[0].strip().lower()
+
+            if _ci_platform not in ("meta", "google_ads", "both"):
+                self._send_json(
+                    {"error": "platform must be 'meta', 'google_ads', or 'both'"},
+                    status_code=400,
+                )
+                return
+            if _ci_fmt not in ("json", "csv"):
+                self._send_json(
+                    {"error": "format must be 'json' or 'csv'"}, status_code=400
+                )
+                return
+
+            try:
+                from social_metrics_sync import query_daily_rows, query_performance
+            except ImportError as _ci_err:
+                self._send_json(
+                    {"error": f"social_metrics_sync unavailable: {_ci_err}"},
+                    status_code=503,
+                )
+                return
+
+            _ci_platforms = (
+                ["meta", "google_ads"] if _ci_platform == "both" else [_ci_platform]
+            )
+
+            if _ci_fmt == "csv":
+                # Stream the daily rows from both platforms as a single CSV.
+                # This is the drop-in replacement for the Google Sheet CSV.
+                import csv as _csv_mod
+                import io as _io_mod
+
+                _csv_buf = _io_mod.StringIO()
+                _csv_writer = _csv_mod.writer(_csv_buf)
+                _csv_writer.writerow(
+                    [
+                        "platform",
+                        "account_id",
+                        "campaign_id",
+                        "campaign_name",
+                        "objective",
+                        "date",
+                        "spend",
+                        "impressions",
+                        "clicks",
+                        "conversions",
+                        "ctr",
+                        "cpc",
+                        "cpa",
+                        "cpm",
+                        "currency",
+                    ]
+                )
+                _ci_total_rows = 0
+                for _ci_p in _ci_platforms:
+                    _ci_rows = query_daily_rows(
+                        _ci_p, _ci_start, _ci_end, _ci_filter, limit=10000
+                    )
+                    for _r in _ci_rows:
+                        _csv_writer.writerow(
+                            [
+                                _r.get("platform") or "",
+                                _r.get("account_id") or "",
+                                _r.get("campaign_id") or "",
+                                _r.get("campaign_name") or "",
+                                _r.get("objective") or "",
+                                _r.get("date") or "",
+                                _r.get("spend") if _r.get("spend") is not None else "",
+                                _r.get("impressions") or 0,
+                                _r.get("clicks") or 0,
+                                (
+                                    _r.get("conversions")
+                                    if _r.get("conversions") is not None
+                                    else ""
+                                ),
+                                _r.get("ctr") if _r.get("ctr") is not None else "",
+                                _r.get("cpc") if _r.get("cpc") is not None else "",
+                                _r.get("cpa") if _r.get("cpa") is not None else "",
+                                _r.get("cpm") if _r.get("cpm") is not None else "",
+                                _r.get("currency") or "USD",
+                            ]
+                        )
+                        _ci_total_rows += 1
+                _csv_body = _csv_buf.getvalue().encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "text/csv; charset=utf-8")
+                _ci_cors = self._get_cors_origin()
+                if _ci_cors:
+                    self.send_header("Access-Control-Allow-Origin", _ci_cors)
+                    self.send_header("Vary", "Origin")
+                self.send_header(
+                    "Content-Disposition",
+                    'attachment; filename="campaign_metrics.csv"',
+                )
+                self.send_header("X-Row-Count", str(_ci_total_rows))
+                self.send_header("Content-Length", str(len(_csv_body)))
+                self.send_header("Cache-Control", "no-store")
+                self.end_headers()
+                self.wfile.write(_csv_body)
+                return
+
+            # JSON: aggregated totals + top campaigns per platform
+            _ci_results: dict = {}
+            for _ci_p in _ci_platforms:
+                _ci_results[_ci_p] = query_performance(
+                    _ci_p,
+                    start_date=_ci_start,
+                    end_date=_ci_end,
+                    campaign_filter=_ci_filter,
+                    top_n=_ci_top_n,
+                )
+            self._send_json(
+                {
+                    "platforms": _ci_platforms,
+                    "filters": {
+                        "platform": _ci_platform,
+                        "start_date": _ci_start,
+                        "end_date": _ci_end,
+                        "campaign_filter": _ci_filter,
+                        "top_n": _ci_top_n,
+                    },
+                    "data": _ci_results,
+                    "data_source": "social_campaign_metrics (live sync from Meta + Google Ads APIs)",
+                }
+            )
         elif path == "/api/plan/sheets-url":
             _qs_parsed = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
             _su_plan_id = (_qs_parsed.get("plan_id") or [""])[0]

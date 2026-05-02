@@ -532,7 +532,7 @@ class TestCallLLMMocked:
         mock_call.return_value = {
             "text": "Mocked response about recruitment strategies.",
             "provider": "gemini",
-            "model": "gemini-2.5-flash",
+            "model": "gemini-3-flash-preview",
             "tokens_in": 50,
             "tokens_out": 100,
         }
@@ -553,7 +553,7 @@ class TestCallLLMMocked:
         mock_call.return_value = {
             "text": "Cached response test.",
             "provider": "gemini",
-            "model": "gemini-2.5-flash",
+            "model": "gemini-3-flash-preview",
             "tokens_in": 10,
             "tokens_out": 20,
         }

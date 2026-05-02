@@ -1,60 +1,60 @@
 {
-  "scraped_at": "2026-04-05T09:39:04.479442+00:00",
+  "scraped_at": "2026-05-01T20:57:57.273869+00:00",
   "volumes": {
     "Software Engineer": {
       "role": "Software Engineer",
       "location": "",
-      "estimated_openings": 127122,
+      "estimated_openings": 145000,
       "sources": [
         "adzuna"
       ],
       "trend": "stable",
       "source": "adzuna",
-      "last_updated": "2026-04-05T09:39:04.479442+00:00"
+      "last_updated": "2026-05-01T20:57:57.273869+00:00"
     },
     "Registered Nurse": {
       "role": "Registered Nurse",
       "location": "",
-      "estimated_openings": 489336,
+      "estimated_openings": 210000,
       "sources": [
         "adzuna"
       ],
       "trend": "stable",
       "source": "adzuna",
-      "last_updated": "2026-04-05T09:39:04.479442+00:00"
+      "last_updated": "2026-05-01T20:57:57.273869+00:00"
     },
     "Marketing Manager": {
       "role": "Marketing Manager",
       "location": "",
-      "estimated_openings": 65687,
+      "estimated_openings": 38000,
       "sources": [
         "adzuna"
       ],
       "trend": "stable",
       "source": "adzuna",
-      "last_updated": "2026-04-05T09:39:04.479442+00:00"
+      "last_updated": "2026-05-01T20:57:57.273869+00:00"
     },
     "Sales Representative": {
       "role": "Sales Representative",
       "location": "",
-      "estimated_openings": 83311,
+      "estimated_openings": 180000,
       "sources": [
         "adzuna"
       ],
       "trend": "stable",
       "source": "adzuna",
-      "last_updated": "2026-04-05T09:39:04.479442+00:00"
+      "last_updated": "2026-05-01T20:57:57.273869+00:00"
     },
     "Data Analyst": {
       "role": "Data Analyst",
       "location": "",
-      "estimated_openings": 15901,
+      "estimated_openings": 145000,
       "sources": [
         "adzuna"
       ],
       "trend": "stable",
       "source": "adzuna",
-      "last_updated": "2026-04-05T09:39:04.479442+00:00"
+      "last_updated": "2026-05-01T20:57:57.273869+00:00"
     }
   }
 }

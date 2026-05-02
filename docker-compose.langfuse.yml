@@ -1,0 +1,263 @@
+# ════════════════════════════════════════════════════════════════════════════
+# Langfuse v3 -- self-hosted LLM observability stack for Joveo Nova AI Suite
+# ════════════════════════════════════════════════════════════════════════════
+#
+# Deployment targets:
+#   - A separate Render Private Service (recommended for production)
+#   - A user's local Docker for development
+#
+# Reference: https://langfuse.com/self-hosting/docker-compose
+#
+# Quick start (local):
+#   1) cp .env.example .env  (or set the SECRETS below in your shell)
+#   2) docker compose -f docker-compose.langfuse.yml up -d
+#   3) Open http://localhost:3000 -- create org/project, copy public+secret keys
+#   4) Set LANGFUSE_HOST/LANGFUSE_PUBLIC_KEY/LANGFUSE_SECRET_KEY in Nova .env
+#
+# Generating secrets (run locally, never commit real values):
+#   NEXTAUTH_SECRET   -> openssl rand -base64 32
+#   SALT              -> openssl rand -base64 32
+#   ENCRYPTION_KEY    -> openssl rand -hex 32   (must be exactly 64 hex chars)
+#   POSTGRES_PASSWORD -> openssl rand -base64 24
+#   CLICKHOUSE_PASSWORD -> openssl rand -base64 24
+#   MINIO_ROOT_PASSWORD -> openssl rand -base64 24
+#
+# Render private-service note:
+#   - Each service below maps to a Render private-service or background-worker.
+#   - Use Render's "Disk" feature for the volumes marked "(persist)".
+#   - Set NEXTAUTH_URL to the public URL of langfuse-web (e.g. https://obs.joveo.com).
+#
+# ════════════════════════════════════════════════════════════════════════════
+
+services:
+  # ──────────────────────────────────────────────────────────────────────────
+  # Langfuse Web -- the dashboard / API ingestion endpoint
+  # ──────────────────────────────────────────────────────────────────────────
+  langfuse-web:
+    image: langfuse/langfuse:3
+    container_name: langfuse-web
+    restart: unless-stopped
+    depends_on:
+      langfuse-postgres:
+        condition: service_healthy
+      langfuse-clickhouse:
+        condition: service_healthy
+      langfuse-redis:
+        condition: service_healthy
+      langfuse-minio:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    environment:
+      # ── Postgres (metadata store: orgs, projects, users, dashboards) ──
+      DATABASE_URL: postgresql://langfuse:${POSTGRES_PASSWORD:-CHANGE_ME_postgres_password}@langfuse-postgres:5432/langfuse
+      DIRECT_URL: postgresql://langfuse:${POSTGRES_PASSWORD:-CHANGE_ME_postgres_password}@langfuse-postgres:5432/langfuse
+      # ── ClickHouse (events store: traces, observations, scores) ──
+      CLICKHOUSE_URL: http://langfuse-clickhouse:8123
+      CLICKHOUSE_MIGRATION_URL: clickhouse://langfuse-clickhouse:9000
+      CLICKHOUSE_USER: langfuse
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-CHANGE_ME_clickhouse_password}
+      CLICKHOUSE_CLUSTER_ENABLED: "false"
+      # ── Redis (queue + caching) ──
+      REDIS_HOST: langfuse-redis
+      REDIS_PORT: "6379"
+      REDIS_AUTH: ${REDIS_PASSWORD:-CHANGE_ME_redis_password}
+      # ── S3 / MinIO (blob storage for large event payloads + media) ──
+      LANGFUSE_S3_EVENT_UPLOAD_BUCKET: langfuse
+      LANGFUSE_S3_EVENT_UPLOAD_REGION: auto
+      LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minio}
+      LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-CHANGE_ME_minio_password}
+      LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT: http://langfuse-minio:9000
+      LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE: "true"
+      LANGFUSE_S3_EVENT_UPLOAD_PREFIX: events/
+      LANGFUSE_S3_MEDIA_UPLOAD_BUCKET: langfuse
+      LANGFUSE_S3_MEDIA_UPLOAD_REGION: auto
+      LANGFUSE_S3_MEDIA_UPLOAD_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minio}
+      LANGFUSE_S3_MEDIA_UPLOAD_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-CHANGE_ME_minio_password}
+      LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT: http://langfuse-minio:9000
+      LANGFUSE_S3_MEDIA_UPLOAD_FORCE_PATH_STYLE: "true"
+      LANGFUSE_S3_MEDIA_UPLOAD_PREFIX: media/
+      # ── Auth + crypto ──
+      # GENERATE: openssl rand -base64 32
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-CHANGE_ME_nextauth_secret_openssl_rand_base64_32}
+      # GENERATE: openssl rand -base64 32
+      SALT: ${SALT:-CHANGE_ME_salt_openssl_rand_base64_32}
+      # GENERATE: openssl rand -hex 32  (must be exactly 64 hex chars)
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-0000000000000000000000000000000000000000000000000000000000000000}
+      # Public URL where users will reach the dashboard.
+      # On Render, set to the public URL of the langfuse-web service.
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      # Telemetry off by default (Joveo policy: no third-party telemetry).
+      TELEMETRY_ENABLED: "false"
+      LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES: "false"
+      # Initial admin user (only created on first boot if no users exist).
+      LANGFUSE_INIT_USER_EMAIL: ${LANGFUSE_INIT_USER_EMAIL:-admin@joveo.com}
+      LANGFUSE_INIT_USER_PASSWORD: ${LANGFUSE_INIT_USER_PASSWORD:-CHANGE_ME_initial_admin_password}
+      LANGFUSE_INIT_USER_NAME: ${LANGFUSE_INIT_USER_NAME:-Joveo Admin}
+      LANGFUSE_INIT_ORG_NAME: ${LANGFUSE_INIT_ORG_NAME:-Joveo}
+      LANGFUSE_INIT_PROJECT_NAME: ${LANGFUSE_INIT_PROJECT_NAME:-nova-ai-suite}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3000/api/public/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Langfuse Worker -- background ingestion (events -> ClickHouse + S3)
+  # ──────────────────────────────────────────────────────────────────────────
+  langfuse-worker:
+    image: langfuse/langfuse-worker:3
+    container_name: langfuse-worker
+    restart: unless-stopped
+    depends_on:
+      langfuse-postgres:
+        condition: service_healthy
+      langfuse-clickhouse:
+        condition: service_healthy
+      langfuse-redis:
+        condition: service_healthy
+      langfuse-minio:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://langfuse:${POSTGRES_PASSWORD:-CHANGE_ME_postgres_password}@langfuse-postgres:5432/langfuse
+      CLICKHOUSE_URL: http://langfuse-clickhouse:8123
+      CLICKHOUSE_MIGRATION_URL: clickhouse://langfuse-clickhouse:9000
+      CLICKHOUSE_USER: langfuse
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-CHANGE_ME_clickhouse_password}
+      CLICKHOUSE_CLUSTER_ENABLED: "false"
+      REDIS_HOST: langfuse-redis
+      REDIS_PORT: "6379"
+      REDIS_AUTH: ${REDIS_PASSWORD:-CHANGE_ME_redis_password}
+      LANGFUSE_S3_EVENT_UPLOAD_BUCKET: langfuse
+      LANGFUSE_S3_EVENT_UPLOAD_REGION: auto
+      LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minio}
+      LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-CHANGE_ME_minio_password}
+      LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT: http://langfuse-minio:9000
+      LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE: "true"
+      LANGFUSE_S3_EVENT_UPLOAD_PREFIX: events/
+      LANGFUSE_S3_MEDIA_UPLOAD_BUCKET: langfuse
+      LANGFUSE_S3_MEDIA_UPLOAD_REGION: auto
+      LANGFUSE_S3_MEDIA_UPLOAD_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minio}
+      LANGFUSE_S3_MEDIA_UPLOAD_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-CHANGE_ME_minio_password}
+      LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT: http://langfuse-minio:9000
+      LANGFUSE_S3_MEDIA_UPLOAD_FORCE_PATH_STYLE: "true"
+      LANGFUSE_S3_MEDIA_UPLOAD_PREFIX: media/
+      SALT: ${SALT:-CHANGE_ME_salt_openssl_rand_base64_32}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-0000000000000000000000000000000000000000000000000000000000000000}
+      TELEMETRY_ENABLED: "false"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3030/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Postgres -- metadata (projects, users, dashboards, prompts)
+  # ──────────────────────────────────────────────────────────────────────────
+  langfuse-postgres:
+    image: postgres:16-alpine
+    container_name: langfuse-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: langfuse
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-CHANGE_ME_postgres_password}
+      POSTGRES_DB: langfuse
+    volumes:
+      - langfuse_postgres_data:/var/lib/postgresql/data  # (persist)
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U langfuse -d langfuse"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # ClickHouse -- columnar event store (traces, observations, scores)
+  # NOTE: ClickHouse is memory-hungry. Render Standard tier (2GB) is the
+  # absolute minimum; 4GB is safer. Tune mark_cache_size / index_cache_size
+  # downward if you see OOM kills.
+  # ──────────────────────────────────────────────────────────────────────────
+  langfuse-clickhouse:
+    image: clickhouse/clickhouse-server:24.8
+    container_name: langfuse-clickhouse
+    restart: unless-stopped
+    user: "101:101"
+    environment:
+      CLICKHOUSE_DB: default
+      CLICKHOUSE_USER: langfuse
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-CHANGE_ME_clickhouse_password}
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    volumes:
+      - langfuse_clickhouse_data:/var/lib/clickhouse           # (persist)
+      - langfuse_clickhouse_logs:/var/log/clickhouse-server    # (persist)
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8123/ping || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Redis -- queue between langfuse-web (producer) and langfuse-worker (consumer)
+  # ──────────────────────────────────────────────────────────────────────────
+  langfuse-redis:
+    image: redis:7-alpine
+    container_name: langfuse-redis
+    restart: unless-stopped
+    command:
+      - redis-server
+      - --requirepass
+      - ${REDIS_PASSWORD:-CHANGE_ME_redis_password}
+      - --maxmemory
+      - "256mb"
+      - --maxmemory-policy
+      - "allkeys-lru"
+    volumes:
+      - langfuse_redis_data:/data  # (persist queue across restarts)
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a ${REDIS_PASSWORD:-CHANGE_ME_redis_password} --no-auth-warning ping | grep PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # MinIO -- S3-compatible blob storage for large event payloads + media
+  # NOTE: For Render, you can swap this for AWS S3 / Cloudflare R2 by
+  # replacing the LANGFUSE_S3_*_ENDPOINT in langfuse-web/worker.
+  # ──────────────────────────────────────────────────────────────────────────
+  langfuse-minio:
+    image: minio/minio:latest
+    container_name: langfuse-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    ports:
+      - "9090:9000"   # S3 API (host port 9090 to avoid Render conflicts)
+      - "9091:9001"   # MinIO web console
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-CHANGE_ME_minio_password}
+    volumes:
+      - langfuse_minio_data:/data  # (persist)
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:9000/minio/health/live || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+# ════════════════════════════════════════════════════════════════════════════
+# Persistent volumes
+# ════════════════════════════════════════════════════════════════════════════
+volumes:
+  langfuse_postgres_data:
+  langfuse_clickhouse_data:
+  langfuse_clickhouse_logs:
+  langfuse_redis_data:
+  langfuse_minio_data:

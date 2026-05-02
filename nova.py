@@ -28,6 +28,19 @@ import time
 from pathlib import Path
 from typing import Any, Dict, Generator, List, Optional, Tuple
 
+# S50 (May 2026): 11 free recruitment data APIs as Nova chatbot tools.
+# (ESCO, NPI Registry, FMCSA, ILOSTAT, World Bank, HN Algolia, Levels.fyi
+#  embed, Crunchbase stub, PDL stub, WARNTracker URL stub.) Graceful
+# degradation if module missing so deploys don't fail on a partial rollout.
+try:
+    from chatbot_tools_recruitment import (
+        RECRUITMENT_TOOLS_SCHEMA,
+        RECRUITMENT_TOOL_DISPATCH,
+    )
+except ImportError:
+    RECRUITMENT_TOOLS_SCHEMA = []
+    RECRUITMENT_TOOL_DISPATCH = {}
+
 # Upstash Redis cache (optional, used for Nova response cache)
 try:
     from upstash_cache import (
@@ -502,8 +515,8 @@ MAX_CONTEXT_CHARS = 180_000  # ~45K tokens, safe margin for Claude's 200K window
 CLAUDE_MODEL_PRIMARY = (
     "claude-haiku-4-5-20251001"  # Fast + cheap for simple/medium queries
 )
-CLAUDE_MODEL_COMPLEX = (
-    "claude-sonnet-4-20250514"  # Deep reasoning for complex strategy queries
+CLAUDE_MODEL_COMPLEX = os.environ.get("CLAUDE_MODEL_COMPLEX") or (
+    "claude-sonnet-4-6"  # S50 (May 2026): bumped from claude-sonnet-4-20250514
 )
 
 # Response cache settings
@@ -599,6 +612,8 @@ _TOOL_ERROR_FALLBACK_MESSAGES: dict[str, str] = {
     "query_careerjet": "CareerJet international job search is temporarily unavailable, but I can provide global job market insights from our knowledge base.",
     "query_bea": "Bureau of Economic Analysis data is temporarily unavailable. Try query_regional_economics for state-level GDP, income, and employment data.",
     "score_creative_quality": "Creative quality scoring is temporarily unavailable, but I can share general guidance on improving ad creative quality for recruitment.",
+    "query_meta_performance": "Live Meta Ads performance data couldn't be retrieved right now (sync may be paused or table empty). I can share Meta benchmarks instead via get_meta_benchmarks.",
+    "query_google_ads_performance": "Live Google Ads performance data couldn't be retrieved right now (sync may be paused or table empty). I can share Google Ads benchmarks instead via query_google_ads_benchmarks.",
 }
 
 # ── Source name display mapping ──────────────────────────────────────────────
@@ -1535,6 +1550,8 @@ _TOOL_LABELS: Dict[str, str] = {
     "query_skills_gap": "Analyzing skills gap",
     "query_geopolitical_risk": "Assessing geopolitical risk",
     "query_google_ads_benchmarks": "Fetching Google Ads benchmarks",
+    "query_meta_performance": "Querying live Meta Ads campaign performance",
+    "query_google_ads_performance": "Querying live Google Ads campaign performance",
     "query_external_benchmarks": "Loading external benchmarks",
     "query_client_plans": "Searching client plans",
     "web_search": "Searching the web",
@@ -4648,6 +4665,58 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 },
             },
             {
+                "name": "query_meta_performance",
+                "description": "LIVE Meta (Facebook/Instagram) Ads campaign performance from our own ad account, synced from the Meta Marketing API to Supabase every few hours. Returns spend, impressions, clicks, conversions, CTR, CPC, CPA totals + top campaigns by spend. Use when the user asks 'how are our Meta ads doing', 'what's our Facebook spend this week', 'CPA on our Instagram campaigns', or anything about ACTUAL OWN-ACCOUNT performance (not benchmarks). For industry benchmarks instead, use get_meta_benchmarks.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "start_date": {
+                            "type": "string",
+                            "description": "Start date YYYY-MM-DD. Defaults to 7 days before end_date.",
+                        },
+                        "end_date": {
+                            "type": "string",
+                            "description": "End date YYYY-MM-DD (inclusive). Defaults to yesterday (UTC).",
+                        },
+                        "campaign_filter": {
+                            "type": "string",
+                            "description": "Optional substring to filter campaign_name (case-insensitive ilike). Leave empty for all campaigns.",
+                        },
+                        "top_n": {
+                            "type": "integer",
+                            "description": "How many top campaigns to return (by spend). Default 5, max 50.",
+                        },
+                    },
+                    "required": [],
+                },
+            },
+            {
+                "name": "query_google_ads_performance",
+                "description": "LIVE Google Ads campaign performance from our own MCC, synced from the Google Ads API to Supabase every few hours. Returns spend, impressions, clicks, conversions, CTR, CPC, CPA totals + top campaigns by spend. Use when the user asks 'how are our Google Ads doing', 'what's our search spend this week', 'CPA on our YouTube campaigns', or anything about ACTUAL OWN-ACCOUNT performance (not industry benchmarks). For industry benchmarks instead, use query_google_ads_benchmarks.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "start_date": {
+                            "type": "string",
+                            "description": "Start date YYYY-MM-DD. Defaults to 7 days before end_date.",
+                        },
+                        "end_date": {
+                            "type": "string",
+                            "description": "End date YYYY-MM-DD (inclusive). Defaults to yesterday (UTC).",
+                        },
+                        "campaign_filter": {
+                            "type": "string",
+                            "description": "Optional substring to filter campaign_name (case-insensitive ilike). Leave empty for all campaigns.",
+                        },
+                        "top_n": {
+                            "type": "integer",
+                            "description": "How many top campaigns to return (by spend). Default 5, max 50.",
+                        },
+                    },
+                    "required": [],
+                },
+            },
+            {
                 "name": "query_external_benchmarks",
                 "description": "External recruitment benchmarks from 24 industry reports (Recruitics, Appcast, Radancy, PandoLogic, iCIMS, LinkedIn, Glassdoor, SHRM, Gartner, Korn Ferry, ManpowerGroup, Robert Half, Gem, etc.). Contains aggregated benchmarks: cost-per-hire by industry, time-to-fill, CPA by channel, talent shortage data, applicants per opening, AI adoption rates, compensation trends, turnover rates. Use for competitor trend reports, market-wide benchmarks, hiring trend analysis, or when comparing across multiple analyst sources.",
                 "input_schema": {
@@ -6214,7 +6283,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                     "required": ["dataset"],
                 },
             },
-        ]
+        ] + RECRUITMENT_TOOLS_SCHEMA  # S50: 11 free recruitment APIs
 
     # ------------------------------------------------------------------
     # Tool execution
@@ -6260,6 +6329,9 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             "query_skills_gap": self._query_skills_gap,
             "query_geopolitical_risk": self._query_geopolitical_risk,
             "query_google_ads_benchmarks": self._query_google_ads_benchmarks,
+            # Live social ads performance (synced from Meta + Google Ads APIs)
+            "query_meta_performance": self._query_meta_performance,
+            "query_google_ads_performance": self._query_google_ads_performance,
             "query_external_benchmarks": self._query_external_benchmarks,
             "query_client_plans": self._query_client_plans,
             "web_search": self._web_search,
@@ -6335,7 +6407,46 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             "score_creative_quality": self._score_creative_quality,
             # S50: Deep KB query (32 datasets)
             "query_kb_deep": self._query_kb_deep,
+            # S50 (May 2026): 11 free recruitment APIs spread in
+            **self._build_recruitment_handlers(),
         }
+
+    def _build_recruitment_handlers(self) -> dict:
+        """S50: Wrap recruitment_apis kwargs-style functions as (params: dict) handlers.
+
+        The Nova execute_tool path passes a dict to every handler, but the
+        recruitment_apis functions take individual kwargs. This bridges the
+        two with one error-isolating closure per tool.
+        """
+        handlers: dict = {}
+        for _name, _fn in RECRUITMENT_TOOL_DISPATCH.items():
+            # Default args bind name and fn into the closure so the loop
+            # variable doesn't leak across iterations.
+            def _wrap(params: dict, _fn=_fn, _name=_name) -> dict:
+                try:
+                    return _fn(**(params or {}))
+                except TypeError as _te:
+                    logger.error(
+                        "Recruitment tool %s arg mismatch: %s",
+                        _name,
+                        _te,
+                        exc_info=True,
+                    )
+                    return {
+                        "error": f"Invalid parameters for {_name}: {_te}",
+                        "source": _name,
+                    }
+                except Exception as _e:  # pragma: no cover -- catch-all safety net
+                    logger.error(
+                        "Recruitment tool %s failed: %s",
+                        _name,
+                        _e,
+                        exc_info=True,
+                    )
+                    return {"error": str(_e), "source": _name}
+
+            handlers[_name] = _wrap
+        return handlers
 
     def execute_tool(self, tool_name: str, tool_input: dict) -> str:
         """Execute a tool call and return the result as a JSON string.
@@ -9525,6 +9636,72 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             "source": "Joveo Google Ads 2025 (first-party, 6,338 keywords)",
             "data_priority": 3,
         }
+
+    def _query_meta_performance(self, args: dict) -> dict:
+        """Handler for query_meta_performance tool.
+
+        Reads live Meta Ads campaign performance from the social_campaign_metrics
+        Supabase table (synced every few hours by social_metrics_sync). Returns
+        totals + top campaigns by spend over the requested date range.
+        """
+        try:
+            from social_metrics_sync import query_performance
+        except ImportError as exc:
+            return {
+                "error": f"social_metrics_sync not available: {exc}",
+                "source": "social_campaign_metrics",
+            }
+        start = (args.get("start_date") or "").strip() or None
+        end = (args.get("end_date") or "").strip() or None
+        camp_filter = (args.get("campaign_filter") or "").strip() or None
+        try:
+            top_n = int(args.get("top_n") or 5)
+        except (TypeError, ValueError):
+            top_n = 5
+        top_n = max(1, min(top_n, 50))
+        result = query_performance(
+            "meta",
+            start_date=start,
+            end_date=end,
+            campaign_filter=camp_filter,
+            top_n=top_n,
+        )
+        result["source"] = "Meta Ads (live sync to Supabase, social_campaign_metrics)"
+        result["data_priority"] = 1  # First-party live data ranks highest
+        return result
+
+    def _query_google_ads_performance(self, args: dict) -> dict:
+        """Handler for query_google_ads_performance tool.
+
+        Reads live Google Ads campaign performance from the social_campaign_metrics
+        Supabase table (synced every few hours by social_metrics_sync). Returns
+        totals + top campaigns by spend over the requested date range.
+        """
+        try:
+            from social_metrics_sync import query_performance
+        except ImportError as exc:
+            return {
+                "error": f"social_metrics_sync not available: {exc}",
+                "source": "social_campaign_metrics",
+            }
+        start = (args.get("start_date") or "").strip() or None
+        end = (args.get("end_date") or "").strip() or None
+        camp_filter = (args.get("campaign_filter") or "").strip() or None
+        try:
+            top_n = int(args.get("top_n") or 5)
+        except (TypeError, ValueError):
+            top_n = 5
+        top_n = max(1, min(top_n, 50))
+        result = query_performance(
+            "google_ads",
+            start_date=start,
+            end_date=end,
+            campaign_filter=camp_filter,
+            top_n=top_n,
+        )
+        result["source"] = "Google Ads (live sync to Supabase, social_campaign_metrics)"
+        result["data_priority"] = 1
+        return result
 
     def _query_external_benchmarks(self, args: dict) -> dict:
         """Handler for query_external_benchmarks tool.

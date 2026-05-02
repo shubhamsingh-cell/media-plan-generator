@@ -127,20 +127,20 @@ PROVIDER_CATALOG: dict[str, dict[str, Any]] = {
         "baseline_latency_s": 2.5,
     },
     "xai": {
-        "name": "xAI Grok",
-        "cost_per_1k": 0.005,
+        "name": "xAI Grok 4.3",
+        "cost_per_1k": 0.00375,  # $1.25 in + $2.50 out / 2 = avg ~$0.00375 per 1K (Apr 2026 launch)
         "tier": "paid",
         "baseline_latency_s": 2.0,
     },
     # --- Best quality (EXPERT tier) ---
     "claude": {
-        "name": "Claude Sonnet 4",
+        "name": "Claude Sonnet 4.6",
         "cost_per_1k": 0.015,
         "tier": "paid",
         "baseline_latency_s": 4.0,
     },
     "claude_opus": {
-        "name": "Claude Opus 4.6",
+        "name": "Claude Opus 4.7",
         "cost_per_1k": 0.075,
         "tier": "paid",
         "baseline_latency_s": 8.0,

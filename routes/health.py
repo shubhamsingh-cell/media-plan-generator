@@ -815,12 +815,18 @@ def _handle_health_integrations(handler, path: str, parsed: Any) -> None:
         ),
         (
             "openrouter",
-            "Llama 4 Maverick (free)",
+            "Qwen3 Coder 480B (free)",
             "OpenRouter",
             "OPENROUTER_API_KEY",
-            "General purpose, strong reasoning",
+            "Top open-weight coding model, 262K ctx (S50 -- replaced deprecated Llama 4 Maverick)",
         ),
-        ("xai", "Grok 2", "xAI", "XAI_API_KEY", "Strong reasoning ($25 free credits)"),
+        (
+            "xai",
+            "Grok 4.3",
+            "xAI",
+            "XAI_API_KEY",
+            "$1.25/$2.50 per M, 1M ctx, reasoning-always-on (Apr 30, 2026)",
+        ),
         (
             "sambanova",
             "Llama 3.1 405B",
@@ -841,6 +847,23 @@ def _handle_health_integrations(handler, path: str, parsed: Any) -> None:
             "Cloudflare Workers AI",
             "CLOUDFLARE_AI_TOKEN",
             "Edge-distributed, low latency",
+        ),
+        # S50 ADDITION (May 2026): 3 new free-tier fallbacks
+        (
+            "openrouter_gpt_oss",
+            "GPT-OSS-120B (free)",
+            "OpenRouter",
+            "OPENROUTER_API_KEY",
+            "Apache 2.0, 131K ctx, native tool use (S50)",
+        ),
+        # S50 REMOVED: openrouter_deepseek (deepseek/deepseek-v3.2:free)
+        # 404'd on OpenRouter at live verification 2026-05-02
+        (
+            "cerebras_scout",
+            "Qwen-3 235B Instruct",
+            "Cerebras",
+            "CEREBRAS_API_KEY",
+            "~2,600 tok/s, 1M ctx, 1M tok/day free (S50, was Llama 4 Scout)",
         ),
     ]
     for _llm_id, _llm_model, _llm_provider, _llm_env, _llm_value in _free_llm_registry:

@@ -13,8 +13,8 @@ the dramatic quality improvement over free-tier LLMs.
 Provider priority (quality-first for substantive, free for simple):
     PRIMARY (quality-critical tasks):
     1.  Claude Haiku 4.5 (Anthropic) -- paid, fast + cheap, Claude-level quality
-    2.  Gemini 2.0 Flash  -- free, strong reasoning, best free-tier option
-    3.  GPT-4o (OpenAI) -- paid fallback, strong structured + reasoning
+    2.  Gemini 3 Flash (preview) -- free, $0.50/$3 per M, 3x faster than 2.5 Pro
+    3.  GPT-5.4-mini (OpenAI) -- $0.75/$6 per M, replaces deprecated GPT-4o (S50)
 
     FREE TIER (fallbacks + batch/summarize tasks):
     4.  Groq Llama 3.3 70B -- free, conversational, complex reasoning
@@ -26,11 +26,14 @@ Provider priority (quality-first for substantive, free for simple):
     10. SiliconFlow (Qwen2.5 7B) -- free, OpenAI-compatible
     11. Cloudflare Workers AI -- free 10K neurons/day
     12. Together AI (Llama 3.3 70B Turbo) -- $25 free credit
-    13-20. OpenRouter variants, xAI, HuggingFace (various free)
+    13-20. OpenRouter Qwen3-Coder/Gemma/etc, xAI Grok 4.3, HuggingFace (various free)
+    21. OpenRouter (GPT-OSS-120B) -- S50: Apache 2.0, 131K ctx, native tool use
+    22. OpenRouter (DeepSeek V3.2) -- S50: unified chat+reasoning, 163K ctx, gold IMO/IOI
+    23. Cerebras Llama 4 Scout -- S50: ~2,600 tok/s, 1M ctx, 1M tokens/day free
 
     EXPENSIVE TIER (deep analysis fallback):
-    21. Claude Sonnet 4 (Anthropic) -- paid, high quality, strong tool_use
-    22. Claude Opus 4.6 (Anthropic) -- paid, last resort, highest quality
+    24. Claude Sonnet 4.6 (Anthropic) -- paid, 1M ctx, strong tool_use (S50: was Sonnet 4)
+    25. Claude Opus 4.7 (Anthropic) -- paid, last resort, highest quality (S50: was Opus 4.6)
 
 Task classification (8 types):
     - STRUCTURED:     benchmark lookups, CPC/CPA queries, JSON output
@@ -49,7 +52,7 @@ Features (v4.0):
     - Response cache: LRU with task-aware TTL (5-min default, 15-min for verification/compliance)
 
 Each provider has independent circuit breaker (5 failures -> 60s cooldown)
-and per-minute rate tracking.  24 total providers (20 free + 4 paid).
+and per-minute rate tracking.  27 total providers (23 free + 4 paid).
 
 Stdlib-only, thread-safe.
 """
@@ -166,6 +169,14 @@ CLAUDE_HAIKU = "claude_haiku"
 CLAUDE = "claude"
 CLAUDE_OPUS = "claude_opus"
 
+# S50 ADDITION (May 2026): 3 new free-tier fallbacks
+# - OPENROUTER_GPT_OSS: GPT-OSS-120B (Apache 2.0, 131K ctx, native tool use)
+# - CEREBRAS_SCOUT: Cerebras Qwen-3 235B Instruct (~2,600 tok/s, 1M ctx)
+#   (Note: OPENROUTER_DEEPSEEK was planned but removed S50 -- the
+#   deepseek/deepseek-v3.2:free slug returns 404 on OpenRouter)
+OPENROUTER_GPT_OSS = "openrouter_gpt_oss"
+CEREBRAS_SCOUT = "cerebras_scout"
+
 # Global timeout budget: max total wall-clock seconds for the entire call_llm()
 # fallback loop.  Individual per-provider timeouts are dynamically capped to the
 # remaining budget so the caller never waits longer than this.
@@ -252,6 +263,10 @@ _RATE_LIMITS: dict[str, dict[str, int]] = {
     "openrouter_yi": {"rpm": 20, "window": 60},
     "openrouter_deepseek_r1": {"rpm": 20, "window": 60},
     "openrouter_gemma": {"rpm": 20, "window": 60},
+    # S50 ADDITION (May 2026): new OpenRouter variants share the 20 RPM combined cap
+    "openrouter_gpt_oss": {"rpm": 20, "window": 60},
+    # S50 ADDITION (May 2026): Cerebras Qwen-3 235B Instruct -- speed-critical fallback
+    "cerebras_scout": {"rpm": 30, "window": 60},
     "xiaomi_mimo": {"rpm": 30, "window": 60},
     "cloudflare": {"rpm": 300, "window": 60},
     # Paid tiers -- higher limits
@@ -525,14 +540,16 @@ _response_cache = _ResponseCache()
 # Provider configs: endpoint, model, auth header, rate limits
 PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
     GEMINI: {
-        "name": "Gemini 2.5 Flash",
+        "name": "Gemini 3 Flash",
         "api_style": "gemini",  # Google-specific format
-        # S53 FIX: "gemini-3.1-flash-preview" does not exist in v1beta API --
-        # Sentry issue PYTHON-3V was throwing 404 "models/gemini-3.1-flash-preview
-        # is not found for API version v1beta". Reverted to the GA "gemini-2.5-flash"
-        # which is the latest stable free-tier Gemini model.
-        "endpoint": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
-        "model": "gemini-2.5-flash",
+        # S50 UPGRADE: Moved from "gemini-2.5-flash" (GA) to "gemini-3-flash-preview"
+        # for frontier-class quality on the free tier. The earlier S53 fix had
+        # reverted from the non-existent "gemini-3.1-flash-preview" to "gemini-2.5-flash";
+        # "gemini-3-flash-preview" is the verified working preview model ID
+        # (validated in talent-crm commit df08565). Override via env var if needed
+        # for max stability: GEMINI_MODEL=gemini-2.5-flash
+        "endpoint": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent",
+        "model": "gemini-3-flash-preview",
         "env_key": "GEMINI_API_KEY",
         "rpm_limit": 30,
         "rpd_limit": 1500,
@@ -540,12 +557,18 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         "max_tokens": 8192,
     },
     GEMINI_FLASH_LITE: {
-        "name": "Gemini 2.5 Flash Lite",
+        "name": "Gemini 3.1 Flash Lite",
         "api_style": "gemini",
-        # S53 FIX: "gemini-3.1-flash-lite-preview" is not a real model ID -- 404
-        # in Sentry. Using "gemini-2.5-flash-lite" instead (GA, lowest cost tier).
-        "endpoint": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent",
-        "model": "gemini-2.5-flash-lite",
+        # S50 UPGRADE (May 2026): Moved to "gemini-3.1-flash-lite-preview", which
+        # IS now a real model on the free tier (verified against Google's pricing
+        # page + multiple secondary sources). The earlier S53 fix reverted to
+        # "gemini-2.5-flash-lite" because the 3.1-lite ID returned 404 -- Google
+        # has since shipped the model. Pairs with main GEMINI provider on
+        # "gemini-3-flash-preview" for the latest free Gemini stack.
+        # Override via env if Google changes preview availability:
+        #   GEMINI_FLASH_LITE_MODEL=gemini-2.5-flash-lite (GA fallback)
+        "endpoint": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent",
+        "model": "gemini-3.1-flash-lite-preview",
         "env_key": "GEMINI_API_KEY",
         "rpm_limit": 30,
         "rpd_limit": 1500,
@@ -575,10 +598,15 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         "max_tokens": 8192,
     },
     MISTRAL: {
-        "name": "Mistral Small",
+        # S50 (May 2026): pinned alias mistral-small-latest -> mistral-small-2603
+        # for production reproducibility. mistral-small-latest currently aliases
+        # to mistral-small-2603 per live /v1/models check on 2026-05-02; pinning
+        # avoids silent regressions when Mistral repoints the alias.
+        # Override via env: MISTRAL_MODEL=mistral-small-latest (rolling alias).
+        "name": "Mistral Small (pinned 2603)",
         "api_style": "openai",  # OpenAI-compatible
         "endpoint": "https://api.mistral.ai/v1/chat/completions",
-        "model": "mistral-small-latest",
+        "model": os.environ.get("MISTRAL_MODEL") or "mistral-small-2603",
         "env_key": "MISTRAL_API_KEY",
         "rpm_limit": 30,
         "rpd_limit": 14400,
@@ -586,10 +614,15 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         "max_tokens": 8192,
     },
     OPENROUTER: {
-        "name": "OpenRouter (Llama 4 Maverick)",
+        # S50 UPGRADE (May 2026): Llama 4 Maverick was deprecated on Groq Mar 9,
+        # 2026. OpenRouter still hosts it free, but Qwen3-Coder-480B (262K ctx)
+        # is the top open-weight coding model and excellent for structured
+        # output / recruitment Q&A. Same OPENROUTER_API_KEY, free tier.
+        # Override via env: OPENROUTER_MODEL=meta-llama/llama-4-maverick:free
+        "name": "OpenRouter (Qwen3 Coder 480B)",
         "api_style": "openai",  # OpenAI-compatible
         "endpoint": "https://openrouter.ai/api/v1/chat/completions",
-        "model": "meta-llama/llama-4-maverick:free",
+        "model": os.environ.get("OPENROUTER_MODEL") or "qwen/qwen3-coder:free",
         "env_key": "OPENROUTER_API_KEY",
         "rpm_limit": 20,
         "rpd_limit": 1000,  # Conservative -- free tier has daily limits
@@ -780,15 +813,63 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         },
     },
     GPT4O: {
-        "name": "GPT-4o (OpenAI)",
+        # S50 UPGRADE (May 2026): GPT-4o is now legacy. GPT-5.4-mini ($0.75/M in,
+        # $6/M out) is the cost-sweet-spot replacement -- same OpenAI key, single
+        # model-string change. GPT-5.5 priority tier is ~2x more expensive.
+        # Override via env if needed: OPENAI_MODEL=gpt-4o (legacy fallback).
+        "name": "GPT-5.4 mini (OpenAI)",
         "api_style": "openai",  # OpenAI native format
         "endpoint": "https://api.openai.com/v1/chat/completions",
-        "model": "gpt-4o",
+        "model": os.environ.get("OPENAI_MODEL") or "gpt-5.4-mini",
         "env_key": "OPENAI_API_KEY",
         "rpm_limit": 60,
         "rpd_limit": 10000,
         "timeout": 25,  # Capped to fit within 30s global budget
         "max_tokens": 4096,
+    },
+    # S50 ADDITION (May 2026): GPT-OSS-120B via OpenRouter free tier.
+    # Apache 2.0 license, 131K context window, native tool-use support.
+    # Replaces deprecated Llama 4 Maverick on Groq (deprecated Mar 9, 2026).
+    # Strong general-purpose model with excellent structured/code output.
+    # Override via env: OPENROUTER_GPT_OSS_MODEL=openai/gpt-oss-120b:free
+    OPENROUTER_GPT_OSS: {
+        "name": "OpenRouter (GPT-OSS-120B)",
+        "api_style": "openai",  # OpenAI-compatible
+        "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+        "model": os.environ.get("OPENROUTER_GPT_OSS_MODEL")
+        or "openai/gpt-oss-120b:free",
+        "env_key": "OPENROUTER_API_KEY",
+        "rpm_limit": 20,
+        "rpd_limit": 1000,
+        "timeout": 30,
+        "max_tokens": 4096,
+        "extra_headers": {
+            "HTTP-Referer": "https://media-plan-generator.onrender.com",
+            "X-Title": "Nova AI Suite",
+        },
+    },
+    # S50 REMOVED: OPENROUTER_DEEPSEEK (deepseek/deepseek-v3.2:free) -- live
+    # verification on 2026-05-02 confirmed this slug returns HTTP 404 on OpenRouter.
+    # No free DeepSeek V3.2 tier exists. OPENROUTER_DEEPSEEK_R1 (deepseek-r1:free)
+    # remains as the verified-working DeepSeek free fallback.
+    # S50 ADDITION (May 2026): Cerebras's flagship open-weight model for speed.
+    # Original choice was llama-4-scout-17b-16e-instruct, but live verification
+    # found Cerebras does NOT host that model -- they only have llama3.1-8b,
+    # qwen-3-235b-a22b-instruct-2507, gpt-oss-120b, zai-glm-4.7. Switched to
+    # qwen-3-235b-a22b-instruct-2507 (Cerebras's flagship). ~2,600 tok/s,
+    # 1M tokens/day free quota, comparable benchmark to Llama 4 Scout.
+    # Override via env: CEREBRAS_SCOUT_MODEL=gpt-oss-120b (alt verified slug).
+    CEREBRAS_SCOUT: {
+        "name": "Cerebras Qwen-3 235B Instruct",
+        "api_style": "openai",  # OpenAI-compatible
+        "endpoint": "https://api.cerebras.ai/v1/chat/completions",
+        "model": os.environ.get("CEREBRAS_SCOUT_MODEL")
+        or "qwen-3-235b-a22b-instruct-2507",
+        "env_key": "CEREBRAS_API_KEY",
+        "rpm_limit": 30,
+        "rpd_limit": 14400,  # 1M tokens/day free
+        "timeout": 25,
+        "max_tokens": 8192,
     },
     CLAUDE_HAIKU: {
         "name": "Claude Haiku 4.5 (Anthropic)",
@@ -802,10 +883,13 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         "max_tokens": 4096,
     },
     CLAUDE: {
-        "name": "Claude Sonnet 4 (Anthropic)",
+        # S50 UPGRADE (May 2026): claude-sonnet-4-20250514 (May 2025) is a year
+        # old. Sonnet 4.6 is GA -- same API key, model-string-only change.
+        # Override via env if needed: CLAUDE_SONNET_MODEL=claude-sonnet-4-20250514
+        "name": "Claude Sonnet 4.6 (Anthropic)",
         "api_style": "anthropic",  # Anthropic-specific format
         "endpoint": "https://api.anthropic.com/v1/messages",
-        "model": "claude-sonnet-4-20250514",
+        "model": os.environ.get("CLAUDE_SONNET_MODEL") or "claude-sonnet-4-6",
         "env_key": "ANTHROPIC_API_KEY",
         "rpm_limit": 50,
         "rpd_limit": 10000,
@@ -813,10 +897,13 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         "max_tokens": 4096,
     },
     CLAUDE_OPUS: {
-        "name": "Claude Opus 4.6 (Anthropic)",
+        # S50 UPGRADE (May 2026): Opus 4.7 GA'd Apr 16, 2026. 1M-context, more
+        # literal instruction-following than 4.6, same $5/$25 per M. Override
+        # via env if needed: CLAUDE_OPUS_MODEL=claude-opus-4-20250514
+        "name": "Claude Opus 4.7 (Anthropic)",
         "api_style": "anthropic",  # Anthropic-specific format
         "endpoint": "https://api.anthropic.com/v1/messages",
-        "model": "claude-opus-4-20250514",
+        "model": os.environ.get("CLAUDE_OPUS_MODEL") or "claude-opus-4-7",
         "env_key": "ANTHROPIC_API_KEY",  # Same API key, different model
         "rpm_limit": 25,  # Conservative -- most expensive model
         "rpd_limit": 2000,
@@ -869,6 +956,7 @@ TASK_ROUTING: Dict[str, List[str]] = {
         CLOUDFLARE,
         TOGETHER,
         OPENROUTER_GEMMA,
+        OPENROUTER_GPT_OSS,  # S50: GPT-OSS-120B native tool-use, strong JSON
         GROQ,
         ZHIPU,
         OPENROUTER_QWEN,
@@ -891,12 +979,14 @@ TASK_ROUTING: Dict[str, List[str]] = {
         GPT4O,  # #3 paid fallback
         CLOUDFLARE,  # S48: promoted -- 300 RPM, absorbs overflow
         TOGETHER,  # S48: promoted -- 60 RPM
+        CEREBRAS_SCOUT,  # S50: ~2,600 tok/s, speed-critical free fallback
         XIAOMI_MIMO,  # Free fallback tier continues
         GROQ,
         ZHIPU,
         CEREBRAS,
         MISTRAL,
         OPENROUTER,
+        OPENROUTER_GPT_OSS,  # S50: GPT-OSS-120B, strong general chat quality
         NVIDIA_NIM,
         SAMBANOVA,
         OPENROUTER_YI,
@@ -914,6 +1004,8 @@ TASK_ROUTING: Dict[str, List[str]] = {
         GPT4O,  # #3 paid fallback
         CLAUDE,  # #4 Sonnet for deep reasoning
         OPENROUTER_DEEPSEEK_R1,  # Free fallback tier
+        # S50 REMOVED: OPENROUTER_DEEPSEEK -- deepseek-v3.2:free 404'd in live verification
+        OPENROUTER_GPT_OSS,  # S50: GPT-OSS-120B reasoning-capable
         CLOUDFLARE,  # S48: promoted -- 300 RPM high-availability fallback
         TOGETHER,  # S48: promoted -- 60 RPM
         XIAOMI_MIMO,
@@ -937,6 +1029,7 @@ TASK_ROUTING: Dict[str, List[str]] = {
         OPENROUTER_QWEN,  # Qwen3 Coder -- code specialist, top free variant
         CLAUDE_HAIKU,  # Quality fallback for tricky / critical code
         GPT4O,  # Paid fallback
+        OPENROUTER_GPT_OSS,  # S50: GPT-OSS-120B native tool-use, strong code
         MISTRAL,
         GROQ,
         OPENROUTER,
@@ -978,6 +1071,7 @@ TASK_ROUTING: Dict[str, List[str]] = {
         GPT4O,  # #3 paid fallback
         CLAUDE,  # #4 Sonnet for deep research
         OPENROUTER_DEEPSEEK_R1,  # Free fallback tier
+        # S50 REMOVED: OPENROUTER_DEEPSEEK -- slug 404 verified 2026-05-02
         SAMBANOVA,
         OPENROUTER,
         GROQ,
@@ -1001,6 +1095,7 @@ TASK_ROUTING: Dict[str, List[str]] = {
         GPT4O,  # #3 paid fallback
         GROQ,  # #4 free fallback
         CEREBRAS,
+        # S50 REMOVED: OPENROUTER_DEEPSEEK -- slug 404 verified 2026-05-02
         OPENROUTER,
         ZHIPU,
         MISTRAL,
@@ -1019,6 +1114,7 @@ TASK_ROUTING: Dict[str, List[str]] = {
         GEMINI_FLASH_LITE,
         GROQ,
         CEREBRAS,
+        CEREBRAS_SCOUT,  # S50: ~2,600 tok/s, ideal for high-throughput batch
         CLOUDFLARE,
         ZHIPU,
         MISTRAL,
@@ -1034,6 +1130,7 @@ TASK_ROUTING: Dict[str, List[str]] = {
         OPENROUTER_ARCEE,
         GPT4O,
         OPENROUTER_DEEPSEEK_R1,
+        OPENROUTER_GPT_OSS,  # S50: GPT-OSS-120B free fallback for batch
         CLAUDE,
         OPENROUTER_GEMMA,
         CLAUDE_OPUS,
@@ -1429,6 +1526,10 @@ _PROVIDER_COST_PER_M_TOKENS: Dict[str, Dict[str, float]] = {
     OPENROUTER_YI: {"input": 0.0, "output": 0.0},
     OPENROUTER_DEEPSEEK_R1: {"input": 0.0, "output": 0.0},
     OPENROUTER_GEMMA: {"input": 0.0, "output": 0.0},
+    # S50 ADDITION (May 2026): new free providers
+    OPENROUTER_GPT_OSS: {"input": 0.0, "output": 0.0},
+    # OPENROUTER_DEEPSEEK removed S50 -- slug 404 verified 2026-05-02
+    CEREBRAS_SCOUT: {"input": 0.0, "output": 0.0},
     CLAUDE_HAIKU: {"input": 1.0, "output": 5.0},
     GPT4O: {"input": 2.5, "output": 10.0},
     CLAUDE: {"input": 3.0, "output": 15.0},
@@ -2288,6 +2389,88 @@ def parallel_distribute(
 # API CALL ADAPTERS (normalize request/response across providers)
 # ═══════════════════════════════════════════════════════════════════════════════
 
+# ── Gemini thinking-budget control (May 2026) ──────────────────────────────────
+# gemini-3-flash-preview and gemini-3.1-flash-lite-preview are thinking-enabled
+# by default. Without generationConfig.thinkingConfig.thinkingBudget = 0,
+# requests with small maxOutputTokens (< 2048) consume the budget on internal
+# thinking and either time out (>110s) or return empty.
+#
+# Decision rule for the auto-mode (see _should_disable_gemini_thinking):
+#     DISABLE thinking when: small max_tokens (< 2048) AND no tool calling.
+#     KEEP thinking when:    large max_tokens (>= 2048) OR tool calling present
+#                            (long-form synthesis or reasoning-heavy tasks where
+#                            thinking improves quality and the caller has
+#                            budgeted enough wall-clock time).
+#
+# Per-call override is exposed via the `disable_thinking` parameter on the
+# request builders. Global override is via GEMINI_DISABLE_THINKING env var:
+#     "auto"  / unset   -> use the auto rule (default, recommended)
+#     "1" / "true"      -> always disable thinking (kill switch for incidents)
+#     "0" / "false"     -> never auto-disable (let callers decide explicitly)
+_GEMINI_THINKING_AUTO_MAX_TOKENS_THRESHOLD = 2048
+_GEMINI_DISABLE_THINKING_ENV = "GEMINI_DISABLE_THINKING"
+
+
+def _gemini_thinking_env_override() -> Optional[bool]:
+    """Read GEMINI_DISABLE_THINKING env var.
+
+    Returns:
+        True  -> globally force disable_thinking=True
+        False -> globally suppress auto-disable (let callers decide)
+        None  -> auto mode (default)
+    """
+    raw = (os.environ.get(_GEMINI_DISABLE_THINKING_ENV) or "").strip().lower()
+    if raw in ("1", "true", "yes", "on"):
+        return True
+    if raw in ("0", "false", "no", "off"):
+        return False
+    return None
+
+
+def _should_disable_gemini_thinking(
+    max_tokens: int,
+    has_tools: bool,
+    disable_thinking: Optional[bool] = None,
+) -> bool:
+    """Decide whether to set generationConfig.thinkingConfig.thinkingBudget = 0.
+
+    Resolution order (highest to lowest precedence):
+        1. Per-call override `disable_thinking` (True / False, not None)
+        2. Env var GEMINI_DISABLE_THINKING (true -> always disable;
+           false -> never auto-disable)
+        3. Auto rule:
+              has_tools=True                            -> keep thinking on
+              max_tokens < 2048                         -> disable thinking
+              max_tokens >= 2048                        -> keep thinking on
+
+    Args:
+        max_tokens: generationConfig.maxOutputTokens for this request.
+        has_tools: True if tool / function-calling definitions are attached.
+        disable_thinking: Explicit per-call override (None = auto).
+
+    Returns:
+        True if thinkingBudget should be set to 0, False otherwise.
+    """
+    # 1. Explicit per-call override wins
+    if disable_thinking is True:
+        return True
+    if disable_thinking is False:
+        return False
+
+    # 2. Env var override
+    env_override = _gemini_thinking_env_override()
+    if env_override is True:
+        return True
+    if env_override is False:
+        return False
+
+    # 3. Auto rule
+    if has_tools:
+        return False
+    if max_tokens < _GEMINI_THINKING_AUTO_MAX_TOKENS_THRESHOLD:
+        return True
+    return False
+
 
 def _build_gemini_request(
     messages: List[Dict],
@@ -2295,12 +2478,19 @@ def _build_gemini_request(
     max_tokens: int,
     tools: Optional[List[Dict]] = None,
     provider_id: str = GEMINI,
+    disable_thinking: Optional[bool] = None,
 ) -> Tuple[str, Dict[str, str], bytes]:
     """Build a Gemini API request.
 
-    Supports both gemini-3.1-flash-preview and gemini-3.1-flash-lite-preview via provider_id.
+    Supports both gemini-3-flash-preview and gemini-3.1-flash-lite-preview via provider_id.
     Handles tool definitions (converted from Anthropic format) and multi-turn
     tool conversations with functionCall/functionResponse parts.
+
+    Args:
+        disable_thinking: Per-call override for thinkingBudget. None (default)
+            uses the auto rule -- see _should_disable_gemini_thinking for the
+            full resolution chain. Pass True for latency-sensitive paths that
+            don't need internal reasoning, False to force thinking on.
     """
     api_key = (os.environ.get("GEMINI_API_KEY") or "").strip()
     config = PROVIDER_CONFIG.get(provider_id) or PROVIDER_CONFIG[GEMINI]
@@ -2403,12 +2593,21 @@ def _build_gemini_request(
     if pending_fn_responses:
         contents.append({"role": "user", "parts": pending_fn_responses})
 
+    has_tools = bool(tools)
+    generation_config: Dict[str, Any] = {
+        "maxOutputTokens": max_tokens,
+        "temperature": 0.7,
+    }
+    # Decide whether to disable thinking (see helper for the rule).
+    # Without this, gemini-3-flash-preview / gemini-3.1-flash-lite-preview
+    # spend their token budget on internal thinking and return empty bodies
+    # for low-maxOutputTokens requests.
+    if _should_disable_gemini_thinking(max_tokens, has_tools, disable_thinking):
+        generation_config["thinkingConfig"] = {"thinkingBudget": 0}
+
     payload: Dict[str, Any] = {
         "contents": contents,
-        "generationConfig": {
-            "maxOutputTokens": max_tokens,
-            "temperature": 0.7,
-        },
+        "generationConfig": generation_config,
     }
 
     # System instruction
@@ -2763,7 +2962,7 @@ def _parse_gemini_response(resp_data: Dict) -> Dict[str, Any]:
                 )
 
         usage = resp_data.get("usageMetadata", {})
-        model_name = resp_data.get("modelVersion") or "gemini-2.5-flash"
+        model_name = resp_data.get("modelVersion") or "gemini-3-flash-preview"
 
         result: Dict[str, Any] = {
             "text": " ".join(text_parts).strip(),
@@ -2937,7 +3136,7 @@ def call_llm(
             "text": "response text",
             "provider": "gemini|groq|cerebras|claude|claude_opus",
             "provider_name": "Gemini 3 Flash",
-            "model": "gemini-3.1-flash-preview",
+            "model": "gemini-3-flash-preview",
             "task_type": "conversational",
             "input_tokens": 100,
             "output_tokens": 200,
@@ -3315,12 +3514,23 @@ def _stream_gemini(
     system_prompt: str,
     max_tokens: int,
     provider_id: str = GEMINI,
+    disable_thinking: Optional[bool] = None,
 ) -> Generator[str, None, None]:
     """Stream tokens from the Gemini streaming endpoint.
 
     Uses the streamGenerateContent endpoint which returns newline-delimited
     JSON objects, each containing partial candidates.  Supports both
-    gemini-2.0-flash and gemini-2.0-flash-lite via provider_id.
+    gemini-3-flash-preview and gemini-3.1-flash-lite-preview via provider_id.
+
+    Streaming is the chat / real-time SSE path. By default the auto rule
+    leaves thinking enabled for max_tokens >= 2048; callers wanting a
+    first-token latency guarantee should pass disable_thinking=True.
+
+    Args:
+        disable_thinking: Per-call override for thinkingBudget. None (default)
+            uses the auto rule -- see _should_disable_gemini_thinking. For
+            real-time streaming chat where first-token latency matters most,
+            consider passing True even when max_tokens is large.
     """
     api_key = (os.environ.get("GEMINI_API_KEY") or "").strip()
     config = PROVIDER_CONFIG.get(provider_id) or PROVIDER_CONFIG[GEMINI]
@@ -3339,12 +3549,21 @@ def _stream_gemini(
         if isinstance(text, str):
             contents.append({"role": role, "parts": [{"text": text}]})
 
+    # Streaming path doesn't accept tools (per signature), so has_tools=False.
+    # The auto rule will disable thinking for max_tokens < 2048 only;
+    # callers that need a first-token guarantee can pass disable_thinking=True.
+    generation_config: Dict[str, Any] = {
+        "maxOutputTokens": max_tokens,
+        "temperature": 0.7,
+    }
+    if _should_disable_gemini_thinking(
+        max_tokens, has_tools=False, disable_thinking=disable_thinking
+    ):
+        generation_config["thinkingConfig"] = {"thinkingBudget": 0}
+
     payload: Dict[str, Any] = {
         "contents": contents,
-        "generationConfig": {
-            "maxOutputTokens": max_tokens,
-            "temperature": 0.7,
-        },
+        "generationConfig": generation_config,
     }
     if system_prompt:
         payload["systemInstruction"] = {"parts": [{"text": system_prompt}]}

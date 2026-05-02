@@ -1,0 +1,6237 @@
+{
+  "metadata": {
+    "source": "Stack Overflow 2025 Developer Survey",
+    "license": "Open Database License (ODbL)",
+    "n_respondents": 49191,
+    "n_with_valid_usd_salary": 22227,
+    "generated_at": "2026-05-01T20:58:58.113174+00:00",
+    "survey_url": "https://survey.stackoverflow.co/2025/",
+    "salary_filters_usd": {
+      "min": 5000.0,
+      "max": 5000000.0
+    },
+    "min_bucket_n_for_salary_aggregates": 5
+  },
+  "country_counts": {
+    "United States of America": 7233,
+    "Germany": 3025,
+    "India": 2547,
+    "United Kingdom of Great Britain and Northern Ireland": 2042,
+    "France": 1409,
+    "Canada": 1305,
+    "Ukraine": 964,
+    "Poland": 888,
+    "Netherlands": 867,
+    "Italy": 835,
+    "Brazil": 825,
+    "Australia": 804,
+    "Spain": 717,
+    "Sweden": 616,
+    "Switzerland": 546,
+    "Czech Republic": 520,
+    "Austria": 410,
+    "Romania": 323,
+    "Belgium": 321,
+    "Denmark": 316,
+    "Israel": 297,
+    "Turkey": 295,
+    "Mexico": 286,
+    "Portugal": 280,
+    "China": 255,
+    "New Zealand": 255,
+    "Finland": 254,
+    "South Africa": 253,
+    "Greece": 252,
+    "Bulgaria": 244,
+    "Pakistan": 239,
+    "Norway": 237,
+    "Hungary": 236,
+    "Argentina": 222,
+    "Bangladesh": 220,
+    "Ireland": 209,
+    "Colombia": 202,
+    "Russian Federation": 200,
+    "Nigeria": 199,
+    "Japan": 188,
+    "Indonesia": 181,
+    "Serbia": 158,
+    "Iran, Islamic Republic of...": 149,
+    "Kenya": 148,
+    "Slovakia": 147,
+    "Viet Nam": 145,
+    "Philippines": 142,
+    "Egypt": 140,
+    "Chile": 131,
+    "Thailand": 119,
+    "Taiwan": 118,
+    "Croatia": 113,
+    "Lithuania": 101,
+    "Sri Lanka": 95,
+    "United Arab Emirates": 89,
+    "Singapore": 89,
+    "Nepal": 83,
+    "Malaysia": 82,
+    "Slovenia": 78,
+    "Hong Kong (S.A.R.)": 72,
+    "Estonia": 70,
+    "Peru": 64,
+    "Latvia": 62,
+    "Morocco": 55,
+    "Uruguay": 52,
+    "Algeria": 49,
+    "Georgia": 48,
+    "South Korea": 48,
+    "Venezuela, Bolivarian Republic of...": 47,
+    "Tunisia": 46,
+    "Ghana": 46,
+    "Cyprus": 39,
+    "Ethiopia": 38,
+    "Republic of Korea": 38,
+    "Saudi Arabia": 37,
+    "Guatemala": 33,
+    "Jordan": 32,
+    "Bosnia and Herzegovina": 30,
+    "Kazakhstan": 29,
+    "Nomadic": 29,
+    "Uganda": 28,
+    "Ecuador": 28,
+    "Costa Rica": 27,
+    "Dominican Republic": 26,
+    "Belarus": 26,
+    "Armenia": 25,
+    "Luxembourg": 23,
+    "Albania": 22,
+    "Paraguay": 21,
+    "Republic of North Macedonia": 20,
+    "Lebanon": 20,
+    "Malta": 19,
+    "Bolivia": 18,
+    "Yemen": 18,
+    "Azerbaijan": 18,
+    "Myanmar": 17,
+    "Uzbekistan": 16,
+    "Montenegro": 15,
+    "Rwanda": 15,
+    "Zimbabwe": 13
+  },
+  "devtype_counts": {
+    "Developer, full-stack": 12351,
+    "Developer, back-end": 6453,
+    "Student": 3008,
+    "Architect, software or solutions": 2684,
+    "Developer, front-end": 1974,
+    "Developer, desktop or enterprise applications": 1919,
+    "Other (please specify):": 1825,
+    "Developer, mobile": 1391,
+    "Developer, embedded applications or devices": 1274,
+    "Academic researcher": 1131,
+    "Engineering manager": 1068,
+    "DevOps engineer or professional": 1053,
+    "Data engineer": 770,
+    "AI/ML engineer": 677,
+    "Data scientist": 574,
+    "Senior executive (C-suite, VP, etc.)": 528,
+    "System administrator": 480,
+    "Retired": 458,
+    "Developer, game or graphics": 451,
+    "Cloud infrastructure engineer": 441,
+    "Founder, technology or otherwise": 431,
+    "Cybersecurity or InfoSec professional": 370,
+    "Data or business analyst": 351,
+    "Developer, QA or test": 343,
+    "Project manager": 302,
+    "Applied scientist": 297,
+    "Support engineer or analyst": 251,
+    "Developer, AI apps or physical AI": 236,
+    "Product manager": 205,
+    "Database administrator or engineer": 175,
+    "UX, Research Ops or UI design professional": 115,
+    "Financial analyst or engineer": 94
+  },
+  "yearscode_distribution": {
+    "11-15": 7641,
+    "6-10": 10365,
+    "3-5": 5153,
+    "21-30": 7190,
+    "16-20": 5791,
+    "31+": 5195,
+    "1-2": 1707
+  },
+  "salary_by_country_usd": {
+    "Ukraine": {
+      "n": 509,
+      "p25": 21000.0,
+      "p50": 40743.0,
+      "p75": 64709.0,
+      "mean": 46687.0
+    },
+    "Netherlands": {
+      "n": 604,
+      "p25": 60328.0,
+      "p50": 81210.0,
+      "p75": 109924.0,
+      "mean": 95060.0
+    },
+    "Australia": {
+      "n": 566,
+      "p25": 74761.0,
+      "p50": 97514.0,
+      "p75": 128068.0,
+      "mean": 116552.0
+    },
+    "United States of America": {
+      "n": 5147,
+      "p25": 105000.0,
+      "p50": 150000.0,
+      "p75": 200000.0,
+      "mean": 171682.0
+    },
+    "United Kingdom of Great Britain and Northern Ireland": {
+      "n": 1466,
+      "p25": 66709.0,
+      "p50": 95299.0,
+      "p75": 133419.0,
+      "mean": 114481.0
+    },
+    "Ireland": {
+      "n": 151,
+      "p25": 88171.0,
+      "p50": 116015.0,
+      "p75": 150819.0,
+      "mean": 123735.0
+    },
+    "Sweden": {
+      "n": 460,
+      "p25": 57652.0,
+      "p50": 71279.0,
+      "p75": 85534.0,
+      "mean": 75646.0
+    },
+    "Dominican Republic": {
+      "n": 16,
+      "p25": 22961.0,
+      "p50": 31218.0,
+      "p75": 76500.0,
+      "mean": 55022.0
+    },
+    "Germany": {
+      "n": 2095,
+      "p25": 62648.0,
+      "p50": 82370.0,
+      "p75": 104413.0,
+      "mean": 88310.0
+    },
+    "Czech Republic": {
+      "n": 340,
+      "p25": 42125.0,
+      "p50": 65060.0,
+      "p75": 88585.0,
+      "mean": 70969.0
+    },
+    "Hungary": {
+      "n": 158,
+      "p25": 30731.0,
+      "p50": 51370.0,
+      "p75": 75642.0,
+      "mean": 59026.0
+    },
+    "Malaysia": {
+      "n": 42,
+      "p25": 13077.0,
+      "p50": 20500.0,
+      "p75": 35344.0,
+      "mean": 26608.0
+    },
+    "Switzerland": {
+      "n": 412,
+      "p25": 111594.0,
+      "p50": 142592.0,
+      "p75": 173590.0,
+      "mean": 153478.0
+    },
+    "Egypt": {
+      "n": 34,
+      "p25": 9386.0,
+      "p50": 15988.0,
+      "p75": 33952.0,
+      "mean": 25252.0
+    },
+    "Austria": {
+      "n": 272,
+      "p25": 58007.0,
+      "p50": 80560.0,
+      "p75": 98612.0,
+      "mean": 81764.0
+    },
+    "Poland": {
+      "n": 554,
+      "p25": 38206.0,
+      "p50": 64131.0,
+      "p75": 95515.0,
+      "mean": 70649.0
+    },
+    "Spain": {
+      "n": 547,
+      "p25": 40605.0,
+      "p50": 63808.0,
+      "p75": 87011.0,
+      "mean": 72453.0
+    },
+    "Serbia": {
+      "n": 89,
+      "p25": 31328.0,
+      "p50": 64000.0,
+      "p75": 89207.0,
+      "mean": 70384.0
+    },
+    "France": {
+      "n": 1005,
+      "p25": 48726.0,
+      "p50": 63808.0,
+      "p75": 88171.0,
+      "mean": 75359.0
+    },
+    "Romania": {
+      "n": 195,
+      "p25": 34462.0,
+      "p50": 62032.0,
+      "p75": 90491.0,
+      "mean": 70500.0
+    },
+    "Canada": {
+      "n": 905,
+      "p25": 65663.0,
+      "p50": 87550.0,
+      "p75": 120381.0,
+      "mean": 101237.0
+    },
+    "United Arab Emirates": {
+      "n": 43,
+      "p25": 35399.0,
+      "p50": 58816.0,
+      "p75": 136149.0,
+      "mean": 115191.0
+    },
+    "Belgium": {
+      "n": 212,
+      "p25": 51685.0,
+      "p50": 75410.0,
+      "p75": 104413.0,
+      "mean": 87011.0
+    },
+    "Brazil": {
+      "n": 566,
+      "p25": 17332.0,
+      "p50": 33066.0,
+      "p75": 54611.0,
+      "mean": 46866.0
+    },
+    "Italy": {
+      "n": 568,
+      "p25": 36197.0,
+      "p50": 48726.0,
+      "p75": 69609.0,
+      "mean": 57155.0
+    },
+    "Argentina": {
+      "n": 138,
+      "p25": 28130.0,
+      "p50": 43326.0,
+      "p75": 78000.0,
+      "mean": 53506.0
+    },
+    "Russian Federation": {
+      "n": 113,
+      "p25": 18118.0,
+      "p50": 44658.0,
+      "p75": 59984.0,
+      "mean": 47183.0
+    },
+    "Bangladesh": {
+      "n": 83,
+      "p25": 7691.0,
+      "p50": 9818.0,
+      "p75": 20000.0,
+      "mean": 21642.0
+    },
+    "Norway": {
+      "n": 181,
+      "p25": 76097.0,
+      "p50": 88945.0,
+      "p75": 111181.0,
+      "mean": 100856.0
+    },
+    "India": {
+      "n": 901,
+      "p25": 11624.0,
+      "p50": 23248.0,
+      "p75": 46496.0,
+      "mean": 42760.0
+    },
+    "Peru": {
+      "n": 30,
+      "p25": 14014.0,
+      "p50": 29463.0,
+      "p75": 56792.0,
+      "mean": 40840.0
+    },
+    "Sri Lanka": {
+      "n": 39,
+      "p25": 10391.0,
+      "p50": 19983.0,
+      "p75": 42813.0,
+      "mean": 32158.0
+    },
+    "Portugal": {
+      "n": 214,
+      "p25": 40605.0,
+      "p50": 61894.0,
+      "p75": 91071.0,
+      "mean": 75052.0
+    },
+    "Croatia": {
+      "n": 77,
+      "p25": 34804.0,
+      "p50": 52207.0,
+      "p75": 75410.0,
+      "mean": 58888.0
+    },
+    "Greece": {
+      "n": 170,
+      "p25": 28859.0,
+      "p50": 45710.0,
+      "p75": 69609.0,
+      "mean": 54255.0
+    },
+    "Iran, Islamic Republic of...": {
+      "n": 58,
+      "p25": 11869.0,
+      "p50": 42730.0,
+      "p75": 142433.0,
+      "mean": 91994.0
+    },
+    "China": {
+      "n": 101,
+      "p25": 23678.0,
+      "p50": 41786.0,
+      "p75": 69643.0,
+      "mean": 55323.0
+    },
+    "Finland": {
+      "n": 186,
+      "p25": 58007.0,
+      "p50": 75410.0,
+      "p75": 92812.0,
+      "mean": 87376.0
+    },
+    "Colombia": {
+      "n": 100,
+      "p25": 14681.0,
+      "p50": 39610.0,
+      "p75": 60000.0,
+      "mean": 40786.0
+    },
+    "Israel": {
+      "n": 170,
+      "p25": 88243.0,
+      "p50": 141188.0,
+      "p75": 176485.0,
+      "mean": 137069.0
+    },
+    "Morocco": {
+      "n": 21,
+      "p25": 13096.0,
+      "p50": 25065.0,
+      "p75": 35541.0,
+      "mean": 26657.0
+    },
+    "Mexico": {
+      "n": 163,
+      "p25": 19582.0,
+      "p50": 36847.0,
+      "p75": 58429.0,
+      "mean": 43383.0
+    },
+    "Nepal": {
+      "n": 16,
+      "p25": 9090.0,
+      "p50": 12726.0,
+      "p75": 35734.0,
+      "mean": 61192.0
+    },
+    "Japan": {
+      "n": 122,
+      "p25": 37999.0,
+      "p50": 61489.0,
+      "p75": 83597.0,
+      "mean": 76965.0
+    },
+    "Pakistan": {
+      "n": 76,
+      "p25": 8428.0,
+      "p50": 14749.0,
+      "p75": 23704.0,
+      "mean": 21676.0
+    },
+    "South Africa": {
+      "n": 172,
+      "p25": 23172.0,
+      "p50": 46682.0,
+      "p75": 68839.0,
+      "mean": 84643.0
+    },
+    "Bulgaria": {
+      "n": 141,
+      "p25": 35584.0,
+      "p50": 55748.0,
+      "p75": 80637.0,
+      "mean": 60960.0
+    },
+    "Costa Rica": {
+      "n": 16,
+      "p25": 27663.0,
+      "p50": 68500.0,
+      "p75": 111250.0,
+      "mean": 80244.0
+    },
+    "Turkey": {
+      "n": 146,
+      "p25": 22723.0,
+      "p50": 41659.0,
+      "p75": 66275.0,
+      "mean": 48597.0
+    },
+    "Singapore": {
+      "n": 61,
+      "p25": 66004.0,
+      "p50": 101546.0,
+      "p75": 175752.0,
+      "mean": 137801.0
+    },
+    "Philippines": {
+      "n": 57,
+      "p25": 9482.0,
+      "p50": 21071.0,
+      "p75": 44204.0,
+      "mean": 32346.0
+    },
+    "Georgia": {
+      "n": 31,
+      "p25": 32100.0,
+      "p50": 59722.0,
+      "p75": 73527.0,
+      "mean": 65292.0
+    },
+    "Paraguay": {
+      "n": 13,
+      "p25": 16546.0,
+      "p50": 26322.0,
+      "p75": 51566.0,
+      "mean": 52004.0
+    },
+    "Tunisia": {
+      "n": 14,
+      "p25": 11201.0,
+      "p50": 21179.0,
+      "p75": 35458.0,
+      "mean": 23312.0
+    },
+    "Denmark": {
+      "n": 227,
+      "p25": 77760.0,
+      "p50": 98911.0,
+      "p75": 124416.0,
+      "mean": 107404.0
+    },
+    "Republic of North Macedonia": {
+      "n": 7,
+      "p25": 29004.0,
+      "p50": 35965.0,
+      "p75": 63808.0,
+      "mean": 44117.0
+    },
+    "Cyprus": {
+      "n": 23,
+      "p25": 52207.0,
+      "p50": 92812.0,
+      "p75": 139218.0,
+      "mean": 95616.0
+    },
+    "Latvia": {
+      "n": 38,
+      "p25": 40605.0,
+      "p50": 53947.0,
+      "p75": 81790.0,
+      "mean": 88999.0
+    },
+    "Luxembourg": {
+      "n": 16,
+      "p25": 87591.0,
+      "p50": 101512.0,
+      "p75": 138058.0,
+      "mean": 107676.0
+    },
+    "Viet Nam": {
+      "n": 31,
+      "p25": 9171.0,
+      "p50": 13374.0,
+      "p75": 27512.0,
+      "mean": 154713.0
+    },
+    "Hong Kong (S.A.R.)": {
+      "n": 37,
+      "p25": 43949.0,
+      "p50": 77707.0,
+      "p75": 111784.0,
+      "mean": 120413.0
+    },
+    "Lebanon": {
+      "n": 9,
+      "p25": 18350.0,
+      "p50": 47000.0,
+      "p75": 80500.0,
+      "mean": 77244.0
+    },
+    "Jordan": {
+      "n": 22,
+      "p25": 12271.0,
+      "p50": 30656.0,
+      "p75": 47427.0,
+      "mean": 36305.0
+    },
+    "Indonesia": {
+      "n": 46,
+      "p25": 6542.0,
+      "p50": 11711.0,
+      "p75": 24957.0,
+      "mean": 29886.0
+    },
+    "Chile": {
+      "n": 85,
+      "p25": 20782.0,
+      "p50": 37111.0,
+      "p75": 54076.0,
+      "mean": 43687.0
+    },
+    "Taiwan": {
+      "n": 62,
+      "p25": 27109.0,
+      "p50": 40332.0,
+      "p75": 59476.0,
+      "mean": 47212.0
+    },
+    "Slovakia": {
+      "n": 97,
+      "p25": 40715.0,
+      "p50": 56847.0,
+      "p75": 81210.0,
+      "mean": 62365.0
+    },
+    "Guatemala": {
+      "n": 28,
+      "p25": 17242.0,
+      "p50": 29834.0,
+      "p75": 42118.0,
+      "mean": 38926.0
+    },
+    "Bosnia and Herzegovina": {
+      "n": 17,
+      "p25": 22546.0,
+      "p50": 48726.0,
+      "p75": 90186.0,
+      "mean": 57831.0
+    },
+    "Slovenia": {
+      "n": 59,
+      "p25": 40605.0,
+      "p50": 58007.0,
+      "p75": 75410.0,
+      "mean": 77111.0
+    },
+    "Zimbabwe": {
+      "n": 6,
+      "p25": 12500.0,
+      "p50": 25500.0,
+      "p75": 62500.0,
+      "mean": 33500.0
+    },
+    "Venezuela, Bolivarian Republic of...": {
+      "n": 21,
+      "p25": 10200.0,
+      "p50": 14400.0,
+      "p75": 34500.0,
+      "mean": 27182.0
+    },
+    "Thailand": {
+      "n": 47,
+      "p25": 22027.0,
+      "p50": 45000.0,
+      "p75": 79544.0,
+      "mean": 57493.0
+    },
+    "Lithuania": {
+      "n": 63,
+      "p25": 46406.0,
+      "p50": 69609.0,
+      "p75": 104413.0,
+      "mean": 78009.0
+    },
+    "Nomadic": {
+      "n": 10,
+      "p25": 105758.0,
+      "p50": 144609.0,
+      "p75": 212500.0,
+      "mean": 162568.0
+    },
+    "Algeria": {
+      "n": 8,
+      "p25": 7242.0,
+      "p50": 16442.0,
+      "p75": 43278.0,
+      "mean": 28234.0
+    },
+    "Nicaragua": {
+      "n": 6,
+      "p25": 13901.0,
+      "p50": 47000.0,
+      "p75": 108500.0,
+      "mean": 67822.0
+    },
+    "Kenya": {
+      "n": 41,
+      "p25": 14240.0,
+      "p50": 27864.0,
+      "p75": 59718.0,
+      "mean": 55617.0
+    },
+    "Ghana": {
+      "n": 9,
+      "p25": 8121.0,
+      "p50": 15082.0,
+      "p75": 35902.0,
+      "mean": 22254.0
+    },
+    "Montenegro": {
+      "n": 12,
+      "p25": 26973.0,
+      "p50": 42873.0,
+      "p75": 97162.0,
+      "mean": 59134.0
+    },
+    "Estonia": {
+      "n": 50,
+      "p25": 46406.0,
+      "p50": 69609.0,
+      "p75": 101256.0,
+      "mean": 79466.0
+    },
+    "Ecuador": {
+      "n": 22,
+      "p25": 14300.0,
+      "p50": 30000.0,
+      "p75": 60000.0,
+      "mean": 42712.0
+    },
+    "Armenia": {
+      "n": 8,
+      "p25": 6336.0,
+      "p50": 28373.0,
+      "p75": 58477.0,
+      "mean": 34099.0
+    },
+    "Malta": {
+      "n": 14,
+      "p25": 56557.0,
+      "p50": 71495.0,
+      "p75": 100932.0,
+      "mean": 79176.0
+    },
+    "Albania": {
+      "n": 9,
+      "p25": 17568.0,
+      "p50": 50000.0,
+      "p75": 117150.0,
+      "mean": 63936.0
+    },
+    "New Zealand": {
+      "n": 177,
+      "p25": 57243.0,
+      "p50": 81318.0,
+      "p75": 102400.0,
+      "mean": 83791.0
+    },
+    "South Korea": {
+      "n": 19,
+      "p25": 23518.0,
+      "p50": 36746.0,
+      "p75": 53348.0,
+      "mean": 54242.0
+    },
+    "Nigeria": {
+      "n": 27,
+      "p25": 7748.0,
+      "p50": 10000.0,
+      "p75": 30991.0,
+      "mean": 20589.0
+    },
+    "Honduras": {
+      "n": 5,
+      "p25": 11728.0,
+      "p50": 12000.0,
+      "p75": 48332.0,
+      "mean": 26424.0
+    },
+    "Uzbekistan": {
+      "n": 5,
+      "p25": 11126.0,
+      "p50": 16125.0,
+      "p75": 32000.0,
+      "mean": 20475.0
+    },
+    "Yemen": {
+      "n": 5,
+      "p25": 10097.0,
+      "p50": 32000.0,
+      "p75": 60458.0,
+      "mean": 34622.0
+    },
+    "Republic of Korea": {
+      "n": 15,
+      "p25": 36011.0,
+      "p50": 51445.0,
+      "p75": 99215.0,
+      "mean": 98492.0
+    },
+    "Mauritius": {
+      "n": 5,
+      "p25": 10445.0,
+      "p50": 15976.0,
+      "p75": 22582.0,
+      "mean": 16406.0
+    },
+    "Belarus": {
+      "n": 15,
+      "p25": 35000.0,
+      "p50": 49200.0,
+      "p75": 100000.0,
+      "mean": 62147.0
+    },
+    "Uruguay": {
+      "n": 33,
+      "p25": 36264.0,
+      "p50": 60000.0,
+      "p75": 99338.0,
+      "mean": 97214.0
+    },
+    "Kazakhstan": {
+      "n": 16,
+      "p25": 20948.0,
+      "p50": 30698.0,
+      "p75": 55515.0,
+      "mean": 37197.0
+    },
+    "Rwanda": {
+      "n": 6,
+      "p25": 16458.0,
+      "p50": 22894.0,
+      "p75": 33788.0,
+      "mean": 26115.0
+    },
+    "Bolivia": {
+      "n": 12,
+      "p25": 7785.0,
+      "p50": 19254.0,
+      "p75": 51000.0,
+      "mean": 27026.0
+    },
+    "Saudi Arabia": {
+      "n": 13,
+      "p25": 22392.0,
+      "p50": 53315.0,
+      "p75": 117580.0,
+      "mean": 67763.0
+    },
+    "Côte d'Ivoire": {
+      "n": 5,
+      "p25": 18928.0,
+      "p50": 33966.0,
+      "p75": 153782.0,
+      "mean": 75877.0
+    },
+    "Afghanistan": {
+      "n": 5,
+      "p25": 6121.0,
+      "p50": 8450.0,
+      "p75": 37429.0,
+      "mean": 19110.0
+    },
+    "El Salvador": {
+      "n": 9,
+      "p25": 13300.0,
+      "p50": 27000.0,
+      "p75": 60800.0,
+      "mean": 41800.0
+    },
+    "Kyrgyzstan": {
+      "n": 5,
+      "p25": 10542.0,
+      "p50": 13751.0,
+      "p75": 106008.0,
+      "mean": 49371.0
+    },
+    "Isle of Man": {
+      "n": 9,
+      "p25": 64054.0,
+      "p50": 83632.0,
+      "p75": 102106.0,
+      "mean": 82521.0
+    },
+    "Syrian Arab Republic": {
+      "n": 5,
+      "p25": 6846.0,
+      "p50": 12000.0,
+      "p75": 26900.0,
+      "mean": 15898.0
+    },
+    "Azerbaijan": {
+      "n": 8,
+      "p25": 22048.0,
+      "p50": 32698.0,
+      "p75": 51445.0,
+      "mean": 34485.0
+    },
+    "Uganda": {
+      "n": 6,
+      "p25": 5422.0,
+      "p50": 9900.0,
+      "p75": 65020.0,
+      "mean": 27288.0
+    },
+    "Iceland": {
+      "n": 6,
+      "p25": 77649.0,
+      "p50": 118454.0,
+      "p75": 128666.0,
+      "mean": 102851.0
+    },
+    "Panama": {
+      "n": 7,
+      "p25": 12000.0,
+      "p50": 26400.0,
+      "p75": 105000.0,
+      "mean": 55300.0
+    },
+    "Cuba": {
+      "n": 5,
+      "p25": 14042.0,
+      "p50": 21000.0,
+      "p75": 259064.0,
+      "mean": 113442.0
+    },
+    "Ethiopia": {
+      "n": 6,
+      "p25": 28820.0,
+      "p50": 83000.0,
+      "p75": 185000.0,
+      "mean": 98213.0
+    }
+  },
+  "salary_by_devtype_usd": {
+    "Developer, mobile": {
+      "n": 694,
+      "p25": 40553.0,
+      "p50": 77280.0,
+      "p75": 122641.0,
+      "mean": 96047.0
+    },
+    "Developer, back-end": {
+      "n": 3684,
+      "p25": 51040.0,
+      "p50": 81888.0,
+      "p75": 134577.0,
+      "mean": 105933.0
+    },
+    "Developer, front-end": {
+      "n": 1005,
+      "p25": 40763.0,
+      "p50": 69609.0,
+      "p75": 104621.0,
+      "mean": 82900.0
+    },
+    "Engineering manager": {
+      "n": 704,
+      "p25": 89914.0,
+      "p50": 131325.0,
+      "p75": 190598.0,
+      "mean": 155484.0
+    },
+    "Developer, full-stack": {
+      "n": 6966,
+      "p25": 44045.0,
+      "p50": 75410.0,
+      "p75": 116733.0,
+      "mean": 90743.0
+    },
+    "Architect, software or solutions": {
+      "n": 1576,
+      "p25": 65030.0,
+      "p50": 104413.0,
+      "p75": 150000.0,
+      "mean": 122628.0
+    },
+    "Data engineer": {
+      "n": 465,
+      "p25": 50000.0,
+      "p50": 81761.0,
+      "p75": 124276.0,
+      "mean": 110870.0
+    },
+    "Financial analyst or engineer": {
+      "n": 51,
+      "p25": 20923.0,
+      "p50": 81685.0,
+      "p75": 160000.0,
+      "mean": 102740.0
+    },
+    "Developer, game or graphics": {
+      "n": 190,
+      "p25": 39584.0,
+      "p50": 74880.0,
+      "p75": 103564.0,
+      "mean": 82157.0
+    },
+    "AI/ML engineer": {
+      "n": 323,
+      "p25": 52207.0,
+      "p50": 96000.0,
+      "p75": 156000.0,
+      "mean": 124134.0
+    },
+    "Senior executive (C-suite, VP, etc.)": {
+      "n": 298,
+      "p25": 83137.0,
+      "p50": 140000.0,
+      "p75": 226483.0,
+      "mean": 174610.0
+    },
+    "Academic researcher": {
+      "n": 520,
+      "p25": 30628.0,
+      "p50": 50000.0,
+      "p75": 75410.0,
+      "mean": 57862.0
+    },
+    "Developer, desktop or enterprise applications": {
+      "n": 1069,
+      "p25": 47825.0,
+      "p50": 76570.0,
+      "p75": 112000.0,
+      "mean": 89989.0
+    },
+    "Other (please specify):": {
+      "n": 743,
+      "p25": 39006.0,
+      "p50": 71929.0,
+      "p75": 122278.0,
+      "mean": 100875.0
+    },
+    "Founder, technology or otherwise": {
+      "n": 182,
+      "p25": 57059.0,
+      "p50": 98004.0,
+      "p75": 175000.0,
+      "mean": 147493.0
+    },
+    "Developer, embedded applications or devices": {
+      "n": 741,
+      "p25": 51892.0,
+      "p50": 81210.0,
+      "p75": 121815.0,
+      "mean": 97476.0
+    },
+    "Cybersecurity or InfoSec professional": {
+      "n": 175,
+      "p25": 65663.0,
+      "p50": 105000.0,
+      "p75": 174022.0,
+      "mean": 159003.0
+    },
+    "Developer, AI apps or physical AI": {
+      "n": 95,
+      "p25": 35477.0,
+      "p50": 73000.0,
+      "p75": 118000.0,
+      "mean": 98909.0
+    },
+    "DevOps engineer or professional": {
+      "n": 665,
+      "p25": 58007.0,
+      "p50": 90000.0,
+      "p75": 137834.0,
+      "mean": 105328.0
+    },
+    "Cloud infrastructure engineer": {
+      "n": 248,
+      "p25": 67317.0,
+      "p50": 108725.0,
+      "p75": 171225.0,
+      "mean": 135019.0
+    },
+    "Student": {
+      "n": 245,
+      "p25": 11601.0,
+      "p50": 19108.0,
+      "p75": 31052.0,
+      "mean": 30507.0
+    },
+    "Project manager": {
+      "n": 145,
+      "p25": 46336.0,
+      "p50": 74878.0,
+      "p75": 120328.0,
+      "mean": 97134.0
+    },
+    "Applied scientist": {
+      "n": 157,
+      "p25": 63897.0,
+      "p50": 101911.0,
+      "p75": 157500.0,
+      "mean": 122194.0
+    },
+    "Data or business analyst": {
+      "n": 165,
+      "p25": 26350.0,
+      "p50": 61770.0,
+      "p75": 98306.0,
+      "mean": 72635.0
+    },
+    "Retired": {
+      "n": 57,
+      "p25": 35642.0,
+      "p50": 59902.0,
+      "p75": 99597.0,
+      "mean": 118293.0
+    },
+    "Product manager": {
+      "n": 108,
+      "p25": 71682.0,
+      "p50": 108483.0,
+      "p75": 173516.0,
+      "mean": 129022.0
+    },
+    "Data scientist": {
+      "n": 322,
+      "p25": 53541.0,
+      "p50": 85874.0,
+      "p75": 128127.0,
+      "mean": 108205.0
+    },
+    "System administrator": {
+      "n": 218,
+      "p25": 37799.0,
+      "p50": 58007.0,
+      "p75": 91404.0,
+      "mean": 92043.0
+    },
+    "Support engineer or analyst": {
+      "n": 117,
+      "p25": 35450.0,
+      "p50": 63808.0,
+      "p75": 90752.0,
+      "mean": 109210.0
+    },
+    "Developer, QA or test": {
+      "n": 170,
+      "p25": 41464.0,
+      "p50": 63808.0,
+      "p75": 102458.0,
+      "mean": 76412.0
+    },
+    "Database administrator or engineer": {
+      "n": 92,
+      "p25": 58007.0,
+      "p50": 87280.0,
+      "p75": 144500.0,
+      "mean": 115240.0
+    },
+    "UX, Research Ops or UI design professional": {
+      "n": 37,
+      "p25": 45288.0,
+      "p50": 88368.0,
+      "p75": 137500.0,
+      "mean": 99590.0
+    }
+  },
+  "salary_by_country_devtype_usd": {
+    "Ukraine|Developer, mobile": {
+      "n": 19,
+      "p25": 36000.0,
+      "p50": 48000.0,
+      "p75": 71899.0,
+      "mean": 51936.0
+    },
+    "Netherlands|Developer, back-end": {
+      "n": 105,
+      "p25": 69609.0,
+      "p50": 87011.0,
+      "p75": 107894.0,
+      "mean": 104957.0
+    },
+    "Ukraine|Developer, front-end": {
+      "n": 54,
+      "p25": 20333.0,
+      "p50": 41518.0,
+      "p75": 61200.0,
+      "mean": 43284.0
+    },
+    "Ukraine|Developer, back-end": {
+      "n": 159,
+      "p25": 20000.0,
+      "p50": 40000.0,
+      "p75": 69116.0,
+      "mean": 47025.0
+    },
+    "Ukraine|Engineering manager": {
+      "n": 8,
+      "p25": 62402.0,
+      "p50": 77747.0,
+      "p75": 96817.0,
+      "mean": 78986.0
+    },
+    "Ukraine|Developer, full-stack": {
+      "n": 112,
+      "p25": 18293.0,
+      "p50": 39304.0,
+      "p75": 60000.0,
+      "mean": 49326.0
+    },
+    "Ukraine|Architect, software or solutions": {
+      "n": 17,
+      "p25": 32974.0,
+      "p50": 72000.0,
+      "p75": 91500.0,
+      "mean": 69965.0
+    },
+    "Ukraine|Data engineer": {
+      "n": 11,
+      "p25": 43139.0,
+      "p50": 47932.0,
+      "p75": 70000.0,
+      "mean": 58811.0
+    },
+    "United States of America|Developer, full-stack": {
+      "n": 1651,
+      "p25": 100000.0,
+      "p50": 138000.0,
+      "p75": 180000.0,
+      "mean": 152714.0
+    },
+    "United Kingdom of Great Britain and Northern Ireland|Developer, full-stack": {
+      "n": 475,
+      "p25": 61264.0,
+      "p50": 85769.0,
+      "p75": 115720.0,
+      "mean": 100456.0
+    },
+    "Ireland|Developer, full-stack": {
+      "n": 45,
+      "p25": 82950.0,
+      "p50": 110214.0,
+      "p75": 125876.0,
+      "mean": 107842.0
+    },
+    "Sweden|Developer, full-stack": {
+      "n": 149,
+      "p25": 54507.0,
+      "p50": 66038.0,
+      "p75": 78616.0,
+      "mean": 69074.0
+    },
+    "Dominican Republic|Developer, full-stack": {
+      "n": 6,
+      "p25": 6594.0,
+      "p50": 28188.0,
+      "p75": 73500.0,
+      "mean": 36538.0
+    },
+    "United States of America|Developer, mobile": {
+      "n": 122,
+      "p25": 130000.0,
+      "p50": 170000.0,
+      "p75": 225000.0,
+      "mean": 210377.0
+    },
+    "United States of America|Data engineer": {
+      "n": 117,
+      "p25": 116500.0,
+      "p50": 150000.0,
+      "p75": 200000.0,
+      "mean": 181697.0
+    },
+    "Germany|Developer, back-end": {
+      "n": 291,
+      "p25": 68449.0,
+      "p50": 87011.0,
+      "p75": 104413.0,
+      "mean": 87189.0
+    },
+    "United States of America|Developer, front-end": {
+      "n": 198,
+      "p25": 103500.0,
+      "p50": 149500.0,
+      "p75": 180000.0,
+      "mean": 153460.0
+    },
+    "Czech Republic|Developer, game or graphics": {
+      "n": 9,
+      "p25": 52328.0,
+      "p50": 78633.0,
+      "p75": 95156.0,
+      "mean": 76407.0
+    },
+    "Malaysia|Developer, back-end": {
+      "n": 7,
+      "p25": 12724.0,
+      "p50": 23751.0,
+      "p75": 28275.0,
+      "mean": 28342.0
+    },
+    "United Kingdom of Great Britain and Northern Ireland|Senior executive (C-suite, VP, etc.)": {
+      "n": 22,
+      "p25": 111143.0,
+      "p50": 163370.0,
+      "p75": 216124.0,
+      "mean": 173120.0
+    },
+    "Switzerland|Academic researcher": {
+      "n": 15,
+      "p25": 61996.0,
+      "p50": 94235.0,
+      "p75": 117793.0,
+      "mean": 88681.0
+    },
+    "Germany|Developer, game or graphics": {
+      "n": 14,
+      "p25": 61488.0,
+      "p50": 75410.0,
+      "p75": 88461.0,
+      "mean": 79448.0
+    },
+    "Egypt|Architect, software or solutions": {
+      "n": 6,
+      "p25": 5998.0,
+      "p50": 41430.0,
+      "p75": 65932.0,
+      "mean": 38460.0
+    },
+    "Netherlands|Developer, full-stack": {
+      "n": 189,
+      "p25": 58800.0,
+      "p50": 75410.0,
+      "p75": 100933.0,
+      "mean": 89419.0
+    },
+    "Austria|Developer, desktop or enterprise applications": {
+      "n": 13,
+      "p25": 48042.0,
+      "p50": 55687.0,
+      "p75": 81210.0,
+      "mean": 66443.0
+    },
+    "United States of America|Academic researcher": {
+      "n": 112,
+      "p25": 36500.0,
+      "p50": 60000.0,
+      "p75": 100000.0,
+      "mean": 76887.0
+    },
+    "Poland|Other (please specify):": {
+      "n": 11,
+      "p25": 32748.0,
+      "p50": 55399.0,
+      "p75": 87601.0,
+      "mean": 66680.0
+    },
+    "Spain|Developer, back-end": {
+      "n": 90,
+      "p25": 46406.0,
+      "p50": 70769.0,
+      "p75": 96582.0,
+      "mean": 78442.0
+    },
+    "Serbia|Developer, embedded applications or devices": {
+      "n": 5,
+      "p25": 21927.0,
+      "p50": 30689.0,
+      "p75": 60848.0,
+      "mean": 39248.0
+    },
+    "Sweden|Developer, back-end": {
+      "n": 99,
+      "p25": 58700.0,
+      "p50": 73375.0,
+      "p75": 86038.0,
+      "mean": 78111.0
+    },
+    "France|Data engineer": {
+      "n": 27,
+      "p25": 59167.0,
+      "p50": 78890.0,
+      "p75": 98612.0,
+      "mean": 89022.0
+    },
+    "Switzerland|Cybersecurity or InfoSec professional": {
+      "n": 6,
+      "p25": 95474.0,
+      "p50": 124613.0,
+      "p75": 164290.0,
+      "mean": 132052.0
+    },
+    "United States of America|Developer, back-end": {
+      "n": 684,
+      "p25": 140000.0,
+      "p50": 176500.0,
+      "p75": 238250.0,
+      "mean": 211645.0
+    },
+    "United Kingdom of Great Britain and Northern Ireland|Engineering manager": {
+      "n": 56,
+      "p25": 108913.0,
+      "p50": 136141.0,
+      "p75": 188896.0,
+      "mean": 182694.0
+    },
+    "Romania|Developer, full-stack": {
+      "n": 67,
+      "p25": 25523.0,
+      "p50": 55967.0,
+      "p75": 82709.0,
+      "mean": 67754.0
+    },
+    "Canada|Developer, full-stack": {
+      "n": 310,
+      "p25": 62015.0,
+      "p50": 80254.0,
+      "p75": 109803.0,
+      "mean": 89648.0
+    },
+    "United States of America|Founder, technology or otherwise": {
+      "n": 50,
+      "p25": 94500.0,
+      "p50": 145000.0,
+      "p75": 236250.0,
+      "mean": 208340.0
+    },
+    "United States of America|Developer, desktop or enterprise applications": {
+      "n": 254,
+      "p25": 100000.0,
+      "p50": 128000.0,
+      "p75": 161250.0,
+      "mean": 147001.0
+    },
+    "Belgium|Developer, full-stack": {
+      "n": 73,
+      "p25": 47856.0,
+      "p50": 63808.0,
+      "p75": 92812.0,
+      "mean": 82938.0
+    },
+    "Brazil|Architect, software or solutions": {
+      "n": 39,
+      "p25": 32767.0,
+      "p50": 43689.0,
+      "p75": 89198.0,
+      "mean": 62554.0
+    },
+    "Spain|Developer, embedded applications or devices": {
+      "n": 6,
+      "p25": 34224.0,
+      "p50": 57428.0,
+      "p75": 87011.0,
+      "mean": 64388.0
+    },
+    "Argentina|Developer, back-end": {
+      "n": 24,
+      "p25": 23391.0,
+      "p50": 46918.0,
+      "p75": 81000.0,
+      "mean": 53911.0
+    },
+    "United Kingdom of Great Britain and Northern Ireland|Developer, embedded applications or devices": {
+      "n": 46,
+      "p25": 74538.0,
+      "p50": 89845.0,
+      "p75": 134100.0,
+      "mean": 106707.0
+    },
+    "Russian Federation|Developer, back-end": {
+      "n": 34,
+      "p25": 18948.0,
+      "p50": 52314.0,
+      "p75": 64435.0,
+      "mean": 49323.0
+    },
+    "United States of America|DevOps engineer or professional": {
+      "n": 149,
+      "p25": 123500.0,
+      "p50": 165000.0,
+      "p75": 205000.0,
+      "mean": 177107.0
+    },
+    "Bangladesh|Developer, full-stack": {
+      "n": 30,
+      "p25": 7380.0,
+      "p50": 9204.0,
+      "p75": 21643.0,
+      "mean": 15894.0
+    },
+    "Germany|Developer, full-stack": {
+      "n": 648,
+      "p25": 55687.0,
+      "p50": 75410.0,
+      "p75": 92812.0,
+      "mean": 78926.0
+    },
+    "Italy|Developer, back-end": {
+      "n": 91,
+      "p25": 38285.0,
+      "p50": 48726.0,
+      "p75": 63808.0,
+      "mean": 58557.0
+    },
+    "Norway|Developer, back-end": {
+      "n": 37,
+      "p25": 83015.0,
+      "p50": 93886.0,
+      "p75": 113652.0,
+      "mean": 101420.0
+    },
+    "Netherlands|Senior executive (C-suite, VP, etc.)": {
+      "n": 10,
+      "p25": 94459.0,
+      "p50": 121816.0,
+      "p75": 174022.0,
+      "mean": 157311.0
+    },
+    "Germany|Other (please specify):": {
+      "n": 72,
+      "p25": 62068.0,
+      "p50": 88751.0,
+      "p75": 116015.0,
+      "mean": 94355.0
+    },
+    "Spain|Data engineer": {
+      "n": 21,
+      "p25": 47885.0,
+      "p50": 69609.0,
+      "p75": 85851.0,
+      "mean": 72474.0
+    },
+    "Canada|Other (please specify):": {
+      "n": 28,
+      "p25": 56543.0,
+      "p50": 89374.0,
+      "p75": 113268.0,
+      "mean": 94153.0
+    },
+    "Switzerland|Developer, full-stack": {
+      "n": 133,
+      "p25": 109664.0,
+      "p50": 136392.0,
+      "p75": 148791.0,
+      "mean": 136519.0
+    },
+    "Spain|Developer, front-end": {
+      "n": 31,
+      "p25": 40605.0,
+      "p50": 63808.0,
+      "p75": 79006.0,
+      "mean": 72104.0
+    },
+    "United States of America|Cloud infrastructure engineer": {
+      "n": 77,
+      "p25": 150000.0,
+      "p50": 195000.0,
+      "p75": 297500.0,
+      "mean": 228723.0
+    },
+    "Italy|Developer, mobile": {
+      "n": 13,
+      "p25": 37124.0,
+      "p50": 48726.0,
+      "p75": 56789.0,
+      "mean": 54161.0
+    },
+    "India|Developer, full-stack": {
+      "n": 282,
+      "p25": 9973.0,
+      "p50": 17436.0,
+      "p75": 34872.0,
+      "mean": 42465.0
+    },
+    "Hungary|Developer, full-stack": {
+      "n": 49,
+      "p25": 34700.0,
+      "p50": 50691.0,
+      "p75": 69400.0,
+      "mean": 58553.0
+    },
+    "France|Developer, embedded applications or devices": {
+      "n": 52,
+      "p25": 46696.0,
+      "p50": 56847.0,
+      "p75": 80630.0,
+      "mean": 72723.0
+    },
+    "Germany|Student": {
+      "n": 44,
+      "p25": 11127.0,
+      "p50": 15708.0,
+      "p75": 20883.0,
+      "mean": 18559.0
+    },
+    "Germany|Developer, desktop or enterprise applications": {
+      "n": 124,
+      "p25": 58732.0,
+      "p50": 81210.0,
+      "p75": 98612.0,
+      "mean": 81852.0
+    },
+    "Poland|Developer, back-end": {
+      "n": 148,
+      "p25": 51418.0,
+      "p50": 75156.0,
+      "p75": 102458.0,
+      "mean": 78659.0
+    },
+    "France|Developer, back-end": {
+      "n": 148,
+      "p25": 58007.0,
+      "p50": 71929.0,
+      "p75": 104413.0,
+      "mean": 85603.0
+    },
+    "Romania|Architect, software or solutions": {
+      "n": 25,
+      "p25": 40436.0,
+      "p50": 91899.0,
+      "p75": 113147.0,
+      "mean": 83334.0
+    },
+    "Sri Lanka|Developer, full-stack": {
+      "n": 19,
+      "p25": 9992.0,
+      "p50": 19983.0,
+      "p75": 36636.0,
+      "mean": 31620.0
+    },
+    "Germany|Academic researcher": {
+      "n": 94,
+      "p25": 57427.0,
+      "p50": 69609.0,
+      "p75": 81210.0,
+      "mean": 65311.0
+    },
+    "Germany|Senior executive (C-suite, VP, etc.)": {
+      "n": 13,
+      "p25": 107894.0,
+      "p50": 139218.0,
+      "p75": 255232.0,
+      "mean": 186427.0
+    },
+    "Portugal|Developer, full-stack": {
+      "n": 67,
+      "p25": 27844.0,
+      "p50": 46406.0,
+      "p75": 75410.0,
+      "mean": 56793.0
+    },
+    "United Kingdom of Great Britain and Northern Ireland|Developer, back-end": {
+      "n": 260,
+      "p25": 81685.0,
+      "p50": 108913.0,
+      "p75": 143970.0,
+      "mean": 120300.0
+    },
+    "United Kingdom of Great Britain and Northern Ireland|Academic researcher": {
+      "n": 44,
+      "p25": 31313.0,
+      "p50": 57179.0,
+      "p75": 70454.0,
+      "mean": 58405.0
+    },
+    "United States of America|Other (please specify):": {
+      "n": 223,
+      "p25": 53000.0,
+      "p50": 112860.0,
+      "p75": 160000.0,
+      "mean": 127873.0
+    },
+    "Norway|Developer, full-stack": {
+      "n": 69,
+      "p25": 68756.0,
+      "p50": 79062.0,
+      "p75": 106240.0,
+      "mean": 87334.0
+    },
+    "Italy|Developer, full-stack": {
+      "n": 167,
+      "p25": 34804.0,
+      "p50": 42925.0,
+      "p75": 58007.0,
+      "mean": 53004.0
+    },
+    "Germany|Developer, embedded applications or devices": {
+      "n": 77,
+      "p25": 68449.0,
+      "p50": 83531.0,
+      "p75": 105573.0,
+      "mean": 85169.0
+    },
+    "Greece|Developer, full-stack": {
+      "n": 52,
+      "p25": 27118.0,
+      "p50": 37995.0,
+      "p75": 58007.0,
+      "mean": 44862.0
+    },
+    "Germany|Developer, front-end": {
+      "n": 91,
+      "p25": 58007.0,
+      "p50": 79223.0,
+      "p75": 98612.0,
+      "mean": 81048.0
+    },
+    "Canada|Developer, back-end": {
+      "n": 121,
+      "p25": 79160.0,
+      "p50": 109438.0,
+      "p75": 141174.0,
+      "mean": 120654.0
+    },
+    "Canada|Engineering manager": {
+      "n": 32,
+      "p25": 106702.0,
+      "p50": 124029.0,
+      "p75": 144093.0,
+      "mean": 138491.0
+    },
+    "Netherlands|Other (please specify):": {
+      "n": 20,
+      "p25": 57427.0,
+      "p50": 68448.0,
+      "p75": 116015.0,
+      "mean": 89297.0
+    },
+    "United Kingdom of Great Britain and Northern Ireland|Project manager": {
+      "n": 7,
+      "p25": 58541.0,
+      "p50": 81685.0,
+      "p75": 118443.0,
+      "mean": 85575.0
+    },
+    "France|Architect, software or solutions": {
+      "n": 72,
+      "p25": 62068.0,
+      "p50": 81210.0,
+      "p75": 103833.0,
+      "mean": 93529.0
+    },
+    "China|Developer, full-stack": {
+      "n": 24,
+      "p25": 20475.0,
+      "p50": 27160.0,
+      "p75": 55714.0,
+      "mean": 39928.0
+    },
+    "Spain|Cloud infrastructure engineer": {
+      "n": 9,
+      "p25": 46406.0,
+      "p50": 87011.0,
+      "p75": 147919.0,
+      "mean": 102093.0
+    },
+    "Austria|Academic researcher": {
+      "n": 7,
+      "p25": 45246.0,
+      "p50": 71349.0,
+      "p75": 116015.0,
+      "mean": 77581.0
+    },
+    "Brazil|Developer, front-end": {
+      "n": 26,
+      "p25": 18131.0,
+      "p50": 36407.0,
+      "p75": 76456.0,
+      "mean": 46669.0
+    },
+    "Ukraine|Developer, embedded applications or devices": {
+      "n": 17,
+      "p25": 15593.0,
+      "p50": 28800.0,
+      "p75": 56684.0,
+      "mean": 38408.0
+    },
+    "United States of America|Developer, embedded applications or devices": {
+      "n": 172,
+      "p25": 103070.0,
+      "p50": 135000.0,
+      "p75": 180000.0,
+      "mean": 160745.0
+    },
+    "Argentina|Developer, full-stack": {
+      "n": 49,
+      "p25": 25670.0,
+      "p50": 38388.0,
+      "p75": 74000.0,
+      "mean": 49237.0
+    },
+    "Germany|DevOps engineer or professional": {
+      "n": 78,
+      "p25": 69319.0,
+      "p50": 87011.0,
+      "p75": 104413.0,
+      "mean": 88221.0
+    },
+    "Switzerland|Developer, back-end": {
+      "n": 52,
+      "p25": 123993.0,
+      "p50": 154061.0,
+      "p75": 207688.0,
+      "mean": 180559.0
+    },
+    "Argentina|Developer, front-end": {
+      "n": 7,
+      "p25": 20000.0,
+      "p50": 42000.0,
+      "p75": 72000.0,
+      "mean": 45791.0
+    },
+    "Hungary|Developer, embedded applications or devices": {
+      "n": 7,
+      "p25": 20855.0,
+      "p50": 26025.0,
+      "p75": 52050.0,
+      "mean": 52460.0
+    },
+    "United Kingdom of Great Britain and Northern Ireland|Retired": {
+      "n": 6,
+      "p25": 34716.0,
+      "p50": 40842.0,
+      "p75": 63646.0,
+      "mean": 45607.0
+    },
+    "United States of America|Architect, software or solutions": {
+      "n": 324,
+      "p25": 150000.0,
+      "p50": 185000.0,
+      "p75": 243334.0,
+      "mean": 213905.0
+    },
+    "Colombia|Developer, back-end": {
+      "n": 26,
+      "p25": 24836.0,
+      "p50": 46022.0,
+      "p75": 63378.0,
+      "mean": 50093.0
+    },
+    "Canada|Product manager": {
+      "n": 6,
+      "p25": 79889.0,
+      "p50": 95576.0,
+      "p75": 110350.0,
+      "mean": 96670.0
+    },
+    "Switzerland|Data scientist": {
+      "n": 8,
+      "p25": 101984.0,
+      "p50": 136082.0,
+      "p75": 151581.0,
+      "mean": 140654.0
+    },
+    "United Kingdom of Great Britain and Northern Ireland|Data engineer": {
+      "n": 28,
+      "p25": 68071.0,
+      "p50": 100064.0,
+      "p75": 134099.0,
+      "mean": 265103.0
+    },
+    "Ukraine|Developer, desktop or enterprise applications": {
+      "n": 23,
+      "p25": 13141.0,
+      "p50": 45392.0,
+      "p75": 60000.0,
+      "mean": 38845.0
+    },
+    "Germany|Developer, mobile": {
+      "n": 69,
+      "p25": 68704.0,
+      "p50": 92812.0,
+      "p75": 109054.0,
+      "mean": 94544.0
+    },
+    "Ireland|Developer, back-end": {
+      "n": 26,
+      "p25": 97162.0,
+      "p50": 121235.0,
+      "p75": 162421.0,
+      "mean": 129108.0
+    },
+    "United States of America|Data or business analyst": {
+      "n": 46,
+      "p25": 72500.0,
+      "p50": 100478.0,
+      "p75": 143436.0,
+      "mean": 123305.0
+    },
+    "Poland|Developer, full-stack": {
+      "n": 119,
+      "p25": 35477.0,
+      "p50": 61239.0,
+      "p75": 88692.0,
+      "mean": 67517.0
+    },
+    "Germany|System administrator": {
+      "n": 25,
+      "p25": 46406.0,
+      "p50": 58007.0,
+      "p75": 94552.0,
+      "mean": 75613.0
+    },
+    "Sweden|Architect, software or solutions": {
+      "n": 36,
+      "p25": 73375.0,
+      "p50": 89098.0,
+      "p75": 104822.0,
+      "mean": 91748.0
+    },
+    "Morocco|Developer, full-stack": {
+      "n": 10,
+      "p25": 17102.0,
+      "p50": 23678.0,
+      "p75": 34426.0,
+      "mean": 26809.0
+    },
+    "India|Developer, back-end": {
+      "n": 181,
+      "p25": 11624.0,
+      "p50": 25573.0,
+      "p75": 49402.0,
+      "mean": 37689.0
+    },
+    "Mexico|Developer, back-end": {
+      "n": 24,
+      "p25": 25793.0,
+      "p50": 40611.0,
+      "p75": 62820.0,
+      "mean": 41551.0
+    },
+    "Switzerland|Other (please specify):": {
+      "n": 19,
+      "p25": 114073.0,
+      "p50": 146312.0,
+      "p75": 185989.0,
+      "mean": 167669.0
+    },
+    "United Kingdom of Great Britain and Northern Ireland|Architect, software or solutions": {
+      "n": 101,
+      "p25": 88492.0,
+      "p50": 122527.0,
+      "p75": 149878.0,
+      "mean": 130595.0
+    },
+    "France|Developer, full-stack": {
+      "n": 291,
+      "p25": 46406.0,
+      "p50": 58007.0,
+      "p75": 81210.0,
+      "mean": 69936.0
+    },
+    "Spain|Developer, full-stack": {
+      "n": 146,
+      "p25": 34804.0,
+      "p50": 58007.0,
+      "p75": 81210.0,
+      "mean": 64500.0
+    },
+    "Brazil|Developer, back-end": {
+      "n": 121,
+      "p25": 18386.0,
+      "p50": 36407.0,
+      "p75": 56432.0,
+      "mean": 44202.0
+    },
+    "United States of America|Engineering manager": {
+      "n": 224,
+      "p25": 160000.0,
+      "p50": 200000.0,
+      "p75": 250000.0,
+      "mean": 227658.0
+    },
+    "Netherlands|DevOps engineer or professional": {
+      "n": 31,
+      "p25": 52207.0,
+      "p50": 92812.0,
+      "p75": 139218.0,
+      "mean": 106107.0
+    },
+    "France|System administrator": {
+      "n": 11,
+      "p25": 32484.0,
+      "p50": 46406.0,
+      "p75": 53367.0,
+      "mean": 50519.0
+    },
+    "Canada|Senior executive (C-suite, VP, etc.)": {
+      "n": 12,
+      "p25": 93022.0,
+      "p50": 137162.0,
+      "p75": 177836.0,
+      "mean": 129799.0
+    },
+    "Netherlands|Cloud infrastructure engineer": {
+      "n": 13,
+      "p25": 77150.0,
+      "p50": 97731.0,
+      "p75": 113114.0,
+      "mean": 103981.0
+    },
+    "Italy|Developer, desktop or enterprise applications": {
+      "n": 31,
+      "p25": 31324.0,
+      "p50": 46406.0,
+      "p75": 67289.0,
+      "mean": 52427.0
+    },
+    "Germany|Developer, AI apps or physical AI": {
+      "n": 8,
+      "p25": 79470.0,
+      "p50": 91072.0,
+      "p75": 117175.0,
+      "mean": 102238.0
+    },
+    "Pakistan|Developer, full-stack": {
+      "n": 36,
+      "p25": 8428.0,
+      "p50": 15170.0,
+      "p75": 23704.0,
+      "mean": 23226.0
+    },
+    "Italy|Developer, embedded applications or devices": {
+      "n": 24,
+      "p25": 46696.0,
+      "p50": 52207.0,
+      "p75": 59487.0,
+      "mean": 53488.0
+    },
+    "Netherlands|Architect, software or solutions": {
+      "n": 49,
+      "p25": 81210.0,
+      "p50": 104413.0,
+      "p75": 126456.0,
+      "mean": 103312.0
+    },
+    "Brazil|Other (please specify):": {
+      "n": 13,
+      "p25": 14381.0,
+      "p50": 36407.0,
+      "p75": 66079.0,
+      "mean": 48205.0
+    },
+    "India|Engineering manager": {
+      "n": 28,
+      "p25": 41265.0,
+      "p50": 57538.0,
+      "p75": 84274.0,
+      "mean": 81219.0
+    },
+    "Bulgaria|Developer, desktop or enterprise applications": {
+      "n": 8,
+      "p25": 23841.0,
+      "p50": 35584.0,
+      "p75": 49002.0,
+      "mean": 40320.0
+    },
+    "India|Data engineer": {
+      "n": 25,
+      "p25": 11624.0,
+      "p50": 27898.0,
+      "p75": 45043.0,
+      "mean": 31850.0
+    },
+    "United Kingdom of Great Britain and Northern Ireland|Developer, mobile": {
+      "n": 37,
+      "p25": 75558.0,
+      "p50": 99383.0,
+      "p75": 132738.0,
+      "mean": 107615.0
+    },
+    "United States of America|Support engineer or analyst": {
+      "n": 34,
+      "p25": 68750.0,
+      "p50": 95000.0,
+      "p75": 160500.0,
+      "mean": 111038.0
+    },
+    "Sweden|Developer, desktop or enterprise applications": {
+      "n": 18,
+      "p25": 62348.0,
+      "p50": 69182.0,
+      "p75": 109014.0,
+      "mean": 81390.0
+    },
+    "Turkey|Developer, full-stack": {
+      "n": 37,
+      "p25": 18178.0,
+      "p50": 30000.0,
+      "p75": 50248.0,
+      "mean": 37413.0
+    },
+    "Czech Republic|Developer, full-stack": {
+      "n": 84,
+      "p25": 33934.0,
+      "p50": 49988.0,
+      "p75": 70208.0,
+      "mean": 57104.0
+    },
+    "United States of America|Cybersecurity or InfoSec professional": {
+      "n": 56,
+      "p25": 112500.0,
+      "p50": 156500.0,
+      "p75": 236250.0,
+      "mean": 246893.0
+    },
+    "Singapore|Developer, back-end": {
+      "n": 9,
+      "p25": 75378.0,
+      "p50": 234337.0,
+      "p75": 366836.0,
+      "mean": 246145.0
+    },
+    "Czech Republic|Developer, back-end": {
+      "n": 96,
+      "p25": 44933.0,
+      "p50": 70208.0,
+      "p75": 93609.0,
+      "mean": 87601.0
+    },
+    "Ireland|DevOps engineer or professional": {
+      "n": 5,
+      "p25": 124136.0,
+      "p50": 141538.0,
+      "p75": 175979.0,
+      "mean": 148353.0
+    },
+    "United States of America|Retired": {
+      "n": 20,
+      "p25": 56250.0,
+      "p50": 95000.0,
+      "p75": 193750.0,
+      "mean": 195730.0
+    },
+    "Portugal|Developer, back-end": {
+      "n": 47,
+      "p25": 48726.0,
+      "p50": 71929.0,
+      "p75": 92812.0,
+      "mean": 77896.0
+    },
+    "Ireland|Architect, software or solutions": {
+      "n": 11,
+      "p25": 92812.0,
+      "p50": 139218.0,
+      "p75": 197225.0,
+      "mean": 138077.0
+    },
+    "Norway|Other (please specify):": {
+      "n": 9,
+      "p25": 63942.0,
+      "p50": 77085.0,
+      "p75": 87758.0,
+      "mean": 172399.0
+    },
+    "China|Developer, desktop or enterprise applications": {
+      "n": 9,
+      "p25": 45268.0,
+      "p50": 55714.0,
+      "p75": 103768.0,
+      "mean": 89667.0
+    },
+    "Turkey|Developer, back-end": {
+      "n": 32,
+      "p25": 18305.0,
+      "p50": 50248.0,
+      "p75": 77637.0,
+      "mean": 50486.0
+    },
+    "United States of America|Data scientist": {
+      "n": 89,
+      "p25": 100000.0,
+      "p50": 150000.0,
+      "p75": 200000.0,
+      "mean": 182466.0
+    },
+    "Portugal|Architect, software or solutions": {
+      "n": 16,
+      "p25": 63808.0,
+      "p50": 70660.0,
+      "p75": 106444.0,
+      "mean": 88230.0
+    },
+    "Paraguay|Developer, full-stack": {
+      "n": 7,
+      "p25": 26322.0,
+      "p50": 48132.0,
+      "p75": 96000.0,
+      "mean": 81242.0
+    },
+    "Russian Federation|Developer, full-stack": {
+      "n": 27,
+      "p25": 15311.0,
+      "p50": 41340.0,
+      "p75": 55121.0,
+      "mean": 39601.0
+    },
+    "Nepal|Developer, full-stack": {
+      "n": 9,
+      "p25": 8072.0,
+      "p50": 10908.0,
+      "p75": 19634.0,
+      "mean": 14844.0
+    },
+    "Sweden|DevOps engineer or professional": {
+      "n": 11,
+      "p25": 62893.0,
+      "p50": 73375.0,
+      "p75": 104822.0,
+      "mean": 82971.0
+    },
+    "United Kingdom of Great Britain and Northern Ireland|DevOps engineer or professional": {
+      "n": 28,
+      "p25": 82625.0,
+      "p50": 107552.0,
+      "p75": 147554.0,
+      "mean": 125053.0
+    },
+    "Finland|Developer, back-end": {
+      "n": 16,
+      "p25": 69609.0,
+      "p50": 78890.0,
+      "p75": 98322.0,
+      "mean": 86709.0
+    },
+    "Russian Federation|Developer, desktop or enterprise applications": {
+      "n": 11,
+      "p25": 15000.0,
+      "p50": 40000.0,
+      "p75": 53589.0,
+      "mean": 37615.0
+    },
+    "Sweden|Developer, embedded applications or devices": {
+      "n": 28,
+      "p25": 61950.0,
+      "p50": 68134.0,
+      "p75": 78826.0,
+      "mean": 73524.0
+    },
+    "Canada|Academic researcher": {
+      "n": 21,
+      "p25": 23347.0,
+      "p50": 37938.0,
+      "p75": 76606.0,
+      "mean": 53631.0
+    },
+    "Brazil|AI/ML engineer": {
+      "n": 7,
+      "p25": 14563.0,
+      "p50": 39320.0,
+      "p75": 52791.0,
+      "mean": 42415.0
+    },
+    "Bulgaria|Developer, back-end": {
+      "n": 35,
+      "p25": 47445.0,
+      "p50": 59307.0,
+      "p75": 71168.0,
+      "mean": 63078.0
+    },
+    "Germany|Cybersecurity or InfoSec professional": {
+      "n": 21,
+      "p25": 84110.0,
+      "p50": 92812.0,
+      "p75": 136317.0,
+      "mean": 155029.0
+    },
+    "Canada|AI/ML engineer": {
+      "n": 15,
+      "p25": 80254.0,
+      "p50": 109438.0,
+      "p75": 145917.0,
+      "mean": 120187.0
+    },
+    "United States of America|Developer, QA or test": {
+      "n": 44,
+      "p25": 90000.0,
+      "p50": 120000.0,
+      "p75": 158000.0,
+      "mean": 129024.0
+    },
+    "Netherlands|Academic researcher": {
+      "n": 11,
+      "p25": 52207.0,
+      "p50": 60328.0,
+      "p75": 81210.0,
+      "mean": 68923.0
+    },
+    "Israel|Engineering manager": {
+      "n": 14,
+      "p25": 149278.0,
+      "p50": 192810.0,
+      "p75": 242668.0,
+      "mean": 199142.0
+    },
+    "Czech Republic|Developer, mobile": {
+      "n": 13,
+      "p25": 44254.0,
+      "p50": 99346.0,
+      "p75": 112334.0,
+      "mean": 87603.0
+    },
+    "Greece|Developer, front-end": {
+      "n": 13,
+      "p25": 27844.0,
+      "p50": 58007.0,
+      "p75": 70769.0,
+      "mean": 51327.0
+    },
+    "Canada|Developer, embedded applications or devices": {
+      "n": 21,
+      "p25": 60410.0,
+      "p50": 82443.0,
+      "p75": 125853.0,
+      "mean": 131639.0
+    },
+    "United States of America|Applied scientist": {
+      "n": 55,
+      "p25": 120000.0,
+      "p50": 160000.0,
+      "p75": 240000.0,
+      "mean": 176055.0
+    },
+    "Switzerland|Architect, software or solutions": {
+      "n": 30,
+      "p25": 134842.0,
+      "p50": 172350.0,
+      "p75": 189089.0,
+      "mean": 165778.0
+    },
+    "Germany|Data engineer": {
+      "n": 34,
+      "p25": 80908.0,
+      "p50": 92812.0,
+      "p75": 116885.0,
+      "mean": 97812.0
+    },
+    "Bulgaria|Developer, full-stack": {
+      "n": 31,
+      "p25": 25620.0,
+      "p50": 47445.0,
+      "p75": 88960.0,
+      "mean": 57386.0
+    },
+    "Singapore|Developer, full-stack": {
+      "n": 18,
+      "p25": 63856.0,
+      "p50": 96468.0,
+      "p75": 143532.0,
+      "mean": 106903.0
+    },
+    "Germany|Architect, software or solutions": {
+      "n": 162,
+      "p25": 92522.0,
+      "p50": 109634.0,
+      "p75": 133417.0,
+      "mean": 113192.0
+    },
+    "Sweden|Developer, front-end": {
+      "n": 18,
+      "p25": 62893.0,
+      "p50": 74088.0,
+      "p75": 82676.0,
+      "mean": 74646.0
+    },
+    "Latvia|Developer, back-end": {
+      "n": 6,
+      "p25": 50214.0,
+      "p50": 70188.0,
+      "p75": 89332.0,
+      "mean": 71422.0
+    },
+    "Mexico|Developer, full-stack": {
+      "n": 63,
+      "p25": 18950.0,
+      "p50": 31583.0,
+      "p75": 57903.0,
+      "mean": 40844.0
+    },
+    "Canada|Developer, desktop or enterprise applications": {
+      "n": 58,
+      "p25": 65663.0,
+      "p50": 87550.0,
+      "p75": 109438.0,
+      "mean": 96212.0
+    },
+    "United States of America|Senior executive (C-suite, VP, etc.)": {
+      "n": 79,
+      "p25": 175000.0,
+      "p50": 230000.0,
+      "p75": 330000.0,
+      "mean": 276771.0
+    },
+    "Spain|Architect, software or solutions": {
+      "n": 68,
+      "p25": 52207.0,
+      "p50": 69609.0,
+      "p75": 98612.0,
+      "mean": 81973.0
+    },
+    "Sweden|Other (please specify):": {
+      "n": 14,
+      "p25": 35378.0,
+      "p50": 65408.0,
+      "p75": 91456.0,
+      "mean": 63150.0
+    },
+    "Belgium|Developer, back-end": {
+      "n": 23,
+      "p25": 55687.0,
+      "p50": 75410.0,
+      "p75": 92812.0,
+      "mean": 76955.0
+    },
+    "Portugal|Developer, mobile": {
+      "n": 7,
+      "p25": 45246.0,
+      "p50": 66128.0,
+      "p75": 67289.0,
+      "mean": 62136.0
+    },
+    "Italy|Architect, software or solutions": {
+      "n": 68,
+      "p25": 46986.0,
+      "p50": 66708.0,
+      "p75": 81210.0,
+      "mean": 70240.0
+    },
+    "Spain|Other (please specify):": {
+      "n": 14,
+      "p25": 28778.0,
+      "p50": 63120.0,
+      "p75": 110214.0,
+      "mean": 74045.0
+    },
+    "Switzerland|Project manager": {
+      "n": 5,
+      "p25": 99194.0,
+      "p50": 173590.0,
+      "p75": 229386.0,
+      "mean": 166150.0
+    },
+    "India|Project manager": {
+      "n": 9,
+      "p25": 13949.0,
+      "p50": 21504.0,
+      "p75": 39522.0,
+      "mean": 27833.0
+    },
+    "Germany|Data scientist": {
+      "n": 35,
+      "p25": 64040.0,
+      "p50": 92812.0,
+      "p75": 116015.0,
+      "mean": 94724.0
+    },
+    "United States of America|Developer, AI apps or physical AI": {
+      "n": 21,
+      "p25": 80000.0,
+      "p50": 165000.0,
+      "p75": 280000.0,
+      "mean": 180907.0
+    },
+    "Germany|Applied scientist": {
+      "n": 22,
+      "p25": 54817.0,
+      "p50": 88751.0,
+      "p75": 126166.0,
+      "mean": 88709.0
+    },
+    "India|Developer, desktop or enterprise applications": {
+      "n": 29,
+      "p25": 15112.0,
+      "p50": 37197.0,
+      "p75": 64872.0,
+      "mean": 71692.0
+    },
+    "Italy|Project manager": {
+      "n": 6,
+      "p25": 48146.0,
+      "p50": 55107.0,
+      "p75": 58007.0,
+      "mean": 53560.0
+    },
+    "Switzerland|DevOps engineer or professional": {
+      "n": 16,
+      "p25": 131743.0,
+      "p50": 166770.0,
+      "p75": 204588.0,
+      "mean": 192886.0
+    },
+    "United States of America|Product manager": {
+      "n": 33,
+      "p25": 162500.0,
+      "p50": 200000.0,
+      "p75": 235000.0,
+      "mean": 210576.0
+    },
+    "Austria|Developer, full-stack": {
+      "n": 86,
+      "p25": 58007.0,
+      "p50": 75346.0,
+      "p75": 93682.0,
+      "mean": 77751.0
+    },
+    "Austria|Developer, mobile": {
+      "n": 7,
+      "p25": 56847.0,
+      "p50": 79911.0,
+      "p75": 99773.0,
+      "mean": 83179.0
+    },
+    "United Kingdom of Great Britain and Northern Ireland|Cloud infrastructure engineer": {
+      "n": 14,
+      "p25": 87199.0,
+      "p50": 132738.0,
+      "p75": 163370.0,
+      "mean": 143746.0
+    },
+    "Italy|Data scientist": {
+      "n": 9,
+      "p25": 29584.0,
+      "p50": 32484.0,
+      "p75": 49886.0,
+      "mean": 42023.0
+    },
+    "Italy|AI/ML engineer": {
+      "n": 7,
+      "p25": 52207.0,
+      "p50": 55687.0,
+      "p75": 110214.0,
+      "mean": 75178.0
+    },
+    "Turkey|Architect, software or solutions": {
+      "n": 10,
+      "p25": 42921.0,
+      "p50": 69432.0,
+      "p75": 91524.0,
+      "mean": 68205.0
+    },
+    "United Kingdom of Great Britain and Northern Ireland|Database administrator or engineer": {
+      "n": 5,
+      "p25": 64668.0,
+      "p50": 85769.0,
+      "p75": 136141.0,
+      "mean": 97477.0
+    },
+    "Canada|Database administrator or engineer": {
+      "n": 7,
+      "p25": 58367.0,
+      "p50": 87550.0,
+      "p75": 93387.0,
+      "mean": 80470.0
+    },
+    "Austria|DevOps engineer or professional": {
+      "n": 10,
+      "p25": 54837.0,
+      "p50": 66476.0,
+      "p75": 88461.0,
+      "mean": 72610.0
+    },
+    "Bulgaria|Developer, front-end": {
+      "n": 15,
+      "p25": 39735.0,
+      "p50": 51853.0,
+      "p75": 71168.0,
+      "mean": 52498.0
+    },
+    "Canada|Cloud infrastructure engineer": {
+      "n": 11,
+      "p25": 87550.0,
+      "p50": 124029.0,
+      "p75": 153213.0,
+      "mean": 130927.0
+    },
+    "Bulgaria|Data engineer": {
+      "n": 5,
+      "p25": 40032.0,
+      "p50": 44480.0,
+      "p75": 52415.0,
+      "mean": 45875.0
+    },
+    "Spain|Developer, mobile": {
+      "n": 20,
+      "p25": 38575.0,
+      "p50": 69609.0,
+      "p75": 89912.0,
+      "mean": 73464.0
+    },
+    "United States of America|Project manager": {
+      "n": 23,
+      "p25": 105000.0,
+      "p50": 152000.0,
+      "p75": 200000.0,
+      "mean": 175239.0
+    },
+    "France|Other (please specify):": {
+      "n": 28,
+      "p25": 41765.0,
+      "p50": 54500.0,
+      "p75": 84111.0,
+      "mean": 64345.0
+    },
+    "Canada|Data engineer": {
+      "n": 10,
+      "p25": 83355.0,
+      "p50": 112356.0,
+      "p75": 161420.0,
+      "mean": 117755.0
+    },
+    "Germany|Project manager": {
+      "n": 22,
+      "p25": 93972.0,
+      "p50": 116015.0,
+      "p75": 139218.0,
+      "mean": 119189.0
+    },
+    "United Kingdom of Great Britain and Northern Ireland|Developer, front-end": {
+      "n": 52,
+      "p25": 62115.0,
+      "p50": 87130.0,
+      "p75": 112998.0,
+      "mean": 92422.0
+    },
+    "Switzerland|Developer, desktop or enterprise applications": {
+      "n": 20,
+      "p25": 114811.0,
+      "p50": 148791.0,
+      "p75": 161191.0,
+      "mean": 141566.0
+    },
+    "Finland|Developer, full-stack": {
+      "n": 65,
+      "p25": 54527.0,
+      "p50": 72509.0,
+      "p75": 92812.0,
+      "mean": 73311.0
+    },
+    "United Kingdom of Great Britain and Northern Ireland|Data or business analyst": {
+      "n": 14,
+      "p25": 60243.0,
+      "p50": 73516.0,
+      "p75": 112316.0,
+      "mean": 89805.0
+    },
+    "United Kingdom of Great Britain and Northern Ireland|Developer, desktop or enterprise applications": {
+      "n": 67,
+      "p25": 54457.0,
+      "p50": 81685.0,
+      "p75": 108913.0,
+      "mean": 99350.0
+    },
+    "Canada|Architect, software or solutions": {
+      "n": 46,
+      "p25": 91746.0,
+      "p50": 109073.0,
+      "p75": 147741.0,
+      "mean": 119898.0
+    },
+    "United States of America|AI/ML engineer": {
+      "n": 80,
+      "p25": 119000.0,
+      "p50": 189500.0,
+      "p75": 250000.0,
+      "mean": 203312.0
+    },
+    "Canada|Developer, mobile": {
+      "n": 21,
+      "p25": 78430.0,
+      "p50": 102142.0,
+      "p75": 143728.0,
+      "mean": 111396.0
+    },
+    "Hungary|Developer, back-end": {
+      "n": 28,
+      "p25": 35134.0,
+      "p50": 60146.0,
+      "p75": 83468.0,
+      "mean": 64045.0
+    },
+    "United States of America|Developer, game or graphics": {
+      "n": 35,
+      "p25": 42000.0,
+      "p50": 150000.0,
+      "p75": 180000.0,
+      "mean": 130395.0
+    },
+    "Brazil|Developer, full-stack": {
+      "n": 191,
+      "p25": 13107.0,
+      "p50": 25485.0,
+      "p75": 54611.0,
+      "mean": 51293.0
+    },
+    "Switzerland|Developer, embedded applications or devices": {
+      "n": 22,
+      "p25": 108184.0,
+      "p50": 139492.0,
+      "p75": 161191.0,
+      "mean": 153357.0
+    },
+    "Viet Nam|Developer, full-stack": {
+      "n": 8,
+      "p25": 8292.0,
+      "p50": 9744.0,
+      "p75": 13815.0,
+      "mean": 10802.0
+    },
+    "Italy|Student": {
+      "n": 6,
+      "p25": 11601.0,
+      "p50": 15314.0,
+      "p75": 19722.0,
+      "mean": 15932.0
+    },
+    "Spain|Academic researcher": {
+      "n": 21,
+      "p25": 27844.0,
+      "p50": 34804.0,
+      "p75": 57427.0,
+      "mean": 41658.0
+    },
+    "Germany|Engineering manager": {
+      "n": 50,
+      "p25": 104413.0,
+      "p50": 117175.0,
+      "p75": 145018.0,
+      "mean": 127727.0
+    },
+    "United Kingdom of Great Britain and Northern Ireland|Other (please specify):": {
+      "n": 55,
+      "p25": 50372.0,
+      "p50": 78962.0,
+      "p75": 117082.0,
+      "mean": 115460.0
+    },
+    "Indonesia|Developer, full-stack": {
+      "n": 16,
+      "p25": 5546.0,
+      "p50": 8824.0,
+      "p75": 19560.0,
+      "mean": 25220.0
+    },
+    "Belgium|Architect, software or solutions": {
+      "n": 19,
+      "p25": 75410.0,
+      "p50": 122976.0,
+      "p75": 150819.0,
+      "mean": 122673.0
+    },
+    "Poland|Architect, software or solutions": {
+      "n": 28,
+      "p25": 52806.0,
+      "p50": 92104.0,
+      "p75": 121440.0,
+      "mean": 91414.0
+    },
+    "Taiwan|Developer, back-end": {
+      "n": 8,
+      "p25": 35580.0,
+      "p50": 49135.0,
+      "p75": 78362.0,
+      "mean": 53583.0
+    },
+    "United Kingdom of Great Britain and Northern Ireland|AI/ML engineer": {
+      "n": 26,
+      "p25": 87130.0,
+      "p50": 149756.0,
+      "p75": 204212.0,
+      "mean": 150841.0
+    },
+    "Netherlands|Developer, desktop or enterprise applications": {
+      "n": 27,
+      "p25": 58007.0,
+      "p50": 70554.0,
+      "p75": 92812.0,
+      "mean": 88581.0
+    },
+    "Serbia|Developer, full-stack": {
+      "n": 24,
+      "p25": 20789.0,
+      "p50": 48252.0,
+      "p75": 75622.0,
+      "mean": 55797.0
+    },
+    "France|AI/ML engineer": {
+      "n": 20,
+      "p25": 53135.0,
+      "p50": 70769.0,
+      "p75": 81210.0,
+      "mean": 68588.0
+    },
+    "India|Architect, software or solutions": {
+      "n": 73,
+      "p25": 34872.0,
+      "p50": 47658.0,
+      "p75": 64466.0,
+      "mean": 90376.0
+    },
+    "Switzerland|Student": {
+      "n": 8,
+      "p25": 10043.0,
+      "p50": 21078.0,
+      "p75": 97644.0,
+      "mean": 46001.0
+    },
+    "Slovakia|Developer, full-stack": {
+      "n": 29,
+      "p25": 33064.0,
+      "p50": 46406.0,
+      "p75": 74482.0,
+      "mean": 54748.0
+    },
+    "Norway|Architect, software or solutions": {
+      "n": 7,
+      "p25": 88945.0,
+      "p50": 118593.0,
+      "p75": 148241.0,
+      "mean": 117450.0
+    },
+    "United States of America|Database administrator or engineer": {
+      "n": 29,
+      "p25": 95000.0,
+      "p50": 143000.0,
+      "p75": 186000.0,
+      "mean": 157750.0
+    },
+    "Ireland|Engineering manager": {
+      "n": 7,
+      "p25": 145018.0,
+      "p50": 150819.0,
+      "p75": 232029.0,
+      "mean": 173690.0
+    },
+    "South Africa|Architect, software or solutions": {
+      "n": 12,
+      "p25": 14066.0,
+      "p50": 49614.0,
+      "p75": 84568.0,
+      "mean": 58695.0
+    },
+    "Guatemala|Architect, software or solutions": {
+      "n": 7,
+      "p25": 14574.0,
+      "p50": 32531.0,
+      "p75": 61938.0,
+      "mean": 43410.0
+    },
+    "Canada|DevOps engineer or professional": {
+      "n": 36,
+      "p25": 68398.0,
+      "p50": 99588.0,
+      "p75": 134061.0,
+      "mean": 106856.0
+    },
+    "United States of America|Financial analyst or engineer": {
+      "n": 14,
+      "p25": 17500.0,
+      "p50": 146500.0,
+      "p75": 192500.0,
+      "mean": 123975.0
+    },
+    "Austria|Developer, back-end": {
+      "n": 48,
+      "p25": 58587.0,
+      "p50": 81210.0,
+      "p75": 109924.0,
+      "mean": 89469.0
+    },
+    "Philippines|Developer, full-stack": {
+      "n": 24,
+      "p25": 8902.0,
+      "p50": 22826.0,
+      "p75": 45368.0,
+      "mean": 39655.0
+    },
+    "Italy|Academic researcher": {
+      "n": 14,
+      "p25": 21579.0,
+      "p50": 37705.0,
+      "p75": 46406.0,
+      "mean": 38575.0
+    },
+    "Mexico|Developer, front-end": {
+      "n": 6,
+      "p25": 16029.0,
+      "p50": 30004.0,
+      "p75": 56384.0,
+      "mean": 33802.0
+    },
+    "Denmark|Developer, full-stack": {
+      "n": 65,
+      "p25": 77760.0,
+      "p50": 93312.0,
+      "p75": 116640.0,
+      "mean": 99585.0
+    },
+    "Chile|Architect, software or solutions": {
+      "n": 7,
+      "p25": 38171.0,
+      "p50": 59377.0,
+      "p75": 106030.0,
+      "mean": 65803.0
+    },
+    "Germany|Founder, technology or otherwise": {
+      "n": 8,
+      "p25": 80267.0,
+      "p50": 220428.0,
+      "p75": 321793.0,
+      "mean": 284198.0
+    },
+    "Romania|Developer, back-end": {
+      "n": 39,
+      "p25": 55139.0,
+      "p50": 75817.0,
+      "p75": 91899.0,
+      "mean": 75694.0
+    },
+    "Brazil|Data engineer": {
+      "n": 17,
+      "p25": 27852.0,
+      "p50": 36407.0,
+      "p75": 48512.0,
+      "mean": 41365.0
+    },
+    "Hungary|Architect, software or solutions": {
+      "n": 11,
+      "p25": 43375.0,
+      "p50": 69400.0,
+      "p75": 81210.0,
+      "mean": 64469.0
+    },
+    "Bosnia and Herzegovina|Developer, full-stack": {
+      "n": 5,
+      "p25": 27886.0,
+      "p50": 47000.0,
+      "p75": 67720.0,
+      "mean": 47643.0
+    },
+    "Turkey|Developer, mobile": {
+      "n": 22,
+      "p25": 29098.0,
+      "p50": 41406.0,
+      "p75": 56681.0,
+      "mean": 48076.0
+    },
+    "Slovenia|Developer, back-end": {
+      "n": 10,
+      "p25": 67869.0,
+      "p50": 82370.0,
+      "p75": 165321.0,
+      "mean": 159404.0
+    },
+    "Hungary|Developer, front-end": {
+      "n": 11,
+      "p25": 28917.0,
+      "p50": 58990.0,
+      "p75": 76340.0,
+      "mean": 51699.0
+    },
+    "South Africa|Developer, full-stack": {
+      "n": 73,
+      "p25": 21424.0,
+      "p50": 45103.0,
+      "p75": 62885.0,
+      "mean": 48895.0
+    },
+    "France|Developer, game or graphics": {
+      "n": 12,
+      "p25": 41765.0,
+      "p50": 88171.0,
+      "p75": 114855.0,
+      "mean": 77420.0
+    },
+    "Canada|Retired": {
+      "n": 6,
+      "p25": 39215.0,
+      "p50": 63838.0,
+      "p75": 87550.0,
+      "mean": 63230.0
+    },
+    "Slovakia|Developer, back-end": {
+      "n": 29,
+      "p25": 51162.0,
+      "p50": 63808.0,
+      "p75": 85271.0,
+      "mean": 66868.0
+    },
+    "Denmark|Developer, back-end": {
+      "n": 34,
+      "p25": 80871.0,
+      "p50": 96034.0,
+      "p75": 113806.0,
+      "mean": 112658.0
+    },
+    "Turkey|Developer, front-end": {
+      "n": 5,
+      "p25": 12968.0,
+      "p50": 22723.0,
+      "p75": 30297.0,
+      "mean": 21851.0
+    },
+    "Poland|AI/ML engineer": {
+      "n": 7,
+      "p25": 27290.0,
+      "p50": 62221.0,
+      "p75": 130992.0,
+      "mean": 101394.0
+    },
+    "Poland|Developer, embedded applications or devices": {
+      "n": 36,
+      "p25": 29473.0,
+      "p50": 51851.0,
+      "p75": 73857.0,
+      "mean": 51366.0
+    },
+    "Portugal|Engineering manager": {
+      "n": 10,
+      "p25": 72219.0,
+      "p50": 98612.0,
+      "p75": 197225.0,
+      "mean": 169382.0
+    },
+    "Italy|Cloud infrastructure engineer": {
+      "n": 6,
+      "p25": 43506.0,
+      "p50": 53366.0,
+      "p75": 73090.0,
+      "mean": 57234.0
+    },
+    "Finland|Academic researcher": {
+      "n": 8,
+      "p25": 35167.0,
+      "p50": 38088.0,
+      "p75": 53656.0,
+      "mean": 43928.0
+    },
+    "Bangladesh|Developer, front-end": {
+      "n": 5,
+      "p25": 7670.0,
+      "p50": 9818.0,
+      "p75": 27000.0,
+      "mean": 15832.0
+    },
+    "Egypt|Developer, mobile": {
+      "n": 8,
+      "p25": 12056.0,
+      "p50": 21570.0,
+      "p75": 40440.0,
+      "mean": 32362.0
+    },
+    "Brazil|Developer, desktop or enterprise applications": {
+      "n": 30,
+      "p25": 16110.0,
+      "p50": 26760.0,
+      "p75": 36407.0,
+      "mean": 32911.0
+    },
+    "France|DevOps engineer or professional": {
+      "n": 40,
+      "p25": 51772.0,
+      "p50": 69609.0,
+      "p75": 90100.0,
+      "mean": 73483.0
+    },
+    "Lithuania|Developer, full-stack": {
+      "n": 16,
+      "p25": 51626.0,
+      "p50": 68158.0,
+      "p75": 89912.0,
+      "mean": 74648.0
+    },
+    "Bulgaria|Engineering manager": {
+      "n": 7,
+      "p25": 9281.0,
+      "p50": 92518.0,
+      "p75": 115648.0,
+      "mean": 78424.0
+    },
+    "Croatia|Architect, software or solutions": {
+      "n": 13,
+      "p25": 45826.0,
+      "p50": 75410.0,
+      "p75": 112534.0,
+      "mean": 84410.0
+    },
+    "Argentina|Architect, software or solutions": {
+      "n": 12,
+      "p25": 40000.0,
+      "p50": 48411.0,
+      "p75": 120000.0,
+      "mean": 72744.0
+    },
+    "Poland|System administrator": {
+      "n": 6,
+      "p25": 24561.0,
+      "p50": 33430.0,
+      "p75": 47690.0,
+      "mean": 38115.0
+    },
+    "Finland|Developer, desktop or enterprise applications": {
+      "n": 15,
+      "p25": 53367.0,
+      "p50": 69609.0,
+      "p75": 81210.0,
+      "mean": 67347.0
+    },
+    "Finland|Other (please specify):": {
+      "n": 9,
+      "p25": 65548.0,
+      "p50": 83531.0,
+      "p75": 94552.0,
+      "mean": 92876.0
+    },
+    "Canada|Developer, front-end": {
+      "n": 41,
+      "p25": 62015.0,
+      "p50": 72958.0,
+      "p75": 109438.0,
+      "mean": 86428.0
+    },
+    "Denmark|Developer, embedded applications or devices": {
+      "n": 11,
+      "p25": 58320.0,
+      "p50": 85536.0,
+      "p75": 186625.0,
+      "mean": 112342.0
+    },
+    "Israel|Developer, back-end": {
+      "n": 38,
+      "p25": 87213.0,
+      "p50": 136882.0,
+      "p75": 170603.0,
+      "mean": 131417.0
+    },
+    "United States of America|UX, Research Ops or UI design professional": {
+      "n": 8,
+      "p25": 131250.0,
+      "p50": 192500.0,
+      "p75": 215596.0,
+      "mean": 187183.0
+    },
+    "Brazil|Academic researcher": {
+      "n": 16,
+      "p25": 14790.0,
+      "p50": 24575.0,
+      "p75": 39820.0,
+      "mean": 29070.0
+    },
+    "Italy|Other (please specify):": {
+      "n": 16,
+      "p25": 33064.0,
+      "p50": 41185.0,
+      "p75": 58007.0,
+      "mean": 49828.0
+    },
+    "Italy|System administrator": {
+      "n": 8,
+      "p25": 40773.0,
+      "p50": 48002.0,
+      "p75": 58007.0,
+      "mean": 48919.0
+    },
+    "France|Data scientist": {
+      "n": 24,
+      "p25": 47566.0,
+      "p50": 59168.0,
+      "p75": 88171.0,
+      "mean": 82801.0
+    },
+    "United States of America|System administrator": {
+      "n": 61,
+      "p25": 70000.0,
+      "p50": 85000.0,
+      "p75": 120000.0,
+      "mean": 95199.0
+    },
+    "Denmark|Engineering manager": {
+      "n": 8,
+      "p25": 34176.0,
+      "p50": 106532.0,
+      "p75": 143856.0,
+      "mean": 97395.0
+    },
+    "Iran, Islamic Republic of...|Developer, full-stack": {
+      "n": 13,
+      "p25": 10089.0,
+      "p50": 71217.0,
+      "p75": 112760.0,
+      "mean": 84414.0
+    },
+    "India|AI/ML engineer": {
+      "n": 19,
+      "p25": 9880.0,
+      "p50": 18598.0,
+      "p75": 35000.0,
+      "mean": 26944.0
+    },
+    "Poland|Data engineer": {
+      "n": 14,
+      "p25": 38888.0,
+      "p50": 54580.0,
+      "p75": 99608.0,
+      "mean": 69292.0
+    },
+    "Germany|Product manager": {
+      "n": 11,
+      "p25": 89331.0,
+      "p50": 110214.0,
+      "p75": 116015.0,
+      "mean": 105257.0
+    },
+    "Czech Republic|Other (please specify):": {
+      "n": 11,
+      "p25": 23155.0,
+      "p50": 43295.0,
+      "p75": 140417.0,
+      "mean": 68735.0
+    },
+    "Greece|Developer, back-end": {
+      "n": 28,
+      "p25": 24102.0,
+      "p50": 52207.0,
+      "p75": 84256.0,
+      "mean": 71424.0
+    },
+    "Norway|Data engineer": {
+      "n": 5,
+      "p25": 79804.0,
+      "p50": 98827.0,
+      "p75": 101298.0,
+      "mean": 92206.0
+    },
+    "Japan|Developer, full-stack": {
+      "n": 39,
+      "p25": 35926.0,
+      "p50": 49744.0,
+      "p75": 69088.0,
+      "mean": 70496.0
+    },
+    "Italy|Senior executive (C-suite, VP, etc.)": {
+      "n": 8,
+      "p25": 50176.0,
+      "p50": 89912.0,
+      "p75": 133707.0,
+      "mean": 89766.0
+    },
+    "Poland|Developer, mobile": {
+      "n": 39,
+      "p25": 42572.0,
+      "p50": 72000.0,
+      "p75": 92240.0,
+      "mean": 70631.0
+    },
+    "Ukraine|Other (please specify):": {
+      "n": 13,
+      "p25": 9107.0,
+      "p50": 33644.0,
+      "p75": 48292.0,
+      "mean": 34485.0
+    },
+    "Croatia|Developer, back-end": {
+      "n": 16,
+      "p25": 34514.0,
+      "p50": 55107.0,
+      "p75": 71930.0,
+      "mean": 53751.0
+    },
+    "Canada|System administrator": {
+      "n": 9,
+      "p25": 41951.0,
+      "p50": 72229.0,
+      "p75": 105790.0,
+      "mean": 76500.0
+    },
+    "Brazil|Developer, mobile": {
+      "n": 16,
+      "p25": 16929.0,
+      "p50": 45964.0,
+      "p75": 69447.0,
+      "mean": 48507.0
+    },
+    "United States of America|Student": {
+      "n": 63,
+      "p25": 20000.0,
+      "p50": 30000.0,
+      "p75": 56000.0,
+      "mean": 43421.0
+    },
+    "Serbia|Developer, front-end": {
+      "n": 5,
+      "p25": 48014.0,
+      "p50": 110000.0,
+      "p75": 296822.0,
+      "mean": 159934.0
+    },
+    "Canada|Student": {
+      "n": 15,
+      "p25": 13278.0,
+      "p50": 25535.0,
+      "p75": 32831.0,
+      "mean": 24301.0
+    },
+    "Kenya|Developer, full-stack": {
+      "n": 12,
+      "p25": 15480.0,
+      "p50": 25542.0,
+      "p75": 55146.0,
+      "mean": 35373.0
+    },
+    "Netherlands|Developer, front-end": {
+      "n": 24,
+      "p25": 47958.0,
+      "p50": 69609.0,
+      "p75": 87881.0,
+      "mean": 67774.0
+    },
+    "Belgium|Developer, embedded applications or devices": {
+      "n": 10,
+      "p25": 57427.0,
+      "p50": 83420.0,
+      "p75": 94552.0,
+      "mean": 77128.0
+    },
+    "Pakistan|Developer, mobile": {
+      "n": 9,
+      "p25": 7901.0,
+      "p50": 14047.0,
+      "p75": 19579.0,
+      "mean": 14337.0
+    },
+    "Bulgaria|Developer, embedded applications or devices": {
+      "n": 5,
+      "p25": 23771.0,
+      "p50": 38549.0,
+      "p75": 83029.0,
+      "mean": 50430.0
+    },
+    "Netherlands|Data engineer": {
+      "n": 8,
+      "p25": 58588.0,
+      "p50": 72510.0,
+      "p75": 150819.0,
+      "mean": 97017.0
+    },
+    "Brazil|Engineering manager": {
+      "n": 16,
+      "p25": 37354.0,
+      "p50": 54611.0,
+      "p75": 71859.0,
+      "mean": 68156.0
+    },
+    "Finland|Developer, embedded applications or devices": {
+      "n": 13,
+      "p25": 55687.0,
+      "p50": 69609.0,
+      "p75": 96002.0,
+      "mean": 75775.0
+    },
+    "France|Support engineer or analyst": {
+      "n": 6,
+      "p25": 50176.0,
+      "p50": 75990.0,
+      "p75": 94842.0,
+      "mean": 73669.0
+    },
+    "Czech Republic|Architect, software or solutions": {
+      "n": 20,
+      "p25": 50901.0,
+      "p50": 84625.0,
+      "p75": 104053.0,
+      "mean": 78418.0
+    },
+    "Germany|Database administrator or engineer": {
+      "n": 9,
+      "p25": 55107.0,
+      "p50": 62648.0,
+      "p75": 101512.0,
+      "mean": 74662.0
+    },
+    "Germany|AI/ML engineer": {
+      "n": 15,
+      "p25": 85851.0,
+      "p50": 98612.0,
+      "p75": 150819.0,
+      "mean": 121726.0
+    },
+    "Ukraine|Developer, QA or test": {
+      "n": 16,
+      "p25": 26000.0,
+      "p50": 33876.0,
+      "p75": 48884.0,
+      "mean": 42686.0
+    },
+    "Mexico|Developer, desktop or enterprise applications": {
+      "n": 7,
+      "p25": 13160.0,
+      "p50": 26320.0,
+      "p75": 46849.0,
+      "mean": 31363.0
+    },
+    "France|Developer, desktop or enterprise applications": {
+      "n": 49,
+      "p25": 41069.0,
+      "p50": 54527.0,
+      "p75": 63808.0,
+      "mean": 58424.0
+    },
+    "Netherlands|Engineering manager": {
+      "n": 12,
+      "p25": 74180.0,
+      "p50": 98612.0,
+      "p75": 195775.0,
+      "mean": 133094.0
+    },
+    "Canada|Founder, technology or otherwise": {
+      "n": 10,
+      "p25": 66574.0,
+      "p50": 80254.0,
+      "p75": 156861.0,
+      "mean": 105425.0
+    },
+    "France|Senior executive (C-suite, VP, etc.)": {
+      "n": 23,
+      "p25": 76570.0,
+      "p50": 104413.0,
+      "p75": 150819.0,
+      "mean": 122147.0
+    },
+    "Mexico|Architect, software or solutions": {
+      "n": 11,
+      "p25": 21056.0,
+      "p50": 42111.0,
+      "p75": 85000.0,
+      "mean": 53542.0
+    },
+    "Denmark|Student": {
+      "n": 11,
+      "p25": 16174.0,
+      "p50": 21947.0,
+      "p75": 31104.0,
+      "mean": 27303.0
+    },
+    "Netherlands|Database administrator or engineer": {
+      "n": 5,
+      "p25": 63228.0,
+      "p50": 208826.0,
+      "p75": 295838.0,
+      "mean": 185391.0
+    },
+    "Canada|Developer, game or graphics": {
+      "n": 15,
+      "p25": 67122.0,
+      "p50": 83173.0,
+      "p75": 138621.0,
+      "mean": 110344.0
+    },
+    "France|Academic researcher": {
+      "n": 40,
+      "p25": 30280.0,
+      "p50": 38285.0,
+      "p75": 50466.0,
+      "mean": 40543.0
+    },
+    "United Kingdom of Great Britain and Northern Ireland|Founder, technology or otherwise": {
+      "n": 13,
+      "p25": 66710.0,
+      "p50": 108913.0,
+      "p75": 212106.0,
+      "mean": 227628.0
+    },
+    "Costa Rica|Developer, full-stack": {
+      "n": 5,
+      "p25": 28326.0,
+      "p50": 49421.0,
+      "p75": 77600.0,
+      "mean": 52255.0
+    },
+    "Canada|Data scientist": {
+      "n": 10,
+      "p25": 72958.0,
+      "p50": 107614.0,
+      "p75": 118557.0,
+      "mean": 104558.0
+    },
+    "Sri Lanka|Developer, back-end": {
+      "n": 5,
+      "p25": 19484.0,
+      "p50": 42813.0,
+      "p75": 72152.0,
+      "mean": 45217.0
+    },
+    "Finland|Architect, software or solutions": {
+      "n": 13,
+      "p25": 78310.0,
+      "p50": 98612.0,
+      "p75": 116014.0,
+      "mean": 223819.0
+    },
+    "Denmark|Architect, software or solutions": {
+      "n": 25,
+      "p25": 121306.0,
+      "p50": 132192.0,
+      "p75": 146966.0,
+      "mean": 132783.0
+    },
+    "Czech Republic|Developer, front-end": {
+      "n": 20,
+      "p25": 39949.0,
+      "p50": 64592.0,
+      "p75": 81910.0,
+      "mean": 63137.0
+    },
+    "Ukraine|DevOps engineer or professional": {
+      "n": 19,
+      "p25": 23966.0,
+      "p50": 52726.0,
+      "p75": 71899.0,
+      "mean": 50109.0
+    },
+    "France|Project manager": {
+      "n": 7,
+      "p25": 56847.0,
+      "p50": 63808.0,
+      "p75": 87011.0,
+      "mean": 63974.0
+    },
+    "United Kingdom of Great Britain and Northern Ireland|System administrator": {
+      "n": 11,
+      "p25": 63986.0,
+      "p50": 84408.0,
+      "p75": 149756.0,
+      "mean": 115597.0
+    },
+    "Spain|Developer, game or graphics": {
+      "n": 8,
+      "p25": 32774.0,
+      "p50": 55687.0,
+      "p75": 91362.0,
+      "mean": 60763.0
+    },
+    "Brazil|Developer, embedded applications or devices": {
+      "n": 13,
+      "p25": 16384.0,
+      "p50": 21844.0,
+      "p75": 49150.0,
+      "mean": 33094.0
+    },
+    "Ireland|Developer, desktop or enterprise applications": {
+      "n": 14,
+      "p25": 59168.0,
+      "p50": 89912.0,
+      "p75": 121816.0,
+      "mean": 97080.0
+    },
+    "Israel|Developer, embedded applications or devices": {
+      "n": 11,
+      "p25": 108833.0,
+      "p50": 164720.0,
+      "p75": 176485.0,
+      "mean": 135888.0
+    },
+    "Brazil|Developer, QA or test": {
+      "n": 5,
+      "p25": 31844.0,
+      "p50": 55000.0,
+      "p75": 72360.0,
+      "mean": 52682.0
+    },
+    "Australia|Developer, full-stack": {
+      "n": 181,
+      "p25": 68585.0,
+      "p50": 87763.0,
+      "p75": 116469.0,
+      "mean": 102837.0
+    },
+    "New Zealand|Developer, desktop or enterprise applications": {
+      "n": 9,
+      "p25": 48188.0,
+      "p50": 61440.0,
+      "p75": 114448.0,
+      "mean": 79310.0
+    },
+    "Cyprus|Developer, full-stack": {
+      "n": 9,
+      "p25": 51046.0,
+      "p50": 76570.0,
+      "p75": 130052.0,
+      "mean": 87939.0
+    },
+    "Slovenia|Developer, full-stack": {
+      "n": 24,
+      "p25": 41765.0,
+      "p50": 46406.0,
+      "p75": 69053.0,
+      "mean": 61709.0
+    },
+    "Austria|AI/ML engineer": {
+      "n": 5,
+      "p25": 49746.0,
+      "p50": 69609.0,
+      "p75": 92812.0,
+      "mean": 70945.0
+    },
+    "Austria|Architect, software or solutions": {
+      "n": 19,
+      "p25": 75410.0,
+      "p50": 95132.0,
+      "p75": 111374.0,
+      "mean": 90195.0
+    },
+    "Chile|Developer, full-stack": {
+      "n": 36,
+      "p25": 18290.0,
+      "p50": 30855.0,
+      "p75": 39761.0,
+      "mean": 36228.0
+    },
+    "Poland|Developer, desktop or enterprise applications": {
+      "n": 26,
+      "p25": 40798.0,
+      "p50": 62442.0,
+      "p75": 95709.0,
+      "mean": 66913.0
+    },
+    "United Kingdom of Great Britain and Northern Ireland|UX, Research Ops or UI design professional": {
+      "n": 5,
+      "p25": 54457.0,
+      "p50": 74878.0,
+      "p75": 110956.0,
+      "mean": 81141.0
+    },
+    "Poland|Engineering manager": {
+      "n": 19,
+      "p25": 81870.0,
+      "p50": 95515.0,
+      "p75": 120076.0,
+      "mean": 98860.0
+    },
+    "Germany|Cloud infrastructure engineer": {
+      "n": 21,
+      "p25": 70189.0,
+      "p50": 98612.0,
+      "p75": 108880.0,
+      "mean": 97177.0
+    },
+    "Bulgaria|Architect, software or solutions": {
+      "n": 10,
+      "p25": 66814.0,
+      "p50": 83009.0,
+      "p75": 99368.0,
+      "mean": 91014.0
+    },
+    "Lithuania|Developer, desktop or enterprise applications": {
+      "n": 5,
+      "p25": 11750.0,
+      "p50": 40605.0,
+      "p75": 55107.0,
+      "mean": 34864.0
+    },
+    "Iran, Islamic Republic of...|Developer, back-end": {
+      "n": 19,
+      "p25": 9685.0,
+      "p50": 22599.0,
+      "p75": 51276.0,
+      "mean": 63119.0
+    },
+    "New Zealand|Data engineer": {
+      "n": 6,
+      "p25": 62494.0,
+      "p50": 75294.0,
+      "p75": 93365.0,
+      "mean": 77804.0
+    },
+    "Colombia|Developer, full-stack": {
+      "n": 32,
+      "p25": 11867.0,
+      "p50": 32298.0,
+      "p75": 57755.0,
+      "mean": 35504.0
+    },
+    "Bangladesh|Developer, mobile": {
+      "n": 6,
+      "p25": 6331.0,
+      "p50": 7364.0,
+      "p75": 11397.0,
+      "mean": 8546.0
+    },
+    "Norway|Developer, embedded applications or devices": {
+      "n": 10,
+      "p25": 94627.0,
+      "p50": 117852.0,
+      "p75": 153182.0,
+      "mean": 121656.0
+    },
+    "Australia|Engineering manager": {
+      "n": 25,
+      "p25": 95564.0,
+      "p50": 113116.0,
+      "p75": 149522.0,
+      "mean": 130175.0
+    },
+    "Australia|Developer, front-end": {
+      "n": 15,
+      "p25": 78011.0,
+      "p50": 87763.0,
+      "p75": 100765.0,
+      "mean": 93339.0
+    },
+    "United Kingdom of Great Britain and Northern Ireland|Data scientist": {
+      "n": 26,
+      "p25": 50883.0,
+      "p50": 66709.0,
+      "p75": 88152.0,
+      "mean": 80297.0
+    },
+    "France|Developer, mobile": {
+      "n": 29,
+      "p25": 55687.0,
+      "p50": 63228.0,
+      "p75": 84110.0,
+      "mean": 70755.0
+    },
+    "United Kingdom of Great Britain and Northern Ireland|Applied scientist": {
+      "n": 11,
+      "p25": 57179.0,
+      "p50": 74878.0,
+      "p75": 142949.0,
+      "mean": 98393.0
+    },
+    "New Zealand|Architect, software or solutions": {
+      "n": 11,
+      "p25": 93365.0,
+      "p50": 120471.0,
+      "p75": 142155.0,
+      "mean": 117891.0
+    },
+    "South Africa|Developer, back-end": {
+      "n": 20,
+      "p25": 31290.0,
+      "p50": 61932.0,
+      "p75": 87105.0,
+      "mean": 65677.0
+    },
+    "Slovakia|Developer, desktop or enterprise applications": {
+      "n": 6,
+      "p25": 38854.0,
+      "p50": 49306.0,
+      "p75": 120946.0,
+      "mean": 71952.0
+    },
+    "India|Developer, game or graphics": {
+      "n": 7,
+      "p25": 13949.0,
+      "p50": 17471.0,
+      "p75": 46496.0,
+      "mean": 26867.0
+    },
+    "Brazil|Support engineer or analyst": {
+      "n": 5,
+      "p25": 16019.0,
+      "p50": 30123.0,
+      "p75": 44476.0,
+      "mean": 30222.0
+    },
+    "Belgium|Developer, desktop or enterprise applications": {
+      "n": 9,
+      "p25": 49654.0,
+      "p50": 63808.0,
+      "p75": 83530.0,
+      "mean": 62933.0
+    },
+    "New Zealand|Academic researcher": {
+      "n": 6,
+      "p25": 53007.0,
+      "p50": 76800.0,
+      "p75": 86739.0,
+      "mean": 70174.0
+    },
+    "France|Engineering manager": {
+      "n": 23,
+      "p25": 78890.0,
+      "p50": 92812.0,
+      "p75": 116015.0,
+      "mean": 111576.0
+    },
+    "Hungary|DevOps engineer or professional": {
+      "n": 8,
+      "p25": 31760.0,
+      "p50": 41350.0,
+      "p75": 62893.0,
+      "mean": 43929.0
+    },
+    "Lithuania|DevOps engineer or professional": {
+      "n": 6,
+      "p25": 88931.0,
+      "p50": 103253.0,
+      "p75": 116015.0,
+      "mean": 101440.0
+    },
+    "Australia|Developer, back-end": {
+      "n": 78,
+      "p25": 90363.0,
+      "p50": 107265.0,
+      "p75": 131644.0,
+      "mean": 120867.0
+    },
+    "Netherlands|Developer, embedded applications or devices": {
+      "n": 21,
+      "p25": 52207.0,
+      "p50": 69609.0,
+      "p75": 83650.0,
+      "mean": 68488.0
+    },
+    "Switzerland|Senior executive (C-suite, VP, etc.)": {
+      "n": 8,
+      "p25": 109198.0,
+      "p50": 185989.0,
+      "p75": 224737.0,
+      "mean": 167766.0
+    },
+    "Estonia|Developer, back-end": {
+      "n": 13,
+      "p25": 69609.0,
+      "p50": 70305.0,
+      "p75": 110164.0,
+      "mean": 79828.0
+    },
+    "Israel|Other (please specify):": {
+      "n": 6,
+      "p25": 37944.0,
+      "p50": 97214.0,
+      "p75": 141188.0,
+      "mean": 91821.0
+    },
+    "Brazil|DevOps engineer or professional": {
+      "n": 5,
+      "p25": 43324.0,
+      "p50": 72815.0,
+      "p75": 109222.0,
+      "mean": 75582.0
+    },
+    "Israel|Developer, desktop or enterprise applications": {
+      "n": 10,
+      "p25": 65447.0,
+      "p50": 134834.0,
+      "p75": 186780.0,
+      "mean": 121592.0
+    },
+    "Canada|Data or business analyst": {
+      "n": 11,
+      "p25": 53624.0,
+      "p50": 65663.0,
+      "p75": 75147.0,
+      "mean": 62578.0
+    },
+    "United Kingdom of Great Britain and Northern Ireland|Developer, game or graphics": {
+      "n": 12,
+      "p25": 48092.0,
+      "p50": 70454.0,
+      "p75": 88837.0,
+      "mean": 66688.0
+    },
+    "Georgia|Developer, full-stack": {
+      "n": 11,
+      "p25": 34925.0,
+      "p50": 57351.0,
+      "p75": 72600.0,
+      "mean": 78438.0
+    },
+    "Mexico|Data engineer": {
+      "n": 7,
+      "p25": 42111.0,
+      "p50": 58114.0,
+      "p75": 78959.0,
+      "mean": 60039.0
+    },
+    "New Zealand|Developer, full-stack": {
+      "n": 71,
+      "p25": 56621.0,
+      "p50": 78306.0,
+      "p75": 90353.0,
+      "mean": 81407.0
+    },
+    "New Zealand|Developer, embedded applications or devices": {
+      "n": 9,
+      "p25": 43068.0,
+      "p50": 81318.0,
+      "p75": 106918.0,
+      "mean": 79076.0
+    },
+    "New Zealand|Developer, back-end": {
+      "n": 16,
+      "p25": 67464.0,
+      "p50": 81016.0,
+      "p75": 115200.0,
+      "mean": 92765.0
+    },
+    "Romania|Developer, front-end": {
+      "n": 13,
+      "p25": 33888.0,
+      "p50": 49625.0,
+      "p75": 55139.0,
+      "mean": 50508.0
+    },
+    "Australia|Developer, game or graphics": {
+      "n": 6,
+      "p25": 62246.0,
+      "p50": 79636.0,
+      "p75": 109703.0,
+      "mean": 83537.0
+    },
+    "Belgium|Developer, front-end": {
+      "n": 6,
+      "p25": 51626.0,
+      "p50": 60908.0,
+      "p75": 81210.0,
+      "mean": 67095.0
+    },
+    "Romania|DevOps engineer or professional": {
+      "n": 5,
+      "p25": 26421.0,
+      "p50": 71222.0,
+      "p75": 88172.0,
+      "mean": 60081.0
+    },
+    "Australia|AI/ML engineer": {
+      "n": 9,
+      "p25": 91014.0,
+      "p50": 147571.0,
+      "p75": 191778.0,
+      "mean": 153494.0
+    },
+    "France|Cloud infrastructure engineer": {
+      "n": 12,
+      "p25": 49596.0,
+      "p50": 56847.0,
+      "p75": 74685.0,
+      "mean": 64881.0
+    },
+    "Australia|Architect, software or solutions": {
+      "n": 35,
+      "p25": 104015.0,
+      "p50": 130019.0,
+      "p75": 162523.0,
+      "mean": 136398.0
+    },
+    "Australia|Other (please specify):": {
+      "n": 22,
+      "p25": 35756.0,
+      "p50": 95239.0,
+      "p75": 112141.0,
+      "mean": 254431.0
+    },
+    "France|Developer, front-end": {
+      "n": 42,
+      "p25": 48436.0,
+      "p50": 61488.0,
+      "p75": 83240.0,
+      "mean": 75765.0
+    },
+    "Greece|Developer, desktop or enterprise applications": {
+      "n": 9,
+      "p25": 24363.0,
+      "p50": 41765.0,
+      "p75": 85271.0,
+      "mean": 61746.0
+    },
+    "Austria|Developer, embedded applications or devices": {
+      "n": 13,
+      "p25": 66128.0,
+      "p50": 81210.0,
+      "p75": 118915.0,
+      "mean": 90938.0
+    },
+    "Australia|Senior executive (C-suite, VP, etc.)": {
+      "n": 14,
+      "p25": 91468.0,
+      "p50": 152772.0,
+      "p75": 201529.0,
+      "mean": 151927.0
+    },
+    "Australia|Developer, desktop or enterprise applications": {
+      "n": 25,
+      "p25": 78011.0,
+      "p50": 110516.0,
+      "p75": 141396.0,
+      "mean": 112466.0
+    },
+    "Japan|Architect, software or solutions": {
+      "n": 7,
+      "p25": 69088.0,
+      "p50": 96033.0,
+      "p75": 103633.0,
+      "mean": 92677.0
+    },
+    "Hungary|Developer, desktop or enterprise applications": {
+      "n": 6,
+      "p25": 39904.0,
+      "p50": 72291.0,
+      "p75": 76340.0,
+      "mean": 61881.0
+    },
+    "Australia|DevOps engineer or professional": {
+      "n": 26,
+      "p25": 82078.0,
+      "p50": 108890.0,
+      "p75": 128068.0,
+      "mean": 106080.0
+    },
+    "Australia|Cybersecurity or InfoSec professional": {
+      "n": 6,
+      "p25": 102390.0,
+      "p50": 143020.0,
+      "p75": 203154.0,
+      "mean": 151688.0
+    },
+    "China|Developer, front-end": {
+      "n": 8,
+      "p25": 16714.0,
+      "p50": 27927.0,
+      "p75": 45964.0,
+      "mean": 48419.0
+    },
+    "Hong Kong (S.A.R.)|Developer, full-stack": {
+      "n": 10,
+      "p25": 39363.0,
+      "p50": 63877.0,
+      "p75": 79108.0,
+      "mean": 62570.0
+    },
+    "Australia|Data scientist": {
+      "n": 8,
+      "p25": 50545.0,
+      "p50": 85975.0,
+      "p75": 120430.0,
+      "mean": 88453.0
+    },
+    "Australia|Academic researcher": {
+      "n": 10,
+      "p25": 27986.0,
+      "p50": 52008.0,
+      "p75": 75980.0,
+      "mean": 52573.0
+    },
+    "Australia|Data engineer": {
+      "n": 10,
+      "p25": 75898.0,
+      "p50": 97514.0,
+      "p75": 109054.0,
+      "mean": 87893.0
+    },
+    "Japan|Developer, back-end": {
+      "n": 19,
+      "p25": 49744.0,
+      "p50": 69088.0,
+      "p75": 96724.0,
+      "mean": 121814.0
+    },
+    "Germany|Support engineer or analyst": {
+      "n": 8,
+      "p25": 66418.0,
+      "p50": 79268.0,
+      "p75": 115724.0,
+      "mean": 86317.0
+    },
+    "China|Developer, back-end": {
+      "n": 23,
+      "p25": 25071.0,
+      "p50": 51536.0,
+      "p75": 83571.0,
+      "mean": 59438.0
+    },
+    "Pakistan|Developer, back-end": {
+      "n": 6,
+      "p25": 10008.0,
+      "p50": 20156.0,
+      "p75": 61734.0,
+      "mean": 32136.0
+    },
+    "Australia|Founder, technology or otherwise": {
+      "n": 12,
+      "p25": 87762.0,
+      "p50": 117017.0,
+      "p75": 134895.0,
+      "mean": 150334.0
+    },
+    "Canada|Cybersecurity or InfoSec professional": {
+      "n": 11,
+      "p25": 40127.0,
+      "p50": 91198.0,
+      "p75": 218875.0,
+      "mean": 138892.0
+    },
+    "New Zealand|Developer, front-end": {
+      "n": 8,
+      "p25": 43671.0,
+      "p50": 70776.0,
+      "p75": 85767.0,
+      "mean": 64089.0
+    },
+    "Thailand|Developer, front-end": {
+      "n": 5,
+      "p25": 26255.0,
+      "p50": 38548.0,
+      "p75": 57534.0,
+      "mean": 41225.0
+    },
+    "India|Developer, front-end": {
+      "n": 58,
+      "p25": 8137.0,
+      "p50": 15188.0,
+      "p75": 37488.0,
+      "mean": 25932.0
+    },
+    "Australia|Developer, embedded applications or devices": {
+      "n": 18,
+      "p25": 77198.0,
+      "p50": 99140.0,
+      "p75": 120067.0,
+      "mean": 99088.0
+    },
+    "Malaysia|Developer, full-stack": {
+      "n": 16,
+      "p25": 12842.0,
+      "p50": 17908.0,
+      "p75": 34755.0,
+      "mean": 22191.0
+    },
+    "Croatia|Developer, full-stack": {
+      "n": 20,
+      "p25": 32194.0,
+      "p50": 38720.0,
+      "p75": 60908.0,
+      "mean": 53597.0
+    },
+    "India|Data scientist": {
+      "n": 14,
+      "p25": 8404.0,
+      "p50": 12786.0,
+      "p75": 34872.0,
+      "mean": 20976.0
+    },
+    "Japan|Cloud infrastructure engineer": {
+      "n": 6,
+      "p25": 59589.0,
+      "p50": 74270.0,
+      "p75": 98451.0,
+      "mean": 79452.0
+    },
+    "India|Senior executive (C-suite, VP, etc.)": {
+      "n": 10,
+      "p25": 23248.0,
+      "p50": 68582.0,
+      "p75": 142394.0,
+      "mean": 88458.0
+    },
+    "India|Developer, mobile": {
+      "n": 44,
+      "p25": 8863.0,
+      "p50": 13077.0,
+      "p75": 28624.0,
+      "mean": 20267.0
+    },
+    "India|Cloud infrastructure engineer": {
+      "n": 10,
+      "p25": 16042.0,
+      "p50": 30396.0,
+      "p75": 55273.0,
+      "mean": 34318.0
+    },
+    "Sweden|Developer, mobile": {
+      "n": 12,
+      "p25": 74947.0,
+      "p50": 89308.0,
+      "p75": 154612.0,
+      "mean": 119742.0
+    },
+    "Guatemala|Developer, full-stack": {
+      "n": 10,
+      "p25": 27456.0,
+      "p50": 33738.0,
+      "p75": 43428.0,
+      "mean": 34915.0
+    },
+    "Australia|Cloud infrastructure engineer": {
+      "n": 8,
+      "p25": 109341.0,
+      "p50": 119690.0,
+      "p75": 172274.0,
+      "mean": 134771.0
+    },
+    "Viet Nam|Architect, software or solutions": {
+      "n": 5,
+      "p25": 11464.0,
+      "p50": 27512.0,
+      "p75": 124902.0,
+      "mean": 60049.0
+    },
+    "Romania|Developer, desktop or enterprise applications": {
+      "n": 5,
+      "p25": 28287.0,
+      "p50": 59734.0,
+      "p75": 79263.0,
+      "mean": 54967.0
+    },
+    "Peru|Developer, full-stack": {
+      "n": 10,
+      "p25": 10866.0,
+      "p50": 26608.0,
+      "p75": 66792.0,
+      "mean": 38589.0
+    },
+    "Denmark|Developer, desktop or enterprise applications": {
+      "n": 11,
+      "p25": 71539.0,
+      "p50": 85536.0,
+      "p75": 104510.0,
+      "mean": 90428.0
+    },
+    "Bangladesh|Architect, software or solutions": {
+      "n": 7,
+      "p25": 9818.0,
+      "p50": 18818.0,
+      "p75": 31377.0,
+      "mean": 18742.0
+    },
+    "Spain|Data scientist": {
+      "n": 5,
+      "p25": 34456.0,
+      "p50": 69609.0,
+      "p75": 130516.0,
+      "mean": 79911.0
+    },
+    "Sweden|Cloud infrastructure engineer": {
+      "n": 5,
+      "p25": 38566.0,
+      "p50": 70230.0,
+      "p75": 107966.0,
+      "mean": 72659.0
+    },
+    "Spain|Engineering manager": {
+      "n": 21,
+      "p25": 58007.0,
+      "p50": 92812.0,
+      "p75": 125876.0,
+      "mean": 104662.0
+    },
+    "Poland|Developer, front-end": {
+      "n": 26,
+      "p25": 32061.0,
+      "p50": 59492.0,
+      "p75": 73546.0,
+      "mean": 64151.0
+    },
+    "Greece|Engineering manager": {
+      "n": 10,
+      "p25": 36545.0,
+      "p50": 76570.0,
+      "p75": 102673.0,
+      "mean": 79934.0
+    },
+    "Spain|DevOps engineer or professional": {
+      "n": 20,
+      "p25": 44898.0,
+      "p50": 67288.0,
+      "p75": 81210.0,
+      "mean": 62640.0
+    },
+    "Turkey|Other (please specify):": {
+      "n": 6,
+      "p25": 36357.0,
+      "p50": 53020.0,
+      "p75": 85590.0,
+      "mean": 64130.0
+    },
+    "Austria|Developer, front-end": {
+      "n": 12,
+      "p25": 60037.0,
+      "p50": 76906.0,
+      "p75": 130807.0,
+      "mean": 93834.0
+    },
+    "Finland|Developer, front-end": {
+      "n": 5,
+      "p25": 50269.0,
+      "p50": 60000.0,
+      "p75": 98612.0,
+      "mean": 71552.0
+    },
+    "Switzerland|Developer, mobile": {
+      "n": 9,
+      "p25": 112214.0,
+      "p50": 148791.0,
+      "p75": 176690.0,
+      "mean": 144796.0
+    },
+    "Italy|DevOps engineer or professional": {
+      "n": 11,
+      "p25": 52207.0,
+      "p50": 55687.0,
+      "p75": 82370.0,
+      "mean": 62353.0
+    },
+    "Turkey|Developer, embedded applications or devices": {
+      "n": 7,
+      "p25": 22043.0,
+      "p50": 31812.0,
+      "p75": 50000.0,
+      "mean": 35540.0
+    },
+    "United Kingdom of Great Britain and Northern Ireland|Financial analyst or engineer": {
+      "n": 5,
+      "p25": 49692.0,
+      "p50": 81685.0,
+      "p75": 299511.0,
+      "mean": 156018.0
+    },
+    "Netherlands|Applied scientist": {
+      "n": 8,
+      "p25": 63320.0,
+      "p50": 68449.0,
+      "p75": 106444.0,
+      "mean": 75763.0
+    },
+    "Poland|DevOps engineer or professional": {
+      "n": 24,
+      "p25": 37864.0,
+      "p50": 56874.0,
+      "p75": 93468.0,
+      "mean": 71062.0
+    },
+    "Italy|Developer, front-end": {
+      "n": 21,
+      "p25": 36661.0,
+      "p50": 46406.0,
+      "p75": 62648.0,
+      "mean": 50450.0
+    },
+    "Denmark|Other (please specify):": {
+      "n": 5,
+      "p25": 43138.0,
+      "p50": 59098.0,
+      "p75": 104820.0,
+      "mean": 71003.0
+    },
+    "Czech Republic|Academic researcher": {
+      "n": 7,
+      "p25": 24386.0,
+      "p50": 46406.0,
+      "p75": 46806.0,
+      "mean": 43048.0
+    },
+    "Serbia|Developer, back-end": {
+      "n": 13,
+      "p25": 52786.0,
+      "p50": 71919.0,
+      "p75": 124405.0,
+      "mean": 86160.0
+    },
+    "Estonia|Developer, full-stack": {
+      "n": 16,
+      "p25": 35094.0,
+      "p50": 67288.0,
+      "p75": 89447.0,
+      "mean": 69333.0
+    },
+    "Sweden|Data engineer": {
+      "n": 8,
+      "p25": 59450.0,
+      "p50": 72327.0,
+      "p75": 87971.0,
+      "mean": 70404.0
+    },
+    "Netherlands|Data scientist": {
+      "n": 5,
+      "p25": 68449.0,
+      "p50": 89868.0,
+      "p75": 197225.0,
+      "mean": 124243.0
+    },
+    "South Africa|Developer, front-end": {
+      "n": 11,
+      "p25": 25370.0,
+      "p50": 41812.0,
+      "p75": 61461.0,
+      "mean": 44610.0
+    },
+    "Israel|Developer, full-stack": {
+      "n": 36,
+      "p25": 90081.0,
+      "p50": 118828.0,
+      "p75": 148910.0,
+      "mean": 119503.0
+    },
+    "Australia|Data or business analyst": {
+      "n": 6,
+      "p25": 81118.0,
+      "p50": 93848.0,
+      "p75": 167399.0,
+      "mean": 114616.0
+    },
+    "India|Data or business analyst": {
+      "n": 8,
+      "p25": 6684.0,
+      "p50": 10229.0,
+      "p75": 14806.0,
+      "mean": 10716.0
+    },
+    "South Africa|Developer, desktop or enterprise applications": {
+      "n": 5,
+      "p25": 15786.0,
+      "p50": 28189.0,
+      "p75": 50290.0,
+      "mean": 32068.0
+    },
+    "Netherlands|AI/ML engineer": {
+      "n": 8,
+      "p25": 58152.0,
+      "p50": 76802.0,
+      "p75": 139218.0,
+      "mean": 96423.0
+    },
+    "Italy|Data engineer": {
+      "n": 12,
+      "p25": 46406.0,
+      "p50": 49306.0,
+      "p75": 73959.0,
+      "mean": 56025.0
+    },
+    "Serbia|Architect, software or solutions": {
+      "n": 5,
+      "p25": 55898.0,
+      "p50": 92812.0,
+      "p75": 102093.0,
+      "mean": 81759.0
+    },
+    "Italy|Developer, game or graphics": {
+      "n": 5,
+      "p25": 39445.0,
+      "p50": 87011.0,
+      "p75": 142118.0,
+      "mean": 90027.0
+    },
+    "Switzerland|Applied scientist": {
+      "n": 6,
+      "p25": 108494.0,
+      "p50": 177496.0,
+      "p75": 242058.0,
+      "mean": 185406.0
+    },
+    "Greece|Architect, software or solutions": {
+      "n": 9,
+      "p25": 37124.0,
+      "p50": 58007.0,
+      "p75": 81210.0,
+      "mean": 57943.0
+    },
+    "Spain|Developer, desktop or enterprise applications": {
+      "n": 12,
+      "p25": 42055.0,
+      "p50": 62764.0,
+      "p75": 87011.0,
+      "mean": 66651.0
+    },
+    "Ireland|Developer, front-end": {
+      "n": 8,
+      "p25": 94262.0,
+      "p50": 141538.0,
+      "p75": 182723.0,
+      "mean": 149369.0
+    },
+    "United Arab Emirates|Developer, full-stack": {
+      "n": 9,
+      "p25": 32676.0,
+      "p50": 54460.0,
+      "p75": 96393.0,
+      "mean": 66648.0
+    },
+    "Poland|Academic researcher": {
+      "n": 5,
+      "p25": 13099.0,
+      "p50": 19103.0,
+      "p75": 28654.0,
+      "mean": 20522.0
+    },
+    "United Arab Emirates|Developer, back-end": {
+      "n": 6,
+      "p25": 100069.0,
+      "p50": 129342.0,
+      "p75": 161336.0,
+      "mean": 131157.0
+    },
+    "Belgium|DevOps engineer or professional": {
+      "n": 6,
+      "p25": 49958.0,
+      "p50": 118915.0,
+      "p75": 178372.0,
+      "mean": 116681.0
+    },
+    "Greece|Data scientist": {
+      "n": 6,
+      "p25": 29004.0,
+      "p50": 35384.0,
+      "p75": 48610.0,
+      "mean": 38710.0
+    },
+    "Ukraine|Data or business analyst": {
+      "n": 6,
+      "p25": 14380.0,
+      "p50": 27283.0,
+      "p75": 40300.0,
+      "mean": 26662.0
+    },
+    "Netherlands|Student": {
+      "n": 5,
+      "p25": 9977.0,
+      "p50": 13922.0,
+      "p75": 209281.0,
+      "mean": 90488.0
+    },
+    "Latvia|Developer, full-stack": {
+      "n": 20,
+      "p25": 25813.0,
+      "p50": 47566.0,
+      "p75": 62953.0,
+      "mean": 101736.0
+    },
+    "Czech Republic|Developer, embedded applications or devices": {
+      "n": 7,
+      "p25": 28083.0,
+      "p50": 46806.0,
+      "p75": 67400.0,
+      "mean": 47460.0
+    },
+    "India|Developer, AI apps or physical AI": {
+      "n": 7,
+      "p25": 19761.0,
+      "p50": 34872.0,
+      "p75": 52308.0,
+      "mean": 37363.0
+    },
+    "Bangladesh|Developer, back-end": {
+      "n": 13,
+      "p25": 7200.0,
+      "p50": 10636.0,
+      "p75": 18000.0,
+      "mean": 14831.0
+    },
+    "Sweden|Engineering manager": {
+      "n": 7,
+      "p25": 83857.0,
+      "p50": 100629.0,
+      "p75": 104822.0,
+      "mean": 97005.0
+    },
+    "Spain|System administrator": {
+      "n": 9,
+      "p25": 32484.0,
+      "p50": 41765.0,
+      "p75": 48146.0,
+      "mean": 41378.0
+    },
+    "Netherlands|System administrator": {
+      "n": 5,
+      "p25": 41881.0,
+      "p50": 44086.0,
+      "p75": 127036.0,
+      "mean": 76384.0
+    },
+    "Kazakhstan|Developer, full-stack": {
+      "n": 5,
+      "p25": 21045.0,
+      "p50": 27802.0,
+      "p75": 57149.0,
+      "mean": 36838.0
+    },
+    "India|Developer, embedded applications or devices": {
+      "n": 14,
+      "p25": 9154.0,
+      "p50": 28479.0,
+      "p75": 45624.0,
+      "mean": 27937.0
+    },
+    "Estonia|Architect, software or solutions": {
+      "n": 7,
+      "p25": 69609.0,
+      "p50": 81210.0,
+      "p75": 139218.0,
+      "mean": 124451.0
+    },
+    "Kenya|Developer, back-end": {
+      "n": 5,
+      "p25": 6347.0,
+      "p50": 39473.0,
+      "p75": 314200.0,
+      "mean": 136113.0
+    },
+    "Czech Republic|Developer, desktop or enterprise applications": {
+      "n": 20,
+      "p25": 40195.0,
+      "p50": 56167.0,
+      "p75": 69682.0,
+      "mean": 58296.0
+    },
+    "Russian Federation|Architect, software or solutions": {
+      "n": 5,
+      "p25": 81418.0,
+      "p50": 150819.0,
+      "p75": 185012.0,
+      "mean": 136735.0
+    },
+    "Nigeria|Developer, back-end": {
+      "n": 5,
+      "p25": 6586.0,
+      "p50": 9685.0,
+      "p75": 34842.0,
+      "mean": 18508.0
+    },
+    "Romania|Other (please specify):": {
+      "n": 5,
+      "p25": 18840.0,
+      "p50": 57437.0,
+      "p75": 79708.0,
+      "mean": 50906.0
+    },
+    "Iran, Islamic Republic of...|Developer, front-end": {
+      "n": 6,
+      "p25": 35134.0,
+      "p50": 156676.0,
+      "p75": 260534.0,
+      "mean": 153590.0
+    },
+    "South Africa|Other (please specify):": {
+      "n": 5,
+      "p25": 15814.0,
+      "p50": 25370.0,
+      "p75": 59152.0,
+      "mean": 35061.0
+    },
+    "Lithuania|Developer, back-end": {
+      "n": 13,
+      "p25": 42926.0,
+      "p50": 79818.0,
+      "p75": 118335.0,
+      "mean": 87318.0
+    },
+    "Denmark|Data scientist": {
+      "n": 8,
+      "p25": 74184.0,
+      "p50": 109176.0,
+      "p75": 142884.0,
+      "mean": 108223.0
+    },
+    "Sweden|Academic researcher": {
+      "n": 12,
+      "p25": 42044.0,
+      "p50": 47547.0,
+      "p75": 61845.0,
+      "mean": 53120.0
+    },
+    "France|Cybersecurity or InfoSec professional": {
+      "n": 8,
+      "p25": 72799.0,
+      "p50": 102673.0,
+      "p75": 159520.0,
+      "mean": 120945.0
+    },
+    "Croatia|Developer, desktop or enterprise applications": {
+      "n": 5,
+      "p25": 28424.0,
+      "p50": 34804.0,
+      "p75": 61488.0,
+      "mean": 42925.0
+    },
+    "Venezuela, Bolivarian Republic of...|Developer, full-stack": {
+      "n": 12,
+      "p25": 9900.0,
+      "p50": 12000.0,
+      "p75": 28350.0,
+      "mean": 24785.0
+    },
+    "Norway|Developer, front-end": {
+      "n": 5,
+      "p25": 61026.0,
+      "p50": 64930.0,
+      "p75": 74368.0,
+      "mean": 67143.0
+    },
+    "New Zealand|Other (please specify):": {
+      "n": 6,
+      "p25": 27106.0,
+      "p50": 36502.0,
+      "p75": 91558.0,
+      "mean": 54132.0
+    },
+    "Colombia|Architect, software or solutions": {
+      "n": 7,
+      "p25": 36703.0,
+      "p50": 52348.0,
+      "p75": 66065.0,
+      "mean": 59142.0
+    },
+    "Austria|Other (please specify):": {
+      "n": 9,
+      "p25": 50814.0,
+      "p50": 90000.0,
+      "p75": 101512.0,
+      "mean": 86144.0
+    },
+    "Kazakhstan|Developer, back-end": {
+      "n": 6,
+      "p25": 21431.0,
+      "p50": 30698.0,
+      "p75": 57082.0,
+      "mean": 36185.0
+    },
+    "Ecuador|Developer, full-stack": {
+      "n": 10,
+      "p25": 14300.0,
+      "p50": 30000.0,
+      "p75": 65000.0,
+      "mean": 44749.0
+    },
+    "Indonesia|Developer, back-end": {
+      "n": 11,
+      "p25": 7354.0,
+      "p50": 11950.0,
+      "p75": 18385.0,
+      "mean": 21878.0
+    },
+    "Kenya|Developer, front-end": {
+      "n": 5,
+      "p25": 7353.0,
+      "p50": 17415.0,
+      "p75": 167802.0,
+      "mean": 73545.0
+    },
+    "Taiwan|Developer, full-stack": {
+      "n": 18,
+      "p25": 23720.0,
+      "p50": 36943.0,
+      "p75": 50207.0,
+      "mean": 46915.0
+    },
+    "India|DevOps engineer or professional": {
+      "n": 17,
+      "p25": 12594.0,
+      "p50": 24410.0,
+      "p75": 47368.0,
+      "mean": 32873.0
+    },
+    "France|Student": {
+      "n": 8,
+      "p25": 7251.0,
+      "p50": 17242.0,
+      "p75": 24015.0,
+      "mean": 18350.0
+    },
+    "Belgium|Developer, mobile": {
+      "n": 5,
+      "p25": 76570.0,
+      "p50": 87011.0,
+      "p75": 152560.0,
+      "mean": 109054.0
+    },
+    "Denmark|Developer, mobile": {
+      "n": 7,
+      "p25": 68118.0,
+      "p50": 88647.0,
+      "p75": 100777.0,
+      "mean": 78660.0
+    },
+    "Australia|Student": {
+      "n": 9,
+      "p25": 9101.0,
+      "p50": 11702.0,
+      "p75": 30880.0,
+      "mean": 25968.0
+    },
+    "Poland|Developer, QA or test": {
+      "n": 11,
+      "p25": 32748.0,
+      "p50": 44210.0,
+      "p75": 76412.0,
+      "mean": 53228.0
+    },
+    "United Kingdom of Great Britain and Northern Ireland|Support engineer or analyst": {
+      "n": 6,
+      "p25": 45778.0,
+      "p50": 64668.0,
+      "p75": 81685.0,
+      "mean": 63873.0
+    },
+    "France|Applied scientist": {
+      "n": 9,
+      "p25": 56847.0,
+      "p50": 69609.0,
+      "p75": 99192.0,
+      "mean": 80050.0
+    },
+    "Russian Federation|Developer, mobile": {
+      "n": 5,
+      "p25": 38278.0,
+      "p50": 45934.0,
+      "p75": 47967.0,
+      "mean": 43685.0
+    },
+    "Denmark|Developer, game or graphics": {
+      "n": 5,
+      "p25": 8320.0,
+      "p50": 83048.0,
+      "p75": 114308.0,
+      "mean": 65661.0
+    },
+    "Canada|Developer, AI apps or physical AI": {
+      "n": 5,
+      "p25": 35567.0,
+      "p50": 94846.0,
+      "p75": 342904.0,
+      "mean": 170358.0
+    },
+    "Canada|Developer, QA or test": {
+      "n": 5,
+      "p25": 39032.0,
+      "p50": 59826.0,
+      "p75": 76242.0,
+      "mean": 58075.0
+    },
+    "Jordan|Developer, back-end": {
+      "n": 6,
+      "p25": 28953.0,
+      "p50": 32582.0,
+      "p75": 56066.0,
+      "mean": 40144.0
+    },
+    "Israel|Architect, software or solutions": {
+      "n": 9,
+      "p25": 107362.0,
+      "p50": 161778.0,
+      "p75": 207664.0,
+      "mean": 163216.0
+    },
+    "Thailand|Developer, full-stack": {
+      "n": 10,
+      "p25": 27382.0,
+      "p50": 48062.0,
+      "p75": 117646.0,
+      "mean": 68127.0
+    },
+    "Australia|Developer, mobile": {
+      "n": 10,
+      "p25": 79149.0,
+      "p50": 108890.0,
+      "p75": 123518.0,
+      "mean": 107786.0
+    },
+    "Australia|Project manager": {
+      "n": 5,
+      "p25": 72486.0,
+      "p50": 87763.0,
+      "p75": 290267.0,
+      "mean": 162654.0
+    },
+    "Australia|System administrator": {
+      "n": 7,
+      "p25": 59094.0,
+      "p50": 71510.0,
+      "p75": 94264.0,
+      "mean": 107813.0
+    },
+    "Israel|DevOps engineer or professional": {
+      "n": 7,
+      "p25": 79418.0,
+      "p50": 172073.0,
+      "p75": 185310.0,
+      "mean": 144340.0
+    },
+    "Taiwan|Developer, desktop or enterprise applications": {
+      "n": 7,
+      "p25": 23720.0,
+      "p50": 50829.0,
+      "p75": 67772.0,
+      "mean": 45169.0
+    },
+    "Japan|Developer, front-end": {
+      "n": 7,
+      "p25": 34544.0,
+      "p50": 58725.0,
+      "p75": 69088.0,
+      "mean": 54777.0
+    },
+    "Egypt|Developer, back-end": {
+      "n": 5,
+      "p25": 7989.0,
+      "p50": 9586.0,
+      "p75": 21888.0,
+      "mean": 13868.0
+    },
+    "Spain|Senior executive (C-suite, VP, etc.)": {
+      "n": 6,
+      "p25": 39155.0,
+      "p50": 81210.0,
+      "p75": 124716.0,
+      "mean": 84111.0
+    },
+    "Hungary|Other (please specify):": {
+      "n": 9,
+      "p25": 16916.0,
+      "p50": 34700.0,
+      "p75": 127233.0,
+      "mean": 67033.0
+    },
+    "Israel|Developer, front-end": {
+      "n": 6,
+      "p25": 117657.0,
+      "p50": 142297.0,
+      "p75": 155307.0,
+      "mean": 135871.0
+    },
+    "United Kingdom of Great Britain and Northern Ireland|Student": {
+      "n": 8,
+      "p25": 23144.0,
+      "p50": 31993.0,
+      "p75": 36168.0,
+      "mean": 44972.0
+    },
+    "China|Developer, mobile": {
+      "n": 5,
+      "p25": 48750.0,
+      "p50": 69643.0,
+      "p75": 118392.0,
+      "mean": 80786.0
+    },
+    "Egypt|Developer, full-stack": {
+      "n": 9,
+      "p25": 8188.0,
+      "p50": 9986.0,
+      "p75": 20980.0,
+      "mean": 14095.0
+    },
+    "Netherlands|Developer, QA or test": {
+      "n": 6,
+      "p25": 57891.0,
+      "p50": 61608.0,
+      "p75": 95712.0,
+      "mean": 72665.0
+    },
+    "Portugal|Developer, front-end": {
+      "n": 12,
+      "p25": 54527.0,
+      "p50": 87011.0,
+      "p75": 102093.0,
+      "mean": 85248.0
+    },
+    "India|Other (please specify):": {
+      "n": 19,
+      "p25": 8718.0,
+      "p50": 27898.0,
+      "p75": 49983.0,
+      "mean": 35798.0
+    },
+    "Poland|Student": {
+      "n": 5,
+      "p25": 9687.0,
+      "p50": 16374.0,
+      "p75": 26198.0,
+      "mean": 17629.0
+    },
+    "South Korea|Developer, full-stack": {
+      "n": 8,
+      "p25": 28111.0,
+      "p50": 34909.0,
+      "p75": 44096.0,
+      "mean": 39319.0
+    },
+    "Netherlands|Developer, mobile": {
+      "n": 16,
+      "p25": 45432.0,
+      "p50": 82370.0,
+      "p75": 97196.0,
+      "mean": 76693.0
+    },
+    "Germany|Developer, QA or test": {
+      "n": 13,
+      "p25": 64272.0,
+      "p50": 71929.0,
+      "p75": 102963.0,
+      "mean": 88823.0
+    },
+    "Greece|Other (please specify):": {
+      "n": 13,
+      "p25": 21289.0,
+      "p50": 37125.0,
+      "p75": 51626.0,
+      "mean": 40141.0
+    },
+    "Uruguay|Developer, back-end": {
+      "n": 5,
+      "p25": 19046.0,
+      "p50": 87000.0,
+      "p75": 145000.0,
+      "mean": 83018.0
+    },
+    "New Zealand|Engineering manager": {
+      "n": 5,
+      "p25": 77704.0,
+      "p50": 79511.0,
+      "p75": 122579.0,
+      "mean": 96015.0
+    },
+    "Switzerland|Product manager": {
+      "n": 5,
+      "p25": 121513.0,
+      "p50": 179790.0,
+      "p75": 247986.0,
+      "mean": 183757.0
+    },
+    "Finland|DevOps engineer or professional": {
+      "n": 6,
+      "p25": 64098.0,
+      "p50": 75148.0,
+      "p75": 92232.0,
+      "mean": 77836.0
+    },
+    "Belgium|Other (please specify):": {
+      "n": 10,
+      "p25": 46116.0,
+      "p50": 55107.0,
+      "p75": 89621.0,
+      "mean": 65013.0
+    },
+    "South Africa|Developer, embedded applications or devices": {
+      "n": 6,
+      "p25": 29303.0,
+      "p50": 40578.0,
+      "p75": 66809.0,
+      "mean": 48509.0
+    },
+    "Taiwan|AI/ML engineer": {
+      "n": 5,
+      "p25": 27956.0,
+      "p50": 33886.0,
+      "p75": 63638.0,
+      "mean": 43415.0
+    },
+    "Czech Republic|DevOps engineer or professional": {
+      "n": 7,
+      "p25": 46806.0,
+      "p50": 67400.0,
+      "p75": 78633.0,
+      "mean": 65662.0
+    },
+    "Italy|Engineering manager": {
+      "n": 14,
+      "p25": 46406.0,
+      "p50": 78310.0,
+      "p75": 97162.0,
+      "mean": 77680.0
+    },
+    "Isle of Man|Developer, full-stack": {
+      "n": 5,
+      "p25": 67458.0,
+      "p50": 83632.0,
+      "p75": 92576.0,
+      "mean": 80740.0
+    },
+    "Switzerland|Engineering manager": {
+      "n": 9,
+      "p25": 160570.0,
+      "p50": 216988.0,
+      "p75": 433975.0,
+      "mean": 353931.0
+    },
+    "India|Student": {
+      "n": 8,
+      "p25": 5638.0,
+      "p50": 7120.0,
+      "p75": 11624.0,
+      "mean": 13448.0
+    },
+    "India|Academic researcher": {
+      "n": 9,
+      "p25": 6393.0,
+      "p50": 7556.0,
+      "p75": 21504.0,
+      "mean": 14379.0
+    },
+    "Portugal|Founder, technology or otherwise": {
+      "n": 5,
+      "p25": 21578.0,
+      "p50": 55687.0,
+      "p75": 125296.0,
+      "mean": 69887.0
+    },
+    "Mexico|DevOps engineer or professional": {
+      "n": 6,
+      "p25": 23529.0,
+      "p50": 44216.0,
+      "p75": 60009.0,
+      "mean": 44532.0
+    },
+    "Portugal|Developer, desktop or enterprise applications": {
+      "n": 7,
+      "p25": 29004.0,
+      "p50": 69609.0,
+      "p75": 93972.0,
+      "mean": 67786.0
+    },
+    "Thailand|Developer, back-end": {
+      "n": 6,
+      "p25": 8260.0,
+      "p50": 45278.0,
+      "p75": 75814.0,
+      "mean": 46668.0
+    },
+    "Slovakia|Architect, software or solutions": {
+      "n": 6,
+      "p25": 54527.0,
+      "p50": 70769.0,
+      "p75": 127616.0,
+      "mean": 95519.0
+    },
+    "Germany|Data or business analyst": {
+      "n": 10,
+      "p25": 74684.0,
+      "p50": 82370.0,
+      "p75": 116015.0,
+      "mean": 89041.0
+    },
+    "Bolivia|Developer, full-stack": {
+      "n": 5,
+      "p25": 8322.0,
+      "p50": 19723.0,
+      "p75": 41415.0,
+      "mean": 23840.0
+    },
+    "Guatemala|Developer, back-end": {
+      "n": 5,
+      "p25": 9499.0,
+      "p50": 25000.0,
+      "p75": 120690.0,
+      "mean": 57075.0
+    },
+    "Brazil|Data or business analyst": {
+      "n": 11,
+      "p25": 10649.0,
+      "p50": 16383.0,
+      "p75": 40958.0,
+      "mean": 29655.0
+    },
+    "Georgia|Developer, back-end": {
+      "n": 9,
+      "p25": 49162.0,
+      "p50": 71689.0,
+      "p75": 86998.0,
+      "mean": 65684.0
+    },
+    "Italy|Product manager": {
+      "n": 6,
+      "p25": 52786.0,
+      "p50": 75410.0,
+      "p75": 116015.0,
+      "mean": 79664.0
+    },
+    "Switzerland|AI/ML engineer": {
+      "n": 6,
+      "p25": 105704.0,
+      "p50": 162430.0,
+      "p75": 333540.0,
+      "mean": 202728.0
+    },
+    "Spain|Founder, technology or otherwise": {
+      "n": 7,
+      "p25": 46406.0,
+      "p50": 87011.0,
+      "p75": 104413.0,
+      "mean": 82002.0
+    },
+    "India|Developer, QA or test": {
+      "n": 5,
+      "p25": 10752.0,
+      "p50": 16855.0,
+      "p75": 36562.0,
+      "mean": 22297.0
+    },
+    "United Kingdom of Great Britain and Northern Ireland|Cybersecurity or InfoSec professional": {
+      "n": 12,
+      "p25": 51904.0,
+      "p50": 113678.0,
+      "p75": 137248.0,
+      "mean": 112377.0
+    },
+    "Japan|Academic researcher": {
+      "n": 5,
+      "p25": 22454.0,
+      "p50": 34544.0,
+      "p75": 51946.0,
+      "mean": 36669.0
+    },
+    "Netherlands|Product manager": {
+      "n": 5,
+      "p25": 62648.0,
+      "p50": 84691.0,
+      "p75": 95132.0,
+      "mean": 80050.0
+    },
+    "Turkey|Developer, desktop or enterprise applications": {
+      "n": 8,
+      "p25": 29919.0,
+      "p50": 47971.0,
+      "p75": 58255.0,
+      "mean": 46688.0
+    },
+    "Ukraine|AI/ML engineer": {
+      "n": 10,
+      "p25": 16088.0,
+      "p50": 24600.0,
+      "p75": 47949.0,
+      "mean": 31255.0
+    },
+    "Israel|Senior executive (C-suite, VP, etc.)": {
+      "n": 5,
+      "p25": 85302.0,
+      "p50": 235314.0,
+      "p75": 297071.0,
+      "mean": 200012.0
+    },
+    "Romania|Developer, mobile": {
+      "n": 5,
+      "p25": 44800.0,
+      "p50": 68924.0,
+      "p75": 148644.0,
+      "mean": 91162.0
+    },
+    "Luxembourg|Developer, full-stack": {
+      "n": 5,
+      "p25": 89912.0,
+      "p50": 98612.0,
+      "p75": 106734.0,
+      "mean": 98380.0
+    },
+    "Slovenia|Architect, software or solutions": {
+      "n": 7,
+      "p25": 69609.0,
+      "p50": 76570.0,
+      "p75": 98612.0,
+      "mean": 83862.0
+    },
+    "Switzerland|System administrator": {
+      "n": 7,
+      "p25": 32238.0,
+      "p50": 78983.0,
+      "p75": 128953.0,
+      "mean": 84262.0
+    },
+    "Sweden|System administrator": {
+      "n": 5,
+      "p25": 26258.0,
+      "p50": 52478.0,
+      "p75": 91270.0,
+      "mean": 57507.0
+    },
+    "Denmark|Developer, front-end": {
+      "n": 5,
+      "p25": 33748.0,
+      "p50": 83981.0,
+      "p75": 128149.0,
+      "mean": 81555.0
+    },
+    "Sweden|Data scientist": {
+      "n": 5,
+      "p25": 47170.0,
+      "p50": 73375.0,
+      "p75": 101466.0,
+      "mean": 74129.0
+    },
+    "Belgium|Data engineer": {
+      "n": 7,
+      "p25": 61488.0,
+      "p50": 64968.0,
+      "p75": 93044.0,
+      "mean": 72824.0
+    },
+    "Serbia|Developer, mobile": {
+      "n": 7,
+      "p25": 35639.0,
+      "p50": 71823.0,
+      "p75": 83158.0,
+      "mean": 61214.0
+    },
+    "Czech Republic|Engineering manager": {
+      "n": 5,
+      "p25": 70208.0,
+      "p50": 89867.0,
+      "p75": 105312.0,
+      "mean": 88182.0
+    },
+    "Jordan|Developer, full-stack": {
+      "n": 6,
+      "p25": 10367.0,
+      "p50": 24119.0,
+      "p75": 56912.0,
+      "mean": 37095.0
+    },
+    "Colombia|Developer, front-end": {
+      "n": 6,
+      "p25": 9702.0,
+      "p50": 17617.0,
+      "p75": 57414.0,
+      "mean": 29544.0
+    },
+    "Belgium|Academic researcher": {
+      "n": 7,
+      "p25": 38285.0,
+      "p50": 39213.0,
+      "p75": 43505.0,
+      "mean": 46621.0
+    },
+    "Austria|Data scientist": {
+      "n": 5,
+      "p25": 50002.0,
+      "p50": 60328.0,
+      "p75": 77150.0,
+      "mean": 62926.0
+    },
+    "Spain|Applied scientist": {
+      "n": 5,
+      "p25": 29584.0,
+      "p50": 45246.0,
+      "p75": 81210.0,
+      "mean": 53367.0
+    },
+    "Czech Republic|Developer, QA or test": {
+      "n": 6,
+      "p25": 35455.0,
+      "p50": 46338.0,
+      "p75": 55453.0,
+      "mean": 43709.0
+    },
+    "Czech Republic|Data engineer": {
+      "n": 6,
+      "p25": 67868.0,
+      "p50": 83080.0,
+      "p75": 109744.0,
+      "mean": 86814.0
+    },
+    "Belgium|Founder, technology or otherwise": {
+      "n": 5,
+      "p25": 58008.0,
+      "p50": 92812.0,
+      "p75": 121178.0,
+      "mean": 90236.0
+    },
+    "Austria|Engineering manager": {
+      "n": 6,
+      "p25": 97162.0,
+      "p50": 107604.0,
+      "p75": 127616.0,
+      "mean": 114178.0
+    },
+    "Sweden|Senior executive (C-suite, VP, etc.)": {
+      "n": 5,
+      "p25": 91719.0,
+      "p50": 113207.0,
+      "p75": 119496.0,
+      "mean": 107128.0
+    },
+    "Ukraine|Developer, game or graphics": {
+      "n": 8,
+      "p25": 17035.0,
+      "p50": 33750.0,
+      "p75": 53325.0,
+      "mean": 37415.0
+    },
+    "Portugal|Data engineer": {
+      "n": 5,
+      "p25": 32484.0,
+      "p50": 40605.0,
+      "p75": 172282.0,
+      "mean": 90027.0
+    },
+    "Croatia|Developer, front-end": {
+      "n": 7,
+      "p25": 46406.0,
+      "p50": 59748.0,
+      "p75": 63808.0,
+      "mean": 57467.0
+    },
+    "Hong Kong (S.A.R.)|Developer, front-end": {
+      "n": 5,
+      "p25": 55605.0,
+      "p50": 96816.0,
+      "p75": 122930.0,
+      "mean": 90777.0
+    },
+    "Uruguay|Developer, full-stack": {
+      "n": 12,
+      "p25": 23881.0,
+      "p50": 49554.0,
+      "p75": 78000.0,
+      "mean": 55746.0
+    },
+    "United Kingdom of Great Britain and Northern Ireland|Developer, QA or test": {
+      "n": 9,
+      "p25": 48330.0,
+      "p50": 69432.0,
+      "p75": 96956.0,
+      "mean": 71434.0
+    },
+    "Ireland|Developer, embedded applications or devices": {
+      "n": 7,
+      "p25": 92812.0,
+      "p50": 121815.0,
+      "p75": 122976.0,
+      "mean": 117009.0
+    },
+    "Switzerland|Developer, front-end": {
+      "n": 8,
+      "p25": 104650.0,
+      "p50": 140509.0,
+      "p75": 170490.0,
+      "mean": 141172.0
+    },
+    "Israel|AI/ML engineer": {
+      "n": 6,
+      "p25": 82285.0,
+      "p50": 144130.0,
+      "p75": 202076.0,
+      "mean": 158787.0
+    },
+    "Norway|DevOps engineer or professional": {
+      "n": 5,
+      "p25": 74120.0,
+      "p50": 108710.0,
+      "p75": 118593.0,
+      "mean": 98827.0
+    },
+    "Chile|Developer, back-end": {
+      "n": 11,
+      "p25": 15449.0,
+      "p50": 31809.0,
+      "p75": 46653.0,
+      "mean": 40552.0
+    },
+    "Portugal|DevOps engineer or professional": {
+      "n": 7,
+      "p25": 52787.0,
+      "p50": 78890.0,
+      "p75": 116015.0,
+      "mean": 78807.0
+    },
+    "Bangladesh|Engineering manager": {
+      "n": 6,
+      "p25": 7412.0,
+      "p50": 19818.0,
+      "p75": 45000.0,
+      "mean": 25542.0
+    },
+    "El Salvador|Developer, full-stack": {
+      "n": 5,
+      "p25": 7800.0,
+      "p50": 50000.0,
+      "p75": 94800.0,
+      "mean": 51040.0
+    },
+    "France|Product manager": {
+      "n": 5,
+      "p25": 40664.0,
+      "p50": 62648.0,
+      "p75": 89912.0,
+      "mean": 64760.0
+    },
+    "Ukraine|Data scientist": {
+      "n": 5,
+      "p25": 10354.0,
+      "p50": 23008.0,
+      "p75": 31922.0,
+      "mean": 21512.0
+    },
+    "Japan|Developer, mobile": {
+      "n": 6,
+      "p25": 50607.0,
+      "p50": 63906.0,
+      "p75": 107778.0,
+      "mean": 72543.0
+    },
+    "China|Developer, embedded applications or devices": {
+      "n": 5,
+      "p25": 33428.0,
+      "p50": 58500.0,
+      "p75": 111428.0,
+      "mean": 69643.0
+    },
+    "Nigeria|Developer, full-stack": {
+      "n": 7,
+      "p25": 6198.0,
+      "p50": 7748.0,
+      "p75": 12396.0,
+      "mean": 12337.0
+    },
+    "Portugal|Developer, embedded applications or devices": {
+      "n": 5,
+      "p25": 34804.0,
+      "p50": 38285.0,
+      "p75": 40025.0,
+      "mean": 37589.0
+    }
+  },
+  "language_use": {
+    "JavaScript": {
+      "n_used": 21005,
+      "used_pct": 42.7,
+      "n_admired": 9822,
+      "admired_pct": 46.8
+    },
+    "HTML/CSS": {
+      "n_used": 19698,
+      "used_pct": 40.0,
+      "n_admired": 10270,
+      "admired_pct": 52.1
+    },
+    "SQL": {
+      "n_used": 18633,
+      "used_pct": 37.9,
+      "n_admired": 10504,
+      "admired_pct": 56.4
+    },
+    "Python": {
+      "n_used": 18410,
+      "used_pct": 37.4,
+      "n_admired": 10385,
+      "admired_pct": 56.4
+    },
+    "Bash/Shell (all shells)": {
+      "n_used": 15503,
+      "used_pct": 31.5,
+      "n_admired": 8180,
+      "admired_pct": 52.8
+    },
+    "TypeScript": {
+      "n_used": 13859,
+      "used_pct": 28.2,
+      "n_admired": 8043,
+      "admired_pct": 58.0
+    },
+    "Java": {
+      "n_used": 9358,
+      "used_pct": 19.0,
+      "n_admired": 3912,
+      "admired_pct": 41.8
+    },
+    "C#": {
+      "n_used": 8852,
+      "used_pct": 18.0,
+      "n_admired": 4935,
+      "admired_pct": 55.8
+    },
+    "C++": {
+      "n_used": 7485,
+      "used_pct": 15.2,
+      "n_admired": 3489,
+      "admired_pct": 46.6
+    },
+    "PowerShell": {
+      "n_used": 7371,
+      "used_pct": 15.0,
+      "n_admired": 2613,
+      "admired_pct": 35.4
+    },
+    "C": {
+      "n_used": 6987,
+      "used_pct": 14.2,
+      "n_admired": 3143,
+      "admired_pct": 45.0
+    },
+    "PHP": {
+      "n_used": 5994,
+      "used_pct": 12.2,
+      "n_admired": 2330,
+      "admired_pct": 38.9
+    },
+    "Go": {
+      "n_used": 5219,
+      "used_pct": 10.6,
+      "n_admired": 2946,
+      "admired_pct": 56.4
+    },
+    "Rust": {
+      "n_used": 4724,
+      "used_pct": 9.6,
+      "n_admired": 3423,
+      "admired_pct": 72.5
+    },
+    "Kotlin": {
+      "n_used": 3420,
+      "used_pct": 7.0,
+      "n_admired": 1744,
+      "admired_pct": 51.0
+    },
+    "Lua": {
+      "n_used": 2910,
+      "used_pct": 5.9,
+      "n_admired": 1367,
+      "admired_pct": 47.0
+    },
+    "Assembly": {
+      "n_used": 2246,
+      "used_pct": 4.6,
+      "n_admired": 1018,
+      "admired_pct": 45.3
+    },
+    "Ruby": {
+      "n_used": 2046,
+      "used_pct": 4.2,
+      "n_admired": 907,
+      "admired_pct": 44.3
+    },
+    "Dart": {
+      "n_used": 1885,
+      "used_pct": 3.8,
+      "n_admired": 887,
+      "admired_pct": 47.1
+    },
+    "Swift": {
+      "n_used": 1719,
+      "used_pct": 3.5,
+      "n_admired": 892,
+      "admired_pct": 51.9
+    },
+    "R": {
+      "n_used": 1569,
+      "used_pct": 3.2,
+      "n_admired": 621,
+      "admired_pct": 39.6
+    },
+    "Groovy": {
+      "n_used": 1535,
+      "used_pct": 3.1,
+      "n_admired": 399,
+      "admired_pct": 26.0
+    },
+    "Visual Basic (.Net)": {
+      "n_used": 1409,
+      "used_pct": 2.9,
+      "n_admired": 345,
+      "admired_pct": 24.5
+    },
+    "VBA": {
+      "n_used": 1334,
+      "used_pct": 2.7,
+      "n_admired": 327,
+      "admired_pct": 24.5
+    },
+    "MATLAB": {
+      "n_used": 1231,
+      "used_pct": 2.5,
+      "n_admired": 295,
+      "admired_pct": 24.0
+    },
+    "Perl": {
+      "n_used": 1215,
+      "used_pct": 2.5,
+      "n_admired": 395,
+      "admired_pct": 32.5
+    },
+    "GDScript": {
+      "n_used": 1062,
+      "used_pct": 2.2,
+      "n_admired": 605,
+      "admired_pct": 57.0
+    },
+    "Elixir": {
+      "n_used": 847,
+      "used_pct": 1.7,
+      "n_admired": 558,
+      "admired_pct": 65.9
+    },
+    "Scala": {
+      "n_used": 843,
+      "used_pct": 1.7,
+      "n_admired": 333,
+      "admired_pct": 39.5
+    },
+    "Delphi": {
+      "n_used": 796,
+      "used_pct": 1.6,
+      "n_admired": 367,
+      "admired_pct": 46.1
+    },
+    "Lisp": {
+      "n_used": 753,
+      "used_pct": 1.5,
+      "n_admired": 437,
+      "admired_pct": 58.0
+    },
+    "MicroPython": {
+      "n_used": 723,
+      "used_pct": 1.5,
+      "n_admired": 321,
+      "admired_pct": 44.4
+    },
+    "Zig": {
+      "n_used": 680,
+      "used_pct": 1.4,
+      "n_admired": 437,
+      "admired_pct": 64.3
+    },
+    "Erlang": {
+      "n_used": 465,
+      "used_pct": 0.9,
+      "n_admired": 233,
+      "admired_pct": 50.1
+    },
+    "Fortran": {
+      "n_used": 449,
+      "used_pct": 0.9,
+      "n_admired": 131,
+      "admired_pct": 29.2
+    },
+    "Ada": {
+      "n_used": 431,
+      "used_pct": 0.9,
+      "n_admired": 178,
+      "admired_pct": 41.3
+    },
+    "F#": {
+      "n_used": 406,
+      "used_pct": 0.8,
+      "n_admired": 200,
+      "admired_pct": 49.3
+    },
+    "OCaml": {
+      "n_used": 367,
+      "used_pct": 0.7,
+      "n_admired": 189,
+      "admired_pct": 51.5
+    },
+    "Gleam": {
+      "n_used": 354,
+      "used_pct": 0.7,
+      "n_admired": 251,
+      "admired_pct": 70.9
+    },
+    "Prolog": {
+      "n_used": 338,
+      "used_pct": 0.7,
+      "n_admired": 111,
+      "admired_pct": 32.8
+    },
+    "COBOL": {
+      "n_used": 308,
+      "used_pct": 0.6,
+      "n_admired": 87,
+      "admired_pct": 28.2
+    },
+    "Mojo": {
+      "n_used": 145,
+      "used_pct": 0.3,
+      "n_admired": 72,
+      "admired_pct": 49.7
+    }
+  },
+  "database_admired": {
+    "PostgreSQL": {
+      "n": 9509,
+      "admired_pct": 19.3
+    },
+    "SQLite": {
+      "n": 5775,
+      "admired_pct": 11.7
+    },
+    "MySQL": {
+      "n": 4576,
+      "admired_pct": 9.3
+    },
+    "Redis": {
+      "n": 4020,
+      "admired_pct": 8.2
+    },
+    "Microsoft SQL Server": {
+      "n": 3528,
+      "admired_pct": 7.2
+    },
+    "MongoDB": {
+      "n": 2865,
+      "admired_pct": 5.8
+    },
+    "MariaDB": {
+      "n": 2685,
+      "admired_pct": 5.5
+    },
+    "Elasticsearch": {
+      "n": 1714,
+      "admired_pct": 3.5
+    },
+    "Dynamodb": {
+      "n": 1012,
+      "admired_pct": 2.1
+    },
+    "Oracle": {
+      "n": 884,
+      "admired_pct": 1.8
+    },
+    "Supabase": {
+      "n": 734,
+      "admired_pct": 1.5
+    },
+    "BigQuery": {
+      "n": 664,
+      "admired_pct": 1.3
+    },
+    "Cloud Firestore": {
+      "n": 599,
+      "admired_pct": 1.2
+    },
+    "DuckDB": {
+      "n": 507,
+      "admired_pct": 1.0
+    },
+    "Firebase Realtime Database": {
+      "n": 466,
+      "admired_pct": 0.9
+    },
+    "H2": {
+      "n": 454,
+      "admired_pct": 0.9
+    },
+    "Cosmos DB": {
+      "n": 453,
+      "admired_pct": 0.9
+    },
+    "Snowflake": {
+      "n": 428,
+      "admired_pct": 0.9
+    },
+    "Valkey": {
+      "n": 409,
+      "admired_pct": 0.8
+    },
+    "InfluxDB": {
+      "n": 367,
+      "admired_pct": 0.7
+    },
+    "Databricks SQL": {
+      "n": 362,
+      "admired_pct": 0.7
+    },
+    "Clickhouse": {
+      "n": 302,
+      "admired_pct": 0.6
+    },
+    "Neo4J": {
+      "n": 289,
+      "admired_pct": 0.6
+    },
+    "Microsoft Access": {
+      "n": 272,
+      "admired_pct": 0.6
+    },
+    "Cassandra": {
+      "n": 243,
+      "admired_pct": 0.5
+    },
+    "Amazon Redshift": {
+      "n": 193,
+      "admired_pct": 0.4
+    },
+    "IBM DB2": {
+      "n": 178,
+      "admired_pct": 0.4
+    },
+    "Pocketbase": {
+      "n": 129,
+      "admired_pct": 0.3
+    },
+    "Cockroachdb": {
+      "n": 97,
+      "admired_pct": 0.2
+    },
+    "Datomic": {
+      "n": 65,
+      "admired_pct": 0.1
+    }
+  },
+  "platform_admired": {
+    "Docker": {
+      "n": 11069,
+      "admired_pct": 22.5
+    },
+    "npm": {
+      "n": 6260,
+      "admired_pct": 12.7
+    },
+    "Amazon Web Services (AWS)": {
+      "n": 5509,
+      "admired_pct": 11.2
+    },
+    "Pip": {
+      "n": 4507,
+      "admired_pct": 9.2
+    },
+    "Kubernetes": {
+      "n": 4057,
+      "admired_pct": 8.2
+    },
+    "Vite": {
+      "n": 3799,
+      "admired_pct": 7.7
+    },
+    "Homebrew": {
+      "n": 3551,
+      "admired_pct": 7.2
+    },
+    "Microsoft Azure": {
+      "n": 3198,
+      "admired_pct": 6.5
+    },
+    "Cloudflare": {
+      "n": 2828,
+      "admired_pct": 5.7
+    },
+    "Google Cloud": {
+      "n": 2775,
+      "admired_pct": 5.6
+    },
+    "Make": {
+      "n": 2703,
+      "admired_pct": 5.5
+    },
+    "APT": {
+      "n": 2657,
+      "admired_pct": 5.4
+    },
+    "Cargo": {
+      "n": 2494,
+      "admired_pct": 5.1
+    },
+    "NuGet": {
+      "n": 2493,
+      "admired_pct": 5.1
+    },
+    "Terraform": {
+      "n": 2253,
+      "admired_pct": 4.6
+    },
+    "Yarn": {
+      "n": 1801,
+      "admired_pct": 3.7
+    },
+    "pnpm": {
+      "n": 1776,
+      "admired_pct": 3.6
+    },
+    "Maven (build tool)": {
+      "n": 1753,
+      "admired_pct": 3.6
+    },
+    "Prometheus": {
+      "n": 1577,
+      "admired_pct": 3.2
+    },
+    "Podman": {
+      "n": 1568,
+      "admired_pct": 3.2
+    },
+    "Gradle": {
+      "n": 1483,
+      "admired_pct": 3.0
+    },
+    "Firebase": {
+      "n": 1450,
+      "admired_pct": 2.9
+    },
+    "Ansible": {
+      "n": 1425,
+      "admired_pct": 2.9
+    },
+    "Pacman": {
+      "n": 1339,
+      "admired_pct": 2.7
+    },
+    "Composer": {
+      "n": 1322,
+      "admired_pct": 2.7
+    },
+    "MSBuild": {
+      "n": 1268,
+      "admired_pct": 2.6
+    },
+    "Digital Ocean": {
+      "n": 1231,
+      "admired_pct": 2.5
+    },
+    "Webpack": {
+      "n": 1158,
+      "admired_pct": 2.4
+    },
+    "Vercel": {
+      "n": 1157,
+      "admired_pct": 2.4
+    },
+    "Datadog": {
+      "n": 950,
+      "admired_pct": 1.9
+    },
+    "Chocolatey": {
+      "n": 949,
+      "admired_pct": 1.9
+    },
+    "Poetry": {
+      "n": 785,
+      "admired_pct": 1.6
+    },
+    "Bun": {
+      "n": 750,
+      "admired_pct": 1.5
+    },
+    "Supabase": {
+      "n": 671,
+      "admired_pct": 1.4
+    },
+    "Ninja": {
+      "n": 647,
+      "admired_pct": 1.3
+    },
+    "Netlify": {
+      "n": 644,
+      "admired_pct": 1.3
+    },
+    "Splunk": {
+      "n": 386,
+      "admired_pct": 0.8
+    },
+    "Heroku": {
+      "n": 350,
+      "admired_pct": 0.7
+    },
+    "New Relic": {
+      "n": 350,
+      "admired_pct": 0.7
+    },
+    "Railway": {
+      "n": 169,
+      "admired_pct": 0.3
+    },
+    "IBM Cloud": {
+      "n": 113,
+      "admired_pct": 0.2
+    },
+    "Yandex Cloud": {
+      "n": 80,
+      "admired_pct": 0.2
+    }
+  },
+  "ai_models_admired": {
+    "openAI GPT (chatbot models)": {
+      "n": 8219,
+      "admired_pct": 16.7
+    },
+    "Anthropic: Claude Sonnet": {
+      "n": 4767,
+      "admired_pct": 9.7
+    },
+    "openAI Reasoning models": {
+      "n": 3631,
+      "admired_pct": 7.4
+    },
+    "Gemini (Flash general purpose models)": {
+      "n": 3294,
+      "admired_pct": 6.7
+    },
+    "Gemini (Pro Reasoning models)": {
+      "n": 2751,
+      "admired_pct": 5.6
+    },
+    "openAI Image generating models": {
+      "n": 2610,
+      "admired_pct": 5.3
+    },
+    "DeepSeek (R- Reasoning models)": {
+      "n": 1980,
+      "admired_pct": 4.0
+    },
+    "Meta Llama (all models)": {
+      "n": 1419,
+      "admired_pct": 2.9
+    },
+    "DeepSeek (V- General purpose models)": {
+      "n": 1211,
+      "admired_pct": 2.5
+    },
+    "X Grok models": {
+      "n": 955,
+      "admired_pct": 1.9
+    },
+    "Mistral AI models": {
+      "n": 849,
+      "admired_pct": 1.7
+    },
+    "Perplexity Sonar models": {
+      "n": 685,
+      "admired_pct": 1.4
+    },
+    "Alibaba Cloud Qwen models": {
+      "n": 465,
+      "admired_pct": 0.9
+    },
+    "Microsoft Phi-4 models": {
+      "n": 356,
+      "admired_pct": 0.7
+    },
+    "Amazon Titan models": {
+      "n": 121,
+      "admired_pct": 0.2
+    },
+    "Cohere: Command A": {
+      "n": 58,
+      "admired_pct": 0.1
+    },
+    "Reka (Flash 3 or other Reka models)": {
+      "n": 35,
+      "admired_pct": 0.1
+    }
+  },
+  "webframe_admired": {
+    "Node.js": {
+      "n": 6022,
+      "admired_pct": 12.2
+    },
+    "React": {
+      "n": 5515,
+      "admired_pct": 11.2
+    },
+    "ASP.NET Core": {
+      "n": 2859,
+      "admired_pct": 5.8
+    },
+    "Next.js": {
+      "n": 2244,
+      "admired_pct": 4.6
+    },
+    "Express": {
+      "n": 2140,
+      "admired_pct": 4.4
+    },
+    "Vue.js": {
+      "n": 2120,
+      "admired_pct": 4.3
+    },
+    "FastAPI": {
+      "n": 1946,
+      "admired_pct": 4.0
+    },
+    "Angular": {
+      "n": 1927,
+      "admired_pct": 3.9
+    },
+    "Spring Boot": {
+      "n": 1866,
+      "admired_pct": 3.8
+    },
+    "jQuery": {
+      "n": 1741,
+      "admired_pct": 3.5
+    },
+    "Flask": {
+      "n": 1418,
+      "admired_pct": 2.9
+    },
+    "Django": {
+      "n": 1381,
+      "admired_pct": 2.8
+    },
+    "ASP.NET": {
+      "n": 1145,
+      "admired_pct": 2.3
+    },
+    "Svelte": {
+      "n": 1071,
+      "admired_pct": 2.2
+    },
+    "Laravel": {
+      "n": 1007,
+      "admired_pct": 2.0
+    },
+    "WordPress": {
+      "n": 979,
+      "admired_pct": 2.0
+    },
+    "Blazor": {
+      "n": 855,
+      "admired_pct": 1.7
+    },
+    "NestJS": {
+      "n": 794,
+      "admired_pct": 1.6
+    },
+    "Ruby on Rails": {
+      "n": 725,
+      "admired_pct": 1.5
+    },
+    "Astro": {
+      "n": 658,
+      "admired_pct": 1.3
+    },
+    "Axum": {
+      "n": 513,
+      "admired_pct": 1.0
+    },
+    "Deno": {
+      "n": 500,
+      "admired_pct": 1.0
+    },
+    "Symfony": {
+      "n": 475,
+      "admired_pct": 1.0
+    },
+    "Phoenix": {
+      "n": 449,
+      "admired_pct": 0.9
+    },
+    "Nuxt.js": {
+      "n": 440,
+      "admired_pct": 0.9
+    },
+    "AngularJS": {
+      "n": 376,
+      "admired_pct": 0.8
+    },
+    "Fastify": {
+      "n": 344,
+      "admired_pct": 0.7
+    },
+    "Drupal": {
+      "n": 177,
+      "admired_pct": 0.4
+    }
+  }
+}

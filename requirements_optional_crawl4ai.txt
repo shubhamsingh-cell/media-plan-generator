@@ -1,0 +1,12 @@
+# Optional dependency for apis/scrapers/crawl4ai_client.py.
+#
+# Crawl4AI pulls Playwright as a transitive dependency (~500MB of headless
+# browsers), so it is intentionally excluded from the main requirements.txt
+# and installed only on hosts that opt in to this scraper backend.
+#
+# Install with:
+#     pip install -r requirements_optional_crawl4ai.txt
+#     python -m playwright install chromium
+#
+# Activate at runtime by exporting ``CRAWL4AI_ENABLED=1``.
+crawl4ai>=0.3.0
