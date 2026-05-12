@@ -1122,7 +1122,7 @@ class TestTier5NovaFlowSmoke:
 # Tier 6: GEMINI THINKING-BUDGET CONTROL (post-S50 verification fix)
 # ═══════════════════════════════════════════════════════════════════════════════
 #
-# gemini-3-flash-preview / gemini-3.1-flash-lite-preview are thinking-enabled
+# gemini-3-flash-preview / gemini-3.1-flash-lite are thinking-enabled
 # by default. Without thinkingConfig.thinkingBudget = 0, requests with small
 # maxOutputTokens spend the budget on internal thinking and time out or
 # return empty. These tests verify the centralized auto-rule and overrides

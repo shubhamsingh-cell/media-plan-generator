@@ -559,7 +559,7 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
     GEMINI_FLASH_LITE: {
         "name": "Gemini 3.1 Flash Lite",
         "api_style": "gemini",
-        # S50 UPGRADE (May 2026): Moved to "gemini-3.1-flash-lite-preview", which
+        # S50 UPGRADE (May 2026): Moved to "gemini-3.1-flash-lite", which
         # IS now a real model on the free tier (verified against Google's pricing
         # page + multiple secondary sources). The earlier S53 fix reverted to
         # "gemini-2.5-flash-lite" because the 3.1-lite ID returned 404 -- Google
@@ -567,8 +567,8 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         # "gemini-3-flash-preview" for the latest free Gemini stack.
         # Override via env if Google changes preview availability:
         #   GEMINI_FLASH_LITE_MODEL=gemini-2.5-flash-lite (GA fallback)
-        "endpoint": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent",
-        "model": "gemini-3.1-flash-lite-preview",
+        "endpoint": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent",
+        "model": "gemini-3.1-flash-lite",
         "env_key": "GEMINI_API_KEY",
         "rpm_limit": 30,
         "rpd_limit": 1500,
@@ -2390,7 +2390,7 @@ def parallel_distribute(
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # ── Gemini thinking-budget control (May 2026) ──────────────────────────────────
-# gemini-3-flash-preview and gemini-3.1-flash-lite-preview are thinking-enabled
+# gemini-3-flash-preview and gemini-3.1-flash-lite are thinking-enabled
 # by default. Without generationConfig.thinkingConfig.thinkingBudget = 0,
 # requests with small maxOutputTokens (< 2048) consume the budget on internal
 # thinking and either time out (>110s) or return empty.
@@ -2482,7 +2482,7 @@ def _build_gemini_request(
 ) -> Tuple[str, Dict[str, str], bytes]:
     """Build a Gemini API request.
 
-    Supports both gemini-3-flash-preview and gemini-3.1-flash-lite-preview via provider_id.
+    Supports both gemini-3-flash-preview and gemini-3.1-flash-lite via provider_id.
     Handles tool definitions (converted from Anthropic format) and multi-turn
     tool conversations with functionCall/functionResponse parts.
 
@@ -2599,7 +2599,7 @@ def _build_gemini_request(
         "temperature": 0.7,
     }
     # Decide whether to disable thinking (see helper for the rule).
-    # Without this, gemini-3-flash-preview / gemini-3.1-flash-lite-preview
+    # Without this, gemini-3-flash-preview / gemini-3.1-flash-lite
     # spend their token budget on internal thinking and return empty bodies
     # for low-maxOutputTokens requests.
     if _should_disable_gemini_thinking(max_tokens, has_tools, disable_thinking):
@@ -3520,7 +3520,7 @@ def _stream_gemini(
 
     Uses the streamGenerateContent endpoint which returns newline-delimited
     JSON objects, each containing partial candidates.  Supports both
-    gemini-3-flash-preview and gemini-3.1-flash-lite-preview via provider_id.
+    gemini-3-flash-preview and gemini-3.1-flash-lite via provider_id.
 
     Streaming is the chat / real-time SSE path. By default the auto rule
     leaves thinking enabled for max_tokens >= 2048; callers wanting a
