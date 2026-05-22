@@ -1596,8 +1596,7 @@ _TOOL_LABELS: Dict[str, str] = {
     "recommend_channels": "Building channel recommendations",
     "track_cpc": "Tracking CPC bid prices",
     "check_job_volume": "Checking job posting volumes",
-    "query_linkup_postings": "Querying LinkUp job posting data",
-    "query_revelio_workforce": "Querying Revelio Labs workforce analytics",
+    # S76: LinkUp / Revelio labels removed -- tools no longer advertised.
     "get_creative_best_practices": "Loading creative best practices",
     "assess_competitive_threats": "Assessing competitive threats",
     "query_eurostat": "Querying Eurostat EU labor data",
@@ -6240,44 +6239,12 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                     "required": ["role"],
                 },
             },
-            # S48: LinkUp job posting analytics (Item 23)
-            {
-                "name": "query_linkup_postings",
-                "description": "Query LinkUp's job posting analytics API for real-time posting counts, trends, and market activity by role and location. Returns posting volumes, week-over-week changes, and market signals from LinkUp's curated job listing database.",
-                "input_schema": {
-                    "type": "object",
-                    "properties": {
-                        "role": {
-                            "type": "string",
-                            "description": "Job title to search (e.g., 'Software Engineer', 'Registered Nurse')",
-                        },
-                        "location": {
-                            "type": "string",
-                            "description": "Location filter (e.g., 'Houston, TX', 'United States')",
-                        },
-                    },
-                    "required": ["role"],
-                },
-            },
-            # S48: Revelio Labs workforce analytics (Item 23)
-            {
-                "name": "query_revelio_workforce",
-                "description": "Query Revelio Labs RPLS (Revealed Preferences Labor Statistics) for workforce analytics including headcount trends, attrition rates, hiring velocity, skills composition, and compensation benchmarks for a company or role.",
-                "input_schema": {
-                    "type": "object",
-                    "properties": {
-                        "company": {
-                            "type": "string",
-                            "description": "Company name for workforce analytics (e.g., 'Amazon', 'Google')",
-                        },
-                        "role": {
-                            "type": "string",
-                            "description": "Job title filter (e.g., 'Data Scientist')",
-                        },
-                    },
-                    "required": [],
-                },
-            },
+            # S76 G2 audit: LinkUp and Revelio tool defs REMOVED from the LLM's
+            # advertised toolkit because LINKUP_API_KEY and REVELIO_API_KEY are
+            # not set on Render. Keeping the handler methods (_query_linkup_postings,
+            # _query_revelio_workforce) defined below as dormant code so they can
+            # be re-enabled in one move when keys are added back: just restore
+            # the tool def here and the entry in _tool_handler_map.
             # ── S49: Creative Best Practices (Item 14) ──────────────────
             {
                 "name": "get_creative_best_practices",
@@ -6618,9 +6585,12 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             "check_job_volume": self._check_job_volume,
             # S48: Channel Recommendations Engine
             "recommend_channels": self._recommend_channels_tool,
-            # S48: LinkUp + Revelio Labs external data (Item 23)
-            "query_linkup_postings": self._query_linkup_postings,
-            "query_revelio_workforce": self._query_revelio_workforce,
+            # S76 G2 audit: LinkUp + Revelio handlers REMOVED from the dispatch
+            # map because their API keys aren't set on Render. The handler
+            # methods themselves remain defined (as dormant code below) so they
+            # can be re-enabled by restoring these two lines when keys are added.
+            # "query_linkup_postings": self._query_linkup_postings,
+            # "query_revelio_workforce": self._query_revelio_workforce,
             # S49: Creative Best Practices (Item 14) + International APIs (Item 22)
             "get_creative_best_practices": self._get_creative_best_practices,
             # S49: Competitive Threat Assessment (P1-3)
@@ -17394,43 +17364,13 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 tool_params["locations"] = _locs
             tool_label = "Checking job posting volumes"
 
-        # --- S48: LinkUp job posting analytics intent (Item 23) ---
-        if not tool_name and self._LINKUP_INTENT.search(msg_lower):
-            tool_name = "query_linkup_postings"
-            tool_params = {}
-            _role_match = re.search(
-                r"(?:for|of)\s+(\w[\w\s]{2,30}?)(?:\s+in\s+|\s+at\s+|\?|$)",
-                user_message,
-                re.IGNORECASE,
-            )
-            if _role_match:
-                tool_params["role"] = (_role_match.group(1) or "").strip()
-            if not tool_params.get("role"):
-                tool_params["role"] = "general"
-            _loc = _detect_us_state(user_message) or _detect_country(msg_lower) or ""
-            if _loc:
-                tool_params["location"] = _loc
-            tool_label = "Querying LinkUp job posting data"
-
-        # --- S48: Revelio Labs workforce analytics intent (Item 23) ---
-        if not tool_name and self._REVELIO_INTENT.search(msg_lower):
-            tool_name = "query_revelio_workforce"
-            tool_params = {}
-            # Extract company name (look for "at <Company>" or "for <Company>")
-            _co_match = re.search(
-                r"(?:at|for|of|about)\s+([A-Z][\w\s&.'-]{1,40}?)(?:\s+(?:in|for|what|how|,|\?|$))",
-                user_message,
-            )
-            if _co_match:
-                tool_params["company"] = (_co_match.group(1) or "").strip()
-            _role_match = re.search(
-                r"(?:for|of)\s+(\w[\w\s]{2,30}?)(?:\s+(?:at|in|\?|$))",
-                user_message,
-                re.IGNORECASE,
-            )
-            if _role_match and not tool_params.get("company"):
-                tool_params["role"] = (_role_match.group(1) or "").strip()
-            tool_label = "Querying Revelio Labs workforce analytics"
+        # --- S48: LinkUp + Revelio direct-dispatch intents -----------------
+        # S76 G2 audit (2026-05-22): Both intents disabled because
+        # LINKUP_API_KEY and REVELIO_API_KEY are not set on Render. Without
+        # the keys the handlers return a "key not set" error -- the LLM was
+        # wasting a tool round-trip on every LinkUp/Revelio-flavored query.
+        # The _LINKUP_INTENT and _REVELIO_INTENT regexes are kept compiled
+        # so re-enabling is a one-line uncomment when the keys arrive.
 
         # --- S49: Competitive threat assessment intent (P1-3) ---
         if not tool_name and self._COMPETITIVE_THREAT_INTENT.search(msg_lower):
