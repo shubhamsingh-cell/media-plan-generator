@@ -626,6 +626,8 @@ _TOOL_ERROR_FALLBACK_MESSAGES: dict[str, str] = {
     "query_eurostat": "Eurostat EU labor data is temporarily unavailable, but I can reference our international benchmarks for European markets.",
     "query_uk_ons": "UK ONS labor data is temporarily unavailable, but I can reference our international benchmarks for UK hiring.",
     "query_statcan": "Statistics Canada data is temporarily unavailable, but I can reference our international benchmarks for Canadian markets.",
+    "query_oecd_sdmx": "OECD SDMX cross-country labour data is temporarily unavailable, but I can reference our international benchmarks for OECD markets.",
+    "query_kb_semantic": "Semantic knowledge-base retrieval (RAG v2) is currently disabled or unavailable; I can still answer from the standard knowledge base lookup tools.",
     "query_careerjet": "CareerJet international job search is temporarily unavailable, but I can provide global job market insights from our knowledge base.",
     "query_bea": "Bureau of Economic Analysis data is temporarily unavailable. Try query_regional_economics for state-level GDP, income, and employment data.",
     "score_creative_quality": "Creative quality scoring is temporarily unavailable, but I can share general guidance on improving ad creative quality for recruitment.",
@@ -1619,6 +1621,8 @@ _TOOL_LABELS: Dict[str, str] = {
     "query_eurostat": "Querying Eurostat EU labor data",
     "query_uk_ons": "Querying UK ONS labor statistics",
     "query_statcan": "Querying Statistics Canada labor data",
+    "query_oecd_sdmx": "Querying OECD SDMX labour statistics",
+    "query_kb_semantic": "Searching Nova knowledge base (semantic + BM25)",
     "query_careerjet": "Searching CareerJet international jobs",
     "query_bea": "Querying Bureau of Economic Analysis data",
     "score_creative_quality": "Scoring ad creative quality",
@@ -6367,6 +6371,120 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 },
             },
             {
+                "name": "query_oecd_sdmx",
+                "description": (
+                    "Query the OECD SDMX (Data Explorer) API for cross-country "
+                    "labour-market statistics across 38 OECD members plus key "
+                    "partners. Best for cross-country recruitment context: "
+                    "monthly unemployment rates, labour force indicators, "
+                    "average wages, hours worked, productivity, and migration. "
+                    "Use Eurostat for EU-specific data, query_uk_ons for UK, "
+                    "query_statcan for Canada, BLS for US-specific monthly data."
+                ),
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "country": {
+                            "type": "string",
+                            "description": (
+                                "ISO-3 country code (e.g. 'USA', 'GBR', 'DEU') "
+                                "or country name (e.g. 'United States', "
+                                "'Germany'). Multi-country via '+' is supported "
+                                "(e.g. 'USA+GBR+DEU')."
+                            ),
+                        },
+                        "dataset": {
+                            "type": "string",
+                            "enum": [
+                                "unemployment_rate",
+                                "labour_force",
+                                "average_wages",
+                                "hours_worked",
+                                "productivity",
+                                "migration",
+                            ],
+                            "description": (
+                                "Which OECD dataset to query. "
+                                "'unemployment_rate' = monthly harmonised "
+                                "unemployment rate (T-1 month lag). "
+                                "'labour_force' = quarterly employment/working-"
+                                "age population. "
+                                "'average_wages' = annual average wages in "
+                                "USD PPP. "
+                                "'hours_worked' = annual usual weekly hours. "
+                                "'productivity' = annual GDP per hour/employee/"
+                                "capita. "
+                                "'migration' = annual migration inflows."
+                            ),
+                        },
+                        "start_year": {
+                            "type": "string",
+                            "description": (
+                                "Optional start of time range. Examples: "
+                                "'2024', '2025-01', '2025-Q1'."
+                            ),
+                        },
+                        "end_year": {
+                            "type": "string",
+                            "description": (
+                                "Optional end of time range. Examples: "
+                                "'2026', '2026-04'."
+                            ),
+                        },
+                    },
+                    "required": ["country", "dataset"],
+                },
+            },
+            {
+                "name": "query_kb_semantic",
+                "description": (
+                    "Hybrid semantic + BM25 retrieval over the Nova "
+                    "knowledge base (RAG v2, Phase 1). Returns the top-k "
+                    "most relevant chunks across recruitment benchmarks, "
+                    "channels, publishers, salary, and ad benchmark JSON "
+                    "files. Feature-flagged via RAG_V2_ENABLED; in Phase "
+                    "1 it returns rag_disabled=true unless the flag is "
+                    "on AND embeddings have been backfilled. Use for "
+                    "natural-language questions that don't fit a specific "
+                    "tool (e.g. 'What do we know about Texas nursing "
+                    "CPA?')."
+                ),
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": (
+                                "Natural-language query (e.g. 'apply rates "
+                                "for healthcare nurses')."
+                            ),
+                        },
+                        "k": {
+                            "type": "integer",
+                            "description": (
+                                "Number of chunks to return. Default 5, " "max 20."
+                            ),
+                        },
+                        "country": {
+                            "type": "string",
+                            "description": (
+                                "Optional ISO-2 country code pre-filter "
+                                "(e.g. 'US', 'DE', 'UK')."
+                            ),
+                        },
+                        "vertical": {
+                            "type": "string",
+                            "description": (
+                                "Optional vertical pre-filter "
+                                "(e.g. 'healthcare_nursing', "
+                                "'trucking', 'gig')."
+                            ),
+                        },
+                    },
+                    "required": ["query"],
+                },
+            },
+            {
                 "name": "query_careerjet",
                 "description": "Search CareerJet for international job postings across 60+ countries. Returns job counts, sample listings with titles, companies, locations, and salaries. Use for international job search, global job market, or country-specific posting volumes.",
                 "input_schema": {
@@ -6605,6 +6723,8 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             "query_eurostat": self._query_eurostat,
             "query_uk_ons": self._query_uk_ons,
             "query_statcan": self._query_statcan,
+            "query_oecd_sdmx": self._query_oecd_sdmx,
+            "query_kb_semantic": self._query_kb_semantic,
             "query_careerjet": self._query_careerjet,
             "query_bea": self._query_bea,
             # S49: Creative Quality Score (P1-16)
@@ -13348,6 +13468,352 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 "source": "statcan",
                 "tool": "query_statcan",
             }
+
+    # Country name -> ISO-3 mapping for the most common Joveo markets.
+    # Used by _query_oecd_sdmx so callers can pass "United States" or "USA".
+    _OECD_COUNTRY_NAME_TO_ISO3: dict = {
+        "united states": "USA",
+        "us": "USA",
+        "u.s.": "USA",
+        "u.s.a.": "USA",
+        "america": "USA",
+        "united kingdom": "GBR",
+        "uk": "GBR",
+        "u.k.": "GBR",
+        "britain": "GBR",
+        "england": "GBR",
+        "great britain": "GBR",
+        "germany": "DEU",
+        "deutschland": "DEU",
+        "france": "FRA",
+        "italy": "ITA",
+        "spain": "ESP",
+        "netherlands": "NLD",
+        "holland": "NLD",
+        "belgium": "BEL",
+        "sweden": "SWE",
+        "norway": "NOR",
+        "denmark": "DNK",
+        "finland": "FIN",
+        "ireland": "IRL",
+        "switzerland": "CHE",
+        "austria": "AUT",
+        "poland": "POL",
+        "portugal": "PRT",
+        "greece": "GRC",
+        "czech republic": "CZE",
+        "czechia": "CZE",
+        "hungary": "HUN",
+        "slovakia": "SVK",
+        "slovenia": "SVN",
+        "estonia": "EST",
+        "latvia": "LVA",
+        "lithuania": "LTU",
+        "luxembourg": "LUX",
+        "iceland": "ISL",
+        "canada": "CAN",
+        "mexico": "MEX",
+        "australia": "AUS",
+        "new zealand": "NZL",
+        "japan": "JPN",
+        "south korea": "KOR",
+        "korea": "KOR",
+        "turkey": "TUR",
+        "turkiye": "TUR",
+        "israel": "ISR",
+        "chile": "CHL",
+        "colombia": "COL",
+        "costa rica": "CRI",
+        "brazil": "BRA",
+        "india": "IND",
+        "indonesia": "IDN",
+        "china": "CHN",
+        "south africa": "ZAF",
+    }
+
+    @classmethod
+    def _normalize_oecd_country(cls, raw: str) -> str:
+        """Normalize a country input to an ISO-3 code (or '+'-joined codes).
+
+        Accepts: ISO-3 code (passed through), country name (mapped via the
+        alias table), or a ``+``-joined string of either. Unknown tokens
+        are kept as-is (uppercased) so the caller can still try them.
+
+        Args:
+            raw: Raw country string from the chatbot caller.
+
+        Returns:
+            Uppercased ``+``-joined ISO-3 codes. Empty string if input is empty.
+        """
+        if not raw:
+            return ""
+        # Multi-country via '+': normalize each leg independently.
+        parts = [p.strip() for p in str(raw).split("+") if p.strip()]
+        out: list = []
+        for p in parts:
+            key = p.lower()
+            iso3 = cls._OECD_COUNTRY_NAME_TO_ISO3.get(key)
+            if iso3:
+                out.append(iso3)
+            else:
+                # Already an ISO-3 code (or unknown -- pass through uppercased).
+                out.append(p.upper())
+        return "+".join(out)
+
+    def _query_oecd_sdmx(self, args: dict) -> dict:
+        """Query OECD SDMX (Data Explorer API) for international labour data.
+
+        Wraps :func:`fetch_oecd_sdmx_data` from ``api_enrichment``. Datasets
+        cover unemployment, labour force, wages, hours worked, productivity,
+        and migration across 38 OECD members plus key partners.
+
+        Args:
+            args: Tool input dict with keys:
+                - ``country`` (str, required): ISO-3 code or country name.
+                  Multi-country via ``+`` (e.g. ``USA+GBR+DEU``).
+                - ``dataset`` (str, required): One of ``unemployment_rate``,
+                  ``labour_force``, ``average_wages``, ``hours_worked``,
+                  ``productivity``, ``migration``.
+                - ``start_year`` (str, optional): e.g. ``2024``, ``2025-01``,
+                  ``2025-Q1``.
+                - ``end_year`` (str, optional): e.g. ``2026``, ``2026-04``.
+
+        Returns:
+            Structured dict with ``data``, ``source`` (``"OECD SDMX"``),
+            ``country``, ``dataset``, ``data_freshness``, ``currency`` (where
+            applicable), and ``tool`` ``"query_oecd_sdmx"``. Cached for 24h
+            in Upstash. Errors are returned in-band with an ``error`` key;
+            this method never raises.
+        """
+        country_raw = (args.get("country") or "").strip()
+        dataset = (args.get("dataset") or "").lower().strip()
+        start_year = args.get("start_year")
+        end_year = args.get("end_year")
+
+        country = self._normalize_oecd_country(country_raw)
+
+        # Build a stable cache key. We cache both successes and known
+        # "no data" responses, but not transient network errors (those
+        # come back uncached so retries help).
+        cache_key = "oecd_sdmx:" + json.dumps(
+            {
+                "c": country,
+                "d": dataset,
+                "s": str(start_year) if start_year is not None else "",
+                "e": str(end_year) if end_year is not None else "",
+            },
+            sort_keys=True,
+        )
+
+        try:
+            cached = _upstash_get(cache_key)
+            if isinstance(cached, dict) and "data" in cached:
+                cached.setdefault("tool", "query_oecd_sdmx")
+                cached["cached"] = True
+                return cached
+        except Exception as exc:  # noqa: BLE001 -- cache must never crash callers
+            logger.warning(f"OECD SDMX cache get failed: {exc}")
+
+        try:
+            from api_enrichment import fetch_oecd_sdmx_data
+
+            result = fetch_oecd_sdmx_data(
+                country=country,
+                dataset_key=dataset,
+                start_year=start_year,
+                end_year=end_year,
+            )
+            result["tool"] = "query_oecd_sdmx"
+            # Only cache successful + structured responses, not network errors.
+            if not result.get("error") and isinstance(result.get("data"), list):
+                try:
+                    _upstash_set(
+                        cache_key,
+                        result,
+                        ttl_seconds=24 * 3600,
+                        category="api",
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning(f"OECD SDMX cache set failed: {exc}")
+            return result
+        except ImportError:
+            logger.error("api_enrichment.fetch_oecd_sdmx_data not available")
+            return {
+                "error": "OECD SDMX integration not available",
+                "source": "OECD SDMX",
+                "tool": "query_oecd_sdmx",
+                "country": country,
+                "dataset": dataset,
+                "data": [],
+            }
+        except Exception as exc:
+            logger.error(f"OECD SDMX query failed: {exc}", exc_info=True)
+            return {
+                "error": f"OECD SDMX API error: {str(exc)[:200]}",
+                "source": "OECD SDMX",
+                "tool": "query_oecd_sdmx",
+                "country": country,
+                "dataset": dataset,
+                "data": [],
+            }
+
+    def _query_kb_semantic(self, params: dict) -> dict:
+        """Hybrid semantic + BM25 retrieval over the Nova knowledge base (RAG v2).
+
+        Phase 1 entry point per ``docs/RAG_Design_2026.md``. Wraps the
+        :class:`NovaRAGPipeline` orchestrator. Feature-flagged behind the
+        ``RAG_V2_ENABLED`` env var; defaults to disabled so the rest of
+        the chatbot continues to use the existing vector_search path while
+        embeddings get backfilled in Phase 2.
+
+        Args:
+            params: Tool input dict with keys:
+                - ``query`` (str, required): natural-language query.
+                - ``k`` (int, optional, default 5): top-k chunks to return.
+                - ``country`` (str, optional): pre-filter by ISO-2 country
+                  code (e.g. "US", "DE").
+                - ``vertical`` (str, optional): pre-filter by vertical
+                  (e.g. "healthcare_nursing", "trucking").
+
+        Returns:
+            Structured dict::
+
+                {
+                  "source": "Nova RAG Pipeline",
+                  "tool": "query_kb_semantic",
+                  "query": "...",
+                  "chunks": [{"text", "score", "metadata", "doc_id",
+                              "source_file", "search_method"}],
+                  "sources": ["file1.json", "file2.json", ...],
+                  "rag_disabled": False,
+                  "k": <int>,
+                }
+
+            When ``RAG_V2_ENABLED`` is not set, or the pipeline fails to
+            initialise, the response is ``{"error": "RAG not enabled",
+            "rag_disabled": True, "chunks": [], "sources": [], "source":
+            "Nova RAG Pipeline", "tool": "query_kb_semantic"}``.
+            This method never raises.
+        """
+        query = (params.get("query") or "").strip()
+        # Coerce k safely; default 5; clamp to a sane range.
+        try:
+            k = int(params.get("k") or 5)
+        except (TypeError, ValueError):
+            k = 5
+        k = max(1, min(k, 20))
+        country = (params.get("country") or "").strip() or None
+        vertical = (params.get("vertical") or "").strip() or None
+
+        # Feature flag check. Phase 1 ships disabled by default; flip on
+        # only when Qdrant collection has been backfilled.
+        rag_enabled_raw = os.environ.get("RAG_V2_ENABLED", "").strip().lower()
+        rag_enabled = rag_enabled_raw in ("1", "true", "yes", "on")
+        if not rag_enabled:
+            return {
+                "source": "Nova RAG Pipeline",
+                "tool": "query_kb_semantic",
+                "query": query,
+                "chunks": [],
+                "sources": [],
+                "rag_disabled": True,
+                "error": "RAG not enabled",
+                "k": k,
+            }
+
+        if not query:
+            return {
+                "source": "Nova RAG Pipeline",
+                "tool": "query_kb_semantic",
+                "query": "",
+                "chunks": [],
+                "sources": [],
+                "rag_disabled": False,
+                "error": "No query provided",
+                "k": k,
+            }
+
+        # Lazy-init the pipeline; cache the instance on the Nova object so
+        # we don't pay the embedder/store startup cost on every call.
+        pipeline = getattr(self, "_rag_pipeline", None)
+        if pipeline is None:
+            try:
+                from rag_pipeline import NovaRAGPipeline
+
+                pipeline = NovaRAGPipeline()
+                self._rag_pipeline = pipeline
+            except ImportError as exc:
+                logger.error(f"rag_pipeline import failed: {exc}", exc_info=True)
+                return {
+                    "source": "Nova RAG Pipeline",
+                    "tool": "query_kb_semantic",
+                    "query": query,
+                    "chunks": [],
+                    "sources": [],
+                    "rag_disabled": True,
+                    "error": "RAG not enabled",
+                    "k": k,
+                }
+            except Exception as exc:
+                logger.error(f"NovaRAGPipeline init failed: {exc}", exc_info=True)
+                return {
+                    "source": "Nova RAG Pipeline",
+                    "tool": "query_kb_semantic",
+                    "query": query,
+                    "chunks": [],
+                    "sources": [],
+                    "rag_disabled": True,
+                    "error": "RAG not enabled",
+                    "k": k,
+                }
+
+        # Build pre-filter for the vector + BM25 legs.
+        filters: dict = {}
+        if country:
+            filters["country"] = country.upper()
+        if vertical:
+            filters["vertical"] = vertical.lower()
+        filters_arg = filters or None
+
+        try:
+            hits = pipeline.retrieve(query, top_k=k, filters=filters_arg)
+        except Exception as exc:
+            logger.error(f"RAG retrieve failed: {exc}", exc_info=True)
+            return {
+                "source": "Nova RAG Pipeline",
+                "tool": "query_kb_semantic",
+                "query": query,
+                "chunks": [],
+                "sources": [],
+                "rag_disabled": False,
+                "error": f"RAG retrieve failed: {str(exc)[:200]}",
+                "k": k,
+            }
+
+        chunks: list = []
+        sources: list = []
+        for h in hits:
+            chunks.append(
+                {
+                    "doc_id": h.doc_id,
+                    "text": h.text,
+                    "score": round(float(h.score), 6),
+                    "metadata": h.metadata,
+                    "source_file": h.source_file,
+                    "search_method": h.search_method,
+                }
+            )
+            if h.source_file and h.source_file not in sources:
+                sources.append(h.source_file)
+        return {
+            "source": "Nova RAG Pipeline",
+            "tool": "query_kb_semantic",
+            "query": query,
+            "chunks": chunks,
+            "sources": sources,
+            "rag_disabled": False,
+            "k": k,
+        }
 
     def _query_careerjet(self, args: dict) -> dict:
         """Search CareerJet for international job postings.
@@ -24882,6 +25348,7 @@ def _enrich_source_citations(
         "query_eurostat",
         "query_uk_ons",
         "query_statcan",
+        "query_oecd_sdmx",
         "query_careerjet",
         "query_bea",
         "check_job_volume",

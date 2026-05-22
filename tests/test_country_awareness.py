@@ -335,3 +335,211 @@ class TestT3NumberVerifierBoldSafety:
         annotated, count = _verify_response_numbers(text, tool_results_raw=[])
         assert count == 1
         assert "14.0% _[unverified]_" in annotated
+
+
+# ---------------------------------------------------------------------------
+# OECD SDMX tool tests (Phase 1 build)
+# ---------------------------------------------------------------------------
+
+
+class TestOecdSdmxTool:
+    """Verify the _query_oecd_sdmx tool is wired and behaves on offline paths.
+
+    These tests do NOT hit the network -- they exercise the error and
+    validation paths so CI stays deterministic. The live API smoke tests
+    live in docs/oecd_sdmx_sample.py (run manually).
+    """
+
+    def test_tool_present_in_definitions(self):
+        nova = _new_nova()
+        names = {t["name"] for t in nova.get_tool_definitions()}
+        assert (
+            "query_oecd_sdmx" in names
+        ), "query_oecd_sdmx should be advertised in get_tool_definitions()"
+
+    def test_tool_registered_in_handler_map(self):
+        nova = _new_nova()
+        handlers = nova._tool_handler_map()
+        assert "query_oecd_sdmx" in handlers
+        # Handler must be the bound method we wrote.
+        assert handlers["query_oecd_sdmx"].__func__ is nova._query_oecd_sdmx.__func__
+
+    def test_tool_schema_well_formed(self):
+        nova = _new_nova()
+        oecd = next(
+            t for t in nova.get_tool_definitions() if t["name"] == "query_oecd_sdmx"
+        )
+        schema = oecd["input_schema"]
+        # Required: country + dataset
+        assert set(schema["required"]) == {"country", "dataset"}
+        # 6 datasets in the enum
+        assert set(schema["properties"]["dataset"]["enum"]) == {
+            "unemployment_rate",
+            "labour_force",
+            "average_wages",
+            "hours_worked",
+            "productivity",
+            "migration",
+        }
+        # country, start_year, end_year all present
+        for field in ("country", "start_year", "end_year"):
+            assert field in schema["properties"], f"missing field: {field}"
+
+    def test_accepts_country_param_and_routes(self):
+        """The tool MUST route a country parameter through to the result.
+
+        We use an unknown dataset so the call short-circuits before the
+        network -- this proves the country plumbing without needing
+        network access.
+        """
+        from nova import Nova
+
+        nova = _new_nova()
+        result = nova._query_oecd_sdmx(
+            {"country": "United States", "dataset": "definitely_not_real"}
+        )
+        # Country was normalized from "United States" -> "USA"
+        assert result["country"] == "USA"
+        # Tool name was stamped on
+        assert result["tool"] == "query_oecd_sdmx"
+        # Error message lists the available datasets
+        assert "error" in result and result["data"] == []
+        # Normalization is testable in isolation too
+        assert Nova._normalize_oecd_country("Germany") == "DEU"
+        assert Nova._normalize_oecd_country("USA+UK") == "USA+GBR"
+
+    def test_empty_country_returns_validation_error(self):
+        """Missing required country must come back as an error, not a crash."""
+        nova = _new_nova()
+        result = nova._query_oecd_sdmx({"country": "", "dataset": "unemployment_rate"})
+        assert result["tool"] == "query_oecd_sdmx"
+        assert result["data"] == []
+        assert "country is required" in result["error"]
+
+    def test_iso3_country_passes_through_unchanged(self):
+        from nova import Nova
+
+        # ISO-3 codes should pass straight through (uppercased).
+        assert Nova._normalize_oecd_country("usa") == "USA"
+        assert Nova._normalize_oecd_country("DEU") == "DEU"
+        # Multi-country preserved
+        assert Nova._normalize_oecd_country("USA+DEU+FRA") == "USA+DEU+FRA"
+
+    def test_progress_label_present(self):
+        from nova import _TOOL_LABELS
+
+        assert "query_oecd_sdmx" in _TOOL_LABELS
+        # Label should mention OECD so the progress UI is meaningful.
+        assert "OECD" in _TOOL_LABELS["query_oecd_sdmx"]
+
+
+# ---------------------------------------------------------------------------
+# RAG semantic KB tool tests (Phase 1 build)
+# ---------------------------------------------------------------------------
+
+
+class TestRagKbSemanticTool:
+    """Verify the _query_kb_semantic tool is wired and gated correctly."""
+
+    def test_tool_present_in_definitions(self):
+        nova = _new_nova()
+        names = {t["name"] for t in nova.get_tool_definitions()}
+        assert "query_kb_semantic" in names
+
+    def test_tool_registered_in_handler_map(self):
+        nova = _new_nova()
+        handlers = nova._tool_handler_map()
+        assert "query_kb_semantic" in handlers
+
+    def test_tool_schema_well_formed(self):
+        nova = _new_nova()
+        sem = next(
+            t for t in nova.get_tool_definitions() if t["name"] == "query_kb_semantic"
+        )
+        schema = sem["input_schema"]
+        # query is the only required field
+        assert schema["required"] == ["query"]
+        # Optional knobs all present
+        for field in ("query", "k", "country", "vertical"):
+            assert field in schema["properties"], f"missing field: {field}"
+
+    def test_returns_rag_disabled_when_env_var_unset(self):
+        """Phase 1: with RAG_V2_ENABLED unset, the tool MUST short-circuit."""
+        os.environ.pop("RAG_V2_ENABLED", None)
+        nova = _new_nova()
+        result = nova._query_kb_semantic({"query": "linkedin cpa"})
+        assert result["rag_disabled"] is True
+        assert result["error"] == "RAG not enabled"
+        assert result["chunks"] == []
+        assert result["sources"] == []
+        assert result["tool"] == "query_kb_semantic"
+        assert result["source"] == "Nova RAG Pipeline"
+
+    def test_returns_rag_disabled_when_env_var_false(self):
+        """Explicit '0'/'false' values must NOT enable the pipeline."""
+        for value in ("0", "false", "no", "off", ""):
+            os.environ["RAG_V2_ENABLED"] = value
+            nova = _new_nova()
+            result = nova._query_kb_semantic({"query": "cpa"})
+            assert result["rag_disabled"] is True, f"{value!r} should not enable RAG"
+            assert result["error"] == "RAG not enabled"
+        os.environ.pop("RAG_V2_ENABLED", None)
+
+    def test_enabled_with_empty_query_returns_no_query_error(self):
+        """When flag is on, an empty query is a validation error, not a crash."""
+        os.environ["RAG_V2_ENABLED"] = "true"
+        try:
+            nova = _new_nova()
+            result = nova._query_kb_semantic({"query": ""})
+            assert result["rag_disabled"] is False
+            assert result["error"] == "No query provided"
+            assert result["chunks"] == []
+        finally:
+            os.environ.pop("RAG_V2_ENABLED", None)
+
+    def test_enabled_with_real_query_returns_structured_response(self):
+        """With the flag on and no Qdrant/Voyage available, we still return a
+        well-formed dict (degraded mode). The pipeline picks the in-memory
+        + hash backends, indexes nothing, and yields 0 chunks. The point of
+        the test is to confirm the contract, not retrieval quality.
+        """
+        os.environ["RAG_V2_ENABLED"] = "1"
+        try:
+            nova = _new_nova()
+            result = nova._query_kb_semantic(
+                {"query": "linkedin cpc", "k": 3, "country": "US"}
+            )
+            assert result["rag_disabled"] is False
+            assert result["source"] == "Nova RAG Pipeline"
+            assert result["tool"] == "query_kb_semantic"
+            assert isinstance(result["chunks"], list)
+            assert isinstance(result["sources"], list)
+            assert result["k"] == 3
+        finally:
+            os.environ.pop("RAG_V2_ENABLED", None)
+
+    def test_progress_label_present(self):
+        from nova import _TOOL_LABELS
+
+        assert "query_kb_semantic" in _TOOL_LABELS
+        # Label should reference the knowledge base / RAG concept.
+        label = _TOOL_LABELS["query_kb_semantic"].lower()
+        assert "knowledge" in label or "semantic" in label or "rag" in label
+
+    def test_rag_pipeline_module_importable(self):
+        """The promoted rag_pipeline module must import cleanly with the
+        backward-compat NovaRAG alias intact for the sketch's existing
+        pytests."""
+        import rag_pipeline
+
+        assert hasattr(rag_pipeline, "NovaRAGPipeline")
+        assert hasattr(rag_pipeline, "NovaRAG")
+        assert rag_pipeline.NovaRAG is rag_pipeline.NovaRAGPipeline
+        # Core symbols exposed
+        for sym in (
+            "Document",
+            "RetrievalHit",
+            "BM25Index",
+            "build_documents_from_kb",
+        ):
+            assert hasattr(rag_pipeline, sym), f"missing export: {sym}"

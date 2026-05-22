@@ -16300,6 +16300,374 @@ def fetch_statcan_data(
         return {"table": table, "source": "statcan", "error": str(e)}
 
 
+# ── OECD SDMX (Data Explorer API) ───────────────────────────────────────────
+# Verified live 2026-05-22 against sdmx.oecd.org (the new host -- the legacy
+# stats.oecd.org/sdmx-json/data/ is deprecated). See
+# docs/OECD_SDMX_Discovery_2026.md for the dataflow audit.
+
+_OECD_SDMX_BASE_URL = "https://sdmx.oecd.org/public/rest/data"
+_OECD_SDMX_DEFAULT_TIMEOUT = 30
+
+# Recruitment-relevant dataset catalogue. Each entry is a complete spec needed
+# to build an SDMX REST query. The dimension key MUST have the exact number of
+# "." separators required by the dataflow's Data Structure Definition.
+# {country} placeholder is replaced with the ISO-3 country code at query time.
+# "" between dots = "all values" for that dimension.
+_OECD_SDMX_DATASETS: Dict[str, Dict[str, Any]] = {
+    "unemployment_rate": {
+        "agency": "OECD.SDD.TPS",
+        "dataflow": "DSD_LFS@DF_IALFS_UNE_M",
+        "version": "1.0",
+        # 9 dims: REF_AREA . MEASURE . UNIT_MEASURE . TRANSFORMATION
+        #         . ADJUSTMENT . SEX . AGE . ACTIVITY . FREQ
+        "key_template": "{country}.UNE_LF_M.PT_LF_SUB._Z.Y._T.Y_GE15._Z.M",
+        "freq": "M",
+        "unit": "percentage of labour force",
+        "currency": None,
+        "description": (
+            "Monthly harmonised unemployment rate, 15+, seasonally adjusted"
+        ),
+    },
+    "labour_force": {
+        "agency": "OECD.SDD.TPS",
+        "dataflow": "DSD_LFS@DF_IALFS_INDIC",
+        "version": "1.0",
+        "key_template": "{country}........",
+        "freq": "Q",
+        "unit": "thousands of persons",
+        "currency": None,
+        "description": (
+            "Quarterly labour force indicators: employment, working-age "
+            "population, activity by sex/age/industry"
+        ),
+    },
+    "average_wages": {
+        "agency": "OECD.ELS.SAE",
+        "dataflow": "DSD_EARNINGS@AV_AN_WAGE",
+        "version": "1.0",
+        "key_template": "{country}......",
+        "freq": "A",
+        "unit": "USD PPP, constant prices",
+        "currency": "USD",
+        "description": "Average annual wages per full-time-equivalent employee",
+    },
+    "hours_worked": {
+        "agency": "OECD.ELS.SAE",
+        "dataflow": "DSD_HW@DF_AVG_USL_WK_WKD",
+        "version": "1.0",
+        "key_template": "{country}............",
+        "freq": "A",
+        "unit": "hours per week per person",
+        "currency": None,
+        "description": "Average usual weekly hours worked in main job",
+    },
+    "productivity": {
+        "agency": "OECD.SDD.TPS",
+        "dataflow": "DSD_PDB@DF_PDB_LV",
+        "version": "1.0",
+        "key_template": "{country}........",
+        "freq": "A",
+        "unit": "various (GDP per hour, per person employed, per capita)",
+        "currency": None,
+        "description": (
+            "Productivity levels: GDP per hour worked, per person employed, "
+            "per capita"
+        ),
+    },
+    "migration": {
+        "agency": "OECD.ELS.IMD",
+        "dataflow": "DSD_MIG@DF_MIG",
+        "version": "1.0",
+        # IMPORTANT: full pull is ~14MB. Always filter by country.
+        "key_template": "{country}.......",
+        "freq": "A",
+        "unit": "persons",
+        "currency": None,
+        "description": (
+            "International migration: inflows, outflows, asylum seekers, "
+            "nationality acquisitions"
+        ),
+    },
+}
+
+
+def _oecd_build_url(
+    agency: str,
+    dataflow: str,
+    version: str,
+    key: str,
+    start_year: Optional[Any] = None,
+    end_year: Optional[Any] = None,
+) -> str:
+    """Build an OECD SDMX REST URL.
+
+    Pattern:
+        {base}/{agency},{dataflow},{version}/{key}?startPeriod=&endPeriod=
+    """
+    path = f"{_OECD_SDMX_BASE_URL}/{agency},{dataflow},{version}/{key}"
+    params: List[tuple] = []
+    if start_year is not None and str(start_year).strip():
+        params.append(("startPeriod", str(start_year)))
+    if end_year is not None and str(end_year).strip():
+        params.append(("endPeriod", str(end_year)))
+    if params:
+        path = f"{path}?{urllib.parse.urlencode(params)}"
+    return path
+
+
+def _oecd_flatten_sdmx_json(
+    payload: Dict[str, Any],
+    country: str,
+    dataset_key: str,
+) -> List[Dict[str, Any]]:
+    """Convert SDMX-JSON 2.0 dataSets/series/observations into a flat list.
+
+    SDMX-JSON encodes dimensions by integer index into
+    ``structures[0].dimensions.observation``. This walks the series dict
+    (keys like ``"0:0:0:0:0:0:0:0:0"``) and resolves each integer back to
+    its dimension value name.
+
+    Returns rows of shape:
+        {country, time_period, value, measure, unit, freq, dataset, source}
+    """
+    flat: List[Dict[str, Any]] = []
+    try:
+        data = payload.get("data") or {}
+        datasets = data.get("dataSets") or []
+        structures = (
+            (payload.get("data") or {}).get("structures")
+            or payload.get("structures")
+            or []
+        )
+        if not datasets or not structures:
+            return flat
+
+        struct = structures[0]
+        dims_series = (struct.get("dimensions") or {}).get("series") or []
+        dims_obs = (struct.get("dimensions") or {}).get("observation") or []
+
+        def _resolve(dim_list: List[Dict[str, Any]], idx_str: str) -> Dict[str, str]:
+            """idx_str like '0:0:0:0:0' -> dict of dim_id -> value name."""
+            out: Dict[str, str] = {}
+            parts = idx_str.split(":")
+            for i, dim in enumerate(dim_list):
+                if i >= len(parts):
+                    break
+                try:
+                    pos = int(parts[i])
+                except (TypeError, ValueError):
+                    continue
+                values = dim.get("values") or []
+                if 0 <= pos < len(values):
+                    val = values[pos]
+                    out[dim.get("id", f"dim{i}")] = val.get("name") or val.get("id", "")
+            return out
+
+        for ds in datasets:
+            series = ds.get("series") or {}
+            for series_key, series_val in series.items():
+                series_dims = _resolve(dims_series, series_key)
+                observations = series_val.get("observations") or {}
+                for obs_key, obs_val in observations.items():
+                    obs_dims = _resolve(dims_obs, obs_key)
+                    value = obs_val[0] if obs_val else None
+                    flat.append(
+                        {
+                            "country": series_dims.get("REF_AREA") or country,
+                            "time_period": obs_dims.get("TIME_PERIOD", ""),
+                            "value": value,
+                            "measure": series_dims.get("MEASURE", ""),
+                            "unit": series_dims.get("UNIT_MEASURE", ""),
+                            "freq": series_dims.get("FREQ") or obs_dims.get("FREQ", ""),
+                            "dataset": dataset_key,
+                            "source": "OECD SDMX",
+                        }
+                    )
+    except (KeyError, IndexError, TypeError, ValueError) as exc:
+        _api_logger.error(f"OECD SDMX flatten failed: {exc}", exc_info=True)
+    return flat
+
+
+def fetch_oecd_sdmx_data(
+    country: str,
+    dataset_key: str,
+    start_year: Optional[Any] = None,
+    end_year: Optional[Any] = None,
+    timeout: int = _OECD_SDMX_DEFAULT_TIMEOUT,
+) -> Dict[str, Any]:
+    """Fetch OECD SDMX labour-market data (stdlib only, no extra deps).
+
+    Production-ready companion to the discovery spike at
+    ``docs/oecd_sdmx_sample.py``. Same source of truth as
+    ``docs/OECD_SDMX_Discovery_2026.md``.
+
+    Args:
+        country: ISO-3 country code (e.g. ``"USA"``, ``"GBR"``, ``"DEU"``).
+            Multi-country via ``"+"`` is supported (``"USA+GBR+DEU"``).
+        dataset_key: Catalogue key. One of: ``"unemployment_rate"``,
+            ``"labour_force"``, ``"average_wages"``, ``"hours_worked"``,
+            ``"productivity"``, ``"migration"``.
+        start_year: e.g. ``2023``, ``"2024-01"``, ``"2024-Q1"``. None = no
+            lower bound.
+        end_year: e.g. ``2026``, ``"2026-12"``. None = latest available.
+        timeout: HTTP timeout in seconds (default 30).
+
+    Returns:
+        Structured dict:
+            {
+              "source": "OECD SDMX",
+              "dataset": <dataset_key>,
+              "country": <country>,
+              "data": [...flat rows, truncated to first 500...],
+              "row_count": <int>,
+              "url": <full request URL>,
+              "elapsed_ms": <int>,
+              "data_freshness": <human-readable frequency string>,
+              "unit": <human-readable unit string>,
+              "currency": <ISO 4217 code or None>,
+              "description": <dataset description>,
+            }
+        On error: same shape with ``"error"`` key populated and ``"data"`` = [].
+        Never raises -- always returns a structured response.
+    """
+    country = (country or "").upper().strip()
+    dataset_norm = (dataset_key or "").lower().strip()
+
+    if not country:
+        return {
+            "source": "OECD SDMX",
+            "dataset": dataset_norm,
+            "country": "",
+            "data": [],
+            "row_count": 0,
+            "error": ("country is required (ISO-3 code, e.g. 'USA' or 'USA+GBR+DEU')"),
+        }
+
+    if dataset_norm not in _OECD_SDMX_DATASETS:
+        return {
+            "source": "OECD SDMX",
+            "dataset": dataset_norm,
+            "country": country,
+            "data": [],
+            "row_count": 0,
+            "available_datasets": list(_OECD_SDMX_DATASETS.keys()),
+            "error": (
+                f"Unknown dataset '{dataset_norm}'. Available: "
+                f"{list(_OECD_SDMX_DATASETS.keys())}"
+            ),
+        }
+
+    spec = _OECD_SDMX_DATASETS[dataset_norm]
+    key = spec["key_template"].format(country=country)
+    url = _oecd_build_url(
+        agency=spec["agency"],
+        dataflow=spec["dataflow"],
+        version=spec["version"],
+        key=key,
+        start_year=start_year,
+        end_year=end_year,
+    )
+
+    # Build request. The new API rejects requests without an explicit SDMX
+    # content type, so we always send the JSON v2 Accept header.
+    req = urllib.request.Request(
+        url,
+        headers={
+            "Accept": "application/vnd.sdmx.data+json; version=2",
+            "User-Agent": "Nova AI Suite/4.0 (OECD SDMX)",
+        },
+    )
+    started = time.monotonic()
+    try:
+        ctx = ssl.create_default_context()
+        with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
+            raw = resp.read()
+        elapsed_ms = int((time.monotonic() - started) * 1000)
+        payload = json.loads(raw.decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        body = ""
+        try:
+            body = exc.read().decode("utf-8", errors="replace")[:200]
+        except Exception:
+            pass
+        _api_logger.error(
+            f"OECD SDMX HTTP {exc.code}: {body or exc.reason}", exc_info=True
+        )
+        return {
+            "source": "OECD SDMX",
+            "dataset": dataset_norm,
+            "country": country,
+            "url": url,
+            "data": [],
+            "row_count": 0,
+            "error": f"HTTP {exc.code}: {body or exc.reason}",
+        }
+    except urllib.error.URLError as exc:
+        _api_logger.error(f"OECD SDMX network error: {exc.reason}", exc_info=True)
+        return {
+            "source": "OECD SDMX",
+            "dataset": dataset_norm,
+            "country": country,
+            "url": url,
+            "data": [],
+            "row_count": 0,
+            "error": f"Network error: {exc.reason}",
+        }
+    except (json.JSONDecodeError, ValueError) as exc:
+        _api_logger.error(f"OECD SDMX bad JSON: {exc}", exc_info=True)
+        return {
+            "source": "OECD SDMX",
+            "dataset": dataset_norm,
+            "country": country,
+            "url": url,
+            "data": [],
+            "row_count": 0,
+            "error": f"Bad SDMX-JSON: {exc}",
+        }
+    except OSError as exc:
+        # Catches socket timeouts and other low-level network failures.
+        _api_logger.error(f"OECD SDMX OS error: {exc}", exc_info=True)
+        return {
+            "source": "OECD SDMX",
+            "dataset": dataset_norm,
+            "country": country,
+            "url": url,
+            "data": [],
+            "row_count": 0,
+            "error": f"Network/OS error: {exc}",
+        }
+
+    rows = _oecd_flatten_sdmx_json(payload, country=country, dataset_key=dataset_norm)
+
+    # Map frequency code to human-readable freshness string.
+    freq_label = {
+        "M": "Monthly (T-1 month lag typical)",
+        "Q": "Quarterly (T-3 months lag typical)",
+        "A": "Annual (T-1 year lag typical)",
+    }.get(spec["freq"], spec["freq"])
+
+    _api_logger.info(
+        f"OECD SDMX: {len(rows)} rows for {dataset_norm} / {country} in "
+        f"{elapsed_ms}ms"
+    )
+    return {
+        "source": "OECD SDMX",
+        "dataset": dataset_norm,
+        "country": country,
+        "url": url,
+        "elapsed_ms": elapsed_ms,
+        "bytes": len(raw),
+        "row_count": len(rows),
+        # Truncate to 500 rows for chatbot context; full payload via URL.
+        "data": rows[:500],
+        "description": spec["description"],
+        "freq": spec["freq"],
+        "unit": spec["unit"],
+        "currency": spec["currency"],
+        "data_freshness": freq_label,
+    }
+
+
 # StatCan key labor market tables
 _STATCAN_TABLES: Dict[str, str] = {
     "14-10-0326-01": "Job Vacancies (JVWS) by industry",
