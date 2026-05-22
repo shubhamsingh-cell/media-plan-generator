@@ -287,6 +287,12 @@ KB_FILES: dict[str, str] = {
     # checker, and transparency tooling all cover them too.
     "linkedin_guidewire": "linkedin_guidewire_data.json",
     "international_benchmarks": "international_benchmarks_2026.json",
+    # G1/G3 audit (2026-05-22): files created earlier today were orphaned.
+    # Register so they're reachable from _query_kb_deep + _query_knowledge_base.
+    "industry_reports_2026": "industry_reports_2026.json",  # 80 reports from F2
+    "ta_leaders_curated": "ta_leaders_curated_2026.json",  # 29 influencers, 89 posts from F3
+    "intl_role_benchmarks": "intl_role_benchmarks_v1.json",  # F1 (when ready)
+    "recruitment_benchmarks_comprehensive": "recruitment_benchmarks_comprehensive_2026.json",
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
