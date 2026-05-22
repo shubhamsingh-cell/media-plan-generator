@@ -283,3 +283,55 @@ class TestTier3Features:
 
         flag = environ.get("NOVA_CLARIFICATIONS_ENABLED", "true")
         assert flag.lower() in ("true", "false", "1", "0")
+
+
+# ---------------------------------------------------------------------------
+# S76c: T3 number-verifier markdown safety (bold-span preservation)
+# ---------------------------------------------------------------------------
+
+
+class TestT3NumberVerifierBoldSafety:
+    """Ensure the `_[unverified]_` tag never splits a `**...**` bold span."""
+
+    def test_offset_helper_outside_bold_unchanged(self):
+        from nova import _t3_adjust_offset_outside_bold
+
+        text = "apply rate is 14.0% in 2026"
+        # offset right after the "%" at index 19 -- no bold here
+        assert _t3_adjust_offset_outside_bold(text, 19) == 19
+
+    def test_offset_helper_inside_bold_jumps_past_close(self):
+        from nova import _t3_adjust_offset_outside_bold
+
+        text = "apply rate is **14.0%** in 2026"
+        # offset after "%": position right before closing "**"
+        end_after_pct = text.index("%") + 1  # 21
+        adjusted = _t3_adjust_offset_outside_bold(text, end_after_pct)
+        # Adjusted must land AFTER closing "**" (offset 23)
+        assert adjusted == 23
+        # Inserting the tag at adjusted leaves bold intact
+        spliced = text[:adjusted] + " _[unverified]_" + text[adjusted:]
+        assert "**14.0%**" in spliced
+
+    def test_verifier_does_not_split_bold(self):
+        from nova import _verify_response_numbers
+
+        # Hallucinated bold percentage with no tool support -- must be tagged
+        # BUT the ``**14.0%**`` span must remain intact.
+        text = "Healthcare apply rate is **14.0%** based on recent data."
+        annotated, count = _verify_response_numbers(text, tool_results_raw=[])
+        # 14.0% is not in the knowledge whitelist, so it gets tagged.
+        assert count == 1
+        # The bold span must NOT be split:
+        assert "**14.0%**" in annotated
+        # The verifier tag must be present AFTER the closing **:
+        assert "**14.0%** _[unverified]_" in annotated
+
+    def test_verifier_plain_percent_unchanged_format(self):
+        """Plain (non-bold) percentages still get tagged immediately after %."""
+        from nova import _verify_response_numbers
+
+        text = "Apply rate is 14.0% based on recent data."
+        annotated, count = _verify_response_numbers(text, tool_results_raw=[])
+        assert count == 1
+        assert "14.0% _[unverified]_" in annotated

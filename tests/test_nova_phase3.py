@@ -15,6 +15,9 @@ from pathlib import Path
 from typing import Dict, Any
 
 # Import modules to test
+# Note: S76c removed share-link helpers (create_share_link / get_shared_conversation /
+# delete_share_link) -- production /api/chat/share uses its own inline _supabase_rest
+# implementation in app.py, so these helpers were dead code.
 try:
     from nova_persistence import (
         create_conversation,
@@ -24,8 +27,6 @@ try:
         delete_conversation,
         create_document,
         list_documents,
-        create_share_link,
-        get_shared_conversation,
     )
 except ImportError:
     pytest.skip("nova_persistence not available", allow_module_level=True)

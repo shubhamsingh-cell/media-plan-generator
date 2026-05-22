@@ -334,6 +334,23 @@ def _build_prior_tool_context(turns: List[Dict[str, Any]]) -> str:
     return "\n\n".join(parts)
 
 
+# ---------------------------------------------------------------------------
+# nova_conversation_state table -- per-conversation tool state
+# ---------------------------------------------------------------------------
+# This module writes (fire-and-forget) to a Supabase table named
+# ``nova_conversation_state`` to persist the tool-call state for each
+# active conversation. The table is INTENTIONALLY separate from the main
+# ``nova_conversations`` table because it has a different access pattern:
+# upserted on every assistant turn, read only when a long-running
+# conversation is resumed across worker processes / restarts. Keeping it
+# split lets the heavy ``nova_conversations`` rows stay small while we
+# still get an audit trail of which tools the LLM has invoked for each
+# session.
+#
+# NOTE (S76c, G2 audit): this table is queried directly via _supabase_rest
+# from app.py and from the Nova restore path; it is NOT one of the tables
+# documented in the high-level MEMORY.md Supabase inventory. The schema is
+# inlined immediately below (PK conversation_id) and is created out-of-band.
 def _persist_conversation_tool_state_async(
     conversation_id: str,
     turn: int,
@@ -6239,12 +6256,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                     "required": ["role"],
                 },
             },
-            # S76 G2 audit: LinkUp and Revelio tool defs REMOVED from the LLM's
-            # advertised toolkit because LINKUP_API_KEY and REVELIO_API_KEY are
-            # not set on Render. Keeping the handler methods (_query_linkup_postings,
-            # _query_revelio_workforce) defined below as dormant code so they can
-            # be re-enabled in one move when keys are added back: just restore
-            # the tool def here and the entry in _tool_handler_map.
+            # S76c: LinkUp + Revelio tool defs removed (vendor keys not on Render).
             # ── S49: Creative Best Practices (Item 14) ──────────────────
             {
                 "name": "get_creative_best_practices",
@@ -6585,12 +6597,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             "check_job_volume": self._check_job_volume,
             # S48: Channel Recommendations Engine
             "recommend_channels": self._recommend_channels_tool,
-            # S76 G2 audit: LinkUp + Revelio handlers REMOVED from the dispatch
-            # map because their API keys aren't set on Render. The handler
-            # methods themselves remain defined (as dormant code below) so they
-            # can be re-enabled by restoring these two lines when keys are added.
-            # "query_linkup_postings": self._query_linkup_postings,
-            # "query_revelio_workforce": self._query_revelio_workforce,
+            # S76c: LinkUp + Revelio dispatch entries removed (vendor keys not on Render).
             # S49: Creative Best Practices (Item 14) + International APIs (Item 22)
             "get_creative_best_practices": self._get_creative_best_practices,
             # S49: Competitive Threat Assessment (P1-3)
@@ -7482,6 +7489,23 @@ When two or more tools return conflicting data for the same metric (e.g., differ
         metric = (params.get("metric") or "").strip().lower()
         industry = (params.get("industry") or "").strip().lower()
         platform = (params.get("platform") or "").strip().lower()
+        # S76c: Derive a combined query string for keyword routing. Prior code
+        # referenced an undefined ``query`` variable inside the intl_benchmarks
+        # block (latent NameError if that branch was reached with intl_bench
+        # populated).
+        _query_text = " ".join(
+            filter(
+                None,
+                [
+                    str(params.get("query") or ""),
+                    str(params.get("topic") or ""),
+                    str(params.get("metric") or ""),
+                    str(params.get("industry") or ""),
+                    str(params.get("platform") or ""),
+                    str(params.get("search_term") or ""),
+                ],
+            )
+        ).lower()
 
         result: Dict[str, Any] = {"source": "Recruitment Industry Knowledge Base"}
 
@@ -7606,8 +7630,9 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             intl_bench = self._data_cache.get("international_benchmarks", {})
             if intl_bench:
                 countries = intl_bench.get("countries", {})
-                # Check if query matches a specific country
-                _q_lower = (query or "").lower()
+                # Check if query matches a specific country (uses _query_text
+                # derived above; the prior ``query`` reference was undefined).
+                _q_lower = _query_text
                 _matched_country = None
                 for _ckey, _cval in countries.items():
                     _cname = (_cval.get("name") or "").lower()
@@ -7630,6 +7655,157 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                         "global_insights": intl_bench.get("global_insights", {}),
                         "source": "international_benchmarks_2026 (38 countries)",
                     }
+
+        # S76c: Wire 5 stranded healthcare/partner KB clusters (~750KB total)
+        # so they're reachable from chat without forcing the LLM to call
+        # query_kb_deep with the exact dataset name. Each branch matches on
+        # keywords in the combined query text and merges a compact view of
+        # the dataset into the response. Full dataset access still available
+        # via query_kb_deep.
+
+        # Healthcare specialty pay (33KB) -- physician/nurse/specialty rates
+        _hcs_terms = (
+            "specialty pay",
+            "specialty salary",
+            "specialty rate",
+            "physician compensation",
+            "physician pay",
+            "physician salary",
+            "specialist pay",
+            "specialist salary",
+            "healthcare specialty",
+            "medical specialty",
+            "locum",
+            "hospitalist",
+            "anesthesiologist",
+            "cardiologist",
+            "radiologist",
+            "surgeon pay",
+            "nurse specialty",
+        )
+        if any(t in _query_text for t in _hcs_terms):
+            _hcs = self._data_cache.get("healthcare_specialty_pay_2026") or {}
+            if _hcs:
+                _hcs_summary: dict = {
+                    "source": "Joveo Healthcare Specialty Pay 2026 (33KB)",
+                    "dataset": "healthcare_specialty_pay_2026",
+                    "top_keys": list(_hcs.keys())[:25],
+                    "total_keys": len(_hcs),
+                }
+                # Surface up to 8 matched specialty entries
+                _hcs_matches = self._deep_search_kb_data(
+                    _hcs, _query_text, max_results=8
+                )
+                if _hcs_matches:
+                    _hcs_summary["matches"] = _hcs_matches
+                result["healthcare_specialty_pay"] = _hcs_summary
+
+        # Employer career-page intelligence (47KB) -- competitor career sites
+        _eci_terms = (
+            "career page",
+            "career site",
+            "careers page",
+            "employer career",
+            "career intelligence",
+            "career-page",
+            "competitor career",
+            "career site audit",
+            "employer site",
+        )
+        if any(t in _query_text for t in _eci_terms):
+            _eci = self._data_cache.get("employer_career_intelligence_2026") or {}
+            if _eci:
+                _eci_summary = {
+                    "source": "Joveo Employer Career Intelligence 2026 (47KB)",
+                    "dataset": "employer_career_intelligence_2026",
+                    "top_keys": list(_eci.keys())[:25],
+                    "total_keys": len(_eci),
+                }
+                _eci_matches = self._deep_search_kb_data(
+                    _eci, _query_text, max_results=8
+                )
+                if _eci_matches:
+                    _eci_summary["matches"] = _eci_matches
+                result["employer_career_intelligence"] = _eci_summary
+
+        # Partner specialty crosswalk (187KB) -- specialty <-> partner mapping
+        _psc_terms = (
+            "partner crosswalk",
+            "specialty crosswalk",
+            "partner specialty",
+            "specialty to partner",
+            "partner mapping",
+            "crosswalk",
+            "specialty mapping",
+        )
+        if any(t in _query_text for t in _psc_terms):
+            _psc = self._data_cache.get("partner_specialty_crosswalk") or {}
+            if _psc:
+                _psc_summary = {
+                    "source": "Joveo Partner Specialty Crosswalk (187KB)",
+                    "dataset": "partner_specialty_crosswalk",
+                    "top_keys": list(_psc.keys())[:25],
+                    "total_keys": len(_psc),
+                }
+                _psc_matches = self._deep_search_kb_data(
+                    _psc, _query_text, max_results=8
+                )
+                if _psc_matches:
+                    _psc_summary["matches"] = _psc_matches
+                result["partner_specialty_crosswalk"] = _psc_summary
+
+        # Partner URL registry (146KB) -- partner application URLs
+        _pur_terms = (
+            "partner url",
+            "partner urls",
+            "application url",
+            "apply url",
+            "url registry",
+            "partner link",
+            "partner site url",
+            "partner application link",
+        )
+        if any(t in _query_text for t in _pur_terms):
+            _pur = self._data_cache.get("partner_url_registry") or {}
+            if _pur:
+                _pur_summary = {
+                    "source": "Joveo Partner URL Registry (146KB)",
+                    "dataset": "partner_url_registry",
+                    "top_keys": list(_pur.keys())[:25],
+                    "total_keys": len(_pur),
+                }
+                _pur_matches = self._deep_search_kb_data(
+                    _pur, _query_text, max_results=8
+                )
+                if _pur_matches:
+                    _pur_summary["matches"] = _pur_matches
+                result["partner_url_registry"] = _pur_summary
+
+        # Category-to-partners (130KB) -- which partners serve each category
+        _ctp_terms = (
+            "category to partner",
+            "category partners",
+            "partners by category",
+            "partner by category",
+            "category-to-partner",
+            "category mapping",
+            "category partner mapping",
+        )
+        if any(t in _query_text for t in _ctp_terms):
+            _ctp = self._data_cache.get("category_to_partners") or {}
+            if _ctp:
+                _ctp_summary = {
+                    "source": "Joveo Category-to-Partners Map (130KB)",
+                    "dataset": "category_to_partners",
+                    "top_keys": list(_ctp.keys())[:25],
+                    "total_keys": len(_ctp),
+                }
+                _ctp_matches = self._deep_search_kb_data(
+                    _ctp, _query_text, max_results=8
+                )
+                if _ctp_matches:
+                    _ctp_summary["matches"] = _ctp_matches
+                result["category_to_partners"] = _ctp_summary
 
         # Cross-reference CG Automation Craigslist benchmarks (98K posts)
         _cl_terms = ("craigslist", "cl ", "classified", "gig posting")
@@ -8466,7 +8642,11 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             result["country"] = _detected_country
         else:
             # Tier 2: no country -> label as cross-market, do NOT silently say US.
-            result["country"] = None
+            # S76c: use a string sentinel ("cross-market") instead of None so
+            # downstream consumers (Excel/PPT generators, formatters, schema
+            # validators) that call ``.lower()``/``in`` on this field don't
+            # raise AttributeError / TypeError on a NoneType value.
+            result["country"] = "cross-market"
             result["scope"] = "cross-market"
         if _budget_currency != "USD":
             result["currency"] = _budget_currency
@@ -12878,136 +13058,9 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             }
         return result
 
-    # ------------------------------------------------------------------
-    # S48: LinkUp API + Revelio Labs (Item 23)
-    # ------------------------------------------------------------------
-
-    def _query_linkup_postings(self, params: dict) -> dict:
-        """Query LinkUp job posting analytics API for posting counts and trends.
-
-        LinkUp (https://www.linkup.com/data/) provides curated job listing data
-        sourced directly from employer career sites, avoiding duplicate/spam
-        postings common on aggregator boards. Their API returns posting counts,
-        trend data, and labor market signals.
-
-        Requires LINKUP_API_KEY environment variable.
-        Free tier: 100 requests/month. Paid tiers available.
-        API docs: https://docs.linkup.com/
-        """
-        role = (params.get("role") or "").strip()
-        location = (params.get("location") or "").strip()
-
-        if not role:
-            return {"error": "role is required", "source": "LinkUp Job Postings API"}
-
-        api_key = os.environ.get("LINKUP_API_KEY") or ""
-        if not api_key:
-            return {
-                "error": "LinkUp API key not configured. Set the LINKUP_API_KEY environment variable to enable real-time job posting analytics from LinkUp.",
-                "tool_error_graceful": True,
-                "source": "LinkUp Job Postings API",
-                "setup_instructions": (
-                    "1. Sign up at https://www.linkup.com/data/\n"
-                    "2. Get your API key from the developer dashboard\n"
-                    "3. Set LINKUP_API_KEY in your environment variables"
-                ),
-            }
-
-        try:
-            import urllib.request
-            import urllib.parse
-
-            # Build params without a silent US default (audit T1-3). If the
-            # caller didn't pass location, omit the parameter so LinkUp
-            # returns global counts -- never relabel US results as "global".
-            _query_params: Dict[str, str] = {"q": role, "format": "json"}
-            if location:
-                _query_params["location"] = location
-            _params = urllib.parse.urlencode(_query_params)
-            _url = f"https://api.linkup.com/v1/job-postings?{_params}"
-            _req = urllib.request.Request(
-                _url,
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "Accept": "application/json",
-                },
-            )
-            with urllib.request.urlopen(_req, timeout=8) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-            data["source"] = "LinkUp Job Postings API"
-            return data
-        except Exception as e:
-            logger.error("LinkUp API call failed: %s", e, exc_info=True)
-            return {
-                "error": f"LinkUp API request failed: {e}",
-                "source": "LinkUp Job Postings API",
-            }
-
-    def _query_revelio_workforce(self, params: dict) -> dict:
-        """Query Revelio Labs RPLS for workforce analytics.
-
-        Revelio Labs (https://www.reveliolabs.com/) aggregates workforce data
-        from public profiles, job postings, and government filings to provide:
-        - Headcount trends and growth rates
-        - Attrition/turnover rates
-        - Hiring velocity and open positions
-        - Skills composition and gaps
-        - Compensation benchmarks by role and geography
-
-        Requires REVELIO_API_KEY environment variable.
-        Free tier (RPLS): Basic workforce indicators.
-        API docs: https://docs.reveliolabs.com/
-        """
-        company = (params.get("company") or "").strip()
-        role = (params.get("role") or "").strip()
-
-        if not company and not role:
-            return {
-                "error": "At least one of 'company' or 'role' is required",
-                "source": "Revelio Labs RPLS",
-            }
-
-        api_key = os.environ.get("REVELIO_API_KEY") or ""
-        if not api_key:
-            return {
-                "error": "Revelio Labs API key not configured. Set the REVELIO_API_KEY environment variable to enable workforce analytics from Revelio Labs RPLS.",
-                "tool_error_graceful": True,
-                "source": "Revelio Labs RPLS",
-                "setup_instructions": (
-                    "1. Sign up at https://www.reveliolabs.com/\n"
-                    "2. Request API access (free RPLS tier available)\n"
-                    "3. Set REVELIO_API_KEY in your environment variables"
-                ),
-            }
-
-        try:
-            import urllib.request
-            import urllib.parse
-
-            _query_params: dict = {}
-            if company:
-                _query_params["company"] = company
-            if role:
-                _query_params["title"] = role
-            _params = urllib.parse.urlencode(_query_params)
-            _url = f"https://api.reveliolabs.com/v1/workforce?{_params}"
-            _req = urllib.request.Request(
-                _url,
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "Accept": "application/json",
-                },
-            )
-            with urllib.request.urlopen(_req, timeout=8) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-            data["source"] = "Revelio Labs RPLS"
-            return data
-        except Exception as e:
-            logger.error("Revelio Labs API call failed: %s", e, exc_info=True)
-            return {
-                "error": f"Revelio Labs API request failed: {e}",
-                "source": "Revelio Labs RPLS",
-            }
+    # S76c: LinkUp + Revelio handlers removed entirely (API keys not on Render,
+    # tool defs and dispatch entries already gone in S76b). Restore from git
+    # history if these vendors are re-onboarded.
 
     # ------------------------------------------------------------------
     # S49: Creative Best Practices handler (Item 14)
@@ -14919,19 +14972,9 @@ When two or more tools return conflicting data for the same metric (e.g., differ
         r"|job\s+openings?\s+(?:count|volume|trend))\b",
         re.IGNORECASE,
     )
-    # S48: LinkUp job posting analytics intent (Item 23)
-    _LINKUP_INTENT = re.compile(
-        r"\b(linkup|link\s*-?\s*up\s+(?:data|posting|job|analytics|trend)"
-        r"|linkup\s+(?:api|report|data))\b",
-        re.IGNORECASE,
-    )
-    # S48: Revelio Labs workforce analytics intent (Item 23)
-    _REVELIO_INTENT = re.compile(
-        r"\b(revelio|revelio\s+labs?|rpls|workforce\s+(?:analytic|intel)"
-        r"|headcount\s+(?:trend|data|growth)|attrition\s+(?:rate|data|trend)"
-        r"|employee\s+(?:turnover|churn)\s+(?:data|rate|trend))\b",
-        re.IGNORECASE,
-    )
+    # S76c: _LINKUP_INTENT and _REVELIO_INTENT regexes removed (vendor API keys
+    # not configured on Render; handler methods also removed). Restore from git
+    # history if these vendors are re-onboarded.
     # S49: Competitive threat assessment intent (P1-3)
     _COMPETITIVE_THREAT_INTENT = re.compile(
         r"\b(competitive\s+threat|who(?:'s|s|\s+is)\s+compet\w*"
@@ -17364,13 +17407,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 tool_params["locations"] = _locs
             tool_label = "Checking job posting volumes"
 
-        # --- S48: LinkUp + Revelio direct-dispatch intents -----------------
-        # S76 G2 audit (2026-05-22): Both intents disabled because
-        # LINKUP_API_KEY and REVELIO_API_KEY are not set on Render. Without
-        # the keys the handlers return a "key not set" error -- the LLM was
-        # wasting a tool round-trip on every LinkUp/Revelio-flavored query.
-        # The _LINKUP_INTENT and _REVELIO_INTENT regexes are kept compiled
-        # so re-enabling is a one-line uncomment when the keys arrive.
+        # S76c: LinkUp + Revelio direct-dispatch intents removed (vendor keys not on Render).
 
         # --- S49: Competitive threat assessment intent (P1-3) ---
         if not tool_name and self._COMPETITIVE_THREAT_INTENT.search(msg_lower):
@@ -24074,6 +24111,43 @@ _T3_NUMVER_MARKER = "<!-- t3-numver -->"
 _T3_UNVERIFIED_TAG = " _[unverified]_"
 
 
+def _t3_adjust_offset_outside_bold(text: str, offset: int) -> int:
+    """If ``offset`` falls INSIDE a markdown bold span (``**...**``), return
+    the offset just after the closing ``**`` so the verifier tag doesn't
+    split the bold span. Returns ``offset`` unchanged when not inside bold.
+
+    Fix for T3 markdown glitch: splicing ``_[unverified]_`` between bolded
+    digits and the closing ``**`` (e.g. ``**14.0%**`` -> ``**14.0% _[..]_**``)
+    confuses some markdown parsers into rendering literal asterisks (visible
+    as ``1**4.0%** _[unverified]_``). Inserting AFTER the closing ``**``
+    keeps the bold span intact.
+    """
+    if offset < 0 or offset > len(text):
+        return offset
+    # Count unescaped ``**`` openers up to the offset. Even = outside bold,
+    # odd = inside bold. Use a simple linear scan -- avoids re.findall over
+    # the full text on every claim and tolerates inline ``__`` underscores.
+    n_pairs = 0
+    i = 0
+    while i < offset - 1:
+        if text[i] == "*" and text[i + 1] == "*":
+            n_pairs += 1
+            i += 2
+        else:
+            i += 1
+    if n_pairs % 2 == 0:
+        return offset  # outside any open bold span
+    # We're inside ``**...**``. Find the next ``**`` AFTER offset and return
+    # the position right after it. If no closer found (malformed bold),
+    # fall back to original offset so we don't drop the annotation.
+    j = offset
+    while j < len(text) - 1:
+        if text[j] == "*" and text[j + 1] == "*":
+            return j + 2
+        j += 1
+    return offset
+
+
 def _verify_response_numbers(
     response_text: str, tool_results_raw: Any
 ) -> Tuple[str, int]:
@@ -24102,7 +24176,10 @@ def _verify_response_numbers(
     for token, value, end_offset in claims:
         if _t3_number_matches(value, tool_numbers):
             continue
-        unverified_offsets.append((end_offset, token))
+        # S76c: Push offset outside any open ``**...**`` bold span so the
+        # ``_[unverified]_`` tag doesn't split bold markers.
+        adjusted = _t3_adjust_offset_outside_bold(response_text, end_offset)
+        unverified_offsets.append((adjusted, token))
 
     if not unverified_offsets:
         return _T3_NUMVER_MARKER + response_text, 0

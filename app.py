@@ -13099,6 +13099,46 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     self._send_json({"error": "Email / JWT mismatch"}, status_code=401)
                     return
 
+                # ── S76: write nova_login_log here (the orphaned writer in
+                # /api/auth/me was never reached because frontend calls
+                # /api/auth/session). Best-effort; never blocks auth on failure.
+                try:
+                    import hashlib as _hl_ll
+
+                    _ll_user_meta = (
+                        (decoded.get("user_metadata") or {})
+                        if isinstance(decoded, dict)
+                        else {}
+                    )
+                    _ll_user_name = (
+                        _ll_user_meta.get("full_name")
+                        or _ll_user_meta.get("name")
+                        or ""
+                    )
+                    _ll_client_ip = (self.headers.get("X-Forwarded-For") or "").split(
+                        ","
+                    )[0].strip() or self.client_address[0]
+                    _ll_ip_hash = _hl_ll.sha256(_ll_client_ip.encode()).hexdigest()[:16]
+                    _ll_ua = (self.headers.get("User-Agent") or "")[:200]
+                    _supabase_rest(
+                        "nova_login_log",
+                        method="POST",
+                        payload={
+                            "user_email": jwt_email,
+                            "user_name": _ll_user_name,
+                            "provider": "google",
+                            "ip_hash": _ll_ip_hash,
+                            "user_agent": _ll_ua,
+                            "product": "nova",
+                        },
+                    )
+                except Exception as _ll_err:
+                    # WARNING not DEBUG so prod logs surface it (S76 INV-A note).
+                    logger.warning(
+                        "nova_login_log write failed in /api/auth/session: %s",
+                        _ll_err,
+                    )
+
                 # ── Mint signed cookie ──
                 signing_email = jwt_email
                 sig_hex = hmac.new(

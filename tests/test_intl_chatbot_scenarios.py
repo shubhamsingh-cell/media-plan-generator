@@ -437,8 +437,8 @@ class TestBudgetCountryAwareness:
 
     def test_budget_with_no_country_is_cross_market_not_us(self):
         """Regression: when no country can be detected, the result must
-        be tagged 'cross-market' (or country=None), NOT silently labelled
-        United States."""
+        be tagged 'cross-market' (string sentinel since S76c -- previously
+        could be country=None), NOT silently labelled United States."""
         nova = _new_nova()
         nova._data_cache = {
             "knowledge_base": {},
