@@ -6210,7 +6210,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             # S48: CPC Trend Tracker + Job Posting Volume
             {
                 "name": "track_cpc",
-                "description": "Track CPC (cost per click) bid prices across Indeed, LinkedIn, ZipRecruiter for a specific role. Returns current vs benchmark CPC, trend direction, 30-day forecast, and smart alerts for CPC spikes. Use when asked about CPC, cost per click, bidding costs, ad pricing, or channel cost trends.",
+                "description": "Track CPC (cost per click) bid prices across Indeed, LinkedIn, ZipRecruiter for a specific role. Returns current vs benchmark CPC, trend direction, 30-day forecast, smart alerts for CPC spikes, AND country/currency tags so non-US queries get local-currency rendering. Use when asked about CPC, cost per click, bidding costs, ad pricing, or channel cost trends. ALWAYS pass `country` for non-US queries (Germany, Canada, UK, India, etc.) so results are formatted in local currency.",
                 "input_schema": {
                     "type": "object",
                     "properties": {
@@ -6225,7 +6225,11 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                         "locations": {
                             "type": "array",
                             "items": {"type": "string"},
-                            "description": "Target locations (e.g., ['Austin, TX', 'Dallas'])",
+                            "description": "Target locations (e.g., ['Austin, TX', 'Dallas', 'Berlin', 'Mumbai'])",
+                        },
+                        "country": {
+                            "type": "string",
+                            "description": "Target country for currency formatting (e.g., 'Germany', 'Canada', 'United Kingdom', 'India'). When set, the response is tagged with local currency + USD rate so the LLM renders the right symbol. Default: detected from locations[] or 'United States' fallback.",
                         },
                         "timeframe": {
                             "type": "string",
@@ -13063,7 +13067,14 @@ When two or more tools return conflicting data for the same metric (e.g., differ
     # ------------------------------------------------------------------
 
     def _track_cpc(self, params: dict) -> dict:
-        """Track CPC bid prices across platforms for a given role."""
+        """Track CPC bid prices across platforms for a given role.
+
+        S79: country-aware currency tagging added. QUAL-A eval found that
+        Berlin/Canada CPC queries returned USD-coded benchmarks with no
+        local-currency annotation, so the LLM defaulted to $ symbols.
+        Now tags the response with country + currency + symbol so the LLM
+        picks the right symbol downstream.
+        """
         try:
             import market_signals
 
@@ -13074,6 +13085,29 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             industry = (params.get("industry") or "").strip() or ""
             locations = params.get("locations") or []
             timeframe = (params.get("timeframe") or "30d").strip()
+            country_param = (params.get("country") or "").strip() or None
+
+            # Detect country from locations[] if not explicitly passed.
+            # _detect_country only recognizes country NAMES, so also scan
+            # for non-US city names and reverse-lookup via _TOP_METROS_BY_COUNTRY.
+            _detected_country = country_param
+            if not _detected_country and locations:
+                _joined = " ".join(str(loc) for loc in locations if loc)
+                _detected_country = _detect_country(_joined)
+                if not _detected_country:
+                    _joined_lower = _joined.lower()
+                    for _intl_city in self._NON_US_CITY_ALIASES:
+                        if re.search(
+                            r"\b" + re.escape(_intl_city) + r"\b", _joined_lower
+                        ):
+                            for _c, _metros in _TOP_METROS_BY_COUNTRY.items():
+                                if any(
+                                    _intl_city.lower() == m.lower() for m in _metros
+                                ):
+                                    _detected_country = _c
+                                    break
+                            if _detected_country:
+                                break
 
             result = market_signals.get_cpc_trends(
                 role=role,
@@ -13082,6 +13116,35 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 timeframe=timeframe,
             )
             result["source"] = "Nova CPC Trend Tracker"
+
+            # S79 fix: annotate with country/currency so the LLM formats
+            # with the right symbol downstream. Previously CPC responses
+            # had no locale tag, so non-US queries got $ in the rendered
+            # reply even when Adzuna returned local-currency numbers.
+            if _detected_country and _detected_country != "United States":
+                _intl = self._intl_country_data(_detected_country)
+                if _intl:
+                    result["country"] = _detected_country
+                    result["currency"] = _intl.get("currency", "USD")
+                    result["currency_symbol"] = _intl.get("currency_symbol", "$")
+                    result["usd_rate"] = _intl.get("usd_rate", 1.0)
+                    result["currency_note"] = (
+                        f"Adzuna CPCs are localized to {_detected_country}; "
+                        f"format figures with {result['currency_symbol']} "
+                        f"({result['currency']}). Divide by usd_rate "
+                        f"({result['usd_rate']}) for USD equivalent."
+                    )
+                else:
+                    # Non-US country but not in our 38-country JSON --
+                    # still tag so downstream knows this isn't US.
+                    result["country"] = _detected_country
+                    result["currency"] = _get_currency_for_country(_detected_country)
+                    result["currency_symbol"] = _currency_symbol(result["currency"])
+            else:
+                result["country"] = "United States"
+                result["currency"] = "USD"
+                result["currency_symbol"] = "$"
+
             return result
         except ImportError:
             logger.warning("market_signals module not available for track_cpc")
