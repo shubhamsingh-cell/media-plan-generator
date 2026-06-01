@@ -4,10 +4,25 @@ Top-level module promoted from ``docs/rag_implementation_sketch.py`` per
 the Phase 1 plan in ``docs/RAG_Design_2026.md``. The sketch module remains
 in place as a tested reference (its 6 pytests re-export from this module).
 
-This is the **runtime** pipeline used by ``nova._query_kb_semantic``. In
-Phase 1 it ships in degraded mode (no embeddings backfilled, no Qdrant
-collection populated) -- callers gate it behind ``RAG_V2_ENABLED``. Phase
-2 will populate embeddings and flip the flag on by default.
+This is the **runtime** pipeline used by ``nova._query_kb_semantic``. As of
+Phase 2 the Qdrant Cloud collection ``nova_knowledge_v2`` is backfilled
+(5,153 points, 1024-dim Voyage ``voyage-3.5-lite``, cosine) and callers gate
+it behind ``RAG_V2_ENABLED``.
+
+**Transport (Phase 2 REST migration):** The primary embedding + vector-store
+path is now **pure stdlib REST** (``urllib`` + ``json`` + ``ssl``) so the
+module runs on Render's Python 3.13 build WITHOUT the ``voyageai`` or
+``qdrant-client`` pip deps (those wheels were removed in commit 39a12dc;
+voyageai's stable wheels cap at Python < 3.13). The SDK-backed classes are
+retained as optional fallbacks for environments where the libs happen to be
+installed, but ``_make_embedder`` / ``_make_store`` select the REST path
+first. Endpoints used:
+  - Embeddings: ``POST https://api.voyageai.com/v1/embeddings``
+    (Bearer ``VOYAGE_API_KEY``).
+  - Rerank: ``POST https://api.voyageai.com/v1/rerank``.
+  - Vector query: ``POST {QDRANT_URL}/collections/nova_knowledge_v2/points/query``
+    (header ``api-key: QDRANT_API_KEY``), Qdrant REST query API (>= 1.10),
+    with a ``/points/search`` fallback for older servers.
 
 Public API (per RAG_Design_2026.md §4):
     - ``NovaRAGPipeline`` -- orchestrator class (``retrieve``, ``index``,
@@ -31,19 +46,22 @@ Design constraints (per RAG_Design_2026.md §2):
   - Structure-aware JSON chunking: one chunk per leaf-ish dict node, with
     a key-path prefix preserved for context.
 
-External dependencies (all optional -- module degrades gracefully):
-  - ``voyageai`` -- official Voyage SDK. Docs:
+External dependencies:
+  - **None required for the primary path.** Embeddings + vector search run
+    over stdlib ``urllib``/``json``/``ssl``.
+  - ``voyageai`` -- OPTIONAL fallback (official Voyage SDK). Docs:
     https://docs.voyageai.com/docs/python-sdk
-  - ``qdrant-client`` -- Qdrant REST client. Docs:
+  - ``qdrant-client`` -- OPTIONAL fallback (Qdrant client). Docs:
     https://qdrant.tech/documentation/quick-start/
-  - ``sentence-transformers`` -- local embedding fallback. Docs:
+  - ``sentence-transformers`` -- OPTIONAL local embedding fallback. Docs:
     https://www.sbert.net/
   - ``rank-bm25`` -- not required (we ship a pure-Python BM25 below).
 
 Environment variables consumed:
-  - ``VOYAGE_API_KEY``: optional. Without it we use sentence-transformers.
-  - ``QDRANT_URL`` / ``QDRANT_API_KEY``: optional. Without them we use
-    the in-memory dict.
+  - ``VOYAGE_API_KEY``: enables Voyage embeddings (REST). Without it we fall
+    back to sentence-transformers, then a test-only hash embedder.
+  - ``QDRANT_URL`` / ``QDRANT_API_KEY``: enable the Qdrant Cloud store (REST).
+    Without them we use the in-memory dict.
   - ``NOVA_RAG_DATA_DIR``: optional, defaults to ``./data/`` next to this
     module (so the demo runs in the media-plan-generator repo without
     configuration).
@@ -58,13 +76,251 @@ import logging
 import math
 import os
 import re
+import ssl
 import time
+import urllib.error
+import urllib.request
 import uuid
 from collections import Counter, defaultdict
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Iterable, Optional
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Stdlib HTTP helper (shared by the Voyage + Qdrant REST backends)
+# ---------------------------------------------------------------------------
+
+# Reuse one TLS context across calls (cheap, thread-safe to read).
+_SSL_CONTEXT = ssl.create_default_context()
+
+# REST tuning. Timeouts are generous because embedding a batch of 128 or a
+# Qdrant query against 5K points can take a few seconds under load.
+_HTTP_TIMEOUT_S = 30.0
+_HTTP_MAX_RETRIES = 1  # one retry on 429/5xx, per spec
+_HTTP_BACKOFF_BASE_S = 1.0
+
+
+class _RestError(RuntimeError):
+    """Raised when a REST call exhausts retries or returns a hard error."""
+
+
+def _http_post_json(
+    url: str,
+    payload: dict[str, Any],
+    headers: dict[str, str],
+    *,
+    timeout: float = _HTTP_TIMEOUT_S,
+    max_retries: int = _HTTP_MAX_RETRIES,
+) -> dict[str, Any]:
+    """POST a JSON body and return the parsed JSON response.
+
+    Pure stdlib (urllib + json + ssl). Retries once on HTTP 429 and 5xx with
+    exponential backoff (honouring ``Retry-After`` when present). Network
+    errors (timeouts, DNS, reset) are retried the same way. 4xx other than
+    429 fail fast since a retry won't help.
+
+    Args:
+        url: Absolute https URL.
+        payload: JSON-serializable request body.
+        headers: Request headers (e.g. auth). ``Content-Type`` is forced to
+            ``application/json``.
+        timeout: Per-attempt socket timeout in seconds.
+        max_retries: Number of retries after the first attempt.
+
+    Returns:
+        Parsed JSON response as a dict.
+
+    Raises:
+        _RestError: On exhausted retries, non-retryable status, or a
+            response body that is not a JSON object.
+    """
+    body = json.dumps(payload).encode("utf-8")
+    req_headers = {**headers, "Content-Type": "application/json"}
+
+    last_exc: Optional[Exception] = None
+    for attempt in range(max_retries + 1):
+        request = urllib.request.Request(
+            url, data=body, headers=req_headers, method="POST"
+        )
+        try:
+            with urllib.request.urlopen(
+                request, timeout=timeout, context=_SSL_CONTEXT
+            ) as resp:
+                raw = resp.read()
+            parsed = json.loads(raw.decode("utf-8"))
+            if not isinstance(parsed, dict):
+                raise _RestError(
+                    f"Expected JSON object from {url}, got {type(parsed).__name__}"
+                )
+            return parsed
+        except urllib.error.HTTPError as exc:
+            status = exc.code
+            retryable = status == 429 or 500 <= status < 600
+            # Drain the error body for diagnostics without crashing.
+            try:
+                detail = exc.read().decode("utf-8", "replace")[:500]
+            except Exception:  # noqa: BLE001 -- best effort on error body
+                detail = ""
+            last_exc = _RestError(f"HTTP {status} from {url}: {detail}")
+            if not retryable or attempt >= max_retries:
+                logger.error(
+                    "POST %s failed (HTTP %s, non-retryable=%s): %s",
+                    url,
+                    status,
+                    not retryable,
+                    detail,
+                    exc_info=True,
+                )
+                raise last_exc from exc
+            delay = _retry_delay(exc, attempt)
+            logger.warning(
+                "POST %s -> HTTP %s, retrying in %.1fs (attempt %d/%d)",
+                url,
+                status,
+                delay,
+                attempt + 1,
+                max_retries,
+            )
+            time.sleep(delay)
+        except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
+            last_exc = exc
+            if attempt >= max_retries:
+                logger.error(
+                    "POST %s failed after retries: %s", url, exc, exc_info=True
+                )
+                raise _RestError(f"POST {url} failed: {exc}") from exc
+            delay = _HTTP_BACKOFF_BASE_S * (2**attempt)
+            logger.warning(
+                "POST %s network error, retrying in %.1fs (attempt %d/%d): %s",
+                url,
+                delay,
+                attempt + 1,
+                max_retries,
+                exc,
+            )
+            time.sleep(delay)
+
+    # Unreachable in practice (loop either returns or raises), but keeps the
+    # type checker happy and guards against a logic slip.
+    raise _RestError(f"POST {url} failed: {last_exc}")
+
+
+def _retry_delay(exc: urllib.error.HTTPError, attempt: int) -> float:
+    """Compute backoff delay, preferring a server ``Retry-After`` header."""
+    retry_after = exc.headers.get("Retry-After") if exc.headers else None
+    if retry_after:
+        try:
+            return max(0.0, float(retry_after))
+        except (TypeError, ValueError):
+            pass
+    return _HTTP_BACKOFF_BASE_S * (2**attempt)
+
+
+def _http_json(
+    url: str,
+    headers: dict[str, str],
+    *,
+    method: str = "GET",
+    payload: dict[str, Any] | None = None,
+    timeout: float = _HTTP_TIMEOUT_S,
+    max_retries: int = _HTTP_MAX_RETRIES,
+) -> dict[str, Any]:
+    """Issue a GET/PUT/POST JSON request (used by the Qdrant REST store).
+
+    Same retry semantics as ``_http_post_json`` (one retry on 429/5xx and
+    network errors). A 404 is treated as non-retryable and surfaced so the
+    caller can branch (e.g. "collection does not exist").
+
+    Args:
+        url: Absolute https URL.
+        headers: Request headers (e.g. ``api-key``).
+        method: HTTP verb.
+        payload: Optional JSON body for PUT/POST.
+        timeout: Per-attempt socket timeout.
+        max_retries: Retries after the first attempt.
+
+    Returns:
+        Parsed JSON response as a dict.
+
+    Raises:
+        _RestError: On exhausted retries, non-retryable status, or a
+            non-object JSON body.
+    """
+    data = json.dumps(payload).encode("utf-8") if payload is not None else None
+    req_headers = dict(headers)
+    if data is not None:
+        req_headers["Content-Type"] = "application/json"
+
+    last_exc: Optional[Exception] = None
+    for attempt in range(max_retries + 1):
+        request = urllib.request.Request(
+            url, data=data, headers=req_headers, method=method
+        )
+        try:
+            with urllib.request.urlopen(
+                request, timeout=timeout, context=_SSL_CONTEXT
+            ) as resp:
+                raw = resp.read()
+            parsed = json.loads(raw.decode("utf-8"))
+            if not isinstance(parsed, dict):
+                raise _RestError(
+                    f"Expected JSON object from {url}, got {type(parsed).__name__}"
+                )
+            return parsed
+        except urllib.error.HTTPError as exc:
+            status = exc.code
+            retryable = status == 429 or 500 <= status < 600
+            try:
+                detail = exc.read().decode("utf-8", "replace")[:500]
+            except Exception:  # noqa: BLE001 -- best effort on error body
+                detail = ""
+            last_exc = _RestError(f"HTTP {status} from {url}: {detail}")
+            if not retryable or attempt >= max_retries:
+                # 404 is an expected control-flow signal for the caller; log
+                # at debug, everything else at error.
+                log = logger.debug if status == 404 else logger.error
+                log(
+                    "%s %s -> HTTP %s: %s",
+                    method,
+                    url,
+                    status,
+                    detail,
+                    exc_info=(status != 404),
+                )
+                raise last_exc from exc
+            delay = _retry_delay(exc, attempt)
+            logger.warning(
+                "%s %s -> HTTP %s, retrying in %.1fs (attempt %d/%d)",
+                method,
+                url,
+                status,
+                delay,
+                attempt + 1,
+                max_retries,
+            )
+            time.sleep(delay)
+        except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
+            last_exc = exc
+            if attempt >= max_retries:
+                logger.error(
+                    "%s %s failed after retries: %s", method, url, exc, exc_info=True
+                )
+                raise _RestError(f"{method} {url} failed: {exc}") from exc
+            delay = _HTTP_BACKOFF_BASE_S * (2**attempt)
+            logger.warning(
+                "%s %s network error, retrying in %.1fs (attempt %d/%d): %s",
+                method,
+                url,
+                delay,
+                attempt + 1,
+                max_retries,
+                exc,
+            )
+            time.sleep(delay)
+
+    raise _RestError(f"{method} {url} failed: {last_exc}")
 
 
 # ---------------------------------------------------------------------------
@@ -77,6 +333,16 @@ _VOYAGE_EMBED_MODEL = "voyage-3.5-lite"
 _VOYAGE_EMBED_DIM = 1024
 _VOYAGE_RERANK_MODEL = "rerank-2.5-lite"
 
+# Voyage REST endpoints (primary path -- no SDK). Docs:
+# https://docs.voyageai.com/reference/embeddings-api
+# https://docs.voyageai.com/reference/reranker-api
+_VOYAGE_EMBED_URL = "https://api.voyageai.com/v1/embeddings"
+_VOYAGE_RERANK_URL = "https://api.voyageai.com/v1/rerank"
+# Voyage accepts up to 128 inputs per embeddings call.
+_VOYAGE_BATCH_LIMIT = 128
+# Per-text char cap to stay comfortably under the model token limit.
+_VOYAGE_MAX_CHARS = 32000
+
 # Local fallback. ~80 MB, CPU-friendly, ~5 ms/query.
 _LOCAL_EMBED_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 _LOCAL_EMBED_DIM = 384
@@ -84,6 +350,8 @@ _LOCAL_EMBED_DIM = 384
 # Qdrant collection. Use v2 suffix so we can ship in parallel with the
 # existing ``nova_knowledge`` (685 points) collection.
 _QDRANT_COLLECTION = "nova_knowledge_v2"
+# Qdrant REST batch size for upserts (keeps the JSON body well under limits).
+_QDRANT_UPSERT_BATCH = 100
 
 # Chunking parameters. Tuned in the design doc: 400-800 tokens with 80
 # overlap, structure-aware splitting on JSON dict boundaries.
@@ -194,6 +462,92 @@ class VoyageEmbedder(_EmbeddingBackend):
         return list(result.embeddings[0])
 
 
+class VoyageRESTEmbedder(_EmbeddingBackend):
+    """Voyage AI embedder over stdlib REST. Requires VOYAGE_API_KEY.
+
+    This is the **primary** production embedder: it has zero pip
+    dependencies (urllib + json only), so it works on Render's Python 3.13
+    build where the ``voyageai`` SDK wheel is unavailable.
+
+    POSTs to ``https://api.voyageai.com/v1/embeddings`` with body
+    ``{"input": [...], "model": "voyage-3.5-lite", "input_type": ...}`` and
+    parses ``data[].embedding``. Voyage uses asymmetric encoders, so we send
+    ``input_type="document"`` when indexing and ``"query"`` when retrieving.
+
+    Docs: https://docs.voyageai.com/reference/embeddings-api
+    """
+
+    name = "voyage-3.5-lite-rest"
+    dim = _VOYAGE_EMBED_DIM
+
+    def __init__(self, api_key: str | None = None) -> None:
+        key = api_key or os.environ.get("VOYAGE_API_KEY") or ""
+        if not key:
+            raise RuntimeError(
+                "VOYAGE_API_KEY not set. Sign up at https://www.voyageai.com."
+            )
+        self._api_key = key
+
+    def _embed(self, texts: list[str], input_type: str) -> list[list[float]]:
+        """POST one batch (<=128 inputs) and return embeddings in order.
+
+        Args:
+            texts: Inputs for a single API call. Must be <= 128 items.
+            input_type: ``"document"`` (indexing) or ``"query"`` (retrieval).
+
+        Returns:
+            Embedding vectors parallel to ``texts``.
+
+        Raises:
+            _RestError: On a failed REST call or a malformed response.
+        """
+        if not texts:
+            return []
+        payload = {
+            "input": [t[:_VOYAGE_MAX_CHARS] for t in texts],
+            "model": _VOYAGE_EMBED_MODEL,
+            "input_type": input_type,
+        }
+        headers = {"Authorization": f"Bearer {self._api_key}"}
+        data = _http_post_json(_VOYAGE_EMBED_URL, payload, headers)
+        rows = data.get("data")
+        if not isinstance(rows, list):
+            raise _RestError(f"Voyage response missing 'data' list: {str(data)[:200]}")
+        # Voyage returns rows with an "index" field; sort defensively so the
+        # output order always matches the input order.
+        try:
+            rows_sorted = sorted(rows, key=lambda r: int(r.get("index", 0)))
+        except (TypeError, ValueError):
+            rows_sorted = rows
+        embeddings: list[list[float]] = []
+        for row in rows_sorted:
+            emb = row.get("embedding")
+            if not isinstance(emb, list):
+                raise _RestError("Voyage row missing 'embedding' list.")
+            embeddings.append([float(x) for x in emb])
+        if len(embeddings) != len(texts):
+            raise _RestError(
+                f"Voyage returned {len(embeddings)} vectors for {len(texts)} inputs."
+            )
+        return embeddings
+
+    def embed_batch(self, texts: list[str]) -> list[list[float]]:
+        """Embed texts for indexing (input_type='document').
+
+        Splits into <=128-input calls per the Voyage batch limit.
+        """
+        if not texts:
+            return []
+        out: list[list[float]] = []
+        for i in range(0, len(texts), _VOYAGE_BATCH_LIMIT):
+            out.extend(self._embed(texts[i : i + _VOYAGE_BATCH_LIMIT], "document"))
+        return out
+
+    def embed_query(self, query: str) -> list[float]:
+        """Single-query embedding with input_type='query' (asymmetric)."""
+        return self._embed([query], "query")[0]
+
+
 class LocalEmbedder(_EmbeddingBackend):
     """sentence-transformers fallback. CPU-only, no API key needed.
 
@@ -265,18 +619,24 @@ class HashEmbedder(_EmbeddingBackend):
 def _make_embedder(prefer: str | None = None) -> _EmbeddingBackend:
     """Select the best available embedder.
 
-    Priority:
-        1. ``prefer`` argument if provided ("voyage" | "local" | "hash").
-        2. Voyage if VOYAGE_API_KEY is set and voyageai is importable.
-        3. sentence-transformers if importable.
-        4. HashEmbedder (test-only fallback).
+    Priority (auto):
+        1. ``prefer`` argument if provided ("voyage_rest" | "voyage" |
+           "local" | "hash").
+        2. Voyage via stdlib REST if VOYAGE_API_KEY is set (PRIMARY -- no
+           pip deps).
+        3. Voyage SDK if VOYAGE_API_KEY is set and ``voyageai`` is importable.
+        4. sentence-transformers if importable.
+        5. HashEmbedder (test-only fallback).
 
     Args:
-        prefer: Explicit backend choice for tests.
+        prefer: Explicit backend choice for tests. ``"voyage"`` keeps the
+            historical SDK meaning; ``"voyage_rest"`` forces the REST path.
 
     Returns:
         An embedder instance.
     """
+    if prefer == "voyage_rest":
+        return VoyageRESTEmbedder()
     if prefer == "voyage":
         return VoyageEmbedder()
     if prefer == "local":
@@ -285,10 +645,16 @@ def _make_embedder(prefer: str | None = None) -> _EmbeddingBackend:
         return HashEmbedder()
 
     if os.environ.get("VOYAGE_API_KEY"):
+        # Primary: REST (works without the voyageai wheel on Python 3.13).
+        try:
+            return VoyageRESTEmbedder()
+        except RuntimeError as exc:
+            logger.warning("Voyage REST unavailable, trying SDK: %s", exc)
+        # Optional: SDK, only if the lib happens to be installed.
         try:
             return VoyageEmbedder()
         except RuntimeError as exc:
-            logger.warning("Voyage unavailable, falling back: %s", exc)
+            logger.warning("Voyage SDK unavailable, falling back: %s", exc)
     try:
         return LocalEmbedder()
     except RuntimeError as exc:
@@ -314,6 +680,21 @@ class _VectorStore:
         filters: dict[str, Any] | None = None,
     ) -> list[tuple[str, float]]:
         raise NotImplementedError
+
+    def search_payload(
+        self,
+        query_vector: list[float],
+        top_k: int,
+        filters: dict[str, Any] | None = None,
+    ) -> list[tuple[str, float, Document]] | None:
+        """Optional: search returning hydrated Documents in one round trip.
+
+        Backends that can return the payload alongside the score (e.g.
+        Qdrant ``with_payload=true``) override this so the orchestrator can
+        avoid an N+1 ``get()`` per candidate. Returning ``None`` signals
+        "not supported -- fall back to ``search`` + ``get``".
+        """
+        return None
 
     def get(self, doc_id: str) -> Document | None:
         raise NotImplementedError
@@ -476,6 +857,288 @@ class QdrantStore(_VectorStore):
         return int(info.points_count or 0)
 
 
+class QdrantRESTStore(_VectorStore):
+    """Qdrant Cloud-backed store over stdlib REST (PRIMARY production path).
+
+    Zero pip dependencies (urllib + json only) so it runs on Render's Python
+    3.13 build without the ``qdrant-client`` wheel. Talks to the Qdrant REST
+    API directly:
+
+      - Query: ``POST {url}/collections/{c}/points/query`` (>= 1.10). Falls
+        back to the legacy ``POST .../points/search`` if the server returns
+        404/Not Implemented for ``/query``.
+      - Retrieve: ``POST .../points`` with ``{"ids": [...]}``.
+      - Upsert: ``PUT .../points`` with a ``{"points": [...]}`` body.
+      - Count: ``GET .../collections/{c}`` -> ``result.points_count``.
+
+    The Phase 2 backfill already populated this collection (5,153 points),
+    so in production only ``search``/``get``/``count`` are exercised; the
+    ``upsert`` path exists for re-indexing and is exercised by the backfill
+    tooling.
+
+    Docs:
+      - Query API: https://api.qdrant.tech/api-reference/search/query-points
+      - Filtering: https://qdrant.tech/documentation/concepts/filtering/
+    """
+
+    def __init__(
+        self,
+        url: str | None = None,
+        api_key: str | None = None,
+        collection: str = _QDRANT_COLLECTION,
+        dim: int = _VOYAGE_EMBED_DIM,
+    ) -> None:
+        url = (url or os.environ.get("QDRANT_URL") or "").rstrip("/")
+        api_key = api_key or os.environ.get("QDRANT_API_KEY") or ""
+        if not url or not api_key:
+            raise RuntimeError("QDRANT_URL and QDRANT_API_KEY required.")
+        self._base = url
+        self._api_key = api_key
+        self._collection = collection
+        self._dim = dim
+        # Sticky flag so we don't probe ``/points/query`` on every search
+        # once we've learned the server only supports the legacy endpoint.
+        self._use_legacy_search = False
+
+    # ----- helpers ---------------------------------------------------------
+
+    @property
+    def _headers(self) -> dict[str, str]:
+        return {"api-key": self._api_key}
+
+    def _coll_url(self, suffix: str = "") -> str:
+        return f"{self._base}/collections/{self._collection}{suffix}"
+
+    @staticmethod
+    def _build_filter(filters: dict[str, Any] | None) -> dict[str, Any] | None:
+        """Translate ``{key: value}`` / ``{key: [v1, v2]}`` to a Qdrant filter.
+
+        Produces the REST JSON shape::
+
+            {"must": [{"key": "country", "match": {"value": "US"}}, ...]}
+
+        List values use ``{"match": {"any": [...]}}``.
+        """
+        if not filters:
+            return None
+        must: list[dict[str, Any]] = []
+        for key, value in filters.items():
+            if isinstance(value, list):
+                must.append({"key": key, "match": {"any": value}})
+            else:
+                must.append({"key": key, "match": {"value": value}})
+        return {"must": must}
+
+    # ----- write path (re-indexing / backfill) ----------------------------
+
+    def _ensure_collection(self) -> None:
+        """Create the collection + payload indexes if missing (idempotent).
+
+        Production never needs this (the backfill created the collection),
+        so it is only called from ``upsert`` to keep re-indexing self-healing.
+        """
+        try:
+            _http_json(self._coll_url(), self._headers, method="GET")
+            return  # already exists
+        except _RestError as exc:
+            if "HTTP 404" not in str(exc):
+                raise
+        # Create the collection.
+        _http_json(
+            self._coll_url(),
+            self._headers,
+            method="PUT",
+            payload={
+                "vectors": {"size": self._dim, "distance": "Cosine"},
+            },
+        )
+        # Best-effort payload indexes for fast filtering.
+        for field in ("source_file", "country", "metric", "year", "vertical"):
+            try:
+                _http_json(
+                    self._coll_url("/index"),
+                    self._headers,
+                    method="PUT",
+                    payload={"field_name": field, "field_schema": "keyword"},
+                )
+            except _RestError as exc:  # missing index only slows queries
+                logger.warning("Payload index for %s failed: %s", field, exc)
+
+    def upsert(self, docs: list[Document], vectors: list[list[float]]) -> int:
+        if not docs:
+            return 0
+        if len(docs) != len(vectors):
+            raise ValueError("docs and vectors length mismatch.")
+        self._ensure_collection()
+        points = [
+            {
+                "id": doc.doc_id,
+                "vector": vec,
+                "payload": {**doc.metadata, "text": doc.text},
+            }
+            for doc, vec in zip(docs, vectors)
+        ]
+        total = 0
+        for i in range(0, len(points), _QDRANT_UPSERT_BATCH):
+            batch = points[i : i + _QDRANT_UPSERT_BATCH]
+            _http_json(
+                self._coll_url("/points"),
+                self._headers,
+                method="PUT",
+                payload={"points": batch},
+            )
+            total += len(batch)
+        return total
+
+    # ----- read path (production) ------------------------------------------
+
+    def _search_query_api(
+        self,
+        query_vector: list[float],
+        top_k: int,
+        qfilter: dict[str, Any] | None,
+    ) -> list[tuple[str, float]]:
+        """Current ``/points/query`` API (Qdrant >= 1.10)."""
+        payload: dict[str, Any] = {
+            "query": query_vector,
+            "limit": top_k,
+            "with_payload": False,
+            "with_vector": False,
+        }
+        if qfilter:
+            payload["filter"] = qfilter
+        data = _http_post_json(self._coll_url("/points/query"), payload, self._headers)
+        points = data.get("result", {}).get("points", [])
+        return [(str(p.get("id")), float(p.get("score", 0.0))) for p in points]
+
+    def _search_legacy_api(
+        self,
+        query_vector: list[float],
+        top_k: int,
+        qfilter: dict[str, Any] | None,
+    ) -> list[tuple[str, float]]:
+        """Legacy ``/points/search`` API (Qdrant < 1.10)."""
+        payload: dict[str, Any] = {
+            "vector": query_vector,
+            "limit": top_k,
+            "with_payload": False,
+            "with_vector": False,
+        }
+        if qfilter:
+            payload["filter"] = qfilter
+        data = _http_post_json(self._coll_url("/points/search"), payload, self._headers)
+        results = data.get("result", [])
+        return [(str(r.get("id")), float(r.get("score", 0.0))) for r in results]
+
+    def search(
+        self,
+        query_vector: list[float],
+        top_k: int,
+        filters: dict[str, Any] | None = None,
+    ) -> list[tuple[str, float]]:
+        """Vector search via REST with query->search endpoint fallback."""
+        qfilter = self._build_filter(filters)
+        if not self._use_legacy_search:
+            try:
+                return self._search_query_api(query_vector, top_k, qfilter)
+            except _RestError as exc:
+                # Older servers lack /points/query (404 / 501). Latch to the
+                # legacy endpoint so we only pay the failed probe once.
+                if "HTTP 404" in str(exc) or "HTTP 501" in str(exc):
+                    logger.warning(
+                        "Qdrant /points/query unavailable, using legacy "
+                        "/points/search: %s",
+                        exc,
+                    )
+                    self._use_legacy_search = True
+                else:
+                    raise
+        return self._search_legacy_api(query_vector, top_k, qfilter)
+
+    @staticmethod
+    def _point_to_doc(point: dict[str, Any]) -> Document:
+        """Build a Document from a Qdrant point's id + payload."""
+        payload = dict(point.get("payload") or {})
+        text = payload.pop("text", "")
+        return Document(doc_id=str(point.get("id")), text=text, metadata=payload)
+
+    def search_payload(
+        self,
+        query_vector: list[float],
+        top_k: int,
+        filters: dict[str, Any] | None = None,
+    ) -> list[tuple[str, float, Document]] | None:
+        """Search returning ``(doc_id, score, Document)`` in one REST call.
+
+        Uses ``with_payload=true`` so the orchestrator avoids an N+1 ``get``
+        per candidate -- the production hot path, where the in-process doc
+        mirror is empty because the corpus lives only in Qdrant. Falls back
+        to the base-class ``None`` contract if the endpoint errors, so
+        ``retrieve`` can degrade to ``search`` + ``get``.
+        """
+        qfilter = self._build_filter(filters)
+        endpoint = "/points/search" if self._use_legacy_search else "/points/query"
+        is_query_api = not self._use_legacy_search
+        payload: dict[str, Any] = {
+            "limit": top_k,
+            "with_payload": True,
+            "with_vector": False,
+        }
+        if is_query_api:
+            payload["query"] = query_vector
+        else:
+            payload["vector"] = query_vector
+        if qfilter:
+            payload["filter"] = qfilter
+        try:
+            data = _http_post_json(self._coll_url(endpoint), payload, self._headers)
+        except _RestError as exc:
+            if is_query_api and ("HTTP 404" in str(exc) or "HTTP 501" in str(exc)):
+                logger.warning(
+                    "Qdrant /points/query unavailable, using legacy "
+                    "/points/search: %s",
+                    exc,
+                )
+                self._use_legacy_search = True
+                return self.search_payload(query_vector, top_k, filters)
+            logger.warning("Qdrant search_payload failed: %s", exc)
+            return None
+        result = data.get("result", {})
+        points = result.get("points", []) if is_query_api else result
+        out: list[tuple[str, float, Document]] = []
+        for p in points:
+            out.append(
+                (str(p.get("id")), float(p.get("score", 0.0)), self._point_to_doc(p))
+            )
+        return out
+
+    def get(self, doc_id: str) -> Document | None:
+        try:
+            data = _http_post_json(
+                self._coll_url("/points"),
+                {"ids": [doc_id], "with_payload": True, "with_vector": False},
+                self._headers,
+            )
+        except _RestError as exc:
+            logger.warning("Qdrant get(%s) failed: %s", doc_id, exc)
+            return None
+        result = data.get("result", [])
+        if not result:
+            return None
+        point = result[0]
+        payload = dict(point.get("payload") or {})
+        text = payload.pop("text", "")
+        return Document(doc_id=str(point.get("id")), text=text, metadata=payload)
+
+    def count(self) -> int:
+        try:
+            data = _http_json(self._coll_url(), self._headers, method="GET")
+        except _RestError as exc:
+            logger.warning("Qdrant count failed: %s", exc)
+            return 0
+        return int(data.get("result", {}).get("points_count") or 0)
+
+
 class InMemoryStore(_VectorStore):
     """In-process vector store. For tests, local dev, and Qdrant outages.
 
@@ -541,21 +1204,36 @@ def _make_store(
 ) -> _VectorStore:
     """Select the best available vector store.
 
-    Priority:
-        1. ``prefer`` argument if provided.
-        2. Qdrant if URL + key set.
-        3. InMemory fallback.
+    Priority (auto):
+        1. ``prefer`` argument if provided ("qdrant_rest" | "qdrant" |
+           "memory").
+        2. Qdrant via stdlib REST if URL + key set (PRIMARY -- no pip deps).
+        3. Qdrant SDK if URL + key set and ``qdrant-client`` is importable.
+        4. InMemory fallback.
+
+    Args:
+        prefer: Explicit backend choice. ``"qdrant"`` keeps the historical
+            SDK meaning; ``"qdrant_rest"`` forces the REST path.
+        dim: Vector dimensionality (used only when creating a collection).
     """
+    if prefer == "qdrant_rest":
+        return QdrantRESTStore(dim=dim)
     if prefer == "qdrant":
         return QdrantStore(dim=dim)
     if prefer == "memory":
         return InMemoryStore()
 
     if os.environ.get("QDRANT_URL") and os.environ.get("QDRANT_API_KEY"):
+        # Primary: REST (works without the qdrant-client wheel on Py 3.13).
+        try:
+            return QdrantRESTStore(dim=dim)
+        except RuntimeError as exc:
+            logger.warning("Qdrant REST unavailable, trying SDK: %s", exc)
+        # Optional: SDK, only if the lib happens to be installed.
         try:
             return QdrantStore(dim=dim)
         except RuntimeError as exc:
-            logger.warning("Qdrant unavailable, falling back: %s", exc)
+            logger.warning("Qdrant SDK unavailable, falling back: %s", exc)
     return InMemoryStore()
 
 
@@ -692,17 +1370,19 @@ class BM25Index:
 
 
 class _Reranker:
-    """Cross-encoder rerank wrapper. Voyage rerank-2.5-lite or noop."""
+    """Cross-encoder rerank wrapper. Voyage rerank-2.5-lite via stdlib REST.
+
+    Primary path POSTs to ``https://api.voyageai.com/v1/rerank`` with body
+    ``{"query": ..., "documents": [...], "model": "rerank-2.5-lite",
+    "top_k": k}`` and parses ``data[].{index, relevance_score}``. No pip
+    deps. Rerank is a best-effort quality boost: on any failure (missing
+    key, REST error, malformed response) we fall back to the RRF ordering so
+    retrieval never breaks.
+    """
 
     def __init__(self, enabled: bool = True) -> None:
-        self._enabled = enabled and bool(os.environ.get("VOYAGE_API_KEY"))
-        if self._enabled:
-            try:
-                import voyageai  # type: ignore[import-not-found]
-
-                self._client = voyageai.Client(api_key=os.environ["VOYAGE_API_KEY"])
-            except ImportError:
-                self._enabled = False
+        self._api_key = os.environ.get("VOYAGE_API_KEY") or ""
+        self._enabled = bool(enabled and self._api_key)
 
     def rerank(
         self, query: str, candidates: list[RetrievalHit], top_k: int
@@ -715,30 +1395,37 @@ class _Reranker:
             top_k: Number of hits to return.
 
         Returns:
-            Reranked hits. Falls back to input order if rerank fails.
+            Reranked hits. Falls back to RRF input order if rerank fails.
         """
         if not self._enabled or not candidates or len(candidates) <= 1:
             return candidates[:top_k]
         try:
-            docs = [c.text[:2000] for c in candidates]
-            result = self._client.rerank(
-                query=query,
-                documents=docs,
-                model=_VOYAGE_RERANK_MODEL,
-                top_k=top_k,
-            )
+            documents = [c.text[:2000] for c in candidates]
+            payload = {
+                "query": query,
+                "documents": documents,
+                "model": _VOYAGE_RERANK_MODEL,
+                "top_k": top_k,
+            }
+            headers = {"Authorization": f"Bearer {self._api_key}"}
+            data = _http_post_json(_VOYAGE_RERANK_URL, payload, headers)
+            rows = data.get("data")
+            if not isinstance(rows, list) or not rows:
+                raise _RestError(f"Voyage rerank missing 'data': {str(data)[:200]}")
             ranked: list[RetrievalHit] = []
-            for r in result.results:
-                src = candidates[r.index]
+            for row in rows:
+                idx = int(row.get("index", -1))
+                if idx < 0 or idx >= len(candidates):
+                    continue
                 ranked.append(
                     dataclasses.replace(
-                        src,
-                        score=float(r.relevance_score),
+                        candidates[idx],
+                        score=float(row.get("relevance_score", 0.0)),
                         search_method="rerank",
                     )
                 )
-            return ranked
-        except Exception as exc:  # noqa: BLE001 -- best effort, fall back
+            return ranked or candidates[:top_k]
+        except (_RestError, KeyError, TypeError, ValueError) as exc:
             logger.warning("Rerank failed, returning RRF order: %s", exc)
             return candidates[:top_k]
 
@@ -1048,6 +1735,11 @@ class NovaRAGPipeline:
         if not query or not query.strip():
             return []
 
+        # Per-query cache of hydrated docs so candidate materialization is
+        # free when the store returns payloads inline (production hot path,
+        # where ``_docs_by_id`` is empty because the corpus lives in Qdrant).
+        hydrated: dict[str, Document] = {}
+
         # Vector leg.
         vector_hits: list[tuple[str, float]] = []
         try:
@@ -1056,7 +1748,14 @@ class NovaRAGPipeline:
                 if hasattr(self.embedder, "embed_query")
                 else self.embedder.embed_batch([query])[0]
             )
-            vector_hits = self.store.search(q_vec, _VECTOR_FETCH_K, filters)
+            payload_hits = self.store.search_payload(q_vec, _VECTOR_FETCH_K, filters)
+            if payload_hits is not None:
+                # One round trip returned scores + documents together.
+                for doc_id, score, doc in payload_hits:
+                    vector_hits.append((doc_id, score))
+                    hydrated[doc_id] = doc
+            else:
+                vector_hits = self.store.search(q_vec, _VECTOR_FETCH_K, filters)
         except Exception as exc:  # noqa: BLE001 -- degrade to BM25-only
             logger.warning("Vector retrieval failed: %s", exc, exc_info=True)
 
@@ -1078,10 +1777,15 @@ class NovaRAGPipeline:
         # Drop below-noise-floor candidates.
         fused = [(d, s) for d, s in fused if s >= _RRF_SCORE_FLOOR]
 
-        # Materialize candidates.
+        # Materialize candidates. Prefer the inline-hydrated payloads, then
+        # the in-process mirror, then a (slow) per-doc store fetch.
         candidates: list[RetrievalHit] = []
         for doc_id, score in fused[:_RERANK_INPUT_K]:
-            doc = self._docs_by_id.get(doc_id) or self.store.get(doc_id)
+            doc = (
+                hydrated.get(doc_id)
+                or self._docs_by_id.get(doc_id)
+                or self.store.get(doc_id)
+            )
             if doc is None:
                 continue
             candidates.append(
@@ -1234,4 +1938,7 @@ __all__ = [
     "RetrievalHit",
     "BM25Index",
     "build_documents_from_kb",
+    # REST backends (primary, no-SDK path).
+    "VoyageRESTEmbedder",
+    "QdrantRESTStore",
 ]
