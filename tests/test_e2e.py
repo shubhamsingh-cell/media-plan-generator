@@ -8,12 +8,52 @@ Run with: python -m pytest tests/test_e2e.py -v
 import http.client
 import json
 import os
+import socket
 import unittest
 from typing import Optional
+
+import pytest
 
 
 SERVER_HOST: str = os.environ.get("TEST_HOST", "localhost")
 SERVER_PORT: int = int(os.environ.get("TEST_PORT", os.environ.get("PORT", "8000")))
+
+
+def _server_reachable(host: str, port: int, timeout: float = 0.5) -> bool:
+    """Check whether the test server accepts TCP connections.
+
+    These end-to-end tests require a live Nova AI Suite server. When no
+    server is running (typical for unit-test/CI runs), we skip the module
+    instead of failing with ConnectionRefusedError. The tests still execute
+    normally whenever a server IS reachable on the configured host/port.
+
+    Args:
+        host: Server hostname to probe.
+        port: Server port to probe.
+        timeout: Socket connect timeout in seconds.
+
+    Returns:
+        True if a TCP connection succeeds, False otherwise.
+    """
+    try:
+        with socket.create_connection((host, port), timeout=timeout):
+            return True
+    except OSError:
+        return False
+
+
+_SERVER_UP: bool = _server_reachable(SERVER_HOST, SERVER_PORT)
+
+# Skip the entire module when the server is not reachable. This keeps the
+# suite green locally/CI without a running server while still exercising the
+# real endpoints (and their assertions) whenever a server is available.
+pytestmark = pytest.mark.skipif(
+    not _SERVER_UP,
+    reason=(
+        f"Nova AI Suite server not reachable at {SERVER_HOST}:{SERVER_PORT}. "
+        f"Start the server (or set TEST_HOST/TEST_PORT) to run E2E tests."
+    ),
+)
 
 
 def _get(

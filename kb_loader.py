@@ -402,6 +402,74 @@ def _validate_freshness(kb: dict[str, Any]) -> None:
         logger.warning("KB freshness check failed (non-fatal): %s", e)
 
 
+def _validate_vintage(kb: dict[str, Any]) -> None:
+    """Flag sections whose DATA VINTAGE (the year the benchmarks describe) is
+    behind the current year -- independent of file mtime / last_updated.
+
+    The mtime + last_updated checks (_validate_freshness, _check_file_freshness)
+    only catch files that haven't been *touched* recently. A 2025-vintage
+    benchmark file re-saved yesterday passes both -- false confidence that the
+    numbers are current (S82 audit finding: external_benchmarks_2025.json and
+    google_ads_2025_benchmarks.json feed 2026 plans while looking "fresh").
+
+    This scans each section for an explicit vintage signal and uses the MAX year
+    found, so a file mixing 2024 history with 2026 data is NOT flagged (its
+    newest data is current). Only sections whose newest referenced year is
+    strictly behind the current year are surfaced. Pure logging + a
+    ``_vintage_warnings`` list; never raises, never alters data.
+    """
+    import re as _re
+
+    stale_vintage: list[tuple[str, int]] = []
+    try:
+        current_year = datetime.datetime.now().year
+        # Fields that legitimately carry a data-vintage year.
+        _vintage_fields = (
+            "data_year",
+            "vintage",
+            "benchmark_year",
+            "data_coverage_period",
+            "data_period",
+            "year",
+        )
+        for section_key, section_data in kb.items():
+            if section_key.startswith("_") or not isinstance(section_data, dict):
+                continue
+            meta = (
+                section_data.get("metadata")
+                if isinstance(section_data.get("metadata"), dict)
+                else {}
+            )
+            years: list[int] = []
+            for src in (meta, section_data):
+                for f in _vintage_fields:
+                    val = src.get(f)
+                    if val is None:
+                        continue
+                    for m in _re.findall(r"\b(20\d{2})\b", str(val)):
+                        yr = int(m)
+                        if 2015 <= yr <= current_year + 2:
+                            years.append(yr)
+            if years and max(years) < current_year:
+                stale_vintage.append((section_key, max(years)))
+        if stale_vintage:
+            for skey, yr in stale_vintage:
+                logger.warning(
+                    "KB VINTAGE WARNING: '%s' newest data vintage is %d "
+                    "(current year %d) -- benchmarks may understate current-year "
+                    "figures; refresh recommended.",
+                    skey,
+                    yr,
+                    current_year,
+                )
+            kb["_vintage_warnings"] = [
+                {"section": s, "newest_vintage_year": y, "current_year": current_year}
+                for s, y in stale_vintage
+            ]
+    except Exception as e:  # pragma: no cover -- never break loading
+        logger.warning("KB vintage check failed (non-fatal): %s", e)
+
+
 def _check_file_freshness_at_startup() -> list[dict[str, Any]]:
     """Check on-disk file ages and warn if any data file exceeds the freshness threshold.
 
@@ -562,6 +630,7 @@ def load_knowledge_base() -> dict[str, Any]:
         _rebuild_backward_compat(kb)
         _apply_aliases(kb)
         _validate_freshness(kb)
+        _validate_vintage(kb)  # S82: vintage-aware staleness (not just mtime)
 
         # ── File-level freshness check (P3: data quality) ──
         try:
@@ -701,6 +770,7 @@ def _check_and_reload() -> None:
         _rebuild_backward_compat(kb_updated)
         _apply_aliases(kb_updated)
         _validate_freshness(kb_updated)
+        _validate_vintage(kb_updated)  # S82: vintage-aware staleness
 
         # S56 unification: mutate the live dict in place rather than swapping
         # the module-level reference. External holders (e.g. Nova, which now

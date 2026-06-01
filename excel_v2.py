@@ -37,6 +37,7 @@ from openpyxl.styles import (
     Side,
 )
 from openpyxl.utils import get_column_letter
+from openpyxl.chart import BarChart, PieChart, Reference
 
 from shared_utils import (
     parse_budget,
@@ -2302,6 +2303,10 @@ def _build_sheet_executive_summary(
             key=lambda x: x[1].get("dollar_amount", x[1].get("dollars") or 0),
             reverse=True,
         )
+        # S82: collect numeric (name, dollars) pairs for a native pie chart.
+        # The visible table cells are formatted strings, which openpyxl charts
+        # cannot plot, so we keep a parallel numeric list for the chart helper.
+        _chart_pairs: List[tuple] = []
         _row_idx = 0
         for ch_name, ch_data in sorted_channels[:15]:
             # Bug 23: Skip garbage rows where all metrics are zero/empty
@@ -2315,6 +2320,8 @@ def _build_sheet_executive_summary(
             idx = _row_idx
             _row_idx += 1
             _display_name = ch_name.replace("_", " ").title()
+            if _safe_num(_ch_dollars) > 0:
+                _chart_pairs.append((_display_name, round(_safe_num(_ch_dollars), 2)))
             values = [
                 _display_name,
                 f"{_safe_num(_ch_pct):.1f}%",
@@ -2333,6 +2340,51 @@ def _build_sheet_executive_summary(
                 cell.alignment = _ALIGN_CENTER if i > 0 else _ALIGN_LEFT
                 cell.border = _BORDER_THIN
             row += 1
+
+        # S82: native, editable pie chart of budget share by channel. Upgrades
+        # the Excel deliverable from tables-only -- the client can restyle/edit
+        # it (unlike an embedded PNG). Numeric source data lives in a helper
+        # block parked to the right of the main layout (COL_END+2 onward, top
+        # 8 channels). Fully isolated: any failure logs and skips the chart.
+        try:
+            if len(_chart_pairs) >= 2:
+                _chart_pairs = _chart_pairs[:8]
+                _helper_col = COL_END + 2  # park well clear of the B..H layout
+                _helper_top = row + 1
+                _hcat = get_column_letter(_helper_col)
+                _hval = get_column_letter(_helper_col + 1)
+                ws.cell(row=_helper_top, column=_helper_col, value="Channel")
+                ws.cell(row=_helper_top, column=_helper_col + 1, value="Budget (USD)")
+                for _ci, (_cn, _cv) in enumerate(_chart_pairs):
+                    ws.cell(row=_helper_top + 1 + _ci, column=_helper_col, value=_cn)
+                    ws.cell(
+                        row=_helper_top + 1 + _ci,
+                        column=_helper_col + 1,
+                        value=_cv,
+                    )
+                _pie = PieChart()
+                _pie.title = "Budget Allocation by Channel"
+                _data_ref = Reference(
+                    ws,
+                    min_col=_helper_col + 1,
+                    min_row=_helper_top,
+                    max_row=_helper_top + len(_chart_pairs),
+                )
+                _cats_ref = Reference(
+                    ws,
+                    min_col=_helper_col,
+                    min_row=_helper_top + 1,
+                    max_row=_helper_top + len(_chart_pairs),
+                )
+                _pie.add_data(_data_ref, titles_from_data=True)
+                _pie.set_categories(_cats_ref)
+                _pie.height = 7.5
+                _pie.width = 12.5
+                ws.add_chart(_pie, f"{get_column_letter(COL_START)}{row + 1}")
+                # Reserve vertical space so following sections don't overlap the chart.
+                row += 16
+        except Exception as _chart_err:  # pragma: no cover -- never break the workbook
+            logger.warning("Excel budget pie chart skipped: %s", _chart_err)
     row += 1
 
     # ── 4. Recruitment Benchmarks ──

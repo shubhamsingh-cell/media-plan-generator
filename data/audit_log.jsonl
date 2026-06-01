@@ -761,3 +761,5 @@
 {"ts": 1780345587.475528, "iso": "2026-06-01T20:26:27Z", "action": "test.event", "actor": "test", "resource": "/test", "severity": "info", "ip_hash": ""}
 {"ts": 1780345616.857098, "iso": "2026-06-01T20:26:56Z", "action": "test.event", "actor": "test", "resource": "/test", "severity": "info", "ip_hash": ""}
 {"ts": 1780345876.062208, "iso": "2026-06-01T20:31:16Z", "action": "test.event", "actor": "test", "resource": "/test", "severity": "info", "ip_hash": ""}
+{"ts": 1780346350.799807, "iso": "2026-06-01T20:39:10Z", "action": "test.event", "actor": "test", "resource": "/test", "severity": "info", "ip_hash": ""}
+{"ts": 1780346456.598825, "iso": "2026-06-01T20:40:56Z", "action": "test.event", "actor": "test", "resource": "/test", "severity": "info", "ip_hash": ""}
