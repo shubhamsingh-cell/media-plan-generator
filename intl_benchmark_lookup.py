@@ -343,6 +343,117 @@ def get_top_platforms(industry: str | None, country: str | None) -> list[str]:
     return out
 
 
+def _extract_salary_points(
+    annual_salary: dict[str, Any],
+) -> tuple[list[float], list[float], str | None, list[str]]:
+    """Collect (local_values, usd_values, currency, source_ids) from a country's
+    ``annual_salary`` block.
+
+    Entries are heterogeneous: some are point estimates
+    ``{value, currency, value_usd}`` and some are ranges
+    ``{low, high, median, currency, low_usd, high_usd}``. Keys whose name
+    contains "distorted" are skipped (the dataset flags Adzuna outliers).
+    """
+    local_vals: list[float] = []
+    usd_vals: list[float] = []
+    currency: str | None = None
+    source_ids: list[str] = []
+    for key, entry in annual_salary.items():
+        if not isinstance(entry, dict):
+            continue
+        key_l = key.lower()
+        # Skip Adzuna outliers (flagged "distorted") and monthly figures so we
+        # don't mix monthly + annual into one range (e.g. JP ¥306,900/mo base
+        # vs ¥4.8M/yr). We want annual ranges only.
+        if "distorted" in key_l or "monthly" in key_l or "_mo_" in key_l:
+            continue
+        cur = entry.get("currency")
+        if isinstance(cur, str) and cur and currency is None:
+            currency = cur
+        # Range entry
+        for lk, uk in (("low", "low_usd"), ("high", "high_usd")):
+            lv = entry.get(lk)
+            if isinstance(lv, (int, float)) and not isinstance(lv, bool) and lv > 0:
+                local_vals.append(float(lv))
+                uv = entry.get(uk)
+                if isinstance(uv, (int, float)) and not isinstance(uv, bool):
+                    usd_vals.append(float(uv))
+        # Point entry
+        pv = entry.get("value")
+        if isinstance(pv, (int, float)) and not isinstance(pv, bool) and pv > 0:
+            local_vals.append(float(pv))
+            uv = entry.get("value_usd")
+            if isinstance(uv, (int, float)) and not isinstance(uv, bool):
+                usd_vals.append(float(uv))
+        sids = entry.get("source_ids")
+        if isinstance(sids, list):
+            for s in sids:
+                if isinstance(s, str) and s not in source_ids:
+                    source_ids.append(s)
+    return local_vals, usd_vals, currency, source_ids
+
+
+def get_local_salary_summary(
+    industry: str | None, country: str | None
+) -> dict[str, Any] | None:
+    """Return a localized salary range for (industry, country).
+
+    Pulls the dataset's ``annual_salary`` block, which stores values in LOCAL
+    currency (GBP/EUR/INR/JPY...) alongside USD equivalents. Returns a dict
+    suitable for direct rendering on a compensation slide::
+
+        {
+          "currency": "GBP",
+          "symbol": "£",
+          "low": 28407.0, "high": 46339.0,
+          "local_display": "£28,407 - £46,339",
+          "usd_display": "$38,065 - $46,339",   # omitted when currency is USD
+          "source_ids": ["S11", "S12"],
+        }
+
+    Returns ``None`` when the (industry, country) pair has no salary data.
+    Never raises.
+    """
+    try:
+        from plan_currency import format_money, symbol_for_code
+    except ImportError:  # pragma: no cover
+        return None
+    block = get_role_country_benchmarks(industry, country)
+    if not block:
+        return None
+    annual_salary = block.get("annual_salary")
+    if not isinstance(annual_salary, dict) or not annual_salary:
+        return None
+
+    local_vals, usd_vals, currency, source_ids = _extract_salary_points(annual_salary)
+    if not local_vals:
+        return None
+    currency = (currency or block.get("currency") or "USD").upper()
+
+    low, high = min(local_vals), max(local_vals)
+    summary: dict[str, Any] = {
+        "currency": currency,
+        "symbol": symbol_for_code(currency),
+        "low": low,
+        "high": high,
+        "local_display": (
+            format_money(low, currency)
+            if low == high
+            else f"{format_money(low, currency)} - {format_money(high, currency)}"
+        ),
+        "source_ids": source_ids,
+    }
+    # Add USD equivalent only when the local currency isn't already USD.
+    if currency != "USD" and usd_vals:
+        u_low, u_high = min(usd_vals), max(usd_vals)
+        summary["usd_display"] = (
+            format_money(u_low, "USD")
+            if u_low == u_high
+            else f"{format_money(u_low, 'USD')} - {format_money(u_high, 'USD')}"
+        )
+    return summary
+
+
 def is_available() -> bool:
     """True if the benchmark dataset is loaded and has at least one vertical."""
     data = _load()

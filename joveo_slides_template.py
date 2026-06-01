@@ -30,10 +30,15 @@ from datetime import datetime, timezone
 from typing import Any
 
 try:
-    from intl_benchmark_lookup import get_cpa_median_usd
+    from intl_benchmark_lookup import get_cpa_median_usd, get_local_salary_summary
 except ImportError:  # pragma: no cover -- defensive; module is in repo
 
     def get_cpa_median_usd(industry: str | None, country: str | None) -> float | None:
+        return None
+
+    def get_local_salary_summary(
+        industry: str | None, country: str | None
+    ) -> dict | None:
         return None
 
 
@@ -697,15 +702,34 @@ def _slide_benchmarking_1(data: dict) -> tuple[str, list[dict]]:
         diff_text += f"Hiring Difficulty Score: {hiring_diff}\n"
         diff_text += f"Salary Range: {insights.get('salary_range') or 'TBD'}"
 
+    locations = data.get("locations") or []
+    industry = data.get("industry_label") or data.get("industry")
+    primary_country = (
+        locations[0] if isinstance(locations, list) and locations else None
+    )
+
+    # Currency localization (backlog Q5): for non-US plans, show the role's
+    # salary band in LOCAL currency (GBP/EUR/INR/JPY...) with a USD equivalent,
+    # sourced from intl_role_benchmarks_v1.json where value + currency travel
+    # together. Self-consistent; never relabels a USD figure with a £/€ sign.
+    try:
+        sal = get_local_salary_summary(industry, primary_country)
+        if sal and sal.get("local_display"):
+            line = (
+                f"\nLocal salary benchmark: {sal['local_display']} ({sal['currency']})"
+            )
+            usd_eq = sal.get("usd_display")
+            if usd_eq:
+                line += f" [~{usd_eq} USD]"
+            diff_text += line
+    except Exception:  # pragma: no cover -- never break the deck
+        logger.error("local salary enrichment failed", exc_info=True)
+
     # F2/F3 enrichment: 2026 cited market data + an industry-leader quote.
     # Sourced from data/industry_reports_2026.json and
     # data/ta_leaders_curated_2026.json (built in chatbot session S76-S79b).
     # Each block is independent; either side may silently no-op on miss.
-    locations = data.get("locations") or []
     try:
-        primary_country = (
-            locations[0] if isinstance(locations, list) and locations else None
-        )
         cited = get_cited_metrics_for_country(primary_country, limit=2)
         if cited:
             diff_text += "\n\n2026 Market Data (cited):"
