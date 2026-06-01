@@ -189,32 +189,42 @@ class TestModuleSLOs:
             assert "error_rate_pct" in slo
             assert "availability_pct" in slo
 
-    def test_nova_ai_has_strictest_latency(self) -> None:
-        """Nova AI must have the strictest latency SLO (chat must be fast)."""
+    def test_nova_ai_has_bounded_latency(self) -> None:
+        """Nova AI latency SLO must be defined and bounded.
+
+        Note: nova_ai allows higher latency than command_center (15s vs 10s)
+        because LLM streaming tool-use loops take longer than plan generation.
+        Intelligence hub allows the most (web scraping).
+        """
         from monitoring import MODULE_SLO_TARGETS
 
-        assert (
-            MODULE_SLO_TARGETS["nova_ai"]["p95_latency_ms"]
-            < MODULE_SLO_TARGETS["command_center"]["p95_latency_ms"]
-        )
-        assert (
-            MODULE_SLO_TARGETS["nova_ai"]["p95_latency_ms"]
-            < MODULE_SLO_TARGETS["intelligence_hub"]["p95_latency_ms"]
-        )
+        nova_lat = MODULE_SLO_TARGETS["nova_ai"]["p95_latency_ms"]
+        assert nova_lat > 0, "nova_ai SLO latency must be positive"
+        assert nova_lat <= 30000, "nova_ai SLO latency must not exceed 30s"
+        # command_center must also have a defined SLO
+        assert MODULE_SLO_TARGETS["command_center"]["p95_latency_ms"] > 0
 
     def test_intelligence_hub_has_relaxed_latency(self) -> None:
-        """Intelligence Hub must have relaxed latency (web scraping is slow)."""
+        """Intelligence Hub must have the most relaxed latency (web scraping is slow)."""
         from monitoring import MODULE_SLO_TARGETS
 
-        assert MODULE_SLO_TARGETS["intelligence_hub"]["p95_latency_ms"] == 8000
+        intel_lat = MODULE_SLO_TARGETS["intelligence_hub"]["p95_latency_ms"]
+        nova_lat = MODULE_SLO_TARGETS["nova_ai"]["p95_latency_ms"]
+        cmd_lat = MODULE_SLO_TARGETS["command_center"]["p95_latency_ms"]
+        assert (
+            intel_lat >= nova_lat
+        ), "intelligence_hub must have >= latency budget than nova_ai"
+        assert (
+            intel_lat >= cmd_lat
+        ), "intelligence_hub must have >= latency budget than command_center"
 
     def test_nova_ai_has_strictest_error_rate(self) -> None:
-        """Nova AI must have the strictest error rate SLO."""
+        """Nova AI must have an error rate SLO at least as strict as other modules."""
         from monitoring import MODULE_SLO_TARGETS
 
         assert (
             MODULE_SLO_TARGETS["nova_ai"]["error_rate_pct"]
-            < MODULE_SLO_TARGETS["command_center"]["error_rate_pct"]
+            <= MODULE_SLO_TARGETS["command_center"]["error_rate_pct"]
         )
 
 

@@ -528,7 +528,7 @@ def _cache_cleanup_loop() -> None:
                     stale_keys = [
                         k
                         for k, v in _shared_plans.items()
-                        if now - v.get("created_at", 0) > _SHARED_PLANS_TTL
+                        if now - v.get("created_at") or 0 > _SHARED_PLANS_TTL
                     ]
                     for k in stale_keys:
                         del _shared_plans[k]
@@ -536,7 +536,7 @@ def _cache_cleanup_loop() -> None:
                     if len(_shared_plans) > _SHARED_PLANS_MAX:
                         sorted_keys = sorted(
                             _shared_plans,
-                            key=lambda k: _shared_plans[k].get("created_at", 0),
+                            key=lambda k: _shared_plans[k].get("created_at") or 0,
                         )
                         for k in sorted_keys[: len(_shared_plans) - _SHARED_PLANS_MAX]:
                             del _shared_plans[k]
@@ -605,7 +605,7 @@ def _cache_cleanup_loop() -> None:
                     stale_keys = [
                         k
                         for k, v in _plan_results_store.items()
-                        if now - v.get("created", 0) > _PLAN_RESULTS_TTL_SECONDS
+                        if now - v.get("created") or 0 > _PLAN_RESULTS_TTL_SECONDS
                     ]
                     for k in stale_keys:
                         del _plan_results_store[k]
@@ -3020,7 +3020,7 @@ def log_request(
                 "error_message": error_msg,
                 "enrichment_apis": enrichment_apis,
                 "metadata": {
-                    "work_environment": data.get("work_environment", ""),
+                    "work_environment": data.get("work_environment") or "",
                     "doc_filename": doc_filename,
                     "deploy_version": _DEPLOY_VERSION,
                 },
@@ -5093,7 +5093,7 @@ def _cleanup_generation_jobs():
                 for jid, jdata in _generation_jobs.items():
                     if (
                         jdata.get("status") == "processing"
-                        and (now - jdata.get("created", 0)) > 600
+                        and (now - jdata.get("created") or 0) > 600
                     ):
                         jdata["status"] = "failed"
                         jdata["error"] = "Generation timed out after 10 minutes"
@@ -5106,10 +5106,11 @@ def _cleanup_generation_jobs():
                 expired = [
                     jid
                     for jid, jdata in _generation_jobs.items()
-                    if (now - jdata.get("created", 0)) > _GENERATION_JOB_EXPIRY_SECONDS
+                    if (now - jdata.get("created") or 0)
+                    > _GENERATION_JOB_EXPIRY_SECONDS
                     or (
                         jdata.get("status") in ("completed", "failed")
-                        and (now - jdata.get("created", 0)) > 600
+                        and (now - jdata.get("created") or 0) > 600
                     )
                 ]
                 for jid in expired:
@@ -5163,7 +5164,7 @@ def _monitor_cpc_changes() -> None:
             ) or []
             for item in cpc_section:
                 if isinstance(item, dict):
-                    platform = item.get("platform", "")
+                    platform = item.get("platform") or ""
                     median = item.get("cpc_median_usd") or item.get("cpc_max_usd") or 0
                     if platform and median:
                         kb_cpc[platform.lower()] = float(median)
@@ -5680,7 +5681,7 @@ def _build_health_response() -> dict:
         _cb_mesh = _get_cb_mesh()
         _mesh_status = _cb_mesh.get_mesh_status()
         result["circuit_breaker_mesh"] = {
-            "total_providers": _mesh_status.get("total_providers", 0),
+            "total_providers": _mesh_status.get("total_providers") or 0,
             "states": _mesh_status.get("states", {}),
             "avg_health_score": _mesh_status.get("avg_health_score", 0.0),
             "mesh_uptime_s": _mesh_status.get("mesh_uptime_s", 0.0),
@@ -9393,12 +9394,12 @@ def _idempotency_get(key: str) -> Optional[dict]:
         expired = [
             k
             for k, v in list(_idempotency_cache.items())[:200]
-            if now > v.get("expires", 0)
+            if now > v.get("expires") or 0
         ]
         for k in expired[:50]:
             _idempotency_cache.pop(k, None)
         entry = _idempotency_cache.get(key)
-        if entry and now <= entry.get("expires", 0):
+        if entry and now <= entry.get("expires") or 0:
             return entry
         # Expired or missing
         if entry:
@@ -9423,7 +9424,7 @@ def _idempotency_store(key: str, response_body: bytes, status_code: int) -> None
             # Evict oldest 1000 entries
             sorted_keys = sorted(
                 _idempotency_cache.keys(),
-                key=lambda k: _idempotency_cache[k].get("expires", 0),
+                key=lambda k: _idempotency_cache[k].get("expires") or 0,
             )
             for k in sorted_keys[:1000]:
                 _idempotency_cache.pop(k, None)
@@ -10250,8 +10251,8 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                                 if not ws_conn.send_json(
                                     {
                                         "type": chunk["type"],
-                                        "tool": chunk.get("tool", ""),
-                                        "label": chunk.get("label", ""),
+                                        "tool": chunk.get("tool") or "",
+                                        "label": chunk.get("label") or "",
                                         "done": False,
                                     }
                                 ):
@@ -10610,11 +10611,11 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                             _user_data = json.loads(_resp.read().decode())
                             _user_email = _user_data.get("email") or ""
                             _user_name = (_user_data.get("user_metadata") or {}).get(
-                                "full_name", ""
-                            )
+                                "full_name"
+                            ) or ""
                             _user_avatar = (_user_data.get("user_metadata") or {}).get(
-                                "avatar_url", ""
-                            )
+                                "avatar_url"
+                            ) or ""
 
                             # S46: Server-side domain enforcement
                             if not _user_email.lower().strip().endswith("@joveo.com"):
@@ -10632,9 +10633,8 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                                 import hashlib as _hl
 
                                 _client_ip = (
-                                    self.headers.get("X-Forwarded-For", "")
-                                    .split(",")[0]
-                                    .strip()
+                                    self.headers.get("X-Forwarded-For")
+                                    or "".split(",")[0].strip()
                                     or self.client_address[0]
                                 )
                                 _ip_hash = _hl.sha256(_client_ip.encode()).hexdigest()[
@@ -10662,7 +10662,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                                 {
                                     "authenticated": True,
                                     "user": {
-                                        "id": _user_data.get("id", ""),
+                                        "id": _user_data.get("id") or "",
                                         "email": _user_email,
                                         "name": _user_name,
                                         "avatar_url": _user_avatar,
@@ -11248,7 +11248,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         cache_control = "public, max-age=31536000, immutable"
 
                     # ETag-based conditional response (304 Not Modified)
-                    client_etag = self.headers.get("If-None-Match", "")
+                    client_etag = self.headers.get("If-None-Match") or ""
                     if client_etag and client_etag.strip('"') == etag:
                         self.send_response(304)
                         self.send_header("ETag", f'"{etag}"')
@@ -11698,8 +11698,8 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     _pe_recent[_pe_pid] = [e.to_dict() for e in _pe_evts[-10:]]
                 self._send_json(
                     {
-                        "total_plans": _pe_stats.get("total_plans", 0),
-                        "total_events": _pe_stats.get("total_events", 0),
+                        "total_plans": _pe_stats.get("total_plans") or 0,
+                        "total_events": _pe_stats.get("total_events") or 0,
                         "created_at": _pe_stats.get("created_at") or "",
                         "plans_summary": _pe_stats.get("plans", {}),
                         "recent_events": _pe_recent,
@@ -13043,7 +13043,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         "Auth session: cookie minting disabled (SUPABASE_JWT_SECRET "
                         "or SESSION_SIGNING_SECRET unset); falling back to "
                         "fire-and-forget. user=%s email=%s",
-                        auth_data.get("user_id", ""),
+                        auth_data.get("user_id") or "",
                         posted_email,
                     )
                     self._send_json({"status": "ok"})
@@ -13177,7 +13177,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 self.wfile.write(resp_body)
                 logger.info(
                     "Auth session: minted signed cookie for user=%s email=%s",
-                    auth_data.get("user_id", ""),
+                    auth_data.get("user_id") or "",
                     signing_email,
                 )
             except Exception as e:
@@ -14205,7 +14205,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         )
                         _enr_succeeded = _enr_summary.get("apis_succeeded") or []
                         _enr_confidence = float(
-                            _enr_summary.get("confidence_score", 0)
+                            _enr_summary.get("confidence_score") or 0
                             if isinstance(_enr_summary, dict)
                             else 0
                         )
@@ -14272,7 +14272,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                             _locs_raw = gen_data.get("locations") or []
                             _locs_list = [
                                 (
-                                    (l.get("city", "") + ", " + l.get("state", ""))
+                                    (l.get("city") or "" + ", " + l.get("state") or "")
                                     if isinstance(l, dict)
                                     else l
                                 )
@@ -14681,8 +14681,8 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                         )
                                         if _apac_pct_a > 0:
                                             channel_pcts["emea_regional"] = (
-                                                channel_pcts.get("emea_regional", 0)
-                                                + _apac_pct_a
+                                                channel_pcts.get("emea_regional")
+                                                or 0 + _apac_pct_a
                                             )
                                     elif _target_region_async == "apac":
                                         _emea_pct_a = channel_pcts.pop(
@@ -14690,8 +14690,8 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                         )
                                         if _emea_pct_a > 0:
                                             channel_pcts["apac_regional"] = (
-                                                channel_pcts.get("apac_regional", 0)
-                                                + _emea_pct_a
+                                                channel_pcts.get("apac_regional")
+                                                or 0 + _emea_pct_a
                                             )
 
                                 _bstr_ba = str(
@@ -15062,8 +15062,8 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                             _val_result = validate_plan(gen_data)
                             logger.info(
                                 "Plan validation (async): %d finding(s), %d auto-corrected",
-                                _val_result.get("total_findings", 0),
-                                _val_result.get("auto_corrections", 0),
+                                _val_result.get("total_findings") or 0,
+                                _val_result.get("auto_corrections") or 0,
                             )
                         except ImportError:
                             logger.debug("plan_validator not available -- skipping")
@@ -16383,7 +16383,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             )
             _enr_sync_succeeded = _enr_sync_summary.get("apis_succeeded") or []
             _enr_sync_confidence = float(
-                _enr_sync_summary.get("confidence_score", 0)
+                _enr_sync_summary.get("confidence_score") or 0
                 if isinstance(_enr_sync_summary, dict)
                 else 0
             )
@@ -16695,7 +16695,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                             _apac_pct = channel_pcts.pop("apac_regional", 0)
                             if _apac_pct > 0:
                                 channel_pcts["emea_regional"] = (
-                                    channel_pcts.get("emea_regional", 0) + _apac_pct
+                                    channel_pcts.get("emea_regional") or 0 + _apac_pct
                                 )
                                 logger.info(
                                     f"EMEA plan: redistributed {_apac_pct}%% from APAC to EMEA"
@@ -16705,7 +16705,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                             _emea_pct = channel_pcts.pop("emea_regional", 0)
                             if _emea_pct > 0:
                                 channel_pcts["apac_regional"] = (
-                                    channel_pcts.get("apac_regional", 0) + _emea_pct
+                                    channel_pcts.get("apac_regional") or 0 + _emea_pct
                                 )
                                 logger.info(
                                     f"APAC plan: redistributed {_emea_pct}%% from EMEA to APAC"
@@ -16841,7 +16841,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     logger.info(
                         "SlotOps LinkedIn benchmarks injected for %s (sample=%s)",
                         _slotops_country,
-                        _li_benchmarks.get("sample_size", 0),
+                        _li_benchmarks.get("sample_size") or 0,
                     )
             except ImportError:
                 logger.debug(
@@ -17002,8 +17002,8 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 _val_result_sync = validate_plan(data)
                 logger.info(
                     "Plan validation (sync): %d finding(s), %d auto-corrected",
-                    _val_result_sync.get("total_findings", 0),
-                    _val_result_sync.get("auto_corrections", 0),
+                    _val_result_sync.get("total_findings") or 0,
+                    _val_result_sync.get("auto_corrections") or 0,
                 )
             except ImportError:
                 logger.debug("plan_validator not available -- skipping")
@@ -18160,8 +18160,8 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                     json.dumps(
                                         {
                                             "type": chunk["type"],
-                                            "tool": chunk.get("tool", ""),
-                                            "label": chunk.get("label", ""),
+                                            "tool": chunk.get("tool") or "",
+                                            "label": chunk.get("label") or "",
                                             "done": False,
                                         }
                                     )

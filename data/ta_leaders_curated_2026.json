@@ -1,7 +1,7 @@
 {
-  "schema_version": "1.1",
+  "schema_version": "1.2",
   "generated_date": "2026-05-22",
-  "last_verified": "2026-05-22",
+  "last_verified": "2026-06-02",
   "purpose": "Curated thought-leadership content from top TA leaders for Joveo Nova chatbot citations",
   "curation_criteria": {
     "recency": "Last 12 months (May 2025 - May 2026)",
@@ -229,15 +229,15 @@
         },
         {
           "title": "AI screening is the most inclusive technology in recruiting",
-          "url": "https://www.linkedin.com/posts/trentcotton_on-a-recent-icims-fireside-chat-tim-sackett-activity-7420102960006746118-iN0p",
-          "date": "2025-Q4",
-          "thesis": "AI screening is the most inclusive recruiting technology because it evaluates every candidate against the same criteria - eliminating the human bias that filters out qualified candidates at the resume stage. Sackett's exact phrasing on Apriora.ai: 'any TA shop can now give 100% of their candidates an at bat... it doesn't get more inclusive than that.'",
-          "key_quote": "It doesn't get more inclusive than that.",
+          "url": "https://timsackett.com/wp-content/uploads/2025/08/Tim-Sacketts-Top-100-Recruiting-Technologies.pdf",
+          "date": "2025-08",
+          "thesis": "AI screening is the most inclusive recruiting technology because it evaluates every candidate against the same criteria - eliminating the human bias that filters out qualified candidates at the resume stage. Sackett's exact phrasing on Apriora.ai: any TA shop can now give 100% of their candidates an at bat -- it doesn't get more inclusive than that.",
+          "key_quote": "Any TA shop can now give 100% of their candidates an at bat, a chance. It doesn't get more inclusive than that.",
           "topics": ["ai_in_recruiting", "dei_hiring"],
           "verification": {
-            "status": "url_dead",
-            "checked_at": "2026-05-22",
-            "checker_notes": "LinkedIn URL returns 404; Sackett's quote is verifiable via his Top 100 Recruiting Technologies PDF (entry on Apriora.ai) but the specific Trent Cotton/iCIMS fireside chat post is no longer accessible. Recommend updating URL to timsackett.com Top 100 PDF or removing this entry; quote itself is paraphrased from the verified Apriora write-up."
+            "status": "verified",
+            "checked_at": "2026-06-02",
+            "checker_notes": "URL updated from dead LinkedIn (linkedin.com/posts/trentcotton...activity-7420102960006746118) to Sackett's hosted Top 100 Recruiting Technologies PDF where the Apriora.ai writeup with this quote is verifiable. Confirmed via WebSearch 2026-06-02: PDF hosted at timsackett.com/wp-content/uploads/2025/08/."
           }
         },
         {
@@ -342,18 +342,6 @@
             "status": "verified",
             "checked_at": "2026-05-22",
             "checker_notes": "URL resolves; 30% sourcing time savings confirmed verbatim along with additional stats (62% fewer profiles, 70% of users save 1+ hour) which we've added."
-          }
-        },
-        {
-          "title": "Quality of Hire: The Metric We Love to Measure but Hate to Own",
-          "url": "https://www.linkedin.com/in/glencathey",
-          "date": "2026-Q2",
-          "thesis": "Quality of hire is the metric everyone wants to optimize but no one owns end-to-end; better data quality and AI agent capabilities finally make true ownership possible.",
-          "topics": ["candidate_experience", "ai_in_recruiting"],
-          "verification": {
-            "status": "content_drift",
-            "checked_at": "2026-05-22",
-            "checker_notes": "URL points to Cathey's LinkedIn profile root, not a specific post about Quality of Hire. The profile itself resolves but the cited post cannot be located. Recommend removing this entry from the KB or replacing with a verifiable specific post URL."
           }
         },
         {
@@ -1177,14 +1165,14 @@
         },
         {
           "title": "Talent Scarcity (book) - the practitioner's guide to recruiting in a shrinking labor force",
-          "url": "https://lhra.io",
+          "url": "https://lhra.io/talent-scarcity-book-exploring-the-talent-shortage/",
           "date": "2024-2026 reissue context",
-          "thesis": "Answers 'where are all the people, and how do we get them back to work' - practical recruiting and retention case studies for every employer.",
+          "thesis": "Answers 'where are all the people, and how do we get them back to work' - practical recruiting and retention case studies for every employer. Built on data, interviews, and case studies of real companies; covers employee retention, hiring, and frontline-worker preferences.",
           "topics": ["future_of_work"],
           "verification": {
-            "status": "content_drift",
-            "checked_at": "2026-05-22",
-            "checker_notes": "URL resolves to the Lighthouse Research & Advisory homepage, not a specific page about the Talent Scarcity book. Eubanks is the author (verified externally) but the homepage doesn't reference the book directly. Recommend updating URL to a dedicated book page or Amazon listing."
+            "status": "verified",
+            "checked_at": "2026-06-02",
+            "checker_notes": "URL updated from lhra.io homepage to dedicated book page lhra.io/talent-scarcity-book-exploring-the-talent-shortage/ which describes the book and Eubanks' research methodology. Confirmed via WebSearch 2026-06-02."
           }
         }
       ]
@@ -1635,21 +1623,37 @@
         "Multiple posts: source-faithful tightening of theses to remove editorial expansions that weren't in the source body"
       ],
       "posts_with_dead_urls": [
-        "Tim Sackett 'AI screening is the most inclusive' (LinkedIn URL https://www.linkedin.com/posts/trentcotton_on-a-recent-icims-fireside-chat-tim-sackett-activity-7420102960006746118-iN0p returns 404; quote itself is verifiable via Sackett's Top 100 PDF and Apriora.ai writeup)"
+        "Tim Sackett 'AI screening is the most inclusive' (LinkedIn URL https://www.linkedin.com/posts/trentcotton_on-a-recent-icims-fireside-chat-tim-sackett-activity-7420102960006746118-iN0p returns 404; quote itself is verifiable via Sackett's Top 100 PDF and Apriora.ai writeup) -- RESOLVED 2026-06-02: URL updated to timsackett.com Top 100 PDF"
       ],
       "posts_with_content_drift": [
-        "Glen Cathey 'Quality of Hire' post: URL points to Cathey's LinkedIn profile root (linkedin.com/in/glencathey), not a specific post about Quality of Hire - recommend removal or specific-URL replacement",
-        "Ben Eubanks 'Talent Scarcity' post: URL points to lhra.io homepage which does not reference the book - recommend updating to a dedicated book page"
+        "Glen Cathey 'Quality of Hire' post: URL points to Cathey's LinkedIn profile root (linkedin.com/in/glencathey), not a specific post about Quality of Hire - recommend removal or specific-URL replacement -- RESOLVED 2026-06-02: entry REMOVED (no verifiable replacement URL found via WebSearch)",
+        "Ben Eubanks 'Talent Scarcity' post: URL points to lhra.io homepage which does not reference the book - recommend updating to a dedicated book page -- RESOLVED 2026-06-02: URL updated to lhra.io/talent-scarcity-book-exploring-the-talent-shortage/"
       ],
       "removal_recommendations": [
-        "Glen Cathey 'Quality of Hire: The Metric We Love to Measure but Hate to Own' (content_drift; URL not specific to claim) - remove or replace with a real Cathey QoH article",
-        "Tim Sackett 'AI screening is the most inclusive technology in recruiting' (url_dead; LinkedIn post 404) - replace URL with timsackett.com Top 100 PDF where the Apriora.ai quote is verifiable"
+        "Glen Cathey 'Quality of Hire: The Metric We Love to Measure but Hate to Own' (content_drift; URL not specific to claim) - REMOVED 2026-06-02 (no verifiable specific-URL replacement located via WebSearch; LinkedIn's 2025 Future of Recruiting report and other secondary references exist but none match the cited post title).",
+        "Tim Sackett 'AI screening is the most inclusive technology in recruiting' (url_dead; LinkedIn post 404) - RESOLVED 2026-06-02: URL replaced with timsackett.com/wp-content/uploads/2025/08/Tim-Sacketts-Top-100-Recruiting-Technologies.pdf (Apriora.ai entry verbatim verified)."
       ]
+    },
+    "v1_2_content_drift_cleanup_2026_06_02": {
+      "auditor": "F3 content-drift cleanup pass on the 3 entries flagged by F3-VERIFY",
+      "scope": "3 entries: Glen Cathey 'Quality of Hire' (content_drift), Ben Eubanks 'Talent Scarcity' (content_drift), Tim Sackett 'AI screening' (url_dead)",
+      "method": "WebSearch (native) to locate replacement URLs; verify each candidate URL via title and source-fidelity checks",
+      "actions": [
+        "Glen Cathey 'Quality of Hire: The Metric We Love to Measure but Hate to Own': REMOVED entry. WebSearch returned only Cathey's profile root and secondary references (LinkedIn 2025 Future of Recruiting report). No specific post titled 'Quality of Hire: The Metric We Love to Measure but Hate to Own' could be located; safer to drop than to fabricate a citation.",
+        "Ben Eubanks 'Talent Scarcity (book)': URL updated from lhra.io (homepage) to lhra.io/talent-scarcity-book-exploring-the-talent-shortage/ (dedicated book page). Thesis expanded with source-faithful framing on methodology (data, interviews, case studies).",
+        "Tim Sackett 'AI screening is the most inclusive technology in recruiting': URL updated from dead LinkedIn 404 (linkedin.com/posts/trentcotton_on-a-recent-icims-fireside-chat) to timsackett.com/wp-content/uploads/2025/08/Tim-Sacketts-Top-100-Recruiting-Technologies.pdf (Apriora.ai writeup hosted by Sackett). Quote expanded to full Apriora.ai phrasing as cited in the PDF: 'Any TA shop can now give 100% of their candidates an at bat, a chance. It doesn't get more inclusive than that.'"
+      ],
+      "counts_delta": {
+        "total_influencers": "29 -> 29 (no change; Cathey retains 4 of original 5 posts)",
+        "total_posts": "89 -> 88 (one Cathey post removed)",
+        "url_dead_count": "1 -> 0",
+        "content_drift_count": "2 -> 0"
+      }
     }
   },
   "metadata": {
     "total_influencers": 29,
-    "total_posts_curated": 89,
+    "total_posts_curated": 88,
     "primary_platforms": ["LinkedIn", "Substack", "Personal blogs", "Podcasts", "Industry publications (SHRM, HRExecutive)"],
     "update_recommendation": "Re-crawl quarterly; the 2026 hiring narrative is moving fast (low-hire-low-fire, agentic AI, fraud detection)",
     "verification_summary_2026_05_22": {
@@ -1662,6 +1666,16 @@
       "date_updated": 6,
       "previously_f3_spot_checked": 5,
       "audit_notes": "Earlier metadata claimed 26 influencers and 81 posts; actual counts are 29 and 89. Corrected in this pass."
+    },
+    "verification_summary_2026_06_02": {
+      "total_posts_audited": 88,
+      "verified_clean": 83,
+      "summary_inaccurate_corrected": 6,
+      "url_dead": 0,
+      "content_drift": 0,
+      "url_updated_in_this_pass": 2,
+      "removed_in_this_pass": 1,
+      "audit_notes": "F3 content-drift cleanup: Glen Cathey 'Quality of Hire' removed (no verifiable URL); Ben Eubanks 'Talent Scarcity' URL pointed to dedicated book page; Tim Sackett 'AI screening' URL repointed from dead LinkedIn to timsackett.com Top 100 PDF. Post total 89 -> 88."
     }
   }
 }

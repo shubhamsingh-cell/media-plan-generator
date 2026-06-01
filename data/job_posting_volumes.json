@@ -1,5 +1,5 @@
 {
-  "scraped_at": "2026-05-01T20:57:57.273869+00:00",
+  "scraped_at": "2026-06-01T19:45:36.421832+00:00",
   "volumes": {
     "Software Engineer": {
       "role": "Software Engineer",
@@ -10,7 +10,7 @@
       ],
       "trend": "stable",
       "source": "adzuna",
-      "last_updated": "2026-05-01T20:57:57.273869+00:00"
+      "last_updated": "2026-06-01T19:45:36.421832+00:00"
     },
     "Registered Nurse": {
       "role": "Registered Nurse",
@@ -21,7 +21,7 @@
       ],
       "trend": "stable",
       "source": "adzuna",
-      "last_updated": "2026-05-01T20:57:57.273869+00:00"
+      "last_updated": "2026-06-01T19:45:36.421832+00:00"
     },
     "Marketing Manager": {
       "role": "Marketing Manager",
@@ -32,7 +32,7 @@
       ],
       "trend": "stable",
       "source": "adzuna",
-      "last_updated": "2026-05-01T20:57:57.273869+00:00"
+      "last_updated": "2026-06-01T19:45:36.421832+00:00"
     },
     "Sales Representative": {
       "role": "Sales Representative",
@@ -43,7 +43,7 @@
       ],
       "trend": "stable",
       "source": "adzuna",
-      "last_updated": "2026-05-01T20:57:57.273869+00:00"
+      "last_updated": "2026-06-01T19:45:36.421832+00:00"
     },
     "Data Analyst": {
       "role": "Data Analyst",
@@ -54,7 +54,7 @@
       ],
       "trend": "stable",
       "source": "adzuna",
-      "last_updated": "2026-05-01T20:57:57.273869+00:00"
+      "last_updated": "2026-06-01T19:45:36.421832+00:00"
     }
   }
 }

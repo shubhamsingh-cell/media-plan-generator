@@ -74,7 +74,7 @@ def save_baseline() -> None:
     print(f"Saved {count} baseline screenshot(s) to {BASELINE_DIR}")
 
 
-def compare_screenshots() -> dict[str, bool | None]:
+def compare_screenshots() -> "Dict[str, Optional[bool]]":
     """Compare current screenshots against baselines.
 
     Uses a simple file-size heuristic: if the size difference is less
@@ -84,7 +84,9 @@ def compare_screenshots() -> dict[str, bool | None]:
         Dict mapping page name to True (pass), False (diff), or None
         (no baseline exists).
     """
-    results: dict[str, bool | None] = {}
+    from typing import Dict, Optional
+
+    results: Dict[str, Optional[bool]] = {}
 
     for f in CURRENT_DIR.glob("*.png"):
         baseline = BASELINE_DIR / f.name

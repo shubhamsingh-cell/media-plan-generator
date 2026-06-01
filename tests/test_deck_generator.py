@@ -179,51 +179,50 @@ class TestSlideCount:
 
 
 class TestUsageTracking:
-    """Test monthly usage tracking and limits."""
+    """Test monthly usage tracking and limits.
+
+    NOTE: _TIER_LIMITS is now empty -- all current tiers (google_slides, pptx)
+    are unlimited. These tests cover the tracking infrastructure and the
+    unlimited-tier fast path.
+    """
 
     def test_check_and_increment_unlimited(self) -> None:
         """Tiers without limits should always return True."""
         from deck_generator import _check_and_increment
 
-        assert _check_and_increment("presenton") is True
         assert _check_and_increment("pptx") is True
         assert _check_and_increment("google_slides") is True
-
-    def test_check_and_increment_with_limit(self) -> None:
-        """Tiers with limits should track usage and enforce limits."""
-        from deck_generator import _check_and_increment, _get_usage, _TIER_LIMITS
-
-        # Gamma has limit of 10
-        for i in range(10):
-            assert _check_and_increment("gamma") is True
-            assert _get_usage("gamma") == i + 1
-
-        # 11th should fail
-        assert _check_and_increment("gamma") is False
+        assert _check_and_increment("unknown_tier") is True  # Unknown = unlimited
 
     def test_usage_resets_on_month_change(self) -> None:
-        """Usage should reset when the month changes."""
+        """Usage should reset when the month changes (infrastructure test)."""
         import deck_generator
 
-        # Manually set usage
+        # Manually inject a limited tier for test purposes
         with deck_generator._usage_lock:
+            deck_generator._TIER_LIMITS["_test_tier"] = 5
             deck_generator._usage_month = "2020-01"
-            deck_generator._monthly_usage = {"gamma": 100}
+            deck_generator._monthly_usage = {"_test_tier": 100}
 
-        # Next call should see a new month and reset
-        assert deck_generator._check_and_increment("gamma") is True
-        assert deck_generator._get_usage("gamma") == 1
+        try:
+            # Next call should see a new month and reset
+            assert deck_generator._check_and_increment("_test_tier") is True
+            assert deck_generator._get_usage("_test_tier") == 1
+        finally:
+            with deck_generator._usage_lock:
+                del deck_generator._TIER_LIMITS["_test_tier"]
+                deck_generator._monthly_usage.pop("_test_tier", None)
 
     def test_thread_safety(self) -> None:
-        """Usage tracking should be thread-safe."""
-        from deck_generator import _check_and_increment, _get_usage
+        """Usage tracking should be thread-safe with unlimited tiers."""
+        from deck_generator import _check_and_increment
 
         errors: list[str] = []
         results: list[bool] = []
 
         def increment() -> None:
             try:
-                result = _check_and_increment("flashdocs")
+                result = _check_and_increment("pptx")  # unlimited tier
                 results.append(result)
             except Exception as exc:
                 errors.append(str(exc))
@@ -236,40 +235,15 @@ class TestUsageTracking:
 
         assert not errors, f"Thread safety errors: {errors}"
         assert len(results) == 100
-        # All 100 should succeed (limit is 5000)
-        assert all(results)
-        assert _get_usage("flashdocs") == 100
+        assert all(results)  # All unlimited calls succeed
 
 
 class TestTierSkipping:
     """Test that tiers skip gracefully when not configured."""
 
-    def test_presenton_skips_without_env(
-        self, generator: "deck_generator.DeckGenerator", sample_data: dict
-    ) -> None:
-        """Presenton should return None when PRESENTON_URL not set."""
-        with patch.dict(os.environ, {}, clear=False):
-            os.environ.pop("PRESENTON_URL", None)
-            result = generator._try_presenton(sample_data)
-            assert result is None
-
-    def test_gamma_skips_without_env(
-        self, generator: "deck_generator.DeckGenerator", sample_data: dict
-    ) -> None:
-        """Gamma should return None when GAMMA_API_KEY not set."""
-        with patch.dict(os.environ, {}, clear=False):
-            os.environ.pop("GAMMA_API_KEY", None)
-            result = generator._try_gamma(sample_data)
-            assert result is None
-
-    def test_magicslides_skips_without_env(
-        self, generator: "deck_generator.DeckGenerator", sample_data: dict
-    ) -> None:
-        """MagicSlides should return None when MAGICSLIDES_API_KEY not set."""
-        with patch.dict(os.environ, {}, clear=False):
-            os.environ.pop("MAGICSLIDES_API_KEY", None)
-            result = generator._try_magicslides(sample_data)
-            assert result is None
+    # NOTE: Presenton, Gamma, MagicSlides, Alai, and FlashDocs tiers were
+    # removed in the deck_generator simplification (S80). Only google_slides
+    # and pptx remain as tiers. Tests below cover the surviving tiers.
 
     def test_google_slides_skips_without_env(
         self, generator: "deck_generator.DeckGenerator", sample_data: dict
@@ -280,22 +254,14 @@ class TestTierSkipping:
             result = generator._try_google_slides(sample_data)
             assert result is None
 
-    def test_alai_skips_without_env(
+    def test_google_slides_skips_without_credentials(
         self, generator: "deck_generator.DeckGenerator", sample_data: dict
     ) -> None:
-        """Alai should return None when ALAI_API_KEY not set."""
+        """Google Slides should return None when credentials not set."""
         with patch.dict(os.environ, {}, clear=False):
-            os.environ.pop("ALAI_API_KEY", None)
-            result = generator._try_alai(sample_data)
-            assert result is None
-
-    def test_flashdocs_skips_without_env(
-        self, generator: "deck_generator.DeckGenerator", sample_data: dict
-    ) -> None:
-        """FlashDocs should return None when FLASHDOCS_API_KEY not set."""
-        with patch.dict(os.environ, {}, clear=False):
-            os.environ.pop("FLASHDOCS_API_KEY", None)
-            result = generator._try_flashdocs(sample_data)
+            os.environ.pop("GOOGLE_SLIDES_CREDENTIALS_B64", None)
+            os.environ.pop("GOOGLE_SLIDES_CREDENTIALS", None)
+            result = generator._try_google_slides(sample_data)
             assert result is None
 
 
@@ -369,13 +335,10 @@ class TestGenerateFallback:
     def test_force_tier_unconfigured_raises(
         self, generator: "deck_generator.DeckGenerator", sample_data: dict
     ) -> None:
-        """force_tier to unconfigured tier should raise DeckGenerationError."""
-        from deck_generator import DeckGenerationError
-
-        with patch.dict(os.environ, {}, clear=False):
-            os.environ.pop("GAMMA_API_KEY", None)
-            with pytest.raises(DeckGenerationError):
-                generator.generate(sample_data, force_tier="gamma")
+        """force_tier to an unknown tier should raise ValueError."""
+        # gamma/presenton/etc. tiers no longer exist -- unknown tier raises ValueError
+        with pytest.raises(ValueError, match="Unknown tier"):
+            generator.generate(sample_data, force_tier="gamma")
 
 
 class TestGetStatus:
@@ -388,7 +351,10 @@ class TestGetStatus:
         assert "tiers" in status
         assert "total_tiers" in status
         assert "available_tiers" in status
-        assert status["total_tiers"] == 7
+        import deck_generator as _dg
+
+        # 2 tiers: google_slides + pptx (other tiers removed in S80 simplification)
+        assert status["total_tiers"] == len(_dg._TIERS)
 
     def test_status_tier_fields(
         self, generator: "deck_generator.DeckGenerator"
@@ -415,13 +381,17 @@ class TestGetStatus:
     def test_unconfigured_tiers(
         self, generator: "deck_generator.DeckGenerator"
     ) -> None:
-        """Tiers without env vars should show as not configured."""
+        """Google Slides should show as not configured when credentials missing."""
         with patch.dict(os.environ, {}, clear=False):
-            os.environ.pop("GAMMA_API_KEY", None)
+            os.environ.pop("GOOGLE_SLIDES_CREDENTIALS_B64", None)
+            os.environ.pop("GOOGLE_SLIDES_CREDENTIALS", None)
             status = generator.get_status()
-            gamma_tier = next(t for t in status["tiers"] if t["tier"] == "gamma")
-            assert gamma_tier["configured"] is False
-            assert gamma_tier["available"] is False
+            gs_tier = next(
+                (t for t in status["tiers"] if t["tier"] == "google_slides"), None
+            )
+            assert gs_tier is not None, "google_slides tier must appear in status"
+            assert gs_tier["configured"] is False
+            assert gs_tier["available"] is False
 
     def test_at_least_one_available(
         self, generator: "deck_generator.DeckGenerator"

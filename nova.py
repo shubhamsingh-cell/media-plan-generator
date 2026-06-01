@@ -627,6 +627,7 @@ _TOOL_ERROR_FALLBACK_MESSAGES: dict[str, str] = {
     "query_uk_ons": "UK ONS labor data is temporarily unavailable, but I can reference our international benchmarks for UK hiring.",
     "query_statcan": "Statistics Canada data is temporarily unavailable, but I can reference our international benchmarks for Canadian markets.",
     "query_oecd_sdmx": "OECD SDMX cross-country labour data is temporarily unavailable, but I can reference our international benchmarks for OECD markets.",
+    "query_esco_occupations": "ESCO occupation taxonomy is temporarily unavailable, but I can describe roles and skills from our internal role taxonomy and benchmark knowledge base.",
     "query_kb_semantic": "Semantic knowledge-base retrieval (RAG v2) is currently disabled or unavailable; I can still answer from the standard knowledge base lookup tools.",
     "query_careerjet": "CareerJet international job search is temporarily unavailable, but I can provide global job market insights from our knowledge base.",
     "query_bea": "Bureau of Economic Analysis data is temporarily unavailable. Try query_regional_economics for state-level GDP, income, and employment data.",
@@ -1622,6 +1623,7 @@ _TOOL_LABELS: Dict[str, str] = {
     "query_uk_ons": "Querying UK ONS labor statistics",
     "query_statcan": "Querying Statistics Canada labor data",
     "query_oecd_sdmx": "Querying OECD SDMX labour statistics",
+    "query_esco_occupations": "Querying ESCO occupation taxonomy",
     "query_kb_semantic": "Searching Nova knowledge base (semantic + BM25)",
     "query_careerjet": "Searching CareerJet international jobs",
     "query_bea": "Querying Bureau of Economic Analysis data",
@@ -6441,6 +6443,63 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 },
             },
             {
+                "name": "query_esco_occupations",
+                "description": (
+                    "Query the ESCO (European Skills/Competences/Occupations) "
+                    "taxonomy -- the EU standardized vocabulary of 3,000+ "
+                    "occupations and 13,890 skills with multilingual labels "
+                    "in 27+ languages. Use for: 'what skills does role X "
+                    "need', 'alternative job titles for X', occupation "
+                    "descriptions and ISCO-08 group mapping, multilingual "
+                    "title translations for EU recruitment. ESCO is EU-wide; "
+                    "pair with query_oecd_sdmx or query_eurostat for "
+                    "country-specific labour data."
+                ),
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": (
+                                "Free-text occupation title to search "
+                                "(e.g. 'data scientist', 'registered "
+                                "nurse', 'warehouse worker')."
+                            ),
+                        },
+                        "language": {
+                            "type": "string",
+                            "description": (
+                                "Target language code (default 'en'). "
+                                "Supported: en, de, fr, es, it, nl, pt, pl, "
+                                "sv, da, fi, no, cs, sk, hu, ro, bg, el, et, "
+                                "ga, hr, is, lt, lv, mt, sl, ar. Locale "
+                                "strings like 'en-US' are accepted. "
+                                "Unsupported codes fall back to 'en'."
+                            ),
+                        },
+                        "limit": {
+                            "type": "integer",
+                            "description": (
+                                "Max occupations to return (default 10, "
+                                "max 50). Top 3 hits are enriched with "
+                                "skills and ISCO group; remaining hits "
+                                "return labels + ISCO code only."
+                            ),
+                        },
+                        "country": {
+                            "type": "string",
+                            "description": (
+                                "Optional country context for display "
+                                "(e.g. 'DE', 'France'). ESCO itself is "
+                                "EU-wide and ignores this; it is echoed "
+                                "back for downstream presentation only."
+                            ),
+                        },
+                    },
+                    "required": ["query"],
+                },
+            },
+            {
                 "name": "query_kb_semantic",
                 "description": (
                     "Hybrid semantic + BM25 retrieval over the Nova "
@@ -6729,6 +6788,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             "query_uk_ons": self._query_uk_ons,
             "query_statcan": self._query_statcan,
             "query_oecd_sdmx": self._query_oecd_sdmx,
+            "query_esco_occupations": self._query_esco_occupations,
             "query_kb_semantic": self._query_kb_semantic,
             "query_careerjet": self._query_careerjet,
             "query_bea": self._query_bea,
@@ -13759,6 +13819,131 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 "country": country,
                 "dataset": dataset,
                 "data": [],
+            }
+
+    def _query_esco_occupations(self, args: dict) -> dict:
+        """Query the ESCO occupation/skills taxonomy (EU standard, public API).
+
+        Wraps :func:`fetch_esco_occupations` from ``api_enrichment``. ESCO
+        provides 3,000+ standardized occupations with 13,890 skills mapped,
+        plus multilingual labels in 27+ EU languages. Useful for "what skills
+        does role X need", "alternative titles for role X", and cross-country
+        EU recruitment context.
+
+        Args:
+            args: Tool input dict with keys:
+                - ``query`` (str, required): Free-text occupation title
+                  (e.g. ``"data scientist"``, ``"registered nurse"``).
+                - ``language`` (str, optional): Target language code
+                  (default ``"en"``). Locale strings like ``"en-US"`` are
+                  accepted. Unsupported codes fall back to ``"en"``.
+                - ``limit`` (int, optional): Max occupations to return
+                  (default 10, max 50).
+                - ``country`` (str, optional): Country context for the
+                  caller. ESCO itself is EU-wide and ignores this; we keep
+                  it on the response for downstream display only.
+
+        Returns:
+            Structured dict with ``occupations`` (list of {uri,
+            preferred_label, alternative_labels, description, isco_code,
+            isco_group, essential_skills, optional_skills}), ``source``
+            (``"ESCO API"``), ``count``, ``total_matches``, and ``tool``
+            ``"query_esco_occupations"``. Cached for 24h in Upstash.
+            Errors are returned in-band with an ``error`` key; this method
+            never raises.
+        """
+        query = (args.get("query") or "").strip()
+        language = (args.get("language") or "en").strip()
+        try:
+            limit = int(args.get("limit") or 10)
+        except (TypeError, ValueError):
+            limit = 10
+        country_context = (args.get("country") or "").strip()
+
+        if not query:
+            return {
+                "error": "query is required (free-text occupation title)",
+                "source": "ESCO API",
+                "tool": "query_esco_occupations",
+                "query": "",
+                "language": language,
+                "country_context": country_context,
+                "occupations": [],
+                "count": 0,
+                "total_matches": 0,
+            }
+
+        # Stable cache key. Cache success + structured empty results;
+        # transient network errors are returned uncached so retries help.
+        cache_key = "esco:" + json.dumps(
+            {
+                "q": query.lower(),
+                "l": language.lower(),
+                "n": limit,
+            },
+            sort_keys=True,
+        )
+
+        try:
+            cached = _upstash_get(cache_key)
+            if isinstance(cached, dict) and "occupations" in cached:
+                cached.setdefault("tool", "query_esco_occupations")
+                cached["cached"] = True
+                if country_context:
+                    cached["country_context"] = country_context
+                return cached
+        except Exception as exc:  # noqa: BLE001 -- cache must never crash callers
+            logger.warning(f"ESCO cache get failed: {exc}")
+
+        try:
+            from api_enrichment import fetch_esco_occupations
+
+            result = fetch_esco_occupations(
+                query=query,
+                language=language,
+                limit=limit,
+            )
+            result["tool"] = "query_esco_occupations"
+            if country_context:
+                result["country_context"] = country_context
+
+            # Cache successful + structured responses (including zero-match).
+            if not result.get("error") and isinstance(result.get("occupations"), list):
+                try:
+                    _upstash_set(
+                        cache_key,
+                        result,
+                        ttl_seconds=24 * 3600,
+                        category="api",
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning(f"ESCO cache set failed: {exc}")
+            return result
+        except ImportError:
+            logger.error("api_enrichment.fetch_esco_occupations not available")
+            return {
+                "error": "ESCO integration not available",
+                "source": "ESCO API",
+                "tool": "query_esco_occupations",
+                "query": query,
+                "language": language,
+                "country_context": country_context,
+                "occupations": [],
+                "count": 0,
+                "total_matches": 0,
+            }
+        except Exception as exc:
+            logger.error(f"ESCO query failed: {exc}", exc_info=True)
+            return {
+                "error": f"ESCO API error: {str(exc)[:200]}",
+                "source": "ESCO API",
+                "tool": "query_esco_occupations",
+                "query": query,
+                "language": language,
+                "country_context": country_context,
+                "occupations": [],
+                "count": 0,
+                "total_matches": 0,
             }
 
     def _query_kb_semantic(self, params: dict) -> dict:
@@ -25455,6 +25640,7 @@ def _enrich_source_citations(
         "query_uk_ons",
         "query_statcan",
         "query_oecd_sdmx",
+        "query_esco_occupations",
         "query_careerjet",
         "query_bea",
         "check_job_volume",

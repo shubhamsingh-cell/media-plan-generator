@@ -434,6 +434,103 @@ class TestOecdSdmxTool:
 
 
 # ---------------------------------------------------------------------------
+# ESCO occupation taxonomy tool tests (F4 build)
+# ---------------------------------------------------------------------------
+
+
+class TestEscoOccupationsTool:
+    """Verify the _query_esco_occupations tool is wired and behaves offline.
+
+    These tests do NOT hit the network -- they exercise the wiring and the
+    empty-query validation path so CI stays deterministic. Live API smoke
+    tests are documented in docs/F4_ESCO_Integration_Report.md.
+    """
+
+    def test_tool_present_in_definitions(self):
+        nova = _new_nova()
+        names = {t["name"] for t in nova.get_tool_definitions()}
+        assert (
+            "query_esco_occupations" in names
+        ), "query_esco_occupations should be advertised in get_tool_definitions()"
+
+    def test_tool_registered_in_handler_map(self):
+        nova = _new_nova()
+        handlers = nova._tool_handler_map()
+        assert "query_esco_occupations" in handlers
+        assert (
+            handlers["query_esco_occupations"].__func__
+            is nova._query_esco_occupations.__func__
+        )
+
+    def test_tool_schema_well_formed(self):
+        nova = _new_nova()
+        esco = next(
+            t
+            for t in nova.get_tool_definitions()
+            if t["name"] == "query_esco_occupations"
+        )
+        schema = esco["input_schema"]
+        # Only `query` is required; the rest are optional knobs.
+        assert schema["required"] == ["query"]
+        for field in ("query", "language", "limit", "country"):
+            assert field in schema["properties"], f"missing field: {field}"
+        # language is a string with sensible default behavior described.
+        assert schema["properties"]["language"]["type"] == "string"
+        assert schema["properties"]["limit"]["type"] == "integer"
+
+    def test_empty_query_returns_validation_error(self):
+        """Empty query must come back as a structured error, not a crash."""
+        nova = _new_nova()
+        result = nova._query_esco_occupations({"query": "   "})
+        assert result["tool"] == "query_esco_occupations"
+        assert result["source"] == "ESCO API"
+        assert result["occupations"] == []
+        assert result["count"] == 0
+        assert result["total_matches"] == 0
+        assert "query is required" in result["error"]
+
+    def test_country_context_passes_through(self):
+        """Country is for display only -- it should be echoed back, not used
+        as an API filter (ESCO is EU-wide). We trigger the empty-query
+        short-circuit so this stays offline.
+        """
+        nova = _new_nova()
+        result = nova._query_esco_occupations({"query": "", "country": "Germany"})
+        assert result["country_context"] == "Germany"
+        assert result["tool"] == "query_esco_occupations"
+
+    def test_progress_label_present(self):
+        from nova import _TOOL_LABELS
+
+        assert "query_esco_occupations" in _TOOL_LABELS
+        label = _TOOL_LABELS["query_esco_occupations"]
+        # Progress UI should mention ESCO so users recognize the source.
+        assert "ESCO" in label
+
+    def test_graceful_failure_message_registered(self):
+        """When the tool fails at runtime, the chatbot must have a
+        user-friendly fallback string ready -- not a raw stack trace."""
+        from nova import _TOOL_ERROR_FALLBACK_MESSAGES
+
+        assert "query_esco_occupations" in _TOOL_ERROR_FALLBACK_MESSAGES
+        msg = _TOOL_ERROR_FALLBACK_MESSAGES["query_esco_occupations"]
+        assert isinstance(msg, str) and len(msg) > 20
+
+    def test_listed_as_live_source(self):
+        """ESCO is a real upstream API, so freshness disclaimers should NOT
+        be appended when only ESCO data is used. The ``_live_tools`` set
+        guards that logic. We assert by reading the source file rather than
+        importing a private constant from inside a function body."""
+        import nova as nova_mod
+        import re as _re
+
+        src = open(nova_mod.__file__).read()
+        match = _re.search(r"_live_tools = \{(.+?)\}", src, _re.DOTALL)
+        assert match, "_live_tools set not found in nova.py"
+        assert "query_esco_occupations" in match.group(1)
+
+
+# ---------------------------------------------------------------------------
 # RAG semantic KB tool tests (Phase 1 build)
 # ---------------------------------------------------------------------------
 

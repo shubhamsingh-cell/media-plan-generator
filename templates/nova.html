@@ -31,6 +31,26 @@
       "
     />
     <noscript><link rel="stylesheet" href="/static/css/nova.css" /></noscript>
+    <!-- Critical inline CSS: prevents flash of unstyled content while nova.css loads async.
+         Also satisfies accessibility and brand-color requirements. -->
+    <style>
+      :root {
+        --text-primary: #e4e4e7;
+        color: #e4e4e7;
+      }
+      body {
+        background: #0d0d1a;
+        color: #e4e4e7;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation-duration: 0.01ms !important;
+          transition-duration: 0.01ms !important;
+        }
+      }
+    </style>
     <!-- PostHog Analytics -->
     <script>
       !(function (t, e) {

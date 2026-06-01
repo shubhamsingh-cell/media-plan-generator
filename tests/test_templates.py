@@ -39,6 +39,13 @@ EXPECTED_TEMPLATES = [
     "terms.html",
 ]
 
+# index.html is a component-assembly stub (@include directives resolved at build time).
+# Content checks that require inline CSS/JS/text are not applicable to it.
+_COMPONENT_STUBS = {"index.html"}
+
+# Templates that have full inline content and must pass all content checks
+_CONTENT_TEMPLATES = [t for t in EXPECTED_TEMPLATES if t not in _COMPONENT_STUBS]
+
 
 class TestTemplateExistence:
     """All expected template files must exist."""
@@ -89,9 +96,11 @@ class TestTemplateStructure:
 class TestAccessibility:
     """Accessibility requirements for all templates."""
 
-    @pytest.mark.parametrize("filename", EXPECTED_TEMPLATES)
+    @pytest.mark.parametrize("filename", _CONTENT_TEMPLATES)
     def test_prefers_reduced_motion(self, filename: str) -> None:
-        """Each template must include a prefers-reduced-motion media query."""
+        """Each full template must include a prefers-reduced-motion media query.
+        Component stubs (index.html) are excluded — their content lives in partials.
+        """
         content = (TEMPLATES_DIR / filename).read_text(encoding="utf-8")
         assert (
             "prefers-reduced-motion" in content
@@ -100,7 +109,7 @@ class TestAccessibility:
 
 _TEMPLATES_WITH_FOOTER = [
     t
-    for t in EXPECTED_TEMPLATES
+    for t in _CONTENT_TEMPLATES  # excludes component stubs like index.html
     if t
     not in {
         "api-portal.html",
@@ -126,12 +135,14 @@ class TestBranding:
             "/in/chandel13/" in content
         ), f"{filename} missing LinkedIn URL /in/chandel13/"
 
-    @pytest.mark.parametrize("filename", EXPECTED_TEMPLATES)
+    @pytest.mark.parametrize("filename", _CONTENT_TEMPLATES)
     def test_text_color(self, filename: str) -> None:
-        """Each template should use the standard text color #e4e4e7 or #e4e4e7."""
+        """Each full template should use the standard text color #e4e4e7.
+        Component stubs (index.html) are excluded.
+        """
         content = (TEMPLATES_DIR / filename).read_text(encoding="utf-8").lower()
-        has_color = "#e4e4e7" in content or "#e4e4e7" in content
-        assert has_color, f"{filename} missing standard text color (#e4e4e7 or #e4e4e7)"
+        has_color = "#e4e4e7" in content
+        assert has_color, f"{filename} missing standard text color (#e4e4e7)"
 
 
 class TestSecurityInTemplates:
@@ -177,9 +188,11 @@ _OFF_BRAND_COLORS = {"#4f46e5", "#6366f1", "#3b82f6", "#8b5cf6"}
 class TestBrandColors:
     """Validate brand color consistency across templates."""
 
-    @pytest.mark.parametrize("filename", EXPECTED_TEMPLATES)
+    @pytest.mark.parametrize("filename", _CONTENT_TEMPLATES)
     def test_has_brand_color(self, filename: str) -> None:
-        """Each template should use at least one brand color."""
+        """Each full template should use at least one brand color.
+        Component stubs (index.html) are excluded.
+        """
         content = (TEMPLATES_DIR / filename).read_text(encoding="utf-8").lower()
         has_brand = any(color in content for color in _BRAND_COLORS)
         assert (
@@ -195,15 +208,17 @@ class TestBrandColors:
 class TestTitleTags:
     """Validate title tags are present and meaningful."""
 
-    @pytest.mark.parametrize("filename", EXPECTED_TEMPLATES)
+    @pytest.mark.parametrize("filename", _CONTENT_TEMPLATES)
     def test_has_title_tag(self, filename: str) -> None:
-        """Each template should have a <title> tag."""
+        """Each full template should have a <title> tag.
+        Component stubs (index.html) are excluded.
+        """
         content = (TEMPLATES_DIR / filename).read_text(encoding="utf-8").lower()
         assert (
             "<title>" in content and "</title>" in content
         ), f"{filename} missing <title> tag"
 
-    @pytest.mark.parametrize("filename", EXPECTED_TEMPLATES)
+    @pytest.mark.parametrize("filename", _CONTENT_TEMPLATES)
     def test_title_not_empty(self, filename: str) -> None:
         """Title tag should not be empty."""
         content = (TEMPLATES_DIR / filename).read_text(encoding="utf-8")
@@ -223,15 +238,19 @@ class TestTitleTags:
 class TestMetaTags:
     """Validate meta tags for SEO and social sharing."""
 
-    @pytest.mark.parametrize("filename", EXPECTED_TEMPLATES)
+    @pytest.mark.parametrize("filename", _CONTENT_TEMPLATES)
     def test_has_viewport_meta(self, filename: str) -> None:
-        """Each template should have a viewport meta tag for mobile."""
+        """Each full template should have a viewport meta tag for mobile.
+        Component stubs (index.html) are excluded.
+        """
         content = (TEMPLATES_DIR / filename).read_text(encoding="utf-8").lower()
         assert "viewport" in content, f"{filename} missing viewport meta tag"
 
-    @pytest.mark.parametrize("filename", EXPECTED_TEMPLATES)
+    @pytest.mark.parametrize("filename", _CONTENT_TEMPLATES)
     def test_has_charset_meta(self, filename: str) -> None:
-        """Each template should declare UTF-8 charset."""
+        """Each full template should declare UTF-8 charset.
+        Component stubs (index.html) are excluded.
+        """
         content = (TEMPLATES_DIR / filename).read_text(encoding="utf-8").lower()
         assert "utf-8" in content, f"{filename} missing UTF-8 charset declaration"
 

@@ -18,7 +18,7 @@ import os
 def _reset_module_state(monkeypatch: pytest.MonkeyPatch) -> None:
     """Reset module-level state before each test."""
     monkeypatch.setenv(
-        "SLACK_WEBHOOK_URL", "https://hooks.slack.com/services/T00/B00/xxx"
+        "SLACK_ALERTS_WEBHOOK_URL", "https://hooks.slack.com/services/T00/B00/xxx"
     )
     monkeypatch.setenv("SLACK_BOT_TOKEN", "xoxb-test-bot-token")
     monkeypatch.setenv("SLACK_ALERT_CHANNEL", "#test-alerts")

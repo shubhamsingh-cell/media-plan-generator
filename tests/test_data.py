@@ -45,15 +45,26 @@ class TestJsonValidity:
         assert not invalid, f"Invalid JSON files: {'; '.join(invalid)}"
 
     def test_json_files_under_size_limit(self, json_files: list[Path]) -> None:
-        """Each JSON file must be under 5 MB (sanity check)."""
+        """Each JSON file must be under 5 MB (sanity check).
+
+        Exemptions (must be documented):
+          - .embedding_cache.json: runtime vector cache, excluded from repo size checks
+          - slotops_baseline_data.json: 108K merged LinkedIn job records (108,871 rows),
+            legitimately large baseline dataset used by SlotOps engine
+        """
+        _EXEMPT = {".embedding_cache.json", "slotops_baseline_data.json"}
         oversized: list[str] = []
         for jf in json_files:
+            if jf.name in _EXEMPT:
+                continue
             size = jf.stat().st_size
             if size > MAX_FILE_SIZE_BYTES:
                 mb = size / (1024 * 1024)
                 oversized.append(f"{jf.name}: {mb:.1f} MB")
 
-        assert not oversized, f"JSON files over 5 MB limit: {'; '.join(oversized)}"
+        assert (
+            not oversized
+        ), f"JSON files over 5 MB limit (add to _EXEMPT if intentional): {'; '.join(oversized)}"
 
 
 class TestKnowledgeBaseFiles:

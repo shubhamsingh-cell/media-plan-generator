@@ -16679,5 +16679,381 @@ _STATCAN_TABLES: Dict[str, str] = {
 }
 
 
+# ── ESCO (European Skills/Competences/Occupations) ──────────────────────────
+# Verified live 2026-06-02 against ec.europa.eu/esco/api. Public API, no key.
+# Coverage: 3,000+ occupations, 13,890 skills, 27+ EU languages.
+# See docs/F4_ESCO_Integration_Report.md for the discovery probe.
+
+_ESCO_BASE_URL = "https://ec.europa.eu/esco/api"
+_ESCO_DEFAULT_TIMEOUT = 15
+_ESCO_MAX_LIMIT = 50  # API caps higher values; keep payloads chatbot-friendly.
+
+# Supported languages on the ESCO API. Anything else falls back to "en".
+# Source: https://esco.ec.europa.eu/en/use-esco/get-esco-data
+_ESCO_SUPPORTED_LANGUAGES: set = {
+    "bg",
+    "cs",
+    "da",
+    "de",
+    "el",
+    "en",
+    "es",
+    "et",
+    "fi",
+    "fr",
+    "ga",
+    "hr",
+    "hu",
+    "is",
+    "it",
+    "lt",
+    "lv",
+    "mt",
+    "nl",
+    "no",
+    "pl",
+    "pt",
+    "ro",
+    "sk",
+    "sl",
+    "sv",
+    "ar",
+}
+
+
+def _esco_normalize_language(language: Optional[str]) -> str:
+    """Return a language code accepted by the ESCO API (defaults to 'en')."""
+    code = (language or "en").strip().lower()
+    # Accept locale strings like 'en-US' or 'en_GB' by taking the prefix.
+    if "-" in code:
+        code = code.split("-", 1)[0]
+    if "_" in code:
+        code = code.split("_", 1)[0]
+    if code not in _ESCO_SUPPORTED_LANGUAGES:
+        return "en"
+    return code
+
+
+def _esco_extract_skill_links(
+    detail_payload: Dict[str, Any], kind: str
+) -> List[Dict[str, str]]:
+    """Pull a normalized skill list out of an ESCO occupation detail payload.
+
+    Args:
+        detail_payload: Raw JSON from /resource/occupation.
+        kind: Either ``"hasEssentialSkill"`` or ``"hasOptionalSkill"``.
+
+    Returns:
+        List of ``{uri, title, skill_type}`` dicts (possibly empty).
+    """
+    out: List[Dict[str, str]] = []
+    try:
+        links = (detail_payload.get("_links") or {}).get(kind) or []
+        if not isinstance(links, list):
+            return out
+        for item in links:
+            if not isinstance(item, dict):
+                continue
+            uri = (item.get("uri") or "").strip()
+            title = (item.get("title") or "").strip()
+            skill_type_uri = (item.get("skillType") or "").strip()
+            # skillType URIs look like
+            # http://data.europa.eu/esco/skill-type/skill or .../knowledge
+            short_type = skill_type_uri.rsplit("/", 1)[-1] if skill_type_uri else ""
+            if uri or title:
+                out.append(
+                    {
+                        "uri": uri,
+                        "title": title,
+                        "skill_type": short_type,
+                    }
+                )
+    except (AttributeError, TypeError, ValueError) as exc:
+        _api_logger.warning(f"ESCO skill extraction failed for {kind}: {exc}")
+    return out
+
+
+def _esco_fetch_occupation_detail(
+    uri: str,
+    language: str,
+    timeout: int,
+) -> Optional[Dict[str, Any]]:
+    """Fetch the detail payload for a single ESCO occupation (skills, ISCO, etc).
+
+    Returns None on any failure -- callers degrade gracefully (search results
+    are still returned without the skills enrichment).
+    """
+    if not uri:
+        return None
+    detail_url = (
+        f"{_ESCO_BASE_URL}/resource/occupation"
+        f"?uri={urllib.parse.quote(uri, safe='')}"
+        f"&language={urllib.parse.quote(language)}"
+    )
+    try:
+        req = urllib.request.Request(
+            detail_url,
+            headers={
+                "Accept": "application/json",
+                "User-Agent": "Nova AI Suite/4.0 (ESCO Taxonomy)",
+            },
+        )
+        ctx = ssl.create_default_context()
+        with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        _api_logger.warning(f"ESCO detail HTTP {exc.code} for {uri[:80]}")
+        return None
+    except urllib.error.URLError as exc:
+        _api_logger.warning(f"ESCO detail network error for {uri[:80]}: {exc.reason}")
+        return None
+    except (json.JSONDecodeError, ValueError, OSError) as exc:
+        _api_logger.warning(f"ESCO detail parse error for {uri[:80]}: {exc}")
+        return None
+
+
+def fetch_esco_occupations(
+    query: str,
+    language: str = "en",
+    limit: int = 10,
+    timeout: int = _ESCO_DEFAULT_TIMEOUT,
+    enrich_top_n: int = 3,
+) -> Dict[str, Any]:
+    """Search ESCO occupations by text and (optionally) enrich top hits with skills.
+
+    Stdlib-only sibling of :func:`fetch_oecd_sdmx_data`. ESCO is the EU
+    standardized taxonomy of 3,000+ occupations and 13,890 skills, with
+    multilingual labels in 27+ languages. No auth required.
+
+    Args:
+        query: Free-text occupation title to search (e.g. ``"data scientist"``).
+        language: Target language code (default ``"en"``). Locale strings like
+            ``"en-US"`` are accepted and reduced to ``"en"``. Unsupported codes
+            fall back to ``"en"``.
+        limit: Max occupations to return (default 10, capped at 50).
+        timeout: HTTP timeout in seconds per request (default 15).
+        enrich_top_n: Number of top hits to enrich with the skills detail call
+            (default 3; set to 0 to skip enrichment and stay fast).
+
+    Returns:
+        Structured dict:
+            {
+              "source": "ESCO API",
+              "query": <input query>,
+              "language": <normalized language code>,
+              "count": <occupations returned>,
+              "total_matches": <ESCO total hit count, may exceed count>,
+              "occupations": [
+                {
+                  "uri": <ESCO occupation URI>,
+                  "preferred_label": <str>,
+                  "alternative_labels": [<str>, ...],  # may be empty
+                  "description": <str>,                # may be empty
+                  "isco_code": <str>,                  # e.g. "2511.3"
+                  "isco_group": <ISCO-08 group title>, # if enriched
+                  "essential_skills": [{uri, title, skill_type}, ...],
+                  "optional_skills":  [{uri, title, skill_type}, ...],
+                  "enriched": <bool>,
+                },
+                ...
+              ],
+              "url": <search URL>,
+              "elapsed_ms": <int>,
+            }
+        On error: same shape with ``"error"`` populated and ``occupations=[]``.
+        Never raises -- always returns a structured response.
+    """
+    query_clean = (query or "").strip()
+    lang = _esco_normalize_language(language)
+    try:
+        limit_int = max(1, min(int(limit or 10), _ESCO_MAX_LIMIT))
+    except (TypeError, ValueError):
+        limit_int = 10
+    try:
+        enrich_n = max(0, min(int(enrich_top_n or 0), limit_int))
+    except (TypeError, ValueError):
+        enrich_n = 3
+
+    if not query_clean:
+        return {
+            "source": "ESCO API",
+            "query": "",
+            "language": lang,
+            "occupations": [],
+            "count": 0,
+            "total_matches": 0,
+            "error": "query is required (free-text occupation title)",
+        }
+
+    params = {
+        "language": lang,
+        "type": "occupation",
+        "text": query_clean,
+        "limit": str(limit_int),
+        "offset": "0",
+        "full": "false",
+        "viewObsolete": "false",
+    }
+    search_url = f"{_ESCO_BASE_URL}/search?{urllib.parse.urlencode(params)}"
+
+    started = time.monotonic()
+    try:
+        req = urllib.request.Request(
+            search_url,
+            headers={
+                "Accept": "application/json",
+                "User-Agent": "Nova AI Suite/4.0 (ESCO Taxonomy)",
+            },
+        )
+        ctx = ssl.create_default_context()
+        with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
+            raw = resp.read()
+        elapsed_ms = int((time.monotonic() - started) * 1000)
+        payload = json.loads(raw.decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        body = ""
+        try:
+            body = exc.read().decode("utf-8", errors="replace")[:200]
+        except Exception:  # noqa: BLE001 -- best-effort diagnostic
+            pass
+        _api_logger.error(f"ESCO HTTP {exc.code}: {body or exc.reason}", exc_info=True)
+        return {
+            "source": "ESCO API",
+            "query": query_clean,
+            "language": lang,
+            "url": search_url,
+            "occupations": [],
+            "count": 0,
+            "total_matches": 0,
+            "error": f"HTTP {exc.code}: {body or exc.reason}",
+        }
+    except urllib.error.URLError as exc:
+        _api_logger.error(f"ESCO network error: {exc.reason}", exc_info=True)
+        return {
+            "source": "ESCO API",
+            "query": query_clean,
+            "language": lang,
+            "url": search_url,
+            "occupations": [],
+            "count": 0,
+            "total_matches": 0,
+            "error": f"Network error: {exc.reason}",
+        }
+    except (json.JSONDecodeError, ValueError) as exc:
+        _api_logger.error(f"ESCO bad JSON: {exc}", exc_info=True)
+        return {
+            "source": "ESCO API",
+            "query": query_clean,
+            "language": lang,
+            "url": search_url,
+            "occupations": [],
+            "count": 0,
+            "total_matches": 0,
+            "error": f"Bad JSON: {exc}",
+        }
+    except OSError as exc:
+        _api_logger.error(f"ESCO OS error: {exc}", exc_info=True)
+        return {
+            "source": "ESCO API",
+            "query": query_clean,
+            "language": lang,
+            "url": search_url,
+            "occupations": [],
+            "count": 0,
+            "total_matches": 0,
+            "error": f"Network/OS error: {exc}",
+        }
+
+    results = (payload.get("_embedded") or {}).get("results") or []
+    total = payload.get("total") or 0
+    if not isinstance(results, list):
+        results = []
+
+    occupations: List[Dict[str, Any]] = []
+    for idx, item in enumerate(results):
+        if not isinstance(item, dict):
+            continue
+        preferred_label_map = item.get("preferredLabel") or {}
+        preferred = (
+            (
+                preferred_label_map.get(lang)
+                if isinstance(preferred_label_map, dict)
+                else None
+            )
+            or item.get("title")
+            or ""
+        )
+
+        alt_label_map = item.get("alternativeLabel") or {}
+        alt_labels = []
+        if isinstance(alt_label_map, dict):
+            alt_labels = alt_label_map.get(lang) or []
+            if not isinstance(alt_labels, list):
+                alt_labels = []
+
+        # Some search results expose a short description via searchHit; the
+        # full description only comes from the detail call.
+        search_hit = (item.get("searchHit") or "").strip()
+
+        occ: Dict[str, Any] = {
+            "uri": (item.get("uri") or "").strip(),
+            "preferred_label": preferred.strip() if isinstance(preferred, str) else "",
+            "alternative_labels": [s for s in alt_labels if isinstance(s, str)][:20],
+            "description": search_hit,
+            "isco_code": (item.get("code") or "").strip(),
+            "isco_group": "",
+            "essential_skills": [],
+            "optional_skills": [],
+            "enriched": False,
+        }
+
+        # Enrich the top N hits with the detail call so the caller gets skills.
+        if idx < enrich_n and occ["uri"]:
+            detail = _esco_fetch_occupation_detail(
+                uri=occ["uri"], language=lang, timeout=timeout
+            )
+            if isinstance(detail, dict):
+                # Full description (literal text) -- prefer over searchHit.
+                desc_obj = detail.get("description") or {}
+                if isinstance(desc_obj, dict):
+                    lang_block = desc_obj.get(lang) or {}
+                    if isinstance(lang_block, dict):
+                        literal = lang_block.get("literal")
+                        if isinstance(literal, str) and literal.strip():
+                            occ["description"] = literal.strip()
+
+                # ISCO group title (e.g. "Systems analysts" for 2511.x).
+                isco_links = (detail.get("_links") or {}).get("broaderIscoGroup") or []
+                if isinstance(isco_links, list) and isco_links:
+                    first = isco_links[0]
+                    if isinstance(first, dict):
+                        occ["isco_group"] = (first.get("title") or "").strip()
+
+                occ["essential_skills"] = _esco_extract_skill_links(
+                    detail, "hasEssentialSkill"
+                )[:30]
+                occ["optional_skills"] = _esco_extract_skill_links(
+                    detail, "hasOptionalSkill"
+                )[:30]
+                occ["enriched"] = True
+
+        occupations.append(occ)
+
+    _api_logger.info(
+        f"ESCO: {len(occupations)} occupations for '{query_clean[:60]}' "
+        f"(total={total}, lang={lang}) in {elapsed_ms}ms"
+    )
+    return {
+        "source": "ESCO API",
+        "query": query_clean,
+        "language": lang,
+        "url": search_url,
+        "elapsed_ms": elapsed_ms,
+        "count": len(occupations),
+        "total_matches": int(total) if isinstance(total, (int, float)) else 0,
+        "occupations": occupations,
+    }
+
+
 if __name__ == "__main__":
     _cli_demo()
