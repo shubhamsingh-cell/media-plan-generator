@@ -6738,16 +6738,26 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             {
                 "name": "query_kb_semantic",
                 "description": (
-                    "Hybrid semantic + BM25 retrieval over the Nova "
-                    "knowledge base (RAG v2, Phase 1). Returns the top-k "
-                    "most relevant chunks across recruitment benchmarks, "
-                    "channels, publishers, salary, and ad benchmark JSON "
-                    "files. Feature-flagged via RAG_V2_ENABLED; in Phase "
-                    "1 it returns rag_disabled=true unless the flag is "
-                    "on AND embeddings have been backfilled. Use for "
-                    "natural-language questions that don't fit a specific "
-                    "tool (e.g. 'What do we know about Texas nursing "
-                    "CPA?')."
+                    "PREFERRED tool for conceptual, fuzzy, or "
+                    "'what are experts/leaders saying' questions. Hybrid "
+                    "semantic (vector) + BM25 retrieval with cross-encoder "
+                    "rerank over the FULL Nova knowledge base -- including "
+                    "TA-leader commentary (Hung Lee, Matt Charney, Josh "
+                    "Bersin, Madeline Mann, Tim Sackett, etc.), 2026 "
+                    "industry reports, recruitment benchmarks, channels, "
+                    "publishers, salary, and ad benchmarks. Returns the "
+                    "top-k most semantically relevant cited passages "
+                    "(Source: Nova RAG Pipeline). PREFER THIS over "
+                    "query_kb_deep / query_white_papers / knowledge_search "
+                    "whenever the user asks about trends, opinions, "
+                    "thought-leadership, 'what is being said', conceptual "
+                    "themes, or any natural-language question that isn't an "
+                    "exact metric lookup -- semantic search finds the right "
+                    "passage even when keywords don't match. Live in "
+                    "production (5,000+ indexed passages). Examples: "
+                    "'what are TA leaders saying about AI hiring', "
+                    "'recruitment trends for 2026', 'what do we know about "
+                    "Texas nursing CPA'."
                 ),
                 "input_schema": {
                     "type": "object",
