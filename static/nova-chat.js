@@ -100,6 +100,12 @@
       return;
     }
     if (_widgetWsConn && _widgetWsConn.readyState === WebSocket.CONNECTING) {
+      // S80 P1.4: bumped wait from 30 ticks (3s) to 150 ticks (15s).
+      // VISUAL-A found the first message silently dropped on Render cold
+      // boots because the WS handshake legitimately takes 5-10s after
+      // worker spin-up, and the old 3s cutoff fell back to SSE before the
+      // handshake landed. SSE then races the just-completing WS and the
+      // first message disappears.
       var _wc = 0;
       var _wi = setInterval(function () {
         _wc++;
@@ -107,7 +113,7 @@
           clearInterval(_wi);
           onReady(_widgetWsConn);
         } else if (
-          _wc > 30 ||
+          _wc > 150 ||
           !_widgetWsConn ||
           _widgetWsConn.readyState > WebSocket.OPEN
         ) {
@@ -2256,6 +2262,18 @@
         var input = document.getElementById("nova-input");
         if (input) input.focus();
       }, 300);
+      // S80 P1.4: warm up the WebSocket as soon as the panel opens so the
+      // handshake completes BEFORE the user types. Previously the first
+      // message kicked off both the WS handshake AND the chat request,
+      // and on Render cold boots the handshake outlived the client
+      // timeout, dropping the first reply.
+      try {
+        _widgetGetOrCreateWS(function () {
+          /* connection warmed; nothing to do */
+        });
+      } catch (_e) {
+        /* warmup failures must never block panel open */
+      }
     } else {
       // PostHog: track session duration on close
       if (
