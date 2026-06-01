@@ -46,3 +46,7 @@ data/so_survey_2025.zip
 
 # Claude-flow local agent runtime state (per-session, do not commit)
 data/.claude-flow/
+
+# S82: local vector DB artifact — never commit (binary)
+ruvector.db
+*.db

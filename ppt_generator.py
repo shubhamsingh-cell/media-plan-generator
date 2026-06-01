@@ -2588,6 +2588,44 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
             rt.text = g
             _set_font(rt, size=8, color=DARK_TEXT)
 
+    # ---- S82: Cited 2026 market data (parity with Google Slides deck) ----
+    # The curated 2026 cited metric + TA-leader quote previously rendered ONLY
+    # in the joveo_slides_template (Google Slides tier). When the deck falls
+    # back to this python-pptx path, those layers used to be absent. Inject one
+    # cited metric here to keep the fallback deck grounded in latest data.
+    # Fully isolated: any failure logs and leaves the slide intact.
+    try:
+        from cited_data_block import build_cited_2026_block, has_cited_content
+
+        _cited = build_cited_2026_block(data)
+        if has_cited_content(_cited):
+            _cited_bits = []
+            for _ml in (_cited.get("metric_lines") or [])[:1]:
+                _cited_bits.append(_ml)
+            if _cited.get("salary_line") and not _cited_bits:
+                _cited_bits.append(_cited["salary_line"])
+            if _cited_bits:
+                _add_paragraph(
+                    tf4,
+                    "2026 Market Data:",
+                    font_size=8,
+                    bold=True,
+                    color=NAVY,
+                    space_before=4,
+                    space_after=1,
+                )
+                for _cb in _cited_bits:
+                    _add_paragraph(
+                        tf4,
+                        f"\u25aa  {_cb}",
+                        font_size=7,
+                        color=DARK_TEXT,
+                        space_before=1,
+                        space_after=1,
+                    )
+    except Exception as _cited_err:  # pragma: no cover -- never break the deck
+        logger.debug("Cited 2026 block (exec summary) skipped: %s", _cited_err)
+
     # ---- HERO STAT METRICS BAR ----
     bar_top = Inches(5.35)
     bar_h = Inches(1.15)

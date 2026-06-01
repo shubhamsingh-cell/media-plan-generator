@@ -271,10 +271,16 @@ _cleanup_thread.start()
 # [{"turn": int, "tools": {tool: json_str}, "tools_used": [...], "ts": float}].
 # Keeps last 3 turns per conversation, capped at 15 KB.
 # ---------------------------------------------------------------------------
-_conversation_tool_cache: Dict[str, List[Dict[str, Any]]] = {}
+from collections import OrderedDict as _OD_TOOLCACHE
+
+_conversation_tool_cache: "OrderedDict[str, List[Dict[str, Any]]]" = _OD_TOOLCACHE()
 _conversation_tool_cache_lock = threading.Lock()
 _MAX_TURNS_CACHED = 3
 _MAX_CACHE_BYTES = 15 * 1024
+# S82 FIX (P1): cap distinct conversations so the outer dict can't grow
+# unbounded across the lifetime of a long-running Render worker. Each entry is
+# already bounded to 3 turns / 15 KB; this bounds the number of entries.
+_MAX_CONVERSATIONS_CACHED = 1000
 
 
 def _get_conversation_tool_cache(conversation_id: str) -> List[Dict[str, Any]]:
@@ -314,6 +320,10 @@ def _append_conversation_tool_turn(
         ):
             turns.pop(0)
         _conversation_tool_cache[conversation_id] = turns
+        # S82 FIX (P1): LRU eviction across distinct conversations.
+        _conversation_tool_cache.move_to_end(conversation_id)
+        while len(_conversation_tool_cache) > _MAX_CONVERSATIONS_CACHED:
+            _conversation_tool_cache.popitem(last=False)
 
 
 def _build_prior_tool_context(turns: List[Dict[str, Any]]) -> str:
@@ -627,6 +637,10 @@ _TOOL_ERROR_FALLBACK_MESSAGES: dict[str, str] = {
     "query_uk_ons": "UK ONS labor data is temporarily unavailable, but I can reference our international benchmarks for UK hiring.",
     "query_statcan": "Statistics Canada data is temporarily unavailable, but I can reference our international benchmarks for Canadian markets.",
     "query_oecd_sdmx": "OECD SDMX cross-country labour data is temporarily unavailable, but I can reference our international benchmarks for OECD markets.",
+    "query_macro_indicator": "IMF macro indicators are temporarily unavailable, but I can reference our international benchmarks for this market.",
+    "query_dbnomics_data": "DBnomics macro data is temporarily unavailable, but I can reference our international benchmarks and the IMF/OECD tools for this market.",
+    "query_ilostat": "ILOSTAT global labour data is temporarily unavailable, but I can reference our international benchmarks for this country's labour market.",
+    "query_companies_house": "UK Companies House lookup is temporarily unavailable, but I can provide general firmographic context from other public sources.",
     "query_esco_occupations": "ESCO occupation taxonomy is temporarily unavailable, but I can describe roles and skills from our internal role taxonomy and benchmark knowledge base.",
     "query_kb_semantic": "Semantic knowledge-base retrieval (RAG v2) is currently disabled or unavailable; I can still answer from the standard knowledge base lookup tools.",
     "query_careerjet": "CareerJet international job search is temporarily unavailable, but I can provide global job market insights from our knowledge base.",
@@ -1623,6 +1637,10 @@ _TOOL_LABELS: Dict[str, str] = {
     "query_uk_ons": "Querying UK ONS labor statistics",
     "query_statcan": "Querying Statistics Canada labor data",
     "query_oecd_sdmx": "Querying OECD SDMX labour statistics",
+    "query_macro_indicator": "Querying IMF macro indicators",
+    "query_dbnomics_data": "Querying DBnomics macro database",
+    "query_ilostat": "Querying ILOSTAT global labour data",
+    "query_companies_house": "Looking up UK company register",
     "query_esco_occupations": "Querying ESCO occupation taxonomy",
     "query_kb_semantic": "Searching Nova knowledge base (semantic + BM25)",
     "query_careerjet": "Searching CareerJet international jobs",
@@ -3926,6 +3944,16 @@ class Nova:
         # T3-1: lock so concurrent chat() calls don't corrupt the OrderedDict.
         self._intent_cache_lock = threading.Lock()
 
+        # S82 FIX (R1): per-session conversation context (budget/role/location
+        # set-fast-path in _chat_rule_based). Previously referenced at use-site
+        # without ever being initialized, so any "set my budget to X" message
+        # in rule-based mode (the LLM-outage fallback) raised AttributeError --
+        # precisely when the system was already degraded. Bounded LRU keeps it
+        # from leaking across distinct sessions on long-lived Render workers.
+        self._conversations: "OrderedDict[str, dict]" = _OD()
+        self._conversations_lock = threading.Lock()
+        self._conversations_max = 500
+
     # ------------------------------------------------------------------
     # Data loading
     # ------------------------------------------------------------------
@@ -4177,6 +4205,7 @@ Before calling any tools, briefly plan which tools you need:
 - For UK labor market data: call query_uk_ons with dataset for British employment, unemployment, vacancies, or earnings
 - For Canadian labor market data: call query_statcan with table ID for job vacancies, employment, wages, or labor force statistics
 - For international job search across 60+ countries: call query_careerjet with role, location, and country code for global job counts and listings
+- For macro/economic context on countries outside the US/EU/UK/Canada (e.g. India, Brazil, Nigeria, Indonesia, Mexico, UAE): call query_macro_indicator with country + indicator (unemployment_rate, gdp_growth, inflation, gdp_per_capita) -- IMF World Economic Outlook data, global coverage
 - For US economic data (GDP, income, employment): call query_bea with indicator and optional state. For state-level detail, prefer query_regional_economics.
 - For any hiring question: ALWAYS also call query_h1b_salaries for competitive salary intelligence
 - For visualizing/rendering a plan as a canvas: call render_canvas with budget, channels, role, location, industry
@@ -6443,6 +6472,49 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 },
             },
             {
+                "name": "query_macro_indicator",
+                "description": (
+                    "Query global macroeconomic indicators (IMF World Economic "
+                    "Outlook, via DBnomics) for ANY country: unemployment rate, "
+                    "real GDP growth, inflation, or GDP per capita. Free, no-key, "
+                    "global coverage. Use for economic context on countries "
+                    "OUTSIDE the usual US/EU/UK/Canada sources -- e.g. India, "
+                    "Brazil, Nigeria, Indonesia, Mexico, UAE, Philippines -- "
+                    "where BLS/FRED/Eurostat don't reach. For OECD-member labour "
+                    "detail prefer query_oecd_sdmx; for US prefer "
+                    "query_regional_economics."
+                ),
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "country": {
+                            "type": "string",
+                            "description": (
+                                "ISO-3 country code (e.g. 'IND', 'BRA', 'DEU') "
+                                "or country name (e.g. 'India', 'Brazil')."
+                            ),
+                        },
+                        "indicator": {
+                            "type": "string",
+                            "enum": [
+                                "unemployment_rate",
+                                "gdp_growth",
+                                "inflation",
+                                "gdp_per_capita",
+                            ],
+                            "description": (
+                                "Which macro indicator. 'unemployment_rate' = % "
+                                "of total labour force. 'gdp_growth' = real GDP "
+                                "annual % change. 'inflation' = average consumer "
+                                "prices annual % change. 'gdp_per_capita' = "
+                                "current USD."
+                            ),
+                        },
+                    },
+                    "required": ["country", "indicator"],
+                },
+            },
+            {
                 "name": "query_esco_occupations",
                 "description": (
                     "Query the ESCO (European Skills/Competences/Occupations) "
@@ -6497,6 +6569,170 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                         },
                     },
                     "required": ["query"],
+                },
+            },
+            {
+                "name": "query_dbnomics_data",
+                "description": (
+                    "Query DBnomics -- a free aggregator over 90+ statistical "
+                    "providers (IMF, ILO/ILOSTAT, Eurostat, OECD, World Bank, "
+                    "BLS, national agencies) through ONE consistent API. Best "
+                    "for macro-economic context for ANY country a media plan "
+                    "targets: unemployment, wage growth, GDP, labour-force "
+                    "participation, inflation. Fills EMEA/APAC macro gaps that "
+                    "US-only sources (BLS/JOLTS) miss. You must know the "
+                    "provider + dataset code; for labour indicators prefer the "
+                    "simpler query_ilostat tool. Use a wildcard mask in "
+                    "'series' (empty segment between dots = any value) to "
+                    "filter by country without knowing every dimension."
+                ),
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "provider": {
+                            "type": "string",
+                            "description": (
+                                "Provider code, e.g. 'ILO', 'IMF', "
+                                "'Eurostat', 'WB' (World Bank), 'OECD', "
+                                "'BLS'."
+                            ),
+                        },
+                        "dataset": {
+                            "type": "string",
+                            "description": (
+                                "Dataset code within the provider, e.g. "
+                                "'UNE_2EAP_SEX_AGE_RT' (ILO modelled "
+                                "unemployment rate) or 'WEO' (IMF World "
+                                "Economic Outlook)."
+                            ),
+                        },
+                        "series": {
+                            "type": "string",
+                            "description": (
+                                "Optional series code OR dimension mask. An "
+                                "empty segment between dots is a wildcard for "
+                                "that dimension (robust when a source code "
+                                "varies per country), e.g. "
+                                "'USA..AGE_YTHADULT_YGE15.SEX_T.A'. If omitted, "
+                                "the first matching series are returned."
+                            ),
+                        },
+                        "query": {
+                            "type": "string",
+                            "description": (
+                                "Optional free-text filter across the "
+                                "dataset's series (ignored when 'series' is "
+                                "given)."
+                            ),
+                        },
+                        "country": {
+                            "type": "string",
+                            "description": (
+                                "Optional country context for display "
+                                "(ISO-3 code or name). Echoed back; does not "
+                                "itself filter unless reflected in 'series'."
+                            ),
+                        },
+                    },
+                    "required": ["provider", "dataset"],
+                },
+            },
+            {
+                "name": "query_ilostat",
+                "description": (
+                    "Query ILOSTAT (International Labour Organization "
+                    "statistics) for a country's labour-market indicators -- "
+                    "routed through the DBnomics aggregator for reliability. "
+                    "Best for GLOBAL labour data (every ILO member state, "
+                    "not just OECD/EU): unemployment rate, labour-force "
+                    "participation, employment by economic sector, average "
+                    "wages, and employment-to-population ratio. Modelled "
+                    "estimates carry recent years (e.g. 2025). Use for "
+                    "non-US/non-EU markets where BLS, Eurostat, and OECD have "
+                    "no coverage (e.g. India, Indonesia, Brazil, Nigeria)."
+                ),
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "indicator": {
+                            "type": "string",
+                            "enum": [
+                                "unemployment_rate",
+                                "labour_force_participation",
+                                "employment_by_sector",
+                                "wages",
+                                "working_poverty",
+                            ],
+                            "description": (
+                                "Which labour indicator to fetch. "
+                                "'unemployment_rate' = % of labour force "
+                                "unemployed. "
+                                "'labour_force_participation' = % of working-"
+                                "age population in the labour force. "
+                                "'employment_by_sector' = employment by "
+                                "economic sector (agriculture/industry/"
+                                "services, thousands). "
+                                "'wages' = average monthly earnings (USD PPP). "
+                                "'working_poverty' = employment-to-population "
+                                "ratio (%). Aliases like 'unemployment', "
+                                "'lfpr', 'earnings' are also accepted."
+                            ),
+                        },
+                        "country": {
+                            "type": "string",
+                            "description": (
+                                "ISO-3 country code (e.g. 'IND', 'USA', "
+                                "'DEU', 'BRA') or country name (e.g. 'India', "
+                                "'United States'). ILO covers all member "
+                                "states globally."
+                            ),
+                        },
+                        "year_range": {
+                            "type": "string",
+                            "description": (
+                                "Optional human-readable year range for "
+                                "display (e.g. '2020-2025'). The full "
+                                "available series is returned regardless; "
+                                "this is echoed back for presentation."
+                            ),
+                        },
+                    },
+                    "required": ["indicator", "country"],
+                },
+            },
+            {
+                "name": "query_companies_house",
+                "description": (
+                    "Look up UK firmographic data from Companies House, the "
+                    "United Kingdom's official company register. Returns "
+                    "company name, registration number, status (active/"
+                    "dissolved), incorporation date, registered address, and "
+                    "SIC industry codes. UK-only -- use for verifying a UK "
+                    "employer's legal status, age, and registered details for "
+                    "competitive/firmographic intel. Requires a free API key; "
+                    "if the key is not configured the tool returns a clear "
+                    "registration link rather than failing."
+                ),
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "company_name": {
+                            "type": "string",
+                            "description": (
+                                "Company name to search, e.g. 'Monzo', "
+                                "'BrewDog', 'Deliveroo'."
+                            ),
+                        },
+                        "company_number": {
+                            "type": "string",
+                            "description": (
+                                "Optional UK company registration number "
+                                "(e.g. '09446231'). If given, it is used as "
+                                "the search query."
+                            ),
+                        },
+                    },
+                    "required": [],
                 },
             },
             {
@@ -6788,6 +7024,15 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             "query_uk_ons": self._query_uk_ons,
             "query_statcan": self._query_statcan,
             "query_oecd_sdmx": self._query_oecd_sdmx,
+            "query_macro_indicator": self._query_macro_indicator,
+            # S81: 3 new free-data-API tools. DBnomics aggregator (90+ macro
+            # providers via mask form), ILOSTAT convenience wrapper (global
+            # labour indicators), Companies House UK firmographics. Jina Reader
+            # is already reachable via the scrape_url tool (tier 2 of
+            # web_scraper_router), so it is intentionally not re-wired here.
+            "query_dbnomics_data": self._query_dbnomics_data,
+            "query_ilostat": self._query_ilostat,
+            "query_companies_house": self._query_companies_house,
             "query_esco_occupations": self._query_esco_occupations,
             "query_kb_semantic": self._query_kb_semantic,
             "query_careerjet": self._query_careerjet,
@@ -6876,6 +7121,11 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             # Override dispatch keeps the fast default for everything else.
             _TOOL_TIMEOUT_OVERRIDES: dict = {
                 "query_oecd_sdmx": 90,
+                # S81: DBnomics mask queries + ILOSTAT (DBnomics-backed) can
+                # take 5-20s on cold cache; the 5s default would kill them.
+                "query_dbnomics_data": 25,
+                "query_ilostat": 25,
+                "query_companies_house": 18,
             }
             _PER_TOOL_TIMEOUT: int = _TOOL_TIMEOUT_OVERRIDES.get(tool_name, 5)
 
@@ -13693,6 +13943,24 @@ When two or more tools return conflicting data for the same metric (e.g., differ
         "indonesia": "IDN",
         "china": "CHN",
         "south africa": "ZAF",
+        # S82: additional non-OECD markets for query_macro_indicator (IMF WEO has
+        # global coverage; OECD tool simply returns no data for non-members).
+        "nigeria": "NGA",
+        "philippines": "PHL",
+        "vietnam": "VNM",
+        "viet nam": "VNM",
+        "united arab emirates": "ARE",
+        "uae": "ARE",
+        "u.a.e.": "ARE",
+        "saudi arabia": "SAU",
+        "egypt": "EGY",
+        "argentina": "ARG",
+        "pakistan": "PAK",
+        "bangladesh": "BGD",
+        "thailand": "THA",
+        "malaysia": "MYS",
+        "singapore": "SGP",
+        "kenya": "KEN",
     }
 
     @classmethod
@@ -13819,6 +14087,398 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 "country": country,
                 "dataset": dataset,
                 "data": [],
+            }
+
+    def _query_macro_indicator(self, args: dict) -> dict:
+        """Query global macro indicators (IMF World Economic Outlook via DBnomics).
+
+        Complements :meth:`_query_oecd_sdmx` (OECD-member labour focus) with IMF
+        WEO coverage for ALL IMF member countries -- fills the EMEA / APAC /
+        LATAM macro gaps that US-centric sources (BLS, FRED) miss. Free, no API
+        key. Wraps :func:`api_enrichment.fetch_dbnomics_series` (S82).
+
+        Args:
+            args: Tool input dict with keys:
+                - ``country`` (str, required): ISO-3 code or country name
+                  (e.g. ``"India"``, ``"BRA"``, ``"Germany"``).
+                - ``indicator`` (str, required): one of ``unemployment_rate``,
+                  ``gdp_growth``, ``inflation``, ``gdp_per_capita``.
+
+        Returns:
+            Structured dict with ``latest_value``, ``latest_period``, ``recent``
+            observations, ``series_name``, ``source`` (``"DBnomics (IMF WEO)"``),
+            ``indicator`` and ``tool`` ``"query_macro_indicator"``. WEO includes
+            IMF projections for future years; a ``note`` flags that values beyond
+            the current year are forecasts. Cached 24h. Never raises; errors are
+            returned in-band under an ``error`` key.
+        """
+        # IMF WEO indicator codes on DBnomics (dataset IMF/WEO:latest).
+        # Series id format: "{ISO3}.{WEO_CODE}".
+        _weo_codes = {
+            "unemployment_rate": ("LUR", "Unemployment rate (% of total labour force)"),
+            "gdp_growth": ("NGDP_RPCH", "Real GDP growth (annual % change)"),
+            "inflation": (
+                "PCPIPCH",
+                "Inflation, average consumer prices (annual % change)",
+            ),
+            "gdp_per_capita": ("NGDPDPC", "GDP per capita (current USD)"),
+        }
+
+        country_raw = (args.get("country") or "").strip()
+        indicator = (args.get("indicator") or "").lower().strip()
+
+        iso3 = (
+            (self._normalize_oecd_country(country_raw) or "")
+            .split("+")[0]
+            .strip()
+            .upper()
+        )
+        weo = _weo_codes.get(indicator)
+        if not iso3 or not weo:
+            return {
+                "error": (
+                    "query_macro_indicator requires a recognised country and an "
+                    "indicator of: unemployment_rate, gdp_growth, inflation, "
+                    "gdp_per_capita."
+                ),
+                "source": "DBnomics (IMF WEO)",
+                "tool": "query_macro_indicator",
+                "country": country_raw,
+                "indicator": indicator,
+            }
+
+        weo_code, label = weo
+        series_id = f"{iso3}.{weo_code}"
+        cache_key = f"dbnomics_weo:{iso3}:{weo_code}"
+
+        try:
+            cached = _upstash_get(cache_key)
+            if isinstance(cached, dict) and "latest_value" in cached:
+                cached.setdefault("tool", "query_macro_indicator")
+                cached["cached"] = True
+                return cached
+        except Exception as exc:  # noqa: BLE001 -- cache must never crash callers
+            logger.warning(f"DBnomics cache get failed: {exc}")
+
+        try:
+            from api_enrichment import fetch_dbnomics_series
+
+            result = fetch_dbnomics_series("IMF", "WEO:latest", series_id)
+            result["tool"] = "query_macro_indicator"
+            result["indicator"] = indicator
+            result["indicator_label"] = label
+            result["country_iso3"] = iso3
+            result["note"] = (
+                "IMF WEO includes projections; values for years beyond the "
+                "current year are forecasts, not actuals -- use the 'recent' "
+                "observations for the latest actual figures."
+            )
+            # Only cache successful responses, not transient network errors.
+            if not result.get("error") and result.get("latest_value") is not None:
+                try:
+                    _upstash_set(
+                        cache_key, result, ttl_seconds=24 * 3600, category="api"
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning(f"DBnomics cache set failed: {exc}")
+            return result
+        except ImportError:
+            logger.error("api_enrichment.fetch_dbnomics_series not available")
+            return {
+                "error": "Macro indicator integration not available",
+                "source": "DBnomics (IMF WEO)",
+                "tool": "query_macro_indicator",
+                "country": country_raw,
+                "indicator": indicator,
+            }
+        except Exception as exc:
+            logger.error(f"Macro indicator query failed: {exc}", exc_info=True)
+            return {
+                "error": f"DBnomics API error: {str(exc)[:200]}",
+                "source": "DBnomics (IMF WEO)",
+                "tool": "query_macro_indicator",
+                "country": country_raw,
+                "indicator": indicator,
+            }
+
+    def _query_dbnomics_data(self, args: dict) -> dict:
+        """Query DBnomics for macro series across 90+ providers (S81).
+
+        General-purpose companion to :meth:`_query_macro_indicator` (which is
+        locked to four curated IMF WEO headline indicators). This tool exposes
+        the full DBnomics surface -- any provider + dataset + (optionally) a
+        dimension mask -- and returns one or more matching series. Wraps
+        :func:`api_enrichment.fetch_dbnomics_series_multi`. Free, no API key.
+
+        Args:
+            args: Tool input dict with keys:
+                - ``provider`` (str, required): provider code (``ILO``, ``IMF``,
+                  ``Eurostat``, ``WB``, ``OECD``, ``BLS``).
+                - ``dataset`` (str, required): dataset code within the provider.
+                - ``series`` (str, optional): series code OR dimension mask
+                  (empty segment = wildcard, e.g.
+                  ``"USA..AGE_YTHADULT_YGE15.SEX_T.A"``).
+                - ``query`` (str, optional): free-text series filter (ignored
+                  when ``series`` is given).
+                - ``country`` (str, optional): display-only echo.
+
+        Returns:
+            Structured dict with ``series`` (list), ``source`` (``"DBnomics"``),
+            ``provider``, ``dataset``, ``count`` and ``tool``
+            ``"query_dbnomics_data"``. Cached 24h in Upstash. Errors are
+            returned in-band under an ``error`` key; never raises.
+        """
+        provider = (args.get("provider") or "").strip()
+        dataset = (args.get("dataset") or "").strip()
+        series = (args.get("series") or "").strip() or None
+        query = (args.get("query") or "").strip() or None
+        country = (args.get("country") or "").strip()
+
+        if not provider or not dataset:
+            return {
+                "error": (
+                    "query_dbnomics_data requires both 'provider' (e.g. 'ILO', "
+                    "'IMF') and 'dataset' (e.g. 'UNE_2EAP_SEX_AGE_RT'). For "
+                    "common labour indicators, prefer the query_ilostat tool."
+                ),
+                "source": "DBnomics",
+                "tool": "query_dbnomics_data",
+                "provider": provider,
+                "dataset": dataset,
+                "series": [],
+            }
+
+        cache_key = "dbnomics_data:" + json.dumps(
+            {"p": provider, "d": dataset, "s": series or "", "q": query or ""},
+            sort_keys=True,
+        )
+        try:
+            cached = _upstash_get(cache_key)
+            if isinstance(cached, dict) and "series" in cached:
+                cached.setdefault("tool", "query_dbnomics_data")
+                cached["cached"] = True
+                if country:
+                    cached.setdefault("country", country)
+                return cached
+        except Exception as exc:  # noqa: BLE001 -- cache must never crash callers
+            logger.warning(f"DBnomics data cache get failed: {exc}")
+
+        try:
+            from api_enrichment import fetch_dbnomics_series_multi
+
+            result = fetch_dbnomics_series_multi(
+                provider_code=provider,
+                dataset_code=dataset,
+                series_code=series,
+                query=query,
+            )
+            result["tool"] = "query_dbnomics_data"
+            if country:
+                result["country"] = country
+            # Only cache successful, non-empty responses.
+            if not result.get("error") and result.get("series"):
+                try:
+                    _upstash_set(
+                        cache_key, result, ttl_seconds=24 * 3600, category="api"
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning(f"DBnomics data cache set failed: {exc}")
+            return result
+        except ImportError:
+            logger.error("api_enrichment.fetch_dbnomics_series_multi not available")
+            return {
+                "error": "DBnomics integration not available",
+                "source": "DBnomics",
+                "tool": "query_dbnomics_data",
+                "provider": provider,
+                "dataset": dataset,
+                "series": [],
+            }
+        except Exception as exc:
+            logger.error(f"DBnomics data query failed: {exc}", exc_info=True)
+            return {
+                "error": f"DBnomics API error: {str(exc)[:200]}",
+                "source": "DBnomics",
+                "tool": "query_dbnomics_data",
+                "provider": provider,
+                "dataset": dataset,
+                "series": [],
+            }
+
+    def _query_ilostat(self, args: dict) -> dict:
+        """Query ILOSTAT labour indicators for a country, via DBnomics (S81).
+
+        Convenience wrapper that maps common labour indicators to their
+        ILO/DBnomics dataset codes so the chatbot can ask for, e.g.,
+        "unemployment rate in India" without knowing DBnomics series codes.
+        Provides GLOBAL coverage (every ILO member state) -- fills the macro
+        gaps that BLS (US), Eurostat (EU), and OECD (members) leave for markets
+        like India, Indonesia, Brazil, and Nigeria. Wraps
+        :func:`api_enrichment.fetch_ilostat`. Free, no API key.
+
+        Args:
+            args: Tool input dict with keys:
+                - ``indicator`` (str, required): one of ``unemployment_rate``,
+                  ``labour_force_participation``, ``employment_by_sector``,
+                  ``wages``, ``working_poverty`` (aliases accepted).
+                - ``country`` (str, required): ISO-3 code or country name.
+                - ``year_range`` (str, optional): display-only echo.
+
+        Returns:
+            Structured dict with ``series`` (list), ``source``
+            (``"ILOSTAT (via DBnomics)"``), ``indicator``, ``country``,
+            ``indicator_description``, ``unit`` and ``tool`` ``"query_ilostat"``.
+            Cached 24h in Upstash. Errors are returned in-band under an
+            ``error`` key; never raises.
+        """
+        indicator = (args.get("indicator") or "").strip()
+        country_raw = (args.get("country") or "").strip()
+        year_range = (args.get("year_range") or "").strip()
+
+        # Normalize country name -> ISO-3 (reuse the OECD alias table); ILO
+        # series are keyed by ISO-3. Take the first leg if a '+' is passed.
+        country_iso = (
+            (self._normalize_oecd_country(country_raw) or "")
+            .split("+")[0]
+            .strip()
+            .upper()
+        )
+
+        cache_key = "ilostat:" + json.dumps(
+            {"i": indicator.lower(), "c": country_iso}, sort_keys=True
+        )
+        try:
+            cached = _upstash_get(cache_key)
+            if isinstance(cached, dict) and "series" in cached:
+                cached.setdefault("tool", "query_ilostat")
+                cached["cached"] = True
+                if year_range:
+                    cached.setdefault("year_range", year_range)
+                return cached
+        except Exception as exc:  # noqa: BLE001 -- cache must never crash callers
+            logger.warning(f"ILOSTAT cache get failed: {exc}")
+
+        try:
+            from api_enrichment import fetch_ilostat
+
+            result = fetch_ilostat(indicator=indicator, country=country_iso)
+            result["tool"] = "query_ilostat"
+            if year_range:
+                result["year_range"] = year_range
+            # Only cache successful, non-empty responses.
+            if not result.get("error") and result.get("series"):
+                try:
+                    _upstash_set(
+                        cache_key, result, ttl_seconds=24 * 3600, category="api"
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning(f"ILOSTAT cache set failed: {exc}")
+            return result
+        except ImportError:
+            logger.error("api_enrichment.fetch_ilostat not available")
+            return {
+                "error": "ILOSTAT integration not available",
+                "source": "ILOSTAT (via DBnomics)",
+                "tool": "query_ilostat",
+                "country": country_iso,
+                "indicator": indicator,
+                "series": [],
+            }
+        except Exception as exc:
+            logger.error(f"ILOSTAT query failed: {exc}", exc_info=True)
+            return {
+                "error": f"ILOSTAT API error: {str(exc)[:200]}",
+                "source": "ILOSTAT (via DBnomics)",
+                "tool": "query_ilostat",
+                "country": country_iso,
+                "indicator": indicator,
+                "series": [],
+            }
+
+    def _query_companies_house(self, args: dict) -> dict:
+        """Look up UK firmographics from Companies House (S81).
+
+        Wraps :func:`api_enrichment.fetch_companies_house`. UK-only official
+        company register: status, incorporation date, registered address, SIC
+        codes. Requires a free ``COMPANIES_HOUSE_API_KEY``; when unset the
+        underlying fetcher returns a graceful "register a free key" response
+        (``configured=False``) rather than an error -- the tool is advertised
+        as available-with-a-key, never as broken.
+
+        Args:
+            args: Tool input dict with keys:
+                - ``company_name`` (str, optional): company name to search.
+                - ``company_number`` (str, optional): UK registration number;
+                  used as the query when provided.
+            At least one of the two should be supplied.
+
+        Returns:
+            Structured dict with ``companies`` (list), ``source``
+            (``"Companies House UK"``), ``count``, ``configured`` and ``tool``
+            ``"query_companies_house"``. Successful searches are cached 24h in
+            Upstash; the not-configured response is not cached. Never raises.
+        """
+        company_name = (args.get("company_name") or "").strip()
+        company_number = (args.get("company_number") or "").strip()
+        # Prefer an explicit number (more precise) as the search query.
+        query = company_number or company_name
+
+        if not query:
+            return {
+                "error": (
+                    "query_companies_house requires 'company_name' or "
+                    "'company_number'."
+                ),
+                "source": "Companies House UK",
+                "tool": "query_companies_house",
+                "companies": [],
+            }
+
+        cache_key = "companies_house:" + json.dumps({"q": query}, sort_keys=True)
+        try:
+            cached = _upstash_get(cache_key)
+            if isinstance(cached, dict) and "companies" in cached:
+                cached.setdefault("tool", "query_companies_house")
+                cached["cached"] = True
+                return cached
+        except Exception as exc:  # noqa: BLE001 -- cache must never crash callers
+            logger.warning(f"Companies House cache get failed: {exc}")
+
+        try:
+            from api_enrichment import fetch_companies_house
+
+            result = fetch_companies_house(query=query)
+            result["tool"] = "query_companies_house"
+            # Cache only successful, configured lookups that returned data.
+            # Never cache the "not configured" response (a key may be added
+            # at any time and we want that picked up immediately).
+            if (
+                result.get("configured")
+                and not result.get("error")
+                and result.get("companies")
+            ):
+                try:
+                    _upstash_set(
+                        cache_key, result, ttl_seconds=24 * 3600, category="api"
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning(f"Companies House cache set failed: {exc}")
+            return result
+        except ImportError:
+            logger.error("api_enrichment.fetch_companies_house not available")
+            return {
+                "error": "Companies House integration not available",
+                "source": "Companies House UK",
+                "tool": "query_companies_house",
+                "companies": [],
+            }
+        except Exception as exc:
+            logger.error(f"Companies House query failed: {exc}", exc_info=True)
+            return {
+                "error": f"Companies House API error: {str(exc)[:200]}",
+                "source": "Companies House UK",
+                "tool": "query_companies_house",
+                "companies": [],
             }
 
     def _query_esco_occupations(self, args: dict) -> dict:
@@ -15210,9 +15870,21 @@ When two or more tools return conflicting data for the same metric (e.g., differ
         # Rule-based fallback
         logger.info("NOVA MODE: Using rule-based fallback")
         _nova_metrics.record_rule_based()
-        result = self._chat_rule_based(
-            user_message, enrichment_context, conversation_history
-        )
+        # S82 FIX (R2): rule-based mode is the LLM-outage fallback, so an
+        # unhandled exception here used to propagate out of chat() instead of
+        # reaching the degraded-mode safety net below. Guard it so ANY failure
+        # in the rule-based path falls through to _build_degraded_mode_response.
+        try:
+            result = self._chat_rule_based(
+                user_message, enrichment_context, conversation_history
+            )
+        except Exception as _rb_err:  # noqa: BLE001 -- last-resort safety net
+            logger.error(
+                "Rule-based fallback raised (falling through to degraded mode): %s",
+                _rb_err,
+                exc_info=True,
+            )
+            result = None
         _nova_metrics.record_latency((time.time() - _t0) * 1000)
 
         # Hardcoded safety net: if rule-based also returned empty/None, ensure
@@ -20346,7 +21018,13 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             {
                 "type": "text",
                 "text": static_prompt,
-                "cache_control": {"type": "ephemeral"},
+                # S82: 1h TTL keeps the ~40K-token static prefix (system core +
+                # tool defs, identical across ALL users) cache-warm across the
+                # gaps between conversations, not just the default 5 min. Every
+                # request that sends this block MUST carry the
+                # extended-cache-ttl-2025-04-11 beta header (added below + on the
+                # two synthesis fallbacks). Verified live: write + read both 200.
+                "cache_control": {"type": "ephemeral", "ttl": "1h"},
             }
         ]
         # Dynamic context appended WITHOUT cache_control so it doesn't invalidate cache
@@ -20469,7 +21147,9 @@ When two or more tools return conflicting data for the same metric (e.g., differ
 
         # Cache ALL tool definitions (they're identical across requests)
         if tool_defs:
-            tool_defs[-1]["cache_control"] = {"type": "ephemeral"}
+            # S82: 1h TTL (see system-prefix note above) — tool defs (~34K tokens)
+            # are identical across requests; keep them cache-warm for the hour.
+            tool_defs[-1]["cache_control"] = {"type": "ephemeral", "ttl": "1h"}
 
         # S24: Deadline-aware tool loop for Path C (Claude API)
         # S32: Dynamic budget from outer_deadline (was static 50s, causing timeouts
@@ -20519,6 +21199,10 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                             "Content-Type": "application/json",
                             "x-api-key": api_key,
                             "anthropic-version": "2023-06-01",
+                            # S82: this deadline-synthesis call reuses system_content
+                            # (now carries 1h cache_control) — without the
+                            # extended-cache-ttl header the request would 400.
+                            "anthropic-beta": "prompt-caching-2024-07-31,extended-cache-ttl-2025-04-11",
                         },
                     )
                     with urllib.request.urlopen(req, timeout=20) as resp:
@@ -20562,7 +21246,10 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                         "Content-Type": "application/json",
                         "x-api-key": api_key,
                         "anthropic-version": "2023-06-01",
-                        "anthropic-beta": "prompt-caching-2024-07-31",
+                        # S82: extended-cache-ttl-2025-04-11 enables the 1h
+                        # cache_control TTL on the system prefix + tool defs
+                        # (verified live: write+read both 200).
+                        "anthropic-beta": "prompt-caching-2024-07-31,extended-cache-ttl-2025-04-11",
                     },
                 )
 
@@ -21138,6 +21825,9 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                     "Content-Type": "application/json",
                     "x-api-key": api_key,
                     "anthropic-version": "2023-06-01",
+                    # S82: reuses system_content (now 1h cache_control) — needs the
+                    # extended-cache-ttl header or the request would 400.
+                    "anthropic-beta": "prompt-caching-2024-07-31,extended-cache-ttl-2025-04-11",
                 },
             )
             with urllib.request.urlopen(_synth_req, timeout=30) as _synth_resp_raw:
@@ -21446,12 +22136,17 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                     )
                 except Exception:
                     pass
-                # Update conversation context
-                if "context" not in (self._conversations.get(session_id) or {}):
-                    if session_id not in self._conversations:
-                        self._conversations[session_id] = {"messages": []}
-                    self._conversations[session_id]["context"] = {}
-                self._conversations[session_id]["context"]["budget"] = _budget_num
+                # Update conversation context (LRU-bounded, thread-safe).
+                with self._conversations_lock:
+                    sess = self._conversations.get(session_id)
+                    if sess is None:
+                        sess = {"messages": []}
+                        self._conversations[session_id] = sess
+                    sess.setdefault("context", {})["budget"] = _budget_num
+                    # Mark most-recently-used and evict oldest beyond the cap.
+                    self._conversations.move_to_end(session_id)
+                    while len(self._conversations) > self._conversations_max:
+                        self._conversations.popitem(last=False)
                 return {
                     "response": (
                         f"Got it! I've set your campaign budget to **${_budget_num:,}**. "
@@ -25640,6 +26335,11 @@ def _enrich_source_citations(
         "query_uk_ons",
         "query_statcan",
         "query_oecd_sdmx",
+        "query_macro_indicator",
+        # S81: new live free-data-API sources.
+        "query_dbnomics_data",
+        "query_ilostat",
+        "query_companies_house",
         "query_esco_occupations",
         "query_careerjet",
         "query_bea",

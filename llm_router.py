@@ -52,7 +52,8 @@ Features (v4.0):
     - Response cache: LRU with task-aware TTL (5-min default, 15-min for verification/compliance)
 
 Each provider has independent circuit breaker (5 failures -> 60s cooldown)
-and per-minute rate tracking.  27 total providers (23 free + 4 paid).
+and per-minute rate tracking.  27 total providers (22 free + 5 paid;
+OpenRouter DeepSeek-R1 reclassified free->paid in S51, see _PROVIDER_COST_PER_M_TOKENS).
 
 Stdlib-only, thread-safe.
 """
@@ -169,9 +170,12 @@ CLAUDE_HAIKU = "claude_haiku"
 CLAUDE = "claude"
 CLAUDE_OPUS = "claude_opus"
 
-# S50 ADDITION (May 2026): 3 new free-tier fallbacks
+# S50 ADDITION (May 2026): 2 new free-tier fallbacks
 # - OPENROUTER_GPT_OSS: GPT-OSS-120B (Apache 2.0, 131K ctx, native tool use)
-# - CEREBRAS_SCOUT: Cerebras Qwen-3 235B Instruct (~2,600 tok/s, 1M ctx)
+# - CEREBRAS_SCOUT: Cerebras free trial -- gpt-oss-120b (default) / zai-glm-4.7,
+#   5 RPM, 8,192-token TOTAL context cap (S51 re-label; the older
+#   "Qwen-3 235B, ~2,600 tok/s, 1M ctx" label was stale per live Cerebras docs
+#   [inference-docs.cerebras.ai/support/rate-limits, retrieved 2026-06-02]).
 #   (Note: OPENROUTER_DEEPSEEK was planned but removed S50 -- the
 #   deepseek/deepseek-v3.2:free slug returns 404 on OpenRouter)
 OPENROUTER_GPT_OSS = "openrouter_gpt_oss"
@@ -265,8 +269,10 @@ _RATE_LIMITS: dict[str, dict[str, int]] = {
     "openrouter_gemma": {"rpm": 20, "window": 60},
     # S50 ADDITION (May 2026): new OpenRouter variants share the 20 RPM combined cap
     "openrouter_gpt_oss": {"rpm": 20, "window": 60},
-    # S50 ADDITION (May 2026): Cerebras Qwen-3 235B Instruct -- speed-critical fallback
-    "cerebras_scout": {"rpm": 30, "window": 60},
+    # S51 (Jun 2026): Cerebras free trial is 5 RPM (was incorrectly 30).
+    # gpt-oss-120b / zai-glm-4.7, 8K-token total context cap -- short-prompt
+    # / speed-only fallback. [inference-docs.cerebras.ai/support/rate-limits]
+    "cerebras_scout": {"rpm": 5, "window": 60},
     "xiaomi_mimo": {"rpm": 30, "window": 60},
     "cloudflare": {"rpm": 300, "window": 60},
     # Paid tiers -- higher limits
@@ -548,6 +554,11 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         # "gemini-3-flash-preview" is the verified working preview model ID
         # (validated in talent-crm commit df08565). Override via env var if needed
         # for max stability: GEMINI_MODEL=gemini-2.5-flash
+        # TODO S82: SCOUT-LLM (2026-06) recommends promoting to the GA string
+        # "gemini-3-flash" for best sustained free volume (1,500 RPD). VERIFIED
+        # 2026-06-02: "gemini-3-flash" still 404s (NOT_FOUND) on v1beta, while
+        # "gemini-3-flash-preview" returns 200 -- keeping the preview slug until
+        # the GA model ID lands. Re-test the GA slug before swapping.
         "endpoint": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent",
         "model": "gemini-3-flash-preview",
         "env_key": "GEMINI_API_KEY",
@@ -576,10 +587,18 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         "max_tokens": 8192,
     },
     GROQ: {
-        "name": "Groq Llama 3.3 70B",
+        # S51 UPGRADE (Jun 2026): Llama 3.3 70B -> Llama 4 Scout. Scout is a
+        # 17B-active/16-expert MoE with a 10M-token context window (largest
+        # open-weight), natively multimodal+multilingual, same Groq free tier
+        # (30 RPM / 1,000 RPD). Slug verified live (HTTP 200) on 2026-06-02.
+        # Override via env: GROQ_MODEL=llama-3.3-70b-versatile (prior GA slug).
+        # [ai.meta.com/blog/llama-4-multimodal-intelligence/ +
+        # console.groq.com/docs/rate-limits, retrieved 2026-06-02]
+        "name": "Groq Llama 4 Scout (10M ctx)",
         "api_style": "openai",  # OpenAI-compatible
         "endpoint": "https://api.groq.com/openai/v1/chat/completions",
-        "model": "llama-3.3-70b-versatile",
+        "model": os.environ.get("GROQ_MODEL")
+        or "meta-llama/llama-4-scout-17b-16e-instruct",
         "env_key": "GROQ_API_KEY",
         "rpm_limit": 30,
         "rpd_limit": 14400,
@@ -668,10 +687,15 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         "max_tokens": 4096,
     },
     ZHIPU: {
-        "name": "Zhipu AI (GLM-4-Flash)",
+        # S51 (Jun 2026): upgraded GLM-4-Flash -> GLM-4.7-Flash. Genuinely free
+        # (not trial-limited), 203K context (vs older Flash), OpenAI-compatible,
+        # same endpoint/key. Free tier ~5 RPM, concurrency 1 -- fallback only,
+        # not a workhorse. [vibecoding.app/blog/zhipu-ai-glm-pricing-2026 +
+        # wavespeed.ai/blog/posts/glm-4-7-flash/, retrieved 2026-06-02]
+        "name": "Zhipu AI (GLM-4.7-Flash)",
         "api_style": "openai",  # OpenAI-compatible
         "endpoint": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
-        "model": "glm-4-flash",
+        "model": "glm-4.7-flash",
         "env_key": "ZHIPU_API_KEY",
         "rpm_limit": 60,
         "rpd_limit": 50000,  # Unlimited free tier
@@ -715,7 +739,11 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         "name": "OpenRouter (Qwen3 Coder)",
         "api_style": "openai",  # OpenAI-compatible
         "endpoint": "https://openrouter.ai/api/v1/chat/completions",
-        "model": "alibaba/qwen3-coder:free",
+        # S51 (Jun 2026): pinned to qwen/qwen3-coder:free -- the durable
+        # confirmed-free 1M-context Qwen route on OpenRouter. The prior
+        # alibaba/* slug aliased the OAuth free tier that was discontinued
+        # 2026-04-15. [openrouter.ai/qwen/qwen3-coder:free, retrieved 2026-06-02]
+        "model": "qwen/qwen3-coder:free",
         "env_key": "OPENROUTER_API_KEY",
         "rpm_limit": 20,
         "rpd_limit": 1000,
@@ -783,10 +811,17 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         },
     },
     OPENROUTER_DEEPSEEK_R1: {
-        "name": "OpenRouter (DeepSeek R1 Reasoning)",
+        # S51 (Jun 2026): DeepSeek-R1 on OpenRouter is PAID ($0.70/M in,
+        # $2.50/M out, 164K ctx) -- there is NO `:free` DeepSeek slug on
+        # OpenRouter (the `:free` suffix 404s, same failure as the dead
+        # v3.2:free entry removed in S50). Slug pinned to the real paid
+        # route so it actually resolves; kept as a valid paid reasoning
+        # fallback. Cost metadata corrected below in _PROVIDER_COST_PER_M_TOKENS.
+        # [openrouter.ai/deepseek, retrieved 2026-06-02]
+        "name": "OpenRouter (DeepSeek R1 Reasoning, paid)",
         "api_style": "openai",  # OpenAI-compatible
         "endpoint": "https://openrouter.ai/api/v1/chat/completions",
-        "model": "deepseek/deepseek-r1:free",
+        "model": "deepseek/deepseek-r1",
         "env_key": "OPENROUTER_API_KEY",
         "rpm_limit": 20,
         "rpd_limit": 1000,
@@ -852,24 +887,35 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
     # verification on 2026-05-02 confirmed this slug returns HTTP 404 on OpenRouter.
     # No free DeepSeek V3.2 tier exists. OPENROUTER_DEEPSEEK_R1 (deepseek-r1:free)
     # remains as the verified-working DeepSeek free fallback.
-    # S50 ADDITION (May 2026): Cerebras's flagship open-weight model for speed.
-    # Original choice was llama-4-scout-17b-16e-instruct, but live verification
-    # found Cerebras does NOT host that model -- they only have llama3.1-8b,
-    # qwen-3-235b-a22b-instruct-2507, gpt-oss-120b, zai-glm-4.7. Switched to
-    # qwen-3-235b-a22b-instruct-2507 (Cerebras's flagship). ~2,600 tok/s,
-    # 1M tokens/day free quota, comparable benchmark to Llama 4 Scout.
-    # Override via env: CEREBRAS_SCOUT_MODEL=gpt-oss-120b (alt verified slug).
+    # S51 (Jun 2026) RE-LABEL + CONSTRAIN: the prior comment ("Qwen-3 235B /
+    # Llama 4 Scout, ~2,600 tok/s, 30 RPM, 1M ctx") is STALE. Live Cerebras
+    # rate-limit docs show the free trial now serves only gpt-oss-120b and
+    # zai-glm-4.7 at 5 RPM / 30K TPM / 1M TPD, with an 8,192-token TOTAL
+    # CONTEXT CAP (input + output combined). Cerebras free is therefore a
+    # short-prompt / speed-only fallback: NEVER route long (>8K-token)
+    # plan-narrative prompts here -- they will error on the context cap.
+    # Model defaults to gpt-oss-120b (a documented free-tier slug); override
+    # via env: CEREBRAS_SCOUT_MODEL=zai-glm-4.7 (alt documented free slug).
+    # NOTE: max_tokens caps OUTPUT only. The Cerebras free trial enforces an
+    # 8,192-token TOTAL context cap (input + output combined). The additive
+    # "max_context" field below records that cap as discoverable metadata; the
+    # router does not yet hard-enforce a total-context budget, so long prompts
+    # must still be kept off this provider operationally (a hard guard would
+    # require deeper call_llm changes -- TODO S82).
+    # [inference-docs.cerebras.ai/support/rate-limits, retrieved 2026-06-02]
     CEREBRAS_SCOUT: {
-        "name": "Cerebras Qwen-3 235B Instruct",
+        "name": "Cerebras GPT-OSS-120B (free, 8K ctx cap)",
         "api_style": "openai",  # OpenAI-compatible
         "endpoint": "https://api.cerebras.ai/v1/chat/completions",
-        "model": os.environ.get("CEREBRAS_SCOUT_MODEL")
-        or "qwen-3-235b-a22b-instruct-2507",
+        "model": os.environ.get("CEREBRAS_SCOUT_MODEL") or "gpt-oss-120b",
         "env_key": "CEREBRAS_API_KEY",
-        "rpm_limit": 30,
-        "rpd_limit": 14400,  # 1M tokens/day free
+        "rpm_limit": 5,  # Live free trial: 5 RPM (was incorrectly 30)
+        "rpd_limit": 14400,  # 1M tokens/day (TPD) free
         "timeout": 25,
-        "max_tokens": 8192,
+        "max_tokens": 8192,  # output cap; total ctx (in+out) also capped at 8192
+        # S51: free-trial TOTAL context cap (input+output). Additive metadata;
+        # consumed by any future total-context guard, harmless to current code.
+        "max_context": 8192,
     },
     CLAUDE_HAIKU: {
         "name": "Claude Haiku 4.5 (Anthropic)",
@@ -1003,7 +1049,7 @@ TASK_ROUTING: Dict[str, List[str]] = {
         GEMINI,  # #2 fallback -- free, strong reasoning
         GPT4O,  # #3 paid fallback
         CLAUDE,  # #4 Sonnet for deep reasoning
-        OPENROUTER_DEEPSEEK_R1,  # Free fallback tier
+        OPENROUTER_DEEPSEEK_R1,  # Paid reasoning fallback ($0.70/$2.50, no free DeepSeek slug on OpenRouter)
         # S50 REMOVED: OPENROUTER_DEEPSEEK -- deepseek-v3.2:free 404'd in live verification
         OPENROUTER_GPT_OSS,  # S50: GPT-OSS-120B reasoning-capable
         CLOUDFLARE,  # S48: promoted -- 300 RPM high-availability fallback
@@ -1070,7 +1116,7 @@ TASK_ROUTING: Dict[str, List[str]] = {
         GEMINI,  # #2 free fallback -- strong reasoning
         GPT4O,  # #3 paid fallback
         CLAUDE,  # #4 Sonnet for deep research
-        OPENROUTER_DEEPSEEK_R1,  # Free fallback tier
+        OPENROUTER_DEEPSEEK_R1,  # Paid reasoning fallback ($0.70/$2.50, no free DeepSeek slug on OpenRouter)
         # S50 REMOVED: OPENROUTER_DEEPSEEK -- slug 404 verified 2026-05-02
         SAMBANOVA,
         OPENROUTER,
@@ -1192,7 +1238,7 @@ TASK_ROUTING: Dict[str, List[str]] = {
         GEMINI,  # #2 free fallback -- good at structured data
         GPT4O,  # #3 paid fallback
         CLAUDE,  # #4 Sonnet for deep analysis
-        OPENROUTER_DEEPSEEK_R1,  # Free fallback tier
+        OPENROUTER_DEEPSEEK_R1,  # Paid reasoning fallback ($0.70/$2.50, no free DeepSeek slug on OpenRouter)
         XIAOMI_MIMO,
         SAMBANOVA,
         GROQ,
@@ -1208,7 +1254,7 @@ TASK_ROUTING: Dict[str, List[str]] = {
     ],
     TASK_COMPETITOR_SCAN: [
         GEMINI,  # Free, strong at web-scale competitive synthesis
-        OPENROUTER_DEEPSEEK_R1,  # Reasoning-heavy free fallback
+        OPENROUTER_DEEPSEEK_R1,  # Reasoning-heavy PAID fallback ($0.70/$2.50, no free DeepSeek slug)
         CLAUDE_HAIKU,  # Quality fallback for nuanced positioning analysis
         GPT4O,  # Paid fallback
         OPENROUTER,
@@ -1524,7 +1570,10 @@ _PROVIDER_COST_PER_M_TOKENS: Dict[str, Dict[str, float]] = {
     OPENROUTER_ARCEE: {"input": 0.0, "output": 0.0},
     OPENROUTER_LIQUID: {"input": 0.0, "output": 0.0},
     OPENROUTER_YI: {"input": 0.0, "output": 0.0},
-    OPENROUTER_DEEPSEEK_R1: {"input": 0.0, "output": 0.0},
+    # S51 (Jun 2026): DeepSeek-R1 on OpenRouter is PAID, not free -- corrected
+    # from 0.0/0.0 so cost accounting & routing reflect reality.
+    # [openrouter.ai/deepseek, retrieved 2026-06-02]
+    OPENROUTER_DEEPSEEK_R1: {"input": 0.70, "output": 2.50},
     OPENROUTER_GEMMA: {"input": 0.0, "output": 0.0},
     # S50 ADDITION (May 2026): new free providers
     OPENROUTER_GPT_OSS: {"input": 0.0, "output": 0.0},
@@ -2842,17 +2891,47 @@ def _build_anthropic_request(
         "messages": api_messages,
     }
 
+    # S82: prompt caching on the router's Anthropic path. Plan generation sends
+    # the largest static prefix (system prompt + tool defs) on every call; the
+    # Nova chat path already caches this (nova.py) but the router path did not,
+    # re-billing the full prefix each time. Marking the system block and the
+    # final tool def with cache_control yields ~90% input-token savings + lower
+    # latency on cache hits. Provider-scoped: only the Anthropic builder emits
+    # cache_control, and non-Anthropic providers already strip it (see
+    # _sanitize_tools_for_provider), so this cannot affect other providers.
+    _use_cache = bool(system_prompt) or bool(tools)
     if system_prompt:
-        payload["system"] = system_prompt
+        # Structured system block carrying an ephemeral 1h cache breakpoint.
+        payload["system"] = [
+            {
+                "type": "text",
+                "text": system_prompt,
+                "cache_control": {"type": "ephemeral", "ttl": "1h"},
+            }
+        ]
 
     if tools:
-        payload["tools"] = tools
+        # Copy so we never mutate the caller's tool list; mark the LAST tool so
+        # the entire tool-definition block is covered by one cache breakpoint.
+        cached_tools = [dict(t) for t in tools]
+        if cached_tools:
+            cached_tools[-1] = {
+                **cached_tools[-1],
+                "cache_control": {"type": "ephemeral", "ttl": "1h"},
+            }
+        payload["tools"] = cached_tools
 
     headers = {
         "Content-Type": "application/json",
         "x-api-key": api_key,
         "anthropic-version": "2023-06-01",
     }
+    if _use_cache:
+        # Required for the 1h extended-cache TTL used above (verified live on
+        # the Nova chat path). Harmless when no cache_control block is present.
+        headers["anthropic-beta"] = (
+            "prompt-caching-2024-07-31,extended-cache-ttl-2025-04-11"
+        )
     return config["endpoint"], headers, json.dumps(payload).encode("utf-8")
 
 

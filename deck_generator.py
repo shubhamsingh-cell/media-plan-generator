@@ -266,6 +266,21 @@ class DeckGenerator:
                         len(result),
                     )
                     return result, tier_key
+                # S82: a tier returning None (vs raising) is a SILENT skip --
+                # e.g. Google Slides creds missing/expired. Make it visible so
+                # we know when a deck degrades to a lower tier. Google Slides is
+                # the only tier carrying the curated 2026 cited block via the
+                # joveo template, so dropping it changes output quality.
+                if tier_key == "google_slides":
+                    logger.warning(
+                        "Deck tier '%s' skipped (returned None -- likely missing/"
+                        "expired GOOGLE_SLIDES_CREDENTIALS_B64). Falling back to "
+                        "python-pptx; cited 2026 block now comes from the shared "
+                        "cited_data_block helper.",
+                        tier_name,
+                    )
+                else:
+                    logger.info("Deck tier '%s' skipped (returned None)", tier_name)
             except Exception as exc:
                 msg = f"{tier_name}: {exc}"
                 errors.append(msg)

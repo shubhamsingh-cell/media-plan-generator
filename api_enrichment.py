@@ -16668,6 +16668,257 @@ def fetch_oecd_sdmx_data(
     }
 
 
+# ── DBnomics (90+ macro providers via one unified JSON API) ─────────────────
+# Verified live 2026-06-02 against api.db.nomics.world/v22. Public API, no key.
+# One client unlocks IMF WEO, ILO, Eurostat, OECD, BLS, World Bank, and 85+
+# national-statistics providers — fills EMEA/APAC macro gaps that pure-US
+# sources (BLS/JOLTS) miss. See docs/SCOUT_API_2026-06.md (API #2).
+#
+# Response shape (verified): top-level JSON has `series.docs[]`; each doc has
+# parallel `period[]` and `value[]` arrays plus `series_name`, `series_code`,
+# `dataset_name`, `provider_code`, and `dimensions{}`. The human-readable unit
+# is recovered from `dataset.dimensions_values_labels.unit[<dimensions.unit>]`
+# when present (the doc itself has no flat `unit` field). WEO value arrays
+# include forecast years; we surface the latest NON-NULL observation literally
+# and also return a window of recent observations for caller context.
+_DBNOMICS_BASE_URL = "https://api.db.nomics.world/v22"
+_DBNOMICS_DEFAULT_TIMEOUT = 15
+_DBNOMICS_RECENT_LIMIT = 8  # Recent observations returned to the caller.
+
+
+def _dbnomics_resolve_unit(
+    doc: Dict[str, Any], dataset: Dict[str, Any]
+) -> Optional[str]:
+    """Recover a human-readable unit label from a DBnomics doc, or None.
+
+    DBnomics docs do not carry a flat ``unit`` string; the unit code lives in
+    ``doc["dimensions"]["unit"]`` and its label in
+    ``dataset["dimensions_values_labels"]["unit"][<code>]``. Different
+    providers name the dimension differently (``unit``, ``UNIT``, ``units``),
+    so we probe a few common keys. Returns None when nothing resolves.
+    """
+    dims = doc.get("dimensions") or {}
+    labels = dataset.get("dimensions_values_labels") or {}
+    for dim_name in ("unit", "UNIT", "units", "Unit"):
+        code = dims.get(dim_name)
+        if not code:
+            continue
+        label_map = labels.get(dim_name) or {}
+        label = label_map.get(code)
+        if label:
+            return str(label)
+        # Fall back to the raw code if no label mapping exists.
+        return str(code)
+    return None
+
+
+def fetch_dbnomics_series(
+    provider: str,
+    dataset: str,
+    series: str,
+    timeout: int = _DBNOMICS_DEFAULT_TIMEOUT,
+) -> Dict[str, Any]:
+    """Fetch a single macro time series from DBnomics (stdlib only, no key).
+
+    DBnomics is a free, no-key aggregator over 90+ statistics providers
+    (IMF WEO, ILO, Eurostat, OECD, BLS, World Bank, national agencies) exposed
+    through one consistent JSON API. A single call returns the named series,
+    its latest non-null observation, and a window of recent observations —
+    ideal for international macro enrichment (unemployment, wages, GDP, CPI)
+    for any country a media plan targets.
+
+    Endpoint (verified 2026-06-02)::
+
+        https://api.db.nomics.world/v22/series/{provider}/{dataset}/{series}?observations=1
+
+    Args:
+        provider: DBnomics provider code, e.g. ``"IMF"``, ``"BLS"``,
+            ``"Eurostat"``, ``"ILO"``, ``"OECD"``, ``"WB"``.
+        dataset: Dataset code, e.g. ``"WEO:latest"`` (or a pinned vintage like
+            ``"WEO:2025-04"``) for IMF, ``"cu"`` for BLS CPI.
+        series: Series code, e.g. ``"USA.LUR"`` (IMF WEO US unemployment rate)
+            or ``"CUUR0000SA0"`` (BLS CPI, all urban, US city average).
+        timeout: HTTP timeout in seconds (default 15).
+
+    Returns:
+        On success, a structured dict::
+
+            {
+              "source": "DBnomics",
+              "provider": "IMF",
+              "dataset": "WEO:latest",
+              "series": "USA.LUR",
+              "series_name": "United States – Unemployment rate – Percent of total labor force",
+              "dataset_name": "World Economic Outlook by countries",
+              "latest_value": 4.079,
+              "latest_period": "2030",
+              "recent": [{"period": "2027", "value": 4.079}, ...],
+              "unit": "Percent of total labor force",   # or None if unknown
+              "frequency": "annual",                       # or None
+              "observation_count": 51,
+              "url": <full request URL>,
+              "elapsed_ms": <int>,
+            }
+
+        On failure, a clean dict with an ``error`` key (never raises)::
+
+            {"error": "<reason>", "source": "DBnomics",
+             "provider": ..., "dataset": ..., "series": ...,
+             "latest_value": None, "latest_period": None, "recent": []}
+
+    Note:
+        The latest observation is the last NON-NULL value in the series. For
+        forecast-bearing datasets (e.g. IMF WEO) this may be a projected year;
+        the ``recent`` window lets the caller distinguish actuals from
+        forecasts. Never raises — all network/parse errors return an envelope.
+    """
+    provider_norm = (provider or "").strip()
+    dataset_norm = (dataset or "").strip()
+    series_norm = (series or "").strip()
+
+    def _error(reason: str, *, url: Optional[str] = None) -> Dict[str, Any]:
+        """Build a consistent failure envelope (matches the success shape)."""
+        env: Dict[str, Any] = {
+            "source": "DBnomics",
+            "provider": provider_norm,
+            "dataset": dataset_norm,
+            "series": series_norm,
+            "latest_value": None,
+            "latest_period": None,
+            "recent": [],
+            "error": reason,
+        }
+        if url:
+            env["url"] = url
+        return env
+
+    if not provider_norm or not dataset_norm or not series_norm:
+        return _error(
+            "provider, dataset, and series are all required "
+            "(e.g. provider='IMF', dataset='WEO:latest', series='USA.LUR')"
+        )
+
+    # Build the request URL. Path segments are percent-encoded but ':' and '.'
+    # are kept (DBnomics dataset/series codes rely on them, e.g. 'WEO:latest',
+    # 'USA.LUR', 'CUUR0000SA0').
+    path = "/".join(
+        urllib.parse.quote(seg, safe=":.")
+        for seg in (provider_norm, dataset_norm, series_norm)
+    )
+    url = f"{_DBNOMICS_BASE_URL}/series/{path}?observations=1"
+
+    # In-process cache (24h TTL, thread-safe) — mirrors the module pattern.
+    cache_key = _cache_key("dbnomics", f"{provider_norm}|{dataset_norm}|{series_norm}")
+    cached = _get_cached(cache_key)
+    if cached is not None:
+        return cached
+
+    req = urllib.request.Request(
+        url,
+        headers={
+            "Accept": "application/json",
+            "User-Agent": "Nova AI Suite/4.0 (DBnomics macro enrichment)",
+        },
+    )
+    started = time.monotonic()
+    try:
+        ctx = ssl.create_default_context()
+        with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
+            raw = resp.read()
+        elapsed_ms = int((time.monotonic() - started) * 1000)
+        payload = json.loads(raw.decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        body = ""
+        try:
+            body = exc.read().decode("utf-8", errors="replace")[:200]
+        except Exception:
+            pass
+        _api_logger.error(
+            f"DBnomics HTTP {exc.code}: {body or exc.reason}", exc_info=True
+        )
+        return _error(f"HTTP {exc.code}: {body or exc.reason}", url=url)
+    except urllib.error.URLError as exc:
+        _api_logger.error(f"DBnomics network error: {exc.reason}", exc_info=True)
+        return _error(f"Network error: {exc.reason}", url=url)
+    except (json.JSONDecodeError, ValueError) as exc:
+        _api_logger.error(f"DBnomics bad JSON: {exc}", exc_info=True)
+        return _error(f"Bad JSON: {exc}", url=url)
+    except OSError as exc:
+        # Catches socket timeouts and other low-level network failures.
+        _api_logger.error(f"DBnomics OS error: {exc}", exc_info=True)
+        return _error(f"Network/OS error: {exc}", url=url)
+
+    # ── Parse the verified shape: payload["series"]["docs"][0] ──────────────
+    try:
+        series_block = payload.get("series") or {}
+        docs = series_block.get("docs") or []
+        if not docs:
+            # Surface any provider-side message DBnomics returned.
+            errors = payload.get("errors") or []
+            detail = ""
+            if isinstance(errors, list) and errors:
+                detail = f" ({errors[0]})" if isinstance(errors[0], str) else ""
+            return _error(f"No series found for {path}{detail}", url=url)
+
+        doc = docs[0] or {}
+        dataset_block = payload.get("dataset") or {}
+
+        periods = doc.get("period") or []
+        values = doc.get("value") or []
+
+        # Pair periods with values defensively (arrays should be equal length).
+        paired: List[Dict[str, Any]] = []
+        for i in range(min(len(periods), len(values))):
+            paired.append({"period": periods[i], "value": values[i]})
+
+        # Latest = last NON-NULL value (DBnomics uses null for missing obs).
+        latest_value: Optional[float] = None
+        latest_period: Optional[str] = None
+        for obs in reversed(paired):
+            if obs.get("value") is not None:
+                latest_value = obs.get("value")
+                latest_period = obs.get("period")
+                break
+
+        if latest_value is None:
+            return _error(f"All observations are null for {path}", url=url)
+
+        # Recent window: last N observations that have a value, oldest→newest.
+        recent = [obs for obs in paired if obs.get("value") is not None]
+        recent = recent[-_DBNOMICS_RECENT_LIMIT:]
+
+        unit = _dbnomics_resolve_unit(doc, dataset_block)
+        frequency = doc.get("@frequency") or doc.get("frequency") or None
+
+        result: Dict[str, Any] = {
+            "source": "DBnomics",
+            "provider": doc.get("provider_code") or provider_norm,
+            "dataset": dataset_norm,
+            "dataset_code": doc.get("dataset_code") or dataset_norm,
+            "series": doc.get("series_code") or series_norm,
+            "series_name": doc.get("series_name") or "",
+            "dataset_name": doc.get("dataset_name") or "",
+            "latest_value": latest_value,
+            "latest_period": latest_period,
+            "recent": recent,
+            "unit": unit,
+            "frequency": frequency,
+            "observation_count": len(paired),
+            "url": url,
+            "elapsed_ms": elapsed_ms,
+        }
+    except (KeyError, IndexError, TypeError, AttributeError) as exc:
+        _api_logger.error(f"DBnomics parse failed: {exc}", exc_info=True)
+        return _error(f"Parse error: {exc}", url=url)
+
+    _api_logger.info(
+        f"DBnomics: {result['series_name'] or path} latest "
+        f"{latest_value} @ {latest_period} in {elapsed_ms}ms"
+    )
+    _set_cached(cache_key, result)
+    return result
+
+
 # StatCan key labor market tables
 _STATCAN_TABLES: Dict[str, str] = {
     "14-10-0326-01": "Job Vacancies (JVWS) by industry",
@@ -17052,6 +17303,710 @@ def fetch_esco_occupations(
         "count": len(occupations),
         "total_matches": int(total) if isinstance(total, (int, float)) else 0,
         "occupations": occupations,
+    }
+
+
+# ── DBnomics multi-series helper (mask form) ────────────────────────────────
+# NOTE: a single-series ``fetch_dbnomics_series(provider, dataset, series)``
+# already exists above (S82) and is consumed by nova.py's
+# ``_query_macro_indicator`` (IMF WEO lookups). We intentionally do NOT touch
+# or shadow it. This helper adds the MULTI-series mask form needed by the
+# DBnomics chat tool and the ILOSTAT employment-by-sector indicator, where one
+# country query legitimately returns several series (e.g. all economic
+# sectors). It reuses the module's existing _DBNOMICS_* constants and the
+# shared in-process cache.
+#
+# Mask form: /v22/series/PROVIDER/DATASET/MASK?observations=1
+#   The MASK is a dot-delimited dimension filter where an empty segment means
+#   "any value" for that dimension -- the robust form for providers (like ILO)
+#   whose SOURCE dimension code varies per country. VERIFIED 2026-06-02:
+#   ILO/UNE_2EAP_SEX_AGE_RT/USA..AGE_YTHADULT_YGE15.SEX_T.A returned the 2025
+#   modelled US unemployment rate (4.082%).
+
+_DBNOMICS_MULTI_MAX_SERIES = 30  # Cap payload size for chatbot context.
+_DBNOMICS_MULTI_MAX_OBSERVATIONS = 60  # Trim per-series obs (annual ~ decades).
+
+
+def _dbnomics_parse_multi_doc(doc: Dict[str, Any]) -> Dict[str, Any]:
+    """Normalize one DBnomics series doc into a flat multi-series row.
+
+    Args:
+        doc: A single element of ``series.docs`` from the v22 response.
+
+    Returns:
+        Dict with ``name``, ``code``, ``period``, ``value``, ``latest_period``,
+        ``latest_value``, ``provider``, ``dataset``. Periods/values are aligned,
+        NA-stripped, and trimmed to the most recent N observations.
+    """
+    periods = doc.get("period") or []
+    values = doc.get("value") or []
+    paired: List[Any] = []
+    for i in range(min(len(periods), len(values))):
+        v = values[i]
+        if v is None or (isinstance(v, str) and v.strip().upper() == "NA"):
+            continue
+        paired.append((periods[i], v))
+    if len(paired) > _DBNOMICS_MULTI_MAX_OBSERVATIONS:
+        paired = paired[-_DBNOMICS_MULTI_MAX_OBSERVATIONS:]
+    out_periods = [p for p, _ in paired]
+    out_values = [v for _, v in paired]
+    return {
+        "name": (doc.get("series_name") or "").strip(),
+        "code": (doc.get("series_code") or "").strip(),
+        "period": out_periods,
+        "value": out_values,
+        "latest_period": out_periods[-1] if out_periods else None,
+        "latest_value": out_values[-1] if out_values else None,
+        "provider": (doc.get("provider_code") or "").strip(),
+        "dataset": (doc.get("dataset_code") or "").strip(),
+    }
+
+
+def fetch_dbnomics_series_multi(
+    provider_code: str,
+    dataset_code: str,
+    series_code: Optional[str] = None,
+    query: Optional[str] = None,
+    limit: int = 20,
+    timeout: int = _DBNOMICS_DEFAULT_TIMEOUT,
+) -> Dict[str, Any]:
+    """Fetch one or more DBnomics series via the mask form (stdlib only, no key).
+
+    Sibling of the single-series :func:`fetch_dbnomics_series`. DBnomics
+    aggregates 90+ statistical providers (IMF, ILO/ILOSTAT, Eurostat, OECD,
+    World Bank, BLS, national agencies) through one consistent JSON API, so a
+    single integration unlocks dozens of macro indicators for any country a
+    media plan targets.
+
+    Args:
+        provider_code: Provider code, e.g. ``"ILO"``, ``"IMF"``, ``"Eurostat"``,
+            ``"WB"`` (World Bank), ``"OECD"``, ``"BLS"``.
+        dataset_code: Dataset code within the provider, e.g.
+            ``"EMP_2EMP_SEX_ECO_NB"`` (ILO employment by sector).
+        series_code: Optional series code OR dimension mask. An empty segment
+            between dots (e.g. ``"USA...SEX_T.A"``) is a wildcard for that
+            dimension -- the robust form when a source/sector code varies. If
+            omitted, ``query`` is used, else the dataset's first series return.
+        query: Optional free-text filter across the dataset's series (DBnomics
+            ``q`` param). Ignored when ``series_code`` is given.
+        limit: Max number of series to return (default 20, capped at 30).
+        timeout: HTTP timeout in seconds (default 15).
+
+    Returns:
+        Structured dict::
+
+            {
+              "source": "DBnomics",
+              "provider": <provider_code>,
+              "dataset": <dataset_code>,
+              "series": [ {name, code, period[], value[], latest_period,
+                           latest_value, provider, dataset}, ... ],
+              "count": <int>, "num_found": <int|None>,
+              "url": <request URL>, "elapsed_ms": <int>,
+            }
+
+        On error: same shape with an ``error`` key and ``series`` = [].
+        Never raises -- always returns a structured response.
+    """
+    provider = (provider_code or "").strip()
+    dataset = (dataset_code or "").strip()
+    try:
+        limit_n = max(1, min(int(limit), _DBNOMICS_MULTI_MAX_SERIES))
+    except (TypeError, ValueError):
+        limit_n = 20
+
+    if not provider or not dataset:
+        return {
+            "source": "DBnomics",
+            "provider": provider,
+            "dataset": dataset,
+            "series": [],
+            "count": 0,
+            "error": "provider_code and dataset_code are required",
+        }
+
+    # Build the request URL. Prefer the mask form (path) when a series_code is
+    # supplied, because it transparently supports wildcard dimensions.
+    if series_code:
+        mask = str(series_code).strip()
+        url = (
+            f"{_DBNOMICS_BASE_URL}/series/"
+            f"{urllib.parse.quote(provider, safe='')}/"
+            f"{urllib.parse.quote(dataset, safe='')}/"
+            f"{urllib.parse.quote(mask, safe='.')}"
+            f"?observations=1&limit={limit_n}"
+        )
+    else:
+        params = {"observations": "1", "limit": str(limit_n)}
+        if query:
+            params["q"] = str(query).strip()
+        url = (
+            f"{_DBNOMICS_BASE_URL}/series/"
+            f"{urllib.parse.quote(provider, safe='')}/"
+            f"{urllib.parse.quote(dataset, safe='')}"
+            f"?{urllib.parse.urlencode(params)}"
+        )
+
+    # In-process cache (mirrors the module pattern; distinct namespace).
+    cache_key = _cache_key(
+        "dbnomics_multi",
+        f"{provider}|{dataset}|{series_code or ''}|{query or ''}|{limit_n}",
+    )
+    cached = _get_cached(cache_key)
+    if cached is not None:
+        return cached
+
+    req = urllib.request.Request(
+        url,
+        headers={
+            "Accept": "application/json",
+            "User-Agent": "Nova AI Suite/4.0 (DBnomics macro enrichment)",
+        },
+    )
+    started = time.monotonic()
+    try:
+        ctx = ssl.create_default_context()
+        with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
+            raw = resp.read()
+        elapsed_ms = int((time.monotonic() - started) * 1000)
+        payload = json.loads(raw.decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        body = ""
+        try:
+            body = exc.read().decode("utf-8", errors="replace")[:200]
+        except Exception:
+            pass
+        _api_logger.error(
+            f"DBnomics(multi) HTTP {exc.code} for {provider}/{dataset}: "
+            f"{body or exc.reason}",
+            exc_info=True,
+        )
+        return {
+            "source": "DBnomics",
+            "provider": provider,
+            "dataset": dataset,
+            "url": url,
+            "series": [],
+            "count": 0,
+            "error": f"HTTP {exc.code}: {body or exc.reason}",
+        }
+    except urllib.error.URLError as exc:
+        _api_logger.error(
+            f"DBnomics(multi) network error for {provider}/{dataset}: " f"{exc.reason}",
+            exc_info=True,
+        )
+        return {
+            "source": "DBnomics",
+            "provider": provider,
+            "dataset": dataset,
+            "url": url,
+            "series": [],
+            "count": 0,
+            "error": f"Network error: {exc.reason}",
+        }
+    except (json.JSONDecodeError, ValueError) as exc:
+        _api_logger.error(
+            f"DBnomics(multi) bad JSON for {provider}/{dataset}: {exc}",
+            exc_info=True,
+        )
+        return {
+            "source": "DBnomics",
+            "provider": provider,
+            "dataset": dataset,
+            "url": url,
+            "series": [],
+            "count": 0,
+            "error": f"Bad JSON: {exc}",
+        }
+    except OSError as exc:
+        _api_logger.error(
+            f"DBnomics(multi) OS error for {provider}/{dataset}: {exc}",
+            exc_info=True,
+        )
+        return {
+            "source": "DBnomics",
+            "provider": provider,
+            "dataset": dataset,
+            "url": url,
+            "series": [],
+            "count": 0,
+            "error": f"Network/OS error: {exc}",
+        }
+
+    # DBnomics returns errors in-band (HTTP 200 + "errors" array) when a
+    # series/dataset can't be loaded. Surface as a clean no-data result.
+    errors = payload.get("errors")
+    series_block = payload.get("series") or {}
+    docs = series_block.get("docs") if isinstance(series_block, dict) else None
+    if errors and isinstance(errors, list) and not docs:
+        msg = ""
+        try:
+            msg = (errors[0] or {}).get("message") or ""
+        except (AttributeError, IndexError, TypeError):
+            msg = ""
+        _api_logger.warning(
+            f"DBnomics(multi) no data for {provider}/{dataset} "
+            f"(series={series_code or query or '*'}): {msg}"
+        )
+        return {
+            "source": "DBnomics",
+            "provider": provider,
+            "dataset": dataset,
+            "url": url,
+            "series": [],
+            "count": 0,
+            "error": f"No matching series ({msg})" if msg else "No matching series",
+        }
+
+    if not isinstance(docs, list):
+        docs = []
+    parsed = [
+        _dbnomics_parse_multi_doc(d) for d in docs[:limit_n] if isinstance(d, dict)
+    ]
+    num_found = (
+        series_block.get("num_found") if isinstance(series_block, dict) else None
+    )
+
+    result = {
+        "source": "DBnomics",
+        "provider": provider,
+        "dataset": dataset,
+        "url": url,
+        "elapsed_ms": elapsed_ms,
+        "num_found": num_found,
+        "count": len(parsed),
+        "series": parsed,
+    }
+    _api_logger.info(
+        f"DBnomics(multi): {len(parsed)} series for {provider}/{dataset} "
+        f"(num_found={num_found}) in {elapsed_ms}ms"
+    )
+    # Only cache successful, non-empty results.
+    if parsed:
+        _set_cached(cache_key, result)
+    return result
+
+
+# ── ILOSTAT (ILO labour statistics, via DBnomics) ───────────────────────────
+# ILO publishes its full statistics catalogue through DBnomics under provider
+# code "ILO". A convenience wrapper over fetch_dbnomics_series is cleaner and
+# more reliable than the ILO SDMX endpoint (https://www.ilo.org/sdmx/rest/),
+# which is slower and returns bulkier XML/JSON. We therefore map common labour
+# indicators to their ILO/DBnomics dataset codes and use the wildcard mask
+# form so the per-country SOURCE dimension does not need to be known ahead of
+# time. Verified live 2026-06-02 (modelled estimates carry 2025 data).
+#
+# Dimension order differs per dataset (discovered empirically -- see report):
+#   UNE_2EAP_SEX_AGE_RT      : COUNTRY . SOURCE . AGE . SEX . FREQ
+#   EAP_2WAP_SEX_AGE_RT      : COUNTRY . SOURCE . AGE . SEX . FREQ
+#   EMP_2EMP_SEX_ECO_NB      : COUNTRY . SOURCE . ECO . SEX . FREQ
+#   EMP_2WAP_SEX_AGE_RT      : COUNTRY . SOURCE . AGE . SEX . FREQ
+#   EAR_4MTH_SEX_ECO_CUR_NB  : COUNTRY . SOURCE . ECO . CUR . SEX . FREQ
+# The {country} placeholder is filled at query time; "" = wildcard (any).
+
+_ILOSTAT_INDICATORS: Dict[str, Dict[str, str]] = {
+    "unemployment_rate": {
+        "dataset": "UNE_2EAP_SEX_AGE_RT",
+        # SOURCE wildcarded; total persons aged 15+, annual.
+        "mask": "{country}..AGE_YTHADULT_YGE15.SEX_T.A",
+        "description": "Unemployment rate, total, 15+ -- ILO modelled estimates",
+        "unit": "% of labour force",
+    },
+    "labour_force_participation": {
+        "dataset": "EAP_2WAP_SEX_AGE_RT",
+        "mask": "{country}..AGE_YTHADULT_YGE15.SEX_T.A",
+        "description": (
+            "Labour force participation rate, total, 15+ -- ILO modelled " "estimates"
+        ),
+        "unit": "% of working-age population",
+    },
+    "employment_by_sector": {
+        "dataset": "EMP_2EMP_SEX_ECO_NB",
+        # Dims: COUNTRY . SOURCE . ECO . SEX . FREQ. SOURCE + ECO wildcarded so
+        # all sector breakdowns (agriculture/manufacturing/services/total)
+        # return in one call.
+        "mask": "{country}...SEX_T.A",
+        "description": (
+            "Employment by economic sector, total -- ILO modelled estimates"
+        ),
+        "unit": "thousands of persons",
+    },
+    "wages": {
+        "dataset": "EAR_4MTH_SEX_ECO_CUR_NB",
+        # Total economy, PPP-adjusted, total persons, annual.
+        "mask": "{country}..ECO_AGGREGATE_TOTAL.CUR_TYPE_PPP.SEX_T.A",
+        "description": (
+            "Average monthly earnings, total economy, PPP -- ILO statistics"
+        ),
+        "unit": "USD PPP per month",
+    },
+    "working_poverty": {
+        "dataset": "EMP_2WAP_SEX_AGE_RT",
+        "mask": "{country}..AGE_YTHADULT_YGE15.SEX_T.A",
+        "description": (
+            "Employment-to-population ratio (working-poverty proxy), 15+ -- "
+            "ILO modelled estimates"
+        ),
+        "unit": "%",
+    },
+}
+
+# Common aliases mapped onto the canonical indicator keys above.
+_ILOSTAT_INDICATOR_ALIASES: Dict[str, str] = {
+    "unemployment": "unemployment_rate",
+    "unemployment rate": "unemployment_rate",
+    "jobless": "unemployment_rate",
+    "lfpr": "labour_force_participation",
+    "labour force participation": "labour_force_participation",
+    "labor force participation": "labour_force_participation",
+    "participation rate": "labour_force_participation",
+    "labour force": "labour_force_participation",
+    "labor force": "labour_force_participation",
+    "employment": "employment_by_sector",
+    "employment by sector": "employment_by_sector",
+    "sector employment": "employment_by_sector",
+    "sectoral employment": "employment_by_sector",
+    "wage": "wages",
+    "wages": "wages",
+    "earnings": "wages",
+    "salary": "wages",
+    "pay": "wages",
+    "working poverty": "working_poverty",
+    "employment ratio": "working_poverty",
+    "employment to population": "working_poverty",
+}
+
+
+def _ilostat_normalize_indicator(indicator: Optional[str]) -> Optional[str]:
+    """Map a free-text indicator name to a canonical ILOSTAT indicator key."""
+    key = (indicator or "").strip().lower()
+    if not key:
+        return None
+    if key in _ILOSTAT_INDICATORS:
+        return key
+    return _ILOSTAT_INDICATOR_ALIASES.get(key)
+
+
+def fetch_ilostat(
+    indicator: str,
+    country: str,
+    timeout: int = _DBNOMICS_DEFAULT_TIMEOUT,
+) -> Dict[str, Any]:
+    """Fetch an ILO labour-market indicator for a country, via DBnomics.
+
+    Convenience wrapper over :func:`fetch_dbnomics_series` that maps common
+    labour indicators (unemployment rate, labour-force participation,
+    employment by sector, wages, working poverty) to their ILO/DBnomics
+    dataset codes and queries them with a country-masked series filter.
+
+    Args:
+        indicator: Indicator name. Canonical keys: ``"unemployment_rate"``,
+            ``"labour_force_participation"``, ``"employment_by_sector"``,
+            ``"wages"``, ``"working_poverty"``. Common aliases (e.g.
+            ``"unemployment"``, ``"lfpr"``, ``"earnings"``) are also accepted.
+        country: ISO-3 country code (e.g. ``"USA"``, ``"IND"``, ``"DEU"``).
+        timeout: HTTP timeout in seconds (default 20).
+
+    Returns:
+        The :func:`fetch_dbnomics_series` result dict, augmented with
+        ``"source": "ILOSTAT (via DBnomics)"``, the resolved ``indicator``,
+        ``country``, ``indicator_description``, and a ``via`` provenance note.
+        Errors are returned in-band; this function never raises.
+    """
+    canonical = _ilostat_normalize_indicator(indicator)
+    country_iso = (country or "").strip().upper()
+
+    if canonical is None:
+        return {
+            "source": "ILOSTAT (via DBnomics)",
+            "indicator": (indicator or "").strip(),
+            "country": country_iso,
+            "series": [],
+            "count": 0,
+            "available_indicators": list(_ILOSTAT_INDICATORS.keys()),
+            "error": (
+                f"Unknown ILOSTAT indicator '{indicator}'. Available: "
+                f"{list(_ILOSTAT_INDICATORS.keys())}"
+            ),
+        }
+
+    if not country_iso:
+        return {
+            "source": "ILOSTAT (via DBnomics)",
+            "indicator": canonical,
+            "country": "",
+            "series": [],
+            "count": 0,
+            "error": "country is required (ISO-3 code, e.g. 'USA', 'IND')",
+        }
+
+    spec = _ILOSTAT_INDICATORS[canonical]
+    mask = spec["mask"].format(country=country_iso)
+
+    # Use the multi-series mask helper: most indicators resolve to a single
+    # series, but employment_by_sector legitimately returns several (one per
+    # economic sector), so we never want to drop them to docs[0].
+    result = fetch_dbnomics_series_multi(
+        provider_code="ILO",
+        dataset_code=spec["dataset"],
+        series_code=mask,
+        limit=30,
+        timeout=timeout,
+    )
+
+    # Re-badge the provenance so the chatbot attributes it to ILOSTAT while
+    # still recording the DBnomics transport.
+    result["source"] = "ILOSTAT (via DBnomics)"
+    result["via"] = "DBnomics aggregator (provider=ILO)"
+    result["indicator"] = canonical
+    result["country"] = country_iso
+    result["indicator_description"] = spec["description"]
+    result["unit"] = spec["unit"]
+    return result
+
+
+# ── Companies House UK (firmographics, free key required) ────────────────────
+# Verified live 2026-06-02: api.company-information.service.gov.uk returns 401
+# without an Authorization header (HTTP Basic, API key as username, blank
+# password). Free key via https://developer.company-information.service.gov.uk/
+# UK-only firmographics. Mirrors the graceful-degrade pattern used by the
+# CareerOneStop / LinkUp / Revelio integrations: when the key is unset we
+# return a clean, advertised "register a free key" message rather than an
+# error -- the tool stays useful and self-documenting.
+
+_COMPANIES_HOUSE_BASE_URL = "https://api.company-information.service.gov.uk"
+_COMPANIES_HOUSE_DEFAULT_TIMEOUT = 15
+_COMPANIES_HOUSE_REGISTER_URL = "https://developer.company-information.service.gov.uk/"
+
+
+def _companies_house_not_configured(query: str) -> Dict[str, Any]:
+    """Graceful response when COMPANIES_HOUSE_API_KEY is not set.
+
+    Mirrors the LinkUp/Revelio/CareerOneStop "not configured" contract: a
+    clean, advertised path to enable the source, never an error string.
+    """
+    return {
+        "source": "Companies House UK",
+        "query": (query or "").strip(),
+        "companies": [],
+        "count": 0,
+        "configured": False,
+        "note": (
+            "COMPANIES_HOUSE_API_KEY not configured -- register a free key at "
+            f"{_COMPANIES_HOUSE_REGISTER_URL} to enable UK company "
+            "firmographic lookups (company status, incorporation date, "
+            "registered address, SIC codes)."
+        ),
+    }
+
+
+def fetch_companies_house(
+    query: str,
+    timeout: int = _COMPANIES_HOUSE_DEFAULT_TIMEOUT,
+) -> Dict[str, Any]:
+    """Search UK Companies House for firmographic data (free key required).
+
+    Companies House is the UK's official company register. This searches its
+    public company database (free API key via HTTP Basic auth -- the key is
+    the username with a blank password). Stdlib-only sibling of the other
+    enrichment fetchers.
+
+    When ``COMPANIES_HOUSE_API_KEY`` is unset (the default on Render), this
+    returns a graceful "not configured" response with a registration link,
+    matching the LinkUp/Revelio degrade pattern -- it is advertised as
+    available-with-a-key, never as broken.
+
+    Args:
+        query: Company name (or number) to search, e.g. ``"Monzo"``,
+            ``"BrewDog"``, or a registration number like ``"09446231"``.
+        timeout: HTTP timeout in seconds (default 15).
+
+    Returns:
+        Structured dict::
+
+            {
+              "source": "Companies House UK",
+              "query": <query>,
+              "companies": [ {name, number, status, incorporated, address,
+                              sic_codes[], type, url}, ... ],
+              "count": <int>,
+              "configured": <bool>,
+            }
+
+        On missing key: ``configured=False`` plus a ``note`` registration
+        hint. On error: ``companies`` = [] with an ``error`` key.
+        Never raises -- always returns a structured response.
+    """
+    query_clean = (query or "").strip()
+    api_key = (os.environ.get("COMPANIES_HOUSE_API_KEY") or "").strip()
+
+    if not api_key:
+        _api_logger.info(
+            "Companies House: COMPANIES_HOUSE_API_KEY not set -- returning "
+            "graceful not-configured response."
+        )
+        return _companies_house_not_configured(query_clean)
+
+    if not query_clean:
+        return {
+            "source": "Companies House UK",
+            "query": "",
+            "companies": [],
+            "count": 0,
+            "configured": True,
+            "error": "query is required (company name or registration number)",
+        }
+
+    url = (
+        f"{_COMPANIES_HOUSE_BASE_URL}/search/companies"
+        f"?q={urllib.parse.quote(query_clean)}&items_per_page=10"
+    )
+
+    # HTTP Basic auth: API key as username, blank password.
+    import base64
+
+    token = base64.b64encode(f"{api_key}:".encode("utf-8")).decode("ascii")
+    req = urllib.request.Request(
+        url,
+        headers={
+            "Accept": "application/json",
+            "Authorization": f"Basic {token}",
+            "User-Agent": "Nova AI Suite/4.0 (Companies House firmographics)",
+        },
+    )
+    started = time.monotonic()
+    try:
+        ctx = ssl.create_default_context()
+        with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
+            raw = resp.read()
+        elapsed_ms = int((time.monotonic() - started) * 1000)
+        payload = json.loads(raw.decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        body = ""
+        try:
+            body = exc.read().decode("utf-8", errors="replace")[:200]
+        except Exception:
+            pass
+        # 401/403 almost always means a bad/expired key -- surface clearly.
+        if exc.code in (401, 403):
+            _api_logger.error(
+                f"Companies House auth failed (HTTP {exc.code}): {body}",
+                exc_info=True,
+            )
+            return {
+                "source": "Companies House UK",
+                "query": query_clean,
+                "companies": [],
+                "count": 0,
+                "configured": True,
+                "error": (
+                    f"Authentication failed (HTTP {exc.code}). Check that "
+                    "COMPANIES_HOUSE_API_KEY is a valid live key from "
+                    f"{_COMPANIES_HOUSE_REGISTER_URL}"
+                ),
+            }
+        _api_logger.error(
+            f"Companies House HTTP {exc.code} for '{query_clean}': "
+            f"{body or exc.reason}",
+            exc_info=True,
+        )
+        return {
+            "source": "Companies House UK",
+            "query": query_clean,
+            "companies": [],
+            "count": 0,
+            "configured": True,
+            "error": f"HTTP {exc.code}: {body or exc.reason}",
+        }
+    except urllib.error.URLError as exc:
+        _api_logger.error(
+            f"Companies House network error for '{query_clean}': {exc.reason}",
+            exc_info=True,
+        )
+        return {
+            "source": "Companies House UK",
+            "query": query_clean,
+            "companies": [],
+            "count": 0,
+            "configured": True,
+            "error": f"Network error: {exc.reason}",
+        }
+    except (json.JSONDecodeError, ValueError) as exc:
+        _api_logger.error(
+            f"Companies House bad JSON for '{query_clean}': {exc}", exc_info=True
+        )
+        return {
+            "source": "Companies House UK",
+            "query": query_clean,
+            "companies": [],
+            "count": 0,
+            "configured": True,
+            "error": f"Bad JSON: {exc}",
+        }
+    except OSError as exc:
+        _api_logger.error(
+            f"Companies House OS error for '{query_clean}': {exc}", exc_info=True
+        )
+        return {
+            "source": "Companies House UK",
+            "query": query_clean,
+            "companies": [],
+            "count": 0,
+            "configured": True,
+            "error": f"Network/OS error: {exc}",
+        }
+
+    companies: List[Dict[str, Any]] = []
+    items = payload.get("items") or []
+    if isinstance(items, list):
+        for item in items[:10]:
+            if not isinstance(item, dict):
+                continue
+            addr = item.get("address") or {}
+            address_str = ""
+            if isinstance(addr, dict):
+                address_str = item.get("address_snippet") or ", ".join(
+                    str(v)
+                    for v in (
+                        addr.get("premises"),
+                        addr.get("address_line_1"),
+                        addr.get("locality"),
+                        addr.get("postal_code"),
+                        addr.get("country"),
+                    )
+                    if v
+                )
+            companies.append(
+                {
+                    "name": (item.get("title") or "").strip(),
+                    "number": (item.get("company_number") or "").strip(),
+                    "status": (item.get("company_status") or "").strip(),
+                    "incorporated": (item.get("date_of_creation") or "").strip(),
+                    "address": address_str.strip(),
+                    "sic_codes": item.get("sic_codes") or [],
+                    "type": (item.get("company_type") or "").strip(),
+                    "url": (
+                        f"https://find-and-update.company-information.service.gov.uk"
+                        f"/company/{(item.get('company_number') or '').strip()}"
+                        if item.get("company_number")
+                        else ""
+                    ),
+                }
+            )
+
+    _api_logger.info(
+        f"Companies House: {len(companies)} companies for '{query_clean}' "
+        f"in {elapsed_ms}ms"
+    )
+    return {
+        "source": "Companies House UK",
+        "query": query_clean,
+        "url": url,
+        "elapsed_ms": elapsed_ms,
+        "configured": True,
+        "count": len(companies),
+        "total_results": payload.get("total_results"),
+        "companies": companies,
     }
 
 
