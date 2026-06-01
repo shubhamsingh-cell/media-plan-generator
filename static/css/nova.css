@@ -12,7 +12,10 @@
   --bg-input: #0a0a0a;
   --text-primary: #e4e4e7;
   --text-secondary: #a1a1aa;
-  --text-muted: #71717a;
+  /* A11y: #71717a was ~3.9:1 on the #0d0d1a bg (fails WCAG AA). Nudged to
+     #8b8b94 (~4.6:1) so muted text -- timestamps, char count, helper copy --
+     passes AA while staying visually "muted". */
+  --text-muted: #8b8b94;
   /* Nova-specific accent aliases (map to canonical tokens) */
   --accent-purple: var(--accent, #5a54bd);
   --accent-purple-light: var(--accent-light, #7b75d4);
@@ -972,8 +975,45 @@ a:hover {
   box-shadow: var(--shadow-md);
   z-index: 100;
 }
-.citation:hover .citation-tooltip {
+.citation:hover .citation-tooltip,
+.citation:focus-visible .citation-tooltip {
   opacity: 1;
+}
+
+/* Keyboard focus ring for real (wired) citations */
+.citation:focus-visible {
+  outline: 2px solid var(--accent-teal);
+  outline-offset: 2px;
+}
+
+/* Demoted citation: no matching source -> inert plain marker (no false
+   affordance). Keeps the [N] visible but removes pointer/hover lift. */
+.citation-static {
+  cursor: default;
+}
+.citation-static:hover {
+  background: var(--accent-teal-dim);
+  transform: none;
+}
+
+/* Brief highlight when a citation jumps to its source badge */
+.meta-badge-flash {
+  animation: citation-flash 1.2s ease;
+}
+@keyframes citation-flash {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(107, 179, 205, 0);
+  }
+  25% {
+    box-shadow: 0 0 0 3px rgba(107, 179, 205, 0.5);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .meta-badge-flash {
+    animation: none;
+    box-shadow: 0 0 0 2px rgba(107, 179, 205, 0.6);
+  }
 }
 
 /* Source badges and confidence */
@@ -2285,6 +2325,18 @@ a:hover {
   }
   .nova-tool-label {
     max-width: 200px;
+  }
+}
+
+/* A11y: WCAG 2.2 (2.5.8) / iOS-HIG 44px minimum touch target. Desktop sizing
+   (36px) is unchanged; on touch-class viewports the interactive controls grow
+   to a 44px hit area. Additive — does not alter desktop layout. */
+@media (max-width: 768px) {
+  .send-btn,
+  .topbar-btn,
+  .sidebar-toggle {
+    min-width: 44px;
+    min-height: 44px;
   }
 }
 

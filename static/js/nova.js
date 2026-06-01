@@ -760,7 +760,7 @@
     else if (/m$/i.test(s)) mult = 1e6;
     else if (/b$/i.test(s)) mult = 1e9;
     s = s
-      .replace(/[\$,€£¥%]/g, "")
+      .replace(/[\$,€£¥₹৳₩₪%]/g, "")
       .replace(/[KkMmBb]$/, "")
       .trim();
     var n = parseFloat(s);
@@ -1022,6 +1022,82 @@
       }, 1500);
     });
   };
+
+  // ========================================================================
+  // INLINE CITATIONS ([1], [2], ...) -- wire to the Sources panel
+  // The markdown renderer emits <span class="citation" data-cite="N"
+  // role="button" tabindex="0">. This makes those markers real: when source
+  // N exists, populate the hover/focus tooltip (.citation-tooltip, already
+  // styled in nova.css) with the source name and wire click/Enter/Space to
+  // expand the Sources panel and highlight the matching entry. When there is
+  // NO matching source, demote the marker to plain inline text so it stops
+  // announcing "button" to screen readers and stops trapping keyboard focus.
+  // ========================================================================
+  function _wireCitations(contentEl, sources, bodyEl) {
+    if (!contentEl) return;
+    var cites = contentEl.querySelectorAll(".citation[data-cite]");
+    if (!cites.length) return;
+    sources = sources || [];
+
+    cites.forEach(function (cite) {
+      var n = parseInt(cite.getAttribute("data-cite"), 10);
+      var src = !isNaN(n) && n >= 1 ? sources[n - 1] : null;
+
+      // No matching source -> remove the false affordance. Keep the visible
+      // [N] text but make it inert (no role/tabindex/pointer/aria-button).
+      if (!src) {
+        cite.removeAttribute("role");
+        cite.removeAttribute("tabindex");
+        cite.removeAttribute("aria-label");
+        cite.style.cursor = "default";
+        cite.classList.add("citation-static");
+        return;
+      }
+
+      // Real citation: describe it to AT and build the hover/focus tooltip.
+      var srcLabel = String(src);
+      cite.setAttribute("aria-label", "Citation " + n + ": " + srcLabel);
+      cite.title = srcLabel;
+      var tip = document.createElement("span");
+      tip.className = "citation-tooltip";
+      tip.textContent = srcLabel;
+      cite.appendChild(tip);
+
+      // Reveal the matching source in the Sources panel for this message.
+      // The panel is appended to bodyEl AFTER this runs, so resolve the
+      // toggle/list at activation time rather than now.
+      function activate() {
+        var scope = bodyEl || contentEl.parentNode;
+        if (!scope) return;
+        var toggle = scope.querySelector(".sources-toggle");
+        var list = scope.querySelector(".sources-list");
+        if (toggle && list) {
+          if (toggle.getAttribute("aria-expanded") !== "true") {
+            toggle.click(); // reuse existing expand logic + aria sync
+          }
+          var badges = list.querySelectorAll(".meta-badge");
+          var target = badges[n - 1];
+          if (target) {
+            if (target.scrollIntoView) {
+              target.scrollIntoView({ block: "nearest" });
+            }
+            target.classList.add("meta-badge-flash");
+            setTimeout(function () {
+              target.classList.remove("meta-badge-flash");
+            }, 1200);
+          }
+        }
+      }
+
+      cite.addEventListener("click", activate);
+      cite.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          activate();
+        }
+      });
+    });
+  }
 
   // ========================================================================
   // CONVERSATION PERSISTENCE (localStorage)
@@ -1896,6 +1972,10 @@
       // so the message renders immediately; charts appear once the CDN
       // script resolves.
       _maybeRenderAutoCharts(content, msg.content);
+      // Wire inline [1] citation markers to the Sources panel for this
+      // message. Populates hover/focus tooltips and click-to-jump; demotes
+      // to plain text when there is no matching source (no false affordance).
+      _wireCitations(content, msg.sources, body);
     }
 
     body.appendChild(sender);
@@ -2084,6 +2164,22 @@
     requestAnimationFrame(function () {
       chatArea.scrollTo({ top: chatArea.scrollHeight, behavior: "smooth" });
     });
+  }
+
+  // True when the user is already at/near the bottom of the transcript.
+  // ~120px tolerance so a slightly-scrolled view still counts as "following".
+  function isNearBottom() {
+    if (!chatArea) return true;
+    var distance =
+      chatArea.scrollHeight - chatArea.scrollTop - chatArea.clientHeight;
+    return distance < 120;
+  }
+
+  // Sticky-scroll: only auto-scroll during streaming if the user is already
+  // following the bottom. If they've scrolled up to re-read earlier content
+  // mid-stream, don't yank them back down.
+  function scrollToBottomIfNear() {
+    if (isNearBottom()) scrollToBottom();
   }
 
   // ========================================================================
@@ -2693,6 +2789,11 @@
       var wrapper = document.createElement("div");
       wrapper.className = "message";
       wrapper.id = "streaming-msg";
+      // A11y: the chat-area is role="log" aria-live="polite" and markdown is
+      // re-rendered on every token. Mark this still-updating subtree busy so
+      // screen readers defer announcing it until streaming finalizes (cleared
+      // in _finalizeStream / _showStreamError). Additive attribute only.
+      wrapper.setAttribute("aria-busy", "true");
       var avatar = document.createElement("div");
       avatar.className = "message-avatar nova";
       avatar.innerHTML = _novaAvatarSVG(32);
@@ -2722,6 +2823,10 @@
     function _finalizeStream(metadata, fullText) {
       var cur = document.getElementById("streaming-cursor");
       if (cur) cur.remove();
+      // A11y: clear the streaming busy flag so the finalized answer (appended
+      // below as a fresh node) is announced normally by screen readers.
+      var streamingMsg = document.getElementById("streaming-msg");
+      if (streamingMsg) streamingMsg.setAttribute("aria-busy", "false");
       state.queryCount++;
       var msgId = metadata.message_id || "msg-" + Date.now();
 
@@ -2790,6 +2895,8 @@
     function _showStreamError(errorMsg) {
       resetLoadingState();
       var streamEl = document.getElementById("streaming-msg");
+      // A11y: clear the streaming busy flag before discarding the node.
+      if (streamEl) streamEl.setAttribute("aria-busy", "false");
       if (streamEl) streamEl.remove();
 
       var errBanner = document.createElement("div");
@@ -2855,7 +2962,7 @@
               cur.className = "streaming-cursor";
               cur.id = "streaming-cursor";
               content.appendChild(cur);
-              scrollToBottom();
+              scrollToBottomIfNear();
             },
             onStatus: function (status) {
               // Could show status indicator -- for now just log
@@ -2965,7 +3072,7 @@
                         cur.className = "streaming-cursor";
                         cur.id = "streaming-cursor";
                         content.appendChild(cur);
-                        scrollToBottom();
+                        scrollToBottomIfNear();
                       }
                     } catch (e) {}
                   });
@@ -3773,6 +3880,25 @@
       t += 0.016;
       _orbFrameId = requestAnimationFrame(draw);
     }
+
+    // Accessibility: respect prefers-reduced-motion (CLAUDE.md mandate).
+    // Same matchMedia pattern used by the auto-chart renderer above.
+    // When motion is reduced, paint ONE static frame and skip the rAF loop
+    // entirely so motion-sensitive users don't get a perpetually spinning orb.
+    var _orbReducedMotion =
+      window.matchMedia &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    if (_orbReducedMotion) {
+      // Single static frame -- no animation loop.
+      draw();
+      if (_orbFrameId) {
+        cancelAnimationFrame(_orbFrameId);
+        _orbFrameId = null;
+      }
+      return;
+    }
+
     _orbFrameId = requestAnimationFrame(draw);
 
     // Pause/resume orb animation on tab visibility change to prevent rAF leak

@@ -11239,11 +11239,22 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                             content = f.read()
                         etag = hashlib.sha256(content).hexdigest()[:12]
 
-                    # Cache policy: JS/CSS use must-revalidate so browsers
-                    # always check ETags (304 on match); images/fonts use
-                    # long-lived immutable cache (they rarely change).
+                    # Cache policy:
+                    #  - JS/CSS requested WITH a version query (?v=s49) are
+                    #    content-addressed by the caller, so they're safe to
+                    #    cache immutably for a year. The version bumps on every
+                    #    deploy, so a stale file is impossible. This removes a
+                    #    revalidation round-trip on every repeat visit.
+                    #  - JS/CSS requested WITHOUT ?v= fall back to
+                    #    no-cache/must-revalidate (ETag 304s) so an un-versioned
+                    #    request never gets pinned to a stale build.
+                    #  - Images/fonts/etc. stay long-lived immutable.
+                    has_version = "v=" in (parsed.query or "")
                     if ext in (".js", ".css"):
-                        cache_control = "public, no-cache, must-revalidate"
+                        if has_version:
+                            cache_control = "public, max-age=31536000, immutable"
+                        else:
+                            cache_control = "public, no-cache, must-revalidate"
                     else:
                         cache_control = "public, max-age=31536000, immutable"
 
