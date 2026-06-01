@@ -41,9 +41,13 @@ gunicorn>=22.0.0,<24.0.0
 gevent>=24.0.0,<25.0.0
 gevent-websocket>=0.10.1,<1.0.0
 
-# Nova RAG v2 (Phase 2). Used by rag_pipeline.NovaRAGPipeline +
-# nova._query_kb_semantic. Both packages are guarded by try/except in
-# rag_pipeline.py, but pinning here is what lets RAG_V2_ENABLED actually
-# work in production.
-voyageai>=0.3.0,<1.0.0
-qdrant-client>=1.10.0,<2.0.0
+# Nova RAG v2 (Phase 2): runs over stdlib REST (urllib) against the Voyage
+# embeddings API + Qdrant Cloud REST API -- NO SDK pip deps. The voyageai +
+# qdrant-client SDKs were removed because voyageai's stable wheels cap at
+# Python <3.13 while Render builds on 3.13, which broke `pip install -r`
+# (build_failed on S83/ffbc130). rag_pipeline.py uses urllib REST clients
+# (same pattern as the OECD/ESCO/DBnomics integrations) so RAG is
+# Python-version-proof and adds zero install weight. Qdrant collection
+# nova_knowledge_v2 (5,153 pts) is queried via its REST endpoint with
+# QDRANT_URL + QDRANT_API_KEY; embeddings via api.voyageai.com with
+# VOYAGE_API_KEY. All env vars already set on Render.
