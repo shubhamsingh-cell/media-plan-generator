@@ -21,12 +21,12 @@ up in a future session once you've provided the prerequisite.
   tier also works.
 - **Action:** provide the chosen embeddings key, then say "wire RAG embeddings."
 
-## 2. DeepSeek V4-Flash router slot (cheap tool-use fallback)
-- **Why:** $0.14/$0.28 per Mtok, 1M context, OpenAI-compatible — a near-free
-  fallback for classification/JSON/tool-use steps now using Haiku budget.
-- **Needs you:** a **`DEEPSEEK_API_KEY`** (paid; no free tier exists as of
-  2026-06). The model-ID/router wiring is ~15 min once the key is set.
-- Note: GLM is already current (`glm-4.7-flash`, free) — no action needed there.
+## 2. (PAID — NOT requesting) DeepSeek V4-Flash router slot
+- Skipped per your "free-tier only" rule. DeepSeek has no free tier as of
+  2026-06, so this is **not** an ask. Listed only for awareness: if you ever
+  decide to add a paid `DEEPSEEK_API_KEY`, it is a cheap tool-use fallback.
+- The free side is already handled: GLM is current (`glm-4.7-flash`, free) and
+  the router has multiple free providers (Groq, Cerebras, Gemini Flash, etc.).
 
 ## 3. Refresh 4 stale-vintage benchmark sections (data decision)
 The new vintage-aware KB check (shipped today) flagged these as **2024/2025
@@ -54,6 +54,37 @@ Recommended in research; each needs a free self-serve key before wiring:
   built + wired; just unset, returns a graceful "register a key" message today.
 - No-key APIs already shipped/wired: DBnomics, ILOSTAT, World Bank, ESCO,
   Frankfurter-class FX is still TODO (no key, can wire anytime).
+
+---
+
+---
+
+## Deferred for RISK, not forgotten (medium-risk code — do in a focused session)
+These were intentionally NOT done late in a busy session to honor "without
+breaking anything." Each is safe in isolation but touches sensitive/shared code
+and deserves its own test pass. No key needed for any of them:
+- **nova_memory bounded queue** (R4): replace per-write thread spawning with one
+  bounded queue+worker — reduces thread spikes on the dyno.
+- **http_pool adoption** (P2): route hot same-host collectors (BLS/Census/FRED/
+  Adzuna) through the existing keep-alive pool — ~100-200ms/call saved.
+- **Few-shot exemplars in cached router prompt** (Q5): inject 1-2 gold plans
+  from `gold_standard.py` into the now-cached system block (free tokens, better
+  consistency). Touches the plan-gen prompt — verify output first.
+- **PPT native charts** (Q4): swap matplotlib-PNG charts for editable pptx
+  charts. Higher effort.
+- **Status colors -> CSS vars** (D2): centralize `#34d399/#f87171/#fbbf24` as
+  `--success/--danger/--warning` tokens across templates.
+
+## Free, NO-KEY future builds (no action from you; just build time)
+- **Frankfurter FX** (api.frankfurter.dev, no key): live currency rates for
+  intl salary/CPC normalization. Touches the shared currency path, so test both
+  products. No key, free.
+- **ATS hiring-signal feeds** (Greenhouse/Lever/Ashby public JSON, no key):
+  real-time hiring velocity for competitive intel.
+- **Cloudflare Workers cache** (free tier): edge caching proxy in front of
+  Render — cuts cold-start exposure. Needs a CF account (free) but no paid plan.
+- **QStash cron/queue** (your existing Upstash account, free tier): managed
+  cron for KB refresh / report jobs.
 
 ---
 
