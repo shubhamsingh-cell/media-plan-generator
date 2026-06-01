@@ -29,6 +29,34 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
+try:
+    from intl_benchmark_lookup import get_cpa_median_usd
+except ImportError:  # pragma: no cover -- defensive; module is in repo
+
+    def get_cpa_median_usd(industry: str | None, country: str | None) -> float | None:
+        return None
+
+
+try:
+    from industry_reports_lookup import get_cited_metrics_for_country
+except ImportError:  # pragma: no cover
+
+    def get_cited_metrics_for_country(
+        country: str | None, limit: int = 2
+    ) -> list[dict]:
+        return []
+
+
+try:
+    from ta_leaders_lookup import get_top_quotes
+except ImportError:  # pragma: no cover
+
+    def get_top_quotes(
+        topic_filter=None, limit: int = 3, min_relevance: int = 8
+    ) -> list[dict]:
+        return []
+
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -480,9 +508,26 @@ def _slide_requirements(data: dict) -> tuple[str, list[dict]]:
     reqs.append(_table_text(rt, 0, 1, ""))
     reqs.append(_table_cell_bg(rt, 0, 1, 0, 2, LIGHT_PURPLE))
 
-    # Compute CPA estimate from channels
+    # Compute CPA estimate. Priority:
+    #   1. intl_role_benchmarks_v1.json lookup by (industry, primary location)
+    #      -- cited 2026 data from BLS, Eurostat, Indeed Hiring Lab, Appcast.
+    #   2. Channel-average from the channels payload (legacy path).
+    #   3. "TBD" if neither source has data.
+    # The intl lookup returns None for unknown industry+country combos so the
+    # fallback chain is preserved for US-default plans and unmapped markets.
     cpa_est = "TBD"
-    if channels:
+    primary_location = (
+        locations[0] if isinstance(locations, list) and locations else None
+    )
+    intl_cpa: float | None = None
+    try:
+        intl_cpa = get_cpa_median_usd(industry, primary_location)
+    except Exception:  # pragma: no cover -- never let lookup break the deck
+        logger.error("intl CPA lookup failed", exc_info=True)
+        intl_cpa = None
+    if intl_cpa:
+        cpa_est = f"${intl_cpa:,.2f}"
+    elif channels:
         cpas = [
             c.get("cpa") or c.get("cost_per_apply") or 0
             for c in channels
@@ -651,6 +696,67 @@ def _slide_benchmarking_1(data: dict) -> tuple[str, list[dict]]:
         diff_text += f"Relative Supply: {insights.get('competition_level') or 'TBD'}\n"
         diff_text += f"Hiring Difficulty Score: {hiring_diff}\n"
         diff_text += f"Salary Range: {insights.get('salary_range') or 'TBD'}"
+
+    # F2/F3 enrichment: 2026 cited market data + an industry-leader quote.
+    # Sourced from data/industry_reports_2026.json and
+    # data/ta_leaders_curated_2026.json (built in chatbot session S76-S79b).
+    # Each block is independent; either side may silently no-op on miss.
+    locations = data.get("locations") or []
+    try:
+        primary_country = (
+            locations[0] if isinstance(locations, list) and locations else None
+        )
+        cited = get_cited_metrics_for_country(primary_country, limit=2)
+        if cited:
+            diff_text += "\n\n2026 Market Data (cited):"
+            for cm in cited:
+                v = cm.get("value")
+                # Format: ints/large numbers as comma-separated; small floats
+                # as decimal; everything else as str. Avoids "6.866e+06".
+                if isinstance(v, bool):
+                    v_s = str(v)
+                elif isinstance(v, int):
+                    v_s = f"{v:,}"
+                elif isinstance(v, float):
+                    if abs(v) >= 1000:
+                        v_s = f"{v:,.0f}"
+                    elif abs(v) >= 1:
+                        v_s = f"{v:,.2f}".rstrip("0").rstrip(".")
+                    else:
+                        v_s = f"{v:.3f}".rstrip("0").rstrip(".")
+                else:
+                    v_s = str(v) if v is not None else ""
+                unit = cm.get("unit") or ""
+                # Add a space between number and unit unless unit is "%"
+                sep = "" if unit.strip().startswith("%") else " "
+                metric_name = (cm.get("metric") or "")[:55]
+                publisher = cm.get("publisher") or ""
+                # Strip the parenthetical from publisher labels like
+                # "ONS (UK Office for National Statistics)" -> "ONS".
+                if "(" in publisher:
+                    publisher = publisher.split("(", 1)[0].strip()
+                year = cm.get("year") or ""
+                diff_text += (
+                    f"\n- {metric_name}: {v_s}{sep}{unit} " f"({publisher}, {year})"
+                )
+    except Exception:  # pragma: no cover -- never break the deck
+        logger.error("F2 cited-metrics enrichment failed", exc_info=True)
+
+    try:
+        quotes = get_top_quotes(limit=1)
+        if quotes:
+            q = quotes[0]
+            raw = (q.get("quote") or "").strip()
+            excerpt = raw if len(raw) <= 140 else raw[:140].rsplit(" ", 1)[0] + "..."
+            attribution = q.get("name") or ""
+            title = (q.get("title") or "").split(",")[0]
+            if title:
+                attribution = f"{attribution}, {title}"
+            if excerpt and attribution:
+                diff_text += f'\n\nIndustry voice: "{excerpt}" -- {attribution}'
+    except Exception:  # pragma: no cover
+        logger.error("F3 leader-quote enrichment failed", exc_info=True)
+
     reqs.append(_insert_text(c_box, diff_text))
     reqs.append(_style_text(c_box, size=11, color=DARK_TEXT))
     reqs.append(_shape_border(c_box, BLUE_VIOLET, 1.0))
