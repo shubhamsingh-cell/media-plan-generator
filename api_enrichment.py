@@ -17362,7 +17362,7 @@ def _dbnomics_parse_multi_doc(doc: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def fetch_dbnomics_series_multi(
+def fetch_dbnomics_multi_series(
     provider_code: str,
     dataset_code: str,
     series_code: Optional[str] = None,
@@ -17587,6 +17587,14 @@ def fetch_dbnomics_series_multi(
     return result
 
 
+# Backward-compatible public alias. The multi-series helper was previously named
+# ``fetch_dbnomics_series_multi``; nova.py's ``query_dbnomics_data`` tool imports
+# it under that name. The canonical ``def`` is now ``fetch_dbnomics_multi_series``
+# (disambiguated from the single-series ``fetch_dbnomics_series`` entry point);
+# this alias preserves the existing import contract without a code change there.
+fetch_dbnomics_series_multi = fetch_dbnomics_multi_series
+
+
 # ── ILOSTAT (ILO labour statistics, via DBnomics) ───────────────────────────
 # ILO publishes its full statistics catalogue through DBnomics under provider
 # code "ILO". A convenience wrapper over fetch_dbnomics_series is cleaner and
@@ -17746,7 +17754,7 @@ def fetch_ilostat(
     # Use the multi-series mask helper: most indicators resolve to a single
     # series, but employment_by_sector legitimately returns several (one per
     # economic sector), so we never want to drop them to docs[0].
-    result = fetch_dbnomics_series_multi(
+    result = fetch_dbnomics_multi_series(
         provider_code="ILO",
         dataset_code=spec["dataset"],
         series_code=mask,

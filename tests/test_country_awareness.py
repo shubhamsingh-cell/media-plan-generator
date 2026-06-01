@@ -640,3 +640,229 @@ class TestRagKbSemanticTool:
             "build_documents_from_kb",
         ):
             assert hasattr(rag_pipeline, sym), f"missing export: {sym}"
+
+
+# ---------------------------------------------------------------------------
+# S81: New free-data-API tools (DBnomics + ILOSTAT + Companies House)
+# ---------------------------------------------------------------------------
+
+
+class TestNewFreeAPITools:
+    """Verify the S81 free-data-API tools are wired and behave offline.
+
+    Covers three new chat tools:
+        - query_dbnomics_data  (DBnomics aggregator, 90+ macro providers)
+        - query_ilostat        (ILOSTAT global labour indicators via DBnomics)
+        - query_companies_house (UK firmographics, graceful when key unset)
+
+    These tests are deterministic and do NOT hit the network -- they exercise
+    the 5-place registration, schema shape, validation/error paths, and the
+    Companies House graceful-degrade contract. Live smoke samples are recorded
+    in docs/BUILD_API_2026-06_Report.md.
+    """
+
+    NEW_TOOLS = ("query_dbnomics_data", "query_ilostat", "query_companies_house")
+
+    # -- Registration place 1: tool definitions --------------------------------
+
+    def test_all_three_present_in_definitions(self):
+        nova = _new_nova()
+        names = {t["name"] for t in nova.get_tool_definitions()}
+        for tool in self.NEW_TOOLS:
+            assert tool in names, f"{tool} missing from get_tool_definitions()"
+
+    # -- Registration place 2: handler map -------------------------------------
+
+    def test_all_three_in_handler_map(self):
+        nova = _new_nova()
+        handlers = nova._tool_handler_map()
+        assert handlers["query_dbnomics_data"].__func__ is (
+            nova._query_dbnomics_data.__func__
+        )
+        assert handlers["query_ilostat"].__func__ is nova._query_ilostat.__func__
+        assert handlers["query_companies_house"].__func__ is (
+            nova._query_companies_house.__func__
+        )
+
+    # -- Registration place 3: progress labels ---------------------------------
+
+    def test_all_three_have_progress_labels(self):
+        from nova import _TOOL_LABELS
+
+        assert "DBnomics" in _TOOL_LABELS["query_dbnomics_data"]
+        assert "ILOSTAT" in _TOOL_LABELS["query_ilostat"]
+        label_ch = _TOOL_LABELS["query_companies_house"].lower()
+        assert "company" in label_ch or "companies" in label_ch
+
+    # -- Registration place 4: graceful error fallbacks ------------------------
+
+    def test_all_three_have_error_fallbacks(self):
+        from nova import _TOOL_ERROR_FALLBACK_MESSAGES
+
+        for tool in self.NEW_TOOLS:
+            assert tool in _TOOL_ERROR_FALLBACK_MESSAGES, f"{tool} missing fallback"
+            # Fallbacks must be non-empty, user-facing strings.
+            assert len(_TOOL_ERROR_FALLBACK_MESSAGES[tool]) > 20
+
+    # -- Registration place 5: live-source set ---------------------------------
+
+    def test_all_three_listed_as_live_sources(self):
+        """The freshness-disclaimer logic must treat these as live sources so a
+        curated-data disclaimer is NOT appended when they supply real data."""
+        import inspect
+        import nova as nova_mod
+
+        # _live_tools is a local set inside the source-formatting function; the
+        # most robust check is that the tool names appear in the module source
+        # within the _live_tools definition block.
+        src = inspect.getsource(nova_mod)
+        live_block = src.split("_live_tools = {", 1)[1].split("}", 1)[0]
+        for tool in self.NEW_TOOLS:
+            assert f'"{tool}"' in live_block, f"{tool} missing from _live_tools"
+
+    # -- Schema well-formedness ------------------------------------------------
+
+    def test_dbnomics_schema_well_formed(self):
+        nova = _new_nova()
+        tool = next(
+            t for t in nova.get_tool_definitions() if t["name"] == "query_dbnomics_data"
+        )
+        schema = tool["input_schema"]
+        assert set(schema["required"]) == {"provider", "dataset"}
+        for field in ("provider", "dataset", "series", "query", "country"):
+            assert field in schema["properties"], f"missing field: {field}"
+        # Description should mention the aggregator value proposition.
+        assert "DBnomics" in tool["description"]
+
+    def test_ilostat_schema_well_formed(self):
+        nova = _new_nova()
+        tool = next(
+            t for t in nova.get_tool_definitions() if t["name"] == "query_ilostat"
+        )
+        schema = tool["input_schema"]
+        assert set(schema["required"]) == {"indicator", "country"}
+        # Indicator enum must list all five canonical indicators.
+        assert set(schema["properties"]["indicator"]["enum"]) == {
+            "unemployment_rate",
+            "labour_force_participation",
+            "employment_by_sector",
+            "wages",
+            "working_poverty",
+        }
+        assert "year_range" in schema["properties"]
+
+    def test_companies_house_schema_well_formed(self):
+        nova = _new_nova()
+        tool = next(
+            t
+            for t in nova.get_tool_definitions()
+            if t["name"] == "query_companies_house"
+        )
+        schema = tool["input_schema"]
+        # Neither field is strictly required (either name OR number works).
+        assert schema["required"] == []
+        for field in ("company_name", "company_number"):
+            assert field in schema["properties"], f"missing field: {field}"
+
+    # -- Validation / error paths (no network) ---------------------------------
+
+    def test_dbnomics_missing_provider_returns_validation_error(self):
+        nova = _new_nova()
+        result = nova._query_dbnomics_data({"provider": "", "dataset": "WEO"})
+        assert result["tool"] == "query_dbnomics_data"
+        assert result["series"] == []
+        assert "error" in result and "provider" in result["error"].lower()
+
+    def test_ilostat_country_normalization_and_routing(self):
+        """A bad indicator short-circuits before the network, proving the
+        country normalization + tool stamping without needing network access."""
+        from nova import Nova
+
+        nova = _new_nova()
+        result = nova._query_ilostat(
+            {"indicator": "definitely_not_real", "country": "India"}
+        )
+        # Country normalized "India" -> "IND" before the fetch.
+        assert result["country"] == "IND"
+        assert result["tool"] == "query_ilostat"
+        assert result["series"] == []
+        assert "error" in result
+        # Sanity: the normalizer maps India -> IND.
+        assert Nova._normalize_oecd_country("India") == "IND"
+
+    def test_companies_house_missing_query_returns_validation_error(self):
+        nova = _new_nova()
+        result = nova._query_companies_house({})
+        assert result["tool"] == "query_companies_house"
+        assert result["companies"] == []
+        assert "error" in result
+
+    # -- Companies House graceful degrade (key unset) --------------------------
+
+    def test_companies_house_graceful_when_key_unset(self):
+        """With COMPANIES_HOUSE_API_KEY unset, the tool must return a clean
+        not-configured response with a registration link -- NOT an error and
+        NOT a crash. This mirrors the LinkUp/Revelio degrade pattern."""
+        had_key = os.environ.pop("COMPANIES_HOUSE_API_KEY", None)
+        try:
+            nova = _new_nova()
+            result = nova._query_companies_house({"company_name": "Monzo"})
+            assert result["tool"] == "query_companies_house"
+            assert result["configured"] is False
+            assert result["companies"] == []
+            assert "error" not in result  # graceful, not an error
+            assert "register" in (result.get("note") or "").lower()
+            assert "company-information.service.gov.uk" in (result.get("note") or "")
+        finally:
+            if had_key is not None:
+                os.environ["COMPANIES_HOUSE_API_KEY"] = had_key
+
+    # -- api_enrichment layer: indicator mapping (no network) ------------------
+
+    def test_ilostat_indicator_aliases_resolve(self):
+        """The api_enrichment layer must map common aliases to canonical keys
+        and reject unknown indicators with the available list."""
+        import api_enrichment as ae
+
+        # Aliases resolve to canonical keys.
+        assert ae._ilostat_normalize_indicator("unemployment") == "unemployment_rate"
+        assert ae._ilostat_normalize_indicator("lfpr") == ("labour_force_participation")
+        assert ae._ilostat_normalize_indicator("earnings") == "wages"
+        # Unknown -> None.
+        assert ae._ilostat_normalize_indicator("not_a_real_indicator") is None
+        # Bad indicator returns a graceful envelope (no network needed --
+        # validation happens before the HTTP call).
+        bad = ae.fetch_ilostat("not_a_real_indicator", "IND")
+        assert bad["series"] == []
+        assert "error" in bad
+        assert "available_indicators" in bad
+
+    def test_dbnomics_and_ilostat_validation_no_network(self):
+        """The api_enrichment fetchers validate inputs before any HTTP call."""
+        import api_enrichment as ae
+
+        # Multi helper: missing provider/dataset short-circuits.
+        r1 = ae.fetch_dbnomics_series_multi("", "")
+        assert r1["series"] == [] and "error" in r1
+        # ILOSTAT: missing country short-circuits.
+        r2 = ae.fetch_ilostat("unemployment_rate", "")
+        assert r2["series"] == [] and "error" in r2
+        # The single-series S82 fetcher (regression guard: must still exist
+        # with its original 3-positional-arg contract) validates too.
+        r3 = ae.fetch_dbnomics_series("", "", "")
+        assert r3.get("latest_value") is None and "error" in r3
+
+    def test_companies_house_fetcher_graceful_no_key(self):
+        """The api_enrichment fetcher itself degrades gracefully without a key."""
+        import api_enrichment as ae
+
+        had_key = os.environ.pop("COMPANIES_HOUSE_API_KEY", None)
+        try:
+            r = ae.fetch_companies_house("BrewDog")
+            assert r["configured"] is False
+            assert r["companies"] == []
+            assert "error" not in r
+            assert "COMPANIES_HOUSE_API_KEY" in (r.get("note") or "")
+        finally:
+            if had_key is not None:
+                os.environ["COMPANIES_HOUSE_API_KEY"] = had_key
