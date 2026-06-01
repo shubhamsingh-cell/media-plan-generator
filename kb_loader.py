@@ -646,10 +646,24 @@ def load_knowledge_base() -> dict[str, Any]:
             logger.debug("File freshness check failed (non-fatal): %s", freshness_err)
 
         # ── KB Memory Usage Tracking (#14) ──
+        # S82: was `len(json.dumps(kb))` -- serializing the whole merged KB to a
+        # bytes string at boot transiently DOUBLED peak memory (the dict can
+        # approach the 50 MB warn threshold), risking OOM on the memory-
+        # constrained Render dyno. Estimate from on-disk file sizes instead --
+        # same ~MB signal, no serialization spike. Opt into the exact (heavier)
+        # measurement with KB_MEMORY_PROFILE=1 when debugging memory locally.
         try:
-            kb_json_bytes = len(json.dumps(kb).encode("utf-8"))
+            if (os.environ.get("KB_MEMORY_PROFILE") or "").strip() == "1":
+                kb_json_bytes = len(json.dumps(kb).encode("utf-8"))
+            else:
+                kb_json_bytes = 0
+                for _fn in KB_FILES.values():
+                    try:
+                        kb_json_bytes += os.path.getsize(os.path.join(_DATA_DIR, _fn))
+                    except OSError:
+                        continue
             logger.info(
-                "Knowledge base loaded: %d/%d files, %d total keys, ~%.1f MB in memory",
+                "Knowledge base loaded: %d/%d files, %d total keys, ~%.1f MB on disk",
                 loaded_count,
                 len(KB_FILES),
                 len(kb),
@@ -657,7 +671,7 @@ def load_knowledge_base() -> dict[str, Any]:
             )
             if kb_json_bytes > 50 * 1_048_576:  # warn above 50 MB
                 logger.warning(
-                    "KB memory usage HIGH: %.1f MB — consider lazy loading",
+                    "KB data size HIGH: %.1f MB — consider lazy loading",
                     kb_json_bytes / 1_048_576,
                 )
         except Exception as mem_err:

@@ -1934,10 +1934,24 @@ _knowledge_base = None
 
 # Prefer kb_loader's thread-safe implementation (uses _kb_lock).
 # Falls back to the inline definition below if kb_loader is unavailable.
+_USING_KB_LOADER = False
 try:
     from kb_loader import load_knowledge_base  # thread-safe, has _kb_lock
-except ImportError:
-    pass  # inline load_knowledge_base() defined below serves as fallback
+
+    _USING_KB_LOADER = True
+except ImportError as _kb_import_err:
+    # S82: the inline load_knowledge_base() below is a FALLBACK that loads
+    # ~24 fewer files than kb_loader (it omits the 2026 cited reports, TA-leader
+    # quotes, intl role benchmarks, etc.). Falling back silently means plan-gen
+    # runs on a thinner KB with no signal. Make it loud so the degradation is
+    # visible in logs/monitoring rather than a silent quality drop.
+    logging.getLogger(__name__).warning(
+        "kb_loader import FAILED (%s) -- falling back to app.py inline "
+        "load_knowledge_base, which loads FEWER KB files (no 2026 cited "
+        "reports / TA-leader quotes / intl benchmarks). Plan quality degraded "
+        "until kb_loader is importable again.",
+        _kb_import_err,
+    )
 
 # Mapping from legacy industry keys (used in INDUSTRY_NAICS_MAP) to KB keys
 # in data/recruitment_industry_knowledge.json -> industry_specific_benchmarks
