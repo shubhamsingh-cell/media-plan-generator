@@ -40,3 +40,10 @@ gunicorn>=22.0.0,<24.0.0
 # Enables persistent WebSocket connections alongside WSGI (SSE fallback still works)
 gevent>=24.0.0,<25.0.0
 gevent-websocket>=0.10.1,<1.0.0
+
+# Nova RAG v2 (Phase 2). Used by rag_pipeline.NovaRAGPipeline +
+# nova._query_kb_semantic. Both packages are guarded by try/except in
+# rag_pipeline.py, but pinning here is what lets RAG_V2_ENABLED actually
+# work in production.
+voyageai>=0.3.0,<1.0.0
+qdrant-client>=1.10.0,<2.0.0

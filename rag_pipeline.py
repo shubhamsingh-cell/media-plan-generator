@@ -425,10 +425,35 @@ class QdrantStore(_VectorStore):
         top_k: int,
         filters: dict[str, Any] | None = None,
     ) -> list[tuple[str, float]]:
+        """Vector search with cross-version qdrant-client compatibility.
+
+        The qdrant-client API renamed ``search`` -> ``query_points`` in
+        v1.10. We prefer the newer API and fall back to ``search`` so the
+        same code runs against both Render (whatever pip resolves) and
+        local development environments.
+        """
+        qfilter = self._build_filter(filters)
+
+        # New API (qdrant-client >= 1.10): client.query_points returns a
+        # QueryResponse with a ``.points`` list of ScoredPoint.
+        query_points = getattr(self._client, "query_points", None)
+        if callable(query_points):
+            response = query_points(
+                collection_name=self._collection,
+                query=query_vector,
+                query_filter=qfilter,
+                limit=top_k,
+                with_payload=False,
+                with_vectors=False,
+            )
+            points = getattr(response, "points", response)
+            return [(str(p.id), float(p.score)) for p in points]
+
+        # Legacy API (qdrant-client < 1.10): client.search.
         results = self._client.search(
             collection_name=self._collection,
             query_vector=query_vector,
-            query_filter=self._build_filter(filters),
+            query_filter=qfilter,
             limit=top_k,
             with_payload=False,
             with_vectors=False,
