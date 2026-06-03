@@ -16143,73 +16143,262 @@ def fetch_eurostat_data(
         return {"indicator": indicator, "source": "eurostat", "error": str(e)}
 
 
+# ── UK ONS labour market (ONS Beta API — legacy timeseries shape) ───────────
+# The original endpoint host ``api.ons.gov.uk/timeseries/...`` was RETIRED and
+# now 404s. Verified live 2026-06-03: the current free, no-key route is the ONS
+# Beta API ``https://api.beta.ons.gov.uk/v1/data?uri=<topic-path>/<cdid>/<dataset>``
+# which still returns the historical timeseries JSON shape (parallel
+# ``months``/``quarters``/``years`` arrays plus a ``description`` block carrying
+# ``title``/``unit``/``cdid``). Each value is a STRING ("5.0"); we coerce to
+# float where possible and keep the raw string in ``recent_monthly`` for parity
+# with the legacy contract. Latest figures confirmed (Feb/Mar 2026):
+# employment 75.0%, unemployment 5.0%, vacancies 705k, AWE total pay £749/wk.
+#
+# CDID = ONS Concept Identifier (the canonical timeseries key). topic_path is
+# the ONS taxonomy path the timeseries lives under; ``lms`` is the source
+# dataset (Labour Market Statistics) for all four series.
+_UK_ONS_BASE_URL = "https://api.beta.ons.gov.uk/v1/data"
+_UK_ONS_DEFAULT_TIMEOUT = 15
+_UK_ONS_RECENT_LIMIT = 12  # Trailing observations returned to the caller.
+
+# dataset -> (cdid, topic_path, source_dataset, human description, frequency).
+# Each tuple is everything needed to build the ?uri= path and label the result.
+_UK_ONS_SERIES: Dict[str, Dict[str, str]] = {
+    "employment": {
+        "cdid": "lf24",
+        "topic_path": (
+            "/employmentandlabourmarket/peopleinwork/"
+            "employmentandemployeetypes/timeseries"
+        ),
+        "source_dataset": "lms",
+        "description": "Employment rate (aged 16 to 64, seasonally adjusted)",
+        "freq": "M",
+    },
+    "unemployment": {
+        "cdid": "mgsx",
+        "topic_path": (
+            "/employmentandlabourmarket/peoplenotinwork/unemployment/timeseries"
+        ),
+        "source_dataset": "lms",
+        "description": "Unemployment rate (aged 16 and over, seasonally adjusted)",
+        "freq": "M",
+    },
+    "vacancies": {
+        "cdid": "ap2y",
+        "topic_path": (
+            "/employmentandlabourmarket/peopleinwork/"
+            "employmentandemployeetypes/timeseries"
+        ),
+        "source_dataset": "lms",
+        "description": "UK Vacancies (thousands) - Total (seasonally adjusted)",
+        "freq": "M",
+    },
+    "earnings": {
+        "cdid": "kab9",
+        "topic_path": (
+            "/employmentandlabourmarket/peopleinwork/"
+            "earningsandworkinghours/timeseries"
+        ),
+        "source_dataset": "lms",
+        "description": (
+            "Average weekly earnings, whole economy, total pay "
+            "(£, seasonally adjusted)"
+        ),
+        "freq": "M",
+    },
+}
+
+
+def _uk_ons_to_float(raw: Any) -> Optional[float]:
+    """Coerce an ONS timeseries value (a string like "5.0") to float, or None.
+
+    ONS encodes every observation value as a string and uses "" for missing
+    points. Returns None when the value is blank or non-numeric so callers can
+    distinguish a real zero from a gap.
+    """
+    if raw is None:
+        return None
+    text = str(raw).strip()
+    if not text:
+        return None
+    try:
+        return float(text)
+    except (TypeError, ValueError):
+        return None
+
+
 def fetch_uk_ons_data(
     dataset: str = "employment",
 ) -> Dict[str, Any]:
-    """Fetch UK labor market data from ONS (free, no key required).
+    """Fetch UK labour market data from the ONS Beta API (free, no key required).
+
+    Migrated 2026-06-03 from the retired ``api.ons.gov.uk/timeseries`` host
+    (now 404) to the ONS Beta API ``api.beta.ons.gov.uk/v1/data?uri=...`` which
+    still serves the historical timeseries JSON shape. Stdlib only, never raises.
 
     Args:
-        dataset: One of 'employment', 'unemployment', 'vacancies', 'earnings'.
+        dataset: One of ``"employment"``, ``"unemployment"``, ``"vacancies"``,
+            ``"earnings"``. Unknown values return a clean error envelope listing
+            the valid options.
 
     Returns:
-        Dict with UK labor market statistics.
+        On success, a structured dict (legacy-compatible keys preserved)::
+
+            {
+              "source": "uk_ons",
+              "tool": "fetch_uk_ons_data",
+              "dataset": "unemployment",
+              "cdid": "MGSX",
+              "series_id": "MGSX",            # alias of cdid (legacy key)
+              "description": "Unemployment rate (aged 16 and over ...)",
+              "unit": "%",
+              "latest_value": 5.0,            # float, or None if unavailable
+              "latest_period": "2026 FEB",
+              "recent_monthly": [             # oldest -> newest, capped at 12
+                  {"period": "2025 MAR", "value": "4.4", "label": "..."},
+                  ...
+              ],
+              "total_observations": 982,
+              "url": <full request URL>,
+              "elapsed_ms": <int>,
+              "data_freshness": "Monthly (T-1 to T-2 month lag typical)",
+            }
+
+        On failure, the same shape with an ``"error"`` key populated,
+        ``"recent_monthly"`` = [] and ``"latest_value"`` = None. ``"source"``
+        and ``"tool"`` are ALWAYS present. Never raises.
     """
-    # ONS dataset IDs
-    dataset_map = {
-        "employment": "LMS",  # Labour Market Statistics
-        "unemployment": "UNEM",  # Unemployment
-        "vacancies": "VACS",  # Vacancies
-        "earnings": "EARN",  # Average Weekly Earnings
-    }
-    series_id = dataset_map.get(dataset, "LMS")
+    dataset_norm = (dataset or "").lower().strip()
 
-    try:
-        url = f"https://api.ons.gov.uk/timeseries/{series_id}/dataset/LMS/data"
+    def _error(reason: str, *, url: Optional[str] = None) -> Dict[str, Any]:
+        """Build a consistent failure envelope (matches the success shape)."""
+        env: Dict[str, Any] = {
+            "source": "uk_ons",
+            "tool": "fetch_uk_ons_data",
+            "dataset": dataset_norm,
+            "cdid": "",
+            "series_id": "",
+            "latest_value": None,
+            "latest_period": None,
+            "recent_monthly": [],
+            "total_observations": 0,
+            "error": reason,
+        }
+        if url:
+            env["url"] = url
+        return env
 
-        req = urllib.request.Request(
-            url,
-            headers={
-                "User-Agent": "Nova AI Suite/4.0",
-                "Accept": "application/json",
-            },
+    if dataset_norm not in _UK_ONS_SERIES:
+        return _error(
+            f"Unknown dataset '{dataset_norm}'. Available: "
+            f"{list(_UK_ONS_SERIES.keys())}"
         )
+
+    spec = _UK_ONS_SERIES[dataset_norm]
+    cdid = spec["cdid"]
+    uri = f"{spec['topic_path']}/{cdid}/{spec['source_dataset']}"
+    url = f"{_UK_ONS_BASE_URL}?{urllib.parse.urlencode({'uri': uri})}"
+
+    # In-process cache (mirrors the module pattern; ONS updates monthly).
+    cache_key = _cache_key("uk_ons", dataset_norm)
+    cached = _get_cached(cache_key)
+    if cached is not None:
+        return cached
+
+    req = urllib.request.Request(
+        url,
+        headers={
+            "Accept": "application/json",
+            "User-Agent": "Nova AI Suite/4.0 (UK ONS labour market enrichment)",
+        },
+    )
+    started = time.monotonic()
+    try:
         ctx = ssl.create_default_context()
-        with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
+        with urllib.request.urlopen(
+            req, timeout=_UK_ONS_DEFAULT_TIMEOUT, context=ctx
+        ) as resp:
+            raw = resp.read()
+        elapsed_ms = int((time.monotonic() - started) * 1000)
+        data = json.loads(raw.decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        body = ""
+        try:
+            body = exc.read().decode("utf-8", errors="replace")[:200]
+        except Exception:
+            pass
+        _api_logger.error(
+            f"UK ONS HTTP {exc.code}: {body or exc.reason}", exc_info=True
+        )
+        return _error(f"HTTP {exc.code}: {body or exc.reason}", url=url)
+    except urllib.error.URLError as exc:
+        _api_logger.error(f"UK ONS network error: {exc.reason}", exc_info=True)
+        return _error(f"Network error: {exc.reason}", url=url)
+    except (json.JSONDecodeError, ValueError) as exc:
+        _api_logger.error(f"UK ONS bad JSON: {exc}", exc_info=True)
+        return _error(f"Bad JSON: {exc}", url=url)
+    except OSError as exc:
+        # Catches socket timeouts and other low-level network failures.
+        _api_logger.error(f"UK ONS OS error: {exc}", exc_info=True)
+        return _error(f"Network/OS error: {exc}", url=url)
 
-        # Extract recent observations
-        months = data.get("months", [])
-        quarters = data.get("quarters", [])
-        years = data.get("years", [])
+    # ── Parse the legacy timeseries shape: months/quarters/years arrays ─────
+    try:
+        months = data.get("months") or []
+        quarters = data.get("quarters") or []
+        years = data.get("years") or []
+        desc_block = data.get("description") or {}
 
-        recent_monthly = []
-        for m in (months or [])[-12:]:
+        # Prefer monthly granularity (the headline cadence for these series);
+        # fall back to quarterly then annual when a series lacks monthly obs.
+        primary = months or quarters or years
+
+        recent_monthly: List[Dict[str, Any]] = []
+        for point in primary[-_UK_ONS_RECENT_LIMIT:]:
             recent_monthly.append(
                 {
-                    "period": m.get("date", ""),
-                    "value": m.get("value", ""),
-                    "label": m.get("label", ""),
+                    "period": point.get("date") or "",
+                    "value": point.get("value") or "",
+                    "label": point.get("label") or "",
                 }
             )
 
-        result = {
-            "dataset": dataset,
-            "series_id": series_id,
-            "description": data.get("description", {}).get("title", ""),
-            "unit": data.get("description", {}).get("unit", ""),
+        # Latest = last observation with a non-blank value (walk backward).
+        latest_value: Optional[float] = None
+        latest_period: Optional[str] = None
+        for point in reversed(primary):
+            coerced = _uk_ons_to_float(point.get("value"))
+            if coerced is not None:
+                latest_value = coerced
+                latest_period = point.get("date") or ""
+                break
+
+        result: Dict[str, Any] = {
+            "source": "uk_ons",
+            "tool": "fetch_uk_ons_data",
+            "dataset": dataset_norm,
+            "cdid": (desc_block.get("cdid") or cdid).upper(),
+            "series_id": (desc_block.get("cdid") or cdid).upper(),
+            "description": desc_block.get("title") or spec["description"],
+            "unit": desc_block.get("unit") or "",
+            "latest_value": latest_value,
+            "latest_period": latest_period,
             "recent_monthly": recent_monthly,
             "total_observations": len(months) + len(quarters) + len(years),
-            "source": "uk_ons",
+            "url": url,
+            "elapsed_ms": elapsed_ms,
+            "data_freshness": "Monthly (T-1 to T-2 month lag typical)",
         }
+    except (KeyError, IndexError, TypeError, AttributeError) as exc:
+        _api_logger.error(f"UK ONS parse failed: {exc}", exc_info=True)
+        return _error(f"Parse error: {exc}", url=url)
 
-        _api_logger.info(
-            f"UK ONS: {len(recent_monthly)} monthly observations for {dataset}"
-        )
-        return result
-
-    except (urllib.error.URLError, OSError, json.JSONDecodeError, ValueError) as e:
-        _api_logger.error(f"UK ONS API failed: {e}", exc_info=True)
-        return {"dataset": dataset, "source": "uk_ons", "error": str(e)}
+    _api_logger.info(
+        f"UK ONS: {dataset_norm} ({result['cdid']}) latest {latest_value} @ "
+        f"{latest_period}, {len(recent_monthly)} recent obs in {elapsed_ms}ms"
+    )
+    _set_cached(cache_key, result)
+    return result
 
 
 def fetch_statcan_data(
@@ -18016,6 +18205,467 @@ def fetch_companies_house(
         "total_results": payload.get("total_results"),
         "companies": companies,
     }
+
+
+# ── Frankfurter FX (ECB reference rates — free, no key) ─────────────────────
+# Verified live 2026-06-03: ``https://api.frankfurter.dev/v1/latest`` returns
+# 200 with real ECB reference rates (e.g. USD->EUR 0.858, USD->GBP 0.742,
+# USD->INR 95.27). The older ``api.frankfurter.app`` host now 301-redirects, so
+# we pin the ``.dev`` host. Frankfurter sources daily reference rates from the
+# European Central Bank; ~29 currencies are covered. An unknown base returns
+# HTTP 404 with ``{"message":"not found"}`` which maps to a clean error.
+# Used to replace hardcoded USD<->local FX in media-plan budgeting.
+_FX_BASE_URL = "https://api.frankfurter.dev/v1/latest"
+_FX_DEFAULT_TIMEOUT = 15
+
+
+def fetch_fx_rates(
+    base: str = "USD",
+    symbols: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Fetch latest FX reference rates from Frankfurter (stdlib only, no key).
+
+    Frankfurter exposes the European Central Bank's daily reference rates with
+    no API key. A single call returns the latest rate of ``base`` against either
+    a requested subset (``symbols``) or all ~29 covered currencies. Ideal for
+    converting hardcoded USD media budgets into local currency at live rates.
+
+    Endpoint (verified 2026-06-03)::
+
+        https://api.frankfurter.dev/v1/latest?base={base}&symbols={symbols}
+
+    Args:
+        base: ISO 4217 base currency code (e.g. ``"USD"``, ``"EUR"``,
+            ``"GBP"``). Case-insensitive; normalised to upper-case.
+        symbols: Optional comma-separated ISO codes to restrict the response
+            (e.g. ``"EUR,GBP,INR"``). When ``None`` or blank, all available
+            currencies are returned. Whitespace around codes is tolerated.
+
+    Returns:
+        On success, a structured dict::
+
+            {
+              "source": "Frankfurter",
+              "base": "USD",
+              "date": "2026-06-02",          # ECB reference date (YYYY-MM-DD)
+              "rates": {"EUR": 0.858, "GBP": 0.742, "INR": 95.27, ...},
+              "rate_count": 29,
+              "symbols": ["EUR", "GBP", "INR"],   # echo of requested filter ([] = all)
+              "url": <full request URL>,
+              "elapsed_ms": <int>,
+            }
+
+        On failure, the same shape with an ``"error"`` key populated and
+        ``"rates"`` = {}. ``"source"`` and ``"base"`` are ALWAYS present.
+        Never raises.
+    """
+    base_norm = (base or "USD").upper().strip()
+    # Normalise the symbols filter: split, upper, strip blanks, dedupe-preserve.
+    symbol_list: List[str] = []
+    if symbols:
+        seen: set = set()
+        for tok in str(symbols).split(","):
+            code = tok.strip().upper()
+            if code and code not in seen:
+                seen.add(code)
+                symbol_list.append(code)
+
+    def _error(reason: str, *, url: Optional[str] = None) -> Dict[str, Any]:
+        """Build a consistent failure envelope (matches the success shape)."""
+        env: Dict[str, Any] = {
+            "source": "Frankfurter",
+            "base": base_norm,
+            "date": None,
+            "rates": {},
+            "rate_count": 0,
+            "symbols": symbol_list,
+            "error": reason,
+        }
+        if url:
+            env["url"] = url
+        return env
+
+    if not base_norm:
+        return _error("base currency is required (ISO 4217 code, e.g. 'USD')")
+
+    params: Dict[str, str] = {"base": base_norm}
+    if symbol_list:
+        params["symbols"] = ",".join(symbol_list)
+    url = f"{_FX_BASE_URL}?{urllib.parse.urlencode(params)}"
+
+    # In-process cache — FX reference rates update at most once per business day.
+    cache_key = _cache_key("frankfurter_fx", f"{base_norm}|{','.join(symbol_list)}")
+    cached = _get_cached(cache_key)
+    if cached is not None:
+        return cached
+
+    req = urllib.request.Request(
+        url,
+        headers={
+            "Accept": "application/json",
+            "User-Agent": "Nova AI Suite/4.0 (Frankfurter FX enrichment)",
+        },
+    )
+    started = time.monotonic()
+    try:
+        ctx = ssl.create_default_context()
+        with urllib.request.urlopen(
+            req, timeout=_FX_DEFAULT_TIMEOUT, context=ctx
+        ) as resp:
+            raw = resp.read()
+        elapsed_ms = int((time.monotonic() - started) * 1000)
+        payload = json.loads(raw.decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        body = ""
+        try:
+            body = exc.read().decode("utf-8", errors="replace")[:200]
+        except Exception:
+            pass
+        _api_logger.error(
+            f"Frankfurter FX HTTP {exc.code}: {body or exc.reason}", exc_info=True
+        )
+        return _error(f"HTTP {exc.code}: {body or exc.reason}", url=url)
+    except urllib.error.URLError as exc:
+        _api_logger.error(f"Frankfurter FX network error: {exc.reason}", exc_info=True)
+        return _error(f"Network error: {exc.reason}", url=url)
+    except (json.JSONDecodeError, ValueError) as exc:
+        _api_logger.error(f"Frankfurter FX bad JSON: {exc}", exc_info=True)
+        return _error(f"Bad JSON: {exc}", url=url)
+    except OSError as exc:
+        # Catches socket timeouts and other low-level network failures.
+        _api_logger.error(f"Frankfurter FX OS error: {exc}", exc_info=True)
+        return _error(f"Network/OS error: {exc}", url=url)
+
+    # ── Parse the verified shape: {amount, base, date, rates{}} ─────────────
+    try:
+        raw_rates = payload.get("rates") or {}
+        if not isinstance(raw_rates, dict):
+            return _error("Unexpected response: 'rates' is not an object", url=url)
+
+        # Coerce every rate to float defensively; drop any non-numeric entries.
+        rates: Dict[str, float] = {}
+        for code, val in raw_rates.items():
+            try:
+                rates[str(code).upper()] = float(val)
+            except (TypeError, ValueError):
+                continue
+
+        if not rates:
+            return _error(
+                f"No rates returned for base '{base_norm}'"
+                + (f" with symbols {symbol_list}" if symbol_list else ""),
+                url=url,
+            )
+
+        result: Dict[str, Any] = {
+            "source": "Frankfurter",
+            "base": (payload.get("base") or base_norm),
+            "date": payload.get("date") or None,
+            "rates": rates,
+            "rate_count": len(rates),
+            "symbols": symbol_list,
+            "url": url,
+            "elapsed_ms": elapsed_ms,
+        }
+    except (KeyError, TypeError, AttributeError) as exc:
+        _api_logger.error(f"Frankfurter FX parse failed: {exc}", exc_info=True)
+        return _error(f"Parse error: {exc}", url=url)
+
+    _api_logger.info(
+        f"Frankfurter FX: base {result['base']} -> {len(rates)} rates "
+        f"@ {result['date']} in {elapsed_ms}ms"
+    )
+    _set_cached(cache_key, result)
+    return result
+
+
+# ── ATS hiring-signal feeds (Greenhouse / Ashby / Lever — free, no key) ─────
+# Verified live 2026-06-03 against real public job boards:
+#   greenhouse: boards-api.greenhouse.io/v1/boards/datadog/jobs       -> 418 jobs
+#   ashby:      api.ashbyhq.com/posting-api/job-board/ashby           ->  55 jobs
+#   lever:      api.lever.co/v0/postings/leverdemo?mode=json          -> 390 jobs
+# Each provider's public board API exposes live job postings with no key — a
+# direct hiring-signal feed (volume, locations, departments, comp) for any
+# company that hosts on these ATSs. Greenhouse needs ``?content=true`` to
+# include the ``departments`` array, so we request it. All three are normalised
+# into one consistent envelope; ``jobs`` is capped to bound response size.
+_ATS_DEFAULT_TIMEOUT = 20
+_ATS_MAX_JOBS = 50  # Cap normalised jobs to keep payloads chatbot-friendly.
+_ATS_PROVIDERS: set = {"greenhouse", "ashby", "lever"}
+
+
+def _ats_normalize_greenhouse(payload: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Normalise a Greenhouse boards-api ``jobs`` payload.
+
+    Shape (verified): ``{"jobs": [{"title", "location": {"name"},
+    "absolute_url", "departments": [{"name"}], ...}], "meta": {...}}``.
+    Greenhouse has no per-job compensation on the public board API.
+    """
+    out: List[Dict[str, Any]] = []
+    for job in payload.get("jobs") or []:
+        if not isinstance(job, dict):
+            continue
+        location = ""
+        loc_obj = job.get("location")
+        if isinstance(loc_obj, dict):
+            location = (loc_obj.get("name") or "").strip()
+        departments = job.get("departments") or []
+        department = ""
+        if isinstance(departments, list) and departments:
+            first = departments[0]
+            if isinstance(first, dict):
+                department = (first.get("name") or "").strip()
+        out.append(
+            {
+                "title": (job.get("title") or "").strip(),
+                "location": location,
+                "department": department,
+                "url": (job.get("absolute_url") or "").strip(),
+                "compensation": None,
+            }
+        )
+    return out
+
+
+def _ats_normalize_ashby(payload: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Normalise an Ashby posting-api ``jobs`` payload.
+
+    Shape (verified): ``{"jobs": [{"title", "location", "department",
+    "jobUrl", "compensation": {"compensationTierSummary"}, ...}]}``.
+    Compensation, when present, is summarised to a human-readable string.
+    """
+    out: List[Dict[str, Any]] = []
+    for job in payload.get("jobs") or []:
+        if not isinstance(job, dict):
+            continue
+        compensation: Optional[str] = None
+        comp_obj = job.get("compensation")
+        if isinstance(comp_obj, dict):
+            compensation = (
+                comp_obj.get("compensationTierSummary")
+                or comp_obj.get("scrapeableCompensationSalarySummary")
+                or None
+            )
+        out.append(
+            {
+                "title": (job.get("title") or "").strip(),
+                "location": (job.get("location") or "").strip(),
+                "department": (job.get("department") or "").strip(),
+                "url": (job.get("jobUrl") or job.get("applyUrl") or "").strip(),
+                "compensation": compensation,
+            }
+        )
+    return out
+
+
+def _ats_normalize_lever(payload: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Normalise a Lever postings payload (a top-level JSON array).
+
+    Shape (verified): ``[{"text", "categories": {"location", "department",
+    "commitment"}, "hostedUrl", ...}, ...]``. Lever exposes no salary on the
+    public postings API, so compensation is always None.
+    """
+    out: List[Dict[str, Any]] = []
+    for job in payload or []:
+        if not isinstance(job, dict):
+            continue
+        categories = job.get("categories") or {}
+        if not isinstance(categories, dict):
+            categories = {}
+        out.append(
+            {
+                "title": (job.get("text") or "").strip(),
+                "location": (categories.get("location") or "").strip(),
+                "department": (categories.get("department") or "").strip(),
+                "url": (job.get("hostedUrl") or job.get("applyUrl") or "").strip(),
+                "compensation": None,
+            }
+        )
+    return out
+
+
+def fetch_ats_postings(
+    provider: str,
+    board: str,
+) -> Dict[str, Any]:
+    """Fetch live job postings from a public ATS board (stdlib only, no key).
+
+    One multi-provider hiring-signal feed over three no-key public ATS APIs.
+    Given a company's board token, returns its live openings normalised into a
+    consistent shape — useful for gauging a competitor's hiring volume, hot
+    locations, and active departments.
+
+    Supported providers & endpoints (verified live 2026-06-03)::
+
+        greenhouse -> https://boards-api.greenhouse.io/v1/boards/{board}/jobs?content=true
+        ashby      -> https://api.ashbyhq.com/posting-api/job-board/{board}?includeCompensation=true
+        lever      -> https://api.lever.co/v0/postings/{board}?mode=json
+
+    Args:
+        provider: One of ``"greenhouse"``, ``"ashby"``, ``"lever"``
+            (case-insensitive). Unknown providers return a clean error envelope.
+        board: The company's board token / slug on that ATS, e.g. ``"datadog"``
+            or ``"stripe"`` (greenhouse), ``"ashby"`` (ashby), ``"leverdemo"``
+            (lever).
+
+    Returns:
+        On success, a structured dict::
+
+            {
+              "source": "ATS:greenhouse",
+              "provider": "greenhouse",
+              "board": "datadog",
+              "job_count": 50,               # count AFTER the _ATS_MAX_JOBS cap
+              "total_available": 418,        # total before the cap
+              "jobs": [
+                  {"title": ..., "location": ..., "department": ...,
+                   "url": ..., "compensation": <str|None>},
+                  ...                          # capped at _ATS_MAX_JOBS (~50)
+              ],
+              "locations_summary": {"New York, New York, USA": 12, ...},
+              "url": <full request URL>,
+              "elapsed_ms": <int>,
+            }
+
+        On failure (unknown provider, blank board, network/parse error), the
+        same shape with an ``"error"`` key, ``"jobs"`` = [] and
+        ``"locations_summary"`` = {}. ``"source"`` and ``"provider"`` are ALWAYS
+        present. Never raises.
+    """
+    provider_norm = (provider or "").lower().strip()
+    board_norm = (board or "").strip()
+
+    def _error(reason: str, *, url: Optional[str] = None) -> Dict[str, Any]:
+        """Build a consistent failure envelope (matches the success shape)."""
+        env: Dict[str, Any] = {
+            "source": f"ATS:{provider_norm}" if provider_norm else "ATS",
+            "provider": provider_norm,
+            "board": board_norm,
+            "job_count": 0,
+            "total_available": 0,
+            "jobs": [],
+            "locations_summary": {},
+            "error": reason,
+        }
+        if url:
+            env["url"] = url
+        return env
+
+    if provider_norm not in _ATS_PROVIDERS:
+        return _error(
+            f"Unknown provider '{provider_norm}'. Available: "
+            f"{sorted(_ATS_PROVIDERS)}"
+        )
+    if not board_norm:
+        return _error("board token is required (e.g. 'datadog', 'leverdemo')")
+
+    # Build the provider-specific URL. The board token is percent-encoded.
+    board_q = urllib.parse.quote(board_norm, safe="")
+    if provider_norm == "greenhouse":
+        url = (
+            f"https://boards-api.greenhouse.io/v1/boards/{board_q}/jobs"
+            f"?content=true"
+        )
+    elif provider_norm == "ashby":
+        url = (
+            f"https://api.ashbyhq.com/posting-api/job-board/{board_q}"
+            f"?includeCompensation=true"
+        )
+    else:  # lever
+        url = f"https://api.lever.co/v0/postings/{board_q}?mode=json"
+
+    # In-process cache — board contents change slowly relative to a session.
+    cache_key = _cache_key("ats_postings", f"{provider_norm}|{board_norm}")
+    cached = _get_cached(cache_key)
+    if cached is not None:
+        return cached
+
+    req = urllib.request.Request(
+        url,
+        headers={
+            "Accept": "application/json",
+            "User-Agent": "Nova AI Suite/4.0 (ATS hiring-signal enrichment)",
+        },
+    )
+    started = time.monotonic()
+    try:
+        ctx = ssl.create_default_context()
+        with urllib.request.urlopen(
+            req, timeout=_ATS_DEFAULT_TIMEOUT, context=ctx
+        ) as resp:
+            raw = resp.read()
+        elapsed_ms = int((time.monotonic() - started) * 1000)
+        payload = json.loads(raw.decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        body = ""
+        try:
+            body = exc.read().decode("utf-8", errors="replace")[:200]
+        except Exception:
+            pass
+        _api_logger.error(
+            f"ATS {provider_norm} HTTP {exc.code}: {body or exc.reason}",
+            exc_info=True,
+        )
+        return _error(f"HTTP {exc.code}: {body or exc.reason}", url=url)
+    except urllib.error.URLError as exc:
+        _api_logger.error(
+            f"ATS {provider_norm} network error: {exc.reason}", exc_info=True
+        )
+        return _error(f"Network error: {exc.reason}", url=url)
+    except (json.JSONDecodeError, ValueError) as exc:
+        _api_logger.error(f"ATS {provider_norm} bad JSON: {exc}", exc_info=True)
+        return _error(f"Bad JSON: {exc}", url=url)
+    except OSError as exc:
+        # Catches socket timeouts and other low-level network failures.
+        _api_logger.error(f"ATS {provider_norm} OS error: {exc}", exc_info=True)
+        return _error(f"Network/OS error: {exc}", url=url)
+
+    # ── Normalise the provider-specific shape into the common envelope ──────
+    try:
+        if provider_norm == "greenhouse":
+            if not isinstance(payload, dict):
+                return _error("Unexpected Greenhouse response (not an object)", url=url)
+            all_jobs = _ats_normalize_greenhouse(payload)
+        elif provider_norm == "ashby":
+            if not isinstance(payload, dict):
+                return _error("Unexpected Ashby response (not an object)", url=url)
+            all_jobs = _ats_normalize_ashby(payload)
+        else:  # lever
+            if not isinstance(payload, list):
+                return _error("Unexpected Lever response (not an array)", url=url)
+            all_jobs = _ats_normalize_lever(payload)
+
+        total_available = len(all_jobs)
+        jobs = all_jobs[:_ATS_MAX_JOBS]
+
+        # Location histogram across the CAPPED set (bounds the summary too).
+        locations_summary: Dict[str, int] = {}
+        for job in jobs:
+            loc = job.get("location") or ""
+            if loc:
+                locations_summary[loc] = (locations_summary.get(loc) or 0) + 1
+
+        result: Dict[str, Any] = {
+            "source": f"ATS:{provider_norm}",
+            "provider": provider_norm,
+            "board": board_norm,
+            "job_count": len(jobs),
+            "total_available": total_available,
+            "jobs": jobs,
+            "locations_summary": locations_summary,
+            "url": url,
+            "elapsed_ms": elapsed_ms,
+        }
+    except (KeyError, IndexError, TypeError, AttributeError) as exc:
+        _api_logger.error(f"ATS {provider_norm} parse failed: {exc}", exc_info=True)
+        return _error(f"Parse error: {exc}", url=url)
+
+    _api_logger.info(
+        f"ATS {provider_norm}: {result['job_count']}/{total_available} jobs for "
+        f"board '{board_norm}' in {elapsed_ms}ms"
+    )
+    _set_cached(cache_key, result)
+    return result
 
 
 if __name__ == "__main__":

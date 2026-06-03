@@ -3,8 +3,11 @@
     "title": "Top 100 US Employer Career Intelligence 2026",
     "description": "Career site URL, ATS platform, primary industries, estimated open requisitions, Glassdoor rating, and applicant-volume estimates for the 100 largest US employers by hiring volume. Sources: 10-K filings, company career pages, Glassdoor public data, BLS employment data, iCIMS/Workday/Greenhouse public client lists.",
     "last_updated": "2026-04-24",
-    "version": "1.0",
+    "metadata_reviewed": "2026-06-03",
+    "version": "1.1",
     "data_period": "Q4 2024 - Q1 2025",
+    "freshness_status": "STALE_PENDING_REVERIFICATION",
+    "vintage_note": "All per-employer cells (global/US employee headcount, open_reqs_approx, glassdoor_rating, annual_hires_estimate, applicant_volume_monthly_est) reflect Q4 2024 - Q1 2025 observations and were NOT refreshed to 2026 in this pass. Reason: per-company 2026 figures require (a) latest 10-K 'Human Capital' headcount from SEC EDGAR and (b) current Glassdoor ratings; glassdoor.com is bot-blocked and a reliable cell-by-cell 2026 re-pull across 100 employers could not be completed from the refresh environment without risking fabricated values. Headcounts and Glassdoor ratings drift slowly (typically low single-digit % YoY), so 2024-2025 values remain directionally usable, but should be treated as ~12-18 month old and re-verified (SEC EDGAR data API at data.sec.gov is reachable for headcounts; Glassdoor requires manual/authorized access). No values were invented or extrapolated.",
     "geographic_scope": "United States (with company headcount global where noted)",
     "total_records": 100,
     "sources": [

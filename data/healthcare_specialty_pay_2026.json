@@ -5,6 +5,23 @@
     "last_updated": "2026-04-24",
     "version": "1.0",
     "data_period": "BLS OES May 2024 publication; Medscape survey fielded Jan-Apr 2024; Nurse.com 2024 annual report",
+    "metadata_reviewed": "2026-06-03",
+    "vintage_note": "Per-role/region/metro cells below are 2024-vintage (BLS OES May 2024 published Apr 2025; Medscape 2024; specialty-society 2024 reports) and were NOT re-stated cell-by-cell to 2026 in this pass -- BLS OES May 2025 and the per-specialty 2026 cuts are not published as of 2026-06-03, and physician compensation drifts ~3-5%/yr. The latest VERIFIED physician headline figures (Medscape Physician Compensation Report 2025) are recorded in 'latest_verified_reference_2025' below for context; detailed per-cell values were intentionally left at their cited 2024 levels rather than guessed forward. Treat cells as a 2024 floor and apply the documented ~3-5% upward drift when pricing 2026 plans. No values were invented or extrapolated.",
+    "latest_verified_reference_2025": {
+      "source": "Medscape Physician Compensation Report 2025",
+      "publisher": "Medscape / WebMD",
+      "retrieved": "2026-06-03",
+      "figure_year": 2025,
+      "headline_usd": {
+        "all_physicians_avg": 374000,
+        "primary_care_avg": 307000,
+        "specialists_avg": 404000,
+        "orthopedics": 564000,
+        "plastic_surgery": 544000,
+        "radiology": 526000
+      },
+      "note": "Headline averages for 2026-plan context only; NOT merged into the per-specialty/region/metro cells below (those remain 2024-vintage per vintage_note above)."
+    },
     "currency": "USD, annual (unless noted hourly)",
     "total_records": 1180,
     "roles_covered": 40,

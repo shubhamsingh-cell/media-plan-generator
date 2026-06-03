@@ -2,9 +2,10 @@
   "metadata": {
     "title": "Deep Recruitment Benchmarks 2026 - CPC/CPA/CPH/Apply-Rate/Time-to-Fill",
     "description": "Comprehensive recruitment marketing benchmarks covering 12 industry verticals, 40 US metros with cost-of-living multipliers, and 7 primary recruitment channels. Every metric cites a public or syndicated source.",
-    "last_updated": "2026-04-24",
-    "version": "1.0",
+    "last_updated": "2026-06-03",
+    "version": "1.1",
     "data_period": "2024-01 through 2025-12 (rolling 24 months)",
+    "vintage_note": "Per-vertical and per-channel CPC/CPA/CPH cells below are sourced primarily to Appcast 2025 (covering 2024 ad data) and SHRM/Jobvite 2024, i.e. 2024-2025 vintage. The Appcast 2026 (10th Annual) report was verified as published on 2026-06-03 (covering 2025 data: 302M clicks, 27.4M applies, ~1,200 US employers) and its qualitative direction (CPA and CPH rose sharply in 2025; apply rates surged; remote roles lost footing) is recorded in source 'appcast_2026' and in market_context_2025. The 2026 report's detailed per-vertical CPC/CPA/CPH figures are gated behind a download form and could NOT be independently verified cell-by-cell as of 2026-06-03, so individual numeric cells were left at their cited 2024-2025 values rather than guessed. Treat per-cell costs as a 2024-2025 floor and apply Appcast 2026's documented upward CPA/CPH trend when pricing 2026 plans.",
     "geographic_scope": "United States",
     "currency": "USD",
     "total_records": 1850,
@@ -12,7 +13,8 @@
     "metros_covered": 40,
     "channels_covered": 7,
     "sources": [
-      {"id": "appcast_2025", "name": "Appcast 2025 Recruitment Marketing Benchmark Report (9th Annual)", "publisher": "Appcast (StepStone Group)", "url": "https://www.appcast.io/2025-benchmark-report/", "sample_size": "379M clicks, 30M applies, 1,300 employers", "publication_year": 2025, "tier": 1},
+      {"id": "appcast_2026", "name": "Appcast 2026 Recruitment Marketing Benchmark Report (10th Annual, covering 2025 ad data)", "publisher": "Appcast (StepStone Group)", "url": "https://www.appcast.io/2026-benchmark-report/", "sample_size": "302M clicks, 27.4M applies, ~1,200 US employers (2025 data)", "publication_year": 2026, "retrieved": "2026-06-03", "key_findings": ["CPA and CPH rose sharply in 2025 despite a softer labor market.", "Apply rates surged, fueled by increased job-seeker volume; white-collar/office apply rates rose significantly.", "Frontline standing-up roles (especially healthcare) remained costly and hard to fill.", "Remote jobs began losing footing after years of outperforming in-person roles.", "Cost increases driven by shifts in job-board pricing and programmatic media models.", "Mobile apply share 70.64%, web 29.36%; labour-force supply 170.9M vs demand (openings+employment) 170.3M, near-perfect balance."], "tier": 1},
+      {"id": "appcast_2025", "name": "Appcast 2025 Recruitment Marketing Benchmark Report (9th Annual)", "publisher": "Appcast (StepStone Group)", "url": "https://www.appcast.io/2025-benchmark-report/", "sample_size": "379M clicks, 30M applies, 1,300 employers", "publication_year": 2025, "superseded_by": "appcast_2026", "note": "Covers 2024 ad data. Per-cell figures tagged appcast_2025 below are 2024-vintage; see metadata.vintage_note.", "tier": 1},
       {"id": "appcast_2024", "name": "Appcast 2024 Recruitment Marketing Benchmark Report (8th Annual)", "publisher": "Appcast", "url": "https://www.appcast.io/2024-benchmark-report/", "sample_size": "260M+ ad clicks", "publication_year": 2024, "tier": 1},
       {"id": "recruitics_tmi_2025", "name": "Recruitics Talent Market Index (Monthly 2024-2025)", "publisher": "Recruitics", "url": "https://www.recruitics.com/labor-market-index", "publication_year": 2025, "tier": 1},
       {"id": "indeed_hiring_lab", "name": "Indeed Hiring Lab Job Postings Index & Search Trends", "publisher": "Indeed", "url": "https://www.hiringlab.org/", "publication_year": 2025, "tier": 1},
@@ -61,6 +63,8 @@
     "hiring_rate_pct_monthly": 3.3,
     "labor_force_participation_pct": 62.5,
     "source_ids": ["bls_jolts_2025", "joveo_internal_2026"],
+    "_vintage": "JOLTS levels/rates here reflect 2025 BLS data and were NOT re-verified against the latest monthly JOLTS release as of 2026-06-03 (bls.gov was unreachable from the refresh environment). Values retained, not guessed forward.",
+    "supply_demand_balance_2026": {"labour_force_supply_m": 170.9, "demand_openings_plus_employment_m": 170.3, "interpretation": "Supply and demand in near-perfect balance per Appcast's 2025-data analysis.", "source": "Appcast 2026 Recruitment Marketing Benchmark Report", "source_url": "https://www.appcast.io/2026-benchmark-report/", "figure_year": 2026, "retrieved": "2026-06-03"},
     "two_market_framing": {
       "market_a_flood": {"description": "White-collar / remote roles with 3-9x application volume growth since 2022. CPA stable or falling.", "examples": ["software_engineer", "marketing", "bookkeeping", "customer_service_remote"]},
       "market_b_drought": {"description": "Frontline / licensed roles where applicant supply has not kept pace with demand. CPA elevated.", "examples": ["registered_nurse", "cdl_driver", "physical_therapist", "skilled_trades", "physician"]}
@@ -369,7 +373,10 @@
     },
     "mobile_vs_desktop_apply": {
       "mobile_share_pct": 62, "mobile_apply_rate_pct": 4.2, "desktop_apply_rate_pct": 7.8,
-      "source_ids": ["appcast_2025"], "insight": "Mobile drives traffic, desktop drives completion."
+      "source_ids": ["appcast_2025"], "insight": "Mobile drives traffic, desktop drives completion.",
+      "_vintage": "mobile_share_pct/apply-rate split is Appcast 2025 (2024 data) vintage; apply-rate split not re-verified for 2026.",
+      "mobile_apply_share_pct_2026": 70.64, "web_apply_share_pct_2026": 29.36,
+      "_source_2026": "Appcast 2026 Recruitment Marketing Benchmark Report (https://www.appcast.io/2026-benchmark-report/, retrieved 2026-06-03). Note: this is the share of completed applies by device, not click/traffic share."
     },
     "time_to_fill_benchmarks": {
       "all_industry_median_days": 44,

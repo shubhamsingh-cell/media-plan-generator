@@ -1,8 +1,30 @@
 {
-  "last_updated": "2026-03-26",
+  "last_updated": "2026-06-03",
   "data_source": "Joveo Google Ads 2025 Campaign Performance Data",
   "data_period": "2025",
-  "description": "Real Google Ads keyword performance data from Joveo's recruitment advertising campaigns in 2025. Contains CPC, CTR, CPM, and spend data across job categories. This is first-party data from actual campaigns run for clients. Cross-referenced with WordStream/LOCALiQ 2025 Google Ads Benchmarks (general commercial avg CPC $5.26, recruitment-specific is lower). Q1 2026 note: CPC inflation ~8-10% YoY in recruitment per Appcast 2026 report.",
+  "description": "Real Google Ads keyword performance data from Joveo's recruitment advertising campaigns in 2025. Contains CPC, CTR, CPM, and spend data across job categories. This is first-party measured data from actual campaigns run for clients in calendar 2025 and is NOT re-stated to 2026 (the underlying clicks/spend are historical). Cross-referenced with the LocaliQ/WordStream 2026 Search Advertising Benchmarks (Career & Employment category avg CPC $5.81, CTR 5.88%, cost-per-lead $67.36, conversion rate 3.05%; source: https://www.localiq.com/blog/search-advertising-benchmarks/, updated 2026-06-01, data = trailing LocaliQ + WordStream customer campaigns across Google Ads & Microsoft Ads). Joveo's recruitment-specific blended CPC ($1.14) runs well below the LocaliQ Career & Employment $5.81 because Joveo's mix is volume/hourly-weighted (general recruitment, logistics) vs LocaliQ's broader employer-brand keyword mix. 2026 cost direction per Appcast 2026 (10th Annual) Recruitment Marketing Benchmark Report: CPA and CPH rose sharply in 2025 despite a softer labor market, driven by job-board pricing and programmatic shifts (https://www.appcast.io/2026-benchmark-report/).",
+  "benchmark_cross_reference_2026": {
+    "_note": "Verified external 2026 benchmarks for context only; the category figures below are Joveo first-party 2025 measurements and are unchanged.",
+    "localiq_wordstream_2026_career_employment": {
+      "avg_cpc_usd": 5.81,
+      "avg_ctr_pct": 5.88,
+      "avg_cost_per_lead_usd": 67.36,
+      "avg_conversion_rate_pct": 3.05,
+      "source": "LocaliQ / WordStream 2026 Search Advertising Benchmarks",
+      "source_url": "https://www.localiq.com/blog/search-advertising-benchmarks/",
+      "figure_year": 2026,
+      "retrieved": "2026-06-03",
+      "methodology": "Thousands of LocaliQ/WordStream customer campaigns across Google Ads and Microsoft Ads, 20+ industries; 'Career & Employment' vertical."
+    },
+    "appcast_2026_direction": {
+      "summary": "CPA and CPH rose sharply in 2025 despite softer labor market; apply rates surged; remote roles began losing footing.",
+      "underlying_data": "302M clicks, 27.4M applies, ~1,200 US employers (2025 data); mobile apply share 70.64%, web 29.36%.",
+      "source": "Appcast 2026 Recruitment Marketing Benchmark Report (10th Annual)",
+      "source_url": "https://www.appcast.io/2026-benchmark-report/",
+      "figure_year": 2026,
+      "retrieved": "2026-06-03"
+    }
+  },
   "total_keywords_analyzed": 6338,
   "total_spend": 454452.66,
   "total_impressions": 3266533,

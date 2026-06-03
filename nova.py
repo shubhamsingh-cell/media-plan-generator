@@ -430,15 +430,38 @@ def _get_orchestrator():
     if _orchestrator is None:
         with _orchestrator_lock:
             if _orchestrator is None:
-                try:
-                    import data_orchestrator
+                # S88: orchestrator usage is OPT-IN (default off). The richer
+                # multi-source path needs live API keys (Adzuna/BLS) plus
+                # per-caller synthesis adapters that must be verified in the
+                # keyed (Render) environment before being trusted over the
+                # proven KB fallbacks. Default-off returns None so every caller
+                # falls straight through to its KB path -- identical output, and
+                # no per-query AttributeError noise. (Prior bug: this assigned
+                # the bare MODULE, but enrich_* are INSTANCE methods on the
+                # DataOrchestrator class, so every call raised AttributeError
+                # and silently fell back -- the path was effectively dead.)
+                if not _t3_flag("NOVA_ORCHESTRATOR_ENABLED", default=False):
+                    _orchestrator = False
+                else:
+                    try:
+                        import data_orchestrator
 
-                    _orchestrator = data_orchestrator
-                    logger.info("Nova: data_orchestrator loaded")
-                except Exception as e:
-                    logger.warning("Nova: data_orchestrator import failed: %s", e)
-                    _orchestrator = False  # sentinel: tried and failed
+                        # get_orchestrator() returns the singleton INSTANCE with
+                        # source handlers registered -- not the bare module.
+                        _orchestrator = data_orchestrator.get_orchestrator()
+                        logger.info("Nova: data_orchestrator instance loaded (enabled)")
+                    except Exception as e:
+                        logger.warning(f"Nova: data_orchestrator init failed: {e}")
+                        _orchestrator = False  # sentinel: tried and failed
     return _orchestrator if _orchestrator is not False else None
+
+
+class _OrchestratorNoData(Exception):
+    """S88: sentinel raised inside an orchestrator-enrichment try-block when the
+    multi-source path returns no usable data, so the caller falls through to its
+    proven KB path *quietly* (not as a logged error). Lets callers treat
+    'orchestrator produced nothing' the same as 'orchestrator unavailable'
+    without an N/A regression or log noise."""
 
 
 # v3 lazy-loaded modules
@@ -638,6 +661,8 @@ _TOOL_ERROR_FALLBACK_MESSAGES: dict[str, str] = {
     "query_statcan": "Statistics Canada data is temporarily unavailable, but I can reference our international benchmarks for Canadian markets.",
     "query_oecd_sdmx": "OECD SDMX cross-country labour data is temporarily unavailable, but I can reference our international benchmarks for OECD markets.",
     "query_macro_indicator": "IMF macro indicators are temporarily unavailable, but I can reference our international benchmarks for this market.",
+    "query_competitor_hiring": "Live competitor hiring feeds are temporarily unavailable; I can still discuss competitive dynamics from our market intelligence.",
+    "query_fx_rates": "Live currency rates are temporarily unavailable; I can use standard reference rates for currency context.",
     "query_dbnomics_data": "DBnomics macro data is temporarily unavailable, but I can reference our international benchmarks and the IMF/OECD tools for this market.",
     "query_ilostat": "ILOSTAT global labour data is temporarily unavailable, but I can reference our international benchmarks for this country's labour market.",
     "query_companies_house": "UK Companies House lookup is temporarily unavailable, but I can provide general firmographic context from other public sources.",
@@ -1638,6 +1663,8 @@ _TOOL_LABELS: Dict[str, str] = {
     "query_statcan": "Querying Statistics Canada labor data",
     "query_oecd_sdmx": "Querying OECD SDMX labour statistics",
     "query_macro_indicator": "Querying IMF macro indicators",
+    "query_competitor_hiring": "Checking competitor hiring (ATS feeds)",
+    "query_fx_rates": "Fetching live currency exchange rates",
     "query_dbnomics_data": "Querying DBnomics macro database",
     "query_ilostat": "Querying ILOSTAT global labour data",
     "query_companies_house": "Looking up UK company register",
@@ -4206,6 +4233,8 @@ Before calling any tools, briefly plan which tools you need:
 - For Canadian labor market data: call query_statcan with table ID for job vacancies, employment, wages, or labor force statistics
 - For international job search across 60+ countries: call query_careerjet with role, location, and country code for global job counts and listings
 - For macro/economic context on countries outside the US/EU/UK/Canada (e.g. India, Brazil, Nigeria, Indonesia, Mexico, UAE): call query_macro_indicator with country + indicator (unemployment_rate, gdp_growth, inflation, gdp_per_capita) -- IMF World Economic Outlook data, global coverage
+- For competitor hiring intelligence ("what/where is X hiring", "how many open roles does competitor Y have", competitor expansion signals): call query_competitor_hiring with the company name -- live open reqs from public Greenhouse/Ashby/Lever ATS feeds (Ashby includes comp ranges)
+- For currency conversion or live exchange rates (convert a salary/budget to another currency, "what's the USD to EUR/INR rate"): call query_fx_rates with base + symbols (+ optional amount) -- live ECB reference rates
 - For US economic data (GDP, income, employment): call query_bea with indicator and optional state. For state-level detail, prefer query_regional_economics.
 - For any hiring question: ALWAYS also call query_h1b_salaries for competitive salary intelligence
 - For visualizing/rendering a plan as a canvas: call render_canvas with budget, channels, role, location, industry
@@ -6515,6 +6544,77 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 },
             },
             {
+                "name": "query_competitor_hiring",
+                "description": (
+                    "Get a competitor employer's LIVE open job postings from "
+                    "public ATS feeds (Greenhouse / Ashby / Lever), free + no-key. "
+                    "Returns open-req count, role/department/location breakdown, "
+                    "and (Ashby boards) real compensation ranges. Use for "
+                    "competitive hiring intelligence: 'what / where is <company> "
+                    "hiring', 'how many open roles does <competitor> have', "
+                    "competitor expansion signals. Coverage is employer-dependent "
+                    "(works when the company uses a public Greenhouse/Ashby/Lever "
+                    "board); returns a clean 'no public board' message otherwise."
+                ),
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "company": {
+                            "type": "string",
+                            "description": (
+                                "Employer name or ATS board token "
+                                "(e.g. 'Datadog', 'Stripe')."
+                            ),
+                        },
+                        "provider": {
+                            "type": "string",
+                            "enum": ["greenhouse", "ashby", "lever"],
+                            "description": (
+                                "Optional ATS provider hint. If omitted, all "
+                                "three public boards are tried."
+                            ),
+                        },
+                    },
+                    "required": ["company"],
+                },
+            },
+            {
+                "name": "query_fx_rates",
+                "description": (
+                    "Get LIVE currency exchange rates (Frankfurter / ECB "
+                    "reference rates, free + no-key) to convert salary, CPC, or "
+                    "budget figures between currencies with CURRENT rates. Use "
+                    "when a user asks to convert an amount to another currency, "
+                    "wants a salary/budget in local currency, or asks the live "
+                    "USD<->EUR/GBP/INR/etc. rate. Pass 'amount' to get the "
+                    "converted value directly."
+                ),
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "base": {
+                            "type": "string",
+                            "description": "Base currency ISO code (default 'USD').",
+                        },
+                        "symbols": {
+                            "type": "string",
+                            "description": (
+                                "Comma-separated target currency code(s), e.g. "
+                                "'EUR,GBP,INR'. Omit for all available."
+                            ),
+                        },
+                        "amount": {
+                            "type": "number",
+                            "description": (
+                                "Optional amount in the base currency to convert "
+                                "into each target currency."
+                            ),
+                        },
+                    },
+                    "required": [],
+                },
+            },
+            {
                 "name": "query_esco_occupations",
                 "description": (
                     "Query the ESCO (European Skills/Competences/Occupations) "
@@ -7035,6 +7135,8 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             "query_statcan": self._query_statcan,
             "query_oecd_sdmx": self._query_oecd_sdmx,
             "query_macro_indicator": self._query_macro_indicator,
+            "query_competitor_hiring": self._query_competitor_hiring,
+            "query_fx_rates": self._query_fx_rates,
             # S81: 3 new free-data-API tools. DBnomics aggregator (90+ macro
             # providers via mask form), ILOSTAT convenience wrapper (global
             # labour indicators), Companies House UK firmographics. Jina Reader
@@ -8403,6 +8505,12 @@ When two or more tools return conflicting data for the same metric (e.g., differ
         if orch:
             try:
                 enriched = orch.enrich_salary(role, location)
+                # S88: only trust the orchestrator when it produced a usable
+                # salary range; otherwise fall through to the proven KB path
+                # (prevents an "N/A" regression when the multi-source fetch
+                # returns no usable salary data).
+                if not enriched.get("salary_range"):
+                    raise _OrchestratorNoData()
                 result: Dict[str, Any] = {
                     "source": f"Joveo Salary Intelligence ({enriched.get('source', 'multi-source')})",
                     "role": role,
@@ -8434,6 +8542,8 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 # v2.0: Enrich with O*NET skills data when available
                 result = self._enrich_salary_with_skills(result, role)
                 return result
+            except _OrchestratorNoData:
+                pass  # expected, quiet fall-through to the KB path below
             except Exception as e:
                 logger.warning(
                     "Orchestrator enrich_salary failed, using KB fallback: %s", e
@@ -14210,6 +14320,175 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 "country": country_raw,
                 "indicator": indicator,
             }
+
+    def _query_competitor_hiring(self, args: dict) -> dict:
+        """Query a competitor employer's live job postings via public ATS feeds (S88).
+
+        Wraps :func:`api_enrichment.fetch_ats_postings` (Greenhouse / Ashby /
+        Lever public no-key board APIs). Given a company, resolves its ATS board
+        token and returns open-req count, role/location breakdown, and (Ashby)
+        compensation ranges -- real-time competitive hiring intelligence.
+
+        Args:
+            args: Tool input dict with keys:
+                - ``company`` (str, required): employer name or ATS board token
+                  (e.g. ``"Datadog"``, ``"stripe"``).
+                - ``provider`` (str, optional): ``greenhouse`` | ``ashby`` |
+                  ``lever``. If omitted, all three are tried in turn.
+
+        Returns:
+            Structured dict with ``job_count``, ``total_available``, ``jobs``,
+            ``locations_summary``, ``source`` (``"ATS:<provider>"``) and ``tool``
+            ``"query_competitor_hiring"``. Cached 6h. Never raises; errors are
+            returned in-band under an ``error`` key.
+        """
+        company = (args.get("company") or args.get("board") or "").strip()
+        provider_arg = (args.get("provider") or "").lower().strip()
+        if not company:
+            return {
+                "error": "query_competitor_hiring requires a company name or ATS board token.",
+                "source": "ATS",
+                "tool": "query_competitor_hiring",
+            }
+        # Derive an ATS board-token candidate from the company name.
+        board = re.sub(
+            r"[^a-z0-9-]", "", company.lower().replace(" ", "").replace("&", "and")
+        )
+        providers = (
+            [provider_arg]
+            if provider_arg in ("greenhouse", "ashby", "lever")
+            else ["greenhouse", "lever", "ashby"]
+        )
+        cache_key = f"ats_hiring:{board}:{provider_arg or 'auto'}"
+        try:
+            cached = _upstash_get(cache_key)
+            if isinstance(cached, dict) and "job_count" in cached:
+                cached.setdefault("tool", "query_competitor_hiring")
+                cached["cached"] = True
+                return cached
+        except Exception as exc:  # noqa: BLE001 -- cache must never crash callers
+            logger.warning(f"ATS cache get failed: {exc}")
+        try:
+            from api_enrichment import fetch_ats_postings
+
+            best = None
+            for prov in providers:
+                res = fetch_ats_postings(prov, board)
+                if res and not res.get("error") and (res.get("job_count") or 0) > 0:
+                    best = res
+                    break
+            if best is None:
+                return {
+                    "error": (
+                        f"No public ATS board found for '{company}'. The employer "
+                        "may use a private ATS or a non-standard board token."
+                    ),
+                    "source": "ATS",
+                    "tool": "query_competitor_hiring",
+                    "company": company,
+                    "providers_tried": providers,
+                }
+            best["tool"] = "query_competitor_hiring"
+            best["company"] = company
+            try:
+                _upstash_set(cache_key, best, ttl_seconds=6 * 3600, category="api")
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(f"ATS cache set failed: {exc}")
+            return best
+        except ImportError:
+            logger.error("api_enrichment.fetch_ats_postings not available")
+            return {
+                "error": "Competitor hiring (ATS) integration not available",
+                "source": "ATS",
+                "tool": "query_competitor_hiring",
+                "company": company,
+            }
+        except Exception as exc:
+            logger.error(f"Competitor hiring query failed: {exc}", exc_info=True)
+            return {
+                "error": f"ATS API error: {str(exc)[:200]}",
+                "source": "ATS",
+                "tool": "query_competitor_hiring",
+                "company": company,
+            }
+
+    def _query_fx_rates(self, args: dict) -> dict:
+        """Convert between currencies using live FX rates (S88).
+
+        Wraps :func:`api_enrichment.fetch_fx_rates` (Frankfurter / ECB reference
+        rates, no key). Normalizes international salary / CPC / budget figures to
+        a target currency with CURRENT rates instead of static hardcoded ones.
+
+        Args:
+            args: Tool input dict with keys:
+                - ``base`` (str, optional): base currency ISO (default ``USD``).
+                - ``symbols`` (str|list, optional): target currency code(s)
+                  (e.g. ``"EUR,GBP,INR"``). Omit for all available.
+                - ``amount`` (float, optional): if given, the result includes the
+                  converted amount per target currency.
+
+        Returns:
+            Structured dict with ``base``, ``date``, ``rates`` (ISO -> rate),
+            ``source`` (``"Frankfurter"``), ``tool`` ``"query_fx_rates"`` and
+            (when ``amount`` given) ``converted``. Cached 12h. Never raises.
+        """
+        base = (args.get("base") or "USD").strip().upper()
+        symbols_raw = args.get("symbols")
+        if isinstance(symbols_raw, (list, tuple)):
+            symbols = ",".join(str(s).strip().upper() for s in symbols_raw if s) or None
+        else:
+            symbols = (str(symbols_raw).strip().upper() if symbols_raw else "") or None
+        amount = args.get("amount")
+        cache_key = f"fx:{base}:{symbols or 'all'}"
+        result = None
+        try:
+            cached = _upstash_get(cache_key)
+            if isinstance(cached, dict) and "rates" in cached:
+                result = cached
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(f"FX cache get failed: {exc}")
+        if result is None:
+            try:
+                from api_enrichment import fetch_fx_rates
+
+                result = fetch_fx_rates(base=base, symbols=symbols)
+                if not result.get("error") and result.get("rates"):
+                    try:
+                        _upstash_set(
+                            cache_key, result, ttl_seconds=12 * 3600, category="api"
+                        )
+                    except Exception as exc:  # noqa: BLE001
+                        logger.warning(f"FX cache set failed: {exc}")
+            except ImportError:
+                logger.error("api_enrichment.fetch_fx_rates not available")
+                return {
+                    "error": "FX integration not available",
+                    "source": "Frankfurter",
+                    "tool": "query_fx_rates",
+                    "base": base,
+                }
+            except Exception as exc:
+                logger.error(f"FX query failed: {exc}", exc_info=True)
+                return {
+                    "error": f"FX API error: {str(exc)[:200]}",
+                    "source": "Frankfurter",
+                    "tool": "query_fx_rates",
+                    "base": base,
+                }
+        result = dict(result)
+        result["tool"] = "query_fx_rates"
+        if amount is not None and isinstance(result.get("rates"), dict):
+            try:
+                amt = float(amount)
+                result["amount"] = amt
+                result["converted"] = {
+                    cur: round(amt * rate, 2)
+                    for cur, rate in result["rates"].items()
+                    if isinstance(rate, (int, float))
+                }
+            except (TypeError, ValueError):
+                pass
+        return result
 
     def _query_dbnomics_data(self, args: dict) -> dict:
         """Query DBnomics for macro series across 90+ providers (S81).
@@ -26349,6 +26628,9 @@ def _enrich_source_citations(
         # S81: new live free-data-API sources.
         "query_dbnomics_data",
         "query_ilostat",
+        # S88: ATS competitor-hiring feeds + live FX.
+        "query_competitor_hiring",
+        "query_fx_rates",
         "query_companies_house",
         "query_esco_occupations",
         "query_careerjet",
