@@ -12996,6 +12996,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             "/api/config",  # Public config, read-only
             "/api/auth/me",  # Uses Bearer token, not CSRF
             "/api/auth/session",  # Uses Bearer token, not CSRF
+            "/api/cron/run",  # S88: external QStash cron, auth'd by CRON_SECRET
         )
         if (
             not _has_api_key
@@ -13046,6 +13047,54 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
         # _check_joveo_auth Path 3 already accepts the legacy unsigned cookie
         # (still written by the client) when STRICT_AUTH != 1, so existing
         # users keep working until the operator flips STRICT_AUTH=1.
+        if path == "/api/cron/run":
+            # S88: external managed-cron trigger (Upstash QStash). Runs a one-shot
+            # maintenance pass OFF the request thread so QStash gets a fast 200
+            # (it has short timeouts + retries on non-2xx). Auth is a shared
+            # CRON_SECRET (QStash signing keys are not configured); the secret is
+            # set on Render and embedded in the QStash schedule's target URL.
+            # Cost-safe: the expensive external-API fan-out (run_cycle) only fires
+            # when ENABLE_DATA_ENRICHMENT is on -- otherwise just a cheap,
+            # no-paid-API benchmark freshness check.
+            _cron_secret = (os.environ.get("CRON_SECRET") or "").strip()
+            _provided = (
+                self.headers.get("X-Cron-Key")
+                or urllib.parse.parse_qs(parsed.query).get("key", [""])[0]
+                or ""
+            ).strip()
+            if not _cron_secret or not hmac.compare_digest(_provided, _cron_secret):
+                self._send_error("Unauthorized", "UNAUTHORIZED", 401)
+                return
+
+            def _run_cron_job() -> None:
+                try:
+                    import data_enrichment
+
+                    _enrich_on = (
+                        os.environ.get("ENABLE_DATA_ENRICHMENT") or ""
+                    ).strip().lower() in {"1", "true", "yes", "on"}
+                    if _enrich_on:
+                        data_enrichment.get_engine().run_cycle()
+                        logger.info("QStash cron: full enrichment cycle complete")
+                    else:
+                        try:
+                            fresh = data_enrichment.check_benchmark_freshness(DATA_DIR)
+                            logger.info(
+                                f"QStash cron: freshness check complete "
+                                f"({len(fresh or {})} sections)"
+                            )
+                        except Exception as _fe:
+                            logger.warning(f"QStash cron freshness check failed: {_fe}")
+                except Exception as _ce:
+                    logger.error(f"QStash cron job failed: {_ce}", exc_info=True)
+
+            threading.Thread(
+                target=_run_cron_job, daemon=True, name="qstash-cron"
+            ).start()
+            self._send_json(
+                {"status": "accepted", "task": "maintenance_cycle", "triggered": True}
+            )
+            return
         if path == "/api/auth/session":
             try:
                 content_length = int(self.headers.get("Content-Length") or 0)
